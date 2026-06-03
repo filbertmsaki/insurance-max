@@ -18,6 +18,7 @@ import { TiramisConfigModule } from './modules/config/tiramis-config.module';
 import { TiramisClientConfigurationEntity } from './modules/config/entities/tiramis-client-configuration.entity';
 import { TiramisResponseCodeEntity } from './modules/config/entities/tiramis-response-code.entity';
 import { TiramisServiceEndpointEntity } from './modules/config/entities/tiramis-service-endpoint.entity';
+import { TiramisMessagingModule } from './modules/messaging/tiramis-messaging.module';
 import { TiramisSubmissionsModule } from './modules/submissions/tiramis-submissions.module';
 import { TiramisSubmissionAttemptEntity } from './modules/submissions/entities/tiramis-submission-attempt.entity';
 import { TiramisSubmissionEventEntity } from './modules/submissions/entities/tiramis-submission-event.entity';
@@ -55,6 +56,7 @@ import { TiramisTransactionEntity } from './modules/submissions/entities/tiramis
         ),
     }),
     TiramisConfigModule,
+    TiramisMessagingModule,
     TiramisSubmissionsModule,
   ],
 })
