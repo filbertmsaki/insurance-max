@@ -10,6 +10,9 @@ import {
   readDatabaseEnv,
 } from '@insurance-max/shared-config';
 
+import { TiramisClientConfigurationEntity } from '../modules/config/entities/tiramis-client-configuration.entity';
+import { TiramisResponseCodeEntity } from '../modules/config/entities/tiramis-response-code.entity';
+import { TiramisServiceEndpointEntity } from '../modules/config/entities/tiramis-service-endpoint.entity';
 import { TiramisItemEntity } from '../modules/tiramis/entities/tiramis-item.entity';
 
 const environment =
@@ -39,7 +42,12 @@ const database = readDatabaseEnv('DB', {
 
 export default new DataSource(
   createDataSourceOptions(database, {
-    entities: [TiramisItemEntity],
+    entities: [
+      TiramisItemEntity,
+      TiramisClientConfigurationEntity,
+      TiramisServiceEndpointEntity,
+      TiramisResponseCodeEntity,
+    ],
     migrations: ['apps/tiramis/src/database/migrations/*.{ts,js}'],
   }),
 );

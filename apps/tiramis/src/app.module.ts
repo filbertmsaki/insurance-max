@@ -14,8 +14,9 @@ import tiramisAppConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import { tiramisEnvValidationSchema } from './config/env.validation';
 import transportConfig from './config/transport.config';
-import { TiramisItemEntity } from './modules/tiramis/entities/tiramis-item.entity';
-import { TiramisModule } from './modules/tiramis/tiramis.module';
+import { TiramisConfigModule } from './modules/config/tiramis-config.module';
+import { TiramisClientConfigurationEntity } from './modules/config/entities/tiramis-client-configuration.entity';
+import { TiramisServiceEndpointEntity } from './modules/config/entities/tiramis-service-endpoint.entity';
 
 @Module({
   imports: [
@@ -37,11 +38,14 @@ import { TiramisModule } from './modules/tiramis/tiramis.module';
           configService.getOrThrow<ServiceDatabaseConfig>('tiramisDatabase'),
           {
             autoLoadEntities: true,
-            entities: [TiramisItemEntity],
+            entities: [
+              TiramisClientConfigurationEntity,
+              TiramisServiceEndpointEntity,
+            ],
           },
         ),
     }),
-    TiramisModule,
+    TiramisConfigModule,
   ],
 })
 export class AppModule {}
