@@ -13,7 +13,9 @@ import {
 import { TiramisClientConfigurationEntity } from '../modules/config/entities/tiramis-client-configuration.entity';
 import { TiramisResponseCodeEntity } from '../modules/config/entities/tiramis-response-code.entity';
 import { TiramisServiceEndpointEntity } from '../modules/config/entities/tiramis-service-endpoint.entity';
-import { TiramisItemEntity } from '../modules/tiramis/entities/tiramis-item.entity';
+import { TiramisSubmissionAttemptEntity } from '../modules/submissions/entities/tiramis-submission-attempt.entity';
+import { TiramisSubmissionEventEntity } from '../modules/submissions/entities/tiramis-submission-event.entity';
+import { TiramisTransactionEntity } from '../modules/submissions/entities/tiramis-transaction.entity';
 
 const environment =
   process.env.NODE_ENV || process.env.APP_ENV || 'development';
@@ -43,10 +45,12 @@ const database = readDatabaseEnv('DB', {
 export default new DataSource(
   createDataSourceOptions(database, {
     entities: [
-      TiramisItemEntity,
       TiramisClientConfigurationEntity,
       TiramisServiceEndpointEntity,
       TiramisResponseCodeEntity,
+      TiramisTransactionEntity,
+      TiramisSubmissionAttemptEntity,
+      TiramisSubmissionEventEntity,
     ],
     migrations: ['apps/tiramis/src/database/migrations/*.{ts,js}'],
   }),

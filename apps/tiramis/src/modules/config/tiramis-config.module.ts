@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { TiramisClientConfigurationEntity } from './entities/tiramis-client-configuration.entity';
+import { TiramisResponseCodeEntity } from './entities/tiramis-response-code.entity';
 import { TiramisServiceEndpointEntity } from './entities/tiramis-service-endpoint.entity';
 import { TiramisConfigService } from './services/tiramis-config.service';
 
@@ -10,6 +11,7 @@ import { TiramisConfigService } from './services/tiramis-config.service';
     TypeOrmModule.forFeature([
       TiramisClientConfigurationEntity,
       TiramisServiceEndpointEntity,
+      TiramisResponseCodeEntity,
     ]),
   ],
   providers: [TiramisConfigService],
