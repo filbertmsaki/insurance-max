@@ -1,0 +1,16 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "../../..",
+  "testRegex": "apps/tiramis/test/.*\\.e2e-spec\\.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "testEnvironment": "node",
+  "moduleNameMapper": {
+    "^@insurance-max/contracts$": "<rootDir>/libs/contracts/src",
+    "^@insurance-max/observability$": "<rootDir>/libs/observability/src",
+    "^@insurance-max/persistence$": "<rootDir>/libs/persistence/src",
+    "^@insurance-max/shared-config$": "<rootDir>/libs/shared-config/src",
+    "^@insurance-max/shared-kernel$": "<rootDir>/libs/shared-kernel/src"
+  }
+}

@@ -1,8 +1,23 @@
 {
   "$schema": "https://json.schemastore.org/nest-cli",
   "collection": "@nestjs/schematics",
-  "sourceRoot": "src",
+  "monorepo": true,
+  "root": "apps/tiramis",
+  "sourceRoot": "apps/tiramis/src",
   "compilerOptions": {
-    "deleteOutDir": true
+    "webpack": false,
+    "deleteOutDir": true,
+    "tsConfigPath": "apps/tiramis/tsconfig.app.json"
+  },
+  "projects": {
+    "tiramis": {
+      "type": "application",
+      "root": "apps/tiramis",
+      "entryFile": "main",
+      "sourceRoot": "apps/tiramis/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/tiramis/tsconfig.app.json"
+      }
+    }
   }
 }

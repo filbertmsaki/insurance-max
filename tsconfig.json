@@ -14,6 +14,13 @@
     "sourceMap": true,
     "outDir": "./dist",
     "baseUrl": "./",
+    "paths": {
+      "@insurance-max/contracts": ["libs/contracts/src"],
+      "@insurance-max/observability": ["libs/observability/src"],
+      "@insurance-max/persistence": ["libs/persistence/src"],
+      "@insurance-max/shared-config": ["libs/shared-config/src"],
+      "@insurance-max/shared-kernel": ["libs/shared-kernel/src"]
+    },
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": true,
@@ -21,5 +28,6 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false
-  }
+  },
+  "include": ["apps/**/*.ts", "libs/**/*.ts", "test/**/*.ts"]
 }
