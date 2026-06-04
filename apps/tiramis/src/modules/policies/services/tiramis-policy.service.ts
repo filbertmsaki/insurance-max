@@ -80,13 +80,14 @@ export class TiramisPolicyService {
       payload,
     );
 
-    const certificatePaths =
-      await this.tiramisConfigService.getCertificatePaths(dto.environment);
+    const pfxPaths = await this.tiramisConfigService.getPfxPaths(
+      dto.environment,
+    );
 
     const signature = this.signatureService.signXmlContent({
       contentXml,
-      privateKeyPath: certificatePaths.privateKeyPath!,
-      privateKeyPassword: certificatePaths.privateKeyPassword,
+      privateKeyPfxPath: pfxPaths.privateKeyPfxPath!,
+      privateKeyPfxPassword: pfxPaths.privateKeyPfxPassword,
     });
 
     const requestXml = this.xmlBuilder.buildSignedTiraMessage({

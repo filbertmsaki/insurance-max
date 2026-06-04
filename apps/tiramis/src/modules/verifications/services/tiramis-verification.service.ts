@@ -192,15 +192,14 @@ export class TiramisVerificationService {
       payload,
     );
 
-    const certificatePaths =
-      await this.tiramisConfigService.getCertificatePaths(
-        params.dto.environment,
-      );
+    const pfxPaths = await this.tiramisConfigService.getPfxPaths(
+      params.dto.environment,
+    );
 
     const signature = this.signatureService.signXmlContent({
       contentXml,
-      privateKeyPath: certificatePaths.privateKeyPath!,
-      privateKeyPassword: certificatePaths.privateKeyPassword,
+      privateKeyPfxPath: pfxPaths.privateKeyPfxPath!,
+      privateKeyPfxPassword: pfxPaths.privateKeyPfxPassword,
     });
 
     const requestXml = this.xmlBuilder.buildSignedTiraMessage({

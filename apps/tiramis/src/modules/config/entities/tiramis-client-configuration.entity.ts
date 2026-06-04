@@ -35,16 +35,16 @@ export class TiramisClientConfigurationEntity extends BaseEntity {
   callbackBaseUrl!: string;
 
   @Column({ name: 'private_key_path', length: 500, nullable: true })
-  privateKeyPath?: string | null;
+  privateKeyPfxPath?: string | null;
 
   @Column({ name: 'private_key_password', length: 255, nullable: true })
-  privateKeyPassword?: string | null;
+  privateKeyPfxPassword?: string | null;
 
   @Column({ name: 'public_certificate_path', length: 500, nullable: true })
-  publicCertificatePath?: string | null;
+  publicCertificatePfxPath?: string | null;
 
   @Column({ name: 'tira_public_certificate_path', length: 500, nullable: true })
-  tiraPublicCertificatePath?: string | null;
+  tiraPublicCertificatePfxPath?: string | null;
 
   @Column({ name: 'signature_algorithm', length: 100, nullable: true })
   signatureAlgorithm?: string | null;

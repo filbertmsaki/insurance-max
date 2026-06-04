@@ -218,16 +218,15 @@ export class TiramisCallbackService {
       acknowledgementPayload,
     );
 
-    const certificatePaths =
-      await this.tiramisConfigService.getCertificatePaths(
-        params.environment,
-      );
+    const pfxPaths = await this.tiramisConfigService.getPfxPaths(
+      params.environment,
+    );
 
-    const signature = certificatePaths.privateKeyPath
+    const signature = pfxPaths.privateKeyPfxPath
       ? this.signatureService.signXmlContent({
           contentXml,
-          privateKeyPath: certificatePaths.privateKeyPath,
-          privateKeyPassword: certificatePaths.privateKeyPassword,
+          privateKeyPfxPath: pfxPaths.privateKeyPfxPath,
+          privateKeyPfxPassword: pfxPaths.privateKeyPfxPassword,
         })
       : '';
 

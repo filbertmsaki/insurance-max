@@ -146,20 +146,20 @@ export class TiramisConfigService {
     return responseCode?.isRetryable === 1;
   }
 
-  async getCertificatePaths(environment: string): Promise<{
-    privateKeyPath?: string | null;
-    privateKeyPassword?: string | null;
-    publicCertificatePath?: string | null;
-    tiraPublicCertificatePath?: string | null;
+  async getPfxPaths(environment: string): Promise<{
+    privateKeyPfxPath?: string | null;
+    privateKeyPfxPassword?: string | null;
+    publicCertificatePfxPath?: string | null;
+    tiraPublicCertificatePfxPath?: string | null;
     signatureAlgorithm?: string | null;
   }> {
     const configuration = await this.getActiveConfiguration(environment);
 
     return {
-      privateKeyPath: configuration.privateKeyPath,
-      privateKeyPassword: configuration.privateKeyPassword,
-      publicCertificatePath: configuration.publicCertificatePath,
-      tiraPublicCertificatePath: configuration.tiraPublicCertificatePath,
+      privateKeyPfxPath: configuration.privateKeyPfxPath,
+      privateKeyPfxPassword: configuration.privateKeyPfxPassword,
+      publicCertificatePfxPath: configuration.publicCertificatePfxPath,
+      tiraPublicCertificatePfxPath: configuration.tiraPublicCertificatePfxPath,
       signatureAlgorithm: configuration.signatureAlgorithm,
     };
   }
