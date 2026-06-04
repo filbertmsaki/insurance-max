@@ -41,6 +41,8 @@ import { TiramisReinsuranceParticipantEntity } from './modules/reinsurance/entit
 import { TiramisSubmissionAttemptEntity } from './modules/submissions/entities/tiramis-submission-attempt.entity';
 import { TiramisSubmissionEventEntity } from './modules/submissions/entities/tiramis-submission-event.entity';
 import { TiramisTransactionEntity } from './modules/submissions/entities/tiramis-transaction.entity';
+import { TiramisVerificationRequestEntity } from './modules/verifications/entities/tiramis-verification-request.entity';
+import { TiramisVerificationResponseEntity } from './modules/verifications/entities/tiramis-verification-response.entity';
 import { TiramisModule } from './modules/tiramis.module';
 
 @Module({
@@ -91,6 +93,8 @@ import { TiramisModule } from './modules/tiramis.module';
               TiramisClaimPaymentEntity,
               TiramisClaimRejectionEntity,
               TiramisClaimantEntity,
+              TiramisVerificationRequestEntity,
+              TiramisVerificationResponseEntity,
             ],
           },
         ),

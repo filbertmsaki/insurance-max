@@ -8,6 +8,7 @@ import { TiramisMotorModule } from './motor/tiramis-motor.module';
 import { TiramisPoliciesModule } from './policies/tiramis-policies.module';
 import { TiramisReinsuranceModule } from './reinsurance/tiramis-reinsurance.module';
 import { TiramisSubmissionsModule } from './submissions/tiramis-submissions.module';
+import { TiramisVerificationsModule } from './verifications/tiramis-verifications.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { TiramisSubmissionsModule } from './submissions/tiramis-submissions.modu
     TiramisReinsuranceModule,
     TiramisPoliciesModule,
     TiramisClaimsModule,
+    TiramisVerificationsModule,
   ],
   exports: [
     TiramisCoverNotesModule,
@@ -26,6 +28,7 @@ import { TiramisSubmissionsModule } from './submissions/tiramis-submissions.modu
     TiramisReinsuranceModule,
     TiramisPoliciesModule,
     TiramisClaimsModule,
+    TiramisVerificationsModule,
   ],
 })
 export class TiramisModule {}

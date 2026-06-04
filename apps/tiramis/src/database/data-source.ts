@@ -37,6 +37,8 @@ import { TiramisReinsuranceParticipantEntity } from '../modules/reinsurance/enti
 import { TiramisSubmissionAttemptEntity } from '../modules/submissions/entities/tiramis-submission-attempt.entity';
 import { TiramisSubmissionEventEntity } from '../modules/submissions/entities/tiramis-submission-event.entity';
 import { TiramisTransactionEntity } from '../modules/submissions/entities/tiramis-transaction.entity';
+import { TiramisVerificationRequestEntity } from '../modules/verifications/entities/tiramis-verification-request.entity';
+import { TiramisVerificationResponseEntity } from '../modules/verifications/entities/tiramis-verification-response.entity';
 
 const environment =
   process.env.NODE_ENV || process.env.APP_ENV || 'development';
@@ -93,6 +95,8 @@ export default new DataSource(
       TiramisClaimPaymentEntity,
       TiramisClaimRejectionEntity,
       TiramisClaimantEntity,
+      TiramisVerificationRequestEntity,
+      TiramisVerificationResponseEntity,
     ],
     migrations: ['apps/tiramis/src/database/migrations/*.{ts,js}'],
   }),
