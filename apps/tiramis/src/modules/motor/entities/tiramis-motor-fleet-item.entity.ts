@@ -31,7 +31,7 @@ export class TiramisMotorFleetItemEntity extends BaseEntity {
   @JoinColumn({ name: 'cover_note_id' })
   coverNote!: TiramisCoverNoteEntity;
 
-  @Column({ name: 'fleet_entry', length: 50, nullable: true })
+  @Column({ name: 'fleet_entry', type: 'varchar', length: 50, nullable: true })
   fleetEntry?: string | null;
 
   @Column({ name: 'cover_note_number', length: 50 })
@@ -39,21 +39,22 @@ export class TiramisMotorFleetItemEntity extends BaseEntity {
 
   @Column({
     name: 'prev_cover_note_reference_number',
+    type: 'varchar',
     length: 50,
     nullable: true,
   })
   prevCoverNoteReferenceNumber?: string | null;
 
-  @Column({ name: 'cover_note_desc', length: 1000, nullable: true })
+  @Column({ name: 'cover_note_desc', type: 'varchar', length: 1000, nullable: true })
   coverNoteDesc?: string | null;
 
-  @Column({ name: 'operative_clause', length: 1000, nullable: true })
+  @Column({ name: 'operative_clause', type: 'varchar', length: 1000, nullable: true })
   operativeClause?: string | null;
 
   @Column({ name: 'endorsement_type', type: 'int', nullable: true })
   endorsementType?: number | null;
 
-  @Column({ name: 'endorsement_reason', length: 1000, nullable: true })
+  @Column({ name: 'endorsement_reason', type: 'varchar', length: 1000, nullable: true })
   endorsementReason?: string | null;
 
   @Column({

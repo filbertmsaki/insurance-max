@@ -22,14 +22,14 @@ import { TiramisVerificationResponseEntity } from './tiramis-verification-respon
 @Index(['nin'])
 @Index(['incorporationCertificateNumber'])
 export class TiramisVerificationRequestEntity extends BaseEntity {
-  @Column({ name: 'transaction_id', nullable: true })
+  @Column({ name: 'transaction_id', type: 'uuid', nullable: true })
   transactionId?: string | null;
 
   @ManyToOne(() => TiramisTransactionEntity, { nullable: true })
   @JoinColumn({ name: 'transaction_id' })
   transaction?: TiramisTransactionEntity | null;
 
-  @Column({ name: 'attempt_id', nullable: true })
+  @Column({ name: 'attempt_id', type: 'uuid', nullable: true })
   attemptId?: string | null;
 
   @ManyToOne(() => TiramisSubmissionAttemptEntity, { nullable: true })
@@ -45,26 +45,27 @@ export class TiramisVerificationRequestEntity extends BaseEntity {
   @Column({ name: 'company_code', length: 6 })
   companyCode!: string;
 
-  @Column({ name: 'system_code', length: 12 })
+  @Column({ name: 'system_code', length: 50 })
   systemCode!: string;
 
-  @Column({ name: 'cover_note_reference_number', length: 50, nullable: true })
+  @Column({ name: 'cover_note_reference_number', type: 'varchar', length: 50, nullable: true })
   coverNoteReferenceNumber?: string | null;
 
-  @Column({ name: 'sticker_number', length: 50, nullable: true })
+  @Column({ name: 'sticker_number', type: 'varchar', length: 50, nullable: true })
   stickerNumber?: string | null;
 
-  @Column({ name: 'motor_registration_number', length: 50, nullable: true })
+  @Column({ name: 'motor_registration_number', type: 'varchar', length: 50, nullable: true })
   motorRegistrationNumber?: string | null;
 
-  @Column({ name: 'motor_chassis_number', length: 100, nullable: true })
+  @Column({ name: 'motor_chassis_number', type: 'varchar', length: 100, nullable: true })
   motorChassisNumber?: string | null;
 
-  @Column({ length: 50, nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true })
   nin?: string | null;
 
   @Column({
     name: 'incorporation_certificate_number',
+    type: 'varchar',
     length: 50,
     nullable: true,
   })

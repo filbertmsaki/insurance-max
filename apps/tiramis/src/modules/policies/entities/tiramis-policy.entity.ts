@@ -23,7 +23,7 @@ export class TiramisPolicyEntity extends BaseEntity {
   @JoinColumn({ name: 'transaction_id' })
   transaction!: TiramisTransactionEntity;
 
-  @Column({ name: 'current_attempt_id', nullable: true })
+  @Column({ name: 'current_attempt_id', type: 'uuid', nullable: true })
   currentAttemptId?: string | null;
 
   @ManyToOne(() => TiramisSubmissionAttemptEntity, { nullable: true })
@@ -36,7 +36,7 @@ export class TiramisPolicyEntity extends BaseEntity {
   @Column({ name: 'company_code', length: 6 })
   companyCode!: string;
 
-  @Column({ name: 'system_code', length: 12 })
+  @Column({ name: 'system_code', length: 50 })
   systemCode!: string;
 
   @Column({ name: 'callback_url', length: 250 })

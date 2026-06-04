@@ -32,10 +32,10 @@ export class TiramisSubmissionEventEntity extends BaseEntity {
   @Column({ name: 'request_id', length: 50 })
   requestId!: string;
 
-  @Column({ name: 'status_code', length: 20, nullable: true })
+  @Column({ name: 'status_code', type: 'varchar', length: 20, nullable: true })
   statusCode?: string | null;
 
-  @Column({ name: 'status_desc', length: 255, nullable: true })
+  @Column({ name: 'status_desc', type: 'varchar', length: 255, nullable: true })
   statusDesc?: string | null;
 
   @Column({ name: 'raw_payload', type: 'text', nullable: true })

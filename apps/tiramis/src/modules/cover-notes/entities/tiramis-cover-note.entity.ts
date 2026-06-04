@@ -27,7 +27,7 @@ export class TiramisCoverNoteEntity extends BaseEntity {
   @JoinColumn({ name: 'transaction_id' })
   transaction!: TiramisTransactionEntity;
 
-  @Column({ name: 'current_attempt_id', nullable: true })
+  @Column({ name: 'current_attempt_id', type: 'uuid', nullable: true })
   currentAttemptId?: string | null;
 
   @ManyToOne(() => TiramisSubmissionAttemptEntity, { nullable: true })
@@ -46,7 +46,7 @@ export class TiramisCoverNoteEntity extends BaseEntity {
   @Column({ name: 'company_code', length: 6 })
   companyCode!: string;
 
-  @Column({ name: 'system_code', length: 12 })
+  @Column({ name: 'system_code', length: 50 })
   systemCode!: string;
 
   @Column({ name: 'callback_url', length: 250 })
@@ -55,7 +55,7 @@ export class TiramisCoverNoteEntity extends BaseEntity {
   @Column({ name: 'insurer_company_code', length: 6 })
   insurerCompanyCode!: string;
 
-  @Column({ name: 'tran_company_code', length: 6, nullable: true })
+  @Column({ name: 'tran_company_code', type: 'varchar', length: 6, nullable: true })
   tranCompanyCode?: string | null;
 
   @Column({ name: 'cover_note_type', type: 'int' })
@@ -66,6 +66,7 @@ export class TiramisCoverNoteEntity extends BaseEntity {
 
   @Column({
     name: 'prev_cover_note_reference_number',
+    type: 'varchar',
     length: 50,
     nullable: true,
   })
@@ -73,12 +74,13 @@ export class TiramisCoverNoteEntity extends BaseEntity {
 
   @Column({
     name: 'cover_note_reference_number',
+    type: 'varchar',
     length: 50,
     nullable: true,
   })
   coverNoteReferenceNumber?: string | null;
 
-  @Column({ name: 'sticker_number', length: 50, nullable: true })
+  @Column({ name: 'sticker_number', type: 'varchar', length: 50, nullable: true })
   stickerNumber?: string | null;
 
   @Column({ name: 'sale_point_code', length: 12 })
@@ -156,7 +158,7 @@ export class TiramisCoverNoteEntity extends BaseEntity {
   @Column({ name: 'endorsement_type', type: 'int', nullable: true })
   endorsementType?: number | null;
 
-  @Column({ name: 'endorsement_reason', length: 1000, nullable: true })
+  @Column({ name: 'endorsement_reason', type: 'varchar', length: 1000, nullable: true })
   endorsementReason?: string | null;
 
   @Column({

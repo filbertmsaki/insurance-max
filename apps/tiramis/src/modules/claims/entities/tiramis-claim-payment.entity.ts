@@ -24,7 +24,7 @@ export class TiramisClaimPaymentEntity extends BaseEntity {
   @JoinColumn({ name: 'transaction_id' })
   transaction!: TiramisTransactionEntity;
 
-  @Column({ name: 'current_attempt_id', nullable: true })
+  @Column({ name: 'current_attempt_id', type: 'uuid', nullable: true })
   currentAttemptId?: string | null;
 
   @ManyToOne(() => TiramisSubmissionAttemptEntity, { nullable: true })
@@ -37,7 +37,7 @@ export class TiramisClaimPaymentEntity extends BaseEntity {
   @Column({ name: 'company_code', length: 6 })
   companyCode!: string;
 
-  @Column({ name: 'system_code', length: 12 })
+  @Column({ name: 'system_code', length: 50 })
   systemCode!: string;
 
   @Column({ name: 'callback_url', length: 250 })
@@ -67,7 +67,7 @@ export class TiramisClaimPaymentEntity extends BaseEntity {
   @Column({ name: 'payment_mode', type: 'int' })
   paymentMode!: number;
 
-  @Column({ name: 'parties_notified', length: 1, nullable: true })
+  @Column({ name: 'parties_notified', type: 'varchar', length: 1, nullable: true })
   partiesNotified?: string | null;
 
   @Column({
@@ -79,10 +79,10 @@ export class TiramisClaimPaymentEntity extends BaseEntity {
   })
   netPremiumEarned?: string | null;
 
-  @Column({ name: 'claim_resulted_litigation', length: 1, nullable: true })
+  @Column({ name: 'claim_resulted_litigation', type: 'varchar', length: 1, nullable: true })
   claimResultedLitigation?: string | null;
 
-  @Column({ name: 'litigation_reason', length: 1000, nullable: true })
+  @Column({ name: 'litigation_reason', type: 'varchar', length: 1000, nullable: true })
   litigationReason?: string | null;
 
   @Column({ name: 'currency_code', length: 3 })

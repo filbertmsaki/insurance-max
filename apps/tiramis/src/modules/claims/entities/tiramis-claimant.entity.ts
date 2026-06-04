@@ -9,7 +9,7 @@ import { TiramisDischargeVoucherEntity } from './tiramis-discharge-voucher.entit
 
 @Entity({ name: 'tiramis_claimants' })
 export class TiramisClaimantEntity extends BaseEntity {
-  @Column({ name: 'claim_intimation_id', nullable: true })
+  @Column({ name: 'claim_intimation_id', type: 'uuid', nullable: true })
   claimIntimationId?: string | null;
 
   @ManyToOne(() => TiramisClaimIntimationEntity, (claim) => claim.claimants, {
@@ -19,7 +19,7 @@ export class TiramisClaimantEntity extends BaseEntity {
   @JoinColumn({ name: 'claim_intimation_id' })
   claimIntimation?: TiramisClaimIntimationEntity | null;
 
-  @Column({ name: 'claim_assessment_id', nullable: true })
+  @Column({ name: 'claim_assessment_id', type: 'uuid', nullable: true })
   claimAssessmentId?: string | null;
 
   @ManyToOne(() => TiramisClaimAssessmentEntity, (claim) => claim.claimants, {
@@ -29,7 +29,7 @@ export class TiramisClaimantEntity extends BaseEntity {
   @JoinColumn({ name: 'claim_assessment_id' })
   claimAssessment?: TiramisClaimAssessmentEntity | null;
 
-  @Column({ name: 'discharge_voucher_id', nullable: true })
+  @Column({ name: 'discharge_voucher_id', type: 'uuid', nullable: true })
   dischargeVoucherId?: string | null;
 
   @ManyToOne(
@@ -43,7 +43,7 @@ export class TiramisClaimantEntity extends BaseEntity {
   @JoinColumn({ name: 'discharge_voucher_id' })
   dischargeVoucher?: TiramisDischargeVoucherEntity | null;
 
-  @Column({ name: 'claim_payment_id', nullable: true })
+  @Column({ name: 'claim_payment_id', type: 'uuid', nullable: true })
   claimPaymentId?: string | null;
 
   @ManyToOne(() => TiramisClaimPaymentEntity, (claim) => claim.claimants, {
@@ -53,7 +53,7 @@ export class TiramisClaimantEntity extends BaseEntity {
   @JoinColumn({ name: 'claim_payment_id' })
   claimPayment?: TiramisClaimPaymentEntity | null;
 
-  @Column({ name: 'claim_rejection_id', nullable: true })
+  @Column({ name: 'claim_rejection_id', type: 'uuid', nullable: true })
   claimRejectionId?: string | null;
 
   @ManyToOne(() => TiramisClaimRejectionEntity, (claim) => claim.claimants, {
@@ -81,7 +81,7 @@ export class TiramisClaimantEntity extends BaseEntity {
   @Column({ name: 'claimant_id_type', type: 'int' })
   claimantIdType!: number;
 
-  @Column({ length: 1, nullable: true })
+  @Column({ type: 'varchar', length: 1, nullable: true })
   gender?: string | null;
 
   @Column({ name: 'country_code', length: 3 })
@@ -93,18 +93,18 @@ export class TiramisClaimantEntity extends BaseEntity {
   @Column({ length: 50 })
   district!: string;
 
-  @Column({ length: 50, nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true })
   street?: string | null;
 
   @Column({ name: 'claimant_phone_number', length: 50 })
   claimantPhoneNumber!: string;
 
-  @Column({ name: 'claimant_fax', length: 50, nullable: true })
+  @Column({ name: 'claimant_fax', type: 'varchar', length: 50, nullable: true })
   claimantFax?: string | null;
 
-  @Column({ name: 'postal_address', length: 100, nullable: true })
+  @Column({ name: 'postal_address', type: 'varchar', length: 100, nullable: true })
   postalAddress?: string | null;
 
-  @Column({ name: 'email_address', length: 100, nullable: true })
+  @Column({ name: 'email_address', type: 'varchar', length: 100, nullable: true })
   emailAddress?: string | null;
 }

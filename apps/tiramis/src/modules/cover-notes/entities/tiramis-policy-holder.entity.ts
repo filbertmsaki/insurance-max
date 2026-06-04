@@ -33,7 +33,7 @@ export class TiramisPolicyHolderEntity extends BaseEntity {
   @Column({ name: 'policy_holder_id_type', type: 'int' })
   policyHolderIdType!: number;
 
-  @Column({ length: 1, nullable: true })
+  @Column({ type: 'varchar', length: 1, nullable: true })
   gender?: string | null;
 
   @Column({ name: 'country_code', length: 3 })
@@ -45,18 +45,18 @@ export class TiramisPolicyHolderEntity extends BaseEntity {
   @Column({ length: 50 })
   district!: string;
 
-  @Column({ length: 50, nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true })
   street?: string | null;
 
   @Column({ name: 'phone_number', length: 50 })
   phoneNumber!: string;
 
-  @Column({ length: 50, nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true })
   fax?: string | null;
 
-  @Column({ name: 'postal_address', length: 100, nullable: true })
+  @Column({ name: 'postal_address', type: 'varchar', length: 100, nullable: true })
   postalAddress?: string | null;
 
-  @Column({ name: 'email_address', length: 100, nullable: true })
+  @Column({ name: 'email_address', type: 'varchar', length: 100, nullable: true })
   emailAddress?: string | null;
 }

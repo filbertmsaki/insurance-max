@@ -22,7 +22,7 @@ export class TiramisCoverNoteRiskEntity extends BaseEntity {
   @JoinColumn({ name: 'cover_note_id' })
   coverNote!: TiramisCoverNoteEntity;
 
-  @Column({ name: 'motor_fleet_item_id', nullable: true })
+  @Column({ name: 'motor_fleet_item_id', type: 'uuid', nullable: true })
   motorFleetItemId?: string | null;
 
   @Column({ name: 'risk_code', length: 50 })

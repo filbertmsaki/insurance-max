@@ -24,7 +24,7 @@ export class TiramisDischargeVoucherEntity extends BaseEntity {
   @JoinColumn({ name: 'transaction_id' })
   transaction!: TiramisTransactionEntity;
 
-  @Column({ name: 'current_attempt_id', nullable: true })
+  @Column({ name: 'current_attempt_id', type: 'uuid', nullable: true })
   currentAttemptId?: string | null;
 
   @ManyToOne(() => TiramisSubmissionAttemptEntity, { nullable: true })
@@ -37,7 +37,7 @@ export class TiramisDischargeVoucherEntity extends BaseEntity {
   @Column({ name: 'company_code', length: 6 })
   companyCode!: string;
 
-  @Column({ name: 'system_code', length: 12 })
+  @Column({ name: 'system_code', length: 50 })
   systemCode!: string;
 
   @Column({ name: 'callback_url', length: 250 })
@@ -67,7 +67,7 @@ export class TiramisDischargeVoucherEntity extends BaseEntity {
   @Column({ name: 'exchange_rate', type: 'decimal', precision: 36, scale: 2 })
   exchangeRate!: string;
 
-  @Column({ name: 'claim_offer_communication_date', nullable: true })
+  @Column({ name: 'claim_offer_communication_date', type: 'timestamp', nullable: true })
   claimOfferCommunicationDate?: Date | null;
 
   @Column({
@@ -78,13 +78,13 @@ export class TiramisDischargeVoucherEntity extends BaseEntity {
   })
   claimOfferAmount!: string;
 
-  @Column({ name: 'claimant_response_date', nullable: true })
+  @Column({ name: 'claimant_response_date', type: 'timestamp', nullable: true })
   claimantResponseDate?: Date | null;
 
-  @Column({ name: 'adjustment_date', nullable: true })
+  @Column({ name: 'adjustment_date', type: 'timestamp', nullable: true })
   adjustmentDate?: Date | null;
 
-  @Column({ name: 'adjustment_reason', length: 1000, nullable: true })
+  @Column({ name: 'adjustment_reason', type: 'varchar', length: 1000, nullable: true })
   adjustmentReason?: string | null;
 
   @Column({
@@ -96,7 +96,7 @@ export class TiramisDischargeVoucherEntity extends BaseEntity {
   })
   adjustmentAmount?: string | null;
 
-  @Column({ name: 'reconciliation_date', nullable: true })
+  @Column({ name: 'reconciliation_date', type: 'timestamp', nullable: true })
   reconciliationDate?: Date | null;
 
   @Column({ name: 'reconciliation_summary', type: 'text', nullable: true })
@@ -111,7 +111,7 @@ export class TiramisDischargeVoucherEntity extends BaseEntity {
   })
   reconciledAmount?: string | null;
 
-  @Column({ name: 'offer_accepted', length: 1, nullable: true })
+  @Column({ name: 'offer_accepted', type: 'varchar', length: 1, nullable: true })
   offerAccepted?: string | null;
 
   @OneToMany(() => TiramisClaimantEntity, (claimant) => claimant.dischargeVoucher, {

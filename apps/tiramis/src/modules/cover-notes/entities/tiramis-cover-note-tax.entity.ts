@@ -6,7 +6,7 @@ import { TiramisCoverNoteRiskEntity } from './tiramis-cover-note-risk.entity';
 
 @Entity({ name: 'tiramis_cover_note_taxes' })
 export class TiramisCoverNoteTaxEntity extends BaseEntity {
-  @Column({ name: 'cover_note_risk_id', nullable: true })
+  @Column({ name: 'cover_note_risk_id', type: 'uuid', nullable: true })
   coverNoteRiskId?: string | null;
 
   @ManyToOne(() => TiramisCoverNoteRiskEntity, (risk) => risk.taxes, {
@@ -16,7 +16,7 @@ export class TiramisCoverNoteTaxEntity extends BaseEntity {
   @JoinColumn({ name: 'cover_note_risk_id' })
   risk?: TiramisCoverNoteRiskEntity | null;
 
-  @Column({ name: 'cover_note_addon_id', nullable: true })
+  @Column({ name: 'cover_note_addon_id', type: 'uuid', nullable: true })
   coverNoteAddonId?: string | null;
 
   @ManyToOne(() => TiramisCoverNoteAddonEntity, (addon) => addon.taxes, {
@@ -32,10 +32,10 @@ export class TiramisCoverNoteTaxEntity extends BaseEntity {
   @Column({ name: 'is_tax_exempted', length: 1, default: 'N' })
   isTaxExempted!: string;
 
-  @Column({ name: 'tax_exemption_type', length: 50, nullable: true })
+  @Column({ name: 'tax_exemption_type', type: 'varchar', length: 50, nullable: true })
   taxExemptionType?: string | null;
 
-  @Column({ name: 'tax_exemption_reference', length: 50, nullable: true })
+  @Column({ name: 'tax_exemption_reference', type: 'varchar', length: 50, nullable: true })
   taxExemptionReference?: string | null;
 
   @Column({ name: 'tax_rate', type: 'decimal', precision: 10, scale: 5 })

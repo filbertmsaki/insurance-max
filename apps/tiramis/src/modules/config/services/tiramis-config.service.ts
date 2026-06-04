@@ -150,7 +150,9 @@ export class TiramisConfigService {
     privateKeyPfxPath?: string | null;
     privateKeyPfxPassword?: string | null;
     publicCertificatePfxPath?: string | null;
+    publicCertificatePfxPassword?: string | null;
     tiraPublicCertificatePfxPath?: string | null;
+    tiraPublicCertificatePfxPassword?: string | null;
     signatureAlgorithm?: string | null;
   }> {
     const configuration = await this.getActiveConfiguration(environment);
@@ -159,7 +161,10 @@ export class TiramisConfigService {
       privateKeyPfxPath: configuration.privateKeyPfxPath,
       privateKeyPfxPassword: configuration.privateKeyPfxPassword,
       publicCertificatePfxPath: configuration.publicCertificatePfxPath,
+      publicCertificatePfxPassword: configuration.publicCertificatePfxPassword,
       tiraPublicCertificatePfxPath: configuration.tiraPublicCertificatePfxPath,
+      tiraPublicCertificatePfxPassword:
+        configuration.tiraPublicCertificatePfxPassword,
       signatureAlgorithm: configuration.signatureAlgorithm,
     };
   }

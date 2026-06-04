@@ -10,7 +10,7 @@ export class TiramisResponseCodeEntity extends BaseEntity {
   @Column({ length: 255 })
   description!: string;
 
-  @Column({ length: 50, nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true })
   category?: string | null;
 
   @Column({ name: 'is_success', type: 'int', default: 0 })

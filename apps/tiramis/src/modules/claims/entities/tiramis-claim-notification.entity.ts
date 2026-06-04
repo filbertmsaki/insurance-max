@@ -16,7 +16,7 @@ export class TiramisClaimNotificationEntity extends BaseEntity {
   @JoinColumn({ name: 'transaction_id' })
   transaction!: TiramisTransactionEntity;
 
-  @Column({ name: 'current_attempt_id', nullable: true })
+  @Column({ name: 'current_attempt_id', type: 'uuid', nullable: true })
   currentAttemptId?: string | null;
 
   @ManyToOne(() => TiramisSubmissionAttemptEntity, { nullable: true })
@@ -29,7 +29,7 @@ export class TiramisClaimNotificationEntity extends BaseEntity {
   @Column({ name: 'company_code', length: 6 })
   companyCode!: string;
 
-  @Column({ name: 'system_code', length: 12 })
+  @Column({ name: 'system_code', length: 50 })
   systemCode!: string;
 
   @Column({ name: 'callback_url', length: 250 })
@@ -38,7 +38,7 @@ export class TiramisClaimNotificationEntity extends BaseEntity {
   @Column({ name: 'insurer_company_code', length: 6 })
   insurerCompanyCode!: string;
 
-  @Column({ name: 'tran_company_code', length: 6, nullable: true })
+  @Column({ name: 'tran_company_code', type: 'varchar', length: 6, nullable: true })
   tranCompanyCode?: string | null;
 
   @Column({ name: 'claim_notification_number', length: 50 })
@@ -50,19 +50,19 @@ export class TiramisClaimNotificationEntity extends BaseEntity {
   @Column({ name: 'claim_report_date' })
   claimReportDate!: Date;
 
-  @Column({ name: 'claim_form_dully_filled', length: 10, nullable: true })
+  @Column({ name: 'claim_form_dully_filled', type: 'varchar', length: 10, nullable: true })
   claimFormDullyFilled?: string | null;
 
   @Column({ name: 'loss_date' })
   lossDate!: Date;
 
-  @Column({ name: 'loss_nature', length: 255, nullable: true })
+  @Column({ name: 'loss_nature', type: 'varchar', length: 255, nullable: true })
   lossNature?: string | null;
 
-  @Column({ name: 'loss_type', length: 100, nullable: true })
+  @Column({ name: 'loss_type', type: 'varchar', length: 100, nullable: true })
   lossType?: string | null;
 
-  @Column({ name: 'loss_location', length: 250, nullable: true })
+  @Column({ name: 'loss_location', type: 'varchar', length: 250, nullable: true })
   lossLocation?: string | null;
 
   @Column({ name: 'officer_name', length: 100 })

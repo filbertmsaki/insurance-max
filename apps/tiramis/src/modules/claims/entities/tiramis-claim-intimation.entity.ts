@@ -25,7 +25,7 @@ export class TiramisClaimIntimationEntity extends BaseEntity {
   @JoinColumn({ name: 'transaction_id' })
   transaction!: TiramisTransactionEntity;
 
-  @Column({ name: 'current_attempt_id', nullable: true })
+  @Column({ name: 'current_attempt_id', type: 'uuid', nullable: true })
   currentAttemptId?: string | null;
 
   @ManyToOne(() => TiramisSubmissionAttemptEntity, { nullable: true })
@@ -38,7 +38,7 @@ export class TiramisClaimIntimationEntity extends BaseEntity {
   @Column({ name: 'company_code', length: 6 })
   companyCode!: string;
 
-  @Column({ name: 'system_code', length: 12 })
+  @Column({ name: 'system_code', length: 50 })
   systemCode!: string;
 
   @Column({ name: 'callback_url', length: 250 })
@@ -87,10 +87,10 @@ export class TiramisClaimIntimationEntity extends BaseEntity {
   @Column({ name: 'loss_assessment_option', type: 'int' })
   lossAssessmentOption!: number;
 
-  @Column({ name: 'assessor_name', length: 100, nullable: true })
+  @Column({ name: 'assessor_name', type: 'varchar', length: 100, nullable: true })
   assessorName?: string | null;
 
-  @Column({ name: 'assessor_id_number', length: 50, nullable: true })
+  @Column({ name: 'assessor_id_number', type: 'varchar', length: 50, nullable: true })
   assessorIdNumber?: string | null;
 
   @Column({ name: 'assessor_id_type', type: 'int', nullable: true })

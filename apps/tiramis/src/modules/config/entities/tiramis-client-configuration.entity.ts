@@ -13,7 +13,7 @@ export class TiramisClientConfigurationEntity extends BaseEntity {
   @Column({ name: 'company_code', length: 6 })
   companyCode!: string;
 
-  @Column({ name: 'system_code', length: 12 })
+  @Column({ name: 'system_code', length: 50 })
   systemCode!: string;
 
   @Column({ name: 'client_code', length: 100 })
@@ -25,7 +25,10 @@ export class TiramisClientConfigurationEntity extends BaseEntity {
   @Column({ name: 'insurer_company_code', length: 6 })
   insurerCompanyCode!: string;
 
-  @Column({ name: 'tran_company_code', length: 6, nullable: true })
+  @Column({ name: 'sale_point_code', type: 'varchar', length: 12, nullable: true })
+  salePointCode?: string | null;
+
+  @Column({ name: 'tran_company_code', type: 'varchar', length: 6, nullable: true })
   tranCompanyCode?: string | null;
 
   @Column({ name: 'base_url', length: 500 })
@@ -34,19 +37,25 @@ export class TiramisClientConfigurationEntity extends BaseEntity {
   @Column({ name: 'callback_base_url', length: 500 })
   callbackBaseUrl!: string;
 
-  @Column({ name: 'private_key_path', length: 500, nullable: true })
+  @Column({ name: 'private_key_path', type: 'varchar', length: 500, nullable: true })
   privateKeyPfxPath?: string | null;
 
-  @Column({ name: 'private_key_password', length: 255, nullable: true })
+  @Column({ name: 'private_key_password', type: 'varchar', length: 255, nullable: true })
   privateKeyPfxPassword?: string | null;
 
-  @Column({ name: 'public_certificate_path', length: 500, nullable: true })
+  @Column({ name: 'public_certificate_path', type: 'varchar', length: 500, nullable: true })
   publicCertificatePfxPath?: string | null;
 
-  @Column({ name: 'tira_public_certificate_path', length: 500, nullable: true })
+  @Column({ name: 'public_certificate_password', type: 'varchar', length: 255, nullable: true })
+  publicCertificatePfxPassword?: string | null;
+
+  @Column({ name: 'tira_public_certificate_path', type: 'varchar', length: 500, nullable: true })
   tiraPublicCertificatePfxPath?: string | null;
 
-  @Column({ name: 'signature_algorithm', length: 100, nullable: true })
+  @Column({ name: 'tira_public_certificate_password', type: 'varchar', length: 255, nullable: true })
+  tiraPublicCertificatePfxPassword?: string | null;
+
+  @Column({ name: 'signature_algorithm', type: 'varchar', length: 100, nullable: true })
   signatureAlgorithm?: string | null;
 
   @Column({ name: 'is_active', type: 'int', default: 1 })
