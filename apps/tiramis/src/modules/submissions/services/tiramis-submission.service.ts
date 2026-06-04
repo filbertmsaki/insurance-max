@@ -228,6 +228,36 @@ export class TiramisSubmissionService {
     return savedAttempt;
   }
 
+  async markResponseAcknowledgementSent(params: {
+    requestId: string;
+    acknowledgementId: string;
+    statusCode: string;
+    statusDesc?: string | null;
+    rawXml?: string | null;
+  }) {
+    const attempt = await this.getAttemptOrFail(params.requestId);
+
+    attempt.responseAcknowledgementId = params.acknowledgementId;
+    attempt.responseAckStatusCode = params.statusCode;
+    attempt.responseAckStatusDesc = params.statusDesc || null;
+    attempt.responseAckXml = params.rawXml || null;
+    attempt.responseAckSentAt = new Date();
+
+    const savedAttempt = await this.attemptRepository.save(attempt);
+
+    await this.createEvent({
+      transactionId: attempt.transactionId,
+      attemptId: attempt.id,
+      requestId: attempt.requestId,
+      eventType: TIRAMIS_SUBMISSION_EVENT_TYPE.FINAL_RESPONSE_ACK_SENT,
+      statusCode: params.statusCode,
+      statusDesc: params.statusDesc || null,
+      rawPayload: params.rawXml || null,
+    });
+
+    return savedAttempt;
+  }
+
   async markFailed(params: {
     requestId: string;
     errorMessage: string;
