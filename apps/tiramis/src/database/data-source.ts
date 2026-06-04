@@ -23,6 +23,8 @@ import { TiramisSubjectMatterEntity } from '../modules/cover-notes/entities/tira
 import { TiramisMotorDetailEntity } from '../modules/motor/entities/tiramis-motor-detail.entity';
 import { TiramisMotorFleetItemEntity } from '../modules/motor/entities/tiramis-motor-fleet-item.entity';
 import { TiramisMotorFleetEntity } from '../modules/motor/entities/tiramis-motor-fleet.entity';
+import { TiramisReinsuranceEntity } from '../modules/reinsurance/entities/tiramis-reinsurance.entity';
+import { TiramisReinsuranceParticipantEntity } from '../modules/reinsurance/entities/tiramis-reinsurance-participant.entity';
 import { TiramisSubmissionAttemptEntity } from '../modules/submissions/entities/tiramis-submission-attempt.entity';
 import { TiramisSubmissionEventEntity } from '../modules/submissions/entities/tiramis-submission-event.entity';
 import { TiramisTransactionEntity } from '../modules/submissions/entities/tiramis-transaction.entity';
@@ -71,6 +73,8 @@ export default new DataSource(
       TiramisMotorFleetEntity,
       TiramisMotorFleetItemEntity,
       TiramisMotorDetailEntity,
+      TiramisReinsuranceEntity,
+      TiramisReinsuranceParticipantEntity,
     ],
     migrations: ['apps/tiramis/src/database/migrations/*.{ts,js}'],
   }),

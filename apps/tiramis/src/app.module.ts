@@ -27,6 +27,8 @@ import { TiramisSubjectMatterEntity } from './modules/cover-notes/entities/tiram
 import { TiramisMotorDetailEntity } from './modules/motor/entities/tiramis-motor-detail.entity';
 import { TiramisMotorFleetItemEntity } from './modules/motor/entities/tiramis-motor-fleet-item.entity';
 import { TiramisMotorFleetEntity } from './modules/motor/entities/tiramis-motor-fleet.entity';
+import { TiramisReinsuranceEntity } from './modules/reinsurance/entities/tiramis-reinsurance.entity';
+import { TiramisReinsuranceParticipantEntity } from './modules/reinsurance/entities/tiramis-reinsurance-participant.entity';
 import { TiramisSubmissionAttemptEntity } from './modules/submissions/entities/tiramis-submission-attempt.entity';
 import { TiramisSubmissionEventEntity } from './modules/submissions/entities/tiramis-submission-event.entity';
 import { TiramisTransactionEntity } from './modules/submissions/entities/tiramis-transaction.entity';
@@ -69,6 +71,8 @@ import { TiramisModule } from './modules/tiramis.module';
               TiramisMotorFleetEntity,
               TiramisMotorFleetItemEntity,
               TiramisMotorDetailEntity,
+              TiramisReinsuranceEntity,
+              TiramisReinsuranceParticipantEntity,
             ],
           },
         ),
