@@ -11,6 +11,7 @@ import { TiramisResponseCodeEntity } from '../entities/tiramis-response-code.ent
 import { TiramisServiceEndpointEntity } from '../entities/tiramis-service-endpoint.entity';
 
 export interface TiramisRequestHeaders {
+  [key: string]: string;
   'Content-Type': string;
   ClientCode: string;
   ClientKey: string;
