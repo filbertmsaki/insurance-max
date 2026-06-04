@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { TiramisClaimsModule } from './claims/tiramis-claims.module';
 import { TiramisConfigModule } from './config/tiramis-config.module';
 import { TiramisCoverNotesModule } from './cover-notes/tiramis-cover-notes.module';
 import { TiramisMessagingModule } from './messaging/tiramis-messaging.module';
@@ -17,12 +18,14 @@ import { TiramisSubmissionsModule } from './submissions/tiramis-submissions.modu
     TiramisMotorModule,
     TiramisReinsuranceModule,
     TiramisPoliciesModule,
+    TiramisClaimsModule,
   ],
   exports: [
     TiramisCoverNotesModule,
     TiramisMotorModule,
     TiramisReinsuranceModule,
     TiramisPoliciesModule,
+    TiramisClaimsModule,
   ],
 })
 export class TiramisModule {}

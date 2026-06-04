@@ -13,6 +13,13 @@ import {
 import { TiramisClientConfigurationEntity } from '../modules/config/entities/tiramis-client-configuration.entity';
 import { TiramisResponseCodeEntity } from '../modules/config/entities/tiramis-response-code.entity';
 import { TiramisServiceEndpointEntity } from '../modules/config/entities/tiramis-service-endpoint.entity';
+import { TiramisClaimAssessmentEntity } from '../modules/claims/entities/tiramis-claim-assessment.entity';
+import { TiramisClaimIntimationEntity } from '../modules/claims/entities/tiramis-claim-intimation.entity';
+import { TiramisClaimNotificationEntity } from '../modules/claims/entities/tiramis-claim-notification.entity';
+import { TiramisClaimPaymentEntity } from '../modules/claims/entities/tiramis-claim-payment.entity';
+import { TiramisClaimRejectionEntity } from '../modules/claims/entities/tiramis-claim-rejection.entity';
+import { TiramisClaimantEntity } from '../modules/claims/entities/tiramis-claimant.entity';
+import { TiramisDischargeVoucherEntity } from '../modules/claims/entities/tiramis-discharge-voucher.entity';
 import { TiramisCoverNoteAddonEntity } from '../modules/cover-notes/entities/tiramis-cover-note-addon.entity';
 import { TiramisCoverNoteDiscountEntity } from '../modules/cover-notes/entities/tiramis-cover-note-discount.entity';
 import { TiramisCoverNoteEntity } from '../modules/cover-notes/entities/tiramis-cover-note.entity';
@@ -79,6 +86,13 @@ export default new DataSource(
       TiramisReinsuranceParticipantEntity,
       TiramisPolicyEntity,
       TiramisPolicyCoverNoteEntity,
+      TiramisClaimNotificationEntity,
+      TiramisClaimIntimationEntity,
+      TiramisClaimAssessmentEntity,
+      TiramisDischargeVoucherEntity,
+      TiramisClaimPaymentEntity,
+      TiramisClaimRejectionEntity,
+      TiramisClaimantEntity,
     ],
     migrations: ['apps/tiramis/src/database/migrations/*.{ts,js}'],
   }),
