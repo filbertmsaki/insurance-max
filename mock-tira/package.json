@@ -2,10 +2,10 @@
   "name": "mock-tira",
   "version": "1.0.0",
   "description": "",
-  "main": "mock-tira.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node mock-tira.js",
-    "dev": "node mock-tira.js"
+    "start": "node index.js",
+    "dev": "node index.js"
   },
   "keywords": [],
   "author": "",

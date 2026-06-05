@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const forge = require('node-forge');
 
 const app = express();
+const PROJECT_ROOT = __dirname;
 
 app.use(
   express.text({
@@ -48,6 +49,12 @@ const CONFIG = {
   tiraPublicCertPath:
     process.env.TIRA_PUBLIC_CERT_PATH ||
     './certs/tira/mock-tira-public.pfx',
+
+  tiraPublicCertPassword:
+    process.env.TIRA_PUBLIC_CERT_PASSWORD ||
+    process.env.TIRA_PRIVATE_PFX_PASSWORD ||
+    process.env.TIRA_PFX_PASSWORD ||
+    'password',
 
   callbackDelayMs: Number(process.env.CALLBACK_DELAY_MS || 3000),
   callbackRetries: Number(process.env.CALLBACK_RETRIES || 3),
@@ -117,7 +124,20 @@ function resolveProjectPath(filePath) {
 
   return path.isAbsolute(filePath)
     ? filePath
-    : path.resolve(process.cwd(), filePath);
+    : path.resolve(PROJECT_ROOT, filePath);
+}
+
+function displayProjectPath(filePath) {
+  const resolvedPath = resolveProjectPath(filePath);
+
+  if (!resolvedPath) {
+    return 'N/A';
+  }
+
+  const relativePath = path.relative(PROJECT_ROOT, resolvedPath);
+  return relativePath && !relativePath.startsWith('..')
+    ? `./${relativePath.replace(/\\/g, '/')}`
+    : resolvedPath;
 }
 
 function fileExists(filePath) {
@@ -196,6 +216,8 @@ function loadPkcs12Material(pfxPath, password) {
     throw new Error(`PFX certificate file not found: ${resolvedPath}`);
   }
 
+  console.log(`[cert] Loading PKCS#12 material from ${displayProjectPath(resolvedPath)}`);
+
   const pfxBuffer = fs.readFileSync(resolvedPath);
   const pfxBinary = pfxBuffer.toString('binary');
 
@@ -226,6 +248,11 @@ function loadPkcs12Material(pfxPath, password) {
     }
   }
 
+  console.log(
+    `[cert] Loaded ${displayProjectPath(resolvedPath)} ` +
+      `(privateKey=${Boolean(privateKeyPem)}, publicCert=${Boolean(publicCertPem)})`,
+  );
+
   return {
     privateKeyPem,
     publicCertPem,
@@ -249,6 +276,8 @@ function loadPublicCertificate(certOrPfxPath, password) {
     throw new Error(`Public certificate file not found: ${resolvedPath}`);
   }
 
+  console.log(`[cert] Loading public certificate from ${displayProjectPath(resolvedPath)}`);
+
   const extension = path.extname(resolvedPath).toLowerCase();
 
   if (extension === '.pfx' || extension === '.p12') {
@@ -258,6 +287,7 @@ function loadPublicCertificate(certOrPfxPath, password) {
       throw new Error(`Public certificate not found inside PFX: ${certOrPfxPath}`);
     }
 
+    console.log(`[cert] Public certificate ready from ${displayProjectPath(resolvedPath)}`);
     return material.publicCertPem;
   }
 
@@ -265,6 +295,7 @@ function loadPublicCertificate(certOrPfxPath, password) {
   const certText = certBuffer.toString('utf8');
 
   if (certText.includes('-----BEGIN CERTIFICATE-----')) {
+    console.log(`[cert] Public certificate ready from ${displayProjectPath(resolvedPath)}`);
     return certText;
   }
 
@@ -272,10 +303,13 @@ function loadPublicCertificate(certOrPfxPath, password) {
   const asn1 = forge.asn1.fromDer(certBinary);
   const cert = forge.pki.certificateFromAsn1(asn1);
 
+  console.log(`[cert] Public certificate ready from ${displayProjectPath(resolvedPath)}`);
   return forge.pki.certificateToPem(cert);
 }
 
 function createSignatureWithPrivatePfx(contentXml, privatePfxPath, password) {
+  console.log(`[sign] Creating RSA-SHA1 signature with ${displayProjectPath(privatePfxPath)}`);
+
   const privateKeyPem = loadPrivateKeyFromPfx(privatePfxPath, password);
   const contentToSign = normalizeXmlForSignature(contentXml);
 
@@ -283,7 +317,10 @@ function createSignatureWithPrivatePfx(contentXml, privatePfxPath, password) {
   signer.update(contentToSign, 'utf8');
   signer.end();
 
-  return signer.sign(privateKeyPem, 'base64');
+  const signature = signer.sign(privateKeyPem, 'base64');
+  console.log(`[sign] Signature created (${signature.length} base64 chars)`);
+
+  return signature;
 }
 
 function verifySignatureWithPublicCert(
@@ -297,8 +334,11 @@ function verifySignatureWithPublicCert(
   }
 
   if (CONFIG.allowMockSignature && signatureBase64 === 'MOCK_SIGNATURE') {
+    console.log('[verify] MOCK_SIGNATURE accepted because ALLOW_MOCK_SIGNATURE=true');
     return true;
   }
+
+  console.log(`[verify] Verifying RSA-SHA1 signature with ${displayProjectPath(publicCertPath)}`);
 
   const publicCertPem = loadPublicCertificate(publicCertPath, publicCertPassword);
   const contentToVerify = normalizeXmlForSignature(contentXml);
@@ -307,7 +347,10 @@ function verifySignatureWithPublicCert(
   verifier.update(contentToVerify, 'utf8');
   verifier.end();
 
-  return verifier.verify(publicCertPem, signatureBase64, 'base64');
+  const valid = verifier.verify(publicCertPem, signatureBase64, 'base64');
+  console.log(`[verify] Signature verification result: ${valid ? 'valid' : 'invalid'}`);
+
+  return valid;
 }
 
 function signAsMockTira(contentXml) {
@@ -320,16 +363,20 @@ function signAsMockTira(contentXml) {
 
 function verifyClientRequestSignature(fullXml) {
   if (!CONFIG.verifyIncomingSignature) {
+    console.log('[verify] Incoming request signature verification skipped by config');
     return {
       ok: true,
       skipped: true,
     };
   }
 
+  console.log('[verify] Verifying incoming client request signature');
+
   const contentXml = extractContentXml(fullXml);
   const signatureBase64 = extractSignature(fullXml);
 
   if (!signatureBase64) {
+    console.warn('[verify] Incoming request is missing MsgSignature');
     return {
       ok: false,
       code: 'TIRA016',
@@ -346,6 +393,7 @@ function verifyClientRequestSignature(fullXml) {
     );
 
     if (!valid) {
+      console.warn('[verify] Incoming client request signature is invalid');
       return {
         ok: false,
         code: 'TIRA016',
@@ -353,10 +401,12 @@ function verifyClientRequestSignature(fullXml) {
       };
     }
 
+    console.log('[verify] Incoming client request signature is valid');
     return {
       ok: true,
     };
   } catch (error) {
+    console.error('[verify] Incoming client request signature verification failed:', error.message);
     return {
       ok: false,
       code: 'TIRA015',
@@ -369,7 +419,10 @@ function buildTiraMessage(contentXml) {
   let signature = 'MOCK_SIGNATURE';
 
   if (CONFIG.signResponses) {
+    console.log('[sign] Signing mock TIRA response message');
     signature = signAsMockTira(contentXml);
+  } else {
+    console.log('[sign] Response signing disabled; using MOCK_SIGNATURE');
   }
 
   return `
@@ -546,8 +599,12 @@ function buildSyncResponseContent(root, requestId, code, desc, requestXml) {
 }
 
 async function sendCallbackWithRetry(callbackUrl, finalResponseXml) {
+  console.log(`[callback] Sending signed final response to ${callbackUrl}`);
+
   for (let attempt = 1; attempt <= CONFIG.callbackRetries; attempt++) {
     try {
+      console.log(`[callback] Attempt ${attempt}/${CONFIG.callbackRetries}`);
+
       const response = await fetch(callbackUrl, {
         method: 'POST',
         headers: {
@@ -558,19 +615,16 @@ async function sendCallbackWithRetry(callbackUrl, finalResponseXml) {
 
       const responseText = await response.text();
 
-      console.log('\nCallback sent');
-      console.log('Attempt:', attempt);
-      console.log('URL:', callbackUrl);
-      console.log('HTTP Status:', response.status);
-      console.log('Client acknowledgement:\n', responseText);
+      console.log('[callback] HTTP Status:', response.status);
+      console.log('[callback] Client acknowledgement:\n', responseText);
 
       if (response.ok) {
+        console.log('[callback] Final response accepted by callback endpoint');
         return true;
       }
     } catch (error) {
-      console.error('\nCallback failed');
-      console.error('Attempt:', attempt);
-      console.error('Error:', error.message);
+      console.error('[callback] Failed attempt:', attempt);
+      console.error('[callback] Error:', error.message);
     }
 
     if (attempt < CONFIG.callbackRetries) {
@@ -580,7 +634,54 @@ async function sendCallbackWithRetry(callbackUrl, finalResponseXml) {
     }
   }
 
+  console.error('[callback] Exhausted callback retries without success');
   return false;
+}
+
+function inspectPfxMaterial(label, pfxPath, password) {
+  const result = {
+    path: pfxPath,
+    displayPath: displayProjectPath(pfxPath),
+    exists: fileExists(pfxPath),
+    loads: false,
+    hasPrivateKey: false,
+    hasPublicCert: false,
+  };
+
+  try {
+    const material = loadPkcs12Material(pfxPath, password);
+    result.loads = true;
+    result.hasPrivateKey = Boolean(material.privateKeyPem);
+    result.hasPublicCert = Boolean(material.publicCertPem);
+    console.log(`[config-health] ${label} loaded successfully`);
+  } catch (error) {
+    result.error = error.message;
+    console.error(`[config-health] ${label} failed to load:`, error.message);
+  }
+
+  return result;
+}
+
+function inspectPublicCertificate(label, certPath, password) {
+  const result = {
+    path: certPath,
+    displayPath: displayProjectPath(certPath),
+    exists: fileExists(certPath),
+    loads: false,
+    hasPublicCert: false,
+  };
+
+  try {
+    loadPublicCertificate(certPath, password);
+    result.loads = true;
+    result.hasPublicCert = true;
+    console.log(`[config-health] ${label} loaded successfully`);
+  } catch (error) {
+    result.error = error.message;
+    console.error(`[config-health] ${label} failed to load:`, error.message);
+  }
+
+  return result;
 }
 
 function buildFailureReply(root, requestId, code, desc, originalXml) {
@@ -698,6 +799,11 @@ app.post('/tiramis/mock', async (req, res) => {
 
   const finalResponseXml = buildTiraMessage(finalContent);
 
+  console.log(
+    `[callback] Scheduling final signed response to ${callbackUrl} ` +
+      `in ${CONFIG.callbackDelayMs}ms`,
+  );
+
   setTimeout(() => {
     sendCallbackWithRetry(callbackUrl, finalResponseXml);
   }, CONFIG.callbackDelayMs);
@@ -813,7 +919,7 @@ app.post('/tiramis/tools/verify-tira-signature', (req, res) => {
       contentXml,
       signature,
       CONFIG.tiraPublicCertPath,
-      CONFIG.tiraPrivatePfxPassword,
+      CONFIG.tiraPublicCertPassword,
     );
 
     res.json({
@@ -843,6 +949,22 @@ app.get('/health', (req, res) => {
 });
 
 app.get('/config-health', (req, res) => {
+  const clientPublicCert = inspectPublicCertificate(
+    'client public certificate',
+    CONFIG.clientPublicCertPath,
+    CONFIG.clientPublicCertPassword,
+  );
+  const tiraPrivatePfx = inspectPfxMaterial(
+    'mock TIRA private PFX',
+    CONFIG.tiraPrivatePfxPath,
+    CONFIG.tiraPrivatePfxPassword,
+  );
+  const tiraPublicCert = inspectPublicCertificate(
+    'mock TIRA public certificate',
+    CONFIG.tiraPublicCertPath,
+    CONFIG.tiraPublicCertPassword,
+  );
+
   res.json({
     status: 'ok',
     clientCodeConfigured: Boolean(CONFIG.clientCode),
@@ -850,21 +972,37 @@ app.get('/config-health', (req, res) => {
 
     clientPublicCertPath: CONFIG.clientPublicCertPath,
     clientPublicCertExists: fileExists(CONFIG.clientPublicCertPath),
+    clientPublicCertLoads: clientPublicCert.loads,
 
     tiraPrivatePfxPath: CONFIG.tiraPrivatePfxPath,
     tiraPrivatePfxExists: fileExists(CONFIG.tiraPrivatePfxPath),
+    tiraPrivatePfxLoads: tiraPrivatePfx.loads,
+    tiraPrivatePfxHasPrivateKey: tiraPrivatePfx.hasPrivateKey,
 
     tiraPublicCertPath: CONFIG.tiraPublicCertPath,
     tiraPublicCertExists: fileExists(CONFIG.tiraPublicCertPath),
+    tiraPublicCertLoads: tiraPublicCert.loads,
 
     verifyIncomingSignature: CONFIG.verifyIncomingSignature,
     signResponses: CONFIG.signResponses,
     allowMockSignature: CONFIG.allowMockSignature,
     signatureXmlMode: CONFIG.signatureXmlMode,
+
+    certificates: {
+      clientPublicCert,
+      tiraPrivatePfx,
+      tiraPublicCert,
+    },
   });
 });
 
 app.listen(PORT, () => {
   console.log(`Mock TIRA running on http://localhost:${PORT}`);
   console.log(`Mock endpoint: http://localhost:${PORT}/tiramis/mock`);
+  console.log(`[config] Project root: ${PROJECT_ROOT}`);
+  console.log(`[config] Client public certificate: ${displayProjectPath(CONFIG.clientPublicCertPath)}`);
+  console.log(`[config] Mock TIRA private PFX: ${displayProjectPath(CONFIG.tiraPrivatePfxPath)}`);
+  console.log(`[config] Mock TIRA public certificate: ${displayProjectPath(CONFIG.tiraPublicCertPath)}`);
+  console.log(`[config] Verify incoming signatures: ${CONFIG.verifyIncomingSignature}`);
+  console.log(`[config] Sign responses: ${CONFIG.signResponses}`);
 });
