@@ -28,14 +28,7 @@ type ConfigurationSeed = {
   signatureAlgorithm: string;
 };
 
-const certificateRootPath = join(
-  process.cwd(),
-  'apps',
-  'tiramis',
-  'src',
-  'assets',
-  'certificaties',
-);
+const certificateRootPath = join('src', 'assets', 'certificaties');
 
 function getClientPrivateCertificatePath(environment: EnvironmentName): string {
   return join(certificateRootPath, environment, 'clientprivate.pfx');

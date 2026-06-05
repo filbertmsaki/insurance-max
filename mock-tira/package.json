@@ -1,0 +1,17 @@
+{
+  "name": "mock-tira",
+  "version": "1.0.0",
+  "description": "",
+  "main": "mock-tira.js",
+  "scripts": {
+    "start": "node mock-tira.js",
+    "dev": "node mock-tira.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}

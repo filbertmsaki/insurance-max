@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { TiramisClientConfigurationEntity } from '../entities/tiramis-client-configuration.entity';
 import { TiramisResponseCodeEntity } from '../entities/tiramis-response-code.entity';
 import { TiramisServiceEndpointEntity } from '../entities/tiramis-service-endpoint.entity';
+import { resolveTiramisCertificatePath } from '../utils/tiramis-certificate-path.util';
 
 export interface TiramisRequestHeaders {
   [key: string]: string;
@@ -156,10 +157,14 @@ export class TiramisConfigService {
     const configuration = await this.getActiveConfiguration(environment);
 
     return {
-      clientPrivateCertificatePath: configuration.clientPrivateCertificatePath,
+      clientPrivateCertificatePath: resolveTiramisCertificatePath(
+        configuration.clientPrivateCertificatePath,
+      ),
       clientPrivateCertificatePassword:
         configuration.clientPrivateCertificatePassword,
-      tiraPublicCertificatePath: configuration.tiraPublicCertificatePath,
+      tiraPublicCertificatePath: resolveTiramisCertificatePath(
+        configuration.tiraPublicCertificatePath,
+      ),
       tiraPublicCertificatePassword:
         configuration.tiraPublicCertificatePassword,
       signatureAlgorithm: configuration.signatureAlgorithm,

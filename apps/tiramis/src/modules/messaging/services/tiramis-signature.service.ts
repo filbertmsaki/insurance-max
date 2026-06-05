@@ -4,6 +4,8 @@ import * as forge from 'node-forge';
 import { readFileSync } from 'fs';
 import { extname } from 'path';
 
+import { resolveTiramisCertificatePath } from '../../config/utils/tiramis-certificate-path.util';
+
 @Injectable()
 export class TiramisSignatureService {
   signXmlContent(params: {
@@ -64,13 +66,22 @@ export class TiramisSignatureService {
     privateKeyPfxPath: string,
     privateKeyPfxPassword?: string | null,
   ): string {
-    if (!this.isPkcs12File(privateKeyPfxPath)) {
+    const resolvedPrivateKeyPfxPath =
+      resolveTiramisCertificatePath(privateKeyPfxPath);
+
+    if (
+      !resolvedPrivateKeyPfxPath ||
+      !this.isPkcs12File(resolvedPrivateKeyPfxPath)
+    ) {
       throw new BadRequestException(
         `TIRAMIS private PFX must be a .pfx or .p12 file: ${privateKeyPfxPath}`,
       );
     }
 
-    const pkcs12 = this.loadPkcs12(privateKeyPfxPath, privateKeyPfxPassword);
+    const pkcs12 = this.loadPkcs12(
+      resolvedPrivateKeyPfxPath,
+      privateKeyPfxPassword,
+    );
     const keyBags =
       pkcs12.getBags({
         bagType: forge.pki.oids.pkcs8ShroudedKeyBag,
@@ -84,7 +95,7 @@ export class TiramisSignatureService {
 
     if (!keyBag?.key) {
       throw new BadRequestException(
-        `No private key found in TIRAMIS private PFX: ${privateKeyPfxPath}`,
+        `No private key found in TIRAMIS private PFX: ${resolvedPrivateKeyPfxPath}`,
       );
     }
 
@@ -95,14 +106,21 @@ export class TiramisSignatureService {
     publicCertificatePfxPath: string,
     publicCertificatePfxPassword?: string | null,
   ): string {
-    if (!this.isPkcs12File(publicCertificatePfxPath)) {
+    const resolvedPublicCertificatePfxPath = resolveTiramisCertificatePath(
+      publicCertificatePfxPath,
+    );
+
+    if (
+      !resolvedPublicCertificatePfxPath ||
+      !this.isPkcs12File(resolvedPublicCertificatePfxPath)
+    ) {
       throw new BadRequestException(
         `TIRAMIS public PFX must be a .pfx or .p12 file: ${publicCertificatePfxPath}`,
       );
     }
 
     const pkcs12 = this.loadPkcs12(
-      publicCertificatePfxPath,
+      resolvedPublicCertificatePfxPath,
       publicCertificatePfxPassword,
     );
 
@@ -115,7 +133,7 @@ export class TiramisSignatureService {
 
     if (!certificateBag?.cert) {
       throw new BadRequestException(
-        `No certificate found in TIRAMIS public PFX: ${publicCertificatePfxPath}`,
+        `No certificate found in TIRAMIS public PFX: ${resolvedPublicCertificatePfxPath}`,
       );
     }
 
