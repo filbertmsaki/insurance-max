@@ -1,11 +1,78 @@
+require('dotenv').config();
 
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const forge = require('node-forge');
 
 const app = express();
 
-app.use(express.text({ type: ['application/xml', 'text/xml', '*/*'] }));
+app.use(
+  express.text({
+    type: ['application/xml', 'text/xml', '*/*'],
+    limit: '20mb',
+  }),
+);
 
-const PORT = process.env.PORT || 5050;
+const PORT = Number(process.env.PORT || 5050);
+
+const CONFIG = {
+  clientCode: process.env.CLIENT_CODE || '',
+  clientKey: process.env.CLIENT_KEY || '',
+
+  verifyIncomingSignature: process.env.VERIFY_INCOMING_SIGNATURE === 'true',
+  signResponses: process.env.SIGN_RESPONSES !== 'false',
+  allowMockSignature: process.env.ALLOW_MOCK_SIGNATURE === 'true',
+
+  signatureXmlMode: process.env.SIGNATURE_XML_MODE || 'compact',
+
+  clientPublicCertPath:
+    process.env.CLIENT_PUBLIC_CERT_PATH ||
+    './certs/client/tiramisclientpublic.pfx',
+
+  clientPublicCertPassword:
+    process.env.CLIENT_PUBLIC_CERT_PASSWORD ||
+    process.env.CLIENT_PFX_PASSWORD ||
+    'password',
+
+  tiraPrivatePfxPath:
+    process.env.TIRA_PRIVATE_PFX_PATH ||
+    './certs/tira/mock-tira-private.pfx',
+
+  tiraPrivatePfxPassword:
+    process.env.TIRA_PRIVATE_PFX_PASSWORD ||
+    process.env.TIRA_PFX_PASSWORD ||
+    'password',
+
+  tiraPublicCertPath:
+    process.env.TIRA_PUBLIC_CERT_PATH ||
+    './certs/tira/mock-tira-public.pfx',
+
+  callbackDelayMs: Number(process.env.CALLBACK_DELAY_MS || 3000),
+  callbackRetries: Number(process.env.CALLBACK_RETRIES || 3),
+  callbackRetryDelayMs: Number(process.env.CALLBACK_RETRY_DELAY_MS || 5000),
+};
+
+const RESPONSE_CODES = {
+  TIRA001: 'Successful',
+  TIRA002: 'Failure',
+  TIRA003: 'Invalid client key',
+  TIRA004: 'An error occurred while processing',
+  TIRA005: 'Invalid or incomplete request data',
+  TIRA006: 'Request could not be processed. Try again later',
+  TIRA007: 'Requested data could not be found',
+  TIRA008: 'Required request header information not provided',
+  TIRA009: 'Request header information mismatch client identification parameters',
+  TIRA010: 'Server internal communication failure',
+  TIRA011: 'Client system configuration not found',
+  TIRA012: 'Inactive or disabled client system configuration',
+  TIRA013: 'Inactive or invalid client',
+  TIRA014: 'Client PKI certificate file not found in specified path',
+  TIRA015: 'Bad or missing Client PKI configurations',
+  TIRA016: 'Invalid request signature',
+  TIRA017: 'Invalid client system call back url',
+};
 
 const ACK_ROOTS = {
   CoverNoteRefReq: 'CoverNoteRefReqAck',
@@ -19,15 +86,9 @@ const ACK_ROOTS = {
   DischargeVoucherReq: 'DischargeVoucherReqAck',
   ClaimPaymentReq: 'ClaimPaymentReqAck',
   ClaimRejectionReq: 'ClaimRejectionReqAck',
-
-  CoverNoteVerificationReq: 'CoverNoteVerificationRes',
-  NINVerificationReq: 'NINVerificationRes',
-  CompanyVerificationReq: 'CompanyVerificationRes',
-  MotorVerificationReq: 'MotorVerificationRes',
-  DetailsVerificationReq: 'DetailsVerificationRes',
 };
 
-const RESPONSE_ROOTS = {
+const ASYNC_RESPONSE_ROOTS = {
   CoverNoteRefReq: 'CoverNoteRefRes',
   MotorCoverNoteRefReq: 'MotorCoverNoteRefRes',
   ReinsuranceReq: 'ReinsuranceRes',
@@ -41,37 +102,341 @@ const RESPONSE_ROOTS = {
   ClaimRejectionReq: 'ClaimRejectionRes',
 };
 
-function getRoot(xml) {
-  const match = xml.match(/<TiraMsg>\s*<([^>\s]+)>/);
-  return match?.[1] || null;
+const SYNC_RESPONSE_ROOTS = {
+  CoverNoteVerificationReq: 'CoverNoteVerificationRes',
+  NINVerificationReq: 'NINVerificationRes',
+  CompanyVerificationReq: 'CompanyVerificationRes',
+  MotorVerificationReq: 'MotorVerificationRes',
+  DetailsVerificationReq: 'DetailsVerificationRes',
+};
+
+function resolveProjectPath(filePath) {
+  if (!filePath) {
+    return null;
+  }
+
+  return path.isAbsolute(filePath)
+    ? filePath
+    : path.resolve(process.cwd(), filePath);
+}
+
+function fileExists(filePath) {
+  const resolved = resolveProjectPath(filePath);
+  return Boolean(resolved && fs.existsSync(resolved));
+}
+
+function escapeXml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function makeId(prefix) {
+  return `${prefix}${Date.now()}${Math.floor(Math.random() * 9999)}`;
 }
 
 function getTag(xml, tagName) {
-  const match = xml.match(
-    new RegExp(`<${tagName}>([\\s\\S]*?)<\\/${tagName}>`),
+  const match = String(xml || '').match(
+    new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, 'i'),
   );
 
   return match?.[1]?.trim() || null;
 }
 
-function buildAcknowledgementXml(root, requestId) {
-  const ackRoot = ACK_ROOTS[root] || 'UnknownReqAck';
+function removeXmlDeclaration(xml) {
+  return String(xml || '')
+    .replace(/^\uFEFF/, '')
+    .replace(/<\?xml[\s\S]*?\?>/i, '')
+    .trim();
+}
+
+function extractContentXml(xml) {
+  const raw = removeXmlDeclaration(xml);
+
+  const tiraMatch = raw.match(/<TiraMsg[^>]*>([\s\S]*?)<\/TiraMsg>/i);
+  const insideTira = tiraMatch ? tiraMatch[1] : raw;
+
+  const withoutSignature = insideTira.replace(
+    /<MsgSignature[^>]*>[\s\S]*?<\/MsgSignature>/i,
+    '',
+  );
+
+  return withoutSignature.trim();
+}
+
+function extractSignature(xml) {
+  return getTag(xml, 'MsgSignature');
+}
+
+function getRoot(xml) {
+  const contentXml = extractContentXml(xml);
+  const match = contentXml.match(/<([A-Za-z0-9_:.-]+)(\s|>)/);
+  return match?.[1] || null;
+}
+
+function normalizeXmlForSignature(xml) {
+  let normalized = removeXmlDeclaration(xml)
+    .replace(/\r\n/g, '\n')
+    .trim();
+
+  if (CONFIG.signatureXmlMode === 'compact') {
+    normalized = normalized.replace(/>\s+</g, '><');
+  }
+
+  return normalized;
+}
+
+function loadPkcs12Material(pfxPath, password) {
+  const resolvedPath = resolveProjectPath(pfxPath);
+
+  if (!resolvedPath || !fs.existsSync(resolvedPath)) {
+    throw new Error(`PFX certificate file not found: ${resolvedPath}`);
+  }
+
+  const pfxBuffer = fs.readFileSync(resolvedPath);
+  const pfxBinary = pfxBuffer.toString('binary');
+
+  const asn1 = forge.asn1.fromDer(pfxBinary);
+  const p12 = forge.pkcs12.pkcs12FromAsn1(asn1, false, password || '');
+
+  let privateKeyPem = null;
+  let publicCertPem = null;
+
+  for (const safeContent of p12.safeContents) {
+    for (const safeBag of safeContent.safeBags) {
+      if (
+        !privateKeyPem &&
+        (safeBag.type === forge.pki.oids.pkcs8ShroudedKeyBag ||
+          safeBag.type === forge.pki.oids.keyBag) &&
+        safeBag.key
+      ) {
+        privateKeyPem = forge.pki.privateKeyToPem(safeBag.key);
+      }
+
+      if (
+        !publicCertPem &&
+        safeBag.type === forge.pki.oids.certBag &&
+        safeBag.cert
+      ) {
+        publicCertPem = forge.pki.certificateToPem(safeBag.cert);
+      }
+    }
+  }
+
+  return {
+    privateKeyPem,
+    publicCertPem,
+  };
+}
+
+function loadPrivateKeyFromPfx(pfxPath, password) {
+  const material = loadPkcs12Material(pfxPath, password);
+
+  if (!material.privateKeyPem) {
+    throw new Error(`Private key not found inside PFX: ${pfxPath}`);
+  }
+
+  return material.privateKeyPem;
+}
+
+function loadPublicCertificate(certOrPfxPath, password) {
+  const resolvedPath = resolveProjectPath(certOrPfxPath);
+
+  if (!resolvedPath || !fs.existsSync(resolvedPath)) {
+    throw new Error(`Public certificate file not found: ${resolvedPath}`);
+  }
+
+  const extension = path.extname(resolvedPath).toLowerCase();
+
+  if (extension === '.pfx' || extension === '.p12') {
+    const material = loadPkcs12Material(resolvedPath, password);
+
+    if (!material.publicCertPem) {
+      throw new Error(`Public certificate not found inside PFX: ${certOrPfxPath}`);
+    }
+
+    return material.publicCertPem;
+  }
+
+  const certBuffer = fs.readFileSync(resolvedPath);
+  const certText = certBuffer.toString('utf8');
+
+  if (certText.includes('-----BEGIN CERTIFICATE-----')) {
+    return certText;
+  }
+
+  const certBinary = certBuffer.toString('binary');
+  const asn1 = forge.asn1.fromDer(certBinary);
+  const cert = forge.pki.certificateFromAsn1(asn1);
+
+  return forge.pki.certificateToPem(cert);
+}
+
+function createSignatureWithPrivatePfx(contentXml, privatePfxPath, password) {
+  const privateKeyPem = loadPrivateKeyFromPfx(privatePfxPath, password);
+  const contentToSign = normalizeXmlForSignature(contentXml);
+
+  const signer = crypto.createSign('RSA-SHA1');
+  signer.update(contentToSign, 'utf8');
+  signer.end();
+
+  return signer.sign(privateKeyPem, 'base64');
+}
+
+function verifySignatureWithPublicCert(
+  contentXml,
+  signatureBase64,
+  publicCertPath,
+  publicCertPassword,
+) {
+  if (!signatureBase64) {
+    return false;
+  }
+
+  if (CONFIG.allowMockSignature && signatureBase64 === 'MOCK_SIGNATURE') {
+    return true;
+  }
+
+  const publicCertPem = loadPublicCertificate(publicCertPath, publicCertPassword);
+  const contentToVerify = normalizeXmlForSignature(contentXml);
+
+  const verifier = crypto.createVerify('RSA-SHA1');
+  verifier.update(contentToVerify, 'utf8');
+  verifier.end();
+
+  return verifier.verify(publicCertPem, signatureBase64, 'base64');
+}
+
+function signAsMockTira(contentXml) {
+  return createSignatureWithPrivatePfx(
+    contentXml,
+    CONFIG.tiraPrivatePfxPath,
+    CONFIG.tiraPrivatePfxPassword,
+  );
+}
+
+function verifyClientRequestSignature(fullXml) {
+  if (!CONFIG.verifyIncomingSignature) {
+    return {
+      ok: true,
+      skipped: true,
+    };
+  }
+
+  const contentXml = extractContentXml(fullXml);
+  const signatureBase64 = extractSignature(fullXml);
+
+  if (!signatureBase64) {
+    return {
+      ok: false,
+      code: 'TIRA016',
+      desc: 'Missing MsgSignature',
+    };
+  }
+
+  try {
+    const valid = verifySignatureWithPublicCert(
+      contentXml,
+      signatureBase64,
+      CONFIG.clientPublicCertPath,
+      CONFIG.clientPublicCertPassword,
+    );
+
+    if (!valid) {
+      return {
+        ok: false,
+        code: 'TIRA016',
+        desc: RESPONSE_CODES.TIRA016,
+      };
+    }
+
+    return {
+      ok: true,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      code: 'TIRA015',
+      desc: `${RESPONSE_CODES.TIRA015}: ${error.message}`,
+    };
+  }
+}
+
+function buildTiraMessage(contentXml) {
+  let signature = 'MOCK_SIGNATURE';
+
+  if (CONFIG.signResponses) {
+    signature = signAsMockTira(contentXml);
+  }
 
   return `
 <TiraMsg>
-  <${ackRoot}>
-    <AcknowledgementId>ACK-${Date.now()}</AcknowledgementId>
-    <RequestId>${requestId}</RequestId>
-    <AcknowledgementStatusCode>TIRA001</AcknowledgementStatusCode>
-    <AcknowledgementStatusDesc>Successful</AcknowledgementStatusDesc>
-  </${ackRoot}>
-  <MsgSignature>MOCK_SIGNATURE</MsgSignature>
+${contentXml}
+<MsgSignature>${signature}</MsgSignature>
 </TiraMsg>
 `.trim();
 }
 
-function buildFinalResponseXml(root, requestId) {
-  const responseRoot = RESPONSE_ROOTS[root];
+function validateHeaders(req) {
+  const contentType = req.header('Content-Type') || '';
+  const clientCode = req.header('ClientCode');
+  const clientKey = req.header('ClientKey');
+
+  if (!contentType.toLowerCase().includes('xml')) {
+    return {
+      ok: false,
+      code: 'TIRA005',
+      desc: 'Content-Type must be application/xml',
+    };
+  }
+
+  if (!clientCode || !clientKey) {
+    return {
+      ok: false,
+      code: 'TIRA008',
+      desc: RESPONSE_CODES.TIRA008,
+    };
+  }
+
+  if (CONFIG.clientCode && clientCode !== CONFIG.clientCode) {
+    return {
+      ok: false,
+      code: 'TIRA009',
+      desc: RESPONSE_CODES.TIRA009,
+    };
+  }
+
+  if (CONFIG.clientKey && clientKey !== CONFIG.clientKey) {
+    return {
+      ok: false,
+      code: 'TIRA003',
+      desc: RESPONSE_CODES.TIRA003,
+    };
+  }
+
+  return {
+    ok: true,
+  };
+}
+
+function buildAcknowledgementContent(root, requestId, code, desc) {
+  const ackRoot = ACK_ROOTS[root] || 'UnknownReqAck';
+
+  return `
+<${ackRoot}>
+  <AcknowledgementId>${escapeXml(makeId('ACK'))}</AcknowledgementId>
+  <RequestId>${escapeXml(requestId)}</RequestId>
+  <AcknowledgementStatusCode>${escapeXml(code)}</AcknowledgementStatusCode>
+  <AcknowledgementStatusDesc>${escapeXml(desc)}</AcknowledgementStatusDesc>
+</${ackRoot}>
+`.trim();
+}
+
+function buildAsyncFinalResponseContent(root, requestId, code, desc) {
+  const responseRoot = ASYNC_RESPONSE_ROOTS[root];
 
   if (!responseRoot) {
     return null;
@@ -81,80 +446,387 @@ function buildFinalResponseXml(root, requestId) {
 
   if (responseRoot === 'CoverNoteRefRes') {
     extra = `
-    <CoverNoteReferenceNumber>TIRA-CN-${Date.now()}</CoverNoteReferenceNumber>
-`;
+  <CoverNoteReferenceNumber>TIRA-CN-${Date.now()}</CoverNoteReferenceNumber>`;
   }
 
   if (responseRoot === 'MotorCoverNoteRefRes') {
     extra = `
-    <CoverNoteReferenceNumber>TIRA-MCN-${Date.now()}</CoverNoteReferenceNumber>
-    <StickerNumber>STK-${Date.now()}</StickerNumber>
-`;
+  <CoverNoteReferenceNumber>TIRA-MCN-${Date.now()}</CoverNoteReferenceNumber>
+  <StickerNumber>STK-${Date.now()}</StickerNumber>`;
+  }
+
+  if (responseRoot === 'ReinsuranceRes') {
+    extra = `
+  <ReinsuranceReferenceNumber>TIRA-RI-${Date.now()}</ReinsuranceReferenceNumber>`;
+  }
+
+  if (responseRoot === 'PolicyRes') {
+    extra = `
+  <PolicyReferenceNumber>TIRA-POL-${Date.now()}</PolicyReferenceNumber>`;
+  }
+
+  if (responseRoot === 'ClaimNotificationRefRes') {
+    extra = `
+  <ClaimReferenceNumber>TIRA-CLM-${Date.now()}</ClaimReferenceNumber>`;
   }
 
   return `
-<TiraMsg>
-  <${responseRoot}>
-    <ResponseId>RES-${Date.now()}</ResponseId>
-    <RequestId>${requestId}</RequestId>
-    ${extra}
-    <ResponseStatusCode>TIRA001</ResponseStatusCode>
-    <ResponseStatusDesc>Successful</ResponseStatusDesc>
-  </${responseRoot}>
-  <MsgSignature>MOCK_SIGNATURE</MsgSignature>
-</TiraMsg>
+<${responseRoot}>
+  <ResponseId>${escapeXml(makeId('RES'))}</ResponseId>
+  <RequestId>${escapeXml(requestId)}</RequestId>${extra}
+  <ResponseStatusCode>${escapeXml(code)}</ResponseStatusCode>
+  <ResponseStatusDesc>${escapeXml(desc)}</ResponseStatusDesc>
+</${responseRoot}>
 `.trim();
 }
 
-async function sendCallback(callbackUrl, finalResponseXml) {
-  if (!callbackUrl || !finalResponseXml) {
-    return;
+function buildSyncResponseContent(root, requestId, code, desc, requestXml) {
+  const responseRoot = SYNC_RESPONSE_ROOTS[root] || 'UnknownVerificationRes';
+
+  let extra = '';
+
+  if (responseRoot === 'CoverNoteVerificationRes') {
+    extra = `
+  <CoverNoteReferenceNumber>${escapeXml(
+    getTag(requestXml, 'CoverNoteReferenceNumber') || `TIRA-CN-${Date.now()}`,
+  )}</CoverNoteReferenceNumber>
+  <CoverNoteNumber>${escapeXml(
+    getTag(requestXml, 'CoverNoteNumber') || `CN-${Date.now()}`,
+  )}</CoverNoteNumber>
+  <VerificationStatus>VERIFIED</VerificationStatus>`;
   }
 
-  try {
-    const response = await fetch(callbackUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/xml',
-      },
-      body: finalResponseXml,
-    });
-
-    const responseText = await response.text();
-
-    console.log('\nCallback sent successfully');
-    console.log('Callback URL:', callbackUrl);
-    console.log('Status:', response.status);
-    console.log('Acknowledgement from your app:\n', responseText);
-  } catch (error) {
-    console.error('\nFailed to send callback');
-    console.error(error.message);
+  if (responseRoot === 'NINVerificationRes') {
+    extra = `
+  <NIN>${escapeXml(
+    getTag(requestXml, 'NIN') ||
+      getTag(requestXml, 'NationalIdNumber') ||
+      '19900101123456789000',
+  )}</NIN>
+  <FirstName>MOCK</FirstName>
+  <MiddleName>TIRA</MiddleName>
+  <LastName>CLIENT</LastName>
+  <VerificationStatus>VERIFIED</VerificationStatus>`;
   }
+
+  if (responseRoot === 'CompanyVerificationRes') {
+    extra = `
+  <CompanyName>MOCK COMPANY LIMITED</CompanyName>
+  <TIN>${escapeXml(getTag(requestXml, 'TIN') || '100000000')}</TIN>
+  <VerificationStatus>VERIFIED</VerificationStatus>`;
+  }
+
+  if (
+    responseRoot === 'MotorVerificationRes' ||
+    responseRoot === 'DetailsVerificationRes'
+  ) {
+    extra = `
+  <RegistrationNumber>${escapeXml(
+    getTag(requestXml, 'RegistrationNumber') ||
+      getTag(requestXml, 'RegNo') ||
+      'T123ABC',
+  )}</RegistrationNumber>
+  <ChassisNumber>${escapeXml(
+    getTag(requestXml, 'ChassisNumber') || 'MOCKCHASSIS123456',
+  )}</ChassisNumber>
+  <Make>${escapeXml(getTag(requestXml, 'Make') || 'TOYOTA')}</Make>
+  <Model>${escapeXml(getTag(requestXml, 'Model') || 'IST')}</Model>
+  <MotorDescription>Mock motor details verified successfully</MotorDescription>
+  <VerificationStatus>VERIFIED</VerificationStatus>`;
+  }
+
+  return `
+<${responseRoot}>
+  <ResponseId>${escapeXml(makeId('RES'))}</ResponseId>
+  <RequestId>${escapeXml(requestId)}</RequestId>${extra}
+  <ResponseStatusCode>${escapeXml(code)}</ResponseStatusCode>
+  <ResponseStatusDesc>${escapeXml(desc)}</ResponseStatusDesc>
+</${responseRoot}>
+`.trim();
+}
+
+async function sendCallbackWithRetry(callbackUrl, finalResponseXml) {
+  for (let attempt = 1; attempt <= CONFIG.callbackRetries; attempt++) {
+    try {
+      const response = await fetch(callbackUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/xml',
+        },
+        body: finalResponseXml,
+      });
+
+      const responseText = await response.text();
+
+      console.log('\nCallback sent');
+      console.log('Attempt:', attempt);
+      console.log('URL:', callbackUrl);
+      console.log('HTTP Status:', response.status);
+      console.log('Client acknowledgement:\n', responseText);
+
+      if (response.ok) {
+        return true;
+      }
+    } catch (error) {
+      console.error('\nCallback failed');
+      console.error('Attempt:', attempt);
+      console.error('Error:', error.message);
+    }
+
+    if (attempt < CONFIG.callbackRetries) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, CONFIG.callbackRetryDelayMs),
+      );
+    }
+  }
+
+  return false;
+}
+
+function buildFailureReply(root, requestId, code, desc, originalXml) {
+  if (SYNC_RESPONSE_ROOTS[root]) {
+    return buildSyncResponseContent(root, requestId, code, desc, originalXml);
+  }
+
+  return buildAcknowledgementContent(root, requestId, code, desc);
 }
 
 app.post('/tiramis/mock', async (req, res) => {
-  const xml = req.body;
+  const xml = req.body || '';
 
   const root = getRoot(xml);
   const requestId = getTag(xml, 'RequestId') || `REQ-${Date.now()}`;
   const callbackUrl = getTag(xml, 'CallBackUrl');
 
   console.log('\nReceived TIRAMIS request');
-  console.log('Root:', root);
+  console.log('Root:', root || 'UNKNOWN');
   console.log('RequestId:', requestId);
-  console.log('CallbackUrl:', callbackUrl);
-
-  const ackXml = buildAcknowledgementXml(root, requestId);
+  console.log('CallbackUrl:', callbackUrl || 'N/A');
 
   res.set('Content-Type', 'application/xml');
+
+  if (!root) {
+    const content = buildAcknowledgementContent(
+      'UnknownReq',
+      requestId,
+      'TIRA005',
+      RESPONSE_CODES.TIRA005,
+    );
+
+    return res.status(200).send(buildTiraMessage(content));
+  }
+
+  const headerValidation = validateHeaders(req);
+
+  if (!headerValidation.ok) {
+    const content = buildFailureReply(
+      root,
+      requestId,
+      headerValidation.code,
+      headerValidation.desc,
+      xml,
+    );
+
+    return res.status(200).send(buildTiraMessage(content));
+  }
+
+  const signatureValidation = verifyClientRequestSignature(xml);
+
+  if (!signatureValidation.ok) {
+    const content = buildFailureReply(
+      root,
+      requestId,
+      signatureValidation.code,
+      signatureValidation.desc,
+      xml,
+    );
+
+    return res.status(200).send(buildTiraMessage(content));
+  }
+
+  if (SYNC_RESPONSE_ROOTS[root]) {
+    const content = buildSyncResponseContent(
+      root,
+      requestId,
+      'TIRA001',
+      RESPONSE_CODES.TIRA001,
+      xml,
+    );
+
+    return res.status(200).send(buildTiraMessage(content));
+  }
+
+  if (!ASYNC_RESPONSE_ROOTS[root]) {
+    const content = buildAcknowledgementContent(
+      root,
+      requestId,
+      'TIRA005',
+      `Unsupported request root: ${root}`,
+    );
+
+    return res.status(200).send(buildTiraMessage(content));
+  }
+
+  if (!callbackUrl) {
+    const content = buildAcknowledgementContent(
+      root,
+      requestId,
+      'TIRA017',
+      RESPONSE_CODES.TIRA017,
+    );
+
+    return res.status(200).send(buildTiraMessage(content));
+  }
+
+  const ackContent = buildAcknowledgementContent(
+    root,
+    requestId,
+    'TIRA001',
+    RESPONSE_CODES.TIRA001,
+  );
+
+  const ackXml = buildTiraMessage(ackContent);
+
   res.status(200).send(ackXml);
 
-  const finalResponseXml = buildFinalResponseXml(root, requestId);
+  const finalContent = buildAsyncFinalResponseContent(
+    root,
+    requestId,
+    'TIRA001',
+    RESPONSE_CODES.TIRA001,
+  );
 
-  if (finalResponseXml && callbackUrl) {
-    setTimeout(() => {
-      sendCallback(callbackUrl, finalResponseXml);
-    }, 3000);
+  const finalResponseXml = buildTiraMessage(finalContent);
+
+  setTimeout(() => {
+    sendCallbackWithRetry(callbackUrl, finalResponseXml);
+  }, CONFIG.callbackDelayMs);
+});
+
+app.post('/tiramis/tools/sign-as-client', (req, res) => {
+  try {
+    const clientPrivatePfxPath =
+      process.env.CLIENT_PRIVATE_PFX_PATH ||
+      './certs/client/tiramisclientprivate.pfx';
+
+    const clientPrivatePfxPassword =
+      process.env.CLIENT_PRIVATE_PFX_PASSWORD ||
+      process.env.CLIENT_PFX_PASSWORD ||
+      'password';
+
+    const inputXml = req.body || '';
+    const contentXml = inputXml.includes('<TiraMsg')
+      ? extractContentXml(inputXml)
+      : inputXml.trim();
+
+    const signature = createSignatureWithPrivatePfx(
+      contentXml,
+      clientPrivatePfxPath,
+      clientPrivatePfxPassword,
+    );
+
+    const signedXml = `
+<TiraMsg>
+${contentXml}
+<MsgSignature>${signature}</MsgSignature>
+</TiraMsg>
+`.trim();
+
+    res.json({
+      success: true,
+      note: 'This is only a local testing helper. In real flow, your application signs using client private certificate.',
+      signature,
+      signedXml,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+app.post('/tiramis/tools/sign-as-tira', (req, res) => {
+  try {
+    const inputXml = req.body || '';
+    const contentXml = inputXml.includes('<TiraMsg')
+      ? extractContentXml(inputXml)
+      : inputXml.trim();
+
+    const signature = signAsMockTira(contentXml);
+
+    const signedXml = `
+<TiraMsg>
+${contentXml}
+<MsgSignature>${signature}</MsgSignature>
+</TiraMsg>
+`.trim();
+
+    res.json({
+      success: true,
+      note: 'Mock TIRA signed this payload using TIRA private PFX.',
+      signature,
+      signedXml,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+});
+
+app.post('/tiramis/tools/verify-client-signature', (req, res) => {
+  try {
+    const inputXml = req.body || '';
+    const contentXml = extractContentXml(inputXml);
+    const signature = extractSignature(inputXml);
+
+    const valid = verifySignatureWithPublicCert(
+      contentXml,
+      signature,
+      CONFIG.clientPublicCertPath,
+      CONFIG.clientPublicCertPassword,
+    );
+
+    res.json({
+      success: true,
+      valid,
+      note: 'Verified using client public certificate.',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      valid: false,
+      error: error.message,
+    });
+  }
+});
+
+app.post('/tiramis/tools/verify-tira-signature', (req, res) => {
+  try {
+    const inputXml = req.body || '';
+    const contentXml = extractContentXml(inputXml);
+    const signature = extractSignature(inputXml);
+
+    const valid = verifySignatureWithPublicCert(
+      contentXml,
+      signature,
+      CONFIG.tiraPublicCertPath,
+      CONFIG.tiraPrivatePfxPassword,
+    );
+
+    res.json({
+      success: true,
+      valid,
+      note: 'Verified using TIRA public certificate.',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      valid: false,
+      error: error.message,
+    });
   }
 });
 
@@ -163,6 +835,32 @@ app.get('/health', (req, res) => {
     status: 'ok',
     service: 'mock-tira',
     port: PORT,
+    endpoint: `http://localhost:${PORT}/tiramis/mock`,
+    verifyIncomingSignature: CONFIG.verifyIncomingSignature,
+    signResponses: CONFIG.signResponses,
+    signatureXmlMode: CONFIG.signatureXmlMode,
+  });
+});
+
+app.get('/config-health', (req, res) => {
+  res.json({
+    status: 'ok',
+    clientCodeConfigured: Boolean(CONFIG.clientCode),
+    clientKeyConfigured: Boolean(CONFIG.clientKey),
+
+    clientPublicCertPath: CONFIG.clientPublicCertPath,
+    clientPublicCertExists: fileExists(CONFIG.clientPublicCertPath),
+
+    tiraPrivatePfxPath: CONFIG.tiraPrivatePfxPath,
+    tiraPrivatePfxExists: fileExists(CONFIG.tiraPrivatePfxPath),
+
+    tiraPublicCertPath: CONFIG.tiraPublicCertPath,
+    tiraPublicCertExists: fileExists(CONFIG.tiraPublicCertPath),
+
+    verifyIncomingSignature: CONFIG.verifyIncomingSignature,
+    signResponses: CONFIG.signResponses,
+    allowMockSignature: CONFIG.allowMockSignature,
+    signatureXmlMode: CONFIG.signatureXmlMode,
   });
 });
 
