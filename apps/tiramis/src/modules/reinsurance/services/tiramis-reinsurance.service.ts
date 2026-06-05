@@ -70,8 +70,7 @@ export class TiramisReinsuranceService {
       })) as any,
     });
 
-    const savedReinsurance =
-      await this.reinsuranceRepository.save(reinsurance);
+    const savedReinsurance = await this.reinsuranceRepository.save(reinsurance);
 
     return {
       transaction,
@@ -98,8 +97,8 @@ export class TiramisReinsuranceService {
 
     const signature = this.signatureService.signXmlContent({
       contentXml,
-      privateKeyPfxPath: pfxPaths.privateKeyPfxPath!,
-      privateKeyPfxPassword: pfxPaths.privateKeyPfxPassword,
+      privateKeyPfxPath: pfxPaths.clientPrivateCertificatePath!,
+      privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
     });
 
     const requestXml = this.xmlBuilder.buildSignedTiraMessage({

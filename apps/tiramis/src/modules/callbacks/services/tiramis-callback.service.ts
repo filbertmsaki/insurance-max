@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -127,7 +123,12 @@ export class TiramisCallbackService {
       'ResponseStatusDesc',
     );
 
-    if (!requestId || !responseId || !responseStatusCode || !responseStatusDesc) {
+    if (
+      !requestId ||
+      !responseId ||
+      !responseStatusCode ||
+      !responseStatusDesc
+    ) {
       throw new BadRequestException(
         'Invalid TIRAMIS callback payload: RequestId, ResponseId, ResponseStatusCode, and ResponseStatusDesc are required',
       );
@@ -222,11 +223,11 @@ export class TiramisCallbackService {
       params.environment,
     );
 
-    const signature = pfxPaths.privateKeyPfxPath
+    const signature = pfxPaths.clientPrivateCertificatePath
       ? this.signatureService.signXmlContent({
           contentXml,
-          privateKeyPfxPath: pfxPaths.privateKeyPfxPath,
-          privateKeyPfxPassword: pfxPaths.privateKeyPfxPassword,
+          privateKeyPfxPath: pfxPaths.clientPrivateCertificatePath,
+          privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
         })
       : '';
 

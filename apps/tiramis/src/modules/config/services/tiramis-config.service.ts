@@ -147,24 +147,21 @@ export class TiramisConfigService {
   }
 
   async getPfxPaths(environment: string): Promise<{
-    privateKeyPfxPath?: string | null;
-    privateKeyPfxPassword?: string | null;
-    publicCertificatePfxPath?: string | null;
-    publicCertificatePfxPassword?: string | null;
-    tiraPublicCertificatePfxPath?: string | null;
-    tiraPublicCertificatePfxPassword?: string | null;
+    clientPrivateCertificatePath?: string | null;
+    clientPrivateCertificatePassword?: string | null;
+    tiraPublicCertificatePath?: string | null;
+    tiraPublicCertificatePassword?: string | null;
     signatureAlgorithm?: string | null;
   }> {
     const configuration = await this.getActiveConfiguration(environment);
 
     return {
-      privateKeyPfxPath: configuration.privateKeyPfxPath,
-      privateKeyPfxPassword: configuration.privateKeyPfxPassword,
-      publicCertificatePfxPath: configuration.publicCertificatePfxPath,
-      publicCertificatePfxPassword: configuration.publicCertificatePfxPassword,
-      tiraPublicCertificatePfxPath: configuration.tiraPublicCertificatePfxPath,
-      tiraPublicCertificatePfxPassword:
-        configuration.tiraPublicCertificatePfxPassword,
+      clientPrivateCertificatePath: configuration.clientPrivateCertificatePath,
+      clientPrivateCertificatePassword:
+        configuration.clientPrivateCertificatePassword,
+      tiraPublicCertificatePath: configuration.tiraPublicCertificatePath,
+      tiraPublicCertificatePassword:
+        configuration.tiraPublicCertificatePassword,
       signatureAlgorithm: configuration.signatureAlgorithm,
     };
   }

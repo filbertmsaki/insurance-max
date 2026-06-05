@@ -56,8 +56,7 @@ export class TiramisVerificationService {
     return this.createAndSubmit({
       dto,
       verificationType: TIRAMIS_VERIFICATION_TYPE.COVER_NOTE,
-      serviceType:
-        TIRAMIS_VERIFICATION_SERVICE_TYPE.COVER_NOTE_VERIFICATION,
+      serviceType: TIRAMIS_VERIFICATION_SERVICE_TYPE.COVER_NOTE_VERIFICATION,
       rootElement: TIRAMIS_VERIFICATION_ROOT_ELEMENT.COVER_NOTE,
       businessReference:
         dto.coverNoteReferenceNumber ||
@@ -96,8 +95,7 @@ export class TiramisVerificationService {
     return this.createAndSubmit({
       dto,
       verificationType: TIRAMIS_VERIFICATION_TYPE.COMPANY,
-      serviceType:
-        TIRAMIS_VERIFICATION_SERVICE_TYPE.COMPANY_VERIFICATION,
+      serviceType: TIRAMIS_VERIFICATION_SERVICE_TYPE.COMPANY_VERIFICATION,
       rootElement: TIRAMIS_VERIFICATION_ROOT_ELEMENT.COMPANY,
       businessReference: dto.incorporationCertificateNumber,
       buildPayload: (requestId) =>
@@ -115,8 +113,7 @@ export class TiramisVerificationService {
     return this.createAndSubmit({
       dto,
       verificationType: TIRAMIS_VERIFICATION_TYPE.MOTOR,
-      serviceType:
-        TIRAMIS_VERIFICATION_SERVICE_TYPE.MOTOR_VERIFICATION,
+      serviceType: TIRAMIS_VERIFICATION_SERVICE_TYPE.MOTOR_VERIFICATION,
       rootElement: TIRAMIS_VERIFICATION_ROOT_ELEMENT.MOTOR,
       businessReference:
         dto.motorRegistrationNumber ||
@@ -142,8 +139,7 @@ export class TiramisVerificationService {
     return this.createAndSubmit({
       dto,
       verificationType: TIRAMIS_VERIFICATION_TYPE.DETAILS,
-      serviceType:
-        TIRAMIS_VERIFICATION_SERVICE_TYPE.DETAILS_VERIFICATION,
+      serviceType: TIRAMIS_VERIFICATION_SERVICE_TYPE.DETAILS_VERIFICATION,
       rootElement: TIRAMIS_VERIFICATION_ROOT_ELEMENT.DETAILS,
       businessReference:
         dto.motorRegistrationNumber ||
@@ -198,8 +194,8 @@ export class TiramisVerificationService {
 
     const signature = this.signatureService.signXmlContent({
       contentXml,
-      privateKeyPfxPath: pfxPaths.privateKeyPfxPath!,
-      privateKeyPfxPassword: pfxPaths.privateKeyPfxPassword,
+      privateKeyPfxPath: pfxPaths.clientPrivateCertificatePath!,
+      privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
     });
 
     const requestXml = this.xmlBuilder.buildSignedTiraMessage({

@@ -49,8 +49,7 @@ export class TiramisCoverNoteService {
       tranCompanyCode: dto.tranCompanyCode || null,
       coverNoteType: dto.coverNoteType,
       coverNoteNumber: dto.coverNoteNumber,
-      prevCoverNoteReferenceNumber:
-        dto.prevCoverNoteReferenceNumber || null,
+      prevCoverNoteReferenceNumber: dto.prevCoverNoteReferenceNumber || null,
       salePointCode: dto.salePointCode,
       coverNoteStartDate: new Date(dto.coverNoteStartDate),
       coverNoteEndDate: new Date(dto.coverNoteEndDate),
@@ -160,8 +159,8 @@ export class TiramisCoverNoteService {
 
     const signature = this.signatureService.signXmlContent({
       contentXml,
-      privateKeyPfxPath: pfxPaths.privateKeyPfxPath!,
-      privateKeyPfxPassword: pfxPaths.privateKeyPfxPassword,
+      privateKeyPfxPath: pfxPaths.clientPrivateCertificatePath!,
+      privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
     });
 
     const requestXml = this.xmlBuilder.buildSignedTiraMessage({

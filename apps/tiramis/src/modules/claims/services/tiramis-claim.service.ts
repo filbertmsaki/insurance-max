@@ -172,8 +172,8 @@ export class TiramisClaimService {
 
     const signature = this.signatureService.signXmlContent({
       contentXml,
-      privateKeyPfxPath: pfxPaths.privateKeyPfxPath!,
-      privateKeyPfxPassword: pfxPaths.privateKeyPfxPassword,
+      privateKeyPfxPath: pfxPaths.clientPrivateCertificatePath!,
+      privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
     });
 
     const requestXml = this.xmlBuilder.buildSignedTiraMessage({

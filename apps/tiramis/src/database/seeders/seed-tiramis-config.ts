@@ -1,5 +1,7 @@
 import 'reflect-metadata';
 
+import { join } from 'path';
+
 import dataSource from '../data-source';
 
 import { TiramisClientConfigurationEntity } from '../../modules/config/entities/tiramis-client-configuration.entity';
@@ -14,19 +16,34 @@ type ConfigurationSeed = {
   systemCode: string;
   clientCode: string;
   clientKey: string;
-  privateKeyPfxPassword: string;
-  publicCertificatePfxPassword: string;
+  clientPrivateCertificatePassword: string;
+  tiraPublicCertificatePassword: string;
   insurerCompanyCode: string;
   salePointCode: string;
   tranCompanyCode: string;
   baseUrl: string;
   callbackBaseUrl: string;
-  privateKeyPfxPath?: string | null;
-  publicCertificatePfxPath?: string | null;
-  tiraPublicCertificatePfxPath?: string | null;
-  tiraPublicCertificatePfxPassword?: string | null;
+  clientPrivateCertificatePath?: string | null;
+  tiraPublicCertificatePath?: string | null;
   signatureAlgorithm: string;
 };
+
+const certificateRootPath = join(
+  process.cwd(),
+  'apps',
+  'tiramis',
+  'src',
+  'assets',
+  'certificaties',
+);
+
+function getClientPrivateCertificatePath(environment: EnvironmentName): string {
+  return join(certificateRootPath, environment, 'clientprivate.pfx');
+}
+
+function getTiraPublicCertificatePath(environment: EnvironmentName): string {
+  return join(certificateRootPath, environment, 'tiramispublic.pfx');
+}
 
 const configurations: ConfigurationSeed[] = [
   {
@@ -35,20 +52,15 @@ const configurations: ConfigurationSeed[] = [
     systemCode: 'LSYS_ALLIANCE_003',
     clientCode: 'ICC110',
     clientKey: 'RydLDE8CFJ',
-    privateKeyPfxPassword: 'Alli@ncTir@2025!',
-    publicCertificatePfxPassword: 'TiraClient@2021',
+    clientPrivateCertificatePassword: 'Alli@ncTir@2025!',
+    tiraPublicCertificatePassword: 'TiraClient@2021',
     insurerCompanyCode: 'ICC110',
     salePointCode: 'SP500',
     tranCompanyCode: 'ICC110',
     baseUrl: 'https://api.tira.go.tz:8091',
     callbackBaseUrl: 'https://ussdvd.alliance.co.tz/api/v1/tira-callback',
-    privateKeyPfxPath: process.env.TIRAMIS_LIVE_PRIVATE_PFX_PATH || null,
-    publicCertificatePfxPath:
-      process.env.TIRAMIS_LIVE_PUBLIC_PFX_PATH || null,
-    tiraPublicCertificatePfxPath:
-      process.env.TIRAMIS_LIVE_TIRA_PUBLIC_PFX_PATH || null,
-    tiraPublicCertificatePfxPassword:
-      process.env.TIRAMIS_LIVE_TIRA_PUBLIC_PFX_PASSWORD || null,
+    clientPrivateCertificatePath: getClientPrivateCertificatePath('live'),
+    tiraPublicCertificatePath: getTiraPublicCertificatePath('live'),
     signatureAlgorithm: 'sha1WithRSAEncryption',
   },
   {
@@ -57,8 +69,8 @@ const configurations: ConfigurationSeed[] = [
     systemCode: 'LSYS_ALLIANCE_003',
     clientCode: 'ICC110',
     clientKey: 'RydLDE8CFJ',
-    privateKeyPfxPassword: 'Alli@ncTir@2025!',
-    publicCertificatePfxPassword: 'TiraClient@2021',
+    clientPrivateCertificatePassword: 'Alli@ncTir@2025!',
+    tiraPublicCertificatePassword: 'TiraClient@2021',
     insurerCompanyCode: 'ICC110',
     salePointCode: 'SP500',
     tranCompanyCode: 'ICC110',
@@ -66,13 +78,8 @@ const configurations: ConfigurationSeed[] = [
     callbackBaseUrl:
       process.env.TIRAMIS_TEST_CALLBACK_URL ||
       'http://localhost:3000/api/tiramis/callbacks/test',
-    privateKeyPfxPath: process.env.TIRAMIS_TEST_PRIVATE_PFX_PATH || null,
-    publicCertificatePfxPath:
-      process.env.TIRAMIS_TEST_PUBLIC_PFX_PATH || null,
-    tiraPublicCertificatePfxPath:
-      process.env.TIRAMIS_TEST_TIRA_PUBLIC_PFX_PATH || null,
-    tiraPublicCertificatePfxPassword:
-      process.env.TIRAMIS_TEST_TIRA_PUBLIC_PFX_PASSWORD || null,
+    clientPrivateCertificatePath: getClientPrivateCertificatePath('test'),
+    tiraPublicCertificatePath: getTiraPublicCertificatePath('test'),
     signatureAlgorithm: 'sha1WithRSAEncryption',
   },
 ];
@@ -197,7 +204,10 @@ const responseCodeSeedEntries: Array<[string, string]> = [
   ['TIRA006', 'Request could not be processed. Try again later'],
   ['TIRA007', 'Requested data could not be found'],
   ['TIRA008', 'Required request header information not provided'],
-  ['TIRA009', 'Request header information mismatch client identification parameters'],
+  [
+    'TIRA009',
+    'Request header information mismatch client identification parameters',
+  ],
   ['TIRA010', 'Server internal communication failure'],
   ['TIRA011', 'Client system configuration not found'],
   ['TIRA012', 'Inactive or disabled Client system configuration'],
@@ -212,7 +222,10 @@ const responseCodeSeedEntries: Array<[string, string]> = [
   ['TIRA021', 'Invalid covernote end date'],
   ['TIRA022', 'Invalid insurance company'],
   ['TIRA023', 'Invalid insurance transaction company'],
-  ['TIRA024', 'Duplicate insurance covernote number or covernote identification number'],
+  [
+    'TIRA024',
+    'Duplicate insurance covernote number or covernote identification number',
+  ],
   ['TIRA025', 'Invalid or inactive insurance transaction sale point'],
   ['TIRA026', 'Invalid or inactive insurance transaction product'],
   ['TIRA027', 'Invalid or inactive insurance transaction currency'],
@@ -243,7 +256,10 @@ const responseCodeSeedEntries: Array<[string, string]> = [
   ['TIRA052', 'Client system not allowed for outbound communication'],
   ['TIRA053', 'Invalid claim notification report date'],
   ['TIRA054', 'Invalid risk covered'],
-  ['TIRA055', 'Invalid premium charged after discount equivalent amount (premium excluding tax equivalent amount)'],
+  [
+    'TIRA055',
+    'Invalid premium charged after discount equivalent amount (premium excluding tax equivalent amount)',
+  ],
   ['TIRA056', 'Duplicate claim notification number'],
   ['TIRA057', 'Invalid claim notification number'],
   ['TIRA058', 'Claimant exists for the specified covernote'],
@@ -278,7 +294,10 @@ const responseCodeSeedEntries: Array<[string, string]> = [
   ['TIRA087', 'Premium discount is not allowed for this type of cover'],
   ['TIRA088', 'Invalid acknowledgement'],
   ['TIRA089', 'Pending transaction waiting for processing'],
-  ['TIRA090', 'Active covernote with specified insurance product exists for this motor'],
+  [
+    'TIRA090',
+    'Active covernote with specified insurance product exists for this motor',
+  ],
   ['TIRA091', 'Invalid risk covered premium after discount value'],
   ['TIRA092', 'Invalid claimant details'],
   ['TIRA093', 'Invalid claim assessment number'],
@@ -292,7 +311,10 @@ const responseCodeSeedEntries: Array<[string, string]> = [
   ['TIRA101', 'Invalid payment mode'],
   ['TIRA102', 'Invalid commission paid'],
   ['TIRA103', 'Invalid commission rate'],
-  ['TIRA104', 'Invalid value identifying if transaction is part of fleet or not'],
+  [
+    'TIRA104',
+    'Invalid value identifying if transaction is part of fleet or not',
+  ],
   ['TIRA105', 'Invalid or duplicate fleet identification number'],
   ['TIRA106', 'Invalid fleet size'],
   ['TIRA107', 'Invalid total comprehensive insured motors value'],
@@ -308,12 +330,21 @@ const responseCodeSeedEntries: Array<[string, string]> = [
   ['TIRA117', 'Invalid insurance addon premium amount'],
   ['TIRA118', 'Invalid insurance addon premium rate'],
   ['TIRA119', 'Invalid insurance addon premium excluding tax amount'],
-  ['TIRA120', 'Invalid insurance addon premium excluding tax equivalent amount'],
+  [
+    'TIRA120',
+    'Invalid insurance addon premium excluding tax equivalent amount',
+  ],
   ['TIRA121', 'Invalid insurance addon premium including tax amount'],
   ['TIRA122', 'Invalid insurance policyholder name'],
-  ['TIRA123', 'Invalid insurance policyholder birth date or company registration date'],
+  [
+    'TIRA123',
+    'Invalid insurance policyholder birth date or company registration date',
+  ],
   ['TIRA124', 'Invalid insurance policyholder type'],
-  ['TIRA125', 'Invalid identity number or company incorporation certificate number'],
+  [
+    'TIRA125',
+    'Invalid identity number or company incorporation certificate number',
+  ],
   ['TIRA126', 'Invalid identity type'],
   ['TIRA127', 'Invalid gender'],
   ['TIRA128', 'Invalid country or country code'],
@@ -395,9 +426,15 @@ const responseCodeSeedEntries: Array<[string, string]> = [
   ['TIRA204', 'Invalid claim discharge voucher offer reconciliation amount'],
   ['TIRA205', 'Invalid value identifying if offer was accepted or not'],
   ['TIRA206', 'Invalid claim payment number'],
-  ['TIRA207', 'Invalid value identifying if claim parties were notified about claim payment or not'],
+  [
+    'TIRA207',
+    'Invalid value identifying if claim parties were notified about claim payment or not',
+  ],
   ['TIRA208', 'Invalid claim net premium earned'],
-  ['TIRA209', 'Invalid value identifying if claim resulted into litigation or not'],
+  [
+    'TIRA209',
+    'Invalid value identifying if claim resulted into litigation or not',
+  ],
   ['TIRA210', 'Invalid claim rejection number'],
   ['TIRA211', 'Invalid claim rejection reason'],
   ['TIRA212', 'Invalid endorsement type'],
@@ -453,17 +490,14 @@ async function seedClientConfigurations() {
     configuration.tranCompanyCode = configurationSeed.tranCompanyCode;
     configuration.baseUrl = configurationSeed.baseUrl;
     configuration.callbackBaseUrl = configurationSeed.callbackBaseUrl;
-    configuration.privateKeyPfxPath = configurationSeed.privateKeyPfxPath;
-    configuration.privateKeyPfxPassword =
-      configurationSeed.privateKeyPfxPassword;
-    configuration.publicCertificatePfxPath =
-      configurationSeed.publicCertificatePfxPath;
-    configuration.publicCertificatePfxPassword =
-      configurationSeed.publicCertificatePfxPassword;
-    configuration.tiraPublicCertificatePfxPath =
-      configurationSeed.tiraPublicCertificatePfxPath;
-    configuration.tiraPublicCertificatePfxPassword =
-      configurationSeed.tiraPublicCertificatePfxPassword;
+    configuration.clientPrivateCertificatePath =
+      configurationSeed.clientPrivateCertificatePath;
+    configuration.clientPrivateCertificatePassword =
+      configurationSeed.clientPrivateCertificatePassword;
+    configuration.tiraPublicCertificatePath =
+      configurationSeed.tiraPublicCertificatePath;
+    configuration.tiraPublicCertificatePassword =
+      configurationSeed.tiraPublicCertificatePassword;
     configuration.signatureAlgorithm = configurationSeed.signatureAlgorithm;
     configuration.isActive = 1;
 
