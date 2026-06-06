@@ -5,6 +5,7 @@ import { TiramisCoverNoteRepository } from '../../cover-notes/repositories/tiram
 import { TiramisHttpClientService } from '../../messaging/services/tiramis-http-client.service';
 import { TiramisSignatureService } from '../../messaging/services/tiramis-signature.service';
 import { TiramisXmlBuilderService } from '../../messaging/services/tiramis-xml-builder.service';
+import { TiramisXmlParserService } from '../../messaging/services/tiramis-xml-parser.service';
 import { TiramisRequestIdService } from '../../submissions/services/tiramis-request-id.service';
 import { TiramisSubmissionService } from '../../submissions/services/tiramis-submission.service';
 import { CreateMotorCoverNoteDto } from '../dto/create-motor-cover-note.dto';
@@ -23,6 +24,7 @@ export class TiramisMotorService {
     private readonly tiramisRequestIdService: TiramisRequestIdService,
     private readonly tiramisSubmissionService: TiramisSubmissionService,
     private readonly xmlBuilder: TiramisXmlBuilderService,
+    private readonly xmlParser: TiramisXmlParserService,
     private readonly signatureService: TiramisSignatureService,
     private readonly httpClient: TiramisHttpClientService,
   ) {}
@@ -212,9 +214,29 @@ export class TiramisMotorService {
       headers,
     });
 
+    const acknowledgementStatusCode =
+      this.xmlParser.getStatusCode(response.rawXml) || 'UNKNOWN';
+    const acknowledgementStatusDesc =
+      this.xmlParser.getStatusDesc(response.rawXml) || undefined;
+    const acknowledgementId =
+      this.xmlParser.getAcknowledgementId(response.rawXml) || undefined;
+    const isAcknowledgementSuccess =
+      await this.tiramisConfigService.isSuccessResponse(
+        acknowledgementStatusCode,
+      );
+    const acknowledgedAttempt =
+      await this.tiramisSubmissionService.markAcknowledgementReceived({
+        requestId: coverNote.requestId,
+        acknowledgementId,
+        statusCode: acknowledgementStatusCode,
+        statusDesc: acknowledgementStatusDesc,
+        rawXml: response.rawXml,
+        isSuccess: isAcknowledgementSuccess,
+      });
+
     return {
       coverNote,
-      attempt,
+      attempt: acknowledgedAttempt,
       tiraResponse: response,
     };
   }

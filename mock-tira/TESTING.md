@@ -104,8 +104,8 @@ $clientSigned.signedXml | Set-Content -LiteralPath $signedFile -Encoding UTF8
 curl.exe -sS -o $ackFile -w "%{http_code}" `
   -X POST "http://localhost:5050/tiramis/mock" `
   -H "Content-Type: application/xml" `
-  -H "ClientCode: IC0003" `
-  -H "ClientKey: test-client-key" `
+  -H "ClientCode: ICC110" `
+  -H "ClientKey: RydLDE8CFJ" `
   --data-binary "@$signedFile"
 
 $ackXml = Get-Content -LiteralPath $ackFile -Raw
@@ -149,8 +149,8 @@ Expected:
 Create Postman environment variables:
 
 - `baseUrl`: `http://localhost:5050`
-- `clientCode`: `IC0003`
-- `clientKey`: `test-client-key`
+- `clientCode`: `ICC110`
+- `clientKey`: `RydLDE8CFJ`
 - `callbackUrl`: `http://127.0.0.1:5051/callback`
 
 ### 1. Health

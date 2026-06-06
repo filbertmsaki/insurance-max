@@ -117,6 +117,99 @@ const SYNC_RESPONSE_ROOTS = {
   DetailsVerificationReq: 'DetailsVerificationRes',
 };
 
+const SEEDED_SERVICE_ENDPOINTS = [
+  {
+    serviceType: 'COVER_NOTE_NON_MOTOR',
+    endpointUrl: '/ecovernote/api/covernote/non-life/other/v2/request',
+    requestRoots: ['CoverNoteRefReq'],
+    mode: 'async',
+  },
+  {
+    serviceType: 'MOTOR_COVER_NOTE_NON_FLEET',
+    endpointUrl: '/ecovernote/api/covernote/non-life/motor/v2/request',
+    requestRoots: ['MotorCoverNoteRefReq'],
+    mode: 'async',
+  },
+  {
+    serviceType: 'MOTOR_COVER_NOTE_FLEET',
+    endpointUrl: '/ecovernote/api/covernote/non-life/motor-fleet/v2/request',
+    requestRoots: ['MotorCoverNoteRefReq'],
+    mode: 'async',
+  },
+  {
+    serviceType: 'REINSURANCE',
+    endpointUrl: '/ecovernote/api/reinsurance/v1/request',
+    requestRoots: ['ReinsuranceReq'],
+    mode: 'async',
+  },
+  {
+    serviceType: 'POLICY',
+    endpointUrl: '/ecovernote/api/policy/v1/request',
+    requestRoots: ['PolicyReq'],
+    mode: 'async',
+  },
+  {
+    serviceType: 'CLAIM_NOTIFICATION',
+    endpointUrl: '/eclaim/api/claim/claim-notification/v1/request',
+    requestRoots: ['ClaimNotificationRefReq'],
+    mode: 'async',
+  },
+  {
+    serviceType: 'CLAIM_INTIMATION',
+    endpointUrl: '/eclaim/api/claim/claim-intimation/v1/request',
+    requestRoots: ['ClaimIntimationReq'],
+    mode: 'async',
+  },
+  {
+    serviceType: 'CLAIM_ASSESSMENT',
+    endpointUrl: '/eclaim/api/claim/claim-assessment/v1/request',
+    requestRoots: ['ClaimAssessmentReq'],
+    mode: 'async',
+  },
+  {
+    serviceType: 'DISCHARGE_VOUCHER',
+    endpointUrl: '/eclaim/api/claim/claim-dischargevoucher/v1/request',
+    requestRoots: ['DischargeVoucherReq'],
+    mode: 'async',
+  },
+  {
+    serviceType: 'CLAIM_PAYMENT',
+    endpointUrl: '/eclaim/api/claim/claim-payment/v1/request',
+    requestRoots: ['ClaimPaymentReq'],
+    mode: 'async',
+  },
+  {
+    serviceType: 'CLAIM_REJECTION',
+    endpointUrl: '/eclaim/api/claim/claim-rejection/v1/request',
+    requestRoots: ['ClaimRejectionReq'],
+    mode: 'async',
+  },
+  {
+    serviceType: 'COVER_NOTE_VERIFICATION',
+    endpointUrl: '/ecovernote/api/covernote/verification/min/v1/request',
+    requestRoots: ['CoverNoteVerificationReq'],
+    mode: 'sync',
+  },
+  {
+    serviceType: 'MOTOR_VERIFICATION',
+    endpointUrl: '/dispatch/api/motor/verification/v3/request',
+    requestRoots: ['MotorVerificationReq'],
+    mode: 'sync',
+  },
+];
+
+const LEGACY_MOCK_ENDPOINT = {
+  serviceType: 'LEGACY_MOCK_GATEWAY',
+  endpointUrl: '/tiramis/mock',
+  requestRoots: [
+    ...Object.keys(ACK_ROOTS),
+    ...Object.keys(SYNC_RESPONSE_ROOTS),
+  ],
+  mode: 'auto',
+};
+
+const MOCKED_ENDPOINTS = [LEGACY_MOCK_ENDPOINT, ...SEEDED_SERVICE_ENDPOINTS];
+
 function resolveProjectPath(filePath) {
   if (!filePath) {
     return null;
@@ -173,6 +266,25 @@ function removeXmlDeclaration(xml) {
     .trim();
 }
 
+function removeWrapperIndent(xml) {
+  const lines = String(xml || '').replace(/\r\n/g, '\n').split('\n');
+  const firstContentLine = lines.find((line) => line.trim());
+
+  if (!firstContentLine) {
+    return String(xml || '');
+  }
+
+  const indent = firstContentLine.match(/^[ \t]*/)?.[0] || '';
+
+  if (!indent) {
+    return String(xml || '');
+  }
+
+  return lines
+    .map((line) => (line.startsWith(indent) ? line.slice(indent.length) : line))
+    .join('\n');
+}
+
 function extractContentXml(xml) {
   const raw = removeXmlDeclaration(xml);
 
@@ -184,7 +296,7 @@ function extractContentXml(xml) {
     '',
   );
 
-  return withoutSignature.trim();
+  return removeWrapperIndent(withoutSignature).trim();
 }
 
 function extractSignature(xml) {
@@ -204,6 +316,10 @@ function normalizeXmlForSignature(xml) {
 
   if (CONFIG.signatureXmlMode === 'compact') {
     normalized = normalized.replace(/>\s+</g, '><');
+  }
+
+  if (CONFIG.signatureXmlMode === 'preserve') {
+    return `${normalized}\n`;
   }
 
   return normalized;
@@ -475,6 +591,39 @@ function validateHeaders(req) {
   };
 }
 
+function isRootAllowedForEndpoint(endpointDefinition, root) {
+  if (!root || !endpointDefinition?.requestRoots?.length) {
+    return true;
+  }
+
+  return endpointDefinition.requestRoots.includes(root);
+}
+
+function isSyncRequest(endpointDefinition, root) {
+  if (endpointDefinition?.mode === 'sync') {
+    return true;
+  }
+
+  if (endpointDefinition?.mode === 'async') {
+    return false;
+  }
+
+  return Boolean(SYNC_RESPONSE_ROOTS[root]);
+}
+
+function getEndpointSummary(endpointDefinition) {
+  return {
+    serviceType: endpointDefinition.serviceType,
+    endpointUrl: endpointDefinition.endpointUrl,
+    mode: endpointDefinition.mode,
+    requestRoots: endpointDefinition.requestRoots,
+  };
+}
+
+function getMockedEndpointSummaries() {
+  return MOCKED_ENDPOINTS.map(getEndpointSummary);
+}
+
 function buildAcknowledgementContent(root, requestId, code, desc) {
   const ackRoot = ACK_ROOTS[root] || 'UnknownReqAck';
 
@@ -598,8 +747,11 @@ function buildSyncResponseContent(root, requestId, code, desc, requestXml) {
 `.trim();
 }
 
-async function sendCallbackWithRetry(callbackUrl, finalResponseXml) {
+async function sendCallbackWithRetry(callbackUrl, finalResponseXml, context = {}) {
   console.log(`[callback] Sending signed final response to ${callbackUrl}`);
+  console.log('[callback] Service type:', context.serviceType || 'UNKNOWN');
+  console.log('[callback] Request root:', context.root || 'UNKNOWN');
+  console.log('[callback] RequestId:', context.requestId || 'UNKNOWN');
 
   for (let attempt = 1; attempt <= CONFIG.callbackRetries; attempt++) {
     try {
@@ -619,7 +771,7 @@ async function sendCallbackWithRetry(callbackUrl, finalResponseXml) {
       console.log('[callback] Client acknowledgement:\n', responseText);
 
       if (response.ok) {
-        console.log('[callback] Final response accepted by callback endpoint');
+        console.log('[callback] Final signed response accepted by callback endpoint');
         return true;
       }
     } catch (error) {
@@ -692,7 +844,7 @@ function buildFailureReply(root, requestId, code, desc, originalXml) {
   return buildAcknowledgementContent(root, requestId, code, desc);
 }
 
-app.post('/tiramis/mock', async (req, res) => {
+async function handleTiramisRequest(req, res, endpointDefinition) {
   const xml = req.body || '';
 
   const root = getRoot(xml);
@@ -700,6 +852,9 @@ app.post('/tiramis/mock', async (req, res) => {
   const callbackUrl = getTag(xml, 'CallBackUrl');
 
   console.log('\nReceived TIRAMIS request');
+  console.log('Endpoint:', endpointDefinition.endpointUrl);
+  console.log('ServiceType:', endpointDefinition.serviceType);
+  console.log('Mode:', endpointDefinition.mode);
   console.log('Root:', root || 'UNKNOWN');
   console.log('RequestId:', requestId);
   console.log('CallbackUrl:', callbackUrl || 'N/A');
@@ -714,7 +869,27 @@ app.post('/tiramis/mock', async (req, res) => {
       RESPONSE_CODES.TIRA005,
     );
 
-    return res.status(200).send(buildTiraMessage(content));
+    const responseXml = buildTiraMessage(content);
+    console.log('[response] Unknown-root acknowledgement sent');
+    return res.status(200).send(responseXml);
+  }
+
+  if (!isRootAllowedForEndpoint(endpointDefinition, root)) {
+    console.warn(
+      `[route] Root ${root} is not configured for ${endpointDefinition.endpointUrl}`,
+    );
+
+    const content = buildFailureReply(
+      root,
+      requestId,
+      'TIRA005',
+      `Unsupported request root ${root} for endpoint ${endpointDefinition.endpointUrl}`,
+      xml,
+    );
+
+    const responseXml = buildTiraMessage(content);
+    console.log('[response] Endpoint/root mismatch response sent');
+    return res.status(200).send(responseXml);
   }
 
   const headerValidation = validateHeaders(req);
@@ -728,7 +903,11 @@ app.post('/tiramis/mock', async (req, res) => {
       xml,
     );
 
-    return res.status(200).send(buildTiraMessage(content));
+    const responseXml = buildTiraMessage(content);
+    console.log(
+      `[response] Header validation failure sent (${headerValidation.code})`,
+    );
+    return res.status(200).send(responseXml);
   }
 
   const signatureValidation = verifyClientRequestSignature(xml);
@@ -742,10 +921,14 @@ app.post('/tiramis/mock', async (req, res) => {
       xml,
     );
 
-    return res.status(200).send(buildTiraMessage(content));
+    const responseXml = buildTiraMessage(content);
+    console.log(
+      `[response] Signature verification failure sent (${signatureValidation.code})`,
+    );
+    return res.status(200).send(responseXml);
   }
 
-  if (SYNC_RESPONSE_ROOTS[root]) {
+  if (isSyncRequest(endpointDefinition, root)) {
     const content = buildSyncResponseContent(
       root,
       requestId,
@@ -754,7 +937,9 @@ app.post('/tiramis/mock', async (req, res) => {
       xml,
     );
 
-    return res.status(200).send(buildTiraMessage(content));
+    const responseXml = buildTiraMessage(content);
+    console.log('[response] Synchronous signed final response sent');
+    return res.status(200).send(responseXml);
   }
 
   if (!ASYNC_RESPONSE_ROOTS[root]) {
@@ -765,7 +950,9 @@ app.post('/tiramis/mock', async (req, res) => {
       `Unsupported request root: ${root}`,
     );
 
-    return res.status(200).send(buildTiraMessage(content));
+    const responseXml = buildTiraMessage(content);
+    console.log('[response] Unsupported async-root acknowledgement sent');
+    return res.status(200).send(responseXml);
   }
 
   if (!callbackUrl) {
@@ -776,7 +963,9 @@ app.post('/tiramis/mock', async (req, res) => {
       RESPONSE_CODES.TIRA017,
     );
 
-    return res.status(200).send(buildTiraMessage(content));
+    const responseXml = buildTiraMessage(content);
+    console.log('[response] Missing-callback acknowledgement sent');
+    return res.status(200).send(responseXml);
   }
 
   const ackContent = buildAcknowledgementContent(
@@ -789,6 +978,7 @@ app.post('/tiramis/mock', async (req, res) => {
   const ackXml = buildTiraMessage(ackContent);
 
   res.status(200).send(ackXml);
+  console.log('[response] Signed acknowledgement sent');
 
   const finalContent = buildAsyncFinalResponseContent(
     root,
@@ -805,9 +995,24 @@ app.post('/tiramis/mock', async (req, res) => {
   );
 
   setTimeout(() => {
-    sendCallbackWithRetry(callbackUrl, finalResponseXml);
+    sendCallbackWithRetry(callbackUrl, finalResponseXml, {
+      serviceType: endpointDefinition.serviceType,
+      endpointUrl: endpointDefinition.endpointUrl,
+      root,
+      requestId,
+    });
   }, CONFIG.callbackDelayMs);
-});
+}
+
+for (const endpointDefinition of SEEDED_SERVICE_ENDPOINTS) {
+  app.post(endpointDefinition.endpointUrl, (req, res) =>
+    handleTiramisRequest(req, res, endpointDefinition),
+  );
+}
+
+app.post(LEGACY_MOCK_ENDPOINT.endpointUrl, (req, res) =>
+  handleTiramisRequest(req, res, LEGACY_MOCK_ENDPOINT),
+);
 
 app.post('/tiramis/tools/sign-as-client', (req, res) => {
   try {
@@ -942,6 +1147,8 @@ app.get('/health', (req, res) => {
     service: 'mock-tira',
     port: PORT,
     endpoint: `http://localhost:${PORT}/tiramis/mock`,
+    mockedEndpointCount: MOCKED_ENDPOINTS.length,
+    mockedEndpoints: getMockedEndpointSummaries(),
     verifyIncomingSignature: CONFIG.verifyIncomingSignature,
     signResponses: CONFIG.signResponses,
     signatureXmlMode: CONFIG.signatureXmlMode,
@@ -987,6 +1194,8 @@ app.get('/config-health', (req, res) => {
     signResponses: CONFIG.signResponses,
     allowMockSignature: CONFIG.allowMockSignature,
     signatureXmlMode: CONFIG.signatureXmlMode,
+    mockedEndpointCount: MOCKED_ENDPOINTS.length,
+    mockedEndpoints: getMockedEndpointSummaries(),
 
     certificates: {
       clientPublicCert,
@@ -999,6 +1208,13 @@ app.get('/config-health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Mock TIRA running on http://localhost:${PORT}`);
   console.log(`Mock endpoint: http://localhost:${PORT}/tiramis/mock`);
+  console.log('[config] Seeded service endpoints:');
+  for (const endpointDefinition of SEEDED_SERVICE_ENDPOINTS) {
+    console.log(
+      `[config] ${endpointDefinition.serviceType} ${endpointDefinition.endpointUrl} ` +
+        `(${endpointDefinition.mode}, roots=${endpointDefinition.requestRoots.join(',')})`,
+    );
+  }
   console.log(`[config] Project root: ${PROJECT_ROOT}`);
   console.log(`[config] Client public certificate: ${displayProjectPath(CONFIG.clientPublicCertPath)}`);
   console.log(`[config] Mock TIRA private PFX: ${displayProjectPath(CONFIG.tiraPrivatePfxPath)}`);
