@@ -12,7 +12,15 @@ function buildRelativeCertificatePath(
   environment: string,
   fileName: string,
 ): string {
-  return join('src', 'assets', 'certificaties', environment, fileName);
+  return join(
+    'apps',
+    'tiramis',
+    'src',
+    'assets',
+    'certificaties',
+    environment,
+    fileName,
+  );
 }
 
 function buildAbsoluteCertificatePath(

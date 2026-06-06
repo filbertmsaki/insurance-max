@@ -28,7 +28,13 @@ type ConfigurationSeed = {
   signatureAlgorithm: string;
 };
 
-const certificateRootPath = join('src', 'assets', 'certificaties');
+const certificateRootPath = join(
+  'apps',
+  'tiramis',
+  'src',
+  'assets',
+  'certificaties',
+);
 
 function getClientPrivateCertificatePath(environment: EnvironmentName): string {
   return join(certificateRootPath, environment, 'clientprivate.pfx');
@@ -62,8 +68,8 @@ const configurations: ConfigurationSeed[] = [
     systemCode: 'LSYS_ALLIANCE_003',
     clientCode: 'ICC110',
     clientKey: 'RydLDE8CFJ',
-    clientPrivateCertificatePassword: 'Alli@ncTir@2025!',
-    tiraPublicCertificatePassword: 'TiraClient@2021',
+    clientPrivateCertificatePassword: 'password',
+    tiraPublicCertificatePassword: 'password',
     insurerCompanyCode: 'ICC110',
     salePointCode: 'SP500',
     tranCompanyCode: 'ICC110',

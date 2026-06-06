@@ -1,6 +1,16 @@
+import { existsSync } from 'fs';
 import { isAbsolute, normalize, resolve } from 'path';
 
 const projectRoot = process.cwd();
+
+function candidateCertificatePaths(certificatePath: string): string[] {
+  return [
+    resolve(projectRoot, certificatePath),
+    resolve(projectRoot, 'apps', 'tiramis', certificatePath),
+    resolve(resolve(projectRoot, '..'), certificatePath),
+    resolve(resolve(projectRoot, '..'), 'apps', 'tiramis', certificatePath),
+  ];
+}
 
 export function resolveTiramisCertificatePath(
   certificatePath?: string | null,
@@ -15,7 +25,14 @@ export function resolveTiramisCertificatePath(
     return null;
   }
 
-  return isAbsolute(trimmedPath)
-    ? normalize(trimmedPath)
-    : resolve(projectRoot, trimmedPath);
+  if (isAbsolute(trimmedPath)) {
+    return normalize(trimmedPath);
+  }
+
+  const resolvedPath =
+    candidateCertificatePaths(trimmedPath).find((candidatePath) =>
+      existsSync(candidatePath),
+    ) ?? resolve(projectRoot, trimmedPath);
+
+  return normalize(resolvedPath);
 }
