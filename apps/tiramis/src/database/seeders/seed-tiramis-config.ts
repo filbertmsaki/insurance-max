@@ -67,10 +67,10 @@ const configurations: ConfigurationSeed[] = [
     insurerCompanyCode: 'ICC110',
     salePointCode: 'SP500',
     tranCompanyCode: 'ICC110',
-    baseUrl: 'http://41.59.86.178:8091',
+    baseUrl: 'http://localhost:5050',
     callbackBaseUrl:
       process.env.TIRAMIS_TEST_CALLBACK_URL ||
-      'http://localhost:3000/api/tiramis/callbacks/test',
+      'http://localhost:5050/tiramis/mock',
     clientPrivateCertificatePath: getClientPrivateCertificatePath('test'),
     tiraPublicCertificatePath: getTiraPublicCertificatePath('test'),
     signatureAlgorithm: 'sha1WithRSAEncryption',
