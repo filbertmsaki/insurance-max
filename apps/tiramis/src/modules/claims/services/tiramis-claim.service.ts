@@ -164,6 +164,20 @@ export class TiramisClaimService {
     return this.claimRepository.findAllIntimations();
   }
 
+  async findClaimAssessmentById(id: string) {
+    const assessment = await this.claimRepository.findAssessmentById(id);
+
+    if (!assessment) {
+      throw new NotFoundException('TIRAMIS claim assessment not found');
+    }
+
+    return assessment;
+  }
+
+  async findAllClaimAssessments() {
+    return this.claimRepository.findAllAssessments();
+  }
+
   private async createAndSubmit(params: {
     dto: any;
     serviceType: string;

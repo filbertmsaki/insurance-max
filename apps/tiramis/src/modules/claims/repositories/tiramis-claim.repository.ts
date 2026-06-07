@@ -120,6 +120,22 @@ export class TiramisClaimRepository {
     });
   }
 
+  findAssessmentById(id: string) {
+    return this.assessmentRepository.findOne({
+      where: { id },
+      relations: { claimants: true },
+    });
+  }
+
+  findAllAssessments() {
+    return this.assessmentRepository.find({
+      relations: { claimants: true },
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+  }
+
   findDischargeVoucherByRequestId(requestId: string) {
     return this.dischargeVoucherRepository.findOne({
       where: { requestId },

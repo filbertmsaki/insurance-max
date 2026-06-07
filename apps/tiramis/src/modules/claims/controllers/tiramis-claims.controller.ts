@@ -70,6 +70,18 @@ export class TiramisClaimsController {
     return this.tiramisClaimService.submitClaimAssessment(dto);
   }
 
+  @ApiOperation({ summary: 'List claim assessments' })
+  @Get('assessments')
+  findAllClaimAssessments() {
+    return this.tiramisClaimService.findAllClaimAssessments();
+  }
+
+  @ApiOperation({ summary: 'Get a claim assessment by id' })
+  @Get('assessments/:id')
+  findClaimAssessmentById(@Param('id') id: string) {
+    return this.tiramisClaimService.findClaimAssessmentById(id);
+  }
+
   @ApiOperation({ summary: 'Submit a discharge voucher' })
   @ApiBody(dischargeVoucherRequestBody)
   @Post('discharge-vouchers/submit')

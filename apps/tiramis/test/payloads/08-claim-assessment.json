@@ -1,0 +1,42 @@
+{
+  "environment": "test",
+  "clientConfigurationId": "00ba6e73-e24c-4179-a1f4-0fb6141b07b3",
+  "sourceModule": "tiramis-claims-test",
+  "sourceRecordId": "CLM-ASM-LOCAL-001",
+  "companyCode": "ICC110",
+  "systemCode": "LSYS_ALLIANCE_003",
+  "callbackUrl": "http://localhost:9091/api/tiramis/callbacks/test",
+  "insurerCompanyCode": "ICC110",
+  "claimAssessmentNumber": "CLM-ASM-LOCAL-001",
+  "claimIntimationNumber": "CLM-INT-LOCAL-001",
+  "claimReferenceNumber": "CLM-REF-LOCAL-001",
+  "coverNoteReferenceNumber": "TIRA-MCN-1780860130489",
+  "assessmentReceivedDate": "2026-06-07T09:00:00",
+  "assessmentReportSummary": "Vehicle damaged at front bumper and bonnet",
+  "currencyCode": "TZS",
+  "exchangeRate": "1.00",
+  "assessmentAmount": "900000.00",
+  "approvedClaimAmount": "850000.00",
+  "claimApprovalDate": "2026-06-07T12:00:00",
+  "claimApprovalAuthority": "Claims Manager",
+  "isReAssessment": "N",
+  "claimants": [
+    {
+      "claimantName": "Mock Claimant",
+      "claimantBirthDate": "1990-01-01",
+      "claimantCategory": 1,
+      "claimantType": 1,
+      "claimantIdNumber": "19900101123456789000",
+      "claimantIdType": 1,
+      "gender": "M",
+      "countryCode": "TZA",
+      "region": "Dar es Salaam",
+      "district": "Ilala",
+      "street": "Samora Avenue",
+      "claimantPhoneNumber": "255713525539",
+      "claimantFax": "",
+      "postalAddress": "P.O. BOX 123, Dar es Salaam",
+      "emailAddress": "claimant@example.com"
+    }
+  ]
+}
