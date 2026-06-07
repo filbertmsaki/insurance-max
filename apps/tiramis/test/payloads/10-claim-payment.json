@@ -1,0 +1,42 @@
+{
+  "environment": "test",
+  "clientConfigurationId": "00ba6e73-e24c-4179-a1f4-0fb6141b07b3",
+  "sourceModule": "tiramis-claims",
+  "sourceRecordId": "CLM-PAY-LOCAL-001",
+  "companyCode": "ICC110",
+  "systemCode": "LSYS_ALLIANCE_003",
+  "callbackUrl": "http://localhost:9091/api/tiramis/callbacks/test",
+  "insurerCompanyCode": "ICC110",
+  "claimPaymentNumber": "CLM-PAY-LOCAL-001",
+  "claimReferenceNumber": "CLM-REF-LOCAL-001",
+  "claimIntimationNumber": "CLM-INT-LOCAL-001",
+  "coverNoteReferenceNumber": "TIRA-MCN-1780860130489",
+  "paymentDate": "2026-06-10T10:00:00",
+  "paidAmount": "800000.00",
+  "paymentMode": 1,
+  "partiesNotified": "Y",
+  "netPremiumEarned": "100000.00",
+  "claimResultedLitigation": "N",
+  "litigationReason": "",
+  "currencyCode": "TZS",
+  "exchangeRate": "1.00",
+  "claimants": [
+    {
+      "claimantName": "Mock Claimant",
+      "claimantBirthDate": "1990-01-01",
+      "claimantCategory": 1,
+      "claimantType": 1,
+      "claimantIdNumber": "19900101123456789000",
+      "claimantIdType": 1,
+      "gender": "M",
+      "countryCode": "TZA",
+      "region": "Dar es Salaam",
+      "district": "Ilala",
+      "street": "Samora Avenue",
+      "claimantPhoneNumber": "255713525539",
+      "claimantFax": "",
+      "postalAddress": "P.O. BOX 123, Dar es Salaam",
+      "emailAddress": "claimant@example.com"
+    }
+  ]
+}

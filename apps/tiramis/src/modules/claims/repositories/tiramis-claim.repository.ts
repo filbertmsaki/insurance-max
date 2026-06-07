@@ -166,6 +166,22 @@ export class TiramisClaimRepository {
     });
   }
 
+  findPaymentById(id: string) {
+    return this.paymentRepository.findOne({
+      where: { id },
+      relations: { claimants: true },
+    });
+  }
+
+  findAllPayments() {
+    return this.paymentRepository.find({
+      relations: { claimants: true },
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+  }
+
   findRejectionByRequestId(requestId: string) {
     return this.rejectionRepository.findOne({
       where: { requestId },

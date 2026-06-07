@@ -192,6 +192,20 @@ export class TiramisClaimService {
     return this.claimRepository.findAllDischargeVouchers();
   }
 
+  async findClaimPaymentById(id: string) {
+    const payment = await this.claimRepository.findPaymentById(id);
+
+    if (!payment) {
+      throw new NotFoundException('TIRAMIS claim payment not found');
+    }
+
+    return payment;
+  }
+
+  async findAllClaimPayments() {
+    return this.claimRepository.findAllPayments();
+  }
+
   private async createAndSubmit(params: {
     dto: any;
     serviceType: string;

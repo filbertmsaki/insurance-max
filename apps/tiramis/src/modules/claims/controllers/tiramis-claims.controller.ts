@@ -108,6 +108,18 @@ export class TiramisClaimsController {
     return this.tiramisClaimService.submitClaimPayment(dto);
   }
 
+  @ApiOperation({ summary: 'List claim payments' })
+  @Get('payments')
+  findAllClaimPayments() {
+    return this.tiramisClaimService.findAllClaimPayments();
+  }
+
+  @ApiOperation({ summary: 'Get a claim payment by id' })
+  @Get('payments/:id')
+  findClaimPaymentById(@Param('id') id: string) {
+    return this.tiramisClaimService.findClaimPaymentById(id);
+  }
+
   @ApiOperation({ summary: 'Submit a claim rejection' })
   @ApiBody(claimRejectionRequestBody)
   @Post('rejections/submit')
