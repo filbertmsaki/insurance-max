@@ -89,6 +89,18 @@ export class TiramisClaimsController {
     return this.tiramisClaimService.submitDischargeVoucher(dto);
   }
 
+  @ApiOperation({ summary: 'List discharge vouchers' })
+  @Get('discharge-vouchers')
+  findAllDischargeVouchers() {
+    return this.tiramisClaimService.findAllClaimDischargeVouchers();
+  }
+
+  @ApiOperation({ summary: 'Get a discharge voucher by id' })
+  @Get('discharge-vouchers/:id')
+  findDischargeVoucherById(@Param('id') id: string) {
+    return this.tiramisClaimService.findClaimDischargeVoucherById(id);
+  }
+
   @ApiOperation({ summary: 'Submit a claim payment' })
   @ApiBody(claimPaymentRequestBody)
   @Post('payments/submit')

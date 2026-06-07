@@ -178,6 +178,20 @@ export class TiramisClaimService {
     return this.claimRepository.findAllAssessments();
   }
 
+  async findClaimDischargeVoucherById(id: string) {
+    const dischargeVoucher = await this.claimRepository.findDischargeVoucherById(id);
+
+    if (!dischargeVoucher) {
+      throw new NotFoundException('TIRAMIS discharge voucher not found');
+    }
+
+    return dischargeVoucher;
+  }
+
+  async findAllClaimDischargeVouchers() {
+    return this.claimRepository.findAllDischargeVouchers();
+  }
+
   private async createAndSubmit(params: {
     dto: any;
     serviceType: string;
