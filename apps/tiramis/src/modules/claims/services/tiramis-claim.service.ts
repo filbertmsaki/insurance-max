@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 
 import { TiramisConfigService } from '../../config/services/tiramis-config.service';
 import { TiramisHttpClientService } from '../../messaging/services/tiramis-http-client.service';
@@ -134,6 +134,20 @@ export class TiramisClaimService {
         return this.claimRepository.saveRejection(record);
       },
     });
+  }
+
+  async findClaimNotificationById(id: string) {
+    const notification = await this.claimRepository.findNotificationById(id);
+
+    if (!notification) {
+      throw new NotFoundException('TIRAMIS claim notification not found');
+    }
+
+    return notification;
+  }
+
+  async findAllClaimNotifications() {
+    return this.claimRepository.findAllNotifications();
   }
 
   private async createAndSubmit(params: {

@@ -78,6 +78,18 @@ export class TiramisClaimRepository {
     return this.notificationRepository.findOne({ where: { requestId } });
   }
 
+  findNotificationById(id: string) {
+    return this.notificationRepository.findOne({ where: { id } });
+  }
+
+  findAllNotifications() {
+    return this.notificationRepository.find({
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+  }
+
   findIntimationByRequestId(requestId: string) {
     return this.intimationRepository.findOne({
       where: { requestId },

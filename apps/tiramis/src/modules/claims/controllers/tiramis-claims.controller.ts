@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import type {
@@ -30,6 +30,18 @@ export class TiramisClaimsController {
   @Post('notifications/submit')
   submitClaimNotification(@Body() dto: CreateClaimNotificationDto) {
     return this.tiramisClaimService.submitClaimNotification(dto);
+  }
+
+  @ApiOperation({ summary: 'List claim notifications' })
+  @Get('notifications')
+  findAllClaimNotifications() {
+    return this.tiramisClaimService.findAllClaimNotifications();
+  }
+
+  @ApiOperation({ summary: 'Get a claim notification by id' })
+  @Get('notifications/:id')
+  findClaimNotificationById(@Param('id') id: string) {
+    return this.tiramisClaimService.findClaimNotificationById(id);
   }
 
   @ApiOperation({ summary: 'Submit a claim intimation' })

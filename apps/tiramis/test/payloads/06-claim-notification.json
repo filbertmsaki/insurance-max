@@ -1,0 +1,21 @@
+{
+  "environment": "test",
+  "clientConfigurationId": "00ba6e73-e24c-4179-a1f4-0fb6141b07b3",
+  "sourceModule": "tiramis-claims-test",
+  "sourceRecordId": "CLM-NOT-LOCAL-001",
+  "companyCode": "ICC110",
+  "systemCode": "LSYS_ALLIANCE_003",
+  "callbackUrl": "http://localhost:9091/api/tiramis/callbacks/test",
+  "insurerCompanyCode": "ICC110",
+  "tranCompanyCode": "ICC110",
+  "claimNotificationNumber": "CLM-NOT-LOCAL-001",
+  "coverNoteReferenceNumber": "TIRA-MCN-1780860130489",
+  "claimReportDate": "2026-06-07T10:00:00",
+  "claimFormDullyFilled": "Y",
+  "lossDate": "2026-06-06T21:30:00",
+  "lossNature": "Accident",
+  "lossType": "Collision",
+  "lossLocation": "Dar es Salaam",
+  "officerName": "Mock Underwriter",
+  "officerTitle": "Underwriter"
+}
