@@ -76,7 +76,7 @@ const configurations: ConfigurationSeed[] = [
     baseUrl: 'http://localhost:5050',
     callbackBaseUrl:
       process.env.TIRAMIS_TEST_CALLBACK_URL ||
-      'http://localhost:5050/tiramis/mock',
+      'http://localhost:9091',
     clientPrivateCertificatePath: getClientPrivateCertificatePath('test'),
     tiraPublicCertificatePath: getTiraPublicCertificatePath('test'),
     signatureAlgorithm: 'sha1WithRSAEncryption',

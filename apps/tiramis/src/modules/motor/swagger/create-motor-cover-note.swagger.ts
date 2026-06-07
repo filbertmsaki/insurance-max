@@ -5,6 +5,7 @@ import {
 
 export const createMotorCoverNoteRequestExample = {
   ...createCoverNoteRequestExample,
+  callbackUrl: 'http://localhost:9091/api/tiramis/callbacks/test',
   sourceModule: 'tiramis-motor',
   sourceRecordId: 'MOTOR-CN-LOCAL-001',
   coverNoteNumber: 'MOTOR-CN-LOCAL-001',

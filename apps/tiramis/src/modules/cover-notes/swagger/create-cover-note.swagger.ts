@@ -5,7 +5,7 @@ export const createCoverNoteRequestExample = {
   sourceRecordId: 'CVN-00004',
   companyCode: 'ICC110',
   systemCode: 'LSYS_ALLIANCE_003',
-  callbackUrl: 'http://localhost:5050/tiramis/mock',
+  callbackUrl: 'http://localhost:9091/api/tiramis/callbacks/test',
   insurerCompanyCode: 'ICC110',
   tranCompanyCode: 'ICC110',
   coverNoteType: 1,
@@ -297,7 +297,7 @@ export const createCoverNoteRequestBody = {
       systemCode: { type: 'string', example: 'LSYS_ALLIANCE_003' },
       callbackUrl: {
         type: 'string',
-        example: 'http://localhost:5050/tiramis/mock',
+        example: 'http://localhost:9091/api/tiramis/callbacks/test',
       },
       insurerCompanyCode: { type: 'string', example: 'ICC110' },
       tranCompanyCode: { type: 'string', nullable: true, example: 'ICC110' },
