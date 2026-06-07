@@ -150,6 +150,16 @@ export class TiramisClaimService {
     return this.claimRepository.findAllNotifications();
   }
 
+  async findClaimNotificationByRequestId(requestId: string) {
+    const notification = await this.claimRepository.findNotificationByRequestId(requestId);
+
+    if (!notification) {
+      throw new NotFoundException('TIRAMIS claim notification not found');
+    }
+
+    return notification;
+  }
+
   async findClaimIntimationById(id: string) {
     const intimation = await this.claimRepository.findIntimationById(id);
 
@@ -162,6 +172,16 @@ export class TiramisClaimService {
 
   async findAllClaimIntimations() {
     return this.claimRepository.findAllIntimations();
+  }
+
+  async findClaimIntimationByRequestId(requestId: string) {
+    const intimation = await this.claimRepository.findIntimationByRequestId(requestId);
+
+    if (!intimation) {
+      throw new NotFoundException('TIRAMIS claim intimation not found');
+    }
+
+    return intimation;
   }
 
   async findClaimAssessmentById(id: string) {
@@ -178,6 +198,16 @@ export class TiramisClaimService {
     return this.claimRepository.findAllAssessments();
   }
 
+  async findClaimAssessmentByRequestId(requestId: string) {
+    const assessment = await this.claimRepository.findAssessmentByRequestId(requestId);
+
+    if (!assessment) {
+      throw new NotFoundException('TIRAMIS claim assessment not found');
+    }
+
+    return assessment;
+  }
+
   async findClaimDischargeVoucherById(id: string) {
     const dischargeVoucher = await this.claimRepository.findDischargeVoucherById(id);
 
@@ -192,6 +222,16 @@ export class TiramisClaimService {
     return this.claimRepository.findAllDischargeVouchers();
   }
 
+  async findClaimDischargeVoucherByRequestId(requestId: string) {
+    const dischargeVoucher = await this.claimRepository.findDischargeVoucherByRequestId(requestId);
+
+    if (!dischargeVoucher) {
+      throw new NotFoundException('TIRAMIS discharge voucher not found');
+    }
+
+    return dischargeVoucher;
+  }
+
   async findClaimPaymentById(id: string) {
     const payment = await this.claimRepository.findPaymentById(id);
 
@@ -204,6 +244,40 @@ export class TiramisClaimService {
 
   async findAllClaimPayments() {
     return this.claimRepository.findAllPayments();
+  }
+
+  async findClaimPaymentByRequestId(requestId: string) {
+    const payment = await this.claimRepository.findPaymentByRequestId(requestId);
+
+    if (!payment) {
+      throw new NotFoundException('TIRAMIS claim payment not found');
+    }
+
+    return payment;
+  }
+
+  async findClaimRejectionByRequestId(requestId: string) {
+    const rejection = await this.claimRepository.findRejectionByRequestId(requestId);
+
+    if (!rejection) {
+      throw new NotFoundException('TIRAMIS claim rejection not found');
+    }
+
+    return rejection;
+  }
+
+  async findClaimRejectionById(id: string) {
+    const rejection = await this.claimRepository.findRejectionById(id);
+
+    if (!rejection) {
+      throw new NotFoundException('TIRAMIS claim rejection not found');
+    }
+
+    return rejection;
+  }
+
+  async findAllClaimRejections() {
+    return this.claimRepository.findAllRejections();
   }
 
   private async createAndSubmit(params: {

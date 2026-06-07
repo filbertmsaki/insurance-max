@@ -44,6 +44,12 @@ export class TiramisClaimsController {
     return this.tiramisClaimService.findClaimNotificationById(id);
   }
 
+  @ApiOperation({ summary: 'Get a claim notification by request id' })
+  @Get('notifications/request/:requestId')
+  findClaimNotificationByRequestId(@Param('requestId') requestId: string) {
+    return this.tiramisClaimService.findClaimNotificationByRequestId(requestId);
+  }
+
   @ApiOperation({ summary: 'Submit a claim intimation' })
   @ApiBody(claimIntimationRequestBody)
   @Post('intimations/submit')
@@ -61,6 +67,12 @@ export class TiramisClaimsController {
   @Get('intimations/:id')
   findClaimIntimationById(@Param('id') id: string) {
     return this.tiramisClaimService.findClaimIntimationById(id);
+  }
+
+  @ApiOperation({ summary: 'Get a claim intimation by request id' })
+  @Get('intimations/request/:requestId')
+  findClaimIntimationByRequestId(@Param('requestId') requestId: string) {
+    return this.tiramisClaimService.findClaimIntimationByRequestId(requestId);
   }
 
   @ApiOperation({ summary: 'Submit a claim assessment' })
@@ -82,6 +94,12 @@ export class TiramisClaimsController {
     return this.tiramisClaimService.findClaimAssessmentById(id);
   }
 
+  @ApiOperation({ summary: 'Get a claim assessment by request id' })
+  @Get('assessments/request/:requestId')
+  findClaimAssessmentByRequestId(@Param('requestId') requestId: string) {
+    return this.tiramisClaimService.findClaimAssessmentByRequestId(requestId);
+  }
+
   @ApiOperation({ summary: 'Submit a discharge voucher' })
   @ApiBody(dischargeVoucherRequestBody)
   @Post('discharge-vouchers/submit')
@@ -99,6 +117,12 @@ export class TiramisClaimsController {
   @Get('discharge-vouchers/:id')
   findDischargeVoucherById(@Param('id') id: string) {
     return this.tiramisClaimService.findClaimDischargeVoucherById(id);
+  }
+
+  @ApiOperation({ summary: 'Get a discharge voucher by request id' })
+  @Get('discharge-vouchers/request/:requestId')
+  findDischargeVoucherByRequestId(@Param('requestId') requestId: string) {
+    return this.tiramisClaimService.findClaimDischargeVoucherByRequestId(requestId);
   }
 
   @ApiOperation({ summary: 'Submit a claim payment' })
@@ -120,10 +144,34 @@ export class TiramisClaimsController {
     return this.tiramisClaimService.findClaimPaymentById(id);
   }
 
+  @ApiOperation({ summary: 'Get a claim payment by request id' })
+  @Get('payments/request/:requestId')
+  findClaimPaymentByRequestId(@Param('requestId') requestId: string) {
+    return this.tiramisClaimService.findClaimPaymentByRequestId(requestId);
+  }
+
   @ApiOperation({ summary: 'Submit a claim rejection' })
   @ApiBody(claimRejectionRequestBody)
   @Post('rejections/submit')
   submitClaimRejection(@Body() dto: CreateClaimRejectionDto) {
     return this.tiramisClaimService.submitClaimRejection(dto);
+  }
+
+  @ApiOperation({ summary: 'Get a claim rejection by request id' })
+  @Get('rejections/request/:requestId')
+  findClaimRejectionByRequestId(@Param('requestId') requestId: string) {
+    return this.tiramisClaimService.findClaimRejectionByRequestId(requestId);
+  }
+
+  @ApiOperation({ summary: 'List claim rejections' })
+  @Get('rejections')
+  findAllClaimRejections() {
+    return this.tiramisClaimService.findAllClaimRejections();
+  }
+
+  @ApiOperation({ summary: 'Get a claim rejection by id' })
+  @Get('rejections/:id')
+  findClaimRejectionById(@Param('id') id: string) {
+    return this.tiramisClaimService.findClaimRejectionById(id);
   }
 }

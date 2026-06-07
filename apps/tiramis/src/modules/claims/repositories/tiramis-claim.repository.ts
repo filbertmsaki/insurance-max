@@ -188,4 +188,20 @@ export class TiramisClaimRepository {
       relations: { claimants: true },
     });
   }
+
+  findRejectionById(id: string) {
+    return this.rejectionRepository.findOne({
+      where: { id },
+      relations: { claimants: true },
+    });
+  }
+
+  findAllRejections() {
+    return this.rejectionRepository.find({
+      relations: { claimants: true },
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+  }
 }
