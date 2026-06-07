@@ -1,0 +1,106 @@
+{
+  "environment": "test",
+  "clientConfigurationId": "cfb80685-bacd-4dc8-aaf1-69ebae63b584",
+  "sourceModule": "tiramis-cover-notes-test",
+  "sourceRecordId": "CVN-00004",
+  "companyCode": "ICC110",
+  "systemCode": "LSYS_ALLIANCE_003",
+  "callbackUrl": "http://localhost:9091/api/tiramis/callbacks/test",
+  "insurerCompanyCode": "ICC110",
+  "tranCompanyCode": "ICC110",
+  "coverNoteType": 1,
+  "coverNoteNumber": "NIC00004",
+  "prevCoverNoteReferenceNumber": "",
+  "salePointCode": "SP500",
+  "coverNoteStartDate": "2026-06-06T00:00:00",
+  "coverNoteEndDate": "2027-06-05T23:59:59",
+  "coverNoteDesc": "Mock TIRAMIS residential house cover note",
+  "operativeClause": "Fire and Allied Perils",
+  "paymentMode": 1,
+  "currencyCode": "TZS",
+  "exchangeRate": "1.00",
+  "totalPremiumExcludingTax": "29060.00",
+  "totalPremiumIncludingTax": "33570.80",
+  "commissionPaid": "0.00",
+  "commissionRate": "0.00",
+  "officerName": "Mock Underwriter",
+  "officerTitle": "Underwriter",
+  "productCode": "SP005001000000",
+  "endorsementType": null,
+  "endorsementReason": null,
+  "endorsementPremiumEarned": null,
+  "risks": [
+    {
+      "riskCode": "SP005001000001",
+      "sumInsured": "1000000.00",
+      "sumInsuredEquivalent": "1000000.00",
+      "premiumRate": "0.005",
+      "premiumBeforeDiscount": "5000.00",
+      "premiumAfterDiscount": "4000.00",
+      "premiumExcludingTaxEquivalent": "4000.00",
+      "premiumIncludingTax": "4720.00",
+      "discounts": [
+        {
+          "discountType": 2,
+          "discountRate": "0.00",
+          "discountAmount": "1000.00"
+        }
+      ],
+      "taxes": [
+        {
+          "taxCode": "VAT-MAINLAND",
+          "isTaxExempted": "Y",
+          "taxExemptionType": "1",
+          "taxExemptionReference": "2334ER232TYU",
+          "taxRate": "0.18",
+          "taxAmount": "720.00"
+        }
+      ]
+    }
+  ],
+  "subjectMatters": [
+    {
+      "subjectMatterReference": "HSB001",
+      "subjectMatterDesc": "House water systems"
+    }
+  ],
+  "addons": [
+    {
+      "addonReference": "1",
+      "addonDesc": "Underground Water and Sewer Service Lines",
+      "addonAmount": "2000.00",
+      "addonPremiumRate": "0.02",
+      "premiumExcludingTax": "40.00",
+      "premiumExcludingTaxEquivalent": "40.00",
+      "premiumIncludingTax": "47.20",
+      "taxes": [
+        {
+          "taxCode": "VAT-MAINLAND",
+          "isTaxExempted": "Y",
+          "taxExemptionType": "1",
+          "taxExemptionReference": "2334ER232TYU",
+          "taxRate": "0.18",
+          "taxAmount": "7.20"
+        }
+      ]
+    }
+  ],
+  "policyHolders": [
+    {
+      "policyHolderName": "Augustino Aidan Mwageni",
+      "policyHolderBirthDate": "1920-02-05",
+      "policyHolderType": 1,
+      "policyHolderIdNumber": "24241241",
+      "policyHolderIdType": 1,
+      "gender": "",
+      "countryCode": "TZA",
+      "region": "Region",
+      "district": "Ilala",
+      "street": "",
+      "phoneNumber": "255713525539",
+      "fax": "",
+      "postalAddress": "P.O.BOX 1231, Dar es Salaam",
+      "emailAddress": "mimi@email.com"
+    }
+  ]
+}
