@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
+import type {
   CreateClaimAssessmentDto,
   CreateClaimIntimationDto,
   CreateClaimNotificationDto,
@@ -8,10 +8,14 @@ import {
   CreateClaimantDto,
   CreateDischargeVoucherDto,
 } from '../dto/create-claim.dto';
+import type { TiramisResolvedRequestDtoFields } from '../../config/services/tiramis-config.service';
 
 @Injectable()
 export class TiramisClaimPayloadService {
-  buildClaimNotification(dto: CreateClaimNotificationDto, requestId: string) {
+  buildClaimNotification(
+    dto: CreateClaimNotificationDto & TiramisResolvedRequestDtoFields,
+    requestId: string,
+  ) {
     return {
       ClaimNotificationHdr: this.buildHeader(dto, requestId, {
         TranCompanyCode: dto.tranCompanyCode || '',
@@ -31,7 +35,10 @@ export class TiramisClaimPayloadService {
     };
   }
 
-  buildClaimIntimation(dto: CreateClaimIntimationDto, requestId: string) {
+  buildClaimIntimation(
+    dto: CreateClaimIntimationDto & TiramisResolvedRequestDtoFields,
+    requestId: string,
+  ) {
     return {
       ClaimIntimationHdr: this.buildHeader(dto, requestId),
       ClaimIntimationDtl: {
@@ -55,7 +62,10 @@ export class TiramisClaimPayloadService {
     };
   }
 
-  buildClaimAssessment(dto: CreateClaimAssessmentDto, requestId: string) {
+  buildClaimAssessment(
+    dto: CreateClaimAssessmentDto & TiramisResolvedRequestDtoFields,
+    requestId: string,
+  ) {
     return {
       ClaimAssessmentHdr: this.buildHeader(dto, requestId),
       ClaimAssessmentDtl: {
@@ -83,7 +93,10 @@ export class TiramisClaimPayloadService {
     };
   }
 
-  buildDischargeVoucher(dto: CreateDischargeVoucherDto, requestId: string) {
+  buildDischargeVoucher(
+    dto: CreateDischargeVoucherDto & TiramisResolvedRequestDtoFields,
+    requestId: string,
+  ) {
     return {
       DischargeVoucherHdr: this.buildHeader(dto, requestId),
       DischargeVoucherDtl: {
@@ -121,7 +134,10 @@ export class TiramisClaimPayloadService {
     };
   }
 
-  buildClaimPayment(dto: CreateClaimPaymentDto, requestId: string) {
+  buildClaimPayment(
+    dto: CreateClaimPaymentDto & TiramisResolvedRequestDtoFields,
+    requestId: string,
+  ) {
     return {
       ClaimPaymentHdr: this.buildHeader(dto, requestId),
       ClaimPaymentDtl: {
@@ -147,7 +163,10 @@ export class TiramisClaimPayloadService {
     };
   }
 
-  buildClaimRejection(dto: CreateClaimRejectionDto, requestId: string) {
+  buildClaimRejection(
+    dto: CreateClaimRejectionDto & TiramisResolvedRequestDtoFields,
+    requestId: string,
+  ) {
     return {
       ClaimRejectionHdr: this.buildHeader(dto, requestId),
       ClaimRejectionDtl: {
@@ -166,12 +185,7 @@ export class TiramisClaimPayloadService {
   }
 
   private buildHeader(
-    dto: {
-      companyCode: string;
-      systemCode: string;
-      callbackUrl: string;
-      insurerCompanyCode: string;
-    },
+    dto: TiramisResolvedRequestDtoFields,
     requestId: string,
     extra: Record<string, any> = {},
   ) {

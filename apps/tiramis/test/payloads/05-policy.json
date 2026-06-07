@@ -1,12 +1,4 @@
 {
-  "environment": "test",
-  "clientConfigurationId": "00ba6e73-e24c-4179-a1f4-0fb6141b07b3",
-  "sourceModule": "tiramis-policies-test",
-  "sourceRecordId": "POL-LOCAL-001",
-  "companyCode": "ICC110",
-  "systemCode": "LSYS_ALLIANCE_003",
-  "callbackUrl": "http://localhost:9091/api/tiramis/callbacks/test",
-  "insurerCompanyCode": "ICC110",
   "policyNumber": "POL-LOCAL-001",
   "policyOperativeClause": "Motor policy covering the insured fleet vehicle",
   "specialConditions": "Policy issued after successful motor cover note acceptance",

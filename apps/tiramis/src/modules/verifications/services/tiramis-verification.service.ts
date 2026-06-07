@@ -4,7 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { TiramisConfigService } from '../../config/services/tiramis-config.service';
+import {
+  TiramisConfigService,
+  type TiramisResolvedRequestDtoFields,
+} from '../../config/services/tiramis-config.service';
 import { TiramisHttpClientService } from '../../messaging/services/tiramis-http-client.service';
 import { TiramisSignatureService } from '../../messaging/services/tiramis-signature.service';
 import { TiramisXmlBuilderService } from '../../messaging/services/tiramis-xml-builder.service';
@@ -53,7 +56,7 @@ export class TiramisVerificationService {
       );
     }
 
-    return this.createAndSubmit({
+    return this.resolveAndSubmit({
       dto,
       verificationType: TIRAMIS_VERIFICATION_TYPE.COVER_NOTE,
       serviceType: TIRAMIS_VERIFICATION_SERVICE_TYPE.COVER_NOTE_VERIFICATION,
@@ -64,8 +67,8 @@ export class TiramisVerificationService {
         dto.motorRegistrationNumber ||
         dto.motorChassisNumber ||
         'COVER_NOTE_VERIFICATION',
-      buildPayload: (requestId) =>
-        this.payloadService.buildCoverNoteVerification(dto, requestId),
+      buildPayload: (resolvedDto, requestId) =>
+        this.payloadService.buildCoverNoteVerification(resolvedDto, requestId),
     });
   }
 
@@ -74,14 +77,14 @@ export class TiramisVerificationService {
       throw new BadRequestException('NIN is required');
     }
 
-    return this.createAndSubmit({
+    return this.resolveAndSubmit({
       dto,
       verificationType: TIRAMIS_VERIFICATION_TYPE.NIN,
       serviceType: TIRAMIS_VERIFICATION_SERVICE_TYPE.NIN_VERIFICATION,
       rootElement: TIRAMIS_VERIFICATION_ROOT_ELEMENT.NIN,
       businessReference: dto.nin,
-      buildPayload: (requestId) =>
-        this.payloadService.buildNinVerification(dto, requestId),
+      buildPayload: (resolvedDto, requestId) =>
+        this.payloadService.buildNinVerification(resolvedDto, requestId),
     });
   }
 
@@ -92,14 +95,14 @@ export class TiramisVerificationService {
       );
     }
 
-    return this.createAndSubmit({
+    return this.resolveAndSubmit({
       dto,
       verificationType: TIRAMIS_VERIFICATION_TYPE.COMPANY,
       serviceType: TIRAMIS_VERIFICATION_SERVICE_TYPE.COMPANY_VERIFICATION,
       rootElement: TIRAMIS_VERIFICATION_ROOT_ELEMENT.COMPANY,
       businessReference: dto.incorporationCertificateNumber,
-      buildPayload: (requestId) =>
-        this.payloadService.buildCompanyVerification(dto, requestId),
+      buildPayload: (resolvedDto, requestId) =>
+        this.payloadService.buildCompanyVerification(resolvedDto, requestId),
     });
   }
 
@@ -110,7 +113,7 @@ export class TiramisVerificationService {
       );
     }
 
-    return this.createAndSubmit({
+    return this.resolveAndSubmit({
       dto,
       verificationType: TIRAMIS_VERIFICATION_TYPE.MOTOR,
       serviceType: TIRAMIS_VERIFICATION_SERVICE_TYPE.MOTOR_VERIFICATION,
@@ -119,8 +122,8 @@ export class TiramisVerificationService {
         dto.motorRegistrationNumber ||
         dto.motorChassisNumber ||
         'MOTOR_VERIFICATION',
-      buildPayload: (requestId) =>
-        this.payloadService.buildMotorVerification(dto, requestId),
+      buildPayload: (resolvedDto, requestId) =>
+        this.payloadService.buildMotorVerification(resolvedDto, requestId),
     });
   }
 
@@ -136,7 +139,7 @@ export class TiramisVerificationService {
       );
     }
 
-    return this.createAndSubmit({
+    return this.resolveAndSubmit({
       dto,
       verificationType: TIRAMIS_VERIFICATION_TYPE.DETAILS,
       serviceType: TIRAMIS_VERIFICATION_SERVICE_TYPE.DETAILS_VERIFICATION,
@@ -147,8 +150,8 @@ export class TiramisVerificationService {
         dto.coverNoteReferenceNumber ||
         dto.stickerNumber ||
         'DETAILS_VERIFICATION',
-      buildPayload: (requestId) =>
-        this.payloadService.buildDetailsVerification(dto, requestId),
+      buildPayload: (resolvedDto, requestId) =>
+        this.payloadService.buildDetailsVerification(resolvedDto, requestId),
     });
   }
 
@@ -163,33 +166,55 @@ export class TiramisVerificationService {
     return request;
   }
 
-  private async createAndSubmit(params: {
+  private async resolveAndSubmit(params: {
     dto: any;
     verificationType: string;
     serviceType: string;
     rootElement: string;
     businessReference: string;
-    buildPayload: (requestId: string) => Record<string, any>;
+    buildPayload: (dto: any, requestId: string) => Record<string, any>;
+  }) {
+    const { configuration, dto: resolvedDto } =
+      await this.tiramisConfigService.resolveSubmissionContext(
+        params.dto,
+        params.businessReference,
+      );
+
+    return this.createAndSubmit({
+      ...params,
+      configuration,
+      dto: resolvedDto,
+    });
+  }
+
+  private async createAndSubmit(params: {
+    dto: any;
+    configuration: Awaited<ReturnType<TiramisConfigService['getActiveRuntimeConfiguration']>>;
+    verificationType: string;
+    serviceType: string;
+    rootElement: string;
+    businessReference: string;
+    buildPayload: (dto: any, requestId: string) => Record<string, any>;
   }) {
     const requestId = this.requestIdService.generate('AIC');
 
     const transaction = await this.submissionService.createTransaction({
       clientConfigurationId: params.dto.clientConfigurationId,
       serviceType: params.serviceType,
-      sourceModule: params.dto.sourceModule || 'tiramis-verifications',
+      sourceModule: 'tiramis-verifications',
       sourceRecordId: params.dto.sourceRecordId,
       businessReference: params.businessReference,
     });
 
-    const payload = params.buildPayload(requestId);
+    const payload = params.buildPayload(params.dto, requestId);
 
     const contentXml = this.xmlBuilder.buildContentXml(
       params.rootElement,
       payload,
     );
 
-    const pfxPaths = await this.tiramisConfigService.getPfxPaths(
-      params.dto.environment,
+    const pfxPaths = await this.tiramisConfigService.getPfxPathsForConfiguration(
+      params.configuration,
     );
 
     const signature = this.signatureService.signXmlContent({
@@ -234,13 +259,13 @@ export class TiramisVerificationService {
     const savedRequest =
       await this.verificationRepository.saveRequest(requestEntity);
 
-    const endpoint = await this.tiramisConfigService.getFullEndpointUrl({
-      environment: params.dto.environment,
+    const endpoint = await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
+      configuration: params.configuration,
       serviceType: params.serviceType,
     });
 
-    const headers = await this.tiramisConfigService.getRequestHeaders(
-      params.dto.environment,
+    const headers = await this.tiramisConfigService.getRequestHeadersForConfiguration(
+      params.configuration,
     );
 
     await this.submissionService.markSent(requestId);

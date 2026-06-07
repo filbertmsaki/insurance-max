@@ -1,13 +1,4 @@
 export const createCoverNoteRequestExample = {
-  environment: 'test',
-  clientConfigurationId: 'replace-with-seeded-client-configuration-id',
-  sourceModule: 'tiramis-cover-notes',
-  sourceRecordId: 'CVN-00004',
-  companyCode: 'ICC110',
-  systemCode: 'LSYS_ALLIANCE_003',
-  callbackUrl: 'http://localhost:9091/api/tiramis/callbacks/test',
-  insurerCompanyCode: 'ICC110',
-  tranCompanyCode: 'ICC110',
   coverNoteType: 1,
   coverNoteNumber: 'NIC00004',
   prevCoverNoteReferenceNumber: '',
@@ -257,12 +248,6 @@ export const createCoverNoteRequestBody = {
   schema: {
     type: 'object',
     required: [
-      'environment',
-      'clientConfigurationId',
-      'companyCode',
-      'systemCode',
-      'callbackUrl',
-      'insurerCompanyCode',
       'coverNoteType',
       'coverNoteNumber',
       'salePointCode',
@@ -282,25 +267,6 @@ export const createCoverNoteRequestBody = {
       'policyHolders',
     ],
     properties: {
-      environment: { type: 'string', example: 'test' },
-      clientConfigurationId: {
-        type: 'string',
-        example: 'replace-with-seeded-client-configuration-id',
-      },
-      sourceModule: {
-        type: 'string',
-        nullable: true,
-        example: 'tiramis-cover-notes',
-      },
-      sourceRecordId: { type: 'string', nullable: true, example: 'CVN-00004' },
-      companyCode: { type: 'string', example: 'ICC110' },
-      systemCode: { type: 'string', example: 'LSYS_ALLIANCE_003' },
-      callbackUrl: {
-        type: 'string',
-        example: 'http://localhost:9091/api/tiramis/callbacks/test',
-      },
-      insurerCompanyCode: { type: 'string', example: 'ICC110' },
-      tranCompanyCode: { type: 'string', nullable: true, example: 'ICC110' },
       coverNoteType: { type: 'number', example: 1 },
       coverNoteNumber: { type: 'string', example: 'NIC00004' },
       prevCoverNoteReferenceNumber: {

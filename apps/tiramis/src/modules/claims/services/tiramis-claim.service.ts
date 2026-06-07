@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 
-import { TiramisConfigService } from '../../config/services/tiramis-config.service';
+import {
+  TiramisConfigService,
+  type TiramisResolvedRequestDtoFields,
+} from '../../config/services/tiramis-config.service';
 import { TiramisHttpClientService } from '../../messaging/services/tiramis-http-client.service';
 import { TiramisSignatureService } from '../../messaging/services/tiramis-signature.service';
 import { TiramisXmlBuilderService } from '../../messaging/services/tiramis-xml-builder.service';
@@ -35,15 +38,15 @@ export class TiramisClaimService {
   ) {}
 
   submitClaimNotification(dto: CreateClaimNotificationDto) {
-    return this.createAndSubmit({
+    return this.resolveAndSubmit({
       dto,
       serviceType: TIRAMIS_CLAIM_SERVICE_TYPE.CLAIM_NOTIFICATION,
       rootElement: TIRAMIS_CLAIM_ROOT_ELEMENT.CLAIM_NOTIFICATION,
       businessReference: dto.claimNotificationNumber,
-      buildPayload: (requestId) =>
-        this.payloadService.buildClaimNotification(dto, requestId),
-      saveDraft: (requestId, transactionId) =>
-        this.createNotificationDraft(dto, requestId, transactionId),
+      buildPayload: (resolvedDto, requestId) =>
+        this.payloadService.buildClaimNotification(resolvedDto, requestId),
+      saveDraft: (resolvedDto, requestId, transactionId) =>
+        this.createNotificationDraft(resolvedDto, requestId, transactionId),
       updateAttempt: (record, attemptId) => {
         record.currentAttemptId = attemptId;
         return this.claimRepository.saveNotification(record);
@@ -52,15 +55,15 @@ export class TiramisClaimService {
   }
 
   submitClaimIntimation(dto: CreateClaimIntimationDto) {
-    return this.createAndSubmit({
+    return this.resolveAndSubmit({
       dto,
       serviceType: TIRAMIS_CLAIM_SERVICE_TYPE.CLAIM_INTIMATION,
       rootElement: TIRAMIS_CLAIM_ROOT_ELEMENT.CLAIM_INTIMATION,
       businessReference: dto.claimIntimationNumber,
-      buildPayload: (requestId) =>
-        this.payloadService.buildClaimIntimation(dto, requestId),
-      saveDraft: (requestId, transactionId) =>
-        this.createIntimationDraft(dto, requestId, transactionId),
+      buildPayload: (resolvedDto, requestId) =>
+        this.payloadService.buildClaimIntimation(resolvedDto, requestId),
+      saveDraft: (resolvedDto, requestId, transactionId) =>
+        this.createIntimationDraft(resolvedDto, requestId, transactionId),
       updateAttempt: (record, attemptId) => {
         record.currentAttemptId = attemptId;
         return this.claimRepository.saveIntimation(record);
@@ -69,15 +72,15 @@ export class TiramisClaimService {
   }
 
   submitClaimAssessment(dto: CreateClaimAssessmentDto) {
-    return this.createAndSubmit({
+    return this.resolveAndSubmit({
       dto,
       serviceType: TIRAMIS_CLAIM_SERVICE_TYPE.CLAIM_ASSESSMENT,
       rootElement: TIRAMIS_CLAIM_ROOT_ELEMENT.CLAIM_ASSESSMENT,
       businessReference: dto.claimAssessmentNumber,
-      buildPayload: (requestId) =>
-        this.payloadService.buildClaimAssessment(dto, requestId),
-      saveDraft: (requestId, transactionId) =>
-        this.createAssessmentDraft(dto, requestId, transactionId),
+      buildPayload: (resolvedDto, requestId) =>
+        this.payloadService.buildClaimAssessment(resolvedDto, requestId),
+      saveDraft: (resolvedDto, requestId, transactionId) =>
+        this.createAssessmentDraft(resolvedDto, requestId, transactionId),
       updateAttempt: (record, attemptId) => {
         record.currentAttemptId = attemptId;
         return this.claimRepository.saveAssessment(record);
@@ -86,15 +89,15 @@ export class TiramisClaimService {
   }
 
   submitDischargeVoucher(dto: CreateDischargeVoucherDto) {
-    return this.createAndSubmit({
+    return this.resolveAndSubmit({
       dto,
       serviceType: TIRAMIS_CLAIM_SERVICE_TYPE.DISCHARGE_VOUCHER,
       rootElement: TIRAMIS_CLAIM_ROOT_ELEMENT.DISCHARGE_VOUCHER,
       businessReference: dto.dischargeVoucherNumber,
-      buildPayload: (requestId) =>
-        this.payloadService.buildDischargeVoucher(dto, requestId),
-      saveDraft: (requestId, transactionId) =>
-        this.createDischargeVoucherDraft(dto, requestId, transactionId),
+      buildPayload: (resolvedDto, requestId) =>
+        this.payloadService.buildDischargeVoucher(resolvedDto, requestId),
+      saveDraft: (resolvedDto, requestId, transactionId) =>
+        this.createDischargeVoucherDraft(resolvedDto, requestId, transactionId),
       updateAttempt: (record, attemptId) => {
         record.currentAttemptId = attemptId;
         return this.claimRepository.saveDischargeVoucher(record);
@@ -103,15 +106,15 @@ export class TiramisClaimService {
   }
 
   submitClaimPayment(dto: CreateClaimPaymentDto) {
-    return this.createAndSubmit({
+    return this.resolveAndSubmit({
       dto,
       serviceType: TIRAMIS_CLAIM_SERVICE_TYPE.CLAIM_PAYMENT,
       rootElement: TIRAMIS_CLAIM_ROOT_ELEMENT.CLAIM_PAYMENT,
       businessReference: dto.claimPaymentNumber,
-      buildPayload: (requestId) =>
-        this.payloadService.buildClaimPayment(dto, requestId),
-      saveDraft: (requestId, transactionId) =>
-        this.createPaymentDraft(dto, requestId, transactionId),
+      buildPayload: (resolvedDto, requestId) =>
+        this.payloadService.buildClaimPayment(resolvedDto, requestId),
+      saveDraft: (resolvedDto, requestId, transactionId) =>
+        this.createPaymentDraft(resolvedDto, requestId, transactionId),
       updateAttempt: (record, attemptId) => {
         record.currentAttemptId = attemptId;
         return this.claimRepository.savePayment(record);
@@ -120,15 +123,15 @@ export class TiramisClaimService {
   }
 
   submitClaimRejection(dto: CreateClaimRejectionDto) {
-    return this.createAndSubmit({
+    return this.resolveAndSubmit({
       dto,
       serviceType: TIRAMIS_CLAIM_SERVICE_TYPE.CLAIM_REJECTION,
       rootElement: TIRAMIS_CLAIM_ROOT_ELEMENT.CLAIM_REJECTION,
       businessReference: dto.claimRejectionNumber,
-      buildPayload: (requestId) =>
-        this.payloadService.buildClaimRejection(dto, requestId),
-      saveDraft: (requestId, transactionId) =>
-        this.createRejectionDraft(dto, requestId, transactionId),
+      buildPayload: (resolvedDto, requestId) =>
+        this.payloadService.buildClaimRejection(resolvedDto, requestId),
+      saveDraft: (resolvedDto, requestId, transactionId) =>
+        this.createRejectionDraft(resolvedDto, requestId, transactionId),
       updateAttempt: (record, attemptId) => {
         record.currentAttemptId = attemptId;
         return this.claimRepository.saveRejection(record);
@@ -280,13 +283,55 @@ export class TiramisClaimService {
     return this.claimRepository.findAllRejections();
   }
 
-  private async createAndSubmit(params: {
+  private async resolveAndSubmit(params: {
     dto: any;
     serviceType: string;
     rootElement: string;
     businessReference: string;
-    buildPayload: (requestId: string) => Record<string, any>;
-    saveDraft: (requestId: string, transactionId: string) => Promise<any>;
+    buildPayload: (dto: any, requestId: string) => Record<string, any>;
+    saveDraft: (dto: any, requestId: string, transactionId: string) => Promise<any>;
+    updateAttempt: (record: any, attemptId: string) => Promise<any>;
+  }) {
+    const { configuration, dto: resolvedDto } =
+      await this.tiramisConfigService.resolveSubmissionContext(
+        params.dto,
+        params.businessReference,
+      );
+
+    return this.createAndSubmit({
+      ...params,
+      configuration,
+      dto: resolvedDto,
+    });
+  }
+
+  private async createAndSubmit(params: {
+    dto: any;
+    configuration: Awaited<ReturnType<TiramisConfigService['getActiveRuntimeConfiguration']>>;
+    serviceType: string;
+    rootElement: string;
+    businessReference: string;
+    buildPayload: (
+      dto:
+        | (CreateClaimNotificationDto & TiramisResolvedRequestDtoFields)
+        | (CreateClaimIntimationDto & TiramisResolvedRequestDtoFields)
+        | (CreateClaimAssessmentDto & TiramisResolvedRequestDtoFields)
+        | (CreateDischargeVoucherDto & TiramisResolvedRequestDtoFields)
+        | (CreateClaimPaymentDto & TiramisResolvedRequestDtoFields)
+        | (CreateClaimRejectionDto & TiramisResolvedRequestDtoFields),
+      requestId: string,
+    ) => Record<string, any>;
+    saveDraft: (
+      dto:
+        | (CreateClaimNotificationDto & TiramisResolvedRequestDtoFields)
+        | (CreateClaimIntimationDto & TiramisResolvedRequestDtoFields)
+        | (CreateClaimAssessmentDto & TiramisResolvedRequestDtoFields)
+        | (CreateDischargeVoucherDto & TiramisResolvedRequestDtoFields)
+        | (CreateClaimPaymentDto & TiramisResolvedRequestDtoFields)
+        | (CreateClaimRejectionDto & TiramisResolvedRequestDtoFields),
+      requestId: string,
+      transactionId: string,
+    ) => Promise<any>;
     updateAttempt: (record: any, attemptId: string) => Promise<any>;
   }) {
     if (!params.businessReference) {
@@ -298,20 +343,20 @@ export class TiramisClaimService {
     const transaction = await this.submissionService.createTransaction({
       clientConfigurationId: params.dto.clientConfigurationId,
       serviceType: params.serviceType,
-      sourceModule: params.dto.sourceModule || 'tiramis-claims',
+      sourceModule: 'tiramis-claims',
       sourceRecordId: params.dto.sourceRecordId,
       businessReference: params.businessReference,
     });
 
-    const record = await params.saveDraft(requestId, transaction.id);
-    const payload = params.buildPayload(requestId);
+    const record = await params.saveDraft(params.dto, requestId, transaction.id);
+    const payload = params.buildPayload(params.dto, requestId);
     const contentXml = this.xmlBuilder.buildContentXml(
       params.rootElement,
       payload,
     );
 
-    const pfxPaths = await this.tiramisConfigService.getPfxPaths(
-      params.dto.environment,
+    const pfxPaths = await this.tiramisConfigService.getPfxPathsForConfiguration(
+      params.configuration,
     );
 
     const signature = this.signatureService.signXmlContent({
@@ -336,13 +381,13 @@ export class TiramisClaimService {
 
     await params.updateAttempt(record, attempt.id);
 
-    const endpoint = await this.tiramisConfigService.getFullEndpointUrl({
-      environment: params.dto.environment,
+    const endpoint = await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
+      configuration: params.configuration,
       serviceType: params.serviceType,
     });
 
-    const headers = await this.tiramisConfigService.getRequestHeaders(
-      params.dto.environment,
+    const headers = await this.tiramisConfigService.getRequestHeadersForConfiguration(
+      params.configuration,
     );
 
     await this.submissionService.markSent(requestId);
@@ -362,7 +407,7 @@ export class TiramisClaimService {
   }
 
   private createNotificationDraft(
-    dto: CreateClaimNotificationDto,
+    dto: CreateClaimNotificationDto & TiramisResolvedRequestDtoFields,
     requestId: string,
     transactionId: string,
   ) {
@@ -390,7 +435,7 @@ export class TiramisClaimService {
   }
 
   private createIntimationDraft(
-    dto: CreateClaimIntimationDto,
+    dto: CreateClaimIntimationDto & TiramisResolvedRequestDtoFields,
     requestId: string,
     transactionId: string,
   ) {
@@ -421,7 +466,7 @@ export class TiramisClaimService {
   }
 
   private createAssessmentDraft(
-    dto: CreateClaimAssessmentDto,
+    dto: CreateClaimAssessmentDto & TiramisResolvedRequestDtoFields,
     requestId: string,
     transactionId: string,
   ) {
@@ -454,7 +499,7 @@ export class TiramisClaimService {
   }
 
   private createDischargeVoucherDraft(
-    dto: CreateDischargeVoucherDto,
+    dto: CreateDischargeVoucherDto & TiramisResolvedRequestDtoFields,
     requestId: string,
     transactionId: string,
   ) {
@@ -495,7 +540,7 @@ export class TiramisClaimService {
   }
 
   private createPaymentDraft(
-    dto: CreateClaimPaymentDto,
+    dto: CreateClaimPaymentDto & TiramisResolvedRequestDtoFields,
     requestId: string,
     transactionId: string,
   ) {
@@ -526,7 +571,7 @@ export class TiramisClaimService {
   }
 
   private createRejectionDraft(
-    dto: CreateClaimRejectionDto,
+    dto: CreateClaimRejectionDto & TiramisResolvedRequestDtoFields,
     requestId: string,
     transactionId: string,
   ) {

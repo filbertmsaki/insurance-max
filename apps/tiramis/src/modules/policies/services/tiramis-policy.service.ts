@@ -4,7 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { TiramisConfigService } from '../../config/services/tiramis-config.service';
+import {
+  TiramisConfigService,
+  type TiramisResolvedRequestDtoFields,
+} from '../../config/services/tiramis-config.service';
 import { TiramisHttpClientService } from '../../messaging/services/tiramis-http-client.service';
 import { TiramisSignatureService } from '../../messaging/services/tiramis-signature.service';
 import { TiramisXmlBuilderService } from '../../messaging/services/tiramis-xml-builder.service';
@@ -30,31 +33,43 @@ export class TiramisPolicyService {
     private readonly httpClient: TiramisHttpClientService,
   ) {}
 
-  async createDraft(dto: CreatePolicyDto) {
-    this.validatePayload(dto);
+  async createDraft(
+    dto: CreatePolicyDto | (CreatePolicyDto & TiramisResolvedRequestDtoFields),
+  ) {
+    const resolvedDto =
+      'clientConfigurationId' in dto
+        ? dto
+        : (
+            await this.tiramisConfigService.resolveSubmissionContext(
+              dto,
+              dto.policyNumber,
+            )
+          ).dto;
+
+    this.validatePayload(resolvedDto);
 
     const requestId = this.tiramisRequestIdService.generate('AIC');
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
-      clientConfigurationId: dto.clientConfigurationId,
+      clientConfigurationId: resolvedDto.clientConfigurationId,
       serviceType: this.serviceType,
-      sourceModule: dto.sourceModule || 'tiramis-policies',
-      sourceRecordId: dto.sourceRecordId,
-      businessReference: dto.policyNumber,
+      sourceModule: 'tiramis-policies',
+      sourceRecordId: resolvedDto.sourceRecordId,
+      businessReference: resolvedDto.policyNumber,
     });
 
     const policy = this.policyRepository.create({
       transactionId: transaction.id,
       requestId,
-      companyCode: dto.companyCode,
-      systemCode: dto.systemCode,
-      callbackUrl: dto.callbackUrl,
-      insurerCompanyCode: dto.insurerCompanyCode,
-      policyNumber: dto.policyNumber,
-      policyOperativeClause: dto.policyOperativeClause,
-      specialConditions: dto.specialConditions,
-      exclusions: dto.exclusions || null,
-      coverNotes: dto.coverNoteReferenceNumbers.map((referenceNumber) => ({
+      companyCode: resolvedDto.companyCode,
+      systemCode: resolvedDto.systemCode,
+      callbackUrl: resolvedDto.callbackUrl,
+      insurerCompanyCode: resolvedDto.insurerCompanyCode,
+      policyNumber: resolvedDto.policyNumber,
+      policyOperativeClause: resolvedDto.policyOperativeClause,
+      specialConditions: resolvedDto.specialConditions,
+      exclusions: resolvedDto.exclusions || null,
+      coverNotes: resolvedDto.coverNoteReferenceNumbers.map((referenceNumber) => ({
         coverNoteReferenceNumber: referenceNumber,
       })) as any,
     });
@@ -68,10 +83,16 @@ export class TiramisPolicyService {
   }
 
   async submit(dto: CreatePolicyDto) {
-    const { transaction, policy } = await this.createDraft(dto);
+    const { configuration, dto: resolvedDto } =
+      await this.tiramisConfigService.resolveSubmissionContext(
+        dto,
+        dto.policyNumber,
+      );
+
+    const { transaction, policy } = await this.createDraft(resolvedDto);
 
     const payload = this.policyPayloadService.buildFromDto({
-      dto,
+      dto: resolvedDto,
       requestId: policy.requestId,
     });
 
@@ -80,8 +101,8 @@ export class TiramisPolicyService {
       payload,
     );
 
-    const pfxPaths = await this.tiramisConfigService.getPfxPaths(
-      dto.environment,
+    const pfxPaths = await this.tiramisConfigService.getPfxPathsForConfiguration(
+      configuration,
     );
 
     const signature = this.signatureService.signXmlContent({
@@ -107,13 +128,13 @@ export class TiramisPolicyService {
     policy.currentAttemptId = attempt.id;
     await this.policyRepository.save(policy);
 
-    const endpoint = await this.tiramisConfigService.getFullEndpointUrl({
-      environment: dto.environment,
+    const endpoint = await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
+      configuration,
       serviceType: this.serviceType,
     });
 
-    const headers = await this.tiramisConfigService.getRequestHeaders(
-      dto.environment,
+    const headers = await this.tiramisConfigService.getRequestHeadersForConfiguration(
+      configuration,
     );
 
     await this.tiramisSubmissionService.markSent(policy.requestId);

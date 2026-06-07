@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
-import { TiramisConfigService } from '../../config/services/tiramis-config.service';
+import {
+  TiramisConfigService,
+  type TiramisResolvedRequestDtoFields,
+} from '../../config/services/tiramis-config.service';
 import { TiramisHttpClientService } from '../../messaging/services/tiramis-http-client.service';
 import { TiramisSignatureService } from '../../messaging/services/tiramis-signature.service';
 import { TiramisXmlBuilderService } from '../../messaging/services/tiramis-xml-builder.service';
@@ -26,15 +29,27 @@ export class TiramisCoverNoteService {
     private readonly httpClient: TiramisHttpClientService,
   ) {}
 
-  async createDraft(dto: CreateCoverNoteDto) {
+  async createDraft(
+    dto: CreateCoverNoteDto | (CreateCoverNoteDto & TiramisResolvedRequestDtoFields),
+  ) {
+    const resolvedDto =
+      'clientConfigurationId' in dto
+        ? dto
+        : (
+            await this.tiramisConfigService.resolveSubmissionContext(
+              dto,
+              dto.coverNoteNumber,
+            )
+          ).dto;
+
     const requestId = this.tiramisRequestIdService.generate('AIC');
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
-      clientConfigurationId: dto.clientConfigurationId,
+      clientConfigurationId: resolvedDto.clientConfigurationId,
       serviceType: this.serviceType,
-      sourceModule: dto.sourceModule || 'tiramis-cover-notes',
-      sourceRecordId: dto.sourceRecordId,
-      businessReference: dto.coverNoteNumber,
+      sourceModule: 'tiramis-cover-notes',
+      sourceRecordId: resolvedDto.sourceRecordId,
+      businessReference: resolvedDto.coverNoteNumber,
     });
 
     const coverNote = this.coverNoteRepository.create({
@@ -42,33 +57,34 @@ export class TiramisCoverNoteService {
       insuranceType: 'NON_MOTOR',
       isFleet: 0,
       requestId,
-      companyCode: dto.companyCode,
-      systemCode: dto.systemCode,
-      callbackUrl: dto.callbackUrl,
-      insurerCompanyCode: dto.insurerCompanyCode,
-      tranCompanyCode: dto.tranCompanyCode || null,
-      coverNoteType: dto.coverNoteType,
-      coverNoteNumber: dto.coverNoteNumber,
-      prevCoverNoteReferenceNumber: dto.prevCoverNoteReferenceNumber || null,
-      salePointCode: dto.salePointCode,
-      coverNoteStartDate: new Date(dto.coverNoteStartDate),
-      coverNoteEndDate: new Date(dto.coverNoteEndDate),
-      coverNoteDesc: dto.coverNoteDesc,
-      operativeClause: dto.operativeClause,
-      paymentMode: dto.paymentMode,
-      currencyCode: dto.currencyCode,
-      exchangeRate: dto.exchangeRate,
-      totalPremiumExcludingTax: dto.totalPremiumExcludingTax,
-      totalPremiumIncludingTax: dto.totalPremiumIncludingTax,
-      commissionPaid: dto.commissionPaid || null,
-      commissionRate: dto.commissionRate || null,
-      officerName: dto.officerName,
-      officerTitle: dto.officerTitle,
-      productCode: dto.productCode,
-      endorsementType: dto.endorsementType || null,
-      endorsementReason: dto.endorsementReason || null,
-      endorsementPremiumEarned: dto.endorsementPremiumEarned || null,
-      risks: dto.risks.map((risk) => ({
+      companyCode: resolvedDto.companyCode,
+      systemCode: resolvedDto.systemCode,
+      callbackUrl: resolvedDto.callbackUrl,
+      insurerCompanyCode: resolvedDto.insurerCompanyCode,
+      tranCompanyCode: resolvedDto.tranCompanyCode || null,
+      coverNoteType: resolvedDto.coverNoteType,
+      coverNoteNumber: resolvedDto.coverNoteNumber,
+      prevCoverNoteReferenceNumber:
+        resolvedDto.prevCoverNoteReferenceNumber || null,
+      salePointCode: resolvedDto.salePointCode,
+      coverNoteStartDate: new Date(resolvedDto.coverNoteStartDate),
+      coverNoteEndDate: new Date(resolvedDto.coverNoteEndDate),
+      coverNoteDesc: resolvedDto.coverNoteDesc,
+      operativeClause: resolvedDto.operativeClause,
+      paymentMode: resolvedDto.paymentMode,
+      currencyCode: resolvedDto.currencyCode,
+      exchangeRate: resolvedDto.exchangeRate,
+      totalPremiumExcludingTax: resolvedDto.totalPremiumExcludingTax,
+      totalPremiumIncludingTax: resolvedDto.totalPremiumIncludingTax,
+      commissionPaid: resolvedDto.commissionPaid || null,
+      commissionRate: resolvedDto.commissionRate || null,
+      officerName: resolvedDto.officerName,
+      officerTitle: resolvedDto.officerTitle,
+      productCode: resolvedDto.productCode,
+      endorsementType: resolvedDto.endorsementType || null,
+      endorsementReason: resolvedDto.endorsementReason || null,
+      endorsementPremiumEarned: resolvedDto.endorsementPremiumEarned || null,
+      risks: resolvedDto.risks.map((risk) => ({
         riskCode: risk.riskCode,
         sumInsured: risk.sumInsured,
         sumInsuredEquivalent: risk.sumInsuredEquivalent,
@@ -91,11 +107,11 @@ export class TiramisCoverNoteService {
           taxAmount: tax.taxAmount,
         })),
       })) as any,
-      subjectMatters: (dto.subjectMatters || []).map((subject) => ({
+      subjectMatters: (resolvedDto.subjectMatters || []).map((subject) => ({
         subjectMatterReference: subject.subjectMatterReference,
         subjectMatterDesc: subject.subjectMatterDesc,
       })) as any,
-      addons: (dto.addons || []).map((addon) => ({
+      addons: (resolvedDto.addons || []).map((addon) => ({
         addonReference: addon.addonReference,
         addonDesc: addon.addonDesc,
         addonAmount: addon.addonAmount,
@@ -112,7 +128,7 @@ export class TiramisCoverNoteService {
           taxAmount: tax.taxAmount,
         })),
       })) as any,
-      policyHolders: dto.policyHolders.map((holder) => ({
+      policyHolders: resolvedDto.policyHolders.map((holder) => ({
         policyHolderName: holder.policyHolderName,
         policyHolderBirthDate: holder.policyHolderBirthDate
           ? new Date(holder.policyHolderBirthDate)
@@ -141,10 +157,16 @@ export class TiramisCoverNoteService {
   }
 
   async submit(dto: CreateCoverNoteDto) {
-    const { transaction, coverNote } = await this.createDraft(dto);
+    const { configuration, dto: resolvedDto } =
+      await this.tiramisConfigService.resolveSubmissionContext(
+        dto,
+        dto.coverNoteNumber,
+      );
+
+    const { transaction, coverNote } = await this.createDraft(resolvedDto);
 
     const payload = this.payloadService.buildFromDto({
-      dto,
+      dto: resolvedDto,
       requestId: coverNote.requestId,
     });
 
@@ -153,8 +175,8 @@ export class TiramisCoverNoteService {
       payload,
     );
 
-    const pfxPaths = await this.tiramisConfigService.getPfxPaths(
-      dto.environment,
+    const pfxPaths = await this.tiramisConfigService.getPfxPathsForConfiguration(
+      configuration,
     );
 
     const signature = this.signatureService.signXmlContent({
@@ -180,13 +202,13 @@ export class TiramisCoverNoteService {
     coverNote.currentAttemptId = attempt.id;
     await this.coverNoteRepository.save(coverNote);
 
-    const endpoint = await this.tiramisConfigService.getFullEndpointUrl({
-      environment: dto.environment,
+    const endpoint = await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
+      configuration,
       serviceType: this.serviceType,
     });
 
-    const headers = await this.tiramisConfigService.getRequestHeaders(
-      dto.environment,
+    const headers = await this.tiramisConfigService.getRequestHeadersForConfiguration(
+      configuration,
     );
 
     await this.tiramisSubmissionService.markSent(coverNote.requestId);

@@ -16,19 +16,9 @@ export interface CreateClaimantDto {
   emailAddress?: string | null;
 }
 
-interface CreateClaimBaseDto {
-  environment: string;
-  clientConfigurationId: string;
-  sourceModule?: string;
-  sourceRecordId?: string;
-  companyCode: string;
-  systemCode: string;
-  callbackUrl: string;
-  insurerCompanyCode: string;
-}
+interface CreateClaimBaseDto {}
 
 export interface CreateClaimNotificationDto extends CreateClaimBaseDto {
-  tranCompanyCode?: string | null;
   claimNotificationNumber: string;
   coverNoteReferenceNumber: string;
   claimReportDate: Date | string;

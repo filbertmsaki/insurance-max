@@ -4,7 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { TiramisConfigService } from '../../config/services/tiramis-config.service';
+import {
+  TiramisConfigService,
+  type TiramisResolvedRequestDtoFields,
+} from '../../config/services/tiramis-config.service';
 import { TiramisHttpClientService } from '../../messaging/services/tiramis-http-client.service';
 import { TiramisSignatureService } from '../../messaging/services/tiramis-signature.service';
 import { TiramisXmlBuilderService } from '../../messaging/services/tiramis-xml-builder.service';
@@ -30,34 +33,48 @@ export class TiramisReinsuranceService {
     private readonly httpClient: TiramisHttpClientService,
   ) {}
 
-  async createDraft(dto: CreateReinsuranceDto) {
-    this.validatePayload(dto);
+  async createDraft(
+    dto:
+      | CreateReinsuranceDto
+      | (CreateReinsuranceDto & TiramisResolvedRequestDtoFields),
+  ) {
+    const resolvedDto =
+      'clientConfigurationId' in dto
+        ? dto
+        : (
+            await this.tiramisConfigService.resolveSubmissionContext(
+              dto,
+              dto.coverNoteReferenceNumber,
+            )
+          ).dto;
+
+    this.validatePayload(resolvedDto);
 
     const requestId = this.tiramisRequestIdService.generate('AIC');
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
-      clientConfigurationId: dto.clientConfigurationId,
+      clientConfigurationId: resolvedDto.clientConfigurationId,
       serviceType: this.serviceType,
-      sourceModule: dto.sourceModule || 'tiramis-reinsurance',
-      sourceRecordId: dto.sourceRecordId,
-      businessReference: dto.coverNoteReferenceNumber,
+      sourceModule: 'tiramis-reinsurance',
+      sourceRecordId: resolvedDto.sourceRecordId,
+      businessReference: resolvedDto.coverNoteReferenceNumber,
     });
 
     const reinsurance = this.reinsuranceRepository.create({
       transactionId: transaction.id,
       requestId,
-      companyCode: dto.companyCode,
-      systemCode: dto.systemCode,
-      callbackUrl: dto.callbackUrl,
-      insurerCompanyCode: dto.insurerCompanyCode,
-      coverNoteReferenceNumber: dto.coverNoteReferenceNumber,
-      premiumIncludingTax: dto.premiumIncludingTax,
-      currencyCode: dto.currencyCode,
-      exchangeRate: dto.exchangeRate,
-      authorizingOfficerName: dto.authorizingOfficerName,
-      authorizingOfficerTitle: dto.authorizingOfficerTitle,
-      reinsuranceCategory: dto.reinsuranceCategory,
-      participants: dto.participants.map((participant) => ({
+      companyCode: resolvedDto.companyCode,
+      systemCode: resolvedDto.systemCode,
+      callbackUrl: resolvedDto.callbackUrl,
+      insurerCompanyCode: resolvedDto.insurerCompanyCode,
+      coverNoteReferenceNumber: resolvedDto.coverNoteReferenceNumber,
+      premiumIncludingTax: resolvedDto.premiumIncludingTax,
+      currencyCode: resolvedDto.currencyCode,
+      exchangeRate: resolvedDto.exchangeRate,
+      authorizingOfficerName: resolvedDto.authorizingOfficerName,
+      authorizingOfficerTitle: resolvedDto.authorizingOfficerTitle,
+      reinsuranceCategory: resolvedDto.reinsuranceCategory,
+      participants: resolvedDto.participants.map((participant) => ({
         participantCode: participant.participantCode,
         participantType: participant.participantType,
         reinsuranceForm: participant.reinsuranceForm,
@@ -79,10 +96,16 @@ export class TiramisReinsuranceService {
   }
 
   async submit(dto: CreateReinsuranceDto) {
-    const { transaction, reinsurance } = await this.createDraft(dto);
+    const { configuration, dto: resolvedDto } =
+      await this.tiramisConfigService.resolveSubmissionContext(
+        dto,
+        dto.coverNoteReferenceNumber,
+      );
+
+    const { transaction, reinsurance } = await this.createDraft(resolvedDto);
 
     const payload = this.reinsurancePayloadService.buildFromDto({
-      dto,
+      dto: resolvedDto,
       requestId: reinsurance.requestId,
     });
 
@@ -91,8 +114,8 @@ export class TiramisReinsuranceService {
       payload,
     );
 
-    const pfxPaths = await this.tiramisConfigService.getPfxPaths(
-      dto.environment,
+    const pfxPaths = await this.tiramisConfigService.getPfxPathsForConfiguration(
+      configuration,
     );
 
     const signature = this.signatureService.signXmlContent({
@@ -118,13 +141,13 @@ export class TiramisReinsuranceService {
     reinsurance.currentAttemptId = attempt.id;
     await this.reinsuranceRepository.save(reinsurance);
 
-    const endpoint = await this.tiramisConfigService.getFullEndpointUrl({
-      environment: dto.environment,
+    const endpoint = await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
+      configuration,
       serviceType: this.serviceType,
     });
 
-    const headers = await this.tiramisConfigService.getRequestHeaders(
-      dto.environment,
+    const headers = await this.tiramisConfigService.getRequestHeadersForConfiguration(
+      configuration,
     );
 
     await this.tiramisSubmissionService.markSent(reinsurance.requestId);

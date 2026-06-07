@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 
-import { CreateCoverNoteDto } from '../dto/create-cover-note.dto';
+import type { CreateCoverNoteDto } from '../dto/create-cover-note.dto';
 import { TiramisCoverNoteEntity } from '../entities/tiramis-cover-note.entity';
+import type { TiramisResolvedRequestDtoFields } from '../../config/services/tiramis-config.service';
 
 @Injectable()
 export class TiramisCoverNotePayloadService {
   buildFromDto(params: {
-    dto: CreateCoverNoteDto;
+    dto: CreateCoverNoteDto & TiramisResolvedRequestDtoFields;
     requestId: string;
   }): Record<string, any> {
     const dto = params.dto;

@@ -1,12 +1,13 @@
 import { Injectable } from '@nestjs/common';
 
-import { CreatePolicyDto } from '../dto/create-policy.dto';
+import type { CreatePolicyDto } from '../dto/create-policy.dto';
 import { TiramisPolicyEntity } from '../entities/tiramis-policy.entity';
+import type { TiramisResolvedRequestDtoFields } from '../../config/services/tiramis-config.service';
 
 @Injectable()
 export class TiramisPolicyPayloadService {
   buildFromDto(params: {
-    dto: CreatePolicyDto;
+    dto: CreatePolicyDto & TiramisResolvedRequestDtoFields;
     requestId: string;
   }): Record<string, any> {
     const { dto, requestId } = params;

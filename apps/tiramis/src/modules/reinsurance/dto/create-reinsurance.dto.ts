@@ -11,14 +11,6 @@ export interface CreateReinsuranceParticipantDto {
 }
 
 export interface CreateReinsuranceDto {
-  environment: string;
-  clientConfigurationId: string;
-  sourceModule?: string;
-  sourceRecordId?: string;
-  companyCode: string;
-  systemCode: string;
-  callbackUrl: string;
-  insurerCompanyCode: string;
   coverNoteReferenceNumber: string;
   premiumIncludingTax: string;
   currencyCode: string;

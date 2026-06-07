@@ -5,9 +5,6 @@ import {
 
 export const createMotorCoverNoteRequestExample = {
   ...createCoverNoteRequestExample,
-  callbackUrl: 'http://localhost:9091/api/tiramis/callbacks/test',
-  sourceModule: 'tiramis-motor',
-  sourceRecordId: 'MOTOR-CN-LOCAL-001',
   coverNoteNumber: 'MOTOR-CN-LOCAL-001',
   coverNoteDesc: 'Mock TIRAMIS private motor comprehensive cover note',
   operativeClause: 'Private motor comprehensive insurance',
@@ -184,11 +181,6 @@ export const createMotorCoverNoteRequestBody = {
     required: [...createCoverNoteRequestBody.schema.required, 'isFleet'],
     properties: {
       ...createCoverNoteRequestBody.schema.properties,
-      sourceModule: {
-        type: 'string',
-        nullable: true,
-        example: 'tiramis-motor',
-      },
       isFleet: { type: 'boolean', example: false },
       motorDetail: {
         ...motorDetailSchema,

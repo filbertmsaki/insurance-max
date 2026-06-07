@@ -1,17 +1,18 @@
 import { Injectable } from '@nestjs/common';
 
-import {
+import type {
   CompanyVerificationDto,
   CoverNoteVerificationDto,
   DetailsVerificationDto,
   MotorVerificationDto,
   NinVerificationDto,
 } from '../dto/create-verification.dto';
+import type { TiramisResolvedRequestDtoFields } from '../../config/services/tiramis-config.service';
 
 @Injectable()
 export class TiramisVerificationPayloadService {
   buildCoverNoteVerification(
-    dto: CoverNoteVerificationDto,
+    dto: CoverNoteVerificationDto & TiramisResolvedRequestDtoFields,
     requestId: string,
   ): Record<string, any> {
     return {
@@ -26,7 +27,7 @@ export class TiramisVerificationPayloadService {
   }
 
   buildNinVerification(
-    dto: NinVerificationDto,
+    dto: NinVerificationDto & TiramisResolvedRequestDtoFields,
     requestId: string,
   ): Record<string, any> {
     return {
@@ -38,7 +39,7 @@ export class TiramisVerificationPayloadService {
   }
 
   buildCompanyVerification(
-    dto: CompanyVerificationDto,
+    dto: CompanyVerificationDto & TiramisResolvedRequestDtoFields,
     requestId: string,
   ): Record<string, any> {
     return {
@@ -50,7 +51,7 @@ export class TiramisVerificationPayloadService {
   }
 
   buildMotorVerification(
-    dto: MotorVerificationDto,
+    dto: MotorVerificationDto & TiramisResolvedRequestDtoFields,
     requestId: string,
   ): Record<string, any> {
     return {
@@ -63,7 +64,7 @@ export class TiramisVerificationPayloadService {
   }
 
   buildDetailsVerification(
-    dto: DetailsVerificationDto,
+    dto: DetailsVerificationDto & TiramisResolvedRequestDtoFields,
     requestId: string,
   ): Record<string, any> {
     return {
@@ -78,10 +79,7 @@ export class TiramisVerificationPayloadService {
   }
 
   private buildHeader(
-    dto: {
-      companyCode: string;
-      systemCode: string;
-    },
+    dto: TiramisResolvedRequestDtoFields,
     requestId: string,
   ) {
     return {

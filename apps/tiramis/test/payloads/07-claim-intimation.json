@@ -1,12 +1,4 @@
 {
-  "environment": "test",
-  "clientConfigurationId": "00ba6e73-e24c-4179-a1f4-0fb6141b07b3",
-  "sourceModule": "tiramis-claims-test",
-  "sourceRecordId": "CLM-INT-LOCAL-001",
-  "companyCode": "ICC110",
-  "systemCode": "LSYS_ALLIANCE_003",
-  "callbackUrl": "http://localhost:9091/api/tiramis/callbacks/test",
-  "insurerCompanyCode": "ICC110",
   "claimIntimationNumber": "CLM-INT-LOCAL-001",
   "claimReferenceNumber": "CLM-REF-LOCAL-001",
   "coverNoteReferenceNumber": "TIRA-MCN-1780860130489",

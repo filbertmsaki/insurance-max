@@ -1,12 +1,4 @@
 export const createReinsuranceRequestExample = {
-  environment: 'test',
-  clientConfigurationId: 'replace-with-seeded-client-configuration-id',
-  sourceModule: 'tiramis-reinsurance',
-  sourceRecordId: 'RE-LOCAL-001',
-  companyCode: 'ICC110',
-  systemCode: 'LSYS_ALLIANCE_003',
-  callbackUrl: 'http://localhost:9091/api/tiramis/callbacks/test',
-  insurerCompanyCode: 'ICC110',
   coverNoteReferenceNumber: 'TIRA-CN-000001',
   premiumIncludingTax: '118000.00',
   currencyCode: 'TZS',
@@ -65,12 +57,6 @@ export const createReinsuranceRequestBody = {
   schema: {
     type: 'object',
     required: [
-      'environment',
-      'clientConfigurationId',
-      'companyCode',
-      'systemCode',
-      'callbackUrl',
-      'insurerCompanyCode',
       'coverNoteReferenceNumber',
       'premiumIncludingTax',
       'currencyCode',
@@ -81,28 +67,6 @@ export const createReinsuranceRequestBody = {
       'participants',
     ],
     properties: {
-      environment: { type: 'string', example: 'test' },
-      clientConfigurationId: {
-        type: 'string',
-        example: 'replace-with-seeded-client-configuration-id',
-      },
-      sourceModule: {
-        type: 'string',
-        nullable: true,
-        example: 'tiramis-reinsurance',
-      },
-      sourceRecordId: {
-        type: 'string',
-        nullable: true,
-        example: 'RE-LOCAL-001',
-      },
-      companyCode: { type: 'string', example: 'ICC110' },
-      systemCode: { type: 'string', example: 'LSYS_ALLIANCE_003' },
-      callbackUrl: {
-        type: 'string',
-        example: 'http://localhost:9091/api/tiramis/callbacks/test',
-      },
-      insurerCompanyCode: { type: 'string', example: 'ICC110' },
       coverNoteReferenceNumber: {
         type: 'string',
         example: 'TIRA-CN-000001',

@@ -60,15 +60,6 @@ export interface CreatePolicyHolderDto {
 }
 
 export interface CreateCoverNoteDto {
-  environment: string;
-  clientConfigurationId: string;
-  sourceModule?: string;
-  sourceRecordId?: string;
-  companyCode: string;
-  systemCode: string;
-  callbackUrl: string;
-  insurerCompanyCode: string;
-  tranCompanyCode?: string | null;
   coverNoteType: number;
   coverNoteNumber: string;
   prevCoverNoteReferenceNumber?: string | null;

@@ -1,13 +1,4 @@
 {
-  "environment": "test",
-  "clientConfigurationId": "cfb80685-bacd-4dc8-aaf1-69ebae63b584",
-  "sourceModule": "tiramis-cover-notes-test",
-  "sourceRecordId": "CVN-00004",
-  "companyCode": "ICC110",
-  "systemCode": "LSYS_ALLIANCE_003",
-  "callbackUrl": "http://localhost:9091/api/tiramis/callbacks/test",
-  "insurerCompanyCode": "ICC110",
-  "tranCompanyCode": "ICC110",
   "coverNoteType": 1,
   "coverNoteNumber": "NIC00004",
   "prevCoverNoteReferenceNumber": "",

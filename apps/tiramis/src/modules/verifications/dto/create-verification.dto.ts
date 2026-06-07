@@ -1,10 +1,4 @@
 export interface BaseVerificationDto {
-  environment: string;
-  clientConfigurationId: string;
-  sourceModule?: string;
-  sourceRecordId?: string;
-  companyCode: string;
-  systemCode: string;
 }
 
 export interface CoverNoteVerificationDto extends BaseVerificationDto {

@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 
-import { TiramisConfigService } from '../../config/services/tiramis-config.service';
+import {
+  TiramisConfigService,
+  type TiramisResolvedRequestDtoFields,
+} from '../../config/services/tiramis-config.service';
 import { TiramisCoverNoteRepository } from '../../cover-notes/repositories/tiramis-cover-note.repository';
 import { TiramisHttpClientService } from '../../messaging/services/tiramis-http-client.service';
 import { TiramisSignatureService } from '../../messaging/services/tiramis-signature.service';
@@ -29,54 +32,69 @@ export class TiramisMotorService {
     private readonly httpClient: TiramisHttpClientService,
   ) {}
 
-  async createDraft(dto: CreateMotorCoverNoteDto) {
-    this.validateMotorPayload(dto);
+  async createDraft(
+    dto:
+      | CreateMotorCoverNoteDto
+      | (CreateMotorCoverNoteDto & TiramisResolvedRequestDtoFields),
+  ) {
+    const resolvedDto =
+      'clientConfigurationId' in dto
+        ? dto
+        : (
+            await this.tiramisConfigService.resolveSubmissionContext(
+              dto,
+              dto.coverNoteNumber,
+            )
+          ).dto;
+
+    this.validateMotorPayload(resolvedDto);
 
     const requestId = this.tiramisRequestIdService.generate('AIC');
-    const serviceType = dto.isFleet
+    const serviceType = resolvedDto.isFleet
       ? 'MOTOR_COVER_NOTE_FLEET'
       : 'MOTOR_COVER_NOTE_NON_FLEET';
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
-      clientConfigurationId: dto.clientConfigurationId,
+      clientConfigurationId: resolvedDto.clientConfigurationId,
       serviceType,
-      sourceModule: dto.sourceModule || 'tiramis-motor',
-      sourceRecordId: dto.sourceRecordId,
-      businessReference: dto.coverNoteNumber,
+      sourceModule: 'tiramis-motor',
+      sourceRecordId: resolvedDto.sourceRecordId,
+      businessReference: resolvedDto.coverNoteNumber,
     });
 
     const coverNote = this.coverNoteRepository.create({
       transactionId: transaction.id,
       insuranceType: 'MOTOR',
-      isFleet: dto.isFleet ? 1 : 0,
+      isFleet: resolvedDto.isFleet ? 1 : 0,
       requestId,
-      companyCode: dto.companyCode,
-      systemCode: dto.systemCode,
-      callbackUrl: dto.callbackUrl,
-      insurerCompanyCode: dto.insurerCompanyCode,
-      tranCompanyCode: dto.tranCompanyCode || null,
-      coverNoteType: dto.coverNoteType,
-      coverNoteNumber: dto.coverNoteNumber,
-      prevCoverNoteReferenceNumber: dto.prevCoverNoteReferenceNumber || null,
-      salePointCode: dto.salePointCode,
-      coverNoteStartDate: new Date(dto.coverNoteStartDate),
-      coverNoteEndDate: new Date(dto.coverNoteEndDate),
-      coverNoteDesc: dto.coverNoteDesc,
-      operativeClause: dto.operativeClause,
-      paymentMode: dto.paymentMode,
-      currencyCode: dto.currencyCode,
-      exchangeRate: dto.exchangeRate,
-      totalPremiumExcludingTax: dto.totalPremiumExcludingTax,
-      totalPremiumIncludingTax: dto.totalPremiumIncludingTax,
-      commissionPaid: dto.commissionPaid || null,
-      commissionRate: dto.commissionRate || null,
-      officerName: dto.officerName,
-      officerTitle: dto.officerTitle,
-      productCode: dto.productCode,
-      endorsementType: dto.endorsementType || null,
-      endorsementReason: dto.endorsementReason || null,
-      endorsementPremiumEarned: dto.endorsementPremiumEarned || null,
-      policyHolders: dto.policyHolders.map((holder) => ({
+      companyCode: resolvedDto.companyCode,
+      systemCode: resolvedDto.systemCode,
+      callbackUrl: resolvedDto.callbackUrl,
+      insurerCompanyCode: resolvedDto.insurerCompanyCode,
+      tranCompanyCode: resolvedDto.tranCompanyCode || null,
+      coverNoteType: resolvedDto.coverNoteType,
+      coverNoteNumber: resolvedDto.coverNoteNumber,
+      prevCoverNoteReferenceNumber:
+        resolvedDto.prevCoverNoteReferenceNumber || null,
+      salePointCode: resolvedDto.salePointCode,
+      coverNoteStartDate: new Date(resolvedDto.coverNoteStartDate),
+      coverNoteEndDate: new Date(resolvedDto.coverNoteEndDate),
+      coverNoteDesc: resolvedDto.coverNoteDesc,
+      operativeClause: resolvedDto.operativeClause,
+      paymentMode: resolvedDto.paymentMode,
+      currencyCode: resolvedDto.currencyCode,
+      exchangeRate: resolvedDto.exchangeRate,
+      totalPremiumExcludingTax: resolvedDto.totalPremiumExcludingTax,
+      totalPremiumIncludingTax: resolvedDto.totalPremiumIncludingTax,
+      commissionPaid: resolvedDto.commissionPaid || null,
+      commissionRate: resolvedDto.commissionRate || null,
+      officerName: resolvedDto.officerName,
+      officerTitle: resolvedDto.officerTitle,
+      productCode: resolvedDto.productCode,
+      endorsementType: resolvedDto.endorsementType || null,
+      endorsementReason: resolvedDto.endorsementReason || null,
+      endorsementPremiumEarned: resolvedDto.endorsementPremiumEarned || null,
+      policyHolders: resolvedDto.policyHolders.map((holder) => ({
         policyHolderName: holder.policyHolderName,
         policyHolderBirthDate: holder.policyHolderBirthDate
           ? new Date(holder.policyHolderBirthDate)
@@ -98,18 +116,18 @@ export class TiramisMotorService {
 
     const savedCoverNote = await this.coverNoteRepository.save(coverNote);
 
-    if (dto.isFleet && dto.fleet) {
+    if (resolvedDto.isFleet && resolvedDto.fleet) {
       const fleet = this.motorRepository.createFleet({
         coverNoteId: savedCoverNote.id,
-        fleetId: dto.fleet.fleetId,
-        fleetType: dto.fleet.fleetType || null,
-        fleetSize: dto.fleet.fleetSize,
-        comprehensiveInsured: dto.fleet.comprehensiveInsured || null,
+        fleetId: resolvedDto.fleet.fleetId,
+        fleetType: resolvedDto.fleet.fleetType || null,
+        fleetSize: resolvedDto.fleet.fleetSize,
+        comprehensiveInsured: resolvedDto.fleet.comprehensiveInsured || null,
       });
 
       const savedFleet = await this.motorRepository.saveFleet(fleet);
 
-      for (const item of dto.fleet.items) {
+      for (const item of resolvedDto.fleet.items) {
         const fleetItem = this.motorRepository.createFleetItem({
           motorFleetId: savedFleet.id,
           coverNoteId: savedCoverNote.id,
@@ -117,8 +135,8 @@ export class TiramisMotorService {
           coverNoteNumber: item.coverNoteNumber,
           prevCoverNoteReferenceNumber:
             item.prevCoverNoteReferenceNumber || null,
-          coverNoteDesc: item.coverNoteDesc || dto.coverNoteDesc,
-          operativeClause: item.operativeClause || dto.operativeClause,
+          coverNoteDesc: item.coverNoteDesc || resolvedDto.coverNoteDesc,
+          operativeClause: item.operativeClause || resolvedDto.operativeClause,
           endorsementType: item.endorsementType || null,
           endorsementReason: item.endorsementReason || null,
           endorsementPremiumEarned: item.endorsementPremiumEarned || null,
@@ -137,11 +155,11 @@ export class TiramisMotorService {
       }
     }
 
-    if (!dto.isFleet && dto.motorDetail) {
+    if (!resolvedDto.isFleet && resolvedDto.motorDetail) {
       const motorDetail = this.motorRepository.createMotorDetail({
         coverNoteId: savedCoverNote.id,
         motorFleetItemId: null,
-        ...this.mapMotorDetailForEntity(dto.motorDetail),
+        ...this.mapMotorDetailForEntity(resolvedDto.motorDetail),
       });
 
       await this.motorRepository.saveMotorDetail(motorDetail);
@@ -154,14 +172,22 @@ export class TiramisMotorService {
   }
 
   async submit(dto: CreateMotorCoverNoteDto) {
-    const { transaction, coverNote } = await this.createDraft(dto);
+    const { configuration, dto: resolvedDto } =
+      await this.tiramisConfigService.resolveSubmissionContext(
+        dto,
+        dto.isFleet
+          ? dto.fleet?.fleetId || dto.coverNoteNumber
+          : dto.coverNoteNumber,
+      );
+
+    const { transaction, coverNote } = await this.createDraft(resolvedDto);
 
     const serviceType = dto.isFleet
       ? 'MOTOR_COVER_NOTE_FLEET'
       : 'MOTOR_COVER_NOTE_NON_FLEET';
 
     const payload = this.motorPayloadService.buildMotorCoverNotePayload({
-      dto,
+      dto: resolvedDto,
       requestId: coverNote.requestId,
     });
 
@@ -170,8 +196,8 @@ export class TiramisMotorService {
       payload,
     );
 
-    const pfxPaths = await this.tiramisConfigService.getPfxPaths(
-      dto.environment,
+    const pfxPaths = await this.tiramisConfigService.getPfxPathsForConfiguration(
+      configuration,
     );
 
     const signature = this.signatureService.signXmlContent({
@@ -197,13 +223,13 @@ export class TiramisMotorService {
     coverNote.currentAttemptId = attempt.id;
     await this.coverNoteRepository.save(coverNote);
 
-    const endpoint = await this.tiramisConfigService.getFullEndpointUrl({
-      environment: dto.environment,
+    const endpoint = await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
+      configuration,
       serviceType,
     });
 
-    const headers = await this.tiramisConfigService.getRequestHeaders(
-      dto.environment,
+    const headers = await this.tiramisConfigService.getRequestHeadersForConfiguration(
+      configuration,
     );
 
     await this.tiramisSubmissionService.markSent(coverNote.requestId);
