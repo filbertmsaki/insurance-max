@@ -7,6 +7,7 @@ import { TiramisCoverNoteEntity } from '../../cover-notes/entities/tiramis-cover
 import { TiramisSignatureService } from '../../messaging/services/tiramis-signature.service';
 import { TiramisXmlBuilderService } from '../../messaging/services/tiramis-xml-builder.service';
 import { TiramisXmlParserService } from '../../messaging/services/tiramis-xml-parser.service';
+import { TiramisPolicyEntity } from '../../policies/entities/tiramis-policy.entity';
 import { TiramisRequestIdService } from '../../submissions/services/tiramis-request-id.service';
 import { TiramisSubmissionService } from '../../submissions/services/tiramis-submission.service';
 import {
@@ -26,6 +27,8 @@ export class TiramisCallbackService {
   constructor(
     @InjectRepository(TiramisCoverNoteEntity)
     private readonly coverNoteRepository: Repository<TiramisCoverNoteEntity>,
+    @InjectRepository(TiramisPolicyEntity)
+    private readonly policyRepository: Repository<TiramisPolicyEntity>,
     private readonly tiramisConfigService: TiramisConfigService,
     private readonly tiramisSubmissionService: TiramisSubmissionService,
     private readonly tiramisRequestIdService: TiramisRequestIdService,
@@ -144,6 +147,10 @@ export class TiramisCallbackService {
         content,
         'CoverNoteReferenceNumber',
       ),
+      policyReferenceNumber: this.getOptionalStringValue(
+        content,
+        'PolicyReferenceNumber',
+      ),
       stickerNumber: this.getOptionalStringValue(content, 'StickerNumber'),
       rawXml,
       signature: parsedMessage.signature,
@@ -155,33 +162,52 @@ export class TiramisCallbackService {
     parsedCallback: ParsedTiramisCallbackDto,
   ) {
     if (
-      parsedCallback.rootName !== TIRAMIS_CALLBACK_ROOTS.COVER_NOTE_RESPONSE &&
-      parsedCallback.rootName !==
+      parsedCallback.rootName === TIRAMIS_CALLBACK_ROOTS.COVER_NOTE_RESPONSE ||
+      parsedCallback.rootName ===
         TIRAMIS_CALLBACK_ROOTS.MOTOR_COVER_NOTE_RESPONSE
     ) {
+      const coverNote = await this.coverNoteRepository.findOne({
+        where: {
+          requestId: parsedCallback.requestId,
+        },
+      });
+
+      if (!coverNote) {
+        return;
+      }
+
+      if (parsedCallback.coverNoteReferenceNumber) {
+        coverNote.coverNoteReferenceNumber =
+          parsedCallback.coverNoteReferenceNumber;
+      }
+
+      if (parsedCallback.stickerNumber) {
+        coverNote.stickerNumber = parsedCallback.stickerNumber;
+      }
+
+      await this.coverNoteRepository.save(coverNote);
       return;
     }
 
-    const coverNote = await this.coverNoteRepository.findOne({
+    if (parsedCallback.rootName !== TIRAMIS_CALLBACK_ROOTS.POLICY_RESPONSE) {
+      return;
+    }
+
+    const policy = await this.policyRepository.findOne({
       where: {
         requestId: parsedCallback.requestId,
       },
     });
 
-    if (!coverNote) {
+    if (!policy) {
       return;
     }
 
-    if (parsedCallback.coverNoteReferenceNumber) {
-      coverNote.coverNoteReferenceNumber =
-        parsedCallback.coverNoteReferenceNumber;
+    if (parsedCallback.policyReferenceNumber) {
+      policy.policyReferenceNumber = parsedCallback.policyReferenceNumber;
     }
 
-    if (parsedCallback.stickerNumber) {
-      coverNote.stickerNumber = parsedCallback.stickerNumber;
-    }
-
-    await this.coverNoteRepository.save(coverNote);
+    await this.policyRepository.save(policy);
   }
 
   private async buildAcknowledgement(params: {

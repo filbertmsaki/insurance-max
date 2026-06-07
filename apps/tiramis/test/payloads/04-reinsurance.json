@@ -1,0 +1,30 @@
+{
+  "environment": "test",
+  "clientConfigurationId": "00ba6e73-e24c-4179-a1f4-0fb6141b07b3",
+  "sourceModule": "tiramis-reinsurance-test",
+  "sourceRecordId": "RE-LOCAL-001",
+  "companyCode": "ICC110",
+  "systemCode": "LSYS_ALLIANCE_003",
+  "callbackUrl": "http://localhost:9091/api/tiramis/callbacks/test",
+  "insurerCompanyCode": "ICC110",
+  "coverNoteReferenceNumber": "TIRA-MCN-202606070001",
+  "premiumIncludingTax": "590000.00",
+  "currencyCode": "TZS",
+  "exchangeRate": "1.00",
+  "authorizingOfficerName": "Mock Underwriter",
+  "authorizingOfficerTitle": "Underwriter",
+  "reinsuranceCategory": 1,
+  "participants": [
+    {
+      "participantCode": "RE001",
+      "participantType": 1,
+      "reinsuranceForm": 1,
+      "reinsuranceType": 1,
+      "reBrokerCode": "BRK001",
+      "brokerageCommission": "5.00",
+      "reinsuranceCommission": "10.00",
+      "premiumShare": "100.00",
+      "participationDate": "2026-06-07T00:00:00"
+    }
+  ]
+}

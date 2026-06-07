@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TiramisConfigModule } from '../config/tiramis-config.module';
 import { TiramisCoverNoteEntity } from '../cover-notes/entities/tiramis-cover-note.entity';
 import { TiramisMessagingModule } from '../messaging/tiramis-messaging.module';
+import { TiramisPolicyEntity } from '../policies/entities/tiramis-policy.entity';
 import { TiramisSubmissionsModule } from '../submissions/tiramis-submissions.module';
 
 import { TiramisCallbackController } from './controllers/tiramis-callback.controller';
@@ -11,7 +12,7 @@ import { TiramisCallbackService } from './services/tiramis-callback.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([TiramisCoverNoteEntity]),
+    TypeOrmModule.forFeature([TiramisCoverNoteEntity, TiramisPolicyEntity]),
     TiramisConfigModule,
     TiramisMessagingModule,
     TiramisSubmissionsModule,

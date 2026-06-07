@@ -15,6 +15,7 @@ import { TiramisPolicyCoverNoteEntity } from './tiramis-policy-cover-note.entity
 @Entity({ name: 'tiramis_policies' })
 @Index(['requestId'])
 @Index(['policyNumber'])
+@Index(['policyReferenceNumber'])
 export class TiramisPolicyEntity extends BaseEntity {
   @Column({ name: 'transaction_id' })
   transactionId!: string;
@@ -47,6 +48,14 @@ export class TiramisPolicyEntity extends BaseEntity {
 
   @Column({ name: 'policy_number', length: 50 })
   policyNumber!: string;
+
+  @Column({
+    name: 'policy_reference_number',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  policyReferenceNumber?: string | null;
 
   @Column({ name: 'policy_operative_clause', type: 'text' })
   policyOperativeClause!: string;
