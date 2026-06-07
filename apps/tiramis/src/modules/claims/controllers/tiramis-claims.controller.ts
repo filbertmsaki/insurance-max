@@ -51,6 +51,18 @@ export class TiramisClaimsController {
     return this.tiramisClaimService.submitClaimIntimation(dto);
   }
 
+  @ApiOperation({ summary: 'List claim intimations' })
+  @Get('intimations')
+  findAllClaimIntimations() {
+    return this.tiramisClaimService.findAllClaimIntimations();
+  }
+
+  @ApiOperation({ summary: 'Get a claim intimation by id' })
+  @Get('intimations/:id')
+  findClaimIntimationById(@Param('id') id: string) {
+    return this.tiramisClaimService.findClaimIntimationById(id);
+  }
+
   @ApiOperation({ summary: 'Submit a claim assessment' })
   @ApiBody(claimAssessmentRequestBody)
   @Post('assessments/submit')

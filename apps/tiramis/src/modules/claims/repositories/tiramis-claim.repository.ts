@@ -97,6 +97,22 @@ export class TiramisClaimRepository {
     });
   }
 
+  findIntimationById(id: string) {
+    return this.intimationRepository.findOne({
+      where: { id },
+      relations: { claimants: true },
+    });
+  }
+
+  findAllIntimations() {
+    return this.intimationRepository.find({
+      relations: { claimants: true },
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+  }
+
   findAssessmentByRequestId(requestId: string) {
     return this.assessmentRepository.findOne({
       where: { requestId },

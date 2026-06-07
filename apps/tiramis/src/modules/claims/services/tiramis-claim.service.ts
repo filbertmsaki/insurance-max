@@ -150,6 +150,20 @@ export class TiramisClaimService {
     return this.claimRepository.findAllNotifications();
   }
 
+  async findClaimIntimationById(id: string) {
+    const intimation = await this.claimRepository.findIntimationById(id);
+
+    if (!intimation) {
+      throw new NotFoundException('TIRAMIS claim intimation not found');
+    }
+
+    return intimation;
+  }
+
+  async findAllClaimIntimations() {
+    return this.claimRepository.findAllIntimations();
+  }
+
   private async createAndSubmit(params: {
     dto: any;
     serviceType: string;
