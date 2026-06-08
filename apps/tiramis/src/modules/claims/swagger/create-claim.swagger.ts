@@ -1,36 +1,7 @@
 const baseClaimProperties = {
-  environment: { type: 'string', example: 'test' },
-  clientConfigurationId: {
-    type: 'string',
-    example: 'replace-with-seeded-client-configuration-id',
-  },
-  sourceModule: {
-    type: 'string',
-    nullable: true,
-    example: 'tiramis-claims',
-  },
-  sourceRecordId: {
-    type: 'string',
-    nullable: true,
-    example: 'CLM-LOCAL-001',
-  },
-  companyCode: { type: 'string', example: 'ICC110' },
-  systemCode: { type: 'string', example: 'LSYS_ALLIANCE_003' },
-  callbackUrl: {
-    type: 'string',
-    example: 'http://localhost:9091/api/tiramis/callbacks/test',
-  },
-  insurerCompanyCode: { type: 'string', example: 'ICC110' },
 } as const;
 
-const baseClaimRequired = [
-  'environment',
-  'clientConfigurationId',
-  'companyCode',
-  'systemCode',
-  'callbackUrl',
-  'insurerCompanyCode',
-] as const;
+const baseClaimRequired = [] as const;
 
 const claimantSchema = {
   type: 'object',
@@ -91,7 +62,6 @@ export const claimNotificationRequestBody = {
     ],
     properties: {
       ...baseClaimProperties,
-      tranCompanyCode: { type: 'string', nullable: true, example: 'ICC110' },
       claimNotificationNumber: {
         type: 'string',
         example: 'CLM-NOT-LOCAL-001',
@@ -122,15 +92,6 @@ export const claimNotificationRequestBody = {
       officerTitle: { type: 'string', example: 'Underwriter' },
     },
     example: {
-      environment: 'test',
-      clientConfigurationId: 'replace-with-seeded-client-configuration-id',
-      sourceModule: 'tiramis-claims',
-      sourceRecordId: 'CLM-NOT-LOCAL-001',
-      companyCode: 'ICC110',
-      systemCode: 'LSYS_ALLIANCE_003',
-      callbackUrl: 'http://localhost:9091/api/tiramis/callbacks/test',
-      insurerCompanyCode: 'ICC110',
-      tranCompanyCode: 'ICC110',
       claimNotificationNumber: 'CLM-NOT-LOCAL-001',
       coverNoteReferenceNumber: 'TIRA-CN-000001',
       claimReportDate: '2026-06-06T10:00:00',
@@ -198,14 +159,6 @@ export const claimIntimationRequestBody = {
       },
     },
     example: {
-      environment: 'test',
-      clientConfigurationId: 'replace-with-seeded-client-configuration-id',
-      sourceModule: 'tiramis-claims',
-      sourceRecordId: 'CLM-INT-LOCAL-001',
-      companyCode: 'ICC110',
-      systemCode: 'LSYS_ALLIANCE_003',
-      callbackUrl: 'http://localhost:9091/api/tiramis/callbacks/test',
-      insurerCompanyCode: 'ICC110',
       claimIntimationNumber: 'CLM-INT-LOCAL-001',
       claimReferenceNumber: 'CLM-REF-LOCAL-001',
       coverNoteReferenceNumber: 'TIRA-CN-000001',
@@ -308,14 +261,6 @@ export const claimAssessmentRequestBody = {
       },
     },
     example: {
-      environment: 'test',
-      clientConfigurationId: 'replace-with-seeded-client-configuration-id',
-      sourceModule: 'tiramis-claims',
-      sourceRecordId: 'CLM-ASM-LOCAL-001',
-      companyCode: 'ICC110',
-      systemCode: 'LSYS_ALLIANCE_003',
-      callbackUrl: 'http://localhost:9091/api/tiramis/callbacks/test',
-      insurerCompanyCode: 'ICC110',
       claimAssessmentNumber: 'CLM-ASM-LOCAL-001',
       claimIntimationNumber: 'CLM-INT-LOCAL-001',
       claimReferenceNumber: 'CLM-REF-LOCAL-001',
@@ -417,14 +362,6 @@ export const dischargeVoucherRequestBody = {
       },
     },
     example: {
-      environment: 'test',
-      clientConfigurationId: 'replace-with-seeded-client-configuration-id',
-      sourceModule: 'tiramis-claims',
-      sourceRecordId: 'CLM-DV-LOCAL-001',
-      companyCode: 'ICC110',
-      systemCode: 'LSYS_ALLIANCE_003',
-      callbackUrl: 'http://localhost:9091/api/tiramis/callbacks/test',
-      insurerCompanyCode: 'ICC110',
       dischargeVoucherNumber: 'CLM-DV-LOCAL-001',
       claimAssessmentNumber: 'CLM-ASM-LOCAL-001',
       claimReferenceNumber: 'CLM-REF-LOCAL-001',
@@ -507,14 +444,6 @@ export const claimPaymentRequestBody = {
       },
     },
     example: {
-      environment: 'test',
-      clientConfigurationId: 'replace-with-seeded-client-configuration-id',
-      sourceModule: 'tiramis-claims',
-      sourceRecordId: 'CLM-PAY-LOCAL-001',
-      companyCode: 'ICC110',
-      systemCode: 'LSYS_ALLIANCE_003',
-      callbackUrl: 'http://localhost:9091/api/tiramis/callbacks/test',
-      insurerCompanyCode: 'ICC110',
       claimPaymentNumber: 'CLM-PAY-LOCAL-001',
       claimReferenceNumber: 'CLM-REF-LOCAL-001',
       claimIntimationNumber: 'CLM-INT-LOCAL-001',
@@ -573,14 +502,6 @@ export const claimRejectionRequestBody = {
       },
     },
     example: {
-      environment: 'test',
-      clientConfigurationId: 'replace-with-seeded-client-configuration-id',
-      sourceModule: 'tiramis-claims',
-      sourceRecordId: 'CLM-REJ-LOCAL-001',
-      companyCode: 'ICC110',
-      systemCode: 'LSYS_ALLIANCE_003',
-      callbackUrl: 'http://localhost:9091/api/tiramis/callbacks/test',
-      insurerCompanyCode: 'ICC110',
       claimRejectionNumber: 'CLM-REJ-LOCAL-001',
       claimReferenceNumber: 'CLM-REF-LOCAL-001',
       coverNoteReferenceNumber: 'TIRA-CN-000001',
