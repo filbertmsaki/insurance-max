@@ -1,29 +1,49 @@
-export interface BaseVerificationDto {
-}
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export interface CoverNoteVerificationDto extends BaseVerificationDto {
+export class BaseVerificationDto {}
+
+export class CoverNoteVerificationDto extends BaseVerificationDto {
+  @ApiPropertyOptional({ nullable: true, example: 'TIRA-CN-000001' })
   coverNoteReferenceNumber?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, example: 'STK000001' })
   stickerNumber?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, example: 'T123ABC' })
   motorRegistrationNumber?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, example: 'MOCKCHASSIS123456' })
   motorChassisNumber?: string | null;
 }
 
-export interface NinVerificationDto extends BaseVerificationDto {
-  nin: string;
+export class NinVerificationDto extends BaseVerificationDto {
+  @ApiProperty({ example: '19900101123456789000' })
+  nin!: string;
 }
 
-export interface CompanyVerificationDto extends BaseVerificationDto {
-  incorporationCertificateNumber: string;
+export class CompanyVerificationDto extends BaseVerificationDto {
+  @ApiProperty({ example: 'INC-123456' })
+  incorporationCertificateNumber!: string;
 }
 
-export interface MotorVerificationDto extends BaseVerificationDto {
+export class MotorVerificationDto extends BaseVerificationDto {
+  @ApiPropertyOptional({ nullable: true, example: 'T123ABC' })
   motorRegistrationNumber?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, example: 'MOCKCHASSIS123456' })
   motorChassisNumber?: string | null;
 }
 
-export interface DetailsVerificationDto extends BaseVerificationDto {
+export class DetailsVerificationDto extends BaseVerificationDto {
+  @ApiPropertyOptional({ nullable: true, example: 'T123ABC' })
   motorRegistrationNumber?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, example: 'MOCKCHASSIS123456' })
   motorChassisNumber?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, example: 'TIRA-CN-000001' })
   coverNoteReferenceNumber?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, example: 'STK000001' })
   stickerNumber?: string | null;
 }

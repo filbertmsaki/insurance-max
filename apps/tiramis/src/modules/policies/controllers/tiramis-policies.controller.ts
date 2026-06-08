@@ -1,8 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import type { CreatePolicyDto } from '../dto/create-policy.dto';
-import { createPolicyRequestBody } from '../swagger/create-policy.swagger';
+import { CreatePolicyDto } from '../dto/create-policy.dto';
 import { TiramisPolicyService } from '../services/tiramis-policy.service';
 
 @ApiTags('Tiramis Policies')
@@ -12,14 +11,14 @@ export class TiramisPoliciesController {
   constructor(private readonly tiramisPolicyService: TiramisPolicyService) {}
 
   @ApiOperation({ summary: 'Create a policy draft' })
-  @ApiBody(createPolicyRequestBody)
+  @ApiBody({ type: CreatePolicyDto })
   @Post('draft')
   createDraft(@Body() dto: CreatePolicyDto) {
     return this.tiramisPolicyService.createDraft(dto);
   }
 
   @ApiOperation({ summary: 'Submit a policy' })
-  @ApiBody(createPolicyRequestBody)
+  @ApiBody({ type: CreatePolicyDto })
   @Post('submit')
   submit(@Body() dto: CreatePolicyDto) {
     return this.tiramisPolicyService.submit(dto);

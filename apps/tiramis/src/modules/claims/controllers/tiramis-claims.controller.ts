@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import type {
+import {
   CreateClaimAssessmentDto,
   CreateClaimIntimationDto,
   CreateClaimNotificationDto,
@@ -9,14 +9,6 @@ import type {
   CreateClaimRejectionDto,
   CreateDischargeVoucherDto,
 } from '../dto/create-claim.dto';
-import {
-  claimAssessmentRequestBody,
-  claimIntimationRequestBody,
-  claimNotificationRequestBody,
-  claimPaymentRequestBody,
-  claimRejectionRequestBody,
-  dischargeVoucherRequestBody,
-} from '../swagger/create-claim.swagger';
 import { TiramisClaimService } from '../services/tiramis-claim.service';
 
 @ApiTags('Tiramis Claims')
@@ -26,7 +18,7 @@ export class TiramisClaimsController {
   constructor(private readonly tiramisClaimService: TiramisClaimService) {}
 
   @ApiOperation({ summary: 'Submit a claim notification' })
-  @ApiBody(claimNotificationRequestBody)
+  @ApiBody({ type: CreateClaimNotificationDto })
   @Post('notifications/submit')
   submitClaimNotification(@Body() dto: CreateClaimNotificationDto) {
     return this.tiramisClaimService.submitClaimNotification(dto);
@@ -51,7 +43,7 @@ export class TiramisClaimsController {
   }
 
   @ApiOperation({ summary: 'Submit a claim intimation' })
-  @ApiBody(claimIntimationRequestBody)
+  @ApiBody({ type: CreateClaimIntimationDto })
   @Post('intimations/submit')
   submitClaimIntimation(@Body() dto: CreateClaimIntimationDto) {
     return this.tiramisClaimService.submitClaimIntimation(dto);
@@ -76,7 +68,7 @@ export class TiramisClaimsController {
   }
 
   @ApiOperation({ summary: 'Submit a claim assessment' })
-  @ApiBody(claimAssessmentRequestBody)
+  @ApiBody({ type: CreateClaimAssessmentDto })
   @Post('assessments/submit')
   submitClaimAssessment(@Body() dto: CreateClaimAssessmentDto) {
     return this.tiramisClaimService.submitClaimAssessment(dto);
@@ -101,7 +93,7 @@ export class TiramisClaimsController {
   }
 
   @ApiOperation({ summary: 'Submit a discharge voucher' })
-  @ApiBody(dischargeVoucherRequestBody)
+  @ApiBody({ type: CreateDischargeVoucherDto })
   @Post('discharge-vouchers/submit')
   submitDischargeVoucher(@Body() dto: CreateDischargeVoucherDto) {
     return this.tiramisClaimService.submitDischargeVoucher(dto);
@@ -126,7 +118,7 @@ export class TiramisClaimsController {
   }
 
   @ApiOperation({ summary: 'Submit a claim payment' })
-  @ApiBody(claimPaymentRequestBody)
+  @ApiBody({ type: CreateClaimPaymentDto })
   @Post('payments/submit')
   submitClaimPayment(@Body() dto: CreateClaimPaymentDto) {
     return this.tiramisClaimService.submitClaimPayment(dto);
@@ -151,7 +143,7 @@ export class TiramisClaimsController {
   }
 
   @ApiOperation({ summary: 'Submit a claim rejection' })
-  @ApiBody(claimRejectionRequestBody)
+  @ApiBody({ type: CreateClaimRejectionDto })
   @Post('rejections/submit')
   submitClaimRejection(@Body() dto: CreateClaimRejectionDto) {
     return this.tiramisClaimService.submitClaimRejection(dto);

@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import type {
+import {
   CompanyVerificationDto,
   CoverNoteVerificationDto,
   DetailsVerificationDto,
@@ -9,13 +9,6 @@ import type {
   NinVerificationDto,
 } from '../dto/create-verification.dto';
 import { TiramisVerificationService } from '../services/tiramis-verification.service';
-import {
-  companyVerificationRequestBody,
-  coverNoteVerificationRequestBody,
-  detailsVerificationRequestBody,
-  motorVerificationRequestBody,
-  ninVerificationRequestBody,
-} from '../swagger/create-verification.swagger';
 
 @ApiTags('Tiramis Verifications')
 @ApiConsumes('application/json')
@@ -26,35 +19,35 @@ export class TiramisVerificationsController {
   ) {}
 
   @ApiOperation({ summary: 'Verify a cover note reference' })
-  @ApiBody(coverNoteVerificationRequestBody)
+  @ApiBody({ type: CoverNoteVerificationDto })
   @Post('cover-note')
   verifyCoverNote(@Body() dto: CoverNoteVerificationDto) {
     return this.tiramisVerificationService.verifyCoverNote(dto);
   }
 
   @ApiOperation({ summary: 'Verify a NIN' })
-  @ApiBody(ninVerificationRequestBody)
+  @ApiBody({ type: NinVerificationDto })
   @Post('nin')
   verifyNin(@Body() dto: NinVerificationDto) {
     return this.tiramisVerificationService.verifyNin(dto);
   }
 
   @ApiOperation({ summary: 'Verify a company registration' })
-  @ApiBody(companyVerificationRequestBody)
+  @ApiBody({ type: CompanyVerificationDto })
   @Post('company')
   verifyCompany(@Body() dto: CompanyVerificationDto) {
     return this.tiramisVerificationService.verifyCompany(dto);
   }
 
   @ApiOperation({ summary: 'Verify motor registration or chassis details' })
-  @ApiBody(motorVerificationRequestBody)
+  @ApiBody({ type: MotorVerificationDto })
   @Post('motor')
   verifyMotor(@Body() dto: MotorVerificationDto) {
     return this.tiramisVerificationService.verifyMotor(dto);
   }
 
   @ApiOperation({ summary: 'Verify combined motor and cover note details' })
-  @ApiBody(detailsVerificationRequestBody)
+  @ApiBody({ type: DetailsVerificationDto })
   @Post('details')
   verifyDetails(@Body() dto: DetailsVerificationDto) {
     return this.tiramisVerificationService.verifyDetails(dto);

@@ -1,8 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import type { CreateReinsuranceDto } from '../dto/create-reinsurance.dto';
-import { createReinsuranceRequestBody } from '../swagger/create-reinsurance.swagger';
+import { CreateReinsuranceDto } from '../dto/create-reinsurance.dto';
 import { TiramisReinsuranceService } from '../services/tiramis-reinsurance.service';
 
 @ApiTags('Tiramis Reinsurance')
@@ -14,14 +13,14 @@ export class TiramisReinsuranceController {
   ) {}
 
   @ApiOperation({ summary: 'Create a reinsurance draft' })
-  @ApiBody(createReinsuranceRequestBody)
+  @ApiBody({ type: CreateReinsuranceDto })
   @Post('draft')
   createDraft(@Body() dto: CreateReinsuranceDto) {
     return this.tiramisReinsuranceService.createDraft(dto);
   }
 
   @ApiOperation({ summary: 'Submit reinsurance' })
-  @ApiBody(createReinsuranceRequestBody)
+  @ApiBody({ type: CreateReinsuranceDto })
   @Post('submit')
   submit(@Body() dto: CreateReinsuranceDto) {
     return this.tiramisReinsuranceService.submit(dto);
