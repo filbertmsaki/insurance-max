@@ -114,9 +114,10 @@ export class TiramisReinsuranceService {
       payload,
     );
 
-    const pfxPaths = await this.tiramisConfigService.getPfxPathsForConfiguration(
-      configuration,
-    );
+    const pfxPaths =
+      await this.tiramisConfigService.getPfxPathsForConfiguration(
+        configuration,
+      );
 
     const signature = this.signatureService.signXmlContent({
       contentXml,
@@ -141,14 +142,16 @@ export class TiramisReinsuranceService {
     reinsurance.currentAttemptId = attempt.id;
     await this.reinsuranceRepository.save(reinsurance);
 
-    const endpoint = await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
-      configuration,
-      serviceType: this.serviceType,
-    });
+    const endpoint =
+      await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
+        configuration,
+        serviceType: this.serviceType,
+      });
 
-    const headers = await this.tiramisConfigService.getRequestHeadersForConfiguration(
-      configuration,
-    );
+    const headers =
+      await this.tiramisConfigService.getRequestHeadersForConfiguration(
+        configuration,
+      );
 
     await this.tiramisSubmissionService.markSent(reinsurance.requestId);
 

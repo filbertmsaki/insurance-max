@@ -1,11 +1,5 @@
 import { BaseEntity } from '@insurance-max/persistence';
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToMany,
-} from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 
 import { TiramisCoverNoteEntity } from './tiramis-cover-note.entity';
 import { TiramisCoverNoteTaxEntity } from './tiramis-cover-note-tax.entity';

@@ -189,7 +189,9 @@ export class TiramisVerificationService {
 
   private async createAndSubmit(params: {
     dto: any;
-    configuration: Awaited<ReturnType<TiramisConfigService['getActiveRuntimeConfiguration']>>;
+    configuration: Awaited<
+      ReturnType<TiramisConfigService['getActiveRuntimeConfiguration']>
+    >;
     verificationType: string;
     serviceType: string;
     rootElement: string;
@@ -213,9 +215,10 @@ export class TiramisVerificationService {
       payload,
     );
 
-    const pfxPaths = await this.tiramisConfigService.getPfxPathsForConfiguration(
-      params.configuration,
-    );
+    const pfxPaths =
+      await this.tiramisConfigService.getPfxPathsForConfiguration(
+        params.configuration,
+      );
 
     const signature = this.signatureService.signXmlContent({
       contentXml,
@@ -259,14 +262,16 @@ export class TiramisVerificationService {
     const savedRequest =
       await this.verificationRepository.saveRequest(requestEntity);
 
-    const endpoint = await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
-      configuration: params.configuration,
-      serviceType: params.serviceType,
-    });
+    const endpoint =
+      await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
+        configuration: params.configuration,
+        serviceType: params.serviceType,
+      });
 
-    const headers = await this.tiramisConfigService.getRequestHeadersForConfiguration(
-      params.configuration,
-    );
+    const headers =
+      await this.tiramisConfigService.getRequestHeadersForConfiguration(
+        params.configuration,
+      );
 
     await this.submissionService.markSent(requestId);
 
@@ -283,14 +288,14 @@ export class TiramisVerificationService {
     const content = parsedMessage.content || {};
     const verificationHdr = (content as any).VerificationHdr || content;
 
-    const responseId = (verificationHdr as any).ResponseId || null;
+    const responseId = verificationHdr.ResponseId || null;
     const statusCode =
-      (verificationHdr as any).ResponseStatusCode ||
+      verificationHdr.ResponseStatusCode ||
       (content as any).ResponseStatusCode ||
       null;
 
     const statusDesc =
-      (verificationHdr as any).ResponseStatusDesc ||
+      verificationHdr.ResponseStatusDesc ||
       (content as any).ResponseStatusDesc ||
       null;
 

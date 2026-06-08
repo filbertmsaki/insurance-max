@@ -1,11 +1,5 @@
 import { BaseEntity } from '@insurance-max/persistence';
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToMany,
-} from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 
 import { TiramisCoverNoteEntity } from '../../cover-notes/entities/tiramis-cover-note.entity';
 import { TiramisMotorDetailEntity } from './tiramis-motor-detail.entity';
@@ -45,16 +39,31 @@ export class TiramisMotorFleetItemEntity extends BaseEntity {
   })
   prevCoverNoteReferenceNumber?: string | null;
 
-  @Column({ name: 'cover_note_desc', type: 'varchar', length: 1000, nullable: true })
+  @Column({
+    name: 'cover_note_desc',
+    type: 'varchar',
+    length: 1000,
+    nullable: true,
+  })
   coverNoteDesc?: string | null;
 
-  @Column({ name: 'operative_clause', type: 'varchar', length: 1000, nullable: true })
+  @Column({
+    name: 'operative_clause',
+    type: 'varchar',
+    length: 1000,
+    nullable: true,
+  })
   operativeClause?: string | null;
 
   @Column({ name: 'endorsement_type', type: 'int', nullable: true })
   endorsementType?: number | null;
 
-  @Column({ name: 'endorsement_reason', type: 'varchar', length: 1000, nullable: true })
+  @Column({
+    name: 'endorsement_reason',
+    type: 'varchar',
+    length: 1000,
+    nullable: true,
+  })
   endorsementReason?: string | null;
 
   @Column({
@@ -66,8 +75,12 @@ export class TiramisMotorFleetItemEntity extends BaseEntity {
   })
   endorsementPremiumEarned?: string | null;
 
-  @OneToMany(() => TiramisMotorDetailEntity, (detail) => detail.motorFleetItem, {
-    cascade: true,
-  })
+  @OneToMany(
+    () => TiramisMotorDetailEntity,
+    (detail) => detail.motorFleetItem,
+    {
+      cascade: true,
+    },
+  )
   motorDetails?: TiramisMotorDetailEntity[];
 }

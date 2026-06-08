@@ -17,6 +17,8 @@
     "paths": {
       "@insurance-max/contracts": ["libs/contracts/src"],
       "@insurance-max/observability": ["libs/observability/src"],
+      "@insurance-max/portal-shared": ["libs/portal-shared/src"],
+      "@insurance-max/portal-shared/*": ["libs/portal-shared/src/*"],
       "@insurance-max/persistence": ["libs/persistence/src"],
       "@insurance-max/shared-config": ["libs/shared-config/src"],
       "@insurance-max/shared-kernel": ["libs/shared-kernel/src"]

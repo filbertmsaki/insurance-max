@@ -1,0 +1,68 @@
+import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
+import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
+import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
+import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
+import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
+import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { PremiumCalculationService } from './premium-calculation.service';
+import {
+  CalculateMultiRiskPremiumDto,
+  CalculateSingleRiskPremiumDto,
+} from './dto/calculate-premium.dto';
+
+@ApiTags('Premium Calculation')
+@ApiBearerAuth()
+@Controller('premium-calculation')
+@UseGuards(AuthGuard('jwt'), TenantGuard)
+export class PremiumCalculationController {
+  constructor(private readonly service: PremiumCalculationService) {}
+
+  @Post('single')
+  @UseGuards(PermissionsGuard)
+  @Permissions('premium-calculation:calculate')
+  @ApiOperation({
+    summary: 'Calculate premium for a single risk',
+    description:
+      'Finds the first active matching rating rule by priority and returns a full premium breakdown.',
+  })
+  @ApiBody({
+    type: CalculateSingleRiskPremiumDto,
+    examples: {
+      percentagePlusPerUnit: {
+        summary: 'Motor passenger carrying',
+        value: {
+          risk_id: 'f724d42f-7f6e-4ad7-bf10-0fde2ef84f93',
+          sum_insured: 10000000,
+          factors: {
+            seat_capacity: 10,
+            vehicle_weight: 7,
+            claim_record: 'NO_CLAIM',
+          },
+        },
+      },
+    },
+  })
+  async calculateSingle(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CalculateSingleRiskPremiumDto,
+  ) {
+    return this.service.calculateSingleRisk(user.companyId!, dto);
+  }
+
+  @Post('multi')
+  @UseGuards(PermissionsGuard)
+  @Permissions('premium-calculation:calculate')
+  @ApiOperation({
+    summary: 'Calculate premium for multiple risks at once',
+    description:
+      'Useful for products with multiple risk components (e.g. motor comprehensive + third party). Returns per-risk breakdown and grand total.',
+  })
+  async calculateMulti(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CalculateMultiRiskPremiumDto,
+  ) {
+    return this.service.calculateMultiRisk(user.companyId!, dto);
+  }
+}

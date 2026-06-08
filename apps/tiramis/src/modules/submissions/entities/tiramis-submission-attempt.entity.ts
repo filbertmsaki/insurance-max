@@ -22,13 +22,23 @@ export class TiramisSubmissionAttemptEntity extends BaseEntity {
   @Column({ name: 'request_id', length: 50 })
   requestId!: string;
 
-  @Column({ name: 'previous_request_id', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'previous_request_id',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   previousRequestId?: string | null;
 
   @Column({ name: 'root_element', length: 80 })
   rootElement!: string;
 
-  @Column({ name: 'resubmission_reason', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'resubmission_reason',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   resubmissionReason?: string | null;
 
   @Column({ length: 50, default: 'PENDING' })
@@ -40,13 +50,28 @@ export class TiramisSubmissionAttemptEntity extends BaseEntity {
   @Column({ name: 'request_signature', type: 'text', nullable: true })
   requestSignature?: string | null;
 
-  @Column({ name: 'acknowledgement_id', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'acknowledgement_id',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   acknowledgementId?: string | null;
 
-  @Column({ name: 'acknowledgement_status_code', type: 'varchar', length: 20, nullable: true })
+  @Column({
+    name: 'acknowledgement_status_code',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
   acknowledgementStatusCode?: string | null;
 
-  @Column({ name: 'acknowledgement_status_desc', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'acknowledgement_status_desc',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   acknowledgementStatusDesc?: string | null;
 
   @Column({ name: 'acknowledgement_xml', type: 'text', nullable: true })
@@ -58,10 +83,20 @@ export class TiramisSubmissionAttemptEntity extends BaseEntity {
   @Column({ name: 'response_id', type: 'varchar', length: 50, nullable: true })
   responseId?: string | null;
 
-  @Column({ name: 'response_status_code', type: 'varchar', length: 20, nullable: true })
+  @Column({
+    name: 'response_status_code',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
   responseStatusCode?: string | null;
 
-  @Column({ name: 'response_status_desc', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'response_status_desc',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   responseStatusDesc?: string | null;
 
   @Column({ name: 'response_xml', type: 'text', nullable: true })
@@ -70,16 +105,35 @@ export class TiramisSubmissionAttemptEntity extends BaseEntity {
   @Column({ name: 'response_signature', type: 'text', nullable: true })
   responseSignature?: string | null;
 
-  @Column({ name: 'final_response_received_at', type: 'timestamp', nullable: true })
+  @Column({
+    name: 'final_response_received_at',
+    type: 'timestamp',
+    nullable: true,
+  })
   finalResponseReceivedAt?: Date | null;
 
-  @Column({ name: 'response_acknowledgement_id', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'response_acknowledgement_id',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   responseAcknowledgementId?: string | null;
 
-  @Column({ name: 'response_ack_status_code', type: 'varchar', length: 20, nullable: true })
+  @Column({
+    name: 'response_ack_status_code',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
   responseAckStatusCode?: string | null;
 
-  @Column({ name: 'response_ack_status_desc', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'response_ack_status_desc',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   responseAckStatusDesc?: string | null;
 
   @Column({ name: 'response_ack_xml', type: 'text', nullable: true })

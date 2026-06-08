@@ -87,17 +87,31 @@ export class TiramisClaimIntimationEntity extends BaseEntity {
   @Column({ name: 'loss_assessment_option', type: 'int' })
   lossAssessmentOption!: number;
 
-  @Column({ name: 'assessor_name', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'assessor_name',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   assessorName?: string | null;
 
-  @Column({ name: 'assessor_id_number', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'assessor_id_number',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   assessorIdNumber?: string | null;
 
   @Column({ name: 'assessor_id_type', type: 'int', nullable: true })
   assessorIdType?: number | null;
 
-  @OneToMany(() => TiramisClaimantEntity, (claimant) => claimant.claimIntimation, {
-    cascade: true,
-  })
+  @OneToMany(
+    () => TiramisClaimantEntity,
+    (claimant) => claimant.claimIntimation,
+    {
+      cascade: true,
+    },
+  )
   claimants?: TiramisClaimantEntity[];
 }

@@ -30,7 +30,12 @@ export class TiramisReinsuranceParticipantEntity extends BaseEntity {
   @Column({ name: 'reinsurance_type', type: 'int' })
   reinsuranceType!: number;
 
-  @Column({ name: 're_broker_code', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 're_broker_code',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   reBrokerCode?: string | null;
 
   @Column({

@@ -7,6 +7,7 @@ export interface ServiceDatabaseConfig {
   username: string;
   password: string;
   database: string;
+  schema?: string;
   connectString?: string;
   synchronize: boolean;
   logging: boolean;

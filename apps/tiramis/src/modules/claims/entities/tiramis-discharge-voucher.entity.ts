@@ -67,7 +67,11 @@ export class TiramisDischargeVoucherEntity extends BaseEntity {
   @Column({ name: 'exchange_rate', type: 'decimal', precision: 36, scale: 2 })
   exchangeRate!: string;
 
-  @Column({ name: 'claim_offer_communication_date', type: 'timestamp', nullable: true })
+  @Column({
+    name: 'claim_offer_communication_date',
+    type: 'timestamp',
+    nullable: true,
+  })
   claimOfferCommunicationDate?: Date | null;
 
   @Column({
@@ -84,7 +88,12 @@ export class TiramisDischargeVoucherEntity extends BaseEntity {
   @Column({ name: 'adjustment_date', type: 'timestamp', nullable: true })
   adjustmentDate?: Date | null;
 
-  @Column({ name: 'adjustment_reason', type: 'varchar', length: 1000, nullable: true })
+  @Column({
+    name: 'adjustment_reason',
+    type: 'varchar',
+    length: 1000,
+    nullable: true,
+  })
   adjustmentReason?: string | null;
 
   @Column({
@@ -111,11 +120,20 @@ export class TiramisDischargeVoucherEntity extends BaseEntity {
   })
   reconciledAmount?: string | null;
 
-  @Column({ name: 'offer_accepted', type: 'varchar', length: 1, nullable: true })
+  @Column({
+    name: 'offer_accepted',
+    type: 'varchar',
+    length: 1,
+    nullable: true,
+  })
   offerAccepted?: string | null;
 
-  @OneToMany(() => TiramisClaimantEntity, (claimant) => claimant.dischargeVoucher, {
-    cascade: true,
-  })
+  @OneToMany(
+    () => TiramisClaimantEntity,
+    (claimant) => claimant.dischargeVoucher,
+    {
+      cascade: true,
+    },
+  )
   claimants?: TiramisClaimantEntity[];
 }

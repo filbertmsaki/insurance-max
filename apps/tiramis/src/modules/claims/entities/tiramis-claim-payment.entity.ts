@@ -67,7 +67,12 @@ export class TiramisClaimPaymentEntity extends BaseEntity {
   @Column({ name: 'payment_mode', type: 'int' })
   paymentMode!: number;
 
-  @Column({ name: 'parties_notified', type: 'varchar', length: 1, nullable: true })
+  @Column({
+    name: 'parties_notified',
+    type: 'varchar',
+    length: 1,
+    nullable: true,
+  })
   partiesNotified?: string | null;
 
   @Column({
@@ -79,10 +84,20 @@ export class TiramisClaimPaymentEntity extends BaseEntity {
   })
   netPremiumEarned?: string | null;
 
-  @Column({ name: 'claim_resulted_litigation', type: 'varchar', length: 1, nullable: true })
+  @Column({
+    name: 'claim_resulted_litigation',
+    type: 'varchar',
+    length: 1,
+    nullable: true,
+  })
   claimResultedLitigation?: string | null;
 
-  @Column({ name: 'litigation_reason', type: 'varchar', length: 1000, nullable: true })
+  @Column({
+    name: 'litigation_reason',
+    type: 'varchar',
+    length: 1000,
+    nullable: true,
+  })
   litigationReason?: string | null;
 
   @Column({ name: 'currency_code', length: 3 })

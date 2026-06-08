@@ -89,14 +89,28 @@ export class TiramisClaimAssessmentEntity extends BaseEntity {
   @Column({ name: 'claim_approval_date', type: 'timestamp', nullable: true })
   claimApprovalDate?: Date | null;
 
-  @Column({ name: 'claim_approval_authority', type: 'varchar', length: 150, nullable: true })
+  @Column({
+    name: 'claim_approval_authority',
+    type: 'varchar',
+    length: 150,
+    nullable: true,
+  })
   claimApprovalAuthority?: string | null;
 
-  @Column({ name: 'is_re_assessment', type: 'varchar', length: 1, nullable: true })
+  @Column({
+    name: 'is_re_assessment',
+    type: 'varchar',
+    length: 1,
+    nullable: true,
+  })
   isReAssessment?: string | null;
 
-  @OneToMany(() => TiramisClaimantEntity, (claimant) => claimant.claimAssessment, {
-    cascade: true,
-  })
+  @OneToMany(
+    () => TiramisClaimantEntity,
+    (claimant) => claimant.claimAssessment,
+    {
+      cascade: true,
+    },
+  )
   claimants?: TiramisClaimantEntity[];
 }

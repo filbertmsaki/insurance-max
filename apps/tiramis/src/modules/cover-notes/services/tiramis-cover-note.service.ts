@@ -30,7 +30,9 @@ export class TiramisCoverNoteService {
   ) {}
 
   async createDraft(
-    dto: CreateCoverNoteDto | (CreateCoverNoteDto & TiramisResolvedRequestDtoFields),
+    dto:
+      | CreateCoverNoteDto
+      | (CreateCoverNoteDto & TiramisResolvedRequestDtoFields),
   ) {
     const resolvedDto =
       'clientConfigurationId' in dto
@@ -175,9 +177,10 @@ export class TiramisCoverNoteService {
       payload,
     );
 
-    const pfxPaths = await this.tiramisConfigService.getPfxPathsForConfiguration(
-      configuration,
-    );
+    const pfxPaths =
+      await this.tiramisConfigService.getPfxPathsForConfiguration(
+        configuration,
+      );
 
     const signature = this.signatureService.signXmlContent({
       contentXml,
@@ -202,14 +205,16 @@ export class TiramisCoverNoteService {
     coverNote.currentAttemptId = attempt.id;
     await this.coverNoteRepository.save(coverNote);
 
-    const endpoint = await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
-      configuration,
-      serviceType: this.serviceType,
-    });
+    const endpoint =
+      await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
+        configuration,
+        serviceType: this.serviceType,
+      });
 
-    const headers = await this.tiramisConfigService.getRequestHeadersForConfiguration(
-      configuration,
-    );
+    const headers =
+      await this.tiramisConfigService.getRequestHeadersForConfiguration(
+        configuration,
+      );
 
     await this.tiramisSubmissionService.markSent(coverNote.requestId);
 

@@ -114,7 +114,9 @@ export class TiramisClaimsController {
   @ApiOperation({ summary: 'Get a discharge voucher by request id' })
   @Get('discharge-vouchers/request/:requestId')
   findDischargeVoucherByRequestId(@Param('requestId') requestId: string) {
-    return this.tiramisClaimService.findClaimDischargeVoucherByRequestId(requestId);
+    return this.tiramisClaimService.findClaimDischargeVoucherByRequestId(
+      requestId,
+    );
   }
 
   @ApiOperation({ summary: 'Submit a claim payment' })

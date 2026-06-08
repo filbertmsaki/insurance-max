@@ -26,10 +26,20 @@ export class TiramisVerificationResponseEntity extends BaseEntity {
   @Column({ name: 'request_id', length: 50 })
   requestId!: string;
 
-  @Column({ name: 'response_status_code', type: 'varchar', length: 20, nullable: true })
+  @Column({
+    name: 'response_status_code',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
   responseStatusCode?: string | null;
 
-  @Column({ name: 'response_status_desc', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'response_status_desc',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   responseStatusDesc?: string | null;
 
   @Column({ name: 'raw_response_xml', type: 'text', nullable: true })

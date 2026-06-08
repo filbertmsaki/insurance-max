@@ -69,9 +69,11 @@ export class TiramisPolicyService {
       policyOperativeClause: resolvedDto.policyOperativeClause,
       specialConditions: resolvedDto.specialConditions,
       exclusions: resolvedDto.exclusions || null,
-      coverNotes: resolvedDto.coverNoteReferenceNumbers.map((referenceNumber) => ({
-        coverNoteReferenceNumber: referenceNumber,
-      })) as any,
+      coverNotes: resolvedDto.coverNoteReferenceNumbers.map(
+        (referenceNumber) => ({
+          coverNoteReferenceNumber: referenceNumber,
+        }),
+      ) as any,
     });
 
     const savedPolicy = await this.policyRepository.save(policy);
@@ -101,9 +103,10 @@ export class TiramisPolicyService {
       payload,
     );
 
-    const pfxPaths = await this.tiramisConfigService.getPfxPathsForConfiguration(
-      configuration,
-    );
+    const pfxPaths =
+      await this.tiramisConfigService.getPfxPathsForConfiguration(
+        configuration,
+      );
 
     const signature = this.signatureService.signXmlContent({
       contentXml,
@@ -128,14 +131,16 @@ export class TiramisPolicyService {
     policy.currentAttemptId = attempt.id;
     await this.policyRepository.save(policy);
 
-    const endpoint = await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
-      configuration,
-      serviceType: this.serviceType,
-    });
+    const endpoint =
+      await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
+        configuration,
+        serviceType: this.serviceType,
+      });
 
-    const headers = await this.tiramisConfigService.getRequestHeadersForConfiguration(
-      configuration,
-    );
+    const headers =
+      await this.tiramisConfigService.getRequestHeadersForConfiguration(
+        configuration,
+      );
 
     await this.tiramisSubmissionService.markSent(policy.requestId);
 

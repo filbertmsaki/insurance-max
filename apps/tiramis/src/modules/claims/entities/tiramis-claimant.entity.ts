@@ -32,14 +32,10 @@ export class TiramisClaimantEntity extends BaseEntity {
   @Column({ name: 'discharge_voucher_id', type: 'uuid', nullable: true })
   dischargeVoucherId?: string | null;
 
-  @ManyToOne(
-    () => TiramisDischargeVoucherEntity,
-    (claim) => claim.claimants,
-    {
-      nullable: true,
-      onDelete: 'CASCADE',
-    },
-  )
+  @ManyToOne(() => TiramisDischargeVoucherEntity, (claim) => claim.claimants, {
+    nullable: true,
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'discharge_voucher_id' })
   dischargeVoucher?: TiramisDischargeVoucherEntity | null;
 
@@ -102,9 +98,19 @@ export class TiramisClaimantEntity extends BaseEntity {
   @Column({ name: 'claimant_fax', type: 'varchar', length: 50, nullable: true })
   claimantFax?: string | null;
 
-  @Column({ name: 'postal_address', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'postal_address',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   postalAddress?: string | null;
 
-  @Column({ name: 'email_address', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'email_address',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   emailAddress?: string | null;
 }

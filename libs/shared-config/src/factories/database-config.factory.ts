@@ -25,7 +25,11 @@ export function readDatabaseEnv(
     password:
       process.env[`${prefix}_PASSWORD`] || defaults.password || 'password',
     database:
-      process.env[`${prefix}_DATABASE`] || defaults.database || 'insurance_max',
+      process.env[`${prefix}_DATABASE`] ||
+      process.env[`${prefix}_NAME`] ||
+      defaults.database ||
+      'insurance_max',
+    schema: process.env[`${prefix}_SCHEMA`] || defaults.schema || undefined,
     connectString:
       process.env[`${prefix}_ORACLE_CONNECT_STRING`] ||
       defaults.connectString ||

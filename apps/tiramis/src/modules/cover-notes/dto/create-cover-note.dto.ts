@@ -134,7 +134,10 @@ export class CreatePolicyHolderDto {
   @ApiPropertyOptional({ nullable: true, example: '' })
   fax?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, example: 'P.O.BOX 1231, Dar es Salaam' })
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 'P.O.BOX 1231, Dar es Salaam',
+  })
   postalAddress?: string | null;
 
   @ApiPropertyOptional({ nullable: true, example: 'mimi@email.com' })
@@ -161,7 +164,8 @@ export class CreateCoverNoteDto {
   coverNoteEndDate!: Date | string;
 
   @ApiProperty({
-    example: 'CoverNote for Residential House Insurance at Dar es Salaam Magomeni',
+    example:
+      'CoverNote for Residential House Insurance at Dar es Salaam Magomeni',
   })
   coverNoteDesc!: string;
 

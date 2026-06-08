@@ -54,9 +54,19 @@ export class TiramisPolicyHolderEntity extends BaseEntity {
   @Column({ type: 'varchar', length: 50, nullable: true })
   fax?: string | null;
 
-  @Column({ name: 'postal_address', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'postal_address',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   postalAddress?: string | null;
 
-  @Column({ name: 'email_address', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'email_address',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   emailAddress?: string | null;
 }

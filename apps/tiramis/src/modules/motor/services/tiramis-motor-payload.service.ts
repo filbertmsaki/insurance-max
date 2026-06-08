@@ -62,8 +62,7 @@ export class TiramisMotorPayloadService {
         FleetEntry: dto.fleet?.items.map((item) => ({
           FleetEntry: item.fleetEntry || '',
           CoverNoteNumber: item.coverNoteNumber,
-          PrevCoverNoteReferenceNumber:
-            item.prevCoverNoteReferenceNumber || '',
+          PrevCoverNoteReferenceNumber: item.prevCoverNoteReferenceNumber || '',
           CoverNoteDesc: item.coverNoteDesc || dto.coverNoteDesc,
           OperativeClause: item.operativeClause || dto.operativeClause,
           EndorsementType: item.endorsementType || '',

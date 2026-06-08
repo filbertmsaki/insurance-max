@@ -61,8 +61,12 @@ export class TiramisClaimRejectionEntity extends BaseEntity {
   @Column({ name: 'rejection_reason', length: 1000 })
   rejectionReason!: string;
 
-  @OneToMany(() => TiramisClaimantEntity, (claimant) => claimant.claimRejection, {
-    cascade: true,
-  })
+  @OneToMany(
+    () => TiramisClaimantEntity,
+    (claimant) => claimant.claimRejection,
+    {
+      cascade: true,
+    },
+  )
   claimants?: TiramisClaimantEntity[];
 }

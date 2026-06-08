@@ -38,7 +38,12 @@ export class TiramisClaimNotificationEntity extends BaseEntity {
   @Column({ name: 'insurer_company_code', length: 6 })
   insurerCompanyCode!: string;
 
-  @Column({ name: 'tran_company_code', type: 'varchar', length: 6, nullable: true })
+  @Column({
+    name: 'tran_company_code',
+    type: 'varchar',
+    length: 6,
+    nullable: true,
+  })
   tranCompanyCode?: string | null;
 
   @Column({ name: 'claim_notification_number', length: 50 })
@@ -50,7 +55,12 @@ export class TiramisClaimNotificationEntity extends BaseEntity {
   @Column({ name: 'claim_report_date' })
   claimReportDate!: Date;
 
-  @Column({ name: 'claim_form_dully_filled', type: 'varchar', length: 10, nullable: true })
+  @Column({
+    name: 'claim_form_dully_filled',
+    type: 'varchar',
+    length: 10,
+    nullable: true,
+  })
   claimFormDullyFilled?: string | null;
 
   @Column({ name: 'loss_date' })
@@ -62,7 +72,12 @@ export class TiramisClaimNotificationEntity extends BaseEntity {
   @Column({ name: 'loss_type', type: 'varchar', length: 100, nullable: true })
   lossType?: string | null;
 
-  @Column({ name: 'loss_location', type: 'varchar', length: 250, nullable: true })
+  @Column({
+    name: 'loss_location',
+    type: 'varchar',
+    length: 250,
+    nullable: true,
+  })
   lossLocation?: string | null;
 
   @Column({ name: 'officer_name', length: 100 })

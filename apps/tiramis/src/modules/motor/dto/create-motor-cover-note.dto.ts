@@ -66,7 +66,10 @@ export class CreateMotorDetailDto {
   @ApiPropertyOptional({ nullable: true, example: 1 })
   ownerCategory?: number | null;
 
-  @ApiPropertyOptional({ nullable: true, example: 'P.O. BOX 123, Dar es Salaam' })
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 'P.O. BOX 123, Dar es Salaam',
+  })
   ownerAddress?: string | null;
 }
 
@@ -83,7 +86,10 @@ export class CreateMotorFleetItemDto {
   @ApiPropertyOptional({ nullable: true, example: 'Fleet motor cover note' })
   coverNoteDesc?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, example: 'Private motor comprehensive insurance' })
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 'Private motor comprehensive insurance',
+  })
   operativeClause?: string | null;
 
   @ApiPropertyOptional({ nullable: true, example: null })

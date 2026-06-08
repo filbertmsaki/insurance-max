@@ -33,9 +33,7 @@ export class TiramisXmlParserService {
     const rootName =
       Object.keys(tiraMsg).find(
         (key) =>
-          key !== 'MsgSignature' &&
-          key !== 'Signature' &&
-          key !== 'signature',
+          key !== 'MsgSignature' && key !== 'Signature' && key !== 'signature',
       ) || null;
 
     return {

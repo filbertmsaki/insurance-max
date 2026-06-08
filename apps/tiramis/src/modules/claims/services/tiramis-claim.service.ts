@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import {
   TiramisConfigService,
@@ -154,7 +158,8 @@ export class TiramisClaimService {
   }
 
   async findClaimNotificationByRequestId(requestId: string) {
-    const notification = await this.claimRepository.findNotificationByRequestId(requestId);
+    const notification =
+      await this.claimRepository.findNotificationByRequestId(requestId);
 
     if (!notification) {
       throw new NotFoundException('TIRAMIS claim notification not found');
@@ -178,7 +183,8 @@ export class TiramisClaimService {
   }
 
   async findClaimIntimationByRequestId(requestId: string) {
-    const intimation = await this.claimRepository.findIntimationByRequestId(requestId);
+    const intimation =
+      await this.claimRepository.findIntimationByRequestId(requestId);
 
     if (!intimation) {
       throw new NotFoundException('TIRAMIS claim intimation not found');
@@ -202,7 +208,8 @@ export class TiramisClaimService {
   }
 
   async findClaimAssessmentByRequestId(requestId: string) {
-    const assessment = await this.claimRepository.findAssessmentByRequestId(requestId);
+    const assessment =
+      await this.claimRepository.findAssessmentByRequestId(requestId);
 
     if (!assessment) {
       throw new NotFoundException('TIRAMIS claim assessment not found');
@@ -212,7 +219,8 @@ export class TiramisClaimService {
   }
 
   async findClaimDischargeVoucherById(id: string) {
-    const dischargeVoucher = await this.claimRepository.findDischargeVoucherById(id);
+    const dischargeVoucher =
+      await this.claimRepository.findDischargeVoucherById(id);
 
     if (!dischargeVoucher) {
       throw new NotFoundException('TIRAMIS discharge voucher not found');
@@ -226,7 +234,8 @@ export class TiramisClaimService {
   }
 
   async findClaimDischargeVoucherByRequestId(requestId: string) {
-    const dischargeVoucher = await this.claimRepository.findDischargeVoucherByRequestId(requestId);
+    const dischargeVoucher =
+      await this.claimRepository.findDischargeVoucherByRequestId(requestId);
 
     if (!dischargeVoucher) {
       throw new NotFoundException('TIRAMIS discharge voucher not found');
@@ -250,7 +259,8 @@ export class TiramisClaimService {
   }
 
   async findClaimPaymentByRequestId(requestId: string) {
-    const payment = await this.claimRepository.findPaymentByRequestId(requestId);
+    const payment =
+      await this.claimRepository.findPaymentByRequestId(requestId);
 
     if (!payment) {
       throw new NotFoundException('TIRAMIS claim payment not found');
@@ -260,7 +270,8 @@ export class TiramisClaimService {
   }
 
   async findClaimRejectionByRequestId(requestId: string) {
-    const rejection = await this.claimRepository.findRejectionByRequestId(requestId);
+    const rejection =
+      await this.claimRepository.findRejectionByRequestId(requestId);
 
     if (!rejection) {
       throw new NotFoundException('TIRAMIS claim rejection not found');
@@ -289,7 +300,11 @@ export class TiramisClaimService {
     rootElement: string;
     businessReference: string;
     buildPayload: (dto: any, requestId: string) => Record<string, any>;
-    saveDraft: (dto: any, requestId: string, transactionId: string) => Promise<any>;
+    saveDraft: (
+      dto: any,
+      requestId: string,
+      transactionId: string,
+    ) => Promise<any>;
     updateAttempt: (record: any, attemptId: string) => Promise<any>;
   }) {
     const { configuration, dto: resolvedDto } =
@@ -307,7 +322,9 @@ export class TiramisClaimService {
 
   private async createAndSubmit(params: {
     dto: any;
-    configuration: Awaited<ReturnType<TiramisConfigService['getActiveRuntimeConfiguration']>>;
+    configuration: Awaited<
+      ReturnType<TiramisConfigService['getActiveRuntimeConfiguration']>
+    >;
     serviceType: string;
     rootElement: string;
     businessReference: string;
@@ -348,16 +365,21 @@ export class TiramisClaimService {
       businessReference: params.businessReference,
     });
 
-    const record = await params.saveDraft(params.dto, requestId, transaction.id);
+    const record = await params.saveDraft(
+      params.dto,
+      requestId,
+      transaction.id,
+    );
     const payload = params.buildPayload(params.dto, requestId);
     const contentXml = this.xmlBuilder.buildContentXml(
       params.rootElement,
       payload,
     );
 
-    const pfxPaths = await this.tiramisConfigService.getPfxPathsForConfiguration(
-      params.configuration,
-    );
+    const pfxPaths =
+      await this.tiramisConfigService.getPfxPathsForConfiguration(
+        params.configuration,
+      );
 
     const signature = this.signatureService.signXmlContent({
       contentXml,
@@ -381,14 +403,16 @@ export class TiramisClaimService {
 
     await params.updateAttempt(record, attempt.id);
 
-    const endpoint = await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
-      configuration: params.configuration,
-      serviceType: params.serviceType,
-    });
+    const endpoint =
+      await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
+        configuration: params.configuration,
+        serviceType: params.serviceType,
+      });
 
-    const headers = await this.tiramisConfigService.getRequestHeadersForConfiguration(
-      params.configuration,
-    );
+    const headers =
+      await this.tiramisConfigService.getRequestHeadersForConfiguration(
+        params.configuration,
+      );
 
     await this.submissionService.markSent(requestId);
 

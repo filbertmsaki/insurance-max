@@ -51,8 +51,7 @@ export class TiramisCoverNotePayloadService {
             PremiumRate: risk.premiumRate,
             PremiumBeforeDiscount: risk.premiumBeforeDiscount,
             PremiumAfterDiscount: risk.premiumAfterDiscount,
-            PremiumExcludingTaxEquivalent:
-              risk.premiumExcludingTaxEquivalent,
+            PremiumExcludingTaxEquivalent: risk.premiumExcludingTaxEquivalent,
             PremiumIncludingTax: risk.premiumIncludingTax,
             DiscountsOffered: {
               DiscountOffered: (risk.discounts || []).map((discount) => ({
@@ -81,8 +80,7 @@ export class TiramisCoverNotePayloadService {
             AddonAmount: addon.addonAmount,
             AddonPremiumRate: addon.addonPremiumRate,
             PremiumExcludingTax: addon.premiumExcludingTax,
-            PremiumExcludingTaxEquivalent:
-              addon.premiumExcludingTaxEquivalent,
+            PremiumExcludingTaxEquivalent: addon.premiumExcludingTaxEquivalent,
             PremiumIncludingTax: addon.premiumIncludingTax,
             TaxesCharged: {
               TaxCharged: (addon.taxes || []).map((tax) =>

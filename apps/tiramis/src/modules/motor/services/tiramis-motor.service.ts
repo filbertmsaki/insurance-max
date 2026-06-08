@@ -196,9 +196,10 @@ export class TiramisMotorService {
       payload,
     );
 
-    const pfxPaths = await this.tiramisConfigService.getPfxPathsForConfiguration(
-      configuration,
-    );
+    const pfxPaths =
+      await this.tiramisConfigService.getPfxPathsForConfiguration(
+        configuration,
+      );
 
     const signature = this.signatureService.signXmlContent({
       contentXml,
@@ -223,14 +224,16 @@ export class TiramisMotorService {
     coverNote.currentAttemptId = attempt.id;
     await this.coverNoteRepository.save(coverNote);
 
-    const endpoint = await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
-      configuration,
-      serviceType,
-    });
+    const endpoint =
+      await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
+        configuration,
+        serviceType,
+      });
 
-    const headers = await this.tiramisConfigService.getRequestHeadersForConfiguration(
-      configuration,
-    );
+    const headers =
+      await this.tiramisConfigService.getRequestHeadersForConfiguration(
+        configuration,
+      );
 
     await this.tiramisSubmissionService.markSent(coverNote.requestId);
 

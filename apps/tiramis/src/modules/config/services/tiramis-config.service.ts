@@ -45,7 +45,9 @@ export class TiramisConfigService {
     private readonly responseCodeRepository: Repository<TiramisResponseCodeEntity>,
   ) {}
 
-  resolveRuntimeEnvironment(appEnv = process.env.APP_ENV || process.env.NODE_ENV || 'development') {
+  resolveRuntimeEnvironment(
+    appEnv = process.env.APP_ENV || process.env.NODE_ENV || 'development',
+  ) {
     return appEnv === 'production' ? 'live' : 'test';
   }
 
@@ -93,7 +95,7 @@ export class TiramisConfigService {
         callbackUrl: configuration.callbackBaseUrl,
         insurerCompanyCode: configuration.insurerCompanyCode,
         tranCompanyCode: configuration.tranCompanyCode || null,
-      } as TDto & TiramisResolvedRequestDtoFields,
+      },
     };
   }
 

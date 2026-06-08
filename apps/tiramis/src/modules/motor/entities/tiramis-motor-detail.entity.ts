@@ -33,7 +33,12 @@ export class TiramisMotorDetailEntity extends BaseEntity {
   @Column({ name: 'motor_type', type: 'int', nullable: true })
   motorType?: number | null;
 
-  @Column({ name: 'registration_number', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'registration_number',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   registrationNumber?: string | null;
 
   @Column({ name: 'chassis_number', length: 100 })
@@ -45,7 +50,12 @@ export class TiramisMotorDetailEntity extends BaseEntity {
   @Column({ type: 'varchar', length: 100, nullable: true })
   model?: string | null;
 
-  @Column({ name: 'model_number', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'model_number',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   modelNumber?: string | null;
 
   @Column({ name: 'body_type', type: 'varchar', length: 100, nullable: true })
@@ -54,10 +64,20 @@ export class TiramisMotorDetailEntity extends BaseEntity {
   @Column({ type: 'varchar', length: 50, nullable: true })
   color?: string | null;
 
-  @Column({ name: 'engine_number', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'engine_number',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   engineNumber?: string | null;
 
-  @Column({ name: 'engine_capacity', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'engine_capacity',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   engineCapacity?: string | null;
 
   @Column({ name: 'fuel_used', type: 'varchar', length: 50, nullable: true })
@@ -66,7 +86,12 @@ export class TiramisMotorDetailEntity extends BaseEntity {
   @Column({ name: 'number_of_axles', type: 'int', nullable: true })
   numberOfAxles?: number | null;
 
-  @Column({ name: 'axle_distance', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'axle_distance',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   axleDistance?: string | null;
 
   @Column({ name: 'sitting_capacity', type: 'int', nullable: true })
@@ -102,6 +127,11 @@ export class TiramisMotorDetailEntity extends BaseEntity {
   @Column({ name: 'owner_category', type: 'int', nullable: true })
   ownerCategory?: number | null;
 
-  @Column({ name: 'owner_address', type: 'varchar', length: 250, nullable: true })
+  @Column({
+    name: 'owner_address',
+    type: 'varchar',
+    length: 250,
+    nullable: true,
+  })
   ownerAddress?: string | null;
 }

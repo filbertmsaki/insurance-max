@@ -1,0 +1,82 @@
+import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { TypeOrmModule } from '@nestjs/typeorm';
+
+import {
+  ServiceDatabaseConfig,
+  SharedConfigModule,
+  cacheConfig,
+  corsConfig,
+  createTypeOrmOptions,
+  loggerConfig,
+  mailConfig,
+  queueConfig,
+  redisConfig,
+} from '@insurance-max/shared-config';
+
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+import appConfig from './config/app.config';
+import databaseConfig from './config/database.config';
+import { insurancePortalEnvValidationSchema } from './config/env.validation';
+import jwtConfig from './config/jwt.config';
+import transportConfig from './config/transport.config';
+import { InsurancePortalServiceModule } from './modules/insurance-portal-service.module';
+
+@Module({
+  imports: [
+    SharedConfigModule.forRoot({
+      appName: 'insurance-portal-service',
+      validationSchema: insurancePortalEnvValidationSchema,
+      load: [
+        appConfig,
+        loggerConfig,
+        cacheConfig,
+        corsConfig,
+        redisConfig,
+        queueConfig,
+        mailConfig,
+        databaseConfig,
+        jwtConfig,
+        transportConfig,
+      ],
+    }),
+    EventEmitterModule.forRoot(),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => [
+        {
+          name: 'default',
+          ttl: Number(configService.get<string>('THROTTLER_TTL') ?? 60000),
+          limit: Number(configService.get<string>('THROTTLER_LIMIT') ?? 100),
+        },
+      ],
+    }),
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) =>
+        createTypeOrmOptions(
+          configService.getOrThrow<ServiceDatabaseConfig>(
+            'insurancePortalDatabase',
+          ),
+          {
+            autoLoadEntities: true,
+            entities: [__dirname + '/**/*.entity{.ts,.js}'],
+          },
+        ),
+    }),
+    InsurancePortalServiceModule,
+  ],
+  controllers: [AppController],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
+})
+export class AppModule {}

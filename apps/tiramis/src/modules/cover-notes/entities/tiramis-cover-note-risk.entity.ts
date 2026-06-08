@@ -1,11 +1,5 @@
 import { BaseEntity } from '@insurance-max/persistence';
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToMany,
-} from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 
 import { TiramisCoverNoteDiscountEntity } from './tiramis-cover-note-discount.entity';
 import { TiramisCoverNoteEntity } from './tiramis-cover-note.entity';
@@ -74,9 +68,13 @@ export class TiramisCoverNoteRiskEntity extends BaseEntity {
   })
   premiumIncludingTax!: string;
 
-  @OneToMany(() => TiramisCoverNoteDiscountEntity, (discount) => discount.risk, {
-    cascade: true,
-  })
+  @OneToMany(
+    () => TiramisCoverNoteDiscountEntity,
+    (discount) => discount.risk,
+    {
+      cascade: true,
+    },
+  )
   discounts?: TiramisCoverNoteDiscountEntity[];
 
   @OneToMany(() => TiramisCoverNoteTaxEntity, (tax) => tax.risk, {

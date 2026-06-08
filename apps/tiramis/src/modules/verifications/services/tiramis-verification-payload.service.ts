@@ -78,10 +78,7 @@ export class TiramisVerificationPayloadService {
     };
   }
 
-  private buildHeader(
-    dto: TiramisResolvedRequestDtoFields,
-    requestId: string,
-  ) {
+  private buildHeader(dto: TiramisResolvedRequestDtoFields, requestId: string) {
     return {
       RequestId: requestId,
       CompanyCode: dto.companyCode,

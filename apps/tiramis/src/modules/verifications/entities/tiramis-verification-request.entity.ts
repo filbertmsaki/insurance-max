@@ -48,16 +48,36 @@ export class TiramisVerificationRequestEntity extends BaseEntity {
   @Column({ name: 'system_code', length: 50 })
   systemCode!: string;
 
-  @Column({ name: 'cover_note_reference_number', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'cover_note_reference_number',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   coverNoteReferenceNumber?: string | null;
 
-  @Column({ name: 'sticker_number', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'sticker_number',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   stickerNumber?: string | null;
 
-  @Column({ name: 'motor_registration_number', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'motor_registration_number',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   motorRegistrationNumber?: string | null;
 
-  @Column({ name: 'motor_chassis_number', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'motor_chassis_number',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   motorChassisNumber?: string | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true })

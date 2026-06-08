@@ -40,7 +40,10 @@ export class CreateClaimantDto {
   @ApiPropertyOptional({ nullable: true, example: '' })
   claimantFax?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, example: 'P.O. BOX 123, Dar es Salaam' })
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 'P.O. BOX 123, Dar es Salaam',
+  })
   postalAddress?: string | null;
 
   @ApiPropertyOptional({ nullable: true, example: 'claimant@example.com' })
@@ -139,7 +142,10 @@ export class CreateClaimAssessmentDto {
   @ApiProperty({ example: '2026-06-07T11:00:00' })
   assessmentReceivedDate!: Date | string;
 
-  @ApiPropertyOptional({ nullable: true, example: 'Initial assessment complete' })
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 'Initial assessment complete',
+  })
   assessmentReportSummary?: string | null;
 
   @ApiProperty({ example: 'TZS' })
@@ -201,7 +207,10 @@ export class CreateDischargeVoucherDto {
   @ApiPropertyOptional({ nullable: true, example: '2026-06-09T09:00:00' })
   adjustmentDate?: Date | string | null;
 
-  @ApiPropertyOptional({ nullable: true, example: 'Additional salvage recovery applied' })
+  @ApiPropertyOptional({
+    nullable: true,
+    example: 'Additional salvage recovery applied',
+  })
   adjustmentReason?: string | null;
 
   @ApiPropertyOptional({ nullable: true, example: '50000.00' })

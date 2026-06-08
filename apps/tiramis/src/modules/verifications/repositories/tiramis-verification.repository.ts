@@ -81,9 +81,7 @@ export class TiramisVerificationRepository {
     });
   }
 
-  findByIncorporationCertificateNumber(
-    incorporationCertificateNumber: string,
-  ) {
+  findByIncorporationCertificateNumber(incorporationCertificateNumber: string) {
     return this.requestRepository.find({
       where: { incorporationCertificateNumber },
       relations: {

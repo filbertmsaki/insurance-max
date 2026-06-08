@@ -22,11 +22,10 @@ export class TiramisCallbackController {
     @Param('environment') environment: string,
     @Body() rawXml: string,
   ): Promise<string> {
-    const acknowledgement =
-      await this.tiramisCallbackService.handleCallback({
-        environment,
-        rawXml,
-      });
+    const acknowledgement = await this.tiramisCallbackService.handleCallback({
+      environment,
+      rawXml,
+    });
 
     return acknowledgement.acknowledgementXml;
   }

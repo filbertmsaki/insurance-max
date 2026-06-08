@@ -14,6 +14,7 @@ export function createTypeOrmOptions(
     username: database.username,
     password: database.password,
     database: database.database,
+    schema: database.schema,
     synchronize: database.synchronize,
     logging: database.logging,
     ssl: database.ssl,

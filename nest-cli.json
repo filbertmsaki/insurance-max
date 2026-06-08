@@ -18,6 +18,22 @@
       "compilerOptions": {
         "tsConfigPath": "apps/tiramis/tsconfig.app.json"
       }
+    },
+    "insurance-portal-service": {
+      "type": "application",
+      "root": "apps/insurance-portal-service",
+      "entryFile": "main",
+      "sourceRoot": "apps/insurance-portal-service/src",
+      "compilerOptions": {
+        "assets": [
+          {
+            "include": "**/*.pug",
+            "outDir": "dist/apps/insurance-portal-service"
+          }
+        ],
+        "watchAssets": true,
+        "tsConfigPath": "apps/insurance-portal-service/tsconfig.app.json"
+      }
     }
   }
 }

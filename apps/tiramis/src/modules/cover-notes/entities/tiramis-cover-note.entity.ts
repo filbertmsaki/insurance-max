@@ -55,7 +55,12 @@ export class TiramisCoverNoteEntity extends BaseEntity {
   @Column({ name: 'insurer_company_code', length: 6 })
   insurerCompanyCode!: string;
 
-  @Column({ name: 'tran_company_code', type: 'varchar', length: 6, nullable: true })
+  @Column({
+    name: 'tran_company_code',
+    type: 'varchar',
+    length: 6,
+    nullable: true,
+  })
   tranCompanyCode?: string | null;
 
   @Column({ name: 'cover_note_type', type: 'int' })
@@ -80,7 +85,12 @@ export class TiramisCoverNoteEntity extends BaseEntity {
   })
   coverNoteReferenceNumber?: string | null;
 
-  @Column({ name: 'sticker_number', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'sticker_number',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   stickerNumber?: string | null;
 
   @Column({ name: 'sale_point_code', length: 12 })
@@ -158,7 +168,12 @@ export class TiramisCoverNoteEntity extends BaseEntity {
   @Column({ name: 'endorsement_type', type: 'int', nullable: true })
   endorsementType?: number | null;
 
-  @Column({ name: 'endorsement_reason', type: 'varchar', length: 1000, nullable: true })
+  @Column({
+    name: 'endorsement_reason',
+    type: 'varchar',
+    length: 1000,
+    nullable: true,
+  })
   endorsementReason?: string | null;
 
   @Column({
