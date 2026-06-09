@@ -15,7 +15,7 @@
     "start:dev:insurance-portal-service": "nest start insurance-portal-service --watch",
     "start:debug": "nest start tiramis --debug --watch",
     "start:prod": "node dist/apps/tiramis/main",
-    "start:prod:insurance-portal-service": "node dist/apps/insurance-portal-service/main",
+    "start:prod:insurance-portal-service": "node dist/apps/insurance-portal-service/apps/insurance-portal-service/src/main",
     "lint": "eslint \"{apps,libs}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -76,7 +76,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "swagger-ui-express": "^5.0.1",
-    "typeorm": "^1.0.0",
+    "typeorm": "^0.3.28",
     "typeorm-extension": "^3.7.3"
   },
   "devDependencies": {
