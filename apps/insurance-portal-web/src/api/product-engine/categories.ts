@@ -1,0 +1,35 @@
+import { apiClient } from '@/api/client'
+import type {
+  InsuranceCategory,
+  CreateCategoryDto,
+  UpdateCategoryDto,
+  CategoryQueryParams,
+  PEPage,
+} from '@/types/product-engine'
+
+export const categoriesApi = {
+  getList: (params?: CategoryQueryParams) =>
+    apiClient
+      .get<PEPage<InsuranceCategory>>('/insurance-categories', { params })
+      .then((r) => r.data),
+
+  getById: (id: string) =>
+    apiClient.get<InsuranceCategory>(`/insurance-categories/${id}`).then((r) => r.data),
+
+  create: (data: CreateCategoryDto) =>
+    apiClient.post<InsuranceCategory>('/insurance-categories', data).then((r) => r.data),
+
+  update: (id: string, data: UpdateCategoryDto) =>
+    apiClient.patch<InsuranceCategory>(`/insurance-categories/${id}`, data).then((r) => r.data),
+
+  delete: (id: string) =>
+    apiClient.delete(`/insurance-categories/${id}`).then((r) => r.data),
+
+  /** Convenience: fetch all active categories for dropdowns */
+  getAllActive: () =>
+    apiClient
+      .get<PEPage<InsuranceCategory>>('/insurance-categories', {
+        params: { limit: 100, is_active: true },
+      })
+      .then((r) => r.data.data),
+}
