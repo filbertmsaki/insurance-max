@@ -1,9 +1,9 @@
 import { DataSource, Repository } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
-import { Company } from '../../modules/companies/entities/company.entity';
-import { InsuranceRisk } from '../../modules/insurance-risks/entities/insurance-risk.entity';
-import { RatingFactor } from '../../modules/rating-factors/entities/rating-factor.entity';
-import { RiskRequiredFactor } from '../../modules/risk-required-factors/entities/risk-required-factor.entity';
+import { Company } from '../../modules/platform/companies/entities/company.entity';
+import { InsuranceRisk } from '../../modules/tenant/insurance-risks/entities/insurance-risk.entity';
+import { RatingFactor } from '../../modules/tenant/rating-factors/entities/rating-factor.entity';
+import { RiskRequiredFactor } from '../../modules/tenant/risk-required-factors/entities/risk-required-factor.entity';
 
 type FactorRequirement = {
   code: string;

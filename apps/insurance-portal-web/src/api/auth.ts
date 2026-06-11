@@ -2,7 +2,7 @@ import { apiClient } from './client'
 import type { LoginResponse } from '@/types'
 
 export const authApi = {
-  login: (data: { email: string; password: string; company_id?: string }) =>
+  login: (data: { email: string; password: string; company_id?: number }) =>
     apiClient.post<LoginResponse>('/auth/login', data).then((r) => r.data),
 
   register: (data: {
@@ -21,7 +21,7 @@ export const authApi = {
     apiClient.post('/auth/reset-password', data).then((r) => r.data),
 
   verifyEmail: (token: string) =>
-    apiClient.get(`/auth/verify-email?token=${token}`).then((r) => r.data),
+    apiClient.get(`/auth/verify-email?token=${encodeURIComponent(token)}`).then((r) => r.data),
 
   resendVerification: (email: string) =>
     apiClient.post('/auth/resend-verification', { email }).then((r) => r.data),
@@ -31,22 +31,24 @@ export const authApi = {
       .post<{ otpId: string; expiresAt: string }>('/auth/phone-login/send-otp', { phone })
       .then((r) => r.data),
 
-  phoneLogin: (data: { otp_id: string; otp: string }) =>
+  phoneLogin: (data: { phone: string; otp_id: string; otp: string }) =>
     apiClient.post<LoginResponse>('/auth/phone-login', data).then((r) => r.data),
 
   passwordlessRequest: (email: string) =>
     apiClient.post('/auth/passwordless/request', { email }).then((r) => r.data),
 
   passwordlessComplete: (token: string) =>
-    apiClient.post<LoginResponse>('/auth/passwordless/complete', { token }).then((r) => r.data),
+    apiClient
+      .post<LoginResponse>(`/auth/passwordless/complete?token=${encodeURIComponent(token)}`)
+      .then((r) => r.data),
 
-  complete2fa: (data: { tempToken: string; code: string; isBackupCode?: boolean }) =>
+  complete2fa: (data: { tempToken: string; code: string }) =>
     apiClient.post<LoginResponse>('/auth/2fa/complete-login', data).then((r) => r.data),
 
-  /** Backend returns { accessToken, refreshToken } (camelCase) */
+  /** Backend returns { access_token, refresh_token } (snake_case) */
   refresh: (refresh_token: string) =>
     apiClient
-      .post<{ accessToken: string; refreshToken: string }>('/auth/refresh', { refresh_token })
+      .post<LoginResponse>('/auth/refresh', { refresh_token })
       .then((r) => r.data),
 
   logout: (refresh_token: string) =>

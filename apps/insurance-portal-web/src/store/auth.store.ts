@@ -5,7 +5,12 @@ import type { AuthUser, UserProfile } from '@/types'
 function decodeJwt(token: string): AuthUser | null {
   try {
     const payload = token.split('.')[1]
-    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized.padEnd(
+      normalized.length + ((4 - (normalized.length % 4)) % 4),
+      '=',
+    )
+    const decoded = JSON.parse(atob(padded))
     return {
       id: decoded.sub ?? decoded.id,
       email: decoded.email,
@@ -36,7 +41,7 @@ interface AuthState {
   setTokens: (access: string, refresh: string) => void
   setTokensWithProfile: (access: string, refresh: string, profile: UserProfile) => void
   setTempToken: (token: string) => void
-  setProfile: (profile: UserProfile) => void
+  setProfile: (profile: UserProfile | null) => void
   logout: () => void
   hasPermission: (permission: string) => boolean
   hasRole: (role: string) => boolean

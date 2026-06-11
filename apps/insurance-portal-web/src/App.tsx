@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { GuestRoute } from '@/components/auth/GuestRoute'
+import { AuthBootstrap } from '@/components/auth/AuthBootstrap'
 
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { RegisterPage } from '@/pages/auth/RegisterPage'
@@ -39,77 +40,80 @@ import { CalculatorPage } from '@/pages/product-engine/calculator/CalculatorPage
 
 export default function App() {
   return (
-    <Routes>
-      {/* Guest-only routes */}
-      <Route element={<GuestRoute />}>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/verify-email" element={<VerifyEmailPage />} />
-        <Route path="/phone-login" element={<PhoneLoginPage />} />
-        <Route path="/passwordless" element={<PasswordlessPage />} />
-        <Route path="/passwordless/complete" element={<PasswordlessPage />} />
-      </Route>
-
-      {/* 2FA (needs tempToken, no full auth) */}
-      <Route path="/2fa" element={<TwoFactorPage />} />
-
-      {/* Authenticated routes */}
-      <Route element={<ProtectedRoute />}>
-        <Route element={<AppShell />}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-
-          <Route element={<ProtectedRoute requiredPermission="users:read" />}>
-            <Route path="/users" element={<UsersListPage />} />
-            <Route path="/users/:id" element={<UserDetailPage />} />
-          </Route>
-
-          {/* Owner-only: manage all companies */}
-          <Route element={<ProtectedRoute requiredRole="OWNER" />}>
-            <Route path="/companies" element={<CompaniesListPage />} />
-            <Route path="/companies/:id" element={<CompanyDetailPage />} />
-          </Route>
-
-          {/* Company-scoped users: view/edit their own company */}
-          <Route path="/my-company" element={<MyCompanyPage />} />
-
-          {/* Branches: accessible to users with branches:read permission */}
-          <Route element={<ProtectedRoute requiredPermission="branches:read" />}>
-            <Route path="/branches" element={<BranchesListPage />} />
-            <Route path="/branches/:id" element={<BranchDetailPage />} />
-            <Route path="/company-features" element={<CompanyFeaturesPage />} />
-          </Route>
-
-          <Route element={<ProtectedRoute requiredPermission="roles:read" />}>
-            <Route path="/roles" element={<RolesPage />} />
-          </Route>
-
-          <Route element={<ProtectedRoute requiredPermission="permissions:read" />}>
-            <Route path="/permissions" element={<PermissionsPage />} />
-          </Route>
-
-          <Route path="/devices" element={<DevicesPage />} />
-          <Route path="/sessions" element={<SessionsPage />} />
-          <Route path="/api-clients" element={<ApiClientsPage />} />
-          <Route path="/settings/profile" element={<ProfilePage />} />
-
-          {/* Product Engine */}
-          <Route path="/product-engine/categories" element={<CategoriesPage />} />
-          <Route path="/product-engine/products" element={<ProductsPage />} />
-          <Route path="/product-engine/sub-classes" element={<SubClassesPage />} />
-          <Route path="/product-engine/risks" element={<RisksPage />} />
-          <Route path="/product-engine/rating-factors" element={<RatingFactorsPage />} />
-          <Route path="/product-engine/rating-rules" element={<RatingRulesPage />} />
-          <Route path="/product-engine/access/categories" element={<CategoryAccessPage />} />
-          <Route path="/product-engine/access/products" element={<ProductAccessPage />} />
-          <Route path="/product-engine/calculator" element={<CalculatorPage />} />
+    <>
+      <AuthBootstrap />
+      <Routes>
+        {/* Guest-only routes */}
+        <Route element={<GuestRoute />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/phone-login" element={<PhoneLoginPage />} />
+          <Route path="/passwordless" element={<PasswordlessPage />} />
+          <Route path="/passwordless/complete" element={<PasswordlessPage />} />
         </Route>
-      </Route>
 
-      {/* Default redirects */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
+        {/* 2FA (needs tempToken, no full auth) */}
+        <Route path="/2fa" element={<TwoFactorPage />} />
+
+        {/* Authenticated routes */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AppShell />}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+
+            <Route element={<ProtectedRoute requiredPermission="users:read" />}>
+              <Route path="/users" element={<UsersListPage />} />
+              <Route path="/users/:id" element={<UserDetailPage />} />
+            </Route>
+
+            {/* Owner-only: manage all companies */}
+            <Route element={<ProtectedRoute requiredRole="OWNER" />}>
+              <Route path="/companies" element={<CompaniesListPage />} />
+              <Route path="/companies/:id" element={<CompanyDetailPage />} />
+            </Route>
+
+            {/* Company-scoped users: view/edit their own company */}
+            <Route path="/my-company" element={<MyCompanyPage />} />
+
+            {/* Branches: accessible to users with branches:read permission */}
+            <Route element={<ProtectedRoute requiredPermission="branches:read" />}>
+              <Route path="/branches" element={<BranchesListPage />} />
+              <Route path="/branches/:id" element={<BranchDetailPage />} />
+              <Route path="/company-features" element={<CompanyFeaturesPage />} />
+            </Route>
+
+            <Route element={<ProtectedRoute requiredPermission="roles:read" />}>
+              <Route path="/roles" element={<RolesPage />} />
+            </Route>
+
+            <Route element={<ProtectedRoute requiredPermission="permissions:read" />}>
+              <Route path="/permissions" element={<PermissionsPage />} />
+            </Route>
+
+            <Route path="/devices" element={<DevicesPage />} />
+            <Route path="/sessions" element={<SessionsPage />} />
+            <Route path="/api-clients" element={<ApiClientsPage />} />
+            <Route path="/settings/profile" element={<ProfilePage />} />
+
+            {/* Product Engine */}
+            <Route path="/product-engine/categories" element={<CategoriesPage />} />
+            <Route path="/product-engine/products" element={<ProductsPage />} />
+            <Route path="/product-engine/sub-classes" element={<SubClassesPage />} />
+            <Route path="/product-engine/risks" element={<RisksPage />} />
+            <Route path="/product-engine/rating-factors" element={<RatingFactorsPage />} />
+            <Route path="/product-engine/rating-rules" element={<RatingRulesPage />} />
+            <Route path="/product-engine/access/categories" element={<CategoryAccessPage />} />
+            <Route path="/product-engine/access/products" element={<ProductAccessPage />} />
+            <Route path="/product-engine/calculator" element={<CalculatorPage />} />
+          </Route>
+        </Route>
+
+        {/* Default redirects */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </>
   )
 }

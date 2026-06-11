@@ -129,13 +129,38 @@ export interface AuthTokens {
   expires_in?: number
 }
 
-export interface LoginResponse extends AuthTokens {
-  user: UserProfile
-  /** Only present when 2FA is required */
-  requires_2fa?: boolean
-  /** Temp token for 2FA completion */
-  tempToken?: string
+export interface AuthSessionUser {
+  id: string
+  email: string
+  first_name?: string
+  last_name?: string
+  user_type: UserType
+  roles: string[]
+  permissions: string[]
+  isTwoFactorEnabled?: boolean
 }
+
+export interface AuthSessionCompany {
+  id: string
+  name: string
+  slug: string
+}
+
+export interface AuthSessionResponse extends AuthTokens {
+  scope?: AuthScope
+  access_expires_at?: number
+  refresh_expires_at?: number
+  user?: AuthSessionUser
+  company?: AuthSessionCompany
+  companies?: CompanyMembership[]
+  requires2FA?: boolean
+  requiresEmailVerification?: boolean
+  tempToken?: string
+  userId?: string
+  message?: string
+}
+
+export type LoginResponse = AuthSessionResponse
 
 export interface CompanyAddress {
   street?: string

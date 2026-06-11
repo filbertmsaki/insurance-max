@@ -11,11 +11,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { authApi } from '@/api/auth'
+import { getApiErrorMessage } from '@/lib/api-error'
 import { useAuthStore } from '@/store/auth.store'
 
 const phoneSchema = z.object({
-  phone: z.string().regex(/^(\+255|255|0)[67]\d{8}$/, 'Invalid Tanzanian phone'),
+  phone: z.string().regex(/^\+255[67]\d{8}$/, 'Invalid Tanzanian phone'),
 })
 
 export function PhoneLoginPage() {
@@ -23,6 +25,8 @@ export function PhoneLoginPage() {
   const { setTokens } = useAuthStore()
   const [otpId, setOtpId] = useState<string | null>(null)
   const [otp, setOtp] = useState('')
+  const [phone, setPhone] = useState('')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const form = useForm<z.infer<typeof phoneSchema>>({
     resolver: zodResolver(phoneSchema),
@@ -32,16 +36,25 @@ export function PhoneLoginPage() {
     mutationFn: (d: z.infer<typeof phoneSchema>) => authApi.sendOtp(d.phone),
     onSuccess: (data) => {
       setOtpId(data.otpId)
+      setPhone(form.getValues('phone'))
+      setErrorMessage(null)
       toast.success('OTP sent to your phone')
+    },
+    onError: (error) => {
+      setErrorMessage(getApiErrorMessage(error))
     },
   })
 
   const verifyMutation = useMutation({
-    mutationFn: () => authApi.phoneLogin({ otp_id: otpId!, otp }),
+    mutationFn: () => authApi.phoneLogin({ phone, otp_id: otpId!, otp }),
     onSuccess: (tokens) => {
       setTokens(tokens.access_token, tokens.refresh_token)
+      setErrorMessage(null)
       toast.success('Signed in!')
       navigate('/dashboard')
+    },
+    onError: (error) => {
+      setErrorMessage(getApiErrorMessage(error))
     },
   })
 
@@ -63,10 +76,18 @@ export function PhoneLoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {errorMessage && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
+            )}
             {!otpId ? (
               <Form {...form}>
                 <form
-                  onSubmit={form.handleSubmit((d) => sendOtpMutation.mutate(d))}
+                  onSubmit={form.handleSubmit((d) => {
+                    setErrorMessage(null)
+                    sendOtpMutation.mutate(d)
+                  })}
                   className="space-y-4"
                 >
                   <FormField
@@ -112,7 +133,7 @@ export function PhoneLoginPage() {
                 </Button>
                 <button
                   type="button"
-                  onClick={() => { setOtpId(null); setOtp('') }}
+                  onClick={() => { setOtpId(null); setOtp(''); setPhone(''); setErrorMessage(null) }}
                   className="w-full text-sm text-slate-500 hover:underline"
                 >
                   Change phone number

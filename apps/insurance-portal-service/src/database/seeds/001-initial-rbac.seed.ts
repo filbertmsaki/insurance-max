@@ -1,13 +1,13 @@
 import { DataSource, IsNull, Repository } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
 import { hashPassword } from '@insurance-max/portal-shared/utils/hash.util';
-import { Company } from '../../modules/companies/entities/company.entity';
-import { CompanyUser } from '../../modules/companies/entities/company-user.entity';
-import { CompanyUserRole } from '../../modules/companies/entities/company-user-role.entity';
-import { Branch } from '../../modules/branches/entities/branch.entity';
-import { Permission } from '../../modules/permissions/entities/permission.entity';
-import { Role } from '../../modules/roles/entities/role.entity';
-import { User } from '../../modules/users/entities/user.entity';
+import { Company } from '../../modules/platform/companies/entities/company.entity';
+import { CompanyUser } from '../../modules/platform/companies/entities/company-user.entity';
+import { CompanyUserRole } from '../../modules/platform/companies/entities/company-user-role.entity';
+import { Branch } from '../../modules/tenant/branches/entities/branch.entity';
+import { Permission } from '../../modules/platform/permissions/entities/permission.entity';
+import { Role } from '../../modules/platform/roles/entities/role.entity';
+import { User } from '../../modules/tenant/users/entities/user.entity';
 
 type SeedScope = 'global' | 'default_company';
 

@@ -10,7 +10,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { authApi } from '@/api/auth'
+import { getApiErrorMessage } from '@/lib/api-error'
 import { useAuthStore } from '@/store/auth.store'
 
 const loginSchema = z.object({
@@ -22,8 +24,9 @@ type LoginForm = z.infer<typeof loginSchema>
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const { setTokensWithProfile, setTempToken } = useAuthStore()
+  const { setTokens, setTempToken } = useAuthStore()
   const [showPassword, setShowPassword] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -33,20 +36,33 @@ export function LoginPage() {
   const mutation = useMutation({
     mutationFn: authApi.login,
     onSuccess: (data) => {
-      if (data.requires_2fa && data.tempToken) {
+      setErrorMessage(null)
+
+      if (data.requiresEmailVerification) {
+        setErrorMessage(data.message ?? 'Please verify your email address before signing in.')
+        return
+      }
+
+      if (data.requires2FA && data.tempToken) {
         setTempToken(data.tempToken)
         navigate('/2fa')
         return
       }
       if (data.access_token && data.refresh_token) {
-        setTokensWithProfile(data.access_token, data.refresh_token, data.user)
+        setTokens(data.access_token, data.refresh_token)
         toast.success('Welcome back!')
         navigate('/dashboard')
       }
     },
+    onError: (error) => {
+      setErrorMessage(getApiErrorMessage(error))
+    },
   })
 
-  const onSubmit = (values: LoginForm) => mutation.mutate(values)
+  const onSubmit = (values: LoginForm) => {
+    setErrorMessage(null)
+    mutation.mutate(values)
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
@@ -64,6 +80,11 @@ export function LoginPage() {
             <CardDescription>Enter your credentials to access the portal</CardDescription>
           </CardHeader>
           <CardContent>
+            {errorMessage && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
+            )}
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField

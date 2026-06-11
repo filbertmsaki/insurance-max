@@ -10,7 +10,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { authApi } from '@/api/auth'
+import { getApiErrorMessage } from '@/lib/api-error'
 import { useAuthStore } from '@/store/auth.store'
 
 const schema = z.object({ email: z.string().email() })
@@ -21,20 +23,31 @@ export function PasswordlessPage() {
   const token = params.get('token')
   const { setTokens } = useAuthStore()
   const [emailSent, setEmailSent] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) })
 
   const requestMutation = useMutation({
     mutationFn: (d: z.infer<typeof schema>) => authApi.passwordlessRequest(d.email),
-    onSuccess: () => setEmailSent(true),
+    onSuccess: () => {
+      setEmailSent(true)
+      setErrorMessage(null)
+    },
+    onError: (error) => {
+      setErrorMessage(getApiErrorMessage(error))
+    },
   })
 
   const completeMutation = useMutation({
     mutationFn: () => authApi.passwordlessComplete(token!),
     onSuccess: (tokens) => {
       setTokens(tokens.access_token, tokens.refresh_token)
+      setErrorMessage(null)
       toast.success('Signed in!')
       navigate('/dashboard')
+    },
+    onError: (error) => {
+      setErrorMessage(getApiErrorMessage(error))
     },
   })
 
@@ -50,13 +63,18 @@ export function PasswordlessPage() {
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
         <Card className="w-full max-w-md text-center">
           <CardContent className="pt-8 pb-8 space-y-4">
+            {errorMessage && (
+              <Alert variant="destructive">
+                <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
+            )}
             {completeMutation.isPending && (
               <>
                 <Loader2 className="h-16 w-16 text-blue-500 mx-auto animate-spin" />
                 <h2 className="text-xl font-semibold">Signing you in...</h2>
               </>
             )}
-            {completeMutation.isError && (
+            {completeMutation.isError && !errorMessage && (
               <>
                 <p className="text-red-500">Link is invalid or expired.</p>
                 <Link to="/passwordless" className="text-blue-600 hover:underline text-sm">
@@ -103,7 +121,10 @@ export function PasswordlessPage() {
           <CardContent>
             <Form {...form}>
               <form
-                onSubmit={form.handleSubmit((d) => requestMutation.mutate(d))}
+                onSubmit={form.handleSubmit((d) => {
+                  setErrorMessage(null)
+                  requestMutation.mutate(d)
+                })}
                 className="space-y-4"
               >
                 <FormField

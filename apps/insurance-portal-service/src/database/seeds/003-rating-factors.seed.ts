@@ -1,8 +1,8 @@
 import { DataSource, Repository } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
 import { FactorDataType } from '@insurance-max/portal-shared/enums/factor-data-type.enum';
-import { Company } from '../../modules/companies/entities/company.entity';
-import { RatingFactor } from '../../modules/rating-factors/entities/rating-factor.entity';
+import { Company } from '../../modules/platform/companies/entities/company.entity';
+import { RatingFactor } from '../../modules/tenant/rating-factors/entities/rating-factor.entity';
 
 type RatingFactorSeed = {
   code: string;

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth.store'
 
@@ -8,6 +9,19 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ requiredPermission, requiredRole }: ProtectedRouteProps) {
   const { user, hasPermission, hasRole } = useAuthStore()
+  const [hydrated, setHydrated] = useState(useAuthStore.persist.hasHydrated())
+
+  useEffect(() => {
+    const unsubscribe = useAuthStore.persist.onFinishHydration(() => {
+      setHydrated(true)
+    })
+
+    return unsubscribe
+  }, [])
+
+  if (!hydrated) {
+    return null
+  }
 
   if (!user) {
     return <Navigate to="/login" replace />

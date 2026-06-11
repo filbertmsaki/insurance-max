@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -7,7 +7,9 @@ import OtpInput from 'react-otp-input'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { authApi } from '@/api/auth'
+import { getApiErrorMessage } from '@/lib/api-error'
 import { useAuthStore } from '@/store/auth.store'
 
 export function TwoFactorPage() {
@@ -16,20 +18,37 @@ export function TwoFactorPage() {
   const [code, setCode] = useState('')
   const [backupCode, setBackupCode] = useState('')
   const [useBackup, setUseBackup] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [hydrated, setHydrated] = useState(useAuthStore.persist.hasHydrated())
+
+  useEffect(() => {
+    const unsubscribe = useAuthStore.persist.onFinishHydration(() => {
+      setHydrated(true)
+    })
+
+    return unsubscribe
+  }, [])
 
   const mutation = useMutation({
     mutationFn: () =>
       authApi.complete2fa({
         tempToken: tempToken!,
         code: useBackup ? backupCode : code,
-        isBackupCode: useBackup,
       }),
     onSuccess: (tokens) => {
       setTokens(tokens.access_token, tokens.refresh_token)
+      setErrorMessage(null)
       toast.success('Welcome back!')
       navigate('/dashboard')
     },
+    onError: (error) => {
+      setErrorMessage(getApiErrorMessage(error))
+    },
   })
+
+  if (!hydrated) {
+    return null
+  }
 
   if (!tempToken) {
     navigate('/login')
@@ -54,6 +73,11 @@ export function TwoFactorPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {errorMessage && (
+              <Alert variant="destructive">
+                <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
+            )}
             {!useBackup ? (
               <div className="flex justify-center">
                 <OtpInput
@@ -95,7 +119,7 @@ export function TwoFactorPage() {
 
             <button
               type="button"
-              onClick={() => { setUseBackup((v) => !v); setCode(''); setBackupCode('') }}
+              onClick={() => { setUseBackup((v) => !v); setCode(''); setBackupCode(''); setErrorMessage(null) }}
               className="w-full text-sm text-blue-600 hover:underline"
             >
               {useBackup ? 'Use authenticator code instead' : 'Use a backup code instead'}

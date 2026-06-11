@@ -30,10 +30,38 @@ function processQueue(error: unknown, token: string | null = null) {
   failedQueue = []
 }
 
+function isPublicAuthRequest(url?: string): boolean {
+  if (!url) return false
+
+  const publicAuthPaths = [
+    '/auth/register',
+    '/auth/login',
+    '/auth/phone-login/send-otp',
+    '/auth/phone-login',
+    '/auth/send-otp',
+    '/auth/verify-otp',
+    '/auth/passwordless/request',
+    '/auth/passwordless/complete',
+    '/auth/2fa/complete-login',
+    '/auth/refresh',
+    '/auth/verify-email',
+    '/auth/resend-verification',
+    '/auth/forgot-password',
+    '/auth/reset-password',
+  ]
+
+  return publicAuthPaths.some((path) => url.includes(path))
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean }
+    const requestUrl = originalRequest.url ?? ''
+
+    if (isPublicAuthRequest(requestUrl)) {
+      return Promise.reject(error)
+    }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       const refreshToken = useAuthStore.getState().refreshToken
@@ -62,12 +90,11 @@ apiClient.interceptors.response.use(
           `${API_BASE_URL}/auth/refresh`,
           { refresh_token: refreshToken },
         )
-        // Backend returns camelCase: { accessToken, refreshToken }
-        const { accessToken, refreshToken: newRefresh } = response.data
-        useAuthStore.getState().setTokens(accessToken, newRefresh)
-        processQueue(null, accessToken)
+        const { access_token, refresh_token: newRefresh } = response.data
+        useAuthStore.getState().setTokens(access_token, newRefresh)
+        processQueue(null, access_token)
         if (originalRequest.headers) {
-          originalRequest.headers['Authorization'] = `Bearer ${accessToken}`
+          originalRequest.headers['Authorization'] = `Bearer ${access_token}`
         }
         return apiClient(originalRequest)
       } catch (refreshError) {
