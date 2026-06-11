@@ -13,8 +13,8 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from '@/components/ui/command'
-import { useAuthStore } from '@/store/auth.store'
-import { authApi } from '@/api/auth'
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
+import { authApi } from '@/modules/shared/auth/api/auth'
 import { NAV_NODES, type NavLeaf, type NavGroup } from './nav-config'
 
 interface CommandPaletteProps {

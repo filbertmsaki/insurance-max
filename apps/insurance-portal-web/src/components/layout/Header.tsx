@@ -16,8 +16,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
 import { CompanySwitcher } from './CompanySwitcher'
-import { authApi } from '@/api/auth'
-import { useAuthStore } from '@/store/auth.store'
+import { authApi } from '@/modules/shared/auth/api/auth'
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
 
 // ─── Route → breadcrumb mapping ───────────────────────────────────────────────
 

@@ -10,8 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { authApi } from '@/api/auth'
-import { useAuthStore } from '@/store/auth.store'
+import { authApi } from '@/modules/shared/auth/api/auth'
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
 
 export function CompanySwitcher() {
   const { user, profile, setTokens } = useAuthStore()
