@@ -24,7 +24,7 @@ type LoginForm = z.infer<typeof loginSchema>
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const { setTokens, setTempToken } = useAuthStore()
+  const { setSession, setTempToken } = useAuthStore()
   const [showPassword, setShowPassword] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -49,7 +49,7 @@ export function LoginPage() {
         return
       }
       if (data.access_token && data.refresh_token) {
-        setTokens(data.access_token, data.refresh_token)
+        setSession(data)
         toast.success('Welcome back!')
         navigate('/dashboard')
       }

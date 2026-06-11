@@ -2,7 +2,7 @@ import { apiClient } from '@/modules/shared/api/client'
 import type { LoginResponse } from '@/types'
 
 export const authApi = {
-  login: (data: { email: string; password: string; company_id?: number }) =>
+  login: (data: { email: string; password: string }) =>
     apiClient.post<LoginResponse>('/auth/login', data).then((r) => r.data),
 
   register: (data: {

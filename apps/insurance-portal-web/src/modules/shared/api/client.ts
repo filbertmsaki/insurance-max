@@ -90,8 +90,8 @@ apiClient.interceptors.response.use(
           `${API_BASE_URL}/auth/refresh`,
           { refresh_token: refreshToken },
         )
-        const { access_token, refresh_token: newRefresh } = response.data
-        useAuthStore.getState().setTokens(access_token, newRefresh)
+        useAuthStore.getState().setSession(response.data)
+        const { access_token } = response.data
         processQueue(null, access_token)
         if (originalRequest.headers) {
           originalRequest.headers['Authorization'] = `Bearer ${access_token}`

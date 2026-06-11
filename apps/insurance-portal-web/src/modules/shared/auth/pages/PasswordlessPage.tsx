@@ -21,7 +21,7 @@ export function PasswordlessPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const token = params.get('token')
-  const { setTokens } = useAuthStore()
+  const { setSession } = useAuthStore()
   const [emailSent, setEmailSent] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -41,7 +41,7 @@ export function PasswordlessPage() {
   const completeMutation = useMutation({
     mutationFn: () => authApi.passwordlessComplete(token!),
     onSuccess: (tokens) => {
-      setTokens(tokens.access_token, tokens.refresh_token)
+      setSession(tokens)
       setErrorMessage(null)
       toast.success('Signed in!')
       navigate('/dashboard')

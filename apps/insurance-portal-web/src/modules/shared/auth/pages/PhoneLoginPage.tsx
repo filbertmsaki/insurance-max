@@ -22,7 +22,7 @@ const phoneSchema = z.object({
 
 export function PhoneLoginPage() {
   const navigate = useNavigate()
-  const { setTokens } = useAuthStore()
+  const { setSession } = useAuthStore()
   const [otpId, setOtpId] = useState<string | null>(null)
   const [otp, setOtp] = useState('')
   const [phone, setPhone] = useState('')
@@ -48,7 +48,7 @@ export function PhoneLoginPage() {
   const verifyMutation = useMutation({
     mutationFn: () => authApi.phoneLogin({ phone, otp_id: otpId!, otp }),
     onSuccess: (tokens) => {
-      setTokens(tokens.access_token, tokens.refresh_token)
+      setSession(tokens)
       setErrorMessage(null)
       toast.success('Signed in!')
       navigate('/dashboard')

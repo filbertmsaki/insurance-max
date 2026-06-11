@@ -216,14 +216,8 @@ export class AuthService {
       return authResponse;
     }
 
-    const companies = await this.companiesService.listUserCompanies(user.id);
-    if (!companies.length) {
-      throw new ForbiddenException(
-        'You do not belong to any active company in this system.',
-      );
-    }
-
-    const activeCompany = this.resolveActiveCompany(companies);
+    const { activeCompany, companies } =
+      await this.resolveSingleActiveCompanyForLogin(user.id);
     const is2FAEnabled = await this.twoFaService.is2FARequired(user.id);
 
     if (is2FAEnabled) {
@@ -242,9 +236,7 @@ export class AuthService {
         user.id,
         activeCompany.companyId,
       );
-    const availableCompanies = await this.companiesService.listUserCompanies(
-      user.id,
-    );
+    const availableCompanies = companies;
     const session = await this.sessionsService.create({
       userId: user.id,
       refreshToken: randomUUID(),
@@ -354,20 +346,17 @@ export class AuthService {
       return authResponse;
     }
 
-    const companies = await this.companiesService.listUserCompanies(user.id);
-    if (!companies.length) throw new ForbiddenException('No company access');
-
-    const activeCompany = this.resolveActiveCompany(companies);
+    const { activeCompany, companies: availableCompanies } =
+      await this.resolveSingleActiveCompanyForLogin(user.id);
     const companyCtx = await this.companiesService.setActiveMembership(
       user.id,
       activeCompany.companyId,
     );
-    const allCompanies = await this.companiesService.listUserCompanies(user.id);
 
     const authResponse = this.generateCompanyAuthResponse(
       user,
       companyCtx,
-      allCompanies,
+      availableCompanies,
       session.id,
     );
     await this.sessionsService.bindRefreshToken(
@@ -480,19 +469,16 @@ export class AuthService {
       return authResponse;
     }
 
-    const companies = await this.companiesService.listUserCompanies(user.id);
-    if (!companies.length) throw new ForbiddenException('No company access');
-
-    const activeCompany = this.resolveActiveCompany(companies);
+    const { activeCompany, companies } =
+      await this.resolveSingleActiveCompanyForLogin(user.id);
     const companyCtx = await this.companiesService.setActiveMembership(
       user.id,
       activeCompany.companyId,
     );
-    const allCompanies = await this.companiesService.listUserCompanies(user.id);
     const authResponse = this.generateCompanyAuthResponse(
       user,
       companyCtx,
-      allCompanies,
+      companies,
       session.id,
     );
     await this.sessionsService.bindRefreshToken(
@@ -1206,8 +1192,25 @@ export class AuthService {
     };
   }
 
-  private resolveActiveCompany(companies: CompanySummary[]): CompanySummary {
-    return companies.find((c) => c.isDefault) ?? companies[0];
+  private async resolveSingleActiveCompanyForLogin(userId: string): Promise<{
+    activeCompany: CompanySummary;
+    companies: CompanySummary[];
+  }> {
+    const companies = await this.companiesService.listUserCompanies(userId);
+
+    if (companies.length === 0) {
+      throw new ForbiddenException(
+        'No active company is assigned to your account. Please contact an administrator.',
+      );
+    }
+
+    if (companies.length > 1) {
+      throw new ForbiddenException(
+        'Multiple active companies are assigned to your account. Only one active company is allowed. Please contact an administrator.',
+      );
+    }
+
+    return { activeCompany: companies[0], companies };
   }
 
   private getTokenExpiryTimestamp(token: string): number {

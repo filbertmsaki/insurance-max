@@ -1,6 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { AuthUser, UserProfile } from '@/types'
+import type {
+  AuthSessionCompany,
+  AuthUser,
+  CompanyMembership,
+  LoginResponse,
+  UserProfile,
+} from '@/types'
 
 function decodeJwt(token: string): AuthUser | null {
   try {
@@ -28,16 +34,32 @@ function decodeJwt(token: string): AuthUser | null {
   }
 }
 
+function toCompany(
+  company: UserProfile['current_company'] | LoginResponse['company'] | null | undefined,
+): AuthSessionCompany | null {
+  if (!company) return null
+  return {
+    id: company.id,
+    name: company.name,
+    slug: company.slug,
+  }
+}
+
 interface AuthState {
   accessToken: string | null
   refreshToken: string | null
-  /** Decoded JWT claims — used for permission/role checks */
+  /** Decoded JWT claims â€” used for permission/role checks */
   user: AuthUser | null
+  /** Active company resolved by the backend during login/switch */
+  company: AuthSessionCompany | null
+  /** All active company memberships returned by the backend */
+  companies: CompanyMembership[]
   /** Full profile from login response or /users/me */
   profile: UserProfile | null
   /** Temporary token during 2FA flow */
   tempToken: string | null
 
+  setSession: (session: Pick<LoginResponse, 'access_token' | 'refresh_token' | 'company' | 'companies'>) => void
   setTokens: (access: string, refresh: string) => void
   setTokensWithProfile: (access: string, refresh: string, profile: UserProfile) => void
   setTempToken: (token: string) => void
@@ -53,25 +75,67 @@ export const useAuthStore = create<AuthState>()(
       accessToken: null,
       refreshToken: null,
       user: null,
+      company: null,
+      companies: [],
       profile: null,
       tempToken: null,
 
+      setSession: (session) => {
+        const user = decodeJwt(session.access_token)
+        set({
+          accessToken: session.access_token,
+          refreshToken: session.refresh_token,
+          user,
+          company: session.company ?? null,
+          companies: session.companies ?? [],
+          tempToken: null,
+        })
+      },
+
       setTokens: (access, refresh) => {
         const user = decodeJwt(access)
-        set({ accessToken: access, refreshToken: refresh, user, tempToken: null })
+        set((state) => ({
+          accessToken: access,
+          refreshToken: refresh,
+          user,
+          company: state.company,
+          companies: state.companies,
+          tempToken: null,
+        }))
       },
 
       setTokensWithProfile: (access, refresh, profile) => {
         const user = decodeJwt(access)
-        set({ accessToken: access, refreshToken: refresh, user, profile, tempToken: null })
+        set((state) => ({
+          accessToken: access,
+          refreshToken: refresh,
+          user,
+          profile,
+          company: toCompany(profile.current_company) ?? state.company,
+          companies: profile.companies ?? state.companies,
+          tempToken: null,
+        }))
       },
 
       setTempToken: (token) => set({ tempToken: token }),
 
-      setProfile: (profile) => set({ profile }),
+      setProfile: (profile) =>
+        set((state) => ({
+          profile,
+          company: profile ? toCompany(profile.current_company) ?? state.company : null,
+          companies: profile?.companies ?? (profile ? state.companies : []),
+        })),
 
       logout: () =>
-        set({ accessToken: null, refreshToken: null, user: null, profile: null, tempToken: null }),
+        set({
+          accessToken: null,
+          refreshToken: null,
+          user: null,
+          company: null,
+          companies: [],
+          profile: null,
+          tempToken: null,
+        }),
 
       hasPermission: (permission) => get().user?.permissions?.includes(permission) ?? false,
 
@@ -83,6 +147,8 @@ export const useAuthStore = create<AuthState>()(
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
         user: state.user,
+        company: state.company,
+        companies: state.companies,
         profile: state.profile,
         tempToken: state.tempToken,
       }),

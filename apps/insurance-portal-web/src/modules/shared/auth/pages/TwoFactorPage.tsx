@@ -14,7 +14,7 @@ import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
 
 export function TwoFactorPage() {
   const navigate = useNavigate()
-  const { tempToken, setTokens } = useAuthStore()
+  const { tempToken, setSession } = useAuthStore()
   const [code, setCode] = useState('')
   const [backupCode, setBackupCode] = useState('')
   const [useBackup, setUseBackup] = useState(false)
@@ -36,7 +36,7 @@ export function TwoFactorPage() {
         code: useBackup ? backupCode : code,
       }),
     onSuccess: (tokens) => {
-      setTokens(tokens.access_token, tokens.refresh_token)
+      setSession(tokens)
       setErrorMessage(null)
       toast.success('Welcome back!')
       navigate('/dashboard')
