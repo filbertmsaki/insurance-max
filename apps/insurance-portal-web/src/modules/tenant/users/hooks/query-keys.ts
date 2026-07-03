@@ -19,4 +19,4 @@ export const usersKeys = {
   detail: (id: string) => [...usersKeys.details(), id] as const,
 
   me: () => [...usersKeys.all, 'me'] as const,
-}
+};

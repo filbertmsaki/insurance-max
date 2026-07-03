@@ -3,4 +3,3 @@ export enum CustomerKycStatus {
   VERIFIED = 'VERIFIED',
   REJECTED = 'REJECTED',
 }
-

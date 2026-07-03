@@ -51,4 +51,3 @@ export class QuotationStatusHistory {
   @JoinColumn({ name: 'changed_by' })
   changer: User | null;
 }
-

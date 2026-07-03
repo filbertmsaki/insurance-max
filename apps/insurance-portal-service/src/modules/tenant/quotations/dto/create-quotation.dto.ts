@@ -229,4 +229,3 @@ export class CreateQuotationDto {
   @Type(() => CreateQuotationPremiumBreakdownDto)
   premium_breakdowns?: CreateQuotationPremiumBreakdownDto[];
 }
-

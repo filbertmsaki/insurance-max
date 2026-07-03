@@ -100,7 +100,10 @@ export class CommissionTransaction {
   @JoinColumn({ name: 'receipt_id' })
   receipt: Receipt | null;
 
-  @ManyToOne(() => ProductCommissionRule, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => ProductCommissionRule, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'commission_rule_id' })
   commission_rule: ProductCommissionRule | null;
 

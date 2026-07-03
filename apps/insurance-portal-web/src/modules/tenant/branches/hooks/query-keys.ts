@@ -13,4 +13,4 @@ export const branchesKeys = {
 
   details: () => [...branchesKeys.all, 'detail'] as const,
   detail: (id: string) => [...branchesKeys.details(), id] as const,
-}
+};

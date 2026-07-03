@@ -41,7 +41,10 @@ export class PoliciesController {
   @UseGuards(PermissionsGuard)
   @Permissions('policies:read')
   @ApiOperation({ summary: 'List policies for the current company' })
-  findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: FilterPolicyDto) {
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FilterPolicyDto,
+  ) {
     return this.policiesService.findAll(user.companyId!, query);
   }
 
@@ -49,7 +52,10 @@ export class PoliciesController {
   @UseGuards(PermissionsGuard)
   @Permissions('policies:read')
   @ApiOperation({ summary: 'Get a policy by ID' })
-  findOne(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  findOne(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.policiesService.findOne(user.companyId!, id);
   }
 
@@ -69,7 +75,10 @@ export class PoliciesController {
   @UseGuards(PermissionsGuard)
   @Permissions('policies:delete')
   @ApiOperation({ summary: 'Soft-delete a policy' })
-  async remove(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  async remove(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     await this.policiesService.remove(user.companyId!, id);
     return { message: 'Policy deleted successfully' };
   }
@@ -78,7 +87,10 @@ export class PoliciesController {
   @UseGuards(PermissionsGuard)
   @Permissions('policies:update')
   @ApiOperation({ summary: 'Restore a soft-deleted policy' })
-  restore(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  restore(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.policiesService.restore(user.companyId!, id);
   }
 
@@ -86,7 +98,10 @@ export class PoliciesController {
   @UseGuards(PermissionsGuard)
   @Permissions('policies:read')
   @ApiOperation({ summary: 'List policy risks' })
-  listRisks(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  listRisks(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.policiesService.listRisks(user.companyId!, id);
   }
 
@@ -94,7 +109,10 @@ export class PoliciesController {
   @UseGuards(PermissionsGuard)
   @Permissions('policies:read')
   @ApiOperation({ summary: 'List policy premium breakdowns' })
-  listBreakdowns(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  listBreakdowns(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.policiesService.listBreakdowns(user.companyId!, id);
   }
 
@@ -102,7 +120,10 @@ export class PoliciesController {
   @UseGuards(PermissionsGuard)
   @Permissions('policies:read')
   @ApiOperation({ summary: 'List policy status history' })
-  listHistory(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  listHistory(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.policiesService.listHistory(user.companyId!, id);
   }
 }

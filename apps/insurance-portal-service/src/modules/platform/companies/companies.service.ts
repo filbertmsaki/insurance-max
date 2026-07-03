@@ -86,7 +86,10 @@ export class CompaniesService {
       .andWhere('(role.company_id = :companyId OR role.company_id IS NULL)', {
         companyId,
       })
-      .orderBy('CASE WHEN role.company_id = :companyId THEN 0 ELSE 1 END', 'ASC')
+      .orderBy(
+        'CASE WHEN role.company_id = :companyId THEN 0 ELSE 1 END',
+        'ASC',
+      )
       .addOrderBy('role.id', 'ASC')
       .setParameter('companyId', companyId)
       .getOne();
@@ -130,7 +133,11 @@ export class CompaniesService {
     const roles: Role[] = [];
 
     for (const roleName of uniqueRoleNames) {
-      const role = await this.findRoleByNameForCompany(roleName, companyId, manager);
+      const role = await this.findRoleByNameForCompany(
+        roleName,
+        companyId,
+        manager,
+      );
 
       if (!role) {
         throw new NotFoundException(
@@ -213,9 +220,11 @@ export class CompaniesService {
       return false;
     }
 
-    const driverError = (error as QueryFailedError & {
-      driverError?: { code?: string | number };
-    }).driverError;
+    const driverError = (
+      error as QueryFailedError & {
+        driverError?: { code?: string | number };
+      }
+    ).driverError;
 
     return (
       driverError?.code === '23505' ||
@@ -308,8 +317,12 @@ export class CompaniesService {
         company_type: dto.company_type,
         tira_license_number: dto.tira_license_number ?? null,
         tira_license_status: dto.tira_license_status ?? null,
-        license_issued_at: dto.license_issued_at ? new Date(dto.license_issued_at) : null,
-        license_expires_at: dto.license_expires_at ? new Date(dto.license_expires_at) : null,
+        license_issued_at: dto.license_issued_at
+          ? new Date(dto.license_issued_at)
+          : null,
+        license_expires_at: dto.license_expires_at
+          ? new Date(dto.license_expires_at)
+          : null,
         tin: dto.tin ?? null,
         brela_registration_number: dto.brela_registration_number ?? null,
       });
@@ -394,7 +407,9 @@ export class CompaniesService {
         company.id,
         {
           isDefault: true,
-          roleNames: [this.getDefaultAdminRoleForCompanyType(company.company_type)],
+          roleNames: [
+            this.getDefaultAdminRoleForCompanyType(company.company_type),
+          ],
         },
         manager,
       );
@@ -444,7 +459,11 @@ export class CompaniesService {
   async findAllCompanies() {
     const companies = await this.companyRepository
       .createQueryBuilder('company')
-      .leftJoin('company.memberships', 'membership', "membership.status = 'active'")
+      .leftJoin(
+        'company.memberships',
+        'membership',
+        "membership.status = 'active'",
+      )
       .select([
         'company.id AS id',
         'company.name AS name',
@@ -596,7 +615,11 @@ export class CompaniesService {
     manager?: EntityManager,
   ): Promise<CompanyMembershipContext> {
     const companyUserRepository = this.getCompanyUserRepository(manager);
-    const membership = await this.getMembershipContext(userId, companyId, manager);
+    const membership = await this.getMembershipContext(
+      userId,
+      companyId,
+      manager,
+    );
 
     await companyUserRepository.update(
       { user_id: userId, status: 'active' },
@@ -952,7 +975,10 @@ export class CompaniesService {
     return this.companyRepository.save(company);
   }
 
-  async setCompanyStatus(id: string, status: 'active' | 'inactive'): Promise<Company> {
+  async setCompanyStatus(
+    id: string,
+    status: 'active' | 'inactive',
+  ): Promise<Company> {
     const company = await this.findCompanyById(id);
     company.status = status;
     return this.companyRepository.save(company);
@@ -991,10 +1017,10 @@ export class CompaniesService {
       const term = `%${search.trim()}%`;
       qb.andWhere(
         '(user.first_name ILIKE :term OR ' +
-        'user.last_name ILIKE :term OR ' +
-        'user.email ILIKE :term OR ' +
-        'user.phone ILIKE :term OR ' +
-        'user.user_no ILIKE :term)',
+          'user.last_name ILIKE :term OR ' +
+          'user.email ILIKE :term OR ' +
+          'user.phone ILIKE :term OR ' +
+          'user.user_no ILIKE :term)',
         { term },
       );
     }
@@ -1073,5 +1099,4 @@ export class CompaniesService {
         return 'ADMINISTRATOR';
     }
   }
-
 }

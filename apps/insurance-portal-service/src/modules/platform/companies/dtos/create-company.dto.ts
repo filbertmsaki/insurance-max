@@ -64,8 +64,7 @@ export class CreateCompanyDto {
       .join(' ');
   })
   @Matches(/^[A-Za-z\s]+$/, {
-    message:
-      'Administrator first name can only contain letters and spaces',
+    message: 'Administrator first name can only contain letters and spaces',
   })
   admin_first_name: string;
 
@@ -80,8 +79,7 @@ export class CreateCompanyDto {
       .join(' ');
   })
   @Matches(/^[A-Za-z\s]+$/, {
-    message:
-      'Administrator last name can only contain letters and spaces',
+    message: 'Administrator last name can only contain letters and spaces',
   })
   admin_last_name: string;
 

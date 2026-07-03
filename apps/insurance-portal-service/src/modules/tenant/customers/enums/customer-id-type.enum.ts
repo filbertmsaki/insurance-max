@@ -7,4 +7,3 @@ export enum CustomerIdType {
   TIN = 6,
   INCORPORATION_CERTIFICATE = 7,
 }
-

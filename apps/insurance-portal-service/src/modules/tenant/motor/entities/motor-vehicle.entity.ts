@@ -16,10 +16,14 @@ import { User } from '../../users/entities/user.entity';
 @Entity('motor_vehicles')
 @Index('IDX_motor_vehicles_company_id', ['company_id'])
 @Index('IDX_motor_vehicles_company_customer_id', ['company_id', 'customer_id'])
-@Index('IDX_motor_vehicles_company_registration_no', ['company_id', 'registration_no'], {
-  unique: true,
-  where: 'deleted_at IS NULL AND registration_no IS NOT NULL',
-})
+@Index(
+  'IDX_motor_vehicles_company_registration_no',
+  ['company_id', 'registration_no'],
+  {
+    unique: true,
+    where: 'deleted_at IS NULL AND registration_no IS NOT NULL',
+  },
+)
 @Index('IDX_motor_vehicles_company_chassis_no', ['company_id', 'chassis_no'], {
   unique: true,
   where: 'deleted_at IS NULL AND chassis_no IS NOT NULL',

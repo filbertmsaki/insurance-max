@@ -5,4 +5,3 @@ export enum ProductChannelType {
   BANCASSURANCE = 'BANCASSURANCE',
   API = 'API',
 }
-

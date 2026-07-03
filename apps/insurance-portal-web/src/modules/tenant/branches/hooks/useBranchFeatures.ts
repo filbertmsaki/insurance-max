@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
-import { branchesApi } from '@/modules/tenant/branches/api/branches'
-import { branchesKeys } from './query-keys'
+import { useQuery } from '@tanstack/react-query';
+import { branchesApi } from '@/modules/tenant/branches/api/branches';
+import { branchesKeys } from './query-keys';
 
 export function useBranchFeatures(branchId: string | undefined) {
   return useQuery({
@@ -8,5 +8,5 @@ export function useBranchFeatures(branchId: string | undefined) {
     queryFn: () => branchesApi.getBranchFeatures(branchId!),
     enabled: !!branchId,
     staleTime: 30_000,
-  })
+  });
 }

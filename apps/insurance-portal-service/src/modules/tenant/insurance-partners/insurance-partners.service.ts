@@ -63,7 +63,9 @@ export class InsurancePartnersService {
       throw new NotFoundException('Partner company not found');
     }
 
-    const expectedCompanyType = this.mapPartnerTypeToCompanyType(dto.partner_type);
+    const expectedCompanyType = this.mapPartnerTypeToCompanyType(
+      dto.partner_type,
+    );
 
     if (intermediaryCompany.company_type !== expectedCompanyType) {
       throw new BadRequestException(
@@ -109,7 +111,9 @@ export class InsurancePartnersService {
   }
 
   async approve(id: string, actorUserId: string) {
-    const relationship = await this.partnerRepository.findOne({ where: { id } });
+    const relationship = await this.partnerRepository.findOne({
+      where: { id },
+    });
 
     if (!relationship) {
       throw new NotFoundException('Relationship not found');
@@ -123,7 +127,9 @@ export class InsurancePartnersService {
   }
 
   async suspend(id: string, reason: string) {
-    const relationship = await this.partnerRepository.findOne({ where: { id } });
+    const relationship = await this.partnerRepository.findOne({
+      where: { id },
+    });
 
     if (!relationship) {
       throw new NotFoundException('Relationship not found');
@@ -136,7 +142,9 @@ export class InsurancePartnersService {
   }
 
   async terminate(id: string, reason: string) {
-    const relationship = await this.partnerRepository.findOne({ where: { id } });
+    const relationship = await this.partnerRepository.findOne({
+      where: { id },
+    });
 
     if (!relationship) {
       throw new NotFoundException('Relationship not found');

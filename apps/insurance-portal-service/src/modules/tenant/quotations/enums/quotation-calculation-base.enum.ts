@@ -3,4 +3,3 @@ export enum QuotationCalculationBase {
   NET_PREMIUM = 'NET_PREMIUM',
   GROSS_PREMIUM = 'GROSS_PREMIUM',
 }
-

@@ -48,7 +48,9 @@ export class ProductDistributionController {
   @UseGuards(PermissionsGuard, CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:read')
-  @ApiOperation({ summary: 'List distribution channels for the insurer company' })
+  @ApiOperation({
+    summary: 'List distribution channels for the insurer company',
+  })
   listChannels(@CurrentUser() user: AuthenticatedUser) {
     return this.service.listChannels(user.companyId!);
   }
@@ -56,7 +58,9 @@ export class ProductDistributionController {
   @Get('channels/my')
   @UseGuards(PermissionsGuard)
   @Permissions('product-distribution:read')
-  @ApiOperation({ summary: 'List distribution channels for the current intermediary company' })
+  @ApiOperation({
+    summary: 'List distribution channels for the current intermediary company',
+  })
   listMyChannels(@CurrentUser() user: AuthenticatedUser) {
     return this.service.listChannelsForIntermediary(user.companyId!);
   }
@@ -78,7 +82,10 @@ export class ProductDistributionController {
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:update')
   @ApiOperation({ summary: 'Restore a soft-deleted distribution channel' })
-  restoreChannel(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  restoreChannel(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.service.restoreChannel(user.companyId!, id);
   }
 
@@ -120,7 +127,10 @@ export class ProductDistributionController {
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:update')
   @ApiOperation({ summary: 'Restore a soft-deleted commission rule' })
-  restoreCommissionRule(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  restoreCommissionRule(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.service.restoreCommissionRule(user.companyId!, id);
   }
 
@@ -162,7 +172,10 @@ export class ProductDistributionController {
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:update')
   @ApiOperation({ summary: 'Restore a soft-deleted tax rule' })
-  restoreTaxRule(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  restoreTaxRule(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.service.restoreTaxRule(user.companyId!, id);
   }
 
@@ -182,7 +195,9 @@ export class ProductDistributionController {
   @UseGuards(PermissionsGuard, CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:read')
-  @ApiOperation({ summary: 'List document requirements for the insurer company' })
+  @ApiOperation({
+    summary: 'List document requirements for the insurer company',
+  })
   listDocumentRequirements(@CurrentUser() user: AuthenticatedUser) {
     return this.service.listDocumentRequirements(user.companyId!);
   }
@@ -204,8 +219,10 @@ export class ProductDistributionController {
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:update')
   @ApiOperation({ summary: 'Restore a soft-deleted document requirement' })
-  restoreDocumentRequirement(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  restoreDocumentRequirement(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.service.restoreDocumentRequirement(user.companyId!, id);
   }
 }
-

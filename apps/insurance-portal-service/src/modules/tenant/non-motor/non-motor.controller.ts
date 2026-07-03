@@ -38,7 +38,10 @@ export class NonMotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('non-motor:read')
   @ApiOperation({ summary: 'List subject matters' })
-  listSubjectMatters(@CurrentUser() user: AuthenticatedUser, @Query() query: FilterNonMotorDto) {
+  listSubjectMatters(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FilterNonMotorDto,
+  ) {
     return this.nonMotorService.listSubjectMatters(user.companyId!, query);
   }
 
@@ -46,15 +49,25 @@ export class NonMotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('non-motor:create')
   @ApiOperation({ summary: 'Create a subject matter' })
-  createSubjectMatter(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateSubjectMatterDto) {
-    return this.nonMotorService.createSubjectMatter(user.companyId!, dto, user.id);
+  createSubjectMatter(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateSubjectMatterDto,
+  ) {
+    return this.nonMotorService.createSubjectMatter(
+      user.companyId!,
+      dto,
+      user.id,
+    );
   }
 
   @Get('subject-matters/:id')
   @UseGuards(PermissionsGuard)
   @Permissions('non-motor:read')
   @ApiOperation({ summary: 'Get a subject matter by ID' })
-  findSubjectMatter(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  findSubjectMatter(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.nonMotorService.findSubjectMatter(user.companyId!, id);
   }
 
@@ -67,14 +80,22 @@ export class NonMotorController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateSubjectMatterDto,
   ) {
-    return this.nonMotorService.updateSubjectMatter(user.companyId!, id, dto, user.id);
+    return this.nonMotorService.updateSubjectMatter(
+      user.companyId!,
+      id,
+      dto,
+      user.id,
+    );
   }
 
   @Delete('subject-matters/:id')
   @UseGuards(PermissionsGuard)
   @Permissions('non-motor:delete')
   @ApiOperation({ summary: 'Soft-delete a subject matter' })
-  async removeSubjectMatter(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  async removeSubjectMatter(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     await this.nonMotorService.removeSubjectMatter(user.companyId!, id);
     return { message: 'Subject matter deleted successfully' };
   }
@@ -87,7 +108,10 @@ export class NonMotorController {
     @CurrentUser() user: AuthenticatedUser,
     @Query('subject_matter_id') subjectMatterId?: string,
   ) {
-    return this.nonMotorService.listFactorValues(user.companyId!, subjectMatterId);
+    return this.nonMotorService.listFactorValues(
+      user.companyId!,
+      subjectMatterId,
+    );
   }
 
   @Post('subject-matter-factor-values')
@@ -116,15 +140,24 @@ export class NonMotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('non-motor:read')
   @ApiOperation({ summary: 'List non-motor quotation details' })
-  listQuotationDetails(@CurrentUser() user: AuthenticatedUser, @Query('quotation_id') quotationId?: string) {
-    return this.nonMotorService.listQuotationDetails(user.companyId!, quotationId);
+  listQuotationDetails(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('quotation_id') quotationId?: string,
+  ) {
+    return this.nonMotorService.listQuotationDetails(
+      user.companyId!,
+      quotationId,
+    );
   }
 
   @Post('policy-details')
   @UseGuards(PermissionsGuard)
   @Permissions('non-motor:create')
   @ApiOperation({ summary: 'Create a non-motor policy detail' })
-  createPolicyDetail(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateNonMotorPolicyDetailDto) {
+  createPolicyDetail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateNonMotorPolicyDetailDto,
+  ) {
     return this.nonMotorService.createPolicyDetail(user.companyId!, dto);
   }
 
@@ -132,7 +165,10 @@ export class NonMotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('non-motor:read')
   @ApiOperation({ summary: 'List non-motor policy details' })
-  listPolicyDetails(@CurrentUser() user: AuthenticatedUser, @Query('policy_id') policyId?: string) {
+  listPolicyDetails(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('policy_id') policyId?: string,
+  ) {
     return this.nonMotorService.listPolicyDetails(user.companyId!, policyId);
   }
 }

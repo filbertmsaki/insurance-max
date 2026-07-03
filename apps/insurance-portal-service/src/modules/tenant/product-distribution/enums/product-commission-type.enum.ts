@@ -3,4 +3,3 @@ export enum ProductCommissionType {
   FIXED = 'FIXED',
   TIERED = 'TIERED',
 }
-

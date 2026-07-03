@@ -33,15 +33,26 @@ export class QuotationsController {
   @UseGuards(PermissionsGuard)
   @Permissions('quotations:create')
   @ApiOperation({ summary: 'Create a quotation' })
-  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateQuotationDto) {
-    return this.quotationsService.create(user.companyId!, user.companyType, dto, user.id);
+  create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateQuotationDto,
+  ) {
+    return this.quotationsService.create(
+      user.companyId!,
+      user.companyType,
+      dto,
+      user.id,
+    );
   }
 
   @Get()
   @UseGuards(PermissionsGuard)
   @Permissions('quotations:read')
   @ApiOperation({ summary: 'List quotations for the current company' })
-  findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: FilterQuotationDto) {
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FilterQuotationDto,
+  ) {
     return this.quotationsService.findAll(user.companyId!, query);
   }
 
@@ -49,7 +60,10 @@ export class QuotationsController {
   @UseGuards(PermissionsGuard)
   @Permissions('quotations:read')
   @ApiOperation({ summary: 'Get a quotation by ID' })
-  findOne(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  findOne(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.quotationsService.findOne(user.companyId!, id);
   }
 
@@ -62,14 +76,23 @@ export class QuotationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateQuotationDto,
   ) {
-    return this.quotationsService.update(user.companyId!, user.companyType, id, dto, user.id);
+    return this.quotationsService.update(
+      user.companyId!,
+      user.companyType,
+      id,
+      dto,
+      user.id,
+    );
   }
 
   @Delete(':id')
   @UseGuards(PermissionsGuard)
   @Permissions('quotations:delete')
   @ApiOperation({ summary: 'Soft-delete a quotation' })
-  async remove(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  async remove(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     await this.quotationsService.remove(user.companyId!, id);
     return { message: 'Quotation deleted successfully' };
   }
@@ -78,7 +101,10 @@ export class QuotationsController {
   @UseGuards(PermissionsGuard)
   @Permissions('quotations:update')
   @ApiOperation({ summary: 'Restore a soft-deleted quotation' })
-  restore(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  restore(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.quotationsService.restore(user.companyId!, id);
   }
 }

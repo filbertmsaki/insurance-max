@@ -70,10 +70,20 @@ export class Company {
   @Column({ type: 'jsonb', nullable: true })
   regulatory_metadata!: Record<string, unknown> | null;
 
-  @Column({ type: 'varchar', name: 'contact_email', length: 100, nullable: true })
+  @Column({
+    type: 'varchar',
+    name: 'contact_email',
+    length: 100,
+    nullable: true,
+  })
   contact_email: string | null;
 
-  @Column({ type: 'varchar', name: 'contact_phone', length: 30, nullable: true })
+  @Column({
+    type: 'varchar',
+    name: 'contact_phone',
+    length: 30,
+    nullable: true,
+  })
   contact_phone: string | null;
 
   @Column({ type: 'varchar', name: 'website', length: 255, nullable: true })

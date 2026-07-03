@@ -1,11 +1,11 @@
-import { apiClient } from '@/modules/shared/api/client'
+import { apiClient } from '@/modules/shared/api/client';
 import type {
   RiskRatingRule,
   CreateRuleDto,
   UpdateRuleDto,
   RuleQueryParams,
   PEPage,
-} from '@/types/product-engine'
+} from '@/types/product-engine';
 
 export const ratingRulesApi = {
   getList: (params?: RuleQueryParams) =>
@@ -14,14 +14,20 @@ export const ratingRulesApi = {
       .then((r) => r.data),
 
   getById: (id: string) =>
-    apiClient.get<RiskRatingRule>(`/risk-rating-rules/${id}`).then((r) => r.data),
+    apiClient
+      .get<RiskRatingRule>(`/risk-rating-rules/${id}`)
+      .then((r) => r.data),
 
   create: (data: CreateRuleDto) =>
-    apiClient.post<RiskRatingRule>('/risk-rating-rules', data).then((r) => r.data),
+    apiClient
+      .post<RiskRatingRule>('/risk-rating-rules', data)
+      .then((r) => r.data),
 
   update: (id: string, data: UpdateRuleDto) =>
-    apiClient.patch<RiskRatingRule>(`/risk-rating-rules/${id}`, data).then((r) => r.data),
+    apiClient
+      .patch<RiskRatingRule>(`/risk-rating-rules/${id}`, data)
+      .then((r) => r.data),
 
   delete: (id: string) =>
     apiClient.delete(`/risk-rating-rules/${id}`).then((r) => r.data),
-}
+};

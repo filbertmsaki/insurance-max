@@ -1,14 +1,14 @@
-import { apiClient } from '@/modules/shared/api/client'
-import type { ApiClient, PaginatedResponse } from '@/types'
+import { apiClient } from '@/modules/shared/api/client';
+import type { ApiClient, PaginatedResponse } from '@/types';
 
 export interface CreateApiClientDto {
-  name: string
-  scopes: string[]
-  description?: string
+  name: string;
+  scopes: string[];
+  description?: string;
 }
 
 export interface CreateApiClientResponse extends ApiClient {
-  secret: string
+  secret: string;
 }
 
 export const apiClientsApi = {
@@ -18,7 +18,9 @@ export const apiClientsApi = {
       .then((r) => r.data),
 
   createApiClient: (data: CreateApiClientDto) =>
-    apiClient.post<CreateApiClientResponse>('/api-clients', data).then((r) => r.data),
+    apiClient
+      .post<CreateApiClientResponse>('/api-clients', data)
+      .then((r) => r.data),
 
   rotateSecret: (id: string) =>
     apiClient
@@ -27,5 +29,4 @@ export const apiClientsApi = {
 
   revokeApiClient: (id: string) =>
     apiClient.delete(`/api-clients/${id}`).then((r) => r.data),
-}
-
+};

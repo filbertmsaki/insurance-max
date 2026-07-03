@@ -72,7 +72,11 @@ export class Quotation {
   @Column({ length: 30 })
   quotation_no: string;
 
-  @Column({ type: 'enum', enum: QuotationType, enumName: 'quotation_type_enum' })
+  @Column({
+    type: 'enum',
+    enum: QuotationType,
+    enumName: 'quotation_type_enum',
+  })
   quotation_type: QuotationType;
 
   @Column({
@@ -193,4 +197,3 @@ export class Quotation {
   @OneToMany(() => QuotationStatusHistory, (history) => history.quotation)
   status_history: QuotationStatusHistory[];
 }
-

@@ -33,7 +33,10 @@ export class CustomersController {
   @UseGuards(PermissionsGuard)
   @Permissions('customers:create')
   @ApiOperation({ summary: 'Create a customer for the current company' })
-  create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateCustomerDto) {
+  create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateCustomerDto,
+  ) {
     return this.customersService.create(user.companyId!, dto, user.id);
   }
 
@@ -41,7 +44,10 @@ export class CustomersController {
   @UseGuards(PermissionsGuard)
   @Permissions('customers:read')
   @ApiOperation({ summary: 'List customers for the current company' })
-  findAll(@CurrentUser() user: AuthenticatedUser, @Query() query: FilterCustomerDto) {
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FilterCustomerDto,
+  ) {
     return this.customersService.findAll(user.companyId!, query);
   }
 
@@ -49,7 +55,10 @@ export class CustomersController {
   @UseGuards(PermissionsGuard)
   @Permissions('customers:read')
   @ApiOperation({ summary: 'Get a customer by ID' })
-  findOne(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  findOne(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.customersService.findOne(user.companyId!, id);
   }
 
@@ -69,7 +78,10 @@ export class CustomersController {
   @UseGuards(PermissionsGuard)
   @Permissions('customers:delete')
   @ApiOperation({ summary: 'Soft-delete a customer' })
-  async remove(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  async remove(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     await this.customersService.remove(user.companyId!, id);
     return { message: 'Customer deleted successfully' };
   }
@@ -78,8 +90,10 @@ export class CustomersController {
   @UseGuards(PermissionsGuard)
   @Permissions('customers:update')
   @ApiOperation({ summary: 'Restore a soft-deleted customer' })
-  restore(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  restore(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.customersService.restore(user.companyId!, id);
   }
 }
-

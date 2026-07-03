@@ -45,4 +45,3 @@ import { QuotationsService } from './quotations.service';
   exports: [QuotationsService],
 })
 export class QuotationsModule {}
-

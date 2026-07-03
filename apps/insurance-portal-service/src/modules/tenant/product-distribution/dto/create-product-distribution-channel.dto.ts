@@ -69,4 +69,3 @@ export class CreateProductDistributionChannelDto {
   @IsObject()
   metadata?: Record<string, unknown> | null;
 }
-

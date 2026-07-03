@@ -1,12 +1,12 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { companiesApi } from '@/modules/platform/companies/api/companies'
-import { getApiErrorMessage } from '@/lib/api-error'
-import { companiesKeys } from './query-keys'
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { companiesApi } from '@/modules/platform/companies/api/companies';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { companiesKeys } from './query-keys';
 
 interface StatusPayload {
-  id: string
-  status: 'active' | 'inactive'
+  id: string;
+  status: 'active' | 'inactive';
 }
 
 /**
@@ -15,17 +15,20 @@ interface StatusPayload {
  * (useful for list pages with multiple rows).
  */
 export function useUpdateCompanyStatus() {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, status }: StatusPayload) => companiesApi.setCompanyStatus(id, status),
+    mutationFn: ({ id, status }: StatusPayload) =>
+      companiesApi.setCompanyStatus(id, status),
     onSuccess: (_, { id, status }) => {
-      queryClient.invalidateQueries({ queryKey: companiesKeys.detail(id) })
-      queryClient.invalidateQueries({ queryKey: companiesKeys.lists() })
-      toast.success(`Company ${status === 'active' ? 'activated' : 'deactivated'}`)
+      queryClient.invalidateQueries({ queryKey: companiesKeys.detail(id) });
+      queryClient.invalidateQueries({ queryKey: companiesKeys.lists() });
+      toast.success(
+        `Company ${status === 'active' ? 'activated' : 'deactivated'}`,
+      );
     },
     onError: (error) => {
-      toast.error(getApiErrorMessage(error))
+      toast.error(getApiErrorMessage(error));
     },
-  })
+  });
 }

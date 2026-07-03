@@ -254,4 +254,3 @@ export class CreateCustomerDto {
   @IsOptional()
   metadata?: Record<string, unknown> | null;
 }
-

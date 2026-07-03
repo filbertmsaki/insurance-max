@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
-import { companiesApi } from '@/modules/platform/companies/api/companies'
-import { companiesKeys } from './query-keys'
+import { useQuery } from '@tanstack/react-query';
+import { companiesApi } from '@/modules/platform/companies/api/companies';
+import { companiesKeys } from './query-keys';
 
 /** Fetches a single company by ID. Only callable by OWNER users. */
 export function useCompany(id: string | undefined) {
@@ -9,5 +9,5 @@ export function useCompany(id: string | undefined) {
     queryFn: () => companiesApi.getCompanyById(id!),
     enabled: !!id,
     staleTime: 30_000,
-  })
+  });
 }

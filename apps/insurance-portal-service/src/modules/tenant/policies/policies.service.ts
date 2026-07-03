@@ -5,7 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, ObjectLiteral, QueryFailedError, Repository } from 'typeorm';
+import {
+  DataSource,
+  ObjectLiteral,
+  QueryFailedError,
+  Repository,
+} from 'typeorm';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
 import { Branch } from '../branches/entities/branch.entity';
 import { Company } from '../../platform/companies/entities/company.entity';
@@ -105,7 +110,10 @@ export class PoliciesService {
     const driverError = (
       error as QueryFailedError & { driverError?: { code?: string | number } }
     ).driverError;
-    return driverError?.code === '23505' || String(driverError?.code ?? '') === '1062';
+    return (
+      driverError?.code === '23505' ||
+      String(driverError?.code ?? '') === '1062'
+    );
   }
 
   private normalizeText(value?: string | null): string | null {
@@ -117,13 +125,16 @@ export class PoliciesService {
   private normalizeDate(value?: string | null): string | null {
     if (!value) return null;
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) throw new BadRequestException('Invalid date value');
+    if (Number.isNaN(date.getTime()))
+      throw new BadRequestException('Invalid date value');
     return date.toISOString().slice(0, 10);
   }
 
   private normalizeMoney(value: NumericLike): string {
-    const num = value === null || value === undefined || value === '' ? 0 : Number(value);
-    if (!Number.isFinite(num)) throw new BadRequestException('Invalid numeric value');
+    const num =
+      value === null || value === undefined || value === '' ? 0 : Number(value);
+    if (!Number.isFinite(num))
+      throw new BadRequestException('Invalid numeric value');
     return String(Math.round(num * 100) / 100);
   }
 
@@ -141,7 +152,10 @@ export class PoliciesService {
     return `POL-${channelType === ProductChannelType.DIRECT ? 'DIR' : channelType.slice(0, 3)}-${new Date().getFullYear()}-`;
   }
 
-  private async generatePolicyNo(companyId: string, channelType: ProductChannelType): Promise<string> {
+  private async generatePolicyNo(
+    companyId: string,
+    channelType: ProductChannelType,
+  ): Promise<string> {
     const prefix = this.mapPolicyNoPrefix(channelType);
     const last = await this.policyRepository
       .createQueryBuilder('p')
@@ -151,31 +165,75 @@ export class PoliciesService {
       .limit(1)
       .getOne();
 
-    const next = last?.policy_no ? Number(last.policy_no.substring(prefix.length)) + 1 : 1;
+    const next = last?.policy_no
+      ? Number(last.policy_no.substring(prefix.length)) + 1
+      : 1;
     return `${prefix}${String(next).padStart(5, '0')}`;
   }
 
-  private async validateScope(companyId: string, dto: CreatePolicyDto | UpdatePolicyDto): Promise<void> {
-    await this.ensureExists(this.companyRepository, { id: companyId }, 'Company not found');
-    await this.ensureExists(this.customerRepository, { id: dto.customer_id, company_id: companyId }, 'Customer not found for company');
-    await this.ensureExists(this.categoryRepository, { id: dto.category_id, company_id: dto.insurer_company_id }, 'Category not found for insurer');
-    await this.ensureExists(this.productRepository, { id: dto.product_id, company_id: dto.insurer_company_id }, 'Product not found for insurer');
+  private async validateScope(
+    companyId: string,
+    dto: CreatePolicyDto | UpdatePolicyDto,
+  ): Promise<void> {
+    await this.ensureExists(
+      this.companyRepository,
+      { id: companyId },
+      'Company not found',
+    );
+    await this.ensureExists(
+      this.customerRepository,
+      { id: dto.customer_id, company_id: companyId },
+      'Customer not found for company',
+    );
+    await this.ensureExists(
+      this.categoryRepository,
+      { id: dto.category_id, company_id: dto.insurer_company_id },
+      'Category not found for insurer',
+    );
+    await this.ensureExists(
+      this.productRepository,
+      { id: dto.product_id, company_id: dto.insurer_company_id },
+      'Product not found for insurer',
+    );
 
     if (dto.sub_class_id) {
-      await this.ensureExists(this.subClassRepository, { id: dto.sub_class_id, company_id: dto.insurer_company_id, product_id: dto.product_id }, 'Sub-class not found for this product');
+      await this.ensureExists(
+        this.subClassRepository,
+        {
+          id: dto.sub_class_id,
+          company_id: dto.insurer_company_id,
+          product_id: dto.product_id,
+        },
+        'Sub-class not found for this product',
+      );
     }
     if (dto.branch_id) {
-      await this.ensureExists(this.branchRepository, { id: dto.branch_id, company_id: companyId }, 'Branch not found for company');
+      await this.ensureExists(
+        this.branchRepository,
+        { id: dto.branch_id, company_id: companyId },
+        'Branch not found for company',
+      );
     }
     if (dto.department_id) {
-      await this.ensureExists(this.departmentRepository, { id: dto.department_id, company_id: companyId }, 'Department not found for company');
+      await this.ensureExists(
+        this.departmentRepository,
+        { id: dto.department_id, company_id: companyId },
+        'Department not found for company',
+      );
     }
     if (dto.quotation_id) {
-      await this.ensureExists(this.quotationRepository, { id: dto.quotation_id, company_id: companyId }, 'Quotation not found for company');
+      await this.ensureExists(
+        this.quotationRepository,
+        { id: dto.quotation_id, company_id: companyId },
+        'Quotation not found for company',
+      );
     }
   }
 
-  private async ensurePolicyOwnership(companyId: string, id: string): Promise<Policy> {
+  private async ensurePolicyOwnership(
+    companyId: string,
+    id: string,
+  ): Promise<Policy> {
     const policy = await this.policyRepository.findOne({
       where: { id, company_id: companyId },
       relations: {
@@ -198,50 +256,77 @@ export class PoliciesService {
     return policy;
   }
 
-  private async ensureQuotationRiskBelongsToPolicyContext(companyId: string, quotationRiskId: string): Promise<QuotationRisk> {
+  private async ensureQuotationRiskBelongsToPolicyContext(
+    companyId: string,
+    quotationRiskId: string,
+  ): Promise<QuotationRisk> {
     const risk = await this.quotationRiskRepository.findOne({
       where: { id: quotationRiskId },
       relations: { quotation: true },
     });
     if (!risk || risk.quotation.company_id !== companyId) {
-      throw new BadRequestException('Quotation risk not found for this company');
+      throw new BadRequestException(
+        'Quotation risk not found for this company',
+      );
     }
     return risk;
   }
 
-  private async ensureInsuranceRisk(companyId: string, riskId: string, productId: string): Promise<InsuranceRisk> {
+  private async ensureInsuranceRisk(
+    companyId: string,
+    riskId: string,
+    productId: string,
+  ): Promise<InsuranceRisk> {
     const risk = await this.insuranceRiskRepository.findOne({
       where: { id: riskId, company_id: companyId, product_id: productId },
     });
-    if (!risk) throw new BadRequestException('Insurance risk not found for this product');
+    if (!risk)
+      throw new BadRequestException(
+        'Insurance risk not found for this product',
+      );
     return risk;
   }
 
-  private async ensureSubjectMatter(companyId: string, subjectMatterId: string): Promise<SubjectMatter> {
+  private async ensureSubjectMatter(
+    companyId: string,
+    subjectMatterId: string,
+  ): Promise<SubjectMatter> {
     const subjectMatter = await this.subjectMatterRepository.findOne({
       where: { id: subjectMatterId, company_id: companyId },
     });
-    if (!subjectMatter) throw new BadRequestException('Subject matter not found for company');
+    if (!subjectMatter)
+      throw new BadRequestException('Subject matter not found for company');
     return subjectMatter;
   }
 
-  private async ensureMotorVehicle(companyId: string, motorVehicleId: string): Promise<MotorVehicle> {
+  private async ensureMotorVehicle(
+    companyId: string,
+    motorVehicleId: string,
+  ): Promise<MotorVehicle> {
     const vehicle = await this.motorVehicleRepository.findOne({
       where: { id: motorVehicleId, company_id: companyId },
     });
-    if (!vehicle) throw new BadRequestException('Motor vehicle not found for company');
+    if (!vehicle)
+      throw new BadRequestException('Motor vehicle not found for company');
     return vehicle;
   }
 
-  private async ensurePolicyRelatedDetails(companyId: string, policy: Policy): Promise<void> {
+  private async ensurePolicyRelatedDetails(
+    companyId: string,
+    policy: Policy,
+  ): Promise<void> {
     void companyId;
     if (policy.quotation_id) {
-      const quotationDetails = await this.nonMotorQuotationDetailRepository.find({
-        where: { quotation_id: policy.quotation_id },
-      });
+      const quotationDetails =
+        await this.nonMotorQuotationDetailRepository.find({
+          where: { quotation_id: policy.quotation_id },
+        });
       if (quotationDetails.length) {
         for (const detail of quotationDetails) {
-          await this.ensureSubjectMatter(policy.company_id, detail.subject_matter_id);
+          await this.ensureSubjectMatter(
+            policy.company_id,
+            detail.subject_matter_id,
+          );
         }
       }
     }
@@ -259,12 +344,22 @@ export class PoliciesService {
     await breakdownRepo.delete({ policy_id: policy.id });
 
     for (const risk of dto.risks ?? []) {
-      await this.ensureInsuranceRisk(policy.insurer_company_id, risk.risk_id, policy.product_id);
+      await this.ensureInsuranceRisk(
+        policy.insurer_company_id,
+        risk.risk_id,
+        policy.product_id,
+      );
       if (risk.quotation_risk_id) {
-        await this.ensureQuotationRiskBelongsToPolicyContext(policy.company_id, risk.quotation_risk_id);
+        await this.ensureQuotationRiskBelongsToPolicyContext(
+          policy.company_id,
+          risk.quotation_risk_id,
+        );
       }
       if (risk.subject_matter_id) {
-        await this.ensureSubjectMatter(policy.company_id, risk.subject_matter_id);
+        await this.ensureSubjectMatter(
+          policy.company_id,
+          risk.subject_matter_id,
+        );
       }
       if (risk.motor_vehicle_id) {
         await this.ensureMotorVehicle(policy.company_id, risk.motor_vehicle_id);
@@ -291,7 +386,8 @@ export class PoliciesService {
         retention_amount: this.normalizeMoney(risk.retention_amount),
         ceded_sum_insured: this.normalizeMoney(risk.ceded_sum_insured),
         ceded_premium: this.normalizeMoney(risk.ceded_premium),
-        reinsurance_status: this.normalizeText(risk.reinsurance_status) ?? 'NOT_REQUIRED',
+        reinsurance_status:
+          this.normalizeText(risk.reinsurance_status) ?? 'NOT_REQUIRED',
         status: risk.status?.trim().toUpperCase() ?? 'ACTIVE',
       }),
     );
@@ -312,129 +408,170 @@ export class PoliciesService {
         item_name: item.item_name,
         rate: String(Number(item.rate ?? 0)),
         amount: this.normalizeMoney(item.amount),
-        calculation_base: item.calculation_base ?? QuotationCalculationBase.BASIC_PREMIUM,
+        calculation_base:
+          item.calculation_base ?? QuotationCalculationBase.BASIC_PREMIUM,
         calculation_order: item.calculation_order ?? index + 1,
       }),
     );
     if (breakdowns.length) await breakdownRepo.save(breakdowns);
   }
 
-  async create(companyId: string, dto: CreatePolicyDto, userId: string): Promise<Policy> {
+  async create(
+    companyId: string,
+    dto: CreatePolicyDto,
+    userId: string,
+  ): Promise<Policy> {
     await this.validateScope(companyId, dto);
-    return this.dataSource.transaction(async (manager) => {
-      const policyRepo = manager.getRepository(Policy);
-      const historyRepo = manager.getRepository(PolicyStatusHistory);
+    return this.dataSource
+      .transaction(async (manager) => {
+        const policyRepo = manager.getRepository(Policy);
+        const historyRepo = manager.getRepository(PolicyStatusHistory);
 
-      const policyNo = await this.generatePolicyNo(companyId, dto.channel_type);
-      const policy = policyRepo.create({
-        company_id: companyId,
-        insurer_company_id: dto.insurer_company_id,
-        intermediary_company_id: dto.intermediary_company_id ?? null,
-        branch_id: dto.branch_id ?? null,
-        department_id: dto.department_id ?? null,
-        created_by: userId,
-        customer_id: dto.customer_id,
-        quotation_id: dto.quotation_id ?? null,
-        proposal_id: dto.proposal_id ?? null,
-        category_id: dto.category_id,
-        product_id: dto.product_id,
-        sub_class_id: dto.sub_class_id ?? null,
-        policy_no: policyNo,
-        cover_note_no: null,
-        external_policy_no: null,
-        channel_type: dto.channel_type,
-        policy_status: dto.policy_status?.trim().toUpperCase() ?? 'DRAFT',
-        start_date: this.normalizeDate(dto.start_date)!,
-        end_date: this.normalizeDate(dto.end_date)!,
-        issue_date: this.normalizeDate(dto.issue_date)!,
-        currency: dto.currency?.trim().toUpperCase() ?? 'TZS',
-        sum_insured: this.normalizeMoney(dto.sum_insured),
-        basic_premium: this.normalizeMoney(dto.basic_premium),
-        total_discount: this.normalizeMoney(dto.total_discount),
-        total_tax: this.normalizeMoney(dto.total_tax),
-        total_charges: this.normalizeMoney(dto.total_charges),
-        total_commission: this.normalizeMoney(dto.total_commission),
-        total_premium: this.normalizeMoney(dto.total_premium),
-        net_premium: this.normalizeMoney(dto.net_premium),
-        reinsurance_required: dto.reinsurance_required ?? false,
-        reinsurance_status: dto.reinsurance_status?.trim().toUpperCase() ?? 'NOT_REQUIRED',
-        retention_amount: this.normalizeMoney(dto.retention_amount),
-        ceded_sum_insured: this.normalizeMoney(dto.ceded_sum_insured),
-        ceded_premium: this.normalizeMoney(dto.ceded_premium),
-        tira_status: dto.tira_status?.trim().toUpperCase() ?? 'PENDING',
-        tira_portal_transaction_id: this.normalizeText(dto.tira_portal_transaction_id),
-        tiramis_transaction_id: this.normalizeText(dto.tiramis_transaction_id),
-        metadata: dto.metadata ?? null,
-      });
-
-      const saved = await policyRepo.save(policy);
-      await this.replacePolicyChildren(manager, saved, dto);
-      await historyRepo.save(
-        historyRepo.create({
-          policy_id: saved.id,
-          old_status: 'NONE',
-          new_status: saved.policy_status,
-          reason: null,
-          changed_by: userId,
-        }),
-      );
-
-      if (dto.quotation_id) {
-        const quotationRepo = manager.getRepository(Quotation);
-        const quotationHistoryRepo = manager.getRepository(QuotationStatusHistory);
-        const quotation = await quotationRepo.findOne({
-          where: { id: dto.quotation_id, company_id: companyId },
+        const policyNo = await this.generatePolicyNo(
+          companyId,
+          dto.channel_type,
+        );
+        const policy = policyRepo.create({
+          company_id: companyId,
+          insurer_company_id: dto.insurer_company_id,
+          intermediary_company_id: dto.intermediary_company_id ?? null,
+          branch_id: dto.branch_id ?? null,
+          department_id: dto.department_id ?? null,
+          created_by: userId,
+          customer_id: dto.customer_id,
+          quotation_id: dto.quotation_id ?? null,
+          proposal_id: dto.proposal_id ?? null,
+          category_id: dto.category_id,
+          product_id: dto.product_id,
+          sub_class_id: dto.sub_class_id ?? null,
+          policy_no: policyNo,
+          cover_note_no: null,
+          external_policy_no: null,
+          channel_type: dto.channel_type,
+          policy_status: dto.policy_status?.trim().toUpperCase() ?? 'DRAFT',
+          start_date: this.normalizeDate(dto.start_date)!,
+          end_date: this.normalizeDate(dto.end_date)!,
+          issue_date: this.normalizeDate(dto.issue_date)!,
+          currency: dto.currency?.trim().toUpperCase() ?? 'TZS',
+          sum_insured: this.normalizeMoney(dto.sum_insured),
+          basic_premium: this.normalizeMoney(dto.basic_premium),
+          total_discount: this.normalizeMoney(dto.total_discount),
+          total_tax: this.normalizeMoney(dto.total_tax),
+          total_charges: this.normalizeMoney(dto.total_charges),
+          total_commission: this.normalizeMoney(dto.total_commission),
+          total_premium: this.normalizeMoney(dto.total_premium),
+          net_premium: this.normalizeMoney(dto.net_premium),
+          reinsurance_required: dto.reinsurance_required ?? false,
+          reinsurance_status:
+            dto.reinsurance_status?.trim().toUpperCase() ?? 'NOT_REQUIRED',
+          retention_amount: this.normalizeMoney(dto.retention_amount),
+          ceded_sum_insured: this.normalizeMoney(dto.ceded_sum_insured),
+          ceded_premium: this.normalizeMoney(dto.ceded_premium),
+          tira_status: dto.tira_status?.trim().toUpperCase() ?? 'PENDING',
+          tira_portal_transaction_id: this.normalizeText(
+            dto.tira_portal_transaction_id,
+          ),
+          tiramis_transaction_id: this.normalizeText(
+            dto.tiramis_transaction_id,
+          ),
+          metadata: dto.metadata ?? null,
         });
-        if (!quotation) {
-          throw new BadRequestException('Quotation not found for this company');
-        }
-        if (quotation.status === QuotationStatus.CONVERTED) {
-          throw new ConflictException('This quotation has already been converted to a policy');
-        }
-        const previousStatus = quotation.status;
-        quotation.status = QuotationStatus.CONVERTED;
-        await quotationRepo.save(quotation);
-        await quotationHistoryRepo.save(
-          quotationHistoryRepo.create({
-            quotation_id: quotation.id,
-            old_status: previousStatus,
-            new_status: QuotationStatus.CONVERTED,
-            reason: `Converted to policy ${saved.policy_no}`,
+
+        const saved = await policyRepo.save(policy);
+        await this.replacePolicyChildren(manager, saved, dto);
+        await historyRepo.save(
+          historyRepo.create({
+            policy_id: saved.id,
+            old_status: 'NONE',
+            new_status: saved.policy_status,
+            reason: null,
             changed_by: userId,
           }),
         );
-      }
 
-      return policyRepo.findOneOrFail({
-        where: { id: saved.id, company_id: companyId },
-        relations: {
-          company: true,
-          insurer_company: true,
-          intermediary_company: true,
-          branch: true,
-          department: true,
-          creator: true,
-          customer: true,
-          category: true,
-          product: true,
-          sub_class: true,
-          risks: true,
-          premium_breakdowns: true,
-          status_history: true,
-        },
+        if (dto.quotation_id) {
+          const quotationRepo = manager.getRepository(Quotation);
+          const quotationHistoryRepo = manager.getRepository(
+            QuotationStatusHistory,
+          );
+          const quotation = await quotationRepo.findOne({
+            where: { id: dto.quotation_id, company_id: companyId },
+          });
+          if (!quotation) {
+            throw new BadRequestException(
+              'Quotation not found for this company',
+            );
+          }
+          if (quotation.status === QuotationStatus.CONVERTED) {
+            throw new ConflictException(
+              'This quotation has already been converted to a policy',
+            );
+          }
+          const previousStatus = quotation.status;
+          quotation.status = QuotationStatus.CONVERTED;
+          await quotationRepo.save(quotation);
+          await quotationHistoryRepo.save(
+            quotationHistoryRepo.create({
+              quotation_id: quotation.id,
+              old_status: previousStatus,
+              new_status: QuotationStatus.CONVERTED,
+              reason: `Converted to policy ${saved.policy_no}`,
+              changed_by: userId,
+            }),
+          );
+        }
+
+        return policyRepo.findOneOrFail({
+          where: { id: saved.id, company_id: companyId },
+          relations: {
+            company: true,
+            insurer_company: true,
+            intermediary_company: true,
+            branch: true,
+            department: true,
+            creator: true,
+            customer: true,
+            category: true,
+            product: true,
+            sub_class: true,
+            risks: true,
+            premium_breakdowns: true,
+            status_history: true,
+          },
+        });
+      })
+      .catch((error) => {
+        if (this.isDuplicateEntryError(error)) {
+          throw new ConflictException(
+            'A policy with this number already exists in this company',
+          );
+        }
+        throw error;
       });
-    }).catch((error) => {
-      if (this.isDuplicateEntryError(error)) {
-        throw new ConflictException('A policy with this number already exists in this company');
-      }
-      throw error;
-    });
   }
 
   async findAll(companyId: string, query: FilterPolicyDto) {
-    const { page = 1, limit = 20, sortBy = 'created_at', sortOrder = SortDirection.DESC, search, policy_status, customer_id } = query;
-    const allowedSortFields = ['policy_no', 'policy_status', 'issue_date', 'start_date', 'end_date', 'created_at', 'updated_at'];
-    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'created_at';
+    const {
+      page = 1,
+      limit = 20,
+      sortBy = 'created_at',
+      sortOrder = SortDirection.DESC,
+      search,
+      policy_status,
+      customer_id,
+    } = query;
+    const allowedSortFields = [
+      'policy_no',
+      'policy_status',
+      'issue_date',
+      'start_date',
+      'end_date',
+      'created_at',
+      'updated_at',
+    ];
+    const safeSortBy = allowedSortFields.includes(sortBy)
+      ? sortBy
+      : 'created_at';
     const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
 
     const qb = this.policyRepository
@@ -447,10 +584,15 @@ export class PoliciesService {
 
     if (search?.trim()) {
       const term = `%${search.trim()}%`;
-      qb.andWhere('(policy.policy_no ILIKE :term OR policy.cover_note_no ILIKE :term OR policy.external_policy_no ILIKE :term)', { term });
+      qb.andWhere(
+        '(policy.policy_no ILIKE :term OR policy.cover_note_no ILIKE :term OR policy.external_policy_no ILIKE :term)',
+        { term },
+      );
     }
-    if (policy_status) qb.andWhere('policy.policy_status = :policy_status', { policy_status });
-    if (customer_id) qb.andWhere('policy.customer_id = :customer_id', { customer_id });
+    if (policy_status)
+      qb.andWhere('policy.policy_status = :policy_status', { policy_status });
+    if (customer_id)
+      qb.andWhere('policy.customer_id = :customer_id', { customer_id });
 
     const skip = (page - 1) * limit;
     const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
@@ -472,7 +614,12 @@ export class PoliciesService {
     return this.ensurePolicyOwnership(companyId, id);
   }
 
-  async update(companyId: string, id: string, dto: UpdatePolicyDto, userId: string): Promise<Policy> {
+  async update(
+    companyId: string,
+    id: string,
+    dto: UpdatePolicyDto,
+    userId: string,
+  ): Promise<Policy> {
     const policy = await this.ensurePolicyOwnership(companyId, id);
     const merged = { ...policy, ...dto } as CreatePolicyDto;
     await this.validateScope(companyId, merged);
@@ -482,38 +629,70 @@ export class PoliciesService {
       const policyRepo = manager.getRepository(Policy);
       const historyRepo = manager.getRepository(PolicyStatusHistory);
 
-      if (dto.insurer_company_id !== undefined) policy.insurer_company_id = dto.insurer_company_id;
-      if (dto.intermediary_company_id !== undefined) policy.intermediary_company_id = dto.intermediary_company_id ?? null;
+      if (dto.insurer_company_id !== undefined)
+        policy.insurer_company_id = dto.insurer_company_id;
+      if (dto.intermediary_company_id !== undefined)
+        policy.intermediary_company_id = dto.intermediary_company_id ?? null;
       if (dto.branch_id !== undefined) policy.branch_id = dto.branch_id ?? null;
-      if (dto.department_id !== undefined) policy.department_id = dto.department_id ?? null;
+      if (dto.department_id !== undefined)
+        policy.department_id = dto.department_id ?? null;
       if (dto.customer_id !== undefined) policy.customer_id = dto.customer_id;
-      if (dto.quotation_id !== undefined) policy.quotation_id = dto.quotation_id ?? null;
-      if (dto.proposal_id !== undefined) policy.proposal_id = dto.proposal_id ?? null;
+      if (dto.quotation_id !== undefined)
+        policy.quotation_id = dto.quotation_id ?? null;
+      if (dto.proposal_id !== undefined)
+        policy.proposal_id = dto.proposal_id ?? null;
       if (dto.category_id !== undefined) policy.category_id = dto.category_id;
       if (dto.product_id !== undefined) policy.product_id = dto.product_id;
-      if (dto.sub_class_id !== undefined) policy.sub_class_id = dto.sub_class_id ?? null;
-      if (dto.channel_type !== undefined) policy.channel_type = dto.channel_type;
-      if (dto.policy_status !== undefined) policy.policy_status = dto.policy_status.trim().toUpperCase();
-      if (dto.start_date !== undefined) policy.start_date = this.normalizeDate(dto.start_date)!;
-      if (dto.end_date !== undefined) policy.end_date = this.normalizeDate(dto.end_date)!;
-      if (dto.issue_date !== undefined) policy.issue_date = this.normalizeDate(dto.issue_date)!;
-      if (dto.currency !== undefined) policy.currency = dto.currency.trim().toUpperCase();
-      if (dto.sum_insured !== undefined) policy.sum_insured = this.normalizeMoney(dto.sum_insured);
-      if (dto.basic_premium !== undefined) policy.basic_premium = this.normalizeMoney(dto.basic_premium);
-      if (dto.total_discount !== undefined) policy.total_discount = this.normalizeMoney(dto.total_discount);
-      if (dto.total_tax !== undefined) policy.total_tax = this.normalizeMoney(dto.total_tax);
-      if (dto.total_charges !== undefined) policy.total_charges = this.normalizeMoney(dto.total_charges);
-      if (dto.total_commission !== undefined) policy.total_commission = this.normalizeMoney(dto.total_commission);
-      if (dto.total_premium !== undefined) policy.total_premium = this.normalizeMoney(dto.total_premium);
-      if (dto.net_premium !== undefined) policy.net_premium = this.normalizeMoney(dto.net_premium);
-      if (dto.reinsurance_required !== undefined) policy.reinsurance_required = dto.reinsurance_required;
-      if (dto.reinsurance_status !== undefined) policy.reinsurance_status = dto.reinsurance_status.trim().toUpperCase();
-      if (dto.retention_amount !== undefined) policy.retention_amount = this.normalizeMoney(dto.retention_amount);
-      if (dto.ceded_sum_insured !== undefined) policy.ceded_sum_insured = this.normalizeMoney(dto.ceded_sum_insured);
-      if (dto.ceded_premium !== undefined) policy.ceded_premium = this.normalizeMoney(dto.ceded_premium);
-      if (dto.tira_status !== undefined) policy.tira_status = dto.tira_status.trim().toUpperCase();
-      if (dto.tira_portal_transaction_id !== undefined) policy.tira_portal_transaction_id = this.normalizeText(dto.tira_portal_transaction_id);
-      if (dto.tiramis_transaction_id !== undefined) policy.tiramis_transaction_id = this.normalizeText(dto.tiramis_transaction_id);
+      if (dto.sub_class_id !== undefined)
+        policy.sub_class_id = dto.sub_class_id ?? null;
+      if (dto.channel_type !== undefined)
+        policy.channel_type = dto.channel_type;
+      if (dto.policy_status !== undefined)
+        policy.policy_status = dto.policy_status.trim().toUpperCase();
+      if (dto.start_date !== undefined)
+        policy.start_date = this.normalizeDate(dto.start_date)!;
+      if (dto.end_date !== undefined)
+        policy.end_date = this.normalizeDate(dto.end_date)!;
+      if (dto.issue_date !== undefined)
+        policy.issue_date = this.normalizeDate(dto.issue_date)!;
+      if (dto.currency !== undefined)
+        policy.currency = dto.currency.trim().toUpperCase();
+      if (dto.sum_insured !== undefined)
+        policy.sum_insured = this.normalizeMoney(dto.sum_insured);
+      if (dto.basic_premium !== undefined)
+        policy.basic_premium = this.normalizeMoney(dto.basic_premium);
+      if (dto.total_discount !== undefined)
+        policy.total_discount = this.normalizeMoney(dto.total_discount);
+      if (dto.total_tax !== undefined)
+        policy.total_tax = this.normalizeMoney(dto.total_tax);
+      if (dto.total_charges !== undefined)
+        policy.total_charges = this.normalizeMoney(dto.total_charges);
+      if (dto.total_commission !== undefined)
+        policy.total_commission = this.normalizeMoney(dto.total_commission);
+      if (dto.total_premium !== undefined)
+        policy.total_premium = this.normalizeMoney(dto.total_premium);
+      if (dto.net_premium !== undefined)
+        policy.net_premium = this.normalizeMoney(dto.net_premium);
+      if (dto.reinsurance_required !== undefined)
+        policy.reinsurance_required = dto.reinsurance_required;
+      if (dto.reinsurance_status !== undefined)
+        policy.reinsurance_status = dto.reinsurance_status.trim().toUpperCase();
+      if (dto.retention_amount !== undefined)
+        policy.retention_amount = this.normalizeMoney(dto.retention_amount);
+      if (dto.ceded_sum_insured !== undefined)
+        policy.ceded_sum_insured = this.normalizeMoney(dto.ceded_sum_insured);
+      if (dto.ceded_premium !== undefined)
+        policy.ceded_premium = this.normalizeMoney(dto.ceded_premium);
+      if (dto.tira_status !== undefined)
+        policy.tira_status = dto.tira_status.trim().toUpperCase();
+      if (dto.tira_portal_transaction_id !== undefined)
+        policy.tira_portal_transaction_id = this.normalizeText(
+          dto.tira_portal_transaction_id,
+        );
+      if (dto.tiramis_transaction_id !== undefined)
+        policy.tiramis_transaction_id = this.normalizeText(
+          dto.tiramis_transaction_id,
+        );
       if (dto.metadata !== undefined) policy.metadata = dto.metadata ?? null;
 
       const saved = await policyRepo.save(policy);
@@ -521,7 +700,10 @@ export class PoliciesService {
         await this.replacePolicyChildren(manager, saved, dto);
       }
 
-      if (dto.policy_status !== undefined && dto.policy_status.trim().toUpperCase() !== oldStatus) {
+      if (
+        dto.policy_status !== undefined &&
+        dto.policy_status.trim().toUpperCase() !== oldStatus
+      ) {
         await historyRepo.save(
           historyRepo.create({
             policy_id: saved.id,
@@ -557,9 +739,15 @@ export class PoliciesService {
   async remove(companyId: string, id: string): Promise<void> {
     const policy = await this.ensurePolicyOwnership(companyId, id);
     await this.dataSource.transaction(async (manager) => {
-      await manager.getRepository(PolicyRisk).softDelete({ policy_id: policy.id });
-      await manager.getRepository(PolicyPremiumBreakdown).softDelete({ policy_id: policy.id });
-      await manager.getRepository(PolicyStatusHistory).delete({ policy_id: policy.id });
+      await manager
+        .getRepository(PolicyRisk)
+        .softDelete({ policy_id: policy.id });
+      await manager
+        .getRepository(PolicyPremiumBreakdown)
+        .softDelete({ policy_id: policy.id });
+      await manager
+        .getRepository(PolicyStatusHistory)
+        .delete({ policy_id: policy.id });
       await manager.getRepository(Policy).softDelete(policy.id);
     });
   }
@@ -574,7 +762,9 @@ export class PoliciesService {
     await this.dataSource.transaction(async (manager) => {
       await manager.getRepository(Policy).restore(policy.id);
       await manager.getRepository(PolicyRisk).restore({ policy_id: policy.id });
-      await manager.getRepository(PolicyPremiumBreakdown).restore({ policy_id: policy.id });
+      await manager
+        .getRepository(PolicyPremiumBreakdown)
+        .restore({ policy_id: policy.id });
     });
 
     return this.ensurePolicyOwnership(companyId, id);

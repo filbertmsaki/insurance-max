@@ -97,4 +97,3 @@ export class QuotationRisk {
   @JoinColumn({ name: 'motor_vehicle_id' })
   motor_vehicle: MotorVehicle | null;
 }
-

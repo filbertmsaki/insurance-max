@@ -1,4 +1,10 @@
-import { IsDateString, IsEnum, IsNumber, IsOptional, IsUUID } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsUUID,
+} from 'class-validator';
 import { ProductChannelType } from '../enums/product-channel-type.enum';
 import { ProductCalculationBase } from '../enums/product-calculation-base.enum';
 import { ProductCommissionType } from '../enums/product-commission-type.enum';

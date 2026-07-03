@@ -18,10 +18,14 @@ import { SubjectMatterFactorValue } from './subject-matter-factor-value.entity';
 @Entity('subject_matters')
 @Index('IDX_subject_matters_company_id', ['company_id'])
 @Index('IDX_subject_matters_company_customer_id', ['company_id', 'customer_id'])
-@Index('IDX_subject_matters_company_subject_code', ['company_id', 'subject_code'], {
-  unique: true,
-  where: 'deleted_at IS NULL',
-})
+@Index(
+  'IDX_subject_matters_company_subject_code',
+  ['company_id', 'subject_code'],
+  {
+    unique: true,
+    where: 'deleted_at IS NULL',
+  },
+)
 export class SubjectMatter {
   @PrimaryGeneratedColumn('uuid')
   id: string;

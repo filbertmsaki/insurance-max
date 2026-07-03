@@ -16,7 +16,9 @@ import { CommissionPaymentItem } from './commission-payment-item.entity';
 
 @Entity('commission_payments')
 @Index('IDX_commission_payments_company_id', ['company_id'])
-@Index('IDX_commission_payments_intermediary_company_id', ['intermediary_company_id'])
+@Index('IDX_commission_payments_intermediary_company_id', [
+  'intermediary_company_id',
+])
 @Index('IDX_commission_payments_payment_no', ['company_id', 'payment_no'], {
   unique: true,
   where: 'deleted_at IS NULL',

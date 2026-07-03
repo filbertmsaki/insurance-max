@@ -585,25 +585,29 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'insurance-partners:create',
     displayName: 'Create insurance partners',
-    description: 'Allow creating insurer and intermediary partner relationships',
+    description:
+      'Allow creating insurer and intermediary partner relationships',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
     name: 'insurance-partners:update',
     displayName: 'Update insurance partners',
-    description: 'Allow updating insurer and intermediary partner relationships',
+    description:
+      'Allow updating insurer and intermediary partner relationships',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
     name: 'insurance-partners:approve',
     displayName: 'Approve insurance partners',
-    description: 'Allow approving insurer and intermediary partner relationships',
+    description:
+      'Allow approving insurer and intermediary partner relationships',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
     name: 'insurance-partners:suspend',
     displayName: 'Suspend insurance partners',
-    description: 'Allow suspending insurer and intermediary partner relationships',
+    description:
+      'Allow suspending insurer and intermediary partner relationships',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -616,7 +620,8 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'product-distribution:read',
     displayName: 'Read product distribution rules',
-    description: 'Allow viewing distribution, commission, tax, and document rules',
+    description:
+      'Allow viewing distribution, commission, tax, and document rules',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -763,7 +768,8 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'commissions:read',
     displayName: 'Read commission records',
-    description: 'Allow listing and viewing commission transactions and payments',
+    description:
+      'Allow listing and viewing commission transactions and payments',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {

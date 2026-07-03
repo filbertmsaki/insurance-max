@@ -3,4 +3,3 @@ export enum CustomerStatus {
   INACTIVE = 'INACTIVE',
   BLACKLISTED = 'BLACKLISTED',
 }
-

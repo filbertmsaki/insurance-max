@@ -35,21 +35,33 @@ import { BillingCommissionService } from './billing-commission.service';
 @Controller('tenant/billing')
 @UseGuards(AuthGuard('jwt'), TenantGuard)
 export class BillingCommissionController {
-  constructor(private readonly billingCommissionService: BillingCommissionService) {}
+  constructor(
+    private readonly billingCommissionService: BillingCommissionService,
+  ) {}
 
   @Post('invoices')
   @UseGuards(PermissionsGuard)
   @Permissions('billing:create')
   @ApiOperation({ summary: 'Create an invoice' })
-  createInvoice(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateInvoiceDto) {
-    return this.billingCommissionService.createInvoice(user.companyId!, dto, user.id);
+  createInvoice(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateInvoiceDto,
+  ) {
+    return this.billingCommissionService.createInvoice(
+      user.companyId!,
+      dto,
+      user.id,
+    );
   }
 
   @Get('invoices')
   @UseGuards(PermissionsGuard)
   @Permissions('billing:read')
   @ApiOperation({ summary: 'List invoices' })
-  findInvoices(@CurrentUser() user: AuthenticatedUser, @Query() query: FilterBillingDto) {
+  findInvoices(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FilterBillingDto,
+  ) {
     return this.billingCommissionService.findInvoices(user.companyId!, query);
   }
 
@@ -57,7 +69,10 @@ export class BillingCommissionController {
   @UseGuards(PermissionsGuard)
   @Permissions('billing:read')
   @ApiOperation({ summary: 'Get an invoice by ID' })
-  findInvoice(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  findInvoice(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.billingCommissionService.findInvoice(user.companyId!, id);
   }
 
@@ -70,14 +85,22 @@ export class BillingCommissionController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateInvoiceDto,
   ) {
-    return this.billingCommissionService.updateInvoice(user.companyId!, id, dto, user.id);
+    return this.billingCommissionService.updateInvoice(
+      user.companyId!,
+      id,
+      dto,
+      user.id,
+    );
   }
 
   @Delete('invoices/:id')
   @UseGuards(PermissionsGuard)
   @Permissions('billing:delete')
   @ApiOperation({ summary: 'Delete an invoice' })
-  async deleteInvoice(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  async deleteInvoice(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     await this.billingCommissionService.deleteInvoice(user.companyId!, id);
     return { message: 'Invoice deleted successfully' };
   }
@@ -86,15 +109,25 @@ export class BillingCommissionController {
   @UseGuards(PermissionsGuard)
   @Permissions('billing:create')
   @ApiOperation({ summary: 'Create a receipt' })
-  createReceipt(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateReceiptDto) {
-    return this.billingCommissionService.createReceipt(user.companyId!, dto, user.id);
+  createReceipt(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateReceiptDto,
+  ) {
+    return this.billingCommissionService.createReceipt(
+      user.companyId!,
+      dto,
+      user.id,
+    );
   }
 
   @Get('receipts')
   @UseGuards(PermissionsGuard)
   @Permissions('billing:read')
   @ApiOperation({ summary: 'List receipts' })
-  findReceipts(@CurrentUser() user: AuthenticatedUser, @Query() query: FilterBillingDto) {
+  findReceipts(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FilterBillingDto,
+  ) {
     return this.billingCommissionService.findReceipts(user.companyId!, query);
   }
 
@@ -102,7 +135,10 @@ export class BillingCommissionController {
   @UseGuards(PermissionsGuard)
   @Permissions('billing:read')
   @ApiOperation({ summary: 'Get a receipt by ID' })
-  findReceipt(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  findReceipt(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.billingCommissionService.findReceipt(user.companyId!, id);
   }
 
@@ -115,14 +151,22 @@ export class BillingCommissionController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateReceiptDto,
   ) {
-    return this.billingCommissionService.updateReceipt(user.companyId!, id, dto, user.id);
+    return this.billingCommissionService.updateReceipt(
+      user.companyId!,
+      id,
+      dto,
+      user.id,
+    );
   }
 
   @Delete('receipts/:id')
   @UseGuards(PermissionsGuard)
   @Permissions('billing:delete')
   @ApiOperation({ summary: 'Delete a receipt' })
-  async deleteReceipt(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  async deleteReceipt(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     await this.billingCommissionService.deleteReceipt(user.companyId!, id);
     return { message: 'Receipt deleted successfully' };
   }
@@ -135,15 +179,24 @@ export class BillingCommissionController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreatePaymentTransactionDto,
   ) {
-    return this.billingCommissionService.createPaymentTransaction(user.companyId!, dto);
+    return this.billingCommissionService.createPaymentTransaction(
+      user.companyId!,
+      dto,
+    );
   }
 
   @Get('payment-transactions')
   @UseGuards(PermissionsGuard)
   @Permissions('billing:read')
   @ApiOperation({ summary: 'List payment transactions' })
-  findPaymentTransactions(@CurrentUser() user: AuthenticatedUser, @Query() query: FilterBillingDto) {
-    return this.billingCommissionService.findPaymentTransactions(user.companyId!, query);
+  findPaymentTransactions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FilterBillingDto,
+  ) {
+    return this.billingCommissionService.findPaymentTransactions(
+      user.companyId!,
+      query,
+    );
   }
 
   @Get('payment-transactions/:id')
@@ -154,7 +207,10 @@ export class BillingCommissionController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.billingCommissionService.findPaymentTransaction(user.companyId!, id);
+    return this.billingCommissionService.findPaymentTransaction(
+      user.companyId!,
+      id,
+    );
   }
 
   @Patch('payment-transactions/:id')
@@ -166,7 +222,11 @@ export class BillingCommissionController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePaymentTransactionDto,
   ) {
-    return this.billingCommissionService.updatePaymentTransaction(user.companyId!, id, dto);
+    return this.billingCommissionService.updatePaymentTransaction(
+      user.companyId!,
+      id,
+      dto,
+    );
   }
 
   @Delete('payment-transactions/:id')
@@ -177,7 +237,10 @@ export class BillingCommissionController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.billingCommissionService.deletePaymentTransaction(user.companyId!, id);
+    await this.billingCommissionService.deletePaymentTransaction(
+      user.companyId!,
+      id,
+    );
     return { message: 'Payment transaction deleted successfully' };
   }
 
@@ -189,7 +252,10 @@ export class BillingCommissionController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateCommissionTransactionDto,
   ) {
-    return this.billingCommissionService.createCommissionTransaction(user.companyId!, dto);
+    return this.billingCommissionService.createCommissionTransaction(
+      user.companyId!,
+      dto,
+    );
   }
 
   @Get('commission-transactions')
@@ -200,7 +266,10 @@ export class BillingCommissionController {
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: FilterBillingDto,
   ) {
-    return this.billingCommissionService.findCommissionTransactions(user.companyId!, query);
+    return this.billingCommissionService.findCommissionTransactions(
+      user.companyId!,
+      query,
+    );
   }
 
   @Get('commission-transactions/:id')
@@ -211,7 +280,10 @@ export class BillingCommissionController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.billingCommissionService.findCommissionTransaction(user.companyId!, id);
+    return this.billingCommissionService.findCommissionTransaction(
+      user.companyId!,
+      id,
+    );
   }
 
   @Patch('commission-transactions/:id')
@@ -223,7 +295,11 @@ export class BillingCommissionController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCommissionTransactionDto,
   ) {
-    return this.billingCommissionService.updateCommissionTransaction(user.companyId!, id, dto);
+    return this.billingCommissionService.updateCommissionTransaction(
+      user.companyId!,
+      id,
+      dto,
+    );
   }
 
   @Delete('commission-transactions/:id')
@@ -234,7 +310,10 @@ export class BillingCommissionController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.billingCommissionService.deleteCommissionTransaction(user.companyId!, id);
+    await this.billingCommissionService.deleteCommissionTransaction(
+      user.companyId!,
+      id,
+    );
     return { message: 'Commission transaction deleted successfully' };
   }
 
@@ -246,15 +325,25 @@ export class BillingCommissionController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateCommissionPaymentDto,
   ) {
-    return this.billingCommissionService.createCommissionPayment(user.companyId!, dto, user.id);
+    return this.billingCommissionService.createCommissionPayment(
+      user.companyId!,
+      dto,
+      user.id,
+    );
   }
 
   @Get('commission-payments')
   @UseGuards(PermissionsGuard)
   @Permissions('commissions:read')
   @ApiOperation({ summary: 'List commission payments' })
-  findCommissionPayments(@CurrentUser() user: AuthenticatedUser, @Query() query: FilterBillingDto) {
-    return this.billingCommissionService.findCommissionPayments(user.companyId!, query);
+  findCommissionPayments(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FilterBillingDto,
+  ) {
+    return this.billingCommissionService.findCommissionPayments(
+      user.companyId!,
+      query,
+    );
   }
 
   @Get('commission-payments/:id')
@@ -265,7 +354,10 @@ export class BillingCommissionController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.billingCommissionService.findCommissionPayment(user.companyId!, id);
+    return this.billingCommissionService.findCommissionPayment(
+      user.companyId!,
+      id,
+    );
   }
 
   @Patch('commission-payments/:id')
@@ -277,7 +369,11 @@ export class BillingCommissionController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCommissionPaymentDto,
   ) {
-    return this.billingCommissionService.updateCommissionPayment(user.companyId!, id, dto);
+    return this.billingCommissionService.updateCommissionPayment(
+      user.companyId!,
+      id,
+      dto,
+    );
   }
 
   @Delete('commission-payments/:id')
@@ -288,7 +384,10 @@ export class BillingCommissionController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.billingCommissionService.deleteCommissionPayment(user.companyId!, id);
+    await this.billingCommissionService.deleteCommissionPayment(
+      user.companyId!,
+      id,
+    );
     return { message: 'Commission payment deleted successfully' };
   }
 }

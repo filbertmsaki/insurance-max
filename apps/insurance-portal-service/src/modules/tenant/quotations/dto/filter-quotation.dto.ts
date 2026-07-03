@@ -24,4 +24,3 @@ export class FilterQuotationDto extends PaginationDto {
   @IsString()
   product_id?: string;
 }
-

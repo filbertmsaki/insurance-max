@@ -1,11 +1,11 @@
-import { apiClient } from '@/modules/shared/api/client'
+import { apiClient } from '@/modules/shared/api/client';
 import type {
   RatingFactor,
   CreateFactorDto,
   UpdateFactorDto,
   FactorQueryParams,
   PEPage,
-} from '@/types/product-engine'
+} from '@/types/product-engine';
 
 export const ratingFactorsApi = {
   getList: (params?: FactorQueryParams) =>
@@ -17,7 +17,9 @@ export const ratingFactorsApi = {
     apiClient.post<RatingFactor>('/rating-factors', data).then((r) => r.data),
 
   update: (id: string, data: UpdateFactorDto) =>
-    apiClient.patch<RatingFactor>(`/rating-factors/${id}`, data).then((r) => r.data),
+    apiClient
+      .patch<RatingFactor>(`/rating-factors/${id}`, data)
+      .then((r) => r.data),
 
   delete: (id: string) =>
     apiClient.delete(`/rating-factors/${id}`).then((r) => r.data),
@@ -28,4 +30,4 @@ export const ratingFactorsApi = {
         params: { limit: 100, is_active: true },
       })
       .then((r) => r.data.data),
-}
+};

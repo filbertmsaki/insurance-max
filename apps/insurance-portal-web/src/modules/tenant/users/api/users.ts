@@ -1,26 +1,32 @@
-import { apiClient } from '@/modules/shared/api/client'
-import type { UserProfile, UserDetail, PaginatedResponse, UsersQueryParams, UserType } from '@/types'
+import { apiClient } from '@/modules/shared/api/client';
+import type {
+  UserProfile,
+  UserDetail,
+  PaginatedResponse,
+  UsersQueryParams,
+  UserType,
+} from '@/types';
 
 export interface CreateUserDto {
-  first_name: string
-  last_name: string
-  email: string
-  phone: string
-  password: string
-  user_no?: string
-  status?: string
-  user_type?: UserType
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  password: string;
+  user_no?: string;
+  status?: string;
+  user_type?: UserType;
   /** Array of role UUIDs to assign on creation */
-  roles?: string[]
+  roles?: string[];
 }
 
 export interface UpdateUserDto {
-  first_name?: string
-  last_name?: string
-  phone?: string
-  email?: string
-  status?: string
-  user_type?: UserType
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  email?: string;
+  status?: string;
+  user_type?: UserType;
 }
 
 export const usersApi = {
@@ -55,15 +61,21 @@ export const usersApi = {
 
   /** POST /users/:userId/roles/:roleId — no request body */
   assignRole: (userId: string, roleId: string) =>
-    apiClient.post<UserDetail>(`/users/${userId}/roles/${roleId}`).then((r) => r.data),
+    apiClient
+      .post<UserDetail>(`/users/${userId}/roles/${roleId}`)
+      .then((r) => r.data),
 
   /** DELETE /users/:userId/roles/:roleId */
   revokeRole: (userId: string, roleId: string) =>
-    apiClient.delete<UserDetail>(`/users/${userId}/roles/${roleId}`).then((r) => r.data),
+    apiClient
+      .delete<UserDetail>(`/users/${userId}/roles/${roleId}`)
+      .then((r) => r.data),
 
   /** POST /users/me/change-password */
   changePassword: (data: { old_password: string; new_password: string }) =>
-    apiClient.post<{ message: string }>('/users/me/change-password', data).then((r) => r.data),
+    apiClient
+      .post<{ message: string }>('/users/me/change-password', data)
+      .then((r) => r.data),
 
   /** POST /users/2fa/setup */
   setup2fa: () =>
@@ -84,7 +96,8 @@ export const usersApi = {
   /** POST /users/2fa/backup-codes/regenerate */
   regenerateBackupCodes: (code: string) =>
     apiClient
-      .post<{ backup_codes: string[] }>('/users/2fa/backup-codes/regenerate', { code })
+      .post<{
+        backup_codes: string[];
+      }>('/users/2fa/backup-codes/regenerate', { code })
       .then((r) => r.data),
-}
-
+};

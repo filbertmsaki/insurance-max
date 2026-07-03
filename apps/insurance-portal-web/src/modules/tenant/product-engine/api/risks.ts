@@ -1,11 +1,11 @@
-import { apiClient } from '@/modules/shared/api/client'
+import { apiClient } from '@/modules/shared/api/client';
 import type {
   InsuranceRisk,
   CreateRiskDto,
   UpdateRiskDto,
   RiskQueryParams,
   PEPage,
-} from '@/types/product-engine'
+} from '@/types/product-engine';
 
 export const risksApi = {
   getList: (params?: RiskQueryParams) =>
@@ -17,7 +17,9 @@ export const risksApi = {
     apiClient.post<InsuranceRisk>('/insurance-risks', data).then((r) => r.data),
 
   update: (id: string, data: UpdateRiskDto) =>
-    apiClient.patch<InsuranceRisk>(`/insurance-risks/${id}`, data).then((r) => r.data),
+    apiClient
+      .patch<InsuranceRisk>(`/insurance-risks/${id}`, data)
+      .then((r) => r.data),
 
   delete: (id: string) =>
     apiClient.delete(`/insurance-risks/${id}`).then((r) => r.data),
@@ -33,4 +35,4 @@ export const risksApi = {
         },
       })
       .then((r) => r.data.data),
-}
+};

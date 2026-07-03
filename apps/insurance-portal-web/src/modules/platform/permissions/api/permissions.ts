@@ -1,13 +1,13 @@
-import { apiClient } from '@/modules/shared/api/client'
-import type { Permission } from '@/types'
+import { apiClient } from '@/modules/shared/api/client';
+import type { Permission } from '@/types';
 
 export interface CreatePermissionDto {
-  name: string
-  display_name: string
-  description?: string
+  name: string;
+  display_name: string;
+  description?: string;
 }
 
-export type UpdatePermissionDto = Partial<CreatePermissionDto>
+export type UpdatePermissionDto = Partial<CreatePermissionDto>;
 
 export const permissionsApi = {
   /** GET /permissions — returns Permission[] (not paginated) */
@@ -29,5 +29,4 @@ export const permissionsApi = {
   /** DELETE /permissions/:id — requires OWNER role */
   deletePermission: (id: string) =>
     apiClient.delete(`/permissions/${id}`).then((r) => r.data),
-}
-
+};

@@ -1,10 +1,10 @@
-import { apiClient } from '@/modules/shared/api/client'
+import { apiClient } from '@/modules/shared/api/client';
 import type {
   SingleCalcRequest,
   MultiCalcRequest,
   RiskPremiumResult,
   MultiCalcResponse,
-} from '@/types/product-engine'
+} from '@/types/product-engine';
 
 export const calculatorApi = {
   calculateSingle: (data: SingleCalcRequest) =>
@@ -16,4 +16,4 @@ export const calculatorApi = {
     apiClient
       .post<MultiCalcResponse>('/premium-calculation/multi', data)
       .then((r) => r.data),
-}
+};

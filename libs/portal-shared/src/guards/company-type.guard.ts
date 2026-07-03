@@ -23,7 +23,9 @@ export class CompanyTypeGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<{ user?: AuthenticatedUser }>();
+    const request = context
+      .switchToHttp()
+      .getRequest<{ user?: AuthenticatedUser }>();
     const companyType = request.user?.companyType;
 
     if (!companyType || !requiredTypes.includes(companyType)) {

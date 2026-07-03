@@ -62,8 +62,14 @@ export class ProductDistributionService {
     this.assertCompanyScope(companyId, dto.insurer_company_id);
     await this.ensureCompanyExists(dto.insurer_company_id);
     await this.ensureOptionalCompanyExists(dto.intermediary_company_id);
-    await this.ensureProductBelongsToCompany(dto.insurer_company_id, dto.product_id);
-    await this.ensureOptionalCategoryBelongsToCompany(dto.insurer_company_id, dto.category_id);
+    await this.ensureProductBelongsToCompany(
+      dto.insurer_company_id,
+      dto.product_id,
+    );
+    await this.ensureOptionalCategoryBelongsToCompany(
+      dto.insurer_company_id,
+      dto.category_id,
+    );
     await this.ensureOptionalSubClassBelongsToProduct(
       dto.insurer_company_id,
       dto.sub_class_id,
@@ -150,8 +156,14 @@ export class ProductDistributionService {
     this.assertCompanyScope(companyId, dto.insurer_company_id);
     await this.ensureCompanyExists(dto.insurer_company_id);
     await this.ensureOptionalCompanyExists(dto.intermediary_company_id);
-    await this.ensureProductBelongsToCompany(dto.insurer_company_id, dto.product_id);
-    await this.ensureOptionalCategoryBelongsToCompany(dto.insurer_company_id, dto.category_id);
+    await this.ensureProductBelongsToCompany(
+      dto.insurer_company_id,
+      dto.product_id,
+    );
+    await this.ensureOptionalCategoryBelongsToCompany(
+      dto.insurer_company_id,
+      dto.category_id,
+    );
     await this.ensureOptionalRiskBelongsToProduct(
       dto.insurer_company_id,
       dto.risk_id,
@@ -193,7 +205,9 @@ export class ProductDistributionService {
     return this.commissionRepository.save(record);
   }
 
-  async listCommissionRules(companyId: string): Promise<ProductCommissionRule[]> {
+  async listCommissionRules(
+    companyId: string,
+  ): Promise<ProductCommissionRule[]> {
     return this.commissionRepository.find({
       where: { insurer_company_id: companyId },
       relations: {
@@ -230,9 +244,19 @@ export class ProductDistributionService {
   ): Promise<ProductTaxRule> {
     this.assertCompanyScope(companyId, dto.company_id);
     await this.ensureCompanyExists(dto.company_id);
-    await this.ensureOptionalCategoryBelongsToCompany(dto.company_id, dto.category_id);
-    await this.ensureOptionalProductBelongsToCompany(dto.company_id, dto.product_id);
-    await this.ensureOptionalRiskBelongsToProduct(dto.company_id, dto.risk_id, dto.product_id);
+    await this.ensureOptionalCategoryBelongsToCompany(
+      dto.company_id,
+      dto.category_id,
+    );
+    await this.ensureOptionalProductBelongsToCompany(
+      dto.company_id,
+      dto.product_id,
+    );
+    await this.ensureOptionalRiskBelongsToProduct(
+      dto.company_id,
+      dto.risk_id,
+      dto.product_id,
+    );
     this.assertDateRange(dto.effective_from, dto.effective_to);
 
     const record = this.taxRepository.create({
@@ -244,7 +268,9 @@ export class ProductDistributionService {
       tax_code: dto.tax_code.trim().toUpperCase(),
       tax_type: dto.tax_type,
       tax_rate:
-        dto.tax_rate !== undefined && dto.tax_rate !== null ? String(dto.tax_rate) : null,
+        dto.tax_rate !== undefined && dto.tax_rate !== null
+          ? String(dto.tax_rate)
+          : null,
       tax_amount:
         dto.tax_amount !== undefined && dto.tax_amount !== null
           ? String(dto.tax_amount)
@@ -290,7 +316,11 @@ export class ProductDistributionService {
     this.assertCompanyScope(companyId, dto.company_id);
     await this.ensureCompanyExists(dto.company_id);
     await this.ensureProductBelongsToCompany(dto.company_id, dto.product_id);
-    await this.ensureOptionalRiskBelongsToProduct(dto.company_id, dto.risk_id, dto.product_id);
+    await this.ensureOptionalRiskBelongsToProduct(
+      dto.company_id,
+      dto.risk_id,
+      dto.product_id,
+    );
 
     const record = this.documentRepository.create({
       company_id: dto.company_id,
@@ -318,7 +348,10 @@ export class ProductDistributionService {
     });
   }
 
-  async removeDocumentRequirement(companyId: string, id: string): Promise<void> {
+  async removeDocumentRequirement(
+    companyId: string,
+    id: string,
+  ): Promise<void> {
     const record = await this.documentRepository.findOne({
       where: { id, company_id: companyId },
     });
@@ -326,7 +359,10 @@ export class ProductDistributionService {
     await this.documentRepository.softDelete(record.id);
   }
 
-  async restoreDocumentRequirement(companyId: string, id: string): Promise<void> {
+  async restoreDocumentRequirement(
+    companyId: string,
+    id: string,
+  ): Promise<void> {
     const record = await this.documentRepository.findOne({
       where: { id, company_id: companyId },
       withDeleted: true,
@@ -348,7 +384,9 @@ export class ProductDistributionService {
 
     const channelType = this.mapCompanyTypeToChannelType(companyType);
     if (!channelType) {
-      throw new ForbiddenException('This company type cannot quote distribution products');
+      throw new ForbiddenException(
+        'This company type cannot quote distribution products',
+      );
     }
 
     const product = await this.productRepository.findOne({
@@ -361,19 +399,27 @@ export class ProductDistributionService {
 
     const risk = riskId
       ? await this.riskRepository.findOne({
-          where: { id: riskId, company_id: insurerCompanyId, product_id: productId },
+          where: {
+            id: riskId,
+            company_id: insurerCompanyId,
+            product_id: productId,
+          },
         })
       : null;
 
     const channel = await this.channelRepository
       .createQueryBuilder('channel')
-      .where('channel.insurer_company_id = :insurerCompanyId', { insurerCompanyId })
+      .where('channel.insurer_company_id = :insurerCompanyId', {
+        insurerCompanyId,
+      })
       .andWhere('channel.intermediary_company_id = :requestingCompanyId', {
         requestingCompanyId,
       })
       .andWhere('channel.product_id = :productId', { productId })
       .andWhere('channel.channel_type = :channelType', { channelType })
-      .andWhere('channel.status = :status', { status: ProductRuleStatus.ACTIVE })
+      .andWhere('channel.status = :status', {
+        status: ProductRuleStatus.ACTIVE,
+      })
       .andWhere('channel.can_quote = true')
       .andWhere('channel.deleted_at IS NULL')
       .andWhere('channel.effective_from <= :today', { today: this.today() })
@@ -397,18 +443,24 @@ export class ProductDistributionService {
       .getOne();
 
     if (!channel) {
-      throw new ForbiddenException('You are not authorised to quote this product');
+      throw new ForbiddenException(
+        'You are not authorised to quote this product',
+      );
     }
 
     return channel;
   }
 
   private async ensureCompanyExists(companyId: string): Promise<void> {
-    const company = await this.companyRepository.findOne({ where: { id: companyId } });
+    const company = await this.companyRepository.findOne({
+      where: { id: companyId },
+    });
     if (!company) throw new BadRequestException('Company not found');
   }
 
-  private async ensureOptionalCompanyExists(companyId?: string | null): Promise<void> {
+  private async ensureOptionalCompanyExists(
+    companyId?: string | null,
+  ): Promise<void> {
     if (!companyId) return;
     await this.ensureCompanyExists(companyId);
   }
@@ -473,7 +525,9 @@ export class ProductDistributionService {
   ): Promise<void> {
     if (!subClassId) return;
     if (!productId) {
-      throw new BadRequestException('product_id is required when sub_class_id is provided');
+      throw new BadRequestException(
+        'product_id is required when sub_class_id is provided',
+      );
     }
     await this.ensureSubClassBelongsToProduct(companyId, subClassId, productId);
   }
@@ -498,20 +552,29 @@ export class ProductDistributionService {
   ): Promise<void> {
     if (!riskId) return;
     if (!productId) {
-      throw new BadRequestException('product_id is required when risk_id is provided');
+      throw new BadRequestException(
+        'product_id is required when risk_id is provided',
+      );
     }
     await this.ensureRiskBelongsToProduct(companyId, riskId, productId);
   }
 
-  private assertCompanyScope(expectedCompanyId: string, payloadCompanyId: string): void {
+  private assertCompanyScope(
+    expectedCompanyId: string,
+    payloadCompanyId: string,
+  ): void {
     if (expectedCompanyId !== payloadCompanyId) {
-      throw new ForbiddenException('Company scope does not match the authenticated company');
+      throw new ForbiddenException(
+        'Company scope does not match the authenticated company',
+      );
     }
   }
 
   private assertDateRange(effectiveFrom: string, effectiveTo: string): void {
     if (new Date(effectiveFrom) > new Date(effectiveTo)) {
-      throw new BadRequestException('effective_from must be on or before effective_to');
+      throw new BadRequestException(
+        'effective_from must be on or before effective_to',
+      );
     }
   }
 

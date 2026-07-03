@@ -5,7 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, ObjectLiteral, QueryFailedError, Repository } from 'typeorm';
+import {
+  DataSource,
+  ObjectLiteral,
+  QueryFailedError,
+  Repository,
+} from 'typeorm';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import { Branch } from '../branches/entities/branch.entity';
@@ -88,7 +93,10 @@ export class QuotationsService {
     const driverError = (
       error as QueryFailedError & { driverError?: { code?: string | number } }
     ).driverError;
-    return driverError?.code === '23505' || String(driverError?.code ?? '') === '1062';
+    return (
+      driverError?.code === '23505' ||
+      String(driverError?.code ?? '') === '1062'
+    );
   }
 
   private normalizeText(value?: string | null): string | null {
@@ -107,7 +115,8 @@ export class QuotationsService {
   }
 
   private normalizeMoney(value: NumericLike): string {
-    const num = value === null || value === undefined || value === '' ? 0 : Number(value);
+    const num =
+      value === null || value === undefined || value === '' ? 0 : Number(value);
     if (!Number.isFinite(num)) {
       throw new BadRequestException('Invalid numeric value');
     }
@@ -115,7 +124,8 @@ export class QuotationsService {
   }
 
   private normalizeRate(value: NumericLike): string {
-    const num = value === null || value === undefined || value === '' ? 0 : Number(value);
+    const num =
+      value === null || value === undefined || value === '' ? 0 : Number(value);
     if (!Number.isFinite(num)) {
       throw new BadRequestException('Invalid rate value');
     }
@@ -130,7 +140,10 @@ export class QuotationsService {
     return quotationType === QuotationType.MOTOR ? 'QTN-MTR' : 'QTN-NM';
   }
 
-  private async generateQuotationNo(companyId: string, quotationType: QuotationType): Promise<string> {
+  private async generateQuotationNo(
+    companyId: string,
+    quotationType: QuotationType,
+  ): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `${this.mapQuotationNoPrefix(quotationType)}-${year}-`;
     const last = await this.quotationRepository
@@ -161,36 +174,72 @@ export class QuotationsService {
     companyId: string,
     dto: CreateQuotationDto | UpdateQuotationDto,
   ): Promise<void> {
-    await this.ensureExists(this.companyRepository, { id: companyId }, 'Company not found');
-    await this.ensureExists(this.customerRepository, { id: dto.customer_id, company_id: companyId }, 'Customer not found for company');
-    await this.ensureExists(this.categoryRepository, { id: dto.category_id, company_id: dto.insurer_company_id }, 'Category not found for insurer');
-    await this.ensureExists(this.productRepository, { id: dto.product_id, company_id: dto.insurer_company_id }, 'Product not found for insurer');
+    await this.ensureExists(
+      this.companyRepository,
+      { id: companyId },
+      'Company not found',
+    );
+    await this.ensureExists(
+      this.customerRepository,
+      { id: dto.customer_id, company_id: companyId },
+      'Customer not found for company',
+    );
+    await this.ensureExists(
+      this.categoryRepository,
+      { id: dto.category_id, company_id: dto.insurer_company_id },
+      'Category not found for insurer',
+    );
+    await this.ensureExists(
+      this.productRepository,
+      { id: dto.product_id, company_id: dto.insurer_company_id },
+      'Product not found for insurer',
+    );
 
     if (dto.sub_class_id) {
       await this.ensureExists(
         this.subClassRepository,
-        { id: dto.sub_class_id, company_id: dto.insurer_company_id, product_id: dto.product_id },
+        {
+          id: dto.sub_class_id,
+          company_id: dto.insurer_company_id,
+          product_id: dto.product_id,
+        },
         'Sub-class not found for this product',
       );
     }
 
     if (dto.branch_id) {
-      await this.ensureExists(this.branchRepository, { id: dto.branch_id, company_id: companyId }, 'Branch not found for company');
+      await this.ensureExists(
+        this.branchRepository,
+        { id: dto.branch_id, company_id: companyId },
+        'Branch not found for company',
+      );
     }
 
     if (dto.department_id) {
-      await this.ensureExists(this.departmentRepository, { id: dto.department_id, company_id: companyId }, 'Department not found for company');
+      await this.ensureExists(
+        this.departmentRepository,
+        { id: dto.department_id, company_id: companyId },
+        'Department not found for company',
+      );
     }
 
     if (dto.intermediary_company_id) {
-      await this.ensureExists(this.companyRepository, { id: dto.intermediary_company_id }, 'Intermediary company not found');
+      await this.ensureExists(
+        this.companyRepository,
+        { id: dto.intermediary_company_id },
+        'Intermediary company not found',
+      );
     }
 
     if (dto.risks?.length) {
       for (const risk of dto.risks) {
         await this.ensureExists(
           this.riskRepository,
-          { id: risk.risk_id, company_id: dto.insurer_company_id, product_id: dto.product_id },
+          {
+            id: risk.risk_id,
+            company_id: dto.insurer_company_id,
+            product_id: dto.product_id,
+          },
           'Quotation risk not found for insurer product',
         );
       }
@@ -275,7 +324,9 @@ export class QuotationsService {
           factor.value_number !== undefined && factor.value_number !== null
             ? String(factor.value_number)
             : null,
-        value_date: factor.value_date ? this.normalizeDate(factor.value_date) : null,
+        value_date: factor.value_date
+          ? this.normalizeDate(factor.value_date)
+          : null,
         value_boolean:
           factor.value_boolean === undefined ? null : factor.value_boolean,
         value_json: factor.value_json ?? null,
@@ -294,7 +345,8 @@ export class QuotationsService {
         item_name: item.item_name,
         rate: this.normalizeRate(item.rate ?? 0),
         amount: this.normalizeMoney(item.amount ?? 0),
-        calculation_base: item.calculation_base ?? QuotationCalculationBase.BASIC_PREMIUM,
+        calculation_base:
+          item.calculation_base ?? QuotationCalculationBase.BASIC_PREMIUM,
         calculation_order: item.calculation_order ?? index + 1,
       }),
     );
@@ -317,63 +369,70 @@ export class QuotationsService {
       dto.product_id,
     );
 
-    return this.dataSource.transaction(async (manager) => {
-      const quotationRepository = manager.getRepository(Quotation);
-      const historyRepository = manager.getRepository(QuotationStatusHistory);
+    return this.dataSource
+      .transaction(async (manager) => {
+        const quotationRepository = manager.getRepository(Quotation);
+        const historyRepository = manager.getRepository(QuotationStatusHistory);
 
-      const quotationNo = await this.generateQuotationNo(companyId, dto.quotation_type);
-      const quotation = quotationRepository.create({
-        company_id: companyId,
-        insurer_company_id: dto.insurer_company_id,
-        intermediary_company_id: dto.intermediary_company_id ?? null,
-        branch_id: dto.branch_id ?? null,
-        department_id: dto.department_id ?? null,
-        created_by: userId,
-        customer_id: dto.customer_id,
-        category_id: dto.category_id,
-        product_id: dto.product_id,
-        sub_class_id: dto.sub_class_id ?? null,
-        quotation_no: quotationNo,
-        quotation_type: dto.quotation_type,
-        channel_type: dto.channel_type,
-        status: dto.status ?? QuotationStatus.DRAFT,
-        currency: dto.currency?.trim().toUpperCase() ?? 'TZS',
-        ...this.buildQuotationTotals(dto),
-        valid_from: this.normalizeDate(dto.valid_from)!,
-        valid_until: this.normalizeDate(dto.valid_until)!,
-        rating_version: this.normalizeText(dto.rating_version),
-        rating_metadata: dto.rating_metadata ?? null,
-        rejection_reason: this.normalizeText(dto.rejection_reason),
+        const quotationNo = await this.generateQuotationNo(
+          companyId,
+          dto.quotation_type,
+        );
+        const quotation = quotationRepository.create({
+          company_id: companyId,
+          insurer_company_id: dto.insurer_company_id,
+          intermediary_company_id: dto.intermediary_company_id ?? null,
+          branch_id: dto.branch_id ?? null,
+          department_id: dto.department_id ?? null,
+          created_by: userId,
+          customer_id: dto.customer_id,
+          category_id: dto.category_id,
+          product_id: dto.product_id,
+          sub_class_id: dto.sub_class_id ?? null,
+          quotation_no: quotationNo,
+          quotation_type: dto.quotation_type,
+          channel_type: dto.channel_type,
+          status: dto.status ?? QuotationStatus.DRAFT,
+          currency: dto.currency?.trim().toUpperCase() ?? 'TZS',
+          ...this.buildQuotationTotals(dto),
+          valid_from: this.normalizeDate(dto.valid_from)!,
+          valid_until: this.normalizeDate(dto.valid_until)!,
+          rating_version: this.normalizeText(dto.rating_version),
+          rating_metadata: dto.rating_metadata ?? null,
+          rejection_reason: this.normalizeText(dto.rejection_reason),
+        });
+
+        const saved = await quotationRepository.save(quotation);
+        await this.replaceQuotationChildren(manager, saved.id, dto);
+
+        return quotationRepository.findOneOrFail({
+          where: { id: saved.id, company_id: companyId },
+          relations: {
+            company: true,
+            insurer_company: true,
+            intermediary_company: true,
+            branch: true,
+            department: true,
+            creator: true,
+            customer: true,
+            category: true,
+            product: true,
+            sub_class: true,
+            risks: true,
+            factor_values: true,
+            premium_breakdowns: true,
+            status_history: true,
+          },
+        });
+      })
+      .catch((error) => {
+        if (this.isDuplicateEntryError(error)) {
+          throw new ConflictException(
+            'A quotation with this number already exists in this company',
+          );
+        }
+        throw error;
       });
-
-      const saved = await quotationRepository.save(quotation);
-      await this.replaceQuotationChildren(manager, saved.id, dto);
-
-      return quotationRepository.findOneOrFail({
-        where: { id: saved.id, company_id: companyId },
-        relations: {
-          company: true,
-          insurer_company: true,
-          intermediary_company: true,
-          branch: true,
-          department: true,
-          creator: true,
-          customer: true,
-          category: true,
-          product: true,
-          sub_class: true,
-          risks: true,
-          factor_values: true,
-          premium_breakdowns: true,
-          status_history: true,
-        },
-      });
-    }).catch((error) => {
-      if (this.isDuplicateEntryError(error)) {
-        throw new ConflictException('A quotation with this number already exists in this company');
-      }
-      throw error;
-    });
   }
 
   async findAll(companyId: string, query: FilterQuotationDto) {
@@ -389,8 +448,17 @@ export class QuotationsService {
       product_id,
     } = query;
 
-    const allowedSortFields = ['quotation_no', 'status', 'created_at', 'updated_at', 'valid_from', 'valid_until'];
-    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'created_at';
+    const allowedSortFields = [
+      'quotation_no',
+      'status',
+      'created_at',
+      'updated_at',
+      'valid_from',
+      'valid_until',
+    ];
+    const safeSortBy = allowedSortFields.includes(sortBy)
+      ? sortBy
+      : 'created_at';
     const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
 
     const qb = this.quotationRepository
@@ -411,9 +479,14 @@ export class QuotationsService {
       );
     }
     if (status) qb.andWhere('quotation.status = :status', { status });
-    if (quotation_type) qb.andWhere('quotation.quotation_type = :quotation_type', { quotation_type });
-    if (customer_id) qb.andWhere('quotation.customer_id = :customer_id', { customer_id });
-    if (product_id) qb.andWhere('quotation.product_id = :product_id', { product_id });
+    if (quotation_type)
+      qb.andWhere('quotation.quotation_type = :quotation_type', {
+        quotation_type,
+      });
+    if (customer_id)
+      qb.andWhere('quotation.customer_id = :customer_id', { customer_id });
+    if (product_id)
+      qb.andWhere('quotation.product_id = :product_id', { product_id });
 
     const skip = (page - 1) * limit;
     const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
@@ -466,7 +539,12 @@ export class QuotationsService {
     const quotation = await this.findOne(companyId, id);
     const merged = { ...quotation, ...dto } as CreateQuotationDto;
     await this.validateScope(companyId, merged);
-    await this.assertQuotationChannelAllowed(companyId, companyType, merged.insurer_company_id, merged.product_id);
+    await this.assertQuotationChannelAllowed(
+      companyId,
+      companyType,
+      merged.insurer_company_id,
+      merged.product_id,
+    );
 
     const oldStatus = quotation.status;
 
@@ -474,32 +552,54 @@ export class QuotationsService {
       const quotationRepo = manager.getRepository(Quotation);
       const historyRepo = manager.getRepository(QuotationStatusHistory);
 
-      if (dto.insurer_company_id !== undefined) quotation.insurer_company_id = dto.insurer_company_id;
+      if (dto.insurer_company_id !== undefined)
+        quotation.insurer_company_id = dto.insurer_company_id;
       if (dto.intermediary_company_id !== undefined)
         quotation.intermediary_company_id = dto.intermediary_company_id ?? null;
-      if (dto.branch_id !== undefined) quotation.branch_id = dto.branch_id ?? null;
-      if (dto.department_id !== undefined) quotation.department_id = dto.department_id ?? null;
-      if (dto.customer_id !== undefined) quotation.customer_id = dto.customer_id;
-      if (dto.category_id !== undefined) quotation.category_id = dto.category_id;
+      if (dto.branch_id !== undefined)
+        quotation.branch_id = dto.branch_id ?? null;
+      if (dto.department_id !== undefined)
+        quotation.department_id = dto.department_id ?? null;
+      if (dto.customer_id !== undefined)
+        quotation.customer_id = dto.customer_id;
+      if (dto.category_id !== undefined)
+        quotation.category_id = dto.category_id;
       if (dto.product_id !== undefined) quotation.product_id = dto.product_id;
-      if (dto.sub_class_id !== undefined) quotation.sub_class_id = dto.sub_class_id ?? null;
-      if (dto.quotation_type !== undefined) quotation.quotation_type = dto.quotation_type;
-      if (dto.channel_type !== undefined) quotation.channel_type = dto.channel_type;
+      if (dto.sub_class_id !== undefined)
+        quotation.sub_class_id = dto.sub_class_id ?? null;
+      if (dto.quotation_type !== undefined)
+        quotation.quotation_type = dto.quotation_type;
+      if (dto.channel_type !== undefined)
+        quotation.channel_type = dto.channel_type;
       if (dto.status !== undefined) quotation.status = dto.status;
-      if (dto.currency !== undefined) quotation.currency = dto.currency.trim().toUpperCase();
-      if (dto.sum_insured !== undefined) quotation.sum_insured = this.normalizeMoney(dto.sum_insured);
-      if (dto.basic_premium !== undefined) quotation.basic_premium = this.normalizeMoney(dto.basic_premium);
-      if (dto.total_discount !== undefined) quotation.total_discount = this.normalizeMoney(dto.total_discount);
-      if (dto.total_tax !== undefined) quotation.total_tax = this.normalizeMoney(dto.total_tax);
-      if (dto.total_charges !== undefined) quotation.total_charges = this.normalizeMoney(dto.total_charges);
-      if (dto.total_commission !== undefined) quotation.total_commission = this.normalizeMoney(dto.total_commission);
-      if (dto.total_premium !== undefined) quotation.total_premium = this.normalizeMoney(dto.total_premium);
-      if (dto.net_premium !== undefined) quotation.net_premium = this.normalizeMoney(dto.net_premium);
-      if (dto.valid_from !== undefined) quotation.valid_from = this.normalizeDate(dto.valid_from)!;
-      if (dto.valid_until !== undefined) quotation.valid_until = this.normalizeDate(dto.valid_until)!;
-      if (dto.rating_version !== undefined) quotation.rating_version = this.normalizeText(dto.rating_version);
-      if (dto.rating_metadata !== undefined) quotation.rating_metadata = dto.rating_metadata ?? null;
-      if (dto.rejection_reason !== undefined) quotation.rejection_reason = this.normalizeText(dto.rejection_reason);
+      if (dto.currency !== undefined)
+        quotation.currency = dto.currency.trim().toUpperCase();
+      if (dto.sum_insured !== undefined)
+        quotation.sum_insured = this.normalizeMoney(dto.sum_insured);
+      if (dto.basic_premium !== undefined)
+        quotation.basic_premium = this.normalizeMoney(dto.basic_premium);
+      if (dto.total_discount !== undefined)
+        quotation.total_discount = this.normalizeMoney(dto.total_discount);
+      if (dto.total_tax !== undefined)
+        quotation.total_tax = this.normalizeMoney(dto.total_tax);
+      if (dto.total_charges !== undefined)
+        quotation.total_charges = this.normalizeMoney(dto.total_charges);
+      if (dto.total_commission !== undefined)
+        quotation.total_commission = this.normalizeMoney(dto.total_commission);
+      if (dto.total_premium !== undefined)
+        quotation.total_premium = this.normalizeMoney(dto.total_premium);
+      if (dto.net_premium !== undefined)
+        quotation.net_premium = this.normalizeMoney(dto.net_premium);
+      if (dto.valid_from !== undefined)
+        quotation.valid_from = this.normalizeDate(dto.valid_from)!;
+      if (dto.valid_until !== undefined)
+        quotation.valid_until = this.normalizeDate(dto.valid_until)!;
+      if (dto.rating_version !== undefined)
+        quotation.rating_version = this.normalizeText(dto.rating_version);
+      if (dto.rating_metadata !== undefined)
+        quotation.rating_metadata = dto.rating_metadata ?? null;
+      if (dto.rejection_reason !== undefined)
+        quotation.rejection_reason = this.normalizeText(dto.rejection_reason);
 
       quotation.created_by = quotation.created_by ?? userId;
 
@@ -545,10 +645,18 @@ export class QuotationsService {
   async remove(companyId: string, id: string): Promise<void> {
     const quotation = await this.findOne(companyId, id);
     await this.dataSource.transaction(async (manager) => {
-      await manager.getRepository(QuotationRisk).softDelete({ quotation_id: quotation.id });
-      await manager.getRepository(QuotationFactorValue).softDelete({ quotation_id: quotation.id });
-      await manager.getRepository(QuotationPremiumBreakdown).softDelete({ quotation_id: quotation.id });
-      await manager.getRepository(QuotationStatusHistory).softDelete({ quotation_id: quotation.id });
+      await manager
+        .getRepository(QuotationRisk)
+        .softDelete({ quotation_id: quotation.id });
+      await manager
+        .getRepository(QuotationFactorValue)
+        .softDelete({ quotation_id: quotation.id });
+      await manager
+        .getRepository(QuotationPremiumBreakdown)
+        .softDelete({ quotation_id: quotation.id });
+      await manager
+        .getRepository(QuotationStatusHistory)
+        .softDelete({ quotation_id: quotation.id });
       await manager.getRepository(Quotation).softDelete(quotation.id);
     });
   }
@@ -562,10 +670,18 @@ export class QuotationsService {
 
     await this.dataSource.transaction(async (manager) => {
       await manager.getRepository(Quotation).restore(quotation.id);
-      await manager.getRepository(QuotationRisk).restore({ quotation_id: quotation.id });
-      await manager.getRepository(QuotationFactorValue).restore({ quotation_id: quotation.id });
-      await manager.getRepository(QuotationPremiumBreakdown).restore({ quotation_id: quotation.id });
-      await manager.getRepository(QuotationStatusHistory).restore({ quotation_id: quotation.id });
+      await manager
+        .getRepository(QuotationRisk)
+        .restore({ quotation_id: quotation.id });
+      await manager
+        .getRepository(QuotationFactorValue)
+        .restore({ quotation_id: quotation.id });
+      await manager
+        .getRepository(QuotationPremiumBreakdown)
+        .restore({ quotation_id: quotation.id });
+      await manager
+        .getRepository(QuotationStatusHistory)
+        .restore({ quotation_id: quotation.id });
     });
 
     return this.findOne(companyId, id);

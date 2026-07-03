@@ -8,4 +8,4 @@
 export const companyFeaturesKeys = {
   all: ['company-features'] as const,
   lists: () => [...companyFeaturesKeys.all, 'list'] as const,
-}
+};

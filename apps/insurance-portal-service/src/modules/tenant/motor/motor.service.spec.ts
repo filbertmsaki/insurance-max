@@ -47,11 +47,20 @@ describe('MotorService â€” tenant isolation on policy details', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MotorService,
-        { provide: getRepositoryToken(MotorVehicle), useValue: motorVehicleRepo },
+        {
+          provide: getRepositoryToken(MotorVehicle),
+          useValue: motorVehicleRepo,
+        },
         { provide: getRepositoryToken(MotorFleet), useValue: mockRepo() },
         { provide: getRepositoryToken(MotorFleetItem), useValue: mockRepo() },
-        { provide: getRepositoryToken(MotorQuotationDetail), useValue: mockRepo() },
-        { provide: getRepositoryToken(MotorPolicyDetail), useValue: motorPolicyDetailRepo },
+        {
+          provide: getRepositoryToken(MotorQuotationDetail),
+          useValue: mockRepo(),
+        },
+        {
+          provide: getRepositoryToken(MotorPolicyDetail),
+          useValue: motorPolicyDetailRepo,
+        },
         { provide: getRepositoryToken(Company), useValue: mockRepo() },
         { provide: getRepositoryToken(Customer), useValue: mockRepo() },
         { provide: getRepositoryToken(Quotation), useValue: mockRepo() },
@@ -66,7 +75,10 @@ describe('MotorService â€” tenant isolation on policy details', () => {
   });
 
   it('rejects createPolicyDetail when the policy belongs to another company', async () => {
-    motorVehicleRepo.findOne.mockResolvedValue({ id: 'vehicle-1', company_id: companyId });
+    motorVehicleRepo.findOne.mockResolvedValue({
+      id: 'vehicle-1',
+      company_id: companyId,
+    });
     // Policy lookup is scoped by company_id in the query itself, so a cross-tenant
     // policy id resolves to no row â€” this must produce a BadRequestException, not a save.
     policyRepo.findOne.mockResolvedValue(null);
@@ -82,8 +94,14 @@ describe('MotorService â€” tenant isolation on policy details', () => {
   });
 
   it('allows createPolicyDetail when the policy belongs to the caller company', async () => {
-    motorVehicleRepo.findOne.mockResolvedValue({ id: 'vehicle-1', company_id: companyId });
-    policyRepo.findOne.mockResolvedValue({ id: 'policy-1', company_id: companyId });
+    motorVehicleRepo.findOne.mockResolvedValue({
+      id: 'vehicle-1',
+      company_id: companyId,
+    });
+    policyRepo.findOne.mockResolvedValue({
+      id: 'policy-1',
+      company_id: companyId,
+    });
 
     await service.createPolicyDetail(companyId, {
       policy_id: 'policy-1',

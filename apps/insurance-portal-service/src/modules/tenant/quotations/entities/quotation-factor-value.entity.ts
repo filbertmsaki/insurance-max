@@ -62,4 +62,3 @@ export class QuotationFactorValue {
   @JoinColumn({ name: 'factor_id' })
   factor: RatingFactor;
 }
-

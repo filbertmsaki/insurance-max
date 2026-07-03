@@ -70,7 +70,11 @@ describe('PoliciesService â€” atomic quotation conversion', () => {
     quotationHistoryRepoInManager = mockRepo();
 
     const policyRepoInManager = mockRepo({
-      save: jest.fn((v: any) => ({ ...v, id: 'policy-1', policy_no: 'POL-DIR-2026-00001' })),
+      save: jest.fn((v: any) => ({
+        ...v,
+        id: 'policy-1',
+        policy_no: 'POL-DIR-2026-00001',
+      })),
     });
     const policyRiskRepoInManager = mockRepo();
     const breakdownRepoInManager = mockRepo();
@@ -91,14 +95,28 @@ describe('PoliciesService â€” atomic quotation conversion', () => {
 
   beforeEach(async () => {
     policyRepo = mockRepo();
-    companyRepo = mockRepo({ findOne: jest.fn().mockResolvedValue({ id: companyId }) });
-    customerRepo = mockRepo({ findOne: jest.fn().mockResolvedValue({ id: 'customer-1' }) });
-    categoryRepo = mockRepo({ findOne: jest.fn().mockResolvedValue({ id: 'category-1' }) });
-    productRepo = mockRepo({ findOne: jest.fn().mockResolvedValue({ id: 'product-1' }) });
-    quotationRepo = mockRepo({ findOne: jest.fn().mockResolvedValue({ id: quotationId, company_id: companyId }) });
+    companyRepo = mockRepo({
+      findOne: jest.fn().mockResolvedValue({ id: companyId }),
+    });
+    customerRepo = mockRepo({
+      findOne: jest.fn().mockResolvedValue({ id: 'customer-1' }),
+    });
+    categoryRepo = mockRepo({
+      findOne: jest.fn().mockResolvedValue({ id: 'category-1' }),
+    });
+    productRepo = mockRepo({
+      findOne: jest.fn().mockResolvedValue({ id: 'product-1' }),
+    });
+    quotationRepo = mockRepo({
+      findOne: jest
+        .fn()
+        .mockResolvedValue({ id: quotationId, company_id: companyId }),
+    });
 
     const dataSourceMock = {
-      transaction: jest.fn(async (cb: any) => cb(buildManagerRepos(QuotationStatus.APPROVED))),
+      transaction: jest.fn(async (cb: any) =>
+        cb(buildManagerRepos(QuotationStatus.APPROVED)),
+      ),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -107,22 +125,43 @@ describe('PoliciesService â€” atomic quotation conversion', () => {
         { provide: DataSource, useValue: dataSourceMock },
         { provide: getRepositoryToken(Policy), useValue: policyRepo },
         { provide: getRepositoryToken(PolicyRisk), useValue: mockRepo() },
-        { provide: getRepositoryToken(PolicyPremiumBreakdown), useValue: mockRepo() },
-        { provide: getRepositoryToken(PolicyStatusHistory), useValue: mockRepo() },
+        {
+          provide: getRepositoryToken(PolicyPremiumBreakdown),
+          useValue: mockRepo(),
+        },
+        {
+          provide: getRepositoryToken(PolicyStatusHistory),
+          useValue: mockRepo(),
+        },
         { provide: getRepositoryToken(Company), useValue: companyRepo },
         { provide: getRepositoryToken(Customer), useValue: customerRepo },
         { provide: getRepositoryToken(Branch), useValue: mockRepo() },
         { provide: getRepositoryToken(Department), useValue: mockRepo() },
-        { provide: getRepositoryToken(InsuranceCategory), useValue: categoryRepo },
-        { provide: getRepositoryToken(InsuranceProduct), useValue: productRepo },
-        { provide: getRepositoryToken(InsuranceSubClass), useValue: mockRepo() },
+        {
+          provide: getRepositoryToken(InsuranceCategory),
+          useValue: categoryRepo,
+        },
+        {
+          provide: getRepositoryToken(InsuranceProduct),
+          useValue: productRepo,
+        },
+        {
+          provide: getRepositoryToken(InsuranceSubClass),
+          useValue: mockRepo(),
+        },
         { provide: getRepositoryToken(Quotation), useValue: quotationRepo },
         { provide: getRepositoryToken(QuotationRisk), useValue: mockRepo() },
         { provide: getRepositoryToken(InsuranceRisk), useValue: mockRepo() },
         { provide: getRepositoryToken(SubjectMatter), useValue: mockRepo() },
         { provide: getRepositoryToken(MotorVehicle), useValue: mockRepo() },
-        { provide: getRepositoryToken(NonMotorQuotationDetail), useValue: mockRepo() },
-        { provide: getRepositoryToken(NonMotorPolicyDetail), useValue: mockRepo() },
+        {
+          provide: getRepositoryToken(NonMotorQuotationDetail),
+          useValue: mockRepo(),
+        },
+        {
+          provide: getRepositoryToken(NonMotorPolicyDetail),
+          useValue: mockRepo(),
+        },
         { provide: getRepositoryToken(User), useValue: mockRepo() },
       ],
     }).compile();
@@ -164,10 +203,14 @@ describe('PoliciesService â€” atomic quotation conversion', () => {
 
   it('refuses to create a policy from a quotation that is already CONVERTED', async () => {
     const dataSourceMock = {
-      transaction: jest.fn(async (cb: any) => cb(buildManagerRepos(QuotationStatus.CONVERTED))),
+      transaction: jest.fn(async (cb: any) =>
+        cb(buildManagerRepos(QuotationStatus.CONVERTED)),
+      ),
     };
     (service as any).dataSource = dataSourceMock;
 
-    await expect(service.create(companyId, baseDto, 'user-1')).rejects.toBeInstanceOf(ConflictException);
+    await expect(
+      service.create(companyId, baseDto, 'user-1'),
+    ).rejects.toBeInstanceOf(ConflictException);
   });
 });

@@ -24,7 +24,8 @@ export const peKeys = {
   products: {
     all: () => ['pe', 'products'] as const,
     lists: (p?: object) => ['pe', 'products', 'list', p ?? {}] as const,
-    allActive: (catId?: string) => ['pe', 'products', 'all', catId ?? ''] as const,
+    allActive: (catId?: string) =>
+      ['pe', 'products', 'all', catId ?? ''] as const,
     detail: (id: string) => ['pe', 'products', 'detail', id] as const,
   },
 
@@ -32,7 +33,8 @@ export const peKeys = {
   subClasses: {
     all: () => ['pe', 'sub-classes'] as const,
     lists: (p?: object) => ['pe', 'sub-classes', 'list', p ?? {}] as const,
-    byProduct: (productId: string) => ['pe', 'sub-classes', 'by-product', productId] as const,
+    byProduct: (productId: string) =>
+      ['pe', 'sub-classes', 'by-product', productId] as const,
   },
 
   // Risks
@@ -59,12 +61,14 @@ export const peKeys = {
 
   // Conditions
   conditions: {
-    byRule: (ruleId: string) => ['pe', 'conditions', 'by-rule', ruleId] as const,
+    byRule: (ruleId: string) =>
+      ['pe', 'conditions', 'by-rule', ruleId] as const,
   },
 
   // Required Factors
   requiredFactors: {
-    byRisk: (riskId: string) => ['pe', 'required-factors', 'by-risk', riskId] as const,
+    byRisk: (riskId: string) =>
+      ['pe', 'required-factors', 'by-risk', riskId] as const,
   },
 
   // Category Access
@@ -85,4 +89,4 @@ export const peKeys = {
   departments: {
     all: () => ['pe', 'departments', 'all'] as const,
   },
-}
+};

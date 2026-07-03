@@ -190,9 +190,7 @@ const COMPANY_FK_ALIGNMENTS: ForeignKeyAlignment[] = [
   },
 ];
 
-export class TenantConstraintAlignment1783000000008
-  implements MigrationInterface
-{
+export class TenantConstraintAlignment1783000000008 implements MigrationInterface {
   name = 'TenantConstraintAlignment1783000000008';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

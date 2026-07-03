@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CompanyAlignmentAndPartners1783000000000
-  implements MigrationInterface
-{
+export class CompanyAlignmentAndPartners1783000000000 implements MigrationInterface {
   name = 'CompanyAlignmentAndPartners1783000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -128,9 +126,15 @@ export class CompanyAlignmentAndPartners1783000000000
       ALTER TABLE "insurance_company_partners"
       DROP CONSTRAINT "FK_insurance_company_partners_insurer_company"
     `);
-    await queryRunner.query(`DROP INDEX "public"."IDX_insurance_partner_insurer"`);
-    await queryRunner.query(`DROP INDEX "public"."IDX_insurance_partner_company"`);
-    await queryRunner.query(`DROP INDEX "public"."UQ_current_agency_one_insurer"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_insurance_partner_insurer"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_insurance_partner_company"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."UQ_current_agency_one_insurer"`,
+    );
     await queryRunner.query(`DROP TABLE "insurance_company_partners"`);
     await queryRunner.query(
       `DROP TYPE "public"."insurance_company_partners_status_enum"`,

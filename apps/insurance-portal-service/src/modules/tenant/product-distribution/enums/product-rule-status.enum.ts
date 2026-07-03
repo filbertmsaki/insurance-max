@@ -4,4 +4,3 @@ export enum ProductRuleStatus {
   SUSPENDED = 'SUSPENDED',
   EXPIRED = 'EXPIRED',
 }
-

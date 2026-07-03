@@ -70,4 +70,3 @@ export class QuotationPremiumBreakdown {
   @JoinColumn({ name: 'quotation_risk_id' })
   quotation_risk: QuotationRisk | null;
 }
-

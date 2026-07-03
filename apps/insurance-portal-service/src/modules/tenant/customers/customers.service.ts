@@ -31,7 +31,10 @@ export class CustomersService {
     const driverError = (
       error as QueryFailedError & { driverError?: { code?: string | number } }
     ).driverError;
-    return driverError?.code === '23505' || String(driverError?.code ?? '') === '1062';
+    return (
+      driverError?.code === '23505' ||
+      String(driverError?.code ?? '') === '1062'
+    );
   }
 
   private normalizeText(value?: string | null): string | null {
@@ -68,16 +71,22 @@ export class CustomersService {
     return date.toISOString().slice(0, 10);
   }
 
-  private mapPolicyHolderType(customerType: CustomerType): CustomerPolicyHolderType {
+  private mapPolicyHolderType(
+    customerType: CustomerType,
+  ): CustomerPolicyHolderType {
     return customerType === CustomerType.INDIVIDUAL
       ? CustomerPolicyHolderType.INDIVIDUAL
       : CustomerPolicyHolderType.CORPORATE;
   }
 
-  private resolveIdNumber(dto: CreateCustomerDto | UpdateCustomerDto): string | null {
+  private resolveIdNumber(
+    dto: CreateCustomerDto | UpdateCustomerDto,
+  ): string | null {
     const fieldName = this.getIdTypeFieldName(dto.customer_type, dto.id_type);
     if (fieldName) {
-      const selected = this.normalizeText((dto as any)[fieldName] as string | undefined);
+      const selected = this.normalizeText(
+        (dto as any)[fieldName] as string | undefined,
+      );
       if (selected) {
         return selected;
       }
@@ -106,7 +115,9 @@ export class CustomersService {
     return null;
   }
 
-  private getIdentityFields(dto: CreateCustomerDto | UpdateCustomerDto): IdentifierMap {
+  private getIdentityFields(
+    dto: CreateCustomerDto | UpdateCustomerDto,
+  ): IdentifierMap {
     return {
       id_number: this.normalizeText(dto.id_number),
       phone: this.normalizePhone(dto.phone),
@@ -119,7 +130,9 @@ export class CustomersService {
       zanid_no: this.normalizeText(dto.zanid_no),
       tin: this.normalizeText(dto.tin),
       registration_no: this.normalizeText(dto.registration_no),
-      incorporation_certificate_no: this.normalizeText(dto.incorporation_certificate_no),
+      incorporation_certificate_no: this.normalizeText(
+        dto.incorporation_certificate_no,
+      ),
     };
   }
 
@@ -169,86 +182,156 @@ export class CustomersService {
       return {};
     }
 
-    const source = this.normalizeText(
-      dto[fieldName] as string | undefined,
-    );
-    return { [fieldName]: source ?? idNumber } as Partial<Customer>;
+    const source = this.normalizeText(dto[fieldName] as string | undefined);
+    return { [fieldName]: source ?? idNumber };
   }
 
-  private applyDtoToCustomer(customer: Customer, dto: CreateCustomerDto | UpdateCustomerDto): void {
-    if (dto.customer_type !== undefined) customer.customer_type = dto.customer_type;
+  private applyDtoToCustomer(
+    customer: Customer,
+    dto: CreateCustomerDto | UpdateCustomerDto,
+  ): void {
+    if (dto.customer_type !== undefined)
+      customer.customer_type = dto.customer_type;
 
-    customer.first_name = dto.first_name !== undefined ? this.normalizeText(dto.first_name) : customer.first_name;
-    customer.middle_name = dto.middle_name !== undefined ? this.normalizeText(dto.middle_name) : customer.middle_name;
-    customer.last_name = dto.last_name !== undefined ? this.normalizeText(dto.last_name) : customer.last_name;
+    customer.first_name =
+      dto.first_name !== undefined
+        ? this.normalizeText(dto.first_name)
+        : customer.first_name;
+    customer.middle_name =
+      dto.middle_name !== undefined
+        ? this.normalizeText(dto.middle_name)
+        : customer.middle_name;
+    customer.last_name =
+      dto.last_name !== undefined
+        ? this.normalizeText(dto.last_name)
+        : customer.last_name;
     customer.gender = dto.gender !== undefined ? dto.gender : customer.gender;
     customer.date_of_birth =
-      dto.date_of_birth !== undefined ? this.normalizeDate(dto.date_of_birth) : customer.date_of_birth;
+      dto.date_of_birth !== undefined
+        ? this.normalizeDate(dto.date_of_birth)
+        : customer.date_of_birth;
     customer.nationality =
-      dto.nationality !== undefined ? this.normalizeText(dto.nationality) : customer.nationality;
+      dto.nationality !== undefined
+        ? this.normalizeText(dto.nationality)
+        : customer.nationality;
     customer.company_name =
-      dto.company_name !== undefined ? this.normalizeText(dto.company_name) : customer.company_name;
+      dto.company_name !== undefined
+        ? this.normalizeText(dto.company_name)
+        : customer.company_name;
     customer.registration_no =
-      dto.registration_no !== undefined ? this.normalizeText(dto.registration_no) : customer.registration_no;
+      dto.registration_no !== undefined
+        ? this.normalizeText(dto.registration_no)
+        : customer.registration_no;
     customer.incorporation_certificate_no =
       dto.incorporation_certificate_no !== undefined
         ? this.normalizeText(dto.incorporation_certificate_no)
         : customer.incorporation_certificate_no;
-    customer.tin = dto.tin !== undefined ? this.normalizeText(dto.tin) : customer.tin;
-    customer.vrn = dto.vrn !== undefined ? this.normalizeText(dto.vrn) : customer.vrn;
+    customer.tin =
+      dto.tin !== undefined ? this.normalizeText(dto.tin) : customer.tin;
+    customer.vrn =
+      dto.vrn !== undefined ? this.normalizeText(dto.vrn) : customer.vrn;
     customer.policy_holder_type =
       dto.customer_type !== undefined
         ? this.mapPolicyHolderType(dto.customer_type)
         : customer.policy_holder_type;
-    customer.id_type = dto.id_type !== undefined ? dto.id_type : customer.id_type;
+    customer.id_type =
+      dto.id_type !== undefined ? dto.id_type : customer.id_type;
     customer.id_number =
       dto.id_number !== undefined
         ? this.normalizeText(dto.id_number)
         : customer.id_number;
-    customer.nida_no = dto.nida_no !== undefined ? this.normalizeText(dto.nida_no) : customer.nida_no;
-    customer.voter_no = dto.voter_no !== undefined ? this.normalizeText(dto.voter_no) : customer.voter_no;
+    customer.nida_no =
+      dto.nida_no !== undefined
+        ? this.normalizeText(dto.nida_no)
+        : customer.nida_no;
+    customer.voter_no =
+      dto.voter_no !== undefined
+        ? this.normalizeText(dto.voter_no)
+        : customer.voter_no;
     customer.passport_no =
-      dto.passport_no !== undefined ? this.normalizeText(dto.passport_no) : customer.passport_no;
+      dto.passport_no !== undefined
+        ? this.normalizeText(dto.passport_no)
+        : customer.passport_no;
     customer.driving_license_no =
       dto.driving_license_no !== undefined
         ? this.normalizeText(dto.driving_license_no)
         : customer.driving_license_no;
-    customer.zanid_no = dto.zanid_no !== undefined ? this.normalizeText(dto.zanid_no) : customer.zanid_no;
-    customer.phone = dto.phone !== undefined ? this.normalizePhone(dto.phone)! : customer.phone;
+    customer.zanid_no =
+      dto.zanid_no !== undefined
+        ? this.normalizeText(dto.zanid_no)
+        : customer.zanid_no;
+    customer.phone =
+      dto.phone !== undefined
+        ? this.normalizePhone(dto.phone)!
+        : customer.phone;
     customer.alternate_phone =
       dto.alternate_phone !== undefined
         ? this.normalizePhone(dto.alternate_phone)
         : customer.alternate_phone;
-    customer.fax = dto.fax !== undefined ? this.normalizePhone(dto.fax) : customer.fax;
-    customer.email = dto.email !== undefined ? this.normalizeEmail(dto.email) : customer.email;
-    customer.country = dto.country !== undefined ? this.normalizeText(dto.country) : customer.country;
+    customer.fax =
+      dto.fax !== undefined ? this.normalizePhone(dto.fax) : customer.fax;
+    customer.email =
+      dto.email !== undefined ? this.normalizeEmail(dto.email) : customer.email;
+    customer.country =
+      dto.country !== undefined
+        ? this.normalizeText(dto.country)
+        : customer.country;
     customer.country_code =
-      dto.country_code !== undefined ? this.normalizeCountryCode(dto.country_code) : customer.country_code;
+      dto.country_code !== undefined
+        ? this.normalizeCountryCode(dto.country_code)
+        : customer.country_code;
     customer.region =
-      dto.region !== undefined ? this.normalizeText(dto.region) ?? customer.region : customer.region;
+      dto.region !== undefined
+        ? (this.normalizeText(dto.region) ?? customer.region)
+        : customer.region;
     customer.district =
-      dto.district !== undefined ? this.normalizeText(dto.district) ?? customer.district : customer.district;
-    customer.ward = dto.ward !== undefined ? this.normalizeText(dto.ward) : customer.ward;
-    customer.street = dto.street !== undefined ? this.normalizeText(dto.street) : customer.street;
+      dto.district !== undefined
+        ? (this.normalizeText(dto.district) ?? customer.district)
+        : customer.district;
+    customer.ward =
+      dto.ward !== undefined ? this.normalizeText(dto.ward) : customer.ward;
+    customer.street =
+      dto.street !== undefined
+        ? this.normalizeText(dto.street)
+        : customer.street;
     customer.postal_address =
-      dto.postal_address !== undefined ? this.normalizeText(dto.postal_address) : customer.postal_address;
+      dto.postal_address !== undefined
+        ? this.normalizeText(dto.postal_address)
+        : customer.postal_address;
     customer.latitude =
-      dto.latitude !== undefined && dto.latitude !== null ? String(dto.latitude) : customer.latitude;
+      dto.latitude !== undefined && dto.latitude !== null
+        ? String(dto.latitude)
+        : customer.latitude;
     customer.longitude =
-      dto.longitude !== undefined && dto.longitude !== null ? String(dto.longitude) : customer.longitude;
+      dto.longitude !== undefined && dto.longitude !== null
+        ? String(dto.longitude)
+        : customer.longitude;
     customer.contact_name =
-      dto.contact_name !== undefined ? this.normalizeText(dto.contact_name) : customer.contact_name;
+      dto.contact_name !== undefined
+        ? this.normalizeText(dto.contact_name)
+        : customer.contact_name;
     customer.contact_role =
-      dto.contact_role !== undefined ? this.normalizeText(dto.contact_role) : customer.contact_role;
+      dto.contact_role !== undefined
+        ? this.normalizeText(dto.contact_role)
+        : customer.contact_role;
     customer.contact_phone =
-      dto.contact_phone !== undefined ? this.normalizePhone(dto.contact_phone) : customer.contact_phone;
+      dto.contact_phone !== undefined
+        ? this.normalizePhone(dto.contact_phone)
+        : customer.contact_phone;
     customer.contact_email =
-      dto.contact_email !== undefined ? this.normalizeEmail(dto.contact_email) : customer.contact_email;
-    customer.kyc_status = dto.kyc_status !== undefined ? dto.kyc_status : customer.kyc_status;
+      dto.contact_email !== undefined
+        ? this.normalizeEmail(dto.contact_email)
+        : customer.contact_email;
+    customer.kyc_status =
+      dto.kyc_status !== undefined ? dto.kyc_status : customer.kyc_status;
     customer.document_type =
-      dto.document_type !== undefined ? dto.document_type : customer.document_type;
+      dto.document_type !== undefined
+        ? dto.document_type
+        : customer.document_type;
     customer.document_no =
-      dto.document_no !== undefined ? this.normalizeText(dto.document_no) : customer.document_no;
+      dto.document_no !== undefined
+        ? this.normalizeText(dto.document_no)
+        : customer.document_no;
     customer.document_file_name =
       dto.document_file_name !== undefined
         ? this.normalizeText(dto.document_file_name)
@@ -262,9 +345,13 @@ export class CustomersService {
         ? this.normalizeText(dto.document_mime_type)
         : customer.document_mime_type;
     customer.document_verified =
-      dto.document_verified !== undefined ? dto.document_verified : customer.document_verified;
+      dto.document_verified !== undefined
+        ? dto.document_verified
+        : customer.document_verified;
     customer.document_verified_by =
-      dto.document_verified_by !== undefined ? dto.document_verified_by : customer.document_verified_by;
+      dto.document_verified_by !== undefined
+        ? dto.document_verified_by
+        : customer.document_verified_by;
     customer.document_verified_at =
       dto.document_verified_at !== undefined
         ? this.normalizeDate(dto.document_verified_at)
@@ -272,10 +359,13 @@ export class CustomersService {
           : null
         : customer.document_verified_at;
     customer.status = dto.status !== undefined ? dto.status : customer.status;
-    customer.metadata = dto.metadata !== undefined ? dto.metadata ?? null : customer.metadata;
+    customer.metadata =
+      dto.metadata !== undefined ? (dto.metadata ?? null) : customer.metadata;
   }
 
-  private assertCustomerRules(dto: CreateCustomerDto | UpdateCustomerDto): void {
+  private assertCustomerRules(
+    dto: CreateCustomerDto | UpdateCustomerDto,
+  ): void {
     if (dto.customer_type === CustomerType.INDIVIDUAL) {
       const missing: string[] = [];
       if (!this.normalizeText(dto.first_name)) missing.push('first_name');
@@ -312,14 +402,20 @@ export class CustomersService {
     }
   }
 
-  private assertIdTypeConsistency(dto: CreateCustomerDto | UpdateCustomerDto): void {
+  private assertIdTypeConsistency(
+    dto: CreateCustomerDto | UpdateCustomerDto,
+  ): void {
     const normalizedIdNumber = this.resolveIdNumber(dto);
     if (!normalizedIdNumber) {
-      throw new BadRequestException('id_number or a specific identification number must be provided');
+      throw new BadRequestException(
+        'id_number or a specific identification number must be provided',
+      );
     }
     const fieldName = this.getIdTypeFieldName(dto.customer_type, dto.id_type);
     if (!fieldName) {
-      throw new BadRequestException('id_type is not valid for the selected customer type');
+      throw new BadRequestException(
+        'id_type is not valid for the selected customer type',
+      );
     }
 
     const sourceValue = this.normalizeText(
@@ -327,11 +423,19 @@ export class CustomersService {
     );
 
     if (dto.customer_type === CustomerType.CORPORATE && !sourceValue) {
-      throw new BadRequestException(`${fieldName} is required for the selected id_type`);
+      throw new BadRequestException(
+        `${fieldName} is required for the selected id_type`,
+      );
     }
 
-    if (dto.customer_type === CustomerType.INDIVIDUAL && !sourceValue && !normalizedIdNumber) {
-      throw new BadRequestException(`${fieldName} is required for the selected id_type`);
+    if (
+      dto.customer_type === CustomerType.INDIVIDUAL &&
+      !sourceValue &&
+      !normalizedIdNumber
+    ) {
+      throw new BadRequestException(
+        `${fieldName} is required for the selected id_type`,
+      );
     }
   }
 
@@ -383,7 +487,9 @@ export class CustomersService {
 
     const existing = await qb.getOne();
     if (existing) {
-      throw new ConflictException('A customer with the same identifier already exists in this company');
+      throw new ConflictException(
+        'A customer with the same identifier already exists in this company',
+      );
     }
   }
 
@@ -392,13 +498,20 @@ export class CustomersService {
     return `CUST-${year}-`;
   }
 
-  async create(companyId: string, dto: CreateCustomerDto, userId: string): Promise<Customer> {
+  async create(
+    companyId: string,
+    dto: CreateCustomerDto,
+    userId: string,
+  ): Promise<Customer> {
     this.assertCustomerRules(dto);
     this.assertIdTypeConsistency(dto);
 
     const customerNo = await this.generateCustomerNo(companyId);
     const identifiers = this.getIdentityFields(dto);
-    await this.assertUniqueIdentifiers(companyId, { ...identifiers, customer_no: customerNo });
+    await this.assertUniqueIdentifiers(companyId, {
+      ...identifiers,
+      customer_no: customerNo,
+    });
     const normalizedIdNumber = this.resolveIdNumber(dto);
     const identityFieldPatch = this.syncIdentityField(
       dto.customer_type,
@@ -419,7 +532,9 @@ export class CustomersService {
       nationality: this.normalizeText(dto.nationality),
       company_name: this.normalizeText(dto.company_name),
       registration_no: this.normalizeText(dto.registration_no),
-      incorporation_certificate_no: this.normalizeText(dto.incorporation_certificate_no),
+      incorporation_certificate_no: this.normalizeText(
+        dto.incorporation_certificate_no,
+      ),
       tin: this.normalizeText(dto.tin),
       vrn: this.normalizeText(dto.vrn),
       policy_holder_type: this.mapPolicyHolderType(dto.customer_type),
@@ -440,8 +555,14 @@ export class CustomersService {
       ward: this.normalizeText(dto.ward),
       street: this.normalizeText(dto.street),
       postal_address: this.normalizeText(dto.postal_address),
-      latitude: dto.latitude !== undefined && dto.latitude !== null ? String(dto.latitude) : null,
-      longitude: dto.longitude !== undefined && dto.longitude !== null ? String(dto.longitude) : null,
+      latitude:
+        dto.latitude !== undefined && dto.latitude !== null
+          ? String(dto.latitude)
+          : null,
+      longitude:
+        dto.longitude !== undefined && dto.longitude !== null
+          ? String(dto.longitude)
+          : null,
       contact_name: this.normalizeText(dto.contact_name),
       contact_role: this.normalizeText(dto.contact_role),
       contact_phone: this.normalizePhone(dto.contact_phone),
@@ -454,7 +575,9 @@ export class CustomersService {
       document_mime_type: this.normalizeText(dto.document_mime_type),
       document_verified: dto.document_verified ?? false,
       document_verified_by: dto.document_verified_by ?? null,
-      document_verified_at: dto.document_verified_at ? new Date(dto.document_verified_at) : null,
+      document_verified_at: dto.document_verified_at
+        ? new Date(dto.document_verified_at)
+        : null,
       status: dto.status ?? CustomerStatus.ACTIVE,
       metadata: dto.metadata ?? null,
       created_by: userId,
@@ -466,7 +589,9 @@ export class CustomersService {
       return await this.customerRepository.save(customer);
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
-        throw new ConflictException('A customer with this identifier already exists in this company');
+        throw new ConflictException(
+          'A customer with this identifier already exists in this company',
+        );
       }
       throw error;
     }
@@ -484,8 +609,18 @@ export class CustomersService {
       kyc_status,
     } = query;
 
-    const allowedSortFields = ['customer_no', 'first_name', 'last_name', 'company_name', 'status', 'created_at', 'updated_at'];
-    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'created_at';
+    const allowedSortFields = [
+      'customer_no',
+      'first_name',
+      'last_name',
+      'company_name',
+      'status',
+      'created_at',
+      'updated_at',
+    ];
+    const safeSortBy = allowedSortFields.includes(sortBy)
+      ? sortBy
+      : 'created_at';
     const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
 
     const qb = this.customerRepository
@@ -501,9 +636,11 @@ export class CustomersService {
       );
     }
 
-    if (customer_type) qb.andWhere('customer.customer_type = :customer_type', { customer_type });
+    if (customer_type)
+      qb.andWhere('customer.customer_type = :customer_type', { customer_type });
     if (status) qb.andWhere('customer.status = :status', { status });
-    if (kyc_status) qb.andWhere('customer.kyc_status = :kyc_status', { kyc_status });
+    if (kyc_status)
+      qb.andWhere('customer.kyc_status = :kyc_status', { kyc_status });
 
     const skip = (page - 1) * limit;
     const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
@@ -530,9 +667,14 @@ export class CustomersService {
     return customer;
   }
 
-  async update(companyId: string, id: string, dto: UpdateCustomerDto, userId: string): Promise<Customer> {
+  async update(
+    companyId: string,
+    id: string,
+    dto: UpdateCustomerDto,
+    userId: string,
+  ): Promise<Customer> {
     const customer = await this.findOne(companyId, id);
-    const updatedPreview = { ...customer } as Customer;
+    const updatedPreview = { ...customer };
     this.applyDtoToCustomer(updatedPreview, dto);
     const merged = { ...updatedPreview, ...dto } as CreateCustomerDto;
     this.assertCustomerRules(merged);
@@ -560,7 +702,9 @@ export class CustomersService {
       return await this.customerRepository.save(customer);
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
-        throw new ConflictException('A customer with this identifier already exists in this company');
+        throw new ConflictException(
+          'A customer with this identifier already exists in this company',
+        );
       }
       throw error;
     }
@@ -589,8 +733,10 @@ export class CustomersService {
   toPolicyHolderPayload(customer: Customer) {
     const policyHolderName =
       customer.customer_type === CustomerType.INDIVIDUAL
-        ? [customer.first_name, customer.middle_name, customer.last_name].filter(Boolean).join(' ')
-        : customer.company_name ?? '';
+        ? [customer.first_name, customer.middle_name, customer.last_name]
+            .filter(Boolean)
+            .join(' ')
+        : (customer.company_name ?? '');
 
     return {
       PolicyHolderName: policyHolderName,

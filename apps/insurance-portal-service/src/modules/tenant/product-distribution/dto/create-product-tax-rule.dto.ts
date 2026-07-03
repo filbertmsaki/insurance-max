@@ -1,4 +1,11 @@
-import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 import { ProductCalculationBase } from '../enums/product-calculation-base.enum';
 import { ProductRuleStatus } from '../enums/product-rule-status.enum';
 import { ProductTaxType } from '../enums/product-tax-type.enum';

@@ -1,11 +1,11 @@
-import { apiClient } from '@/modules/shared/api/client'
+import { apiClient } from '@/modules/shared/api/client';
 import type {
   InsuranceSubClass,
   CreateSubClassDto,
   UpdateSubClassDto,
   SubClassQueryParams,
   PEPage,
-} from '@/types/product-engine'
+} from '@/types/product-engine';
 
 export const subClassesApi = {
   getList: (params?: SubClassQueryParams) =>
@@ -14,7 +14,9 @@ export const subClassesApi = {
       .then((r) => r.data),
 
   create: (data: CreateSubClassDto) =>
-    apiClient.post<InsuranceSubClass>('/insurance-sub-classes', data).then((r) => r.data),
+    apiClient
+      .post<InsuranceSubClass>('/insurance-sub-classes', data)
+      .then((r) => r.data),
 
   update: (id: string, data: UpdateSubClassDto) =>
     apiClient
@@ -30,4 +32,4 @@ export const subClassesApi = {
         params: { limit: 100, is_active: true, product_id },
       })
       .then((r) => r.data.data),
-}
+};

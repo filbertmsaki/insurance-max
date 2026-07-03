@@ -1,22 +1,22 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type {
   AuthSessionCompany,
   AuthUser,
   CompanyMembership,
   LoginResponse,
   UserProfile,
-} from '@/types'
+} from '@/types';
 
 function decodeJwt(token: string): AuthUser | null {
   try {
-    const payload = token.split('.')[1]
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const payload = token.split('.')[1];
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
     const padded = normalized.padEnd(
       normalized.length + ((4 - (normalized.length % 4)) % 4),
       '=',
-    )
-    const decoded = JSON.parse(atob(padded))
+    );
+    const decoded = JSON.parse(atob(padded));
     return {
       id: decoded.sub ?? decoded.id,
       email: decoded.email,
@@ -28,45 +28,58 @@ function decodeJwt(token: string): AuthUser | null {
       companyMembershipId: decoded.membershipId ?? decoded.companyMembershipId,
       roles: decoded.roles ?? [],
       permissions: decoded.permissions ?? [],
-    }
+    };
   } catch {
-    return null
+    return null;
   }
 }
 
 function toCompany(
-  company: UserProfile['current_company'] | LoginResponse['company'] | null | undefined,
+  company:
+    | UserProfile['current_company']
+    | LoginResponse['company']
+    | null
+    | undefined,
 ): AuthSessionCompany | null {
-  if (!company) return null
+  if (!company) return null;
   return {
     id: company.id,
     name: company.name,
     slug: company.slug,
-  }
+  };
 }
 
 interface AuthState {
-  accessToken: string | null
-  refreshToken: string | null
+  accessToken: string | null;
+  refreshToken: string | null;
   /** Decoded JWT claims â€” used for permission/role checks */
-  user: AuthUser | null
+  user: AuthUser | null;
   /** Active company resolved by the backend during login/switch */
-  company: AuthSessionCompany | null
+  company: AuthSessionCompany | null;
   /** All active company memberships returned by the backend */
-  companies: CompanyMembership[]
+  companies: CompanyMembership[];
   /** Full profile from login response or /users/me */
-  profile: UserProfile | null
+  profile: UserProfile | null;
   /** Temporary token during 2FA flow */
-  tempToken: string | null
+  tempToken: string | null;
 
-  setSession: (session: Pick<LoginResponse, 'access_token' | 'refresh_token' | 'company' | 'companies'>) => void
-  setTokens: (access: string, refresh: string) => void
-  setTokensWithProfile: (access: string, refresh: string, profile: UserProfile) => void
-  setTempToken: (token: string) => void
-  setProfile: (profile: UserProfile | null) => void
-  logout: () => void
-  hasPermission: (permission: string) => boolean
-  hasRole: (role: string) => boolean
+  setSession: (
+    session: Pick<
+      LoginResponse,
+      'access_token' | 'refresh_token' | 'company' | 'companies'
+    >,
+  ) => void;
+  setTokens: (access: string, refresh: string) => void;
+  setTokensWithProfile: (
+    access: string,
+    refresh: string,
+    profile: UserProfile,
+  ) => void;
+  setTempToken: (token: string) => void;
+  setProfile: (profile: UserProfile | null) => void;
+  logout: () => void;
+  hasPermission: (permission: string) => boolean;
+  hasRole: (role: string) => boolean;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -81,7 +94,7 @@ export const useAuthStore = create<AuthState>()(
       tempToken: null,
 
       setSession: (session) => {
-        const user = decodeJwt(session.access_token)
+        const user = decodeJwt(session.access_token);
         set({
           accessToken: session.access_token,
           refreshToken: session.refresh_token,
@@ -89,11 +102,11 @@ export const useAuthStore = create<AuthState>()(
           company: session.company ?? null,
           companies: session.companies ?? [],
           tempToken: null,
-        })
+        });
       },
 
       setTokens: (access, refresh) => {
-        const user = decodeJwt(access)
+        const user = decodeJwt(access);
         set((state) => ({
           accessToken: access,
           refreshToken: refresh,
@@ -101,11 +114,11 @@ export const useAuthStore = create<AuthState>()(
           company: state.company,
           companies: state.companies,
           tempToken: null,
-        }))
+        }));
       },
 
       setTokensWithProfile: (access, refresh, profile) => {
-        const user = decodeJwt(access)
+        const user = decodeJwt(access);
         set((state) => ({
           accessToken: access,
           refreshToken: refresh,
@@ -114,7 +127,7 @@ export const useAuthStore = create<AuthState>()(
           company: toCompany(profile.current_company) ?? state.company,
           companies: profile.companies ?? state.companies,
           tempToken: null,
-        }))
+        }));
       },
 
       setTempToken: (token) => set({ tempToken: token }),
@@ -122,7 +135,9 @@ export const useAuthStore = create<AuthState>()(
       setProfile: (profile) =>
         set((state) => ({
           profile,
-          company: profile ? toCompany(profile.current_company) ?? state.company : null,
+          company: profile
+            ? (toCompany(profile.current_company) ?? state.company)
+            : null,
           companies: profile?.companies ?? (profile ? state.companies : []),
         })),
 
@@ -137,7 +152,8 @@ export const useAuthStore = create<AuthState>()(
           tempToken: null,
         }),
 
-      hasPermission: (permission) => get().user?.permissions?.includes(permission) ?? false,
+      hasPermission: (permission) =>
+        get().user?.permissions?.includes(permission) ?? false,
 
       hasRole: (role) => get().user?.roles?.includes(role) ?? false,
     }),
@@ -154,4 +170,4 @@ export const useAuthStore = create<AuthState>()(
       }),
     },
   ),
-)
+);

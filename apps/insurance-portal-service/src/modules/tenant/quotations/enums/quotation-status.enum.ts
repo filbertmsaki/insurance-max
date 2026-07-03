@@ -9,4 +9,3 @@ export enum QuotationStatus {
   EXPIRED = 'EXPIRED',
   CANCELLED = 'CANCELLED',
 }
-

@@ -10,4 +10,3 @@ export enum CustomerDocumentType {
   INCORPORATION_CERTIFICATE = 'INCORPORATION_CERTIFICATE',
   OTHER = 'OTHER',
 }
-

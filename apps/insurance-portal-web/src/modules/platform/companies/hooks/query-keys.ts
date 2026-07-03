@@ -16,4 +16,4 @@ export const companiesKeys = {
   detail: (id: string) => [...companiesKeys.details(), id] as const,
 
   myCompany: () => [...companiesKeys.all, 'my'] as const,
-}
+};

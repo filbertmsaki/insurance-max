@@ -1,9 +1,9 @@
-import { apiClient } from '@/modules/shared/api/client'
+import { apiClient } from '@/modules/shared/api/client';
 import type {
   RiskRuleCondition,
   CreateConditionDto,
   UpdateConditionDto,
-} from '@/types/product-engine'
+} from '@/types/product-engine';
 
 export const ruleConditionsApi = {
   getByRule: (ruleId: string) =>
@@ -12,7 +12,9 @@ export const ruleConditionsApi = {
       .then((r) => r.data),
 
   create: (data: CreateConditionDto) =>
-    apiClient.post<RiskRuleCondition>('/risk-rule-conditions', data).then((r) => r.data),
+    apiClient
+      .post<RiskRuleCondition>('/risk-rule-conditions', data)
+      .then((r) => r.data),
 
   update: (id: string, data: UpdateConditionDto) =>
     apiClient
@@ -21,4 +23,4 @@ export const ruleConditionsApi = {
 
   delete: (id: string) =>
     apiClient.delete(`/risk-rule-conditions/${id}`).then((r) => r.data),
-}
+};

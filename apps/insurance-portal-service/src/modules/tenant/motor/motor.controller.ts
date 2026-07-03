@@ -39,7 +39,10 @@ export class MotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('motor:read')
   @ApiOperation({ summary: 'List motor vehicles for the current company' })
-  listVehicles(@CurrentUser() user: AuthenticatedUser, @Query() query: FilterMotorDto) {
+  listVehicles(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FilterMotorDto,
+  ) {
     return this.motorService.listVehicles(user.companyId!, query);
   }
 
@@ -47,7 +50,10 @@ export class MotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('motor:create')
   @ApiOperation({ summary: 'Create a motor vehicle' })
-  createVehicle(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateMotorVehicleDto) {
+  createVehicle(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateMotorVehicleDto,
+  ) {
     return this.motorService.createVehicle(user.companyId!, dto, user.id);
   }
 
@@ -55,7 +61,10 @@ export class MotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('motor:read')
   @ApiOperation({ summary: 'Get a motor vehicle by ID' })
-  findVehicle(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  findVehicle(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.motorService.findVehicle(user.companyId!, id);
   }
 
@@ -75,7 +84,10 @@ export class MotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('motor:delete')
   @ApiOperation({ summary: 'Soft-delete a motor vehicle' })
-  async removeVehicle(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  async removeVehicle(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     await this.motorService.removeVehicle(user.companyId!, id);
     return { message: 'Motor vehicle deleted successfully' };
   }
@@ -84,7 +96,10 @@ export class MotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('motor:read')
   @ApiOperation({ summary: 'List motor fleets for the current company' })
-  listFleets(@CurrentUser() user: AuthenticatedUser, @Query() query: FilterMotorDto) {
+  listFleets(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: FilterMotorDto,
+  ) {
     return this.motorService.listFleets(user.companyId!, query);
   }
 
@@ -92,7 +107,10 @@ export class MotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('motor:create')
   @ApiOperation({ summary: 'Create a motor fleet' })
-  createFleet(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateMotorFleetDto) {
+  createFleet(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateMotorFleetDto,
+  ) {
     return this.motorService.createFleet(user.companyId!, dto);
   }
 
@@ -100,7 +118,10 @@ export class MotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('motor:read')
   @ApiOperation({ summary: 'Get a motor fleet by ID' })
-  findFleet(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  findFleet(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.motorService.findFleet(user.companyId!, id);
   }
 
@@ -120,7 +141,10 @@ export class MotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('motor:delete')
   @ApiOperation({ summary: 'Soft-delete a motor fleet' })
-  async removeFleet(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  async removeFleet(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     await this.motorService.removeFleet(user.companyId!, id);
     return { message: 'Motor fleet deleted successfully' };
   }
@@ -129,7 +153,10 @@ export class MotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('motor:read')
   @ApiOperation({ summary: 'List motor quotation details' })
-  listQuotationDetails(@CurrentUser() user: AuthenticatedUser, @Query('quotation_id') quotationId?: string) {
+  listQuotationDetails(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('quotation_id') quotationId?: string,
+  ) {
     return this.motorService.listQuotationDetails(user.companyId!, quotationId);
   }
 
@@ -148,7 +175,10 @@ export class MotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('motor:read')
   @ApiOperation({ summary: 'Get a motor quotation detail by ID' })
-  findQuotationDetail(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  findQuotationDetail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.motorService.findQuotationDetail(user.companyId!, id);
   }
 
@@ -168,7 +198,10 @@ export class MotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('motor:delete')
   @ApiOperation({ summary: 'Delete a motor quotation detail' })
-  async removeQuotationDetail(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  async removeQuotationDetail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     await this.motorService.removeQuotationDetail(user.companyId!, id);
     return { message: 'Motor quotation detail deleted successfully' };
   }
@@ -177,7 +210,10 @@ export class MotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('motor:update')
   @ApiOperation({ summary: 'Restore a soft-deleted motor quotation detail' })
-  async restoreQuotationDetail(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  async restoreQuotationDetail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     await this.motorService.restoreQuotationDetail(user.companyId!, id);
     return { message: 'Motor quotation detail restored successfully' };
   }
@@ -186,7 +222,10 @@ export class MotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('motor:read')
   @ApiOperation({ summary: 'List motor policy details' })
-  listPolicyDetails(@CurrentUser() user: AuthenticatedUser, @Query('policy_id') policyId?: string) {
+  listPolicyDetails(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('policy_id') policyId?: string,
+  ) {
     return this.motorService.listPolicyDetails(user.companyId!, policyId);
   }
 
@@ -205,7 +244,10 @@ export class MotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('motor:read')
   @ApiOperation({ summary: 'Get a motor policy detail by ID' })
-  findPolicyDetail(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  findPolicyDetail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.motorService.findPolicyDetail(user.companyId!, id);
   }
 
@@ -225,7 +267,10 @@ export class MotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('motor:delete')
   @ApiOperation({ summary: 'Delete a motor policy detail' })
-  async removePolicyDetail(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  async removePolicyDetail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     await this.motorService.removePolicyDetail(user.companyId!, id);
     return { message: 'Motor policy detail deleted successfully' };
   }
@@ -234,7 +279,10 @@ export class MotorController {
   @UseGuards(PermissionsGuard)
   @Permissions('motor:update')
   @ApiOperation({ summary: 'Restore a soft-deleted motor policy detail' })
-  async restorePolicyDetail(@CurrentUser() user: AuthenticatedUser, @Param('id', ParseUUIDPipe) id: string) {
+  async restorePolicyDetail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     await this.motorService.restorePolicyDetail(user.companyId!, id);
     return { message: 'Motor policy detail restored successfully' };
   }

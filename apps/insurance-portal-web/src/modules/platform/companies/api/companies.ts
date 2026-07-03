@@ -1,42 +1,47 @@
-import { apiClient } from '@/modules/shared/api/client'
-import type { Company, CompanyAddress, CompanySettings, PaginatedResponse } from '@/types'
+import { apiClient } from '@/modules/shared/api/client';
+import type {
+  Company,
+  CompanyAddress,
+  CompanySettings,
+  PaginatedResponse,
+} from '@/types';
 
 // ─── DTOs ─────────────────────────────────────────────────────────────────────
 
 export interface CreateCompanyDto {
-  company_name: string
-  company_slug?: string
-  admin_first_name: string
-  admin_last_name: string
-  admin_email: string
-  admin_phone: string
-  admin_password: string
+  company_name: string;
+  company_slug?: string;
+  admin_first_name: string;
+  admin_last_name: string;
+  admin_email: string;
+  admin_phone: string;
+  admin_password: string;
 }
 
 /** Extended create payload accepted by the frontend only.
  *  Profile fields are applied via a follow-up PATCH after the company is created,
  *  because the backend /companies endpoint accepts only the core + admin fields. */
 export interface CreateCompanyExtendedDto extends CreateCompanyDto {
-  contact_email?: string
-  contact_phone?: string
-  website?: string
-  logo_url?: string
-  address?: CompanyAddress
-  settings?: CompanySettings
+  contact_email?: string;
+  contact_phone?: string;
+  website?: string;
+  logo_url?: string;
+  address?: CompanyAddress;
+  settings?: CompanySettings;
 }
 
 export interface UpdateCompanyDto {
-  name?: string
-  contact_email?: string
-  contact_phone?: string
-  website?: string
-  logo_url?: string
-  address?: CompanyAddress
-  settings?: CompanySettings
+  name?: string;
+  contact_email?: string;
+  contact_phone?: string;
+  website?: string;
+  logo_url?: string;
+  address?: CompanyAddress;
+  settings?: CompanySettings;
 }
 
 export interface UpdateCompanyStatusDto {
-  status: 'active' | 'inactive'
+  status: 'active' | 'inactive';
 }
 
 // ─── API ──────────────────────────────────────────────────────────────────────
@@ -68,10 +73,11 @@ export const companiesApi = {
 
   /** PATCH /companies/:id/status — Owner only */
   setCompanyStatus: (id: string, status: 'active' | 'inactive') =>
-    apiClient.patch<Company>(`/companies/${id}/status`, { status }).then((r) => r.data),
+    apiClient
+      .patch<Company>(`/companies/${id}/status`, { status })
+      .then((r) => r.data),
 
   /** DELETE /companies/:id — Owner only */
   deleteCompany: (id: string) =>
     apiClient.delete(`/companies/${id}`).then((r) => r.data),
-}
-
+};
