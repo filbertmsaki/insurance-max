@@ -1,6 +1,8 @@
 import { Type } from 'class-transformer';
 import {
+  IsDateString,
   IsEmail,
+  IsEnum,
   IsIn,
   IsObject,
   IsOptional,
@@ -10,6 +12,7 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
+import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import { CompanyAddressDto } from './company-address.dto';
 
 export class UpdateCompanyDto {
@@ -17,6 +20,38 @@ export class UpdateCompanyDto {
   @IsString()
   @MaxLength(120)
   name?: string;
+
+  @IsOptional()
+  @IsEnum(CompanyType)
+  company_type?: CompanyType;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  tira_license_number?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  tira_license_status?: string;
+
+  @IsOptional()
+  @IsDateString()
+  license_issued_at?: string;
+
+  @IsOptional()
+  @IsDateString()
+  license_expires_at?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  tin?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  brela_registration_number?: string;
 
   @IsOptional()
   @IsEmail()

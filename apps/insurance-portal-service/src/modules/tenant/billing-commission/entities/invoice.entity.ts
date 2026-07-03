@@ -1,0 +1,144 @@
+import {
+  Column,
+  CreateDateColumn,
+  DeleteDateColumn,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
+import { Company } from '../../../platform/companies/entities/company.entity';
+import { Customer } from '../../customers/entities/customer.entity';
+import { Policy } from '../../policies/entities/policy.entity';
+import { Quotation } from '../../quotations/entities/quotation.entity';
+import { User } from '../../users/entities/user.entity';
+import { InvoiceItem } from './invoice-item.entity';
+
+@Entity('invoices')
+@Index('IDX_invoices_company_id', ['company_id'])
+@Index('IDX_invoices_company_status', ['company_id', 'status'])
+@Index('IDX_invoices_company_customer_id', ['company_id', 'customer_id'])
+@Index('IDX_invoices_company_invoice_no', ['company_id', 'invoice_no'], {
+  unique: true,
+  where: 'deleted_at IS NULL',
+})
+export class Invoice {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ type: 'uuid' })
+  company_id: string;
+
+  @Column({ type: 'uuid' })
+  insurer_company_id: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  intermediary_company_id: string | null;
+
+  @Column({ type: 'uuid' })
+  customer_id: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  quotation_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  policy_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  endorsement_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  cancellation_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  renewal_id: string | null;
+
+  @Column({ type: 'varchar', length: 50 })
+  invoice_no: string;
+
+  @Column({ type: 'varchar', length: 30 })
+  invoice_type: string;
+
+  @Column({ type: 'varchar', length: 10, default: 'TZS' })
+  currency: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  gross_amount: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  discount_amount: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  tax_amount: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  charges_amount: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  total_amount: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  paid_amount: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  balance_amount: string;
+
+  @Column({ type: 'varchar', length: 20, default: 'DRAFT' })
+  status: string;
+
+  @Column({ type: 'date', nullable: true })
+  due_date: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  created_by: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  updated_by: string | null;
+
+  @CreateDateColumn({ type: 'timestamptz' })
+  created_at: Date;
+
+  @UpdateDateColumn({ type: 'timestamptz' })
+  updated_at: Date;
+
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+  deleted_at: Date | null;
+
+  @ManyToOne(() => Company, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'company_id' })
+  company: Company;
+
+  @ManyToOne(() => Company, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'insurer_company_id' })
+  insurer_company: Company;
+
+  @ManyToOne(() => Company, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'intermediary_company_id' })
+  intermediary_company: Company | null;
+
+  @ManyToOne(() => Customer, { onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'customer_id' })
+  customer: Customer;
+
+  @ManyToOne(() => Quotation, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'quotation_id' })
+  quotation: Quotation | null;
+
+  @ManyToOne(() => Policy, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'policy_id' })
+  policy: Policy | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'created_by' })
+  creator: User | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'updated_by' })
+  updater: User | null;
+
+  @OneToMany(() => InvoiceItem, (item) => item.invoice)
+  items: InvoiceItem[];
+}

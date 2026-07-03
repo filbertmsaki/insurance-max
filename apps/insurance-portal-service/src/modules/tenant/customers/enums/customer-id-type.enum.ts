@@ -1,0 +1,10 @@
+export enum CustomerIdType {
+  NIN = 1,
+  VOTERS_REGISTRATION = 2,
+  PASSPORT = 3,
+  DRIVING_LICENSE = 4,
+  ZANID = 5,
+  TIN = 6,
+  INCORPORATION_CERTIFICATE = 7,
+}
+

@@ -1,3 +1,5 @@
+import { CompanyType } from '../enums/company-type.enum';
+
 export type AuthScope = 'platform' | 'company';
 
 export type UserType =
@@ -28,6 +30,7 @@ export interface AuthenticatedUser {
   companyId?: string;
   companyName?: string;
   companySlug?: string;
+  companyType?: CompanyType;
   companyMembershipId?: string;
   roles: string[];
   permissions: string[];

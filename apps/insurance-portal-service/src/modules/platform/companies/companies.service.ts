@@ -6,16 +6,15 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { hashPassword } from '@insurance-max/portal-shared/utils/hash.util';
-import { Role } from '../roles/entities/role.entity';
 import {
   PaginationDto,
   SortDirection,
 } from '@insurance-max/portal-shared/dto/pagination.dto';
-import { User } from '../../tenant/users/entities/user.entity';
+import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
+import { EntityManager, QueryFailedError, Repository } from 'typeorm';
+import { Role } from '../roles/entities/role.entity';
 import { Permission } from '../permissions/entities/permission.entity';
-import { Repository } from 'typeorm';
-import { EntityManager } from 'typeorm';
-import { QueryFailedError } from 'typeorm';
+import { User } from '../../tenant/users/entities/user.entity';
 import { Company } from './entities/company.entity';
 import { CompanyUser } from './entities/company-user.entity';
 import { CompanyUserRole } from './entities/company-user-role.entity';
@@ -87,10 +86,7 @@ export class CompaniesService {
       .andWhere('(role.company_id = :companyId OR role.company_id IS NULL)', {
         companyId,
       })
-      .orderBy(
-        'CASE WHEN role.company_id = :companyId THEN 0 ELSE 1 END',
-        'ASC',
-      )
+      .orderBy('CASE WHEN role.company_id = :companyId THEN 0 ELSE 1 END', 'ASC')
       .addOrderBy('role.id', 'ASC')
       .setParameter('companyId', companyId)
       .getOne();
@@ -134,11 +130,7 @@ export class CompaniesService {
     const roles: Role[] = [];
 
     for (const roleName of uniqueRoleNames) {
-      const role = await this.findRoleByNameForCompany(
-        roleName,
-        companyId,
-        manager,
-      );
+      const role = await this.findRoleByNameForCompany(roleName, companyId, manager);
 
       if (!role) {
         throw new NotFoundException(
@@ -221,11 +213,9 @@ export class CompaniesService {
       return false;
     }
 
-    const driverError = (
-      error as QueryFailedError & {
-        driverError?: { code?: string | number };
-      }
-    ).driverError;
+    const driverError = (error as QueryFailedError & {
+      driverError?: { code?: string | number };
+    }).driverError;
 
     return (
       driverError?.code === '23505' ||
@@ -259,6 +249,7 @@ export class CompaniesService {
       companyId: membership.company_id,
       companyName: membership.company.name,
       companySlug: membership.company.slug,
+      companyType: membership.company.company_type,
       membershipId: membership.id,
       isDefault: membership.is_default,
       roles:
@@ -288,9 +279,21 @@ export class CompaniesService {
     return `${prefix}${String(nextNumber || 1).padStart(5, '0')}`;
   }
 
-  async createCompany(name: string, manager?: EntityManager): Promise<Company> {
+  async createCompany(
+    dto: {
+      name: string;
+      company_type: CompanyType;
+      tira_license_number?: string;
+      tira_license_status?: string;
+      license_issued_at?: string;
+      license_expires_at?: string;
+      tin?: string;
+      brela_registration_number?: string;
+    },
+    manager?: EntityManager,
+  ): Promise<Company> {
     const companyRepository = this.getCompanyRepository(manager);
-    const normalizedName = name.trim();
+    const normalizedName = dto.name.trim();
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const uniqueSlug = await this.generateUniqueCompanySlug(
@@ -302,6 +305,13 @@ export class CompaniesService {
         name: normalizedName,
         slug: uniqueSlug,
         status: 'active',
+        company_type: dto.company_type,
+        tira_license_number: dto.tira_license_number ?? null,
+        tira_license_status: dto.tira_license_status ?? null,
+        license_issued_at: dto.license_issued_at ? new Date(dto.license_issued_at) : null,
+        license_expires_at: dto.license_expires_at ? new Date(dto.license_expires_at) : null,
+        tin: dto.tin ?? null,
+        brela_registration_number: dto.brela_registration_number ?? null,
       });
 
       try {
@@ -320,6 +330,13 @@ export class CompaniesService {
   async createCompanyWithAdministrator(createCompanyDto: CreateCompanyDto) {
     const {
       company_name,
+      company_type,
+      tira_license_number,
+      tira_license_status,
+      license_issued_at,
+      license_expires_at,
+      tin,
+      brela_registration_number,
       admin_first_name,
       admin_last_name,
       admin_email,
@@ -342,7 +359,19 @@ export class CompaniesService {
         );
       }
 
-      const company = await this.createCompany(company_name, manager);
+      const company = await this.createCompany(
+        {
+          name: company_name,
+          company_type,
+          tira_license_number,
+          tira_license_status,
+          license_issued_at,
+          license_expires_at,
+          tin,
+          brela_registration_number,
+        },
+        manager,
+      );
       const hashedPassword = await hashPassword(admin_password);
       const userNo = await this.generateUserNo(manager);
 
@@ -365,7 +394,7 @@ export class CompaniesService {
         company.id,
         {
           isDefault: true,
-          roleNames: ['ADMINISTRATOR'],
+          roleNames: [this.getDefaultAdminRoleForCompanyType(company.company_type)],
         },
         manager,
       );
@@ -376,7 +405,10 @@ export class CompaniesService {
           id: company.id,
           name: company.name,
           slug: company.slug,
+          company_type: company.company_type,
           status: company.status,
+          tira_license_number: company.tira_license_number,
+          tira_license_status: company.tira_license_status,
           created_at: company.created_at,
         },
         administrator: {
@@ -412,11 +444,7 @@ export class CompaniesService {
   async findAllCompanies() {
     const companies = await this.companyRepository
       .createQueryBuilder('company')
-      .leftJoin(
-        'company.memberships',
-        'membership',
-        "membership.status = 'active'",
-      )
+      .leftJoin('company.memberships', 'membership', "membership.status = 'active'")
       .select([
         'company.id AS id',
         'company.name AS name',
@@ -428,6 +456,10 @@ export class CompaniesService {
         'company.logo_url AS logo_url',
         'company.address AS address',
         'company.settings AS settings',
+        'company.company_type AS company_type',
+        'company.tira_license_number AS tira_license_number',
+        'company.tira_license_status AS tira_license_status',
+        'company.license_expires_at AS license_expires_at',
         'company.created_at AS created_at',
         'COUNT(membership.id) AS active_users_count',
       ])
@@ -441,6 +473,10 @@ export class CompaniesService {
       .addGroupBy('company.logo_url')
       .addGroupBy('company.address')
       .addGroupBy('company.settings')
+      .addGroupBy('company.company_type')
+      .addGroupBy('company.tira_license_number')
+      .addGroupBy('company.tira_license_status')
+      .addGroupBy('company.license_expires_at')
       .addGroupBy('company.created_at')
       .orderBy('company.name', 'ASC')
       .getRawMany<{
@@ -448,6 +484,10 @@ export class CompaniesService {
         name: string;
         slug: string;
         status: string;
+        company_type: CompanyType | null;
+        tira_license_number: string | null;
+        tira_license_status: string | null;
+        license_expires_at: Date | null;
         contact_email: string | null;
         contact_phone: string | null;
         website: string | null;
@@ -463,6 +503,10 @@ export class CompaniesService {
       name: company.name,
       slug: company.slug,
       status: company.status,
+      company_type: company.company_type ?? null,
+      tira_license_number: company.tira_license_number ?? null,
+      tira_license_status: company.tira_license_status ?? null,
+      license_expires_at: company.license_expires_at ?? null,
       contact_email: company.contact_email ?? null,
       contact_phone: company.contact_phone ?? null,
       website: company.website ?? null,
@@ -552,11 +596,7 @@ export class CompaniesService {
     manager?: EntityManager,
   ): Promise<CompanyMembershipContext> {
     const companyUserRepository = this.getCompanyUserRepository(manager);
-    const membership = await this.getMembershipContext(
-      userId,
-      companyId,
-      manager,
-    );
+    const membership = await this.getMembershipContext(userId, companyId, manager);
 
     await companyUserRepository.update(
       { user_id: userId, status: 'active' },
@@ -912,10 +952,7 @@ export class CompaniesService {
     return this.companyRepository.save(company);
   }
 
-  async setCompanyStatus(
-    id: string,
-    status: 'active' | 'inactive',
-  ): Promise<Company> {
+  async setCompanyStatus(id: string, status: 'active' | 'inactive'): Promise<Company> {
     const company = await this.findCompanyById(id);
     company.status = status;
     return this.companyRepository.save(company);
@@ -954,10 +991,10 @@ export class CompaniesService {
       const term = `%${search.trim()}%`;
       qb.andWhere(
         '(user.first_name ILIKE :term OR ' +
-          'user.last_name ILIKE :term OR ' +
-          'user.email ILIKE :term OR ' +
-          'user.phone ILIKE :term OR ' +
-          'user.user_no ILIKE :term)',
+        'user.last_name ILIKE :term OR ' +
+        'user.email ILIKE :term OR ' +
+        'user.phone ILIKE :term OR ' +
+        'user.user_no ILIKE :term)',
         { term },
       );
     }
@@ -1017,4 +1054,24 @@ export class CompaniesService {
       },
     };
   }
+
+  private getDefaultAdminRoleForCompanyType(companyType: CompanyType): string {
+    switch (companyType) {
+      case CompanyType.INSURANCE_COMPANY:
+        return 'INSURANCE_ADMIN';
+      case CompanyType.REINSURANCE_COMPANY:
+        return 'REINSURANCE_ADMIN';
+      case CompanyType.BROKER:
+        return 'BROKER_ADMIN';
+      case CompanyType.AGENCY:
+        return 'AGENCY_ADMIN';
+      case CompanyType.BANCASSURANCE:
+        return 'BANCASSURANCE_ADMIN';
+      case CompanyType.SERVICE_PROVIDER:
+        return 'SERVICE_PROVIDER_ADMIN';
+      default:
+        return 'ADMINISTRATOR';
+    }
+  }
+
 }

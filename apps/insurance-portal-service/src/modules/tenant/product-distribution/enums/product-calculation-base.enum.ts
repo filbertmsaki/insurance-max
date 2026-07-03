@@ -1,0 +1,6 @@
+export enum ProductCalculationBase {
+  GROSS_PREMIUM = 'GROSS_PREMIUM',
+  NET_PREMIUM = 'NET_PREMIUM',
+  BASIC_PREMIUM = 'BASIC_PREMIUM',
+}
+

@@ -1,12 +1,17 @@
 import { Transform, TransformFnParams } from 'class-transformer';
 import {
+  IsDateString,
   IsEmail,
+  IsEnum,
   IsNotEmpty,
+  IsOptional,
   IsString,
   IsStrongPassword,
   Matches,
+  MaxLength,
   MinLength,
 } from 'class-validator';
+import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 
 export class CreateCompanyDto {
   @IsString()
@@ -16,6 +21,37 @@ export class CreateCompanyDto {
     return value.trim();
   })
   company_name: string;
+
+  @IsEnum(CompanyType)
+  company_type: CompanyType;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  tira_license_number?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  tira_license_status?: string;
+
+  @IsOptional()
+  @IsDateString()
+  license_issued_at?: string;
+
+  @IsOptional()
+  @IsDateString()
+  license_expires_at?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  tin?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  brela_registration_number?: string;
 
   @IsString()
   @IsNotEmpty()
@@ -28,7 +64,8 @@ export class CreateCompanyDto {
       .join(' ');
   })
   @Matches(/^[A-Za-z\s]+$/, {
-    message: 'Administrator first name can only contain letters and spaces',
+    message:
+      'Administrator first name can only contain letters and spaces',
   })
   admin_first_name: string;
 
@@ -43,7 +80,8 @@ export class CreateCompanyDto {
       .join(' ');
   })
   @Matches(/^[A-Za-z\s]+$/, {
-    message: 'Administrator last name can only contain letters and spaces',
+    message:
+      'Administrator last name can only contain letters and spaces',
   })
   admin_last_name: string;
 

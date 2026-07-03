@@ -57,6 +57,7 @@ type AccessTokenPayload = {
   companyId?: string;
   companySlug?: string;
   companyName?: string;
+  companyType?: string;
   membershipId?: string;
   roles: string[];
   permissions: string[];
@@ -1089,6 +1090,7 @@ export class AuthService {
         companyId: companyContext.companyId,
         companySlug: companyContext.companySlug,
         companyName: companyContext.companyName,
+        companyType: companyContext.companyType,
         membershipId: companyContext.membershipId,
         roles: companyContext.roles,
         permissions: companyContext.permissions,
@@ -1131,6 +1133,7 @@ export class AuthService {
         id: companyContext.companyId,
         name: companyContext.companyName,
         slug: companyContext.companySlug,
+        company_type: companyContext.companyType,
       },
       companies,
       user: {

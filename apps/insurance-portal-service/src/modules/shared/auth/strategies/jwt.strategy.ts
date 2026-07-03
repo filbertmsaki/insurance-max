@@ -7,6 +7,7 @@ import {
   AuthenticatedUser,
   PLATFORM_USER_TYPES,
 } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import { CompaniesService } from '../../../platform/companies/companies.service';
 import { UsersService } from '../../../tenant/users/users.service';
 import { RedisService } from '../../redis/redis.service';
@@ -19,6 +20,7 @@ type JwtAccessPayload = {
   scope?: 'platform' | 'company';
   userType?: string;
   companyId?: string;
+  companyType?: string;
   roles?: string[];
   permissions?: string[];
   sessionId?: string;
@@ -86,7 +88,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     if (payload.scope === 'platform') {
-      if (!PLATFORM_USER_TYPES.includes(user.user_type)) {
+      if (!PLATFORM_USER_TYPES.includes(user.user_type as any)) {
         throw new UnauthorizedException('Invalid platform access token');
       }
 
@@ -100,7 +102,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         id: user.id,
         email: user.email,
         scope: 'platform',
-        userType: user.user_type,
+        userType: user.user_type as any,
         roles: user.roles?.map((r) => r.name) ?? [],
         permissions: Array.from(permissions),
       };
@@ -124,6 +126,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         companyId: companyContext.companyId,
         companyName: companyContext.companyName,
         companySlug: companyContext.companySlug,
+        companyType: companyContext.companyType as CompanyType,
         companyMembershipId: companyContext.membershipId,
         roles: companyContext.roles,
         permissions: companyContext.permissions,

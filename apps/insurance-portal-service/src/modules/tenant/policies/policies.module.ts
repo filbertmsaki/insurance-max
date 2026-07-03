@@ -1,0 +1,53 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Branch } from '../branches/entities/branch.entity';
+import { Company } from '../../platform/companies/entities/company.entity';
+import { Customer } from '../customers/entities/customer.entity';
+import { Department } from '../departments/entities/department.entity';
+import { InsuranceCategory } from '../insurance-categories/entities/insurance-category.entity';
+import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
+import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
+import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
+import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
+import { NonMotorPolicyDetail } from '../non-motor/entities/non-motor-policy-detail.entity';
+import { NonMotorQuotationDetail } from '../non-motor/entities/non-motor-quotation-detail.entity';
+import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
+import { Quotation } from '../quotations/entities/quotation.entity';
+import { QuotationRisk } from '../quotations/entities/quotation-risk.entity';
+import { User } from '../users/entities/user.entity';
+import { PolicyPremiumBreakdown } from './entities/policy-premium-breakdown.entity';
+import { PolicyRisk } from './entities/policy-risk.entity';
+import { PolicyStatusHistory } from './entities/policy-status-history.entity';
+import { Policy } from './entities/policy.entity';
+import { PoliciesController } from './policies.controller';
+import { PoliciesService } from './policies.service';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([
+      Policy,
+      PolicyRisk,
+      PolicyPremiumBreakdown,
+      PolicyStatusHistory,
+      Company,
+      Customer,
+      Branch,
+      Department,
+      InsuranceCategory,
+      InsuranceProduct,
+      InsuranceSubClass,
+      InsuranceRisk,
+      SubjectMatter,
+      MotorVehicle,
+      NonMotorQuotationDetail,
+      NonMotorPolicyDetail,
+      Quotation,
+      QuotationRisk,
+      User,
+    ]),
+  ],
+  controllers: [PoliciesController],
+  providers: [PoliciesService],
+  exports: [PoliciesService],
+})
+export class PoliciesModule {}
