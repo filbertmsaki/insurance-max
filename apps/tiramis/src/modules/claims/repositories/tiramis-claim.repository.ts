@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DeepPartial, Repository } from 'typeorm';
 
 import { TiramisClaimAssessmentEntity } from '../entities/tiramis-claim-assessment.entity';
 import { TiramisClaimIntimationEntity } from '../entities/tiramis-claim-intimation.entity';
@@ -26,7 +26,7 @@ export class TiramisClaimRepository {
     private readonly rejectionRepository: Repository<TiramisClaimRejectionEntity>,
   ) {}
 
-  createNotification(data: Partial<TiramisClaimNotificationEntity>) {
+  createNotification(data: DeepPartial<TiramisClaimNotificationEntity>) {
     return this.notificationRepository.create(data);
   }
 
@@ -34,7 +34,7 @@ export class TiramisClaimRepository {
     return this.notificationRepository.save(entity);
   }
 
-  createIntimation(data: Partial<TiramisClaimIntimationEntity>) {
+  createIntimation(data: DeepPartial<TiramisClaimIntimationEntity>) {
     return this.intimationRepository.create(data);
   }
 
@@ -42,7 +42,7 @@ export class TiramisClaimRepository {
     return this.intimationRepository.save(entity);
   }
 
-  createAssessment(data: Partial<TiramisClaimAssessmentEntity>) {
+  createAssessment(data: DeepPartial<TiramisClaimAssessmentEntity>) {
     return this.assessmentRepository.create(data);
   }
 
@@ -50,7 +50,7 @@ export class TiramisClaimRepository {
     return this.assessmentRepository.save(entity);
   }
 
-  createDischargeVoucher(data: Partial<TiramisDischargeVoucherEntity>) {
+  createDischargeVoucher(data: DeepPartial<TiramisDischargeVoucherEntity>) {
     return this.dischargeVoucherRepository.create(data);
   }
 
@@ -58,7 +58,7 @@ export class TiramisClaimRepository {
     return this.dischargeVoucherRepository.save(entity);
   }
 
-  createPayment(data: Partial<TiramisClaimPaymentEntity>) {
+  createPayment(data: DeepPartial<TiramisClaimPaymentEntity>) {
     return this.paymentRepository.create(data);
   }
 
@@ -66,7 +66,7 @@ export class TiramisClaimRepository {
     return this.paymentRepository.save(entity);
   }
 
-  createRejection(data: Partial<TiramisClaimRejectionEntity>) {
+  createRejection(data: DeepPartial<TiramisClaimRejectionEntity>) {
     return this.rejectionRepository.create(data);
   }
 

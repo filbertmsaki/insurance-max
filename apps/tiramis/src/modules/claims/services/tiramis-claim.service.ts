@@ -23,10 +23,41 @@ import {
   CreateClaimNotificationDto,
   CreateClaimPaymentDto,
   CreateClaimRejectionDto,
+  CreateClaimantDto,
   CreateDischargeVoucherDto,
 } from '../dto/create-claim.dto';
+import { TiramisClaimAssessmentEntity } from '../entities/tiramis-claim-assessment.entity';
+import { TiramisClaimIntimationEntity } from '../entities/tiramis-claim-intimation.entity';
+import { TiramisClaimNotificationEntity } from '../entities/tiramis-claim-notification.entity';
+import { TiramisClaimPaymentEntity } from '../entities/tiramis-claim-payment.entity';
+import { TiramisClaimRejectionEntity } from '../entities/tiramis-claim-rejection.entity';
+import { TiramisClaimantEntity } from '../entities/tiramis-claimant.entity';
+import { TiramisDischargeVoucherEntity } from '../entities/tiramis-discharge-voucher.entity';
 import { TiramisClaimRepository } from '../repositories/tiramis-claim.repository';
 import { TiramisClaimPayloadService } from './tiramis-claim-payload.service';
+
+type RawClaimSubmissionDto =
+  | CreateClaimNotificationDto
+  | CreateClaimIntimationDto
+  | CreateClaimAssessmentDto
+  | CreateDischargeVoucherDto
+  | CreateClaimPaymentDto
+  | CreateClaimRejectionDto;
+
+type ResolvedClaimSubmissionDto<TDto extends RawClaimSubmissionDto> = TDto &
+  TiramisResolvedRequestDtoFields;
+
+type ClaimSubmissionRecord =
+  | TiramisClaimNotificationEntity
+  | TiramisClaimIntimationEntity
+  | TiramisClaimAssessmentEntity
+  | TiramisDischargeVoucherEntity
+  | TiramisClaimPaymentEntity
+  | TiramisClaimRejectionEntity;
+
+type AttemptTrackedClaimRecord = ClaimSubmissionRecord & {
+  currentAttemptId?: string | null;
+};
 
 @Injectable()
 export class TiramisClaimService {
@@ -294,18 +325,24 @@ export class TiramisClaimService {
     return this.claimRepository.findAllRejections();
   }
 
-  private async resolveAndSubmit(params: {
-    dto: any;
+  private async resolveAndSubmit<
+    TDto extends RawClaimSubmissionDto,
+    TRecord extends AttemptTrackedClaimRecord,
+  >(params: {
+    dto: TDto;
     serviceType: string;
     rootElement: string;
     businessReference: string;
-    buildPayload: (dto: any, requestId: string) => Record<string, any>;
+    buildPayload: (
+      dto: ResolvedClaimSubmissionDto<TDto>,
+      requestId: string,
+    ) => Record<string, unknown>;
     saveDraft: (
-      dto: any,
+      dto: ResolvedClaimSubmissionDto<TDto>,
       requestId: string,
       transactionId: string,
-    ) => Promise<any>;
-    updateAttempt: (record: any, attemptId: string) => Promise<any>;
+    ) => Promise<TRecord>;
+    updateAttempt: (record: TRecord, attemptId: string) => Promise<TRecord>;
   }) {
     const { configuration, dto: resolvedDto } =
       await this.tiramisConfigService.resolveSubmissionContext(
@@ -320,8 +357,11 @@ export class TiramisClaimService {
     });
   }
 
-  private async createAndSubmit(params: {
-    dto: any;
+  private async createAndSubmit<
+    TDto extends RawClaimSubmissionDto,
+    TRecord extends AttemptTrackedClaimRecord,
+  >(params: {
+    dto: ResolvedClaimSubmissionDto<TDto>;
     configuration: Awaited<
       ReturnType<TiramisConfigService['getActiveRuntimeConfiguration']>
     >;
@@ -329,27 +369,15 @@ export class TiramisClaimService {
     rootElement: string;
     businessReference: string;
     buildPayload: (
-      dto:
-        | (CreateClaimNotificationDto & TiramisResolvedRequestDtoFields)
-        | (CreateClaimIntimationDto & TiramisResolvedRequestDtoFields)
-        | (CreateClaimAssessmentDto & TiramisResolvedRequestDtoFields)
-        | (CreateDischargeVoucherDto & TiramisResolvedRequestDtoFields)
-        | (CreateClaimPaymentDto & TiramisResolvedRequestDtoFields)
-        | (CreateClaimRejectionDto & TiramisResolvedRequestDtoFields),
+      dto: ResolvedClaimSubmissionDto<TDto>,
       requestId: string,
-    ) => Record<string, any>;
+    ) => Record<string, unknown>;
     saveDraft: (
-      dto:
-        | (CreateClaimNotificationDto & TiramisResolvedRequestDtoFields)
-        | (CreateClaimIntimationDto & TiramisResolvedRequestDtoFields)
-        | (CreateClaimAssessmentDto & TiramisResolvedRequestDtoFields)
-        | (CreateDischargeVoucherDto & TiramisResolvedRequestDtoFields)
-        | (CreateClaimPaymentDto & TiramisResolvedRequestDtoFields)
-        | (CreateClaimRejectionDto & TiramisResolvedRequestDtoFields),
+      dto: ResolvedClaimSubmissionDto<TDto>,
       requestId: string,
       transactionId: string,
-    ) => Promise<any>;
-    updateAttempt: (record: any, attemptId: string) => Promise<any>;
+    ) => Promise<TRecord>;
+    updateAttempt: (record: TRecord, attemptId: string) => Promise<TRecord>;
   }) {
     if (!params.businessReference) {
       throw new BadRequestException('Business reference is required');
@@ -483,7 +511,7 @@ export class TiramisClaimService {
       assessorName: dto.assessorName || null,
       assessorIdNumber: dto.assessorIdNumber || null,
       assessorIdType: dto.assessorIdType || null,
-      claimants: this.mapClaimants(dto.claimants) as any,
+      claimants: this.mapClaimants(dto.claimants),
     });
 
     return this.claimRepository.saveIntimation(entity);
@@ -516,7 +544,7 @@ export class TiramisClaimService {
         : null,
       claimApprovalAuthority: dto.claimApprovalAuthority || null,
       isReAssessment: dto.isReAssessment || null,
-      claimants: this.mapClaimants(dto.claimants || []) as any,
+      claimants: this.mapClaimants(dto.claimants || []),
     });
 
     return this.claimRepository.saveAssessment(entity);
@@ -557,7 +585,7 @@ export class TiramisClaimService {
       reconciliationSummary: dto.reconciliationSummary || null,
       reconciledAmount: dto.reconciledAmount || null,
       offerAccepted: dto.offerAccepted || null,
-      claimants: this.mapClaimants(dto.claimants || []) as any,
+      claimants: this.mapClaimants(dto.claimants || []),
     });
 
     return this.claimRepository.saveDischargeVoucher(entity);
@@ -588,7 +616,7 @@ export class TiramisClaimService {
       litigationReason: dto.litigationReason || null,
       currencyCode: dto.currencyCode,
       exchangeRate: dto.exchangeRate,
-      claimants: this.mapClaimants(dto.claimants || []) as any,
+      claimants: this.mapClaimants(dto.claimants || []),
     });
 
     return this.claimRepository.savePayment(entity);
@@ -611,13 +639,15 @@ export class TiramisClaimService {
       coverNoteReferenceNumber: dto.coverNoteReferenceNumber,
       rejectionDate: new Date(dto.rejectionDate),
       rejectionReason: dto.rejectionReason,
-      claimants: this.mapClaimants(dto.claimants || []) as any,
+      claimants: this.mapClaimants(dto.claimants || []),
     });
 
     return this.claimRepository.saveRejection(entity);
   }
 
-  private mapClaimants(claimants: any[]) {
+  private mapClaimants(
+    claimants: CreateClaimantDto[],
+  ): Array<Partial<TiramisClaimantEntity>> {
     return claimants.map((claimant) => ({
       claimantName: claimant.claimantName,
       claimantBirthDate: claimant.claimantBirthDate

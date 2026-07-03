@@ -11,9 +11,9 @@ export class TiramisXmlParserService {
     trimValues: true,
   });
 
-  parse(xml: string): Record<string, any> {
+  parse(xml: string): Record<string, unknown> {
     try {
-      return this.parser.parse(xml);
+      return this.asRecord(this.parser.parse(xml));
     } catch {
       throw new BadRequestException('Invalid TIRAMIS XML payload');
     }
@@ -22,13 +22,11 @@ export class TiramisXmlParserService {
   parseTiraMessage(xml: string): TiramisParsedMessage {
     const parsed = this.parse(xml);
 
-    if (!parsed?.TiraMsg) {
+    const tiraMsg = this.getRecordValue(parsed, 'TiraMsg');
+
+    if (!tiraMsg) {
       throw new BadRequestException('Invalid TIRAMIS message: TiraMsg missing');
     }
-
-    const tiraMsg = parsed.TiraMsg;
-    const signature =
-      tiraMsg.MsgSignature || tiraMsg.Signature || tiraMsg.signature || null;
 
     const rootName =
       Object.keys(tiraMsg).find(
@@ -39,8 +37,11 @@ export class TiramisXmlParserService {
     return {
       raw: parsed,
       rootName,
-      content: rootName ? tiraMsg[rootName] : null,
-      signature,
+      content: rootName ? this.getRecordValue(tiraMsg, rootName) : null,
+      signature:
+        this.getStringValue(tiraMsg, 'MsgSignature') ??
+        this.getStringValue(tiraMsg, 'Signature') ??
+        this.getStringValue(tiraMsg, 'signature'),
     };
   }
 
@@ -52,17 +53,49 @@ export class TiramisXmlParserService {
     }
 
     return (
-      message.content.RequestId ||
-      message.content.CoverNoteHdr?.RequestId ||
-      message.content.MotorCoverNoteHdr?.RequestId ||
-      message.content.PolicyHdr?.RequestId ||
-      message.content.ReinsuranceHdr?.RequestId ||
-      message.content.ClaimNotificationHdr?.RequestId ||
-      message.content.ClaimIntimationHdr?.RequestId ||
-      message.content.ClaimAssessmentHdr?.RequestId ||
-      message.content.DischargeVoucherHdr?.RequestId ||
-      message.content.ClaimPaymentHdr?.RequestId ||
-      message.content.ClaimRejectionHdr?.RequestId ||
+      this.getStringValue(message.content, 'RequestId') ||
+      this.getNestedStringValue(message.content, 'CoverNoteHdr', 'RequestId') ||
+      this.getNestedStringValue(
+        message.content,
+        'MotorCoverNoteHdr',
+        'RequestId',
+      ) ||
+      this.getNestedStringValue(message.content, 'PolicyHdr', 'RequestId') ||
+      this.getNestedStringValue(
+        message.content,
+        'ReinsuranceHdr',
+        'RequestId',
+      ) ||
+      this.getNestedStringValue(
+        message.content,
+        'ClaimNotificationHdr',
+        'RequestId',
+      ) ||
+      this.getNestedStringValue(
+        message.content,
+        'ClaimIntimationHdr',
+        'RequestId',
+      ) ||
+      this.getNestedStringValue(
+        message.content,
+        'ClaimAssessmentHdr',
+        'RequestId',
+      ) ||
+      this.getNestedStringValue(
+        message.content,
+        'DischargeVoucherHdr',
+        'RequestId',
+      ) ||
+      this.getNestedStringValue(
+        message.content,
+        'ClaimPaymentHdr',
+        'RequestId',
+      ) ||
+      this.getNestedStringValue(
+        message.content,
+        'ClaimRejectionHdr',
+        'RequestId',
+      ) ||
       null
     );
   }
@@ -74,7 +107,7 @@ export class TiramisXmlParserService {
       return null;
     }
 
-    return message.content.ResponseId || null;
+    return this.getStringValue(message.content, 'ResponseId');
   }
 
   getAcknowledgementId(xml: string): string | null {
@@ -84,7 +117,7 @@ export class TiramisXmlParserService {
       return null;
     }
 
-    return message.content.AcknowledgementId || null;
+    return this.getStringValue(message.content, 'AcknowledgementId');
   }
 
   getStatusCode(xml: string): string | null {
@@ -95,8 +128,8 @@ export class TiramisXmlParserService {
     }
 
     return (
-      message.content.ResponseStatusCode ||
-      message.content.AcknowledgementStatusCode ||
+      this.getStringValue(message.content, 'ResponseStatusCode') ||
+      this.getStringValue(message.content, 'AcknowledgementStatusCode') ||
       null
     );
   }
@@ -109,9 +142,52 @@ export class TiramisXmlParserService {
     }
 
     return (
-      message.content.ResponseStatusDesc ||
-      message.content.AcknowledgementStatusDesc ||
+      this.getStringValue(message.content, 'ResponseStatusDesc') ||
+      this.getStringValue(message.content, 'AcknowledgementStatusDesc') ||
       null
     );
+  }
+
+  private asRecord(value: unknown): Record<string, unknown> {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      throw new BadRequestException('Invalid TIRAMIS XML payload');
+    }
+
+    return value as Record<string, unknown>;
+  }
+
+  private getRecordValue(
+    content: Record<string, unknown>,
+    key: string,
+  ): Record<string, unknown> | null {
+    const value = content[key];
+
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return null;
+    }
+
+    return value as Record<string, unknown>;
+  }
+
+  private getStringValue(
+    content: Record<string, unknown>,
+    key: string,
+  ): string | null {
+    const value = content[key];
+    return typeof value === 'string' && value.trim() ? value : null;
+  }
+
+  private getNestedStringValue(
+    content: Record<string, unknown>,
+    parentKey: string,
+    childKey: string,
+  ): string | null {
+    const nestedContent = this.getRecordValue(content, parentKey);
+
+    if (!nestedContent) {
+      return null;
+    }
+
+    return this.getStringValue(nestedContent, childKey);
   }
 }

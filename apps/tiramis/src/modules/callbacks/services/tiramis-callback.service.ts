@@ -276,7 +276,7 @@ export class TiramisCallbackService {
   }
 
   private getStringValue(
-    content: Record<string, any>,
+    content: Record<string, unknown>,
     key: string,
   ): string | null {
     const value = content[key];
@@ -284,7 +284,7 @@ export class TiramisCallbackService {
   }
 
   private getOptionalStringValue(
-    content: Record<string, any>,
+    content: Record<string, unknown>,
     key: string,
   ): string | null {
     const value = content[key];

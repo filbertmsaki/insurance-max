@@ -9,7 +9,7 @@ export interface ParsedTiramisCallbackDto {
   stickerNumber?: string | null;
   rawXml: string;
   signature?: string | null;
-  content: Record<string, any>;
+  content: Record<string, unknown>;
 }
 
 export interface TiramisCallbackAckResultDto {
