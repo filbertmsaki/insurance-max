@@ -1,6 +1,7 @@
 import {
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
   Index,
   JoinColumn,
@@ -42,6 +43,9 @@ export class QuotationStatusHistory {
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
+
+  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+  deleted_at: Date | null;
 
   @ManyToOne(() => Quotation, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'quotation_id' })
