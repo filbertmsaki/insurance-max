@@ -1,4 +1,10 @@
-import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 import { ProductRuleStatus } from '../enums/product-rule-status.enum';
 
 export class CreateProductDocumentRequirementDto {
@@ -19,15 +25,19 @@ export class CreateProductDocumentRequirementDto {
   document_name: string;
 
   @IsOptional()
+  @IsBoolean()
   is_required?: boolean;
 
   @IsOptional()
+  @IsBoolean()
   is_required_before_quote?: boolean;
 
   @IsOptional()
+  @IsBoolean()
   is_required_before_policy?: boolean;
 
   @IsOptional()
+  @IsBoolean()
   is_required_before_claim?: boolean;
 
   @IsOptional()

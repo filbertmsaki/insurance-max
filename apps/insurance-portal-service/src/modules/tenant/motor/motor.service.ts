@@ -390,6 +390,7 @@ export class MotorService {
     await this.ensureCustomer(companyId, dto.customer_id);
     if (dto.quotation_id)
       await this.ensureQuotation(companyId, dto.quotation_id);
+    if (dto.policy_id) await this.ensurePolicy(companyId, dto.policy_id);
 
     const fleet = this.motorFleetRepository.create({
       company_id: companyId,
@@ -464,7 +465,10 @@ export class MotorService {
         await this.ensureQuotation(companyId, dto.quotation_id);
       fleet.quotation_id = dto.quotation_id ?? null;
     }
-    if (dto.policy_id !== undefined) fleet.policy_id = dto.policy_id ?? null;
+    if (dto.policy_id !== undefined) {
+      if (dto.policy_id) await this.ensurePolicy(companyId, dto.policy_id);
+      fleet.policy_id = dto.policy_id ?? null;
+    }
     if (dto.fleet_no !== undefined) fleet.fleet_no = dto.fleet_no.trim();
     if (dto.fleet_name !== undefined)
       fleet.fleet_name = this.normalizeText(dto.fleet_name);

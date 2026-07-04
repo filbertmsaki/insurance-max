@@ -302,8 +302,25 @@ export class BillingCommissionService {
       commission_transaction_id: string;
       amount?: number | string | null;
     }>,
+    companyId: string,
   ): Promise<void> {
     const itemRepo = manager.getRepository(CommissionPaymentItem);
+
+    if (items.length) {
+      const transactionIds = Array.from(
+        new Set(items.map((item) => item.commission_transaction_id)),
+      );
+      const owned = await manager.getRepository(CommissionTransaction).find({
+        where: transactionIds.map((id) => ({ id, company_id: companyId })),
+        select: { id: true },
+      });
+      if (owned.length !== transactionIds.length) {
+        throw new NotFoundException(
+          'One or more commission transactions were not found for this company',
+        );
+      }
+    }
+
     await itemRepo.delete({ commission_payment_id: commissionPaymentId });
     if (!items.length) return;
     await itemRepo.save(
@@ -842,7 +859,7 @@ export class BillingCommissionService {
 
   async deletePaymentTransaction(companyId: string, id: string): Promise<void> {
     const payment = await this.ensurePaymentTransaction(companyId, id);
-    await this.paymentTransactionRepository.remove(payment);
+    await this.paymentTransactionRepository.softDelete(payment.id);
   }
 
   async createCommissionTransaction(
@@ -1054,6 +1071,7 @@ export class BillingCommissionService {
 
     return this.dataSource.transaction(async (manager) => {
       const paymentRepo = manager.getRepository(CommissionPayment);
+      const initialStatus = dto.status?.trim().toUpperCase() ?? 'PENDING';
       const payment = paymentRepo.create({
         company_id: companyId,
         intermediary_company_id: dto.intermediary_company_id,
@@ -1062,14 +1080,22 @@ export class BillingCommissionService {
         payment_reference: this.normalizeText(dto.payment_reference),
         total_amount: this.normalizeMoney(dto.total_amount),
         currency: dto.currency?.trim().toUpperCase() ?? 'TZS',
-        status: dto.status?.trim().toUpperCase() ?? 'PENDING',
+        status: initialStatus,
         approved_by: dto.approved_by ?? null,
-        approved_at: null,
+        approved_at:
+          initialStatus === 'APPROVED' || initialStatus === 'PAID'
+            ? new Date()
+            : null,
         paid_by: dto.paid_by ?? userId,
-        paid_at: null,
+        paid_at: initialStatus === 'PAID' ? new Date() : null,
       });
       const saved = await paymentRepo.save(payment);
-      await this.syncCommissionPaymentItems(manager, saved.id, dto.items ?? []);
+      await this.syncCommissionPaymentItems(
+        manager,
+        saved.id,
+        dto.items ?? [],
+        companyId,
+      );
       return manager.getRepository(CommissionPayment).findOneOrFail({
         where: { id: saved.id, company_id: companyId },
         relations: {
@@ -1150,8 +1176,21 @@ export class BillingCommissionService {
       payment.total_amount = this.normalizeMoney(dto.total_amount);
     if (dto.currency !== undefined)
       payment.currency = dto.currency.trim().toUpperCase();
-    if (dto.status !== undefined)
-      payment.status = dto.status.trim().toUpperCase();
+    if (dto.status !== undefined) {
+      const newStatus = dto.status.trim().toUpperCase();
+      if (newStatus !== payment.status) {
+        if (
+          (newStatus === 'APPROVED' || newStatus === 'PAID') &&
+          !payment.approved_at
+        ) {
+          payment.approved_at = new Date();
+        }
+        if (newStatus === 'PAID' && !payment.paid_at) {
+          payment.paid_at = new Date();
+        }
+      }
+      payment.status = newStatus;
+    }
     if (dto.approved_by !== undefined)
       payment.approved_by = dto.approved_by ?? null;
     if (dto.paid_by !== undefined) payment.paid_by = dto.paid_by ?? null;
@@ -1164,6 +1203,7 @@ export class BillingCommissionService {
           manager,
           saved.id,
           dto.items ?? [],
+          companyId,
         );
         return manager.getRepository(CommissionPayment).findOneOrFail({
           where: { id: saved.id, company_id: companyId },

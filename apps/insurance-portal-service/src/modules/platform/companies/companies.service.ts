@@ -11,7 +11,8 @@ import {
   SortDirection,
 } from '@insurance-max/portal-shared/dto/pagination.dto';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
-import { EntityManager, QueryFailedError, Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
+import { isDuplicateEntryError } from '@insurance-max/portal-shared/utils/db-error.util';
 import { Role } from '../roles/entities/role.entity';
 import { Permission } from '../permissions/entities/permission.entity';
 import { User } from '../../tenant/users/entities/user.entity';
@@ -215,24 +216,6 @@ export class CompaniesService {
     }
   }
 
-  private isDuplicateEntryError(error: unknown): boolean {
-    if (!(error instanceof QueryFailedError)) {
-      return false;
-    }
-
-    const driverError = (
-      error as QueryFailedError & {
-        driverError?: { code?: string | number };
-      }
-    ).driverError;
-
-    return (
-      driverError?.code === '23505' ||
-      driverError?.code === 'ER_DUP_ENTRY' ||
-      String(driverError?.code ?? '') === '1062'
-    );
-  }
-
   private getMembershipPermissions(membership: CompanyUser): string[] {
     const permissions = new Set<string>();
 
@@ -330,7 +313,7 @@ export class CompaniesService {
       try {
         return await companyRepository.save(company);
       } catch (error) {
-        if (this.isDuplicateEntryError(error)) {
+        if (isDuplicateEntryError(error)) {
           continue;
         }
         throw error;
@@ -985,8 +968,8 @@ export class CompaniesService {
   }
 
   async deleteCompany(id: string): Promise<void> {
-    const company = await this.findCompanyById(id);
-    await this.companyRepository.remove(company);
+    await this.findCompanyById(id);
+    await this.companyRepository.softDelete(id);
   }
 
   async findCompanyUsersPaginated(companyId: string, query: PaginationDto) {

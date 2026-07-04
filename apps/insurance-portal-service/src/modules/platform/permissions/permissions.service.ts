@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -10,6 +11,7 @@ import {
   assertCanMutateSystemGeneratedRbacRecord,
   hasOwnerRole,
 } from '@insurance-max/portal-shared/utils/system-generated-rbac.util';
+import { isDuplicateEntryError } from '@insurance-max/portal-shared/utils/db-error.util';
 import { CreatePermissionDto } from './dtos/create-permission.dto';
 import { UpdatePermissionDto } from './dtos/update-permission.dto';
 import { Permission } from './entities/permission.entity';
@@ -59,7 +61,14 @@ export class PermissionsService {
       is_system_generated: false,
     });
 
-    return this.permissionsRepository.save(permission);
+    try {
+      return await this.permissionsRepository.save(permission);
+    } catch (error) {
+      if (isDuplicateEntryError(error)) {
+        throw new ConflictException('Permission name already exists');
+      }
+      throw error;
+    }
   }
 
   async findAll(actor?: AuthenticatedUser): Promise<Permission[]> {

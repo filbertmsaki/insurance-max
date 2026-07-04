@@ -42,6 +42,8 @@ import { Policy } from './entities/policy.entity';
 
 type NumericLike = number | string | null | undefined;
 
+const POLICY_TERMINAL_STATUSES = new Set(['CANCELLED', 'EXPIRED', 'LAPSED']);
+
 @Injectable()
 export class PoliciesService {
   constructor(
@@ -312,13 +314,13 @@ export class PoliciesService {
   }
 
   private async ensurePolicyRelatedDetails(
-    companyId: string,
+    manager: any,
     policy: Policy,
   ): Promise<void> {
-    void companyId;
     if (policy.quotation_id) {
-      const quotationDetails =
-        await this.nonMotorQuotationDetailRepository.find({
+      const quotationDetails = await manager
+        .getRepository(NonMotorQuotationDetail)
+        .find({
           where: { quotation_id: policy.quotation_id },
         });
       if (quotationDetails.length) {
@@ -479,6 +481,7 @@ export class PoliciesService {
 
         const saved = await policyRepo.save(policy);
         await this.replacePolicyChildren(manager, saved, dto);
+        await this.ensurePolicyRelatedDetails(manager, saved);
         await historyRepo.save(
           historyRepo.create({
             policy_id: saved.id,
@@ -505,6 +508,11 @@ export class PoliciesService {
           if (quotation.status === QuotationStatus.CONVERTED) {
             throw new ConflictException(
               'This quotation has already been converted to a policy',
+            );
+          }
+          if (quotation.status !== QuotationStatus.APPROVED) {
+            throw new ConflictException(
+              'Only an approved quotation can be converted to a policy',
             );
           }
           const previousStatus = quotation.status;
@@ -624,6 +632,18 @@ export class PoliciesService {
     const merged = { ...policy, ...dto } as CreatePolicyDto;
     await this.validateScope(companyId, merged);
     const oldStatus = policy.policy_status;
+
+    if (dto.policy_status !== undefined) {
+      const newStatus = dto.policy_status.trim().toUpperCase();
+      if (
+        newStatus !== oldStatus &&
+        POLICY_TERMINAL_STATUSES.has(oldStatus)
+      ) {
+        throw new ConflictException(
+          `Cannot change policy status from terminal state ${oldStatus} to ${newStatus}`,
+        );
+      }
+    }
 
     return this.dataSource.transaction(async (manager) => {
       const policyRepo = manager.getRepository(Policy);
@@ -747,7 +767,7 @@ export class PoliciesService {
         .softDelete({ policy_id: policy.id });
       await manager
         .getRepository(PolicyStatusHistory)
-        .delete({ policy_id: policy.id });
+        .softDelete({ policy_id: policy.id });
       await manager.getRepository(Policy).softDelete(policy.id);
     });
   }
@@ -764,6 +784,9 @@ export class PoliciesService {
       await manager.getRepository(PolicyRisk).restore({ policy_id: policy.id });
       await manager
         .getRepository(PolicyPremiumBreakdown)
+        .restore({ policy_id: policy.id });
+      await manager
+        .getRepository(PolicyStatusHistory)
         .restore({ policy_id: policy.id });
     });
 

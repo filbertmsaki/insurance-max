@@ -3,13 +3,16 @@ import {
   IsArray,
   IsDateString,
   IsEnum,
+  IsNumber,
   IsObject,
   IsOptional,
   IsString,
   IsUUID,
+  Min,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
+import { IsAfter } from '@insurance-max/portal-shared/validators/is-after.validator';
 import { ProductChannelType } from '../../product-distribution/enums/product-channel-type.enum';
 import { QuotationCalculationBase } from '../enums/quotation-calculation-base.enum';
 import { QuotationPremiumItemType } from '../enums/quotation-premium-item-type.enum';
@@ -29,33 +32,53 @@ export class CreateQuotationRiskDto {
   motor_vehicle_id?: string | null;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   sum_insured?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   rate?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   fixed_amount?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   basic_premium?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   discount_amount?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   tax_amount?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   charges_amount?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   commission_amount?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   total_premium?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   net_premium?: number;
 
   @IsOptional()
@@ -111,9 +134,13 @@ export class CreateQuotationPremiumBreakdownDto {
   item_name: string;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   rate?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   amount?: number;
 
   @IsOptional()
@@ -169,33 +196,50 @@ export class CreateQuotationDto {
   currency?: string;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   sum_insured?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   basic_premium?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   total_discount?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   total_tax?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   total_charges?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   total_commission?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   total_premium?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
   net_premium?: number;
 
   @IsDateString()
   valid_from: string;
 
   @IsDateString()
+  @IsAfter('valid_from')
   valid_until: string;
 
   @IsOptional()

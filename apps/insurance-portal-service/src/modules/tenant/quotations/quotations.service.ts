@@ -38,6 +38,42 @@ import { QuotationStatusHistory } from './entities/quotation-status-history.enti
 
 type NumericLike = number | string | null | undefined;
 
+const QUOTATION_STATUS_TRANSITIONS: Record<QuotationStatus, QuotationStatus[]> = {
+  [QuotationStatus.DRAFT]: [
+    QuotationStatus.RATED,
+    QuotationStatus.REFERRED,
+    QuotationStatus.CANCELLED,
+    QuotationStatus.EXPIRED,
+  ],
+  [QuotationStatus.RATED]: [
+    QuotationStatus.DRAFT,
+    QuotationStatus.PENDING_APPROVAL,
+    QuotationStatus.REFERRED,
+    QuotationStatus.CANCELLED,
+    QuotationStatus.EXPIRED,
+  ],
+  [QuotationStatus.REFERRED]: [
+    QuotationStatus.RATED,
+    QuotationStatus.PENDING_APPROVAL,
+    QuotationStatus.CANCELLED,
+    QuotationStatus.EXPIRED,
+  ],
+  [QuotationStatus.PENDING_APPROVAL]: [
+    QuotationStatus.APPROVED,
+    QuotationStatus.REJECTED,
+    QuotationStatus.CANCELLED,
+  ],
+  [QuotationStatus.APPROVED]: [
+    QuotationStatus.CONVERTED,
+    QuotationStatus.CANCELLED,
+    QuotationStatus.EXPIRED,
+  ],
+  [QuotationStatus.REJECTED]: [QuotationStatus.DRAFT, QuotationStatus.CANCELLED],
+  [QuotationStatus.CONVERTED]: [],
+  [QuotationStatus.EXPIRED]: [],
+  [QuotationStatus.CANCELLED]: [],
+};
+
 @Injectable()
 export class QuotationsService {
   constructor(
@@ -547,6 +583,16 @@ export class QuotationsService {
     );
 
     const oldStatus = quotation.status;
+
+    if (dto.status !== undefined && dto.status !== oldStatus) {
+      const allowedNextStatuses =
+        QUOTATION_STATUS_TRANSITIONS[oldStatus] ?? [];
+      if (!allowedNextStatuses.includes(dto.status)) {
+        throw new ConflictException(
+          `Cannot change quotation status from ${oldStatus} to ${dto.status}`,
+        );
+      }
+    }
 
     return this.dataSource.transaction(async (manager) => {
       const quotationRepo = manager.getRepository(Quotation);

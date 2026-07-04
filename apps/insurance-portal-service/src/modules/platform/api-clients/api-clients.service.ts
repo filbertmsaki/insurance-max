@@ -101,19 +101,24 @@ export class ApiClientsService {
     return qb.orderBy('ac.created_at', 'DESC').getMany();
   }
 
-  async findById(id: string): Promise<ApiClient> {
-    const client = await this.apiClientRepo.findOne({ where: { id } });
+  async findById(id: string, companyId?: string): Promise<ApiClient> {
+    const client = await this.apiClientRepo.findOne({
+      where: companyId ? { id, company_id: companyId } : { id },
+    });
     if (!client) throw new NotFoundException('API client not found');
     return client;
   }
 
-  async revoke(id: string): Promise<void> {
-    const client = await this.findById(id);
+  async revoke(id: string, companyId?: string): Promise<void> {
+    const client = await this.findById(id, companyId);
     await this.apiClientRepo.update(client.id, { status: 'revoked' });
   }
 
-  async rotateSecret(id: string): Promise<{ plainSecret: string }> {
-    await this.findById(id);
+  async rotateSecret(
+    id: string,
+    companyId?: string,
+  ): Promise<{ plainSecret: string }> {
+    await this.findById(id, companyId);
     const { clientSecret, displaySecret } = this.generateCredentials();
     const secretHash = await hashPassword(clientSecret);
     await this.apiClientRepo.update(id, { client_secret_hash: secretHash });

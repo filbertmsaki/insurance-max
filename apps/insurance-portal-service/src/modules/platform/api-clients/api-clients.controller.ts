@@ -54,22 +54,31 @@ export class ApiClientsController {
   @Get(':id')
   @Roles('SUPER_ADMIN', 'OWNER', 'COMPANY_ADMIN', 'ADMINISTRATOR')
   @ApiOperation({ summary: 'Get API client details' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.apiClientsService.findById(id);
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.apiClientsService.findById(id, user.companyId);
   }
 
   @Post(':id/rotate-secret')
   @Roles('SUPER_ADMIN', 'OWNER', 'COMPANY_ADMIN', 'ADMINISTRATOR')
   @ApiOperation({ summary: 'Rotate API client secret' })
-  rotateSecret(@Param('id', ParseUUIDPipe) id: string) {
-    return this.apiClientsService.rotateSecret(id);
+  rotateSecret(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.apiClientsService.rotateSecret(id, user.companyId);
   }
 
   @Delete(':id')
   @Roles('SUPER_ADMIN', 'OWNER', 'COMPANY_ADMIN', 'ADMINISTRATOR')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Revoke an API client' })
-  revoke(@Param('id', ParseUUIDPipe) id: string) {
-    return this.apiClientsService.revoke(id);
+  revoke(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.apiClientsService.revoke(id, user.companyId);
   }
 }

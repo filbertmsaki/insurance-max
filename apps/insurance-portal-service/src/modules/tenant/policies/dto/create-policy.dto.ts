@@ -11,6 +11,8 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
+import { IsAfter } from '@insurance-max/portal-shared/validators/is-after.validator';
+import { IsNonNegativeMoney } from '@insurance-max/portal-shared/validators/is-non-negative-money.validator';
 import { ProductChannelType } from '../../product-distribution/enums/product-channel-type.enum';
 import { QuotationCalculationBase } from '../../quotations/enums/quotation-calculation-base.enum';
 import { QuotationPremiumItemType } from '../../quotations/enums/quotation-premium-item-type.enum';
@@ -32,30 +34,39 @@ export class CreatePolicyRiskDto {
   motor_vehicle_id?: string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   sum_insured?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   rate?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   basic_premium?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   discount_amount?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   tax_amount?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   charges_amount?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   commission_amount?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   total_premium?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   net_premium?: number | string | null;
 
   @IsOptional()
@@ -63,12 +74,15 @@ export class CreatePolicyRiskDto {
   reinsurance_required?: boolean;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   retention_amount?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   ceded_sum_insured?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   ceded_premium?: number | string | null;
 
   @IsOptional()
@@ -99,9 +113,11 @@ export class CreatePolicyPremiumBreakdownDto {
   item_name: string;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   rate?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   amount?: number | string | null;
 
   @IsOptional()
@@ -161,6 +177,7 @@ export class CreatePolicyDto {
   start_date: string;
 
   @IsDateString()
+  @IsAfter('start_date')
   end_date: string;
 
   @IsDateString()
@@ -172,27 +189,35 @@ export class CreatePolicyDto {
   currency?: string;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   sum_insured?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   basic_premium?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   total_discount?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   total_tax?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   total_charges?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   total_commission?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   total_premium?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   net_premium?: number | string | null;
 
   @IsOptional()
@@ -205,12 +230,15 @@ export class CreatePolicyDto {
   reinsurance_status?: string;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   retention_amount?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   ceded_sum_insured?: number | string | null;
 
   @IsOptional()
+  @IsNonNegativeMoney()
   ceded_premium?: number | string | null;
 
   @IsOptional()
