@@ -44,4 +44,33 @@ export class TiramisSubmissionAttemptRepository {
       order: { attemptNo: 'ASC' },
     });
   }
+
+  findRetryableDueAttempts(params: { now: Date; limit: number }) {
+    return this.repository
+      .createQueryBuilder('attempt')
+      .where('attempt.isRetryable = :isRetryable', { isRetryable: 1 })
+      .andWhere('attempt.nextRetryAt IS NOT NULL')
+      .andWhere('attempt.nextRetryAt <= :now', { now: params.now })
+      .andWhere('attempt.retryCount < attempt.maxRetries')
+      .orderBy('attempt.nextRetryAt', 'ASC')
+      .limit(params.limit)
+      .getMany();
+  }
+
+  findFinalCallbackOverdueAttempts(params: { now: Date; limit: number }) {
+    return this.repository
+      .createQueryBuilder('attempt')
+      .where('attempt.status = :status', { status: 'ACK_SUCCESS' })
+      .andWhere('attempt.finalResponseReceivedAt IS NULL')
+      .andWhere('attempt.finalCallbackDeadlineAt IS NOT NULL')
+      .andWhere('attempt.finalCallbackDeadlineAt <= :now', {
+        now: params.now,
+      })
+      .andWhere('attempt.finalCallbackOverdueNotified = :notified', {
+        notified: 0,
+      })
+      .orderBy('attempt.finalCallbackDeadlineAt', 'ASC')
+      .limit(params.limit)
+      .getMany();
+  }
 }

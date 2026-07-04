@@ -168,13 +168,76 @@ export class TiramisCoverNotePayloadService {
     };
   }
 
+  /**
+   * TIRA examples use local datetime format:
+   * YYYY-MM-DDTHH:mm:ss
+   *
+   * Do not convert submitted local Tanzania time to UTC.
+   * If the incoming value is already in TIRA format, keep it as-is.
+   */
   private formatDateTime(value: Date | string): string {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+
+      /**
+       * Already formatted like:
+       * 2026-07-04T10:00:00
+       * 2026-07-04T10:00:00+03:00
+       * 2026-07-04T10:00:00.000+03:00
+       *
+       * Keep only YYYY-MM-DDTHH:mm:ss.
+       */
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(trimmed)) {
+        return trimmed.slice(0, 19);
+      }
+
+      /**
+       * If user submits only date:
+       * 2026-07-04
+       *
+       * Convert it to start of day.
+       */
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        return `${trimmed}T00:00:00`;
+      }
+    }
+
     const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
+    /**
+     * Fallback for Date objects.
+     * This still uses ISO because Date object has no original local timezone string.
+     * Prefer sending string values from portal:
+     * YYYY-MM-DDTHH:mm:ss
+     */
     return date.toISOString().slice(0, 19);
   }
 
+  /**
+   * TIRA policyholder birth date uses:
+   * YYYY-MM-DD
+   *
+   * Keep submitted date as-is when already formatted.
+   */
   private formatDate(value: Date | string): string {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+
+      if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+        return trimmed.slice(0, 10);
+      }
+    }
+
     const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
     return date.toISOString().slice(0, 10);
   }
 }

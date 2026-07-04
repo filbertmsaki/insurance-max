@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TiramisConfigModule } from '../config/tiramis-config.module';
 import { TiramisCoverNotesModule } from '../cover-notes/tiramis-cover-notes.module';
 import { TiramisMessagingModule } from '../messaging/tiramis-messaging.module';
+import { TiramisSharedModule } from '../shared/tiramis-shared.module';
 import { TiramisSubmissionsModule } from '../submissions/tiramis-submissions.module';
 import { TiramisMotorController } from './controllers/tiramis-motor.controller';
 import { TiramisMotorDetailEntity } from './entities/tiramis-motor-detail.entity';
@@ -23,6 +24,7 @@ import { TiramisMotorService } from './services/tiramis-motor.service';
     TiramisConfigModule,
     TiramisCoverNotesModule,
     TiramisMessagingModule,
+    TiramisSharedModule,
     TiramisSubmissionsModule,
   ],
   controllers: [TiramisMotorController],

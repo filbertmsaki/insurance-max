@@ -22,6 +22,13 @@ export class TiramisClientConfigurationEntity extends BaseEntity {
   @Column({ name: 'client_key', length: 255 })
   clientKey!: string;
 
+  @Column({
+    name: 'client_key_encrypted',
+    type: 'text',
+    nullable: true,
+  })
+  clientKeyEncrypted?: string | null;
+
   @Column({ name: 'insurer_company_code', length: 6 })
   insurerCompanyCode!: string;
 
@@ -64,6 +71,13 @@ export class TiramisClientConfigurationEntity extends BaseEntity {
   clientPrivateCertificatePassword?: string | null;
 
   @Column({
+    name: 'client_private_certificate_password_encrypted',
+    type: 'text',
+    nullable: true,
+  })
+  clientPrivateCertificatePasswordEncrypted?: string | null;
+
+  @Column({
     name: 'tira_public_certificate_path',
     type: 'varchar',
     length: 500,
@@ -78,6 +92,13 @@ export class TiramisClientConfigurationEntity extends BaseEntity {
     nullable: true,
   })
   tiraPublicCertificatePassword?: string | null;
+
+  @Column({
+    name: 'tira_public_certificate_password_encrypted',
+    type: 'text',
+    nullable: true,
+  })
+  tiraPublicCertificatePasswordEncrypted?: string | null;
 
   @Column({
     name: 'signature_algorithm',

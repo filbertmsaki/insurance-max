@@ -49,6 +49,12 @@ apps/**/.env
 apps/**/.env.*
 !apps/**/.env.example
 !apps/**/.env.*.example
+certificates/
+*.pfx
+*.p12
+*.pem
+*.cer
+*.crt
 
 package-lock.json
 

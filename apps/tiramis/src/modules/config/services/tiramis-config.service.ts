@@ -10,6 +10,8 @@ import { TiramisClientConfigurationEntity } from '../entities/tiramis-client-con
 import { TiramisResponseCodeEntity } from '../entities/tiramis-response-code.entity';
 import { TiramisServiceEndpointEntity } from '../entities/tiramis-service-endpoint.entity';
 import { resolveTiramisCertificatePath } from '../utils/tiramis-certificate-path.util';
+import { TiramisCertificateInspectorService } from '../../security/services/tiramis-certificate-inspector.service';
+import { TiramisSecretCryptoService } from '../../security/services/tiramis-secret-crypto.service';
 
 export interface TiramisRequestHeaders {
   [key: string]: string;
@@ -22,9 +24,20 @@ export interface TiramisResolvedRequestDtoFields {
   environment: string;
   clientConfigurationId: string;
   sourceRecordId: string;
+
+  /**
+   * Technical TIRA identifiers controlled by the IDP platform.
+   * These are injected from the active TIRAMIS configuration.
+   */
   companyCode: string;
   systemCode: string;
   callbackUrl: string;
+
+  /**
+   * Business identifiers.
+   * These should come from the portal/client request.
+   * Legacy fallback from config is still supported temporarily.
+   */
   insurerCompanyCode: string;
   tranCompanyCode?: string | null;
 }
@@ -43,6 +56,8 @@ export class TiramisConfigService {
     private readonly serviceEndpointRepository: Repository<TiramisServiceEndpointEntity>,
     @InjectRepository(TiramisResponseCodeEntity)
     private readonly responseCodeRepository: Repository<TiramisResponseCodeEntity>,
+    private readonly secretCrypto: TiramisSecretCryptoService,
+    private readonly certificateInspector: TiramisCertificateInspectorService,
   ) {}
 
   resolveRuntimeEnvironment(
@@ -82,19 +97,44 @@ export class TiramisConfigService {
     sourceRecordId: string,
   ): Promise<TiramisResolvedRequestContext<TDto>> {
     const configuration = await this.getActiveRuntimeConfiguration();
+    const incomingDto = dto as Record<string, any>;
+
+    const insurerCompanyCode = this.resolveBusinessCode({
+      incomingValue: incomingDto.insurerCompanyCode,
+      fallbackValue: configuration.insurerCompanyCode,
+      fieldName: 'insurerCompanyCode',
+      required: true,
+    });
+
+    const tranCompanyCode = this.resolveBusinessCode({
+      incomingValue: incomingDto.tranCompanyCode,
+      fallbackValue: configuration.tranCompanyCode || insurerCompanyCode,
+      fieldName: 'tranCompanyCode',
+      required: true,
+    });
 
     return {
       configuration,
       dto: {
         ...dto,
+        /**
+         * IDP/platform technical configuration.
+         * These values are controlled by tiramis-service.
+         */
         environment: configuration.environment,
         clientConfigurationId: configuration.id,
         sourceRecordId,
         companyCode: configuration.companyCode,
         systemCode: configuration.systemCode,
         callbackUrl: configuration.callbackBaseUrl,
-        insurerCompanyCode: configuration.insurerCompanyCode,
-        tranCompanyCode: configuration.tranCompanyCode || null,
+
+        /**
+         * Client/company business identifiers.
+         * Portal request value has priority.
+         * Config fallback is temporary for backward compatibility.
+         */
+        insurerCompanyCode,
+        tranCompanyCode,
       },
     };
   }
@@ -114,6 +154,12 @@ export class TiramisConfigService {
     }
 
     return configuration;
+  }
+
+  async getRuntimeConfigurationById(
+    clientConfigurationId: string,
+  ): Promise<TiramisClientConfigurationEntity> {
+    return this.getConfigurationById(clientConfigurationId);
   }
 
   async getEndpoint(params: {
@@ -184,8 +230,9 @@ export class TiramisConfigService {
 
   async getRequestHeaders(environment: string): Promise<TiramisRequestHeaders> {
     const configuration = await this.getActiveConfiguration(environment);
+    const clientKey = this.getClientKey(configuration);
 
-    if (!configuration.clientCode || !configuration.clientKey) {
+    if (!configuration.clientCode || !clientKey) {
       throw new BadRequestException(
         'TIRAMIS ClientCode or ClientKey is missing in configuration',
       );
@@ -194,14 +241,16 @@ export class TiramisConfigService {
     return {
       'Content-Type': 'application/xml',
       ClientCode: configuration.clientCode,
-      ClientKey: configuration.clientKey,
+      ClientKey: clientKey,
     };
   }
 
   async getRequestHeadersForConfiguration(
     configuration: TiramisClientConfigurationEntity,
   ): Promise<TiramisRequestHeaders> {
-    if (!configuration.clientCode || !configuration.clientKey) {
+    const clientKey = this.getClientKey(configuration);
+
+    if (!configuration.clientCode || !clientKey) {
       throw new BadRequestException(
         'TIRAMIS ClientCode or ClientKey is missing in configuration',
       );
@@ -210,7 +259,7 @@ export class TiramisConfigService {
     return {
       'Content-Type': 'application/xml',
       ClientCode: configuration.clientCode,
-      ClientKey: configuration.clientKey,
+      ClientKey: clientKey,
     };
   }
 
@@ -253,19 +302,7 @@ export class TiramisConfigService {
   }> {
     const configuration = await this.getActiveConfiguration(environment);
 
-    return {
-      clientPrivateCertificatePath: resolveTiramisCertificatePath(
-        configuration.clientPrivateCertificatePath,
-      ),
-      clientPrivateCertificatePassword:
-        configuration.clientPrivateCertificatePassword,
-      tiraPublicCertificatePath: resolveTiramisCertificatePath(
-        configuration.tiraPublicCertificatePath,
-      ),
-      tiraPublicCertificatePassword:
-        configuration.tiraPublicCertificatePassword,
-      signatureAlgorithm: configuration.signatureAlgorithm,
-    };
+    return this.getPfxPathsForConfiguration(configuration);
   }
 
   async getPfxPathsForConfiguration(
@@ -282,14 +319,210 @@ export class TiramisConfigService {
         configuration.clientPrivateCertificatePath,
       ),
       clientPrivateCertificatePassword:
-        configuration.clientPrivateCertificatePassword,
+        this.getClientPrivateCertificatePassword(configuration),
       tiraPublicCertificatePath: resolveTiramisCertificatePath(
         configuration.tiraPublicCertificatePath,
       ),
-      tiraPublicCertificatePassword:
-        configuration.tiraPublicCertificatePassword,
+      tiraPublicCertificatePassword: this.getTiraPublicCertificatePassword(
+        configuration,
+      ),
       signatureAlgorithm: configuration.signatureAlgorithm,
     };
+  }
+
+  async validateConfigurationSecurity(
+    configuration: TiramisClientConfigurationEntity,
+  ) {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    const clientKey = this.getClientKey(configuration);
+
+    if (!clientKey) {
+      errors.push('ClientKey is missing');
+    }
+
+    if (!configuration.clientKeyEncrypted) {
+      warnings.push('ClientKey is still stored in plaintext column');
+    }
+
+    if (
+      configuration.clientPrivateCertificatePassword &&
+      !configuration.clientPrivateCertificatePasswordEncrypted
+    ) {
+      warnings.push(
+        'Client private certificate password is still stored in plaintext column',
+      );
+    }
+
+    if (
+      configuration.tiraPublicCertificatePassword &&
+      !configuration.tiraPublicCertificatePasswordEncrypted
+    ) {
+      warnings.push(
+        'TIRA public certificate password is still stored in plaintext column',
+      );
+    }
+
+    if (!configuration.clientPrivateCertificatePath) {
+      errors.push('Client private certificate path is missing');
+    }
+
+    if (!configuration.tiraPublicCertificatePath) {
+      errors.push('TIRA public certificate path is missing');
+    }
+
+    let clientCertificate: any = null;
+    let tiraCertificate: any = null;
+
+    if (configuration.clientPrivateCertificatePath) {
+      try {
+        clientCertificate = this.certificateInspector.assertCertificateHealthy({
+          label: 'Client private',
+          certificatePath: configuration.clientPrivateCertificatePath,
+          password: this.getClientPrivateCertificatePassword(configuration),
+        });
+
+        if (clientCertificate.isExpiringSoon) {
+          warnings.push(
+            `Client private certificate is expiring soon: ${clientCertificate.validTo}`,
+          );
+        }
+      } catch (error: any) {
+        errors.push(error?.message || 'Client private certificate is invalid');
+      }
+    }
+
+    if (configuration.tiraPublicCertificatePath) {
+      try {
+        tiraCertificate = this.certificateInspector.assertCertificateHealthy({
+          label: 'TIRA public',
+          certificatePath: configuration.tiraPublicCertificatePath,
+          password: this.getTiraPublicCertificatePassword(configuration),
+        });
+
+        if (tiraCertificate.isExpiringSoon) {
+          warnings.push(
+            `TIRA public certificate is expiring soon: ${tiraCertificate.validTo}`,
+          );
+        }
+      } catch (error: any) {
+        errors.push(error?.message || 'TIRA public certificate is invalid');
+      }
+    }
+
+    return {
+      ok: errors.length === 0,
+      environment: configuration.environment,
+      configurationId: configuration.id,
+      companyCode: configuration.companyCode,
+      systemCode: configuration.systemCode,
+      clientCode: configuration.clientCode,
+      clientKeyMasked: this.secretCrypto.mask(
+        configuration.clientKeyEncrypted || configuration.clientKey,
+      ),
+      certificates: {
+        clientPrivate: clientCertificate,
+        tiraPublic: tiraCertificate,
+      },
+      warnings,
+      errors,
+    };
+  }
+
+  async encryptExistingPlaintextSecrets(configurationId: string) {
+    const configuration = await this.getConfigurationById(configurationId);
+
+    if (configuration.clientKey && !configuration.clientKeyEncrypted) {
+      configuration.clientKeyEncrypted = this.secretCrypto.encrypt(
+        configuration.clientKey,
+      );
+    }
+
+    if (
+      configuration.clientPrivateCertificatePassword &&
+      !configuration.clientPrivateCertificatePasswordEncrypted
+    ) {
+      configuration.clientPrivateCertificatePasswordEncrypted =
+        this.secretCrypto.encrypt(
+          configuration.clientPrivateCertificatePassword,
+        );
+    }
+
+    if (
+      configuration.tiraPublicCertificatePassword &&
+      !configuration.tiraPublicCertificatePasswordEncrypted
+    ) {
+      configuration.tiraPublicCertificatePasswordEncrypted =
+        this.secretCrypto.encrypt(configuration.tiraPublicCertificatePassword);
+    }
+
+    await this.clientConfigurationRepository.save(configuration);
+
+    return {
+      id: configuration.id,
+      environment: configuration.environment,
+      encrypted: true,
+      clientKeyMasked: this.secretCrypto.mask(configuration.clientKeyEncrypted),
+    };
+  }
+
+  private resolveBusinessCode(params: {
+    incomingValue: unknown;
+    fallbackValue?: string | null;
+    fieldName: string;
+    required?: boolean;
+  }): string {
+    const incoming =
+      params.incomingValue !== undefined && params.incomingValue !== null
+        ? String(params.incomingValue).trim()
+        : '';
+
+    const fallback = params.fallbackValue ? params.fallbackValue.trim() : '';
+
+    const value = incoming || fallback;
+
+    if (params.required && !value) {
+      throw new BadRequestException(
+        `Missing required TIRA business identifier: ${params.fieldName}`,
+      );
+    }
+
+    return value;
+  }
+
+  private getClientKey(
+    configuration: TiramisClientConfigurationEntity,
+  ): string | null {
+    return (
+      this.secretCrypto.decryptIfEncrypted(
+        configuration.clientKeyEncrypted || configuration.clientKey || null,
+      ) || null
+    );
+  }
+
+  private getClientPrivateCertificatePassword(
+    configuration: TiramisClientConfigurationEntity,
+  ): string | null {
+    return (
+      this.secretCrypto.decryptIfEncrypted(
+        configuration.clientPrivateCertificatePasswordEncrypted ||
+          configuration.clientPrivateCertificatePassword ||
+          null,
+      ) || null
+    );
+  }
+
+  private getTiraPublicCertificatePassword(
+    configuration: TiramisClientConfigurationEntity,
+  ): string | null {
+    return (
+      this.secretCrypto.decryptIfEncrypted(
+        configuration.tiraPublicCertificatePasswordEncrypted ||
+          configuration.tiraPublicCertificatePassword ||
+          null,
+      ) || null
+    );
   }
 
   private joinUrl(baseUrl: string, path: string): string {

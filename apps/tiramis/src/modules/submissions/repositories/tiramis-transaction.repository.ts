@@ -36,4 +36,14 @@ export class TiramisTransactionRepository {
       where: { businessReference },
     });
   }
+
+  findByAnyRequestId(requestId: string) {
+    return this.repository.findOne({
+      where: [
+        { currentRequestId: requestId },
+        { originalRequestId: requestId },
+        { successfulRequestId: requestId },
+      ],
+    });
+  }
 }

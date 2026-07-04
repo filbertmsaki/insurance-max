@@ -4,7 +4,10 @@ import { isAbsolute, normalize, resolve } from 'path';
 const projectRoot = process.cwd();
 
 function candidateCertificatePaths(certificatePath: string): string[] {
+  const baseDir = process.env.TIRAMIS_CERTIFICATE_BASE_DIR?.trim();
+
   return [
+    ...(baseDir ? [resolve(baseDir, certificatePath)] : []),
     resolve(projectRoot, certificatePath),
     resolve(projectRoot, 'apps', 'tiramis', certificatePath),
     resolve(resolve(projectRoot, '..'), certificatePath),

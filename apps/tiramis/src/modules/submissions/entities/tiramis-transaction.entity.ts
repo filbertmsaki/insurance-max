@@ -13,6 +13,14 @@ export class TiramisTransactionEntity extends BaseEntity {
   serviceType!: string;
 
   @Column({
+    name: 'source_service',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  sourceService?: string | null;
+
+  @Column({
     name: 'source_module',
     type: 'varchar',
     length: 80,
@@ -27,6 +35,22 @@ export class TiramisTransactionEntity extends BaseEntity {
     nullable: true,
   })
   sourceRecordId?: string | null;
+
+  @Column({
+    name: 'source_company_id',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  sourceCompanyId?: string | null;
+
+  @Column({
+    name: 'source_user_id',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  sourceUserId?: string | null;
 
   @Column({ name: 'business_reference', length: 100 })
   businessReference!: string;

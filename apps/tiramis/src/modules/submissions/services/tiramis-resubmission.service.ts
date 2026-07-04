@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { DeepPartial } from 'typeorm';
 
 import {
   TIRAMIS_ATTEMPT_STATUS,
@@ -75,7 +76,7 @@ export class TiramisResubmissionService {
       requestId: newRequestId,
       eventType: TIRAMIS_SUBMISSION_EVENT_TYPE.RESUBMITTED,
       statusDesc: params.reason,
-    });
+    } as DeepPartial<any>);
 
     await this.eventRepository.save(event);
 

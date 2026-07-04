@@ -145,6 +145,20 @@ export class CreatePolicyHolderDto {
 }
 
 export class CreateCoverNoteDto {
+  @ApiProperty({
+    example: 'ICC999',
+    description:
+      'TIRA code of the underwriting insurer. This comes from the client/participant setup, not from IDP technical config.',
+  })
+  insurerCompanyCode!: string;
+
+  @ApiProperty({
+    example: 'ICC999',
+    description:
+      'TIRA code of the company/entity that transacted or sold the cover. For direct insurer sale, this can be the same as insurerCompanyCode.',
+  })
+  tranCompanyCode!: string;
+
   @ApiProperty({ example: 1 })
   coverNoteType!: number;
 

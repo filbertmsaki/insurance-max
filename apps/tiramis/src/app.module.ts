@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import {
@@ -30,6 +31,7 @@ import { TiramisCoverNoteEntity } from './modules/cover-notes/entities/tiramis-c
 import { TiramisCoverNoteRiskEntity } from './modules/cover-notes/entities/tiramis-cover-note-risk.entity';
 import { TiramisCoverNoteTaxEntity } from './modules/cover-notes/entities/tiramis-cover-note-tax.entity';
 import { TiramisPolicyHolderEntity } from './modules/cover-notes/entities/tiramis-policy-holder.entity';
+import { TiramisInternalModule } from './modules/internal/tiramis-internal.module';
 import { TiramisSubjectMatterEntity } from './modules/cover-notes/entities/tiramis-subject-matter.entity';
 import { TiramisMotorDetailEntity } from './modules/motor/entities/tiramis-motor-detail.entity';
 import { TiramisMotorFleetItemEntity } from './modules/motor/entities/tiramis-motor-fleet-item.entity';
@@ -47,6 +49,7 @@ import { TiramisModule } from './modules/tiramis.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     SharedConfigModule.forRoot({
       appName: 'tiramis',
       validationSchema: tiramisEnvValidationSchema,
@@ -100,6 +103,7 @@ import { TiramisModule } from './modules/tiramis.module';
         ),
     }),
     TiramisModule,
+    TiramisInternalModule,
   ],
 })
 export class AppModule {}

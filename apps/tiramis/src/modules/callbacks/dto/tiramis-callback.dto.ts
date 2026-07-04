@@ -10,6 +10,8 @@ export interface ParsedTiramisCallbackDto {
   rawXml: string;
   signature?: string | null;
   content: Record<string, unknown>;
+  contentXml: string;
+  signatureVerified?: boolean;
 }
 
 export interface TiramisCallbackAckResultDto {

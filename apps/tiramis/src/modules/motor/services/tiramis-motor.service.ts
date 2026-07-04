@@ -9,7 +9,9 @@ import { TiramisHttpClientService } from '../../messaging/services/tiramis-http-
 import { TiramisSignatureService } from '../../messaging/services/tiramis-signature.service';
 import { TiramisXmlBuilderService } from '../../messaging/services/tiramis-xml-builder.service';
 import { TiramisXmlParserService } from '../../messaging/services/tiramis-xml-parser.service';
+import { TiramisPayloadValidationService } from '../../shared/services/tiramis-payload-validation.service';
 import { TiramisRequestIdService } from '../../submissions/services/tiramis-request-id.service';
+import { TiramisSourceMetadataDto } from '../../submissions/dto/tiramis-source-metadata.dto';
 import { TiramisSubmissionService } from '../../submissions/services/tiramis-submission.service';
 import { CreateMotorCoverNoteDto } from '../dto/create-motor-cover-note.dto';
 import { TiramisMotorRepository } from '../repositories/tiramis-motor.repository';
@@ -30,12 +32,14 @@ export class TiramisMotorService {
     private readonly xmlParser: TiramisXmlParserService,
     private readonly signatureService: TiramisSignatureService,
     private readonly httpClient: TiramisHttpClientService,
+    private readonly payloadValidator: TiramisPayloadValidationService,
   ) {}
 
   async createDraft(
     dto:
       | CreateMotorCoverNoteDto
       | (CreateMotorCoverNoteDto & TiramisResolvedRequestDtoFields),
+    sourceMetadata?: TiramisSourceMetadataDto,
   ) {
     const resolvedDto =
       'clientConfigurationId' in dto
@@ -57,9 +61,17 @@ export class TiramisMotorService {
     const transaction = await this.tiramisSubmissionService.createTransaction({
       clientConfigurationId: resolvedDto.clientConfigurationId,
       serviceType,
-      sourceModule: 'tiramis-motor',
-      sourceRecordId: resolvedDto.sourceRecordId,
-      businessReference: resolvedDto.coverNoteNumber,
+      sourceService: sourceMetadata?.sourceService || 'tiramis-service',
+      sourceCompanyId: sourceMetadata?.sourceCompanyId || null,
+      sourceUserId: sourceMetadata?.sourceUserId || null,
+      sourceModule: sourceMetadata?.sourceModule || 'motor',
+      sourceRecordId:
+        sourceMetadata?.sourceRecordId ||
+        sourceMetadata?.policyId ||
+        sourceMetadata?.quotationId ||
+        resolvedDto.coverNoteNumber,
+      businessReference:
+        sourceMetadata?.businessReference || resolvedDto.coverNoteNumber,
     });
 
     const coverNote = this.coverNoteRepository.create({
@@ -171,7 +183,7 @@ export class TiramisMotorService {
     };
   }
 
-  async submit(dto: CreateMotorCoverNoteDto) {
+  async previewXml(dto: CreateMotorCoverNoteDto, includeSignature = true) {
     const { configuration, dto: resolvedDto } =
       await this.tiramisConfigService.resolveSubmissionContext(
         dto,
@@ -180,7 +192,106 @@ export class TiramisMotorService {
           : dto.coverNoteNumber,
       );
 
-    const { transaction, coverNote } = await this.createDraft(resolvedDto);
+    this.validateMotorPayload(resolvedDto);
+
+    const serviceType = resolvedDto.isFleet
+      ? 'MOTOR_COVER_NOTE_FLEET'
+      : 'MOTOR_COVER_NOTE_NON_FLEET';
+
+    const requestId = this.tiramisRequestIdService.generate('AIC');
+
+    const payload = this.motorPayloadService.buildMotorCoverNotePayload({
+      dto: resolvedDto,
+      requestId,
+    });
+
+    const contentXml = this.xmlBuilder.buildContentXml(
+      this.rootElement,
+      payload,
+    );
+
+    let signature: string | null = null;
+    let tiraMessageXml: string;
+
+    if (includeSignature) {
+      const pfxPaths =
+        await this.tiramisConfigService.getPfxPathsForConfiguration(
+          configuration,
+        );
+
+      signature = this.signatureService.signXmlContent({
+        contentXml,
+        privateKeyPfxPath: pfxPaths.clientPrivateCertificatePath!,
+        privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
+      });
+
+      tiraMessageXml = this.xmlBuilder.buildSignedTiraMessage({
+        rootName: this.rootElement,
+        payload,
+        signature,
+      });
+    } else {
+      tiraMessageXml = this.xmlBuilder.buildTiraMessage({
+        rootName: this.rootElement,
+        payload,
+        signature: '',
+      });
+    }
+
+    const endpoint = await this.tiramisConfigService.getFullEndpointUrlForConfiguration(
+      {
+        configuration,
+        serviceType,
+      },
+    );
+
+    const headers =
+      await this.tiramisConfigService.getRequestHeadersForConfiguration(
+        configuration,
+      );
+
+    return {
+      previewOnly: true,
+      submittedToTira: false,
+      serviceType,
+      rootElement: this.rootElement,
+      requestId,
+      environment: resolvedDto.environment,
+      isFleet: !!resolvedDto.isFleet,
+      endpoint,
+      headers: this.maskTiraHeaders(headers),
+      businessIdentifiers: {
+        companyCode: resolvedDto.companyCode,
+        systemCode: resolvedDto.systemCode,
+        callbackUrl: resolvedDto.callbackUrl,
+        insurerCompanyCode: resolvedDto.insurerCompanyCode,
+        tranCompanyCode: resolvedDto.tranCompanyCode,
+        salePointCode: resolvedDto.salePointCode,
+        productCode: resolvedDto.productCode,
+      },
+      payload,
+      contentXml,
+      signature,
+      tiraMessageXml,
+    };
+  }
+
+  async submit(
+    dto: CreateMotorCoverNoteDto,
+    sourceMetadata?: TiramisSourceMetadataDto,
+  ) {
+    const { configuration, dto: resolvedDto } =
+      await this.tiramisConfigService.resolveSubmissionContext(
+        dto,
+        dto.isFleet
+          ? dto.fleet?.fleetId || dto.coverNoteNumber
+          : dto.coverNoteNumber,
+      );
+
+    const { transaction, coverNote } = await this.createDraft(
+      resolvedDto,
+      sourceMetadata,
+    );
 
     const serviceType = dto.isFleet
       ? 'MOTOR_COVER_NOTE_FLEET'
@@ -237,37 +348,87 @@ export class TiramisMotorService {
 
     await this.tiramisSubmissionService.markSent(coverNote.requestId);
 
-    const response = await this.httpClient.postXml({
-      url: endpoint,
-      xml: requestXml,
-      headers,
-    });
-
-    const acknowledgementStatusCode =
-      this.xmlParser.getStatusCode(response.rawXml) || 'UNKNOWN';
-    const acknowledgementStatusDesc =
-      this.xmlParser.getStatusDesc(response.rawXml) || undefined;
-    const acknowledgementId =
-      this.xmlParser.getAcknowledgementId(response.rawXml) || undefined;
-    const isAcknowledgementSuccess =
-      await this.tiramisConfigService.isSuccessResponse(
-        acknowledgementStatusCode,
-      );
-    const acknowledgedAttempt =
-      await this.tiramisSubmissionService.markAcknowledgementReceived({
-        requestId: coverNote.requestId,
-        acknowledgementId,
-        statusCode: acknowledgementStatusCode,
-        statusDesc: acknowledgementStatusDesc,
-        rawXml: response.rawXml,
-        isSuccess: isAcknowledgementSuccess,
+    try {
+      const response = await this.httpClient.postXml({
+        url: endpoint,
+        xml: requestXml,
+        headers,
       });
 
-    return {
-      coverNote,
-      attempt: acknowledgedAttempt,
-      tiraResponse: response,
-    };
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        const failedAttempt = await this.tiramisSubmissionService.markFailed({
+          requestId: coverNote.requestId,
+          errorMessage: `TIRAMIS HTTP error: ${response.statusCode}`,
+          rawPayload: response.rawXml,
+          isRetryable: true,
+        });
+
+        return {
+          transaction,
+          coverNote,
+          attempt: failedAttempt,
+          tiraResponse: response,
+        };
+      }
+
+      const acknowledgement = this.xmlParser.extractAcknowledgement(
+        response.rawXml,
+      );
+
+      if (!acknowledgement.ok || !acknowledgement.statusCode) {
+        const failedAttempt = await this.tiramisSubmissionService.markFailed({
+          requestId: coverNote.requestId,
+          errorMessage:
+            acknowledgement.error ||
+            'Invalid motor acknowledgement received from TIRAMIS',
+          rawPayload: response.rawXml,
+        });
+
+        return {
+          transaction,
+          coverNote,
+          attempt: failedAttempt,
+          tiraResponse: response,
+        };
+      }
+
+      const isAcknowledgementSuccess =
+        await this.tiramisConfigService.isSuccessResponse(
+          acknowledgement.statusCode,
+        );
+
+      const acknowledgedAttempt =
+        await this.tiramisSubmissionService.markAcknowledgementReceived({
+          requestId: coverNote.requestId,
+          acknowledgementId: acknowledgement.acknowledgementId,
+          statusCode: acknowledgement.statusCode,
+          statusDesc: acknowledgement.statusDesc,
+          rawXml: response.rawXml,
+          isSuccess: isAcknowledgementSuccess,
+        });
+
+      return {
+        transaction,
+        coverNote,
+        attempt: acknowledgedAttempt,
+        tiraResponse: response,
+      };
+    } catch (error: any) {
+      const failedAttempt = await this.tiramisSubmissionService.markFailed({
+        requestId: coverNote.requestId,
+        errorMessage:
+          error?.message || 'Failed to submit Motor request to TIRAMIS',
+        rawPayload: error?.response?.data || null,
+        isRetryable: true,
+      });
+
+      return {
+        transaction,
+        coverNote,
+        attempt: failedAttempt,
+        tiraResponse: null,
+      };
+    }
   }
 
   async findFleetByCoverNoteId(coverNoteId: string) {
@@ -278,22 +439,186 @@ export class TiramisMotorService {
     return this.motorRepository.findMotorDetailsByCoverNoteId(coverNoteId);
   }
 
-  private validateMotorPayload(dto: CreateMotorCoverNoteDto) {
-    if (dto.isFleet && !dto.fleet) {
-      throw new BadRequestException(
-        'Fleet details are required for fleet motor submission',
+  private validateMotorPayload(
+    dto: CreateMotorCoverNoteDto & Partial<TiramisResolvedRequestDtoFields>,
+  ) {
+    const errors: string[] = [];
+
+    this.payloadValidator.validateCommonCoverNoteData(dto, errors);
+
+    if (dto.isFleet) {
+      this.validateFleet(dto, errors);
+    } else {
+      if (!dto.motorDetail) {
+        errors.push('motorDetail is required for non-fleet motor submission');
+      } else {
+        this.validateMotorDetail(dto.motorDetail, 'motorDetail', errors);
+      }
+
+      this.payloadValidator.validateRisks(dto.risks || [], 'risks', errors);
+      this.payloadValidator.validateSubjectMatters(
+        dto.subjectMatters || [],
+        'subjectMatters',
+        errors,
+      );
+      this.payloadValidator.validateAddons(dto.addons || [], 'addons', errors);
+    }
+
+    this.payloadValidator.validatePolicyHolders(dto.policyHolders || [], errors);
+
+    if (errors.length > 0) {
+      throw new BadRequestException({
+        message: 'Motor payload validation failed',
+        errors,
+      });
+    }
+  }
+
+  private validateFleet(
+    dto: CreateMotorCoverNoteDto & Partial<TiramisResolvedRequestDtoFields>,
+    errors: string[],
+  ) {
+    if (!dto.fleet) {
+      errors.push('fleet is required when isFleet is true');
+      return;
+    }
+
+    this.payloadValidator.requireString(dto.fleet.fleetId, 'fleet.fleetId', errors);
+    this.payloadValidator.requireNumber(dto.fleet.fleetType, 'fleet.fleetType', errors);
+    this.payloadValidator.requirePositiveNumber(dto.fleet.fleetSize, 'fleet.fleetSize', errors);
+    this.payloadValidator.requirePositiveNumber(
+      dto.fleet.comprehensiveInsured,
+      'fleet.comprehensiveInsured',
+      errors,
+    );
+
+    if (!dto.fleet.items || dto.fleet.items.length === 0) {
+      errors.push('fleet.items must contain at least one vehicle');
+      return;
+    }
+
+    if (Number(dto.fleet.fleetSize) !== dto.fleet.items.length) {
+      errors.push(
+        `fleet.fleetSize (${dto.fleet.fleetSize}) must match fleet.items length (${dto.fleet.items.length})`,
       );
     }
 
-    if (dto.isFleet && (!dto.fleet?.items || dto.fleet.items.length === 0)) {
-      throw new BadRequestException('At least one fleet item is required');
+    const coverNoteNumbers = new Set<string>();
+    const fleetEntries = new Set<string>();
+
+    dto.fleet.items.forEach((item: any, index) => {
+      const path = `fleet.items[${index}]`;
+
+      this.payloadValidator.requireString(
+        item.coverNoteNumber,
+        `${path}.coverNoteNumber`,
+        errors,
+      );
+
+      if (!this.payloadValidator.isBlank(item.coverNoteNumber)) {
+        const coverNoteNumber = String(item.coverNoteNumber).trim();
+
+        if (coverNoteNumbers.has(coverNoteNumber)) {
+          errors.push(`${path}.coverNoteNumber is duplicated`);
+        }
+
+        coverNoteNumbers.add(coverNoteNumber);
+      }
+
+      if (!this.payloadValidator.isBlank(item.fleetEntry)) {
+        const fleetEntry = String(item.fleetEntry).trim();
+
+        if (fleetEntries.has(fleetEntry)) {
+          errors.push(`${path}.fleetEntry is duplicated`);
+        }
+
+        fleetEntries.add(fleetEntry);
+      }
+
+      if (!item.motorDetail) {
+        errors.push(`${path}.motorDetail is required`);
+      } else {
+        this.validateMotorDetail(item.motorDetail, `${path}.motorDetail`, errors);
+      }
+
+      const itemRisks =
+        item.risks && item.risks.length > 0 ? item.risks : dto.risks || [];
+
+      this.payloadValidator.validateRisks(itemRisks, `${path}.risks`, errors);
+
+      const itemSubjectMatters =
+        item.subjectMatters && item.subjectMatters.length > 0
+          ? item.subjectMatters
+          : dto.subjectMatters || [];
+
+      this.payloadValidator.validateSubjectMatters(
+        itemSubjectMatters,
+        `${path}.subjectMatters`,
+        errors,
+      );
+
+      const itemAddons =
+        item.addons && item.addons.length > 0 ? item.addons : dto.addons || [];
+
+      this.payloadValidator.validateAddons(itemAddons, `${path}.addons`, errors);
+    });
+  }
+
+  private validateMotorDetail(motor: any, path: string, errors: string[]) {
+    this.payloadValidator.requireNumberIn(
+      motor.motorCategory,
+      `${path}.motorCategory`,
+      [1, 2],
+      errors,
+    );
+    this.payloadValidator.requireNumberIn(
+      motor.motorType,
+      `${path}.motorType`,
+      [1, 2],
+      errors,
+    );
+
+    if (Number(motor.motorType) === 1) {
+      this.payloadValidator.requireString(motor.registrationNumber, `${path}.registrationNumber`, errors);
     }
 
-    if (!dto.isFleet && !dto.motorDetail) {
-      throw new BadRequestException(
-        'Motor detail is required for non-fleet motor submission',
-      );
+    this.payloadValidator.requireString(motor.chassisNumber, `${path}.chassisNumber`, errors);
+    this.payloadValidator.requireString(motor.make, `${path}.make`, errors);
+    this.payloadValidator.requireString(motor.model, `${path}.model`, errors);
+    this.payloadValidator.requireString(motor.bodyType, `${path}.bodyType`, errors);
+    this.payloadValidator.requireString(motor.color, `${path}.color`, errors);
+    this.payloadValidator.requireString(motor.engineNumber, `${path}.engineNumber`, errors);
+    this.payloadValidator.requireString(motor.engineCapacity, `${path}.engineCapacity`, errors);
+    this.payloadValidator.requireString(motor.fuelUsed, `${path}.fuelUsed`, errors);
+
+    this.payloadValidator.requirePositiveNumber(
+      motor.sittingCapacity,
+      `${path}.sittingCapacity`,
+      errors,
+    );
+
+    this.payloadValidator.requirePositiveNumber(
+      motor.yearOfManufacture,
+      `${path}.yearOfManufacture`,
+      errors,
+    );
+
+    const year = Number(motor.yearOfManufacture);
+    const currentYear = new Date().getFullYear();
+
+    if (year && (year < 1900 || year > currentYear + 1)) {
+      errors.push(`${path}.yearOfManufacture is not valid`);
     }
+
+    this.payloadValidator.requireNumberIn(
+      motor.motorUsage,
+      `${path}.motorUsage`,
+      [1, 2],
+      errors,
+    );
+    this.payloadValidator.requireString(motor.ownerName, `${path}.ownerName`, errors);
+    this.payloadValidator.requireNumber(motor.ownerCategory, `${path}.ownerCategory`, errors);
+    this.payloadValidator.requireString(motor.ownerAddress, `${path}.ownerAddress`, errors);
   }
 
   private mapMotorDetailForEntity(motor: any) {
@@ -321,5 +646,26 @@ export class TiramisMotorService {
       ownerCategory: motor.ownerCategory || null,
       ownerAddress: motor.ownerAddress || null,
     };
+  }
+
+  private maskTiraHeaders(
+    headers: Record<string, string>,
+  ): Record<string, string> {
+    return {
+      ...headers,
+      ClientKey: this.maskSecret(headers.ClientKey),
+    };
+  }
+
+  private maskSecret(value?: string | null): string {
+    if (!value) {
+      return '';
+    }
+
+    if (value.length <= 4) {
+      return '****';
+    }
+
+    return `${value.slice(0, 2)}****${value.slice(-2)}`;
   }
 }

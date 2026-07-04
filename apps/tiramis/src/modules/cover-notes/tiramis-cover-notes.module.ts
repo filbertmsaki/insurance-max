@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { TiramisConfigModule } from '../config/tiramis-config.module';
 import { TiramisMessagingModule } from '../messaging/tiramis-messaging.module';
+import { TiramisSharedModule } from '../shared/tiramis-shared.module';
 import { TiramisSubmissionsModule } from '../submissions/tiramis-submissions.module';
 import { TiramisCoverNotesController } from './controllers/tiramis-cover-notes.controller';
 import { TiramisCoverNoteAddonEntity } from './entities/tiramis-cover-note-addon.entity';
@@ -29,6 +30,7 @@ import { TiramisCoverNoteService } from './services/tiramis-cover-note.service';
     ]),
     TiramisConfigModule,
     TiramisMessagingModule,
+    TiramisSharedModule,
     TiramisSubmissionsModule,
   ],
   controllers: [TiramisCoverNotesController],

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { createSign, createVerify } from 'crypto';
 import * as forge from 'node-forge';
 import { readFileSync } from 'fs';
@@ -8,6 +8,8 @@ import { resolveTiramisCertificatePath } from '../../config/utils/tiramis-certif
 
 @Injectable()
 export class TiramisSignatureService {
+  private readonly logger = new Logger(TiramisSignatureService.name);
+
   signXmlContent(params: {
     contentXml: string;
     privateKeyPfxPath: string;
@@ -30,8 +32,12 @@ export class TiramisSignatureService {
         'base64',
       );
     } catch (error: any) {
+      this.logger.error(
+        `Failed to sign TIRAMIS XML content: ${error?.message || 'Unknown error'}`,
+      );
+
       throw new BadRequestException(
-        `Failed to sign TIRAMIS XML content: ${error.message}`,
+        'Failed to sign TIRAMIS XML content. Check certificate configuration.',
       );
     }
   }
@@ -43,7 +49,7 @@ export class TiramisSignatureService {
     publicCertificatePfxPassword?: string | null;
   }): boolean {
     try {
-      const publicCertificatePem = this.loadPublicCertificateFromPfx(
+      const publicCertificatePem = this.loadPublicCertificate(
         params.publicCertificatePfxPath,
         params.publicCertificatePfxPassword,
       );
@@ -74,7 +80,7 @@ export class TiramisSignatureService {
       !this.isPkcs12File(resolvedPrivateKeyPfxPath)
     ) {
       throw new BadRequestException(
-        `TIRAMIS private PFX must be a .pfx or .p12 file: ${privateKeyPfxPath}`,
+        'TIRAMIS private certificate must be a .pfx or .p12 file',
       );
     }
 
@@ -95,7 +101,7 @@ export class TiramisSignatureService {
 
     if (!keyBag?.key) {
       throw new BadRequestException(
-        `No private key found in TIRAMIS private PFX: ${resolvedPrivateKeyPfxPath}`,
+        'No private key found in TIRAMIS private certificate',
       );
     }
 
@@ -115,7 +121,7 @@ export class TiramisSignatureService {
       !this.isPkcs12File(resolvedPublicCertificatePfxPath)
     ) {
       throw new BadRequestException(
-        `TIRAMIS public PFX must be a .pfx or .p12 file: ${publicCertificatePfxPath}`,
+        'TIRAMIS public certificate must be a .pfx or .p12 file',
       );
     }
 
@@ -133,11 +139,52 @@ export class TiramisSignatureService {
 
     if (!certificateBag?.cert) {
       throw new BadRequestException(
-        `No certificate found in TIRAMIS public PFX: ${resolvedPublicCertificatePfxPath}`,
+        'No certificate found in TIRAMIS public certificate',
       );
     }
 
     return forge.pki.certificateToPem(certificateBag.cert);
+  }
+
+  private loadPublicCertificate(
+    publicCertificatePath: string,
+    publicCertificatePassword?: string | null,
+  ): string {
+    const resolvedPublicCertificatePath = resolveTiramisCertificatePath(
+      publicCertificatePath,
+    );
+
+    if (!resolvedPublicCertificatePath) {
+      throw new BadRequestException('TIRAMIS public certificate path is missing');
+    }
+
+    if (this.isPkcs12File(resolvedPublicCertificatePath)) {
+      return this.loadPublicCertificateFromPfx(
+        resolvedPublicCertificatePath,
+        publicCertificatePassword,
+      );
+    }
+
+    const extension = extname(resolvedPublicCertificatePath).toLowerCase();
+
+    if (!['.pem', '.cer', '.crt'].includes(extension)) {
+      throw new BadRequestException(
+        'Unsupported TIRAMIS public certificate file. Use .pfx, .p12, .pem, .cer, or .crt',
+      );
+    }
+
+    const buffer = readFileSync(resolvedPublicCertificatePath);
+    const text = buffer.toString('utf8');
+
+    if (text.includes('BEGIN CERTIFICATE')) {
+      return text;
+    }
+
+    const der = forge.util.createBuffer(buffer.toString('binary'));
+    const asn1 = forge.asn1.fromDer(der);
+    const certificate = forge.pki.certificateFromAsn1(asn1);
+
+    return forge.pki.certificateToPem(certificate);
   }
 
   private loadPkcs12(
@@ -156,7 +203,7 @@ export class TiramisSignatureService {
       );
     } catch (error: any) {
       throw new BadRequestException(
-        `Failed to read PKCS#12 file "${filePath}": ${error.message}`,
+        'Failed to read PKCS#12 certificate file',
       );
     }
   }

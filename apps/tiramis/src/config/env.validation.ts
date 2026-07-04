@@ -49,6 +49,12 @@ export const tiramisEnvValidationSchema = Joi.object({
   MAIL_FROM_NAME: Joi.string().default('Alliance System'),
   MAIL_FROM_EMAIL: Joi.string().email().default('no-reply@example.com'),
 
+  TIRAMIS_SECRET_ENCRYPTION_KEY: Joi.string().required(),
+  TIRAMIS_CERTIFICATE_BASE_DIR: Joi.string().default(
+    '/opt/apps/tiramis/certificates',
+  ),
+  TIRAMIS_CERTIFICATE_EXPIRY_WARNING_DAYS: Joi.number().default(30),
+
   QUEUE_ENABLED: Joi.boolean().default(true),
   QUEUE_PREFIX: Joi.string().default('alliance'),
   QUEUE_DEFAULT_JOB_ATTEMPTS: Joi.number().default(3),
@@ -64,6 +70,8 @@ export const tiramisEnvValidationSchema = Joi.object({
   REDIS_RETRY_ATTEMPTS: Joi.number().default(5),
   REDIS_RETRY_DELAY: Joi.number().default(3000),
 
+  TIRAMIS_TCP_HOST: Joi.string().default('0.0.0.0'),
+  TIRAMIS_TCP_PORT: Joi.number().default(4001),
   TCP_HOST: Joi.string().default('0.0.0.0'),
   TCP_PORT: Joi.number().default(4001),
 });

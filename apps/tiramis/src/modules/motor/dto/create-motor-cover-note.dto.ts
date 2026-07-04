@@ -1,6 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-import { CreateCoverNoteDto } from '../../cover-notes/dto/create-cover-note.dto';
+import {
+  CreateCoverNoteAddonDto,
+  CreateCoverNoteDto,
+  CreateCoverNoteRiskDto,
+  CreateSubjectMatterDto,
+} from '../../cover-notes/dto/create-cover-note.dto';
 
 export class CreateMotorDetailDto {
   @ApiPropertyOptional({ nullable: true, example: 1 })
@@ -100,6 +105,27 @@ export class CreateMotorFleetItemDto {
 
   @ApiPropertyOptional({ nullable: true, example: null })
   endorsementPremiumEarned?: string | null;
+
+  @ApiPropertyOptional({
+    type: () => [CreateCoverNoteRiskDto],
+    description:
+      'Optional item-specific risks. If not provided, the parent fleet risks will be used.',
+  })
+  risks?: CreateCoverNoteRiskDto[];
+
+  @ApiPropertyOptional({
+    type: () => [CreateSubjectMatterDto],
+    description:
+      'Optional item-specific subject matters. If not provided, the parent fleet subject matters will be used.',
+  })
+  subjectMatters?: CreateSubjectMatterDto[];
+
+  @ApiPropertyOptional({
+    type: () => [CreateCoverNoteAddonDto],
+    description:
+      'Optional item-specific add-ons. If not provided, the parent fleet add-ons will be used.',
+  })
+  addons?: CreateCoverNoteAddonDto[];
 
   @ApiProperty({ type: () => CreateMotorDetailDto })
   motorDetail!: CreateMotorDetailDto;

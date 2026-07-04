@@ -1,5 +1,11 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { CreateMotorCoverNoteDto } from '../dto/create-motor-cover-note.dto';
 import { TiramisMotorService } from '../services/tiramis-motor.service';
@@ -15,6 +21,25 @@ export class TiramisMotorController {
   @Post('draft')
   createDraft(@Body() dto: CreateMotorCoverNoteDto) {
     return this.tiramisMotorService.createDraft(dto);
+  }
+
+  @ApiOperation({
+    summary: 'Preview generated Motor XML without sending to TIRA',
+  })
+  @ApiBody({ type: CreateMotorCoverNoteDto })
+  @ApiQuery({
+    name: 'signed',
+    required: false,
+    example: 'true',
+    description:
+      'Set to false to preview XML without generating MsgSignature. Default is true.',
+  })
+  @Post('preview/xml')
+  previewXml(
+    @Body() dto: CreateMotorCoverNoteDto,
+    @Query('signed') signed?: string,
+  ) {
+    return this.tiramisMotorService.previewXml(dto, signed !== 'false');
   }
 
   @ApiOperation({ summary: 'Submit a motor cover note' })

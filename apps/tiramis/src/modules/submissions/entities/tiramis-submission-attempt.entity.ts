@@ -147,4 +147,33 @@ export class TiramisSubmissionAttemptEntity extends BaseEntity {
 
   @Column({ name: 'error_message', type: 'text', nullable: true })
   errorMessage?: string | null;
+
+  @Column({ name: 'retry_count', type: 'int', default: 0 })
+  retryCount!: number;
+
+  @Column({ name: 'max_retries', type: 'int', default: 5 })
+  maxRetries!: number;
+
+  @Column({ name: 'is_retryable', type: 'int', default: 0 })
+  isRetryable!: number;
+
+  @Column({ name: 'next_retry_at', type: 'timestamptz', nullable: true })
+  nextRetryAt?: Date | null;
+
+  @Column({ name: 'last_retry_at', type: 'timestamptz', nullable: true })
+  lastRetryAt?: Date | null;
+
+  @Column({
+    name: 'final_callback_deadline_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  finalCallbackDeadlineAt?: Date | null;
+
+  @Column({
+    name: 'final_callback_overdue_notified',
+    type: 'int',
+    default: 0,
+  })
+  finalCallbackOverdueNotified!: number;
 }

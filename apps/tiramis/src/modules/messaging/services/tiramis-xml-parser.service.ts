@@ -41,7 +41,113 @@ export class TiramisXmlParserService {
       signature:
         this.getStringValue(tiraMsg, 'MsgSignature') ??
         this.getStringValue(tiraMsg, 'Signature') ??
-        this.getStringValue(tiraMsg, 'signature'),
+      this.getStringValue(tiraMsg, 'signature'),
+    };
+  }
+
+  safeParseTiraMessage(xml: string): {
+    ok: boolean;
+    message?: TiramisParsedMessage;
+    error?: string;
+  } {
+    if (!xml || !xml.trim()) {
+      return {
+        ok: false,
+        error: 'Empty response received from TIRAMIS',
+      };
+    }
+
+    const trimmedXml = xml.trim();
+
+    if (!trimmedXml.startsWith('<')) {
+      return {
+        ok: false,
+        error: 'Response received from TIRAMIS is not XML',
+      };
+    }
+
+    try {
+      const message = this.parseTiraMessage(trimmedXml);
+
+      if (!message.rootName) {
+        return {
+          ok: false,
+          error: 'Invalid TIRAMIS XML: response root element missing',
+        };
+      }
+
+      if (!message.content) {
+        return {
+          ok: false,
+          error: 'Invalid TIRAMIS XML: response content missing',
+        };
+      }
+
+      return {
+        ok: true,
+        message,
+      };
+    } catch (error: any) {
+      return {
+        ok: false,
+        error:
+          error?.message ||
+          'Invalid TIRAMIS XML response received from TIRAMIS',
+      };
+    }
+  }
+
+  extractAcknowledgement(xml: string): {
+    ok: boolean;
+    acknowledgementId?: string;
+    requestId?: string;
+    statusCode?: string;
+    statusDesc?: string;
+    rawRootName?: string | null;
+    error?: string;
+  } {
+    const parsed = this.safeParseTiraMessage(xml);
+
+    if (!parsed.ok || !parsed.message?.content) {
+      return {
+        ok: false,
+        error: parsed.error || 'Unable to parse TIRAMIS acknowledgement',
+      };
+    }
+
+    const content = parsed.message.content;
+
+    const acknowledgementId = this.getStringValue(
+      content,
+      'AcknowledgementId',
+    );
+
+    const requestId = this.getStringValue(content, 'RequestId');
+
+    const statusCode =
+      this.getStringValue(content, 'AcknowledgementStatusCode') ||
+      this.getStringValue(content, 'ResponseStatusCode');
+
+    const statusDesc =
+      this.getStringValue(content, 'AcknowledgementStatusDesc') ||
+      this.getStringValue(content, 'ResponseStatusDesc') ||
+      undefined;
+
+    if (!statusCode) {
+      return {
+        ok: false,
+        rawRootName: parsed.message.rootName,
+        error: `Invalid TIRAMIS acknowledgement: status code missing in ${parsed.message.rootName}`,
+      };
+    }
+
+    return {
+      ok: true,
+      acknowledgementId: acknowledgementId || undefined,
+      requestId: requestId || undefined,
+      statusCode,
+      statusDesc,
+      rawRootName: parsed.message.rootName,
     };
   }
 
