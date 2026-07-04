@@ -1,4 +1,15 @@
-export type TiramisPortalRequestType = 'NON_MOTOR' | 'MOTOR' | 'MOTOR_FLEET';
+export type TiramisPortalRequestType =
+  | 'NON_MOTOR'
+  | 'MOTOR'
+  | 'MOTOR_FLEET'
+  | 'REINSURANCE'
+  | 'POLICY'
+  | 'CLAIM_NOTIFICATION'
+  | 'CLAIM_INTIMATION'
+  | 'CLAIM_ASSESSMENT'
+  | 'DISCHARGE_VOUCHER'
+  | 'CLAIM_PAYMENT'
+  | 'CLAIM_REJECTION';
 
 export interface SubmitTiramisCommandDto {
   sourceService?: string;
@@ -10,12 +21,9 @@ export interface SubmitTiramisCommandDto {
   quotationId?: string | null;
   businessReference?: string | null;
   requestType: TiramisPortalRequestType;
+
   /**
    * Actual payload prepared by insurance-portal-service.
-   *
-   * NON_MOTOR    => CreateCoverNoteDto
-   * MOTOR        => CreateMotorCoverNoteDto with isFleet=false
-   * MOTOR_FLEET  => CreateMotorCoverNoteDto with isFleet=true
    */
   payload: Record<string, any>;
 }

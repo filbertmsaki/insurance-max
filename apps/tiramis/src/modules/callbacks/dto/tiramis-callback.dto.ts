@@ -4,6 +4,7 @@ export interface ParsedTiramisCallbackDto {
   responseId: string;
   responseStatusCode: string;
   responseStatusDesc: string;
+  claimReferenceNumber?: string | null;
   coverNoteReferenceNumber?: string | null;
   policyReferenceNumber?: string | null;
   stickerNumber?: string | null;

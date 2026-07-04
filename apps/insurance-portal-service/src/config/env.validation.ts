@@ -91,4 +91,10 @@ export const insurancePortalEnvValidationSchema = Joi.object({
 
   TCP_HOST: Joi.string().default('0.0.0.0'),
   TCP_PORT: Joi.number().default(4002),
+
+  TIRAMIS_SERVICE_HOST: Joi.string().default('127.0.0.1'),
+  TIRAMIS_SERVICE_TCP_PORT: Joi.number().default(9095),
+  TIRAMIS_TCP_TIMEOUT_MS: Joi.number().default(60000),
+  TIRAMIS_STATUS_SYNC_ENABLED: Joi.boolean().default(true),
+  TIRAMIS_STATUS_SYNC_LIMIT: Joi.number().default(50),
 });

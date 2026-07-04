@@ -1,207 +1,99 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DeepPartial, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 
-import { TiramisClaimAssessmentEntity } from '../entities/tiramis-claim-assessment.entity';
-import { TiramisClaimIntimationEntity } from '../entities/tiramis-claim-intimation.entity';
-import { TiramisClaimNotificationEntity } from '../entities/tiramis-claim-notification.entity';
-import { TiramisClaimPaymentEntity } from '../entities/tiramis-claim-payment.entity';
-import { TiramisClaimRejectionEntity } from '../entities/tiramis-claim-rejection.entity';
-import { TiramisDischargeVoucherEntity } from '../entities/tiramis-discharge-voucher.entity';
+import { TiramisClaimEntity } from '../entities/tiramis-claim.entity';
 
 @Injectable()
 export class TiramisClaimRepository {
   constructor(
-    @InjectRepository(TiramisClaimNotificationEntity)
-    private readonly notificationRepository: Repository<TiramisClaimNotificationEntity>,
-    @InjectRepository(TiramisClaimIntimationEntity)
-    private readonly intimationRepository: Repository<TiramisClaimIntimationEntity>,
-    @InjectRepository(TiramisClaimAssessmentEntity)
-    private readonly assessmentRepository: Repository<TiramisClaimAssessmentEntity>,
-    @InjectRepository(TiramisDischargeVoucherEntity)
-    private readonly dischargeVoucherRepository: Repository<TiramisDischargeVoucherEntity>,
-    @InjectRepository(TiramisClaimPaymentEntity)
-    private readonly paymentRepository: Repository<TiramisClaimPaymentEntity>,
-    @InjectRepository(TiramisClaimRejectionEntity)
-    private readonly rejectionRepository: Repository<TiramisClaimRejectionEntity>,
+    @InjectRepository(TiramisClaimEntity)
+    private readonly repository: Repository<TiramisClaimEntity>,
   ) {}
 
-  createNotification(data: DeepPartial<TiramisClaimNotificationEntity>) {
-    return this.notificationRepository.create(data);
+  create(data: Partial<TiramisClaimEntity>) {
+    return this.repository.create(data);
   }
 
-  saveNotification(entity: TiramisClaimNotificationEntity) {
-    return this.notificationRepository.save(entity);
+  save(claim: TiramisClaimEntity) {
+    return this.repository.save(claim);
   }
 
-  createIntimation(data: DeepPartial<TiramisClaimIntimationEntity>) {
-    return this.intimationRepository.create(data);
-  }
-
-  saveIntimation(entity: TiramisClaimIntimationEntity) {
-    return this.intimationRepository.save(entity);
-  }
-
-  createAssessment(data: DeepPartial<TiramisClaimAssessmentEntity>) {
-    return this.assessmentRepository.create(data);
-  }
-
-  saveAssessment(entity: TiramisClaimAssessmentEntity) {
-    return this.assessmentRepository.save(entity);
-  }
-
-  createDischargeVoucher(data: DeepPartial<TiramisDischargeVoucherEntity>) {
-    return this.dischargeVoucherRepository.create(data);
-  }
-
-  saveDischargeVoucher(entity: TiramisDischargeVoucherEntity) {
-    return this.dischargeVoucherRepository.save(entity);
-  }
-
-  createPayment(data: DeepPartial<TiramisClaimPaymentEntity>) {
-    return this.paymentRepository.create(data);
-  }
-
-  savePayment(entity: TiramisClaimPaymentEntity) {
-    return this.paymentRepository.save(entity);
-  }
-
-  createRejection(data: DeepPartial<TiramisClaimRejectionEntity>) {
-    return this.rejectionRepository.create(data);
-  }
-
-  saveRejection(entity: TiramisClaimRejectionEntity) {
-    return this.rejectionRepository.save(entity);
-  }
-
-  findNotificationByRequestId(requestId: string) {
-    return this.notificationRepository.findOne({ where: { requestId } });
-  }
-
-  findNotificationById(id: string) {
-    return this.notificationRepository.findOne({ where: { id } });
-  }
-
-  findAllNotifications() {
-    return this.notificationRepository.find({
-      order: {
-        createdAt: 'DESC',
-      },
-    });
-  }
-
-  findIntimationByRequestId(requestId: string) {
-    return this.intimationRepository.findOne({
-      where: { requestId },
-      relations: { claimants: true },
-    });
-  }
-
-  findIntimationById(id: string) {
-    return this.intimationRepository.findOne({
+  findById(id: string) {
+    return this.repository.findOne({
       where: { id },
-      relations: { claimants: true },
     });
   }
 
-  findAllIntimations() {
-    return this.intimationRepository.find({
-      relations: { claimants: true },
-      order: {
-        createdAt: 'DESC',
-      },
-    });
-  }
-
-  findAssessmentByRequestId(requestId: string) {
-    return this.assessmentRepository.findOne({
+  findByRequestId(requestId: string) {
+    return this.repository.findOne({
       where: { requestId },
-      relations: { claimants: true },
     });
   }
 
-  findAssessmentById(id: string) {
-    return this.assessmentRepository.findOne({
-      where: { id },
-      relations: { claimants: true },
+  findByClaimNotificationNumber(claimNotificationNumber: string) {
+    return this.repository.findOne({
+      where: { claimNotificationNumber },
     });
   }
 
-  findAllAssessments() {
-    return this.assessmentRepository.find({
-      relations: { claimants: true },
-      order: {
-        createdAt: 'DESC',
+  findByClaimIntimationNumber(claimIntimationNumber: string) {
+    return this.repository.findOne({
+      where: { claimIntimationNumber },
+    });
+  }
+
+  findByClaimAssessmentNumber(claimAssessmentNumber: string) {
+    return this.repository.findOne({
+      where: { claimAssessmentNumber },
+    });
+  }
+
+  findByClaimPaymentNumber(claimPaymentNumber: string) {
+    return this.repository.findOne({
+      where: { claimPaymentNumber },
+    });
+  }
+
+  findByClaimRejectionNumber(claimRejectionNumber: string) {
+    return this.repository.findOne({
+      where: { claimRejectionNumber },
+    });
+  }
+
+  findByClaimReferenceNumber(claimReferenceNumber: string) {
+    return this.repository.findOne({
+      where: { claimReferenceNumber },
+    });
+  }
+
+  findByCoverNoteReferenceNumber(coverNoteReferenceNumber: string) {
+    return this.repository.find({
+      where: { coverNoteReferenceNumber },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async markFinalResponseByRequestId(params: {
+    requestId: string;
+    responseId: string;
+    statusCode: string;
+    statusDesc: string;
+    payload: Record<string, any>;
+    claimReferenceNumber?: string | null;
+  }) {
+    await this.repository.update(
+      { requestId: params.requestId },
+      {
+        claimReferenceNumber: params.claimReferenceNumber || undefined,
+        finalResponseId: params.responseId,
+        finalResponseStatusCode: params.statusCode,
+        finalResponseStatusDesc: params.statusDesc,
+        finalResponseReceivedAt: new Date(),
+        finalResponsePayload: params.payload,
       },
-    });
-  }
+    );
 
-  findDischargeVoucherByRequestId(requestId: string) {
-    return this.dischargeVoucherRepository.findOne({
-      where: { requestId },
-      relations: { claimants: true },
-    });
-  }
-
-  findDischargeVoucherById(id: string) {
-    return this.dischargeVoucherRepository.findOne({
-      where: { id },
-      relations: { claimants: true },
-    });
-  }
-
-  findAllDischargeVouchers() {
-    return this.dischargeVoucherRepository.find({
-      relations: { claimants: true },
-      order: {
-        createdAt: 'DESC',
-      },
-    });
-  }
-
-  findPaymentByRequestId(requestId: string) {
-    return this.paymentRepository.findOne({
-      where: { requestId },
-      relations: { claimants: true },
-    });
-  }
-
-  findPaymentById(id: string) {
-    return this.paymentRepository.findOne({
-      where: { id },
-      relations: { claimants: true },
-    });
-  }
-
-  findAllPayments() {
-    return this.paymentRepository.find({
-      relations: { claimants: true },
-      order: {
-        createdAt: 'DESC',
-      },
-    });
-  }
-
-  findRejectionByRequestId(requestId: string) {
-    return this.rejectionRepository.findOne({
-      where: { requestId },
-      relations: { claimants: true },
-    });
-  }
-
-  findRejectionById(id: string) {
-    return this.rejectionRepository.findOne({
-      where: { id },
-      relations: { claimants: true },
-    });
-  }
-
-  findAllRejections() {
-    return this.rejectionRepository.find({
-      relations: { claimants: true },
-      order: {
-        createdAt: 'DESC',
-      },
-    });
+    return this.findByRequestId(params.requestId);
   }
 }

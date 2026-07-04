@@ -59,4 +59,25 @@ export class TiramisPolicyRepository {
       .orderBy('policy.created_at', 'DESC')
       .getMany();
   }
+
+  async markFinalResponseByRequestId(params: {
+    requestId: string;
+    responseId: string;
+    statusCode: string;
+    statusDesc: string;
+    payload: Record<string, any>;
+  }) {
+    await this.repository.update(
+      { requestId: params.requestId },
+      {
+        finalResponseId: params.responseId,
+        finalResponseStatusCode: params.statusCode,
+        finalResponseStatusDesc: params.statusDesc,
+        finalResponseReceivedAt: new Date(),
+        finalResponsePayload: params.payload,
+      },
+    );
+
+    return this.findByRequestId(params.requestId);
+  }
 }

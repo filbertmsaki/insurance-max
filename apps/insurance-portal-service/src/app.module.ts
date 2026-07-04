@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -25,6 +26,7 @@ import { insurancePortalEnvValidationSchema } from './config/env.validation';
 import jwtConfig from './config/jwt.config';
 import transportConfig from './config/transport.config';
 import { InsurancePortalServiceModule } from './modules/insurance-portal-service.module';
+import { TiramisModule } from './modules/tiramis/tiramis.module';
 
 @Module({
   imports: [
@@ -45,6 +47,7 @@ import { InsurancePortalServiceModule } from './modules/insurance-portal-service
       ],
     }),
     EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => [
@@ -69,6 +72,7 @@ import { InsurancePortalServiceModule } from './modules/insurance-portal-service
         ),
     }),
     InsurancePortalServiceModule,
+    TiramisModule,
   ],
   controllers: [AppController],
   providers: [

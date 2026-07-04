@@ -1,5 +1,11 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { CreatePolicyDto } from '../dto/create-policy.dto';
 import { TiramisPolicyService } from '../services/tiramis-policy.service';
@@ -17,16 +23,27 @@ export class TiramisPoliciesController {
     return this.tiramisPolicyService.createDraft(dto);
   }
 
-  @ApiOperation({ summary: 'Submit a policy' })
+  @ApiOperation({
+    summary: 'Preview generated Policy XML without sending to TIRA',
+  })
+  @ApiBody({ type: CreatePolicyDto })
+  @ApiQuery({
+    name: 'signed',
+    required: false,
+    example: 'false',
+    description:
+      'Set to false to preview XML without MsgSignature. Default is true.',
+  })
+  @Post('preview/xml')
+  previewXml(@Body() dto: CreatePolicyDto, @Query('signed') signed?: string) {
+    return this.tiramisPolicyService.previewXml(dto, signed !== 'false');
+  }
+
+  @ApiOperation({ summary: 'Submit policy data to TIRA' })
   @ApiBody({ type: CreatePolicyDto })
   @Post('submit')
   submit(@Body() dto: CreatePolicyDto) {
     return this.tiramisPolicyService.submit(dto);
-  }
-
-  @Get(':id')
-  findById(@Param('id') id: string) {
-    return this.tiramisPolicyService.findById(id);
   }
 
   @Get('request/:requestId')
@@ -34,17 +51,13 @@ export class TiramisPoliciesController {
     return this.tiramisPolicyService.findByRequestId(requestId);
   }
 
-  @Get('policy-number/:policyNumber')
+  @Get('number/:policyNumber')
   findByPolicyNumber(@Param('policyNumber') policyNumber: string) {
     return this.tiramisPolicyService.findByPolicyNumber(policyNumber);
   }
 
-  @Get('cover-note/:coverNoteReferenceNumber')
-  findByCoverNoteReferenceNumber(
-    @Param('coverNoteReferenceNumber') coverNoteReferenceNumber: string,
-  ) {
-    return this.tiramisPolicyService.findByCoverNoteReferenceNumber(
-      coverNoteReferenceNumber,
-    );
+  @Get(':id')
+  findById(@Param('id') id: string) {
+    return this.tiramisPolicyService.findById(id);
   }
 }

@@ -12,15 +12,17 @@ import { TiramisPortalNotificationService } from '../../portal-notifications/ser
 import { TiramisPolicyEntity } from '../../policies/entities/tiramis-policy.entity';
 import { TiramisRequestIdService } from '../../submissions/services/tiramis-request-id.service';
 import { TiramisSubmissionService } from '../../submissions/services/tiramis-submission.service';
+import { TiramisCallbackBusinessUpdaterService } from './tiramis-callback-business-updater.service';
 import {
-  TIRAMIS_CALLBACK_ACK_ROOTS,
   TIRAMIS_CALLBACK_ACK_STATUS,
   TIRAMIS_CALLBACK_ROOTS,
 } from '../constants/tiramis-callback.constants';
+import { getTiramisCallbackRootDefinition } from '../constants/tiramis-callback-root-map.constant';
 import {
   ParsedTiramisCallbackDto,
   TiramisCallbackAckResultDto,
 } from '../dto/tiramis-callback.dto';
+import { TiramisFinalResponseDto } from '../dto/tiramis-final-response.dto';
 import { TiramisCallbackDeadLetterEntity } from '../entities/tiramis-callback-dead-letter.entity';
 import { TiramisCallbackReceiptEntity } from '../entities/tiramis-callback-receipt.entity';
 
@@ -44,6 +46,7 @@ export class TiramisCallbackService {
     private readonly xmlParser: TiramisXmlParserService,
     private readonly signatureService: TiramisSignatureService,
     private readonly portalNotificationService: TiramisPortalNotificationService,
+    private readonly callbackBusinessUpdater: TiramisCallbackBusinessUpdaterService,
   ) {}
 
   async handleCallback(params: {
@@ -169,6 +172,10 @@ export class TiramisCallbackService {
         isSuccess,
       });
 
+      const finalResponse = this.xmlParser.extractFinalResponse(params.rawXml);
+
+      await this.callbackBusinessUpdater.updateBusinessRecord(finalResponse);
+
       await this.updateBusinessRecords(parsedCallback);
 
       const acknowledgement = await this.buildAcknowledgement({
@@ -263,7 +270,7 @@ export class TiramisCallbackService {
       );
     }
 
-    if (!TIRAMIS_CALLBACK_ACK_ROOTS[parsedMessage.rootName]) {
+    if (!getTiramisCallbackRootDefinition(parsedMessage.rootName)) {
       throw new BadRequestException(
         `Unsupported TIRAMIS callback root: ${parsedMessage.rootName}`,
       );
@@ -298,6 +305,10 @@ export class TiramisCallbackService {
       responseId,
       responseStatusCode,
       responseStatusDesc,
+      claimReferenceNumber: this.getOptionalStringValue(
+        content,
+        'ClaimReferenceNumber',
+      ),
       coverNoteReferenceNumber: this.getOptionalStringValue(
         content,
         'CoverNoteReferenceNumber',
@@ -436,16 +447,6 @@ export class TiramisCallbackService {
     parsedCallback: ParsedTiramisCallbackDto;
     isSuccess: boolean;
   }): Promise<TiramisCallbackAckResultDto> {
-    const acknowledgementId = this.tiramisRequestIdService.generate('ACK');
-    const acknowledgementRoot =
-      TIRAMIS_CALLBACK_ACK_ROOTS[params.parsedCallback.rootName];
-
-    if (!acknowledgementRoot) {
-      throw new BadRequestException(
-        `TIRAMIS callback acknowledgement root not found for ${params.parsedCallback.rootName}`,
-      );
-    }
-
     const acknowledgementStatusCode = params.isSuccess
       ? TIRAMIS_CALLBACK_ACK_STATUS.SUCCESS_CODE
       : TIRAMIS_CALLBACK_ACK_STATUS.FAILED_CODE;
@@ -454,44 +455,60 @@ export class TiramisCallbackService {
       ? TIRAMIS_CALLBACK_ACK_STATUS.SUCCESS_DESC
       : TIRAMIS_CALLBACK_ACK_STATUS.FAILED_DESC;
 
+    const finalResponse = this.xmlParser.extractFinalResponse(
+      params.parsedCallback.rawXml,
+    );
+
+    return this.buildFinalResponseAcknowledgementXml({
+      environment: params.environment,
+      finalResponse,
+      acknowledgementStatusCode,
+      acknowledgementStatusDesc,
+    });
+  }
+
+  private async buildFinalResponseAcknowledgementXml(params: {
+    environment: string;
+    finalResponse: TiramisFinalResponseDto;
+    acknowledgementStatusCode?: string;
+    acknowledgementStatusDesc?: string;
+  }): Promise<TiramisCallbackAckResultDto> {
     const acknowledgementPayload = {
-      AcknowledgementId: acknowledgementId,
-      ResponseId: params.parsedCallback.responseId,
-      AcknowledgementStatusCode: acknowledgementStatusCode,
-      AcknowledgementStatusDesc: acknowledgementStatusDesc,
+      AcknowledgementId: this.tiramisRequestIdService.generate('ACK'),
+      ResponseId: params.finalResponse.responseId,
+      AcknowledgementStatusCode:
+        params.acknowledgementStatusCode || 'TIRA001',
+      AcknowledgementStatusDesc:
+        params.acknowledgementStatusDesc || 'Successful',
     };
 
     const contentXml = this.xmlBuilder.buildContentXml(
-      acknowledgementRoot,
+      params.finalResponse.responseAckRoot,
       acknowledgementPayload,
     );
 
-    const pfxPaths = await this.tiramisConfigService.getPfxPaths(
-      params.environment,
-    );
+    const pfxPaths =
+      await this.tiramisConfigService.getPfxPathsForConfiguration(
+        await this.tiramisConfigService.getActiveRuntimeConfiguration(),
+      );
 
-    const signature = pfxPaths.clientPrivateCertificatePath
-      ? this.signatureService.signXmlContent({
-          contentXml,
-          privateKeyPfxPath: pfxPaths.clientPrivateCertificatePath,
-          privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
-        })
-      : '';
+    const signature = this.signatureService.signXmlContent({
+      contentXml,
+      privateKeyPfxPath: pfxPaths.clientPrivateCertificatePath!,
+      privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
+    });
 
-    const acknowledgementXml = this.xmlBuilder.buildAcknowledgementMessage({
-      rootName: acknowledgementRoot,
-      acknowledgementId,
-      responseId: params.parsedCallback.responseId,
-      acknowledgementStatusCode,
-      acknowledgementStatusDesc,
+    const acknowledgementXml = this.xmlBuilder.buildSignedTiraMessage({
+      rootName: params.finalResponse.responseAckRoot,
+      payload: acknowledgementPayload,
       signature,
     });
 
     return {
-      acknowledgementId,
-      responseId: params.parsedCallback.responseId,
-      acknowledgementStatusCode,
-      acknowledgementStatusDesc,
+      acknowledgementId: acknowledgementPayload.AcknowledgementId,
+      responseId: params.finalResponse.responseId,
+      acknowledgementStatusCode: acknowledgementPayload.AcknowledgementStatusCode,
+      acknowledgementStatusDesc: acknowledgementPayload.AcknowledgementStatusDesc,
       acknowledgementXml,
     };
   }

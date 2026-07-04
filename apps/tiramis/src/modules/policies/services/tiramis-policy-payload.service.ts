@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
+import type { TiramisResolvedRequestDtoFields } from '../../config/services/tiramis-config.service';
 import type { CreatePolicyDto } from '../dto/create-policy.dto';
 import { TiramisPolicyEntity } from '../entities/tiramis-policy.entity';
-import type { TiramisResolvedRequestDtoFields } from '../../config/services/tiramis-config.service';
 
 @Injectable()
 export class TiramisPolicyPayloadService {
@@ -26,7 +26,7 @@ export class TiramisPolicyPayloadService {
         SpecialConditions: dto.specialConditions,
         Exclusions: dto.exclusions || '',
         AppliedCoverNotes: {
-          CoverNoteReferenceNumber: dto.coverNoteReferenceNumbers,
+          CoverNoteReferenceNumber: dto.coverNoteReferenceNumbers || [],
         },
       },
     };
@@ -47,9 +47,7 @@ export class TiramisPolicyPayloadService {
         SpecialConditions: policy.specialConditions,
         Exclusions: policy.exclusions || '',
         AppliedCoverNotes: {
-          CoverNoteReferenceNumber: (policy.coverNotes || []).map(
-            (coverNote) => coverNote.coverNoteReferenceNumber,
-          ),
+          CoverNoteReferenceNumber: (policy.coverNotes || []).map((coverNote) => coverNote.coverNoteReferenceNumber),
         },
       },
     };

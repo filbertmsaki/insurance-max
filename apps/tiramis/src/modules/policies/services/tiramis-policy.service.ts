@@ -8,9 +8,8 @@ import {
   TiramisConfigService,
   type TiramisResolvedRequestDtoFields,
 } from '../../config/services/tiramis-config.service';
-import { TiramisHttpClientService } from '../../messaging/services/tiramis-http-client.service';
-import { TiramisSignatureService } from '../../messaging/services/tiramis-signature.service';
-import { TiramisXmlBuilderService } from '../../messaging/services/tiramis-xml-builder.service';
+import { TiramisBusinessSubmissionService } from '../../shared/services/tiramis-business-submission.service';
+import { TiramisSourceMetadataDto } from '../../submissions/dto/tiramis-source-metadata.dto';
 import { TiramisRequestIdService } from '../../submissions/services/tiramis-request-id.service';
 import { TiramisSubmissionService } from '../../submissions/services/tiramis-submission.service';
 import { CreatePolicyDto } from '../dto/create-policy.dto';
@@ -28,13 +27,12 @@ export class TiramisPolicyService {
     private readonly tiramisConfigService: TiramisConfigService,
     private readonly tiramisRequestIdService: TiramisRequestIdService,
     private readonly tiramisSubmissionService: TiramisSubmissionService,
-    private readonly xmlBuilder: TiramisXmlBuilderService,
-    private readonly signatureService: TiramisSignatureService,
-    private readonly httpClient: TiramisHttpClientService,
+    private readonly businessSubmissionService: TiramisBusinessSubmissionService,
   ) {}
 
   async createDraft(
     dto: CreatePolicyDto | (CreatePolicyDto & TiramisResolvedRequestDtoFields),
+    sourceMetadata?: TiramisSourceMetadataDto,
   ) {
     const resolvedDto =
       'clientConfigurationId' in dto
@@ -53,9 +51,18 @@ export class TiramisPolicyService {
     const transaction = await this.tiramisSubmissionService.createTransaction({
       clientConfigurationId: resolvedDto.clientConfigurationId,
       serviceType: this.serviceType,
-      sourceModule: 'tiramis-policies',
-      sourceRecordId: resolvedDto.sourceRecordId,
-      businessReference: resolvedDto.policyNumber,
+      sourceService: sourceMetadata?.sourceService || 'tiramis-service',
+      sourceCompanyId: sourceMetadata?.sourceCompanyId || null,
+      sourceUserId: sourceMetadata?.sourceUserId || null,
+      sourceModule: sourceMetadata?.sourceModule || 'tiramis-policy',
+      sourceRecordId:
+        sourceMetadata?.sourceRecordId ||
+        sourceMetadata?.policyId ||
+        sourceMetadata?.quotationId ||
+        resolvedDto.policyNumber,
+      businessReference:
+        sourceMetadata?.businessReference || resolvedDto.policyNumber,
+      originalRequestId: requestId,
     });
 
     const policy = this.policyRepository.create({
@@ -84,76 +91,78 @@ export class TiramisPolicyService {
     };
   }
 
-  async submit(dto: CreatePolicyDto) {
+  async submit(
+    dto: CreatePolicyDto,
+    sourceMetadata?: TiramisSourceMetadataDto,
+  ) {
     const { configuration, dto: resolvedDto } =
       await this.tiramisConfigService.resolveSubmissionContext(
         dto,
-        dto.policyNumber,
+        sourceMetadata?.businessReference || dto.policyNumber,
       );
 
-    const { transaction, policy } = await this.createDraft(resolvedDto);
+    const { transaction, policy } = await this.createDraft(
+      resolvedDto,
+      sourceMetadata,
+    );
 
     const payload = this.policyPayloadService.buildFromDto({
       dto: resolvedDto,
       requestId: policy.requestId,
     });
 
-    const contentXml = this.xmlBuilder.buildContentXml(
-      this.rootElement,
-      payload,
-    );
-
-    const pfxPaths =
-      await this.tiramisConfigService.getPfxPathsForConfiguration(
-        configuration,
-      );
-
-    const signature = this.signatureService.signXmlContent({
-      contentXml,
-      privateKeyPfxPath: pfxPaths.clientPrivateCertificatePath!,
-      privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
-    });
-
-    const requestXml = this.xmlBuilder.buildSignedTiraMessage({
-      rootName: this.rootElement,
-      payload,
-      signature,
-    });
-
-    const attempt = await this.tiramisSubmissionService.createAttempt({
+    const submission = await this.businessSubmissionService.submitSignedXml({
+      configuration,
       transactionId: transaction.id,
       requestId: policy.requestId,
       rootElement: this.rootElement,
-      requestXml,
-      requestSignature: signature,
+      serviceType: this.serviceType,
+      payload,
+      errorLabel: 'Policy',
     });
 
-    policy.currentAttemptId = attempt.id;
+    policy.currentAttemptId = submission.attempt.id;
     await this.policyRepository.save(policy);
 
-    const endpoint =
-      await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
-        configuration,
-        serviceType: this.serviceType,
-      });
+    return {
+      transaction,
+      policy,
+      attempt: submission.attempt,
+      tiraResponse: submission.tiraResponse,
+    };
+  }
 
-    const headers =
-      await this.tiramisConfigService.getRequestHeadersForConfiguration(
-        configuration,
+  async previewXml(dto: CreatePolicyDto, includeSignature = true) {
+    const { configuration, dto: resolvedDto } =
+      await this.tiramisConfigService.resolveSubmissionContext(
+        dto,
+        dto.policyNumber,
       );
 
-    await this.tiramisSubmissionService.markSent(policy.requestId);
+    this.validatePayload(resolvedDto);
 
-    const response = await this.httpClient.postXml({
-      url: endpoint,
-      xml: requestXml,
-      headers,
+    const requestId = this.tiramisRequestIdService.generate('AIC');
+
+    const payload = this.policyPayloadService.buildFromDto({
+      dto: resolvedDto,
+      requestId,
+    });
+
+    const preview = await this.businessSubmissionService.previewSignedXml({
+      configuration,
+      rootElement: this.rootElement,
+      payload,
+      includeSignature,
     });
 
     return {
-      policy,
-      attempt,
-      tiraResponse: response,
+      previewOnly: true,
+      submittedToTira: false,
+      serviceType: this.serviceType,
+      rootElement: this.rootElement,
+      requestId,
+      payload,
+      ...preview,
     };
   }
 
@@ -194,22 +203,41 @@ export class TiramisPolicyService {
   }
 
   private validatePayload(dto: CreatePolicyDto) {
-    if (!dto.policyNumber) {
-      throw new BadRequestException('PolicyNumber is required');
-    }
+    const errors: string[] = [];
 
-    if (!dto.coverNoteReferenceNumbers?.length) {
-      throw new BadRequestException(
-        'At least one CoverNoteReferenceNumber is required',
-      );
+    if (!dto.policyNumber) {
+      errors.push('policyNumber is required');
     }
 
     if (!dto.policyOperativeClause) {
-      throw new BadRequestException('PolicyOperativeClause is required');
+      errors.push('policyOperativeClause is required');
     }
 
     if (!dto.specialConditions) {
-      throw new BadRequestException('SpecialConditions is required');
+      errors.push('specialConditions is required');
+    }
+
+    if (
+      !dto.coverNoteReferenceNumbers ||
+      !Array.isArray(dto.coverNoteReferenceNumbers) ||
+      dto.coverNoteReferenceNumbers.length === 0
+    ) {
+      errors.push(
+        'coverNoteReferenceNumbers must contain at least one cover note reference number',
+      );
+    }
+
+    dto.coverNoteReferenceNumbers?.forEach((reference, index) => {
+      if (!reference || String(reference).trim() === '') {
+        errors.push(`coverNoteReferenceNumbers[${index}] is required`);
+      }
+    });
+
+    if (errors.length > 0) {
+      throw new BadRequestException({
+        message: 'Policy payload validation failed',
+        errors,
+      });
     }
   }
 }

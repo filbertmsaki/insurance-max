@@ -27,6 +27,7 @@ export class TiramisSubmissionService {
     sourceModule?: string;
     sourceRecordId?: string;
     businessReference: string;
+    originalRequestId?: string | null;
   }) {
     const transaction = this.transactionRepository.create({
       clientConfigurationId: params.clientConfigurationId,
@@ -38,6 +39,7 @@ export class TiramisSubmissionService {
       sourceRecordId: params.sourceRecordId || null,
       businessReference: params.businessReference,
       status: TIRAMIS_TRANSACTION_STATUS.PENDING,
+      originalRequestId: params.originalRequestId || null,
       totalAttempts: 0,
     });
 

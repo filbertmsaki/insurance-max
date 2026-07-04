@@ -76,6 +76,44 @@ export class TiramisReinsuranceEntity extends BaseEntity {
   @Column({ name: 'reinsurance_category', type: 'int' })
   reinsuranceCategory!: number;
 
+  @Column({
+    name: 'final_response_id',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  finalResponseId?: string | null;
+
+  @Column({
+    name: 'final_response_status_code',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  finalResponseStatusCode?: string | null;
+
+  @Column({
+    name: 'final_response_status_desc',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  finalResponseStatusDesc?: string | null;
+
+  @Column({
+    name: 'final_response_received_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  finalResponseReceivedAt?: Date | null;
+
+  @Column({
+    name: 'final_response_payload',
+    type: 'jsonb',
+    nullable: true,
+  })
+  finalResponsePayload?: Record<string, any> | null;
+
   @OneToMany(
     () => TiramisReinsuranceParticipantEntity,
     (participant) => participant.reinsurance,

@@ -19,6 +19,7 @@ import { TiramisClaimNotificationEntity } from '../modules/claims/entities/tiram
 import { TiramisClaimPaymentEntity } from '../modules/claims/entities/tiramis-claim-payment.entity';
 import { TiramisClaimRejectionEntity } from '../modules/claims/entities/tiramis-claim-rejection.entity';
 import { TiramisClaimantEntity } from '../modules/claims/entities/tiramis-claimant.entity';
+import { TiramisClaimEntity } from '../modules/claims/entities/tiramis-claim.entity';
 import { TiramisDischargeVoucherEntity } from '../modules/claims/entities/tiramis-discharge-voucher.entity';
 import { TiramisCoverNoteAddonEntity } from '../modules/cover-notes/entities/tiramis-cover-note-addon.entity';
 import { TiramisCoverNoteDiscountEntity } from '../modules/cover-notes/entities/tiramis-cover-note-discount.entity';
@@ -95,6 +96,7 @@ export default new DataSource(
       TiramisClaimPaymentEntity,
       TiramisClaimRejectionEntity,
       TiramisClaimantEntity,
+      TiramisClaimEntity,
       TiramisVerificationRequestEntity,
       TiramisVerificationResponseEntity,
     ],

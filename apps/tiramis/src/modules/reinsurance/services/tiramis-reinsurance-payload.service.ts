@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 
+import type { TiramisResolvedRequestDtoFields } from '../../config/services/tiramis-config.service';
 import type { CreateReinsuranceDto } from '../dto/create-reinsurance.dto';
 import { TiramisReinsuranceEntity } from '../entities/tiramis-reinsurance.entity';
-import type { TiramisResolvedRequestDtoFields } from '../../config/services/tiramis-config.service';
 
 @Injectable()
 export class TiramisReinsurancePayloadService {
@@ -72,7 +72,24 @@ export class TiramisReinsurancePayloadService {
   }
 
   private formatDateTime(value: Date | string): string {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(trimmed)) {
+        return trimmed.slice(0, 19);
+      }
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        return `${trimmed}T00:00:00`;
+      }
+    }
+
     const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
     return date.toISOString().slice(0, 19);
   }
 }

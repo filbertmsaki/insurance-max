@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { XMLParser } from 'fast-xml-parser';
 
+import { getTiramisCallbackRootDefinition } from '../../callbacks/constants/tiramis-callback-root-map.constant';
+import { TiramisFinalResponseDto } from '../../callbacks/dto/tiramis-final-response.dto';
 import { TiramisParsedMessage } from '../interfaces/tiramis-xml.interface';
 
 @Injectable()
@@ -9,6 +11,13 @@ export class TiramisXmlParserService {
     ignoreAttributes: false,
     parseTagValue: false,
     trimValues: true,
+  });
+
+  private readonly genericXmlParser = new XMLParser({
+    ignoreAttributes: false,
+    trimValues: true,
+    parseTagValue: false,
+    parseAttributeValue: false,
   });
 
   parse(xml: string): Record<string, unknown> {
@@ -151,6 +160,52 @@ export class TiramisXmlParserService {
     };
   }
 
+  extractFinalResponse(xml: string): TiramisFinalResponseDto {
+    const parsed = this.genericXmlParser.parse(xml);
+    const tiraMsg = parsed?.TiraMsg;
+
+    if (!tiraMsg || typeof tiraMsg !== 'object') {
+      throw new BadRequestException('Invalid TiraMsg callback payload');
+    }
+
+    const rootElement = Object.keys(tiraMsg).find(
+      (key) => key !== 'MsgSignature',
+    );
+
+    if (!rootElement) {
+      throw new BadRequestException('Callback response root element not found');
+    }
+
+    const definition = getTiramisCallbackRootDefinition(rootElement);
+
+    if (!definition) {
+      throw new BadRequestException(
+        `Unsupported TIRAMIS callback root: ${rootElement}`,
+      );
+    }
+
+    const payload = this.getRecordValue(tiraMsg, rootElement) || {};
+
+    return {
+      rootElement,
+      responseAckRoot: definition.responseAckRoot,
+      serviceType: definition.serviceType,
+      requestId: this.getXmlValue(payload.RequestId),
+      responseId: this.getXmlValue(payload.ResponseId),
+      responseStatusCode: this.getXmlValue(payload.ResponseStatusCode),
+      responseStatusDesc: this.getXmlValue(payload.ResponseStatusDesc),
+      claimReferenceNumber: this.getOptionalXmlValue(
+        payload.ClaimReferenceNumber,
+      ),
+      coverNoteReferenceNumber: this.getOptionalXmlValue(
+        payload.CoverNoteReferenceNumber,
+      ),
+      stickerNumber: this.getOptionalXmlValue(payload.StickerNumber),
+      payload,
+      rawXml: xml,
+    };
+  }
+
   getRequestId(xml: string): string | null {
     const message = this.parseTiraMessage(xml);
 
@@ -281,6 +336,36 @@ export class TiramisXmlParserService {
   ): string | null {
     const value = content[key];
     return typeof value === 'string' && value.trim() ? value : null;
+  }
+
+  private getXmlValue(value: unknown): string {
+    const result = this.getOptionalXmlValue(value);
+
+    if (!result) {
+      return '';
+    }
+
+    return result;
+  }
+
+  private getOptionalXmlValue(value: unknown): string | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+
+    if (typeof value === 'object' && '#text' in (value as any)) {
+      return String((value as any)['#text']).trim();
+    }
+
+    return String(value).trim();
   }
 
   private getNestedStringValue(
