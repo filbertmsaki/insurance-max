@@ -5,6 +5,15 @@ import { SelectQueryBuilder, In, IsNull, Repository } from 'typeorm';
 import { TiramisDashboardQueryDto } from '../dto/tiramis-dashboard-query.dto';
 import { TiramisSubmissionTrackingEntity } from '../entities/tiramis-submission-tracking.entity';
 import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum';
+import {
+  ACTIVE_TIRAMIS_STATUSES,
+  FAILED_TIRAMIS_STATUSES,
+  PENDING_FINAL_TIRAMIS_STATUSES,
+  getTiramisFailureMessage,
+  isFailureTiramisStatus,
+  normalizeTiramisPortalResponse,
+  resolveSubmissionStatusFromNormalized,
+} from '../utils/tiramis-response-normalizer.util';
 
 @Injectable()
 export class TiramisSubmissionTrackingRepository {
@@ -159,8 +168,11 @@ export class TiramisSubmissionTrackingRepository {
 
     const acknowledged = await baseQb
       .clone()
-      .andWhere('tracking.status = :status', {
-        status: TiramisSubmissionStatus.ACKNOWLEDGED,
+      .andWhere('tracking.status IN (:...statuses)', {
+        statuses: [
+          TiramisSubmissionStatus.ACK_ACCEPTED,
+          TiramisSubmissionStatus.ACKNOWLEDGED,
+        ],
       })
       .getCount();
 
@@ -215,11 +227,9 @@ export class TiramisSubmissionTrackingRepository {
       canAccessAllCompanies?: boolean;
     },
   ) {
-    const where: any[] = [
-      { status: TiramisSubmissionStatus.FAILED },
-      { status: TiramisSubmissionStatus.FINAL_FAILED },
-      { status: TiramisSubmissionStatus.RETRY_EXHAUSTED },
-    ];
+    const where: any[] = FAILED_TIRAMIS_STATUSES.map((status) => ({
+      status,
+    }));
 
     if (scope?.companyId && !scope.canAccessAllCompanies) {
       where.forEach((item) => {
@@ -276,14 +286,7 @@ export class TiramisSubmissionTrackingRepository {
       where: [
         {
           idempotencyKey: params.idempotencyKey || undefined,
-          status: In([
-            TiramisSubmissionStatus.PENDING,
-            TiramisSubmissionStatus.SENT_TO_TIRAMIS_SERVICE,
-            TiramisSubmissionStatus.ACKNOWLEDGED,
-            TiramisSubmissionStatus.RETRY_PENDING,
-            TiramisSubmissionStatus.RETRYING,
-            TiramisSubmissionStatus.FINAL_SUCCESS,
-          ]),
+          status: In(ACTIVE_TIRAMIS_STATUSES),
         },
         {
           sourceCompanyId: params.sourceCompanyId || undefined,
@@ -291,14 +294,7 @@ export class TiramisSubmissionTrackingRepository {
           sourceModule: params.sourceModule || undefined,
           sourceRecordId: params.sourceRecordId || undefined,
           businessReference: params.businessReference || undefined,
-          status: In([
-            TiramisSubmissionStatus.PENDING,
-            TiramisSubmissionStatus.SENT_TO_TIRAMIS_SERVICE,
-            TiramisSubmissionStatus.ACKNOWLEDGED,
-            TiramisSubmissionStatus.RETRY_PENDING,
-            TiramisSubmissionStatus.RETRYING,
-            TiramisSubmissionStatus.FINAL_SUCCESS,
-          ]),
+          status: In(ACTIVE_TIRAMIS_STATUSES),
         },
       ],
       order: {
@@ -332,11 +328,7 @@ export class TiramisSubmissionTrackingRepository {
     return this.repository.find({
       where: [
         {
-          status: In([
-            TiramisSubmissionStatus.SENT_TO_TIRAMIS_SERVICE,
-            TiramisSubmissionStatus.ACKNOWLEDGED,
-            TiramisSubmissionStatus.UNKNOWN,
-          ]),
+          status: In(PENDING_FINAL_TIRAMIS_STATUSES),
           finalResponseId: IsNull(),
         },
       ],
@@ -347,60 +339,95 @@ export class TiramisSubmissionTrackingRepository {
     });
   }
 
-  async markSent(id: string, response: any) {
+  async markSubmittedResponse(
+    id: string,
+    response: any,
+    options?: {
+      clearRetry?: boolean;
+      syncChecked?: boolean;
+    },
+  ) {
+    const tracking = await this.findById(id);
+    const normalized = normalizeTiramisPortalResponse(response);
+    const resolvedStatus = resolveSubmissionStatusFromNormalized(normalized);
+    const isFailure = isFailureTiramisStatus(resolvedStatus);
+    const now = new Date();
+
     await this.repository.update(
       { id },
       {
-        status: TiramisSubmissionStatus.SENT_TO_TIRAMIS_SERVICE,
-        submittedAt: new Date(),
+        status: resolvedStatus,
+        submittedAt: tracking?.submittedAt || now,
         tiramisTransactionId:
-          response?.transaction?.id ||
-          response?.transactionId ||
-          response?.tiramisTransactionId ||
-          null,
+          normalized.transactionId || tracking?.tiramisTransactionId || null,
         tiramisRequestId:
-          response?.requestId ||
-          response?.reinsurance?.requestId ||
-          response?.policy?.requestId ||
-          response?.record?.requestId ||
-          response?.coverNote?.requestId ||
-          null,
+          normalized.requestId || tracking?.tiramisRequestId || null,
         tiramisServiceType:
-          response?.serviceType ||
-          response?.transaction?.serviceType ||
-          null,
+          normalized.serviceType || tracking?.tiramisServiceType || null,
         tiramisRootElement:
-          response?.rootElement ||
-          response?.tiraResponse?.rootElement ||
+          normalized.rootElement || tracking?.tiramisRootElement || null,
+        acknowledgementStatusCode:
+          normalized.acknowledgement.statusCode ||
+          tracking?.acknowledgementStatusCode ||
           null,
-        tiramisResponsePayload: response || null,
-      },
+        acknowledgementStatusDesc:
+          normalized.acknowledgement.statusDesc ||
+          tracking?.acknowledgementStatusDesc ||
+          null,
+        acknowledgedAt:
+          normalized.acknowledgement.statusCode
+            ? tracking?.acknowledgedAt || now
+            : tracking?.acknowledgedAt || null,
+        finalResponseId:
+          normalized.final.responseId || tracking?.finalResponseId || null,
+        finalResponseStatusCode:
+          normalized.final.statusCode ||
+          tracking?.finalResponseStatusCode ||
+          null,
+        finalResponseStatusDesc:
+          normalized.final.statusDesc ||
+          tracking?.finalResponseStatusDesc ||
+          null,
+        finalResponseReceivedAt:
+          normalized.final.statusCode || normalized.final.responseId
+            ? normalized.final.receivedAt
+              ? new Date(normalized.final.receivedAt)
+              : now
+            : tracking?.finalResponseReceivedAt || null,
+        finalResponsePayload:
+          normalized.final.payload || tracking?.finalResponsePayload || null,
+        tiramisResponsePayload:
+          response || tracking?.tiramisResponsePayload || null,
+        lastSyncedAt: options?.syncChecked
+          ? now
+          : tracking?.lastSyncedAt || null,
+        syncAttempts: options?.syncChecked
+          ? (tracking?.syncAttempts || 0) + 1
+          : tracking?.syncAttempts || 0,
+        failedAt: isFailure
+          ? tracking?.failedAt || now
+          : tracking?.failedAt || null,
+        lastErrorMessage: isFailure
+          ? getTiramisFailureMessage(normalized) ||
+            tracking?.lastErrorMessage ||
+            'TIRAMIS submission failed'
+          : null,
+        isRetryable: options?.clearRetry ? false : tracking?.isRetryable || false,
+        nextRetryAt: options?.clearRetry ? null : tracking?.nextRetryAt || null,
+        retryLockId: options?.clearRetry ? null : tracking?.retryLockId || null,
+        retryLockedAt: options?.clearRetry ? null : tracking?.retryLockedAt || null,
+      } as any,
     );
 
     return this.findById(id);
   }
 
-  async markAcknowledged(id: string, response: any) {
-    await this.repository.update(
-      { id },
-      {
-        status: TiramisSubmissionStatus.ACKNOWLEDGED,
-        acknowledgedAt: new Date(),
-        acknowledgementStatusCode:
-          response?.acknowledgement?.statusCode ||
-          response?.tiraResponse?.acknowledgementStatusCode ||
-          response?.tiraResponse?.AcknowledgementStatusCode ||
-          null,
-        acknowledgementStatusDesc:
-          response?.acknowledgement?.statusDesc ||
-          response?.tiraResponse?.acknowledgementStatusDesc ||
-          response?.tiraResponse?.AcknowledgementStatusDesc ||
-          null,
-        tiramisResponsePayload: response || null,
-      },
-    );
+  async markSent(id: string, response: any) {
+    return this.markSubmittedResponse(id, response);
+  }
 
-    return this.findById(id);
+  async markAcknowledged(id: string, response: any) {
+    return this.markSubmittedResponse(id, response);
   }
 
   async markFailed(
@@ -472,47 +499,9 @@ export class TiramisSubmissionTrackingRepository {
   }
 
   async markRetrySuccess(id: string, response: any) {
-    const tracking = await this.findById(id);
-
-    await this.repository.update(
-      { id },
-      {
-        status: TiramisSubmissionStatus.SENT_TO_TIRAMIS_SERVICE,
-        isRetryable: false,
-        retryLockId: null,
-        retryLockedAt: null,
-        lastErrorMessage: null,
-        submittedAt: new Date(),
-        retryAttempts: tracking?.retryAttempts || 0,
-        tiramisTransactionId:
-          response?.transaction?.id ||
-          response?.transactionId ||
-          response?.tiramisTransactionId ||
-          tracking?.tiramisTransactionId ||
-          null,
-        tiramisRequestId:
-          response?.requestId ||
-          response?.reinsurance?.requestId ||
-          response?.policy?.requestId ||
-          response?.record?.requestId ||
-          response?.coverNote?.requestId ||
-          tracking?.tiramisRequestId ||
-          null,
-        tiramisServiceType:
-          response?.serviceType ||
-          response?.transaction?.serviceType ||
-          tracking?.tiramisServiceType ||
-          null,
-        tiramisRootElement:
-          response?.rootElement ||
-          response?.tiraResponse?.rootElement ||
-          tracking?.tiramisRootElement ||
-          null,
-        tiramisResponsePayload: response || tracking?.tiramisResponsePayload || null,
-      },
-    );
-
-    return this.findById(id);
+    return this.markSubmittedResponse(id, response, {
+      clearRetry: true,
+    });
   }
 
   async markRetryFailed(id: string, error: any) {
@@ -618,105 +607,15 @@ export class TiramisSubmissionTrackingRepository {
   }
 
   async markFinalFromTiramisStatus(id: string, response: any) {
-    const finalStatus = this.extractFinalStatus(response);
+    const normalized = normalizeTiramisPortalResponse(response);
 
-    if (!finalStatus?.responseId) {
+    if (!normalized.final.statusCode && !normalized.final.responseId) {
       return this.markSyncChecked(id, response);
     }
 
-    const isSuccess =
-      finalStatus.statusCode === 'TIRA001' ||
-      String(finalStatus.statusDesc || '').toLowerCase() === 'successful';
-
-    await this.repository.update(
-      { id },
-      {
-        status: isSuccess
-          ? TiramisSubmissionStatus.FINAL_SUCCESS
-          : TiramisSubmissionStatus.FINAL_FAILED,
-        finalResponseId: finalStatus.responseId,
-        finalResponseStatusCode: finalStatus.statusCode,
-        finalResponseStatusDesc: finalStatus.statusDesc,
-        finalResponseReceivedAt: finalStatus.receivedAt
-          ? new Date(finalStatus.receivedAt)
-          : new Date(),
-        finalResponsePayload: finalStatus.payload || response || null,
-        tiramisResponsePayload: response || null,
-        lastSyncedAt: new Date(),
-        lastErrorMessage: isSuccess
-          ? null
-          : finalStatus.statusDesc || 'TIRAMIS final response failed',
-      },
-    );
-
-    return this.findById(id);
-  }
-
-  private extractFinalStatus(response: any): {
-    responseId?: string | null;
-    statusCode?: string | null;
-    statusDesc?: string | null;
-    receivedAt?: string | Date | null;
-    payload?: Record<string, any> | null;
-  } | null {
-    const transaction =
-      response?.transaction ||
-      response?.data?.transaction ||
-      response?.tiramis?.transaction ||
-      null;
-
-    const finalResponse =
-      response?.finalResponse ||
-      response?.data?.finalResponse ||
-      response?.tiramis?.finalResponse ||
-      response?.currentAttempt?.finalResponse ||
-      response?.data?.currentAttempt?.finalResponse ||
-      response?.tiramis?.currentAttempt?.finalResponse ||
-      transaction?.finalResponse ||
-      transaction?.latestFinalResponse ||
-      null;
-
-    const statusSource =
-      finalResponse ||
-      response?.summary ||
-      response?.data?.summary ||
-      response?.tiramis?.summary ||
-      null;
-
-    return {
-      responseId:
-        finalResponse?.responseId ||
-        finalResponse?.ResponseId ||
-        transaction?.finalResponseId ||
-        transaction?.responseId ||
-        response?.responseId ||
-        null,
-      statusCode:
-        finalResponse?.responseStatusCode ||
-        finalResponse?.ResponseStatusCode ||
-        statusSource?.finalResponseStatusCode ||
-        statusSource?.responseStatusCode ||
-        transaction?.finalResponseStatusCode ||
-        transaction?.responseStatusCode ||
-        response?.responseStatusCode ||
-        null,
-      statusDesc:
-        finalResponse?.responseStatusDesc ||
-        finalResponse?.ResponseStatusDesc ||
-        statusSource?.finalResponseStatusDesc ||
-        statusSource?.responseStatusDesc ||
-        transaction?.finalResponseStatusDesc ||
-        transaction?.responseStatusDesc ||
-        response?.responseStatusDesc ||
-        null,
-      receivedAt:
-        finalResponse?.receivedAt ||
-        statusSource?.finalResponseReceivedAt ||
-        transaction?.finalResponseReceivedAt ||
-        response?.finalResponseReceivedAt ||
-        null,
-      payload: finalResponse || response || null,
-    };
+    return this.markSubmittedResponse(id, response, {
+      syncChecked: true,
+    });
   }
 
   private calculateNextRetryAt(retryAttempts: number) {

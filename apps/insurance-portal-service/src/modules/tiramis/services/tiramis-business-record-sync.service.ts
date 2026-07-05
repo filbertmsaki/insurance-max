@@ -181,8 +181,10 @@ export class TiramisBusinessRecordSyncService {
     return [
       TiramisSubmissionStatus.FINAL_SUCCESS,
       TiramisSubmissionStatus.FINAL_FAILED,
+      TiramisSubmissionStatus.ACK_FAILED,
       TiramisSubmissionStatus.FAILED,
       TiramisSubmissionStatus.RETRY_EXHAUSTED,
+      TiramisSubmissionStatus.CALLBACK_OVERDUE,
     ].includes(status as TiramisSubmissionStatus);
   }
 }

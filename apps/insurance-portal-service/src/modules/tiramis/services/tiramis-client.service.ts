@@ -201,43 +201,49 @@ export class TiramisClientService {
 
       const response = await this.send(pattern, command);
 
-      const sentTracking = await this.trackingRepository.markSent(
-        tracking.id,
-        response,
-      );
-      await this.businessRecordSyncService.syncFromTracking(sentTracking);
-
-      const acknowledgementCode =
-        response?.acknowledgement?.statusCode ||
-        response?.tiraResponse?.acknowledgementStatusCode ||
-        response?.tiraResponse?.AcknowledgementStatusCode ||
-        null;
-
-      let acknowledgedTracking: any = null;
-      if (acknowledgementCode) {
-        acknowledgedTracking = await this.trackingRepository.markAcknowledged(
+      const updatedTracking =
+        await this.trackingRepository.markSubmittedResponse(
           tracking.id,
           response,
         );
-        await this.businessRecordSyncService.syncFromTracking(acknowledgedTracking);
+
+      await this.businessRecordSyncService.syncFromTracking(updatedTracking);
+
+      const failedLocally = this.isFailureLocalStatus(updatedTracking?.status);
+
+      if (failedLocally) {
+        await this.notificationService.notifySubmissionFailed({
+          tracking: updatedTracking,
+          error: {
+            message:
+              updatedTracking?.lastErrorMessage || 'TIRAMIS submission failed',
+          },
+          metadata: {
+            requestType: dto.requestType,
+            status: updatedTracking?.status,
+          },
+        });
       }
 
       await this.auditService.logFromTracking({
-        action: TiramisAuditAction.SUBMIT_SUCCESS,
-        tracking: acknowledgedTracking || sentTracking,
+        action: failedLocally
+          ? TiramisAuditAction.SUBMIT_FAILED
+          : TiramisAuditAction.SUBMIT_SUCCESS,
+        tracking: updatedTracking,
         statusBefore: TiramisSubmissionStatus.PENDING,
-        success: true,
+        success: !failedLocally,
         authContext,
         metadata: {
-          acknowledgementCode,
+          acknowledgementCode: updatedTracking?.acknowledgementStatusCode,
+          finalResponseCode: updatedTracking?.finalResponseStatusCode,
+          resolvedStatus: updatedTracking?.status,
         },
       });
 
       return {
         localTrackingId: tracking.id,
-        localStatus: acknowledgementCode
-          ? TiramisSubmissionStatus.ACKNOWLEDGED
-          : TiramisSubmissionStatus.SENT_TO_TIRAMIS_SERVICE,
+        localStatus: updatedTracking?.status,
+        tracking: updatedTracking,
         tiramis: response,
       };
     } catch (error) {
@@ -525,6 +531,16 @@ export class TiramisClientService {
       payload.chassisNumber ||
       null
     );
+  }
+
+  private isFailureLocalStatus(status?: string | null): boolean {
+    return [
+      TiramisSubmissionStatus.ACK_FAILED,
+      TiramisSubmissionStatus.FINAL_FAILED,
+      TiramisSubmissionStatus.FAILED,
+      TiramisSubmissionStatus.RETRY_EXHAUSTED,
+      TiramisSubmissionStatus.CALLBACK_OVERDUE,
+    ].includes(status as TiramisSubmissionStatus);
   }
 
   private isRetryableError(error: any) {

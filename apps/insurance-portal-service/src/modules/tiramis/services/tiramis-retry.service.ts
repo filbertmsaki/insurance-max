@@ -91,32 +91,23 @@ export class TiramisRetryService {
 
           await this.businessRecordSyncService.syncFromTracking(updated);
 
-          const acknowledgementCode =
-            response?.acknowledgement?.statusCode ||
-            response?.tiraResponse?.acknowledgementStatusCode ||
-            response?.tiraResponse?.AcknowledgementStatusCode ||
-            null;
+          retried += 1;
 
-          if (acknowledgementCode) {
-            const acknowledgedTracking =
-              await this.trackingRepository.markAcknowledged(
-                record.id,
-                response,
-              );
+          const failedLocally = this.isFailureLocalStatus(updated?.status);
 
-            await this.businessRecordSyncService.syncFromTracking(
-              acknowledgedTracking,
-            );
+          if (failedLocally) {
+            failed += 1;
+          } else {
+            success += 1;
           }
 
-          retried += 1;
-          success += 1;
-
           await this.auditService.logFromTracking({
-            action: TiramisAuditAction.RETRY_SUCCESS,
+            action: failedLocally
+              ? TiramisAuditAction.RETRY_FAILED
+              : TiramisAuditAction.RETRY_SUCCESS,
             tracking: updated,
             statusBefore: record.status,
-            success: true,
+            success: !failedLocally,
             metadata: {
               automatic: true,
             },
@@ -232,29 +223,13 @@ export class TiramisRetryService {
       );
 
       await this.businessRecordSyncService.syncFromTracking(updated);
-
-      const acknowledgementCode =
-        response?.acknowledgement?.statusCode ||
-        response?.tiraResponse?.acknowledgementStatusCode ||
-        response?.tiraResponse?.AcknowledgementStatusCode ||
-        null;
-
-      let finalTracking = updated;
-
-      if (acknowledgementCode) {
-        finalTracking = await this.trackingRepository.markAcknowledged(
-          record.id,
-          response,
-        );
-
-        await this.businessRecordSyncService.syncFromTracking(finalTracking);
-      }
+      const failedLocally = this.isFailureLocalStatus(updated?.status);
 
       return {
         found: true,
         retryAllowed: true,
-        success: true,
-        tracking: finalTracking,
+        success: !failedLocally,
+        tracking: updated,
         tiramis: response,
       };
     } catch (error: any) {
@@ -297,5 +272,15 @@ export class TiramisRetryService {
         error: error?.response || error?.message || error,
       };
     }
+  }
+
+  private isFailureLocalStatus(status?: string | null): boolean {
+    return [
+      TiramisSubmissionStatus.ACK_FAILED,
+      TiramisSubmissionStatus.FINAL_FAILED,
+      TiramisSubmissionStatus.FAILED,
+      TiramisSubmissionStatus.RETRY_EXHAUSTED,
+      TiramisSubmissionStatus.CALLBACK_OVERDUE,
+    ].includes(status as TiramisSubmissionStatus);
   }
 }
