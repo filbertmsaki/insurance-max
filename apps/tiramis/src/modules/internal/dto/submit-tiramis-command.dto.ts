@@ -9,7 +9,12 @@ export type TiramisPortalRequestType =
   | 'CLAIM_ASSESSMENT'
   | 'DISCHARGE_VOUCHER'
   | 'CLAIM_PAYMENT'
-  | 'CLAIM_REJECTION';
+  | 'CLAIM_REJECTION'
+  | 'COVER_NOTE_VERIFICATION'
+  | 'MOTOR_VERIFICATION'
+  | 'NIN_VERIFICATION'
+  | 'COMPANY_VERIFICATION'
+  | 'DETAILS_VERIFICATION';
 
 export interface SubmitTiramisCommandDto {
   sourceService?: string;

@@ -103,6 +103,15 @@ export class TiramisController {
   }
 
   @ApiOperation({
+    summary: 'Check TCP connection from portal to tiramis-service',
+  })
+  @RequireTiramisPermissions(TiramisPermissions.VIEW_TRACKING)
+  @Get('service-health')
+  checkTiramisServiceHealth() {
+    return this.tiramisClientService.checkTiramisServiceHealth();
+  }
+
+  @ApiOperation({
     summary: 'Get local portal-side TIRAMIS tracking record by ID',
   })
   @RequireTiramisPermissions(TiramisPermissions.VIEW_TRACKING)

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 
 import { SubmitTiramisDto } from '../dto/submit-tiramis.dto';
 import { TiramisRequestType } from '../enums/tiramis-request-type.enum';
@@ -224,6 +224,39 @@ export class TiramisBusinessSubmitService {
     });
   }
 
+  submitVerification(params: {
+    requestType:
+      | TiramisRequestType.COVER_NOTE_VERIFICATION
+      | TiramisRequestType.MOTOR_VERIFICATION
+      | TiramisRequestType.NIN_VERIFICATION
+      | TiramisRequestType.COMPANY_VERIFICATION
+      | TiramisRequestType.DETAILS_VERIFICATION;
+    sourceRecordId?: string | null;
+    payload?: Record<string, any> | null;
+    businessReference?: string | null;
+    authContext?: any;
+    forceResubmit?: boolean;
+    returnExisting?: boolean;
+  }) {
+    this.assertVerificationPayload(params.requestType, params.payload);
+
+    const businessReference =
+      params.businessReference ||
+      this.resolveBusinessReference(params.requestType, params.payload || {}) ||
+      `${params.requestType}-${Date.now()}`;
+
+    return this.submit({
+      requestType: params.requestType,
+      sourceModule: 'verifications',
+      sourceRecordId: params.sourceRecordId || businessReference,
+      businessReference,
+      payload: params.payload,
+      authContext: params.authContext,
+      forceResubmit: params.forceResubmit,
+      returnExisting: params.returnExisting,
+    });
+  }
+
   private submit(params: {
     requestType: TiramisRequestType;
     sourceModule: string;
@@ -327,8 +360,130 @@ export class TiramisBusinessSubmitService {
           null
         );
 
+      case TiramisRequestType.COVER_NOTE_VERIFICATION:
+        return (
+          payload.coverNoteReferenceNumber ||
+          payload.stickerNumber ||
+          payload.motorRegistrationNumber ||
+          payload.motorChassisNumber ||
+          null
+        );
+
+      case TiramisRequestType.MOTOR_VERIFICATION:
+        return (
+          payload.motorRegistrationNumber ||
+          payload.registrationNumber ||
+          payload.motorChassisNumber ||
+          payload.chassisNumber ||
+          null
+        );
+
+      case TiramisRequestType.NIN_VERIFICATION:
+        return payload.nin || payload.NIN || null;
+
+      case TiramisRequestType.COMPANY_VERIFICATION:
+        return (
+          payload.incorporationCertificateNumber ||
+          payload.registrationNumber ||
+          payload.tin ||
+          payload.TIN ||
+          payload.companyName ||
+          null
+        );
+
+      case TiramisRequestType.DETAILS_VERIFICATION:
+        return (
+          payload.coverNoteReferenceNumber ||
+          payload.stickerNumber ||
+          payload.motorRegistrationNumber ||
+          payload.registrationNumber ||
+          payload.motorChassisNumber ||
+          payload.chassisNumber ||
+          payload.nin ||
+          payload.NIN ||
+          payload.tin ||
+          payload.TIN ||
+          payload.policyNumber ||
+          null
+        );
+
       default:
         return null;
+    }
+  }
+
+  private assertVerificationPayload(
+    requestType: TiramisRequestType,
+    payload?: Record<string, any> | null,
+  ): void {
+    if (!payload || Object.keys(payload).length === 0) {
+      throw new BadRequestException(
+        `Payload is required for ${requestType}. Verification requests do not read from a business table in this phase.`,
+      );
+    }
+
+    if (
+      requestType === TiramisRequestType.COVER_NOTE_VERIFICATION &&
+      !payload.coverNoteReferenceNumber &&
+      !payload.stickerNumber &&
+      !payload.motorRegistrationNumber &&
+      !payload.motorChassisNumber
+    ) {
+      throw new BadRequestException(
+        'Cover note verification requires coverNoteReferenceNumber, stickerNumber, motorRegistrationNumber, or motorChassisNumber.',
+      );
+    }
+
+    if (
+      requestType === TiramisRequestType.MOTOR_VERIFICATION &&
+      !payload.motorRegistrationNumber &&
+      !payload.registrationNumber &&
+      !payload.motorChassisNumber &&
+      !payload.chassisNumber
+    ) {
+      throw new BadRequestException(
+        'Motor verification requires motorRegistrationNumber, registrationNumber, motorChassisNumber, or chassisNumber.',
+      );
+    }
+
+    if (
+      requestType === TiramisRequestType.NIN_VERIFICATION &&
+      !payload.nin &&
+      !payload.NIN
+    ) {
+      throw new BadRequestException('NIN verification requires nin.');
+    }
+
+    if (
+      requestType === TiramisRequestType.COMPANY_VERIFICATION &&
+      !payload.incorporationCertificateNumber &&
+      !payload.registrationNumber &&
+      !payload.tin &&
+      !payload.TIN &&
+      !payload.companyName
+    ) {
+      throw new BadRequestException(
+        'Company verification requires incorporationCertificateNumber, registrationNumber, tin, TIN, or companyName.',
+      );
+    }
+
+    if (
+      requestType === TiramisRequestType.DETAILS_VERIFICATION &&
+      !payload.coverNoteReferenceNumber &&
+      !payload.stickerNumber &&
+      !payload.motorRegistrationNumber &&
+      !payload.registrationNumber &&
+      !payload.motorChassisNumber &&
+      !payload.chassisNumber &&
+      !payload.nin &&
+      !payload.NIN &&
+      !payload.tin &&
+      !payload.TIN &&
+      !payload.policyNumber
+    ) {
+      throw new BadRequestException(
+        'Details verification requires at least one searchable value.',
+      );
     }
   }
 }

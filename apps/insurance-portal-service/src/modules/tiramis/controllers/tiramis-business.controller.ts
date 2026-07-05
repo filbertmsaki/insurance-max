@@ -194,6 +194,96 @@ export class TiramisBusinessController {
     });
   }
 
+  @ApiOperation({ summary: 'Submit cover note verification to TIRAMIS' })
+  @ApiBody({ type: SubmitBusinessRecordToTiramisDto })
+  @Post('verifications/cover-note/submit')
+  submitCoverNoteVerification(
+    @Body() dto: SubmitBusinessRecordToTiramisDto = {},
+    @Req() req: any,
+  ) {
+    return this.tiramisBusinessSubmitService.submitVerification({
+      requestType: TiramisRequestType.COVER_NOTE_VERIFICATION,
+      sourceRecordId: dto.sourceRecordId,
+      payload: dto?.payload || null,
+      businessReference: dto?.businessReference,
+      forceResubmit: dto?.forceResubmit,
+      returnExisting: dto?.returnExisting,
+      authContext: this.getAuthContext(req),
+    });
+  }
+
+  @ApiOperation({ summary: 'Submit motor verification to TIRAMIS' })
+  @ApiBody({ type: SubmitBusinessRecordToTiramisDto })
+  @Post('verifications/motor/submit')
+  submitMotorVerification(
+    @Body() dto: SubmitBusinessRecordToTiramisDto = {},
+    @Req() req: any,
+  ) {
+    return this.tiramisBusinessSubmitService.submitVerification({
+      requestType: TiramisRequestType.MOTOR_VERIFICATION,
+      sourceRecordId: dto.sourceRecordId,
+      payload: dto?.payload || null,
+      businessReference: dto?.businessReference,
+      forceResubmit: dto?.forceResubmit,
+      returnExisting: dto?.returnExisting,
+      authContext: this.getAuthContext(req),
+    });
+  }
+
+  @ApiOperation({ summary: 'Submit NIN verification to TIRAMIS' })
+  @ApiBody({ type: SubmitBusinessRecordToTiramisDto })
+  @Post('verifications/nin/submit')
+  submitNinVerification(
+    @Body() dto: SubmitBusinessRecordToTiramisDto = {},
+    @Req() req: any,
+  ) {
+    return this.tiramisBusinessSubmitService.submitVerification({
+      requestType: TiramisRequestType.NIN_VERIFICATION,
+      sourceRecordId: dto.sourceRecordId,
+      payload: dto?.payload || null,
+      businessReference: dto?.businessReference,
+      forceResubmit: dto?.forceResubmit,
+      returnExisting: dto?.returnExisting,
+      authContext: this.getAuthContext(req),
+    });
+  }
+
+  @ApiOperation({ summary: 'Submit company verification to TIRAMIS' })
+  @ApiBody({ type: SubmitBusinessRecordToTiramisDto })
+  @Post('verifications/company/submit')
+  submitCompanyVerification(
+    @Body() dto: SubmitBusinessRecordToTiramisDto = {},
+    @Req() req: any,
+  ) {
+    return this.tiramisBusinessSubmitService.submitVerification({
+      requestType: TiramisRequestType.COMPANY_VERIFICATION,
+      sourceRecordId: dto.sourceRecordId,
+      payload: dto?.payload || null,
+      businessReference: dto?.businessReference,
+      forceResubmit: dto?.forceResubmit,
+      returnExisting: dto?.returnExisting,
+      authContext: this.getAuthContext(req),
+    });
+  }
+
+  @ApiOperation({ summary: 'Submit details verification to TIRAMIS' })
+  @ApiBody({ type: SubmitBusinessRecordToTiramisDto })
+  @Post('verifications/details/submit')
+  submitDetailsVerification(
+    @Body() dto: SubmitBusinessRecordToTiramisDto = {},
+    @Req() req: any,
+  ) {
+    return this.tiramisBusinessSubmitService.submitVerification({
+      requestType: TiramisRequestType.DETAILS_VERIFICATION,
+      sourceRecordId: dto.sourceRecordId,
+      payload: dto?.payload || null,
+      businessReference: dto?.businessReference,
+      forceResubmit: dto?.forceResubmit,
+      returnExisting: dto?.returnExisting,
+      authContext: this.getAuthContext(req),
+    });
+  }
+
   private getAuthContext(req: any) {
     return {
       userId: req.user?.id || req.user?.sub || null,

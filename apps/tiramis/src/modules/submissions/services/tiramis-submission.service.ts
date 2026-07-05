@@ -406,6 +406,71 @@ export class TiramisSubmissionService {
     };
   }
 
+  async getStatus(params: {
+    transactionId?: string | null;
+    requestId?: string | null;
+    businessReference?: string | null;
+    includePayload?: boolean;
+  }) {
+    const transaction = await this.resolveTransactionForQuery(params);
+
+    if (!transaction) {
+      return {
+        found: false,
+        message: 'TIRAMIS transaction not found',
+        query: params,
+      };
+    }
+
+    const attempts =
+      await this.attemptRepository.findAllByTransactionId(transaction.id);
+
+    const currentAttempt =
+      attempts.find((attempt) => attempt.requestId === transaction.currentRequestId) ||
+      attempts[attempts.length - 1] ||
+      null;
+
+    return {
+      found: true,
+      transaction,
+      currentAttempt: this.sanitizeAttempt(currentAttempt, !!params.includePayload),
+      attempts: attempts.map((attempt) =>
+        this.sanitizeAttempt(attempt, !!params.includePayload),
+      ),
+    };
+  }
+
+  async getTrace(params: {
+    transactionId?: string | null;
+    requestId?: string | null;
+    businessReference?: string | null;
+    includePayload?: boolean;
+  }) {
+    const status = await this.getStatus(params);
+
+    if (!status.found || !status.transaction) {
+      return status;
+    }
+
+    const events = await this.eventRepository.findByTransactionId(
+      status.transaction.id,
+    );
+
+    return {
+      ...status,
+      events: events.map((event) => {
+        if (params.includePayload) {
+          return event;
+        }
+
+        return {
+          ...event,
+          rawPayload: event.rawPayload ? '[hidden]' : null,
+        };
+      }),
+    };
+  }
+
   async findAttemptByRequestId(requestId: string) {
     return this.attemptRepository.findByRequestId(requestId);
   }
@@ -621,6 +686,56 @@ export class TiramisSubmissionService {
     }
 
     return attempt;
+  }
+
+  private async resolveTransactionForQuery(params: {
+    transactionId?: string | null;
+    requestId?: string | null;
+    businessReference?: string | null;
+  }) {
+    if (params.transactionId) {
+      return this.transactionRepository.findById(params.transactionId);
+    }
+
+    if (params.requestId) {
+      const attempt = await this.attemptRepository.findByRequestId(
+        params.requestId,
+      );
+
+      if (attempt) {
+        return this.transactionRepository.findById(attempt.transactionId);
+      }
+
+      return this.transactionRepository.findByAnyRequestId(params.requestId);
+    }
+
+    if (params.businessReference) {
+      return this.transactionRepository.findByBusinessReference(
+        params.businessReference,
+      );
+    }
+
+    return null;
+  }
+
+  private sanitizeAttempt(attempt: any, includePayload: boolean) {
+    if (!attempt) {
+      return null;
+    }
+
+    if (includePayload) {
+      return attempt;
+    }
+
+    return {
+      ...attempt,
+      requestXml: attempt.requestXml ? '[hidden]' : null,
+      acknowledgementXml: attempt.acknowledgementXml ? '[hidden]' : null,
+      responseXml: attempt.responseXml ? '[hidden]' : null,
+      responseAckXml: attempt.responseAckXml ? '[hidden]' : null,
+      requestSignature: attempt.requestSignature ? '[hidden]' : null,
+      responseSignature: attempt.responseSignature ? '[hidden]' : null,
+    };
   }
 
   private async createEvent(params: {

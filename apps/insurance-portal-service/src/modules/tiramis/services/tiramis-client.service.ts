@@ -18,6 +18,10 @@ import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum
 import { TiramisAuditService } from './tiramis-audit.service';
 import { TiramisBusinessRecordSyncService } from './tiramis-business-record-sync.service';
 import { TiramisNotificationService } from './tiramis-notification.service';
+import {
+  TIRAMIS_MESSAGE_PATTERNS,
+  TIRAMIS_SUBMIT_PATTERN_BY_REQUEST_TYPE,
+} from '../constants/tiramis-message-patterns.constant';
 
 export const TIRAMIS_CLIENT = 'TIRAMIS_CLIENT';
 
@@ -25,21 +29,7 @@ export const TIRAMIS_CLIENT = 'TIRAMIS_CLIENT';
 export class TiramisClientService {
   private readonly logger = new Logger(TiramisClientService.name);
 
-  private readonly submitPatternMap: Record<TiramisRequestType, string> = {
-    [TiramisRequestType.NON_MOTOR]: 'tiramis.non_motor.submit',
-    [TiramisRequestType.MOTOR]: 'tiramis.motor.submit',
-    [TiramisRequestType.MOTOR_FLEET]: 'tiramis.motor.submit',
-    [TiramisRequestType.REINSURANCE]: 'tiramis.reinsurance.submit',
-    [TiramisRequestType.POLICY]: 'tiramis.policy.submit',
-    [TiramisRequestType.CLAIM_NOTIFICATION]:
-      'tiramis.claim.notification.submit',
-    [TiramisRequestType.CLAIM_INTIMATION]: 'tiramis.claim.intimation.submit',
-    [TiramisRequestType.CLAIM_ASSESSMENT]: 'tiramis.claim.assessment.submit',
-    [TiramisRequestType.DISCHARGE_VOUCHER]:
-      'tiramis.claim.discharge_voucher.submit',
-    [TiramisRequestType.CLAIM_PAYMENT]: 'tiramis.claim.payment.submit',
-    [TiramisRequestType.CLAIM_REJECTION]: 'tiramis.claim.rejection.submit',
-  };
+  private readonly submitPatternMap = TIRAMIS_SUBMIT_PATTERN_BY_REQUEST_TYPE;
 
   constructor(
     @Inject(TIRAMIS_CLIENT)
@@ -298,7 +288,7 @@ export class TiramisClientService {
       },
     });
 
-    return this.send('tiramis.submission.status', {
+    return this.send(TIRAMIS_MESSAGE_PATTERNS.STATUS, {
       transactionId: query.transactionId || null,
       requestId: query.requestId || null,
       businessReference: query.businessReference || null,
@@ -318,11 +308,18 @@ export class TiramisClientService {
       },
     });
 
-    return this.send('tiramis.submission.trace', {
+    return this.send(TIRAMIS_MESSAGE_PATTERNS.TRACE, {
       transactionId: query.transactionId || null,
       requestId: query.requestId || null,
       businessReference: query.businessReference || null,
       includePayload: !!query.includePayload,
+    });
+  }
+
+  async checkTiramisServiceHealth() {
+    return this.send(TIRAMIS_MESSAGE_PATTERNS.HEALTH, {
+      sourceService: 'insurance-portal-service',
+      checkedAt: new Date().toISOString(),
     });
   }
 
@@ -487,6 +484,13 @@ export class TiramisClientService {
       case TiramisRequestType.CLAIM_REJECTION:
         return 'claims';
 
+      case TiramisRequestType.COVER_NOTE_VERIFICATION:
+      case TiramisRequestType.MOTOR_VERIFICATION:
+      case TiramisRequestType.NIN_VERIFICATION:
+      case TiramisRequestType.COMPANY_VERIFICATION:
+      case TiramisRequestType.DETAILS_VERIFICATION:
+        return 'verifications';
+
       default:
         return 'tiramis';
     }
@@ -497,8 +501,10 @@ export class TiramisClientService {
 
     return (
       payload.coverNoteNumber ||
-      payload.fleet?.fleetId ||
       payload.coverNoteReferenceNumber ||
+      payload.coverNoteReferenceNumbers?.[0] ||
+      payload.stickerNumber ||
+      payload.fleet?.fleetId ||
       payload.policyNumber ||
       payload.claimNotificationNumber ||
       payload.claimIntimationNumber ||
@@ -506,6 +512,17 @@ export class TiramisClientService {
       payload.dischargeVoucherNumber ||
       payload.claimPaymentNumber ||
       payload.claimRejectionNumber ||
+      payload.reinsuranceReferenceNumber ||
+      payload.nin ||
+      payload.NIN ||
+      payload.tin ||
+      payload.TIN ||
+      payload.companyName ||
+      payload.registrationNumber ||
+      payload.incorporationCertificateNumber ||
+      payload.motorRegistrationNumber ||
+      payload.motorChassisNumber ||
+      payload.chassisNumber ||
       null
     );
   }

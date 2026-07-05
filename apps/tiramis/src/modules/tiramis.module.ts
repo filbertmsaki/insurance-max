@@ -9,6 +9,7 @@ import { TiramisMotorModule } from './motor/tiramis-motor.module';
 import { TiramisPoliciesModule } from './policies/tiramis-policies.module';
 import { TiramisReinsuranceModule } from './reinsurance/tiramis-reinsurance.module';
 import { TiramisSubmissionsModule } from './submissions/tiramis-submissions.module';
+import { TiramisTcpGatewayController } from './tcp/tiramis-tcp-gateway.controller';
 import { TiramisVerificationsModule } from './verifications/tiramis-verifications.module';
 
 @Module({
@@ -24,6 +25,7 @@ import { TiramisVerificationsModule } from './verifications/tiramis-verification
     TiramisVerificationsModule,
     TiramisCallbacksModule,
   ],
+  controllers: [TiramisTcpGatewayController],
   exports: [
     TiramisCoverNotesModule,
     TiramisMotorModule,

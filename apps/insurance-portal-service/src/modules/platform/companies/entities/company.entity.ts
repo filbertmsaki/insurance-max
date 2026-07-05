@@ -67,6 +67,21 @@ export class Company {
   @Column({ type: 'varchar', length: 100, nullable: true })
   brela_registration_number!: string | null;
 
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  tira_company_code!: string | null;
+
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  tira_insurer_company_code!: string | null;
+
+  @Column({ type: 'varchar', length: 60, nullable: true })
+  tira_client_code!: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  tira_system_code!: string | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  tira_system_name!: string | null;
+
   @Column({ type: 'jsonb', nullable: true })
   regulatory_metadata!: Record<string, unknown> | null;
 

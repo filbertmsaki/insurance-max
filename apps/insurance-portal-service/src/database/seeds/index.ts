@@ -4,15 +4,14 @@ import InitialRbacSeeder from './001-initial-rbac.seed';
 import ProductEngineSeeder from './002-product-engine.seed';
 import RatingFactorsSeeder from './003-rating-factors.seed';
 import RiskFactorLinkSeeder from './004-risk-factor-link.seed';
-// ... import other seeders here
+import TiramisCompanySetupSeeder from './005-tiramis-company-setup.seed';
 
 const seeders = [
   InitialRbacSeeder,
   ProductEngineSeeder,
   RatingFactorsSeeder,
   RiskFactorLinkSeeder,
-  // Add new seeders here ↑
-  // They will run in this exact order
+  TiramisCompanySetupSeeder,
 ];
 
 export async function runAllSeeders(dataSource: DataSource): Promise<void> {

@@ -7,6 +7,8 @@ import { TiramisPermissionGuard } from './auth/tiramis-permission.guard';
 import { TiramisAdminController } from './controllers/tiramis-admin.controller';
 import { TiramisBusinessController } from './controllers/tiramis-business.controller';
 import { TiramisController } from './controllers/tiramis.controller';
+import { TiramisCompanyConfigurationEntity } from './entities/tiramis-company-configuration.entity';
+import { TiramisSalePointEntity } from './entities/tiramis-sale-point.entity';
 import { TiramisAuditLogEntity } from './entities/tiramis-audit-log.entity';
 import { TiramisNotificationEntity } from './entities/tiramis-notification.entity';
 import { TiramisSubmissionTrackingEntity } from './entities/tiramis-submission-tracking.entity';
@@ -32,12 +34,14 @@ import { TiramisStatusSyncService } from './services/tiramis-status-sync.service
       TiramisSubmissionTrackingEntity,
       TiramisAuditLogEntity,
       TiramisNotificationEntity,
+      TiramisCompanyConfigurationEntity,
+      TiramisSalePointEntity,
     ]),
     ClientsModule.register([
-        {
-          name: TIRAMIS_CLIENT,
-          transport: Transport.TCP,
-          options: {
+      {
+        name: TIRAMIS_CLIENT,
+        transport: Transport.TCP,
+        options: {
           host:
             process.env.TIRAMIS_SERVICE_HOST ||
             process.env.TIRAMIS_TCP_HOST ||
@@ -47,11 +51,15 @@ import { TiramisStatusSyncService } from './services/tiramis-status-sync.service
               process.env.TIRAMIS_TCP_PORT ||
               4001,
           ),
-          },
         },
+      },
     ]),
   ],
-  controllers: [TiramisController, TiramisBusinessController, TiramisAdminController],
+  controllers: [
+    TiramisController,
+    TiramisBusinessController,
+    TiramisAdminController,
+  ],
   providers: [
     TiramisClientService,
     TiramisSubmissionTrackingRepository,
