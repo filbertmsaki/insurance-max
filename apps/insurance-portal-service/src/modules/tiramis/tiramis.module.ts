@@ -10,6 +10,7 @@ import { TiramisController } from './controllers/tiramis.controller';
 import { TiramisCompanyConfigurationEntity } from './entities/tiramis-company-configuration.entity';
 import { TiramisSalePointEntity } from './entities/tiramis-sale-point.entity';
 import { TiramisAuditLogEntity } from './entities/tiramis-audit-log.entity';
+import { TiramisBusinessRecordEntity } from './entities/tiramis-business-record.entity';
 import { TiramisNotificationEntity } from './entities/tiramis-notification.entity';
 import { TiramisSubmissionTrackingEntity } from './entities/tiramis-submission-tracking.entity';
 import { TiramisAuditLogRepository } from './repositories/tiramis-audit-log.repository';
@@ -34,6 +35,7 @@ import { TiramisStatusSyncService } from './services/tiramis-status-sync.service
       TiramisSubmissionTrackingEntity,
       TiramisAuditLogEntity,
       TiramisNotificationEntity,
+      TiramisBusinessRecordEntity,
       TiramisCompanyConfigurationEntity,
       TiramisSalePointEntity,
     ]),

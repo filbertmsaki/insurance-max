@@ -238,11 +238,19 @@ export class TiramisBusinessSubmitService {
     forceResubmit?: boolean;
     returnExisting?: boolean;
   }) {
-    this.assertVerificationPayload(params.requestType, params.payload);
+    if (
+      !params.sourceRecordId &&
+      (!params.payload || Object.keys(params.payload).length === 0)
+    ) {
+      throw new BadRequestException(
+        'Verification submissions require sourceRecordId or payload.',
+      );
+    }
 
     const businessReference =
       params.businessReference ||
       this.resolveBusinessReference(params.requestType, params.payload || {}) ||
+      params.sourceRecordId ||
       `${params.requestType}-${Date.now()}`;
 
     return this.submit({
@@ -372,6 +380,7 @@ export class TiramisBusinessSubmitService {
       case TiramisRequestType.MOTOR_VERIFICATION:
         return (
           payload.motorRegistrationNumber ||
+          payload.registration_no ||
           payload.registrationNumber ||
           payload.motorChassisNumber ||
           payload.chassisNumber ||
@@ -396,6 +405,7 @@ export class TiramisBusinessSubmitService {
           payload.coverNoteReferenceNumber ||
           payload.stickerNumber ||
           payload.motorRegistrationNumber ||
+          payload.registration_no ||
           payload.registrationNumber ||
           payload.motorChassisNumber ||
           payload.chassisNumber ||
@@ -412,78 +422,4 @@ export class TiramisBusinessSubmitService {
     }
   }
 
-  private assertVerificationPayload(
-    requestType: TiramisRequestType,
-    payload?: Record<string, any> | null,
-  ): void {
-    if (!payload || Object.keys(payload).length === 0) {
-      throw new BadRequestException(
-        `Payload is required for ${requestType}. Verification requests do not read from a business table in this phase.`,
-      );
-    }
-
-    if (
-      requestType === TiramisRequestType.COVER_NOTE_VERIFICATION &&
-      !payload.coverNoteReferenceNumber &&
-      !payload.stickerNumber &&
-      !payload.motorRegistrationNumber &&
-      !payload.motorChassisNumber
-    ) {
-      throw new BadRequestException(
-        'Cover note verification requires coverNoteReferenceNumber, stickerNumber, motorRegistrationNumber, or motorChassisNumber.',
-      );
-    }
-
-    if (
-      requestType === TiramisRequestType.MOTOR_VERIFICATION &&
-      !payload.motorRegistrationNumber &&
-      !payload.registrationNumber &&
-      !payload.motorChassisNumber &&
-      !payload.chassisNumber
-    ) {
-      throw new BadRequestException(
-        'Motor verification requires motorRegistrationNumber, registrationNumber, motorChassisNumber, or chassisNumber.',
-      );
-    }
-
-    if (
-      requestType === TiramisRequestType.NIN_VERIFICATION &&
-      !payload.nin &&
-      !payload.NIN
-    ) {
-      throw new BadRequestException('NIN verification requires nin.');
-    }
-
-    if (
-      requestType === TiramisRequestType.COMPANY_VERIFICATION &&
-      !payload.incorporationCertificateNumber &&
-      !payload.registrationNumber &&
-      !payload.tin &&
-      !payload.TIN &&
-      !payload.companyName
-    ) {
-      throw new BadRequestException(
-        'Company verification requires incorporationCertificateNumber, registrationNumber, tin, TIN, or companyName.',
-      );
-    }
-
-    if (
-      requestType === TiramisRequestType.DETAILS_VERIFICATION &&
-      !payload.coverNoteReferenceNumber &&
-      !payload.stickerNumber &&
-      !payload.motorRegistrationNumber &&
-      !payload.registrationNumber &&
-      !payload.motorChassisNumber &&
-      !payload.chassisNumber &&
-      !payload.nin &&
-      !payload.NIN &&
-      !payload.tin &&
-      !payload.TIN &&
-      !payload.policyNumber
-    ) {
-      throw new BadRequestException(
-        'Details verification requires at least one searchable value.',
-      );
-    }
-  }
 }

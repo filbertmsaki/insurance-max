@@ -69,6 +69,30 @@ export class TiramisBusinessPayloadBuilderService {
           source: 'auto_cover_note_builder',
         };
 
+      case TiramisRequestType.NIN_VERIFICATION:
+        return {
+          payload: this.buildNinVerificationPayload(record),
+          source: 'auto_customer_nin_verification_builder',
+        };
+
+      case TiramisRequestType.COMPANY_VERIFICATION:
+        return {
+          payload: this.buildCompanyVerificationPayload(record),
+          source: 'auto_customer_company_verification_builder',
+        };
+
+      case TiramisRequestType.MOTOR_VERIFICATION:
+        return {
+          payload: this.buildMotorVerificationPayload(record),
+          source: 'auto_motor_verification_builder',
+        };
+
+      case TiramisRequestType.DETAILS_VERIFICATION:
+        return {
+          payload: this.buildDetailsVerificationPayload(record),
+          source: 'auto_details_verification_builder',
+        };
+
       default:
         return {
           payload: this.buildFallbackPayload(record, params.requestType),
@@ -104,6 +128,9 @@ export class TiramisBusinessPayloadBuilderService {
     requestType: TiramisRequestType,
   ): Record<string, any> | null {
     const possiblePayload =
+      record.payload?.[requestType] ||
+      record.payload?.[String(requestType).toLowerCase()] ||
+      record.payload ||
       record.tiramis_payload?.[requestType] ||
       record.tiramis_payload?.[String(requestType).toLowerCase()] ||
       record.tiramis_payload ||
@@ -204,8 +231,109 @@ export class TiramisBusinessPayloadBuilderService {
     }
 
     throw new BadRequestException(
-      'Automatic payload builder could not infer a payload for this record. Store a ready payload in tiramis_payload or pass an override payload.',
+      `Automatic payload builder could not infer a payload for ${requestType}. Store a ready payload in payload/tiramis_payload or pass an override payload.`,
     );
+  }
+
+  private buildNinVerificationPayload(record: any) {
+    return {
+      nin: this.required(
+        'nin',
+        this.value(record, 'nida_no', 'nidaNo', 'nin', 'NIN', 'id_number'),
+      ),
+      customerName: this.buildCustomerName(record),
+      customerNumber: this.value(record, 'customer_no', 'customerNo'),
+    };
+  }
+
+  private buildCompanyVerificationPayload(record: any) {
+    return {
+      companyName: this.required(
+        'companyName',
+        this.value(record, 'company_name', 'companyName'),
+      ),
+      tin: this.value(record, 'tin', 'TIN'),
+      registrationNumber: this.value(
+        record,
+        'registration_no',
+        'registrationNumber',
+      ),
+      incorporationCertificateNumber: this.value(
+        record,
+        'incorporation_certificate_no',
+        'incorporationCertificateNumber',
+      ),
+      customerNumber: this.value(record, 'customer_no', 'customerNo'),
+    };
+  }
+
+  private buildMotorVerificationPayload(record: any) {
+    return {
+      motorRegistrationNumber: this.required(
+        'motorRegistrationNumber',
+        this.value(
+          record,
+          'registration_no',
+          'registrationNumber',
+          'motorRegistrationNumber',
+        ),
+      ),
+      motorChassisNumber: this.value(
+        record,
+        'chassis_no',
+        'chassisNumber',
+        'motorChassisNumber',
+      ),
+      engineNumber: this.value(record, 'engine_no', 'engineNumber'),
+      make: this.value(record, 'make'),
+      model: this.value(record, 'model'),
+    };
+  }
+
+  private buildDetailsVerificationPayload(record: any) {
+    return {
+      coverNoteReferenceNumber: this.value(
+        record,
+        'cover_note_reference_number',
+        'coverNoteReferenceNumber',
+        'cover_note_no',
+        'coverNoteNo',
+      ),
+      stickerNumber: this.value(record, 'sticker_no', 'stickerNumber'),
+      motorRegistrationNumber: this.value(
+        record,
+        'registration_no',
+        'registrationNumber',
+        'motorRegistrationNumber',
+      ),
+      motorChassisNumber: this.value(
+        record,
+        'chassis_no',
+        'chassisNumber',
+        'motorChassisNumber',
+      ),
+      nin: this.value(record, 'nida_no', 'nidaNo', 'nin', 'NIN', 'id_number'),
+      tin: this.value(record, 'tin', 'TIN'),
+      policyNumber: this.value(record, 'policy_no', 'policyNumber'),
+      customerName: this.buildCustomerName(record),
+      companyName: this.value(record, 'company_name', 'companyName'),
+    };
+  }
+
+  private buildCustomerName(record: any): string | null {
+    const companyName = this.value(record, 'company_name', 'companyName');
+
+    if (companyName) {
+      return companyName;
+    }
+
+    const names = [
+      this.value(record, 'first_name', 'firstName'),
+      this.value(record, 'middle_name', 'middleName'),
+      this.value(record, 'last_name', 'lastName'),
+    ].filter(Boolean);
+
+    return names.length ? names.join(' ') : null;
   }
 
   private value(record: any, ...keys: string[]) {

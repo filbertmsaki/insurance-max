@@ -1,10 +1,20 @@
-import { Body, Controller, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBody, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 
 import { RequireTiramisPermissions } from '../auth/tiramis-permission.decorator';
 import { TiramisPermissionGuard } from '../auth/tiramis-permission.guard';
 import { TiramisPermissions } from '../auth/tiramis-permissions.constant';
+import { listTiramisBusinessRecordMappings } from '../constants/tiramis-business-record-map.constant';
 import { SubmitBusinessRecordToTiramisDto } from '../dto/submit-business-record-to-tiramis.dto';
 import { TiramisRequestType } from '../enums/tiramis-request-type.enum';
 import { TiramisBusinessSubmitService } from '../services/tiramis-business-submit.service';
@@ -17,6 +27,16 @@ export class TiramisBusinessController {
   constructor(
     private readonly tiramisBusinessSubmitService: TiramisBusinessSubmitService,
   ) {}
+
+  @ApiOperation({ summary: 'List TIRAMIS business record mappings' })
+  @RequireTiramisPermissions(TiramisPermissions.VIEW_TRACKING)
+  @Get('mappings')
+  listMappings() {
+    return {
+      success: true,
+      mappings: listTiramisBusinessRecordMappings(),
+    };
+  }
 
   @ApiOperation({ summary: 'Submit cover note to TIRAMIS' })
   @ApiQuery({
