@@ -46,6 +46,7 @@ import { TiramisTransactionEntity } from './modules/submissions/entities/tiramis
 import { TiramisVerificationRequestEntity } from './modules/verifications/entities/tiramis-verification-request.entity';
 import { TiramisVerificationResponseEntity } from './modules/verifications/entities/tiramis-verification-response.entity';
 import { TiramisModule } from './modules/tiramis.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -105,5 +106,6 @@ import { TiramisModule } from './modules/tiramis.module';
     TiramisModule,
     TiramisInternalModule,
   ],
+  controllers: [AppController],
 })
 export class AppModule {}

@@ -43,6 +43,33 @@ export class TiramisXmlParserService {
           key !== 'MsgSignature' && key !== 'Signature' && key !== 'signature',
       ) || null;
 
+    if (rootName === 'Content') {
+      const wrappedContent = this.getStringValue(tiraMsg, 'Content');
+
+      if (wrappedContent && wrappedContent.includes('<')) {
+        const nestedParsed = this.parse(wrappedContent);
+        const nestedRootName =
+          Object.keys(nestedParsed).find(
+            (key) =>
+              key !== 'MsgSignature' &&
+              key !== 'Signature' &&
+              key !== 'signature',
+          ) || null;
+
+        return {
+          raw: parsed,
+          rootName: nestedRootName,
+          content: nestedRootName
+            ? this.getRecordValue(nestedParsed, nestedRootName)
+            : null,
+          signature:
+            this.getStringValue(tiraMsg, 'MsgSignature') ??
+            this.getStringValue(tiraMsg, 'Signature') ??
+            this.getStringValue(tiraMsg, 'signature'),
+        };
+      }
+    }
+
     return {
       raw: parsed,
       rootName,
@@ -161,21 +188,13 @@ export class TiramisXmlParserService {
   }
 
   extractFinalResponse(xml: string): TiramisFinalResponseDto {
-    const parsed = this.genericXmlParser.parse(xml);
-    const tiraMsg = parsed?.TiraMsg;
+    const parsedMessage = this.parseTiraMessage(xml);
 
-    if (!tiraMsg || typeof tiraMsg !== 'object') {
+    if (!parsedMessage.rootName || !parsedMessage.content) {
       throw new BadRequestException('Invalid TiraMsg callback payload');
     }
 
-    const rootElement = Object.keys(tiraMsg).find(
-      (key) => key !== 'MsgSignature',
-    );
-
-    if (!rootElement) {
-      throw new BadRequestException('Callback response root element not found');
-    }
-
+    const rootElement = parsedMessage.rootName;
     const definition = getTiramisCallbackRootDefinition(rootElement);
 
     if (!definition) {
@@ -184,7 +203,7 @@ export class TiramisXmlParserService {
       );
     }
 
-    const payload = this.getRecordValue(tiraMsg, rootElement) || {};
+    const payload = parsedMessage.content || {};
 
     return {
       rootElement,

@@ -25,7 +25,19 @@ function resolveFilePath(filePath) {
     return filePath;
   }
 
-  return path.resolve(process.cwd(), filePath);
+  const candidates = [
+    path.resolve(process.cwd(), filePath),
+    path.resolve(process.cwd(), 'mock-tira', filePath),
+    path.resolve(__dirname, '..', '..', filePath),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return candidates[0];
 }
 
 function fileExists(filePath) {

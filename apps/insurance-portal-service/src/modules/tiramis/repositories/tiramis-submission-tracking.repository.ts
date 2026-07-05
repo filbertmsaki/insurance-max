@@ -669,8 +669,18 @@ export class TiramisSubmissionTrackingRepository {
       response?.finalResponse ||
       response?.data?.finalResponse ||
       response?.tiramis?.finalResponse ||
+      response?.currentAttempt?.finalResponse ||
+      response?.data?.currentAttempt?.finalResponse ||
+      response?.tiramis?.currentAttempt?.finalResponse ||
       transaction?.finalResponse ||
       transaction?.latestFinalResponse ||
+      null;
+
+    const statusSource =
+      finalResponse ||
+      response?.summary ||
+      response?.data?.summary ||
+      response?.tiramis?.summary ||
       null;
 
     return {
@@ -684,6 +694,8 @@ export class TiramisSubmissionTrackingRepository {
       statusCode:
         finalResponse?.responseStatusCode ||
         finalResponse?.ResponseStatusCode ||
+        statusSource?.finalResponseStatusCode ||
+        statusSource?.responseStatusCode ||
         transaction?.finalResponseStatusCode ||
         transaction?.responseStatusCode ||
         response?.responseStatusCode ||
@@ -691,12 +703,15 @@ export class TiramisSubmissionTrackingRepository {
       statusDesc:
         finalResponse?.responseStatusDesc ||
         finalResponse?.ResponseStatusDesc ||
+        statusSource?.finalResponseStatusDesc ||
+        statusSource?.responseStatusDesc ||
         transaction?.finalResponseStatusDesc ||
         transaction?.responseStatusDesc ||
         response?.responseStatusDesc ||
         null,
       receivedAt:
         finalResponse?.receivedAt ||
+        statusSource?.finalResponseReceivedAt ||
         transaction?.finalResponseReceivedAt ||
         response?.finalResponseReceivedAt ||
         null,

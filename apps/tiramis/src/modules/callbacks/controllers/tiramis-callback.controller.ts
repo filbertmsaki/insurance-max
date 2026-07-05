@@ -5,12 +5,15 @@ import {
   HttpCode,
   Param,
   Post,
+  Logger,
 } from '@nestjs/common';
 
 import { TiramisCallbackService } from '../services/tiramis-callback.service';
 
 @Controller('tiramis/callbacks')
 export class TiramisCallbackController {
+  private readonly logger = new Logger(TiramisCallbackController.name);
+
   constructor(
     private readonly tiramisCallbackService: TiramisCallbackService,
   ) {}
@@ -22,6 +25,15 @@ export class TiramisCallbackController {
     @Param('environment') environment: string,
     @Body() rawXml: string,
   ): Promise<string> {
+    this.logger.debug(
+      `Received callback for env=${environment}, bodyType=${typeof rawXml}, bodyLength=${
+        typeof rawXml === 'string' ? rawXml.length : 0
+      }`,
+    );
+    if (typeof rawXml === 'string') {
+      this.logger.debug(`Callback body preview: ${rawXml.slice(0, 200)}`);
+    }
+
     const acknowledgement = await this.tiramisCallbackService.handleCallback({
       environment,
       rawXml,

@@ -12,8 +12,21 @@ export class TiramisXmlBuilderService {
     processEntities: true,
   });
 
+  private readonly compactBuilder = new XMLBuilder({
+    ignoreAttributes: false,
+    suppressEmptyNode: false,
+    format: false,
+    processEntities: true,
+  });
+
   buildContentXml(rootName: string, payload: Record<string, any>): string {
     return this.builder.build({
+      [rootName]: payload,
+    });
+  }
+
+  buildCompactContentXml(rootName: string, payload: Record<string, any>): string {
+    return this.compactBuilder.build({
       [rootName]: payload,
     });
   }

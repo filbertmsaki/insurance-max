@@ -321,7 +321,10 @@ export class TiramisCallbackService {
       rawXml,
       signature: parsedMessage.signature,
       content,
-      contentXml: this.xmlBuilder.buildContentXml(parsedMessage.rootName, content),
+      contentXml: this.xmlBuilder.buildCompactContentXml(
+        parsedMessage.rootName,
+        content,
+      ),
       signatureVerified: false,
     };
   }

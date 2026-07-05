@@ -34,14 +34,21 @@ import { TiramisStatusSyncService } from './services/tiramis-status-sync.service
       TiramisNotificationEntity,
     ]),
     ClientsModule.register([
-      {
-        name: TIRAMIS_CLIENT,
-        transport: Transport.TCP,
-        options: {
-          host: process.env.TIRAMIS_SERVICE_HOST || '127.0.0.1',
-          port: Number(process.env.TIRAMIS_SERVICE_TCP_PORT || 9095),
+        {
+          name: TIRAMIS_CLIENT,
+          transport: Transport.TCP,
+          options: {
+          host:
+            process.env.TIRAMIS_SERVICE_HOST ||
+            process.env.TIRAMIS_TCP_HOST ||
+            '127.0.0.1',
+          port: Number(
+            process.env.TIRAMIS_SERVICE_TCP_PORT ||
+              process.env.TIRAMIS_TCP_PORT ||
+              4001,
+          ),
+          },
         },
-      },
     ]),
   ],
   controllers: [TiramisController, TiramisBusinessController, TiramisAdminController],

@@ -56,9 +56,39 @@ function getRoot(xml) {
 
   const root = match[1];
 
-  if (root === 'TiraMsg') {
-    const contentXml = extractContentXml(text);
-    return getRoot(contentXml);
+  if (root !== 'TiraMsg') {
+    return root;
+  }
+
+  const innerMatch = text.match(/<TiraMsg[^>]*>([\s\S]*)<\/TiraMsg>/i);
+  const inner = (innerMatch?.[1] || '').trim();
+
+  if (!inner) {
+    return root;
+  }
+
+  const contentXml = extractContentXml(text);
+
+  if (contentXml && contentXml !== text) {
+    const contentRoot = getRoot(contentXml);
+
+    if (contentRoot && contentRoot !== 'TiraMsg') {
+      return contentRoot;
+    }
+  }
+
+  const childMatches = [...inner.matchAll(/<([A-Za-z0-9_:-]+)(\s|>)/g)];
+
+  for (const childMatch of childMatches) {
+    const childRoot = childMatch[1];
+
+    if (
+      childRoot !== 'MsgSignature' &&
+      childRoot !== 'Signature' &&
+      childRoot !== 'Content'
+    ) {
+      return childRoot;
+    }
   }
 
   return root;
