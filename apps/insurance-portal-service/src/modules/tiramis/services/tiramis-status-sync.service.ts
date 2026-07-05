@@ -1,8 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
+import { TiramisBusinessRecordSyncService } from './tiramis-business-record-sync.service';
+import { TiramisAuditAction } from '../enums/tiramis-audit-action.enum';
 import { TiramisSubmissionTrackingRepository } from '../repositories/tiramis-submission-tracking.repository';
 import { TiramisClientService } from './tiramis-client.service';
+import { TiramisAuditService } from './tiramis-audit.service';
 
 @Injectable()
 export class TiramisStatusSyncService {
@@ -13,6 +16,8 @@ export class TiramisStatusSyncService {
   constructor(
     private readonly trackingRepository: TiramisSubmissionTrackingRepository,
     private readonly tiramisClientService: TiramisClientService,
+    private readonly businessRecordSyncService: TiramisBusinessRecordSyncService,
+    private readonly auditService: TiramisAuditService,
   ) {}
 
   /**
@@ -59,6 +64,17 @@ export class TiramisStatusSyncService {
             record.id,
             response,
           );
+          await this.businessRecordSyncService.syncFromTracking(updated);
+
+          await this.auditService.logFromTracking({
+            action: TiramisAuditAction.STATUS_SYNC_SUCCESS,
+            tracking: updated,
+            statusBefore: record.status,
+            success: true,
+            metadata: {
+              automatic: true,
+            },
+          });
 
           synced += 1;
 
@@ -79,6 +95,17 @@ export class TiramisStatusSyncService {
 
           await this.trackingRepository.markSyncChecked(record.id, {
             syncError: error?.response || error?.message || error,
+          });
+
+          await this.auditService.logFromTracking({
+            action: TiramisAuditAction.STATUS_SYNC_FAILED,
+            tracking: record,
+            statusBefore: record.status,
+            success: false,
+            error,
+            metadata: {
+              automatic: true,
+            },
           });
         }
       }
@@ -104,6 +131,16 @@ export class TiramisStatusSyncService {
       };
     }
 
+    await this.auditService.logFromTracking({
+      action: TiramisAuditAction.STATUS_SYNC_REQUESTED,
+      tracking: record,
+      statusBefore: record.status,
+      success: true,
+      metadata: {
+        manual: true,
+      },
+    });
+
     const response = await this.tiramisClientService.getStatus({
       transactionId: record.tiramisTransactionId || undefined,
       requestId: record.tiramisRequestId || undefined,
@@ -115,10 +152,23 @@ export class TiramisStatusSyncService {
       record.id,
       response,
     );
+    const businessRecordSync =
+      await this.businessRecordSyncService.syncFromTracking(updated);
+
+    await this.auditService.logFromTracking({
+      action: TiramisAuditAction.STATUS_SYNC_SUCCESS,
+      tracking: updated,
+      statusBefore: record.status,
+      success: true,
+      metadata: {
+        manual: true,
+      },
+    });
 
     return {
       found: true,
       updated,
+      businessRecordSync,
       tiramis: response,
     };
   }

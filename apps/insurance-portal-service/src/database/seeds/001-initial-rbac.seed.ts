@@ -250,6 +250,47 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'tiramis.submit',
+    displayName: 'Submit to TIRAMIS',
+    description:
+      'Allows user to submit cover notes, policies, reinsurance, and claims to TIRAMIS',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'tiramis.tracking.view',
+    displayName: 'View TIRAMIS Tracking',
+    description:
+      'Allows user to view TIRAMIS local tracking, status, and trace',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'tiramis.monitoring.view',
+    displayName: 'View TIRAMIS Monitoring',
+    description:
+      'Allows user to view TIRAMIS admin dashboard and statistics',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'tiramis.retry',
+    displayName: 'Retry TIRAMIS Submissions',
+    description:
+      'Allows user to retry failed or retryable TIRAMIS submissions',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'tiramis.sync',
+    displayName: 'Sync TIRAMIS Status',
+    description:
+      'Allows user to sync final responses and business records',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'tiramis.admin',
+    displayName: 'TIRAMIS Admin',
+    description: 'Full TIRAMIS administration permission',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'branches:read',
     displayName: 'Read branches',
     description: 'Allow listing and viewing company branches',
@@ -806,6 +847,14 @@ const permissionSeeds: PermissionSeed[] = [
   },
 ];
 
+const TIRAMIS_ADMIN_PERMISSION_NAMES = [
+  'tiramis.submit',
+  'tiramis.tracking.view',
+  'tiramis.monitoring.view',
+  'tiramis.retry',
+  'tiramis.sync',
+];
+
 const roleSeeds: RoleSeed[] = [
   {
     name: 'OWNER',
@@ -831,6 +880,7 @@ const roleSeeds: RoleSeed[] = [
       'permissions:update',
       'permissions:delete',
       'tiramis-submissions:read',
+      'tiramis.admin',
     ],
   },
   {
@@ -928,6 +978,7 @@ const roleSeeds: RoleSeed[] = [
       'quotations:delete',
       'tiramis-submissions:read',
       'tiramis-submissions:create',
+      ...TIRAMIS_ADMIN_PERMISSION_NAMES,
       'motor:read',
       'motor:create',
       'motor:update',
@@ -1084,6 +1135,7 @@ const roleSeeds: RoleSeed[] = [
       'quotations:delete',
       'tiramis-submissions:read',
       'tiramis-submissions:create',
+      ...TIRAMIS_ADMIN_PERMISSION_NAMES,
       'motor:read',
       'motor:create',
       'motor:update',
@@ -1127,6 +1179,7 @@ const roleSeeds: RoleSeed[] = [
       'quotations:create',
       'quotations:update',
       'quotations:delete',
+      ...TIRAMIS_ADMIN_PERMISSION_NAMES,
       'motor:read',
       'motor:create',
       'motor:update',
@@ -1171,6 +1224,7 @@ const roleSeeds: RoleSeed[] = [
       'quotations:update',
       'tiramis-submissions:read',
       'tiramis-submissions:create',
+      ...TIRAMIS_ADMIN_PERMISSION_NAMES,
       'premium-calculation:calculate',
     ],
   },
@@ -1228,6 +1282,7 @@ const roleSeeds: RoleSeed[] = [
       'departments:read',
       'tiramis-submissions:read',
       'tiramis-submissions:create',
+      ...TIRAMIS_ADMIN_PERMISSION_NAMES,
     ],
   },
   {

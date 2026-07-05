@@ -6,13 +6,17 @@ import {
   RequestTimeoutException,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
+import { createHash } from 'crypto';
 import { catchError, firstValueFrom, timeout } from 'rxjs';
 
 import { SubmitTiramisDto } from '../dto/submit-tiramis.dto';
 import { TiramisStatusQueryDto } from '../dto/tiramis-status-query.dto';
+import { TiramisAuditAction } from '../enums/tiramis-audit-action.enum';
 import { TiramisRequestType } from '../enums/tiramis-request-type.enum';
 import { TiramisSubmissionTrackingRepository } from '../repositories/tiramis-submission-tracking.repository';
 import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum';
+import { TiramisAuditService } from './tiramis-audit.service';
+import { TiramisBusinessRecordSyncService } from './tiramis-business-record-sync.service';
 
 export const TIRAMIS_CLIENT = 'TIRAMIS_CLIENT';
 
@@ -40,6 +44,8 @@ export class TiramisClientService {
     @Inject(TIRAMIS_CLIENT)
     private readonly tiramisClient: ClientProxy,
     private readonly trackingRepository: TiramisSubmissionTrackingRepository,
+    private readonly businessRecordSyncService: TiramisBusinessRecordSyncService,
+    private readonly auditService: TiramisAuditService,
   ) {}
 
   async submit(dto: SubmitTiramisDto, authContext?: any) {
@@ -70,21 +76,131 @@ export class TiramisClientService {
       payload: dto.payload,
     };
 
-    const tracking = await this.trackingRepository.save(
-      this.trackingRepository.create({
-        requestType: dto.requestType,
-        status: TiramisSubmissionStatus.PENDING,
-        sourceService: command.sourceService,
+    await this.auditService.log({
+      action: TiramisAuditAction.SUBMIT_REQUESTED,
+      requestType: dto.requestType,
+      sourceService: command.sourceService,
+      sourceCompanyId: command.sourceCompanyId,
+      sourceUserId: command.sourceUserId,
+      sourceModule: command.sourceModule,
+      sourceRecordId: command.sourceRecordId,
+      businessReference: command.businessReference,
+      authContext,
+      metadata: {
+        forceResubmit: dto.forceResubmit,
+        returnExisting: dto.returnExisting,
+      },
+    });
+
+    const idempotencyKey = this.buildIdempotencyKey({
+      sourceCompanyId: command.sourceCompanyId,
+      requestType: dto.requestType,
+      sourceModule: command.sourceModule,
+      sourceRecordId: command.sourceRecordId,
+      businessReference: command.businessReference,
+    });
+
+    const existingSubmission =
+      await this.trackingRepository.findExistingActiveSubmission({
         sourceCompanyId: command.sourceCompanyId,
-        sourceUserId: command.sourceUserId,
+        requestType: dto.requestType,
         sourceModule: command.sourceModule,
         sourceRecordId: command.sourceRecordId,
-        policyId: command.policyId,
-        quotationId: command.quotationId,
         businessReference: command.businessReference,
-        requestPayload: dto.payload,
-      }),
-    );
+        idempotencyKey,
+      });
+
+    if (existingSubmission) {
+      await this.auditService.logFromTracking({
+        action: TiramisAuditAction.DUPLICATE_PREVENTED,
+        tracking: existingSubmission,
+        success: true,
+        authContext,
+        metadata: {
+          attemptedRequestType: dto.requestType,
+          attemptedSourceModule: command.sourceModule,
+          attemptedSourceRecordId: command.sourceRecordId,
+          attemptedBusinessReference: command.businessReference,
+        },
+      });
+
+      if (dto.returnExisting !== false) {
+        return {
+          duplicatePrevented: true,
+          message:
+            'This business record already has an active or successful TIRAMIS submission.',
+          localTrackingId: existingSubmission.id,
+          localStatus: existingSubmission.status,
+          existingTracking: existingSubmission,
+        };
+      }
+
+      throw new BadRequestException({
+        message:
+          'Duplicate TIRAMIS submission prevented. This business record already has an active or successful submission.',
+        existingTrackingId: existingSubmission.id,
+        existingStatus: existingSubmission.status,
+      });
+    }
+
+    const latestPreviousSubmission =
+      await this.trackingRepository.findLatestSubmissionForSameBusiness({
+        sourceCompanyId: command.sourceCompanyId,
+        requestType: dto.requestType,
+        sourceModule: command.sourceModule,
+        sourceRecordId: command.sourceRecordId,
+        businessReference: command.businessReference,
+      });
+
+    let tracking: any;
+    try {
+      tracking = await this.trackingRepository.save(
+        this.trackingRepository.create({
+          requestType: dto.requestType,
+          status: TiramisSubmissionStatus.PENDING,
+          sourceService: command.sourceService,
+          sourceCompanyId: command.sourceCompanyId,
+          sourceUserId: command.sourceUserId,
+          sourceModule: command.sourceModule,
+          sourceRecordId: command.sourceRecordId,
+          policyId: command.policyId,
+          quotationId: command.quotationId,
+          businessReference: command.businessReference,
+          idempotencyKey,
+          duplicateOfTrackingId: latestPreviousSubmission?.id || null,
+          resubmissionCount: latestPreviousSubmission
+            ? (latestPreviousSubmission.resubmissionCount || 0) + 1
+            : 0,
+          forceResubmitted: !!dto.forceResubmit,
+          requestPayload: dto.payload,
+        }),
+      );
+    } catch (error: any) {
+      if (
+        String(error?.message || '').includes(
+          'uq_tiramis_active_submission_idempotency',
+        )
+      ) {
+        throw new BadRequestException(
+          'Duplicate TIRAMIS submission prevented by database idempotency rule.',
+        );
+      }
+
+      throw error;
+    }
+
+    await this.businessRecordSyncService.syncFromTracking(tracking);
+
+    await this.auditService.logFromTracking({
+      action: TiramisAuditAction.SUBMIT_REQUESTED,
+      tracking,
+      success: true,
+      authContext,
+      metadata: {
+        idempotencyKey,
+        payloadStored: !!dto.payload,
+      },
+    });
 
     try {
       this.logger.log(
@@ -93,7 +209,11 @@ export class TiramisClientService {
 
       const response = await this.send(pattern, command);
 
-      await this.trackingRepository.markSent(tracking.id, response);
+      const sentTracking = await this.trackingRepository.markSent(
+        tracking.id,
+        response,
+      );
+      await this.businessRecordSyncService.syncFromTracking(sentTracking);
 
       const acknowledgementCode =
         response?.acknowledgement?.statusCode ||
@@ -101,9 +221,25 @@ export class TiramisClientService {
         response?.tiraResponse?.AcknowledgementStatusCode ||
         null;
 
+      let acknowledgedTracking: any = null;
       if (acknowledgementCode) {
-        await this.trackingRepository.markAcknowledged(tracking.id, response);
+        acknowledgedTracking = await this.trackingRepository.markAcknowledged(
+          tracking.id,
+          response,
+        );
+        await this.businessRecordSyncService.syncFromTracking(acknowledgedTracking);
       }
+
+      await this.auditService.logFromTracking({
+        action: TiramisAuditAction.SUBMIT_SUCCESS,
+        tracking: acknowledgedTracking || sentTracking,
+        statusBefore: TiramisSubmissionStatus.PENDING,
+        success: true,
+        authContext,
+        metadata: {
+          acknowledgementCode,
+        },
+      });
 
       return {
         localTrackingId: tracking.id,
@@ -113,14 +249,44 @@ export class TiramisClientService {
         tiramis: response,
       };
     } catch (error) {
-      await this.trackingRepository.markFailed(tracking.id, error);
+      const failedTracking = await this.trackingRepository.markFailed(
+        tracking.id,
+        error,
+        {
+          retryable: this.isRetryableError(error),
+          maxRetryAttempts: Number(process.env.TIRAMIS_RETRY_MAX_ATTEMPTS || 5),
+        },
+      );
+      await this.businessRecordSyncService.syncFromTracking(failedTracking);
+
+      await this.auditService.logFromTracking({
+        action: TiramisAuditAction.SUBMIT_FAILED,
+        tracking: failedTracking,
+        statusBefore: TiramisSubmissionStatus.PENDING,
+        success: false,
+        error,
+        authContext,
+        metadata: {
+          retryable: failedTracking?.isRetryable,
+        },
+      });
 
       throw error;
     }
   }
 
-  async getStatus(query: TiramisStatusQueryDto) {
+  async getStatus(query: TiramisStatusQueryDto, authContext?: any) {
     this.assertStatusQuery(query);
+
+    await this.auditService.log({
+      action: TiramisAuditAction.MANUAL_STATUS_CHECK,
+      requestType: query.requestType as any,
+      businessReference: query.businessReference || null,
+      authContext,
+      metadata: {
+        query,
+      },
+    });
 
     return this.send('tiramis.submission.status', {
       transactionId: query.transactionId || null,
@@ -130,8 +296,18 @@ export class TiramisClientService {
     });
   }
 
-  async getTrace(query: TiramisStatusQueryDto) {
+  async getTrace(query: TiramisStatusQueryDto, authContext?: any) {
     this.assertStatusQuery(query);
+
+    await this.auditService.log({
+      action: TiramisAuditAction.MANUAL_TRACE_CHECK,
+      requestType: query.requestType as any,
+      businessReference: query.businessReference || null,
+      authContext,
+      metadata: {
+        query,
+      },
+    });
 
     return this.send('tiramis.submission.trace', {
       transactionId: query.transactionId || null,
@@ -157,6 +333,90 @@ export class TiramisClientService {
 
   async getRecentLocalTracking(limit = 50) {
     return this.trackingRepository.findRecent(limit);
+  }
+
+  async resendTrackingRecord(localTrackingId: string) {
+    const tracking = await this.trackingRepository.findById(localTrackingId);
+
+    if (!tracking) {
+      throw new BadRequestException('TIRAMIS local tracking record not found');
+    }
+
+    if (!tracking.requestPayload || Object.keys(tracking.requestPayload).length === 0) {
+      throw new BadRequestException(
+        'Cannot retry TIRAMIS submission because requestPayload is empty',
+      );
+    }
+
+    const requestType = tracking.requestType as TiramisRequestType;
+    const pattern = this.submitPatternMap[requestType];
+
+    if (!pattern) {
+      throw new BadRequestException(
+        `Unsupported TIRAMIS request type for retry: ${tracking.requestType}`,
+      );
+    }
+
+    const command = {
+      sourceService: tracking.sourceService || 'insurance-portal-service',
+      sourceCompanyId: tracking.sourceCompanyId || null,
+      sourceUserId: tracking.sourceUserId || null,
+      sourceModule:
+        tracking.sourceModule ||
+        this.resolveSourceModule({
+          requestType,
+          payload: tracking.requestPayload,
+        } as any),
+      sourceRecordId: tracking.sourceRecordId || null,
+      policyId: tracking.policyId || null,
+      quotationId: tracking.quotationId || null,
+      businessReference:
+        tracking.businessReference ||
+        this.resolveBusinessReference({
+          requestType,
+          payload: tracking.requestPayload,
+        } as any),
+      requestType,
+      payload: tracking.requestPayload,
+    };
+
+    this.logger.log(
+      `Retrying ${tracking.requestType} to tiramis-service using pattern ${pattern}`,
+    );
+
+    return this.send(pattern, command);
+  }
+
+  async checkDuplicate(params: {
+    requestType: TiramisRequestType;
+    sourceCompanyId?: string | null;
+    sourceModule?: string | null;
+    sourceRecordId?: string | null;
+    businessReference?: string | null;
+  }) {
+    const idempotencyKey = this.buildIdempotencyKey({
+      sourceCompanyId: params.sourceCompanyId || null,
+      requestType: params.requestType,
+      sourceModule: params.sourceModule || null,
+      sourceRecordId: params.sourceRecordId || null,
+      businessReference: params.businessReference || null,
+    });
+
+    const existing =
+      await this.trackingRepository.findExistingActiveSubmission({
+        sourceCompanyId: params.sourceCompanyId || null,
+        requestType: params.requestType,
+        sourceModule: params.sourceModule || null,
+        sourceRecordId: params.sourceRecordId || null,
+        businessReference: params.businessReference || null,
+        idempotencyKey,
+      });
+
+    return {
+      duplicateExists: !!existing,
+      idempotencyKey,
+      existingTracking: existing || null,
+    };
   }
 
   private async send(pattern: string, payload: Record<string, any>) {
@@ -239,5 +499,51 @@ export class TiramisClientService {
       payload.claimRejectionNumber ||
       null
     );
+  }
+
+  private isRetryableError(error: any) {
+    const message = String(
+      error?.message || error?.response?.message || error?.error?.message || '',
+    ).toLowerCase();
+
+    const statusCode =
+      error?.status || error?.response?.statusCode || error?.response?.status || null;
+
+    if (statusCode && [408, 429, 500, 502, 503, 504].includes(Number(statusCode))) {
+      return true;
+    }
+
+    return [
+      'timeout',
+      'timed out',
+      'econnrefused',
+      'econnreset',
+      'etimedout',
+      'socket hang up',
+      'no response',
+      'connection refused',
+      'failed to communicate with tiramis-service',
+      'tiramis service request timeout',
+    ].some((keyword) => message.includes(keyword));
+  }
+
+  private buildIdempotencyKey(params: {
+    sourceCompanyId?: string | null;
+    requestType: string;
+    sourceModule?: string | null;
+    sourceRecordId?: string | null;
+    businessReference?: string | null;
+  }) {
+    const raw = [
+      params.sourceCompanyId || 'no-company',
+      params.requestType,
+      params.sourceModule || 'no-module',
+      params.sourceRecordId || 'no-record',
+      params.businessReference || 'no-business-reference',
+    ]
+      .map((value) => String(value).trim().toLowerCase())
+      .join('|');
+
+    return createHash('sha256').update(raw).digest('hex');
   }
 }

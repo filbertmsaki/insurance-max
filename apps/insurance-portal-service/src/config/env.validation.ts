@@ -97,4 +97,9 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   TIRAMIS_TCP_TIMEOUT_MS: Joi.number().default(60000),
   TIRAMIS_STATUS_SYNC_ENABLED: Joi.boolean().default(true),
   TIRAMIS_STATUS_SYNC_LIMIT: Joi.number().default(50),
+  TIRAMIS_RETRY_ENABLED: Joi.boolean().default(true),
+  TIRAMIS_RETRY_LIMIT: Joi.number().default(20),
+  TIRAMIS_RETRY_MAX_ATTEMPTS: Joi.number().default(5),
+  TIRAMIS_RETRY_MAX_DELAY_MINUTES: Joi.number().default(30),
+  TIRAMIS_RETRY_LOCK_TIMEOUT_MINUTES: Joi.number().default(15),
 });

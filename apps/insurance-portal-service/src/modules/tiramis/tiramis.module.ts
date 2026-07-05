@@ -2,18 +2,33 @@ import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { TiramisCompanyScopeGuard } from './auth/tiramis-company-scope.guard';
+import { TiramisPermissionGuard } from './auth/tiramis-permission.guard';
+import { TiramisAdminController } from './controllers/tiramis-admin.controller';
+import { TiramisBusinessController } from './controllers/tiramis-business.controller';
 import { TiramisController } from './controllers/tiramis.controller';
+import { TiramisAuditLogEntity } from './entities/tiramis-audit-log.entity';
 import { TiramisSubmissionTrackingEntity } from './entities/tiramis-submission-tracking.entity';
+import { TiramisAuditLogRepository } from './repositories/tiramis-audit-log.repository';
 import { TiramisSubmissionTrackingRepository } from './repositories/tiramis-submission-tracking.repository';
 import {
   TIRAMIS_CLIENT,
   TiramisClientService,
 } from './services/tiramis-client.service';
+import { TiramisBusinessRecordSyncService } from './services/tiramis-business-record-sync.service';
+import { TiramisBusinessPayloadBuilderService } from './services/tiramis-business-payload-builder.service';
+import { TiramisBusinessSubmitService } from './services/tiramis-business-submit.service';
+import { TiramisAuditService } from './services/tiramis-audit.service';
+import { TiramisMonitoringService } from './services/tiramis-monitoring.service';
+import { TiramisRetryService } from './services/tiramis-retry.service';
 import { TiramisStatusSyncService } from './services/tiramis-status-sync.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([TiramisSubmissionTrackingEntity]),
+    TypeOrmModule.forFeature([
+      TiramisSubmissionTrackingEntity,
+      TiramisAuditLogEntity,
+    ]),
     ClientsModule.register([
       {
         name: TIRAMIS_CLIENT,
@@ -25,16 +40,34 @@ import { TiramisStatusSyncService } from './services/tiramis-status-sync.service
       },
     ]),
   ],
-  controllers: [TiramisController],
+  controllers: [TiramisController, TiramisBusinessController, TiramisAdminController],
   providers: [
     TiramisClientService,
     TiramisSubmissionTrackingRepository,
+    TiramisAuditLogRepository,
+    TiramisAuditService,
     TiramisStatusSyncService,
+    TiramisBusinessRecordSyncService,
+    TiramisBusinessPayloadBuilderService,
+    TiramisBusinessSubmitService,
+    TiramisRetryService,
+    TiramisMonitoringService,
+    TiramisPermissionGuard,
+    TiramisCompanyScopeGuard,
   ],
   exports: [
     TiramisClientService,
     TiramisSubmissionTrackingRepository,
+    TiramisAuditLogRepository,
+    TiramisAuditService,
     TiramisStatusSyncService,
+    TiramisBusinessRecordSyncService,
+    TiramisBusinessPayloadBuilderService,
+    TiramisBusinessSubmitService,
+    TiramisRetryService,
+    TiramisMonitoringService,
+    TiramisPermissionGuard,
+    TiramisCompanyScopeGuard,
   ],
 })
 export class TiramisModule {}
