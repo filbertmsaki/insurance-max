@@ -136,6 +136,18 @@ const endpointSeeds = [
     serviceType: 'MOTOR_VERIFICATION',
     endpointUrl: '/dispatch/api/motor/verification/v3/request',
   },
+  {
+    serviceType: 'NIN_VERIFICATION',
+    endpointUrl: '/dispatch/api/nin/verification/v1/request',
+  },
+  {
+    serviceType: 'COMPANY_VERIFICATION',
+    endpointUrl: '/dispatch/api/company/verification/v1/request',
+  },
+  {
+    serviceType: 'DETAILS_VERIFICATION',
+    endpointUrl: '/dispatch/api/details/verification/v1/request',
+  },
 ];
 
 type ResponseCodeSeed = {
@@ -563,7 +575,7 @@ async function main() {
       'Seeded Tiramis client configurations, service endpoints, and response codes.',
     );
     console.log(
-      'Note: NIN_VERIFICATION, COMPANY_VERIFICATION, and DETAILS_VERIFICATION endpoints were not seeded because they were not present in the provided TIRA endpoint documents.',
+      'Note: NIN_VERIFICATION, COMPANY_VERIFICATION, and DETAILS_VERIFICATION endpoints are now seeded alongside the other supported verification endpoints.',
     );
   } finally {
     await dataSource.destroy();
