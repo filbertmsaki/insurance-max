@@ -22,3 +22,8 @@ lerna-debug.log*
 
 # keep the subproject lockfile versioned
 !package-lock.json
+
+# mock tracking storage
+data/mock-requests.json
+data/mock-requests.json.tmp
+data/backups/

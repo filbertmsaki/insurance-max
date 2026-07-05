@@ -11,204 +11,69 @@ const PROJECT_ROOT = __dirname;
 
 app.use(
   express.text({
-    type: ['application/xml', 'text/xml', '*/*'],
-    limit: '20mb',
+    type: ['application/xml', 'text/xml', 'application/soap+xml', 'text/plain', '*/xml'],
+    limit: '50mb',
   }),
 );
 
-const PORT = Number(process.env.PORT || 5050);
+app.use(
+  express.json({
+    limit: '50mb',
+  }),
+);
 
-const CONFIG = {
-  clientCode: process.env.CLIENT_CODE || '',
-  clientKey: process.env.CLIENT_KEY || '',
+const { CONFIG } = require('./src/config/mock-config');
+const { MOCK_SCENARIOS } = require('./src/constants/mock-scenarios.constant');
+const { RESPONSE_CODES } = require('./src/constants/response-codes.constant');
+const {
+  ACK_ROOTS,
+  ASYNC_RESPONSE_ROOTS,
+  SYNC_RESPONSE_ROOTS,
+  SEEDED_SERVICE_ENDPOINTS,
+  LEGACY_MOCK_ENDPOINT,
+  MOCKED_ENDPOINTS,
+} = require('./src/constants/endpoints.constant');
+const { nowIso, getDelayMs } = require('./src/utils/time.util');
+const {
+  createTrackingRecord,
+  updateTracking,
+  addCallbackAttempt,
+  getTrackingRecord,
+  listTrackingRecords,
+  getPublicTrackingRecord,
+  getMockStatistics,
+  clearTrackingRecords,
+  initializeTrackingStore,
+  flushTrackingStoreBeforeExit,
+} = require('./src/store/mock-request.store');
+const {
+  normalizeScenario,
+  resolveScenario,
+  scenarioToHttpFailure,
+  scenarioToAckFailure,
+  getScenarioAckDelay,
+  getScenarioCallbackDelay,
+  getScenarioFinalStatus,
+  queueScenario,
+  listQueuedScenarios,
+} = require('./src/services/scenario.service');
+const {
+  validateBusinessXml,
+  buildValidationFailureDescription,
+} = require('./src/services/validation.service');
+const {
+  createTiramisRequestHandler,
+} = require('./src/services/tiramis-handler.service');
+const { registerMockAdminRoutes } = require('./src/routes/mock-admin.routes');
+const { registerTiramisRoutes } = require('./src/routes/tiramis.routes');
+const { registerLoadTestRoutes } = require('./src/routes/load-test.routes');
+const { registerDashboardRoutes } = require('./src/routes/dashboard.routes');
+const signatureService = require('./src/services/signature.service');
+const PORT = CONFIG.port;
+const trackingStoreInit = initializeTrackingStore();
 
-  verifyIncomingSignature: process.env.VERIFY_INCOMING_SIGNATURE === 'true',
-  signResponses: process.env.SIGN_RESPONSES !== 'false',
-  allowMockSignature: process.env.ALLOW_MOCK_SIGNATURE === 'true',
+console.log('[tracking-store]', trackingStoreInit);
 
-  signatureXmlMode: process.env.SIGNATURE_XML_MODE || 'compact',
-
-  clientPublicCertPath:
-    process.env.CLIENT_PUBLIC_CERT_PATH ||
-    './certs/client/tiramisclientpublic.pfx',
-
-  clientPublicCertPassword:
-    process.env.CLIENT_PUBLIC_CERT_PASSWORD ||
-    process.env.CLIENT_PFX_PASSWORD ||
-    'password',
-
-  tiraPrivatePfxPath:
-    process.env.TIRA_PRIVATE_PFX_PATH ||
-    './certs/tira/mock-tira-private.pfx',
-
-  tiraPrivatePfxPassword:
-    process.env.TIRA_PRIVATE_PFX_PASSWORD ||
-    process.env.TIRA_PFX_PASSWORD ||
-    'password',
-
-  tiraPublicCertPath:
-    process.env.TIRA_PUBLIC_CERT_PATH ||
-    './certs/tira/mock-tira-public.pfx',
-
-  tiraPublicCertPassword:
-    process.env.TIRA_PUBLIC_CERT_PASSWORD ||
-    process.env.TIRA_PRIVATE_PFX_PASSWORD ||
-    process.env.TIRA_PFX_PASSWORD ||
-    'password',
-
-  callbackDelayMs: Number(process.env.CALLBACK_DELAY_MS || 3000),
-  callbackRetries: Number(process.env.CALLBACK_RETRIES || 3),
-  callbackRetryDelayMs: Number(process.env.CALLBACK_RETRY_DELAY_MS || 5000),
-};
-
-const RESPONSE_CODES = {
-  TIRA001: 'Successful',
-  TIRA002: 'Failure',
-  TIRA003: 'Invalid client key',
-  TIRA004: 'An error occurred while processing',
-  TIRA005: 'Invalid or incomplete request data',
-  TIRA006: 'Request could not be processed. Try again later',
-  TIRA007: 'Requested data could not be found',
-  TIRA008: 'Required request header information not provided',
-  TIRA009: 'Request header information mismatch client identification parameters',
-  TIRA010: 'Server internal communication failure',
-  TIRA011: 'Client system configuration not found',
-  TIRA012: 'Inactive or disabled client system configuration',
-  TIRA013: 'Inactive or invalid client',
-  TIRA014: 'Client PKI certificate file not found in specified path',
-  TIRA015: 'Bad or missing Client PKI configurations',
-  TIRA016: 'Invalid request signature',
-  TIRA017: 'Invalid client system call back url',
-};
-
-const ACK_ROOTS = {
-  CoverNoteRefReq: 'CoverNoteRefReqAck',
-  MotorCoverNoteRefReq: 'MotorCoverNoteRefReqAck',
-  ReinsuranceReq: 'ReinsuranceReqAck',
-  PolicyReq: 'PolicyReqAck',
-
-  ClaimNotificationRefReq: 'ClaimNotificationRefReqAck',
-  ClaimIntimationReq: 'ClaimIntimationReqAck',
-  ClaimAssessmentReq: 'ClaimAssessmentReqAck',
-  DischargeVoucherReq: 'DischargeVoucherReqAck',
-  ClaimPaymentReq: 'ClaimPaymentReqAck',
-  ClaimRejectionReq: 'ClaimRejectionReqAck',
-};
-
-const ASYNC_RESPONSE_ROOTS = {
-  CoverNoteRefReq: 'CoverNoteRefRes',
-  MotorCoverNoteRefReq: 'MotorCoverNoteRefRes',
-  ReinsuranceReq: 'ReinsuranceRes',
-  PolicyReq: 'PolicyRes',
-
-  ClaimNotificationRefReq: 'ClaimNotificationRefRes',
-  ClaimIntimationReq: 'ClaimIntimationRes',
-  ClaimAssessmentReq: 'ClaimAssessmentRes',
-  DischargeVoucherReq: 'DischargeVoucherRes',
-  ClaimPaymentReq: 'ClaimPaymentRes',
-  ClaimRejectionReq: 'ClaimRejectionRes',
-};
-
-const SYNC_RESPONSE_ROOTS = {
-  CoverNoteVerificationReq: 'CoverNoteVerificationRes',
-  NINVerificationReq: 'NINVerificationRes',
-  CompanyVerificationReq: 'CompanyVerificationRes',
-  MotorVerificationReq: 'MotorVerificationRes',
-  DetailsVerificationReq: 'DetailsVerificationRes',
-};
-
-const SEEDED_SERVICE_ENDPOINTS = [
-  {
-    serviceType: 'COVER_NOTE_NON_MOTOR',
-    endpointUrl: '/ecovernote/api/covernote/non-life/other/v2/request',
-    requestRoots: ['CoverNoteRefReq'],
-    mode: 'async',
-  },
-  {
-    serviceType: 'MOTOR_COVER_NOTE_NON_FLEET',
-    endpointUrl: '/ecovernote/api/covernote/non-life/motor/v2/request',
-    requestRoots: ['MotorCoverNoteRefReq'],
-    mode: 'async',
-  },
-  {
-    serviceType: 'MOTOR_COVER_NOTE_FLEET',
-    endpointUrl: '/ecovernote/api/covernote/non-life/motor-fleet/v2/request',
-    requestRoots: ['MotorCoverNoteRefReq'],
-    mode: 'async',
-  },
-  {
-    serviceType: 'REINSURANCE',
-    endpointUrl: '/ecovernote/api/reinsurance/v1/request',
-    requestRoots: ['ReinsuranceReq'],
-    mode: 'async',
-  },
-  {
-    serviceType: 'POLICY',
-    endpointUrl: '/ecovernote/api/policy/v1/request',
-    requestRoots: ['PolicyReq'],
-    mode: 'async',
-  },
-  {
-    serviceType: 'CLAIM_NOTIFICATION',
-    endpointUrl: '/eclaim/api/claim/claim-notification/v1/request',
-    requestRoots: ['ClaimNotificationRefReq'],
-    mode: 'async',
-  },
-  {
-    serviceType: 'CLAIM_INTIMATION',
-    endpointUrl: '/eclaim/api/claim/claim-intimation/v1/request',
-    requestRoots: ['ClaimIntimationReq'],
-    mode: 'async',
-  },
-  {
-    serviceType: 'CLAIM_ASSESSMENT',
-    endpointUrl: '/eclaim/api/claim/claim-assessment/v1/request',
-    requestRoots: ['ClaimAssessmentReq'],
-    mode: 'async',
-  },
-  {
-    serviceType: 'DISCHARGE_VOUCHER',
-    endpointUrl: '/eclaim/api/claim/claim-dischargevoucher/v1/request',
-    requestRoots: ['DischargeVoucherReq'],
-    mode: 'async',
-  },
-  {
-    serviceType: 'CLAIM_PAYMENT',
-    endpointUrl: '/eclaim/api/claim/claim-payment/v1/request',
-    requestRoots: ['ClaimPaymentReq'],
-    mode: 'async',
-  },
-  {
-    serviceType: 'CLAIM_REJECTION',
-    endpointUrl: '/eclaim/api/claim/claim-rejection/v1/request',
-    requestRoots: ['ClaimRejectionReq'],
-    mode: 'async',
-  },
-  {
-    serviceType: 'COVER_NOTE_VERIFICATION',
-    endpointUrl: '/ecovernote/api/covernote/verification/min/v1/request',
-    requestRoots: ['CoverNoteVerificationReq'],
-    mode: 'sync',
-  },
-  {
-    serviceType: 'MOTOR_VERIFICATION',
-    endpointUrl: '/dispatch/api/motor/verification/v3/request',
-    requestRoots: ['MotorVerificationReq'],
-    mode: 'sync',
-  },
-];
-
-const LEGACY_MOCK_ENDPOINT = {
-  serviceType: 'LEGACY_MOCK_GATEWAY',
-  endpointUrl: '/tiramis/mock',
-  requestRoots: [
-    ...Object.keys(ACK_ROOTS),
-    ...Object.keys(SYNC_RESPONSE_ROOTS),
-  ],
-  mode: 'auto',
-};
-
-const MOCKED_ENDPOINTS = [LEGACY_MOCK_ENDPOINT, ...SEEDED_SERVICE_ENDPOINTS];
 
 function resolveProjectPath(filePath) {
   if (!filePath) {
@@ -591,6 +456,22 @@ function validateHeaders(req) {
   };
 }
 
+
+
+function sendXml(res, xml, statusCode = 200, delayMs = 0) {
+  res.set('Content-Type', 'application/xml');
+
+  if (!delayMs || delayMs <= 0) {
+    return res.status(statusCode).send(xml);
+  }
+
+  return setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(statusCode).send(xml);
+    }
+  }, delayMs);
+}
+
 function isRootAllowedForEndpoint(endpointDefinition, root) {
   if (!root || !endpointDefinition?.requestRoots?.length) {
     return true;
@@ -753,9 +634,29 @@ async function sendCallbackWithRetry(callbackUrl, finalResponseXml, context = {}
   console.log('[callback] Request root:', context.root || 'UNKNOWN');
   console.log('[callback] RequestId:', context.requestId || 'UNKNOWN');
 
-  for (let attempt = 1; attempt <= CONFIG.callbackRetries; attempt++) {
+  const maxAttempts = Number(CONFIG.callbackRetries || 3);
+  const retryDelayMs = Number(CONFIG.callbackRetryDelayMs || 5000);
+  const requestId = context.requestId || null;
+  const scenario = context.scenario || MOCK_SCENARIOS.SUCCESS;
+  const expectedAckRoot = `${getRoot(finalResponseXml) || 'Unknown'}Ack`;
+  const failFirstAttempts =
+    scenario === MOCK_SCENARIOS.CALLBACK_RETRY
+      ? Math.max(Number(CONFIG.callbackFailFirstAttempts || 1), 0)
+      : 0;
+
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const forcedFailure = attempt <= failFirstAttempts;
+
     try {
-      console.log(`[callback] Attempt ${attempt}/${CONFIG.callbackRetries}`);
+      console.log(`[callback] Attempt ${attempt}/${maxAttempts}`);
+
+      if (forcedFailure) {
+        throw new Error(
+          `Forced callback failure for scenario=${scenario} attempt=${attempt}`,
+        );
+      }
 
       const response = await fetch(callbackUrl, {
         method: 'POST',
@@ -766,23 +667,77 @@ async function sendCallbackWithRetry(callbackUrl, finalResponseXml, context = {}
       });
 
       const responseText = await response.text();
+      const ackContentXml = extractContentXml(responseText);
+      const ackRoot = getRoot(ackContentXml || responseText);
+      const ackSignature = extractSignature(responseText);
 
       console.log('[callback] HTTP Status:', response.status);
+      console.log('[callback] Client acknowledgement root:', ackRoot || 'UNKNOWN');
       console.log('[callback] Client acknowledgement:\n', responseText);
 
-      if (response.ok) {
+      const ackSignatureValid = ackSignature
+        ? verifySignatureWithPublicCert(
+            ackContentXml,
+            ackSignature,
+            CONFIG.clientPublicCertPath,
+            CONFIG.clientPublicCertPassword,
+          )
+        : null;
+
+      const ackRootOk = ackRoot === expectedAckRoot;
+      const ackSignatureOk = ackSignatureValid !== false;
+
+      addCallbackAttempt(requestId, {
+        attempt,
+        status: response.ok && ackRootOk && ackSignatureOk ? 'ACKED' : 'FAILED',
+        scenario,
+        url: callbackUrl,
+        expectedAckRoot,
+        httpStatus: response.status,
+        ackRoot,
+        ackSignaturePresent: Boolean(ackSignature),
+        ackSignatureValid,
+        responseText,
+      });
+
+      if (response.ok && ackRootOk && ackSignatureOk) {
+        if (requestId) {
+          updateTracking(requestId, {
+            status: 'CALLBACK_ACKED',
+          });
+        }
+
         console.log('[callback] Final signed response accepted by callback endpoint');
         return true;
       }
+
+      lastError = new Error(
+        `Callback acknowledgement validation failed: httpOk=${response.ok} ackRootOk=${ackRootOk} ackSignatureOk=${ackSignatureOk}`,
+      );
     } catch (error) {
+      lastError = error;
       console.error('[callback] Failed attempt:', attempt);
       console.error('[callback] Error:', error.message);
+
+      addCallbackAttempt(requestId, {
+        attempt,
+        status: forcedFailure ? 'FORCED_FAILURE' : 'ERROR',
+        scenario,
+        url: callbackUrl,
+        expectedAckRoot,
+        error: error.message,
+      });
     }
 
-    if (attempt < CONFIG.callbackRetries) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, CONFIG.callbackRetryDelayMs),
-      );
+    if (requestId) {
+      updateTracking(requestId, {
+        status: attempt < maxAttempts ? 'CALLBACK_RETRYING' : 'CALLBACK_FAILED',
+        lastError: lastError?.message || null,
+      });
+    }
+
+    if (attempt < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
     }
   }
 
@@ -846,20 +801,81 @@ function buildFailureReply(root, requestId, code, desc, originalXml) {
 
 async function handleTiramisRequest(req, res, endpointDefinition) {
   const xml = req.body || '';
+  const contentXml = extractContentXml(xml);
+  const root = getRoot(contentXml || xml);
+  const requestId = getTag(contentXml || xml, 'RequestId') || `REQ-${Date.now()}`;
+  const callbackUrl = getTag(contentXml || xml, 'CallBackUrl');
 
-  const root = getRoot(xml);
-  const requestId = getTag(xml, 'RequestId') || `REQ-${Date.now()}`;
-  const callbackUrl = getTag(xml, 'CallBackUrl');
+  req.mockEndpointDefinition = endpointDefinition;
+  const scenario = resolveScenario(req, contentXml || xml, root);
 
-  console.log('\nReceived TIRAMIS request');
+  const tracking = createTrackingRecord({
+    requestId,
+    root,
+    serviceType: endpointDefinition.serviceType,
+    endpoint: endpointDefinition.endpointUrl,
+    mode: endpointDefinition.mode,
+    scenario,
+    callbackUrl,
+    rawRequestXml: xml,
+    contentXml,
+    headers: {
+      contentType: req.header('Content-Type') || null,
+      clientCode: req.header('ClientCode') || null,
+      clientKeyPresent: Boolean(req.header('ClientKey')),
+      mockScenario:
+        req.header('X-Mock-Scenario') ||
+        req.query?.scenario ||
+        getTag(contentXml || xml, 'MockScenario') ||
+        null,
+    },
+  });
+
+  console.log('\n========== MOCK TIRA REQUEST ==========');
   console.log('Endpoint:', endpointDefinition.endpointUrl);
   console.log('ServiceType:', endpointDefinition.serviceType);
   console.log('Mode:', endpointDefinition.mode);
   console.log('Root:', root || 'UNKNOWN');
   console.log('RequestId:', requestId);
+  console.log('Scenario:', scenario);
   console.log('CallbackUrl:', callbackUrl || 'N/A');
 
-  res.set('Content-Type', 'application/xml');
+  const httpFailure = scenarioToHttpFailure(scenario);
+
+  if (httpFailure) {
+    updateTracking(tracking, {
+      status: `HTTP_${httpFailure.status}`,
+      lastError: httpFailure.body,
+    });
+
+    return res.status(httpFailure.status).send(httpFailure.body);
+  }
+
+  if (scenario === MOCK_SCENARIOS.TIMEOUT_BEFORE_ACK) {
+    const delayMs = getDelayMs(
+      req,
+      'X-Mock-Timeout-Ms',
+      'timeoutMs',
+      CONFIG.timeoutBeforeAckMs,
+    );
+
+    updateTracking(tracking, {
+      status: 'TIMEOUT_SIMULATED',
+      timeoutDelayMs: delayMs,
+    });
+
+    console.warn(
+      `[scenario] timeout_before_ack: delaying response for ${delayMs}ms`,
+    );
+
+    return setTimeout(() => {
+      if (!res.headersSent) {
+        res
+          .status(504)
+          .send('Mock TIRA timeout_before_ack scenario completed after delay');
+      }
+    }, delayMs);
+  }
 
   if (!root) {
     const content = buildAcknowledgementContent(
@@ -870,8 +886,14 @@ async function handleTiramisRequest(req, res, endpointDefinition) {
     );
 
     const responseXml = buildTiraMessage(content);
-    console.log('[response] Unknown-root acknowledgement sent');
-    return res.status(200).send(responseXml);
+
+    updateTracking(tracking, {
+      status: 'UNKNOWN_ROOT',
+      ackCode: 'TIRA005',
+      ackXml: responseXml,
+    });
+
+    return sendXml(res, responseXml);
   }
 
   if (!isRootAllowedForEndpoint(endpointDefinition, root)) {
@@ -888,11 +910,52 @@ async function handleTiramisRequest(req, res, endpointDefinition) {
     );
 
     const responseXml = buildTiraMessage(content);
-    console.log('[response] Endpoint/root mismatch response sent');
-    return res.status(200).send(responseXml);
+
+    updateTracking(tracking, {
+      status: 'ROOT_ENDPOINT_MISMATCH',
+      ackCode: 'TIRA005',
+      ackXml: responseXml,
+      validations: [
+        `Root ${root} is not allowed for endpoint ${endpointDefinition.endpointUrl}`,
+      ],
+    });
+
+    return sendXml(res, responseXml);
+  }
+
+  const scenarioAckFailure = scenarioToAckFailure(scenario);
+
+  if (scenarioAckFailure) {
+    const content = buildFailureReply(
+      root,
+      requestId,
+      scenarioAckFailure.code,
+      scenarioAckFailure.desc,
+      xml,
+    );
+
+    const responseXml = buildTiraMessage(content);
+
+    updateTracking(tracking, {
+      status: 'SCENARIO_ACK_FAILED',
+      ackCode: scenarioAckFailure.code,
+      ackXml: responseXml,
+      validations: [scenarioAckFailure.desc],
+    });
+
+    return sendXml(
+      res,
+      responseXml,
+      200,
+      getScenarioAckDelay(req, scenario),
+    );
   }
 
   const headerValidation = validateHeaders(req);
+
+  updateTracking(tracking, {
+    headerValidation,
+  });
 
   if (!headerValidation.ok) {
     const content = buildFailureReply(
@@ -904,13 +967,22 @@ async function handleTiramisRequest(req, res, endpointDefinition) {
     );
 
     const responseXml = buildTiraMessage(content);
-    console.log(
-      `[response] Header validation failure sent (${headerValidation.code})`,
-    );
-    return res.status(200).send(responseXml);
+
+    updateTracking(tracking, {
+      status: 'HEADER_VALIDATION_FAILED',
+      ackCode: headerValidation.code,
+      ackXml: responseXml,
+      validations: [headerValidation.desc],
+    });
+
+    return sendXml(res, responseXml);
   }
 
   const signatureValidation = verifyClientRequestSignature(xml);
+
+  updateTracking(tracking, {
+    signatureValidation,
+  });
 
   if (!signatureValidation.ok) {
     const content = buildFailureReply(
@@ -922,10 +994,46 @@ async function handleTiramisRequest(req, res, endpointDefinition) {
     );
 
     const responseXml = buildTiraMessage(content);
-    console.log(
-      `[response] Signature verification failure sent (${signatureValidation.code})`,
+
+    updateTracking(tracking, {
+      status: 'SIGNATURE_VALIDATION_FAILED',
+      ackCode: signatureValidation.code,
+      ackXml: responseXml,
+      validations: [signatureValidation.desc],
+    });
+
+    return sendXml(res, responseXml);
+  }
+
+  const businessValidation = validateBusinessXml(root, contentXml || xml);
+
+  updateTracking(tracking, {
+    validations: businessValidation.errors || [],
+  });
+
+  if (!businessValidation.ok) {
+    const content = buildFailureReply(
+      root,
+      requestId,
+      'TIRA005',
+      buildValidationFailureDescription(businessValidation.errors),
+      xml,
     );
-    return res.status(200).send(responseXml);
+
+    const responseXml = buildTiraMessage(content);
+
+    updateTracking(tracking, {
+      status: 'BUSINESS_VALIDATION_FAILED',
+      ackCode: 'TIRA005',
+      ackXml: responseXml,
+    });
+
+    return sendXml(
+      res,
+      responseXml,
+      200,
+      getScenarioAckDelay(req, scenario),
+    );
   }
 
   if (isSyncRequest(endpointDefinition, root)) {
@@ -934,12 +1042,23 @@ async function handleTiramisRequest(req, res, endpointDefinition) {
       requestId,
       'TIRA001',
       RESPONSE_CODES.TIRA001,
-      xml,
+      contentXml || xml,
     );
 
     const responseXml = buildTiraMessage(content);
-    console.log('[response] Synchronous signed final response sent');
-    return res.status(200).send(responseXml);
+
+    updateTracking(tracking, {
+      status: 'SYNC_RESPONSE_SENT',
+      finalCode: 'TIRA001',
+      finalXml: responseXml,
+    });
+
+    return sendXml(
+      res,
+      responseXml,
+      200,
+      getScenarioAckDelay(req, scenario),
+    );
   }
 
   if (!ASYNC_RESPONSE_ROOTS[root]) {
@@ -951,8 +1070,14 @@ async function handleTiramisRequest(req, res, endpointDefinition) {
     );
 
     const responseXml = buildTiraMessage(content);
-    console.log('[response] Unsupported async-root acknowledgement sent');
-    return res.status(200).send(responseXml);
+
+    updateTracking(tracking, {
+      status: 'UNSUPPORTED_ASYNC_ROOT',
+      ackCode: 'TIRA005',
+      ackXml: responseXml,
+    });
+
+    return sendXml(res, responseXml);
   }
 
   if (!callbackUrl) {
@@ -964,8 +1089,14 @@ async function handleTiramisRequest(req, res, endpointDefinition) {
     );
 
     const responseXml = buildTiraMessage(content);
-    console.log('[response] Missing-callback acknowledgement sent');
-    return res.status(200).send(responseXml);
+
+    updateTracking(tracking, {
+      status: 'CALLBACK_URL_INVALID',
+      ackCode: 'TIRA017',
+      ackXml: responseXml,
+    });
+
+    return sendXml(res, responseXml);
   }
 
   const ackContent = buildAcknowledgementContent(
@@ -977,42 +1108,145 @@ async function handleTiramisRequest(req, res, endpointDefinition) {
 
   const ackXml = buildTiraMessage(ackContent);
 
-  res.status(200).send(ackXml);
-  console.log('[response] Signed acknowledgement sent');
+  updateTracking(tracking, {
+    status: 'ACK_SENT',
+    ackCode: 'TIRA001',
+    ackXml,
+  });
+
+  const ackDelayMs = getScenarioAckDelay(req, scenario);
+
+  sendXml(res, ackXml, 200, ackDelayMs);
+
+  console.log('[response] ACK sent');
+
+  if (scenario === MOCK_SCENARIOS.NO_CALLBACK) {
+    updateTracking(tracking, {
+      status: 'ACK_SENT_NO_CALLBACK',
+      finalCode: null,
+    });
+
+    console.log('[scenario] no_callback: final callback skipped');
+    return;
+  }
+
+  const finalStatus = getScenarioFinalStatus(scenario);
 
   const finalContent = buildAsyncFinalResponseContent(
     root,
     requestId,
-    'TIRA001',
-    RESPONSE_CODES.TIRA001,
+    finalStatus.code,
+    finalStatus.desc,
   );
 
   const finalResponseXml = buildTiraMessage(finalContent);
+  const callbackDelayMs = getScenarioCallbackDelay(req, scenario);
+  const callbackScheduleDelayMs = ackDelayMs + callbackDelayMs;
+
+  updateTracking(tracking, {
+    status: 'CALLBACK_SCHEDULED',
+    finalCode: finalStatus.code,
+    finalXml: finalResponseXml,
+    callbackDelayMs: callbackScheduleDelayMs,
+  });
 
   console.log(
-    `[callback] Scheduling final signed response to ${callbackUrl} ` +
-      `in ${CONFIG.callbackDelayMs}ms`,
+    `[callback] Final response scheduled in ${callbackScheduleDelayMs}ms for RequestId ${requestId}`,
   );
 
   setTimeout(() => {
     sendCallbackWithRetry(callbackUrl, finalResponseXml, {
+      trackingId: tracking.id,
       serviceType: endpointDefinition.serviceType,
       endpointUrl: endpointDefinition.endpointUrl,
       root,
       requestId,
+      scenario,
     });
-  }, CONFIG.callbackDelayMs);
+  }, callbackScheduleDelayMs);
 }
 
-for (const endpointDefinition of SEEDED_SERVICE_ENDPOINTS) {
-  app.post(endpointDefinition.endpointUrl, (req, res) =>
-    handleTiramisRequest(req, res, endpointDefinition),
-  );
+const mockTiramisRequestHandler = createTiramisRequestHandler({
+  validateHeaders: signatureService.validateHeaders,
+  verifyClientRequestSignature:
+    signatureService.verifyClientRequestSignature,
+  wrapTiraMessage: signatureService.wrapTiraMessage,
+});
+
+registerMockAdminRoutes(app, {
+  wrapTiraMessage: signatureService.wrapTiraMessage,
+});
+
+registerTiramisRoutes(app, mockTiramisRequestHandler);
+registerLoadTestRoutes(app);
+registerDashboardRoutes(app);
+
+function shutdown(signal) {
+  console.log(`[server] Received ${signal}. Flushing mock tracking store...`);
+
+  const result = flushTrackingStoreBeforeExit();
+
+  console.log('[tracking-store] flush result:', result);
+  process.exit(0);
 }
 
-app.post(LEGACY_MOCK_ENDPOINT.endpointUrl, (req, res) =>
-  handleTiramisRequest(req, res, LEGACY_MOCK_ENDPOINT),
-);
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+app.get('/tiramis/mock/certificates', (req, res) => {
+  res.json(signatureService.getCertificateHealth());
+});
+
+app.post('/tiramis/mock/certificates/reload', (req, res) => {
+  signatureService.clearCertificateCache();
+
+  res.json({
+    success: true,
+    message: 'Certificate cache cleared. Certificates will reload on next request.',
+    health: signatureService.getCertificateHealth(),
+  });
+});
+
+app.post('/tiramis/mock/tools/sign-client-content', (req, res) => {
+  try {
+    const contentXml = req.body || '';
+    const signature = signatureService.signClientContent(contentXml);
+
+    res.json({
+      success: true,
+      signature,
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message || String(error),
+    });
+  }
+});
+
+app.post('/tiramis/mock/tools/wrap-client-message', (req, res) => {
+  try {
+    const contentXml = req.body || '';
+    const tiraMsg = signatureService.wrapClientTiraMessage(contentXml);
+
+    res.set('Content-Type', 'application/xml');
+    res.send(tiraMsg);
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message || String(error),
+    });
+  }
+});
+
+app.post('/tiramis/mock/tools/verify-tira-response', (req, res) => {
+  const xml = req.body || '';
+
+  res.json({
+    success: true,
+    verification: signatureService.verifyTiraResponseSignature(xml),
+  });
+});
 
 app.post('/tiramis/tools/sign-as-client', (req, res) => {
   try {
@@ -1208,6 +1442,7 @@ app.get('/config-health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Mock TIRA running on http://localhost:${PORT}`);
   console.log(`Mock endpoint: http://localhost:${PORT}/tiramis/mock`);
+  console.log(`Dashboard: http://localhost:${PORT}/tiramis/mock/dashboard`);
   console.log('[config] Seeded service endpoints:');
   for (const endpointDefinition of SEEDED_SERVICE_ENDPOINTS) {
     console.log(
@@ -1222,3 +1457,5 @@ app.listen(PORT, () => {
   console.log(`[config] Verify incoming signatures: ${CONFIG.verifyIncomingSignature}`);
   console.log(`[config] Sign responses: ${CONFIG.signResponses}`);
 });
+
+
