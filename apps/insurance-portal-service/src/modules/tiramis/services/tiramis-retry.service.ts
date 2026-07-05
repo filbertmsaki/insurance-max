@@ -8,6 +8,7 @@ import { TiramisClientService } from './tiramis-client.service';
 import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum';
 import { TiramisSubmissionTrackingRepository } from '../repositories/tiramis-submission-tracking.repository';
 import { TiramisAuditService } from './tiramis-audit.service';
+import { TiramisNotificationService } from './tiramis-notification.service';
 
 @Injectable()
 export class TiramisRetryService {
@@ -20,6 +21,7 @@ export class TiramisRetryService {
     private readonly tiramisClientService: TiramisClientService,
     private readonly businessRecordSyncService: TiramisBusinessRecordSyncService,
     private readonly auditService: TiramisAuditService,
+    private readonly notificationService: TiramisNotificationService,
   ) {}
 
   /**
@@ -133,6 +135,16 @@ export class TiramisRetryService {
           );
 
           await this.businessRecordSyncService.syncFromTracking(updated);
+
+          if (updated?.status === TiramisSubmissionStatus.RETRY_EXHAUSTED) {
+            await this.notificationService.notifyRetryExhausted({
+              tracking: updated,
+              error,
+              metadata: {
+                automatic: true,
+              },
+            });
+          }
 
           await this.auditService.logFromTracking({
             action:
@@ -252,6 +264,16 @@ export class TiramisRetryService {
       );
 
       await this.businessRecordSyncService.syncFromTracking(updated);
+
+      if (updated?.status === TiramisSubmissionStatus.RETRY_EXHAUSTED) {
+        await this.notificationService.notifyRetryExhausted({
+          tracking: updated,
+          error,
+          metadata: {
+            manual: true,
+          },
+        });
+      }
 
       await this.auditService.logFromTracking({
         action:

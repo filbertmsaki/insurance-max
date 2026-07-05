@@ -71,12 +71,15 @@ export class TiramisController {
   @ApiQuery({ name: 'includePayload', required: false })
   @RequireTiramisPermissions(TiramisPermissions.VIEW_TRACKING)
   @Get('status')
-  getStatus(@Query() query: TiramisStatusQueryDto) {
-    return this.tiramisClientService.getStatus({
-      ...query,
-      includePayload:
-        String((query as any).includePayload).toLowerCase() === 'true',
-    });
+  getStatus(@Query() query: TiramisStatusQueryDto, @Req() req: any) {
+    return this.tiramisClientService.getStatus(
+      {
+        ...query,
+        includePayload:
+          String((query as any).includePayload).toLowerCase() === 'true',
+      },
+      this.getAuthContext(req),
+    );
   }
 
   @ApiOperation({
@@ -88,12 +91,15 @@ export class TiramisController {
   @ApiQuery({ name: 'includePayload', required: false })
   @RequireTiramisPermissions(TiramisPermissions.VIEW_TRACKING)
   @Get('trace')
-  getTrace(@Query() query: TiramisStatusQueryDto) {
-    return this.tiramisClientService.getTrace({
-      ...query,
-      includePayload:
-        String((query as any).includePayload).toLowerCase() === 'true',
-    });
+  getTrace(@Query() query: TiramisStatusQueryDto, @Req() req: any) {
+    return this.tiramisClientService.getTrace(
+      {
+        ...query,
+        includePayload:
+          String((query as any).includePayload).toLowerCase() === 'true',
+      },
+      this.getAuthContext(req),
+    );
   }
 
   @ApiOperation({
@@ -207,6 +213,28 @@ export class TiramisController {
     return {
       tracking,
       syncResult,
+    };
+  }
+
+  private getAuthContext(req: any) {
+    return {
+      userId: req?.user?.id || req?.user?.sub || null,
+      companyId:
+        req?.user?.companyId ||
+        req?.user?.active_company_id ||
+        req?.user?.activeCompanyId ||
+        null,
+      activeCompanyId:
+        req?.user?.active_company_id ||
+        req?.user?.activeCompanyId ||
+        req?.user?.companyId ||
+        null,
+      ipAddress:
+        req?.ip ||
+        req?.headers?.['x-forwarded-for'] ||
+        req?.connection?.remoteAddress ||
+        null,
+      userAgent: req?.headers?.['user-agent'] || null,
     };
   }
 }

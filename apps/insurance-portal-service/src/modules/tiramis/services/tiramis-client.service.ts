@@ -17,6 +17,7 @@ import { TiramisSubmissionTrackingRepository } from '../repositories/tiramis-sub
 import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum';
 import { TiramisAuditService } from './tiramis-audit.service';
 import { TiramisBusinessRecordSyncService } from './tiramis-business-record-sync.service';
+import { TiramisNotificationService } from './tiramis-notification.service';
 
 export const TIRAMIS_CLIENT = 'TIRAMIS_CLIENT';
 
@@ -46,6 +47,7 @@ export class TiramisClientService {
     private readonly trackingRepository: TiramisSubmissionTrackingRepository,
     private readonly businessRecordSyncService: TiramisBusinessRecordSyncService,
     private readonly auditService: TiramisAuditService,
+    private readonly notificationService: TiramisNotificationService,
   ) {}
 
   async submit(dto: SubmitTiramisDto, authContext?: any) {
@@ -259,6 +261,15 @@ export class TiramisClientService {
       );
       await this.businessRecordSyncService.syncFromTracking(failedTracking);
 
+      await this.notificationService.notifySubmissionFailed({
+        tracking: failedTracking,
+        error,
+        metadata: {
+          retryable: failedTracking?.isRetryable,
+          requestType: dto.requestType,
+        },
+      });
+
       await this.auditService.logFromTracking({
         action: TiramisAuditAction.SUBMIT_FAILED,
         tracking: failedTracking,
@@ -280,7 +291,6 @@ export class TiramisClientService {
 
     await this.auditService.log({
       action: TiramisAuditAction.MANUAL_STATUS_CHECK,
-      requestType: query.requestType as any,
       businessReference: query.businessReference || null,
       authContext,
       metadata: {
@@ -301,7 +311,6 @@ export class TiramisClientService {
 
     await this.auditService.log({
       action: TiramisAuditAction.MANUAL_TRACE_CHECK,
-      requestType: query.requestType as any,
       businessReference: query.businessReference || null,
       authContext,
       metadata: {

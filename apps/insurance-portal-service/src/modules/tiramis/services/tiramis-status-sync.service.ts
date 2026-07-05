@@ -3,9 +3,11 @@ import { Cron } from '@nestjs/schedule';
 
 import { TiramisBusinessRecordSyncService } from './tiramis-business-record-sync.service';
 import { TiramisAuditAction } from '../enums/tiramis-audit-action.enum';
+import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum';
 import { TiramisSubmissionTrackingRepository } from '../repositories/tiramis-submission-tracking.repository';
 import { TiramisClientService } from './tiramis-client.service';
 import { TiramisAuditService } from './tiramis-audit.service';
+import { TiramisNotificationService } from './tiramis-notification.service';
 
 @Injectable()
 export class TiramisStatusSyncService {
@@ -18,6 +20,7 @@ export class TiramisStatusSyncService {
     private readonly tiramisClientService: TiramisClientService,
     private readonly businessRecordSyncService: TiramisBusinessRecordSyncService,
     private readonly auditService: TiramisAuditService,
+    private readonly notificationService: TiramisNotificationService,
   ) {}
 
   /**
@@ -65,6 +68,15 @@ export class TiramisStatusSyncService {
             response,
           );
           await this.businessRecordSyncService.syncFromTracking(updated);
+
+          if (updated?.status === TiramisSubmissionStatus.FINAL_FAILED) {
+            await this.notificationService.notifyFinalResponseFailed({
+              tracking: updated,
+              metadata: {
+                automatic: true,
+              },
+            });
+          }
 
           await this.auditService.logFromTracking({
             action: TiramisAuditAction.STATUS_SYNC_SUCCESS,
@@ -154,6 +166,15 @@ export class TiramisStatusSyncService {
     );
     const businessRecordSync =
       await this.businessRecordSyncService.syncFromTracking(updated);
+
+    if (updated?.status === TiramisSubmissionStatus.FINAL_FAILED) {
+      await this.notificationService.notifyFinalResponseFailed({
+        tracking: updated,
+        metadata: {
+          manual: true,
+        },
+      });
+    }
 
     await this.auditService.logFromTracking({
       action: TiramisAuditAction.STATUS_SYNC_SUCCESS,

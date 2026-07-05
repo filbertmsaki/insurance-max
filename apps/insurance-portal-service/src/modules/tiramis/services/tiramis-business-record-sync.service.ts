@@ -7,6 +7,7 @@ import { TiramisSubmissionTrackingEntity } from '../entities/tiramis-submission-
 import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum';
 import { TiramisSubmissionTrackingRepository } from '../repositories/tiramis-submission-tracking.repository';
 import { TiramisAuditService } from './tiramis-audit.service';
+import { TiramisNotificationService } from './tiramis-notification.service';
 
 @Injectable()
 export class TiramisBusinessRecordSyncService {
@@ -16,6 +17,7 @@ export class TiramisBusinessRecordSyncService {
     private readonly dataSource: DataSource,
     private readonly trackingRepository: TiramisSubmissionTrackingRepository,
     private readonly auditService: TiramisAuditService,
+    private readonly notificationService: TiramisNotificationService,
   ) {}
 
   async syncFromTracking(
@@ -47,6 +49,24 @@ export class TiramisBusinessRecordSyncService {
     });
 
     if (!mapping) {
+      await this.notificationService.notifyBusinessRecordSyncFailed({
+        tracking,
+        metadata: {
+          sourceRecordId: tracking.sourceRecordId,
+          reason: 'business_table_mapping_not_found',
+        },
+      });
+
+      await this.auditService.logFromTracking({
+        action: TiramisAuditAction.BUSINESS_RECORD_SYNC_FAILED,
+        tracking,
+        success: false,
+        metadata: {
+          sourceRecordId: tracking.sourceRecordId,
+          reason: 'business_table_mapping_not_found',
+        },
+      });
+
       return {
         synced: false,
         reason: 'business_table_mapping_not_found',
@@ -122,6 +142,14 @@ export class TiramisBusinessRecordSyncService {
         tracking.id,
         error,
       );
+
+      await this.notificationService.notifyBusinessRecordSyncFailed({
+        tracking,
+        error,
+        metadata: {
+          sourceRecordId: tracking.sourceRecordId,
+        },
+      });
 
       await this.auditService.logFromTracking({
         action: TiramisAuditAction.BUSINESS_RECORD_SYNC_FAILED,
