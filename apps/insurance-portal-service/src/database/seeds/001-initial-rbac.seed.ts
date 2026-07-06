@@ -1537,7 +1537,9 @@ export default class InitialRbacSeeder implements Seeder {
         }
 
         role.is_system_generated = true;
-        role.permissions = definition.permissionNames.map((permissionName) => {
+        const permissionNames = [...new Set(definition.permissionNames)];
+
+        role.permissions = permissionNames.map((permissionName) => {
           const permission = permissionsByName.get(permissionName);
 
           if (!permission) {

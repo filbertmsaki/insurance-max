@@ -1,0 +1,186 @@
+{
+  "version": 1,
+  "savedAt": "2026-07-06T19:03:32.677Z",
+  "total": 2,
+  "persistXml": true,
+  "records": [
+    {
+      "id": "MOCK-1783364612161-315329",
+      "requestId": "AIC20260706220332779480",
+      "root": "NINVerificationReq",
+      "serviceType": "NIN_VERIFICATION",
+      "endpoint": "/dispatch/api/nin/verification/v1/request",
+      "mode": "sync",
+      "scenario": "success",
+      "callbackUrl": null,
+      "companyCode": "ICC110",
+      "insurerCompanyCode": null,
+      "businessReference": null,
+      "duplicateKey": "nin_verification|ninverificationreq|icc110|unknown-insurer|aic20260706220332779480|unknown-business-reference",
+      "duplicateOfRequestId": null,
+      "duplicateOfTrackingId": null,
+      "duplicateReason": null,
+      "duplicateCheck": null,
+      "status": "RECEIVED",
+      "ackCode": null,
+      "finalCode": null,
+      "headers": {
+        "contentType": "application/xml",
+        "clientCode": "ICC110",
+        "clientKeyPresent": true,
+        "mockScenario": null
+      },
+      "headerValidation": {
+        "ok": false,
+        "code": "TIRA004",
+        "desc": "An error occurred while processing"
+      },
+      "signatureValidation": null,
+      "validations": [],
+      "callbackAttempts": [],
+      "rawRequestXml": "<TiraMsg>\n  <NINVerificationReq>\n    <VerificationHdr>\n      <RequestId>AIC20260706220332779480</RequestId>\n      <CompanyCode>ICC110</CompanyCode>\n      <SystemCode>LSYS_ALLIANCE_003</SystemCode>\n    </VerificationHdr>\n    <VerificationDtl>\n      <NIN>19900101123456789001</NIN>\n    </VerificationDtl>\n  </NINVerificationReq>\n  <MsgSignature>NLtgb+5kOysVe8YNdOwYk7dgPQ8tAux9w0vrh+UnDV0X9r3HeA/HtgHmeOxuStYx7JbYqiBal/kPSy3Xm2QxIhJ9RKsWLSSf4NZpg+5yy3ceaTTA+cOx5d6ZyDo8oFteIexj/glzjIIEv9GXjWymq3+qAbpE28aZKodjDoWln8QJs57m3mo7zXWmqdsrgDTkiMkRowfkfQG8WOsESLgTcQGptF27FqDzIjf66PKMmC5HtLV/PCScWyWs1TT/SIagYoOeQUDTMV3HdFZ287PxtiD/Skz9SB5US9Ymi21TIgMXBBNpyD6ZlWvjkjjGgQekXt3h+LFIyUlY8gHm5PTB7w==</MsgSignature>\n</TiraMsg>\n",
+      "contentXml": "<NINVerificationReq>\n    <VerificationHdr>\n      <RequestId>AIC20260706220332779480</RequestId>\n      <CompanyCode>ICC110</CompanyCode>\n      <SystemCode>LSYS_ALLIANCE_003</SystemCode>\n    </VerificationHdr>\n    <VerificationDtl>\n      <NIN>19900101123456789001</NIN>\n    </VerificationDtl>\n  </NINVerificationReq>",
+      "ackXml": null,
+      "finalXml": null,
+      "createdAt": "2026-07-06T19:03:32.161Z",
+      "updatedAt": "2026-07-06T19:03:32.165Z",
+      "chaosDecision": {
+        "enabled": false,
+        "applied": false,
+        "scenario": "success",
+        "reason": "chaos_disabled"
+      },
+      "responseData": {
+        "coverNoteReferenceNumber": "CN-AIC20260706220332779480",
+        "motorCoverNoteReferenceNumber": "MCN-AIC20260706220332779480",
+        "stickerNumber": "STK-AIC20260706220332779480",
+        "policyReferenceNumber": "POL-AIC20260706220332779480",
+        "reinsuranceReferenceNumber": "RE-AIC20260706220332779480",
+        "claimReferenceNumber": "CLM-AIC20260706220332779480",
+        "verificationStatus": "VALID",
+        "verificationMessage": "Verified successfully",
+        "verificationFullName": "Mock NIN Holder",
+        "verificationCompanyName": "Mock Company Limited",
+        "customFields": {},
+        "source": {
+          "root": "NINVerificationReq",
+          "requestId": "AIC20260706220332779480",
+          "overrides": {
+            "coverNoteReferenceNumber": null,
+            "motorCoverNoteReferenceNumber": null,
+            "stickerNumber": null,
+            "policyReferenceNumber": null,
+            "reinsuranceReferenceNumber": null,
+            "claimReferenceNumber": null,
+            "verificationStatus": null,
+            "verificationMessage": null,
+            "verificationFullName": null,
+            "verificationCompanyName": null
+          },
+          "runtimeConfigApplied": {
+            "coverNoteReferenceNumber": null,
+            "motorCoverNoteReferenceNumber": null,
+            "stickerNumber": null,
+            "policyReferenceNumber": null,
+            "reinsuranceReferenceNumber": null,
+            "claimReferenceNumber": null,
+            "verificationStatus": null,
+            "verificationMessage": null,
+            "verificationFullName": null,
+            "verificationCompanyName": null,
+            "customFields": {}
+          }
+        }
+      }
+    },
+    {
+      "id": "MOCK-1783364611783-862768",
+      "requestId": "AIC20260706220331126171",
+      "root": "NINVerificationReq",
+      "serviceType": "NIN_VERIFICATION",
+      "endpoint": "/dispatch/api/nin/verification/v1/request",
+      "mode": "sync",
+      "scenario": "success",
+      "callbackUrl": null,
+      "companyCode": "ICC110",
+      "insurerCompanyCode": null,
+      "businessReference": null,
+      "duplicateKey": "nin_verification|ninverificationreq|icc110|unknown-insurer|aic20260706220331126171|unknown-business-reference",
+      "duplicateOfRequestId": null,
+      "duplicateOfTrackingId": null,
+      "duplicateReason": null,
+      "duplicateCheck": null,
+      "status": "RECEIVED",
+      "ackCode": null,
+      "finalCode": null,
+      "headers": {
+        "contentType": "application/xml",
+        "clientCode": "ICC110",
+        "clientKeyPresent": true,
+        "mockScenario": null
+      },
+      "headerValidation": {
+        "ok": false,
+        "code": "TIRA004",
+        "desc": "An error occurred while processing"
+      },
+      "signatureValidation": null,
+      "validations": [],
+      "callbackAttempts": [],
+      "rawRequestXml": "<TiraMsg>\n  <NINVerificationReq>\n    <VerificationHdr>\n      <RequestId>AIC20260706220331126171</RequestId>\n      <CompanyCode>ICC110</CompanyCode>\n      <SystemCode>LSYS_ALLIANCE_003</SystemCode>\n    </VerificationHdr>\n    <VerificationDtl>\n      <NIN>19900101123456789001</NIN>\n    </VerificationDtl>\n  </NINVerificationReq>\n  <MsgSignature>NSBfwsi7fNBF08QNvXl/Lci8it5g8OOxSrOUxEEWPeYL6wdHCzG3tYVOtwgOLQv+9TICmIxINuoHCEnItNLYQKg0Ev8Pi/P5A+PWDIzWJC5MA6SWDMHJPS003ShuvuHvc2muhKeuEa0U1J4IvrGOljD6LRZCeROPpzdJoZ6QDgXBSFuuXmob8lEFQ8fnlM+aavrdHc5gvwuYtqT0aLwh2ame79r5psnYiuOX3hM6HgMa+Q6pXmClEq5+l3HItu2Gyyn8mEt6e8lpE4kY73DCuKHR98skKsI66ym4wx7tFWTVdaPICmePPw8SjZdIVx6aHm6Wi2Rc8d9vR6syEpPwBA==</MsgSignature>\n</TiraMsg>\n",
+      "contentXml": "<NINVerificationReq>\n    <VerificationHdr>\n      <RequestId>AIC20260706220331126171</RequestId>\n      <CompanyCode>ICC110</CompanyCode>\n      <SystemCode>LSYS_ALLIANCE_003</SystemCode>\n    </VerificationHdr>\n    <VerificationDtl>\n      <NIN>19900101123456789001</NIN>\n    </VerificationDtl>\n  </NINVerificationReq>",
+      "ackXml": null,
+      "finalXml": null,
+      "createdAt": "2026-07-06T19:03:31.783Z",
+      "updatedAt": "2026-07-06T19:03:31.792Z",
+      "chaosDecision": {
+        "enabled": false,
+        "applied": false,
+        "scenario": "success",
+        "reason": "chaos_disabled"
+      },
+      "responseData": {
+        "coverNoteReferenceNumber": "CN-AIC20260706220331126171",
+        "motorCoverNoteReferenceNumber": "MCN-AIC20260706220331126171",
+        "stickerNumber": "STK-AIC20260706220331126171",
+        "policyReferenceNumber": "POL-AIC20260706220331126171",
+        "reinsuranceReferenceNumber": "RE-AIC20260706220331126171",
+        "claimReferenceNumber": "CLM-AIC20260706220331126171",
+        "verificationStatus": "VALID",
+        "verificationMessage": "Verified successfully",
+        "verificationFullName": "Mock NIN Holder",
+        "verificationCompanyName": "Mock Company Limited",
+        "customFields": {},
+        "source": {
+          "root": "NINVerificationReq",
+          "requestId": "AIC20260706220331126171",
+          "overrides": {
+            "coverNoteReferenceNumber": null,
+            "motorCoverNoteReferenceNumber": null,
+            "stickerNumber": null,
+            "policyReferenceNumber": null,
+            "reinsuranceReferenceNumber": null,
+            "claimReferenceNumber": null,
+            "verificationStatus": null,
+            "verificationMessage": null,
+            "verificationFullName": null,
+            "verificationCompanyName": null
+          },
+          "runtimeConfigApplied": {
+            "coverNoteReferenceNumber": null,
+            "motorCoverNoteReferenceNumber": null,
+            "stickerNumber": null,
+            "policyReferenceNumber": null,
+            "reinsuranceReferenceNumber": null,
+            "claimReferenceNumber": null,
+            "verificationStatus": null,
+            "verificationMessage": null,
+            "verificationFullName": null,
+            "verificationCompanyName": null,
+            "customFields": {}
+          }
+        }
+      }
+    }
+  ]
+}

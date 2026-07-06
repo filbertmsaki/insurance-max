@@ -470,11 +470,11 @@ const responseCodeSeeds: ResponseCodeSeed[] = responseCodeSeedEntries.map(
   }),
 );
 
-async function seedClientConfigurations() {
-  const configurationRepository = dataSource.getRepository(
+async function seedClientConfigurations(activeDataSource = dataSource) {
+  const configurationRepository = activeDataSource.getRepository(
     TiramisClientConfigurationEntity,
   );
-  const endpointRepository = dataSource.getRepository(
+  const endpointRepository = activeDataSource.getRepository(
     TiramisServiceEndpointEntity,
   );
 
@@ -539,8 +539,8 @@ async function seedClientConfigurations() {
   }
 }
 
-async function seedResponseCodes() {
-  const responseCodeRepository = dataSource.getRepository(
+async function seedResponseCodes(activeDataSource = dataSource) {
+  const responseCodeRepository = activeDataSource.getRepository(
     TiramisResponseCodeEntity,
   );
 
@@ -564,12 +564,18 @@ async function seedResponseCodes() {
   }
 }
 
-async function main() {
-  await dataSource.initialize();
+export async function runTiramisConfigSeed(
+  activeDataSource = dataSource,
+): Promise<void> {
+  const shouldManageConnection = !activeDataSource.isInitialized;
+
+  if (shouldManageConnection) {
+    await activeDataSource.initialize();
+  }
 
   try {
-    await seedClientConfigurations();
-    await seedResponseCodes();
+    await seedClientConfigurations(activeDataSource);
+    await seedResponseCodes(activeDataSource);
 
     console.log(
       'Seeded Tiramis client configurations, service endpoints, and response codes.',
@@ -578,11 +584,15 @@ async function main() {
       'Note: NIN_VERIFICATION, COMPANY_VERIFICATION, and DETAILS_VERIFICATION endpoints are now seeded alongside the other supported verification endpoints.',
     );
   } finally {
-    await dataSource.destroy();
+    if (shouldManageConnection && activeDataSource.isInitialized) {
+      await activeDataSource.destroy();
+    }
   }
 }
 
-void main().catch((error) => {
-  console.error('Failed to seed Tiramis configuration:', error);
-  process.exit(1);
-});
+if (require.main === module) {
+  void runTiramisConfigSeed().catch((error) => {
+    console.error('Failed to seed Tiramis configuration:', error);
+    process.exit(1);
+  });
+}

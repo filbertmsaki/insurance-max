@@ -10,10 +10,15 @@ export class PortalTiramisAuditLogs1783000000018
       CREATE TABLE IF NOT EXISTS "tiramis_audit_logs" (
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         "action" character varying(100) NOT NULL,
+        "correlation_id" character varying(150),
+        "event_key" character varying(180),
+        "severity" character varying(30) NOT NULL DEFAULT 'INFO',
         "request_type" character varying(80),
         "source_service" character varying(100) NOT NULL DEFAULT 'insurance-portal-service',
         "source_company_id" uuid,
         "source_user_id" uuid,
+        "actor_user_type" character varying(50),
+        "actor_email" character varying(150),
         "source_module" character varying(100),
         "source_record_id" character varying(150),
         "business_reference" character varying(150),
@@ -26,7 +31,12 @@ export class PortalTiramisAuditLogs1783000000018
         "error_message" text,
         "ip_address" character varying(100),
         "user_agent" text,
+        "http_method" character varying(20),
+        "endpoint" character varying(255),
+        "duration_ms" integer,
         "metadata" jsonb,
+        "request_payload_snapshot" jsonb,
+        "response_payload_snapshot" jsonb,
         "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
       )
     `);
@@ -51,6 +61,12 @@ export class PortalTiramisAuditLogs1783000000018
     );
     await queryRunner.query(
       `CREATE INDEX IF NOT EXISTS "idx_tiramis_audit_business_reference" ON "tiramis_audit_logs" ("business_reference")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_tiramis_audit_correlation_id" ON "tiramis_audit_logs" ("correlation_id")`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_tiramis_audit_event_key" ON "tiramis_audit_logs" ("event_key")`,
     );
     await queryRunner.query(
       `CREATE INDEX IF NOT EXISTS "idx_tiramis_audit_local_tracking_id" ON "tiramis_audit_logs" ("local_tracking_id")`,

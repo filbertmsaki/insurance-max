@@ -28,6 +28,9 @@ export class PortalTiramisSubmissionTrackingDashboardIndexes1783000000017
       `CREATE INDEX IF NOT EXISTS "idx_tiramis_tracking_business_reference_search" ON "tiramis_submission_tracking" ("business_reference")`,
     );
     await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS "idx_tiramis_tracking_business_fingerprint_search" ON "tiramis_submission_tracking" ("business_fingerprint")`,
+    );
+    await queryRunner.query(
       `CREATE INDEX IF NOT EXISTS "idx_tiramis_tracking_source_record_search" ON "tiramis_submission_tracking" ("source_record_id")`,
     );
   }
@@ -38,6 +41,9 @@ export class PortalTiramisSubmissionTrackingDashboardIndexes1783000000017
     );
     await queryRunner.query(
       `DROP INDEX IF EXISTS "idx_tiramis_tracking_business_reference_search"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_tiramis_tracking_business_fingerprint_search"`,
     );
     await queryRunner.query(
       `DROP INDEX IF EXISTS "idx_tiramis_tracking_request_type_status"`,

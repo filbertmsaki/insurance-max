@@ -72,7 +72,7 @@ export class TiramisBusinessController {
     @Req() req: any,
   ) {
     return this.tiramisBusinessSubmitService.validateBusinessSubmission({
-      requestType: dto.requestType,
+      requestType: this.parseRequestType(dto.requestType),
       sourceModule: dto.sourceModule,
       sourceRecordId: dto.sourceRecordId,
       payload: dto.payload || null,
@@ -122,9 +122,11 @@ export class TiramisBusinessController {
     @Req() req: any,
   ) {
     return this.tiramisBusinessSubmitService.submitAnyBusinessRecord({
-      requestType: dto.requestType,
-      sourceModule: dto.sourceModule,
-      sourceRecordId: dto.sourceRecordId,
+      requestType: this.parseRequestType(
+        dto.requestType || TiramisRequestType.NIN_VERIFICATION,
+      ),
+      sourceModule: dto.sourceModule || '',
+      sourceRecordId: dto.sourceRecordId || '',
       businessReference: dto.businessReference,
       payload: dto.payload || null,
       forceResubmit: dto.forceResubmit,
@@ -174,9 +176,11 @@ export class TiramisBusinessController {
     return this.tiramisBusinessSubmitService.getBusinessRecordStatus({
       sourceModule,
       sourceRecordId,
-      requestType: query.requestType || null,
-      includePayload: query.includePayload === 'true',
-      includeHistory: query.includeHistory === 'true',
+      requestType: query.requestType
+        ? this.parseRequestType(query.requestType)
+        : null,
+      includePayload: !!query.includePayload,
+      includeHistory: !!query.includeHistory,
       authContext: this.getAuthContext(req),
     });
   }
@@ -195,8 +199,10 @@ export class TiramisBusinessController {
     return this.tiramisBusinessSubmitService.getBusinessRecordHistory({
       sourceModule,
       sourceRecordId,
-      requestType: query.requestType || null,
-      includePayload: query.includePayload === 'true',
+      requestType: query.requestType
+        ? this.parseRequestType(query.requestType)
+        : null,
+      includePayload: !!query.includePayload,
       authContext: this.getAuthContext(req),
     });
   }

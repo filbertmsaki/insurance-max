@@ -25,7 +25,7 @@ const envPaths = [
 
 for (const envPath of envPaths) {
   if (existsSync(envPath)) {
-    loadEnv({ path: envPath });
+    loadEnv({ path: envPath, override: true });
   }
 }
 

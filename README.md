@@ -70,7 +70,9 @@ npm run start:insurance-portal-service
 npm run start:dev
 npm run start:dev:insurance-portal-service
 npm run test
+npm run db:prepare:tiramis:e2e
 npm run test:e2e
+npm run test:tiramis:e2e
 ```
 
 ## Environment files
@@ -85,6 +87,9 @@ npm run test:e2e
 ```bash
 npm run migration:run:tiramis
 npm run migration:run:insurance-portal-service
+npm run db:prepare:tiramis:e2e
 ```
+
+`npm run test:tiramis:e2e` now runs the fresh database prep step first, so it will reset both service databases, rerun migrations, and reseed data before the E2E assertions execute.
 
 If you want a fuller narrative description, see `docs/project-overview.md`.
