@@ -32,17 +32,10 @@ export type LogicalOperator = 'AND' | 'OR';
 
 // ─── Pagination ───────────────────────────────────────────────────────────────
 
-export interface PEMeta {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
-
-export interface PEPage<T> {
-  data: T[];
-  meta: PEMeta;
-}
+export type {
+  Pagination as PEMeta,
+  PaginatedResponse as PEPage,
+} from '@/modules/shared/api/pagination';
 
 // ─── Insurance Categories ─────────────────────────────────────────────────────
 

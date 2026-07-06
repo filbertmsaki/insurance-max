@@ -62,7 +62,7 @@ export function useBranchesList() {
     error,
   } = useQuery({
     queryKey: branchesKeys.lists(),
-    queryFn: branchesApi.getBranches,
+    queryFn: branchesApi.getAllBranches,
     staleTime: 30_000,
   });
 

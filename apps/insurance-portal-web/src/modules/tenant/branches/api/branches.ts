@@ -44,9 +44,15 @@ export interface AssignBranchUserDto {
 
 export const branchesApi = {
   /** GET /branches — list all branches (requires branches:read) */
-  getBranches: () =>
+  getBranches: (params?: { page?: number; limit?: number }) =>
     apiClient
-      .get<PaginatedResponse<Branch>>('/branches')
+      .get<PaginatedResponse<Branch>>('/branches', { params })
+      .then((r) => r.data),
+
+  /** Convenience: fetch all branches for selectors and client-side filtering */
+  getAllBranches: () =>
+    apiClient
+      .get<PaginatedResponse<Branch>>('/branches', { params: { limit: 1000 } })
       .then((r) => r.data.data),
 
   /** POST /branches — create a new branch (requires branches:create) */

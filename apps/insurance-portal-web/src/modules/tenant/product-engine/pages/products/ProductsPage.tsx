@@ -249,8 +249,8 @@ export function ProductsPage() {
         loading={isLoading}
         page={page}
         limit={limit}
-        total={data?.meta.total ?? 0}
-        totalPages={data?.meta.totalPages ?? 1}
+        total={data?.pagination.total ?? 0}
+        totalPages={data?.pagination.totalPages ?? 1}
         onPageChange={(p) => setParams((prev) => { const n = new URLSearchParams(prev); n.set('page', String(p)); return n })}
         onLimitChange={(l) => setParams((prev) => { const n = new URLSearchParams(prev); n.set('limit', String(l)); n.set('page', '1'); return n })}
       />

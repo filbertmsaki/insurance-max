@@ -235,7 +235,11 @@ function GrantDialog({
 // ─── Branch tab ───────────────────────────────────────────────────────────────
 
 function BranchTab({ canManage, products }: { canManage: boolean; products: { id: string; product_name: string; category_id: string }[] }) {
-  const { data: branches = [] } = useQuery({ queryKey: ['branches-list'], queryFn: branchesApi.getBranches, staleTime: 60_000 })
+  const { data: branches = [] } = useQuery({
+    queryKey: ['branches-list'],
+    queryFn: branchesApi.getAllBranches,
+    staleTime: 60_000,
+  })
   const [selectedId, setSelectedId] = useState('')
   const [grantOpen, setGrantOpen] = useState(false)
   const [revokeItem, setRevokeItem] = useState<AccessRecord | null>(null)

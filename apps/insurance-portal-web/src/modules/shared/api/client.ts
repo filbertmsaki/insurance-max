@@ -2,6 +2,7 @@ import axios, { type AxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { API_BASE_URL } from '@/modules/shared/config';
+import { normalizePaginatedResponse } from './pagination';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -54,7 +55,20 @@ function isPublicAuthRequest(url?: string): boolean {
 }
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const payload = response.data;
+
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      'data' in payload &&
+      ('meta' in payload || 'pagination' in payload)
+    ) {
+      response.data = normalizePaginatedResponse(payload);
+    }
+
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config as AxiosRequestConfig & {
       _retry?: boolean;

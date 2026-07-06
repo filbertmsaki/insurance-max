@@ -254,16 +254,10 @@ export interface ApiClient {
 
 // ─── API Response Wrappers ────────────────────────────────────────────────────
 
-/** The actual backend pagination envelope: { data, pagination: { page, limit, total, totalPages } } */
-export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
+export type {
+  Pagination,
+  PaginatedResponse,
+} from '@/modules/shared/api/pagination';
 
 export interface ApiError {
   statusCode: number;

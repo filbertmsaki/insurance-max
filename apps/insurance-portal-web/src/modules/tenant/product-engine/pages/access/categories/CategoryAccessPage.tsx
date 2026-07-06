@@ -230,7 +230,7 @@ function GrantDialog({
 function BranchTab({ canManage, categories }: { canManage: boolean; categories: { id: string; name: string }[] }) {
   const { data: branches = [] } = useQuery({
     queryKey: ['branches-list'],
-    queryFn: branchesApi.getBranches,
+    queryFn: branchesApi.getAllBranches,
     staleTime: 60_000,
   })
   const [selectedId, setSelectedId] = useState('')
