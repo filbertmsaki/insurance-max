@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
+import { canAccessRoute } from '@/lib/auth/permissions'
 
 interface ProtectedRouteProps {
   requiredPermission?: string
   requiredRole?: string
+  anyRole?: string[]
 }
 
-export function ProtectedRoute({ requiredPermission, requiredRole }: ProtectedRouteProps) {
-  const { user, hasPermission, hasRole } = useAuthStore()
+export function ProtectedRoute({ requiredPermission, requiredRole, anyRole }: ProtectedRouteProps) {
+  const { user } = useAuthStore()
   const [hydrated, setHydrated] = useState(useAuthStore.persist.hasHydrated())
 
   useEffect(() => {
@@ -27,11 +29,7 @@ export function ProtectedRoute({ requiredPermission, requiredRole }: ProtectedRo
     return <Navigate to="/login" replace />
   }
 
-  if (requiredPermission && !hasPermission(requiredPermission)) {
-    return <Navigate to="/dashboard" replace />
-  }
-
-  if (requiredRole && !hasRole(requiredRole)) {
+  if (!canAccessRoute(user, { requiredPermission, requiredRole, anyRole })) {
     return <Navigate to="/dashboard" replace />
   }
 

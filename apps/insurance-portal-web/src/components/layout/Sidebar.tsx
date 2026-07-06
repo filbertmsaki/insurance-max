@@ -3,18 +3,20 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronRight, ShieldCheck, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
+import { canAccessRoute } from '@/lib/auth/permissions'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { NAV_NODES, type NavLeaf, type NavGroup } from './nav-config'
 
 // ─── Visibility helpers ───────────────────────────────────────────────────────
 
 function useNavFilter() {
-  const { hasPermission, hasRole } = useAuthStore()
+  const { user } = useAuthStore()
 
   function isLeafVisible(leaf: NavLeaf): boolean {
-    if (leaf.permission && !hasPermission(leaf.permission)) return false
-    if (leaf.anyRole && !leaf.anyRole.some((r) => hasRole(r))) return false
-    return true
+    return canAccessRoute(user, {
+      requiredPermission: leaf.permission,
+      anyRole: leaf.anyRole,
+    })
   }
 
   function visibleChildren(group: NavGroup): NavLeaf[] {
