@@ -249,6 +249,34 @@ export const NAV_NODES: NavNode[] = [
   },
   {
     kind: 'group',
+    label: 'Underwriting',
+    icon: FileText,
+    children: [
+      {
+        kind: 'link',
+        label: 'Quotations',
+        to: '/quotations',
+        icon: FileText,
+        permission: 'quotations:read',
+      },
+      {
+        kind: 'link',
+        label: 'Policies',
+        to: '/policies',
+        icon: FileText,
+        permission: 'policies:read',
+      },
+      {
+        kind: 'link',
+        label: 'Quotation Wizard',
+        to: '/quotations/wizard',
+        icon: Calculator,
+        permission: 'quotations:create',
+      },
+    ],
+  },
+  {
+    kind: 'group',
     label: 'Settings',
     icon: Settings,
     children: [

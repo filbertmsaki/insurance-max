@@ -53,6 +53,15 @@ import { MotorFleetCreatePage } from '@/modules/tenant/motor/pages/MotorFleetCre
 import { MotorFleetEditPage } from '@/modules/tenant/motor/pages/MotorFleetEditPage'
 import { MotorQuotationDetailsPage } from '@/modules/tenant/motor/pages/MotorQuotationDetailsPage'
 import { MotorPolicyDetailsPage } from '@/modules/tenant/motor/pages/MotorPolicyDetailsPage'
+import { QuotationsPage } from '@/modules/tenant/quotations/pages/QuotationsPage'
+import { QuotationDetailPage } from '@/modules/tenant/quotations/pages/QuotationDetailPage'
+import { QuotationCreatePage } from '@/modules/tenant/quotations/pages/QuotationCreatePage'
+import { QuotationEditPage } from '@/modules/tenant/quotations/pages/QuotationEditPage'
+import { QuotationWizardPage } from '@/modules/tenant/quotations/pages/QuotationWizardPage'
+import { PoliciesPage } from '@/modules/tenant/policies/pages/PoliciesPage'
+import { PolicyDetailPage } from '@/modules/tenant/policies/pages/PolicyDetailPage'
+import { PolicyCreatePage } from '@/modules/tenant/policies/pages/PolicyCreatePage'
+import { PolicyEditPage } from '@/modules/tenant/policies/pages/PolicyEditPage'
 
 export default function App() {
   return (
@@ -175,6 +184,29 @@ export default function App() {
             <Route element={<ProtectedRoute requiredPermission="motor:update" />}>
               <Route path="/motor/vehicles/:id/edit" element={<MotorVehicleEditPage />} />
               <Route path="/motor/fleets/:id/edit" element={<MotorFleetEditPage />} />
+            </Route>
+
+            <Route element={<ProtectedRoute requiredPermission="quotations:read" />}>
+              <Route path="/quotations" element={<QuotationsPage />} />
+              <Route path="/quotations/:id" element={<QuotationDetailPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="quotations:create" />}>
+              <Route path="/quotations/new" element={<QuotationCreatePage />} />
+              <Route path="/quotations/wizard" element={<QuotationWizardPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="quotations:update" />}>
+              <Route path="/quotations/:id/edit" element={<QuotationEditPage />} />
+            </Route>
+
+            <Route element={<ProtectedRoute requiredPermission="policies:read" />}>
+              <Route path="/policies" element={<PoliciesPage />} />
+              <Route path="/policies/:id" element={<PolicyDetailPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="policies:create" />}>
+              <Route path="/policies/new" element={<PolicyCreatePage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="policies:update" />}>
+              <Route path="/policies/:id/edit" element={<PolicyEditPage />} />
             </Route>
           </Route>
         </Route>
