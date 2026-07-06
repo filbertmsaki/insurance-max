@@ -22,6 +22,12 @@ import { MyCompanyPage } from '@/modules/platform/companies/pages/MyCompanyPage'
 import { BranchesListPage } from '@/modules/tenant/branches/pages/BranchesListPage'
 import { BranchDetailPage } from '@/modules/tenant/branches/pages/BranchDetailPage'
 import { CompanyFeaturesPage } from '@/modules/tenant/company-features/pages/CompanyFeaturesPage'
+import { DepartmentsPage } from '@/modules/tenant/departments/pages/DepartmentsPage'
+import { DepartmentDetailPage } from '@/modules/tenant/departments/pages/DepartmentDetailPage'
+import { CustomersPage } from '@/modules/tenant/customers/pages/CustomersPage'
+import { CustomerDetailPage } from '@/modules/tenant/customers/pages/CustomerDetailPage'
+import { CustomerCreatePage } from '@/modules/tenant/customers/pages/CustomerCreatePage'
+import { CustomerEditPage } from '@/modules/tenant/customers/pages/CustomerEditPage'
 import { RolesPage } from '@/modules/platform/roles/pages/RolesPage'
 import { PermissionsPage } from '@/modules/platform/permissions/pages/PermissionsPage'
 import { DevicesPage } from '@/modules/shared/devices/pages/DevicesPage'
@@ -37,6 +43,16 @@ import { RatingRulesPage } from '@/modules/tenant/product-engine/pages/rating-ru
 import { CategoryAccessPage } from '@/modules/tenant/product-engine/pages/access/categories/CategoryAccessPage'
 import { ProductAccessPage } from '@/modules/tenant/product-engine/pages/access/products/ProductAccessPage'
 import { CalculatorPage } from '@/modules/tenant/product-engine/pages/calculator/CalculatorPage'
+import { MotorVehiclesPage } from '@/modules/tenant/motor/pages/MotorVehiclesPage'
+import { MotorVehicleDetailPage } from '@/modules/tenant/motor/pages/MotorVehicleDetailPage'
+import { MotorVehicleCreatePage } from '@/modules/tenant/motor/pages/MotorVehicleCreatePage'
+import { MotorVehicleEditPage } from '@/modules/tenant/motor/pages/MotorVehicleEditPage'
+import { MotorFleetsPage } from '@/modules/tenant/motor/pages/MotorFleetsPage'
+import { MotorFleetDetailPage } from '@/modules/tenant/motor/pages/MotorFleetDetailPage'
+import { MotorFleetCreatePage } from '@/modules/tenant/motor/pages/MotorFleetCreatePage'
+import { MotorFleetEditPage } from '@/modules/tenant/motor/pages/MotorFleetEditPage'
+import { MotorQuotationDetailsPage } from '@/modules/tenant/motor/pages/MotorQuotationDetailsPage'
+import { MotorPolicyDetailsPage } from '@/modules/tenant/motor/pages/MotorPolicyDetailsPage'
 
 export default function App() {
   return (
@@ -86,6 +102,22 @@ export default function App() {
               <Route path="/company-features" element={<CompanyFeaturesPage />} />
             </Route>
 
+            <Route element={<ProtectedRoute requiredPermission="departments:read" />}>
+              <Route path="/departments" element={<DepartmentsPage />} />
+              <Route path="/departments/:id" element={<DepartmentDetailPage />} />
+            </Route>
+
+            <Route element={<ProtectedRoute requiredPermission="customers:read" />}>
+              <Route path="/customers" element={<CustomersPage />} />
+              <Route path="/customers/:id" element={<CustomerDetailPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="customers:create" />}>
+              <Route path="/customers/new" element={<CustomerCreatePage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="customers:update" />}>
+              <Route path="/customers/:id/edit" element={<CustomerEditPage />} />
+            </Route>
+
             <Route element={<ProtectedRoute requiredPermission="roles:read" />}>
               <Route path="/roles" element={<RolesPage />} />
             </Route>
@@ -127,6 +159,23 @@ export default function App() {
               <Route path="/product-engine/access/products" element={<ProductAccessPage />} />
             </Route>
             <Route path="/product-engine/calculator" element={<CalculatorPage />} />
+
+            <Route element={<ProtectedRoute requiredPermission="motor:read" />}>
+              <Route path="/motor/vehicles" element={<MotorVehiclesPage />} />
+              <Route path="/motor/vehicles/:id" element={<MotorVehicleDetailPage />} />
+              <Route path="/motor/fleets" element={<MotorFleetsPage />} />
+              <Route path="/motor/fleets/:id" element={<MotorFleetDetailPage />} />
+              <Route path="/motor/quotation-details" element={<MotorQuotationDetailsPage />} />
+              <Route path="/motor/policy-details" element={<MotorPolicyDetailsPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="motor:create" />}>
+              <Route path="/motor/vehicles/new" element={<MotorVehicleCreatePage />} />
+              <Route path="/motor/fleets/new" element={<MotorFleetCreatePage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="motor:update" />}>
+              <Route path="/motor/vehicles/:id/edit" element={<MotorVehicleEditPage />} />
+              <Route path="/motor/fleets/:id/edit" element={<MotorFleetEditPage />} />
+            </Route>
           </Route>
         </Route>
 

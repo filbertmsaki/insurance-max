@@ -30,7 +30,7 @@ import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
 import {
   useAllActiveProducts, useRisksByProduct,
   useRuleList, useCreateRule, useUpdateRule, useDeleteRule,
-  useConditionsByRule, useCreateCondition, useDeleteCondition,
+  useConditionsByRule, useCreateCondition, useUpdateCondition, useDeleteCondition,
   useAllFactors,
 } from '@/modules/tenant/product-engine/hooks'
 import type {
@@ -124,8 +124,10 @@ function ConditionsPanel({
   const { data: conditions = [], isLoading } = useConditionsByRule(rule.id)
   const { data: allFactors = [] } = useAllFactors()
   const createMutation = useCreateCondition()
+  const updateMutation = useUpdateCondition()
   const deleteMutation = useDeleteCondition()
   const [deleteItem, setDeleteItem] = useState<RiskRuleCondition | null>(null)
+  const [editingItem, setEditingItem] = useState<RiskRuleCondition | null>(null)
 
   const condForm = useForm<ConditionFormValues>({
     resolver: zodResolver(conditionSchema),
@@ -135,17 +137,30 @@ function ConditionsPanel({
   const isBetween = watchedOp === 'BETWEEN'
 
   function addCondition(values: ConditionFormValues) {
-    createMutation.mutate(
-      {
-        rule_id: rule.id,
-        factor_code: values.factor_code,
-        operator: values.operator,
-        value_from: values.value_from,
-        value_to: isBetween ? values.value_to ?? null : null,
-        logical_operator: values.logical_operator,
-      },
-      { onSuccess: () => condForm.reset() },
-    )
+    const payload = {
+      factor_code: values.factor_code,
+      operator: values.operator,
+      value_from: values.value_from,
+      value_to: isBetween ? values.value_to ?? null : null,
+      logical_operator: values.logical_operator,
+    }
+
+    if (editingItem) {
+      updateMutation.mutate(
+        { id: editingItem.id, ruleId: rule.id, data: payload },
+        {
+          onSuccess: () => {
+            condForm.reset()
+            setEditingItem(null)
+          },
+        },
+      )
+    } else {
+      createMutation.mutate(
+        { rule_id: rule.id, ...payload },
+        { onSuccess: () => condForm.reset() },
+      )
+    }
   }
 
   return (
@@ -183,16 +198,35 @@ function ConditionsPanel({
                   <TableCell className="py-2">
                     <Badge variant="outline" className="text-[10px]">{c.logical_operator}</Badge>
                   </TableCell>
-                  {canUpdate && (
+              {canUpdate && (
                     <TableCell className="py-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-red-500 hover:text-red-600 hover:bg-red-50"
-                        onClick={() => setDeleteItem(c)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => {
+                            setEditingItem(c)
+                            condForm.reset({
+                              factor_code: c.factor_code,
+                              operator: c.operator,
+                              value_from: c.value_from ?? '',
+                              value_to: c.value_to ?? '',
+                              logical_operator: c.logical_operator,
+                            })
+                          }}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => setDeleteItem(c)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </TableCell>
                   )}
                 </TableRow>
@@ -282,9 +316,28 @@ function ConditionsPanel({
                 </FormItem>
               )}
             />
-            <Button type="submit" size="sm" className="h-8 mt-5" disabled={createMutation.isPending}>
-              <Plus className="h-3 w-3 mr-1" /> Add
+            <Button
+              type="submit"
+              size="sm"
+              className="h-8 mt-5"
+              disabled={createMutation.isPending || updateMutation.isPending}
+            >
+              <Plus className="h-3 w-3 mr-1" /> {editingItem ? 'Update' : 'Add'}
             </Button>
+            {editingItem && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 mt-5"
+                onClick={() => {
+                  setEditingItem(null)
+                  condForm.reset()
+                }}
+              >
+                Cancel
+              </Button>
+            )}
           </form>
         </Form>
       )}

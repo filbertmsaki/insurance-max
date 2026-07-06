@@ -20,6 +20,13 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -54,18 +61,24 @@ import {
 } from '@/modules/platform/companies/hooks'
 import type { Company, SortOrder } from '@/types'
 import type { CompanySortKey } from '@/modules/platform/companies/hooks'
-import type { CreateCompanyExtendedDto } from '@/modules/platform/companies/api/companies'
+import type {
+  CreateCompanyExtendedDto,
+  CompanyType,
+} from '@/modules/platform/companies/api/companies'
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
 const createSchema = z.object({
   // Company core
   company_name: z.string().min(2, 'Company name must be at least 2 characters'),
-  company_slug: z
-    .string()
-    .regex(/^[a-z0-9-]*$/, 'Lowercase letters, numbers and hyphens only')
-    .optional()
-    .or(z.literal('')),
+  company_type: z.enum([
+    'INSURANCE_COMPANY',
+    'REINSURANCE_COMPANY',
+    'BROKER',
+    'AGENCY',
+    'BANCASSURANCE',
+    'SERVICE_PROVIDER',
+  ]),
   // Company profile (optional)
   contact_email: z.string().email('Invalid email').optional().or(z.literal('')),
   contact_phone: z
@@ -110,6 +123,15 @@ const createSchema = z.object({
 
 type CreateFormValues = z.infer<typeof createSchema>
 
+const COMPANY_TYPE_OPTIONS: { value: CompanyType; label: string }[] = [
+  { value: 'INSURANCE_COMPANY', label: 'Insurance Company' },
+  { value: 'REINSURANCE_COMPANY', label: 'Reinsurance Company' },
+  { value: 'BROKER', label: 'Broker' },
+  { value: 'AGENCY', label: 'Agency' },
+  { value: 'BANCASSURANCE', label: 'Bancassurance' },
+  { value: 'SERVICE_PROVIDER', label: 'Service Provider' },
+]
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: string }) {
@@ -140,7 +162,7 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
     resolver: zodResolver(createSchema),
     defaultValues: {
       company_name: '',
-      company_slug: '',
+      company_type: 'INSURANCE_COMPANY',
       contact_email: '',
       contact_phone: '',
       website: '',
@@ -198,14 +220,24 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                 />
                 <FormField
                   control={form.control}
-                  name="company_slug"
+                  name="company_type"
                   render={({ field }) => (
                     <FormItem className="col-span-2">
-                      <FormLabel>
-                        Slug{' '}
-                        <span className="text-slate-400 font-normal">(auto-generated if empty)</span>
-                      </FormLabel>
-                      <FormControl><Input placeholder="acme-insurance" {...field} /></FormControl>
+                      <FormLabel>Company Type <span className="text-red-500">*</span></FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select company type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {COMPANY_TYPE_OPTIONS.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -645,7 +677,7 @@ export function CompaniesListPage() {
   function handleCreate(v: CreateFormValues) {
     const dto: CreateCompanyExtendedDto = {
       company_name: v.company_name,
-      company_slug: v.company_slug || undefined,
+      company_type: v.company_type,
       admin_first_name: v.admin_first_name,
       admin_last_name: v.admin_last_name,
       admin_email: v.admin_email,

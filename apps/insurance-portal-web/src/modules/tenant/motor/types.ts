@@ -1,0 +1,208 @@
+import type { SortOrder } from '@/types';
+
+export type MotorStatus = string;
+
+export interface MotorCustomerOption {
+  id: string;
+  customer_no: string;
+  customer_type: 'INDIVIDUAL' | 'CORPORATE';
+  first_name: string | null;
+  middle_name: string | null;
+  last_name: string | null;
+  company_name: string | null;
+  phone: string;
+  email: string | null;
+}
+
+export interface MotorVehicleRecord {
+  id: string;
+  company_id: string;
+  customer_id: string;
+  registration_no: string | null;
+  chassis_no: string | null;
+  engine_no: string | null;
+  make: string | null;
+  model: string | null;
+  body_type: string | null;
+  color: string | null;
+  manufacture_year: number | null;
+  usage_type: string | null;
+  vehicle_category: string | null;
+  seating_capacity: number | null;
+  tonnage: string | null;
+  cubic_capacity: number | null;
+  fuel_type: string | null;
+  vehicle_value: string;
+  currency: string;
+  status: string;
+  metadata: Record<string, unknown> | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  customer?: MotorCustomerOption | null;
+}
+
+export interface MotorFleetRecord {
+  id: string;
+  company_id: string;
+  customer_id: string;
+  quotation_id: string | null;
+  policy_id: string | null;
+  fleet_no: string;
+  fleet_name: string | null;
+  total_vehicles: number;
+  total_sum_insured: string;
+  total_premium: string;
+  status: string;
+  tiramis_payload: Record<string, unknown> | null;
+  tiramis_submission_tracking_id: string | null;
+  tiramis_status: string | null;
+  tiramis_transaction_id: string | null;
+  tiramis_request_id: string | null;
+  tiramis_service_type: string | null;
+  tiramis_root_element: string | null;
+  tiramis_acknowledgement_status_code: string | null;
+  tiramis_acknowledgement_status_desc: string | null;
+  tiramis_final_response_id: string | null;
+  tiramis_final_response_status_code: string | null;
+  tiramis_final_response_status_desc: string | null;
+  tiramis_last_error_message: string | null;
+  tiramis_last_synced_at: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  customer?: MotorCustomerOption | null;
+  quotation?: { id: string; quotation_no: string; status: string } | null;
+}
+
+export interface MotorQuotationDetailRecord {
+  id: string;
+  quotation_id: string;
+  quotation_risk_id: string;
+  motor_vehicle_id: string;
+  cover_type: string | null;
+  usage_type: string | null;
+  no_claim_discount_rate: string | null;
+  no_claim_discount_amount: string | null;
+  excess_applicable: boolean;
+  excess_type: string | null;
+  excess_rate: string | null;
+  excess_amount: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  quotation?: { id: string; quotation_no: string; status: string } | null;
+  motor_vehicle?: MotorVehicleRecord | null;
+}
+
+export interface MotorPolicyDetailRecord {
+  id: string;
+  policy_id: string;
+  policy_risk_id: string;
+  motor_vehicle_id: string;
+  cover_type: string | null;
+  usage_type: string | null;
+  certificate_no: string | null;
+  sticker_no: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  policy?: { id: string; policy_no: string; policy_status: string } | null;
+  motor_vehicle?: MotorVehicleRecord | null;
+}
+
+export interface MotorListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: SortOrder;
+}
+
+export interface MotorVehiclePayload {
+  customer_id: string;
+  registration_no?: string | null;
+  chassis_no?: string | null;
+  engine_no?: string | null;
+  make?: string | null;
+  model?: string | null;
+  body_type?: string | null;
+  color?: string | null;
+  manufacture_year?: number | null;
+  usage_type?: string | null;
+  vehicle_category?: string | null;
+  seating_capacity?: number | null;
+  tonnage?: number | string | null;
+  cubic_capacity?: number | null;
+  fuel_type?: string | null;
+  vehicle_value?: number | string | null;
+  currency?: string;
+  status?: string;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface MotorFleetPayload {
+  customer_id: string;
+  quotation_id?: string | null;
+  policy_id?: string | null;
+  fleet_no: string;
+  fleet_name?: string | null;
+  total_vehicles?: number;
+  total_sum_insured?: number | string | null;
+  total_premium?: number | string | null;
+  status?: string;
+}
+
+export interface MotorQuotationDetailPayload {
+  quotation_id: string;
+  quotation_risk_id: string;
+  motor_vehicle_id: string;
+  cover_type?: string | null;
+  usage_type?: string | null;
+  no_claim_discount_rate?: number | string | null;
+  no_claim_discount_amount?: number | string | null;
+  excess_applicable?: boolean;
+  excess_type?: string | null;
+  excess_rate?: number | string | null;
+  excess_amount?: number | string | null;
+}
+
+export interface MotorPolicyDetailPayload {
+  policy_id: string;
+  policy_risk_id: string;
+  motor_vehicle_id: string;
+  cover_type?: string | null;
+  usage_type?: string | null;
+  certificate_no?: string | null;
+  sticker_no?: string | null;
+}
+
+export interface QuotationOption {
+  id: string;
+  quotation_no: string;
+  status: string;
+  customer?: MotorCustomerOption | null;
+}
+
+export interface PolicyOption {
+  id: string;
+  policy_no: string;
+  policy_status: string;
+  customer?: MotorCustomerOption | null;
+}
+
+export interface PolicyRiskOption {
+  id: string;
+  policy_id: string;
+  risk_id: string;
+  risk?: { id: string; risk_code: string; risk_name: string } | null;
+}
+
+export interface CustomerRiskOption {
+  id: string;
+  quotation_id: string;
+  risk_id: string;
+  risk?: { id: string; risk_code: string; risk_name: string } | null;
+}

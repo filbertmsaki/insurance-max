@@ -33,7 +33,7 @@ export function TwoFactorPage() {
     mutationFn: () =>
       authApi.complete2fa({
         tempToken: tempToken!,
-        code: useBackup ? backupCode : code,
+        token: useBackup ? backupCode : code,
       }),
     onSuccess: (tokens) => {
       setSession(tokens)

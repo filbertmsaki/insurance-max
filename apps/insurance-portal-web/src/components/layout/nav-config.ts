@@ -16,10 +16,13 @@ import {
   Package,
   Tag,
   Layers,
+  FileText,
   AlertTriangle,
   Sliders,
   BookOpen,
   Calculator,
+  CarFront,
+  Truck,
 } from 'lucide-react';
 
 export interface NavLeaf {
@@ -93,6 +96,20 @@ export const NAV_NODES: NavNode[] = [
         to: '/branches',
         icon: GitBranch,
         permission: 'branches:read',
+      },
+      {
+        kind: 'link',
+        label: 'Departments',
+        to: '/departments',
+        icon: FileText,
+        permission: 'departments:read',
+      },
+      {
+        kind: 'link',
+        label: 'Customers',
+        to: '/customers',
+        icon: Users,
+        permission: 'customers:read',
       },
       {
         kind: 'link',
@@ -192,6 +209,41 @@ export const NAV_NODES: NavNode[] = [
         label: 'Calculator',
         to: '/product-engine/calculator',
         icon: Calculator,
+      },
+    ],
+  },
+  {
+    kind: 'group',
+    label: 'Motor Insurance',
+    icon: CarFront,
+    children: [
+      {
+        kind: 'link',
+        label: 'Motor Vehicles',
+        to: '/motor/vehicles',
+        icon: CarFront,
+        permission: 'motor:read',
+      },
+      {
+        kind: 'link',
+        label: 'Motor Fleets',
+        to: '/motor/fleets',
+        icon: Truck,
+        permission: 'motor:read',
+      },
+      {
+        kind: 'link',
+        label: 'Quotation Details',
+        to: '/motor/quotation-details',
+        icon: FileText,
+        permission: 'motor:read',
+      },
+      {
+        kind: 'link',
+        label: 'Policy Details',
+        to: '/motor/policy-details',
+        icon: FileText,
+        permission: 'motor:read',
       },
     ],
   },

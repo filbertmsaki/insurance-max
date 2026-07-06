@@ -8,9 +8,23 @@ import type {
 
 // ─── DTOs ─────────────────────────────────────────────────────────────────────
 
+export type CompanyType =
+  | 'INSURANCE_COMPANY'
+  | 'REINSURANCE_COMPANY'
+  | 'BROKER'
+  | 'AGENCY'
+  | 'BANCASSURANCE'
+  | 'SERVICE_PROVIDER';
+
 export interface CreateCompanyDto {
   company_name: string;
-  company_slug?: string;
+  company_type: CompanyType;
+  tira_license_number?: string;
+  tira_license_status?: string;
+  license_issued_at?: string;
+  license_expires_at?: string;
+  tin?: string;
+  brela_registration_number?: string;
   admin_first_name: string;
   admin_last_name: string;
   admin_email: string;
@@ -44,6 +58,23 @@ export interface UpdateCompanyStatusDto {
   status: 'active' | 'inactive';
 }
 
+export interface CompanyUser {
+  id: string;
+  user_no: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  email: string;
+  status: string;
+  user_type: string;
+  is_email_verified?: boolean;
+  is_two_factor_enabled?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  roles: string[];
+  permissions: string[];
+}
+
 // ─── API ──────────────────────────────────────────────────────────────────────
 
 export const companiesApi = {
@@ -66,6 +97,16 @@ export const companiesApi = {
   /** GET /companies/:id — Owner only */
   getCompanyById: (id: string) =>
     apiClient.get<Company>(`/companies/${id}`).then((r) => r.data),
+
+  /** GET /companies/:id/users — Owner only */
+  getCompanyUsers: (id: string, params?: { page?: number; limit?: number }) =>
+    apiClient
+      .get<PaginatedResponse<CompanyUser>>(`/companies/${id}/users`, { params })
+      .then((r) => r.data),
+
+  /** PATCH /companies/:id/primary-user — Owner only */
+  setPrimaryUser: (id: string, user_id: string) =>
+    apiClient.patch(`/companies/${id}/primary-user`, { user_id }).then((r) => r.data),
 
   /** PATCH /companies/:id — Owner only */
   updateCompany: (id: string, data: UpdateCompanyDto) =>

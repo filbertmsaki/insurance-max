@@ -28,6 +28,8 @@ const ROUTE_LABELS: [string, string[]][] = [
   ['/permissions', ['User Management', 'Permissions']],
   ['/companies', ['Company Management', 'Companies']],
   ['/branches', ['Company Management', 'Branches']],
+  ['/departments', ['Company Management', 'Departments']],
+  ['/customers', ['Company Management', 'Customers']],
   ['/company-features', ['Company Management', 'Company Features']],
   ['/my-company', ['Company Management', 'My Company']],
   ['/devices', ['Security', 'Devices']],
@@ -43,6 +45,10 @@ const ROUTE_LABELS: [string, string[]][] = [
   ['/product-engine/access/categories', ['Product Engine', 'Category Access']],
   ['/product-engine/access/products', ['Product Engine', 'Product Access']],
   ['/product-engine/calculator', ['Product Engine', 'Calculator']],
+  ['/motor/vehicles', ['Motor Insurance', 'Motor Vehicles']],
+  ['/motor/fleets', ['Motor Insurance', 'Motor Fleets']],
+  ['/motor/quotation-details', ['Motor Insurance', 'Quotation Details']],
+  ['/motor/policy-details', ['Motor Insurance', 'Policy Details']],
 ]
 
 function useBreadcrumb(): string[] {

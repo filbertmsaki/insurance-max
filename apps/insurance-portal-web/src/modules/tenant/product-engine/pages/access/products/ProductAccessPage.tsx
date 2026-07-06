@@ -420,7 +420,7 @@ function ResolvePanel({ products }: { products: { id: string; product_name: stri
 
 export function ProductAccessPage() {
   const { hasPermission } = useAuthStore()
-  const canManage = hasPermission('product-access:create') || hasPermission('product-access:update')
+  const canManage = hasPermission('product-access:manage')
   const { data: products = [] } = useAllActiveProducts()
 
   return (

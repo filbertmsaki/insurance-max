@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   Plus,
   Search,
@@ -17,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -54,7 +56,11 @@ import {
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
 import type { CompanyFeature, SortOrder } from '@/types'
 import type { CompanyFeatureSortKey } from '@/modules/tenant/company-features/hooks'
-import type { UpsertCompanyFeatureDto } from '@/modules/tenant/company-features/api/company-features'
+import {
+  companyFeaturesApi,
+  type CompanyUserBranchAssignment,
+  type UpsertCompanyFeatureDto,
+} from '@/modules/tenant/company-features/api/company-features'
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -87,6 +93,77 @@ function FeatureStatusBadge({ enabled }: { enabled: boolean }) {
   )
 }
 
+function UserBranchesPanel() {
+  const [companyUserId, setCompanyUserId] = useState('')
+  const [submittedId, setSubmittedId] = useState('')
+
+  const { data: branches = [], isLoading } = useQuery({
+    queryKey: ['company-features', 'user-branches', submittedId],
+    queryFn: () => companyFeaturesApi.getUserBranches(submittedId),
+    enabled: !!submittedId,
+    staleTime: 30_000,
+  })
+
+  return (
+    <Card className="mt-6">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">User Branches</CardTitle>
+        <CardDescription>
+          Look up the branches assigned to a company membership.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-3">
+          <Input
+            className="max-w-sm"
+            placeholder="Enter company user ID"
+            value={companyUserId}
+            onChange={(e) => setCompanyUserId(e.target.value)}
+          />
+          <Button onClick={() => setSubmittedId(companyUserId.trim())} disabled={!companyUserId.trim()}>
+            Load Branches
+          </Button>
+        </div>
+
+        {!submittedId ? (
+          <p className="text-sm text-slate-400">Enter a company user ID to view assigned branches.</p>
+        ) : isLoading ? (
+          <div className="space-y-2">
+            <Separator />
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="h-24 rounded-lg bg-slate-100" />
+              <div className="h-24 rounded-lg bg-slate-100" />
+            </div>
+          </div>
+        ) : branches.length === 0 ? (
+          <p className="text-sm text-slate-400">No branches found for this user.</p>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2">
+            {branches.map((assignment: CompanyUserBranchAssignment) => (
+              <div key={assignment.id} className="rounded-lg border border-slate-200 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-slate-900">{assignment.branch.name}</p>
+                    <code className="text-xs text-slate-400">{assignment.branch.code}</code>
+                  </div>
+                  {assignment.is_primary && (
+                    <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-50">
+                      Primary
+                    </Badge>
+                  )}
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Status: <span className="font-medium">{assignment.branch.status}</span>
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 // ─── Upsert Dialog ────────────────────────────────────────────────────────────
 
 interface UpsertFeatureDialogProps {
@@ -106,6 +183,14 @@ function UpsertFeatureDialog({
 }: UpsertFeatureDialogProps) {
   const form = useForm<FeatureFormValues>({
     resolver: zodResolver(featureSchema),
+    values: editing
+      ? {
+          feature_key: editing.feature_key,
+          display_name: editing.display_name,
+          description: editing.description ?? '',
+          is_enabled: editing.is_enabled,
+        }
+      : undefined,
     defaultValues: {
       feature_key: editing?.feature_key ?? '',
       display_name: editing?.display_name ?? '',
@@ -155,7 +240,7 @@ function UpsertFeatureDialog({
                         />
                       </FormControl>
                       <FormDescription className="text-xs">
-                        Unique identifier — lowercase, use colons as namespace separators.
+                        Unique identifier - lowercase, use colons as namespace separators.
                         {editing && ' Cannot be changed after creation.'}
                       </FormDescription>
                       <FormMessage />
@@ -185,7 +270,7 @@ function UpsertFeatureDialog({
                       <FormLabel>Description</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder="Briefly describe what this feature enables…"
+                          placeholder="Briefly describe what this feature enables..."
                           rows={2}
                           {...field}
                         />
@@ -222,7 +307,7 @@ function UpsertFeatureDialog({
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>
-                {isPending ? 'Saving…' : editing ? 'Save Changes' : 'Create Feature'}
+                {isPending ? 'Saving...' : editing ? 'Save Changes' : 'Create Feature'}
               </Button>
             </DialogFooter>
           </form>
@@ -439,6 +524,8 @@ export function CompanyFeaturesPage() {
         }
         loading={deleteMutation.isPending}
       />
+
+      <UserBranchesPanel />
     </div>
   )
 }

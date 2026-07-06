@@ -51,7 +51,7 @@ export const authApi = {
       )
       .then((r) => r.data),
 
-  complete2fa: (data: { tempToken: string; code: string }) =>
+  complete2fa: (data: { tempToken: string; token: string }) =>
     apiClient
       .post<LoginResponse>('/auth/2fa/complete-login', data)
       .then((r) => r.data),

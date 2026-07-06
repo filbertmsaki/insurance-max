@@ -216,6 +216,16 @@ function ManageFactorsDrawer({
                   )}
                   <Badge variant="outline" className="text-[10px]">{rf.factor.data_type}</Badge>
                 </div>
+                <Switch
+                  checked={rf.is_required}
+                  onCheckedChange={(checked) =>
+                    updateMutation.mutate({
+                      id: rf.id,
+                      riskId: risk.id,
+                      data: { is_required: checked },
+                    })
+                  }
+                />
                 <Button
                   variant="ghost"
                   size="icon"

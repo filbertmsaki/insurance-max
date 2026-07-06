@@ -516,7 +516,7 @@ function ResolvePanel({ categories }: { categories: { id: string; name: string }
 
 export function CategoryAccessPage() {
   const { hasPermission } = useAuthStore()
-  const canManage = hasPermission('category-access:create') || hasPermission('category-access:update')
+  const canManage = hasPermission('category-access:manage')
   const { data: categories = [] } = useAllActiveCategories()
 
   return (

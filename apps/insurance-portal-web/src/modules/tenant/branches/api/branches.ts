@@ -40,6 +40,22 @@ export interface AssignBranchUserDto {
   is_primary?: boolean;
 }
 
+export interface BranchUserAssignment {
+  id: string;
+  company_user_id: string;
+  is_primary: boolean;
+  assigned_at: string;
+  user: {
+    id: string;
+    user_no: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+    status: string;
+  };
+}
+
 // ─── API ──────────────────────────────────────────────────────────────────────
 
 export const branchesApi = {
@@ -79,7 +95,9 @@ export const branchesApi = {
 
   /** GET /branches/:id/users — list users assigned to branch */
   getBranchUsers: (branchId: string) =>
-    apiClient.get(`/branches/${branchId}/users`).then((r) => r.data),
+    apiClient
+      .get<BranchUserAssignment[]>(`/branches/${branchId}/users`)
+      .then((r) => r.data),
 
   /** POST /branches/:id/users — assign a company user to branch */
   assignBranchUser: (branchId: string, data: AssignBranchUserDto) =>

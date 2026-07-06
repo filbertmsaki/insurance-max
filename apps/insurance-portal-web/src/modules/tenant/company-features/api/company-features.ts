@@ -11,6 +11,19 @@ export interface UpsertCompanyFeatureDto {
   metadata?: Record<string, unknown>;
 }
 
+export interface CompanyUserBranchAssignment {
+  id: string;
+  is_primary: boolean;
+  branch: {
+    id: string;
+    name: string;
+    code: string;
+    status: string;
+    sale_point_code?: string | null;
+    sale_point_name?: string | null;
+  };
+}
+
 // ─── API ──────────────────────────────────────────────────────────────────────
 
 export const companyFeaturesApi = {
@@ -27,4 +40,12 @@ export const companyFeaturesApi = {
   /** DELETE /company-features/:id — delete a company feature (requires branches:manage-access) */
   deleteCompanyFeature: (id: string) =>
     apiClient.delete(`/company-features/${id}`).then((r) => r.data),
+
+  /** GET /company-features/:companyUserId/branches — branches assigned to a user */
+  getUserBranches: (companyUserId: string) =>
+    apiClient
+      .get<CompanyUserBranchAssignment[]>(
+        `/company-features/${companyUserId}/branches`,
+      )
+      .then((r) => r.data),
 };

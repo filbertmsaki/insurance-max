@@ -7,9 +7,6 @@ export const devicesApi = {
   trustDevice: (id: string) =>
     apiClient.post<Device>(`/devices/${id}/trust`).then((r) => r.data),
 
-  untrustDevice: (id: string) =>
-    apiClient.post<Device>(`/devices/${id}/untrust`).then((r) => r.data),
-
   removeDevice: (id: string) =>
     apiClient.delete(`/devices/${id}`).then((r) => r.data),
 };

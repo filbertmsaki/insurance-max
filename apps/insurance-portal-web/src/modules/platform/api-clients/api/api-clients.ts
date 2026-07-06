@@ -8,7 +8,7 @@ export interface CreateApiClientDto {
 }
 
 export interface CreateApiClientResponse extends ApiClient {
-  secret: string;
+  plainSecret: string;
 }
 
 export const apiClientsApi = {
@@ -24,7 +24,7 @@ export const apiClientsApi = {
 
   rotateSecret: (id: string) =>
     apiClient
-      .post<{ secret: string }>(`/api-clients/${id}/rotate-secret`)
+      .post<{ plainSecret: string }>(`/api-clients/${id}/rotate-secret`)
       .then((r) => r.data),
 
   revokeApiClient: (id: string) =>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
   Building2,
@@ -27,6 +28,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
@@ -53,7 +61,7 @@ import {
   useDeleteCompany,
 } from '@/modules/platform/companies/hooks'
 import type { Company } from '@/types'
-import type { UpdateCompanyDto } from '@/modules/platform/companies/api/companies'
+import { companiesApi, type UpdateCompanyDto, type CompanyUser } from '@/modules/platform/companies/api/companies'
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -112,6 +120,128 @@ function DetailRow({ label, value }: { label: React.ReactNode; value?: React.Rea
 }
 
 // ─── Edit Dialog ──────────────────────────────────────────────────────────────
+
+function CompanyUsersTab({ companyId }: { companyId: string }) {
+  const queryClient = useQueryClient()
+  const [page, setPage] = useState(1)
+  const [limit] = useState(10)
+  const [selectedUserId, setSelectedUserId] = useState('')
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['company-users', companyId, page, limit],
+    queryFn: () => companiesApi.getCompanyUsers(companyId, { page, limit }),
+  })
+
+  const primaryMutation = useMutation({
+    mutationFn: (userId: string) => companiesApi.setPrimaryUser(companyId, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['company-users', companyId] })
+    },
+  })
+
+  const users = data?.data ?? []
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Company Users</CardTitle>
+        <CardDescription>
+          Review the company memberships and choose the default login member.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <Skeleton className="h-40 w-full" />
+        ) : users.length === 0 ? (
+          <p className="py-6 text-center text-sm text-slate-400">No users found in this company</p>
+        ) : (
+          <div className="space-y-3">
+            {users.map((user) => (
+              <div
+                key={user.id}
+                className="flex flex-col gap-3 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="font-medium text-slate-900">
+                    {user.first_name} {user.last_name}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {user.email} · {user.phone}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {user.status}
+                    </Badge>
+                    {user.user_type && (
+                      <Badge variant="outline" className="text-xs">
+                        {user.user_type}
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => primaryMutation.mutate(user.id)}
+                  disabled={primaryMutation.isPending}
+                >
+                  Set Primary
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {data && data.pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between gap-3 pt-2">
+            <p className="text-xs text-slate-500">
+              Page {page} of {data.pagination.totalPages}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(data.pagination.totalPages, p + 1))}
+                disabled={page >= data.pagination.totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <Separator />
+
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+            <Input
+              placeholder="Enter company membership ID"
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+            />
+            <Button
+              onClick={() => primaryMutation.mutate(selectedUserId)}
+              disabled={!selectedUserId.trim() || primaryMutation.isPending}
+            >
+              Promote by ID
+            </Button>
+          </div>
+          <p className="text-xs text-slate-500">
+            If you already know the company membership UUID, paste it here to set the primary user.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
 
 interface EditDialogProps {
   open: boolean
@@ -509,6 +639,10 @@ export function CompanyDetailPage() {
             <Building2 className="mr-1.5 h-3.5 w-3.5" />
             Profile
           </TabsTrigger>
+          <TabsTrigger value="users">
+            <Users className="mr-1.5 h-3.5 w-3.5" />
+            Users
+          </TabsTrigger>
           <TabsTrigger value="settings">
             <Settings className="mr-1.5 h-3.5 w-3.5" />
             Settings
@@ -671,6 +805,10 @@ export function CompanyDetailPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="users" className="mt-4">
+          <CompanyUsersTab companyId={company.id} />
         </TabsContent>
       </Tabs>
 

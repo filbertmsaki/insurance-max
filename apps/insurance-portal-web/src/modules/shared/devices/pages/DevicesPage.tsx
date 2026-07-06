@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
-import { Shield, ShieldOff, Trash2, Smartphone, Monitor, Laptop } from 'lucide-react'
+import { Shield, Trash2, Smartphone, Monitor, Laptop } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -36,14 +36,6 @@ export function DevicesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['devices'] })
       toast.success('Device trusted')
-    },
-  })
-
-  const untrustMutation = useMutation({
-    mutationFn: devicesApi.untrustDevice,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['devices'] })
-      toast.success('Device untrusted')
     },
   })
 
@@ -110,18 +102,11 @@ export function DevicesPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() =>
-                        device.trusted
-                          ? untrustMutation.mutate(device.id)
-                          : trustMutation.mutate(device.id)
-                      }
-                      disabled={trustMutation.isPending || untrustMutation.isPending}
+                      onClick={() => trustMutation.mutate(device.id)}
+                      disabled={trustMutation.isPending || device.trusted}
                     >
-                      {device.trusted ? (
-                        <><ShieldOff className="mr-1 h-4 w-4" /> Untrust</>
-                      ) : (
-                        <><Shield className="mr-1 h-4 w-4" /> Trust</>
-                      )}
+                      <Shield className="mr-1 h-4 w-4" />
+                      {device.trusted ? 'Trusted' : 'Trust'}
                     </Button>
                     <Button
                       variant="ghost"

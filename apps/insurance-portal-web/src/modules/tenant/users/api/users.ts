@@ -86,18 +86,18 @@ export const usersApi = {
   /** POST /users/2fa/verify */
   verify2fa: (code: string) =>
     apiClient
-      .post<{ backup_codes: string[] }>('/users/2fa/verify', { code })
+      .post<{ backup_codes: string[] }>('/users/2fa/verify', { token: code })
       .then((r) => r.data),
 
   /** POST /users/2fa/disable */
   disable2fa: (code: string) =>
-    apiClient.post('/users/2fa/disable', { code }).then((r) => r.data),
+    apiClient.post('/users/2fa/disable', { token: code }).then((r) => r.data),
 
   /** POST /users/2fa/backup-codes/regenerate */
   regenerateBackupCodes: (code: string) =>
-    apiClient
+      apiClient
       .post<{
         backup_codes: string[];
-      }>('/users/2fa/backup-codes/regenerate', { code })
+      }>('/users/2fa/backup-codes/regenerate', { token: code })
       .then((r) => r.data),
 };

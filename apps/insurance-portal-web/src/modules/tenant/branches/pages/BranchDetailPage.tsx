@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
   GitBranch,
@@ -56,7 +57,11 @@ import {
 } from '@/modules/tenant/branches/hooks'
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
 import type { Branch, EffectiveBranchFeature } from '@/types'
-import type { UpdateBranchDto } from '@/modules/tenant/branches/api/branches'
+import {
+  branchesApi,
+  type BranchUserAssignment,
+  type UpdateBranchDto,
+} from '@/modules/tenant/branches/api/branches'
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -466,6 +471,116 @@ function BranchFeaturesTab({ branchId }: { branchId: string }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+function BranchUsersTab({ branchId }: { branchId: string }) {
+  const queryClient = useQueryClient()
+  const [companyUserId, setCompanyUserId] = useState('')
+  const [isPrimary, setIsPrimary] = useState(false)
+
+  const { data: users = [], isLoading } = useQuery({
+    queryKey: ['branch-users', branchId],
+    queryFn: () => branchesApi.getBranchUsers(branchId),
+  })
+
+  const assignMutation = useMutation({
+    mutationFn: () =>
+      branchesApi.assignBranchUser(branchId, {
+        company_user_id: companyUserId,
+        is_primary: isPrimary,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['branch-users', branchId] })
+      setCompanyUserId('')
+      setIsPrimary(false)
+    },
+  })
+
+  const removeMutation = useMutation({
+    mutationFn: (membershipId: string) => branchesApi.removeBranchUser(branchId, membershipId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['branch-users', branchId] })
+    },
+  })
+
+  return (
+    <Card className="mt-4">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Branch Users</CardTitle>
+        <CardDescription>
+          Assign company memberships to this branch and remove them when needed.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <Skeleton className="h-40 w-full" />
+        ) : users.length === 0 ? (
+          <p className="py-6 text-center text-sm text-slate-400">No users assigned to this branch</p>
+        ) : (
+          <div className="space-y-3">
+            {users.map((assignment: BranchUserAssignment) => (
+              <div
+                key={assignment.id}
+                className="flex flex-col gap-3 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="font-medium text-slate-900">
+                    {assignment.user.first_name} {assignment.user.last_name}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {assignment.user.email} · {assignment.user.phone}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {assignment.user.status}
+                    </Badge>
+                    {assignment.is_primary && (
+                      <Badge variant="outline" className="text-xs">
+                        Primary
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => removeMutation.mutate(assignment.company_user_id)}
+                  disabled={removeMutation.isPending}
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Separator />
+
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+            <Input
+              placeholder="Company membership UUID"
+              value={companyUserId}
+              onChange={(e) => setCompanyUserId(e.target.value)}
+            />
+            <Button
+              onClick={() => assignMutation.mutate()}
+              disabled={!companyUserId.trim() || assignMutation.isPending}
+            >
+              Assign User
+            </Button>
+          </div>
+          <div className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
+            <div>
+              <p className="text-sm font-medium text-slate-900">Set as primary branch user</p>
+              <p className="text-xs text-slate-500">Marks this assignment as the primary branch.</p>
+            </div>
+            <Switch checked={isPrimary} onCheckedChange={setIsPrimary} />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 export function BranchDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -565,6 +680,10 @@ export function BranchDetailPage() {
           <TabsTrigger value="profile">
             <GitBranch className="mr-1.5 h-3.5 w-3.5" />
             Profile
+          </TabsTrigger>
+          <TabsTrigger value="users">
+            <Tag className="mr-1.5 h-3.5 w-3.5" />
+            Users
           </TabsTrigger>
           <TabsTrigger value="location">
             <MapPin className="mr-1.5 h-3.5 w-3.5" />
@@ -677,6 +796,10 @@ export function BranchDetailPage() {
 
         <TabsContent value="features">
           <BranchFeaturesTab branchId={branch.id} />
+        </TabsContent>
+
+        <TabsContent value="users">
+          <BranchUsersTab branchId={branch.id} />
         </TabsContent>
       </Tabs>
 

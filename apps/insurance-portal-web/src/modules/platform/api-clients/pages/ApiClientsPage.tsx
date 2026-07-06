@@ -113,7 +113,7 @@ export function ApiClientsPage() {
       queryClient.invalidateQueries({ queryKey: ['api-clients'] })
       setCreateOpen(false)
       form.reset()
-      setSecretModal({ open: true, secret: result.secret })
+      setSecretModal({ open: true, secret: result.plainSecret })
       toast.success('API Client created')
     },
   })
@@ -122,7 +122,7 @@ export function ApiClientsPage() {
     mutationFn: apiClientsApi.rotateSecret,
     onSuccess: (result) => {
       setRotateId(null)
-      setSecretModal({ open: true, secret: result.secret })
+      setSecretModal({ open: true, secret: result.plainSecret })
       toast.success('Secret rotated')
     },
   })
