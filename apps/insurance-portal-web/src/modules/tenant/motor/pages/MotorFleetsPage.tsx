@@ -9,7 +9,8 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useDeleteMotorFleet, useMotorCustomers, useMotorFleetsList } from '../hooks';
 import { MotorStatusBadge } from '../components/MotorStatusBadge';
-import { getCustomerDisplayName, type MotorFleetRecord } from '../types';
+import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
+import type { MotorFleetRecord } from '../types';
 
 export function MotorFleetsPage() {
   const navigate = useNavigate();

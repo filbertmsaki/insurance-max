@@ -13,7 +13,8 @@ import {
   useMotorVehiclesList,
 } from '../hooks';
 import { MotorStatusBadge } from '../components/MotorStatusBadge';
-import { getCustomerDisplayName, type MotorVehicleRecord } from '../types';
+import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
+import type { MotorVehicleRecord } from '../types';
 
 export function MotorVehiclesPage() {
   const navigate = useNavigate();

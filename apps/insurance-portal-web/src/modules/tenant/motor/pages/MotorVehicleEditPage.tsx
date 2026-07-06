@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useMotorCustomers, useMotorVehicle, useUpdateMotorVehicle } from '../hooks';
 import { MotorVehicleForm } from '../components/MotorVehicleForm';
+import { motorVehicleRecordToFormValues } from '../schemas';
 
 export function MotorVehicleEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -46,7 +47,7 @@ export function MotorVehicleEditPage() {
         customerOptions={customerOptions}
         isPending={updateMutation.isPending}
         submitLabel="Save Changes"
-        defaultValues={vehicle}
+        defaultValues={motorVehicleRecordToFormValues(vehicle)}
         onSubmit={(values) => updateMutation.mutate(values, { onSuccess: () => navigate(`/motor/vehicles/${vehicle.id}`) })}
       />
     </div>

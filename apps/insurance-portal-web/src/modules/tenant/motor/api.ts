@@ -1,6 +1,6 @@
 import { apiClient } from '@/modules/shared/api/client';
 import { normalizePaginatedResponse } from '@/modules/shared/api/pagination';
-import type { PaginatedResponse } from '@/types';
+import type { BackendPaginatedResponse, PaginatedResponse } from '@/modules/shared/api/pagination';
 import type {
   CustomerRiskOption,
   MotorFleetPayload,
@@ -12,6 +12,7 @@ import type {
   MotorQuotationDetailRecord,
   MotorVehiclePayload,
   MotorVehicleRecord,
+  PolicyRiskOption,
   PolicyOption,
   QuotationOption,
 } from './types';
@@ -78,12 +79,18 @@ export const motorApi = {
     apiClient.patch(`/tenant/motor/policy-details/${id}/restore`).then((r) => r.data),
 
   getQuotations: async (): Promise<QuotationOption[]> => {
-    const response = await apiClient.get('/tenant/quotations', { params: { limit: 1000 } });
-    return normalizePaginatedResponse(response.data).data;
+    const response = await apiClient.get<BackendPaginatedResponse<QuotationOption> | PaginatedResponse<QuotationOption>>(
+      '/tenant/quotations',
+      { params: { limit: 1000 } },
+    );
+    return normalizePaginatedResponse<QuotationOption>(response.data).data;
   },
   getPolicies: async (): Promise<PolicyOption[]> => {
-    const response = await apiClient.get('/tenant/policies', { params: { limit: 1000 } });
-    return normalizePaginatedResponse(response.data).data;
+    const response = await apiClient.get<BackendPaginatedResponse<PolicyOption> | PaginatedResponse<PolicyOption>>(
+      '/tenant/policies',
+      { params: { limit: 1000 } },
+    );
+    return normalizePaginatedResponse<PolicyOption>(response.data).data;
   },
   getPolicyRisks: (policyId: string) =>
     apiClient.get<PolicyRiskOption[]>(`/tenant/policies/${policyId}/risks`).then((r) => r.data),

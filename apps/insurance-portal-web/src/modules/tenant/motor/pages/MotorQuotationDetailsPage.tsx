@@ -18,6 +18,7 @@ import {
   useUpdateMotorQuotationDetail,
 } from '../hooks';
 import { MotorQuotationDetailForm } from '../components/MotorQuotationDetailForm';
+import { motorQuotationDetailRecordToFormValues } from '../schemas';
 import { type MotorQuotationDetailRecord } from '../types';
 
 export function MotorQuotationDetailsPage() {
@@ -143,7 +144,7 @@ export function MotorQuotationDetailsPage() {
             vehicleOptions={vehicleOptions}
             isPending={editing ? updateMutation.isPending : createMutation.isPending}
             submitLabel={editing ? 'Save Changes' : 'Create Detail'}
-            defaultValues={editing ?? undefined}
+            defaultValues={editing ? motorQuotationDetailRecordToFormValues(editing) : undefined}
             onSubmit={(values) => {
               const mutation = editing ? updateMutation : createMutation;
               mutation.mutate(values, {

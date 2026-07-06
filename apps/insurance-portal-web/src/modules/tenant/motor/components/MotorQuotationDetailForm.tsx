@@ -140,7 +140,7 @@ export function MotorQuotationDetailForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{label}</FormLabel>
-                    <FormControl><Input {...field} value={field.value ?? ''} /></FormControl>
+                    <FormControl><Input {...field} value={field.value == null ? '' : String(field.value)} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -159,7 +159,7 @@ export function MotorQuotationDetailForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{label}</FormLabel>
-                    <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                    <FormControl><Input type="number" {...field} value={field.value == null ? '' : String(field.value)} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

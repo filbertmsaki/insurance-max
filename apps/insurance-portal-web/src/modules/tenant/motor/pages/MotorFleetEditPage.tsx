@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { MotorFleetForm } from '../components/MotorFleetForm';
 import { useMotorCustomers, useMotorFleet, useMotorPolicies, useMotorQuotations, useUpdateMotorFleet } from '../hooks';
+import { motorFleetRecordToFormValues } from '../schemas';
 
 export function MotorFleetEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -50,7 +51,7 @@ export function MotorFleetEditPage() {
         policyOptions={policyOptions}
         isPending={updateMutation.isPending}
         submitLabel="Save Changes"
-        defaultValues={fleet}
+        defaultValues={motorFleetRecordToFormValues(fleet)}
         onSubmit={(values) => updateMutation.mutate(values, { onSuccess: () => navigate(`/motor/fleets/${fleet.id}`) })}
       />
     </div>

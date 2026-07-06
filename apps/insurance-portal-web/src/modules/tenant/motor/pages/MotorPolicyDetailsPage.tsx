@@ -19,6 +19,7 @@ import {
 } from '../hooks';
 import { MotorPolicyDetailForm } from '../components/MotorPolicyDetailForm';
 import { MotorStatusBadge } from '../components/MotorStatusBadge';
+import { motorPolicyDetailRecordToFormValues } from '../schemas';
 import { type MotorPolicyDetailRecord } from '../types';
 
 export function MotorPolicyDetailsPage() {
@@ -144,7 +145,7 @@ export function MotorPolicyDetailsPage() {
             vehicleOptions={vehicleOptions}
             isPending={editing ? updateMutation.isPending : createMutation.isPending}
             submitLabel={editing ? 'Save Changes' : 'Create Detail'}
-            defaultValues={editing ?? undefined}
+            defaultValues={editing ? motorPolicyDetailRecordToFormValues(editing) : undefined}
             onSubmit={(values) => {
               const mutation = editing ? updateMutation : createMutation;
               mutation.mutate(values, {

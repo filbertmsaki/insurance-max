@@ -75,7 +75,8 @@ export type MotorFleetFormValues = z.infer<typeof motorFleetSchema>;
 export type MotorQuotationDetailFormValues = z.infer<typeof motorQuotationDetailSchema>;
 export type MotorPolicyDetailFormValues = z.infer<typeof motorPolicyDetailSchema>;
 
-function normalizeText(value: string) {
+function normalizeText(value: string | null | undefined) {
+  if (value === null || value === undefined) return undefined;
   const trimmed = value.trim();
   return trimmed.length ? trimmed : undefined;
 }
@@ -84,6 +85,79 @@ function normalizeNumber(value: unknown) {
   if (value === '' || value === null || value === undefined) return undefined;
   const num = Number(value);
   return Number.isFinite(num) ? num : undefined;
+}
+
+export function motorVehicleRecordToFormValues(
+  record: Partial<MotorVehicleRecord>,
+): Partial<MotorVehicleFormValues> {
+  return {
+    customer_id: record.customer_id ?? '',
+    registration_no: record.registration_no ?? '',
+    chassis_no: record.chassis_no ?? '',
+    engine_no: record.engine_no ?? '',
+    make: record.make ?? '',
+    model: record.model ?? '',
+    body_type: record.body_type ?? '',
+    color: record.color ?? '',
+    manufacture_year: record.manufacture_year ?? '',
+    usage_type: record.usage_type ?? '',
+    vehicle_category: record.vehicle_category ?? '',
+    seating_capacity: record.seating_capacity ?? '',
+    tonnage: record.tonnage ?? '',
+    cubic_capacity: record.cubic_capacity ?? '',
+    fuel_type: record.fuel_type ?? '',
+    vehicle_value: record.vehicle_value ?? '',
+    currency: record.currency ?? 'TZS',
+    status: record.status ?? 'ACTIVE',
+  };
+}
+
+export function motorFleetRecordToFormValues(
+  record: Partial<MotorFleetRecord>,
+): Partial<MotorFleetFormValues> {
+  return {
+    customer_id: record.customer_id ?? '',
+    quotation_id: record.quotation_id ?? '',
+    policy_id: record.policy_id ?? '',
+    fleet_no: record.fleet_no ?? '',
+    fleet_name: record.fleet_name ?? '',
+    total_vehicles: record.total_vehicles ?? '',
+    total_sum_insured: record.total_sum_insured ?? '',
+    total_premium: record.total_premium ?? '',
+    status: record.status ?? 'ACTIVE',
+  };
+}
+
+export function motorQuotationDetailRecordToFormValues(
+  record: Partial<MotorQuotationDetailRecord>,
+): Partial<MotorQuotationDetailFormValues> {
+  return {
+    quotation_id: record.quotation_id ?? '',
+    quotation_risk_id: record.quotation_risk_id ?? '',
+    motor_vehicle_id: record.motor_vehicle_id ?? '',
+    cover_type: record.cover_type ?? '',
+    usage_type: record.usage_type ?? '',
+    no_claim_discount_rate: record.no_claim_discount_rate ?? '',
+    no_claim_discount_amount: record.no_claim_discount_amount ?? '',
+    excess_applicable: record.excess_applicable ?? false,
+    excess_type: record.excess_type ?? '',
+    excess_rate: record.excess_rate ?? '',
+    excess_amount: record.excess_amount ?? '',
+  };
+}
+
+export function motorPolicyDetailRecordToFormValues(
+  record: Partial<MotorPolicyDetailRecord>,
+): Partial<MotorPolicyDetailFormValues> {
+  return {
+    policy_id: record.policy_id ?? '',
+    policy_risk_id: record.policy_risk_id ?? '',
+    motor_vehicle_id: record.motor_vehicle_id ?? '',
+    cover_type: record.cover_type ?? '',
+    usage_type: record.usage_type ?? '',
+    certificate_no: record.certificate_no ?? '',
+    sticker_no: record.sticker_no ?? '',
+  };
 }
 
 export function buildMotorVehiclePayload(values: MotorVehicleFormValues): MotorVehiclePayload {
@@ -154,4 +228,3 @@ export function buildMotorPolicyDetailPayload(
     sticker_no: normalizeText(values.sticker_no) ?? null,
   };
 }
-
