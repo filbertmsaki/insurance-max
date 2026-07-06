@@ -39,11 +39,22 @@ function extractContentXml(xml) {
   const text = String(xml || '');
   const match = text.match(/<Content[^>]*>([\s\S]*?)<\/Content>/i);
 
-  if (!match) {
-    return text;
+  if (match) {
+    return unescapeXml(match[1].trim());
   }
 
-  return unescapeXml(match[1].trim());
+  // Real TIRA wire format has no literal <Content> tag: the business root
+  // element (e.g. <CoverNoteRefReq>) sits directly inside <TiraMsg>, next to
+  // <MsgSignature>. The signature is computed over that bare root element
+  // only, so strip the <TiraMsg> wrapper and the <MsgSignature>/<Signature>
+  // node before returning, rather than handing back the whole envelope.
+  const wrapperMatch = text.match(/<TiraMsg[^>]*>([\s\S]*)<\/TiraMsg>/i);
+  const inner = wrapperMatch ? wrapperMatch[1] : text;
+
+  return inner
+    .replace(/<MsgSignature[^>]*>[\s\S]*?<\/MsgSignature>/i, '')
+    .replace(/<Signature[^>]*>[\s\S]*?<\/Signature>/i, '')
+    .trim();
 }
 
 function getRoot(xml) {

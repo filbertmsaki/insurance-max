@@ -41,25 +41,7 @@ export class TiramisController {
   @RequireTiramisPermissions(TiramisPermissions.SUBMIT)
   @Post('submit')
   submit(@Body() dto: SubmitTiramisDto, @Req() req: any) {
-    return this.tiramisClientService.submit(dto, {
-      userId: req.user?.id || req.user?.sub || null,
-      companyId:
-        req.user?.companyId ||
-        req.user?.active_company_id ||
-        req.user?.activeCompanyId ||
-        null,
-      activeCompanyId:
-        req.user?.active_company_id ||
-        req.user?.activeCompanyId ||
-        req.user?.companyId ||
-        null,
-      ipAddress:
-        req.ip ||
-        req.headers?.['x-forwarded-for'] ||
-        req.connection?.remoteAddress ||
-        null,
-      userAgent: req.headers?.['user-agent'] || null,
-    });
+    return this.tiramisClientService.submit(dto, this.getAuthContext(req));
   }
 
   @ApiOperation({
@@ -228,6 +210,9 @@ export class TiramisController {
   private getAuthContext(req: any) {
     return {
       userId: req?.user?.id || req?.user?.sub || null,
+      sub: req?.user?.sub || null,
+      email: req?.user?.email || null,
+      userType: req?.user?.user_type || req?.user?.userType || null,
       companyId:
         req?.user?.companyId ||
         req?.user?.active_company_id ||
@@ -238,6 +223,12 @@ export class TiramisController {
         req?.user?.activeCompanyId ||
         req?.user?.companyId ||
         null,
+      correlationId:
+        req?.headers?.['x-correlation-id'] ||
+        req?.headers?.['x-request-id'] ||
+        null,
+      method: req?.method || null,
+      endpoint: req?.originalUrl || req?.url || null,
       ipAddress:
         req?.ip ||
         req?.headers?.['x-forwarded-for'] ||

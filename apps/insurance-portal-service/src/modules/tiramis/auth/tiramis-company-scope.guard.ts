@@ -1,12 +1,17 @@
 import {
   CanActivate,
   ExecutionContext,
-  ForbiddenException,
   Injectable,
 } from '@nestjs/common';
 
+import { TiramisAccessScopeService } from '../services/tiramis-access-scope.service';
+
 @Injectable()
 export class TiramisCompanyScopeGuard implements CanActivate {
+  constructor(
+    private readonly tiramisAccessScopeService: TiramisAccessScopeService,
+  ) {}
+
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
@@ -15,35 +20,35 @@ export class TiramisCompanyScopeGuard implements CanActivate {
       return true;
     }
 
-    const roles = [
-      ...(Array.isArray(user.role_codes) ? user.role_codes : []),
-      ...(Array.isArray(user.roleCodes) ? user.roleCodes : []),
-      ...(Array.isArray(user.roles) ? user.roles : []),
-    ].map((role) => String(role).toLowerCase());
-
-    if (roles.includes('super_admin') || roles.includes('platform_admin')) {
-      return true;
-    }
-
-    const userCompanyId =
-      user.companyId ||
-      user.active_company_id ||
-      user.activeCompanyId ||
-      null;
+    const scope = this.tiramisAccessScopeService.resolveScope({
+      userId: user.id || user.sub || null,
+      sub: user.sub || null,
+      email: user.email || null,
+      userType: user.user_type || user.userType || null,
+      companyId: user.companyId || user.active_company_id || user.activeCompanyId || null,
+      activeCompanyId:
+        user.active_company_id || user.activeCompanyId || user.companyId || null,
+      branchId: user.branchId || user.active_branch_id || user.activeBranchId || null,
+      permissionCodes:
+        user.permission_codes || user.permissionCodes || user.permissions || [],
+      roleCodes: user.role_codes || user.roleCodes || user.roles || [],
+      canAccessAllCompanies: user.canAccessAllCompanies || false,
+      isPlatformAdmin: user.isPlatformAdmin || false,
+    });
 
     const requestedCompanyId =
+      request.query?.companyId ||
       request.query?.sourceCompanyId ||
+      request.body?.companyId ||
       request.body?.sourceCompanyId ||
+      request.params?.companyId ||
       request.params?.sourceCompanyId ||
       null;
 
-    if (
-      requestedCompanyId &&
-      userCompanyId &&
-      String(requestedCompanyId) !== String(userCompanyId)
-    ) {
-      throw new ForbiddenException(
-        'You cannot access TIRAMIS records from another company',
+    if (requestedCompanyId) {
+      this.tiramisAccessScopeService.assertCanAccessCompany(
+        scope,
+        requestedCompanyId,
       );
     }
 

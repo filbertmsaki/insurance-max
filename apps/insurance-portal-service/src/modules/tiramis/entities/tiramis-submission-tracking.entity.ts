@@ -14,6 +14,7 @@ import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum
 @Entity({ name: 'tiramis_submission_tracking' })
 @Index(['requestType'])
 @Index(['businessReference'])
+@Index(['businessFingerprint'])
 @Index(['sourceCompanyId'])
 @Index(['sourceRecordId'])
 @Index(['idempotencyKey'])
@@ -106,6 +107,14 @@ export class TiramisSubmissionTrackingEntity {
   businessReference?: string | null;
 
   @Column({
+    name: 'business_fingerprint',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  businessFingerprint!: string | null;
+
+  @Column({
     name: 'idempotency_key',
     type: 'varchar',
     length: 255,
@@ -121,6 +130,20 @@ export class TiramisSubmissionTrackingEntity {
   duplicateOfTrackingId?: string | null;
 
   @Column({
+    name: 'duplicate_prevention_reason',
+    type: 'text',
+    nullable: true,
+  })
+  duplicatePreventionReason!: string | null;
+
+  @Column({
+    name: 'duplicate_checked_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  duplicateCheckedAt!: Date | null;
+
+  @Column({
     name: 'resubmission_count',
     type: 'int',
     default: 0,
@@ -133,6 +156,20 @@ export class TiramisSubmissionTrackingEntity {
     default: false,
   })
   forceResubmitted!: boolean;
+
+  @Column({
+    name: 'force_resubmit',
+    type: 'boolean',
+    default: false,
+  })
+  forceResubmit!: boolean;
+
+  @Column({
+    name: 'return_existing',
+    type: 'boolean',
+    default: false,
+  })
+  returnExisting!: boolean;
 
   @Column({
     name: 'tiramis_transaction_id',
@@ -313,7 +350,7 @@ export class TiramisSubmissionTrackingEntity {
   @Column({
     name: 'max_retry_attempts',
     type: 'int',
-    default: 5,
+    default: 3,
   })
   maxRetryAttempts!: number;
 
@@ -334,7 +371,7 @@ export class TiramisSubmissionTrackingEntity {
   @Column({
     name: 'retry_lock_id',
     type: 'varchar',
-    length: 100,
+    length: 120,
     nullable: true,
   })
   retryLockId?: string | null;
@@ -345,6 +382,22 @@ export class TiramisSubmissionTrackingEntity {
     nullable: true,
   })
   retryLockedAt?: Date | null;
+
+  @Column({
+    name: 'retry_error_message',
+    type: 'text',
+    nullable: true,
+  })
+  retryErrorMessage!: string | null;
+
+  @Column({
+    name: 'retry_strategy',
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+    default: 'EXPONENTIAL_BACKOFF',
+  })
+  retryStrategy!: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;

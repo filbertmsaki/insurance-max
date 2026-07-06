@@ -1,11 +1,19 @@
-export const TiramisPermissions = {
-  SUBMIT: 'tiramis.submit',
-  VIEW_TRACKING: 'tiramis.tracking.view',
-  MONITORING_VIEW: 'tiramis.monitoring.view',
-  RETRY: 'tiramis.retry',
-  SYNC: 'tiramis.sync',
-  ADMIN: 'tiramis.admin',
-} as const;
+export enum TiramisPermissions {
+  VIEW_TRACKING = 'tiramis.tracking.view',
+  SUBMIT = 'tiramis.submit',
+  VALIDATE = 'tiramis.validate',
 
-export type TiramisPermission =
-  (typeof TiramisPermissions)[keyof typeof TiramisPermissions];
+  SYNC = 'tiramis.sync',
+  RETRY = 'tiramis.retry',
+
+  MONITORING_VIEW = 'tiramis.monitoring.view',
+  AUDIT_VIEW = 'tiramis.audit.view',
+  NOTIFICATION_VIEW = 'tiramis.notification.view',
+
+  CONFIG_VIEW = 'tiramis.config.view',
+  CONFIG_MANAGE = 'tiramis.config.manage',
+
+  ADMIN = 'tiramis.admin',
+}
+
+export type TiramisPermission = TiramisPermissions;

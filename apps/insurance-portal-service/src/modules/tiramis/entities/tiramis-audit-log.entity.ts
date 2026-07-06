@@ -7,6 +7,7 @@ import {
 } from 'typeorm';
 
 import { TiramisAuditAction } from '../enums/tiramis-audit-action.enum';
+import { TiramisAuditSeverity } from '../enums/tiramis-audit-severity.enum';
 import { TiramisRequestType } from '../enums/tiramis-request-type.enum';
 
 @Entity({ name: 'tiramis_audit_logs' })
@@ -29,6 +30,30 @@ export class TiramisAuditLogEntity {
     length: 100,
   })
   action!: TiramisAuditAction;
+
+  @Column({
+    name: 'correlation_id',
+    type: 'varchar',
+    length: 150,
+    nullable: true,
+  })
+  correlationId?: string | null;
+
+  @Column({
+    name: 'event_key',
+    type: 'varchar',
+    length: 180,
+    nullable: true,
+  })
+  eventKey?: string | null;
+
+  @Column({
+    name: 'severity',
+    type: 'varchar',
+    length: 30,
+    default: TiramisAuditSeverity.INFO,
+  })
+  severity!: TiramisAuditSeverity;
 
   @Column({
     name: 'request_type',
@@ -59,6 +84,22 @@ export class TiramisAuditLogEntity {
     nullable: true,
   })
   sourceUserId?: string | null;
+
+  @Column({
+    name: 'actor_user_type',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  actorUserType?: string | null;
+
+  @Column({
+    name: 'actor_email',
+    type: 'varchar',
+    length: 150,
+    nullable: true,
+  })
+  actorEmail?: string | null;
 
   @Column({
     name: 'source_module',
@@ -152,11 +193,48 @@ export class TiramisAuditLogEntity {
   userAgent?: string | null;
 
   @Column({
+    name: 'http_method',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  httpMethod?: string | null;
+
+  @Column({
+    name: 'endpoint',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  endpoint?: string | null;
+
+  @Column({
+    name: 'duration_ms',
+    type: 'integer',
+    nullable: true,
+  })
+  durationMs?: number | null;
+
+  @Column({
     name: 'metadata',
     type: 'jsonb',
     nullable: true,
   })
   metadata?: Record<string, any> | null;
+
+  @Column({
+    name: 'request_payload_snapshot',
+    type: 'jsonb',
+    nullable: true,
+  })
+  requestPayloadSnapshot?: Record<string, any> | null;
+
+  @Column({
+    name: 'response_payload_snapshot',
+    type: 'jsonb',
+    nullable: true,
+  })
+  responsePayloadSnapshot?: Record<string, any> | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;

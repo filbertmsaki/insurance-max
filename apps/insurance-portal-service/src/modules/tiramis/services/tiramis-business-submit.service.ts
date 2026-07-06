@@ -1,15 +1,27 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 
+import { TiramisPermissions } from '../auth/tiramis-permissions.constant';
 import { SubmitTiramisDto } from '../dto/submit-tiramis.dto';
+import { TiramisAuditAction } from '../enums/tiramis-audit-action.enum';
 import { TiramisRequestType } from '../enums/tiramis-request-type.enum';
+import { TiramisSubmissionTrackingRepository } from '../repositories/tiramis-submission-tracking.repository';
+import { TiramisAccessScopeService } from './tiramis-access-scope.service';
+import { TiramisAuditService } from './tiramis-audit.service';
 import { TiramisBusinessPayloadBuilderService } from './tiramis-business-payload-builder.service';
+import { TiramisBusinessValidationService } from './tiramis-business-validation.service';
 import { TiramisClientService } from './tiramis-client.service';
+import { TiramisNotificationService } from './tiramis-notification.service';
 
 @Injectable()
 export class TiramisBusinessSubmitService {
   constructor(
     private readonly tiramisClientService: TiramisClientService,
     private readonly payloadBuilderService: TiramisBusinessPayloadBuilderService,
+    private readonly validationService: TiramisBusinessValidationService,
+    private readonly trackingRepository: TiramisSubmissionTrackingRepository,
+    private readonly auditService: TiramisAuditService,
+    private readonly notificationService: TiramisNotificationService,
+    private readonly accessScopeService: TiramisAccessScopeService,
   ) {}
 
   submitCoverNote(params: {
@@ -224,6 +236,132 @@ export class TiramisBusinessSubmitService {
     });
   }
 
+  submitAnyBusinessRecord(params: {
+    requestType: TiramisRequestType;
+    sourceModule: string;
+    sourceRecordId: string;
+    businessReference?: string | null;
+    payload?: Record<string, any> | null;
+    authContext?: any;
+    forceResubmit?: boolean;
+    returnExisting?: boolean;
+  }) {
+    return this.submitWithBuilder({
+      requestType: params.requestType,
+      sourceModule: params.sourceModule,
+      sourceRecordId: params.sourceRecordId,
+      businessReference: params.businessReference,
+      payload: params.payload,
+      authContext: params.authContext,
+      forceResubmit: params.forceResubmit,
+      returnExisting: params.returnExisting,
+    });
+  }
+
+  async getBusinessRecordStatus(params: {
+    sourceModule: string;
+    sourceRecordId: string;
+    requestType?: TiramisRequestType | null;
+    authContext?: any;
+    includePayload?: boolean;
+    includeHistory?: boolean;
+  }) {
+    const scope = this.accessScopeService.resolveScope(params.authContext);
+
+    this.accessScopeService.assertHasPermission(
+      scope,
+      TiramisPermissions.VIEW_TRACKING,
+    );
+
+    const sourceCompanyId = scope.companyId;
+    const canAccessAllCompanies = scope.canAccessAllCompanies;
+
+    const latest = await this.trackingRepository.findLatestByBusinessRecord({
+      sourceModule: params.sourceModule,
+      sourceRecordId: params.sourceRecordId,
+      requestType: params.requestType || null,
+      sourceCompanyId,
+      canAccessAllCompanies,
+    });
+
+    let history: any[] = [];
+
+    if (params.includeHistory) {
+      history = await this.trackingRepository.findHistoryByBusinessRecord({
+        sourceModule: params.sourceModule,
+        sourceRecordId: params.sourceRecordId,
+        requestType: params.requestType || null,
+        sourceCompanyId,
+        canAccessAllCompanies,
+        includePayload: !!params.includePayload,
+      });
+    }
+
+    return {
+      found: !!latest,
+      sourceModule: params.sourceModule,
+      sourceRecordId: params.sourceRecordId,
+      requestType: params.requestType || null,
+      latest: params.includePayload ? latest : this.hidePayload(latest),
+      history,
+    };
+  }
+
+  findDuplicateForBusinessRecord(params: {
+    sourceCompanyId?: string | null;
+    requestType: TiramisRequestType;
+    sourceModule: string;
+    sourceRecordId: string;
+    businessReference?: string | null;
+    businessFingerprint?: string | null;
+  }) {
+    return this.trackingRepository.findActiveDuplicateCandidate({
+      sourceCompanyId: params.sourceCompanyId,
+      businessFingerprint: params.businessFingerprint,
+      requestType: params.requestType,
+      sourceModule: params.sourceModule,
+      sourceRecordId: params.sourceRecordId,
+      businessReference: params.businessReference,
+    });
+  }
+
+  async getBusinessRecordHistory(params: {
+    sourceModule: string;
+    sourceRecordId: string;
+    requestType?: TiramisRequestType | null;
+    authContext?: any;
+    includePayload?: boolean;
+  }) {
+    const scope = this.accessScopeService.resolveScope(params.authContext);
+
+    this.accessScopeService.assertHasPermission(
+      scope,
+      TiramisPermissions.VIEW_TRACKING,
+    );
+
+    const sourceCompanyId = scope.companyId;
+    const canAccessAllCompanies = scope.canAccessAllCompanies;
+
+    const history = await this.trackingRepository.findHistoryByBusinessRecord({
+      sourceModule: params.sourceModule,
+      sourceRecordId: params.sourceRecordId,
+      requestType: params.requestType || null,
+      sourceCompanyId,
+      canAccessAllCompanies,
+      includePayload: !!params.includePayload,
+      limit: 100,
+    });
+
+    return {
+      found: history.length > 0,
+      sourceModule: params.sourceModule,
+      sourceRecordId: params.sourceRecordId,
+      requestType: params.requestType || null,
+      count: history.length,
+      history,
+    };
+  }
+
   submitVerification(params: {
     requestType:
       | TiramisRequestType.COVER_NOTE_VERIFICATION
@@ -238,12 +376,9 @@ export class TiramisBusinessSubmitService {
     forceResubmit?: boolean;
     returnExisting?: boolean;
   }) {
-    if (
-      !params.sourceRecordId &&
-      (!params.payload || Object.keys(params.payload).length === 0)
-    ) {
+    if (!params.sourceRecordId) {
       throw new BadRequestException(
-        'Verification submissions require sourceRecordId or payload.',
+        'Verification submissions require sourceRecordId for company-scoped access.',
       );
     }
 
@@ -256,7 +391,7 @@ export class TiramisBusinessSubmitService {
     return this.submit({
       requestType: params.requestType,
       sourceModule: 'verifications',
-      sourceRecordId: params.sourceRecordId || businessReference,
+      sourceRecordId: params.sourceRecordId || null,
       businessReference,
       payload: params.payload,
       authContext: params.authContext,
@@ -265,10 +400,69 @@ export class TiramisBusinessSubmitService {
     });
   }
 
-  private submit(params: {
+  async validateBusinessSubmission(params: {
     requestType: TiramisRequestType;
     sourceModule: string;
     sourceRecordId: string;
+    payload?: Record<string, any> | null;
+    authContext?: any;
+  }) {
+    const scope = this.accessScopeService.resolveScope(params.authContext);
+
+    this.accessScopeService.assertHasPermission(
+      scope,
+      TiramisPermissions.VALIDATE,
+    );
+
+    const accessCheck =
+      await this.accessScopeService.assertCanAccessBusinessRecord({
+        scope,
+        requestType: params.requestType,
+        sourceModule: params.sourceModule,
+        sourceRecordId: params.sourceRecordId,
+      });
+
+    const sourceCompanyId = accessCheck.businessCompanyId;
+
+    const sourceBranchId =
+      params.authContext?.branchId ||
+      params.authContext?.activeBranchId ||
+      params.authContext?.active_branch_id ||
+      null;
+
+    const builtPayload = await this.payloadBuilderService.buildPayload({
+      requestType: params.requestType,
+      sourceModule: params.sourceModule,
+      sourceRecordId: params.sourceRecordId,
+      sourceCompanyId,
+      sourceBranchId,
+      overridePayload: params.payload,
+    });
+
+    const validation = await this.validationService.validateBeforeSubmit({
+      requestType: params.requestType,
+      payload: builtPayload.payload,
+      sourceCompanyId,
+      sourceBranchId,
+      sourceModule: params.sourceModule,
+      sourceRecordId: params.sourceRecordId,
+    });
+
+    return {
+      success: validation.isValid,
+      requestType: params.requestType,
+      sourceModule: params.sourceModule,
+      sourceRecordId: params.sourceRecordId,
+      payloadSource: builtPayload.source,
+      payload: builtPayload.payload,
+      validation,
+    };
+  }
+
+  private submit(params: {
+    requestType: TiramisRequestType;
+    sourceModule: string;
+    sourceRecordId: string | null;
     payload?: Record<string, any> | null;
     businessReference?: string | null;
     policyId?: string | null;
@@ -283,7 +477,7 @@ export class TiramisBusinessSubmitService {
   private async submitWithBuilder(params: {
     requestType: TiramisRequestType;
     sourceModule: string;
-    sourceRecordId: string;
+    sourceRecordId: string | null;
     payload?: Record<string, any> | null;
     businessReference?: string | null;
     policyId?: string | null;
@@ -292,20 +486,132 @@ export class TiramisBusinessSubmitService {
     forceResubmit?: boolean;
     returnExisting?: boolean;
   }) {
+    if (!params.sourceRecordId) {
+      throw new BadRequestException(
+        'Business submission requires sourceRecordId for company-scoped access.',
+      );
+    }
+
+    const scope = this.accessScopeService.resolveScope(params.authContext);
+
+    this.accessScopeService.assertHasPermission(
+      scope,
+      TiramisPermissions.SUBMIT,
+    );
+
+    const accessCheck =
+      await this.accessScopeService.assertCanAccessBusinessRecord({
+        scope,
+        requestType: params.requestType,
+        sourceModule: params.sourceModule,
+        sourceRecordId: params.sourceRecordId,
+      });
+
+    const sourceCompanyId = accessCheck.businessCompanyId;
+
+    const sourceBranchId =
+      params.authContext?.branchId ||
+      params.authContext?.activeBranchId ||
+      params.authContext?.active_branch_id ||
+      null;
+
     const builtPayload = await this.payloadBuilderService.buildPayload({
       requestType: params.requestType,
       sourceModule: params.sourceModule,
       sourceRecordId: params.sourceRecordId,
+      sourceCompanyId,
+      sourceBranchId,
       overridePayload: params.payload,
     });
+
+    await this.auditService.log({
+      action: TiramisAuditAction.PAYLOAD_BUILD_SUCCESS,
+      requestType: params.requestType,
+      sourceModule: params.sourceModule,
+      sourceRecordId: params.sourceRecordId,
+      businessReference: params.businessReference,
+      sourceCompanyId,
+      success: true,
+      authContext: params.authContext,
+      metadata: {
+        payloadSource: builtPayload.source,
+        payloadKeys: Object.keys(builtPayload.payload || {}),
+      },
+      requestPayloadSnapshot: builtPayload.payload,
+    });
+
+    let validation: any;
+
+    try {
+      validation = await this.validationService.assertValidBeforeSubmit({
+        requestType: params.requestType,
+        payload: builtPayload.payload,
+        sourceCompanyId,
+        sourceBranchId:
+          params.authContext?.branchId ||
+          params.authContext?.activeBranchId ||
+          params.authContext?.active_branch_id ||
+          null,
+        sourceModule: params.sourceModule,
+        sourceRecordId: params.sourceRecordId,
+      });
+
+      await this.auditService.log({
+        action: TiramisAuditAction.VALIDATION_SUCCESS,
+        requestType: params.requestType,
+        sourceModule: params.sourceModule,
+        sourceRecordId: params.sourceRecordId,
+        businessReference: params.businessReference,
+        sourceCompanyId,
+        success: true,
+        authContext: params.authContext,
+        metadata: {
+          warnings: validation.warnings,
+        },
+      });
+    } catch (error) {
+      await this.auditService.log({
+        action: TiramisAuditAction.VALIDATION_FAILED,
+        requestType: params.requestType,
+        sourceModule: params.sourceModule,
+        sourceRecordId: params.sourceRecordId,
+        businessReference: params.businessReference,
+        sourceCompanyId,
+        success: false,
+        error,
+        authContext: params.authContext,
+        metadata: {
+          payloadSource: builtPayload.source,
+        },
+      });
+
+      await this.notificationService.notifyValidationFailed({
+        requestType: params.requestType,
+        sourceCompanyId,
+        sourceUserId: params.authContext?.userId || null,
+        sourceModule: params.sourceModule,
+        sourceRecordId: params.sourceRecordId,
+        businessReference:
+          params.businessReference ||
+          this.resolveBusinessReference(
+            params.requestType,
+            builtPayload.payload,
+          ) ||
+          params.sourceRecordId,
+        errors: (error as any)?.response?.errors || [],
+        metadata: {
+          payloadSource: builtPayload.source,
+          warnings: (error as any)?.response?.warnings || [],
+        },
+      });
+
+      throw error;
+    }
 
     const dto: SubmitTiramisDto = {
       requestType: params.requestType,
       sourceService: 'insurance-portal-service',
-      sourceCompanyId:
-        params.authContext?.companyId ||
-        params.authContext?.activeCompanyId ||
-        null,
+      sourceCompanyId,
       sourceUserId: params.authContext?.userId || null,
       sourceModule: params.sourceModule,
       sourceRecordId: params.sourceRecordId,
@@ -313,19 +619,39 @@ export class TiramisBusinessSubmitService {
       quotationId: params.quotationId || null,
       businessReference:
         params.businessReference ||
-        this.resolveBusinessReference(params.requestType, builtPayload.payload) ||
+        this.resolveBusinessReference(
+          params.requestType,
+          builtPayload.payload,
+        ) ||
         params.sourceRecordId,
       payload: builtPayload.payload,
       forceResubmit: !!params.forceResubmit,
-      returnExisting: params.returnExisting !== false,
+      returnExisting: !!params.returnExisting,
     };
 
-    const result = await this.tiramisClientService.submit(dto, params.authContext);
+    const result = await this.tiramisClientService.submit(
+      dto,
+      params.authContext,
+    );
 
     return {
       ...result,
       payloadSource: builtPayload.source,
       submittedPayload: builtPayload.payload,
+      validation,
+    };
+  }
+
+  private hidePayload(record: any) {
+    if (!record) {
+      return null;
+    }
+
+    return {
+      ...record,
+      requestPayload: record.requestPayload ? '[hidden]' : null,
+      tiramisResponsePayload: record.tiramisResponsePayload ? '[hidden]' : null,
+      finalResponsePayload: record.finalResponsePayload ? '[hidden]' : null,
     };
   }
 
@@ -421,5 +747,4 @@ export class TiramisBusinessSubmitService {
         return null;
     }
   }
-
 }

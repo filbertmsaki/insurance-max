@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 
@@ -6,7 +6,10 @@ import { RequireTiramisPermissions } from '../auth/tiramis-permission.decorator'
 import { TiramisCompanyScopeGuard } from '../auth/tiramis-company-scope.guard';
 import { TiramisPermissionGuard } from '../auth/tiramis-permission.guard';
 import { TiramisPermissions } from '../auth/tiramis-permissions.constant';
+import { FilterTiramisAuditLogDto } from '../dto/filter-tiramis-audit-log.dto';
+import { FilterTiramisNotificationDto } from '../dto/filter-tiramis-notification.dto';
 import { TiramisDashboardQueryDto } from '../dto/tiramis-dashboard-query.dto';
+import { TiramisAccessScopeService } from '../services/tiramis-access-scope.service';
 import { TiramisAuditService } from '../services/tiramis-audit.service';
 import { TiramisMonitoringService } from '../services/tiramis-monitoring.service';
 import { TiramisNotificationService } from '../services/tiramis-notification.service';
@@ -19,7 +22,29 @@ export class TiramisAdminController {
     private readonly tiramisMonitoringService: TiramisMonitoringService,
     private readonly tiramisAuditService: TiramisAuditService,
     private readonly tiramisNotificationService: TiramisNotificationService,
+    private readonly tiramisAccessScopeService: TiramisAccessScopeService,
   ) {}
+
+  @ApiOperation({
+    summary: 'Get TIRAMIS dashboard summary, charts, and recent lists',
+  })
+  @RequireTiramisPermissions(TiramisPermissions.MONITORING_VIEW)
+  @Get('dashboard')
+  getDashboard(@Query() query: TiramisDashboardQueryDto, @Req() req: any) {
+    return this.tiramisMonitoringService.getDashboard(
+      query,
+      this.getScope(req),
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Get TIRAMIS integration health status',
+  })
+  @RequireTiramisPermissions(TiramisPermissions.MONITORING_VIEW)
+  @Get('health')
+  getHealth(@Query() query: TiramisDashboardQueryDto, @Req() req: any) {
+    return this.tiramisMonitoringService.getHealth(query, this.getScope(req));
+  }
 
   @ApiOperation({
     summary: 'List TIRAMIS submissions with filters and pagination',
@@ -99,7 +124,23 @@ export class TiramisAdminController {
   @RequireTiramisPermissions(TiramisPermissions.MONITORING_VIEW)
   @Get('submissions/:id')
   getSubmission(@Param('id') id: string, @Req() req: any) {
-    return this.tiramisMonitoringService.getSubmission(id, this.getAuthContext(req));
+    return this.tiramisMonitoringService.getSubmissionScoped(
+      id,
+      this.getAuthContext(req),
+      this.getScope(req),
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Get TIRAMIS tracking timeline from audit logs and notifications',
+  })
+  @RequireTiramisPermissions(TiramisPermissions.MONITORING_VIEW)
+  @Get('submissions/:id/timeline')
+  getSubmissionTimeline(@Param('id') id: string, @Req() req: any) {
+    return this.tiramisMonitoringService.getTrackingTimeline(
+      id,
+      this.getScope(req),
+    );
   }
 
   @ApiOperation({
@@ -107,8 +148,25 @@ export class TiramisAdminController {
   })
   @RequireTiramisPermissions(TiramisPermissions.RETRY)
   @Post('submissions/:id/retry')
-  retryOne(@Param('id') id: string) {
-    return this.tiramisMonitoringService.retryOne(id);
+  retryOne(@Param('id') id: string, @Req() req: any) {
+    return this.tiramisMonitoringService.retryOne(id, this.getScope(req));
+  }
+
+  @ApiOperation({
+    summary: 'Schedule one TIRAMIS submission for retry',
+  })
+  @RequireTiramisPermissions(TiramisPermissions.RETRY)
+  @Post('submissions/:id/schedule-retry')
+  scheduleRetry(
+    @Param('id') id: string,
+    @Body('reason') reason?: string,
+    @Req() req?: any,
+  ) {
+    return this.tiramisMonitoringService.scheduleRetry(
+      id,
+      reason,
+      this.getScope(req),
+    );
   }
 
   @ApiOperation({
@@ -116,8 +174,8 @@ export class TiramisAdminController {
   })
   @RequireTiramisPermissions(TiramisPermissions.SYNC)
   @Post('submissions/:id/sync')
-  syncOne(@Param('id') id: string) {
-    return this.tiramisMonitoringService.syncOne(id);
+  syncOne(@Param('id') id: string, @Req() req: any) {
+    return this.tiramisMonitoringService.syncOne(id, this.getScope(req));
   }
 
   @ApiOperation({
@@ -125,126 +183,199 @@ export class TiramisAdminController {
   })
   @RequireTiramisPermissions(TiramisPermissions.SYNC)
   @Post('submissions/:id/sync-business-record')
-  syncBusinessRecord(@Param('id') id: string) {
-    return this.tiramisMonitoringService.syncBusinessRecord(id);
+  syncBusinessRecord(@Param('id') id: string, @Req() req: any) {
+    return this.tiramisMonitoringService.syncBusinessRecord(
+      id,
+      this.getScope(req),
+    );
   }
 
   @ApiOperation({
-    summary: 'Get recent TIRAMIS audit logs',
+    summary: 'Search TIRAMIS audit logs with filters',
   })
-  @ApiQuery({ name: 'limit', required: false, example: 100 })
-  @RequireTiramisPermissions(TiramisPermissions.MONITORING_VIEW)
+  @RequireTiramisPermissions(TiramisPermissions.AUDIT_VIEW)
   @Get('audit-logs')
-  getRecentAuditLogs(@Query('limit') limit?: string) {
-    return this.tiramisAuditService.findRecent(Number(limit || 100));
+  getAuditLogs(@Query() query: FilterTiramisAuditLogDto, @Req() req: any) {
+    return this.tiramisAuditService.search(query, this.getScope(req));
+  }
+
+  @ApiOperation({
+    summary: 'Get one TIRAMIS audit log by ID',
+  })
+  @RequireTiramisPermissions(TiramisPermissions.AUDIT_VIEW)
+  @Get('audit-logs/:id')
+  getAuditLogById(@Param('id') id: string, @Req() req: any) {
+    return this.tiramisAuditService.findById(id, this.getScope(req));
   }
 
   @ApiOperation({
     summary: 'Get TIRAMIS audit logs by local tracking ID',
   })
-  @RequireTiramisPermissions(TiramisPermissions.MONITORING_VIEW)
+  @RequireTiramisPermissions(TiramisPermissions.AUDIT_VIEW)
   @Get('submissions/:id/audit-logs')
-  getAuditLogsByTrackingId(@Param('id') id: string) {
-    return this.tiramisAuditService.findByTrackingId(id);
+  getAuditLogsByTrackingId(@Param('id') id: string, @Req() req: any) {
+    return this.tiramisAuditService.findByTrackingId(id, this.getScope(req));
   }
 
   @ApiOperation({
     summary: 'Get TIRAMIS audit logs by business reference',
   })
-  @RequireTiramisPermissions(TiramisPermissions.MONITORING_VIEW)
+  @RequireTiramisPermissions(TiramisPermissions.AUDIT_VIEW)
   @Get('audit-logs/business-reference/:businessReference')
   getAuditLogsByBusinessReference(
     @Param('businessReference') businessReference: string,
+    @Req() req: any,
   ) {
-    return this.tiramisAuditService.findByBusinessReference(businessReference);
+    return this.tiramisAuditService.findByBusinessReference(
+      businessReference,
+      this.getScope(req),
+    );
   }
 
   @ApiOperation({
-    summary: 'Get recent TIRAMIS notifications',
+    summary: 'Get TIRAMIS audit timeline by correlation ID',
   })
-  @ApiQuery({ name: 'limit', required: false, example: 50 })
-  @RequireTiramisPermissions(TiramisPermissions.MONITORING_VIEW)
+  @RequireTiramisPermissions(TiramisPermissions.AUDIT_VIEW)
+  @Get('audit-logs/correlation/:correlationId')
+  getAuditLogsByCorrelationId(
+    @Param('correlationId') correlationId: string,
+    @Req() req: any,
+  ) {
+    return this.tiramisAuditService.findByCorrelationId(
+      correlationId,
+      this.getScope(req),
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Search TIRAMIS notifications with filters',
+  })
+  @RequireTiramisPermissions(TiramisPermissions.NOTIFICATION_VIEW)
   @Get('notifications')
-  getRecentNotifications(@Query('limit') limit?: string) {
-    return this.tiramisNotificationService.findRecent(Number(limit || 50));
+  getNotifications(
+    @Query() query: FilterTiramisNotificationDto,
+    @Req() req: any,
+  ) {
+    return this.tiramisNotificationService.search(query, this.getScope(req));
+  }
+
+  @ApiOperation({
+    summary: 'Get TIRAMIS notification summary',
+  })
+  @RequireTiramisPermissions(TiramisPermissions.NOTIFICATION_VIEW)
+  @Get('notifications/summary')
+  getNotificationSummary(@Req() req: any) {
+    return this.tiramisNotificationService.getSummary(this.getScope(req));
   }
 
   @ApiOperation({
     summary: 'Get unread TIRAMIS notifications',
   })
   @ApiQuery({ name: 'limit', required: false, example: 50 })
-  @RequireTiramisPermissions(TiramisPermissions.MONITORING_VIEW)
+  @RequireTiramisPermissions(TiramisPermissions.NOTIFICATION_VIEW)
   @Get('notifications/unread')
-  getUnreadNotifications(@Query('limit') limit?: string) {
-    return this.tiramisNotificationService.findUnread(Number(limit || 50));
+  getUnreadNotifications(@Query('limit') limit?: string, @Req() req?: any) {
+    return this.tiramisNotificationService.findUnread(
+      Number(limit || 50),
+      this.getScope(req),
+    );
   }
 
   @ApiOperation({
     summary: 'Get notifications by local tracking ID',
   })
-  @RequireTiramisPermissions(TiramisPermissions.MONITORING_VIEW)
+  @RequireTiramisPermissions(TiramisPermissions.NOTIFICATION_VIEW)
   @Get('submissions/:id/notifications')
-  getNotificationsByTrackingId(@Param('id') id: string) {
-    return this.tiramisNotificationService.findByTrackingId(id);
+  getNotificationsByTrackingId(@Param('id') id: string, @Req() req: any) {
+    return this.tiramisNotificationService.findByTrackingId(
+      id,
+      this.getScope(req),
+    );
   }
 
   @ApiOperation({
     summary: 'Get notifications by business reference',
   })
-  @RequireTiramisPermissions(TiramisPermissions.MONITORING_VIEW)
+  @RequireTiramisPermissions(TiramisPermissions.NOTIFICATION_VIEW)
   @Get('notifications/business-reference/:businessReference')
   getNotificationsByBusinessReference(
     @Param('businessReference') businessReference: string,
+    @Req() req: any,
   ) {
     return this.tiramisNotificationService.findByBusinessReference(
       businessReference,
+      this.getScope(req),
     );
   }
 
   @ApiOperation({
     summary: 'Mark one TIRAMIS notification as read',
   })
-  @RequireTiramisPermissions(TiramisPermissions.MONITORING_VIEW)
+  @RequireTiramisPermissions(TiramisPermissions.NOTIFICATION_VIEW)
   @Post('notifications/:id/read')
   markNotificationRead(@Param('id') id: string, @Req() req: any) {
     return this.tiramisNotificationService.markRead(
       id,
       req.user?.id || req.user?.sub || null,
+      this.getScope(req),
+    );
+  }
+
+  @ApiOperation({
+    summary: 'Mark one TIRAMIS notification as unread',
+  })
+  @RequireTiramisPermissions(TiramisPermissions.NOTIFICATION_VIEW)
+  @Post('notifications/:id/unread')
+  markNotificationUnread(@Param('id') id: string, @Req() req: any) {
+    return this.tiramisNotificationService.markUnread(id, this.getScope(req));
+  }
+
+  @ApiOperation({
+    summary: 'Dismiss one TIRAMIS notification',
+  })
+  @RequireTiramisPermissions(TiramisPermissions.NOTIFICATION_VIEW)
+  @Post('notifications/:id/dismiss')
+  dismissNotification(@Param('id') id: string, @Req() req: any) {
+    return this.tiramisNotificationService.dismiss(
+      id,
+      req.user?.id || req.user?.sub || null,
+      this.getScope(req),
     );
   }
 
   @ApiOperation({
     summary: 'Mark all TIRAMIS notifications as read',
   })
-  @RequireTiramisPermissions(TiramisPermissions.MONITORING_VIEW)
+  @RequireTiramisPermissions(TiramisPermissions.NOTIFICATION_VIEW)
   @Post('notifications/read-all')
   markAllNotificationsRead(@Req() req: any) {
+    const scope = this.getScope(req);
+
     return this.tiramisNotificationService.markAllRead(
-      req.user?.id || req.user?.sub || null,
+      {
+        userId: req.user?.id || req.user?.sub || null,
+        sourceCompanyId: scope.companyId,
+        canAccessAllCompanies: scope.canAccessAllCompanies,
+      },
     );
   }
 
   private getScope(req: any) {
-    const roles = [
-      ...(Array.isArray(req?.user?.role_codes) ? req.user.role_codes : []),
-      ...(Array.isArray(req?.user?.roleCodes) ? req.user.roleCodes : []),
-      ...(Array.isArray(req?.user?.roles) ? req.user.roles : []),
-    ].map((role) => String(role).toLowerCase());
+    const authContext = this.getAuthContext(req);
+    const scope = this.tiramisAccessScopeService.resolveScope(authContext);
 
     return {
-      companyId:
-        req?.user?.companyId ||
-        req?.user?.active_company_id ||
-        req?.user?.activeCompanyId ||
-        null,
-      canAccessAllCompanies:
-        roles.includes('super_admin') || roles.includes('platform_admin'),
+      companyId: scope.companyId,
+      canAccessAllCompanies: scope.canAccessAllCompanies,
     };
   }
 
   private getAuthContext(req: any) {
     return {
       userId: req?.user?.id || req?.user?.sub || null,
+      sub: req?.user?.sub || null,
+      email: req?.user?.email || null,
+      userType: req?.user?.user_type || req?.user?.userType || null,
       companyId:
         req?.user?.companyId ||
         req?.user?.active_company_id ||
@@ -255,6 +386,32 @@ export class TiramisAdminController {
         req?.user?.activeCompanyId ||
         req?.user?.companyId ||
         null,
+      branchId:
+        req?.user?.branchId ||
+        req?.user?.active_branch_id ||
+        req?.user?.activeBranchId ||
+        null,
+      activeBranchId:
+        req?.user?.active_branch_id ||
+        req?.user?.activeBranchId ||
+        req?.user?.branchId ||
+        null,
+      permissionCodes:
+        req?.user?.permission_codes ||
+        req?.user?.permissionCodes ||
+        req?.user?.permissions ||
+        [],
+      roleCodes:
+        req?.user?.role_codes ||
+        req?.user?.roleCodes ||
+        req?.user?.roles ||
+        [],
+      correlationId:
+        req?.headers?.['x-correlation-id'] ||
+        req?.headers?.['x-request-id'] ||
+        null,
+      method: req?.method || null,
+      endpoint: req?.originalUrl || req?.url || null,
       ipAddress:
         req?.ip ||
         req?.headers?.['x-forwarded-for'] ||

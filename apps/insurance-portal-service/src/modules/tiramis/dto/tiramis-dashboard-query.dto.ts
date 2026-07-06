@@ -10,6 +10,16 @@ import { TiramisRequestType } from '../enums/tiramis-request-type.enum';
 import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum';
 
 export class TiramisDashboardQueryDto {
+  @ApiPropertyOptional({ example: '2026-07-01' })
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @ApiPropertyOptional({ example: '2026-07-31' })
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @IsString()
@@ -34,6 +44,11 @@ export class TiramisDashboardQueryDto {
   @IsOptional()
   @IsString()
   sourceModule?: string;
+
+  @ApiPropertyOptional({ example: 'company-uuid' })
+  @IsOptional()
+  @IsString()
+  companyId?: string;
 
   @ApiPropertyOptional({ example: 'company-uuid' })
   @IsOptional()

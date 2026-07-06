@@ -4,6 +4,7 @@ import { TiramisDashboardQueryDto } from '../dto/tiramis-dashboard-query.dto';
 import { TiramisAuditAction } from '../enums/tiramis-audit-action.enum';
 import { TiramisSubmissionTrackingRepository } from '../repositories/tiramis-submission-tracking.repository';
 import { TiramisBusinessRecordSyncService } from './tiramis-business-record-sync.service';
+import { TiramisDashboardService } from './tiramis-dashboard.service';
 import { TiramisRetryService } from './tiramis-retry.service';
 import { TiramisStatusSyncService } from './tiramis-status-sync.service';
 import { TiramisAuditService } from './tiramis-audit.service';
@@ -11,12 +12,43 @@ import { TiramisAuditService } from './tiramis-audit.service';
 @Injectable()
 export class TiramisMonitoringService {
   constructor(
+    private readonly dashboardService: TiramisDashboardService,
     private readonly trackingRepository: TiramisSubmissionTrackingRepository,
     private readonly statusSyncService: TiramisStatusSyncService,
     private readonly retryService: TiramisRetryService,
     private readonly businessRecordSyncService: TiramisBusinessRecordSyncService,
     private readonly auditService: TiramisAuditService,
   ) {}
+
+  getDashboard(
+    query: TiramisDashboardQueryDto,
+    scope?: {
+      companyId?: string | null;
+      canAccessAllCompanies?: boolean;
+    },
+  ) {
+    return this.dashboardService.getDashboard(query, scope);
+  }
+
+  getHealth(
+    query: TiramisDashboardQueryDto,
+    scope?: {
+      companyId?: string | null;
+      canAccessAllCompanies?: boolean;
+    },
+  ) {
+    return this.dashboardService.getHealth(query, scope);
+  }
+
+  getTrackingTimeline(
+    localTrackingId: string,
+    scope?: {
+      companyId?: string | null;
+      canAccessAllCompanies?: boolean;
+    },
+  ) {
+    return this.dashboardService.getTrackingTimeline(localTrackingId, scope);
+  }
 
   getSubmissions(
     query: TiramisDashboardQueryDto,
@@ -105,9 +137,28 @@ export class TiramisMonitoringService {
   }
 
   async getSubmission(id: string, authContext?: any) {
+    return this.getSubmissionScoped(id, authContext);
+  }
+
+  async getSubmissionScoped(
+    id: string,
+    authContext?: any,
+    scope?: {
+      companyId?: string | null;
+      canAccessAllCompanies?: boolean;
+    },
+  ) {
     const tracking = await this.trackingRepository.findById(id);
 
     if (!tracking) {
+      throw new BadRequestException('TIRAMIS tracking record not found');
+    }
+
+    if (
+      scope?.companyId &&
+      !scope.canAccessAllCompanies &&
+      String(tracking.sourceCompanyId || '') !== String(scope.companyId)
+    ) {
       throw new BadRequestException('TIRAMIS tracking record not found');
     }
 
@@ -121,24 +172,60 @@ export class TiramisMonitoringService {
     return tracking;
   }
 
-  retryOne(id: string) {
+  async retryOne(
+    id: string,
+    scope?: {
+      companyId?: string | null;
+      canAccessAllCompanies?: boolean;
+    },
+  ) {
+    await this.getSubmissionScoped(id, null, scope);
     return this.retryService.retryOne(id);
   }
 
   retryAll() {
-    return this.retryService.retryPendingSubmissions();
+    return this.retryService.retryPendingSubmissions({
+      automatic: false,
+    });
   }
 
-  syncOne(id: string) {
+  async scheduleRetry(
+    id: string,
+    reason?: string,
+    scope?: {
+      companyId?: string | null;
+      canAccessAllCompanies?: boolean;
+    },
+  ) {
+    await this.getSubmissionScoped(id, null, scope);
+    return this.retryService.scheduleRetry(id, reason);
+  }
+
+  async syncOne(
+    id: string,
+    scope?: {
+      companyId?: string | null;
+      canAccessAllCompanies?: boolean;
+    },
+  ) {
+    await this.getSubmissionScoped(id, null, scope);
     return this.statusSyncService.syncOne(id);
   }
 
   syncAll() {
-    return this.statusSyncService.syncPendingFinalStatuses();
+    return this.statusSyncService.syncPendingFinalStatuses({
+      automatic: false,
+    });
   }
 
-  async syncBusinessRecord(id: string) {
-    const tracking = await this.getSubmission(id);
+  async syncBusinessRecord(
+    id: string,
+    scope?: {
+      companyId?: string | null;
+      canAccessAllCompanies?: boolean;
+    },
+  ) {
+    const tracking = await this.getSubmissionScoped(id, null, scope);
 
     const result = await this.businessRecordSyncService.syncFromTracking(
       tracking,

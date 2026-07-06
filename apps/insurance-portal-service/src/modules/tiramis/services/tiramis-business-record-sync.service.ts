@@ -76,42 +76,52 @@ export class TiramisBusinessRecordSyncService {
     try {
       const tableName = this.quoteIdentifier(mapping.tableName);
       const idColumn = this.quoteIdentifier(mapping.idColumn);
+      const updateEntries: Array<[string, any]> = [
+        ['tiramis_submission_tracking_id', tracking.id],
+        ['tiramis_status', tracking.status],
+        ['tiramis_transaction_id', tracking.tiramisTransactionId || null],
+        ['tiramis_request_id', tracking.tiramisRequestId || null],
+        ['tiramis_service_type', tracking.tiramisServiceType || null],
+        ['tiramis_root_element', tracking.tiramisRootElement || null],
+        [
+          'tiramis_acknowledgement_status_code',
+          tracking.acknowledgementStatusCode || null,
+        ],
+        [
+          'tiramis_acknowledgement_status_desc',
+          tracking.acknowledgementStatusDesc || null,
+        ],
+        ['tiramis_final_response_id', tracking.finalResponseId || null],
+        [
+          'tiramis_final_response_status_code',
+          tracking.finalResponseStatusCode || null,
+        ],
+        [
+          'tiramis_final_response_status_desc',
+          tracking.finalResponseStatusDesc || null,
+        ],
+        ['tiramis_last_error_message', tracking.lastErrorMessage || null],
+      ];
+      const filteredEntries = updateEntries.filter(
+        ([, value]) => value !== undefined,
+      );
+      const setClauses = filteredEntries.map(
+        ([column], index) => `${this.quoteIdentifier(column)} = $${index + 1}`,
+      );
 
       const sql = `
         UPDATE ${tableName}
         SET
-          tiramis_submission_tracking_id = $1,
-          tiramis_status = $2,
-          tiramis_transaction_id = $3,
-          tiramis_request_id = $4,
-          tiramis_service_type = $5,
-          tiramis_root_element = $6,
-          tiramis_acknowledgement_status_code = $7,
-          tiramis_acknowledgement_status_desc = $8,
-          tiramis_final_response_id = $9,
-          tiramis_final_response_status_code = $10,
-          tiramis_final_response_status_desc = $11,
-          tiramis_last_error_message = $12,
+          ${setClauses.join(',\n          ')},
           tiramis_last_synced_at = now(),
           updated_at = now()
-        WHERE ${idColumn} = $13
+        WHERE ${idColumn} = $${filteredEntries.length + 1}
       `;
 
-      await this.dataSource.query(sql, [
-        tracking.id,
-        tracking.status,
-        tracking.tiramisTransactionId || null,
-        tracking.tiramisRequestId || null,
-        tracking.tiramisServiceType || null,
-        tracking.tiramisRootElement || null,
-        tracking.acknowledgementStatusCode || null,
-        tracking.acknowledgementStatusDesc || null,
-        tracking.finalResponseId || null,
-        tracking.finalResponseStatusCode || null,
-        tracking.finalResponseStatusDesc || null,
-        tracking.lastErrorMessage || null,
-        tracking.sourceRecordId,
-      ]);
+      await this.dataSource.query(
+        sql,
+        [...filteredEntries.map(([, value]) => value), tracking.sourceRecordId],
+      );
 
       await this.trackingRepository.markBusinessRecordSynced(tracking.id);
 
@@ -122,6 +132,15 @@ export class TiramisBusinessRecordSyncService {
         metadata: {
           tableName: mapping.tableName,
           sourceRecordId: tracking.sourceRecordId,
+        },
+      });
+
+      await this.notificationService.notifyBusinessRecordSyncSuccess({
+        tracking,
+        metadata: {
+          tableName: mapping.tableName,
+          sourceRecordId: tracking.sourceRecordId,
+          updatedColumns: filteredEntries.map(([column]) => column),
         },
       });
 
@@ -138,13 +157,14 @@ export class TiramisBusinessRecordSyncService {
         }`,
       );
 
-      await this.trackingRepository.markBusinessRecordSyncFailed(
+      const failedTracking =
+        await this.trackingRepository.markBusinessRecordSyncFailed(
         tracking.id,
         error,
       );
 
       await this.notificationService.notifyBusinessRecordSyncFailed({
-        tracking,
+        tracking: failedTracking || tracking,
         error,
         metadata: {
           sourceRecordId: tracking.sourceRecordId,
@@ -153,7 +173,7 @@ export class TiramisBusinessRecordSyncService {
 
       await this.auditService.logFromTracking({
         action: TiramisAuditAction.BUSINESS_RECORD_SYNC_FAILED,
-        tracking,
+        tracking: failedTracking || tracking,
         success: false,
         error,
         metadata: {

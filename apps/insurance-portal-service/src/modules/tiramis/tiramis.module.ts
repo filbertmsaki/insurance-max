@@ -21,8 +21,12 @@ import {
   TiramisClientService,
 } from './services/tiramis-client.service';
 import { TiramisBusinessRecordSyncService } from './services/tiramis-business-record-sync.service';
+import { TiramisBusinessSchemaService } from './services/tiramis-business-schema.service';
+import { TiramisDashboardService } from './services/tiramis-dashboard.service';
+import { TiramisAccessScopeService } from './services/tiramis-access-scope.service';
 import { TiramisBusinessPayloadBuilderService } from './services/tiramis-business-payload-builder.service';
 import { TiramisBusinessSubmitService } from './services/tiramis-business-submit.service';
+import { TiramisBusinessValidationService } from './services/tiramis-business-validation.service';
 import { TiramisAuditService } from './services/tiramis-audit.service';
 import { TiramisMonitoringService } from './services/tiramis-monitoring.service';
 import { TiramisNotificationService } from './services/tiramis-notification.service';
@@ -71,7 +75,11 @@ import { TiramisStatusSyncService } from './services/tiramis-status-sync.service
     TiramisNotificationService,
     TiramisStatusSyncService,
     TiramisBusinessRecordSyncService,
+    TiramisBusinessSchemaService,
+    TiramisDashboardService,
+    TiramisAccessScopeService,
     TiramisBusinessPayloadBuilderService,
+    TiramisBusinessValidationService,
     TiramisBusinessSubmitService,
     TiramisRetryService,
     TiramisMonitoringService,
@@ -87,7 +95,11 @@ import { TiramisStatusSyncService } from './services/tiramis-status-sync.service
     TiramisNotificationService,
     TiramisStatusSyncService,
     TiramisBusinessRecordSyncService,
+    TiramisBusinessSchemaService,
+    TiramisDashboardService,
+    TiramisAccessScopeService,
     TiramisBusinessPayloadBuilderService,
+    TiramisBusinessValidationService,
     TiramisBusinessSubmitService,
     TiramisRetryService,
     TiramisMonitoringService,

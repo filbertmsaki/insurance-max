@@ -1,12 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
-import { TiramisBusinessRecordSyncService } from './tiramis-business-record-sync.service';
 import { TiramisAuditAction } from '../enums/tiramis-audit-action.enum';
 import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum';
+import { TiramisSubmissionTrackingEntity } from '../entities/tiramis-submission-tracking.entity';
 import { TiramisSubmissionTrackingRepository } from '../repositories/tiramis-submission-tracking.repository';
-import { TiramisClientService } from './tiramis-client.service';
 import { TiramisAuditService } from './tiramis-audit.service';
+import { TiramisBusinessRecordSyncService } from './tiramis-business-record-sync.service';
+import { TiramisClientService } from './tiramis-client.service';
 import { TiramisNotificationService } from './tiramis-notification.service';
 
 @Injectable()
@@ -23,12 +24,17 @@ export class TiramisStatusSyncService {
     private readonly notificationService: TiramisNotificationService,
   ) {}
 
-  /**
-   * Runs every 2 minutes.
-   * Increase/decrease based on traffic and TIRA callback speed.
-   */
-  @Cron('*/2 * * * *')
-  async syncPendingFinalStatuses() {
+  @Cron(process.env.TIRAMIS_STATUS_SYNC_CRON || '*/2 * * * *')
+  async handleCron() {
+    return this.syncPendingFinalStatuses({
+      automatic: true,
+    });
+  }
+
+  async syncPendingFinalStatuses(options?: {
+    automatic?: boolean;
+    limit?: number;
+  }) {
     if (process.env.TIRAMIS_STATUS_SYNC_ENABLED === 'false') {
       return {
         skipped: true,
@@ -38,6 +44,7 @@ export class TiramisStatusSyncService {
 
     if (this.isRunning) {
       this.logger.warn('TIRAMIS status sync already running, skipping');
+
       return {
         skipped: true,
         reason: 'already_running',
@@ -47,57 +54,51 @@ export class TiramisStatusSyncService {
     this.isRunning = true;
 
     try {
-      const limit = Number(process.env.TIRAMIS_STATUS_SYNC_LIMIT || 50);
-      const records = await this.trackingRepository.findPendingFinalSync(limit);
+      const limit = Number(
+        options?.limit || process.env.TIRAMIS_STATUS_SYNC_LIMIT || 50,
+      );
 
-      let synced = 0;
-      let updatedFinal = 0;
-      let failed = 0;
+      const callbackOverdueMinutes = Number(
+        process.env.TIRAMIS_CALLBACK_OVERDUE_MINUTES || 10,
+      );
+
+      const records = await this.trackingRepository.findStatusSyncCandidates({
+        limit,
+        callbackOverdueMinutes,
+      });
+
+      const result = {
+        scanned: records.length,
+        synced: 0,
+        finalSuccess: 0,
+        finalFailed: 0,
+        callbackOverdue: 0,
+        noChange: 0,
+        failed: 0,
+        items: [] as any[],
+      };
 
       for (const record of records) {
         try {
-          const response = await this.tiramisClientService.getStatus({
-            transactionId: record.tiramisTransactionId || undefined,
-            requestId: record.tiramisRequestId || undefined,
-            businessReference: record.businessReference || undefined,
-            includePayload: true,
+          const item = await this.syncTrackingRecord(record, {
+            automatic: !!options?.automatic,
+            callbackOverdueMinutes,
           });
 
-          const updated = await this.trackingRepository.markFinalFromTiramisStatus(
-            record.id,
-            response,
-          );
-          await this.businessRecordSyncService.syncFromTracking(updated);
+          result.items.push(item);
+          result.synced += 1;
 
-          if (updated?.status === TiramisSubmissionStatus.FINAL_FAILED) {
-            await this.notificationService.notifyFinalResponseFailed({
-              tracking: updated,
-              metadata: {
-                automatic: true,
-              },
-            });
-          }
-
-          await this.auditService.logFromTracking({
-            action: TiramisAuditAction.STATUS_SYNC_SUCCESS,
-            tracking: updated,
-            statusBefore: record.status,
-            success: true,
-            metadata: {
-              automatic: true,
-            },
-          });
-
-          synced += 1;
-
-          if (
-            updated?.status === 'FINAL_SUCCESS' ||
-            updated?.status === 'FINAL_FAILED'
-          ) {
-            updatedFinal += 1;
+          if (item.status === TiramisSubmissionStatus.FINAL_SUCCESS) {
+            result.finalSuccess += 1;
+          } else if (item.status === TiramisSubmissionStatus.FINAL_FAILED) {
+            result.finalFailed += 1;
+          } else if (item.status === TiramisSubmissionStatus.CALLBACK_OVERDUE) {
+            result.callbackOverdue += 1;
+          } else {
+            result.noChange += 1;
           }
         } catch (error: any) {
-          failed += 1;
+          result.failed += 1;
 
           this.logger.warn(
             `Failed to sync TIRAMIS status for local tracking ${record.id}: ${
@@ -106,7 +107,7 @@ export class TiramisStatusSyncService {
           );
 
           await this.trackingRepository.markSyncChecked(record.id, {
-            syncError: error?.response || error?.message || error,
+            syncError: error?.response || error?.message || String(error),
           });
 
           await this.auditService.logFromTracking({
@@ -116,18 +117,21 @@ export class TiramisStatusSyncService {
             success: false,
             error,
             metadata: {
-              automatic: true,
+              automatic: !!options?.automatic,
+            },
+          });
+
+          await this.notificationService.notifyStatusSyncFailed({
+            tracking: record,
+            error,
+            metadata: {
+              automatic: !!options?.automatic,
             },
           });
         }
       }
 
-      return {
-        scanned: records.length,
-        synced,
-        updatedFinal,
-        failed,
-      };
+      return result;
     } finally {
       this.isRunning = false;
     }
@@ -153,44 +157,202 @@ export class TiramisStatusSyncService {
       },
     });
 
-    const response = await this.tiramisClientService.getStatus({
-      transactionId: record.tiramisTransactionId || undefined,
-      requestId: record.tiramisRequestId || undefined,
-      businessReference: record.businessReference || undefined,
-      includePayload: true,
-    });
-
-    const updated = await this.trackingRepository.markFinalFromTiramisStatus(
-      record.id,
-      response,
-    );
-    const businessRecordSync =
-      await this.businessRecordSyncService.syncFromTracking(updated);
-
-    if (updated?.status === TiramisSubmissionStatus.FINAL_FAILED) {
-      await this.notificationService.notifyFinalResponseFailed({
-        tracking: updated,
-        metadata: {
-          manual: true,
-        },
-      });
-    }
-
-    await this.auditService.logFromTracking({
-      action: TiramisAuditAction.STATUS_SYNC_SUCCESS,
-      tracking: updated,
-      statusBefore: record.status,
-      success: true,
-      metadata: {
-        manual: true,
-      },
+    const item = await this.syncTrackingRecord(record, {
+      automatic: false,
+      callbackOverdueMinutes: Number(
+        process.env.TIRAMIS_CALLBACK_OVERDUE_MINUTES || 10,
+      ),
     });
 
     return {
       found: true,
-      updated,
+      ...item,
+    };
+  }
+
+  async syncLatestBusinessRecord(params: {
+    sourceModule: string;
+    sourceRecordId: string;
+    requestType?: string | null;
+    sourceCompanyId?: string | null;
+    canAccessAllCompanies?: boolean;
+  }) {
+    const latest = await this.trackingRepository.findLatestByBusinessRecord({
+      sourceModule: params.sourceModule,
+      sourceRecordId: params.sourceRecordId,
+      requestType: params.requestType || null,
+      sourceCompanyId: params.sourceCompanyId || null,
+      canAccessAllCompanies: !!params.canAccessAllCompanies,
+    });
+
+    if (!latest) {
+      return {
+        found: false,
+        message: 'No TIRAMIS tracking record found for this business record',
+        sourceModule: params.sourceModule,
+        sourceRecordId: params.sourceRecordId,
+        requestType: params.requestType || null,
+      };
+    }
+
+    return this.syncOne(latest.id);
+  }
+
+  private async syncTrackingRecord(
+    record: TiramisSubmissionTrackingEntity,
+    options: {
+      automatic: boolean;
+      callbackOverdueMinutes: number;
+    },
+  ) {
+    const statusBefore = record.status;
+
+    const response = await this.tiramisClientService.getStatus({
+      transactionId: record.tiramisTransactionId || undefined,
+      requestId: record.tiramisRequestId || undefined,
+      businessReference: record.businessReference || undefined,
+      includePayload:
+        process.env.TIRAMIS_STATUS_SYNC_INCLUDE_PAYLOAD !== 'false',
+    });
+
+    let updated = await this.trackingRepository.markFinalFromTiramisStatus(
+      record.id,
+      response,
+    );
+
+    if (!updated) {
+      return {
+        trackingId: record.id,
+        statusBefore,
+        status: record.status,
+        changed: false,
+        reason: 'tracking_update_failed',
+        tiramis: response,
+      };
+    }
+
+    if (
+      !this.hasFinalResponse(updated) &&
+      this.isCallbackOverdue(updated, options.callbackOverdueMinutes)
+    ) {
+      updated = await this.trackingRepository.markCallbackOverdue(updated.id, {
+        reason: `Final callback is overdue after ${options.callbackOverdueMinutes} minutes`,
+        response,
+      });
+
+      if (!updated) {
+        return {
+          trackingId: record.id,
+          statusBefore,
+          status: record.status,
+          changed: false,
+          reason: 'callback_overdue_update_failed',
+          tiramis: response,
+        };
+      }
+    }
+
+    const businessRecordSync =
+      await this.businessRecordSyncService.syncFromTracking(updated);
+
+    await this.sendFinalNotifications(updated, {
+      automatic: options.automatic,
+    });
+
+    await this.auditService.logFromTracking({
+      action: TiramisAuditAction.STATUS_SYNC_SUCCESS,
+      tracking: updated,
+      statusBefore,
+      success: true,
+      metadata: {
+        automatic: options.automatic,
+        businessRecordSync,
+      },
+    });
+
+    return {
+      trackingId: updated.id,
+      statusBefore,
+      status: updated.status,
+      changed: statusBefore !== updated.status,
       businessRecordSync,
       tiramis: response,
     };
+  }
+
+  private hasFinalResponse(record: TiramisSubmissionTrackingEntity): boolean {
+    return (
+      !!record.finalResponseId ||
+      !!record.finalResponseStatusCode ||
+      record.status === TiramisSubmissionStatus.FINAL_SUCCESS ||
+      record.status === TiramisSubmissionStatus.FINAL_FAILED
+    );
+  }
+
+  private isCallbackOverdue(
+    record: TiramisSubmissionTrackingEntity,
+    overdueMinutes: number,
+  ): boolean {
+    if (
+      record.status === TiramisSubmissionStatus.FINAL_SUCCESS ||
+      record.status === TiramisSubmissionStatus.FINAL_FAILED ||
+      record.status === TiramisSubmissionStatus.ACK_FAILED ||
+      record.status === TiramisSubmissionStatus.FAILED ||
+      record.status === TiramisSubmissionStatus.RETRY_EXHAUSTED
+    ) {
+      return false;
+    }
+
+    const baseDate =
+      record.acknowledgedAt || record.submittedAt || record.createdAt || null;
+
+    if (!baseDate) {
+      return false;
+    }
+
+    const ageMs = Date.now() - new Date(baseDate).getTime();
+    const overdueMs = overdueMinutes * 60 * 1000;
+
+    return ageMs >= overdueMs;
+  }
+
+  private async sendFinalNotifications(
+    updated: TiramisSubmissionTrackingEntity,
+    metadata: Record<string, any>,
+  ) {
+    const notificationService = this.notificationService as any;
+
+    if (updated.status === TiramisSubmissionStatus.FINAL_FAILED) {
+      if (typeof notificationService.notifyFinalResponseFailed === 'function') {
+        await notificationService.notifyFinalResponseFailed({
+          tracking: updated,
+          metadata,
+        });
+      }
+
+      return;
+    }
+
+    if (updated.status === TiramisSubmissionStatus.CALLBACK_OVERDUE) {
+      if (typeof notificationService.notifyCallbackOverdue === 'function') {
+        await notificationService.notifyCallbackOverdue({
+          tracking: updated,
+          metadata,
+        });
+      }
+
+      return;
+    }
+
+    if (updated.status === TiramisSubmissionStatus.FINAL_SUCCESS) {
+      if (
+        typeof notificationService.notifyFinalResponseSuccess === 'function'
+      ) {
+        await notificationService.notifyFinalResponseSuccess({
+          tracking: updated,
+          metadata,
+        });
+      }
+    }
   }
 }

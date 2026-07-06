@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
@@ -87,19 +88,20 @@ export class SubmitTiramisDto {
 
   @ApiPropertyOptional({
     example: false,
-    description:
-      'If true, allows a new submission even when a previous failed submission exists.',
+    description: 'Allow a new submission even if an active duplicate exists.',
   })
   @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   forceResubmit?: boolean;
 
   @ApiPropertyOptional({
     example: true,
     description:
-      'If duplicate active/success submission exists, return the existing tracking record instead of throwing an error.',
+      'Return the existing active submission instead of throwing duplicate error.',
   })
   @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   returnExisting?: boolean;
 }

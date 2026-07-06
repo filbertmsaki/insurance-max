@@ -294,11 +294,17 @@ function verifyClientRequestSignature(xml) {
     const certs = loadCertificates();
     const signed = extractSignedRequest(xml);
 
-    if (!signed.hasWrapper || !signed.hasContent || !signed.hasSignature) {
+    // Note: a literal <Content> tag is NOT part of the real TIRA wire format.
+    // Per the TIRA API v1.3 spec, the actual root element (e.g. CoverNoteRefReq)
+    // sits directly inside <TiraMsg>; <Content> in the spec text is a
+    // placeholder label, not a literal tag. extractContentXml() already falls
+    // back to the full inner XML when no <Content> tag is present, so we must
+    // not hard-require signed.hasContent here.
+    if (!signed.hasWrapper || !signed.hasSignature) {
       return {
         ok: false,
         code: 'TIRA016',
-        desc: 'TiraMsg wrapper, Content, or MsgSignature is missing',
+        desc: 'TiraMsg wrapper or MsgSignature is missing',
         debug: buildSignatureDebug(signed),
       };
     }

@@ -1,13 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { randomUUID } from 'crypto';
 
 import { TiramisAuditAction } from '../enums/tiramis-audit-action.enum';
+import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum';
+import { TiramisSubmissionTrackingEntity } from '../entities/tiramis-submission-tracking.entity';
+import { TiramisSubmissionTrackingRepository } from '../repositories/tiramis-submission-tracking.repository';
+import { buildRetryLockId } from '../utils/tiramis-retry.util';
+import { TiramisAuditService } from './tiramis-audit.service';
 import { TiramisBusinessRecordSyncService } from './tiramis-business-record-sync.service';
 import { TiramisClientService } from './tiramis-client.service';
-import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum';
-import { TiramisSubmissionTrackingRepository } from '../repositories/tiramis-submission-tracking.repository';
-import { TiramisAuditService } from './tiramis-audit.service';
 import { TiramisNotificationService } from './tiramis-notification.service';
 
 @Injectable()
@@ -24,12 +25,17 @@ export class TiramisRetryService {
     private readonly notificationService: TiramisNotificationService,
   ) {}
 
-  /**
-   * Runs every 3 minutes.
-   * It retries only retryable submissions that have not reached max attempts.
-   */
-  @Cron('*/3 * * * *')
-  async retryPendingSubmissions() {
+  @Cron(process.env.TIRAMIS_RETRY_CRON || '*/3 * * * *')
+  async handleCron() {
+    return this.retryPendingSubmissions({
+      automatic: true,
+    });
+  }
+
+  async retryPendingSubmissions(options?: {
+    automatic?: boolean;
+    limit?: number;
+  }) {
     if (process.env.TIRAMIS_RETRY_ENABLED === 'false') {
       return {
         skipped: true,
@@ -47,123 +53,48 @@ export class TiramisRetryService {
     this.isRunning = true;
 
     try {
-      await this.trackingRepository.releaseStaleRetryLocks(
-        Number(process.env.TIRAMIS_RETRY_LOCK_TIMEOUT_MINUTES || 15),
+      const limit = Number(
+        options?.limit || process.env.TIRAMIS_RETRY_LIMIT || 25,
       );
 
-      const limit = Number(process.env.TIRAMIS_RETRY_LIMIT || 20);
-      const records = await this.trackingRepository.findRetryablePending(limit);
+      const candidates = await this.trackingRepository.findRetryCandidates({
+        limit,
+      });
 
-      let retried = 0;
-      let success = 0;
-      let failed = 0;
-      let exhausted = 0;
+      const result = {
+        scanned: candidates.length,
+        retried: 0,
+        success: 0,
+        failed: 0,
+        exhausted: 0,
+        skipped: 0,
+        items: [] as any[],
+      };
 
-      for (const record of records) {
-        const lockId = randomUUID();
+      for (const record of candidates) {
+        const item = await this.retryTrackingRecord(record, {
+          automatic: !!options?.automatic,
+        });
 
-        try {
-          const locked = await this.trackingRepository.markRetrying(
-            record.id,
-            lockId,
-          );
+        result.items.push(item);
 
-          await this.businessRecordSyncService.syncFromTracking(locked);
+        if (item.skipped) {
+          result.skipped += 1;
+          continue;
+        }
 
-          await this.auditService.logFromTracking({
-            action: TiramisAuditAction.RETRY_REQUESTED,
-            tracking: locked,
-            statusBefore: record.status,
-            success: true,
-            metadata: {
-              automatic: true,
-            },
-          });
+        result.retried += 1;
 
-          const response = await this.tiramisClientService.resendTrackingRecord(
-            record.id,
-          );
-
-          const updated = await this.trackingRepository.markRetrySuccess(
-            record.id,
-            response,
-          );
-
-          await this.businessRecordSyncService.syncFromTracking(updated);
-
-          retried += 1;
-
-          const failedLocally = this.isFailureLocalStatus(updated?.status);
-
-          if (failedLocally) {
-            failed += 1;
-          } else {
-            success += 1;
-          }
-
-          await this.auditService.logFromTracking({
-            action: failedLocally
-              ? TiramisAuditAction.RETRY_FAILED
-              : TiramisAuditAction.RETRY_SUCCESS,
-            tracking: updated,
-            statusBefore: record.status,
-            success: !failedLocally,
-            metadata: {
-              automatic: true,
-            },
-          });
-        } catch (error: any) {
-          retried += 1;
-          failed += 1;
-
-          this.logger.warn(
-            `Retry failed for local tracking ${record.id}: ${error?.message || error}`,
-          );
-
-          const updated = await this.trackingRepository.markRetryFailed(
-            record.id,
-            error,
-          );
-
-          await this.businessRecordSyncService.syncFromTracking(updated);
-
-          if (updated?.status === TiramisSubmissionStatus.RETRY_EXHAUSTED) {
-            await this.notificationService.notifyRetryExhausted({
-              tracking: updated,
-              error,
-              metadata: {
-                automatic: true,
-              },
-            });
-          }
-
-          await this.auditService.logFromTracking({
-            action:
-              updated?.status === TiramisSubmissionStatus.RETRY_EXHAUSTED
-                ? TiramisAuditAction.RETRY_EXHAUSTED
-                : TiramisAuditAction.RETRY_FAILED,
-            tracking: updated,
-            statusBefore: record.status,
-            success: false,
-            error,
-            metadata: {
-              automatic: true,
-            },
-          });
-
-          if (updated?.status === TiramisSubmissionStatus.RETRY_EXHAUSTED) {
-            exhausted += 1;
-          }
+        if (item.status === TiramisSubmissionStatus.RETRY_EXHAUSTED) {
+          result.exhausted += 1;
+        } else if (item.success) {
+          result.success += 1;
+        } else {
+          result.failed += 1;
         }
       }
 
-      return {
-        scanned: records.length,
-        retried,
-        success,
-        failed,
-        exhausted,
-      };
+      return result;
     } finally {
       this.isRunning = false;
     }
@@ -175,30 +106,99 @@ export class TiramisRetryService {
     if (!record) {
       return {
         found: false,
-        message: 'Local TIRAMIS tracking record not found',
+        message: 'TIRAMIS tracking record not found',
+      };
+    }
+
+    return {
+      found: true,
+      ...(await this.retryTrackingRecord(record, {
+        automatic: false,
+        force: true,
+      })),
+    };
+  }
+
+  async scheduleRetry(localTrackingId: string, reason?: string) {
+    const record = await this.trackingRepository.findById(localTrackingId);
+
+    if (!record) {
+      return {
+        found: false,
+        message: 'TIRAMIS tracking record not found',
+      };
+    }
+
+    const updated = await this.trackingRepository.markRetryScheduled(record.id, {
+      error: new Error(reason || 'Manual retry scheduled'),
+      maxRetryAttempts: Number(process.env.TIRAMIS_RETRY_MAX_ATTEMPTS || 3),
+    });
+
+    await this.businessRecordSyncService.syncFromTracking(updated);
+
+    await this.auditService.logFromTracking({
+      action: TiramisAuditAction.RETRY_REQUESTED,
+      tracking: updated || record,
+      statusBefore: record.status,
+      success: true,
+      metadata: {
+        manual: true,
+        reason,
+      },
+    });
+
+    return {
+      found: true,
+      scheduled: true,
+      tracking: updated,
+    };
+  }
+
+  private async retryTrackingRecord(
+    record: TiramisSubmissionTrackingEntity,
+    options: {
+      automatic: boolean;
+      force?: boolean;
+    },
+  ) {
+    if (!options.force && !record.isRetryable) {
+      return {
+        trackingId: record.id,
+        skipped: true,
+        reason: 'record_not_retryable',
+        status: record.status,
       };
     }
 
     if (
-      ![
-        TiramisSubmissionStatus.RETRY_PENDING,
-        TiramisSubmissionStatus.RETRY_EXHAUSTED,
-        TiramisSubmissionStatus.FAILED,
-        TiramisSubmissionStatus.UNKNOWN,
-      ].includes(record.status as TiramisSubmissionStatus)
+      !options.force &&
+      record.nextRetryAt &&
+      new Date(record.nextRetryAt).getTime() > Date.now()
     ) {
       return {
-        found: true,
-        retryAllowed: false,
-        message: `Tracking status ${record.status} is not retryable`,
-        tracking: record,
+        trackingId: record.id,
+        skipped: true,
+        reason: 'next_retry_time_not_reached',
+        status: record.status,
+        nextRetryAt: record.nextRetryAt,
       };
     }
 
-    const locked = await this.trackingRepository.markRetrying(
+    const lockId = buildRetryLockId();
+
+    const locked = await this.trackingRepository.acquireRetryLock(
       record.id,
-      randomUUID(),
+      lockId,
     );
+
+    if (!locked) {
+      return {
+        trackingId: record.id,
+        skipped: true,
+        reason: 'retry_lock_not_acquired',
+        status: record.status,
+      };
+    }
 
     await this.businessRecordSyncService.syncFromTracking(locked);
 
@@ -208,68 +208,101 @@ export class TiramisRetryService {
       statusBefore: record.status,
       success: true,
       metadata: {
-        manual: true,
+        automatic: options.automatic,
+        retryAttempts: locked.retryAttempts,
+        lockId,
       },
     });
 
     try {
       const response = await this.tiramisClientService.resendTrackingRecord(
-        record.id,
+        locked.id,
       );
 
       const updated = await this.trackingRepository.markRetrySuccess(
-        record.id,
+        locked.id,
         response,
       );
 
       await this.businessRecordSyncService.syncFromTracking(updated);
+
       const failedLocally = this.isFailureLocalStatus(updated?.status);
 
-      return {
-        found: true,
-        retryAllowed: true,
+      await this.auditService.logFromTracking({
+        action: failedLocally
+          ? TiramisAuditAction.RETRY_FAILED
+          : TiramisAuditAction.RETRY_SUCCESS,
+        tracking: updated || locked,
+        statusBefore: locked.status,
         success: !failedLocally,
+        metadata: {
+          automatic: options.automatic,
+          lockId,
+        },
+      });
+
+      return {
+        trackingId: locked.id,
+        skipped: false,
+        success: !failedLocally,
+        status: updated?.status,
         tracking: updated,
         tiramis: response,
       };
     } catch (error: any) {
-      const updated = await this.trackingRepository.markRetryFailed(
-        record.id,
-        error,
+      this.logger.warn(
+        `Retry failed for local tracking ${locked.id}: ${error?.message || error}`,
       );
 
-      await this.businessRecordSyncService.syncFromTracking(updated);
-
-      if (updated?.status === TiramisSubmissionStatus.RETRY_EXHAUSTED) {
-        await this.notificationService.notifyRetryExhausted({
-          tracking: updated,
+      const updated =
+        await this.trackingRepository.markRetryAttemptFailed(locked.id, {
           error,
-          metadata: {
-            manual: true,
-          },
         });
-      }
+
+      await this.businessRecordSyncService.syncFromTracking(updated);
 
       await this.auditService.logFromTracking({
         action:
           updated?.status === TiramisSubmissionStatus.RETRY_EXHAUSTED
             ? TiramisAuditAction.RETRY_EXHAUSTED
             : TiramisAuditAction.RETRY_FAILED,
-        tracking: updated,
-        statusBefore: record.status,
+        tracking: updated || locked,
+        statusBefore: locked.status,
         success: false,
         error,
         metadata: {
-          manual: true,
+          automatic: options.automatic,
+          lockId,
         },
       });
 
+      if (updated?.status === TiramisSubmissionStatus.RETRY_EXHAUSTED) {
+        await this.notificationService.notifyRetryExhausted({
+          tracking: updated,
+          error,
+          metadata: {
+            automatic: options.automatic,
+            lockId,
+          },
+        });
+      } else {
+        await this.notificationService.notifyRetryFailed({
+          tracking: updated,
+          error,
+          metadata: {
+            automatic: options.automatic,
+            lockId,
+          },
+        });
+      }
+
       return {
-        found: true,
-        retryAllowed: true,
+        trackingId: locked.id,
+        skipped: false,
         success: false,
+        status: updated?.status,
         tracking: updated,
-        error: error?.response || error?.message || error,
+        error: error?.message || String(error),
       };
     }
   }

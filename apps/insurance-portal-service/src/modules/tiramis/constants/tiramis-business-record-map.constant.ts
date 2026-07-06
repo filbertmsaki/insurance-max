@@ -120,19 +120,19 @@ export function resolveTiramisBusinessRecordMapping(params: {
     return exactMatch;
   }
 
-  const requestTypeMatch = TIRAMIS_BUSINESS_RECORD_TABLE_MAP.find((item) =>
-    item.requestTypes.includes(params.requestType),
-  );
-
-  if (requestTypeMatch) {
-    return requestTypeMatch;
-  }
-
   const sourceModuleMatch = TIRAMIS_BUSINESS_RECORD_TABLE_MAP.find((item) =>
     item.sourceModules.map(normalizeModule).includes(sourceModule),
   );
 
-  return sourceModuleMatch || null;
+  if (sourceModuleMatch) {
+    return sourceModuleMatch;
+  }
+
+  const requestTypeMatch = TIRAMIS_BUSINESS_RECORD_TABLE_MAP.find((item) =>
+    item.requestTypes.includes(params.requestType),
+  );
+
+  return requestTypeMatch || null;
 }
 
 export function listTiramisBusinessRecordMappings() {

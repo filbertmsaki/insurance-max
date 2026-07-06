@@ -6,6 +6,7 @@ import RatingFactorsSeeder from './003-rating-factors.seed';
 import RiskFactorLinkSeeder from './004-risk-factor-link.seed';
 import TiramisCompanySetupSeeder from './005-tiramis-company-setup.seed';
 import TiramisBusinessRecordsSeeder from './006-tiramis-business-records.seed';
+import TiramisPermissionsSeeder from './007-tiramis-permissions.seed';
 
 const seeders = [
   InitialRbacSeeder,
@@ -14,6 +15,7 @@ const seeders = [
   RiskFactorLinkSeeder,
   TiramisCompanySetupSeeder,
   TiramisBusinessRecordsSeeder,
+  TiramisPermissionsSeeder,
 ];
 
 export async function runAllSeeders(dataSource: DataSource): Promise<void> {

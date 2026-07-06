@@ -14,6 +14,7 @@ import {
   normalizeTiramisPortalResponse,
   resolveSubmissionStatusFromNormalized,
 } from '../utils/tiramis-response-normalizer.util';
+import { calculateNextRetryAt } from '../utils/tiramis-retry.util';
 
 @Injectable()
 export class TiramisSubmissionTrackingRepository {
@@ -274,6 +275,102 @@ export class TiramisSubmissionTrackingRepository {
     });
   }
 
+  async findActiveDuplicateCandidate(params: {
+    sourceCompanyId?: string | null;
+    businessFingerprint?: string | null;
+    idempotencyKey?: string | null;
+    requestType?: string | null;
+    sourceModule?: string | null;
+    sourceRecordId?: string | null;
+    businessReference?: string | null;
+  }) {
+    const where: any[] = [];
+
+    if (params.sourceCompanyId && params.businessFingerprint) {
+      where.push({
+        sourceCompanyId: params.sourceCompanyId,
+        businessFingerprint: params.businessFingerprint,
+        status: In(ACTIVE_TIRAMIS_STATUSES),
+        deletedAt: IsNull(),
+      });
+    }
+
+    if (params.sourceCompanyId && params.idempotencyKey) {
+      where.push({
+        sourceCompanyId: params.sourceCompanyId,
+        idempotencyKey: params.idempotencyKey,
+        status: In(ACTIVE_TIRAMIS_STATUSES),
+        deletedAt: IsNull(),
+      });
+    }
+
+    if (
+      params.sourceCompanyId &&
+      params.requestType &&
+      params.sourceModule &&
+      params.sourceRecordId
+    ) {
+      where.push({
+        sourceCompanyId: params.sourceCompanyId,
+        requestType: params.requestType as any,
+        sourceModule: params.sourceModule,
+        sourceRecordId: params.sourceRecordId,
+        status: In(ACTIVE_TIRAMIS_STATUSES),
+        deletedAt: IsNull(),
+      });
+    }
+
+    if (
+      params.sourceCompanyId &&
+      params.requestType &&
+      params.sourceModule &&
+      params.businessReference
+    ) {
+      where.push({
+        sourceCompanyId: params.sourceCompanyId,
+        requestType: params.requestType as any,
+        sourceModule: params.sourceModule,
+        businessReference: params.businessReference,
+        status: In(ACTIVE_TIRAMIS_STATUSES),
+        deletedAt: IsNull(),
+      });
+    }
+
+    if (!where.length) {
+      return null;
+    }
+
+    return this.repository.findOne({
+      where,
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+  }
+
+  async markDuplicatePrevented(
+    id: string,
+    params: {
+      duplicateOfTrackingId: string;
+      reason: string;
+    },
+  ) {
+    await this.repository.update({ id }, {
+      status: TiramisSubmissionStatus.DUPLICATE_PREVENTED,
+      duplicateOfTrackingId: params.duplicateOfTrackingId,
+      duplicatePreventionReason: params.reason,
+      duplicateCheckedAt: new Date(),
+      lastErrorMessage: params.reason,
+      failedAt: new Date(),
+      isRetryable: false,
+      nextRetryAt: null,
+      retryLockId: null,
+      retryLockedAt: null,
+    } as any);
+
+    return this.findById(id);
+  }
+
   findExistingActiveSubmission(params: {
     sourceCompanyId?: string | null;
     requestType: string;
@@ -324,6 +421,33 @@ export class TiramisSubmissionTrackingRepository {
     });
   }
 
+  async findStatusSyncCandidates(params?: {
+    limit?: number;
+    callbackOverdueMinutes?: number;
+  }) {
+    const limit = Math.min(Math.max(Number(params?.limit || 50), 1), 200);
+
+    return this.repository
+      .createQueryBuilder('tracking')
+      .where('tracking.deleted_at IS NULL')
+      .andWhere('tracking.status IN (:...statuses)', {
+        statuses: [
+          TiramisSubmissionStatus.SENT_TO_TIRAMIS_SERVICE,
+          TiramisSubmissionStatus.ACK_ACCEPTED,
+          TiramisSubmissionStatus.ACKNOWLEDGED,
+          TiramisSubmissionStatus.PENDING_FINAL,
+          TiramisSubmissionStatus.CALLBACK_OVERDUE,
+          TiramisSubmissionStatus.UNKNOWN,
+        ],
+      })
+      .andWhere(
+        '(tracking.final_response_id IS NULL OR tracking.final_response_status_code IS NULL)',
+      )
+      .orderBy('tracking.updated_at', 'ASC')
+      .take(limit)
+      .getMany();
+  }
+
   findPendingFinalSync(limit = 50) {
     return this.repository.find({
       where: [
@@ -337,6 +461,205 @@ export class TiramisSubmissionTrackingRepository {
       },
       take: limit,
     });
+  }
+
+  async markRetryScheduled(
+    id: string,
+    params: {
+      error?: any;
+      baseDelaySeconds?: number;
+      maxRetryAttempts?: number;
+    },
+  ) {
+    const tracking = await this.findById(id);
+
+    if (!tracking) {
+      return null;
+    }
+
+    const retryAttempts = tracking.retryAttempts || 0;
+    const maxRetryAttempts =
+      tracking.maxRetryAttempts ||
+      params.maxRetryAttempts ||
+      Number(process.env.TIRAMIS_RETRY_MAX_ATTEMPTS || 3);
+
+    if (retryAttempts >= maxRetryAttempts) {
+      return this.markRetryExhausted(id, {
+        error: params.error,
+      });
+    }
+
+    const nextRetryAt = calculateNextRetryAt({
+      retryAttempts,
+      baseDelaySeconds:
+        params.baseDelaySeconds ||
+        Number(process.env.TIRAMIS_RETRY_BASE_DELAY_SECONDS || 60),
+    });
+
+    await this.repository.update(
+      { id },
+      {
+        status: TiramisSubmissionStatus.RETRY_PENDING,
+        isRetryable: true,
+        nextRetryAt,
+        maxRetryAttempts,
+        retryErrorMessage:
+          params.error?.message ||
+          params.error?.response?.message ||
+          String(params.error || 'Retry scheduled'),
+        lastErrorMessage:
+          params.error?.message ||
+          params.error?.response?.message ||
+          String(params.error || 'Retry scheduled'),
+        retryLockId: null,
+        retryLockedAt: null,
+        retryStrategy: tracking.retryStrategy || 'EXPONENTIAL_BACKOFF',
+      } as any,
+    );
+
+    return this.findById(id);
+  }
+
+  async findRetryCandidates(params?: { limit?: number }) {
+    const limit = Math.min(Math.max(Number(params?.limit || 25), 1), 100);
+    const lockMinutes = Number(process.env.TIRAMIS_RETRY_LOCK_MINUTES || 5);
+
+    return this.repository
+      .createQueryBuilder('tracking')
+      .where('tracking.deleted_at IS NULL')
+      .andWhere('tracking.is_retryable = true')
+      .andWhere('tracking.status IN (:...statuses)', {
+        statuses: [
+          TiramisSubmissionStatus.RETRY_PENDING,
+          TiramisSubmissionStatus.FAILED,
+          TiramisSubmissionStatus.CALLBACK_OVERDUE,
+        ],
+      })
+      .andWhere(
+        '(tracking.next_retry_at IS NULL OR tracking.next_retry_at <= now())',
+      )
+      .andWhere(
+        `(tracking.retry_lock_id IS NULL OR tracking.retry_locked_at < now() - interval '${lockMinutes} minutes')`,
+      )
+      .andWhere('tracking.retry_attempts < tracking.max_retry_attempts')
+      .orderBy('tracking.next_retry_at', 'ASC', 'NULLS FIRST')
+      .take(limit)
+      .getMany();
+  }
+
+  async acquireRetryLock(id: string, lockId: string) {
+    const lockMinutes = Number(process.env.TIRAMIS_RETRY_LOCK_MINUTES || 5);
+
+    const result = await this.repository
+      .createQueryBuilder()
+      .update()
+      .set({
+        status: TiramisSubmissionStatus.RETRYING,
+        retryLockId: lockId,
+        retryLockedAt: new Date(),
+        lastRetryAt: new Date(),
+      } as any)
+      .where('id = :id', { id })
+      .andWhere(
+        `(retry_lock_id IS NULL OR retry_locked_at < now() - interval '${lockMinutes} minutes')`,
+      )
+      .andWhere('retry_attempts < max_retry_attempts')
+      .execute();
+
+    if (!result.affected) {
+      return null;
+    }
+
+    return this.findById(id);
+  }
+
+  async markRetryAttemptFailed(
+    id: string,
+    params: {
+      error?: any;
+      baseDelaySeconds?: number;
+    },
+  ) {
+    const tracking = await this.findById(id);
+
+    if (!tracking) {
+      return null;
+    }
+
+    const retryAttempts = (tracking.retryAttempts || 0) + 1;
+    const maxRetryAttempts =
+      tracking.maxRetryAttempts ||
+      Number(process.env.TIRAMIS_RETRY_MAX_ATTEMPTS || 3);
+
+    if (retryAttempts >= maxRetryAttempts) {
+      await this.repository.update(
+        { id },
+        {
+          retryAttempts,
+        } as any,
+      );
+
+      return this.markRetryExhausted(id, {
+        error: params.error,
+      });
+    }
+
+    const nextRetryAt = calculateNextRetryAt({
+      retryAttempts,
+      baseDelaySeconds:
+        params.baseDelaySeconds ||
+        Number(process.env.TIRAMIS_RETRY_BASE_DELAY_SECONDS || 60),
+    });
+
+    await this.repository.update(
+      { id },
+      {
+        status: TiramisSubmissionStatus.RETRY_PENDING,
+        retryAttempts,
+        isRetryable: true,
+        nextRetryAt,
+        retryLockId: null,
+        retryLockedAt: null,
+        retryErrorMessage:
+          params.error?.message ||
+          params.error?.response?.message ||
+          String(params.error || 'Retry failed'),
+        lastErrorMessage:
+          params.error?.message ||
+          params.error?.response?.message ||
+          String(params.error || 'Retry failed'),
+      } as any,
+    );
+
+    return this.findById(id);
+  }
+
+  async markRetryExhausted(
+    id: string,
+    params?: {
+      error?: any;
+    },
+  ) {
+    const errorMessage =
+      params?.error?.message ||
+      params?.error?.response?.message ||
+      String(params?.error || 'Retry attempts exhausted');
+
+    await this.repository.update(
+      { id },
+      {
+        status: TiramisSubmissionStatus.RETRY_EXHAUSTED,
+        isRetryable: false,
+        nextRetryAt: null,
+        retryLockId: null,
+        retryLockedAt: null,
+        retryErrorMessage: errorMessage,
+        lastErrorMessage: errorMessage,
+        failedAt: new Date(),
+      } as any,
+    );
+
+    return this.findById(id);
   }
 
   async markSubmittedResponse(
@@ -353,71 +676,70 @@ export class TiramisSubmissionTrackingRepository {
     const isFailure = isFailureTiramisStatus(resolvedStatus);
     const now = new Date();
 
-    await this.repository.update(
-      { id },
-      {
-        status: resolvedStatus,
-        submittedAt: tracking?.submittedAt || now,
-        tiramisTransactionId:
-          normalized.transactionId || tracking?.tiramisTransactionId || null,
-        tiramisRequestId:
-          normalized.requestId || tracking?.tiramisRequestId || null,
-        tiramisServiceType:
-          normalized.serviceType || tracking?.tiramisServiceType || null,
-        tiramisRootElement:
-          normalized.rootElement || tracking?.tiramisRootElement || null,
-        acknowledgementStatusCode:
-          normalized.acknowledgement.statusCode ||
-          tracking?.acknowledgementStatusCode ||
-          null,
-        acknowledgementStatusDesc:
-          normalized.acknowledgement.statusDesc ||
-          tracking?.acknowledgementStatusDesc ||
-          null,
-        acknowledgedAt:
-          normalized.acknowledgement.statusCode
-            ? tracking?.acknowledgedAt || now
-            : tracking?.acknowledgedAt || null,
-        finalResponseId:
-          normalized.final.responseId || tracking?.finalResponseId || null,
-        finalResponseStatusCode:
-          normalized.final.statusCode ||
-          tracking?.finalResponseStatusCode ||
-          null,
-        finalResponseStatusDesc:
-          normalized.final.statusDesc ||
-          tracking?.finalResponseStatusDesc ||
-          null,
-        finalResponseReceivedAt:
-          normalized.final.statusCode || normalized.final.responseId
-            ? normalized.final.receivedAt
-              ? new Date(normalized.final.receivedAt)
-              : now
-            : tracking?.finalResponseReceivedAt || null,
-        finalResponsePayload:
-          normalized.final.payload || tracking?.finalResponsePayload || null,
-        tiramisResponsePayload:
-          response || tracking?.tiramisResponsePayload || null,
-        lastSyncedAt: options?.syncChecked
-          ? now
-          : tracking?.lastSyncedAt || null,
-        syncAttempts: options?.syncChecked
-          ? (tracking?.syncAttempts || 0) + 1
-          : tracking?.syncAttempts || 0,
-        failedAt: isFailure
-          ? tracking?.failedAt || now
-          : tracking?.failedAt || null,
-        lastErrorMessage: isFailure
-          ? getTiramisFailureMessage(normalized) ||
-            tracking?.lastErrorMessage ||
-            'TIRAMIS submission failed'
-          : null,
-        isRetryable: options?.clearRetry ? false : tracking?.isRetryable || false,
-        nextRetryAt: options?.clearRetry ? null : tracking?.nextRetryAt || null,
-        retryLockId: options?.clearRetry ? null : tracking?.retryLockId || null,
-        retryLockedAt: options?.clearRetry ? null : tracking?.retryLockedAt || null,
-      } as any,
-    );
+    await this.repository.update({ id }, {
+      status: resolvedStatus,
+      submittedAt: tracking?.submittedAt || now,
+      tiramisTransactionId:
+        normalized.transactionId || tracking?.tiramisTransactionId || null,
+      tiramisRequestId:
+        normalized.requestId || tracking?.tiramisRequestId || null,
+      tiramisServiceType:
+        normalized.serviceType || tracking?.tiramisServiceType || null,
+      tiramisRootElement:
+        normalized.rootElement || tracking?.tiramisRootElement || null,
+      acknowledgementStatusCode:
+        normalized.acknowledgement.statusCode ||
+        tracking?.acknowledgementStatusCode ||
+        null,
+      acknowledgementStatusDesc:
+        normalized.acknowledgement.statusDesc ||
+        tracking?.acknowledgementStatusDesc ||
+        null,
+      acknowledgedAt: normalized.acknowledgement.statusCode
+        ? tracking?.acknowledgedAt || now
+        : tracking?.acknowledgedAt || null,
+      finalResponseId:
+        normalized.final.responseId || tracking?.finalResponseId || null,
+      finalResponseStatusCode:
+        normalized.final.statusCode ||
+        tracking?.finalResponseStatusCode ||
+        null,
+      finalResponseStatusDesc:
+        normalized.final.statusDesc ||
+        tracking?.finalResponseStatusDesc ||
+        null,
+      finalResponseReceivedAt:
+        normalized.final.statusCode || normalized.final.responseId
+          ? normalized.final.receivedAt
+            ? new Date(normalized.final.receivedAt)
+            : now
+          : tracking?.finalResponseReceivedAt || null,
+      finalResponsePayload:
+        normalized.final.payload || tracking?.finalResponsePayload || null,
+      tiramisResponsePayload:
+        response || tracking?.tiramisResponsePayload || null,
+      lastSyncedAt: options?.syncChecked ? now : tracking?.lastSyncedAt || null,
+      syncAttempts: options?.syncChecked
+        ? (tracking?.syncAttempts || 0) + 1
+        : tracking?.syncAttempts || 0,
+      failedAt: isFailure
+        ? tracking?.failedAt || now
+        : tracking?.failedAt || null,
+      lastErrorMessage: isFailure
+        ? getTiramisFailureMessage(normalized) ||
+          tracking?.lastErrorMessage ||
+          'TIRAMIS submission failed'
+        : null,
+      isRetryable: options?.clearRetry ? false : tracking?.isRetryable || false,
+      nextRetryAt: options?.clearRetry ? null : tracking?.nextRetryAt || null,
+      retryLockId: options?.clearRetry ? null : tracking?.retryLockId || null,
+      retryLockedAt: options?.clearRetry
+        ? null
+        : tracking?.retryLockedAt || null,
+      retryErrorMessage: options?.clearRetry
+        ? null
+        : tracking?.retryErrorMessage || null,
+    } as any);
 
     return this.findById(id);
   }
@@ -439,23 +761,29 @@ export class TiramisSubmissionTrackingRepository {
     },
   ) {
     const retryable = !!options?.retryable;
-    const maxRetryAttempts = options?.maxRetryAttempts || 5;
+
+    if (retryable) {
+      return this.markRetryScheduled(id, {
+        error,
+        maxRetryAttempts:
+          options?.maxRetryAttempts ||
+          Number(process.env.TIRAMIS_RETRY_MAX_ATTEMPTS || 3),
+      });
+    }
 
     await this.repository.update(
       { id },
       {
-        status: retryable
-          ? TiramisSubmissionStatus.RETRY_PENDING
-          : TiramisSubmissionStatus.FAILED,
-        isRetryable: retryable,
-        maxRetryAttempts,
-        nextRetryAt: retryable ? this.calculateNextRetryAt(0) : null,
+        status: TiramisSubmissionStatus.FAILED,
+        isRetryable: false,
+        nextRetryAt: null,
         failedAt: new Date(),
         lastErrorMessage:
           error?.message ||
           error?.response?.message ||
           error?.error?.message ||
           'TIRAMIS submission failed',
+        retryErrorMessage: null,
         tiramisResponsePayload: {
           error: error?.response || error?.error || error?.message || error,
         },
@@ -476,7 +804,9 @@ export class TiramisSubmissionTrackingRepository {
         ],
       })
       .andWhere('tracking.retry_attempts < tracking.max_retry_attempts')
-      .andWhere('(tracking.next_retry_at IS NULL OR tracking.next_retry_at <= now())')
+      .andWhere(
+        '(tracking.next_retry_at IS NULL OR tracking.next_retry_at <= now())',
+      )
       .andWhere('tracking.deleted_at IS NULL')
       .orderBy('tracking.next_retry_at', 'ASC', 'NULLS FIRST')
       .addOrderBy('tracking.created_at', 'ASC')
@@ -532,7 +862,8 @@ export class TiramisSubmissionTrackingRepository {
           'TIRAMIS retry failed',
         tiramisResponsePayload: {
           previous: tracking?.tiramisResponsePayload || null,
-          retryError: error?.response || error?.error || error?.message || error,
+          retryError:
+            error?.response || error?.error || error?.message || error,
         } as any,
       },
     );
@@ -552,7 +883,7 @@ export class TiramisSubmissionTrackingRepository {
       .where('status = :status', {
         status: TiramisSubmissionStatus.RETRYING,
       })
-      .andWhere('retry_locked_at < now() - (:minutes * interval \'1 minute\')', {
+      .andWhere("retry_locked_at < now() - (:minutes * interval '1 minute')", {
         minutes,
       })
       .execute();
@@ -566,7 +897,8 @@ export class TiramisSubmissionTrackingRepository {
       {
         businessRecordSyncedAt: new Date(),
         businessRecordSyncError: null,
-        businessRecordSyncAttempts: (tracking?.businessRecordSyncAttempts || 0) + 1,
+        businessRecordSyncAttempts:
+          (tracking?.businessRecordSyncAttempts || 0) + 1,
       },
     );
 
@@ -584,7 +916,8 @@ export class TiramisSubmissionTrackingRepository {
           error?.response?.message ||
           error?.error?.message ||
           'Failed to sync TIRAMIS status to business record',
-        businessRecordSyncAttempts: (tracking?.businessRecordSyncAttempts || 0) + 1,
+        businessRecordSyncAttempts:
+          (tracking?.businessRecordSyncAttempts || 0) + 1,
       },
     );
 
@@ -599,8 +932,36 @@ export class TiramisSubmissionTrackingRepository {
       {
         lastSyncedAt: new Date(),
         syncAttempts: (tracking?.syncAttempts || 0) + 1,
-        tiramisResponsePayload: response || tracking?.tiramisResponsePayload || null,
+        tiramisResponsePayload:
+          response || tracking?.tiramisResponsePayload || null,
       },
+    );
+
+    return this.findById(id);
+  }
+
+  async markCallbackOverdue(
+    id: string,
+    params?: {
+      reason?: string;
+      response?: any;
+    },
+  ) {
+    const tracking = await this.findById(id);
+
+    await this.repository.update(
+      { id },
+      {
+        status: TiramisSubmissionStatus.CALLBACK_OVERDUE,
+        lastErrorMessage:
+          params?.reason ||
+          tracking?.lastErrorMessage ||
+          'Final callback is overdue',
+        tiramisResponsePayload:
+          params?.response || tracking?.tiramisResponsePayload || null,
+        lastSyncedAt: new Date(),
+        syncAttempts: (tracking?.syncAttempts || 0) + 1,
+      } as any,
     );
 
     return this.findById(id);
@@ -625,6 +986,84 @@ export class TiramisSubmissionTrackingRepository {
     );
 
     return new Date(Date.now() + delayMinutes * 60 * 1000);
+  }
+
+  async findLatestByBusinessRecord(params: {
+    sourceModule: string;
+    sourceRecordId: string;
+    requestType?: string | null;
+    sourceCompanyId?: string | null;
+    canAccessAllCompanies?: boolean;
+  }) {
+    const query = this.repository
+      .createQueryBuilder('tracking')
+      .where('tracking.source_module = :sourceModule', {
+        sourceModule: params.sourceModule,
+      })
+      .andWhere('tracking.source_record_id = :sourceRecordId', {
+        sourceRecordId: params.sourceRecordId,
+      })
+      .orderBy('tracking.created_at', 'DESC');
+
+    if (params.requestType) {
+      query.andWhere('tracking.request_type = :requestType', {
+        requestType: params.requestType,
+      });
+    }
+
+    if (params.sourceCompanyId && !params.canAccessAllCompanies) {
+      query.andWhere('tracking.source_company_id = :sourceCompanyId', {
+        sourceCompanyId: params.sourceCompanyId,
+      });
+    }
+
+    return query.getOne();
+  }
+
+  async findHistoryByBusinessRecord(params: {
+    sourceModule: string;
+    sourceRecordId: string;
+    requestType?: string | null;
+    sourceCompanyId?: string | null;
+    canAccessAllCompanies?: boolean;
+    limit?: number;
+    includePayload?: boolean;
+  }) {
+    const query = this.repository
+      .createQueryBuilder('tracking')
+      .where('tracking.source_module = :sourceModule', {
+        sourceModule: params.sourceModule,
+      })
+      .andWhere('tracking.source_record_id = :sourceRecordId', {
+        sourceRecordId: params.sourceRecordId,
+      })
+      .orderBy('tracking.created_at', 'DESC')
+      .take(params.limit || 50);
+
+    if (params.requestType) {
+      query.andWhere('tracking.request_type = :requestType', {
+        requestType: params.requestType,
+      });
+    }
+
+    if (params.sourceCompanyId && !params.canAccessAllCompanies) {
+      query.andWhere('tracking.source_company_id = :sourceCompanyId', {
+        sourceCompanyId: params.sourceCompanyId,
+      });
+    }
+
+    const rows = await query.getMany();
+
+    if (params.includePayload) {
+      return rows;
+    }
+
+    return rows.map((row: any) => ({
+      ...row,
+      requestPayload: row.requestPayload ? '[hidden]' : null,
+      tiramisResponsePayload: row.tiramisResponsePayload ? '[hidden]' : null,
+      finalResponsePayload: row.finalResponsePayload ? '[hidden]' : null,
+    }));
   }
 
   private applyDashboardFilters(
@@ -688,9 +1127,12 @@ export class TiramisSubmissionTrackingRepository {
     }
 
     if (query.finalResponseStatusCode) {
-      qb.andWhere('tracking.final_response_status_code = :finalResponseStatusCode', {
-        finalResponseStatusCode: query.finalResponseStatusCode,
-      });
+      qb.andWhere(
+        'tracking.final_response_status_code = :finalResponseStatusCode',
+        {
+          finalResponseStatusCode: query.finalResponseStatusCode,
+        },
+      );
     }
 
     if (query.isRetryable !== undefined) {
