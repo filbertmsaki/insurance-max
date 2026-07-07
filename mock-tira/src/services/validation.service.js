@@ -54,6 +54,7 @@ function validateBusinessXml(root, xml, endpointDefinition) {
   }
 
   const errors = [];
+  const skipGenericAnyOf = root === 'MotorCoverNoteRefReq';
 
   if (root === 'MotorCoverNoteRefReq') {
     const serviceType = String(endpointDefinition?.serviceType || '').trim().toUpperCase();
@@ -90,23 +91,8 @@ function validateBusinessXml(root, xml, endpointDefinition) {
   }
 
   for (const group of rules.anyOf || []) {
-    if (root === 'MotorCoverNoteRefReq') {
-      const serviceType = String(endpointDefinition?.serviceType || '').trim().toUpperCase();
-
-      if (serviceType === 'MOTOR_COVER_NOTE_NON_FLEET') {
-        continue;
-      }
-
-      if (serviceType === 'MOTOR_COVER_NOTE_FLEET') {
-        const hasFleetId = hasTag(xml, 'FleetId');
-        const hasFleetSize = hasTag(xml, 'FleetSize');
-
-        if (!hasFleetId || !hasFleetSize) {
-          errors.push('One of these tags is required: FleetId, FleetSize');
-        }
-
-        continue;
-      }
+    if (skipGenericAnyOf) {
+      continue;
     }
 
     const hasAny = group.some((tagName) => hasTag(xml, tagName));
