@@ -62,6 +62,20 @@ import { PoliciesPage } from '@/modules/tenant/policies/pages/PoliciesPage'
 import { PolicyDetailPage } from '@/modules/tenant/policies/pages/PolicyDetailPage'
 import { PolicyCreatePage } from '@/modules/tenant/policies/pages/PolicyCreatePage'
 import { PolicyEditPage } from '@/modules/tenant/policies/pages/PolicyEditPage'
+import { InvoicesPage } from '@/modules/tenant/billing/pages/InvoicesPage'
+import { InvoiceDetailPage } from '@/modules/tenant/billing/pages/InvoiceDetailPage'
+import { InvoiceCreatePage } from '@/modules/tenant/billing/pages/InvoiceCreatePage'
+import { InvoiceEditPage } from '@/modules/tenant/billing/pages/InvoiceEditPage'
+import { ReceiptsPage } from '@/modules/tenant/billing/pages/ReceiptsPage'
+import { ReceiptDetailPage } from '@/modules/tenant/billing/pages/ReceiptDetailPage'
+import { ReceiptCreatePage } from '@/modules/tenant/billing/pages/ReceiptCreatePage'
+import { ReceiptEditPage } from '@/modules/tenant/billing/pages/ReceiptEditPage'
+import { PaymentTransactionsPage } from '@/modules/tenant/billing/pages/PaymentTransactionsPage'
+import { PaymentTransactionDetailPage } from '@/modules/tenant/billing/pages/PaymentTransactionDetailPage'
+import { CommissionTransactionsPage } from '@/modules/tenant/billing/pages/CommissionTransactionsPage'
+import { CommissionTransactionDetailPage } from '@/modules/tenant/billing/pages/CommissionTransactionDetailPage'
+import { CommissionPaymentsPage } from '@/modules/tenant/billing/pages/CommissionPaymentsPage'
+import { CommissionPaymentDetailPage } from '@/modules/tenant/billing/pages/CommissionPaymentDetailPage'
 
 export default function App() {
   return (
@@ -207,6 +221,27 @@ export default function App() {
             </Route>
             <Route element={<ProtectedRoute requiredPermission="policies:update" />}>
               <Route path="/policies/:id/edit" element={<PolicyEditPage />} />
+            </Route>
+
+            <Route element={<ProtectedRoute requiredPermission="billing:read" />}>
+              <Route path="/billing/invoices" element={<InvoicesPage />} />
+              <Route path="/billing/invoices/:id" element={<InvoiceDetailPage />} />
+              <Route path="/billing/receipts" element={<ReceiptsPage />} />
+              <Route path="/billing/receipts/:id" element={<ReceiptDetailPage />} />
+              <Route path="/billing/payment-transactions" element={<PaymentTransactionsPage />} />
+              <Route path="/billing/payment-transactions/:id" element={<PaymentTransactionDetailPage />} />
+              <Route path="/billing/commission-transactions" element={<CommissionTransactionsPage />} />
+              <Route path="/billing/commission-transactions/:id" element={<CommissionTransactionDetailPage />} />
+              <Route path="/billing/commission-payments" element={<CommissionPaymentsPage />} />
+              <Route path="/billing/commission-payments/:id" element={<CommissionPaymentDetailPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="billing:create" />}>
+              <Route path="/billing/invoices/new" element={<InvoiceCreatePage />} />
+              <Route path="/billing/receipts/new" element={<ReceiptCreatePage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="billing:update" />}>
+              <Route path="/billing/invoices/:id/edit" element={<InvoiceEditPage />} />
+              <Route path="/billing/receipts/:id/edit" element={<ReceiptEditPage />} />
             </Route>
           </Route>
         </Route>

@@ -23,6 +23,7 @@ import {
   Calculator,
   CarFront,
   Truck,
+  Receipt,
 } from 'lucide-react';
 
 export interface NavLeaf {
@@ -272,6 +273,48 @@ export const NAV_NODES: NavNode[] = [
         to: '/quotations/wizard',
         icon: Calculator,
         permission: 'quotations:create',
+      },
+    ],
+  },
+  {
+    kind: 'group',
+    label: 'Billing',
+    icon: Receipt,
+    children: [
+      {
+        kind: 'link',
+        label: 'Invoices',
+        to: '/billing/invoices',
+        icon: FileText,
+        permission: 'billing:read',
+      },
+      {
+        kind: 'link',
+        label: 'Receipts',
+        to: '/billing/receipts',
+        icon: FileText,
+        permission: 'billing:read',
+      },
+      {
+        kind: 'link',
+        label: 'Payment Transactions',
+        to: '/billing/payment-transactions',
+        icon: FileText,
+        permission: 'billing:read',
+      },
+      {
+        kind: 'link',
+        label: 'Commission Transactions',
+        to: '/billing/commission-transactions',
+        icon: FileText,
+        permission: 'commissions:read',
+      },
+      {
+        kind: 'link',
+        label: 'Commission Payments',
+        to: '/billing/commission-payments',
+        icon: FileText,
+        permission: 'commissions:read',
       },
     ],
   },
