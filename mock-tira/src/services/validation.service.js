@@ -34,7 +34,7 @@ function validateNumeric(value) {
   return /^-?\d+(\.\d+)?$/.test(String(value).trim());
 }
 
-function validateBusinessXml(root, xml) {
+function validateBusinessXml(root, xml, endpointDefinition) {
   if (!CONFIG.enableBusinessValidation) {
     return {
       ok: true,
@@ -55,6 +55,34 @@ function validateBusinessXml(root, xml) {
 
   const errors = [];
 
+  if (root === 'MotorCoverNoteRefReq') {
+    const serviceType = String(endpointDefinition?.serviceType || '').trim().toUpperCase();
+    const isFleetEndpoint = serviceType === 'MOTOR_COVER_NOTE_FLEET';
+    const isNonFleetEndpoint = serviceType === 'MOTOR_COVER_NOTE_NON_FLEET';
+
+    if (isFleetEndpoint) {
+      if (!hasTag(xml, 'FleetId')) {
+        errors.push('Missing required tag: FleetId');
+      }
+
+      if (!hasTag(xml, 'FleetSize')) {
+        errors.push('Missing required tag: FleetSize');
+      }
+    } else if (isNonFleetEndpoint) {
+      if (!hasTag(xml, 'CoverNoteNumber')) {
+        errors.push('Missing required tag: CoverNoteNumber');
+      }
+    } else {
+      const hasCoverNoteNumber = hasTag(xml, 'CoverNoteNumber');
+      const hasFleetId = hasTag(xml, 'FleetId');
+      const hasFleetSize = hasTag(xml, 'FleetSize');
+
+      if (!hasCoverNoteNumber && !(hasFleetId && hasFleetSize)) {
+        errors.push('One of these tags is required: CoverNoteNumber, FleetId/FleetSize');
+      }
+    }
+  }
+
   for (const tagName of rules.required || []) {
     if (!hasTag(xml, tagName)) {
       errors.push(`Missing required tag: ${tagName}`);
@@ -62,6 +90,25 @@ function validateBusinessXml(root, xml) {
   }
 
   for (const group of rules.anyOf || []) {
+    if (root === 'MotorCoverNoteRefReq') {
+      const serviceType = String(endpointDefinition?.serviceType || '').trim().toUpperCase();
+
+      if (serviceType === 'MOTOR_COVER_NOTE_NON_FLEET') {
+        continue;
+      }
+
+      if (serviceType === 'MOTOR_COVER_NOTE_FLEET') {
+        const hasFleetId = hasTag(xml, 'FleetId');
+        const hasFleetSize = hasTag(xml, 'FleetSize');
+
+        if (!hasFleetId || !hasFleetSize) {
+          errors.push('One of these tags is required: FleetId, FleetSize');
+        }
+
+        continue;
+      }
+    }
+
     const hasAny = group.some((tagName) => hasTag(xml, tagName));
 
     if (!hasAny) {
