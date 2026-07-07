@@ -24,6 +24,8 @@ import { useQuotationCategories, useQuotationCustomers, useQuotationProducts, us
 import { buildQuotationPayload, quotationFormSchema, type QuotationFormSchemaValues } from '../schemas';
 import type { QuotationWizardFactorInput } from '../types';
 
+const EMPTY_REQUIRED_FACTORS: never[] = [];
+
 export function QuotationWizardPage() {
   const navigate = useNavigate();
   const companyId = useQuotationCurrentCompanyId();
@@ -67,24 +69,33 @@ export function QuotationWizardPage() {
   const { data: subClassOptions = [] } = useQuotationSubClasses(productId);
   const { data: riskOptions = [] } = useQuotationRisks(productId);
   const selectedRisk = riskOptions[0] ?? null;
-  const { data: factorDefinitions = [] } = useRequiredFactorsByRisk(selectedRisk?.id ?? '');
+  const { data: factorDefinitionsData } = useRequiredFactorsByRisk(selectedRisk?.id ?? '');
+  const factorDefinitions = factorDefinitionsData ?? EMPTY_REQUIRED_FACTORS;
   const [factorInputs, setFactorInputs] = useState<QuotationWizardFactorInput[]>([]);
   const [calcResult, setCalcResult] = useState<any>(null);
   const [calculating, setCalculating] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setFactorInputs(
-      factorDefinitions.map((factor) => ({
-        factor_id: factor.factor_id,
-        label: factor.factor.name,
-        data_type: factor.factor.data_type,
-        value_text: '',
-        value_number: '',
-        value_date: '',
-        value_boolean: false,
-      })),
-    );
+    const nextInputs = factorDefinitions.map((factor) => ({
+      factor_id: factor.factor_id,
+      label: factor.factor.name,
+      data_type: factor.factor.data_type,
+      value_text: '',
+      value_number: '',
+      value_date: '',
+      value_boolean: false,
+    }));
+
+    setFactorInputs((current) => {
+      if (
+        current.length === nextInputs.length &&
+        current.every((item, index) => item.factor_id === nextInputs[index]?.factor_id)
+      ) {
+        return current;
+      }
+      return nextInputs;
+    });
   }, [factorDefinitions]);
 
   const factorValues = useMemo(
