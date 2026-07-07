@@ -18,7 +18,7 @@ export function TiramisDashboardPage() {
     { key: 'request', header: 'Request ID', cell: (row) => row.tiramisRequestId ?? ' - ' },
     { key: 'type', header: 'Type', cell: (row) => row.requestType ?? ' - ' },
     { key: 'created', header: 'Created', cell: (row) => formatDateTime(row.createdAt) },
-    { key: 'actions', header: 'Action', cell: (row) => <Button variant="ghost" size="sm" onClick={() => navigate(`/tiramis/submissions/${row.id}`)}>Open</Button> },
+    { key: 'actions', header: 'Action', cell: (row) => <Button variant="ghost" size="sm" onClick={() => navigate(`/underwriting/submissions/${row.id}`)}>Open</Button> },
   ];
 
   const total = data?.total ?? data?.pagination?.total ?? 0;

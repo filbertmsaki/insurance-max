@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { usePolicyCategories, usePolicyCustomers, usePolicyProducts, useCreatePolicy } from '../hooks';
 import { PolicyForm } from '../components/PolicyForm';
+import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 
 export function PolicyCreatePage() {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ export function PolicyCreatePage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/policies')}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(underwritingPaths.policies)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <PageHeader title="Create Policy" description="Create a new policy record" />
@@ -28,9 +29,8 @@ export function PolicyCreatePage() {
         subClassOptions={[]}
         isPending={createMutation.isPending}
         submitLabel="Create Policy"
-        onSubmit={(values) => createMutation.mutate(values, { onSuccess: (policy) => navigate(`/policies/${policy.id}`) })}
+        onSubmit={(values) => createMutation.mutate(values, { onSuccess: (policy) => navigate(underwritingPaths.policyDetail(policy.id)) })}
       />
     </div>
   );
 }
-

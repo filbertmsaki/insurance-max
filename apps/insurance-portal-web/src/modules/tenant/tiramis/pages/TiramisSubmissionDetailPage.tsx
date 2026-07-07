@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { TiramisStatusBadge } from '../components/TiramisStatusBadge';
 import { formatDateTime, prettyJson } from '../utils';
 import { useSubmitTenantTiramisSubmission, useTenantSubmissionDetail } from '../hooks';
+import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -30,7 +31,7 @@ export function TiramisSubmissionDetailPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Submission not found</p>
-        <Button variant="link" onClick={() => navigate('/tiramis/submissions')}>Back to submissions</Button>
+        <Button variant="link" onClick={() => navigate(underwritingPaths.submissions)}>Back to submissions</Button>
       </div>
     );
   }
@@ -39,7 +40,7 @@ export function TiramisSubmissionDetailPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/tiramis/submissions')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(underwritingPaths.submissions)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <PageHeader
@@ -58,7 +59,7 @@ export function TiramisSubmissionDetailPage() {
               source_record_id: submission.source_record_id ?? undefined,
               business_reference: submission.business_reference ?? submission.id,
               payload: submission.last_payload ?? {},
-            }, { onSuccess: (result) => navigate(`/tiramis/submissions/${result.submission.id}`) })}
+            }, { onSuccess: (result) => navigate(underwritingPaths.submissionDetail(result.submission.id)) })}
             disabled={submitMutation.isPending}
           >
             <Play className="mr-2 h-4 w-4" />
@@ -130,4 +131,3 @@ export function TiramisSubmissionDetailPage() {
     </div>
   );
 }
-

@@ -43,6 +43,8 @@ import { RatingRulesPage } from '@/modules/tenant/product-engine/pages/rating-ru
 import { CategoryAccessPage } from '@/modules/tenant/product-engine/pages/access/categories/CategoryAccessPage'
 import { ProductAccessPage } from '@/modules/tenant/product-engine/pages/access/products/ProductAccessPage'
 import { CalculatorPage } from '@/modules/tenant/product-engine/pages/calculator/CalculatorPage'
+import { UnderwritingHomePage } from '@/modules/tenant/underwriting/pages/UnderwritingHomePage'
+import { underwritingPaths } from '@/modules/tenant/underwriting/paths'
 import { SubjectMattersPage } from '@/modules/tenant/non-motor/pages/SubjectMattersPage'
 import { SubjectMatterDetailPage } from '@/modules/tenant/non-motor/pages/SubjectMatterDetailPage'
 import { MotorVehiclesPage } from '@/modules/tenant/motor/pages/MotorVehiclesPage'
@@ -165,6 +167,36 @@ export default function App() {
             </Route>
             <Route path="/settings/profile" element={<ProfilePage />} />
 
+            <Route path={underwritingPaths.root} element={<UnderwritingHomePage />} />
+
+            <Route element={<ProtectedRoute requiredPermission="quotations:read" />}>
+              <Route path={underwritingPaths.quotations} element={<QuotationsPage />} />
+              <Route path={underwritingPaths.quotationDetail(':id')} element={<QuotationDetailPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="quotations:create" />}>
+              <Route path={underwritingPaths.quotationCreate} element={<QuotationCreatePage />} />
+              <Route path={underwritingPaths.quotationWizard} element={<QuotationWizardPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="quotations:update" />}>
+              <Route path={underwritingPaths.quotationEdit(':id')} element={<QuotationEditPage />} />
+            </Route>
+
+            <Route element={<ProtectedRoute requiredPermission="policies:read" />}>
+              <Route path={underwritingPaths.policies} element={<PoliciesPage />} />
+              <Route path={underwritingPaths.policyDetail(':id')} element={<PolicyDetailPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="policies:create" />}>
+              <Route path={underwritingPaths.policyCreate} element={<PolicyCreatePage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="policies:update" />}>
+              <Route path={underwritingPaths.policyEdit(':id')} element={<PolicyEditPage />} />
+            </Route>
+
+            <Route element={<ProtectedRoute requiredPermission="tiramis-submissions:read" />}>
+              <Route path={underwritingPaths.submissions} element={<TiramisSubmissionsPage />} />
+              <Route path={underwritingPaths.submissionDetail(':id')} element={<TiramisSubmissionDetailPage />} />
+            </Route>
+
             {/* Product Engine */}
             <Route element={<ProtectedRoute requiredPermission="insurance-categories:read" />}>
               <Route path="/product-engine/categories" element={<CategoriesPage />} />
@@ -193,48 +225,25 @@ export default function App() {
             <Route path="/product-engine/calculator" element={<CalculatorPage />} />
 
             <Route element={<ProtectedRoute requiredPermission="non-motor:read" />}>
-              <Route path="/non-motor/subject-matters" element={<SubjectMattersPage />} />
-              <Route path="/non-motor/subject-matters/:id" element={<SubjectMatterDetailPage />} />
+              <Route path={underwritingPaths.nonMotorSubjectMatters} element={<SubjectMattersPage />} />
+              <Route path={underwritingPaths.nonMotorSubjectMatterDetail(':id')} element={<SubjectMatterDetailPage />} />
             </Route>
 
             <Route element={<ProtectedRoute requiredPermission="motor:read" />}>
-              <Route path="/motor/vehicles" element={<MotorVehiclesPage />} />
-              <Route path="/motor/vehicles/:id" element={<MotorVehicleDetailPage />} />
-              <Route path="/motor/fleets" element={<MotorFleetsPage />} />
-              <Route path="/motor/fleets/:id" element={<MotorFleetDetailPage />} />
-              <Route path="/motor/quotation-details" element={<MotorQuotationDetailsPage />} />
-              <Route path="/motor/policy-details" element={<MotorPolicyDetailsPage />} />
+              <Route path={underwritingPaths.motorVehicles} element={<MotorVehiclesPage />} />
+              <Route path={underwritingPaths.motorVehicleDetail(':id')} element={<MotorVehicleDetailPage />} />
+              <Route path={underwritingPaths.motorFleets} element={<MotorFleetsPage />} />
+              <Route path={underwritingPaths.motorFleetDetail(':id')} element={<MotorFleetDetailPage />} />
+              <Route path={underwritingPaths.motorQuotationDetails} element={<MotorQuotationDetailsPage />} />
+              <Route path={underwritingPaths.motorPolicyDetails} element={<MotorPolicyDetailsPage />} />
             </Route>
             <Route element={<ProtectedRoute requiredPermission="motor:create" />}>
-              <Route path="/motor/vehicles/new" element={<MotorVehicleCreatePage />} />
-              <Route path="/motor/fleets/new" element={<MotorFleetCreatePage />} />
+              <Route path={underwritingPaths.motorVehicleCreate} element={<MotorVehicleCreatePage />} />
+              <Route path={underwritingPaths.motorFleetCreate} element={<MotorFleetCreatePage />} />
             </Route>
             <Route element={<ProtectedRoute requiredPermission="motor:update" />}>
-              <Route path="/motor/vehicles/:id/edit" element={<MotorVehicleEditPage />} />
-              <Route path="/motor/fleets/:id/edit" element={<MotorFleetEditPage />} />
-            </Route>
-
-            <Route element={<ProtectedRoute requiredPermission="quotations:read" />}>
-              <Route path="/quotations" element={<QuotationsPage />} />
-              <Route path="/quotations/:id" element={<QuotationDetailPage />} />
-            </Route>
-            <Route element={<ProtectedRoute requiredPermission="quotations:create" />}>
-              <Route path="/quotations/new" element={<QuotationCreatePage />} />
-              <Route path="/quotations/wizard" element={<QuotationWizardPage />} />
-            </Route>
-            <Route element={<ProtectedRoute requiredPermission="quotations:update" />}>
-              <Route path="/quotations/:id/edit" element={<QuotationEditPage />} />
-            </Route>
-
-            <Route element={<ProtectedRoute requiredPermission="policies:read" />}>
-              <Route path="/policies" element={<PoliciesPage />} />
-              <Route path="/policies/:id" element={<PolicyDetailPage />} />
-            </Route>
-            <Route element={<ProtectedRoute requiredPermission="policies:create" />}>
-              <Route path="/policies/new" element={<PolicyCreatePage />} />
-            </Route>
-            <Route element={<ProtectedRoute requiredPermission="policies:update" />}>
-              <Route path="/policies/:id/edit" element={<PolicyEditPage />} />
+              <Route path={underwritingPaths.motorVehicleEdit(':id')} element={<MotorVehicleEditPage />} />
+              <Route path={underwritingPaths.motorFleetEdit(':id')} element={<MotorFleetEditPage />} />
             </Route>
 
             <Route element={<ProtectedRoute requiredPermission="billing:read" />}>
@@ -258,10 +267,6 @@ export default function App() {
               <Route path="/billing/receipts/:id/edit" element={<ReceiptEditPage />} />
             </Route>
 
-            <Route element={<ProtectedRoute requiredPermission="tiramis-submissions:read" />}>
-              <Route path="/tiramis/submissions" element={<TiramisSubmissionsPage />} />
-              <Route path="/tiramis/submissions/:id" element={<TiramisSubmissionDetailPage />} />
-            </Route>
             <Route element={<ProtectedRoute requiredPermission="tiramis.monitoring.view" />}>
               <Route path="/tiramis/dashboard" element={<TiramisDashboardPage />} />
               <Route path="/tiramis/health" element={<TiramisHealthPage />} />
@@ -274,9 +279,34 @@ export default function App() {
           </Route>
         </Route>
 
+        {/* Legacy route redirects */}
+        <Route path="/quotations" element={<Navigate to={underwritingPaths.quotations} replace />} />
+        <Route path="/quotations/new" element={<Navigate to={underwritingPaths.quotationCreate} replace />} />
+        <Route path="/quotations/wizard" element={<Navigate to={underwritingPaths.quotationWizard} replace />} />
+        <Route path="/quotations/:id" element={<Navigate to={underwritingPaths.quotations} replace />} />
+        <Route path="/quotations/:id/edit" element={<Navigate to={underwritingPaths.quotationCreate} replace />} />
+        <Route path="/policies" element={<Navigate to={underwritingPaths.policies} replace />} />
+        <Route path="/policies/new" element={<Navigate to={underwritingPaths.policyCreate} replace />} />
+        <Route path="/policies/:id" element={<Navigate to={underwritingPaths.policies} replace />} />
+        <Route path="/policies/:id/edit" element={<Navigate to={underwritingPaths.policies} replace />} />
+        <Route path="/motor/vehicles" element={<Navigate to={underwritingPaths.motorVehicles} replace />} />
+        <Route path="/motor/vehicles/new" element={<Navigate to={underwritingPaths.motorVehicleCreate} replace />} />
+        <Route path="/motor/vehicles/:id" element={<Navigate to={underwritingPaths.motorVehicles} replace />} />
+        <Route path="/motor/vehicles/:id/edit" element={<Navigate to={underwritingPaths.motorVehicles} replace />} />
+        <Route path="/motor/fleets" element={<Navigate to={underwritingPaths.motorFleets} replace />} />
+        <Route path="/motor/fleets/new" element={<Navigate to={underwritingPaths.motorFleetCreate} replace />} />
+        <Route path="/motor/fleets/:id" element={<Navigate to={underwritingPaths.motorFleets} replace />} />
+        <Route path="/motor/fleets/:id/edit" element={<Navigate to={underwritingPaths.motorFleets} replace />} />
+        <Route path="/motor/quotation-details" element={<Navigate to={underwritingPaths.motorQuotationDetails} replace />} />
+        <Route path="/motor/policy-details" element={<Navigate to={underwritingPaths.motorPolicyDetails} replace />} />
+        <Route path="/non-motor/subject-matters" element={<Navigate to={underwritingPaths.nonMotorSubjectMatters} replace />} />
+        <Route path="/non-motor/subject-matters/:id" element={<Navigate to={underwritingPaths.nonMotorSubjectMatters} replace />} />
+        <Route path="/tiramis/submissions" element={<Navigate to={underwritingPaths.submissions} replace />} />
+        <Route path="/tiramis/submissions/:id" element={<Navigate to={underwritingPaths.submissions} replace />} />
+
         {/* Default redirects */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Navigate to={underwritingPaths.root} replace />} />
+        <Route path="*" element={<Navigate to={underwritingPaths.root} replace />} />
       </Routes>
     </>
   )

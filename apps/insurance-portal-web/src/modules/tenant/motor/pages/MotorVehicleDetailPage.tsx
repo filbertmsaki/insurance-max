@@ -39,7 +39,7 @@ export function MotorVehicleDetailPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Vehicle not found</p>
-        <Button variant="link" onClick={() => navigate('/motor/vehicles')}>
+        <Button variant="link" onClick={() => navigate('/underwriting/motor/vehicles')}>
           Back to Vehicles
         </Button>
       </div>
@@ -50,7 +50,7 @@ export function MotorVehicleDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/motor/vehicles')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/underwriting/motor/vehicles')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
@@ -64,7 +64,7 @@ export function MotorVehicleDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => navigate(`/motor/vehicles/${vehicle.id}/edit`)}>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/underwriting/motor/vehicles/${vehicle.id}/edit`)}>
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             Edit
           </Button>
@@ -97,7 +97,7 @@ export function MotorVehicleDetailPage() {
         description="This will soft-delete the motor vehicle."
         confirmLabel="Delete Vehicle"
         loading={deleteMutation.isPending}
-        onConfirm={() => deleteMutation.mutate(vehicle.id, { onSuccess: () => navigate('/motor/vehicles') })}
+        onConfirm={() => deleteMutation.mutate(vehicle.id, { onSuccess: () => navigate('/underwriting/motor/vehicles') })}
       />
     </div>
   );

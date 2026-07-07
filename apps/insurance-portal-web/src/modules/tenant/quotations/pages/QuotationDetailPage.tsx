@@ -20,6 +20,7 @@ import {
 } from '@/modules/tenant/non-motor/hooks';
 import { QuotationNonMotorDetailForm } from '@/modules/tenant/non-motor/components/QuotationNonMotorDetailForm';
 import type { NonMotorQuotationDetailRecord } from '@/modules/tenant/non-motor/types';
+import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 
 function Row({ label, value }: { label: string; value: string | number | null | undefined }) {
   return (
@@ -66,7 +67,7 @@ export function QuotationDetailPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Quotation not found</p>
-        <Button variant="link" onClick={() => navigate('/quotations')}>Back to Quotations</Button>
+        <Button variant="link" onClick={() => navigate(underwritingPaths.quotations)}>Back to Quotations</Button>
       </div>
     );
   }
@@ -75,7 +76,7 @@ export function QuotationDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/quotations')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(underwritingPaths.quotations)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
@@ -87,11 +88,11 @@ export function QuotationDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => submitMutation.mutate(undefined, { onSuccess: (result) => navigate(`/tiramis/submissions/${result.submission.id}`) })} disabled={submitMutation.isPending}>
+          <Button variant="outline" size="sm" onClick={() => submitMutation.mutate(undefined, { onSuccess: (result) => navigate(underwritingPaths.submissionDetail(result.submission.id)) })} disabled={submitMutation.isPending}>
             <Play className="mr-1.5 h-3.5 w-3.5" />
             Submit to TIRAMIS
           </Button>
-          <Button variant="outline" size="sm" onClick={() => navigate(`/quotations/${quotation.id}/edit`)}>
+          <Button variant="outline" size="sm" onClick={() => navigate(underwritingPaths.quotationEdit(quotation.id))}>
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             Edit
           </Button>
@@ -224,7 +225,7 @@ export function QuotationDetailPage() {
         description="This will soft-delete the quotation."
         confirmLabel="Delete"
         loading={deleteMutation.isPending}
-        onConfirm={() => deleteMutation.mutate(quotation.id, { onSuccess: () => navigate('/quotations') })}
+        onConfirm={() => deleteMutation.mutate(quotation.id, { onSuccess: () => navigate(underwritingPaths.quotations) })}
       />
     </div>
   );

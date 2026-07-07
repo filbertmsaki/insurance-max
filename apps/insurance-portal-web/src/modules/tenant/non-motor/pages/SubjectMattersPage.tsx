@@ -47,7 +47,7 @@ export function SubjectMattersPage() {
           className: 'w-24',
           cell: (row) => (
             <div className="flex justify-end gap-1">
-              <Button variant="ghost" size="icon" onClick={() => navigate(`/non-motor/subject-matters/${row.id}`)}>
+              <Button variant="ghost" size="icon" onClick={() => navigate(`/underwriting/non-motor/subject-matters/${row.id}`)}>
                 <Search className="h-4 w-4" />
               </Button>
               {canUpdate && (
@@ -124,7 +124,7 @@ export function SubjectMattersPage() {
                   onSuccess: (result) => {
                     setDialogOpen(false);
                     setEditing(null);
-                    navigate(`/non-motor/subject-matters/${result.id}`);
+                    navigate(`/underwriting/non-motor/subject-matters/${result.id}`);
                   },
                 });
               }}

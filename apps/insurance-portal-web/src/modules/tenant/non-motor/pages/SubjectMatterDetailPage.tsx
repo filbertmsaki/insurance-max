@@ -80,7 +80,7 @@ export function SubjectMatterDetailPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Subject matter not found</p>
-        <Button variant="link" onClick={() => navigate('/non-motor/subject-matters')}>Back to Subject Matters</Button>
+        <Button variant="link" onClick={() => navigate('/underwriting/non-motor/subject-matters')}>Back to Subject Matters</Button>
       </div>
     );
   }
@@ -91,7 +91,7 @@ export function SubjectMatterDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/non-motor/subject-matters')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/underwriting/non-motor/subject-matters')}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
@@ -211,7 +211,7 @@ export function SubjectMatterDetailPage() {
         description="This will soft-delete the subject matter record."
         confirmLabel="Delete"
         loading={deleteMutation.isPending}
-        onConfirm={() => deleteMutation.mutate(subjectMatter.id, { onSuccess: () => navigate('/non-motor/subject-matters') })}
+        onConfirm={() => deleteMutation.mutate(subjectMatter.id, { onSuccess: () => navigate('/underwriting/non-motor/subject-matters') })}
       />
     </div>
   );

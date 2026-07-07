@@ -83,10 +83,10 @@ export function MotorVehiclesPage() {
       className: 'w-12',
       cell: (row) => (
         <div className="flex justify-end">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/motor/vehicles/${row.id}`)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/underwriting/motor/vehicles/${row.id}`)}>
             <Eye className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/motor/vehicles/${row.id}/edit`)}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/underwriting/motor/vehicles/${row.id}/edit`)}>
             <Pencil className="h-4 w-4" />
           </Button>
           <Button variant="ghost" size="icon" onClick={() => setDeleteItem(row)}>
@@ -103,7 +103,7 @@ export function MotorVehiclesPage() {
         title="Motor Vehicles"
         description="Register vehicles for motor underwriting"
         action={
-          <Button onClick={() => navigate('/motor/vehicles/new')}>
+          <Button onClick={() => navigate('/underwriting/motor/vehicles/new')}>
             <Plus className="mr-2 h-4 w-4" />
             Create Vehicle
           </Button>

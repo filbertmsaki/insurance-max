@@ -12,6 +12,8 @@ import { quotationsApi } from './api';
 import { buildQuotationPayload } from './schemas';
 import type { QuotationFormSchemaValues } from './schemas';
 import type { QuotationListParams, QuotationRecord } from './types';
+import { tiramisApi } from '@/modules/tenant/tiramis/api';
+import { buildQuotationTiramisPayload } from '@/modules/tenant/tiramis/utils';
 
 const quotationKeys = {
   all: ['quotations'] as const,
@@ -96,6 +98,31 @@ export function useCreateQuotation() {
       qc.invalidateQueries({ queryKey: quotationKeys.all });
       qc.setQueryData(quotationKeys.detail(quotation.id), quotation);
       toast.success('Quotation created');
+    },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
+  });
+}
+
+export function useCreateQuotationAndSubmitToTiramis() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (values: QuotationFormSchemaValues) => {
+      const quotation = await quotationsApi.create(buildQuotationPayload(values));
+      try {
+        const submissionResult = await tiramisApi.submit(buildQuotationTiramisPayload(quotation)) as { submission?: { id: string } };
+        return { quotation, submission: submissionResult.submission ?? null, submissionError: null };
+      } catch (error) {
+        return { quotation, submission: null, submissionError: getApiErrorMessage(error) };
+      }
+    },
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: quotationKeys.all });
+      qc.invalidateQueries({ queryKey: ['tiramis', 'tenant-submissions'] });
+      if (result.submission) {
+        toast.success('Quotation created and submitted to TIRAMIS');
+      } else {
+        toast.warning(result.submissionError ? `Quotation created, but TIRAMIS submission needs attention: ${result.submissionError}` : 'Quotation created, but TIRAMIS submission needs attention');
+      }
     },
     onError: (e) => toast.error(getApiErrorMessage(e)),
   });

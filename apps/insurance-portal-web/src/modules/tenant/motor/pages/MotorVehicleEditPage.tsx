@@ -27,7 +27,7 @@ export function MotorVehicleEditPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Vehicle not found</p>
-        <Button variant="link" onClick={() => navigate('/motor/vehicles')}>
+        <Button variant="link" onClick={() => navigate('/underwriting/motor/vehicles')}>
           Back to Vehicles
         </Button>
       </div>
@@ -37,7 +37,7 @@ export function MotorVehicleEditPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/motor/vehicles/${vehicle.id}`)}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(`/underwriting/motor/vehicles/${vehicle.id}`)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <PageHeader title="Edit Motor Vehicle" description={vehicle.registration_no ?? vehicle.id} />
@@ -48,7 +48,7 @@ export function MotorVehicleEditPage() {
         isPending={updateMutation.isPending}
         submitLabel="Save Changes"
         defaultValues={motorVehicleRecordToFormValues(vehicle)}
-        onSubmit={(values) => updateMutation.mutate(values, { onSuccess: () => navigate(`/motor/vehicles/${vehicle.id}`) })}
+        onSubmit={(values) => updateMutation.mutate(values, { onSuccess: () => navigate(`/underwriting/motor/vehicles/${vehicle.id}`) })}
       />
     </div>
   );

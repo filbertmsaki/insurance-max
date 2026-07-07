@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { useQuotationCategories, useQuotationCustomers, useQuotationDetail, useQuotationProducts, useUpdateQuotation } from '../hooks';
 import { QuotationForm } from '../components/QuotationForm';
 import { quotationRecordToFormValues } from '../schemas';
+import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 
 export function QuotationEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -24,7 +25,7 @@ export function QuotationEditPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Quotation not found</p>
-        <Button variant="link" onClick={() => navigate('/quotations')}>Back to Quotations</Button>
+        <Button variant="link" onClick={() => navigate(underwritingPaths.quotations)}>Back to Quotations</Button>
       </div>
     );
   }
@@ -32,7 +33,7 @@ export function QuotationEditPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/quotations/${quotation.id}`)}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(underwritingPaths.quotationDetail(quotation.id))}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <PageHeader title="Edit Quotation" description={quotation.quotation_no} />
@@ -46,9 +47,8 @@ export function QuotationEditPage() {
         isPending={updateMutation.isPending}
         submitLabel="Save Changes"
         defaultValues={quotationRecordToFormValues(quotation)}
-        onSubmit={(values) => updateMutation.mutate(values, { onSuccess: () => navigate(`/quotations/${quotation.id}`) })}
+        onSubmit={(values) => updateMutation.mutate(values, { onSuccess: () => navigate(underwritingPaths.quotationDetail(quotation.id)) })}
       />
     </div>
   );
 }
-

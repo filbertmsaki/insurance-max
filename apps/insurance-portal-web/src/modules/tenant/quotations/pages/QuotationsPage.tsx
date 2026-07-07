@@ -11,6 +11,7 @@ import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
 import { useQuotationCustomers, useDeleteQuotation, useQuotationsList, useRestoreQuotation } from '../hooks';
 import { QuotationStatusBadge } from '../components/QuotationStatusBadge';
 import type { QuotationRecord } from '../types';
+import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 
 export function QuotationsPage() {
   const navigate = useNavigate();
@@ -52,8 +53,8 @@ export function QuotationsPage() {
       className: 'w-12',
       cell: (row) => (
         <div className="flex justify-end gap-1">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/quotations/${row.id}`)}><Eye className="h-4 w-4" /></Button>
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/quotations/${row.id}/edit`)}><Pencil className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/underwriting/quotations/${row.id}`)}><Eye className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/underwriting/quotations/${row.id}/edit`)}><Pencil className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" onClick={() => setDeleteItem(row)}><Trash2 className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" onClick={() => setRestoreItem(row)}><RotateCcw className="h-4 w-4" /></Button>
         </div>
@@ -66,7 +67,7 @@ export function QuotationsPage() {
       <PageHeader
         title="Quotations"
         description="Create and manage insurance quotations"
-        action={<Button onClick={() => navigate('/quotations/new')}><Plus className="mr-2 h-4 w-4" />Create Quotation</Button>}
+        action={<Button onClick={() => navigate(underwritingPaths.quotationCreate)}><Plus className="mr-2 h-4 w-4" />Create Quotation</Button>}
       />
 
       <div className="mb-4 flex flex-wrap gap-3">
@@ -136,4 +137,3 @@ export function QuotationsPage() {
     </div>
   );
 }
-

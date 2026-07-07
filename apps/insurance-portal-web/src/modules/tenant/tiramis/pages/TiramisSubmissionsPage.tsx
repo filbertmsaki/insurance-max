@@ -7,6 +7,7 @@ import { DataTable, type Column } from '@/components/shared/DataTable';
 import { TiramisStatusBadge } from '../components/TiramisStatusBadge';
 import { useTenantSubmissionsList } from '../hooks';
 import type { TiramisSubmissionRecord } from '../types';
+import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 
 export function TiramisSubmissionsPage() {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ export function TiramisSubmissionsPage() {
       key: 'actions',
       header: 'Actions',
       cell: (row) => (
-        <Button variant="ghost" size="sm" onClick={() => navigate(`/tiramis/submissions/${row.id}`)}>
+        <Button variant="ghost" size="sm" onClick={() => navigate(`/underwriting/submissions/${row.id}`)}>
           View
         </Button>
       ),
@@ -49,7 +50,7 @@ export function TiramisSubmissionsPage() {
       <PageHeader
         title="TIRAMIS Submissions"
         description="Monitor tenant submissions sent to TIRAMIS"
-        action={<Button onClick={() => navigate('/quotations')}><Plus className="mr-2 h-4 w-4" />Submit From Record</Button>}
+        action={<Button onClick={() => navigate(underwritingPaths.quotationCreate)}><Plus className="mr-2 h-4 w-4" />Create Quotation</Button>}
       />
 
       <div className="grid gap-3 md:grid-cols-4">
@@ -60,7 +61,7 @@ export function TiramisSubmissionsPage() {
       </div>
 
       <div className="flex justify-end">
-        <Button variant="outline" onClick={() => navigate(`/tiramis/submissions?search=${encodeURIComponent(search)}`)}>
+        <Button variant="outline" onClick={() => navigate(`${underwritingPaths.submissions}?search=${encodeURIComponent(search)}`)}>
           <Search className="mr-2 h-4 w-4" />
           Apply Filters
         </Button>
@@ -80,4 +81,3 @@ export function TiramisSubmissionsPage() {
     </div>
   );
 }
-

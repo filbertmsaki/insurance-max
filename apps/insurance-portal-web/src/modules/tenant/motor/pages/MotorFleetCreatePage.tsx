@@ -15,7 +15,7 @@ export function MotorFleetCreatePage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/motor/fleets')}>
+        <Button variant="ghost" size="icon" onClick={() => navigate('/underwriting/motor/fleets')}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <PageHeader title="Create Motor Fleet" description="Add a fleet record" />
@@ -27,7 +27,7 @@ export function MotorFleetCreatePage() {
         policyOptions={policyOptions}
         isPending={createMutation.isPending}
         submitLabel="Create Fleet"
-        onSubmit={(values) => createMutation.mutate(values, { onSuccess: () => navigate('/motor/fleets') })}
+        onSubmit={(values) => createMutation.mutate(values, { onSuccess: () => navigate('/underwriting/motor/fleets') })}
       />
     </div>
   );

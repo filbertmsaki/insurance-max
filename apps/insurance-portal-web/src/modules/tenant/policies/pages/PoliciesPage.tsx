@@ -11,6 +11,7 @@ import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
 import { useDeletePolicy, usePoliciesList, usePolicyCustomers, useRestorePolicy } from '../hooks';
 import { PolicyStatusBadge } from '../components/PolicyStatusBadge';
 import type { PolicyRecord } from '../types';
+import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 
 export function PoliciesPage() {
   const navigate = useNavigate();
@@ -47,8 +48,8 @@ export function PoliciesPage() {
       className: 'w-12',
       cell: (row) => (
         <div className="flex justify-end gap-1">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/policies/${row.id}`)}><Eye className="h-4 w-4" /></Button>
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/policies/${row.id}/edit`)}><Pencil className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => navigate(underwritingPaths.policyDetail(row.id))}><Eye className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => navigate(underwritingPaths.policyEdit(row.id))}><Pencil className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" onClick={() => setDeleteItem(row)}><Trash2 className="h-4 w-4" /></Button>
           <Button variant="ghost" size="icon" onClick={() => setRestoreItem(row)}><RotateCcw className="h-4 w-4" /></Button>
         </div>
@@ -61,7 +62,7 @@ export function PoliciesPage() {
       <PageHeader
         title="Policies"
         description="Create and manage policy records"
-        action={<Button onClick={() => navigate('/policies/new')}><Plus className="mr-2 h-4 w-4" />Create Policy</Button>}
+        action={<Button onClick={() => navigate(underwritingPaths.policyCreate)}><Plus className="mr-2 h-4 w-4" />Create Policy</Button>}
       />
 
       <div className="mb-4 flex flex-wrap gap-3">
@@ -122,4 +123,3 @@ export function PoliciesPage() {
     </div>
   );
 }
-

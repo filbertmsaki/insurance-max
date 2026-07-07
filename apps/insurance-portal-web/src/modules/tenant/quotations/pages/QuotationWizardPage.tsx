@@ -23,6 +23,9 @@ import { quotationsApi } from '../api';
 import { useQuotationCategories, useQuotationCustomers, useQuotationProducts, useQuotationRisks, useQuotationSubClasses, useQuotationCurrentCompanyId } from '../hooks';
 import { buildQuotationPayload, quotationFormSchema, type QuotationFormSchemaValues } from '../schemas';
 import type { QuotationWizardFactorInput } from '../types';
+import { tiramisApi } from '@/modules/tenant/tiramis/api';
+import { buildQuotationTiramisPayload } from '@/modules/tenant/tiramis/utils';
+import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 
 const EMPTY_REQUIRED_FACTORS: never[] = [];
 
@@ -165,7 +168,16 @@ export function QuotationWizardPage() {
         }));
       }
       const quotation = await quotationsApi.create(payload);
-      navigate(`/quotations/${quotation.id}`);
+      try {
+        const submissionResult = await tiramisApi.submit(buildQuotationTiramisPayload(quotation)) as { submission?: { id: string } };
+        if (submissionResult.submission) {
+          navigate(underwritingPaths.submissionDetail(submissionResult.submission.id));
+          return;
+        }
+      } catch {
+        // If submission fails, keep the created quotation accessible for manual follow-up.
+      }
+      navigate(underwritingPaths.quotationDetail(quotation.id));
     } finally {
       setSaving(false);
     }
@@ -174,10 +186,10 @@ export function QuotationWizardPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/quotations')}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(underwritingPaths.quotations)}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <PageHeader title="Quotation Wizard" description="Guided quotation creation" />
+        <PageHeader title="Quotation Wizard" description="Guided quotation creation with automatic TIRAMIS submission" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">

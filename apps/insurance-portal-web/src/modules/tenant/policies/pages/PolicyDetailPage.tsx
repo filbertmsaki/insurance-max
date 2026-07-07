@@ -20,6 +20,7 @@ import {
 } from '@/modules/tenant/non-motor/hooks';
 import { PolicyNonMotorDetailForm } from '@/modules/tenant/non-motor/components/PolicyNonMotorDetailForm';
 import type { NonMotorPolicyDetailRecord } from '@/modules/tenant/non-motor/types';
+import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 
 function Row({ label, value }: { label: string; value: string | number | null | undefined }) {
   return (
@@ -66,7 +67,7 @@ export function PolicyDetailPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Policy not found</p>
-        <Button variant="link" onClick={() => navigate('/policies')}>Back to Policies</Button>
+        <Button variant="link" onClick={() => navigate(underwritingPaths.policies)}>Back to Policies</Button>
       </div>
     );
   }
@@ -75,7 +76,7 @@ export function PolicyDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/policies')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(underwritingPaths.policies)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
@@ -87,11 +88,11 @@ export function PolicyDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => submitMutation.mutate(undefined, { onSuccess: (result) => navigate(`/tiramis/submissions/${result.submission.id}`) })} disabled={submitMutation.isPending}>
+          <Button variant="outline" size="sm" onClick={() => submitMutation.mutate(undefined, { onSuccess: (result) => navigate(underwritingPaths.submissionDetail(result.submission.id)) })} disabled={submitMutation.isPending}>
             <Play className="mr-1.5 h-3.5 w-3.5" />
             Submit to TIRAMIS
           </Button>
-          <Button variant="outline" size="sm" onClick={() => navigate(`/policies/${policy.id}/edit`)}>
+          <Button variant="outline" size="sm" onClick={() => navigate(underwritingPaths.policyEdit(policy.id))}>
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             Edit
           </Button>
@@ -237,7 +238,7 @@ export function PolicyDetailPage() {
         description="This will soft-delete the policy."
         confirmLabel="Delete"
         loading={deleteMutation.isPending}
-        onConfirm={() => deleteMutation.mutate(policy.id, { onSuccess: () => navigate('/policies') })}
+        onConfirm={() => deleteMutation.mutate(policy.id, { onSuccess: () => navigate(underwritingPaths.policies) })}
       />
     </div>
   );
