@@ -43,6 +43,8 @@ import { RatingRulesPage } from '@/modules/tenant/product-engine/pages/rating-ru
 import { CategoryAccessPage } from '@/modules/tenant/product-engine/pages/access/categories/CategoryAccessPage'
 import { ProductAccessPage } from '@/modules/tenant/product-engine/pages/access/products/ProductAccessPage'
 import { CalculatorPage } from '@/modules/tenant/product-engine/pages/calculator/CalculatorPage'
+import { SubjectMattersPage } from '@/modules/tenant/non-motor/pages/SubjectMattersPage'
+import { SubjectMatterDetailPage } from '@/modules/tenant/non-motor/pages/SubjectMatterDetailPage'
 import { MotorVehiclesPage } from '@/modules/tenant/motor/pages/MotorVehiclesPage'
 import { MotorVehicleDetailPage } from '@/modules/tenant/motor/pages/MotorVehicleDetailPage'
 import { MotorVehicleCreatePage } from '@/modules/tenant/motor/pages/MotorVehicleCreatePage'
@@ -62,6 +64,13 @@ import { PoliciesPage } from '@/modules/tenant/policies/pages/PoliciesPage'
 import { PolicyDetailPage } from '@/modules/tenant/policies/pages/PolicyDetailPage'
 import { PolicyCreatePage } from '@/modules/tenant/policies/pages/PolicyCreatePage'
 import { PolicyEditPage } from '@/modules/tenant/policies/pages/PolicyEditPage'
+import { TiramisSubmissionsPage } from '@/modules/tenant/tiramis/pages/TiramisSubmissionsPage'
+import { TiramisSubmissionDetailPage } from '@/modules/tenant/tiramis/pages/TiramisSubmissionDetailPage'
+import { TiramisDashboardPage } from '@/modules/tenant/tiramis/pages/TiramisDashboardPage'
+import { TiramisHealthPage } from '@/modules/tenant/tiramis/pages/TiramisHealthPage'
+import { TiramisTrackingPage } from '@/modules/tenant/tiramis/pages/TiramisTrackingPage'
+import { TiramisFailedSubmissionsPage } from '@/modules/tenant/tiramis/pages/TiramisFailedSubmissionsPage'
+import { TiramisRetryablePage } from '@/modules/tenant/tiramis/pages/TiramisRetryablePage'
 import { InvoicesPage } from '@/modules/tenant/billing/pages/InvoicesPage'
 import { InvoiceDetailPage } from '@/modules/tenant/billing/pages/InvoiceDetailPage'
 import { InvoiceCreatePage } from '@/modules/tenant/billing/pages/InvoiceCreatePage'
@@ -183,6 +192,11 @@ export default function App() {
             </Route>
             <Route path="/product-engine/calculator" element={<CalculatorPage />} />
 
+            <Route element={<ProtectedRoute requiredPermission="non-motor:read" />}>
+              <Route path="/non-motor/subject-matters" element={<SubjectMattersPage />} />
+              <Route path="/non-motor/subject-matters/:id" element={<SubjectMatterDetailPage />} />
+            </Route>
+
             <Route element={<ProtectedRoute requiredPermission="motor:read" />}>
               <Route path="/motor/vehicles" element={<MotorVehiclesPage />} />
               <Route path="/motor/vehicles/:id" element={<MotorVehicleDetailPage />} />
@@ -242,6 +256,20 @@ export default function App() {
             <Route element={<ProtectedRoute requiredPermission="billing:update" />}>
               <Route path="/billing/invoices/:id/edit" element={<InvoiceEditPage />} />
               <Route path="/billing/receipts/:id/edit" element={<ReceiptEditPage />} />
+            </Route>
+
+            <Route element={<ProtectedRoute requiredPermission="tiramis-submissions:read" />}>
+              <Route path="/tiramis/submissions" element={<TiramisSubmissionsPage />} />
+              <Route path="/tiramis/submissions/:id" element={<TiramisSubmissionDetailPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="tiramis.monitoring.view" />}>
+              <Route path="/tiramis/dashboard" element={<TiramisDashboardPage />} />
+              <Route path="/tiramis/health" element={<TiramisHealthPage />} />
+              <Route path="/tiramis/failed" element={<TiramisFailedSubmissionsPage />} />
+              <Route path="/tiramis/retryable" element={<TiramisRetryablePage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="tiramis.tracking.view" />}>
+              <Route path="/tiramis/tracking" element={<TiramisTrackingPage />} />
             </Route>
           </Route>
         </Route>

@@ -6,6 +6,7 @@ import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { customersApi } from '@/modules/tenant/customers/api';
 import { calculatorApi } from '@/modules/tenant/product-engine/api/calculator';
 import { useAllActiveCategories, useAllActiveProducts, useSubClassesByProduct, useRisksByProduct } from '@/modules/tenant/product-engine/hooks';
+import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { quotationsApi } from './api';
 import { buildQuotationPayload } from './schemas';
@@ -140,7 +141,7 @@ export function useRestoreQuotation() {
 export function useQuotationCustomers() {
   return useQuery({
     queryKey: ['quotations', 'customers'],
-    queryFn: async () => (await customersApi.getCustomers({ limit: 1000 })).data,
+    queryFn: async () => (await customersApi.getCustomers({ limit: API_MAX_LIST_LIMIT })).data,
     staleTime: 60_000,
   });
 }
@@ -175,4 +176,3 @@ export function useQuotationCurrentCompanyId() {
 
 export { quotationKeys };
 export type { QuotationRecord };
-

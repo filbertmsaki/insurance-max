@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { customersApi } from '@/modules/tenant/customers/api';
 import { useQuotationCategories, useQuotationProducts, useQuotationSubClasses } from '@/modules/tenant/quotations/hooks';
+import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { policiesApi } from './api';
 import { buildPolicyPayload, type PolicyFormSchemaValues } from './schemas';
@@ -130,7 +131,7 @@ export function useRestorePolicy() {
 export function usePolicyCustomers() {
   return useQuery({
     queryKey: ['policies', 'customers'],
-    queryFn: async () => (await customersApi.getCustomers({ limit: 1000 })).data,
+    queryFn: async () => (await customersApi.getCustomers({ limit: API_MAX_LIST_LIMIT })).data,
     staleTime: 60_000,
   });
 }
@@ -153,4 +154,3 @@ export function usePolicyCurrentCompanyId() {
 
 export { policyKeys };
 export type { PolicyRecord };
-

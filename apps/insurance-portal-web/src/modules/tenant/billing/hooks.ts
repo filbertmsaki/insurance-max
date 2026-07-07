@@ -6,6 +6,7 @@ import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { customersApi } from '@/modules/tenant/customers/api';
 import { policiesApi } from '@/modules/tenant/policies/api';
 import { quotationsApi } from '@/modules/tenant/quotations/api';
+import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { billingApi } from './api';
 import {
@@ -396,7 +397,7 @@ export function useDeleteCommissionPayment() {
 export function useBillingCustomers() {
   return useQuery({
     queryKey: [...billingKeys.all, 'customers'],
-    queryFn: async () => (await customersApi.getCustomers({ limit: 1000 })).data,
+    queryFn: async () => (await customersApi.getCustomers({ limit: API_MAX_LIST_LIMIT })).data,
     staleTime: 60_000,
   });
 }
@@ -404,7 +405,7 @@ export function useBillingCustomers() {
 export function useBillingPolicies() {
   return useQuery({
     queryKey: [...billingKeys.all, 'policies'],
-    queryFn: async () => (await policiesApi.getList({ limit: 1000 })).data,
+    queryFn: async () => (await policiesApi.getList({ limit: API_MAX_LIST_LIMIT })).data,
     staleTime: 60_000,
   });
 }
@@ -412,7 +413,7 @@ export function useBillingPolicies() {
 export function useBillingQuotations() {
   return useQuery({
     queryKey: [...billingKeys.all, 'quotations'],
-    queryFn: async () => (await quotationsApi.getList({ limit: 1000 })).data,
+    queryFn: async () => (await quotationsApi.getList({ limit: API_MAX_LIST_LIMIT })).data,
     staleTime: 60_000,
   });
 }
@@ -420,7 +421,7 @@ export function useBillingQuotations() {
 export function useBillingInvoices() {
   return useQuery({
     queryKey: [...billingKeys.all, 'invoices', 'all'],
-    queryFn: async () => (await billingApi.getInvoices({ limit: 1000 })).data,
+    queryFn: async () => (await billingApi.getInvoices({ limit: API_MAX_LIST_LIMIT })).data,
     staleTime: 60_000,
   });
 }

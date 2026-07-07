@@ -6,6 +6,7 @@ import { customersApi } from '@/modules/tenant/customers/api';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { normalizePaginatedResponse } from '@/modules/shared/api/pagination';
+import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { motorApi } from './api';
 import {
   buildMotorFleetPayload,
@@ -54,7 +55,7 @@ export function useMotorVehiclesList() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: motorKeys.vehicles(),
-    queryFn: () => motorApi.getVehicles({ page: 1, limit: 1000 }),
+    queryFn: () => motorApi.getVehicles({ page: 1, limit: API_MAX_LIST_LIMIT }),
     staleTime: 30_000,
   });
 
@@ -174,7 +175,7 @@ export function useMotorFleetsList() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: motorKeys.fleets(),
-    queryFn: () => motorApi.getFleets({ page: 1, limit: 1000 }),
+    queryFn: () => motorApi.getFleets({ page: 1, limit: API_MAX_LIST_LIMIT }),
     staleTime: 30_000,
   });
 
@@ -408,7 +409,7 @@ export function useMotorCustomers() {
   return useQuery({
     queryKey: motorKeys.customers(),
     queryFn: async () => {
-      const response = await customersApi.getCustomers({ limit: 1000 });
+      const response = await customersApi.getCustomers({ limit: API_MAX_LIST_LIMIT });
       return response.data;
     },
     staleTime: 60_000,

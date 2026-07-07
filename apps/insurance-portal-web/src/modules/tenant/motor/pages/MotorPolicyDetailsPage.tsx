@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Plus, Search, Pencil, Trash2, RotateCcw } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -26,7 +27,7 @@ export function MotorPolicyDetailsPage() {
   const { data: policyOptions = [] } = useMotorPolicies();
   const { data: vehiclePage } = useQuery({
     queryKey: ['motor', 'vehicle-options'],
-    queryFn: async () => (await motorApi.getVehicles({ page: 1, limit: 1000 })).data,
+    queryFn: async () => (await motorApi.getVehicles({ page: 1, limit: API_MAX_LIST_LIMIT })).data,
     staleTime: 60_000,
   });
   const vehicleOptions = vehiclePage ?? [];

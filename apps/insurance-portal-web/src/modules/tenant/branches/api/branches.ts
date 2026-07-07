@@ -1,4 +1,5 @@
 import { apiClient } from '@/modules/shared/api/client';
+import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import type {
   Branch,
   BranchAddress,
@@ -68,7 +69,7 @@ export const branchesApi = {
   /** Convenience: fetch all branches for selectors and client-side filtering */
   getAllBranches: () =>
     apiClient
-      .get<PaginatedResponse<Branch>>('/branches', { params: { limit: 1000 } })
+      .get<PaginatedResponse<Branch>>('/branches', { params: { limit: API_MAX_LIST_LIMIT } })
       .then((r) => r.data.data),
 
   /** POST /branches — create a new branch (requires branches:create) */

@@ -1,6 +1,7 @@
 import { apiClient } from '@/modules/shared/api/client';
 import { normalizePaginatedResponse } from '@/modules/shared/api/pagination';
 import type { BackendPaginatedResponse, PaginatedResponse } from '@/modules/shared/api/pagination';
+import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import type {
   CustomerRiskOption,
   MotorFleetPayload,
@@ -81,14 +82,14 @@ export const motorApi = {
   getQuotations: async (): Promise<QuotationOption[]> => {
     const response = await apiClient.get<BackendPaginatedResponse<QuotationOption> | PaginatedResponse<QuotationOption>>(
       '/tenant/quotations',
-      { params: { limit: 1000 } },
+      { params: { limit: API_MAX_LIST_LIMIT } },
     );
     return normalizePaginatedResponse<QuotationOption>(response.data).data;
   },
   getPolicies: async (): Promise<PolicyOption[]> => {
     const response = await apiClient.get<BackendPaginatedResponse<PolicyOption> | PaginatedResponse<PolicyOption>>(
       '/tenant/policies',
-      { params: { limit: 1000 } },
+      { params: { limit: API_MAX_LIST_LIMIT } },
     );
     return normalizePaginatedResponse<PolicyOption>(response.data).data;
   },

@@ -24,6 +24,10 @@ import {
   CarFront,
   Truck,
   Receipt,
+  Radar,
+  HeartPulse,
+  TriangleAlert,
+  RefreshCcw,
 } from 'lucide-react';
 
 export interface NavLeaf {
@@ -250,6 +254,20 @@ export const NAV_NODES: NavNode[] = [
   },
   {
     kind: 'group',
+    label: 'Non-Motor Insurance',
+    icon: FileText,
+    children: [
+      {
+        kind: 'link',
+        label: 'Subject Matters',
+        to: '/non-motor/subject-matters',
+        icon: FileText,
+        permission: 'non-motor:read',
+      },
+    ],
+  },
+  {
+    kind: 'group',
     label: 'Underwriting',
     icon: FileText,
     children: [
@@ -315,6 +333,55 @@ export const NAV_NODES: NavNode[] = [
         to: '/billing/commission-payments',
         icon: FileText,
         permission: 'commissions:read',
+      },
+    ],
+  },
+  {
+    kind: 'group',
+    label: 'TIRAMIS',
+    icon: Radar,
+    children: [
+      {
+        kind: 'link',
+        label: 'Submissions',
+        to: '/tiramis/submissions',
+        icon: FileText,
+        permission: 'tiramis-submissions:read',
+      },
+      {
+        kind: 'link',
+        label: 'Dashboard',
+        to: '/tiramis/dashboard',
+        icon: Radar,
+        permission: 'tiramis.monitoring.view',
+      },
+      {
+        kind: 'link',
+        label: 'Health',
+        to: '/tiramis/health',
+        icon: HeartPulse,
+        permission: 'tiramis.monitoring.view',
+      },
+      {
+        kind: 'link',
+        label: 'Tracking',
+        to: '/tiramis/tracking',
+        icon: FileText,
+        permission: 'tiramis.tracking.view',
+      },
+      {
+        kind: 'link',
+        label: 'Failed',
+        to: '/tiramis/failed',
+        icon: TriangleAlert,
+        permission: 'tiramis.monitoring.view',
+      },
+      {
+        kind: 'link',
+        label: 'Retryable',
+        to: '/tiramis/retryable',
+        icon: RefreshCcw,
+        permission: 'tiramis.monitoring.view',
       },
     ],
   },

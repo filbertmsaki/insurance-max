@@ -1,14 +1,25 @@
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useState } from 'react';
-import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Play, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { PageHeader } from '@/components/shared/PageHeader';
 import { PolicyStatusBadge } from '../components/PolicyStatusBadge';
 import { useDeletePolicy, usePolicyDetail } from '../hooks';
+import { useSubmitPolicyToTiramis } from '@/modules/tenant/tiramis/hooks';
+import { DataTable, type Column } from '@/components/shared/DataTable';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import {
+  useCreateNonMotorPolicyDetail,
+  useNonMotorPolicyDetails,
+  useNonMotorPolicyRisks,
+  useSubjectMatterOptions,
+} from '@/modules/tenant/non-motor/hooks';
+import { PolicyNonMotorDetailForm } from '@/modules/tenant/non-motor/components/PolicyNonMotorDetailForm';
+import type { NonMotorPolicyDetailRecord } from '@/modules/tenant/non-motor/types';
 
 function Row({ label, value }: { label: string; value: string | number | null | undefined }) {
   return (
@@ -22,9 +33,25 @@ function Row({ label, value }: { label: string; value: string | number | null | 
 export function PolicyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { hasPermission } = useAuthStore();
+  const canCreate = hasPermission('non-motor:create');
   const { data: policy, isLoading } = usePolicyDetail(id);
   const deleteMutation = useDeletePolicy();
+  const submitMutation = useSubmitPolicyToTiramis(policy);
+  const { data: nonMotorDetails = [] } = useNonMotorPolicyDetails(policy?.id);
+  const { data: policyRisks = [] } = useNonMotorPolicyRisks(policy?.id);
+  const { data: subjectMatterOptions = [] } = useSubjectMatterOptions();
+  const createNonMotorMutation = useCreateNonMotorPolicyDetail();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [nonMotorOpen, setNonMotorOpen] = useState(false);
+
+  const nonMotorColumns: Column<NonMotorPolicyDetailRecord>[] = useMemo(() => [
+    { key: 'subject_matter', header: 'Subject Matter', cell: (row) => row.subject_matter?.subject_code ?? row.subject_matter_id },
+    { key: 'risk', header: 'Policy Risk', cell: (row) => row.policy_risk?.risk?.risk_name ?? row.policy_risk_id },
+    { key: 'insured_value', header: 'Insured Value', cell: (row) => row.insured_value ?? ' - ' },
+    { key: 'limit', header: 'Limit', cell: (row) => row.limit_of_liability ?? ' - ' },
+    { key: 'created_at', header: 'Created', cell: (row) => new Date(row.created_at).toLocaleString() },
+  ], []);
 
   if (isLoading) {
     return (
@@ -60,6 +87,10 @@ export function PolicyDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => submitMutation.mutate(undefined, { onSuccess: (result) => navigate(`/tiramis/submissions/${result.submission.id}`) })} disabled={submitMutation.isPending}>
+            <Play className="mr-1.5 h-3.5 w-3.5" />
+            Submit to TIRAMIS
+          </Button>
           <Button variant="outline" size="sm" onClick={() => navigate(`/policies/${policy.id}/edit`)}>
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             Edit
@@ -131,7 +162,25 @@ export function PolicyDetailPage() {
           <Card><CardContent className="pt-6 text-sm text-slate-500">Motor details will surface here once motor-linked policy risks are added.</CardContent></Card>
         </TabsContent>
         <TabsContent value="nonmotor" className="space-y-4">
-          <Card><CardContent className="pt-6 text-sm text-slate-500">Non-motor details will surface here once subject matters are added.</CardContent></Card>
+          {canCreate && (
+            <div className="flex justify-end">
+              <Button onClick={() => setNonMotorOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Non-Motor Detail
+              </Button>
+            </div>
+          )}
+          <DataTable
+            columns={nonMotorColumns}
+            data={nonMotorDetails}
+            loading={false}
+            page={1}
+            limit={nonMotorDetails.length || 1}
+            total={nonMotorDetails.length}
+            totalPages={1}
+            onPageChange={() => undefined}
+            onLimitChange={() => undefined}
+          />
         </TabsContent>
         <TabsContent value="billing" className="space-y-4">
           <Card><CardContent className="pt-6 text-sm text-slate-500">Billing data can be connected here later.</CardContent></Card>
@@ -159,6 +208,28 @@ export function PolicyDetailPage() {
         </TabsContent>
       </Tabs>
 
+      <Dialog open={nonMotorOpen} onOpenChange={setNonMotorOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Non-Motor Detail</DialogTitle>
+          </DialogHeader>
+          {canCreate && (
+            <PolicyNonMotorDetailForm
+              policy={policy}
+              risks={policyRisks}
+              subjectMatters={subjectMatterOptions}
+              isPending={createNonMotorMutation.isPending}
+              submitLabel="Create Detail"
+              onSubmit={(values) => {
+                createNonMotorMutation.mutate(values, {
+                  onSuccess: () => setNonMotorOpen(false),
+                });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       <ConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
@@ -171,4 +242,3 @@ export function PolicyDetailPage() {
     </div>
   );
 }
-

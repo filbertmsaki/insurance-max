@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { departmentsApi } from '@/modules/tenant/departments/api/departments';
+import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { departmentsKeys } from './query-keys';
 import type { DepartmentRecord } from '@/modules/tenant/departments/api/departments';
 
@@ -28,7 +29,7 @@ export function useDepartmentsList() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: departmentsKeys.lists(),
-    queryFn: () => departmentsApi.getDepartments({ page: 1, limit: 1000 }),
+    queryFn: () => departmentsApi.getDepartments({ page: 1, limit: API_MAX_LIST_LIMIT }),
     staleTime: 30_000,
   });
 

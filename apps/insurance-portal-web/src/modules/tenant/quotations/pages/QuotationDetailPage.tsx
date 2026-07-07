@@ -1,14 +1,25 @@
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useState } from 'react';
-import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Play, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { PageHeader } from '@/components/shared/PageHeader';
 import { QuotationStatusBadge } from '../components/QuotationStatusBadge';
 import { useDeleteQuotation, useQuotationDetail } from '../hooks';
+import { useSubmitQuotationToTiramis } from '@/modules/tenant/tiramis/hooks';
+import { DataTable, type Column } from '@/components/shared/DataTable';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import {
+  useCreateNonMotorQuotationDetail,
+  useNonMotorQuotationDetails,
+  useNonMotorQuotationRisks,
+  useSubjectMatterOptions,
+} from '@/modules/tenant/non-motor/hooks';
+import { QuotationNonMotorDetailForm } from '@/modules/tenant/non-motor/components/QuotationNonMotorDetailForm';
+import type { NonMotorQuotationDetailRecord } from '@/modules/tenant/non-motor/types';
 
 function Row({ label, value }: { label: string; value: string | number | null | undefined }) {
   return (
@@ -22,9 +33,25 @@ function Row({ label, value }: { label: string; value: string | number | null | 
 export function QuotationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { hasPermission } = useAuthStore();
+  const canCreate = hasPermission('non-motor:create');
   const { data: quotation, isLoading } = useQuotationDetail(id);
   const deleteMutation = useDeleteQuotation();
+  const submitMutation = useSubmitQuotationToTiramis(quotation);
+  const { data: nonMotorDetails = [] } = useNonMotorQuotationDetails(quotation?.id);
+  const { data: quotationRisks = [] } = useNonMotorQuotationRisks(quotation?.id);
+  const { data: subjectMatterOptions = [] } = useSubjectMatterOptions();
+  const createNonMotorMutation = useCreateNonMotorQuotationDetail();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [nonMotorOpen, setNonMotorOpen] = useState(false);
+
+  const nonMotorColumns: Column<NonMotorQuotationDetailRecord>[] = useMemo(() => [
+    { key: 'subject_matter', header: 'Subject Matter', cell: (row) => row.subject_matter?.subject_code ?? row.subject_matter_id },
+    { key: 'risk', header: 'Quotation Risk', cell: (row) => row.quotation_risk?.risk?.risk_name ?? row.quotation_risk_id },
+    { key: 'insured_value', header: 'Insured Value', cell: (row) => row.insured_value ?? ' - ' },
+    { key: 'limit', header: 'Limit', cell: (row) => row.limit_of_liability ?? ' - ' },
+    { key: 'created_at', header: 'Created', cell: (row) => new Date(row.created_at).toLocaleString() },
+  ], []);
 
   if (isLoading) {
     return (
@@ -60,6 +87,10 @@ export function QuotationDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => submitMutation.mutate(undefined, { onSuccess: (result) => navigate(`/tiramis/submissions/${result.submission.id}`) })} disabled={submitMutation.isPending}>
+            <Play className="mr-1.5 h-3.5 w-3.5" />
+            Submit to TIRAMIS
+          </Button>
           <Button variant="outline" size="sm" onClick={() => navigate(`/quotations/${quotation.id}/edit`)}>
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             Edit
@@ -75,6 +106,7 @@ export function QuotationDetailPage() {
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="risks">Risks</TabsTrigger>
+          <TabsTrigger value="non-motor">Non-Motor Details</TabsTrigger>
           <TabsTrigger value="breakdowns">Premium Breakdown</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
@@ -113,6 +145,28 @@ export function QuotationDetailPage() {
           {(quotation.risks ?? []).length === 0 && <p className="text-sm text-slate-500">No risks attached.</p>}
         </TabsContent>
 
+        <TabsContent value="non-motor" className="space-y-4">
+          {canCreate && (
+            <div className="flex justify-end">
+              <Button onClick={() => setNonMotorOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Non-Motor Detail
+              </Button>
+            </div>
+          )}
+          <DataTable
+            columns={nonMotorColumns}
+            data={nonMotorDetails}
+            loading={false}
+            page={1}
+            limit={nonMotorDetails.length || 1}
+            total={nonMotorDetails.length}
+            totalPages={1}
+            onPageChange={() => undefined}
+            onLimitChange={() => undefined}
+          />
+        </TabsContent>
+
         <TabsContent value="breakdowns" className="space-y-4">
           {(quotation.premium_breakdowns ?? []).map((item) => (
             <Card key={item.id}>
@@ -140,6 +194,28 @@ export function QuotationDetailPage() {
           {(quotation.status_history ?? []).length === 0 && <p className="text-sm text-slate-500">No history yet.</p>}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={nonMotorOpen} onOpenChange={setNonMotorOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Non-Motor Detail</DialogTitle>
+          </DialogHeader>
+          {canCreate && (
+            <QuotationNonMotorDetailForm
+              quotation={quotation}
+              risks={quotationRisks}
+              subjectMatters={subjectMatterOptions}
+              isPending={createNonMotorMutation.isPending}
+              submitLabel="Create Detail"
+              onSubmit={(values) => {
+                createNonMotorMutation.mutate(values, {
+                  onSuccess: () => setNonMotorOpen(false),
+                });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={deleteOpen}
