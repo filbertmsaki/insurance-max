@@ -1,6 +1,8 @@
 export const underwritingPaths = {
   root: '/underwriting',
   workflow: '/underwriting',
+  tiramisWizard: '/underwriting/tiramis/wizard',
+  tiramisWizardFlow: (flow: 'motor' | 'motor-fleet' | 'non-motor') => `/underwriting/tiramis/wizard/${flow}`,
   quotations: '/underwriting/quotations',
   quotationCreate: '/underwriting/quotations/new',
   quotationWizard: '/underwriting/quotations/wizard',
@@ -25,4 +27,3 @@ export const underwritingPaths = {
   nonMotorSubjectMatters: '/underwriting/non-motor/subject-matters',
   nonMotorSubjectMatterDetail: (id: string) => `/underwriting/non-motor/subject-matters/${id}`,
 } as const;
-

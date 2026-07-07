@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, FileText, Play, Radar, ShieldCheck } from 'lucide-react';
+import { ArrowRight, FileText, Play, Radar, ShieldCheck, WandSparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -24,6 +24,12 @@ const workflowSteps = [
     action: underwritingPaths.policies,
     icon: ShieldCheck,
   },
+  {
+    title: '4. Open TIRAMIS wizard',
+    description: 'Choose Motor, Fleet, or Non-Motor and submit a structured cover note request.',
+    action: underwritingPaths.tiramisWizard,
+    icon: WandSparkles,
+  },
 ] as const;
 
 const underwritingSections = [
@@ -41,6 +47,11 @@ const underwritingSections = [
     title: 'Submission Tracking',
     description: 'See the TIRAMIS handoff and submission lifecycle.',
     to: underwritingPaths.submissions,
+  },
+  {
+    title: 'TIRAMIS Wizard',
+    description: 'Launch the end-to-end cover note wizard.',
+    to: underwritingPaths.tiramisWizard,
   },
   {
     title: 'Motor / Non-Motor Setup',
@@ -131,4 +142,3 @@ export function UnderwritingHomePage() {
     </div>
   );
 }
-

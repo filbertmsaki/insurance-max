@@ -28,6 +28,7 @@ import {
   HeartPulse,
   TriangleAlert,
   RefreshCcw,
+  Play,
 } from 'lucide-react';
 
 export interface NavLeaf {
@@ -227,6 +228,13 @@ export const NAV_NODES: NavNode[] = [
         label: 'Workflow',
         to: '/underwriting',
         icon: Radar,
+      },
+      {
+        kind: 'link',
+        label: 'TIRAMIS Wizard',
+        to: '/underwriting/tiramis/wizard',
+        icon: Play,
+        permission: 'quotations:create',
       },
       {
         kind: 'link',

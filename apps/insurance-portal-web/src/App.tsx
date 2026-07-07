@@ -73,6 +73,7 @@ import { TiramisHealthPage } from '@/modules/tenant/tiramis/pages/TiramisHealthP
 import { TiramisTrackingPage } from '@/modules/tenant/tiramis/pages/TiramisTrackingPage'
 import { TiramisFailedSubmissionsPage } from '@/modules/tenant/tiramis/pages/TiramisFailedSubmissionsPage'
 import { TiramisRetryablePage } from '@/modules/tenant/tiramis/pages/TiramisRetryablePage'
+import { TiramisWizardPage } from '@/modules/tenant/tiramis-wizard/pages/TiramisWizardPage'
 import { InvoicesPage } from '@/modules/tenant/billing/pages/InvoicesPage'
 import { InvoiceDetailPage } from '@/modules/tenant/billing/pages/InvoiceDetailPage'
 import { InvoiceCreatePage } from '@/modules/tenant/billing/pages/InvoiceCreatePage'
@@ -168,6 +169,10 @@ export default function App() {
             <Route path="/settings/profile" element={<ProfilePage />} />
 
             <Route path={underwritingPaths.root} element={<UnderwritingHomePage />} />
+            <Route element={<ProtectedRoute requiredPermission="quotations:create" />}>
+              <Route path={underwritingPaths.tiramisWizard} element={<TiramisWizardPage />} />
+              <Route path="/underwriting/tiramis/wizard/:flow" element={<TiramisWizardPage />} />
+            </Route>
 
             <Route element={<ProtectedRoute requiredPermission="quotations:read" />}>
               <Route path={underwritingPaths.quotations} element={<QuotationsPage />} />

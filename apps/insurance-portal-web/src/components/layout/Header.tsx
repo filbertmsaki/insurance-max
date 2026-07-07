@@ -46,6 +46,7 @@ const ROUTE_LABELS: [string, string[]][] = [
   ['/product-engine/access/products', ['Product Engine', 'Product Access']],
   ['/product-engine/calculator', ['Product Engine', 'Calculator']],
   ['/underwriting', ['Underwriting']],
+  ['/underwriting/tiramis/wizard', ['Underwriting', 'TIRAMIS Wizard']],
   ['/underwriting/quotations', ['Underwriting', 'Quotations']],
   ['/underwriting/policies', ['Underwriting', 'Policies']],
   ['/underwriting/submissions', ['Underwriting', 'Submission Tracking']],
