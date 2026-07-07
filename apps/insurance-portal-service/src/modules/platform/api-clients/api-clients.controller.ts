@@ -28,7 +28,7 @@ export class ApiClientsController {
   constructor(private readonly apiClientsService: ApiClientsService) {}
 
   @Post()
-  @Roles('SUPER_ADMIN', 'OWNER', 'COMPANY_ADMIN', 'ADMINISTRATOR')
+  @Roles('SUPER_ADMIN', 'OWNER')
   @ApiOperation({
     summary: 'Create an API client — returns secret once, store it securely',
   })
@@ -45,14 +45,14 @@ export class ApiClientsController {
   }
 
   @Get()
-  @Roles('SUPER_ADMIN', 'OWNER', 'COMPANY_ADMIN', 'ADMINISTRATOR')
+  @Roles('SUPER_ADMIN', 'OWNER')
   @ApiOperation({ summary: 'List API clients' })
   findAll(@CurrentUser() user: AuthenticatedUser) {
     return this.apiClientsService.findAll(user.companyId);
   }
 
   @Get(':id')
-  @Roles('SUPER_ADMIN', 'OWNER', 'COMPANY_ADMIN', 'ADMINISTRATOR')
+  @Roles('SUPER_ADMIN', 'OWNER')
   @ApiOperation({ summary: 'Get API client details' })
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
@@ -62,7 +62,7 @@ export class ApiClientsController {
   }
 
   @Post(':id/rotate-secret')
-  @Roles('SUPER_ADMIN', 'OWNER', 'COMPANY_ADMIN', 'ADMINISTRATOR')
+  @Roles('SUPER_ADMIN', 'OWNER')
   @ApiOperation({ summary: 'Rotate API client secret' })
   rotateSecret(
     @Param('id', ParseUUIDPipe) id: string,
@@ -72,7 +72,7 @@ export class ApiClientsController {
   }
 
   @Delete(':id')
-  @Roles('SUPER_ADMIN', 'OWNER', 'COMPANY_ADMIN', 'ADMINISTRATOR')
+  @Roles('SUPER_ADMIN', 'OWNER')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Revoke an API client' })
   revoke(

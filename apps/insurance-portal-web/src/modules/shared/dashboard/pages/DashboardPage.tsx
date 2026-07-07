@@ -51,6 +51,7 @@ const recentActivity = [
 
 export function DashboardPage() {
   const { user } = useAuthStore()
+  const isPlatformAccount = user?.scope === 'platform'
 
   const { data: users, isLoading: usersLoading } = useQuery({
     queryKey: ['users', { page: 1, limit: 1 }],
@@ -70,6 +71,7 @@ export function DashboardPage() {
   const { data: apiClients, isLoading: apiClientsLoading } = useQuery({
     queryKey: ['api-clients', { page: 1, limit: 1 }],
     queryFn: () => apiClientsApi.getApiClients({ page: 1, limit: 1 }),
+    enabled: isPlatformAccount,
   })
 
   const activeSessions = sessions?.filter((s) => !s.revoked).length
@@ -83,7 +85,7 @@ export function DashboardPage() {
         description={`Welcome back, ${user?.email}`}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 ${isPlatformAccount ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
         <StatCard
           icon={Users}
           label="Total Users"
@@ -105,13 +107,15 @@ export function DashboardPage() {
           loading={devicesLoading}
           color="bg-purple-500"
         />
-        <StatCard
-          icon={Key}
-          label="Active API Clients"
-          value={activeClients}
-          loading={apiClientsLoading}
-          color="bg-amber-500"
-        />
+        {isPlatformAccount ? (
+          <StatCard
+            icon={Key}
+            label="Active API Clients"
+            value={activeClients}
+            loading={apiClientsLoading}
+            color="bg-amber-500"
+          />
+        ) : null}
       </div>
 
       <Card>

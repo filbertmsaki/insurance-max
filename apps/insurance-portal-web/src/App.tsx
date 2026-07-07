@@ -160,7 +160,7 @@ export default function App() {
 
             <Route path="/devices" element={<DevicesPage />} />
             <Route path="/sessions" element={<SessionsPage />} />
-            <Route element={<ProtectedRoute anyRole={['SUPER_ADMIN', 'OWNER', 'COMPANY_ADMIN', 'ADMINISTRATOR']} />}>
+            <Route element={<ProtectedRoute anyRole={['SUPER_ADMIN', 'OWNER']} />}>
               <Route path="/api-clients" element={<ApiClientsPage />} />
             </Route>
             <Route path="/settings/profile" element={<ProfilePage />} />

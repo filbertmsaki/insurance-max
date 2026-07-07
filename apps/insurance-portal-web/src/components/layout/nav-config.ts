@@ -144,7 +144,7 @@ export const NAV_NODES: NavNode[] = [
         label: 'API Clients',
         to: '/api-clients',
         icon: Key,
-        anyRole: ['SUPER_ADMIN', 'OWNER', 'COMPANY_ADMIN', 'ADMINISTRATOR'],
+        anyRole: ['SUPER_ADMIN', 'OWNER'],
       },
     ],
   },
