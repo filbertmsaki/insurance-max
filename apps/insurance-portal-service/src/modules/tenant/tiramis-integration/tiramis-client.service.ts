@@ -113,6 +113,22 @@ export class TiramisClientService {
       case 'MOTOR':
       case 'MOTOR_FLEET':
         return 'tiramis.motor.submit';
+      case 'REINSURANCE':
+        return 'tiramis.reinsurance.submit';
+      case 'POLICY':
+        return 'tiramis.policy.submit';
+      case 'CLAIM_NOTIFICATION':
+        return 'tiramis.claim.notification.submit';
+      case 'CLAIM_INTIMATION':
+        return 'tiramis.claim.intimation.submit';
+      case 'CLAIM_ASSESSMENT':
+        return 'tiramis.claim.assessment.submit';
+      case 'DISCHARGE_VOUCHER':
+        return 'tiramis.discharge_voucher.submit';
+      case 'CLAIM_PAYMENT':
+        return 'tiramis.claim.payment.submit';
+      case 'CLAIM_REJECTION':
+        return 'tiramis.claim.rejection.submit';
       default:
         throw new BadRequestException(
           `Unsupported TIRAMIS requestType: ${requestType}`,

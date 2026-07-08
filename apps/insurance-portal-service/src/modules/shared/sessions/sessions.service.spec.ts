@@ -101,6 +101,8 @@ describe('SessionsService', () => {
 
   describe('revoke', () => {
     it('marks session as revoked and removes from Redis', async () => {
+      sessionRepo.findOne.mockResolvedValue({ id: SESSION_ID });
+
       await service.revoke(SESSION_ID);
 
       expect(sessionRepo.update).toHaveBeenCalledWith(

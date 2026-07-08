@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 
+import { createCipheriv, randomBytes } from 'crypto';
 import { join } from 'path';
 
 import dataSource from '../data-source';
@@ -44,41 +45,95 @@ function getTiraPublicCertificatePath(environment: EnvironmentName): string {
   return join(certificateRootPath, environment, 'tiramispublic.pfx');
 }
 
+function mustEnv(name: string): string {
+  const value = process.env[name];
+
+  if (!value?.trim()) {
+    throw new Error(
+      `[seed-env] Missing required environment variable: ${name}`,
+    );
+  }
+
+  return value.trim();
+}
+
+function optionalEnv(name: string, fallback: string): string {
+  const value = process.env[name];
+  return value?.trim() ? value.trim() : fallback;
+}
+
+function encryptSecret(plainText: string): string {
+  if (!plainText) {
+    return plainText;
+  }
+
+  if (plainText.startsWith('enc:v1:')) {
+    return plainText;
+  }
+
+  const rawKey = mustEnv('TIRAMIS_SECRET_ENCRYPTION_KEY');
+  const key = Buffer.from(rawKey, 'base64');
+
+  if (key.length !== 32) {
+    throw new Error(
+      'TIRAMIS_SECRET_ENCRYPTION_KEY must be a base64 encoded 32-byte key',
+    );
+  }
+
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([
+    cipher.update(plainText, 'utf8'),
+    cipher.final(),
+  ]);
+  const authTag = cipher.getAuthTag();
+
+  return [
+    'enc',
+    'v1',
+    iv.toString('base64'),
+    authTag.toString('base64'),
+    encrypted.toString('base64'),
+  ].join(':');
+}
+
 const configurations: ConfigurationSeed[] = [
-  {
-    environment: 'live',
-    companyCode: 'ICC110',
-    systemCode: 'LSYS_ALLIANCE_003',
-    clientCode: 'ICC110',
-    clientKey: 'RydLDE8CFJ',
-    clientPrivateCertificatePassword: 'Alli@ncTir@2025!',
-    tiraPublicCertificatePassword: 'TiraClient@2021',
-    insurerCompanyCode: 'ICC110',
-    salePointCode: 'SP500',
-    tranCompanyCode: 'ICC110',
-    baseUrl: 'https://api.tira.go.tz:8091',
-    callbackBaseUrl: 'https://ussdvd.alliance.co.tz/api/v1/tira-callback',
-    clientPrivateCertificatePath: getClientPrivateCertificatePath('live'),
-    tiraPublicCertificatePath: getTiraPublicCertificatePath('live'),
-    signatureAlgorithm: 'sha1WithRSAEncryption',
-  },
   {
     environment: 'test',
     companyCode: 'ICC110',
-    systemCode: 'LSYS_ALLIANCE_003',
+    systemCode: 'LSYS_ALLIANCE_001',
     clientCode: 'ICC110',
-    clientKey: 'RydLDE8CFJ',
-    clientPrivateCertificatePassword: 'password',
-    tiraPublicCertificatePassword: 'password',
+    clientKey: mustEnv('ALLIANCE_TIRA_CLIENT_KEY_TEST'),
+    clientPrivateCertificatePassword: mustEnv(
+      'ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_TEST',
+    ),
+    tiraPublicCertificatePassword: mustEnv('TIRA_PUBLIC_CERT_PASSWORD_TEST'),
     insurerCompanyCode: 'ICC110',
     salePointCode: 'SP500',
     tranCompanyCode: 'ICC110',
-    baseUrl: 'http://localhost:5050',
-    callbackBaseUrl:
-      process.env.TIRAMIS_TEST_CALLBACK_URL ||
-      'http://localhost:9091/api/tiramis/callbacks/test',
+    baseUrl: optionalEnv('TIRAMIS_TEST_BASE_URL', 'http://localhost:5050'),
+    callbackBaseUrl: mustEnv('TIRAMIS_TEST_CALLBACK_BASE_URL'),
     clientPrivateCertificatePath: getClientPrivateCertificatePath('test'),
     tiraPublicCertificatePath: getTiraPublicCertificatePath('test'),
+    signatureAlgorithm: 'sha1WithRSAEncryption',
+  },
+  {
+    environment: 'live',
+    companyCode: 'ICC110',
+    systemCode: 'LSYS_ALLIANCE_001',
+    clientCode: 'ICC110',
+    clientKey: mustEnv('ALLIANCE_TIRA_CLIENT_KEY_LIVE'),
+    clientPrivateCertificatePassword: mustEnv(
+      'ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_LIVE',
+    ),
+    tiraPublicCertificatePassword: mustEnv('TIRA_PUBLIC_CERT_PASSWORD_LIVE'),
+    insurerCompanyCode: 'ICC110',
+    salePointCode: 'SP500',
+    tranCompanyCode: 'ICC110',
+    baseUrl: mustEnv('TIRAMIS_LIVE_BASE_URL'),
+    callbackBaseUrl: mustEnv('TIRAMIS_LIVE_CALLBACK_BASE_URL'),
+    clientPrivateCertificatePath: getClientPrivateCertificatePath('live'),
+    tiraPublicCertificatePath: getTiraPublicCertificatePath('live'),
     signatureAlgorithm: 'sha1WithRSAEncryption',
   },
 ];
@@ -479,6 +534,14 @@ async function seedClientConfigurations(activeDataSource = dataSource) {
   );
 
   for (const configurationSeed of configurations) {
+    const encryptedClientKey = encryptSecret(configurationSeed.clientKey);
+    const encryptedClientPrivatePassword = encryptSecret(
+      configurationSeed.clientPrivateCertificatePassword,
+    );
+    const encryptedTiraPublicPassword = encryptSecret(
+      configurationSeed.tiraPublicCertificatePassword,
+    );
+
     let configuration = await configurationRepository.findOne({
       where: {
         environment: configurationSeed.environment,
@@ -495,7 +558,8 @@ async function seedClientConfigurations(activeDataSource = dataSource) {
     configuration.companyCode = configurationSeed.companyCode;
     configuration.systemCode = configurationSeed.systemCode;
     configuration.clientCode = configurationSeed.clientCode;
-    configuration.clientKey = configurationSeed.clientKey;
+    configuration.clientKey = encryptedClientKey;
+    configuration.clientKeyEncrypted = encryptedClientKey;
     configuration.insurerCompanyCode = configurationSeed.insurerCompanyCode;
     configuration.salePointCode = configurationSeed.salePointCode;
     configuration.tranCompanyCode = configurationSeed.tranCompanyCode;
@@ -504,11 +568,14 @@ async function seedClientConfigurations(activeDataSource = dataSource) {
     configuration.clientPrivateCertificatePath =
       configurationSeed.clientPrivateCertificatePath;
     configuration.clientPrivateCertificatePassword =
-      configurationSeed.clientPrivateCertificatePassword;
+      encryptedClientPrivatePassword;
+    configuration.clientPrivateCertificatePasswordEncrypted =
+      encryptedClientPrivatePassword;
     configuration.tiraPublicCertificatePath =
       configurationSeed.tiraPublicCertificatePath;
-    configuration.tiraPublicCertificatePassword =
-      configurationSeed.tiraPublicCertificatePassword;
+    configuration.tiraPublicCertificatePassword = encryptedTiraPublicPassword;
+    configuration.tiraPublicCertificatePasswordEncrypted =
+      encryptedTiraPublicPassword;
     configuration.signatureAlgorithm = configurationSeed.signatureAlgorithm;
     configuration.isActive = 1;
 

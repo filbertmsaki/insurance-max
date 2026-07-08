@@ -266,22 +266,19 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'tiramis.monitoring.view',
     displayName: 'View TIRAMIS Monitoring',
-    description:
-      'Allows user to view TIRAMIS admin dashboard and statistics',
+    description: 'Allows user to view TIRAMIS admin dashboard and statistics',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
     name: 'tiramis.retry',
     displayName: 'Retry TIRAMIS Submissions',
-    description:
-      'Allows user to retry failed or retryable TIRAMIS submissions',
+    description: 'Allows user to retry failed or retryable TIRAMIS submissions',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
     name: 'tiramis.sync',
     displayName: 'Sync TIRAMIS Status',
-    description:
-      'Allows user to sync final responses and business records',
+    description: 'Allows user to sync final responses and business records',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -1334,8 +1331,7 @@ export default class InitialRbacSeeder implements Seeder {
       };
 
       const companyName =
-        process.env.DEFAULT_COMPANY_NAME ??
-        'Alliance Insurance Company Limited';
+        process.env.DEFAULT_COMPANY_NAME ?? 'Platform Default Tenant';
 
       const adminConfig: SeedUserConfig = {
         firstName: process.env.INITIAL_COMPANY_ADMIN_FIRST_NAME ?? 'Inocent',
@@ -1394,7 +1390,10 @@ export default class InitialRbacSeeder implements Seeder {
         ownerRole,
       );
 
-      await companyUserRepo.delete({ user_id: savedOwner.id });
+      await companyUserRepo.update(
+        { user_id: savedOwner.id },
+        { is_default: false },
+      );
 
       const adminUser = await this.findUserByIdentity(
         userRepo,

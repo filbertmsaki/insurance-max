@@ -8,10 +8,7 @@ import { InsuranceCategory } from '../../modules/tenant/insurance-categories/ent
 import { InsuranceProduct } from '../../modules/tenant/insurance-products/entities/insurance-product.entity';
 import { InsuranceSubClass } from '../../modules/tenant/insurance-sub-classes/entities/insurance-sub-class.entity';
 import { InsuranceRisk } from '../../modules/tenant/insurance-risks/entities/insurance-risk.entity';
-import { RatingFactor } from '../../modules/tenant/rating-factors/entities/rating-factor.entity';
-import { RiskRequiredFactor } from '../../modules/tenant/risk-required-factors/entities/risk-required-factor.entity';
 import { RiskRatingRule } from '../../modules/tenant/risk-rating-rules/entities/risk-rating-rule.entity';
-import { RiskRuleCondition } from '../../modules/tenant/risk-rule-conditions/entities/risk-rule-condition.entity';
 
 type CategorySeed = {
   code: string;
@@ -101,7 +98,7 @@ function resolveSeedDataFilePath(): string {
       readFileSync(candidate, 'utf8');
       return candidate;
     } catch {
-      // Continue trying next candidate.
+      // Keep checking the next candidate.
     }
   }
 
@@ -150,38 +147,12 @@ export default class ProductEngineSeeder implements Seeder {
       const subClassRepo = manager.getRepository(InsuranceSubClass);
       const riskRepo = manager.getRepository(InsuranceRisk);
       const ruleRepo = manager.getRepository(RiskRatingRule);
-      const ruleConditionRepo = manager.getRepository(RiskRuleCondition);
-      const requiredFactorRepo = manager.getRepository(RiskRequiredFactor);
-      const factorRepo = manager.getRepository(RatingFactor);
 
-      const company = await companyRepo.findOne({
-        where: { status: 'active' },
-        order: { created_at: 'ASC' },
-      });
-
-      if (!company) {
-        console.warn(
-          '[ProductEngineSeeder] No active company found; skipping product engine seed.',
-        );
-        await queryRunner.commitTransaction();
-        return;
-      }
-
+      const company = await this.getTargetCompany(companyRepo);
       const companyId = company.id;
-      console.log(
-        `[ProductEngineSeeder] Rebuilding product engine seed data for company ${company.name} (${companyId})`,
-      );
 
-      await this.clearExistingProductEngineData(
-        companyId,
-        ruleConditionRepo,
-        ruleRepo,
-        requiredFactorRepo,
-        factorRepo,
-        riskRepo,
-        subClassRepo,
-        productRepo,
-        categoryRepo,
+      console.log(
+        `[ProductEngineSeeder] Seeding product engine data for company ${company.name} (${companyId})`,
       );
 
       const categoryMap = await this.seedCategories(categoryRepo, companyId);
@@ -217,25 +188,24 @@ export default class ProductEngineSeeder implements Seeder {
     }
   }
 
-  private async clearExistingProductEngineData(
-    companyId: string,
-    ruleConditionRepo: Repository<RiskRuleCondition>,
-    ruleRepo: Repository<RiskRatingRule>,
-    requiredFactorRepo: Repository<RiskRequiredFactor>,
-    factorRepo: Repository<RatingFactor>,
-    riskRepo: Repository<InsuranceRisk>,
-    subClassRepo: Repository<InsuranceSubClass>,
-    productRepo: Repository<InsuranceProduct>,
-    categoryRepo: Repository<InsuranceCategory>,
-  ): Promise<void> {
-    await ruleConditionRepo.delete({ company_id: companyId });
-    await ruleRepo.delete({ company_id: companyId });
-    await requiredFactorRepo.delete({ company_id: companyId });
-    await factorRepo.delete({ company_id: companyId });
-    await riskRepo.delete({ company_id: companyId });
-    await subClassRepo.delete({ company_id: companyId });
-    await productRepo.delete({ company_id: companyId });
-    await categoryRepo.delete({ company_id: companyId });
+  private async getTargetCompany(
+    companyRepo: Repository<Company>,
+  ): Promise<Company> {
+    const targetCompanyCode = process.env.SEED_TARGET_COMPANY_CODE ?? 'ICC110';
+
+    const company = await companyRepo.findOne({
+      where: {
+        tira_company_code: targetCompanyCode,
+      },
+    });
+
+    if (!company) {
+      throw new Error(
+        `Target seed company not found. Set SEED_TARGET_COMPANY_CODE=${targetCompanyCode}`,
+      );
+    }
+
+    return company;
   }
 
   private async seedCategories(
@@ -245,16 +215,7 @@ export default class ProductEngineSeeder implements Seeder {
     const map = new Map<string, InsuranceCategory>();
 
     for (const seed of categorySeeds) {
-      const entity = await repo.save(
-        repo.create({
-          company_id: companyId,
-          code: seed.code,
-          name: seed.name,
-          description: seed.description,
-          is_active: true,
-        }),
-      );
-
+      const entity = await this.ensureCategory(repo, companyId, seed);
       map.set(seed.code, entity);
     }
 
@@ -274,17 +235,12 @@ export default class ProductEngineSeeder implements Seeder {
         continue;
       }
 
-      const entity = await repo.save(
-        repo.create({
-          company_id: companyId,
-          category_id: category.id,
-          product_code: seed.product_code,
-          product_name: seed.product_name,
-          description: seed.description,
-          is_active: true,
-        }),
+      const entity = await this.ensureProduct(
+        repo,
+        companyId,
+        category.id,
+        seed,
       );
-
       map.set(seed.product_code, entity);
     }
 
@@ -304,17 +260,12 @@ export default class ProductEngineSeeder implements Seeder {
         continue;
       }
 
-      const entity = await repo.save(
-        repo.create({
-          company_id: companyId,
-          product_id: product.id,
-          code: seed.code,
-          name: seed.name,
-          description: seed.description,
-          is_active: true,
-        }),
+      const entity = await this.ensureSubClass(
+        repo,
+        companyId,
+        product.id,
+        seed,
       );
-
       map.set(`${seed.product_code}::${seed.code}`, entity);
     }
 
@@ -346,22 +297,167 @@ export default class ProductEngineSeeder implements Seeder {
         usedRiskNamesByProduct,
       );
 
-      const entity = await repo.save(
-        repo.create({
-          company_id: companyId,
-          product_id: product.id,
-          sub_class_id: subClass?.id ?? null,
-          risk_code: seed.risk_code,
-          risk_name: riskName,
-          description: seed.description,
-          is_active: true,
-        }),
-      );
+      const entity = await this.ensureRisk(repo, companyId, {
+        productId: product.id,
+        subClassId: subClass?.id ?? null,
+        riskCode: seed.risk_code,
+        riskName,
+        description: seed.description,
+      });
 
       map.set(seed.risk_code, entity);
     }
 
     return map;
+  }
+
+  private async ensureCategory(
+    repo: Repository<InsuranceCategory>,
+    companyId: string,
+    seed: CategorySeed,
+  ): Promise<InsuranceCategory> {
+    const existing = await repo.findOne({
+      where: {
+        company_id: companyId,
+        code: seed.code,
+      },
+      withDeleted: true,
+    });
+
+    if (existing?.deleted_at) {
+      throw new Error(
+        `Category ${seed.code} exists but is soft-deleted. Restore manually or use a controlled migration.`,
+      );
+    }
+
+    if (existing) {
+      return existing;
+    }
+
+    return repo.save(
+      repo.create({
+        company_id: companyId,
+        code: seed.code,
+        name: seed.name,
+        description: seed.description,
+        is_active: true,
+      }),
+    );
+  }
+
+  private async ensureProduct(
+    repo: Repository<InsuranceProduct>,
+    companyId: string,
+    categoryId: string,
+    seed: ProductSeed,
+  ): Promise<InsuranceProduct> {
+    const existing = await repo.findOne({
+      where: {
+        company_id: companyId,
+        product_code: seed.product_code,
+      },
+      withDeleted: true,
+    });
+
+    if (existing?.deleted_at) {
+      throw new Error(
+        `Product ${seed.product_code} exists but is soft-deleted. Restore manually or use a controlled migration.`,
+      );
+    }
+
+    if (existing) {
+      return existing;
+    }
+
+    return repo.save(
+      repo.create({
+        company_id: companyId,
+        category_id: categoryId,
+        product_code: seed.product_code,
+        product_name: seed.product_name,
+        description: seed.description,
+        is_active: true,
+      }),
+    );
+  }
+
+  private async ensureSubClass(
+    repo: Repository<InsuranceSubClass>,
+    companyId: string,
+    productId: string,
+    seed: SubClassSeed,
+  ): Promise<InsuranceSubClass> {
+    const existing = await repo.findOne({
+      where: {
+        company_id: companyId,
+        product_id: productId,
+        code: seed.code,
+      },
+      withDeleted: true,
+    });
+
+    if (existing?.deleted_at) {
+      throw new Error(
+        `Sub-class ${seed.product_code}/${seed.code} exists but is soft-deleted. Restore manually or use a controlled migration.`,
+      );
+    }
+
+    if (existing) {
+      return existing;
+    }
+
+    return repo.save(
+      repo.create({
+        company_id: companyId,
+        product_id: productId,
+        code: seed.code,
+        name: seed.name,
+        description: seed.description,
+        is_active: true,
+      }),
+    );
+  }
+
+  private async ensureRisk(
+    repo: Repository<InsuranceRisk>,
+    companyId: string,
+    seed: {
+      productId: string;
+      subClassId: string | null;
+      riskCode: string;
+      riskName: string;
+      description: string | null;
+    },
+  ): Promise<InsuranceRisk> {
+    const existing = await repo.findOne({
+      where: {
+        company_id: companyId,
+        risk_code: seed.riskCode,
+      },
+      withDeleted: true,
+    });
+
+    if (existing?.deleted_at) {
+      throw new Error(
+        `Risk ${seed.riskCode} exists but is soft-deleted. Restore manually or use a controlled migration.`,
+      );
+    }
+
+    if (existing) {
+      return existing;
+    }
+
+    return repo.save(
+      repo.create({
+        company_id: companyId,
+        product_id: seed.productId,
+        sub_class_id: seed.subClassId,
+        risk_code: seed.riskCode,
+        risk_name: seed.riskName,
+        description: seed.description,
+        is_active: true,
+      }),
+    );
   }
 
   private resolveUniqueRiskNameForProduct(
@@ -403,6 +499,25 @@ export default class ProductEngineSeeder implements Seeder {
         ? (seed.rate_type as RateType)
         : RateType.FORMULA;
       const normalizedRule = this.normalizeRuleSeed(seed, fallbackRateType);
+
+      const existing = await repo.findOne({
+        where: {
+          company_id: companyId,
+          risk_id: risk.id,
+          rule_name: seed.rule_name,
+        },
+        withDeleted: true,
+      });
+
+      if (existing?.deleted_at) {
+        throw new Error(
+          `Rule ${seed.rule_name} for risk ${seed.risk_code} exists but is soft-deleted. Restore manually or use a controlled migration.`,
+        );
+      }
+
+      if (existing) {
+        continue;
+      }
 
       await repo.save(
         repo.create({
@@ -610,8 +725,9 @@ export default class ProductEngineSeeder implements Seeder {
     if (!normalized) return null;
 
     if (normalized.includes('seat')) return 'seat_capacity';
-    if (normalized.includes('weight') && normalized.includes('vehicle'))
+    if (normalized.includes('weight') && normalized.includes('vehicle')) {
       return 'vehicle_weight_kg';
+    }
     if (normalized.includes('ton')) return 'cargo_weight_ton';
 
     return normalized.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');

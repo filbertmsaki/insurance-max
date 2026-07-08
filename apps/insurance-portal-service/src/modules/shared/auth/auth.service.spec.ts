@@ -1,7 +1,20 @@
+jest.mock('./2fa/2fa.service', () => ({
+  TwoFaService: class TwoFaService {},
+}));
+
+jest.mock('@insurance-max/portal-shared/utils/hash.util', () => ({
+  comparePasswords: jest.fn(),
+  hashPassword: jest.fn(),
+}));
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { UnauthorizedException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UsersService } from '../../tenant/users/users.service';
 import { CompaniesService } from '../../platform/companies/companies.service';
@@ -12,6 +25,7 @@ import { SessionsService } from '../sessions/sessions.service';
 import { DevicesService } from '../devices/devices.service';
 import { AuditService } from '../audit/audit.service';
 import { RedisService } from '../redis/redis.service';
+import { comparePasswords } from '@insurance-max/portal-shared/utils/hash.util';
 
 const mockUser = {
   id: 'uuid-user-1',
@@ -50,6 +64,7 @@ describe('AuthService', () => {
   let redisService: jest.Mocked<RedisService>;
   let sessionsService: jest.Mocked<SessionsService>;
   let auditService: jest.Mocked<AuditService>;
+  let mailService: jest.Mocked<MailService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -60,15 +75,16 @@ describe('AuthService', () => {
           useValue: {
             findByEmailForAuth: jest.fn(),
             findById: jest.fn(),
-            updateLastLogin: jest.fn(),
-            incrementLoginAttempts: jest.fn(),
-            resetLoginAttempts: jest.fn(),
-            lockAccount: jest.fn(),
-            findByPhone: jest.fn(),
-            updateVerificationToken: jest.fn(),
-            markEmailVerified: jest.fn(),
-            findByVerificationToken: jest.fn(),
-            updatePassword: jest.fn(),
+              updateLastLogin: jest.fn(),
+              incrementLoginAttempts: jest.fn(),
+              resetLoginAttempts: jest.fn(),
+              lockAccount: jest.fn(),
+              findByEmail: jest.fn(),
+              findByPhone: jest.fn(),
+              updateVerificationToken: jest.fn(),
+              markEmailVerified: jest.fn(),
+              findByVerificationToken: jest.fn(),
+              updatePassword: jest.fn(),
           },
         },
         {
@@ -109,6 +125,8 @@ describe('AuthService', () => {
                 JWT_ACCESS_SECRET: 'access-secret',
                 JWT_REFRESH_SECRET: 'refresh-secret',
                 JWT_TEMP_SECRET: 'temp-secret',
+                JWT_RESET_SECRET: 'reset-secret',
+                APP_URL: 'http://localhost:9999',
               };
               if (!config[key]) throw new Error(`Missing config: ${key}`);
               return config[key];
@@ -121,6 +139,8 @@ describe('AuthService', () => {
             sendPasswordResetEmail: jest.fn(),
             sendEmailVerification: jest.fn(),
             sendPasswordlessLoginEmail: jest.fn(),
+            sendWelcomeEmailAfterVerification: jest.fn(),
+            sendPasswordChangedSuccessEmail: jest.fn(),
           },
         },
         {
@@ -168,6 +188,9 @@ describe('AuthService', () => {
     redisService = module.get(RedisService);
     sessionsService = module.get(SessionsService);
     auditService = module.get(AuditService);
+    mailService = module.get(MailService);
+
+    (comparePasswords as jest.Mock).mockResolvedValue(true);
   });
 
   describe('validateUser', () => {
@@ -177,22 +200,28 @@ describe('AuthService', () => {
       expect(result).toBeNull();
     });
 
-    it('returns null when account is locked', async () => {
+    it('throws when account is locked', async () => {
       usersService.findByEmailForAuth.mockResolvedValue({
         ...mockUser,
         locked_until: new Date(Date.now() + 60000),
       } as any);
-      const result = await service.validateUser(mockUser.email, 'pass');
-      expect(result).toBeNull();
+      await expect(service.validateUser(mockUser.email, 'pass')).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
-    it('returns null when account is not active', async () => {
+    it('returns the user even when account is inactive; status is enforced during login', async () => {
       usersService.findByEmailForAuth.mockResolvedValue({
         ...mockUser,
         status: 'inactive',
       } as any);
       const result = await service.validateUser(mockUser.email, 'pass');
-      expect(result).toBeNull();
+      expect(result).toMatchObject({
+        id: mockUser.id,
+        email: mockUser.email,
+        status: 'inactive',
+      });
+      expect(result).not.toHaveProperty('password');
     });
   });
 
@@ -209,27 +238,32 @@ describe('AuthService', () => {
 
   describe('forgotPassword', () => {
     it('returns generic message when user not found (no email enumeration)', async () => {
-      usersService.findByEmailForAuth.mockResolvedValue(null);
+      usersService.findByEmail.mockResolvedValue(null);
       const result = await service.forgotPassword({ email: 'nobody@x.com' });
-      expect(result.message).toMatch(/If.*email.*you.*receive/i);
+      expect(result.message).toBe(
+        'If the email exists, you will receive a reset link',
+      );
     });
 
-    it('sends reset email and updates token when user found', async () => {
-      usersService.findByEmailForAuth.mockResolvedValue(mockUser as any);
-      usersService.updateVerificationToken = jest.fn();
-      const mailService = { sendPasswordResetEmail: jest.fn() };
-
-      // Use partial mock override for this test via module
+    it('sends reset email when user found', async () => {
+      usersService.findByEmail.mockResolvedValue(mockUser as any);
       const result = await service.forgotPassword({ email: mockUser.email });
-      expect(result.message).toBeDefined();
+      expect(result.message).toBe(
+        'If the email exists, you will receive a reset link',
+      );
+      expect(mailService.sendPasswordResetEmail).toHaveBeenCalledWith(
+        mockUser.email,
+        mockUser.first_name,
+        expect.stringContaining('auth/reset-password?token='),
+      );
     });
   });
 
   describe('verifyEmail', () => {
-    it('throws NotFoundException for invalid/expired token', async () => {
+    it('throws BadRequestException for invalid/expired token', async () => {
       usersService.findByVerificationToken.mockResolvedValue(null);
       await expect(service.verifyEmail('bad-token')).rejects.toThrow(
-        NotFoundException,
+        BadRequestException,
       );
     });
 

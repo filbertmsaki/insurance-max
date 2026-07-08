@@ -1,9 +1,16 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 
+import { Branch } from '../branches/entities/branch.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
+import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 import { FilterPortalTiraSubmissionDto } from './dto/filter-portal-tira-submission.dto';
 import { TiramisNotificationEventDto } from './dto/tiramis-notification-event.dto';
 import { SubmitPortalTiraDto } from './dto/submit-portal-tira.dto';
@@ -27,6 +34,10 @@ export class TiramisIntegrationService {
     private readonly policyRepository: Repository<Policy>,
     @InjectRepository(Quotation)
     private readonly quotationRepository: Repository<Quotation>,
+    @InjectRepository(Branch)
+    private readonly branchRepository: Repository<Branch>,
+    @InjectRepository(TiramisSalePointEntity)
+    private readonly salePointRepository: Repository<TiramisSalePointEntity>,
     private readonly tiramisClientService: TiramisClientService,
   ) {}
 
@@ -36,6 +47,10 @@ export class TiramisIntegrationService {
     dto: SubmitPortalTiraDto;
   }) {
     const dto = params.dto;
+    const resolvedPayload = await this.resolveSubmissionPayload({
+      companyId: params.companyId,
+      dto,
+    });
 
     const existing = await this.submissionRepository.findOne({
       where: {
@@ -75,13 +90,13 @@ export class TiramisIntegrationService {
         status: PortalTiraSubmissionStatus.SUBMITTED_TO_TIRAMIS,
         submitted_at: new Date(),
         last_event_at: new Date(),
-        last_payload: dto.payload,
+        last_payload: resolvedPayload,
       });
 
     submission.request_type = dto.requestType;
     submission.status = PortalTiraSubmissionStatus.SUBMITTED_TO_TIRAMIS;
     submission.last_error = null;
-    submission.last_payload = dto.payload;
+    submission.last_payload = resolvedPayload;
     submission.submitted_at = submission.submitted_at || new Date();
     submission.last_event_at = new Date();
 
@@ -107,7 +122,10 @@ export class TiramisIntegrationService {
       const tiramisResponse = await this.tiramisClientService.submit({
         companyId: params.companyId,
         userId: params.userId,
-        dto,
+        dto: {
+          ...dto,
+          payload: resolvedPayload,
+        },
       });
 
       const normalized = this.normalizeTiramisSubmitResponse(tiramisResponse);
@@ -131,9 +149,8 @@ export class TiramisIntegrationService {
         normalized.acknowledgementStatusDesc || 'Submitted to TIRAMIS service';
       savedSubmission.last_event_at = new Date();
 
-      const updatedSubmission = await this.submissionRepository.save(
-        savedSubmission,
-      );
+      const updatedSubmission =
+        await this.submissionRepository.save(savedSubmission);
 
       await this.createEvent(updatedSubmission, {
         eventType: 'TIRAMIS_SUBMIT_RESPONSE',
@@ -162,9 +179,8 @@ export class TiramisIntegrationService {
         error?.message || 'Failed to submit to TIRAMIS service';
       savedSubmission.last_event_at = new Date();
 
-      const failedSubmission = await this.submissionRepository.save(
-        savedSubmission,
-      );
+      const failedSubmission =
+        await this.submissionRepository.save(savedSubmission);
 
       await this.createEvent(failedSubmission, {
         eventType: 'PORTAL_TIRAMIS_SUBMIT_FAILED',
@@ -186,6 +202,248 @@ export class TiramisIntegrationService {
     }
   }
 
+  private async resolveSubmissionPayload(params: {
+    companyId: string;
+    dto: SubmitPortalTiraDto;
+  }): Promise<Record<string, any>> {
+    const linkedBranchId = await this.resolveLinkedBranchId(params);
+    const requestedBranchId = params.dto.branch_id || linkedBranchId || null;
+
+    if (requestedBranchId) {
+      await this.assertBranchBelongsToCompany(
+        params.companyId,
+        requestedBranchId,
+      );
+    }
+
+    const explicitSalePointCode = this.extractSalePointCodeFromPayload(
+      params.dto.payload,
+    );
+
+    const salePoint = await this.resolveSalePoint({
+      companyId: params.companyId,
+      branchId: requestedBranchId,
+      salePointId: params.dto.sale_point_id || null,
+      explicitSalePointCode,
+    });
+
+    if (
+      params.dto.sale_point_id &&
+      explicitSalePointCode &&
+      explicitSalePointCode !== salePoint.salePointCode
+    ) {
+      throw new BadRequestException(
+        'sale_point_id does not match payload salePointCode',
+      );
+    }
+
+    return {
+      ...params.dto.payload,
+      salePointCode: salePoint.salePointCode,
+    };
+  }
+
+  private async resolveLinkedBranchId(params: {
+    companyId: string;
+    dto: SubmitPortalTiraDto;
+  }): Promise<string | null> {
+    if (params.dto.policy_id) {
+      const policy = await this.policyRepository.findOne({
+        where: {
+          id: params.dto.policy_id,
+          company_id: params.companyId,
+        },
+        select: {
+          branch_id: true,
+          id: true,
+        },
+      });
+
+      return policy?.branch_id || null;
+    }
+
+    if (params.dto.quotation_id) {
+      const quotation = await this.quotationRepository.findOne({
+        where: {
+          id: params.dto.quotation_id,
+          company_id: params.companyId,
+        },
+        select: {
+          branch_id: true,
+          id: true,
+        },
+      });
+
+      return quotation?.branch_id || null;
+    }
+
+    if (
+      params.dto.source_module?.toLowerCase().includes('policy') &&
+      params.dto.source_record_id
+    ) {
+      const policy = await this.policyRepository.findOne({
+        where: {
+          id: params.dto.source_record_id,
+          company_id: params.companyId,
+        },
+        select: {
+          branch_id: true,
+          id: true,
+        },
+      });
+
+      return policy?.branch_id || null;
+    }
+
+    if (
+      params.dto.source_module?.toLowerCase().includes('quotation') &&
+      params.dto.source_record_id
+    ) {
+      const quotation = await this.quotationRepository.findOne({
+        where: {
+          id: params.dto.source_record_id,
+          company_id: params.companyId,
+        },
+        select: {
+          branch_id: true,
+          id: true,
+        },
+      });
+
+      return quotation?.branch_id || null;
+    }
+
+    return null;
+  }
+
+  private extractSalePointCodeFromPayload(
+    payload: Record<string, any>,
+  ): string | null {
+    const value =
+      payload?.salePointCode ||
+      payload?.sale_point_code ||
+      payload?.branchSalePointCode ||
+      payload?.branch_sale_point_code ||
+      null;
+
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+  }
+
+  private async assertBranchBelongsToCompany(
+    companyId: string,
+    branchId: string,
+  ): Promise<void> {
+    const branch = await this.branchRepository.findOne({
+      where: {
+        id: branchId,
+        company_id: companyId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!branch) {
+      throw new BadRequestException('Invalid branch for current company');
+    }
+  }
+
+  private async resolveSalePoint(params: {
+    companyId: string;
+    branchId: string | null;
+    salePointId: string | null;
+    explicitSalePointCode: string | null;
+  }): Promise<TiramisSalePointEntity> {
+    if (params.salePointId) {
+      const salePoint = await this.salePointRepository.findOne({
+        where: {
+          id: params.salePointId,
+          companyId: params.companyId,
+          isActive: true,
+        },
+      });
+
+      if (!salePoint) {
+        throw new BadRequestException('Invalid or inactive TIRA sale point');
+      }
+
+      if (params.branchId && salePoint.branchId !== params.branchId) {
+        throw new BadRequestException(
+          'Selected sale point does not belong to the selected branch',
+        );
+      }
+
+      return salePoint;
+    }
+
+    if (params.explicitSalePointCode) {
+      const salePoint = await this.salePointRepository.findOne({
+        where: {
+          companyId: params.companyId,
+          salePointCode: params.explicitSalePointCode,
+          isActive: true,
+        },
+      });
+
+      if (!salePoint) {
+        throw new BadRequestException('Invalid or inactive TIRA sale point');
+      }
+
+      if (params.branchId && salePoint.branchId !== params.branchId) {
+        throw new BadRequestException(
+          'Selected sale point does not belong to the selected branch',
+        );
+      }
+
+      return salePoint;
+    }
+
+    const where = params.branchId
+      ? {
+          companyId: params.companyId,
+          branchId: params.branchId,
+          isActive: true,
+        }
+      : {
+          companyId: params.companyId,
+          isActive: true,
+        };
+
+    const salePoints = await this.salePointRepository.find({
+      where,
+      order: {
+        isDefault: 'DESC',
+        createdAt: 'ASC',
+      },
+    });
+
+    if (salePoints.length === 0) {
+      throw new BadRequestException(
+        params.branchId
+          ? 'No active TIRA sale points configured for the selected branch'
+          : 'No active TIRA sale points configured for this company',
+      );
+    }
+
+    if (salePoints.length === 1) {
+      return salePoints[0];
+    }
+
+    const defaultSalePoints = salePoints.filter(
+      (salePoint) => salePoint.isDefault,
+    );
+
+    if (defaultSalePoints.length === 1) {
+      return defaultSalePoints[0];
+    }
+
+    throw new BadRequestException(
+      params.branchId
+        ? 'Selected branch has multiple active TIRA sale points. Provide sale_point_id explicitly.'
+        : 'Company has multiple active TIRA sale points. Provide branch_id or sale_point_id explicitly.',
+    );
+  }
+
   async handleTiramisNotification(payload: TiramisNotificationEventDto) {
     this.logger.log(
       `Handling TIRAMIS notification for requestId ${payload.requestId} (${payload.eventType})`,
@@ -200,7 +458,8 @@ export class TiramisIntegrationService {
       payload.statusDescription || submission.status_description;
     submission.tiramis_transaction_id =
       payload.tiramisTransactionId || submission.tiramis_transaction_id;
-    submission.tiramis_request_id = payload.requestId || submission.tiramis_request_id;
+    submission.tiramis_request_id =
+      payload.requestId || submission.tiramis_request_id;
     submission.tiramis_response_id =
       payload.responseId || submission.tiramis_response_id;
     submission.service_type = payload.serviceType || submission.service_type;
@@ -210,7 +469,8 @@ export class TiramisIntegrationService {
       submission.cover_note_reference_number;
     submission.policy_reference_number =
       payload.policyReferenceNumber || submission.policy_reference_number;
-    submission.sticker_number = payload.stickerNumber || submission.sticker_number;
+    submission.sticker_number =
+      payload.stickerNumber || submission.sticker_number;
     submission.last_error = payload.errorMessage || null;
     submission.last_payload = payload as any;
     submission.last_event_at = payload.occurredAt
@@ -303,6 +563,42 @@ export class TiramisIntegrationService {
     };
   }
 
+  async findSalePoints(companyId: string, branchId?: string) {
+    if (branchId) {
+      await this.assertBranchBelongsToCompany(companyId, branchId);
+    }
+
+    const salePoints = await this.salePointRepository.find({
+      where: branchId
+        ? {
+            companyId,
+            branchId,
+            isActive: true,
+          }
+        : {
+            companyId,
+            isActive: true,
+          },
+      order: {
+        branchName: 'ASC',
+        isDefault: 'DESC',
+        salePointName: 'ASC',
+        createdAt: 'ASC',
+      },
+    });
+
+    return salePoints.map((salePoint) => ({
+      id: salePoint.id,
+      branchId: salePoint.branchId,
+      branchCode: salePoint.branchCode,
+      branchName: salePoint.branchName,
+      salePointCode: salePoint.salePointCode,
+      salePointName: salePoint.salePointName,
+      isDefault: salePoint.isDefault,
+      isActive: salePoint.isActive,
+    }));
+  }
+
   async findOne(companyId: string, id: string) {
     const submission = await this.submissionRepository.findOne({
       where: {
@@ -362,10 +658,8 @@ export class TiramisIntegrationService {
 
     const submission = this.submissionRepository.create({
       company_id: companyId,
-      policy_id:
-        isPolicySource && sourceRecordId ? sourceRecordId : null,
-      quotation_id:
-        isQuotationSource && sourceRecordId ? sourceRecordId : null,
+      policy_id: isPolicySource && sourceRecordId ? sourceRecordId : null,
+      quotation_id: isQuotationSource && sourceRecordId ? sourceRecordId : null,
       source_module: sourceModule,
       source_record_id: sourceRecordId,
       business_reference: payload.businessReference || null,
@@ -537,7 +831,10 @@ export class TiramisIntegrationService {
       }
     }
 
-    if (this.isPolicySource(submission.source_module) && submission.source_record_id) {
+    if (
+      this.isPolicySource(submission.source_module) &&
+      submission.source_record_id
+    ) {
       const policy = await this.policyRepository.findOne({
         where: {
           id: submission.source_record_id,
@@ -591,7 +888,8 @@ export class TiramisIntegrationService {
   private normalizeTiramisSubmitResponse(response: any) {
     const coverNote = response?.coverNote || response?.data?.coverNote || null;
     const attempt = response?.attempt || response?.data?.attempt || null;
-    const transaction = response?.transaction || response?.data?.transaction || null;
+    const transaction =
+      response?.transaction || response?.data?.transaction || null;
 
     return {
       tiramisTransactionId:
@@ -601,7 +899,10 @@ export class TiramisIntegrationService {
         response?.tiramisTransactionId ||
         null,
       requestId:
-        coverNote?.requestId || attempt?.requestId || response?.requestId || null,
+        coverNote?.requestId ||
+        attempt?.requestId ||
+        response?.requestId ||
+        null,
       serviceType: transaction?.serviceType || response?.serviceType || null,
       rootElement: attempt?.rootElement || response?.rootElement || null,
       acknowledgementStatusCode:
@@ -616,7 +917,9 @@ export class TiramisIntegrationService {
   }
 
   private isPolicySource(sourceModule?: string | null) {
-    return Boolean(sourceModule && sourceModule.toLowerCase().includes('policy'));
+    return Boolean(
+      sourceModule && sourceModule.toLowerCase().includes('policy'),
+    );
   }
 
   private isQuotationSource(sourceModule?: string | null) {

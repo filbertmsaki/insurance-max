@@ -34,7 +34,7 @@ export class TiramisIntegrationController {
   @UseGuards(PermissionsGuard)
   @Permissions('tiramis-submissions:create')
   @ApiOperation({
-    summary: 'Submit prepared Motor or Non-Motor payload to TIRAMIS service',
+    summary: 'Submit a prepared TIRAMIS payload to the TIRAMIS service',
   })
   submit(
     @CurrentUser() user: AuthenticatedUser,
@@ -56,6 +56,22 @@ export class TiramisIntegrationController {
     @Query() query: FilterPortalTiraSubmissionDto,
   ) {
     return this.tiramisIntegrationService.findAll(user.companyId!, query);
+  }
+
+  @Get('sale-points')
+  @UseGuards(PermissionsGuard)
+  @Permissions('tiramis-submissions:read')
+  @ApiOperation({
+    summary: 'List active TIRA sale points for the current company',
+  })
+  findSalePoints(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('branch_id') branchId?: string,
+  ) {
+    return this.tiramisIntegrationService.findSalePoints(
+      user.companyId!,
+      branchId,
+    );
   }
 
   @Get('request/:requestId')

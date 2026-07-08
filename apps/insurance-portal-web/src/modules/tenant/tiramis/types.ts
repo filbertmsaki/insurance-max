@@ -5,7 +5,26 @@ import type { QuotationRecord } from '@/modules/tenant/quotations/types';
 export type TiramisRequestType =
   | 'NON_MOTOR'
   | 'MOTOR'
-  | 'MOTOR_FLEET';
+  | 'MOTOR_FLEET'
+  | 'REINSURANCE'
+  | 'POLICY'
+  | 'CLAIM_NOTIFICATION'
+  | 'CLAIM_INTIMATION'
+  | 'CLAIM_ASSESSMENT'
+  | 'DISCHARGE_VOUCHER'
+  | 'CLAIM_PAYMENT'
+  | 'CLAIM_REJECTION';
+
+export interface TiramisSalePointRecord {
+  id: string;
+  branchId: string | null;
+  branchCode: string | null;
+  branchName: string | null;
+  salePointCode: string;
+  salePointName: string | null;
+  isDefault: boolean;
+  isActive: boolean;
+}
 
 export type TiramisSubmissionStatus =
   | 'DRAFT'
@@ -22,7 +41,11 @@ export type TiramisSubmissionStatus =
   | 'FAILED'
   | 'CALLBACK_REJECTED';
 
-export type TiramisNotificationSeverity = 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
+export type TiramisNotificationSeverity =
+  | 'INFO'
+  | 'SUCCESS'
+  | 'WARNING'
+  | 'ERROR';
 
 export interface TiramisSubmissionEventRecord {
   id: string;
@@ -229,6 +252,8 @@ export interface PortalTiramisSubmitPayload {
   requestType: TiramisRequestType;
   policy_id?: string;
   quotation_id?: string;
+  branch_id?: string;
+  sale_point_id?: string;
   source_module?: string;
   source_record_id?: string;
   business_reference: string;

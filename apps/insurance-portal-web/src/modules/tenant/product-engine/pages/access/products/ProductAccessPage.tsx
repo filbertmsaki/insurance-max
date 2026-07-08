@@ -23,6 +23,7 @@ import {
 import { PageHeader } from '@/components/shared/PageHeader'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
+import { productAccessApi } from '@/modules/tenant/product-engine/api/product-access'
 import {
   useAllActiveCategories, useAllActiveProducts,
   useProductAccessByBranch, useProductAccessByDepartment, useProductAccessByUser,
@@ -357,7 +358,6 @@ function ResolvePanel({ products }: { products: { id: string; product_name: stri
   async function resolve() {
     setLoading(true)
     try {
-      const { productAccessApi } = await import('@/modules/tenant/product-engine/api/product-access')
       const res = await productAccessApi.resolve({
         company_user_id: form.company_user_id,
         branch_id: form.branch_id || undefined,

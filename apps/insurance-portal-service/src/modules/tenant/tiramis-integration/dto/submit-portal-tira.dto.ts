@@ -7,8 +7,31 @@ import {
 } from 'class-validator';
 
 export class SubmitPortalTiraDto {
-  @IsIn(['NON_MOTOR', 'MOTOR', 'MOTOR_FLEET'])
-  requestType!: 'NON_MOTOR' | 'MOTOR' | 'MOTOR_FLEET';
+  @IsIn([
+    'NON_MOTOR',
+    'MOTOR',
+    'MOTOR_FLEET',
+    'REINSURANCE',
+    'POLICY',
+    'CLAIM_NOTIFICATION',
+    'CLAIM_INTIMATION',
+    'CLAIM_ASSESSMENT',
+    'DISCHARGE_VOUCHER',
+    'CLAIM_PAYMENT',
+    'CLAIM_REJECTION',
+  ])
+  requestType!:
+    | 'NON_MOTOR'
+    | 'MOTOR'
+    | 'MOTOR_FLEET'
+    | 'REINSURANCE'
+    | 'POLICY'
+    | 'CLAIM_NOTIFICATION'
+    | 'CLAIM_INTIMATION'
+    | 'CLAIM_ASSESSMENT'
+    | 'DISCHARGE_VOUCHER'
+    | 'CLAIM_PAYMENT'
+    | 'CLAIM_REJECTION';
 
   @IsOptional()
   @IsString()
@@ -17,6 +40,14 @@ export class SubmitPortalTiraDto {
   @IsOptional()
   @IsString()
   quotation_id?: string;
+
+  @IsOptional()
+  @IsString()
+  branch_id?: string;
+
+  @IsOptional()
+  @IsString()
+  sale_point_id?: string;
 
   @IsOptional()
   @IsString()

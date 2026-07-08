@@ -3,13 +3,19 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Pencil, Play, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { PolicyStatusBadge } from '../components/PolicyStatusBadge';
 import { useDeletePolicy, usePolicyDetail } from '../hooks';
 import { useSubmitPolicyToTiramis } from '@/modules/tenant/tiramis/hooks';
+import { TiramisSubmissionDialog } from '@/modules/tenant/tiramis/components/TiramisSubmissionDialog';
 import { DataTable, type Column } from '@/components/shared/DataTable';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
@@ -22,7 +28,13 @@ import { PolicyNonMotorDetailForm } from '@/modules/tenant/non-motor/components/
 import type { NonMotorPolicyDetailRecord } from '@/modules/tenant/non-motor/types';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 
-function Row({ label, value }: { label: string; value: string | number | null | undefined }) {
+function Row({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number | null | undefined;
+}) {
   return (
     <div className="flex items-start gap-3">
       <span className="min-w-36 text-sm text-slate-500">{label}</span>
@@ -45,14 +57,39 @@ export function PolicyDetailPage() {
   const createNonMotorMutation = useCreateNonMotorPolicyDetail();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [nonMotorOpen, setNonMotorOpen] = useState(false);
+  const [submitOpen, setSubmitOpen] = useState(false);
 
-  const nonMotorColumns: Column<NonMotorPolicyDetailRecord>[] = useMemo(() => [
-    { key: 'subject_matter', header: 'Subject Matter', cell: (row) => row.subject_matter?.subject_code ?? row.subject_matter_id },
-    { key: 'risk', header: 'Policy Risk', cell: (row) => row.policy_risk?.risk?.risk_name ?? row.policy_risk_id },
-    { key: 'insured_value', header: 'Insured Value', cell: (row) => row.insured_value ?? ' - ' },
-    { key: 'limit', header: 'Limit', cell: (row) => row.limit_of_liability ?? ' - ' },
-    { key: 'created_at', header: 'Created', cell: (row) => new Date(row.created_at).toLocaleString() },
-  ], []);
+  const nonMotorColumns: Column<NonMotorPolicyDetailRecord>[] = useMemo(
+    () => [
+      {
+        key: 'subject_matter',
+        header: 'Subject Matter',
+        cell: (row) =>
+          row.subject_matter?.subject_code ?? row.subject_matter_id,
+      },
+      {
+        key: 'risk',
+        header: 'Policy Risk',
+        cell: (row) => row.policy_risk?.risk?.risk_name ?? row.policy_risk_id,
+      },
+      {
+        key: 'insured_value',
+        header: 'Insured Value',
+        cell: (row) => row.insured_value ?? ' - ',
+      },
+      {
+        key: 'limit',
+        header: 'Limit',
+        cell: (row) => row.limit_of_liability ?? ' - ',
+      },
+      {
+        key: 'created_at',
+        header: 'Created',
+        cell: (row) => new Date(row.created_at).toLocaleString(),
+      },
+    ],
+    [],
+  );
 
   if (isLoading) {
     return (
@@ -67,7 +104,12 @@ export function PolicyDetailPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Policy not found</p>
-        <Button variant="link" onClick={() => navigate(underwritingPaths.policies)}>Back to Policies</Button>
+        <Button
+          variant="link"
+          onClick={() => navigate(underwritingPaths.policies)}
+        >
+          Back to Policies
+        </Button>
       </div>
     );
   }
@@ -76,27 +118,48 @@ export function PolicyDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(underwritingPaths.policies)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(underwritingPaths.policies)}
+          >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold text-slate-900">{policy.policy_no}</h1>
+              <h1 className="text-xl font-semibold text-slate-900">
+                {policy.policy_no}
+              </h1>
               <PolicyStatusBadge status={policy.policy_status} />
             </div>
-            <p className="text-sm text-slate-500">{policy.customer?.company_name ?? policy.customer_id}</p>
+            <p className="text-sm text-slate-500">
+              {policy.customer?.company_name ?? policy.customer_id}
+            </p>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => submitMutation.mutate(undefined, { onSuccess: (result) => navigate(underwritingPaths.submissionDetail(result.submission.id)) })} disabled={submitMutation.isPending}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSubmitOpen(true)}
+            disabled={submitMutation.isPending}
+          >
             <Play className="mr-1.5 h-3.5 w-3.5" />
             Submit to TIRAMIS
           </Button>
-          <Button variant="outline" size="sm" onClick={() => navigate(underwritingPaths.policyEdit(policy.id))}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(underwritingPaths.policyEdit(policy.id))}
+          >
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             Edit
           </Button>
-          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setDeleteOpen(true)}
+          >
             <Trash2 className="mr-1.5 h-3.5 w-3.5" />
             Delete
           </Button>
@@ -118,16 +181,36 @@ export function PolicyDetailPage() {
 
         <TabsContent value="overview" className="space-y-4">
           <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Policy Details</CardTitle></CardHeader>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Policy Details</CardTitle>
+            </CardHeader>
             <CardContent className="space-y-3">
-              <Row label="Customer" value={policy.customer?.company_name ?? policy.customer_id} />
+              <Row
+                label="Customer"
+                value={policy.customer?.company_name ?? policy.customer_id}
+              />
               <Row label="Quotation" value={policy.quotation_id} />
-              <Row label="Category" value={policy.category?.name ?? policy.category_id} />
-              <Row label="Product" value={policy.product?.product_name ?? policy.product_id} />
+              <Row
+                label="Category"
+                value={policy.category?.name ?? policy.category_id}
+              />
+              <Row
+                label="Product"
+                value={policy.product?.product_name ?? policy.product_id}
+              />
               <Row label="Channel" value={policy.channel_type} />
-              <Row label="Dates" value={`${policy.start_date} to ${policy.end_date}`} />
-              <Row label="Sum Insured" value={`${policy.currency} ${policy.sum_insured}`} />
-              <Row label="Premium" value={`${policy.currency} ${policy.total_premium}`} />
+              <Row
+                label="Dates"
+                value={`${policy.start_date} to ${policy.end_date}`}
+              />
+              <Row
+                label="Sum Insured"
+                value={`${policy.currency} ${policy.sum_insured}`}
+              />
+              <Row
+                label="Premium"
+                value={`${policy.currency} ${policy.total_premium}`}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -136,14 +219,24 @@ export function PolicyDetailPage() {
           {(policy.risks ?? []).map((risk) => (
             <Card key={risk.id}>
               <CardContent className="space-y-2 pt-6">
-                <Row label="Risk" value={risk.risk?.risk_name ?? risk.risk_id} />
+                <Row
+                  label="Risk"
+                  value={risk.risk?.risk_name ?? risk.risk_id}
+                />
                 <Row label="Sum Insured" value={risk.sum_insured} />
                 <Row label="Premium" value={risk.total_premium} />
-                <Row label="Vehicle" value={risk.motor_vehicle?.registration_no ?? risk.motor_vehicle_id} />
+                <Row
+                  label="Vehicle"
+                  value={
+                    risk.motor_vehicle?.registration_no ?? risk.motor_vehicle_id
+                  }
+                />
               </CardContent>
             </Card>
           ))}
-          {(policy.risks ?? []).length === 0 && <p className="text-sm text-slate-500">No policy risks yet.</p>}
+          {(policy.risks ?? []).length === 0 && (
+            <p className="text-sm text-slate-500">No policy risks yet.</p>
+          )}
         </TabsContent>
 
         <TabsContent value="breakdown" className="space-y-4">
@@ -156,11 +249,18 @@ export function PolicyDetailPage() {
               </CardContent>
             </Card>
           ))}
-          {(policy.premium_breakdowns ?? []).length === 0 && <p className="text-sm text-slate-500">No breakdown items.</p>}
+          {(policy.premium_breakdowns ?? []).length === 0 && (
+            <p className="text-sm text-slate-500">No breakdown items.</p>
+          )}
         </TabsContent>
 
         <TabsContent value="motor" className="space-y-4">
-          <Card><CardContent className="pt-6 text-sm text-slate-500">Motor details will surface here once motor-linked policy risks are added.</CardContent></Card>
+          <Card>
+            <CardContent className="pt-6 text-sm text-slate-500">
+              Motor details will surface here once motor-linked policy risks are
+              added.
+            </CardContent>
+          </Card>
         </TabsContent>
         <TabsContent value="nonmotor" className="space-y-4">
           {canCreate && (
@@ -184,10 +284,19 @@ export function PolicyDetailPage() {
           />
         </TabsContent>
         <TabsContent value="billing" className="space-y-4">
-          <Card><CardContent className="pt-6 text-sm text-slate-500">Billing data can be connected here later.</CardContent></Card>
+          <Card>
+            <CardContent className="pt-6 text-sm text-slate-500">
+              Billing data can be connected here later.
+            </CardContent>
+          </Card>
         </TabsContent>
         <TabsContent value="tiramis" className="space-y-4">
-          <Card><CardContent className="pt-6 text-sm text-slate-500">TIRAMIS submissions are stored on the policy record and can be expanded later.</CardContent></Card>
+          <Card>
+            <CardContent className="pt-6 text-sm text-slate-500">
+              TIRAMIS submissions are stored on the policy record and can be
+              expanded later.
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="history" className="space-y-4">
@@ -201,11 +310,17 @@ export function PolicyDetailPage() {
               </CardContent>
             </Card>
           ))}
-          {(policy.status_history ?? []).length === 0 && <p className="text-sm text-slate-500">No history yet.</p>}
+          {(policy.status_history ?? []).length === 0 && (
+            <p className="text-sm text-slate-500">No history yet.</p>
+          )}
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-4">
-          <Card><CardContent className="pt-6 text-sm text-slate-500">Document management can be connected here later.</CardContent></Card>
+          <Card>
+            <CardContent className="pt-6 text-sm text-slate-500">
+              Document management can be connected here later.
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
@@ -231,6 +346,25 @@ export function PolicyDetailPage() {
         </DialogContent>
       </Dialog>
 
+      <TiramisSubmissionDialog
+        open={submitOpen}
+        onOpenChange={setSubmitOpen}
+        title="Submit Policy to TIRAMIS"
+        description="Choose the branch and sale point for this submission. If a unique or default sale point exists, it will be used automatically."
+        initialBranchId={policy.branch_id}
+        isPending={submitMutation.isPending}
+        onSubmit={(selection) => {
+          submitMutation.mutate(selection, {
+            onSuccess: (result) => {
+              setSubmitOpen(false);
+              navigate(
+                underwritingPaths.submissionDetail(result.submission.id),
+              );
+            },
+          });
+        }}
+      />
+
       <ConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
@@ -238,7 +372,11 @@ export function PolicyDetailPage() {
         description="This will soft-delete the policy."
         confirmLabel="Delete"
         loading={deleteMutation.isPending}
-        onConfirm={() => deleteMutation.mutate(policy.id, { onSuccess: () => navigate(underwritingPaths.policies) })}
+        onConfirm={() =>
+          deleteMutation.mutate(policy.id, {
+            onSuccess: () => navigate(underwritingPaths.policies),
+          })
+        }
       />
     </div>
   );

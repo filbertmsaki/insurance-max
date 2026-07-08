@@ -9,9 +9,13 @@ function buildBasePayload(record: {
   sourceRecordId: string;
   requestType: TiramisRequestType;
   payload: Record<string, unknown>;
+  branch_id?: string;
+  sale_point_id?: string;
 }): PortalTiramisSubmitPayload {
   return {
     requestType: record.requestType,
+    branch_id: record.branch_id,
+    sale_point_id: record.sale_point_id,
     source_module: record.sourceModule,
     source_record_id: record.sourceRecordId,
     business_reference: record.businessReference,
@@ -19,18 +23,30 @@ function buildBasePayload(record: {
   };
 }
 
-export function inferQuotationRequestType(quotation: QuotationRecord): TiramisRequestType {
+export function inferQuotationRequestType(
+  quotation: QuotationRecord,
+): TiramisRequestType {
   return quotation.quotation_type === 'MOTOR' ? 'MOTOR' : 'NON_MOTOR';
 }
 
-export function inferPolicyRequestType(policy: PolicyRecord): TiramisRequestType {
-  const motorRisks = (policy.risks ?? []).filter((risk) => !!risk.motor_vehicle_id).length;
+export function inferPolicyRequestType(
+  policy: PolicyRecord,
+): TiramisRequestType {
+  const motorRisks = (policy.risks ?? []).filter(
+    (risk) => !!risk.motor_vehicle_id,
+  ).length;
   if (motorRisks > 1) return 'MOTOR_FLEET';
   if (motorRisks > 0) return 'MOTOR';
   return 'NON_MOTOR';
 }
 
-export function buildQuotationTiramisPayload(quotation: QuotationRecord): PortalTiramisSubmitPayload {
+export function buildQuotationTiramisPayload(
+  quotation: QuotationRecord,
+  options?: {
+    branch_id?: string;
+    sale_point_id?: string;
+  },
+): PortalTiramisSubmitPayload {
   return buildBasePayload({
     id: quotation.id,
     businessReference: quotation.quotation_no,
@@ -53,10 +69,18 @@ export function buildQuotationTiramisPayload(quotation: QuotationRecord): Portal
       risks: quotation.risks ?? [],
       premiumBreakdowns: quotation.premium_breakdowns ?? [],
     },
+    branch_id: options?.branch_id,
+    sale_point_id: options?.sale_point_id,
   });
 }
 
-export function buildPolicyTiramisPayload(policy: PolicyRecord): PortalTiramisSubmitPayload {
+export function buildPolicyTiramisPayload(
+  policy: PolicyRecord,
+  options?: {
+    branch_id?: string;
+    sale_point_id?: string;
+  },
+): PortalTiramisSubmitPayload {
   return buildBasePayload({
     id: policy.id,
     businessReference: policy.policy_no,
@@ -80,6 +104,8 @@ export function buildPolicyTiramisPayload(policy: PolicyRecord): PortalTiramisSu
       risks: policy.risks ?? [],
       premiumBreakdowns: policy.premium_breakdowns ?? [],
     },
+    branch_id: options?.branch_id,
+    sale_point_id: options?.sale_point_id,
   });
 }
 
@@ -93,4 +119,3 @@ export function formatDateTime(value?: string | null) {
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString();
 }
-

@@ -27,32 +27,17 @@ export default class RiskFactorLinkSeeder implements Seeder {
       const riskRepo = manager.getRepository(InsuranceRisk);
       const factorRepo = manager.getRepository(RatingFactor);
       const requiredFactorRepo = manager.getRepository(RiskRequiredFactor);
+      const company = await this.getTargetCompany(companyRepo);
+      const linkedCount = await this.linkFactorsForCompany(
+        company.id,
+        riskRepo,
+        factorRepo,
+        requiredFactorRepo,
+      );
 
-      const companies = await companyRepo.find({
-        where: { status: 'active' },
-        order: { created_at: 'ASC' },
-      });
-
-      if (companies.length === 0) {
-        console.warn(
-          '[RiskFactorLinkSeeder] No active companies found; skipping risk-factor linking.',
-        );
-        await queryRunner.commitTransaction();
-        return;
-      }
-
-      for (const company of companies) {
-        const linkedCount = await this.linkFactorsForCompany(
-          company.id,
-          riskRepo,
-          factorRepo,
-          requiredFactorRepo,
-        );
-
-        console.log(
-          `[RiskFactorLinkSeeder] Linked ${linkedCount} risk-factor requirements for ${company.name} (${company.id})`,
-        );
-      }
+      console.log(
+        `[RiskFactorLinkSeeder] Linked ${linkedCount} risk-factor requirements for ${company.name} (${company.id})`,
+      );
 
       await queryRunner.commitTransaction();
     } catch (error) {
@@ -62,6 +47,26 @@ export default class RiskFactorLinkSeeder implements Seeder {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  private async getTargetCompany(
+    companyRepo: Repository<Company>,
+  ): Promise<Company> {
+    const targetCompanyCode = process.env.SEED_TARGET_COMPANY_CODE ?? 'ICC110';
+
+    const company = await companyRepo.findOne({
+      where: {
+        tira_company_code: targetCompanyCode,
+      },
+    });
+
+    if (!company) {
+      throw new Error(
+        `Target seed company not found. Set SEED_TARGET_COMPANY_CODE=${targetCompanyCode}`,
+      );
+    }
+
+    return company;
   }
 
   private async linkFactorsForCompany(
@@ -140,6 +145,18 @@ export default class RiskFactorLinkSeeder implements Seeder {
     const text = `${riskName} ${productName}`.toLowerCase();
     const requirements: FactorRequirement[] = [
       { code: 'sum_insured', isRequired: true },
+      { code: 'payment_mode', isRequired: true },
+      { code: 'currency_code', isRequired: true },
+      { code: 'exchange_rate', isRequired: true },
+      { code: 'sale_point_code', isRequired: true },
+      { code: 'officer_name', isRequired: true },
+      { code: 'officer_title', isRequired: true },
+      { code: 'policy_holder_type', isRequired: true },
+      { code: 'policy_holder_id_type', isRequired: false },
+      { code: 'region_code', isRequired: false },
+      { code: 'district_code', isRequired: false },
+      { code: 'tax_code', isRequired: false },
+      { code: 'is_tax_exempted', isRequired: false },
     ];
 
     const isMotor =
@@ -148,7 +165,20 @@ export default class RiskFactorLinkSeeder implements Seeder {
       /(marine|cargo|container|haulier|transport|git|icc)/i.test(text);
 
     if (isMotor) {
+      requirements.push({ code: 'motor_category', isRequired: true });
+      requirements.push({ code: 'motor_type', isRequired: true });
+      requirements.push({ code: 'registration_number', isRequired: true });
+      requirements.push({ code: 'chassis_number', isRequired: true });
+      requirements.push({ code: 'make', isRequired: true });
+      requirements.push({ code: 'model', isRequired: true });
+      requirements.push({ code: 'body_type', isRequired: false });
+      requirements.push({ code: 'engine_number', isRequired: false });
+      requirements.push({ code: 'engine_capacity', isRequired: false });
+      requirements.push({ code: 'fuel_used', isRequired: false });
       requirements.push({ code: 'year_of_manufacture', isRequired: true });
+      requirements.push({ code: 'motor_usage', isRequired: false });
+      requirements.push({ code: 'owner_name', isRequired: false });
+      requirements.push({ code: 'owner_category', isRequired: false });
       requirements.push({ code: 'seat_capacity', isRequired: false });
       requirements.push({ code: 'vehicle_weight_kg', isRequired: false });
       requirements.push({ code: 'claim_record', isRequired: false });

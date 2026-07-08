@@ -23,6 +23,7 @@ import {
 import { PageHeader } from '@/components/shared/PageHeader'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
+import { categoryAccessApi } from '@/modules/tenant/product-engine/api/category-access'
 import {
   useAllActiveCategories,
   useCategoryAccessByBranch, useCategoryAccessByDepartment, useCategoryAccessByUser,
@@ -437,7 +438,6 @@ function ResolvePanel({ categories }: { categories: { id: string; name: string }
   async function resolve() {
     setLoading(true)
     try {
-      const { categoryAccessApi } = await import('@/modules/tenant/product-engine/api/category-access')
       const res = await categoryAccessApi.resolve({
         company_user_id: form.company_user_id,
         branch_id: form.branch_id || undefined,

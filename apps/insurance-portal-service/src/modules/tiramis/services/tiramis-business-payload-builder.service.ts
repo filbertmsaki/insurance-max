@@ -344,39 +344,70 @@ export class TiramisBusinessPayloadBuilderService {
     }
 
     if (params.branchId) {
-      const rows = await this.dataSource.query(
+      const branchRows = await this.dataSource.query(
         `
-          SELECT sale_point_code
+          SELECT sale_point_code, is_default
           FROM tiramis_sale_points
           WHERE company_id = $1
             AND branch_id = $2
             AND is_active = true
-          ORDER BY created_at ASC
-          LIMIT 1
+          ORDER BY is_default DESC, created_at ASC
         `,
         [params.companyId, params.branchId],
       );
 
-      if (rows?.[0]?.sale_point_code) {
-        return rows[0].sale_point_code;
+      if (branchRows.length === 1) {
+        return branchRows[0].sale_point_code;
+      }
+
+      if (branchRows.length > 1) {
+        const defaults = branchRows.filter(
+          (row: { is_default: boolean }) => row.is_default,
+        );
+
+        if (defaults.length === 1) {
+          return defaults[0].sale_point_code;
+        }
+
+        throw new BadRequestException(
+          'Selected branch has multiple active TIRA sale points. Provide sale_point_code explicitly.',
+        );
       }
     }
 
-    const defaultRows = await this.dataSource.query(
+    const companyRows = await this.dataSource.query(
       `
-        SELECT sale_point_code
+        SELECT sale_point_code, is_default
         FROM tiramis_sale_points
         WHERE company_id = $1
           AND is_active = true
         ORDER BY
+          is_default DESC,
           CASE WHEN sale_point_code = 'SP500' THEN 1 ELSE 2 END,
           created_at ASC
-        LIMIT 1
       `,
       [params.companyId],
     );
 
-    return defaultRows?.[0]?.sale_point_code || null;
+    if (companyRows.length === 0) {
+      return null;
+    }
+
+    if (companyRows.length === 1) {
+      return companyRows[0].sale_point_code;
+    }
+
+    const defaults = companyRows.filter(
+      (row: { is_default: boolean }) => row.is_default,
+    );
+
+    if (defaults.length === 1) {
+      return defaults[0].sale_point_code;
+    }
+
+    throw new BadRequestException(
+      'Company has multiple active TIRA sale points. Provide sale_point_code explicitly.',
+    );
   }
 
   private buildCommonPayload(context: BuilderContext) {

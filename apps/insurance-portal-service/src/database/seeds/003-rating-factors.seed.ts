@@ -80,6 +80,136 @@ const ratingFactorSeeds: RatingFactorSeed[] = [
     name: 'Policy Start Date',
     data_type: FactorDataType.DATE,
   },
+  {
+    code: 'payment_mode',
+    name: 'Payment Mode',
+    data_type: FactorDataType.SELECT,
+    options: ['Cash', 'Cheque', 'EFT'],
+  },
+  {
+    code: 'currency_code',
+    name: 'Currency Code',
+    data_type: FactorDataType.TEXT,
+    default_value: 'TZS',
+  },
+  {
+    code: 'exchange_rate',
+    name: 'Exchange Rate',
+    data_type: FactorDataType.NUMBER,
+    default_value: '1',
+  },
+  {
+    code: 'sale_point_code',
+    name: 'Sale Point Code',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'officer_name',
+    name: 'Insurance Officer Name',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'officer_title',
+    name: 'Insurance Officer Title',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'policy_holder_type',
+    name: 'Policy Holder Type',
+    data_type: FactorDataType.SELECT,
+    options: ['Individual', 'Corporate'],
+  },
+  {
+    code: 'policy_holder_id_type',
+    name: 'Policy Holder ID Type',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'region_code',
+    name: 'Region Code',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'district_code',
+    name: 'District Code',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'tax_code',
+    name: 'Tax Code',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'is_tax_exempted',
+    name: 'Is Tax Exempted',
+    data_type: FactorDataType.BOOLEAN,
+    default_value: 'false',
+  },
+  {
+    code: 'motor_category',
+    name: 'Motor Category',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'motor_type',
+    name: 'Motor Type',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'registration_number',
+    name: 'Registration Number',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'chassis_number',
+    name: 'Chassis Number',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'make',
+    name: 'Make',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'model',
+    name: 'Model',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'body_type',
+    name: 'Body Type',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'engine_number',
+    name: 'Engine Number',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'engine_capacity',
+    name: 'Engine Capacity',
+    data_type: FactorDataType.NUMBER,
+  },
+  {
+    code: 'fuel_used',
+    name: 'Fuel Used',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'motor_usage',
+    name: 'Motor Usage',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'owner_name',
+    name: 'Owner Name',
+    data_type: FactorDataType.TEXT,
+  },
+  {
+    code: 'owner_category',
+    name: 'Owner Category',
+    data_type: FactorDataType.TEXT,
+  },
 ];
 
 export default class RatingFactorsSeeder implements Seeder {
@@ -97,31 +227,16 @@ export default class RatingFactorsSeeder implements Seeder {
       const manager = queryRunner.manager;
       const companyRepo = manager.getRepository(Company);
       const factorRepo = manager.getRepository(RatingFactor);
+      const company = await this.getTargetCompany(companyRepo);
+      const seededCount = await this.seedCompanyFactors(
+        factorRepo,
+        company.id,
+        ratingFactorSeeds,
+      );
 
-      const companies = await companyRepo.find({
-        where: { status: 'active' },
-        order: { created_at: 'ASC' },
-      });
-
-      if (companies.length === 0) {
-        console.warn(
-          '[RatingFactorsSeeder] No active companies found; skipping rating factor seed.',
-        );
-        await queryRunner.commitTransaction();
-        return;
-      }
-
-      for (const company of companies) {
-        const seededCount = await this.seedCompanyFactors(
-          factorRepo,
-          company.id,
-          ratingFactorSeeds,
-        );
-
-        console.log(
-          `[RatingFactorsSeeder] Seeded ${seededCount} rating factors for ${company.name} (${company.id})`,
-        );
-      }
+      console.log(
+        `[RatingFactorsSeeder] Seeded ${seededCount} rating factors for ${company.name} (${company.id})`,
+      );
 
       await queryRunner.commitTransaction();
     } catch (error) {
@@ -131,6 +246,26 @@ export default class RatingFactorsSeeder implements Seeder {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  private async getTargetCompany(
+    companyRepo: Repository<Company>,
+  ): Promise<Company> {
+    const targetCompanyCode = process.env.SEED_TARGET_COMPANY_CODE ?? 'ICC110';
+
+    const company = await companyRepo.findOne({
+      where: {
+        tira_company_code: targetCompanyCode,
+      },
+    });
+
+    if (!company) {
+      throw new Error(
+        `Target seed company not found. Set SEED_TARGET_COMPANY_CODE=${targetCompanyCode}`,
+      );
+    }
+
+    return company;
   }
 
   private async seedCompanyFactors(

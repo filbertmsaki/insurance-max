@@ -2,8 +2,10 @@ import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { Branch } from '../branches/entities/branch.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
+import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 import { TiramisClientService } from './tiramis-client.service';
 import { PortalTiraSubmissionEvent } from './entities/portal-tira-submission-event.entity';
 import { PortalTiraSubmission } from './entities/portal-tira-submission.entity';
@@ -18,6 +20,8 @@ import { TiramisIntegrationService } from './tiramis-integration.service';
       PortalTiraSubmissionEvent,
       Policy,
       Quotation,
+      Branch,
+      TiramisSalePointEntity,
     ]),
     ClientsModule.register([
       {

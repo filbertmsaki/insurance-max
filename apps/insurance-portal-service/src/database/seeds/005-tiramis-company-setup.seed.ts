@@ -1,427 +1,269 @@
-import { DataSource } from 'typeorm';
+import { DataSource, QueryRunner } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
+import {
+  ALLIANCE_BRANCHES,
+  ALLIANCE_SALE_POINTS,
+  ALLIANCE_TENANT,
+} from './data/alliance.seed-data';
+import { requireColumns, withSeedTransaction } from './shared/seed-utils';
 
-type CompanySeed = {
-  companyCode: string;
-  companyName: string;
-  companyType:
-    | 'INSURANCE_COMPANY'
-    | 'REINSURANCE_COMPANY'
-    | 'BROKER'
-    | 'AGENCY'
-    | 'BANCASSURANCE'
-    | 'SERVICE_PROVIDER';
-  insurerCompanyCode?: string | null;
-  insurerCompanyName?: string | null;
-  clientCode?: string | null;
-  clientKey?: string | null;
-  systemCode?: string | null;
-  systemName?: string | null;
-  metadata?: Record<string, unknown>;
+type RowWithId = {
+  id: string;
 };
 
-type SalePointSeed = {
-  companyCode: string;
-  branchCode?: string | null;
-  branchName?: string | null;
-  salePointCode: string;
-  salePointName?: string | null;
-};
+export default class TiramisCompanySetupSeeder implements Seeder {
+  public async run(
+    dataSource: DataSource,
+    _factoryManager: SeederFactoryManager,
+  ): Promise<void> {
+    await withSeedTransaction(
+      dataSource,
+      'seed:tiramis-company-setup',
+      async (queryRunner) => {
+        await requireColumns(queryRunner, 'companies', [
+          'name',
+          'slug',
+          'status',
+          'company_type',
+          'tira_company_code',
+          'tira_insurer_company_code',
+          'tira_client_code',
+          'tira_system_code',
+          'tira_system_name',
+          'settings',
+          'regulatory_metadata',
+          'metadata',
+        ]);
 
-type PartnerSeed = {
-  insurerCompanyCode: string;
-  intermediaryCompanyCode: string;
-  partnerType: 'REINSURANCE_COMPANY' | 'BROKER' | 'AGENCY' | 'BANCASSURANCE';
-};
+        await requireColumns(queryRunner, 'branches', [
+          'company_id',
+          'name',
+          'code',
+          'status',
+        ]);
 
-const companySeeds: CompanySeed[] = [
-  {
-    companyCode: 'ICC999',
-    companyName: 'ALLIANCE INSURANCE CORPORATION',
-    companyType: 'INSURANCE_COMPANY',
-    insurerCompanyCode: 'ICC999',
-    insurerCompanyName: 'ALLIANCE INSURANCE CORPORATION',
-    clientCode: 'ICC999',
-    clientKey: 'RydLDE8CFJ',
-    systemCode: 'LSYS_ALLIANCE_999',
-    systemName: 'ALLIANCE INSURANCE SYSTEM',
-    metadata: {
-      source: 'Companies.xlsx',
-      sheet: 'INSURER',
-    },
-  },
-  {
-    companyCode: 'IA1888',
-    companyName: 'JAMII INSURANCE AGENCY',
-    companyType: 'AGENCY',
-    clientCode: 'IA1666',
-    metadata: {
-      source: 'Companies.xlsx',
-      sheet: 'AGENTS',
-      allowedInsurers: [
-        'THE JUBILEE INSURANCE COMPANY OF TANZANIA LIMITED',
-        'ALLIANCE INSURANCE CORPORATION LIMITED',
-        'BRITAM INSURANCE COMPANY TANZANIA LIMITED',
-      ],
-    },
-  },
-  {
-    companyCode: 'BA1001',
-    companyName: 'AZANIA BANK',
-    companyType: 'BANCASSURANCE',
-    insurerCompanyCode: 'ICC999',
-    metadata: {
-      source: 'Companies.xlsx',
-      sheet: 'BANCASSUARANCE',
-      allowedInsurerCodes: ['ICC999', 'ICC998'],
-    },
-  },
-  {
-    companyCode: 'RC1001',
-    companyName: 'Factory Mutual Insurance Company',
-    companyType: 'REINSURANCE_COMPANY',
-    metadata: {
-      source: 'Companies.xlsx',
-      sheet: 'REINSURANCE COMPANIES',
-    },
-  },
-  {
-    companyCode: 'IB1001',
-    companyName: 'CORPORATE INSURANCE BROKERS LIMITED',
-    companyType: 'BROKER',
-    metadata: {
-      source: 'Companies.xlsx',
-      sheet: 'BROKERS',
-      allowedInsurerCodes: ['ICC102', 'ICC112', 'ICC103'],
-    },
-  },
-  {
-    companyCode: 'RB1001',
-    companyName: 'Reinsurance Solution International Limited',
-    companyType: 'BROKER',
-    metadata: {
-      source: 'Companies.xlsx',
-      sheet: 'REINSURANCE BROKERS',
-      companyRole: 'REINSURANCE_BROKER',
-    },
-  },
-];
+        await requireColumns(queryRunner, 'tiramis_company_configurations', [
+          'company_id',
+          'environment',
+          'company_code',
+          'client_code',
+          'system_code',
+          'is_active',
+        ]);
 
-const insurerPlaceholderSeeds: CompanySeed[] = [
-  {
-    companyCode: 'ICC998',
-    companyName: 'INSURER ICC998',
-    companyType: 'INSURANCE_COMPANY',
-    metadata: {
-      source: 'Companies.xlsx',
-      placeholder: true,
-      reason: 'Referenced by AZANIA BANK',
-    },
-  },
-  {
-    companyCode: 'ICC102',
-    companyName: 'INSURER ICC102',
-    companyType: 'INSURANCE_COMPANY',
-    metadata: {
-      source: 'Companies.xlsx',
-      placeholder: true,
-      reason: 'Referenced by broker sheet',
-    },
-  },
-  {
-    companyCode: 'ICC112',
-    companyName: 'INSURER ICC112',
-    companyType: 'INSURANCE_COMPANY',
-    metadata: {
-      source: 'Companies.xlsx',
-      placeholder: true,
-      reason: 'Referenced by broker sheet',
-    },
-  },
-  {
-    companyCode: 'ICC103',
-    companyName: 'INSURER ICC103',
-    companyType: 'INSURANCE_COMPANY',
-    metadata: {
-      source: 'Companies.xlsx',
-      placeholder: true,
-      reason: 'Referenced by broker sheet',
-    },
-  },
-];
+        await requireColumns(queryRunner, 'tiramis_sale_points', [
+          'company_id',
+          'branch_id',
+          'branch_code',
+          'branch_name',
+          'sale_point_code',
+          'sale_point_name',
+          'is_default',
+          'is_active',
+        ]);
 
-const salePointSeeds: SalePointSeed[] = [
-  {
-    companyCode: 'ICC999',
-    branchCode: 'BR207',
-    branchName: 'HQ',
-    salePointCode: 'SP500',
-    salePointName: 'HQ',
-  },
-  {
-    companyCode: 'ICC999',
-    branchCode: null,
-    branchName: null,
-    salePointCode: 'SP501',
-    salePointName: 'DSM',
-  },
-  {
-    companyCode: 'ICC999',
-    branchCode: 'BR208',
-    branchName: 'ARUSHA',
-    salePointCode: 'SP502',
-    salePointName: 'ARUSHA',
-  },
-  {
-    companyCode: 'ICC999',
-    branchCode: 'BR209',
-    branchName: 'MWANZA',
-    salePointCode: 'SP503',
-    salePointName: 'MWANZA',
-  },
-  {
-    companyCode: 'ICC999',
-    branchCode: 'BR210',
-    branchName: 'MOSHI',
-    salePointCode: 'SP504',
-    salePointName: 'MOSHI',
-  },
-];
+        await this.correctExistingAllianceReferences(queryRunner);
 
-const partnerSeeds: PartnerSeed[] = [
-  {
-    insurerCompanyCode: 'ICC999',
-    intermediaryCompanyCode: 'BA1001',
-    partnerType: 'BANCASSURANCE',
-  },
-  {
-    insurerCompanyCode: 'ICC998',
-    intermediaryCompanyCode: 'BA1001',
-    partnerType: 'BANCASSURANCE',
-  },
-  {
-    insurerCompanyCode: 'ICC102',
-    intermediaryCompanyCode: 'IB1001',
-    partnerType: 'BROKER',
-  },
-  {
-    insurerCompanyCode: 'ICC112',
-    intermediaryCompanyCode: 'IB1001',
-    partnerType: 'BROKER',
-  },
-  {
-    insurerCompanyCode: 'ICC103',
-    intermediaryCompanyCode: 'IB1001',
-    partnerType: 'BROKER',
-  },
-];
+        const companyId = await this.upsertAllianceCompany(queryRunner);
 
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/&/g, 'and')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
-}
-
-async function findCompanyIdByTiraCode(
-  dataSource: DataSource,
-  companyCode: string,
-): Promise<string | null> {
-  const rows = await dataSource.query(
-    `
-      SELECT id
-      FROM companies
-      WHERE tira_company_code = $1
-        AND deleted_at IS NULL
-      LIMIT 1
-    `,
-    [companyCode],
-  );
-
-  return rows[0]?.id ?? null;
-}
-
-async function upsertCompany(
-  dataSource: DataSource,
-  seed: CompanySeed,
-): Promise<string> {
-  const slug = slugify(seed.companyName || seed.companyCode);
-
-  const rows = await dataSource.query(
-    `
-      INSERT INTO companies (
-        name,
-        slug,
-        status,
-        company_type,
-        tira_company_code,
-        tira_insurer_company_code,
-        tira_client_code,
-        tira_system_code,
-        tira_system_name,
-        regulatory_metadata,
-        metadata,
-        created_at,
-        updated_at
-      )
-      VALUES (
-        $1,
-        $2,
-        'active',
-        $3,
-        $4,
-        $5,
-        $6,
-        $7,
-        $8,
-        $9::jsonb,
-        $10::jsonb,
-        now(),
-        now()
-      )
-      ON CONFLICT (slug)
-      DO UPDATE SET
-        name = EXCLUDED.name,
-        status = 'active',
-        company_type = EXCLUDED.company_type,
-        tira_company_code = EXCLUDED.tira_company_code,
-        tira_insurer_company_code = EXCLUDED.tira_insurer_company_code,
-        tira_client_code = EXCLUDED.tira_client_code,
-        tira_system_code = EXCLUDED.tira_system_code,
-        tira_system_name = EXCLUDED.tira_system_name,
-        regulatory_metadata =
-          COALESCE(companies.regulatory_metadata, '{}'::jsonb)
-          || EXCLUDED.regulatory_metadata,
-        metadata =
-          COALESCE(companies.metadata, '{}'::jsonb)
-          || EXCLUDED.metadata,
-        updated_at = now()
-      RETURNING id
-    `,
-    [
-      seed.companyName,
-      slug,
-      seed.companyType,
-      seed.companyCode,
-      seed.insurerCompanyCode ?? null,
-      seed.clientCode ?? null,
-      seed.systemCode ?? null,
-      seed.systemName ?? null,
-      JSON.stringify({
-        tiraCompanyCode: seed.companyCode,
-        insurerCompanyCode: seed.insurerCompanyCode ?? null,
-        insurerCompanyName: seed.insurerCompanyName ?? null,
-      }),
-      JSON.stringify(seed.metadata ?? {}),
-    ],
-  );
-
-  return rows[0].id;
-}
-
-async function upsertTiramisConfig(
-  dataSource: DataSource,
-  companyId: string,
-  seed: CompanySeed,
-): Promise<void> {
-  await dataSource.query(
-    `
-      INSERT INTO tiramis_company_configurations (
-        company_id,
-        environment,
-        company_code,
-        company_name,
-        insurer_company_code,
-        insurer_company_name,
-        client_code,
-        client_key,
-        system_code,
-        system_name,
-        base_url,
-        callback_url,
-        is_active,
-        metadata,
-        created_at,
-        updated_at
-      )
-      VALUES (
-        $1,
-        'test',
-        $2,
-        $3,
-        $4,
-        $5,
-        $6,
-        $7,
-        $8,
-        $9,
-        NULL,
-        NULL,
-        true,
-        $10::jsonb,
-        now(),
-        now()
-      )
-      ON CONFLICT (company_id, environment)
-      DO UPDATE SET
-        company_code = EXCLUDED.company_code,
-        company_name = EXCLUDED.company_name,
-        insurer_company_code = EXCLUDED.insurer_company_code,
-        insurer_company_name = EXCLUDED.insurer_company_name,
-        client_code = EXCLUDED.client_code,
-        client_key = EXCLUDED.client_key,
-        system_code = EXCLUDED.system_code,
-        system_name = EXCLUDED.system_name,
-        is_active = true,
-        metadata =
-          COALESCE(tiramis_company_configurations.metadata, '{}'::jsonb)
-          || EXCLUDED.metadata,
-        updated_at = now()
-    `,
-    [
-      companyId,
-      seed.companyCode,
-      seed.companyName,
-      seed.insurerCompanyCode ?? null,
-      seed.insurerCompanyName ?? null,
-      seed.clientCode ?? null,
-      seed.clientKey ?? null,
-      seed.systemCode ?? null,
-      seed.systemName ?? null,
-      JSON.stringify({
-        source: 'Companies.xlsx',
-        companyType: seed.companyType,
-      }),
-    ],
-  );
-}
-
-async function upsertBranchAndSalePoint(
-  dataSource: DataSource,
-  seed: SalePointSeed,
-): Promise<void> {
-  const companyId = await findCompanyIdByTiraCode(dataSource, seed.companyCode);
-
-  if (!companyId) {
-    console.warn(
-      `[tiramis-seed] Company not found for sale point ${seed.salePointCode}`,
+        await this.upsertPortalSideTiramisConfig(
+          queryRunner,
+          companyId,
+          'test',
+        );
+        await this.upsertPortalSideTiramisConfig(
+          queryRunner,
+          companyId,
+          'live',
+        );
+        await this.seedBranches(queryRunner, companyId);
+        await this.seedSalePoints(queryRunner, companyId);
+      },
     );
-    return;
+
+    console.log(
+      `[TiramisCompanySetupSeeder] Alliance references seeded for ${ALLIANCE_TENANT.companyCode}`,
+    );
   }
 
-  let branchId: string | null = null;
-
-  if (seed.branchCode) {
-    const branchRows = await dataSource.query(
+  private async correctExistingAllianceReferences(queryRunner: QueryRunner) {
+    const wrongRows = await queryRunner.query(
       `
-        INSERT INTO branches (
-          company_id,
+        SELECT id, name, slug, tira_company_code
+        FROM companies
+        WHERE deleted_at IS NULL
+          AND (
+            slug IN (
+              'alliance-insurance-corporation',
+              'alliance-insurance-company-limited'
+            )
+            OR name ILIKE '%ALLIANCE INSURANCE%'
+          )
+          AND tira_company_code IS NOT NULL
+          AND tira_company_code <> $1
+      `,
+      [ALLIANCE_TENANT.companyCode],
+    );
+
+    if (
+      wrongRows.length > 0 &&
+      process.env.SEED_ALLOW_REFERENCE_CORRECTION !== 'true'
+    ) {
+      throw new Error(
+        `[TiramisCompanySetupSeeder] Existing Alliance company has wrong TIRA code. Expected ${ALLIANCE_TENANT.companyCode}. Set SEED_ALLOW_REFERENCE_CORRECTION=true only after backup/review.`,
+      );
+    }
+
+    if (wrongRows.length === 0) {
+      return;
+    }
+
+    await queryRunner.query(
+      `
+        UPDATE companies
+        SET
+          tira_company_code = $1,
+          tira_insurer_company_code = $2,
+          tira_client_code = $3,
+          tira_system_code = $4,
+          tira_system_name = $5,
+          updated_at = now()
+        WHERE id = ANY($6::uuid[])
+      `,
+      [
+        ALLIANCE_TENANT.companyCode,
+        ALLIANCE_TENANT.insurerCompanyCode,
+        ALLIANCE_TENANT.clientCode,
+        ALLIANCE_TENANT.systemCode,
+        ALLIANCE_TENANT.systemName,
+        wrongRows.map((row: RowWithId) => row.id),
+      ],
+    );
+  }
+
+  private async upsertAllianceCompany(
+    queryRunner: QueryRunner,
+  ): Promise<string> {
+    const rows = await queryRunner.query(
+      `
+        INSERT INTO companies (
           name,
-          code,
-          sale_point_code,
-          sale_point_name,
+          slug,
           status,
+          company_type,
+          tira_company_code,
+          tira_insurer_company_code,
+          tira_client_code,
+          tira_system_code,
+          tira_system_name,
+          settings,
+          regulatory_metadata,
+          metadata,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          $1,
+          $2,
+          'active',
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          $9::jsonb,
+          $10::jsonb,
+          $11::jsonb,
+          now(),
+          now()
+        )
+        ON CONFLICT (slug)
+        DO UPDATE SET
+          status = 'active',
+          company_type = COALESCE(companies.company_type, EXCLUDED.company_type),
+          tira_company_code = COALESCE(
+            companies.tira_company_code,
+            EXCLUDED.tira_company_code
+          ),
+          tira_insurer_company_code = COALESCE(
+            companies.tira_insurer_company_code,
+            EXCLUDED.tira_insurer_company_code
+          ),
+          tira_client_code = COALESCE(
+            companies.tira_client_code,
+            EXCLUDED.tira_client_code
+          ),
+          tira_system_code = COALESCE(
+            companies.tira_system_code,
+            EXCLUDED.tira_system_code
+          ),
+          tira_system_name = COALESCE(
+            companies.tira_system_name,
+            EXCLUDED.tira_system_name
+          ),
+          settings = COALESCE(companies.settings, '{}'::jsonb)
+            || EXCLUDED.settings,
+          regulatory_metadata = COALESCE(
+            companies.regulatory_metadata,
+            '{}'::jsonb
+          ) || EXCLUDED.regulatory_metadata,
+          metadata = COALESCE(companies.metadata, '{}'::jsonb)
+            || EXCLUDED.metadata,
+          updated_at = now()
+        RETURNING id
+      `,
+      [
+        ALLIANCE_TENANT.companyName,
+        ALLIANCE_TENANT.slug,
+        ALLIANCE_TENANT.companyType,
+        ALLIANCE_TENANT.companyCode,
+        ALLIANCE_TENANT.insurerCompanyCode,
+        ALLIANCE_TENANT.clientCode,
+        ALLIANCE_TENANT.systemCode,
+        ALLIANCE_TENANT.systemName,
+        JSON.stringify({
+          currency: ALLIANCE_TENANT.currency,
+          timezone: ALLIANCE_TENANT.timezone,
+        }),
+        JSON.stringify({
+          tiraCompanyCode: ALLIANCE_TENANT.companyCode,
+          insurerCompanyCode: ALLIANCE_TENANT.insurerCompanyCode,
+          clientCode: ALLIANCE_TENANT.clientCode,
+          systemCode: ALLIANCE_TENANT.systemCode,
+        }),
+        JSON.stringify({
+          seedSource: 'Companies.xlsx',
+          seededBy: '005-tiramis-company-setup.seed',
+        }),
+      ],
+    );
+
+    return rows[0].id;
+  }
+
+  private async upsertPortalSideTiramisConfig(
+    queryRunner: QueryRunner,
+    companyId: string,
+    environment: 'test' | 'live',
+  ): Promise<void> {
+    await queryRunner.query(
+      `
+        INSERT INTO tiramis_company_configurations (
+          company_id,
+          environment,
+          company_code,
+          company_name,
+          insurer_company_code,
+          insurer_company_name,
+          client_code,
+          client_key,
+          system_code,
+          system_name,
+          base_url,
+          callback_url,
+          is_active,
+          metadata,
           created_at,
           updated_at
         )
@@ -431,165 +273,160 @@ async function upsertBranchAndSalePoint(
           $3,
           $4,
           $5,
-          'active',
+          $6,
+          $7,
+          NULL,
+          $8,
+          $9,
+          NULL,
+          NULL,
+          true,
+          $10::jsonb,
           now(),
           now()
         )
-        ON CONFLICT ON CONSTRAINT "UQ_branches_company_code"
+        ON CONFLICT (company_id, environment)
         DO UPDATE SET
-          name = EXCLUDED.name,
-          sale_point_code = EXCLUDED.sale_point_code,
-          sale_point_name = EXCLUDED.sale_point_name,
-          status = 'active',
+          company_code = EXCLUDED.company_code,
+          company_name = EXCLUDED.company_name,
+          insurer_company_code = EXCLUDED.insurer_company_code,
+          insurer_company_name = EXCLUDED.insurer_company_name,
+          client_code = EXCLUDED.client_code,
+          system_code = EXCLUDED.system_code,
+          system_name = EXCLUDED.system_name,
+          is_active = true,
+          metadata = COALESCE(
+            tiramis_company_configurations.metadata,
+            '{}'::jsonb
+          ) || EXCLUDED.metadata,
           updated_at = now()
-        RETURNING id
       `,
       [
         companyId,
-        seed.branchName ?? seed.branchCode,
-        seed.branchCode,
-        seed.salePointCode,
-        seed.salePointName ?? seed.salePointCode,
+        environment,
+        ALLIANCE_TENANT.companyCode,
+        ALLIANCE_TENANT.companyName,
+        ALLIANCE_TENANT.insurerCompanyCode,
+        ALLIANCE_TENANT.insurerCompanyName,
+        ALLIANCE_TENANT.clientCode,
+        ALLIANCE_TENANT.systemCode,
+        ALLIANCE_TENANT.systemName,
+        JSON.stringify({
+          seededBy: '005-tiramis-company-setup.seed',
+          secretsManagedBy: 'apps/tiramis',
+        }),
       ],
     );
-
-    branchId = branchRows[0]?.id ?? null;
   }
 
-  await dataSource.query(
-    `
-      INSERT INTO tiramis_sale_points (
-        company_id,
-        branch_id,
-        branch_code,
-        branch_name,
-        sale_point_code,
-        sale_point_name,
-        is_active,
-        metadata,
-        created_at,
-        updated_at
-      )
-      VALUES (
-        $1,
-        $2,
-        $3,
-        $4,
-        $5,
-        $6,
-        true,
-        $7::jsonb,
-        now(),
-        now()
-      )
-      ON CONFLICT (company_id, sale_point_code)
-      DO UPDATE SET
-        branch_id = EXCLUDED.branch_id,
-        branch_code = EXCLUDED.branch_code,
-        branch_name = EXCLUDED.branch_name,
-        sale_point_name = EXCLUDED.sale_point_name,
-        is_active = true,
-        metadata =
-          COALESCE(tiramis_sale_points.metadata, '{}'::jsonb)
-          || EXCLUDED.metadata,
-        updated_at = now()
-    `,
-    [
-      companyId,
-      branchId,
-      seed.branchCode ?? null,
-      seed.branchName ?? null,
-      seed.salePointCode,
-      seed.salePointName ?? seed.salePointCode,
-      JSON.stringify({
-        source: 'Companies.xlsx',
-      }),
-    ],
-  );
-}
-
-async function upsertPartner(
-  dataSource: DataSource,
-  seed: PartnerSeed,
-): Promise<void> {
-  const insurerCompanyId = await findCompanyIdByTiraCode(
-    dataSource,
-    seed.insurerCompanyCode,
-  );
-
-  const intermediaryCompanyId = await findCompanyIdByTiraCode(
-    dataSource,
-    seed.intermediaryCompanyCode,
-  );
-
-  if (!insurerCompanyId || !intermediaryCompanyId) {
-    console.warn('[tiramis-seed] Partner skipped because company is missing', {
-      seed,
-      insurerCompanyId,
-      intermediaryCompanyId,
-    });
-    return;
-  }
-
-  await dataSource.query(
-    `
-      INSERT INTO insurance_company_partners (
-        insurer_company_id,
-        intermediary_company_id,
-        partner_type,
-        status,
-        metadata,
-        created_at,
-        updated_at
-      )
-      SELECT
-        $1,
-        $2,
-        $3,
-        'ACTIVE',
-        $4::jsonb,
-        now(),
-        now()
-      WHERE NOT EXISTS (
-        SELECT 1
-        FROM insurance_company_partners
-        WHERE insurer_company_id = $1
-          AND intermediary_company_id = $2
-          AND partner_type = $3
-          AND deleted_at IS NULL
-      )
-    `,
-    [
-      insurerCompanyId,
-      intermediaryCompanyId,
-      seed.partnerType,
-      JSON.stringify({
-        source: 'Companies.xlsx',
-      }),
-    ],
-  );
-}
-
-export default class TiramisCompanySetupSeeder implements Seeder {
-  public async run(
-    dataSource: DataSource,
-    _factoryManager: SeederFactoryManager,
+  private async seedBranches(
+    queryRunner: QueryRunner,
+    companyId: string,
   ): Promise<void> {
-    console.log('Seeding TIRAMIS company setup from Companies.xlsx data...');
-
-    for (const seed of [...companySeeds, ...insurerPlaceholderSeeds]) {
-      const companyId = await upsertCompany(dataSource, seed);
-      await upsertTiramisConfig(dataSource, companyId, seed);
+    for (const branch of ALLIANCE_BRANCHES) {
+      await queryRunner.query(
+        `
+          INSERT INTO branches (
+            company_id,
+            name,
+            code,
+            sale_point_code,
+            sale_point_name,
+            status,
+            created_at,
+            updated_at
+          )
+          VALUES ($1, $2, $3, NULL, NULL, 'active', now(), now())
+          ON CONFLICT ON CONSTRAINT "UQ_branches_company_code"
+          DO UPDATE SET
+            name = COALESCE(branches.name, EXCLUDED.name),
+            status = 'active',
+            updated_at = now()
+        `,
+        [companyId, branch.branchName, branch.branchCode],
+      );
     }
+  }
 
-    for (const seed of salePointSeeds) {
-      await upsertBranchAndSalePoint(dataSource, seed);
+  private async seedSalePoints(
+    queryRunner: QueryRunner,
+    companyId: string,
+  ): Promise<void> {
+    for (const salePoint of ALLIANCE_SALE_POINTS) {
+      const branchRows = await queryRunner.query(
+        `
+          SELECT id, code, name
+          FROM branches
+          WHERE company_id = $1
+            AND code = $2
+            AND deleted_at IS NULL
+          LIMIT 1
+        `,
+        [companyId, salePoint.branchCode],
+      );
+
+      const branch = branchRows[0];
+
+      if (!branch) {
+        throw new Error(
+          `Branch ${salePoint.branchCode} must exist before sale point ${salePoint.salePointCode}`,
+        );
+      }
+
+      await queryRunner.query(
+        `
+          INSERT INTO tiramis_sale_points (
+            company_id,
+            branch_id,
+            branch_code,
+            branch_name,
+            sale_point_code,
+            sale_point_name,
+            is_default,
+            is_active,
+            metadata,
+            created_at,
+            updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, true, $8::jsonb, now(), now())
+          ON CONFLICT (company_id, sale_point_code)
+          DO UPDATE SET
+            branch_id = COALESCE(
+              tiramis_sale_points.branch_id,
+              EXCLUDED.branch_id
+            ),
+            branch_code = COALESCE(
+              tiramis_sale_points.branch_code,
+              EXCLUDED.branch_code
+            ),
+            branch_name = COALESCE(
+              tiramis_sale_points.branch_name,
+              EXCLUDED.branch_name
+            ),
+            sale_point_name = COALESCE(
+              tiramis_sale_points.sale_point_name,
+              EXCLUDED.sale_point_name
+            ),
+            is_default = EXCLUDED.is_default,
+            is_active = true,
+            metadata = COALESCE(tiramis_sale_points.metadata, '{}'::jsonb)
+              || EXCLUDED.metadata,
+            updated_at = now()
+        `,
+        [
+          companyId,
+          branch.id,
+          branch.code,
+          branch.name,
+          salePoint.salePointCode,
+          salePoint.salePointName,
+          salePoint.isDefault,
+          JSON.stringify({
+            source: 'Companies.xlsx',
+            seededBy: '005-tiramis-company-setup.seed',
+          }),
+        ],
+      );
     }
-
-    for (const seed of partnerSeeds) {
-      await upsertPartner(dataSource, seed);
-    }
-
-    console.log('TIRAMIS company setup seed completed');
   }
 }

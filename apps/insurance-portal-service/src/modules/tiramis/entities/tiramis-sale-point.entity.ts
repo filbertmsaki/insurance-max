@@ -58,6 +58,9 @@ export class TiramisSalePointEntity {
   })
   salePointName!: string | null;
 
+  @Column({ name: 'is_default', type: 'boolean', default: false })
+  isDefault!: boolean;
+
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
 

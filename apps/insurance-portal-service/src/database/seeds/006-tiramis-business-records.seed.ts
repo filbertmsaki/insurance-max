@@ -2,15 +2,17 @@ import { DataSource } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
 
 async function findCompanyId(dataSource: DataSource) {
-  const rows = await dataSource.query(`
-    SELECT id
-    FROM companies
-    WHERE tira_company_code = 'ICC999'
-       OR slug = 'alliance-insurance-corporation'
-       OR name ILIKE '%ALLIANCE INSURANCE%'
-    ORDER BY created_at ASC
-    LIMIT 1
-  `);
+  const rows = await dataSource.query(
+    `
+      SELECT id
+      FROM companies
+      WHERE deleted_at IS NULL
+        AND tira_company_code = $1
+      ORDER BY created_at ASC
+      LIMIT 1
+    `,
+    [process.env.SEED_TARGET_COMPANY_CODE ?? 'ICC110'],
+  );
 
   return rows[0]?.id || null;
 }
@@ -82,11 +84,18 @@ export default class TiramisBusinessRecordsSeeder implements Seeder {
     dataSource: DataSource,
     _factoryManager: SeederFactoryManager,
   ): Promise<void> {
+    if (process.env.ENABLE_DEMO_SEED !== 'true') {
+      console.log(
+        '[tiramis-business-records-seed] Skipped. ENABLE_DEMO_SEED is not true.',
+      );
+      return;
+    }
+
     const companyId = await findCompanyId(dataSource);
 
     if (!companyId) {
       console.warn(
-        '[tiramis-business-records-seed] Skipped because ICC999 company was not found',
+        '[tiramis-business-records-seed] Skipped because target seed company was not found',
       );
       return;
     }

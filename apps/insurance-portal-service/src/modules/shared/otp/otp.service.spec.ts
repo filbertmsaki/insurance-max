@@ -32,7 +32,7 @@ describe('OtpService', () => {
     update: jest.Mock;
   };
   let redisService: jest.Mocked<RedisService>;
-  let smsProvider: { sendSms: jest.Mock };
+  let smsProvider: { send: jest.Mock };
 
   beforeEach(async () => {
     otpRepo = {
@@ -80,7 +80,7 @@ describe('OtpService', () => {
         },
         {
           provide: SMS_PROVIDER,
-          useValue: { sendSms: jest.fn().mockResolvedValue(undefined) },
+          useValue: { send: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();
@@ -100,7 +100,7 @@ describe('OtpService', () => {
 
       expect(result.otpId).toBe('uuid-otp-1');
       expect(otpRepo.save).toHaveBeenCalled();
-      expect(smsProvider.sendSms).toHaveBeenCalled();
+      expect(smsProvider.send).toHaveBeenCalled();
     });
 
     it('throws when throttle limit exceeded', async () => {
