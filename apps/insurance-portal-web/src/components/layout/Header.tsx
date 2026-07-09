@@ -45,16 +45,11 @@ const ROUTE_LABELS: [string, string[]][] = [
   ['/product-engine/access/categories', ['Product Engine', 'Category Access']],
   ['/product-engine/access/products', ['Product Engine', 'Product Access']],
   ['/product-engine/calculator', ['Product Engine', 'Calculator']],
-  ['/underwriting', ['Underwriting']],
-  ['/underwriting/tiramis/wizard', ['Underwriting', 'TIRAMIS Wizard']],
   ['/underwriting/quotations', ['Underwriting', 'Quotations']],
   ['/underwriting/policies', ['Underwriting', 'Policies']],
   ['/underwriting/submissions', ['Underwriting', 'Submission Tracking']],
   ['/underwriting/motor/vehicles', ['Underwriting', 'Motor Vehicles']],
   ['/underwriting/motor/fleets', ['Underwriting', 'Motor Fleets']],
-  ['/underwriting/motor/quotation-details', ['Underwriting', 'Motor Quotation Details']],
-  ['/underwriting/motor/policy-details', ['Underwriting', 'Motor Policy Details']],
-  ['/underwriting/non-motor/subject-matters', ['Underwriting', 'Subject Matters']],
 ]
 
 function useBreadcrumb(): string[] {

@@ -28,7 +28,6 @@ import {
   HeartPulse,
   TriangleAlert,
   RefreshCcw,
-  Play,
 } from 'lucide-react';
 
 export interface NavLeaf {
@@ -225,19 +224,6 @@ export const NAV_NODES: NavNode[] = [
     children: [
       {
         kind: 'link',
-        label: 'Workflow',
-        to: '/underwriting',
-        icon: Radar,
-      },
-      {
-        kind: 'link',
-        label: 'TIRAMIS Wizard',
-        to: '/underwriting/tiramis/wizard',
-        icon: Play,
-        permission: 'quotations:create',
-      },
-      {
-        kind: 'link',
         label: 'Create Quotation',
         to: '/underwriting/quotations/new',
         icon: Calculator,
@@ -277,27 +263,6 @@ export const NAV_NODES: NavNode[] = [
         to: '/underwriting/motor/fleets',
         icon: Truck,
         permission: 'motor:read',
-      },
-      {
-        kind: 'link',
-        label: 'Motor Quotation Details',
-        to: '/underwriting/motor/quotation-details',
-        icon: FileText,
-        permission: 'motor:read',
-      },
-      {
-        kind: 'link',
-        label: 'Motor Policy Details',
-        to: '/underwriting/motor/policy-details',
-        icon: FileText,
-        permission: 'motor:read',
-      },
-      {
-        kind: 'link',
-        label: 'Subject Matters',
-        to: '/underwriting/non-motor/subject-matters',
-        icon: FileText,
-        permission: 'non-motor:read',
       },
     ],
   },
