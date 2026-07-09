@@ -1,5 +1,8 @@
 import type { PaginatedResponse } from '@/modules/shared/api/pagination';
-import type { CustomerFormValues, CustomerRecord } from '@/modules/tenant/customers/types';
+import type {
+  CustomerFormValues,
+  CustomerRecord,
+} from '@/modules/tenant/customers/types';
 import type {
   InsuranceCategory,
   InsuranceProduct,
@@ -11,10 +14,7 @@ import type {
 import type { SortOrder } from '@/types';
 
 export type QuotationType = 'MOTOR' | 'NON_MOTOR';
-export type QuotationFlow =
-  | 'NON_MOTOR'
-  | 'MOTOR_SINGLE'
-  | 'MOTOR_FLEET';
+export type QuotationFlow = 'NON_MOTOR' | 'MOTOR_SINGLE' | 'MOTOR_FLEET';
 export type QuotationStatus =
   | 'DRAFT'
   | 'RATED'
@@ -56,7 +56,12 @@ export interface QuotationRiskRecord {
   updated_at: string;
   deleted_at: string | null;
   risk?: InsuranceRisk | null;
-  motor_vehicle?: { id: string; registration_no: string | null; chassis_no: string | null; engine_no: string | null } | null;
+  motor_vehicle?: {
+    id: string;
+    registration_no: string | null;
+    chassis_no: string | null;
+    engine_no: string | null;
+  } | null;
 }
 
 export interface QuotationFactorValueRecord {
@@ -95,7 +100,12 @@ export interface QuotationStatusHistoryRecord {
   reason: string | null;
   changed_by: string | null;
   created_at: string;
-  changed_by_user?: { id: string; first_name: string; last_name: string; email: string } | null;
+  changed_by_user?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+  } | null;
 }
 
 export interface QuotationAddonTaxRecord {
@@ -342,10 +352,29 @@ export interface QuotationFormValues {
 export interface QuotationRiskFormRow {
   client_ref: string;
   risk_id: string;
+  risk_code: string;
   subject_matter_id: string;
   motor_vehicle_id: string;
   sum_insured: string;
-  factor_values: Record<string, string | number | boolean>;
+  sum_insured_equivalent: string;
+  premium_rate: string;
+  premium_before_discount: string;
+  premium_after_discount: string;
+  premium_excluding_tax_equivalent: string;
+  premium_including_tax: string;
+  discounts_offered: {
+    discount_type: string;
+    discount_rate: string;
+    discount_amount: string;
+  }[];
+  taxes_charged: {
+    tax_code: string;
+    is_tax_exempted: boolean;
+    tax_exemption_type: string;
+    tax_exemption_reference: string;
+    tax_rate: string;
+    tax_amount: string;
+  }[];
   rate: string;
   basic_premium: string;
   discount_amount: string;
@@ -487,4 +516,3 @@ export interface QuotationWizardFactorInput {
   value_date: string;
   value_boolean: boolean;
 }
-

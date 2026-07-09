@@ -1,12 +1,25 @@
+import { useEffect, useMemo } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { Branch } from '@/types';
-import type { DepartmentRecord } from '@/modules/tenant/departments/api/departments';
 import type { TiramisSalePointRecord } from '@/modules/tenant/tiramis/types';
+import { useQuotationDistributionChannels } from '../../hooks';
 import type { QuotationFormSchemaValues } from '../../schemas';
 
 interface OptionLike {
@@ -19,14 +32,18 @@ interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
   categoryOptions: OptionLike[];
   productOptions: OptionLike[];
-  subClassOptions: OptionLike[];
   branchOptions: Branch[];
-  departmentOptions: DepartmentRecord[];
   salePointOptions: TiramisSalePointRecord[];
   salePointRequired: boolean;
 }
 
-const CHANNEL_TYPES = ['DIRECT', 'BROKER', 'AGENCY', 'BANCASSURANCE', 'API'] as const;
+const CHANNEL_TYPES = [
+  'DIRECT',
+  'BROKER',
+  'AGENCY',
+  'BANCASSURANCE',
+  'API',
+] as const;
 const COVER_NOTE_TYPES = [
   { value: '1', label: 'New' },
   { value: '2', label: 'Renew' },
@@ -42,15 +59,78 @@ export function CoverNoteSetupStep({
   form,
   categoryOptions,
   productOptions,
-  subClassOptions,
   branchOptions,
-  departmentOptions,
   salePointOptions,
   salePointRequired,
 }: Props) {
   const quotationFlow = form.watch('quotation_flow');
   const currency = form.watch('currency');
   const coverNoteType = form.watch('cover_note_type');
+  const channelType = form.watch('channel_type');
+  const productId = form.watch('product_id');
+  const branchId = form.watch('branch_id');
+  const salePointId = form.watch('sale_point_id');
+  const intermediaryCompanyId = form.watch('intermediary_company_id');
+  const { data: distributionChannels = [] } =
+    useQuotationDistributionChannels();
+  const defaultSalePointId =
+    salePointOptions.find((salePoint) => salePoint.isDefault)?.id ??
+    salePointOptions[0]?.id ??
+    '';
+  const intermediaryOptions = useMemo(() => {
+    if (channelType === 'DIRECT' || !productId) return [];
+
+    const uniqueCompanies = new Map<
+      string,
+      { id: string; name: string; slug: string; company_type: string }
+    >();
+
+    distributionChannels.forEach((channel) => {
+      if (
+        channel.channel_type !== channelType ||
+        channel.product_id !== productId ||
+        channel.status !== 'ACTIVE' ||
+        !channel.can_quote ||
+        !channel.intermediary_company
+      ) {
+        return;
+      }
+
+      const company = channel.intermediary_company;
+      if (!uniqueCompanies.has(company.id)) {
+        uniqueCompanies.set(company.id, company);
+      }
+    });
+
+    return [...uniqueCompanies.values()].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [channelType, distributionChannels, productId]);
+
+  useEffect(() => {
+    if (!branchId) {
+      if (salePointId) {
+        form.setValue('sale_point_id', '');
+      }
+      return;
+    }
+
+    if (!salePointOptions.length) {
+      if (salePointId) {
+        form.setValue('sale_point_id', '');
+      }
+      return;
+    }
+
+    const selectedSalePoint = salePointOptions.find(
+      (salePoint) => salePoint.id === salePointId,
+    );
+
+    if (!selectedSalePoint) {
+      form.setValue('sale_point_id', defaultSalePointId);
+      form.clearErrors('sale_point_id');
+    }
+  }, [branchId, defaultSalePointId, form, salePointId, salePointOptions]);
 
   return (
     <div className="space-y-4">
@@ -96,7 +176,6 @@ export function CoverNoteSetupStep({
                       form.setValue('is_fleet', option.is_fleet);
                       form.setValue('category_id', '');
                       form.setValue('product_id', '');
-                      form.setValue('sub_class_id', '');
                     }}
                     className={[
                       'rounded-lg border p-4 text-left transition-colors',
@@ -131,7 +210,6 @@ export function CoverNoteSetupStep({
                   onValueChange={(value) => {
                     field.onChange(value);
                     form.setValue('product_id', '');
-                    form.setValue('sub_class_id', '');
                   }}
                 >
                   <FormControl>
@@ -162,7 +240,7 @@ export function CoverNoteSetupStep({
                   value={field.value}
                   onValueChange={(value) => {
                     field.onChange(value);
-                    form.setValue('sub_class_id', '');
+                    form.setValue('intermediary_company_id', '');
                   }}
                 >
                   <FormControl>
@@ -185,39 +263,17 @@ export function CoverNoteSetupStep({
 
           <FormField
             control={form.control}
-            name="sub_class_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Sub-Class (optional)</FormLabel>
-                <Select
-                  value={field.value || 'none'}
-                  onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Optional" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {subClassOptions.map((subClass) => (
-                      <SelectItem key={subClass.id} value={subClass.id}>
-                        {subClass.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
             name="channel_type"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Channel</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={field.value}
+                  onValueChange={(value) => {
+                    field.onChange(value);
+                    form.setValue('intermediary_company_id', '');
+                  }}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue />
@@ -235,19 +291,46 @@ export function CoverNoteSetupStep({
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="intermediary_company_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Intermediary Company ID (optional)</FormLabel>
-                <FormControl>
-                  <Input placeholder="Broker/agency company ID" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {channelType !== 'DIRECT' ? (
+            <FormField
+              control={form.control}
+              name="intermediary_company_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {channelType === 'BROKER'
+                      ? 'Broker Company'
+                      : channelType === 'AGENCY'
+                        ? 'Agency Company'
+                        : channelType === 'BANCASSURANCE'
+                          ? 'Bancassurance Company'
+                          : 'Intermediary Company'}{' '}
+                    (required)
+                  </FormLabel>
+                  <FormControl>
+                    <select
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                      value={field.value}
+                      onChange={(event) => field.onChange(event.target.value)}
+                      disabled={intermediaryOptions.length === 0}
+                    >
+                      <option value="">
+                        {intermediaryOptions.length === 0
+                          ? 'No linked companies available'
+                          : 'Select intermediary company'}
+                      </option>
+                      {intermediaryOptions.map((company) => (
+                        <option key={company.id} value={company.id}>
+                          {company.name}
+                        </option>
+                      ))}
+                    </select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ) : null}
 
           <FormField
             control={form.control}
@@ -311,7 +394,7 @@ export function CoverNoteSetupStep({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Branch, Department &amp; Sale Point</CardTitle>
+          <CardTitle className="text-base">Branch &amp; Sale Point</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <FormField
@@ -349,49 +432,25 @@ export function CoverNoteSetupStep({
 
           <FormField
             control={form.control}
-            name="department_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Department (optional)</FormLabel>
-                <Select
-                  value={field.value || 'none'}
-                  onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Optional" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {departmentOptions.map((department) => (
-                      <SelectItem key={department.id} value={department.id}>
-                        {department.name} ({department.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
             name="sale_point_id"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>
-                  TIRAMIS Sale Point{salePointRequired ? ' (required)' : ' (optional)'}
-                </FormLabel>
+                <FormLabel>TIRAMIS Sale Point (required)</FormLabel>
                 <Select
                   value={field.value || 'none'}
-                  onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
+                  onValueChange={(value) =>
+                    field.onChange(value === 'none' ? '' : value)
+                  }
                   disabled={salePointOptions.length === 0}
                 >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue
-                        placeholder={salePointOptions.length === 0 ? 'Select a branch first' : 'Select sale point'}
+                        placeholder={
+                          salePointOptions.length === 0
+                            ? 'Select a branch first'
+                            : 'Select sale point'
+                        }
                       />
                     </SelectTrigger>
                   </FormControl>
@@ -399,17 +458,18 @@ export function CoverNoteSetupStep({
                     <SelectItem value="none">None</SelectItem>
                     {salePointOptions.map((salePoint) => (
                       <SelectItem key={salePoint.id} value={salePoint.id}>
-                        {salePoint.salePointName ?? salePoint.salePointCode} ({salePoint.salePointCode})
-                        {salePoint.isDefault ? ' — default' : ''}
+                        {salePoint.salePointName ?? salePoint.salePointCode} (
+                        {salePoint.salePointCode})
+                        {salePoint.isDefault ? ' - default' : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
-                {salePointRequired && !field.value && (
+                {salePointRequired && salePointOptions.length > 1 && (
                   <p className="text-xs text-amber-600">
-                    This branch has more than one active sale point — pick one explicitly. The
-                    backend cannot auto-resolve it and will reject the TIRA submission otherwise.
+                    This branch has more than one active sale point. The default
+                    is selected automatically, but you can change it here.
                   </p>
                 )}
               </FormItem>

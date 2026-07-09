@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
@@ -11,8 +12,17 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useQuotationCurrentCompanyId } from '../hooks';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  useQuotationCurrentCompanyId,
+  useQuotationDistributionChannels,
+} from '../hooks';
 import {
   createEmptyFleetDetails,
   createEmptyMotorDetails,
@@ -23,14 +33,16 @@ import {
 } from '../schemas';
 import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
 import type { CustomerRecord } from '@/modules/tenant/customers/types';
-import type { InsuranceCategory, InsuranceProduct, InsuranceSubClass } from '@/types/product-engine';
+import type {
+  InsuranceCategory,
+  InsuranceProduct,
+} from '@/types/product-engine';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
 
 interface Props {
   customerOptions: CustomerRecord[];
   categoryOptions: InsuranceCategory[];
   productOptions: InsuranceProduct[];
-  subClassOptions: InsuranceSubClass[];
   isPending: boolean;
   submitLabel: string;
   onSubmit: (values: QuotationFormSchemaValues) => void;
@@ -41,13 +53,14 @@ export function QuotationForm({
   customerOptions,
   categoryOptions,
   productOptions,
-  subClassOptions,
   isPending,
   submitLabel,
   onSubmit,
   defaultValues,
 }: Props) {
   const currentCompanyId = useQuotationCurrentCompanyId();
+  const { data: distributionChannels = [] } =
+    useQuotationDistributionChannels();
   const formDefaults: QuotationFormSchemaValues = {
     insurer_company_id: currentCompanyId,
     intermediary_company_id: '',
@@ -58,7 +71,6 @@ export function QuotationForm({
     policyholder: getCustomerDefaultValues(),
     category_id: '',
     product_id: '',
-    sub_class_id: '',
     risks: [createEmptyRiskRow()],
     addons: [],
     motor_mode: 'existing',
@@ -80,7 +92,9 @@ export function QuotationForm({
     total_premium: '',
     net_premium: '',
     valid_from: new Date().toISOString().slice(0, 10),
-    valid_until: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    valid_until: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10),
     rating_version: '',
     rejection_reason: '',
     cover_note_type: '1',
@@ -92,11 +106,44 @@ export function QuotationForm({
     exchange_rate: '',
     ...defaultValues,
   };
-  formDefaults.insurer_company_id = defaultValues?.insurer_company_id ?? currentCompanyId;
+  formDefaults.insurer_company_id =
+    defaultValues?.insurer_company_id ?? currentCompanyId;
   const form = useForm<QuotationFormSchemaValues>({
     resolver: zodResolver(quotationFormSchema),
     defaultValues: formDefaults,
   });
+  const channelType = form.watch('channel_type');
+  const productId = form.watch('product_id');
+  const intermediaryCompanyId = form.watch('intermediary_company_id');
+  const intermediaryOptions = useMemo(() => {
+    if (channelType === 'DIRECT' || !productId) return [];
+
+    const uniqueCompanies = new Map<
+      string,
+      { id: string; name: string; slug: string; company_type: string }
+    >();
+
+    distributionChannels.forEach((channel) => {
+      if (
+        channel.channel_type !== channelType ||
+        channel.product_id !== productId ||
+        channel.status !== 'ACTIVE' ||
+        !channel.can_quote ||
+        !channel.intermediary_company
+      ) {
+        return;
+      }
+
+      const company = channel.intermediary_company;
+      if (!uniqueCompanies.has(company.id)) {
+        uniqueCompanies.set(company.id, company);
+      }
+    });
+
+    return [...uniqueCompanies.values()].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [channelType, distributionChannels, productId]);
 
   return (
     <Form {...form}>
@@ -114,12 +161,15 @@ export function QuotationForm({
                   <FormLabel>Customer</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {customerOptions.map((customer) => (
                         <SelectItem key={customer.id} value={customer.id}>
-                          {getCustomerDisplayName(customer)} ({customer.customer_no})
+                          {getCustomerDisplayName(customer)} (
+                          {customer.customer_no})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -136,7 +186,9 @@ export function QuotationForm({
                   <FormLabel>Quotation Type</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="MOTOR">Motor</SelectItem>
@@ -155,11 +207,15 @@ export function QuotationForm({
                   <FormLabel>Category</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {categoryOptions.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -175,32 +231,15 @@ export function QuotationForm({
                   <FormLabel>Product</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select product" />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {productOptions.map((product) => (
-                        <SelectItem key={product.id} value={product.id}>{product.product_name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-              <FormField
-              control={form.control}
-              name="sub_class_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Sub-Class</FormLabel>
-                  <Select value={field.value || 'none'} onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {subClassOptions.map((subClass) => (
-                        <SelectItem key={subClass.id} value={subClass.id}>{subClass.name}</SelectItem>
+                        <SelectItem key={product.id} value={product.id}>
+                          {product.product_name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -214,15 +253,25 @@ export function QuotationForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Channel</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      form.setValue('intermediary_company_id', '');
+                    }}
+                  >
                     <FormControl>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="DIRECT">Direct</SelectItem>
                       <SelectItem value="BROKER">Broker</SelectItem>
                       <SelectItem value="AGENCY">Agency</SelectItem>
-                      <SelectItem value="BANCASSURANCE">Bancassurance</SelectItem>
+                      <SelectItem value="BANCASSURANCE">
+                        Bancassurance
+                      </SelectItem>
                       <SelectItem value="API">API</SelectItem>
                     </SelectContent>
                   </Select>
@@ -230,6 +279,46 @@ export function QuotationForm({
                 </FormItem>
               )}
             />
+            {channelType !== 'DIRECT' ? (
+              <FormField
+                control={form.control}
+                name="intermediary_company_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {channelType === 'BROKER'
+                        ? 'Broker Company'
+                        : channelType === 'AGENCY'
+                          ? 'Agency Company'
+                          : channelType === 'BANCASSURANCE'
+                            ? 'Bancassurance Company'
+                            : 'Intermediary Company'}{' '}
+                      (required)
+                    </FormLabel>
+                    <FormControl>
+                      <select
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                        value={field.value}
+                        onChange={(event) => field.onChange(event.target.value)}
+                        disabled={intermediaryOptions.length === 0}
+                      >
+                        <option value="">
+                          {intermediaryOptions.length === 0
+                            ? 'No linked companies available'
+                            : 'Select intermediary company'}
+                        </option>
+                        {intermediaryOptions.map((company) => (
+                          <option key={company.id} value={company.id}>
+                            {company.name}
+                          </option>
+                        ))}
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : null}
             <FormField
               control={form.control}
               name="status"
@@ -238,11 +327,25 @@ export function QuotationForm({
                   <FormLabel>Status</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {['DRAFT', 'RATED', 'REFERRED', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'CONVERTED', 'EXPIRED', 'CANCELLED'].map((status) => (
-                        <SelectItem key={status} value={status}>{status}</SelectItem>
+                      {[
+                        'DRAFT',
+                        'RATED',
+                        'REFERRED',
+                        'PENDING_APPROVAL',
+                        'APPROVED',
+                        'REJECTED',
+                        'CONVERTED',
+                        'EXPIRED',
+                        'CANCELLED',
+                      ].map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -263,11 +366,28 @@ export function QuotationForm({
               <FormField
                 key={name}
                 control={form.control}
-                name={name as Exclude<keyof QuotationFormSchemaValues, 'is_fleet' | 'policyholder' | 'risks' | 'addons' | 'motor' | 'fleet' | 'nonMotor'>}
+                name={
+                  name as Exclude<
+                    keyof QuotationFormSchemaValues,
+                    | 'is_fleet'
+                    | 'policyholder'
+                    | 'risks'
+                    | 'addons'
+                    | 'motor'
+                    | 'fleet'
+                    | 'nonMotor'
+                  >
+                }
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{label}</FormLabel>
-                    <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        {...field}
+                        value={field.value ?? ''}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -279,7 +399,9 @@ export function QuotationForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Currency</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -290,7 +412,9 @@ export function QuotationForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Valid From</FormLabel>
-                  <FormControl><Input type="date" {...field} /></FormControl>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -301,7 +425,9 @@ export function QuotationForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Valid Until</FormLabel>
-                  <FormControl><Input type="date" {...field} /></FormControl>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -312,7 +438,9 @@ export function QuotationForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Rating Version</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -323,7 +451,9 @@ export function QuotationForm({
               render={({ field }) => (
                 <FormItem className="md:col-span-2">
                   <FormLabel>Rejection Reason</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

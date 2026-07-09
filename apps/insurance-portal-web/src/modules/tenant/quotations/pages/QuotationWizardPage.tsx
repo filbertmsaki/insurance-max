@@ -21,11 +21,20 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { usePageFooter } from '@/components/layout/PageFooterSlot';
 import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { customersApi } from '@/modules/tenant/customers/api';
-import { buildCustomerPayload, getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
+import {
+  buildCustomerPayload,
+  getCustomerDefaultValues,
+} from '@/modules/tenant/customers/schemas';
 import { motorApi } from '@/modules/tenant/motor/api';
-import type { MotorFleetItemPayload, MotorVehiclePayload } from '@/modules/tenant/motor/types';
+import type {
+  MotorFleetItemPayload,
+  MotorVehiclePayload,
+} from '@/modules/tenant/motor/types';
 import { nonMotorApi } from '@/modules/tenant/non-motor/api';
-import type { NonMotorQuotationDetailPayload, SubjectMatterPayload } from '@/modules/tenant/non-motor/types';
+import type {
+  NonMotorQuotationDetailPayload,
+  SubjectMatterPayload,
+} from '@/modules/tenant/non-motor/types';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { quotationsApi } from '../api';
@@ -38,7 +47,6 @@ import {
   useQuotationProducts,
   useQuotationRisks,
   useQuotationSalePoints,
-  useQuotationSubClasses,
   useQuotationVehicles,
 } from '../hooks';
 import {
@@ -55,8 +63,12 @@ import {
 } from '../schemas';
 import { QuotationWizardStepper } from '../wizard/QuotationWizardStepper';
 import { useQuotationWizardDraft } from '../wizard/useQuotationWizardDraft';
-import { getWizardStepsForFlow, resolveWizardFlow, type QuotationWizardStepId } from '../wizard/types';
-import { aggregateRiskTotals, applyRiskPremiumResult } from '../wizard/utils/premiumAggregation';
+import {
+  getWizardStepsForFlow,
+  resolveWizardFlow,
+  type QuotationWizardStepId,
+} from '../wizard/types';
+import { aggregateRiskTotals } from '../wizard/utils/premiumAggregation';
 import { CoverNoteSetupStep } from '../wizard/steps/CoverNoteSetupStep';
 import { PolicyholderStep } from '../wizard/steps/PolicyholderStep';
 import { RiskPremiumStep } from '../wizard/steps/RiskPremiumStep';
@@ -68,11 +80,15 @@ import { SummaryReviewStep } from '../wizard/steps/SummaryReviewStep';
 
 // Fields validated (via form.trigger) before allowing "Next" out of a step.
 // Steps not listed here have no fields to validate yet (placeholders).
-const STEP_FIELDS: Partial<Record<QuotationWizardStepId, (keyof QuotationFormSchemaValues)[]>> = {
+const STEP_FIELDS: Partial<
+  Record<QuotationWizardStepId, (keyof QuotationFormSchemaValues)[]>
+> = {
   'cover-note': [
     'category_id',
     'product_id',
     'branch_id',
+    'channel_type',
+    'intermediary_company_id',
     'valid_from',
     'valid_until',
     'currency',
@@ -120,7 +136,9 @@ const DEFAULT_VALUES: QuotationFormSchemaValues = {
   total_premium: '',
   net_premium: '',
   valid_from: new Date().toISOString().slice(0, 10),
-  valid_until: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+  valid_until: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10),
   rating_version: '',
   rejection_reason: '',
   cover_note_type: '1',
@@ -140,21 +158,36 @@ export function QuotationWizardPage() {
   const { data: customerOptions = [] } = useQuotationCustomers();
 
   const [quotationId, setQuotationId] = useState<string | null>(null);
-  const [policyholderCustomerId, setPolicyholderCustomerId] = useState<string | null>(null);
+  const [policyholderCustomerId, setPolicyholderCustomerId] = useState<
+    string | null
+  >(null);
   const [motorVehicleId, setMotorVehicleId] = useState<string | null>(null);
   const [motorFleetId, setMotorFleetId] = useState<string | null>(null);
   const [loadingQuotation, setLoadingQuotation] = useState(isEditMode);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const { loadDraft, saveDraft, clearDraft } = useQuotationWizardDraft(quotationId);
+  const { loadDraft, saveDraft, clearDraft } =
+    useQuotationWizardDraft(quotationId);
 
   const form = useForm<QuotationFormSchemaValues>({
     resolver: zodResolver(quotationFormSchema),
     defaultValues: { ...DEFAULT_VALUES, insurer_company_id: companyId },
   });
-  const riskFieldArray = useFieldArray({ control: form.control, name: 'risks' });
-  const fleetFieldArray = useFieldArray({ control: form.control, name: 'fleet.items' });
-  const addonFieldArray = useFieldArray({ control: form.control, name: 'addons' });
-  const nonMotorFieldArray = useFieldArray({ control: form.control, name: 'nonMotor.items' });
+  const riskFieldArray = useFieldArray({
+    control: form.control,
+    name: 'risks',
+  });
+  const fleetFieldArray = useFieldArray({
+    control: form.control,
+    name: 'fleet.items',
+  });
+  const addonFieldArray = useFieldArray({
+    control: form.control,
+    name: 'addons',
+  });
+  const nonMotorFieldArray = useFieldArray({
+    control: form.control,
+    name: 'nonMotor.items',
+  });
 
   // Hydrate insurer_company_id once the current company resolves, and restore
   // any unsaved draft from a previous session (only relevant before first save,
@@ -163,7 +196,11 @@ export function QuotationWizardPage() {
     if (isEditMode) return;
     const draft = loadDraft();
     if (draft) {
-      form.reset({ ...DEFAULT_VALUES, insurer_company_id: companyId, ...draft });
+      form.reset({
+        ...DEFAULT_VALUES,
+        insurer_company_id: companyId,
+        ...draft,
+      });
     } else if (companyId) {
       form.setValue('insurer_company_id', companyId);
     }
@@ -181,7 +218,9 @@ export function QuotationWizardPage() {
     (async () => {
       try {
         const quotation = await quotationsApi.getById(editId);
-        const base = quotationRecordToFormValues(quotation) as QuotationFormSchemaValues;
+        const base = quotationRecordToFormValues(
+          quotation,
+        ) as QuotationFormSchemaValues;
         const isFleetFlow = base.quotation_flow === 'MOTOR_FLEET';
         const isMotorFlow = base.quotation_flow === 'MOTOR_SINGLE';
 
@@ -202,12 +241,21 @@ export function QuotationWizardPage() {
               model: vehicle.model ?? '',
               body_type: vehicle.body_type ?? '',
               color: vehicle.color ?? '',
-              manufacture_year: vehicle.manufacture_year != null ? String(vehicle.manufacture_year) : '',
+              manufacture_year:
+                vehicle.manufacture_year != null
+                  ? String(vehicle.manufacture_year)
+                  : '',
               usage_type: vehicle.usage_type ?? '',
               vehicle_category: vehicle.vehicle_category ?? '',
-              seating_capacity: vehicle.seating_capacity != null ? String(vehicle.seating_capacity) : '',
+              seating_capacity:
+                vehicle.seating_capacity != null
+                  ? String(vehicle.seating_capacity)
+                  : '',
               tonnage: vehicle.tonnage ?? '',
-              cubic_capacity: vehicle.cubic_capacity != null ? String(vehicle.cubic_capacity) : '',
+              cubic_capacity:
+                vehicle.cubic_capacity != null
+                  ? String(vehicle.cubic_capacity)
+                  : '',
               fuel_type: vehicle.fuel_type ?? '',
               vehicle_value: vehicle.vehicle_value ?? '',
             };
@@ -215,14 +263,18 @@ export function QuotationWizardPage() {
         }
 
         if (isFleetFlow) {
-          const fleets = await motorApi.getFleets({ limit: API_MAX_LIST_LIMIT });
+          const fleets = await motorApi.getFleets({
+            limit: API_MAX_LIST_LIMIT,
+          });
           const fleet = fleets.data.find((f) => f.quotation_id === editId);
           if (fleet) {
             const fullFleet = await motorApi.getFleet(fleet.id);
             setMotorFleetId(fullFleet.id);
             const items = await Promise.all(
               (fullFleet.items ?? []).map(async (item) => {
-                const vehicle = await motorApi.getVehicle(item.motor_vehicle_id);
+                const vehicle = await motorApi.getVehicle(
+                  item.motor_vehicle_id,
+                );
                 return {
                   vehicle_id: vehicle.id,
                   fleet_item_id: item.id,
@@ -230,8 +282,14 @@ export function QuotationWizardPage() {
                   chassis_no: vehicle.chassis_no ?? '',
                   make: vehicle.make ?? '',
                   model: vehicle.model ?? '',
-                  manufacture_year: vehicle.manufacture_year != null ? String(vehicle.manufacture_year) : '',
-                  seating_capacity: vehicle.seating_capacity != null ? String(vehicle.seating_capacity) : '',
+                  manufacture_year:
+                    vehicle.manufacture_year != null
+                      ? String(vehicle.manufacture_year)
+                      : '',
+                  seating_capacity:
+                    vehicle.seating_capacity != null
+                      ? String(vehicle.seating_capacity)
+                      : '',
                   vehicle_value: vehicle.vehicle_value ?? '',
                   sum_insured: item.sum_insured ?? '',
                   premium: item.premium ?? '',
@@ -296,14 +354,13 @@ export function QuotationWizardPage() {
   }, [quotationId]);
 
   const quotationFlow = form.watch('quotation_flow');
-  const flow = useMemo(
-    () => resolveWizardFlow(quotationFlow),
-    [quotationFlow],
-  );
+  const flow = useMemo(() => resolveWizardFlow(quotationFlow), [quotationFlow]);
   const steps = useMemo(() => getWizardStepsForFlow(flow), [flow]);
 
   const [stepId, setStepId] = useState<QuotationWizardStepId>('cover-note');
-  const [completedSteps, setCompletedSteps] = useState<QuotationWizardStepId[]>([]);
+  const [completedSteps, setCompletedSteps] = useState<QuotationWizardStepId[]>(
+    [],
+  );
 
   // If switching flow removes the currently active step (e.g. leaving Motor
   // Fleet while sitting on the fleet-details step), fall back to the first step.
@@ -316,28 +373,33 @@ export function QuotationWizardPage() {
   const categoryId = form.watch('category_id');
   const productId = form.watch('product_id');
   const branchId = form.watch('branch_id');
-  const businessLine =
-    quotationFlow === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR';
-  const { data: categoryOptions = [] } =
-    useQuotationCategories(businessLine);
+  const businessLine = quotationFlow === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR';
+  const { data: categoryOptions = [] } = useQuotationCategories(businessLine);
   const { data: productOptions = [] } = useQuotationProducts({
     category_id: categoryId || undefined,
     business_line: businessLine,
-    supports_fleet:
-      quotationFlow === 'MOTOR_FLEET' ? true : undefined,
+    supports_fleet: quotationFlow === 'MOTOR_FLEET' ? true : undefined,
   });
-  const { data: subClassOptions = [] } = useQuotationSubClasses(productId);
   const { data: riskOptions = [] } = useQuotationRisks(productId);
   const { data: branchOptions = [] } = useQuotationBranches();
-  const { data: departmentOptions = [] } = useQuotationDepartments(branchId || undefined);
-  const { data: salePointOptions = [] } = useQuotationSalePoints(branchId || undefined);
-  const activeSalePoints = useMemo(() => salePointOptions.filter((sp) => sp.isActive), [salePointOptions]);
+  const { data: departmentOptions = [] } = useQuotationDepartments(
+    branchId || undefined,
+  );
+  const { data: salePointOptions = [] } = useQuotationSalePoints(
+    branchId || undefined,
+  );
+  const activeSalePoints = useMemo(
+    () => salePointOptions.filter((sp) => sp.isActive),
+    [salePointOptions],
+  );
   const customerIdWatch = form.watch('customer_id');
-  const { data: vehicleOptions = [] } = useQuotationVehicles(customerIdWatch || undefined);
+  const { data: vehicleOptions = [] } = useQuotationVehicles(
+    customerIdWatch || undefined,
+  );
   const salePointRequired = activeSalePoints.length > 1;
-  const [calculating, setCalculating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
+  const watchedRisks = form.watch('risks');
 
   function applyAggregateTotals() {
     const totals = aggregateRiskTotals(form.getValues('risks'));
@@ -351,59 +413,10 @@ export function QuotationWizardPage() {
     form.setValue('net_premium', totals.net_premium);
   }
 
-  async function calculateRow(index: number) {
-    const row = form.getValues(`risks.${index}`);
-    if (!row.risk_id) return;
-    setCalculating(true);
-    try {
-      const result = await quotationsApi.calculateSingle({
-        risk_id: row.risk_id,
-        sum_insured: Number(row.sum_insured || 0),
-        factors: row.factor_values,
-      });
-      form.setValue(`risks.${index}`, applyRiskPremiumResult(row, result));
-      applyAggregateTotals();
-    } catch (error) {
-      toast.error(getApiErrorMessage(error));
-    } finally {
-      setCalculating(false);
-    }
-  }
-
-  async function calculateAll() {
-    const rows = form.getValues('risks');
-    const validRows = rows.filter((row) => row.risk_id);
-    if (!validRows.length) return;
-
-    if (validRows.length === 1) {
-      const index = rows.indexOf(validRows[0]);
-      await calculateRow(index);
-      return;
-    }
-
-    setCalculating(true);
-    try {
-      const response = await quotationsApi.calculateMulti({
-        risks: validRows.map((row) => ({
-          risk_id: row.risk_id,
-          sum_insured: Number(row.sum_insured || 0),
-          factors: row.factor_values,
-        })),
-      });
-      // The engine returns results in the same order the request rows were sent.
-      response.risks.forEach((result, resultIndex) => {
-        const row = validRows[resultIndex];
-        const rowIndex = rows.indexOf(row);
-        if (rowIndex === -1) return;
-        form.setValue(`risks.${rowIndex}`, applyRiskPremiumResult(row, result));
-      });
-      applyAggregateTotals();
-    } catch (error) {
-      toast.error(getApiErrorMessage(error));
-    } finally {
-      setCalculating(false);
-    }
-  }
+  useEffect(() => {
+    applyAggregateTotals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedRisks]);
 
   function addRisk() {
     riskFieldArray.append(createEmptyRiskRow());
@@ -426,7 +439,8 @@ export function QuotationWizardPage() {
 
   // Capped at risks.length — each subject matter row must link to a real risk row.
   function addNonMotorItem() {
-    if (nonMotorFieldArray.fields.length >= riskFieldArray.fields.length) return;
+    if (nonMotorFieldArray.fields.length >= riskFieldArray.fields.length)
+      return;
     nonMotorFieldArray.append(createEmptyNonMotorItemRow());
   }
 
@@ -435,7 +449,9 @@ export function QuotationWizardPage() {
   }
 
   function goToStep(id: QuotationWizardStepId) {
-    setCompletedSteps((prev) => (prev.includes(stepId) ? prev : [...prev, stepId]));
+    setCompletedSteps((prev) =>
+      prev.includes(stepId) ? prev : [...prev, stepId],
+    );
     setStepId(id);
   }
 
@@ -443,10 +459,17 @@ export function QuotationWizardPage() {
     const fields = STEP_FIELDS[stepId] ?? [];
     const valid = fields.length ? await form.trigger(fields) : true;
 
-    if (stepId === 'cover-note' && salePointRequired && !form.getValues('sale_point_id')) {
+    if (
+      stepId === 'cover-note' &&
+      branchId &&
+      !form.getValues('sale_point_id')
+    ) {
       form.setError('sale_point_id', {
         type: 'manual',
-        message: 'This branch has more than one active sale point — select one to continue',
+        message:
+          activeSalePoints.length > 0
+            ? 'A sale point is required for the selected branch'
+            : 'No active sale point is configured for the selected branch',
       });
       return;
     }
@@ -464,7 +487,9 @@ export function QuotationWizardPage() {
     if (prev) setStepId(prev.id);
   }
 
-  async function resolveCustomerId(values: QuotationFormSchemaValues): Promise<string> {
+  async function resolveCustomerId(
+    values: QuotationFormSchemaValues,
+  ): Promise<string> {
     if (values.policyholder_mode === 'existing') {
       if (!values.customer_id) {
         throw new Error('Select an existing customer before saving');
@@ -475,16 +500,26 @@ export function QuotationWizardPage() {
     // buildCustomerPayload's hand-written CustomerFormValues type requires them
     // present. At runtime they're always '' (never undefined) because
     // getCustomerDefaultValues() seeds every field — this bridges the type gap.
-    const customerPayload = buildCustomerPayload(values.policyholder as unknown as Parameters<typeof buildCustomerPayload>[0]);
+    const customerPayload = buildCustomerPayload(
+      values.policyholder as unknown as Parameters<
+        typeof buildCustomerPayload
+      >[0],
+    );
     const customer = policyholderCustomerId
-      ? await customersApi.updateCustomer(policyholderCustomerId, customerPayload)
+      ? await customersApi.updateCustomer(
+          policyholderCustomerId,
+          customerPayload,
+        )
       : await customersApi.createCustomer(customerPayload);
     setPolicyholderCustomerId(customer.id);
     return customer.id;
   }
 
   /** Only applies to the non-fleet Motor flow; returns null for Non-Motor/Fleet. */
-  async function resolveMotorVehicleId(values: QuotationFormSchemaValues, customerId: string): Promise<string | null> {
+  async function resolveMotorVehicleId(
+    values: QuotationFormSchemaValues,
+    customerId: string,
+  ): Promise<string | null> {
     if (values.quotation_type !== 'MOTOR' || values.is_fleet) return null;
     if (values.motor_mode === 'existing') {
       if (!values.motor.vehicle_id) {
@@ -502,12 +537,18 @@ export function QuotationWizardPage() {
       model: motor.model || null,
       body_type: motor.body_type || null,
       color: motor.color || null,
-      manufacture_year: motor.manufacture_year ? Number(motor.manufacture_year) : null,
+      manufacture_year: motor.manufacture_year
+        ? Number(motor.manufacture_year)
+        : null,
       usage_type: motor.usage_type || null,
       vehicle_category: motor.vehicle_category || null,
-      seating_capacity: motor.seating_capacity ? Number(motor.seating_capacity) : null,
+      seating_capacity: motor.seating_capacity
+        ? Number(motor.seating_capacity)
+        : null,
       tonnage: motor.tonnage || null,
-      cubic_capacity: motor.cubic_capacity ? Number(motor.cubic_capacity) : null,
+      cubic_capacity: motor.cubic_capacity
+        ? Number(motor.cubic_capacity)
+        : null,
       fuel_type: motor.fuel_type || null,
       vehicle_value: motor.vehicle_value || 0,
     };
@@ -527,12 +568,21 @@ export function QuotationWizardPage() {
    * risks[] rows represent product-level pricing, not one risk per vehicle,
    * and there's no correlation key to attribute one to the other yet.
    */
-  async function resolveFleet(values: QuotationFormSchemaValues, customerId: string): Promise<void> {
+  async function resolveFleet(
+    values: QuotationFormSchemaValues,
+    customerId: string,
+  ): Promise<void> {
     if (values.quotation_type !== 'MOTOR' || !values.is_fleet) return;
 
     const items = values.fleet.items;
-    const totalSumInsured = items.reduce((sum, item) => sum + (Number(item.sum_insured) || 0), 0);
-    const totalPremium = items.reduce((sum, item) => sum + (Number(item.premium) || 0), 0);
+    const totalSumInsured = items.reduce(
+      (sum, item) => sum + (Number(item.sum_insured) || 0),
+      0,
+    );
+    const totalPremium = items.reduce(
+      (sum, item) => sum + (Number(item.premium) || 0),
+      0,
+    );
 
     const fleetPayload = {
       customer_id: customerId,
@@ -556,8 +606,12 @@ export function QuotationWizardPage() {
         chassis_no: item.chassis_no || null,
         make: item.make || null,
         model: item.model || null,
-        manufacture_year: item.manufacture_year ? Number(item.manufacture_year) : null,
-        seating_capacity: item.seating_capacity ? Number(item.seating_capacity) : null,
+        manufacture_year: item.manufacture_year
+          ? Number(item.manufacture_year)
+          : null,
+        seating_capacity: item.seating_capacity
+          ? Number(item.seating_capacity)
+          : null,
         vehicle_value: item.vehicle_value || 0,
       };
       const vehicle = item.vehicle_id
@@ -571,7 +625,11 @@ export function QuotationWizardPage() {
         premium: Number(item.premium) || 0,
       };
       const fleetItem = item.fleet_item_id
-        ? await motorApi.updateFleetItem(fleet.id, item.fleet_item_id, itemPayload)
+        ? await motorApi.updateFleetItem(
+            fleet.id,
+            item.fleet_item_id,
+            itemPayload,
+          )
         : await motorApi.createFleetItem(fleet.id, itemPayload);
       form.setValue(`fleet.items.${index}.fleet_item_id`, fleetItem.id);
     }
@@ -608,9 +666,15 @@ export function QuotationWizardPage() {
         value: item.value || 0,
       };
       const subjectMatter = item.subject_matter_id
-        ? await nonMotorApi.updateSubjectMatter(item.subject_matter_id, subjectMatterPayload)
+        ? await nonMotorApi.updateSubjectMatter(
+            item.subject_matter_id,
+            subjectMatterPayload,
+          )
         : await nonMotorApi.createSubjectMatter(subjectMatterPayload);
-      form.setValue(`nonMotor.items.${index}.subject_matter_id`, subjectMatter.id);
+      form.setValue(
+        `nonMotor.items.${index}.subject_matter_id`,
+        subjectMatter.id,
+      );
 
       const detailPayload: NonMotorQuotationDetailPayload = {
         quotation_id: quotationId,
@@ -628,7 +692,11 @@ export function QuotationWizardPage() {
     }
   }
 
-  async function saveQuotation({ proceedToPayment }: { proceedToPayment: boolean }) {
+  async function saveQuotation({
+    proceedToPayment,
+  }: {
+    proceedToPayment: boolean;
+  }) {
     setSaving(true);
     try {
       const values = form.getValues();
@@ -648,7 +716,10 @@ export function QuotationWizardPage() {
       );
       payload.sale_point_code = salePoint?.salePointCode ?? null;
       if (vehicleId) {
-        payload.risks = payload.risks?.map((risk) => ({ ...risk, motor_vehicle_id: vehicleId }));
+        payload.risks = payload.risks?.map((risk) => ({
+          ...risk,
+          motor_vehicle_id: vehicleId,
+        }));
       }
 
       const quotation = quotationId
@@ -657,7 +728,12 @@ export function QuotationWizardPage() {
       setQuotationId(quotation.id);
 
       try {
-        await resolveNonMotor(values, customerId, quotation.id, quotation.risks ?? []);
+        await resolveNonMotor(
+          values,
+          customerId,
+          quotation.id,
+          quotation.risks ?? [],
+        );
       } catch (error) {
         toast.error(getApiErrorMessage(error));
       }
@@ -685,15 +761,32 @@ export function QuotationWizardPage() {
   usePageFooter(
     showFooter ? (
       <div className="flex items-center justify-between">
-        <Button type="button" variant="outline" className="cursor-pointer" onClick={goBack} disabled={isFirstStep}>
+        <Button
+          type="button"
+          variant="outline"
+          className="cursor-pointer"
+          onClick={goBack}
+          disabled={isFirstStep}
+        >
           Back
         </Button>
         <div className="flex gap-2">
-          <Button type="button" variant="outline" className="cursor-pointer" onClick={() => saveQuotation({ proceedToPayment: false })} disabled={saving || !companyId}>
+          <Button
+            type="button"
+            variant="outline"
+            className="cursor-pointer"
+            onClick={() => saveQuotation({ proceedToPayment: false })}
+            disabled={saving || !companyId}
+          >
             {saving ? 'Saving...' : 'Save Draft'}
           </Button>
           {isLastStep ? (
-            <Button type="button" className="cursor-pointer" onClick={() => setConfirmSubmitOpen(true)} disabled={saving || !companyId}>
+            <Button
+              type="button"
+              className="cursor-pointer"
+              onClick={() => setConfirmSubmitOpen(true)}
+              disabled={saving || !companyId}
+            >
               {saving ? 'Saving...' : 'Save & Proceed to Payment'}
             </Button>
           ) : (
@@ -719,7 +812,10 @@ export function QuotationWizardPage() {
     return (
       <div className="space-y-4 py-12 text-center text-sm text-red-600">
         <p>Could not load this quotation for editing: {loadError}</p>
-        <Button variant="outline" onClick={() => navigate(underwritingPaths.quotations)}>
+        <Button
+          variant="outline"
+          onClick={() => navigate(underwritingPaths.quotations)}
+        >
           Back to Quotations
         </Button>
       </div>
@@ -729,18 +825,31 @@ export function QuotationWizardPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(underwritingPaths.quotations)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(underwritingPaths.quotations)}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <PageHeader
           title={isEditMode ? 'Edit Quotation' : 'Quotation Wizard'}
-          description={isEditMode ? 'Resume and update this draft quotation' : 'Guided quotation creation with automatic TIRAMIS submission'}
+          description={
+            isEditMode
+              ? 'Resume and update this draft quotation'
+              : 'Guided quotation creation with automatic TIRAMIS submission'
+          }
         />
       </div>
 
       <div className="mx-auto w-full max-w-4xl">
         <div className="space-y-4">
-          <QuotationWizardStepper steps={steps} value={stepId} completed={completedSteps} onChange={goToStep} />
+          <QuotationWizardStepper
+            steps={steps}
+            value={stepId}
+            completed={completedSteps}
+            onChange={goToStep}
+          />
 
           <Form {...form}>
             <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
@@ -749,28 +858,32 @@ export function QuotationWizardPage() {
                   form={form}
                   categoryOptions={categoryOptions}
                   productOptions={productOptions}
-                  subClassOptions={subClassOptions}
                   branchOptions={branchOptions}
-                  departmentOptions={departmentOptions}
                   salePointOptions={activeSalePoints}
                   salePointRequired={salePointRequired}
                 />
               )}
-              {stepId === 'policyholder' && <PolicyholderStep form={form} customerOptions={customerOptions} />}
+              {stepId === 'policyholder' && (
+                <PolicyholderStep
+                  form={form}
+                  customerOptions={customerOptions}
+                />
+              )}
               {stepId === 'risk-premium' && (
                 <RiskPremiumStep
                   form={form}
                   riskOptions={riskOptions}
                   fieldArray={riskFieldArray}
-                  onCalculateRow={calculateRow}
-                  onCalculateAll={calculateAll}
                   onRemoveRisk={removeRisk}
-                  calculating={calculating}
                   onAddRisk={addRisk}
                 />
               )}
-              {stepId === 'addons' && <AddOnsStep form={form} fieldArray={addonFieldArray} />}
-              {stepId === 'motor' && <MotorDetailsStep form={form} vehicleOptions={vehicleOptions} />}
+              {stepId === 'addons' && (
+                <AddOnsStep form={form} fieldArray={addonFieldArray} />
+              )}
+              {stepId === 'motor' && (
+                <MotorDetailsStep form={form} vehicleOptions={vehicleOptions} />
+              )}
               {stepId === 'motor-fleet' && (
                 <MotorFleetDetailsStep
                   form={form}
@@ -794,9 +907,7 @@ export function QuotationWizardPage() {
                   customerOptions={customerOptions}
                   categoryOptions={categoryOptions}
                   productOptions={productOptions}
-                  subClassOptions={subClassOptions}
                   branchOptions={branchOptions}
-                  departmentOptions={departmentOptions}
                   riskOptions={riskOptions}
                   riskCount={riskFieldArray.fields.length}
                   onEditStep={goToStep}
@@ -812,10 +923,11 @@ export function QuotationWizardPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Proceed to payment?</AlertDialogTitle>
             <AlertDialogDescription>
-              This saves the quotation and takes you to the payment page. Nothing is submitted to
-              TIRAMIS yet — that only happens after payment is recorded as complete. Total premium:{' '}
-              {form.watch('total_premium') || '0'} {form.watch('currency')}, across{' '}
-              {riskFieldArray.fields.length} risk(s).
+              This saves the quotation and takes you to the payment page.
+              Nothing is submitted to TIRAMIS yet — that only happens after
+              payment is recorded as complete. Total premium:{' '}
+              {form.watch('total_premium') || '0'} {form.watch('currency')},
+              across {riskFieldArray.fields.length} risk(s).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

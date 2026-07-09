@@ -45,7 +45,10 @@ export interface QuotationPremiumTotals {
   net_premium: string;
 }
 
-function sumField(rows: QuotationRiskFormRow[], field: keyof QuotationRiskFormRow) {
+function sumField(
+  rows: QuotationRiskFormRow[],
+  field: keyof QuotationRiskFormRow,
+) {
   return rows.reduce((total, row) => {
     const value = Number(row[field] as string);
     return total + (Number.isFinite(value) ? value : 0);
@@ -53,15 +56,49 @@ function sumField(rows: QuotationRiskFormRow[], field: keyof QuotationRiskFormRo
 }
 
 /** Rolls all risk rows up into the quotation-level totals shown in the summary sidebar. */
-export function aggregateRiskTotals(rows: QuotationRiskFormRow[]): QuotationPremiumTotals {
+export function aggregateRiskTotals(
+  rows: QuotationRiskFormRow[],
+): QuotationPremiumTotals {
   return {
     sum_insured: String(sumField(rows, 'sum_insured')),
-    basic_premium: String(sumField(rows, 'basic_premium')),
-    total_discount: String(sumField(rows, 'discount_amount')),
-    total_tax: String(sumField(rows, 'tax_amount')),
+    basic_premium: String(
+      sumField(rows, 'basic_premium') ||
+        sumField(rows, 'premium_after_discount') ||
+        sumField(rows, 'premium_excluding_tax_equivalent'),
+    ),
+    total_discount: String(
+      sumField(rows, 'discount_amount') ||
+        rows.reduce(
+          (sum, row) =>
+            sum +
+            (row.discounts_offered ?? []).reduce(
+              (discountTotal, discount) =>
+                discountTotal + Number(discount.discount_amount || 0),
+              0,
+            ),
+          0,
+        ),
+    ),
+    total_tax: String(
+      sumField(rows, 'tax_amount') ||
+        rows.reduce(
+          (sum, row) =>
+            sum +
+            (row.taxes_charged ?? []).reduce(
+              (taxTotal, tax) => taxTotal + Number(tax.tax_amount || 0),
+              0,
+            ),
+          0,
+        ),
+    ),
     total_charges: String(sumField(rows, 'charges_amount')),
     total_commission: String(sumField(rows, 'commission_amount')),
-    total_premium: String(sumField(rows, 'total_premium')),
-    net_premium: String(sumField(rows, 'net_premium')),
+    total_premium: String(
+      sumField(rows, 'total_premium') ||
+        sumField(rows, 'premium_including_tax'),
+    ),
+    net_premium: String(
+      sumField(rows, 'net_premium') || sumField(rows, 'premium_including_tax'),
+    ),
   };
 }
