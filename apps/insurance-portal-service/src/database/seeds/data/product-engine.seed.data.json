@@ -8,7 +8,8 @@
                        {
                            "code":  "MOTOR",
                            "name":  "Motor",
-                           "description":  "Seeded from Excel sheet: MOTOR"
+                           "description":  "Seeded from Excel sheet: MOTOR",
+                           "business_line":  "MOTOR"
                        },
                        {
                            "code":  "MISC",

@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
 import { RateType } from '@insurance-max/portal-shared/enums/rate-type.enum';
 import { Company } from '../../modules/platform/companies/entities/company.entity';
+import { InsuranceBusinessLine } from '../../modules/tenant/insurance-categories/enums/insurance-business-line.enum';
 import { InsuranceCategory } from '../../modules/tenant/insurance-categories/entities/insurance-category.entity';
 import { InsuranceProduct } from '../../modules/tenant/insurance-products/entities/insurance-product.entity';
 import { InsuranceSubClass } from '../../modules/tenant/insurance-sub-classes/entities/insurance-sub-class.entity';
@@ -14,6 +15,7 @@ type CategorySeed = {
   code: string;
   name: string;
   description: string | null;
+  business_line?: InsuranceBusinessLine;
 };
 
 type ProductSeed = {
@@ -21,6 +23,9 @@ type ProductSeed = {
   product_code: string;
   product_name: string;
   description: string | null;
+  business_line?: InsuranceBusinessLine;
+  supports_fleet?: boolean;
+  tiramis_product_code?: string | null;
 };
 
 type SubClassSeed = {
@@ -238,7 +243,7 @@ export default class ProductEngineSeeder implements Seeder {
       const entity = await this.ensureProduct(
         repo,
         companyId,
-        category.id,
+        category,
         seed,
       );
       map.set(seed.product_code, entity);
@@ -316,6 +321,7 @@ export default class ProductEngineSeeder implements Seeder {
     companyId: string,
     seed: CategorySeed,
   ): Promise<InsuranceCategory> {
+    const businessLine = this.resolveCategoryBusinessLine(seed);
     const existing = await repo.findOne({
       where: {
         company_id: companyId,
@@ -331,6 +337,18 @@ export default class ProductEngineSeeder implements Seeder {
     }
 
     if (existing) {
+      if (
+        existing.name !== seed.name ||
+        existing.description !== seed.description ||
+        existing.business_line !== businessLine ||
+        existing.is_active !== true
+      ) {
+        existing.name = seed.name;
+        existing.description = seed.description;
+        existing.business_line = businessLine;
+        existing.is_active = true;
+        return repo.save(existing);
+      }
       return existing;
     }
 
@@ -340,6 +358,7 @@ export default class ProductEngineSeeder implements Seeder {
         code: seed.code,
         name: seed.name,
         description: seed.description,
+        business_line: businessLine,
         is_active: true,
       }),
     );
@@ -348,9 +367,14 @@ export default class ProductEngineSeeder implements Seeder {
   private async ensureProduct(
     repo: Repository<InsuranceProduct>,
     companyId: string,
-    categoryId: string,
+    category: InsuranceCategory,
     seed: ProductSeed,
   ): Promise<InsuranceProduct> {
+    const businessLine = seed.business_line ?? category.business_line;
+    const supportsFleet =
+      seed.supports_fleet ??
+      category.business_line === InsuranceBusinessLine.MOTOR;
+    const tiramisProductCode = seed.tiramis_product_code ?? seed.product_code;
     const existing = await repo.findOne({
       where: {
         company_id: companyId,
@@ -366,19 +390,57 @@ export default class ProductEngineSeeder implements Seeder {
     }
 
     if (existing) {
+      if (
+        existing.category_id !== category.id ||
+        existing.product_name !== seed.product_name ||
+        existing.description !== seed.description ||
+        existing.business_line !== businessLine ||
+        existing.supports_fleet !== supportsFleet ||
+        existing.tiramis_product_code !== tiramisProductCode ||
+        existing.is_active !== true
+      ) {
+        existing.category_id = category.id;
+        existing.product_name = seed.product_name;
+        existing.description = seed.description;
+        existing.business_line = businessLine;
+        existing.supports_fleet = supportsFleet;
+        existing.tiramis_product_code = tiramisProductCode;
+        existing.is_active = true;
+        return repo.save(existing);
+      }
       return existing;
     }
 
     return repo.save(
       repo.create({
         company_id: companyId,
-        category_id: categoryId,
+        category_id: category.id,
         product_code: seed.product_code,
         product_name: seed.product_name,
         description: seed.description,
+        business_line: businessLine,
+        supports_fleet: supportsFleet,
+        tiramis_product_code: tiramisProductCode,
         is_active: true,
       }),
     );
+  }
+
+  private resolveCategoryBusinessLine(
+    seed: CategorySeed,
+  ): InsuranceBusinessLine {
+    if (seed.business_line) {
+      return seed.business_line;
+    }
+
+    const normalizedCode = seed.code.trim().toUpperCase();
+    const normalizedName = seed.name.trim().toUpperCase();
+
+    if (normalizedCode === 'MOTOR' || normalizedName === 'MOTOR') {
+      return InsuranceBusinessLine.MOTOR;
+    }
+
+    return InsuranceBusinessLine.NON_MOTOR;
   }
 
   private async ensureSubClass(
