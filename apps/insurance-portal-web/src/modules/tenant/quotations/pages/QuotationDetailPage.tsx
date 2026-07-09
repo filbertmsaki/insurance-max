@@ -1,6 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Pencil, Play, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, CreditCard, Pencil, Play, Plus, Trash2 } from 'lucide-react';
+import { billingApi } from '@/modules/tenant/billing/api';
+import type { InvoiceRecord } from '@/modules/tenant/billing/types';
+import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
+import { PaymentStatusBadge } from '../components/PaymentStatusBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -62,6 +66,19 @@ export function QuotationDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [nonMotorOpen, setNonMotorOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [invoice, setInvoice] = useState<InvoiceRecord | null>(null);
+  const isPaid = invoice?.status === 'PAID';
+
+  useEffect(() => {
+    if (!quotation?.id) return;
+    let cancelled = false;
+    billingApi.getInvoices({ limit: API_MAX_LIST_LIMIT }).then((page) => {
+      if (!cancelled) setInvoice(page.data.find((inv) => inv.quotation_id === quotation.id) ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [quotation?.id]);
 
   const nonMotorColumns: Column<NonMotorQuotationDetailRecord>[] = useMemo(
     () => [
@@ -136,6 +153,7 @@ export function QuotationDetailPage() {
                 {quotation.quotation_no}
               </h1>
               <QuotationStatusBadge status={quotation.status} />
+              <PaymentStatusBadge status={invoice?.status} />
             </div>
             <p className="text-sm text-slate-500">
               {quotation.customer?.company_name ?? quotation.customer_id}
@@ -146,8 +164,17 @@ export function QuotationDetailPage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => navigate(underwritingPaths.quotationPayment(quotation.id))}
+          >
+            <CreditCard className="mr-1.5 h-3.5 w-3.5" />
+            Payment
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setSubmitOpen(true)}
-            disabled={submitMutation.isPending}
+            disabled={submitMutation.isPending || !isPaid}
+            title={isPaid ? undefined : 'Payment must be completed before submitting to TIRAMIS'}
           >
             <Play className="mr-1.5 h-3.5 w-3.5" />
             Submit to TIRAMIS

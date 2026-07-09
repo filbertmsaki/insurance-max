@@ -26,8 +26,6 @@ import type { MotorFleetItemPayload, MotorVehiclePayload } from '@/modules/tenan
 import { nonMotorApi } from '@/modules/tenant/non-motor/api';
 import type { NonMotorQuotationDetailPayload, SubjectMatterPayload } from '@/modules/tenant/non-motor/types';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { tiramisApi } from '@/modules/tenant/tiramis/api';
-import { buildQuotationTiramisPayload } from '@/modules/tenant/tiramis/utils';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { quotationsApi } from '../api';
 import {
@@ -618,7 +616,7 @@ export function QuotationWizardPage() {
     }
   }
 
-  async function saveQuotation({ andSubmit }: { andSubmit: boolean }) {
+  async function saveQuotation({ proceedToPayment }: { proceedToPayment: boolean }) {
     setSaving(true);
     try {
       const values = form.getValues();
@@ -650,21 +648,13 @@ export function QuotationWizardPage() {
 
       clearDraft();
 
-      if (!andSubmit) {
-        navigate(underwritingPaths.quotationDetail(quotation.id));
+      // No TIRAMIS submission happens here. Business rule: nothing may be
+      // submitted to TIRA before payment is completed — the actual gated
+      // submission (post-payment) is built in Phase 13. Until then, "Save &
+      // Proceed to Payment" only ever saves and routes to the payment page.
+      if (proceedToPayment) {
+        navigate(underwritingPaths.quotationPayment(quotation.id));
         return;
-      }
-
-      try {
-        const submissionResult = (await tiramisApi.submit(buildQuotationTiramisPayload(quotation))) as {
-          submission?: { id: string };
-        };
-        if (submissionResult.submission) {
-          navigate(underwritingPaths.submissionDetail(submissionResult.submission.id));
-          return;
-        }
-      } catch {
-        // Keep the created quotation accessible for manual follow-up if TIRA submission fails.
       }
       navigate(underwritingPaths.quotationDetail(quotation.id));
     } finally {
@@ -696,7 +686,7 @@ export function QuotationWizardPage() {
   }
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate(underwritingPaths.quotations)}>
           <ArrowLeft className="h-4 w-4" />
@@ -776,18 +766,28 @@ export function QuotationWizardPage() {
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+      {/*
+        Sticky, not fixed: `fixed` positions relative to the viewport, which
+        spans the full window width and overlays the sidebar (AppShell lays
+        the sidebar and this page's content out as flex siblings — there's no
+        global offset/context exposing the sidebar's current width to reach
+        for here). `sticky bottom-0` instead stays within this page's own
+        flow inside AppShell's scrollable <main>, so it's automatically
+        constrained to the content column's width and never covers the
+        sidebar, on desktop or the mobile drawer alike.
+      */}
+      <div className="sticky bottom-0 z-10 -mx-6 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
+        <div className="flex items-center justify-between">
           <Button type="button" variant="outline" onClick={goBack} disabled={isFirstStep}>
             Back
           </Button>
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => saveQuotation({ andSubmit: false })} disabled={saving || !companyId}>
+            <Button type="button" variant="outline" onClick={() => saveQuotation({ proceedToPayment: false })} disabled={saving || !companyId}>
               {saving ? 'Saving...' : 'Save Draft'}
             </Button>
             {isLastStep ? (
               <Button type="button" onClick={() => setConfirmSubmitOpen(true)} disabled={saving || !companyId}>
-                {saving ? 'Submitting...' : 'Save & Submit to TIRAMIS'}
+                {saving ? 'Saving...' : 'Save & Proceed to Payment'}
               </Button>
             ) : (
               <Button type="button" onClick={goNext}>
@@ -801,12 +801,12 @@ export function QuotationWizardPage() {
       <AlertDialog open={confirmSubmitOpen} onOpenChange={setConfirmSubmitOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Submit this quotation to TIRAMIS?</AlertDialogTitle>
+            <AlertDialogTitle>Proceed to payment?</AlertDialogTitle>
             <AlertDialogDescription>
-              This saves the quotation and immediately attempts a TIRAMIS cover note submission. No
-              payment has been collected yet — submission before payment is only appropriate if your
-              backend flow explicitly allows it. Total premium: {form.watch('total_premium') || '0'}{' '}
-              {form.watch('currency')}, across {riskFieldArray.fields.length} risk(s).
+              This saves the quotation and takes you to the payment page. Nothing is submitted to
+              TIRAMIS yet — that only happens after payment is recorded as complete. Total premium:{' '}
+              {form.watch('total_premium') || '0'} {form.watch('currency')}, across{' '}
+              {riskFieldArray.fields.length} risk(s).
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -814,10 +814,10 @@ export function QuotationWizardPage() {
             <AlertDialogAction
               onClick={() => {
                 setConfirmSubmitOpen(false);
-                saveQuotation({ andSubmit: true });
+                saveQuotation({ proceedToPayment: true });
               }}
             >
-              Confirm &amp; Submit
+              Confirm &amp; Continue
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

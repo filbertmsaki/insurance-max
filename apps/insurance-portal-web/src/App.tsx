@@ -62,6 +62,7 @@ import { QuotationDetailPage } from '@/modules/tenant/quotations/pages/Quotation
 import { QuotationCreatePage } from '@/modules/tenant/quotations/pages/QuotationCreatePage'
 import { QuotationEditPage } from '@/modules/tenant/quotations/pages/QuotationEditPage'
 import { QuotationWizardPage } from '@/modules/tenant/quotations/pages/QuotationWizardPage'
+import { QuotationPaymentPage } from '@/modules/tenant/quotations/pages/QuotationPaymentPage'
 import { PoliciesPage } from '@/modules/tenant/policies/pages/PoliciesPage'
 import { PolicyDetailPage } from '@/modules/tenant/policies/pages/PolicyDetailPage'
 import { PolicyCreatePage } from '@/modules/tenant/policies/pages/PolicyCreatePage'
@@ -185,6 +186,9 @@ export default function App() {
             <Route element={<ProtectedRoute requiredPermission="quotations:update" />}>
               <Route path={underwritingPaths.quotationWizardEdit(':id')} element={<QuotationWizardPage />} />
               <Route path={underwritingPaths.quotationEdit(':id')} element={<QuotationEditPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="billing:create" />}>
+              <Route path={underwritingPaths.quotationPayment(':id')} element={<QuotationPaymentPage />} />
             </Route>
 
             <Route element={<ProtectedRoute requiredPermission="policies:read" />}>

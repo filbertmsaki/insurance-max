@@ -9,6 +9,7 @@ export const underwritingPaths = {
   quotationWizardEdit: (id: string) => `/underwriting/quotations/${id}/wizard`,
   quotationDetail: (id: string) => `/underwriting/quotations/${id}`,
   quotationEdit: (id: string) => `/underwriting/quotations/${id}/edit`,
+  quotationPayment: (id: string) => `/underwriting/quotations/${id}/payment`,
   policies: '/underwriting/policies',
   policyDetail: (id: string) => `/underwriting/policies/${id}`,
   policyCreate: '/underwriting/policies/new',
