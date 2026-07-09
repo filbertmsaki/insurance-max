@@ -776,21 +776,21 @@ export function QuotationWizardPage() {
         constrained to the content column's width and never covers the
         sidebar, on desktop or the mobile drawer alike.
       */}
-      <div className="sticky bottom-0 z-10 -mx-6 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
+      <div className="sticky bottom-0 z-10 -mx-6 border-t border-slate-200 bg-white/95 px-3 py-1.5 backdrop-blur">
         <div className="flex items-center justify-between">
-          <Button type="button" variant="outline" onClick={goBack} disabled={isFirstStep}>
+          <Button type="button" variant="outline" className="cursor-pointer" onClick={goBack} disabled={isFirstStep}>
             Back
           </Button>
           <div className="flex gap-2">
-            <Button type="button" variant="outline" onClick={() => saveQuotation({ proceedToPayment: false })} disabled={saving || !companyId}>
+            <Button type="button" variant="outline" className="cursor-pointer" onClick={() => saveQuotation({ proceedToPayment: false })} disabled={saving || !companyId}>
               {saving ? 'Saving...' : 'Save Draft'}
             </Button>
             {isLastStep ? (
-              <Button type="button" onClick={() => setConfirmSubmitOpen(true)} disabled={saving || !companyId}>
+              <Button type="button" className="cursor-pointer" onClick={() => setConfirmSubmitOpen(true)} disabled={saving || !companyId}>
                 {saving ? 'Saving...' : 'Save & Proceed to Payment'}
               </Button>
             ) : (
-              <Button type="button" onClick={goNext}>
+              <Button type="button" className="cursor-pointer" onClick={goNext}>
                 Next
               </Button>
             )}
