@@ -35,4 +35,11 @@
     font-family: system-ui, -apple-system, sans-serif;
     margin: 0;
   }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
 }

@@ -4,6 +4,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { CommandPalette } from './CommandPalette'
+import { PageFooterProvider } from './PageFooterSlot'
 import { cn } from '@/lib/utils'
 
 export function AppShell() {
@@ -28,49 +29,54 @@ export function AppShell() {
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="flex h-screen overflow-hidden bg-slate-50">
+      <PageFooterProvider>
+        {(footer) => (
+          <div className="flex h-dvh overflow-hidden bg-slate-50">
 
-        {/* ── Desktop sidebar (always in flow, width transitions) ── */}
-        <div className="hidden md:flex shrink-0">
-          <Sidebar
-            collapsed={collapsed}
-            onToggleCollapse={() => setCollapsed((c) => !c)}
-          />
-        </div>
-
-        {/* ── Mobile overlay ── */}
-        <div
-          className={cn(
-            'fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden transition-opacity duration-300',
-            mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
-          )}
-          onClick={() => setMobileOpen(false)}
-          aria-hidden
-        />
-
-        {/* ── Mobile sidebar drawer ── */}
-        <div
-          className={cn(
-            'fixed inset-y-0 left-0 z-50 md:hidden transition-transform duration-300 ease-in-out',
-            mobileOpen ? 'translate-x-0' : '-translate-x-full',
-          )}
-        >
-          <Sidebar mobile onClose={() => setMobileOpen(false)} />
-        </div>
-
-        {/* ── Main content area ── */}
-        <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-          <Header
-            onMobileMenuToggle={() => setMobileOpen((o) => !o)}
-            onOpenCommand={() => setCommandOpen(true)}
-          />
-          <main className="flex-1 overflow-y-auto">
-            <div className="p-6 max-w-[1600px]">
-              <Outlet />
+            {/* ── Desktop sidebar (always in flow, width transitions) ── */}
+            <div className="hidden md:flex shrink-0">
+              <Sidebar
+                collapsed={collapsed}
+                onToggleCollapse={() => setCollapsed((c) => !c)}
+              />
             </div>
-          </main>
-        </div>
-      </div>
+
+            {/* ── Mobile overlay ── */}
+            <div
+              className={cn(
+                'fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden transition-opacity duration-300',
+                mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
+              )}
+              onClick={() => setMobileOpen(false)}
+              aria-hidden
+            />
+
+            {/* ── Mobile sidebar drawer ── */}
+            <div
+              className={cn(
+                'fixed inset-y-0 left-0 z-50 md:hidden transition-transform duration-300 ease-in-out',
+                mobileOpen ? 'translate-x-0' : '-translate-x-full',
+              )}
+            >
+              <Sidebar mobile onClose={() => setMobileOpen(false)} />
+            </div>
+
+            {/* ── Main content area ── */}
+            <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+              <Header
+                onMobileMenuToggle={() => setMobileOpen((o) => !o)}
+                onOpenCommand={() => setCommandOpen(true)}
+              />
+              <main className="min-h-0 flex-1 overflow-y-auto">
+                <div className="mx-auto w-full max-w-[1600px] p-6">
+                  <Outlet />
+                </div>
+              </main>
+              {footer && <div className="shrink-0 border-t border-slate-200 bg-white px-6 py-3">{footer}</div>}
+            </div>
+          </div>
+        )}
+      </PageFooterProvider>
       <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
     </TooltipProvider>
   )

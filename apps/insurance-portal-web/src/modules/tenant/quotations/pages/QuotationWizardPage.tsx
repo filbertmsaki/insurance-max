@@ -18,6 +18,7 @@ import {
 import { Form } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/shared/PageHeader';
+import { usePageFooter } from '@/components/layout/PageFooterSlot';
 import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { customersApi } from '@/modules/tenant/customers/api';
 import { buildCustomerPayload, getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
@@ -664,6 +665,31 @@ export function QuotationWizardPage() {
 
   const isFirstStep = steps[0]?.id === stepId;
   const isLastStep = steps[steps.length - 1]?.id === stepId;
+  const showFooter = !loadingQuotation && !loadError;
+
+  usePageFooter(
+    showFooter ? (
+      <div className="flex items-center justify-between">
+        <Button type="button" variant="outline" className="cursor-pointer" onClick={goBack} disabled={isFirstStep}>
+          Back
+        </Button>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" className="cursor-pointer" onClick={() => saveQuotation({ proceedToPayment: false })} disabled={saving || !companyId}>
+            {saving ? 'Saving...' : 'Save Draft'}
+          </Button>
+          {isLastStep ? (
+            <Button type="button" className="cursor-pointer" onClick={() => setConfirmSubmitOpen(true)} disabled={saving || !companyId}>
+              {saving ? 'Saving...' : 'Save & Proceed to Payment'}
+            </Button>
+          ) : (
+            <Button type="button" className="cursor-pointer" onClick={goNext}>
+              Next
+            </Button>
+          )}
+        </div>
+      </div>
+    ) : null,
+  );
 
   if (loadingQuotation) {
     return (
@@ -763,38 +789,6 @@ export function QuotationWizardPage() {
               )}
             </form>
           </Form>
-        </div>
-      </div>
-
-      {/*
-        Sticky, not fixed: `fixed` positions relative to the viewport, which
-        spans the full window width and overlays the sidebar (AppShell lays
-        the sidebar and this page's content out as flex siblings — there's no
-        global offset/context exposing the sidebar's current width to reach
-        for here). `sticky bottom-0` instead stays within this page's own
-        flow inside AppShell's scrollable <main>, so it's automatically
-        constrained to the content column's width and never covers the
-        sidebar, on desktop or the mobile drawer alike.
-      */}
-      <div className="sticky bottom-0 z-10 -mx-6 border-t border-slate-200 bg-white/95 px-3 py-1.5 backdrop-blur">
-        <div className="flex items-center justify-between">
-          <Button type="button" variant="outline" className="cursor-pointer" onClick={goBack} disabled={isFirstStep}>
-            Back
-          </Button>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" className="cursor-pointer" onClick={() => saveQuotation({ proceedToPayment: false })} disabled={saving || !companyId}>
-              {saving ? 'Saving...' : 'Save Draft'}
-            </Button>
-            {isLastStep ? (
-              <Button type="button" className="cursor-pointer" onClick={() => setConfirmSubmitOpen(true)} disabled={saving || !companyId}>
-                {saving ? 'Saving...' : 'Save & Proceed to Payment'}
-              </Button>
-            ) : (
-              <Button type="button" className="cursor-pointer" onClick={goNext}>
-                Next
-              </Button>
-            )}
-          </div>
         </div>
       </div>
 
