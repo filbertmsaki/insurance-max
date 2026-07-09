@@ -1,7 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsOptional } from 'class-validator';
+import { IsBoolean, IsEnum, IsOptional } from 'class-validator';
 import { PaginationDto } from '@insurance-max/portal-shared/dto/pagination.dto';
+import { InsuranceBusinessLine } from '../enums/insurance-business-line.enum';
 
 export class FilterInsuranceCategoryDto extends PaginationDto {
   @ApiPropertyOptional({
@@ -12,4 +13,9 @@ export class FilterInsuranceCategoryDto extends PaginationDto {
   @Transform(({ value }) => value === 'true' || value === true)
   @IsBoolean()
   is_active?: boolean;
+
+  @ApiPropertyOptional({ enum: InsuranceBusinessLine })
+  @IsOptional()
+  @IsEnum(InsuranceBusinessLine)
+  business_line?: InsuranceBusinessLine;
 }

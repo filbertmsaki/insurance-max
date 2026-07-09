@@ -1,11 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
 } from 'class-validator';
+import { InsuranceBusinessLine } from '../enums/insurance-business-line.enum';
 
 export class CreateInsuranceCategoryDto {
   @ApiProperty({
@@ -32,6 +34,13 @@ export class CreateInsuranceCategoryDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @ApiProperty({
+    enum: InsuranceBusinessLine,
+    default: InsuranceBusinessLine.NON_MOTOR,
+  })
+  @IsEnum(InsuranceBusinessLine)
+  business_line: InsuranceBusinessLine;
 
   @ApiPropertyOptional({ example: true, default: true })
   @IsOptional()

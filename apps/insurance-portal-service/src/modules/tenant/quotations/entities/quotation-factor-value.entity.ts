@@ -27,6 +27,9 @@ export class QuotationFactorValue {
   @Column({ type: 'uuid', nullable: true })
   quotation_risk_id: string | null;
 
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  risk_client_ref: string | null;
+
   @Column({ type: 'uuid' })
   factor_id: string;
 

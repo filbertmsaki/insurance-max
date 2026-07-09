@@ -65,6 +65,7 @@ export function QuotationForm({
     motor: createEmptyMotorDetails(),
     fleet: createEmptyFleetDetails(),
     nonMotor: createEmptyNonMotorDetails(),
+    quotation_flow: 'NON_MOTOR',
     quotation_type: 'NON_MOTOR',
     is_fleet: false,
     channel_type: 'DIRECT',

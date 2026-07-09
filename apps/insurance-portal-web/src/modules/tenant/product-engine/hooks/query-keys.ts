@@ -16,7 +16,8 @@ export const peKeys = {
   categories: {
     all: () => ['pe', 'categories'] as const,
     lists: (p?: object) => ['pe', 'categories', 'list', p ?? {}] as const,
-    allActive: () => ['pe', 'categories', 'all'] as const,
+    allActive: (businessLine?: string) =>
+      ['pe', 'categories', 'all', businessLine ?? ''] as const,
     detail: (id: string) => ['pe', 'categories', 'detail', id] as const,
   },
 
@@ -24,8 +25,8 @@ export const peKeys = {
   products: {
     all: () => ['pe', 'products'] as const,
     lists: (p?: object) => ['pe', 'products', 'list', p ?? {}] as const,
-    allActive: (catId?: string) =>
-      ['pe', 'products', 'all', catId ?? ''] as const,
+    allActive: (params?: object) =>
+      ['pe', 'products', 'all', params ?? {}] as const,
     detail: (id: string) => ['pe', 'products', 'detail', id] as const,
   },
 

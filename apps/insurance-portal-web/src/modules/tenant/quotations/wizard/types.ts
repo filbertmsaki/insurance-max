@@ -1,12 +1,7 @@
-import type { QuotationType } from '../types';
-
-/**
- * The three quotation flows the wizard supports. Motor Fleet is not a distinct
- * backend `quotation_type` (the enum only has MOTOR/NON_MOTOR) — it's
- * `quotation_type: 'MOTOR'` plus the client-only `is_fleet` flag, mirroring
- * `CreateMotorCoverNoteDto.isFleet` on the TIRA side.
- */
-export type QuotationWizardFlow = 'MOTOR' | 'MOTOR_FLEET' | 'NON_MOTOR';
+export type QuotationWizardFlow =
+  | 'NON_MOTOR'
+  | 'MOTOR_SINGLE'
+  | 'MOTOR_FLEET';
 
 export type QuotationWizardStepId =
   | 'cover-note'
@@ -34,16 +29,21 @@ const ALL_STEPS: Record<QuotationWizardStepId, QuotationWizardStepDef> = {
   summary: { id: 'summary', label: 'Summary & Review' },
 };
 
-export function resolveWizardFlow(quotationType: QuotationType, isFleet: boolean): QuotationWizardFlow {
-  if (quotationType === 'MOTOR') return isFleet ? 'MOTOR_FLEET' : 'MOTOR';
-  return 'NON_MOTOR';
+export function resolveWizardFlow(
+  quotationFlow: QuotationWizardFlow,
+): QuotationWizardFlow {
+  return quotationFlow;
 }
 
 /** Steps visible for a given flow, in wizard order. */
 export function getWizardStepsForFlow(flow: QuotationWizardFlow): QuotationWizardStepDef[] {
   const commonHead: QuotationWizardStepId[] = ['cover-note', 'policyholder', 'risk-premium', 'addons'];
   const branch: QuotationWizardStepId =
-    flow === 'MOTOR' ? 'motor' : flow === 'MOTOR_FLEET' ? 'motor-fleet' : 'non-motor';
+    flow === 'MOTOR_SINGLE'
+      ? 'motor'
+      : flow === 'MOTOR_FLEET'
+        ? 'motor-fleet'
+        : 'non-motor';
   const ids: QuotationWizardStepId[] = [...commonHead, branch, 'summary'];
   return ids.map((id) => ALL_STEPS[id]);
 }

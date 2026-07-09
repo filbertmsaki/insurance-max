@@ -38,6 +38,7 @@ const schema = z.object({
   code: z.string().min(1).max(50).toUpperCase(),
   name: z.string().min(1).max(120),
   description: z.string().max(500).optional(),
+  business_line: z.enum(['MOTOR', 'NON_MOTOR']),
   is_active: z.boolean(),
 })
 type FormValues = z.infer<typeof schema>
@@ -84,12 +85,24 @@ export function CategoriesPage() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { code: '', name: '', description: '', is_active: true },
+    defaultValues: {
+      code: '',
+      name: '',
+      description: '',
+      business_line: 'NON_MOTOR',
+      is_active: true,
+    },
   })
 
   function openCreate() {
     setEditItem(null)
-    form.reset({ code: '', name: '', description: '', is_active: true })
+    form.reset({
+      code: '',
+      name: '',
+      description: '',
+      business_line: 'NON_MOTOR',
+      is_active: true,
+    })
     setDialogOpen(true)
   }
 
@@ -99,6 +112,7 @@ export function CategoriesPage() {
       code: item.code,
       name: item.name,
       description: item.description ?? '',
+      business_line: item.business_line ?? 'NON_MOTOR',
       is_active: item.is_active,
     })
     setDialogOpen(true)
@@ -126,6 +140,15 @@ export function CategoriesPage() {
       cell: (row) => <span className="font-mono text-xs font-medium">{row.code}</span>,
     },
     { key: 'name', header: 'Name', cell: (row) => row.name },
+    {
+      key: 'business_line',
+      header: 'Business Line',
+      cell: (row) => (
+        <Badge variant="outline">
+          {row.business_line === 'MOTOR' ? 'Motor' : 'Non-Motor'}
+        </Badge>
+      ),
+    },
     {
       key: 'is_active',
       header: 'Status',
@@ -279,6 +302,27 @@ export function CategoriesPage() {
                     <FormControl>
                       <Textarea {...field} placeholder="Optional description" rows={3} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="business_line"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Business Line</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="NON_MOTOR">Non-Motor</SelectItem>
+                        <SelectItem value="MOTOR">Motor</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEnum,
   IsNumber,
@@ -15,11 +16,17 @@ import {
 import { IsAfter } from '@insurance-max/portal-shared/validators/is-after.validator';
 import { ProductChannelType } from '../../product-distribution/enums/product-channel-type.enum';
 import { QuotationCalculationBase } from '../enums/quotation-calculation-base.enum';
+import { QuotationFlow } from '../enums/quotation-flow.enum';
 import { QuotationPremiumItemType } from '../enums/quotation-premium-item-type.enum';
 import { QuotationStatus } from '../enums/quotation-status.enum';
 import { QuotationType } from '../enums/quotation-type.enum';
 
 export class CreateQuotationRiskDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  client_ref?: string | null;
+
   @IsUUID()
   risk_id: string;
 
@@ -95,6 +102,11 @@ export class CreateQuotationFactorValueDto {
   @IsUUID()
   quotation_risk_id?: string | null;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  risk_client_ref?: string | null;
+
   @IsUUID()
   factor_id: string;
 
@@ -121,6 +133,11 @@ export class CreateQuotationPremiumBreakdownDto {
   @IsOptional()
   @IsUUID()
   quotation_risk_id?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  risk_client_ref?: string | null;
 
   @IsEnum(QuotationPremiumItemType)
   item_type: QuotationPremiumItemType;
@@ -149,6 +166,81 @@ export class CreateQuotationPremiumBreakdownDto {
 
   @IsOptional()
   calculation_order?: number;
+}
+
+export class CreateQuotationAddonTaxDto {
+  @IsString()
+  @MaxLength(50)
+  tax_code: string;
+
+  @IsOptional()
+  @IsBoolean()
+  is_tax_exempted?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  tax_exemption_type?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  tax_exemption_reference?: string | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  tax_rate?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  tax_amount?: number;
+}
+
+export class CreateQuotationAddonDto {
+  @IsString()
+  @MaxLength(50)
+  addon_reference: string;
+
+  @IsString()
+  @MaxLength(250)
+  addon_desc: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  addon_amount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  addon_premium_rate?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  premium_excluding_tax?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  premium_excluding_tax_equivalent?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  premium_including_tax?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  is_active?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateQuotationAddonTaxDto)
+  taxes?: CreateQuotationAddonTaxDto[];
 }
 
 export class CreateQuotationDto {
@@ -183,6 +275,14 @@ export class CreateQuotationDto {
   @IsEnum(QuotationType)
   quotation_type: QuotationType;
 
+  @IsOptional()
+  @IsEnum(QuotationFlow)
+  quotation_flow?: QuotationFlow;
+
+  @IsOptional()
+  @IsBoolean()
+  is_fleet?: boolean;
+
   @IsEnum(ProductChannelType)
   channel_type: ProductChannelType;
 
@@ -194,6 +294,41 @@ export class CreateQuotationDto {
   @IsString()
   @MaxLength(10)
   currency?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  exchange_rate?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1)
+  cover_note_type?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  prev_cover_note_reference_number?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  sale_point_code?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1)
+  payment_mode_tira?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  officer_name?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  officer_title?: string | null;
 
   @IsOptional()
   @IsNumber()
@@ -272,4 +407,10 @@ export class CreateQuotationDto {
   @ValidateNested({ each: true })
   @Type(() => CreateQuotationPremiumBreakdownDto)
   premium_breakdowns?: CreateQuotationPremiumBreakdownDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateQuotationAddonDto)
+  addons?: CreateQuotationAddonDto[];
 }

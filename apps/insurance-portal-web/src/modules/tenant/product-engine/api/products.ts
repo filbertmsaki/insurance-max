@@ -1,6 +1,7 @@
 import { apiClient } from '@/modules/shared/api/client';
 import type {
   InsuranceProduct,
+  InsuranceBusinessLine,
   CreateProductDto,
   UpdateProductDto,
   ProductQueryParams,
@@ -31,13 +32,21 @@ export const productsApi = {
   delete: (id: string) =>
     apiClient.delete(`/insurance-products/${id}`).then((r) => r.data),
 
-  getAllActive: (category_id?: string) =>
+  getAllActive: (params?: {
+    category_id?: string;
+    business_line?: InsuranceBusinessLine;
+    supports_fleet?: boolean;
+  }) =>
     apiClient
       .get<PEPage<InsuranceProduct>>('/insurance-products', {
         params: {
           limit: 100,
           is_active: true,
-          ...(category_id ? { category_id } : {}),
+          ...(params?.category_id ? { category_id: params.category_id } : {}),
+          ...(params?.business_line ? { business_line: params.business_line } : {}),
+          ...(params?.supports_fleet !== undefined
+            ? { supports_fleet: params.supports_fleet }
+            : {}),
         },
       })
       .then((r) => r.data.data),

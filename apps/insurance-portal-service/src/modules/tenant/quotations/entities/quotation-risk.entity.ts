@@ -33,6 +33,9 @@ export class QuotationRisk {
   @Column({ type: 'uuid', nullable: true })
   motor_vehicle_id: string | null;
 
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  client_ref: string | null;
+
   @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
   sum_insured: string;
 

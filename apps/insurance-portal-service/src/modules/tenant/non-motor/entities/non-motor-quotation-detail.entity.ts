@@ -29,6 +29,9 @@ export class NonMotorQuotationDetail {
   @Column({ type: 'uuid' })
   subject_matter_id: string;
 
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  risk_client_ref: string | null;
+
   @Column({ type: 'text', nullable: true })
   cover_description: string | null;
 

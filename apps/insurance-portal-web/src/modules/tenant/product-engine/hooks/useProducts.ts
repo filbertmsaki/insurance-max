@@ -17,10 +17,20 @@ export function useProductList(params: ProductQueryParams) {
   });
 }
 
-export function useAllActiveProducts(category_id?: string) {
+export function useAllActiveProducts(
+  params?:
+    | string
+    | {
+        category_id?: string;
+        business_line?: ProductQueryParams['business_line'];
+        supports_fleet?: boolean;
+      },
+) {
+  const normalizedParams =
+    typeof params === 'string' ? { category_id: params } : params;
   return useQuery({
-    queryKey: peKeys.products.allActive(category_id),
-    queryFn: () => productsApi.getAllActive(category_id),
+    queryKey: peKeys.products.allActive(normalizedParams),
+    queryFn: () => productsApi.getAllActive(normalizedParams),
     staleTime: 60_000,
     enabled: true,
   });

@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
+import { InsuranceBusinessLine } from '../insurance-categories/enums/insurance-business-line.enum';
 import { InsuranceCategory } from '../insurance-categories/entities/insurance-category.entity';
 import { CreateInsuranceProductDto } from './dto/create-insurance-product.dto';
 import { FilterInsuranceProductDto } from './dto/filter-insurance-product.dto';
@@ -61,12 +62,37 @@ export class InsuranceProductsService {
       );
     }
 
+    if (dto.business_line !== category.business_line) {
+      throw new BadRequestException(
+        'Product business line must match the selected category business line',
+      );
+    }
+
+    if (
+      dto.business_line !== InsuranceBusinessLine.MOTOR &&
+      dto.supports_fleet
+    ) {
+      throw new BadRequestException(
+        'Only motor products can support fleet quotations',
+      );
+    }
+
     const product = this.productRepository.create({
       company_id: companyId,
       category_id: dto.category_id,
       product_code: dto.product_code.trim().toUpperCase(),
       product_name: dto.product_name.trim(),
       description: dto.description ?? null,
+      business_line: dto.business_line,
+      supports_fleet:
+        dto.business_line === InsuranceBusinessLine.MOTOR
+          ? (dto.supports_fleet ?? false)
+          : false,
+      tiramis_product_code:
+        dto.tiramis_product_code?.trim()
+          ? dto.tiramis_product_code.trim().toUpperCase()
+          :
+        dto.product_code.trim().toUpperCase(),
       is_active: dto.is_active ?? true,
       created_by: userId,
       updated_by: userId,
@@ -92,6 +118,8 @@ export class InsuranceProductsService {
       sortOrder = SortDirection.DESC,
       search,
       category_id,
+      business_line,
+      supports_fleet,
       is_active,
     } = query;
 
@@ -123,6 +151,16 @@ export class InsuranceProductsService {
 
     if (category_id) {
       qb.andWhere('product.category_id = :category_id', { category_id });
+    }
+
+    if (business_line) {
+      qb.andWhere('product.business_line = :business_line', { business_line });
+    }
+
+    if (supports_fleet !== undefined) {
+      qb.andWhere('product.supports_fleet = :supports_fleet', {
+        supports_fleet,
+      });
     }
 
     if (is_active !== undefined) {
@@ -169,9 +207,21 @@ export class InsuranceProductsService {
       });
       if (!category)
         throw new BadRequestException(
-          'Category not found or does not belong to this company',
+            'Category not found or does not belong to this company',
         );
       product.category_id = dto.category_id;
+    }
+
+    const category = await this.categoryRepository.findOne({
+      where: {
+        id: dto.category_id ?? product.category_id,
+        company_id: companyId,
+      },
+    });
+    if (!category) {
+      throw new BadRequestException(
+        'Category not found or does not belong to this company',
+      );
     }
 
     if (dto.product_code !== undefined)
@@ -180,6 +230,38 @@ export class InsuranceProductsService {
       product.product_name = dto.product_name.trim();
     if (dto.description !== undefined)
       product.description = dto.description ?? null;
+    if (dto.business_line !== undefined) {
+      if (dto.business_line !== category.business_line) {
+        throw new BadRequestException(
+          'Product business line must match the selected category business line',
+        );
+      }
+      product.business_line = dto.business_line;
+    }
+    if (dto.supports_fleet !== undefined) {
+      if (
+        (dto.business_line ?? product.business_line) !==
+          InsuranceBusinessLine.MOTOR &&
+        dto.supports_fleet
+      ) {
+        throw new BadRequestException(
+          'Only motor products can support fleet quotations',
+        );
+      }
+      product.supports_fleet =
+        (dto.business_line ?? product.business_line) ===
+        InsuranceBusinessLine.MOTOR
+          ? dto.supports_fleet
+          : false;
+    } else if (product.business_line !== InsuranceBusinessLine.MOTOR) {
+      product.supports_fleet = false;
+    }
+    if (dto.tiramis_product_code !== undefined) {
+      product.tiramis_product_code =
+        dto.tiramis_product_code?.trim()
+          ? dto.tiramis_product_code.trim().toUpperCase()
+          : null;
+    }
     if (dto.is_active !== undefined) product.is_active = dto.is_active;
     product.updated_by = userId;
 

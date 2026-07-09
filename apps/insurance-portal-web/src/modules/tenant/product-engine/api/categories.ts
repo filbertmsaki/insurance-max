@@ -1,6 +1,7 @@
 import { apiClient } from '@/modules/shared/api/client';
 import type {
   InsuranceCategory,
+  InsuranceBusinessLine,
   CreateCategoryDto,
   UpdateCategoryDto,
   CategoryQueryParams,
@@ -32,10 +33,14 @@ export const categoriesApi = {
     apiClient.delete(`/insurance-categories/${id}`).then((r) => r.data),
 
   /** Convenience: fetch all active categories for dropdowns */
-  getAllActive: () =>
+  getAllActive: (business_line?: InsuranceBusinessLine) =>
     apiClient
       .get<PEPage<InsuranceCategory>>('/insurance-categories', {
-        params: { limit: 100, is_active: true },
+        params: {
+          limit: 100,
+          is_active: true,
+          ...(business_line ? { business_line } : {}),
+        },
       })
       .then((r) => r.data.data),
 };

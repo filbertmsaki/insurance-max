@@ -9,7 +9,12 @@ import type {
 
 const optionalText = z.string().trim().optional().or(z.literal(''));
 
+function createClientRef(prefix = 'risk') {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 const quotationRiskRowSchema = z.object({
+  client_ref: z.string().min(1),
   risk_id: z.string().min(1, 'Risk is required'),
   subject_matter_id: optionalText,
   motor_vehicle_id: optionalText,
@@ -31,6 +36,7 @@ const quotationRiskRowSchema = z.object({
 
 export function createEmptyRiskRow(): QuotationRiskFormRow {
   return {
+    client_ref: createClientRef(),
     risk_id: '',
     subject_matter_id: '',
     motor_vehicle_id: '',
@@ -249,6 +255,7 @@ const quotationFormObjectSchema = z.object({
   nonMotor: z.object({
     items: z.array(quotationNonMotorItemRowSchema),
   }),
+  quotation_flow: z.enum(['NON_MOTOR', 'MOTOR_SINGLE', 'MOTOR_FLEET']),
   quotation_type: z.enum(['MOTOR', 'NON_MOTOR']),
   is_fleet: z.boolean(),
   channel_type: z.enum(['DIRECT', 'BROKER', 'AGENCY', 'BANCASSURANCE', 'API']),
@@ -281,6 +288,8 @@ const quotationFormObjectSchema = z.object({
 });
 
 export const quotationFormSchema = quotationFormObjectSchema.superRefine((values, ctx) => {
+  const quotationFlow = values.quotation_flow;
+
   if (values.policyholder_mode === 'existing') {
     if (!values.customer_id?.trim()) {
       ctx.addIssue({
@@ -367,7 +376,7 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine((values
     });
   });
 
-  if (values.quotation_type === 'MOTOR' && !values.is_fleet) {
+  if (quotationFlow === 'MOTOR_SINGLE') {
     if (values.motor_mode === 'existing') {
       if (!values.motor.vehicle_id?.trim()) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['motor', 'vehicle_id'], message: 'Select an existing vehicle' });
@@ -408,7 +417,7 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine((values
     }
   }
 
-  if (values.quotation_type === 'MOTOR' && values.is_fleet) {
+  if (quotationFlow === 'MOTOR_FLEET') {
     if (!values.fleet.header.fleet_no?.trim()) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['fleet', 'header', 'fleet_no'], message: 'Fleet number is required' });
     }
@@ -459,7 +468,7 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine((values
     });
   }
 
-  if (values.quotation_type === 'NON_MOTOR') {
+  if (quotationFlow === 'NON_MOTOR') {
     const items = values.nonMotor.items;
     // Each subject matter row maps 1:1 by index to a Risk & Premium row (see
     // QuotationWizardNonMotorItemRow) because NonMotorQuotationDetail requires
@@ -514,9 +523,13 @@ export function buildQuotationPayload(
   customerIdOverride?: string,
 ): QuotationPayload {
   const customerId = customerIdOverride ?? values.customer_id;
+
   if (!customerId) {
-    throw new Error('A policyholder (existing or newly created) is required before saving a quotation');
+    throw new Error('A policyholder is required before saving a quotation');
   }
+
+  const isFleet = values.quotation_flow === 'MOTOR_FLEET';
+
   return {
     insurer_company_id: values.insurer_company_id,
     intermediary_company_id: normalizeText(values.intermediary_company_id) ?? null,
@@ -526,10 +539,22 @@ export function buildQuotationPayload(
     category_id: values.category_id,
     product_id: values.product_id,
     sub_class_id: normalizeText(values.sub_class_id) ?? null,
-    quotation_type: values.quotation_type,
+
+    quotation_type:
+      values.quotation_flow === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR',
+    quotation_flow: values.quotation_flow,
+    is_fleet: isFleet,
+
     channel_type: values.channel_type,
     status: values.status,
     currency: values.currency.trim().toUpperCase(),
+    exchange_rate: normalizeNumber(values.exchange_rate) ?? 1,
+    cover_note_type: values.cover_note_type,
+    prev_cover_note_reference_number:
+      normalizeText(values.prev_cover_note_reference) ?? null,
+    payment_mode_tira: values.payment_mode_tira,
+    officer_name: normalizeText(values.officer_name) ?? null,
+    officer_title: normalizeText(values.officer_title) ?? null,
     sum_insured: normalizeNumber(values.sum_insured) ?? 0,
     basic_premium: normalizeNumber(values.basic_premium) ?? 0,
     total_discount: normalizeNumber(values.total_discount) ?? 0,
@@ -541,11 +566,12 @@ export function buildQuotationPayload(
     valid_from: values.valid_from,
     valid_until: values.valid_until,
     rating_version: normalizeText(values.rating_version) ?? null,
-    // is_fleet has no dedicated Quotation column yet, so it rides along in
-    // rating_metadata until the backend adds a proper column (see wizard gap #5).
-    rating_metadata: values.is_fleet ? { is_fleet: true } : null,
+    rating_metadata: {
+      quotation_flow: values.quotation_flow,
+    },
     rejection_reason: normalizeText(values.rejection_reason) ?? null,
     risks: values.risks.map((row) => ({
+      client_ref: row.client_ref,
       risk_id: row.risk_id,
       subject_matter_id: normalizeText(row.subject_matter_id) ?? null,
       motor_vehicle_id: normalizeText(row.motor_vehicle_id) ?? null,
@@ -559,17 +585,9 @@ export function buildQuotationPayload(
       net_premium: normalizeNumber(row.net_premium) ?? 0,
       rating_result_metadata: (row.rating_result_metadata as Record<string, unknown> | null) ?? null,
     })),
-    // NOTE (multi-risk gap): the backend links a factor_value to a risk via a
-    // client-supplied `quotation_risk_id`, but risk rows don't have a real id
-    // until after INSERT — there's no positional auto-correlation server-side
-    // (see quotations.service.ts create/replaceRiskChildren). With more than
-    // one risk row this means factor values cannot be reliably attributed to
-    // the risk that produced them; they're flattened untagged below. This
-    // needs a backend fix (e.g. a client-supplied correlation key, or
-    // returning created risk ids for a follow-up PATCH) before multi-risk
-    // factor attribution can be trusted.
     factor_values: values.risks.flatMap((row) =>
       Object.entries(row.factor_values).map(([factorId, value]) => ({
+        risk_client_ref: row.client_ref,
         quotation_risk_id: undefined,
         factor_id: factorId,
         value_text: typeof value === 'string' ? value : null,
@@ -579,10 +597,45 @@ export function buildQuotationPayload(
         value_json: null,
       })),
     ),
+    addons: values.addons
+      .filter((addon) => addon.enabled)
+      .map((addon) => ({
+        addon_reference: addon.addon_reference ?? '',
+        addon_desc: addon.addon_desc ?? '',
+        addon_amount: normalizeNumber(addon.addon_amount) ?? 0,
+        addon_premium_rate: normalizeNumber(addon.addon_premium_rate) ?? 0,
+        premium_excluding_tax:
+          normalizeNumber(addon.premium_excluding_tax) ?? 0,
+        premium_excluding_tax_equivalent:
+          normalizeNumber(addon.premium_excluding_tax) ?? 0,
+        premium_including_tax:
+          (normalizeNumber(addon.premium_excluding_tax) ?? 0) +
+          addon.taxes.reduce(
+            (sum, tax) => sum + (normalizeNumber(tax.tax_rate) ?? 0),
+            0,
+          ),
+        taxes: addon.taxes.map((tax) => ({
+          tax_code: tax.tax_code ?? '',
+          is_tax_exempted: tax.is_tax_exempted,
+          tax_exemption_type: normalizeText(tax.tax_exemption_type) ?? null,
+          tax_exemption_reference:
+            normalizeText(tax.tax_exemption_reference) ?? null,
+          tax_rate: normalizeNumber(tax.tax_rate) ?? 0,
+          tax_amount: 0,
+        })),
+      })),
   };
 }
 
 export function quotationRecordToFormValues(record: any): Partial<QuotationFormValues> {
+  const quotationFlow =
+    record.quotation_flow ??
+    (record.quotation_type === 'MOTOR'
+      ? record.is_fleet || record.rating_metadata?.is_fleet
+        ? 'MOTOR_FLEET'
+        : 'MOTOR_SINGLE'
+      : 'NON_MOTOR');
+
   return {
     insurer_company_id: record.insurer_company_id ?? '',
     intermediary_company_id: record.intermediary_company_id ?? '',
@@ -594,12 +647,14 @@ export function quotationRecordToFormValues(record: any): Partial<QuotationFormV
     category_id: record.category_id ?? '',
     product_id: record.product_id ?? '',
     sub_class_id: record.sub_class_id ?? '',
-    quotation_type: (record.quotation_type as QuotationFormValues['quotation_type']) ?? 'NON_MOTOR',
-    // is_fleet is not persisted on the Quotation entity yet — always reloads as false.
-    is_fleet: Boolean(record.rating_metadata?.is_fleet),
+    quotation_flow: quotationFlow,
+    quotation_type:
+      quotationFlow === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR',
+    is_fleet: quotationFlow === 'MOTOR_FLEET',
     channel_type: (record.channel_type as QuotationFormValues['channel_type']) ?? 'DIRECT',
     status: (record.status as QuotationFormValues['status']) ?? 'DRAFT',
     currency: record.currency ?? 'TZS',
+    exchange_rate: record.exchange_rate ?? '1',
     sum_insured: record.sum_insured ?? '',
     basic_premium: record.basic_premium ?? '',
     total_discount: record.total_discount ?? '',
@@ -612,27 +667,38 @@ export function quotationRecordToFormValues(record: any): Partial<QuotationFormV
     valid_until: record.valid_until ?? '',
     rating_version: record.rating_version ?? '',
     rejection_reason: record.rejection_reason ?? '',
-    cover_note_type: '1',
-    prev_cover_note_reference: '',
-    officer_name: '',
-    officer_title: '',
-    payment_mode_tira: '1',
+    cover_note_type: record.cover_note_type ?? '1',
+    prev_cover_note_reference:
+      record.prev_cover_note_reference_number ?? '',
+    officer_name: record.officer_name ?? '',
+    officer_title: record.officer_title ?? '',
+    payment_mode_tira: record.payment_mode_tira ?? '1',
     sale_point_id: '',
-    exchange_rate: '',
-    // Add-ons have no backend entity — never persisted, so a reloaded quotation
-    // always starts with an empty add-ons list.
-    addons: [],
+    addons: (record.addons ?? []).map((addon: Record<string, unknown>) => ({
+      enabled: Boolean(addon.is_active ?? true),
+      addon_reference: String(addon.addon_reference ?? ''),
+      addon_desc: String(addon.addon_desc ?? ''),
+      addon_amount: addon.addon_amount != null ? String(addon.addon_amount) : '',
+      addon_premium_rate:
+        addon.addon_premium_rate != null
+          ? String(addon.addon_premium_rate)
+          : '',
+      premium_excluding_tax:
+        addon.premium_excluding_tax != null
+          ? String(addon.premium_excluding_tax)
+          : '',
+      taxes: ((addon.taxes ?? []) as Record<string, unknown>[]).map((tax) => ({
+        tax_code: String(tax.tax_code ?? ''),
+        is_tax_exempted:
+          tax.is_tax_exempted === true || tax.is_tax_exempted === 'Y',
+        tax_exemption_type: String(tax.tax_exemption_type ?? ''),
+        tax_exemption_reference: String(tax.tax_exemption_reference ?? ''),
+        tax_rate: tax.tax_rate != null ? String(tax.tax_rate) : '',
+      })),
+    })),
     motor_mode: 'existing',
-    // Only the vehicle id round-trips reliably here (from the first risk row) —
-    // full vehicle field hydration would need a separate motor vehicle fetch,
-    // which this synchronous mapper doesn't have access to.
     motor: { ...createEmptyMotorDetails(), vehicle_id: String(record.risks?.[0]?.motor_vehicle_id ?? '') },
-    // Fleet header/items are not embedded on the Quotation record — they live
-    // on separate MotorFleet/MotorFleetItem rows the wizard would need to fetch
-    // independently to hydrate here, which this synchronous mapper can't do.
     fleet: createEmptyFleetDetails(),
-    // Same limitation as fleet — NonMotorQuotationDetail rows live separately
-    // and would need their own fetch to hydrate here.
     nonMotor: createEmptyNonMotorDetails(),
     risks: (record.risks?.length ? record.risks : []).map((risk: Record<string, unknown>) => {
       const factorValues: Record<string, string | number | boolean> = {};
@@ -645,6 +711,10 @@ export function quotationRecordToFormValues(record: any): Partial<QuotationFormV
         else if (fv.value_date !== null && fv.value_date !== undefined) factorValues[factorId] = String(fv.value_date);
       }
       return {
+        client_ref:
+          risk.client_ref != null
+            ? String(risk.client_ref)
+            : createClientRef(),
         risk_id: String(risk.risk_id ?? ''),
         subject_matter_id: risk.subject_matter_id ? String(risk.subject_matter_id) : '',
         motor_vehicle_id: risk.motor_vehicle_id ? String(risk.motor_vehicle_id) : '',

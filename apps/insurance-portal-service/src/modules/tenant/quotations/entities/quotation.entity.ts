@@ -20,7 +20,9 @@ import { InsuranceSubClass } from '../../insurance-sub-classes/entities/insuranc
 import { ProductChannelType } from '../../product-distribution/enums/product-channel-type.enum';
 import { User } from '../../users/entities/user.entity';
 import { QuotationStatus } from '../enums/quotation-status.enum';
+import { QuotationFlow } from '../enums/quotation-flow.enum';
 import { QuotationType } from '../enums/quotation-type.enum';
+import { QuotationAddon } from './quotation-addon.entity';
 import { QuotationRisk } from './quotation-risk.entity';
 import { QuotationFactorValue } from './quotation-factor-value.entity';
 import { QuotationPremiumBreakdown } from './quotation-premium-breakdown.entity';
@@ -31,6 +33,7 @@ import { QuotationStatusHistory } from './quotation-status-history.entity';
 @Index('IDX_quotations_company_status', ['company_id', 'status'])
 @Index('IDX_quotations_company_customer_id', ['company_id', 'customer_id'])
 @Index('IDX_quotations_company_product_id', ['company_id', 'product_id'])
+@Index('IDX_quotations_company_flow', ['company_id', 'quotation_flow'])
 @Index('IDX_quotations_company_quotation_no', ['company_id', 'quotation_no'], {
   unique: true,
   where: 'deleted_at IS NULL',
@@ -81,6 +84,17 @@ export class Quotation {
 
   @Column({
     type: 'enum',
+    enum: QuotationFlow,
+    enumName: 'quotation_flow_enum',
+    default: QuotationFlow.NON_MOTOR,
+  })
+  quotation_flow: QuotationFlow;
+
+  @Column({ type: 'boolean', default: false })
+  is_fleet: boolean;
+
+  @Column({
+    type: 'enum',
     enum: ProductChannelType,
     enumName: 'quotation_channel_type_enum',
   })
@@ -96,6 +110,27 @@ export class Quotation {
 
   @Column({ type: 'varchar', length: 10, default: 'TZS' })
   currency: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 1 })
+  exchange_rate: string;
+
+  @Column({ type: 'varchar', length: 1, default: '1' })
+  cover_note_type: string;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  prev_cover_note_reference_number: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  sale_point_code: string | null;
+
+  @Column({ type: 'varchar', length: 1, default: '1' })
+  payment_mode_tira: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  officer_name: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  officer_title: string | null;
 
   @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
   sum_insured: string;
@@ -193,6 +228,9 @@ export class Quotation {
 
   @OneToMany(() => QuotationPremiumBreakdown, (item) => item.quotation)
   premium_breakdowns: QuotationPremiumBreakdown[];
+
+  @OneToMany(() => QuotationAddon, (addon) => addon.quotation)
+  addons: QuotationAddon[];
 
   @OneToMany(() => QuotationStatusHistory, (history) => history.quotation)
   status_history: QuotationStatusHistory[];

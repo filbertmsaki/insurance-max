@@ -29,6 +29,7 @@ export type ConditionOperator =
 
 export type AccessStatus = 'ALLOW' | 'DENY';
 export type LogicalOperator = 'AND' | 'OR';
+export type InsuranceBusinessLine = 'MOTOR' | 'NON_MOTOR';
 
 // ─── Pagination ───────────────────────────────────────────────────────────────
 
@@ -44,6 +45,7 @@ export interface InsuranceCategory {
   code: string;
   name: string;
   description: string | null;
+  business_line: InsuranceBusinessLine;
   is_active: boolean;
   created_at: string;
   updated_at?: string;
@@ -53,6 +55,7 @@ export interface CreateCategoryDto {
   code: string;
   name: string;
   description?: string;
+  business_line: InsuranceBusinessLine;
   is_active?: boolean;
 }
 
@@ -60,6 +63,7 @@ export interface UpdateCategoryDto {
   code?: string;
   name?: string;
   description?: string;
+  business_line?: InsuranceBusinessLine;
   is_active?: boolean;
 }
 
@@ -67,6 +71,7 @@ export interface CategoryQueryParams {
   page?: number;
   limit?: number;
   search?: string;
+  business_line?: InsuranceBusinessLine;
   is_active?: boolean;
 }
 
@@ -78,6 +83,9 @@ export interface InsuranceProduct {
   product_code: string;
   product_name: string;
   description: string | null;
+  business_line: InsuranceBusinessLine;
+  supports_fleet?: boolean;
+  tiramis_product_code?: string | null;
   is_active: boolean;
   created_at: string;
   category?: InsuranceCategory;
@@ -88,6 +96,9 @@ export interface CreateProductDto {
   product_code: string;
   product_name: string;
   description?: string;
+  business_line: InsuranceBusinessLine;
+  supports_fleet?: boolean;
+  tiramis_product_code?: string | null;
   is_active?: boolean;
 }
 
@@ -96,6 +107,9 @@ export interface UpdateProductDto {
   product_code?: string;
   product_name?: string;
   description?: string;
+  business_line?: InsuranceBusinessLine;
+  supports_fleet?: boolean;
+  tiramis_product_code?: string | null;
   is_active?: boolean;
 }
 
@@ -104,6 +118,8 @@ export interface ProductQueryParams {
   limit?: number;
   search?: string;
   category_id?: string;
+  business_line?: InsuranceBusinessLine;
+  supports_fleet?: boolean;
   is_active?: boolean;
 }
 

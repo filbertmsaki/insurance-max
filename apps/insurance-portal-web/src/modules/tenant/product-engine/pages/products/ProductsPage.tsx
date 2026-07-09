@@ -40,6 +40,9 @@ const schema = z.object({
   product_code: z.string().min(1).max(50).toUpperCase(),
   product_name: z.string().min(1).max(150),
   description: z.string().max(500).optional(),
+  business_line: z.enum(['MOTOR', 'NON_MOTOR']),
+  supports_fleet: z.boolean(),
+  tiramis_product_code: z.string().max(50).optional(),
   is_active: z.boolean(),
 })
 type FormValues = z.infer<typeof schema>
@@ -83,12 +86,30 @@ export function ProductsPage() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { category_id: '', product_code: '', product_name: '', description: '', is_active: true },
+    defaultValues: {
+      category_id: '',
+      product_code: '',
+      product_name: '',
+      description: '',
+      business_line: 'NON_MOTOR',
+      supports_fleet: false,
+      tiramis_product_code: '',
+      is_active: true,
+    },
   })
 
   function openCreate() {
     setEditItem(null)
-    form.reset({ category_id: '', product_code: '', product_name: '', description: '', is_active: true })
+    form.reset({
+      category_id: '',
+      product_code: '',
+      product_name: '',
+      description: '',
+      business_line: 'NON_MOTOR',
+      supports_fleet: false,
+      tiramis_product_code: '',
+      is_active: true,
+    })
     setDialogOpen(true)
   }
 
@@ -99,6 +120,9 @@ export function ProductsPage() {
       product_code: item.product_code,
       product_name: item.product_name,
       description: item.description ?? '',
+      business_line: item.business_line ?? item.category?.business_line ?? 'NON_MOTOR',
+      supports_fleet: item.supports_fleet ?? false,
+      tiramis_product_code: item.tiramis_product_code ?? item.product_code,
       is_active: item.is_active,
     })
     setDialogOpen(true)
@@ -137,6 +161,25 @@ export function ProductsPage() {
       cell: (row) => (
         <span className="text-slate-500 text-sm">{row.category?.name ?? row.category_id}</span>
       ),
+    },
+    {
+      key: 'business_line',
+      header: 'Line',
+      cell: (row) => (
+        <Badge variant="outline">
+          {row.business_line === 'MOTOR' ? 'Motor' : 'Non-Motor'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'supports_fleet',
+      header: 'Fleet',
+      cell: (row) =>
+        row.supports_fleet ? (
+          <Badge className="bg-blue-50 text-blue-700 border-blue-200">Fleet</Badge>
+        ) : (
+          <span className="text-xs text-slate-400">No</span>
+        ),
     },
     {
       key: 'is_active',
@@ -269,7 +312,21 @@ export function ProductsPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Category <span className="text-red-500">*</span></FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select
+                      value={field.value}
+                      onValueChange={(value) => {
+                        field.onChange(value)
+
+                        const category = categories.find((c) => c.id === value)
+                        if (category) {
+                          form.setValue('business_line', category.business_line)
+                          form.setValue(
+                            'supports_fleet',
+                            category.business_line === 'MOTOR',
+                          )
+                        }
+                      }}
+                    >
                       <FormControl>
                         <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                       </FormControl>
@@ -277,6 +334,27 @@ export function ProductsPage() {
                         {categories.map((c) => (
                           <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                         ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="business_line"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Business Line</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="NON_MOTOR">Non-Motor</SelectItem>
+                        <SelectItem value="MOTOR">Motor</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -309,12 +387,45 @@ export function ProductsPage() {
               />
               <FormField
                 control={form.control}
+                name="tiramis_product_code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>TIRAMIS Product Code</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder="e.g. CP20100000"
+                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
                 name="description"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Description</FormLabel>
                     <FormControl><Textarea {...field} rows={3} /></FormControl>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="supports_fleet"
+                render={({ field }) => (
+                  <FormItem className="flex items-center gap-3">
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={form.watch('business_line') !== 'MOTOR'}
+                      />
+                    </FormControl>
+                    <FormLabel className="!mt-0">Supports Motor Fleet</FormLabel>
                   </FormItem>
                 )}
               />

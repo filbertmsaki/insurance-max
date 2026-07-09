@@ -6,6 +6,7 @@ import { peKeys } from './query-keys';
 import type {
   CategoryQueryParams,
   CreateCategoryDto,
+  InsuranceBusinessLine,
   UpdateCategoryDto,
 } from '@/types/product-engine';
 
@@ -17,10 +18,10 @@ export function useCategoryList(params: CategoryQueryParams) {
   });
 }
 
-export function useAllActiveCategories() {
+export function useAllActiveCategories(business_line?: InsuranceBusinessLine) {
   return useQuery({
-    queryKey: peKeys.categories.allActive(),
-    queryFn: categoriesApi.getAllActive,
+    queryKey: peKeys.categories.allActive(business_line),
+    queryFn: () => categoriesApi.getAllActive(business_line),
     staleTime: 60_000,
   });
 }

@@ -52,6 +52,7 @@ export class InsuranceCategoriesService {
       code: dto.code.trim().toUpperCase(),
       name: dto.name.trim(),
       description: dto.description ?? null,
+      business_line: dto.business_line,
       is_active: dto.is_active ?? true,
       created_by: userId,
       updated_by: userId,
@@ -77,6 +78,7 @@ export class InsuranceCategoriesService {
       sortOrder = SortDirection.DESC,
       search,
       is_active,
+      business_line,
     } = query;
 
     const allowedSortFields = [
@@ -106,6 +108,10 @@ export class InsuranceCategoriesService {
 
     if (is_active !== undefined) {
       qb.andWhere('cat.is_active = :is_active', { is_active });
+    }
+
+    if (business_line) {
+      qb.andWhere('cat.business_line = :business_line', { business_line });
     }
 
     const skip = (page - 1) * limit;
@@ -145,6 +151,7 @@ export class InsuranceCategoriesService {
     if (dto.name !== undefined) cat.name = dto.name.trim();
     if (dto.description !== undefined)
       cat.description = dto.description ?? null;
+    if (dto.business_line !== undefined) cat.business_line = dto.business_line;
     if (dto.is_active !== undefined) cat.is_active = dto.is_active;
     cat.updated_by = userId;
 

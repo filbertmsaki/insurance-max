@@ -17,6 +17,7 @@ import type { QuotationFormSchemaValues } from './schemas';
 import type { QuotationListParams, QuotationRecord } from './types';
 import { tiramisApi } from '@/modules/tenant/tiramis/api';
 import { buildQuotationTiramisPayload } from '@/modules/tenant/tiramis/utils';
+import type { InsuranceBusinessLine } from '@/types/product-engine';
 
 const quotationKeys = {
   all: ['quotations'] as const,
@@ -176,12 +177,29 @@ export function useQuotationCustomers() {
   });
 }
 
-export function useQuotationCategories() {
-  return useAllActiveCategories();
+export function useQuotationCategories(business_line?: InsuranceBusinessLine) {
+  return useAllActiveCategories(business_line);
 }
 
-export function useQuotationProducts(categoryId?: string) {
-  return useAllActiveProducts(categoryId && categoryId !== 'all' ? categoryId : undefined);
+export function useQuotationProducts(
+  params?:
+    | string
+    | {
+        category_id?: string;
+        business_line?: InsuranceBusinessLine;
+        supports_fleet?: boolean;
+      },
+) {
+  const normalizedParams =
+    typeof params === 'string' ? { category_id: params } : params;
+  return useAllActiveProducts({
+    category_id:
+      normalizedParams?.category_id && normalizedParams.category_id !== 'all'
+        ? normalizedParams.category_id
+        : undefined,
+    business_line: normalizedParams?.business_line,
+    supports_fleet: normalizedParams?.supports_fleet,
+  });
 }
 
 export function useQuotationSubClasses(productId?: string) {

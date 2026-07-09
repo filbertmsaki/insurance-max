@@ -30,6 +30,9 @@ export class MotorQuotationDetail {
   @Column({ type: 'uuid' })
   motor_vehicle_id: string;
 
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  risk_client_ref: string | null;
+
   @Column({ type: 'varchar', length: 100, nullable: true })
   cover_type: string | null;
 

@@ -11,6 +11,8 @@ import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-s
 import { ProductDistributionModule } from '../product-distribution/product-distribution.module';
 import { RatingFactor } from '../rating-factors/entities/rating-factor.entity';
 import { User } from '../users/entities/user.entity';
+import { QuotationAddon } from './entities/quotation-addon.entity';
+import { QuotationAddonTax } from './entities/quotation-addon-tax.entity';
 import { Quotation } from './entities/quotation.entity';
 import { QuotationFactorValue } from './entities/quotation-factor-value.entity';
 import { QuotationPremiumBreakdown } from './entities/quotation-premium-breakdown.entity';
@@ -26,6 +28,8 @@ import { QuotationsService } from './quotations.service';
       QuotationRisk,
       QuotationFactorValue,
       QuotationPremiumBreakdown,
+      QuotationAddon,
+      QuotationAddonTax,
       QuotationStatusHistory,
       Company,
       Customer,

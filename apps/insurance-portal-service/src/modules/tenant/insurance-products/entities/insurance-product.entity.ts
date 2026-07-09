@@ -13,6 +13,7 @@ import {
 } from 'typeorm';
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { InsuranceCategory } from '../../insurance-categories/entities/insurance-category.entity';
+import { InsuranceBusinessLine } from '../../insurance-categories/enums/insurance-business-line.enum';
 
 @Entity('insurance_products')
 @Unique('UQ_insurance_products_company_code', ['company_id', 'product_code'])
@@ -24,6 +25,8 @@ import { InsuranceCategory } from '../../insurance-categories/entities/insurance
 @Index('IDX_insurance_products_company_id', ['company_id'])
 @Index('IDX_insurance_products_category_id', ['category_id'])
 @Index('IDX_insurance_products_is_active', ['is_active'])
+@Index('IDX_insurance_products_business_line', ['company_id', 'business_line'])
+@Index('IDX_insurance_products_supports_fleet', ['company_id', 'supports_fleet'])
 export class InsuranceProduct {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -42,6 +45,20 @@ export class InsuranceProduct {
 
   @Column({ type: 'text', nullable: true })
   description: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: InsuranceBusinessLine,
+    enumName: 'insurance_business_line_enum',
+    default: InsuranceBusinessLine.NON_MOTOR,
+  })
+  business_line: InsuranceBusinessLine;
+
+  @Column({ type: 'boolean', default: false })
+  supports_fleet: boolean;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  tiramis_product_code: string | null;
 
   @Column({ default: true })
   is_active: boolean;

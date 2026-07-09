@@ -17,6 +17,7 @@ import { Branch } from '../branches/entities/branch.entity';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { Department } from '../departments/entities/department.entity';
+import { InsuranceBusinessLine } from '../insurance-categories/enums/insurance-business-line.enum';
 import { InsuranceCategory } from '../insurance-categories/entities/insurance-category.entity';
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
 import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
@@ -27,9 +28,11 @@ import { CreateQuotationDto } from './dto/create-quotation.dto';
 import { FilterQuotationDto } from './dto/filter-quotation.dto';
 import { UpdateQuotationDto } from './dto/update-quotation.dto';
 import { QuotationCalculationBase } from './enums/quotation-calculation-base.enum';
-import { QuotationPremiumItemType } from './enums/quotation-premium-item-type.enum';
+import { QuotationFlow } from './enums/quotation-flow.enum';
 import { QuotationStatus } from './enums/quotation-status.enum';
 import { QuotationType } from './enums/quotation-type.enum';
+import { QuotationAddon } from './entities/quotation-addon.entity';
+import { QuotationAddonTax } from './entities/quotation-addon-tax.entity';
 import { Quotation } from './entities/quotation.entity';
 import { QuotationFactorValue } from './entities/quotation-factor-value.entity';
 import { QuotationPremiumBreakdown } from './entities/quotation-premium-breakdown.entity';
@@ -90,6 +93,12 @@ export class QuotationsService {
 
     @InjectRepository(QuotationPremiumBreakdown)
     private readonly breakdownRepository: Repository<QuotationPremiumBreakdown>,
+
+    @InjectRepository(QuotationAddon)
+    private readonly addonRepository: Repository<QuotationAddon>,
+
+    @InjectRepository(QuotationAddonTax)
+    private readonly addonTaxRepository: Repository<QuotationAddonTax>,
 
     @InjectRepository(QuotationStatusHistory)
     private readonly historyRepository: Repository<QuotationStatusHistory>,
@@ -168,10 +177,6 @@ export class QuotationsService {
     return String(Math.round(num * 1000000) / 1000000);
   }
 
-  private today(): string {
-    return new Date().toISOString().slice(0, 10);
-  }
-
   private mapQuotationNoPrefix(quotationType: QuotationType): string {
     return quotationType === QuotationType.MOTOR ? 'QTN-MTR' : 'QTN-NM';
   }
@@ -220,16 +225,74 @@ export class QuotationsService {
       { id: dto.customer_id, company_id: companyId },
       'Customer not found for company',
     );
-    await this.ensureExists(
+    const category = await this.ensureExists(
       this.categoryRepository,
       { id: dto.category_id, company_id: dto.insurer_company_id },
       'Category not found for insurer',
     );
-    await this.ensureExists(
+    const product = await this.ensureExists(
       this.productRepository,
       { id: dto.product_id, company_id: dto.insurer_company_id },
       'Product not found for insurer',
     );
+
+    if (product.category_id !== dto.category_id) {
+      throw new BadRequestException(
+        'Selected product does not belong to the selected category',
+      );
+    }
+
+    if (product.business_line !== category.business_line) {
+      throw new BadRequestException(
+        'Selected product business line does not match its category',
+      );
+    }
+
+    const quotationFlow = this.resolveQuotationFlow(dto);
+    const requiredBusinessLine =
+      quotationFlow === QuotationFlow.NON_MOTOR
+        ? InsuranceBusinessLine.NON_MOTOR
+        : InsuranceBusinessLine.MOTOR;
+    const requiredQuotationType =
+      quotationFlow === QuotationFlow.NON_MOTOR
+        ? QuotationType.NON_MOTOR
+        : QuotationType.MOTOR;
+
+    if (dto.quotation_type !== requiredQuotationType) {
+      throw new BadRequestException(
+        `quotation_type must be ${requiredQuotationType} for ${quotationFlow} flow`,
+      );
+    }
+
+    if (dto.is_fleet !== undefined) {
+      const expectedFleet = quotationFlow === QuotationFlow.MOTOR_FLEET;
+      if (dto.is_fleet !== expectedFleet) {
+        throw new BadRequestException(
+          `is_fleet must be ${expectedFleet} for ${quotationFlow} flow`,
+        );
+      }
+    }
+
+    if (category.business_line !== requiredBusinessLine) {
+      throw new BadRequestException(
+        `Selected category does not support ${quotationFlow} quotations`,
+      );
+    }
+
+    if (product.business_line !== requiredBusinessLine) {
+      throw new BadRequestException(
+        `Selected product does not support ${quotationFlow} quotations`,
+      );
+    }
+
+    if (
+      quotationFlow === QuotationFlow.MOTOR_FLEET &&
+      !product.supports_fleet
+    ) {
+      throw new BadRequestException(
+        'Selected product does not support motor fleet quotations',
+      );
+    }
 
     if (dto.sub_class_id) {
       await this.ensureExists(
@@ -313,6 +376,42 @@ export class QuotationsService {
     };
   }
 
+  private resolveQuotationFlow(
+    dto: CreateQuotationDto | UpdateQuotationDto,
+  ): QuotationFlow {
+    if (dto.quotation_flow) return dto.quotation_flow;
+    if (dto.quotation_type === QuotationType.NON_MOTOR) {
+      return QuotationFlow.NON_MOTOR;
+    }
+    return dto.is_fleet ? QuotationFlow.MOTOR_FLEET : QuotationFlow.MOTOR_SINGLE;
+  }
+
+  private resolveRiskReference(
+    quotationRiskId: string | null | undefined,
+    riskClientRef: string | null | undefined,
+    riskIdByClientRef: Map<string, string>,
+  ): string | null {
+    if (quotationRiskId) return quotationRiskId;
+    if (!riskClientRef) return null;
+
+    const resolvedId = riskIdByClientRef.get(riskClientRef);
+    if (!resolvedId) {
+      throw new BadRequestException(
+        `No quotation risk found for risk_client_ref "${riskClientRef}"`,
+      );
+    }
+    return resolvedId;
+  }
+
+  private hasChildCollections(dto: UpdateQuotationDto): boolean {
+    return (
+      dto.risks !== undefined ||
+      dto.factor_values !== undefined ||
+      dto.premium_breakdowns !== undefined ||
+      dto.addons !== undefined
+    );
+  }
+
   private async replaceQuotationChildren(
     manager: any,
     quotationId: string,
@@ -321,10 +420,21 @@ export class QuotationsService {
     const riskRepo = manager.getRepository(QuotationRisk);
     const factorRepo = manager.getRepository(QuotationFactorValue);
     const breakdownRepo = manager.getRepository(QuotationPremiumBreakdown);
+    const addonRepo = manager.getRepository(QuotationAddon);
+    const addonTaxRepo = manager.getRepository(QuotationAddonTax);
 
-    await riskRepo.delete({ quotation_id: quotationId });
-    await factorRepo.delete({ quotation_id: quotationId });
+    await addonTaxRepo
+      .createQueryBuilder()
+      .delete()
+      .where(
+        '"quotation_addon_id" IN (SELECT id FROM quotation_addons WHERE quotation_id = :quotationId)',
+        { quotationId },
+      )
+      .execute();
+    await addonRepo.delete({ quotation_id: quotationId });
     await breakdownRepo.delete({ quotation_id: quotationId });
+    await factorRepo.delete({ quotation_id: quotationId });
+    await riskRepo.delete({ quotation_id: quotationId });
 
     const risks = (dto.risks ?? []).map((risk) =>
       riskRepo.create({
@@ -332,6 +442,7 @@ export class QuotationsService {
         risk_id: risk.risk_id,
         subject_matter_id: risk.subject_matter_id ?? null,
         motor_vehicle_id: risk.motor_vehicle_id ?? null,
+        client_ref: risk.client_ref ?? null,
         sum_insured: this.normalizeMoney(risk.sum_insured ?? 0),
         rate: this.normalizeRate(risk.rate ?? 0),
         fixed_amount: this.normalizeMoney(risk.fixed_amount ?? 0),
@@ -350,10 +461,22 @@ export class QuotationsService {
       await riskRepo.save(risks);
     }
 
+    const riskIdByClientRef = new Map<string, string>();
+    for (const risk of risks) {
+      if (risk.client_ref) {
+        riskIdByClientRef.set(risk.client_ref, risk.id);
+      }
+    }
+
     const factors = (dto.factor_values ?? []).map((factor) =>
       factorRepo.create({
         quotation_id: quotationId,
-        quotation_risk_id: factor.quotation_risk_id ?? null,
+        quotation_risk_id: this.resolveRiskReference(
+          factor.quotation_risk_id,
+          factor.risk_client_ref,
+          riskIdByClientRef,
+        ),
+        risk_client_ref: factor.risk_client_ref ?? null,
         factor_id: factor.factor_id,
         value_text: factor.value_text ?? null,
         value_number:
@@ -375,7 +498,12 @@ export class QuotationsService {
     const breakdowns = (dto.premium_breakdowns ?? []).map((item, index) =>
       breakdownRepo.create({
         quotation_id: quotationId,
-        quotation_risk_id: item.quotation_risk_id ?? null,
+        quotation_risk_id: this.resolveRiskReference(
+          item.quotation_risk_id,
+          item.risk_client_ref,
+          riskIdByClientRef,
+        ),
+        risk_client_ref: item.risk_client_ref ?? null,
         item_type: item.item_type,
         item_code: item.item_code,
         item_name: item.item_name,
@@ -388,6 +516,52 @@ export class QuotationsService {
     );
     if (breakdowns.length) {
       await breakdownRepo.save(breakdowns);
+    }
+
+    const addons = (dto.addons ?? []).map((addon) =>
+      addonRepo.create({
+        quotation_id: quotationId,
+        addon_reference: addon.addon_reference,
+        addon_desc: addon.addon_desc,
+        addon_amount: this.normalizeMoney(addon.addon_amount ?? 0),
+        addon_premium_rate: this.normalizeRate(addon.addon_premium_rate ?? 0),
+        premium_excluding_tax: this.normalizeMoney(
+          addon.premium_excluding_tax ?? 0,
+        ),
+        premium_excluding_tax_equivalent: this.normalizeMoney(
+          addon.premium_excluding_tax_equivalent ??
+            addon.premium_excluding_tax ??
+            0,
+        ),
+        premium_including_tax: this.normalizeMoney(
+          addon.premium_including_tax ?? 0,
+        ),
+        is_active: addon.is_active ?? true,
+      }),
+    );
+    if (addons.length) {
+      await addonRepo.save(addons);
+    }
+
+    const addonTaxes = addons.flatMap((addon, index) =>
+      (dto.addons?.[index]?.taxes ?? []).map((tax) =>
+        addonTaxRepo.create({
+          quotation_addon_id: addon.id,
+          tax_code: tax.tax_code,
+          is_tax_exempted:
+            tax.is_tax_exempted === true ||
+            String(tax.is_tax_exempted ?? '').toUpperCase() === 'Y'
+              ? 'Y'
+              : 'N',
+          tax_exemption_type: tax.tax_exemption_type ?? null,
+          tax_exemption_reference: tax.tax_exemption_reference ?? null,
+          tax_rate: this.normalizeRate(tax.tax_rate ?? 0),
+          tax_amount: this.normalizeMoney(tax.tax_amount ?? 0),
+        }),
+      ),
+    );
+    if (addonTaxes.length) {
+      await addonTaxRepo.save(addonTaxes);
     }
   }
 
@@ -408,7 +582,7 @@ export class QuotationsService {
     return this.dataSource
       .transaction(async (manager) => {
         const quotationRepository = manager.getRepository(Quotation);
-        const historyRepository = manager.getRepository(QuotationStatusHistory);
+        const quotationFlow = this.resolveQuotationFlow(dto);
 
         const quotationNo = await this.generateQuotationNo(
           companyId,
@@ -427,9 +601,21 @@ export class QuotationsService {
           sub_class_id: dto.sub_class_id ?? null,
           quotation_no: quotationNo,
           quotation_type: dto.quotation_type,
+          quotation_flow: quotationFlow,
+          is_fleet:
+            dto.is_fleet ?? quotationFlow === QuotationFlow.MOTOR_FLEET,
           channel_type: dto.channel_type,
           status: dto.status ?? QuotationStatus.DRAFT,
           currency: dto.currency?.trim().toUpperCase() ?? 'TZS',
+          exchange_rate: this.normalizeMoney(dto.exchange_rate ?? 1),
+          cover_note_type: dto.cover_note_type ?? '1',
+          prev_cover_note_reference_number: this.normalizeText(
+            dto.prev_cover_note_reference_number,
+          ),
+          sale_point_code: this.normalizeText(dto.sale_point_code),
+          payment_mode_tira: dto.payment_mode_tira ?? '1',
+          officer_name: this.normalizeText(dto.officer_name),
+          officer_title: this.normalizeText(dto.officer_title),
           ...this.buildQuotationTotals(dto),
           valid_from: this.normalizeDate(dto.valid_from)!,
           valid_until: this.normalizeDate(dto.valid_until)!,
@@ -457,6 +643,9 @@ export class QuotationsService {
             risks: true,
             factor_values: true,
             premium_breakdowns: true,
+            addons: {
+              taxes: true,
+            },
             status_history: true,
           },
         });
@@ -558,6 +747,9 @@ export class QuotationsService {
         risks: true,
         factor_values: true,
         premium_breakdowns: true,
+        addons: {
+          taxes: true,
+        },
         status_history: true,
       },
     });
@@ -615,11 +807,30 @@ export class QuotationsService {
         quotation.sub_class_id = dto.sub_class_id ?? null;
       if (dto.quotation_type !== undefined)
         quotation.quotation_type = dto.quotation_type;
+      if (dto.quotation_flow !== undefined)
+        quotation.quotation_flow = dto.quotation_flow;
+      if (dto.is_fleet !== undefined) quotation.is_fleet = dto.is_fleet;
       if (dto.channel_type !== undefined)
         quotation.channel_type = dto.channel_type;
       if (dto.status !== undefined) quotation.status = dto.status;
       if (dto.currency !== undefined)
         quotation.currency = dto.currency.trim().toUpperCase();
+      if (dto.exchange_rate !== undefined)
+        quotation.exchange_rate = this.normalizeMoney(dto.exchange_rate);
+      if (dto.cover_note_type !== undefined)
+        quotation.cover_note_type = dto.cover_note_type;
+      if (dto.prev_cover_note_reference_number !== undefined)
+        quotation.prev_cover_note_reference_number = this.normalizeText(
+          dto.prev_cover_note_reference_number,
+        );
+      if (dto.sale_point_code !== undefined)
+        quotation.sale_point_code = this.normalizeText(dto.sale_point_code);
+      if (dto.payment_mode_tira !== undefined)
+        quotation.payment_mode_tira = dto.payment_mode_tira;
+      if (dto.officer_name !== undefined)
+        quotation.officer_name = this.normalizeText(dto.officer_name);
+      if (dto.officer_title !== undefined)
+        quotation.officer_title = this.normalizeText(dto.officer_title);
       if (dto.sum_insured !== undefined)
         quotation.sum_insured = this.normalizeMoney(dto.sum_insured);
       if (dto.basic_premium !== undefined)
@@ -648,10 +859,23 @@ export class QuotationsService {
         quotation.rejection_reason = this.normalizeText(dto.rejection_reason);
 
       quotation.created_by = quotation.created_by ?? userId;
+      quotation.quotation_flow = this.resolveQuotationFlow({
+        ...merged,
+        ...dto,
+        quotation_type: quotation.quotation_type,
+        is_fleet: quotation.is_fleet,
+        quotation_flow: dto.quotation_flow ?? quotation.quotation_flow,
+      });
+      quotation.is_fleet =
+        quotation.quotation_flow === QuotationFlow.MOTOR_FLEET;
 
       const saved = await quotationRepo.save(quotation);
-      if (dto.risks || dto.factor_values || dto.premium_breakdowns) {
-        await this.replaceQuotationChildren(manager, saved.id, dto);
+      if (this.hasChildCollections(dto)) {
+        await this.replaceQuotationChildren(
+          manager,
+          saved.id,
+          merged as CreateQuotationDto,
+        );
       }
 
       if (dto.status !== undefined && dto.status !== oldStatus) {
@@ -682,6 +906,9 @@ export class QuotationsService {
           risks: true,
           factor_values: true,
           premium_breakdowns: true,
+          addons: {
+            taxes: true,
+          },
           status_history: true,
         },
       });

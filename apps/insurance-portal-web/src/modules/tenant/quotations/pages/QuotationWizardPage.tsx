@@ -105,6 +105,7 @@ const DEFAULT_VALUES: QuotationFormSchemaValues = {
   motor: createEmptyMotorDetails(),
   fleet: createEmptyFleetDetails(),
   nonMotor: createEmptyNonMotorDetails(),
+  quotation_flow: 'NON_MOTOR',
   quotation_type: 'NON_MOTOR',
   is_fleet: false,
   channel_type: 'DIRECT',
@@ -137,7 +138,6 @@ export function QuotationWizardPage() {
   const isEditMode = Boolean(editId);
   const companyId = useQuotationCurrentCompanyId();
   const { data: customerOptions = [] } = useQuotationCustomers();
-  const { data: categoryOptions = [] } = useQuotationCategories();
 
   const [quotationId, setQuotationId] = useState<string | null>(null);
   const [policyholderCustomerId, setPolicyholderCustomerId] = useState<string | null>(null);
@@ -182,8 +182,8 @@ export function QuotationWizardPage() {
       try {
         const quotation = await quotationsApi.getById(editId);
         const base = quotationRecordToFormValues(quotation) as QuotationFormSchemaValues;
-        const isFleetFlow = base.quotation_type === 'MOTOR' && base.is_fleet;
-        const isMotorFlow = base.quotation_type === 'MOTOR' && !base.is_fleet;
+        const isFleetFlow = base.quotation_flow === 'MOTOR_FLEET';
+        const isMotorFlow = base.quotation_flow === 'MOTOR_SINGLE';
 
         if (isMotorFlow) {
           const vehicleId = quotation.risks?.[0]?.motor_vehicle_id ?? null;
@@ -251,7 +251,7 @@ export function QuotationWizardPage() {
           }
         }
 
-        if (base.quotation_type === 'NON_MOTOR') {
+        if (base.quotation_flow === 'NON_MOTOR') {
           const details = await nonMotorApi.getQuotationDetails(editId);
           base.nonMotor = {
             items: details.map((detail) => ({
@@ -295,9 +295,11 @@ export function QuotationWizardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quotationId]);
 
-  const quotationType = form.watch('quotation_type');
-  const isFleet = form.watch('is_fleet');
-  const flow = useMemo(() => resolveWizardFlow(quotationType, isFleet), [quotationType, isFleet]);
+  const quotationFlow = form.watch('quotation_flow');
+  const flow = useMemo(
+    () => resolveWizardFlow(quotationFlow),
+    [quotationFlow],
+  );
   const steps = useMemo(() => getWizardStepsForFlow(flow), [flow]);
 
   const [stepId, setStepId] = useState<QuotationWizardStepId>('cover-note');
@@ -314,7 +316,16 @@ export function QuotationWizardPage() {
   const categoryId = form.watch('category_id');
   const productId = form.watch('product_id');
   const branchId = form.watch('branch_id');
-  const { data: productOptions = [] } = useQuotationProducts(categoryId);
+  const businessLine =
+    quotationFlow === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR';
+  const { data: categoryOptions = [] } =
+    useQuotationCategories(businessLine);
+  const { data: productOptions = [] } = useQuotationProducts({
+    category_id: categoryId || undefined,
+    business_line: businessLine,
+    supports_fleet:
+      quotationFlow === 'MOTOR_FLEET' ? true : undefined,
+  });
   const { data: subClassOptions = [] } = useQuotationSubClasses(productId);
   const { data: riskOptions = [] } = useQuotationRisks(productId);
   const { data: branchOptions = [] } = useQuotationBranches();
@@ -632,6 +643,10 @@ export function QuotationWizardPage() {
         return;
       }
       const payload = buildQuotationPayload(values, customerId);
+      const salePoint = activeSalePoints.find(
+        (sp) => sp.id === values.sale_point_id,
+      );
+      payload.sale_point_code = salePoint?.salePointCode ?? null;
       if (vehicleId) {
         payload.risks = payload.risks?.map((risk) => ({ ...risk, motor_vehicle_id: vehicleId }));
       }

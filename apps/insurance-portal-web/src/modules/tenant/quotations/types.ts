@@ -11,6 +11,10 @@ import type {
 import type { SortOrder } from '@/types';
 
 export type QuotationType = 'MOTOR' | 'NON_MOTOR';
+export type QuotationFlow =
+  | 'NON_MOTOR'
+  | 'MOTOR_SINGLE'
+  | 'MOTOR_FLEET';
 export type QuotationStatus =
   | 'DRAFT'
   | 'RATED'
@@ -32,6 +36,7 @@ export interface QuotationRiskRecord {
   id: string;
   quotation_id: string;
   quotation_risk_no?: string | null;
+  client_ref?: string | null;
   risk_id: string;
   subject_matter_id: string | null;
   motor_vehicle_id: string | null;
@@ -58,6 +63,7 @@ export interface QuotationFactorValueRecord {
   id: string;
   quotation_id: string;
   quotation_risk_id: string | null;
+  risk_client_ref?: string | null;
   factor_id: string;
   value_text: string | null;
   value_number: string | null;
@@ -71,6 +77,7 @@ export interface QuotationPremiumBreakdownRecord {
   id: string;
   quotation_id: string;
   quotation_risk_id: string | null;
+  risk_client_ref?: string | null;
   item_type: string;
   item_code: string;
   item_name: string;
@@ -91,6 +98,31 @@ export interface QuotationStatusHistoryRecord {
   changed_by_user?: { id: string; first_name: string; last_name: string; email: string } | null;
 }
 
+export interface QuotationAddonTaxRecord {
+  id: string;
+  quotation_addon_id: string;
+  tax_code: string;
+  is_tax_exempted: string;
+  tax_exemption_type: string | null;
+  tax_exemption_reference: string | null;
+  tax_rate: string;
+  tax_amount: string;
+}
+
+export interface QuotationAddonRecord {
+  id: string;
+  quotation_id: string;
+  addon_reference: string;
+  addon_desc: string;
+  addon_amount: string;
+  addon_premium_rate: string;
+  premium_excluding_tax: string;
+  premium_excluding_tax_equivalent: string;
+  premium_including_tax: string;
+  is_active: boolean;
+  taxes?: QuotationAddonTaxRecord[];
+}
+
 export interface QuotationRecord {
   id: string;
   company_id: string;
@@ -105,9 +137,18 @@ export interface QuotationRecord {
   sub_class_id: string | null;
   quotation_no: string;
   quotation_type: QuotationType;
+  quotation_flow: QuotationFlow;
+  is_fleet: boolean;
   channel_type: ProductChannelType;
   status: QuotationStatus;
   currency: string;
+  exchange_rate: string;
+  cover_note_type: string;
+  prev_cover_note_reference_number: string | null;
+  sale_point_code: string | null;
+  payment_mode_tira: string;
+  officer_name: string | null;
+  officer_title: string | null;
   sum_insured: string;
   basic_premium: string;
   total_discount: string;
@@ -133,6 +174,7 @@ export interface QuotationRecord {
   risks?: QuotationRiskRecord[];
   factor_values?: QuotationFactorValueRecord[];
   premium_breakdowns?: QuotationPremiumBreakdownRecord[];
+  addons?: QuotationAddonRecord[];
   status_history?: QuotationStatusHistoryRecord[];
 }
 
@@ -158,9 +200,18 @@ export interface QuotationPayload {
   product_id: string;
   sub_class_id?: string | null;
   quotation_type: QuotationType;
+  quotation_flow?: QuotationFlow;
+  is_fleet?: boolean;
   channel_type: ProductChannelType;
   status?: QuotationStatus;
   currency?: string;
+  exchange_rate?: number | string | null;
+  cover_note_type?: string;
+  prev_cover_note_reference_number?: string | null;
+  sale_point_code?: string | null;
+  payment_mode_tira?: string;
+  officer_name?: string | null;
+  officer_title?: string | null;
   sum_insured?: number | string | null;
   basic_premium?: number | string | null;
   total_discount?: number | string | null;
@@ -175,6 +226,7 @@ export interface QuotationPayload {
   rating_metadata?: Record<string, unknown> | null;
   rejection_reason?: string | null;
   risks?: Array<{
+    client_ref?: string | null;
     risk_id: string;
     subject_matter_id?: string | null;
     motor_vehicle_id?: string | null;
@@ -193,6 +245,7 @@ export interface QuotationPayload {
   }>;
   factor_values?: Array<{
     quotation_risk_id?: string | null;
+    risk_client_ref?: string | null;
     factor_id: string;
     value_text?: string | null;
     value_number?: number | null;
@@ -202,6 +255,7 @@ export interface QuotationPayload {
   }>;
   premium_breakdowns?: Array<{
     quotation_risk_id?: string | null;
+    risk_client_ref?: string | null;
     item_type: string;
     item_code: string;
     item_name: string;
@@ -209,6 +263,24 @@ export interface QuotationPayload {
     amount?: number | null;
     calculation_base?: string | null;
     calculation_order?: number;
+  }>;
+  addons?: Array<{
+    addon_reference: string;
+    addon_desc: string;
+    addon_amount?: number;
+    addon_premium_rate?: number;
+    premium_excluding_tax?: number;
+    premium_excluding_tax_equivalent?: number;
+    premium_including_tax?: number;
+    is_active?: boolean;
+    taxes?: Array<{
+      tax_code: string;
+      is_tax_exempted?: boolean;
+      tax_exemption_type?: string | null;
+      tax_exemption_reference?: string | null;
+      tax_rate?: number;
+      tax_amount?: number;
+    }>;
   }>;
 }
 
@@ -236,13 +308,8 @@ export interface QuotationFormValues {
   nonMotor: {
     items: QuotationWizardNonMotorItemRow[];
   };
+  quotation_flow: QuotationFlow;
   quotation_type: QuotationType;
-  /**
-   * Client-only flag: true when the Motor quotation represents a fleet submission.
-   * Not persisted on the Quotation entity yet (see wizard Phase-0 backend gap #5) —
-   * drives which wizard step (Motor vs Motor Fleet) is shown and how the TIRA
-   * payload is built, but is stripped out of the create/update payload.
-   */
   is_fleet: boolean;
   channel_type: ProductChannelType;
   status: QuotationStatus;
@@ -273,6 +340,7 @@ export interface QuotationFormValues {
 
 /** One repeatable risk row in the wizard's Risk & Premium step (Phase 5). */
 export interface QuotationRiskFormRow {
+  client_ref: string;
   risk_id: string;
   subject_matter_id: string;
   motor_vehicle_id: string;
