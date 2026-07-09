@@ -446,6 +446,62 @@ export class NonMotorService {
     return qb.orderBy('detail.created_at', 'DESC').getMany();
   }
 
+  async findQuotationDetail(companyId: string, id: string) {
+    const detail = await this.quotationDetailRepository.findOne({
+      where: { id },
+      relations: {
+        quotation: true,
+        quotation_risk: true,
+        subject_matter: true,
+      },
+    });
+    if (!detail || detail.quotation.company_id !== companyId) {
+      throw new NotFoundException('Non-motor quotation detail not found');
+    }
+    return detail;
+  }
+
+  async updateQuotationDetail(
+    companyId: string,
+    id: string,
+    dto: UpdateNonMotorQuotationDetailDto,
+  ) {
+    const detail = await this.findQuotationDetail(companyId, id);
+    if (dto.quotation_id !== undefined) {
+      await this.ensureQuotation(companyId, dto.quotation_id);
+      detail.quotation_id = dto.quotation_id;
+    }
+    if (dto.quotation_risk_id !== undefined) {
+      await this.ensureQuotationRisk(companyId, dto.quotation_risk_id);
+      detail.quotation_risk_id = dto.quotation_risk_id;
+    }
+    if (dto.subject_matter_id !== undefined) {
+      await this.ensureSubjectMatter(companyId, dto.subject_matter_id);
+      detail.subject_matter_id = dto.subject_matter_id;
+    }
+    if (dto.cover_description !== undefined)
+      detail.cover_description = this.normalizeText(dto.cover_description);
+    if (dto.risk_location !== undefined)
+      detail.risk_location = this.normalizeText(dto.risk_location);
+    if (dto.insured_value !== undefined)
+      detail.insured_value =
+        dto.insured_value === null
+          ? null
+          : this.normalizeMoney(dto.insured_value);
+    if (dto.limit_of_liability !== undefined)
+      detail.limit_of_liability =
+        dto.limit_of_liability === null
+          ? null
+          : this.normalizeMoney(dto.limit_of_liability);
+
+    return this.quotationDetailRepository.save(detail);
+  }
+
+  async removeQuotationDetail(companyId: string, id: string): Promise<void> {
+    const detail = await this.findQuotationDetail(companyId, id);
+    await this.quotationDetailRepository.softDelete(detail.id);
+  }
+
   async createPolicyDetail(
     companyId: string,
     dto: CreateNonMotorPolicyDetailDto,

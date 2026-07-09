@@ -18,11 +18,13 @@ import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permission
 import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { CreateMotorFleetDto } from './dto/create-motor-fleet.dto';
+import { CreateMotorFleetItemDto } from './dto/create-motor-fleet-item.dto';
 import { CreateMotorPolicyDetailDto } from './dto/create-motor-policy-detail.dto';
 import { CreateMotorQuotationDetailDto } from './dto/create-motor-quotation-detail.dto';
 import { CreateMotorVehicleDto } from './dto/create-motor-vehicle.dto';
 import { FilterMotorDto } from './dto/filter-motor.dto';
 import { UpdateMotorFleetDto } from './dto/update-motor-fleet.dto';
+import { UpdateMotorFleetItemDto } from './dto/update-motor-fleet-item.dto';
 import { UpdateMotorPolicyDetailDto } from './dto/update-motor-policy-detail.dto';
 import { UpdateMotorQuotationDetailDto } from './dto/update-motor-quotation-detail.dto';
 import { UpdateMotorVehicleDto } from './dto/update-motor-vehicle.dto';
@@ -147,6 +149,67 @@ export class MotorController {
   ) {
     await this.motorService.removeFleet(user.companyId!, id);
     return { message: 'Motor fleet deleted successfully' };
+  }
+
+  @Get('fleets/:fleetId/items')
+  @UseGuards(PermissionsGuard)
+  @Permissions('motor:read')
+  @ApiOperation({ summary: 'List items in a motor fleet' })
+  listFleetItems(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('fleetId', ParseUUIDPipe) fleetId: string,
+  ) {
+    return this.motorService.listFleetItems(user.companyId!, fleetId);
+  }
+
+  @Post('fleets/:fleetId/items')
+  @UseGuards(PermissionsGuard)
+  @Permissions('motor:create')
+  @ApiOperation({ summary: 'Add a vehicle item to a motor fleet' })
+  createFleetItem(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('fleetId', ParseUUIDPipe) fleetId: string,
+    @Body() dto: CreateMotorFleetItemDto,
+  ) {
+    return this.motorService.createFleetItem(user.companyId!, fleetId, dto);
+  }
+
+  @Get('fleets/:fleetId/items/:id')
+  @UseGuards(PermissionsGuard)
+  @Permissions('motor:read')
+  @ApiOperation({ summary: 'Get a motor fleet item by ID' })
+  findFleetItem(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('fleetId', ParseUUIDPipe) fleetId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.motorService.findFleetItem(user.companyId!, fleetId, id);
+  }
+
+  @Patch('fleets/:fleetId/items/:id')
+  @UseGuards(PermissionsGuard)
+  @Permissions('motor:update')
+  @ApiOperation({ summary: 'Update a motor fleet item' })
+  updateFleetItem(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('fleetId', ParseUUIDPipe) fleetId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateMotorFleetItemDto,
+  ) {
+    return this.motorService.updateFleetItem(user.companyId!, fleetId, id, dto);
+  }
+
+  @Delete('fleets/:fleetId/items/:id')
+  @UseGuards(PermissionsGuard)
+  @Permissions('motor:delete')
+  @ApiOperation({ summary: 'Remove a motor fleet item' })
+  async removeFleetItem(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('fleetId', ParseUUIDPipe) fleetId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.motorService.removeFleetItem(user.companyId!, fleetId, id);
+    return { message: 'Motor fleet item deleted successfully' };
   }
 
   @Get('quotation-details')

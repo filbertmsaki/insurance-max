@@ -11,7 +11,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   APP_VERSION: Joi.string().default('v1'),
   APP_TIMEZONE: Joi.string().default('Africa/Dar_es_Salaam'),
   APP_URL: Joi.string().uri().default('http://localhost:9090'),
-  APP_FRONTEND_URL: Joi.string().uri().default('http://localhost:5173'),
+  APP_FRONTEND_URL: Joi.string().uri().default('http://localhost:9092'),
   SUPPORT_EMAIL: Joi.string().email().default('support@insurance-idp.tz'),
 
   DB_TYPE: Joi.string()
@@ -36,7 +36,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
 
   CORS_ENABLED: Joi.boolean().default(true),
   CORS_ORIGIN: Joi.string().default(
-    'http://localhost:3000,http://localhost:4200,http://localhost:5173',
+    'http://localhost:3000,http://localhost:4200,http://localhost:5173,http://localhost:9092',
   ),
   CORS_METHODS: Joi.string().default('GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS'),
   CORS_CREDENTIALS: Joi.boolean().default(true),

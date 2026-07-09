@@ -31,12 +31,33 @@ async function bootstrap() {
   const appBaseUrl =
     configService.get<string>('app.appUrl') || `http://${browserHost}:${port}`;
   const corsEnabled = configService.get<boolean>('cors.enabled') ?? true;
-  const corsOrigin = configService.get('cors.origin', '*');
+  const rawCorsOrigin =
+    configService.get<string | string[]>('cors.origin') ||
+    configService.get<string>('app.frontendUrl') ||
+    '*';
   const corsMethods =
     configService.get<string>('cors.methods') ||
     'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS';
   const corsCredentials =
     configService.get<boolean>('cors.credentials') ?? true;
+  const corsOrigin = (() => {
+    const origins = Array.isArray(rawCorsOrigin)
+      ? rawCorsOrigin.map((origin) => origin.trim()).filter(Boolean)
+      : rawCorsOrigin
+          .split(',')
+          .map((origin) => origin.trim())
+          .filter(Boolean);
+
+    if (!origins.length) {
+      return true;
+    }
+
+    if (origins.includes('*')) {
+      return true;
+    }
+
+    return origins;
+  })();
 
   app.use(
     helmet({

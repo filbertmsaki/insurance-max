@@ -156,7 +156,7 @@ export function QuotationDetailPage() {
             variant="outline"
             size="sm"
             onClick={() =>
-              navigate(underwritingPaths.quotationEdit(quotation.id))
+              navigate(underwritingPaths.quotationWizardEdit(quotation.id))
             }
           >
             <Pencil className="mr-1.5 h-3.5 w-3.5" />

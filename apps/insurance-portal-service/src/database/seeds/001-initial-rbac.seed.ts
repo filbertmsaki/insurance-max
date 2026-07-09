@@ -9,6 +9,7 @@ import { Branch } from '../../modules/tenant/branches/entities/branch.entity';
 import { Permission } from '../../modules/platform/permissions/entities/permission.entity';
 import { Role } from '../../modules/platform/roles/entities/role.entity';
 import { User } from '../../modules/tenant/users/entities/user.entity';
+import { ALLIANCE_BRANCHES, ALLIANCE_TENANT } from './data/alliance.seed-data';
 
 type SeedScope = 'global' | 'default_company';
 
@@ -48,11 +49,12 @@ const GLOBAL_AND_DEFAULT_COMPANY_SCOPES: SeedScope[] = [
   'default_company',
 ];
 
-const defaultBranchSeeds: SeedBranchConfig[] = [
-  { name: 'HQ Branch', code: 'HQ' },
-  { name: 'Moshi Branch', code: 'MOSHI' },
-  { name: 'Arusha Branch', code: 'ARUSHA' },
-];
+const defaultBranchSeeds: SeedBranchConfig[] = ALLIANCE_BRANCHES.map(
+  (branch) => ({
+    name: branch.branchName,
+    code: branch.branchCode,
+  }),
+);
 
 const permissionSeeds: PermissionSeed[] = [
   {
@@ -1331,7 +1333,7 @@ export default class InitialRbacSeeder implements Seeder {
       };
 
       const companyName =
-        process.env.DEFAULT_COMPANY_NAME ?? 'Platform Default Tenant';
+        process.env.DEFAULT_COMPANY_NAME ?? ALLIANCE_TENANT.companyName;
 
       const adminConfig: SeedUserConfig = {
         firstName: process.env.INITIAL_COMPANY_ADMIN_FIRST_NAME ?? 'Inocent',

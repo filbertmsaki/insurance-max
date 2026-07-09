@@ -6,6 +6,7 @@ export const underwritingPaths = {
   quotations: '/underwriting/quotations',
   quotationCreate: '/underwriting/quotations/new',
   quotationWizard: '/underwriting/quotations/wizard',
+  quotationWizardEdit: (id: string) => `/underwriting/quotations/${id}/wizard`,
   quotationDetail: (id: string) => `/underwriting/quotations/${id}`,
   quotationEdit: (id: string) => `/underwriting/quotations/${id}/edit`,
   policies: '/underwriting/policies',

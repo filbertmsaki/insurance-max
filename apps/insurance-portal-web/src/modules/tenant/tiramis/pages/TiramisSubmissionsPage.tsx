@@ -50,7 +50,7 @@ export function TiramisSubmissionsPage() {
       <PageHeader
         title="TIRAMIS Submissions"
         description="Monitor tenant submissions sent to TIRAMIS"
-        action={<Button onClick={() => navigate(underwritingPaths.quotationCreate)}><Plus className="mr-2 h-4 w-4" />Create Quotation</Button>}
+        action={<Button onClick={() => navigate(underwritingPaths.quotationWizard)}><Plus className="mr-2 h-4 w-4" />Create Quotation</Button>}
       />
 
       <div className="grid gap-3 md:grid-cols-4">

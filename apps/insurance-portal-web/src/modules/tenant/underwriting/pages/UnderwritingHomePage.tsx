@@ -9,7 +9,7 @@ const workflowSteps = [
   {
     title: '1. Create the quotation',
     description: 'Capture the customer, product, risk, and premium data first.',
-    action: underwritingPaths.quotationCreate,
+    action: underwritingPaths.quotationWizard,
     icon: FileText,
   },
   {
@@ -85,7 +85,7 @@ export function UnderwritingHomePage() {
               underwriting actions under one workflow so users do not repeat review work in multiple places.
             </p>
             <div className="flex flex-wrap gap-3">
-              <Button onClick={() => navigate(underwritingPaths.quotationCreate)}>
+              <Button onClick={() => navigate(underwritingPaths.quotationWizard)}>
                 Create Quotation
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>

@@ -4,6 +4,8 @@ import type { BackendPaginatedResponse, PaginatedResponse } from '@/modules/shar
 import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import type {
   CustomerRiskOption,
+  MotorFleetItemPayload,
+  MotorFleetItemRecord,
   MotorFleetPayload,
   MotorFleetRecord,
   MotorListParams,
@@ -46,6 +48,15 @@ export const motorApi = {
     apiClient.patch<MotorFleetRecord>(`/tenant/motor/fleets/${id}`, data).then((r) => r.data),
   deleteFleet: (id: string) =>
     apiClient.delete(`/tenant/motor/fleets/${id}`).then((r) => r.data),
+
+  getFleetItems: (fleetId: string) =>
+    apiClient.get<MotorFleetItemRecord[]>(`/tenant/motor/fleets/${fleetId}/items`).then((r) => r.data),
+  createFleetItem: (fleetId: string, data: MotorFleetItemPayload) =>
+    apiClient.post<MotorFleetItemRecord>(`/tenant/motor/fleets/${fleetId}/items`, data).then((r) => r.data),
+  updateFleetItem: (fleetId: string, id: string, data: MotorFleetItemPayload) =>
+    apiClient.patch<MotorFleetItemRecord>(`/tenant/motor/fleets/${fleetId}/items/${id}`, data).then((r) => r.data),
+  deleteFleetItem: (fleetId: string, id: string) =>
+    apiClient.delete(`/tenant/motor/fleets/${fleetId}/items/${id}`).then((r) => r.data),
 
   getQuotationDetails: async (quotationId?: string): Promise<MotorQuotationDetailRecord[]> => {
     const params = quotationId ? { quotation_id: quotationId } : undefined;

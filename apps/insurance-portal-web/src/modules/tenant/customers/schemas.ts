@@ -9,8 +9,14 @@ import {
 
 const optionalText = z.string().trim().max(255).optional().or(z.literal(''));
 
-export const customerFormSchema = z
-  .object({
+/**
+ * The customer field shape without the customer_type-conditional refinement.
+ * Exported separately so other forms (e.g. the quotation wizard's inline
+ * "create new policyholder" step) can nest it as a sub-object and decide for
+ * themselves when the full `customerFormSchema` validation should apply,
+ * without unconditionally forcing every required-customer-field check to run.
+ */
+export const customerFormObjectSchema = z.object({
     customer_type: z.enum(['INDIVIDUAL', 'CORPORATE']),
     customer_no: z.string().optional().or(z.literal('')),
     first_name: z.string().trim().max(50).optional().or(z.literal('')),
@@ -65,8 +71,9 @@ export const customerFormSchema = z
     document_mime_type: optionalText,
     document_verified: z.boolean(),
     status: z.enum(['ACTIVE', 'INACTIVE', 'BLACKLISTED']),
-  })
-  .superRefine((values, ctx) => {
+  });
+
+export const customerFormSchema = customerFormObjectSchema.superRefine((values, ctx) => {
     const text = (value?: string | null) => (value ?? '').trim();
     const isIndividual = values.customer_type === 'INDIVIDUAL';
     const isCorporate = values.customer_type === 'CORPORATE';

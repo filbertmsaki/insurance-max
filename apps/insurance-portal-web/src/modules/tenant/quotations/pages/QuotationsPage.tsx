@@ -67,7 +67,7 @@ export function QuotationsPage() {
       <PageHeader
         title="Quotations"
         description="Create and manage insurance quotations"
-        action={<Button onClick={() => navigate(underwritingPaths.quotationCreate)}><Plus className="mr-2 h-4 w-4" />Create Quotation</Button>}
+        action={<Button onClick={() => navigate(underwritingPaths.quotationWizard)}><Plus className="mr-2 h-4 w-4" />Create Quotation</Button>}
       />
 
       <div className="mb-4 flex flex-wrap gap-3">

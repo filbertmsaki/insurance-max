@@ -75,6 +75,23 @@ export interface MotorFleetRecord {
   deleted_at: string | null;
   customer?: MotorCustomerOption | null;
   quotation?: { id: string; quotation_no: string; status: string } | null;
+  /** Only present on the single-fleet GET (findFleet joins it); absent on list responses. */
+  items?: MotorFleetItemRecord[];
+}
+
+export interface MotorFleetItemRecord {
+  id: string;
+  fleet_id: string;
+  motor_vehicle_id: string;
+  quotation_risk_id: string | null;
+  policy_risk_id: string | null;
+  sum_insured: string;
+  premium: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+  motor_vehicle?: MotorVehicleRecord | null;
 }
 
 export interface MotorQuotationDetailRecord {
@@ -152,6 +169,15 @@ export interface MotorFleetPayload {
   total_vehicles?: number;
   total_sum_insured?: number | string | null;
   total_premium?: number | string | null;
+  status?: string;
+}
+
+export interface MotorFleetItemPayload {
+  motor_vehicle_id: string;
+  quotation_risk_id?: string | null;
+  policy_risk_id?: string | null;
+  sum_insured?: number | string | null;
+  premium?: number | string | null;
   status?: string;
 }
 

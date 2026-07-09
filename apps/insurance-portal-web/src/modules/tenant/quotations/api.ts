@@ -1,7 +1,7 @@
 import { apiClient } from '@/modules/shared/api/client';
 import { normalizePaginatedResponse } from '@/modules/shared/api/pagination';
 import type { BackendPaginatedResponse, PaginatedResponse } from '@/modules/shared/api/pagination';
-import type { InsuranceRisk } from '@/types/product-engine';
+import type { InsuranceRisk, MultiCalcRequest, MultiCalcResponse, RiskPremiumResult, SingleCalcRequest } from '@/types/product-engine';
 import type {
   QuotationListParams,
   QuotationPayload,
@@ -40,8 +40,10 @@ export const quotationsApi = {
     const quotation = await apiClient.get<QuotationRecord>(`/tenant/quotations/${quotationId}`).then((r) => r.data);
     return quotation.status_history ?? [];
   },
-  calculateSingle: (data: { risk_id: string; sum_insured: number; factors: Record<string, string | number | boolean> }) =>
-    apiClient.post('/premium-calculation/single', data).then((r) => r.data),
+  calculateSingle: (data: SingleCalcRequest) =>
+    apiClient.post<RiskPremiumResult>('/premium-calculation/single', data).then((r) => r.data),
+  calculateMulti: (data: MultiCalcRequest) =>
+    apiClient.post<MultiCalcResponse>('/premium-calculation/multi', data).then((r) => r.data),
   getRisksByProduct: async (productId: string): Promise<InsuranceRisk[]> => {
     const response = await apiClient.get('/insurance-risks', { params: { limit: 100, is_active: true, product_id: productId } });
     return normalizePaginatedResponse<InsuranceRisk>(response.data).data;

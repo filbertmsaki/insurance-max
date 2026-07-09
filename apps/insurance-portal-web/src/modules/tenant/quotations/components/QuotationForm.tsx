@@ -13,7 +13,15 @@ import {
 } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQuotationCurrentCompanyId } from '../hooks';
-import { quotationFormSchema, type QuotationFormSchemaValues } from '../schemas';
+import {
+  createEmptyFleetDetails,
+  createEmptyMotorDetails,
+  createEmptyNonMotorDetails,
+  createEmptyRiskRow,
+  quotationFormSchema,
+  type QuotationFormSchemaValues,
+} from '../schemas';
+import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
 import type { CustomerRecord } from '@/modules/tenant/customers/types';
 import type { InsuranceCategory, InsuranceProduct, InsuranceSubClass } from '@/types/product-engine';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
@@ -45,11 +53,20 @@ export function QuotationForm({
     intermediary_company_id: '',
     branch_id: '',
     department_id: '',
+    policyholder_mode: 'existing',
     customer_id: '',
+    policyholder: getCustomerDefaultValues(),
     category_id: '',
     product_id: '',
     sub_class_id: '',
+    risks: [createEmptyRiskRow()],
+    addons: [],
+    motor_mode: 'existing',
+    motor: createEmptyMotorDetails(),
+    fleet: createEmptyFleetDetails(),
+    nonMotor: createEmptyNonMotorDetails(),
     quotation_type: 'NON_MOTOR',
+    is_fleet: false,
     channel_type: 'DIRECT',
     status: 'DRAFT',
     currency: 'TZS',
@@ -65,6 +82,13 @@ export function QuotationForm({
     valid_until: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     rating_version: '',
     rejection_reason: '',
+    cover_note_type: '1',
+    prev_cover_note_reference: '',
+    officer_name: '',
+    officer_title: '',
+    payment_mode_tira: '1',
+    sale_point_id: '',
+    exchange_rate: '',
     ...defaultValues,
   };
   formDefaults.insurer_company_id = defaultValues?.insurer_company_id ?? currentCompanyId;
@@ -238,7 +262,7 @@ export function QuotationForm({
               <FormField
                 key={name}
                 control={form.control}
-                name={name as keyof QuotationFormSchemaValues}
+                name={name as Exclude<keyof QuotationFormSchemaValues, 'is_fleet' | 'policyholder' | 'risks' | 'addons' | 'motor' | 'fleet' | 'nonMotor'>}
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{label}</FormLabel>

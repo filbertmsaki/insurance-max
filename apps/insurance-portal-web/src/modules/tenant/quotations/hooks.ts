@@ -8,6 +8,9 @@ import { calculatorApi } from '@/modules/tenant/product-engine/api/calculator';
 import { useAllActiveCategories, useAllActiveProducts, useSubClassesByProduct, useRisksByProduct } from '@/modules/tenant/product-engine/hooks';
 import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { branchesApi } from '@/modules/tenant/branches/api/branches';
+import { departmentsApi } from '@/modules/tenant/departments/api/departments';
+import { motorApi } from '@/modules/tenant/motor/api';
 import { quotationsApi } from './api';
 import { buildQuotationPayload } from './schemas';
 import type { QuotationFormSchemaValues } from './schemas';
@@ -187,6 +190,63 @@ export function useQuotationSubClasses(productId?: string) {
 
 export function useQuotationRisks(productId?: string) {
   return useRisksByProduct({ product_id: productId && productId !== 'all' ? productId : undefined });
+}
+
+export function useQuotationBranches() {
+  return useQuery({
+    queryKey: ['quotations', 'branches'],
+    queryFn: () => branchesApi.getAllBranches(),
+    staleTime: 60_000,
+  });
+}
+
+export function useQuotationDepartments(branchId?: string) {
+  return useQuery({
+    queryKey: ['quotations', 'departments', branchId ?? 'all'],
+    queryFn: async () => {
+      const page = await departmentsApi.getDepartments({ page: 1, limit: API_MAX_LIST_LIMIT });
+      const all = page.data;
+      if (!branchId) return all;
+      return all.filter((dept) => (dept.branch_id ?? dept.branch?.id ?? '') === branchId);
+    },
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * Active TIRAMIS sale points for a branch. The wizard must let the user pick
+ * one explicitly whenever there's more than one — the backend's own auto-pick
+ * (`tiramis-integration.service.ts`) throws if a branch has multiple active
+ * sale points with no default, so relying on server-side resolution silently
+ * working is not safe (see Phase 0 backend gap #5 in the wizard plan).
+ */
+export function useQuotationSalePoints(branchId?: string) {
+  return useQuery({
+    queryKey: ['quotations', 'sale-points', branchId ?? 'none'],
+    queryFn: () => tiramisApi.getSalePoints(branchId),
+    enabled: !!branchId,
+    staleTime: 30_000,
+  });
+}
+
+/**
+ * Vehicles already linked to the policyholder's customer record, for the
+ * Motor Details step's "existing vehicle" picker. There's no server-side
+ * customer_id filter on the motor vehicles endpoint (FilterMotorDto only has
+ * `search`) so — mirroring the standalone motor module's own list hook — this
+ * fetches the full company vehicle list once and filters client-side.
+ */
+export function useQuotationVehicles(customerId?: string) {
+  return useQuery({
+    queryKey: ['quotations', 'vehicles', customerId ?? 'none'],
+    queryFn: async () => {
+      const page = await motorApi.getVehicles({ limit: API_MAX_LIST_LIMIT });
+      if (!customerId) return page.data;
+      return page.data.filter((vehicle) => vehicle.customer_id === customerId);
+    },
+    enabled: !!customerId,
+    staleTime: 30_000,
+  });
 }
 
 export function useQuotationCalculator() {

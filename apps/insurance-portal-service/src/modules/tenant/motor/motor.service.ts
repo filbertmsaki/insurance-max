@@ -15,11 +15,13 @@ import { Policy } from '../policies/entities/policy.entity';
 import { PolicyRisk } from '../policies/entities/policy-risk.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateMotorFleetDto } from './dto/create-motor-fleet.dto';
+import { CreateMotorFleetItemDto } from './dto/create-motor-fleet-item.dto';
 import { CreateMotorPolicyDetailDto } from './dto/create-motor-policy-detail.dto';
 import { CreateMotorQuotationDetailDto } from './dto/create-motor-quotation-detail.dto';
 import { CreateMotorVehicleDto } from './dto/create-motor-vehicle.dto';
 import { FilterMotorDto } from './dto/filter-motor.dto';
 import { UpdateMotorFleetDto } from './dto/update-motor-fleet.dto';
+import { UpdateMotorFleetItemDto } from './dto/update-motor-fleet-item.dto';
 import { UpdateMotorPolicyDetailDto } from './dto/update-motor-policy-detail.dto';
 import { UpdateMotorQuotationDetailDto } from './dto/update-motor-quotation-detail.dto';
 import { UpdateMotorVehicleDto } from './dto/update-motor-vehicle.dto';
@@ -496,6 +498,89 @@ export class MotorService {
   async removeFleet(companyId: string, id: string): Promise<void> {
     const fleet = await this.findFleet(companyId, id);
     await this.motorFleetRepository.softDelete(fleet.id);
+  }
+
+  async createFleetItem(
+    companyId: string,
+    fleetId: string,
+    dto: CreateMotorFleetItemDto,
+  ) {
+    await this.ensureFleet(companyId, fleetId);
+    await this.ensureMotorVehicle(companyId, dto.motor_vehicle_id);
+    if (dto.quotation_risk_id)
+      await this.ensureQuotationRisk(companyId, dto.quotation_risk_id);
+    if (dto.policy_risk_id)
+      await this.ensurePolicyRisk(companyId, dto.policy_risk_id);
+
+    return this.motorFleetItemRepository.save(
+      this.motorFleetItemRepository.create({
+        fleet_id: fleetId,
+        motor_vehicle_id: dto.motor_vehicle_id,
+        quotation_risk_id: dto.quotation_risk_id ?? null,
+        policy_risk_id: dto.policy_risk_id ?? null,
+        sum_insured: this.normalizeMoney(dto.sum_insured),
+        premium: this.normalizeMoney(dto.premium),
+        status: dto.status?.trim().toUpperCase() ?? 'ACTIVE',
+      }),
+    );
+  }
+
+  async listFleetItems(companyId: string, fleetId: string) {
+    await this.ensureFleet(companyId, fleetId);
+    return this.motorFleetItemRepository.find({
+      where: { fleet_id: fleetId },
+      relations: { motor_vehicle: true },
+      order: { created_at: 'DESC' },
+    });
+  }
+
+  async findFleetItem(companyId: string, fleetId: string, id: string) {
+    await this.ensureFleet(companyId, fleetId);
+    const item = await this.motorFleetItemRepository.findOne({
+      where: { id, fleet_id: fleetId },
+      relations: { motor_vehicle: true },
+    });
+    if (!item) throw new NotFoundException('Motor fleet item not found');
+    return item;
+  }
+
+  async updateFleetItem(
+    companyId: string,
+    fleetId: string,
+    id: string,
+    dto: UpdateMotorFleetItemDto,
+  ) {
+    const item = await this.findFleetItem(companyId, fleetId, id);
+    if (dto.motor_vehicle_id !== undefined) {
+      await this.ensureMotorVehicle(companyId, dto.motor_vehicle_id);
+      item.motor_vehicle_id = dto.motor_vehicle_id;
+    }
+    if (dto.quotation_risk_id !== undefined) {
+      if (dto.quotation_risk_id)
+        await this.ensureQuotationRisk(companyId, dto.quotation_risk_id);
+      item.quotation_risk_id = dto.quotation_risk_id ?? null;
+    }
+    if (dto.policy_risk_id !== undefined) {
+      if (dto.policy_risk_id)
+        await this.ensurePolicyRisk(companyId, dto.policy_risk_id);
+      item.policy_risk_id = dto.policy_risk_id ?? null;
+    }
+    if (dto.sum_insured !== undefined)
+      item.sum_insured = this.normalizeMoney(dto.sum_insured);
+    if (dto.premium !== undefined)
+      item.premium = this.normalizeMoney(dto.premium);
+    if (dto.status !== undefined) item.status = dto.status.trim().toUpperCase();
+
+    return this.motorFleetItemRepository.save(item);
+  }
+
+  async removeFleetItem(
+    companyId: string,
+    fleetId: string,
+    id: string,
+  ): Promise<void> {
+    const item = await this.findFleetItem(companyId, fleetId, id);
+    await this.motorFleetItemRepository.softDelete(item.id);
   }
 
   async createQuotationDetail(

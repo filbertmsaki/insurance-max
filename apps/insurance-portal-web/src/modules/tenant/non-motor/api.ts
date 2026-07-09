@@ -49,6 +49,8 @@ export const nonMotorApi = {
   },
   createQuotationDetail: (data: NonMotorQuotationDetailPayload) =>
     apiClient.post<NonMotorQuotationDetailRecord>('/tenant/non-motor/quotation-details', data).then((r) => r.data),
+  updateQuotationDetail: (id: string, data: Partial<NonMotorQuotationDetailPayload>) =>
+    apiClient.patch<NonMotorQuotationDetailRecord>(`/tenant/non-motor/quotation-details/${id}`, data).then((r) => r.data),
 
   getPolicyDetails: async (policyId?: string): Promise<NonMotorPolicyDetailRecord[]> => {
     const params = policyId ? { policy_id: policyId } : undefined;

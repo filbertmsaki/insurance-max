@@ -246,7 +246,7 @@ function buildDashboardHtml() {
   }
 
   function escapeJs(value) {
-    return String(value || '').replaceAll('\\', '\\\\').replaceAll("'", "\\'");
+    return String(value || '').replaceAll('\\\\', '\\\\\\\\').replaceAll("'", "\\\\'");
   }
 
   function showSection(name, button) {

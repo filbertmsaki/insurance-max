@@ -150,6 +150,41 @@ export class NonMotorController {
     );
   }
 
+  @Get('quotation-details/:id')
+  @UseGuards(PermissionsGuard)
+  @Permissions('non-motor:read')
+  @ApiOperation({ summary: 'Get a non-motor quotation detail by ID' })
+  findQuotationDetail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.nonMotorService.findQuotationDetail(user.companyId!, id);
+  }
+
+  @Patch('quotation-details/:id')
+  @UseGuards(PermissionsGuard)
+  @Permissions('non-motor:update')
+  @ApiOperation({ summary: 'Update a non-motor quotation detail' })
+  updateQuotationDetail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateNonMotorQuotationDetailDto,
+  ) {
+    return this.nonMotorService.updateQuotationDetail(user.companyId!, id, dto);
+  }
+
+  @Delete('quotation-details/:id')
+  @UseGuards(PermissionsGuard)
+  @Permissions('non-motor:delete')
+  @ApiOperation({ summary: 'Delete a non-motor quotation detail' })
+  async removeQuotationDetail(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.nonMotorService.removeQuotationDetail(user.companyId!, id);
+    return { message: 'Non-motor quotation detail deleted successfully' };
+  }
+
   @Post('policy-details')
   @UseGuards(PermissionsGuard)
   @Permissions('non-motor:create')
