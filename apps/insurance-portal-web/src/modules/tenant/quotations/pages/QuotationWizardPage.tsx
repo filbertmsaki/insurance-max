@@ -218,8 +218,12 @@ export function QuotationWizardPage() {
     if (draft) {
       form.reset({
         ...DEFAULT_VALUES,
-        insurer_company_id: companyId,
         ...draft,
+        // Always the current company, never trust a stale/blank value that
+        // may have been captured in the draft before companyId resolved (or
+        // from a since-switched company) — the backend validates category/
+        // product ownership against this exact id.
+        insurer_company_id: companyId,
       });
     } else if (companyId) {
       form.setValue('insurer_company_id', companyId);
