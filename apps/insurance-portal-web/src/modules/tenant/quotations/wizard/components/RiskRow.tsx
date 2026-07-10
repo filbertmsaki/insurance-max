@@ -472,7 +472,7 @@ export function RiskRow({
                     name={path(index, `taxes_charged.${taxIndex}.tax_code`)}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Tax Code</FormLabel>
+                        <FormLabel>Tax Code (required)</FormLabel>
                         <Select
                           value={(field.value as string) || undefined}
                           onValueChange={(value) => {

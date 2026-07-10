@@ -63,6 +63,8 @@ export function CoverNoteSetupStep({
   salePointOptions,
   salePointRequired,
 }: Props) {
+  const today = new Date().toISOString().slice(0, 10);
+  const validFrom = form.watch('valid_from');
   const quotationFlow = form.watch('quotation_flow');
   const currency = form.watch('currency');
   const coverNoteType = form.watch('cover_note_type');
@@ -369,7 +371,7 @@ export function CoverNoteSetupStep({
               <FormItem>
                 <FormLabel>Cover Start Date</FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} />
+                  <Input type="date" min={today} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -383,7 +385,7 @@ export function CoverNoteSetupStep({
               <FormItem>
                 <FormLabel>Cover End Date</FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} />
+                  <Input type="date" min={validFrom || today} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

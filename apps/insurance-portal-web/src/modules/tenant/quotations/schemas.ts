@@ -41,7 +41,12 @@ export function createEmptyRiskTaxRow(): QuotationRiskFormRow['taxes_charged'][n
 }
 
 const quotationRiskRowSchema = z.object({
-  client_ref: z.string().min(1),
+  // Internal React/payload tracking id, not user input — auto-healed rather
+  // than blocking the wizard if it's ever momentarily missing from form state.
+  client_ref: z
+    .string()
+    .optional()
+    .transform((value) => (value && value.trim() ? value : createClientRef())),
   risk_id: z.string().min(1, 'Risk is required'),
   risk_code: optionalText,
   subject_matter_id: optionalText,
@@ -64,7 +69,7 @@ const quotationRiskRowSchema = z.object({
   taxes_charged: z.array(
     z.object({
       tax_code: optionalText,
-      is_tax_exempted: z.boolean(),
+      is_tax_exempted: z.boolean().optional().default(false),
       tax_exemption_type: optionalText,
       tax_exemption_reference: optionalText,
       tax_rate: optionalText,
@@ -114,7 +119,7 @@ export function createEmptyRiskRow(): QuotationRiskFormRow {
 
 const quotationAddonTaxRowSchema = z.object({
   tax_code: optionalText,
-  is_tax_exempted: z.boolean(),
+  is_tax_exempted: z.boolean().optional().default(false),
   tax_exemption_type: optionalText,
   tax_exemption_reference: optionalText,
   tax_rate: optionalText,
@@ -404,6 +409,15 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
           ctx.addIssue({ ...issue, path: ['policyholder', ...issue.path] });
         }
       }
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    if (values.valid_from && values.valid_from < today) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['valid_from'],
+        message: 'Cover start date cannot be in the past',
+      });
     }
 
     if (
@@ -721,18 +735,6 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
             code: z.ZodIssueCode.custom,
             path: ['motor', 'seating_capacity'],
             message: 'Seating capacity must be a whole number',
-          });
-        }
-        const value = Number(values.motor.vehicle_value);
-        if (
-          !values.motor.vehicle_value ||
-          !Number.isFinite(value) ||
-          value <= 0
-        ) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['motor', 'vehicle_value'],
-            message: 'Vehicle value must be a positive number',
           });
         }
       }

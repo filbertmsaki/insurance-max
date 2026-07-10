@@ -82,6 +82,22 @@ import {
   getVehicleCategoryLabelFromCode,
 } from '../wizard/utils/motorOptions';
 
+// Walks a react-hook-form nested errors object looking for the first `.message`
+// string, so a failed step-level validation can surface a concrete reason
+// instead of silently refusing to advance.
+function findFirstErrorMessage(node: unknown): string | null {
+  if (!node || typeof node !== 'object') return null;
+  const record = node as Record<string, unknown>;
+  if (typeof record.message === 'string' && record.message) {
+    return record.message;
+  }
+  for (const value of Object.values(record)) {
+    const found = findFirstErrorMessage(value);
+    if (found) return found;
+  }
+  return null;
+}
+
 // Fields validated (via form.trigger) before allowing "Next" out of a step.
 // Steps not listed here have no fields to validate yet (placeholders).
 const STEP_FIELDS: Partial<
@@ -502,7 +518,12 @@ export function QuotationWizardPage() {
       return;
     }
 
-    if (!valid) return;
+    if (!valid) {
+      const errors = fields.map((field) => form.formState.errors[field]);
+      const message = errors.map(findFirstErrorMessage).find(Boolean);
+      toast.error(message ?? 'Please fix the highlighted fields before continuing');
+      return;
+    }
 
     const index = steps.findIndex((step) => step.id === stepId);
     const next = steps[index + 1];

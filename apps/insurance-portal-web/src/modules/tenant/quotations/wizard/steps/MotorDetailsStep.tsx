@@ -319,12 +319,6 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                 <FormControl><Input {...field} value={field.value as string} /></FormControl>
               </FormItem>
             )} />
-            <FormField control={form.control} name="motor.tonnage" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Tonnage (optional)</FormLabel>
-                <FormControl><Input type="number" {...field} value={field.value as string} /></FormControl>
-              </FormItem>
-            )} />
             <FormField control={form.control} name="motor.number_of_axles" render={({ field }) => (
               <FormItem>
                 <FormLabel>Number of Axles (optional)</FormLabel>
@@ -372,13 +366,6 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
               <FormItem className="md:col-span-2">
                 <FormLabel>Owner Address (optional)</FormLabel>
                 <FormControl><Input {...field} value={field.value as string} /></FormControl>
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="motor.vehicle_value" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Vehicle Value</FormLabel>
-                <FormControl><Input type="number" {...field} value={field.value as string} /></FormControl>
-                <FormMessage />
               </FormItem>
             )} />
           </CardContent>
