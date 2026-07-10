@@ -9,6 +9,7 @@ import {
 } from '@/modules/tenant/customers/types';
 import type { InsuranceRisk } from '@/types/product-engine';
 import { computeAddonAmounts } from '../utils/addonCalculations';
+import { buildMotorCoverNoteRefReqPreview } from '../utils/motorCoverNotePayload';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import type { QuotationWizardStepId } from '../types';
 
@@ -17,6 +18,13 @@ interface OptionLike {
   name?: string;
   product_name?: string;
   customer_no?: string;
+  product_code?: string;
+  tiramis_product_code?: string | null;
+}
+
+interface SalePointOptionLike {
+  id: string;
+  salePointCode?: string;
 }
 
 interface Props {
@@ -25,6 +33,7 @@ interface Props {
   categoryOptions: OptionLike[];
   productOptions: OptionLike[];
   branchOptions: OptionLike[];
+  salePointOptions?: SalePointOptionLike[];
   riskOptions: InsuranceRisk[];
   riskCount: number;
   onEditStep: (stepId: QuotationWizardStepId) => void;
@@ -54,6 +63,7 @@ export function SummaryReviewStep({
   categoryOptions,
   productOptions,
   branchOptions,
+  salePointOptions = [],
   riskOptions,
   riskCount,
   onEditStep,
@@ -66,6 +76,9 @@ export function SummaryReviewStep({
   const branch = branchOptions.find((item) => item.id === values.branch_id);
   const existingCustomer = customerOptions.find(
     (item) => item.id === values.customer_id,
+  );
+  const salePoint = salePointOptions.find(
+    (item) => item.id === values.sale_point_id,
   );
   const currency = values.currency?.trim().toUpperCase();
   const exchangeRate =
@@ -219,6 +232,30 @@ export function SummaryReviewStep({
               {values.motor.make} {values.motor.model} · Value{' '}
               {values.motor.vehicle_value || '—'}
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {values.quotation_type === 'MOTOR' && !values.is_fleet && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              TIRA Payload Preview (MotorCoverNoteRefReq)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <pre className="max-h-96 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">
+              {JSON.stringify(
+                buildMotorCoverNoteRefReqPreview(values, {
+                  salePointCode: salePoint?.salePointCode ?? null,
+                  productCode:
+                    product?.tiramis_product_code || product?.product_code || null,
+                  existingCustomer,
+                }),
+                null,
+                2,
+              )}
+            </pre>
           </CardContent>
         </Card>
       )}

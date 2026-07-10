@@ -1006,6 +1006,7 @@ export function QuotationWizardPage() {
                   categoryOptions={categoryOptions}
                   productOptions={productOptions}
                   branchOptions={branchOptions}
+                  salePointOptions={activeSalePoints}
                   riskOptions={riskOptions}
                   riskCount={riskFieldArray.fields.length}
                   onEditStep={goToStep}
