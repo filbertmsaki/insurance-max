@@ -231,6 +231,29 @@ export function QuotationWizardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, isEditMode]);
 
+  // A restored draft (or a customer created in an earlier company context)
+  // can carry a customer_id that no longer belongs to the current company —
+  // the backend rejects that at submit time with "Customer not found for
+  // company". Once the company-scoped customer list loads, drop any
+  // customer_id/mode that doesn't resolve against it so the user re-selects
+  // instead of hitting that error at the very end of the wizard.
+  useEffect(() => {
+    if (isEditMode || !customerOptions.length) return;
+    const customerId = form.getValues('customer_id');
+    const mode = form.getValues('policyholder_mode');
+    if (
+      mode === 'existing' &&
+      customerId &&
+      !customerOptions.some((c) => c.id === customerId)
+    ) {
+      form.setValue('customer_id', '');
+      toast.error(
+        'The previously selected policyholder is no longer available — please select or create one again.',
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerOptions, isEditMode]);
+
   // Edit mode: load the quotation plus its motor/fleet/non-motor detail rows
   // (each lives on a separate entity — there's no single "get everything"
   // endpoint) and merge them into the base form values built from the
