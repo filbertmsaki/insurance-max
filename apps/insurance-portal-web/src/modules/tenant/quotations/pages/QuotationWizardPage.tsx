@@ -77,6 +77,10 @@ import { MotorDetailsStep } from '../wizard/steps/MotorDetailsStep';
 import { MotorFleetDetailsStep } from '../wizard/steps/MotorFleetDetailsStep';
 import { NonMotorDetailsStep } from '../wizard/steps/NonMotorDetailsStep';
 import { SummaryReviewStep } from '../wizard/steps/SummaryReviewStep';
+import {
+  getMotorCategoryCodeFromVehicleCategory,
+  getVehicleCategoryLabelFromCode,
+} from '../wizard/utils/motorOptions';
 
 // Fields validated (via form.trigger) before allowing "Next" out of a step.
 // Steps not listed here have no fields to validate yet (placeholders).
@@ -231,14 +235,23 @@ export function QuotationWizardPage() {
             // (see Phase 7) — cover_type/no-claim-discount/excess fields aren't
             // captured, so only the vehicle's own physical attributes hydrate here.
             const vehicle = await motorApi.getVehicle(vehicleId);
+            const metadata = (vehicle.metadata ?? {}) as Record<string, unknown>;
             setMotorVehicleId(vehicle.id);
             base.motor = {
               vehicle_id: vehicle.id,
+              motor_category_code: String(
+                metadata.motor_category_code ??
+                  getMotorCategoryCodeFromVehicleCategory(
+                    vehicle.vehicle_category,
+                  ),
+              ),
+              motor_type_code: String(metadata.motor_type_code ?? '1'),
               registration_no: vehicle.registration_no ?? '',
               chassis_no: vehicle.chassis_no ?? '',
               engine_no: vehicle.engine_no ?? '',
               make: vehicle.make ?? '',
               model: vehicle.model ?? '',
+              model_no: vehicle.model_no ?? '',
               body_type: vehicle.body_type ?? '',
               color: vehicle.color ?? '',
               manufacture_year:
@@ -246,6 +259,8 @@ export function QuotationWizardPage() {
                   ? String(vehicle.manufacture_year)
                   : '',
               usage_type: vehicle.usage_type ?? '',
+              motor_usage_code:
+                vehicle.motor_usage != null ? String(vehicle.motor_usage) : '',
               vehicle_category: vehicle.vehicle_category ?? '',
               seating_capacity:
                 vehicle.seating_capacity != null
@@ -257,6 +272,19 @@ export function QuotationWizardPage() {
                   ? String(vehicle.cubic_capacity)
                   : '',
               fuel_type: vehicle.fuel_type ?? '',
+              number_of_axles:
+                vehicle.number_of_axles != null
+                  ? String(vehicle.number_of_axles)
+                  : '',
+              axle_distance: vehicle.axle_distance ?? '',
+              tare_weight: vehicle.tare_weight ?? '',
+              gross_weight: vehicle.gross_weight ?? '',
+              owner_name: vehicle.owner_name ?? '',
+              owner_category:
+                vehicle.owner_category != null
+                  ? String(vehicle.owner_category)
+                  : '',
+              owner_address: vehicle.owner_address ?? '',
               vehicle_value: vehicle.vehicle_value ?? '',
             };
           }
@@ -535,13 +563,18 @@ export function QuotationWizardPage() {
       engine_no: motor.engine_no || null,
       make: motor.make || null,
       model: motor.model || null,
+      model_no: motor.model_no || null,
       body_type: motor.body_type || null,
       color: motor.color || null,
       manufacture_year: motor.manufacture_year
         ? Number(motor.manufacture_year)
         : null,
       usage_type: motor.usage_type || null,
-      vehicle_category: motor.vehicle_category || null,
+      motor_usage: motor.motor_usage_code ? Number(motor.motor_usage_code) : null,
+      vehicle_category:
+        getVehicleCategoryLabelFromCode(motor.motor_category_code) ||
+        motor.vehicle_category ||
+        null,
       seating_capacity: motor.seating_capacity
         ? Number(motor.seating_capacity)
         : null,
@@ -550,7 +583,24 @@ export function QuotationWizardPage() {
         ? Number(motor.cubic_capacity)
         : null,
       fuel_type: motor.fuel_type || null,
+      number_of_axles: motor.number_of_axles
+        ? Number(motor.number_of_axles)
+        : null,
+      axle_distance: motor.axle_distance || null,
+      tare_weight: motor.tare_weight || null,
+      gross_weight: motor.gross_weight || null,
+      motor_category: motor.motor_category_code
+        ? Number(motor.motor_category_code)
+        : null,
+      motor_type: motor.motor_type_code ? Number(motor.motor_type_code) : null,
+      owner_name: motor.owner_name || null,
+      owner_category: motor.owner_category ? Number(motor.owner_category) : null,
+      owner_address: motor.owner_address || null,
       vehicle_value: motor.vehicle_value || 0,
+      metadata: {
+        motor_category_code: motor.motor_category_code || null,
+        motor_type_code: motor.motor_type_code || null,
+      },
     };
     const vehicle = motorVehicleId
       ? await motorApi.updateVehicle(motorVehicleId, vehiclePayload)

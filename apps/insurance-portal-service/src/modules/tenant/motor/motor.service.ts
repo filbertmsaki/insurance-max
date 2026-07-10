@@ -268,6 +268,26 @@ export class MotorService {
           : null,
       cubic_capacity: dto.cubic_capacity ?? null,
       fuel_type: this.normalizeText(dto.fuel_type),
+      model_no: this.normalizeText(dto.model_no),
+      number_of_axles: dto.number_of_axles ?? null,
+      axle_distance:
+        dto.axle_distance !== undefined && dto.axle_distance !== null
+          ? this.normalizeMoney(dto.axle_distance)
+          : null,
+      tare_weight:
+        dto.tare_weight !== undefined && dto.tare_weight !== null
+          ? this.normalizeMoney(dto.tare_weight)
+          : null,
+      gross_weight:
+        dto.gross_weight !== undefined && dto.gross_weight !== null
+          ? this.normalizeMoney(dto.gross_weight)
+          : null,
+      motor_category: dto.motor_category ?? null,
+      motor_type: dto.motor_type ?? null,
+      motor_usage: dto.motor_usage ?? null,
+      owner_name: this.normalizeText(dto.owner_name),
+      owner_category: dto.owner_category ?? null,
+      owner_address: this.normalizeText(dto.owner_address),
       vehicle_value: this.normalizeMoney(dto.vehicle_value),
       currency: dto.currency?.trim().toUpperCase() ?? 'TZS',
       status: dto.status?.trim().toUpperCase() ?? 'ACTIVE',
@@ -359,6 +379,31 @@ export class MotorService {
         dto.tonnage === null ? null : this.normalizeMoney(dto.tonnage);
     if (dto.cubic_capacity !== undefined)
       vehicle.cubic_capacity = dto.cubic_capacity ?? null;
+    if (dto.model_no !== undefined)
+      vehicle.model_no = this.normalizeText(dto.model_no);
+    if (dto.number_of_axles !== undefined)
+      vehicle.number_of_axles = dto.number_of_axles ?? null;
+    if (dto.axle_distance !== undefined)
+      vehicle.axle_distance =
+        dto.axle_distance === null ? null : this.normalizeMoney(dto.axle_distance);
+    if (dto.tare_weight !== undefined)
+      vehicle.tare_weight =
+        dto.tare_weight === null ? null : this.normalizeMoney(dto.tare_weight);
+    if (dto.gross_weight !== undefined)
+      vehicle.gross_weight =
+        dto.gross_weight === null ? null : this.normalizeMoney(dto.gross_weight);
+    if (dto.motor_category !== undefined)
+      vehicle.motor_category = dto.motor_category ?? null;
+    if (dto.motor_type !== undefined)
+      vehicle.motor_type = dto.motor_type ?? null;
+    if (dto.motor_usage !== undefined)
+      vehicle.motor_usage = dto.motor_usage ?? null;
+    if (dto.owner_name !== undefined)
+      vehicle.owner_name = this.normalizeText(dto.owner_name);
+    if (dto.owner_category !== undefined)
+      vehicle.owner_category = dto.owner_category ?? null;
+    if (dto.owner_address !== undefined)
+      vehicle.owner_address = this.normalizeText(dto.owner_address);
     if (dto.fuel_type !== undefined)
       vehicle.fuel_type = this.normalizeText(dto.fuel_type);
     if (dto.vehicle_value !== undefined)

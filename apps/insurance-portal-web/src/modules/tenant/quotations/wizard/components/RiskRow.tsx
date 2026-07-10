@@ -1,9 +1,12 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { useEffect } from 'react';
-import type { FieldPath, UseFormReturn } from 'react-hook-form';
+import {
+  useWatch,
+  type FieldPath,
+  type UseFormReturn,
+} from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import {
   FormControl,
@@ -25,6 +28,12 @@ import {
   createEmptyRiskTaxRow,
   type QuotationFormSchemaValues,
 } from '../../schemas';
+import {
+  TAX_CODE_OPTIONS,
+  TAX_EXEMPTION_OPTIONS,
+  TAX_EXEMPTION_TYPE_OPTIONS,
+  getTaxRateForCode,
+} from '../utils/taxOptions';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -33,6 +42,12 @@ interface Props {
   onRemove: (index: number) => void;
   canRemove: boolean;
 }
+
+const DISCOUNT_TYPE_OPTIONS = [
+  { value: '1', label: '1. Fleet discount' },
+] as const;
+const EMPTY_TAX_ROWS: QuotationFormSchemaValues['risks'][number]['taxes_charged'] =
+  [];
 
 function path(
   index: number,
@@ -67,7 +82,11 @@ export function RiskRow({
 
   const discounts =
     form.watch(`risks.${index}.discounts_offered` as const) ?? [];
-  const taxes = form.watch(`risks.${index}.taxes_charged` as const) ?? [];
+  const watchedTaxes = useWatch({
+    control: form.control,
+    name: `risks.${index}.taxes_charged` as const,
+  });
+  const taxes = watchedTaxes ?? EMPTY_TAX_ROWS;
   const premiumAfterDiscount = form.watch(
     `risks.${index}.premium_after_discount` as const,
   );
@@ -92,6 +111,18 @@ export function RiskRow({
   const sumInsuredEquivalentValue =
     toNumber(sumInsuredEquivalent) ||
     toNumber(form.watch(`risks.${index}.sum_insured` as const));
+
+  useEffect(() => {
+    taxes.forEach((tax, taxIndex) => {
+      const expectedRate = getTaxRateForCode(tax.tax_code);
+      if (expectedRate && tax.tax_rate !== expectedRate) {
+        form.setValue(
+          path(index, `taxes_charged.${taxIndex}.tax_rate`),
+          expectedRate,
+        );
+      }
+    });
+  }, [form, index, taxes]);
 
   return (
     <Card>
@@ -322,10 +353,25 @@ export function RiskRow({
                     )}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Type</FormLabel>
-                        <FormControl>
-                          <Input {...field} value={field.value as string} />
-                        </FormControl>
+                        <FormLabel>Discount Type</FormLabel>
+                        <Select
+                          value={(field.value as string) || undefined}
+                          onValueChange={field.onChange}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select discount type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {DISCOUNT_TYPE_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -419,17 +465,38 @@ export function RiskRow({
               {taxFieldArray.map((_, taxIndex) => (
                 <div
                   key={taxIndex}
-                  className="grid gap-3 rounded-lg border border-slate-100 p-3 md:grid-cols-6"
+                  className="grid gap-3 rounded-lg border border-slate-100 p-3 md:grid-cols-4"
                 >
                   <FormField
                     control={form.control}
                     name={path(index, `taxes_charged.${taxIndex}.tax_code`)}
                     render={({ field }) => (
-                      <FormItem className="md:col-span-2">
+                      <FormItem>
                         <FormLabel>Tax Code</FormLabel>
-                        <FormControl>
-                          <Input {...field} value={field.value as string} />
-                        </FormControl>
+                        <Select
+                          value={(field.value as string) || undefined}
+                          onValueChange={(value) => {
+                            field.onChange(value);
+                            form.setValue(
+                              path(index, `taxes_charged.${taxIndex}.tax_rate`),
+                              getTaxRateForCode(value),
+                            );
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select tax code" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {TAX_CODE_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -437,53 +504,8 @@ export function RiskRow({
                     control={form.control}
                     name={path(
                       index,
-                      `taxes_charged.${taxIndex}.is_tax_exempted`,
+                      `taxes_charged.${taxIndex}.tax_rate`,
                     )}
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col gap-2">
-                        <FormLabel>Exempted</FormLabel>
-                        <FormControl>
-                          <Checkbox
-                            checked={Boolean(field.value)}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={path(
-                      index,
-                      `taxes_charged.${taxIndex}.tax_exemption_type`,
-                    )}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Exemption Type</FormLabel>
-                        <FormControl>
-                          <Input {...field} value={field.value as string} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={path(
-                      index,
-                      `taxes_charged.${taxIndex}.tax_exemption_reference`,
-                    )}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Exemption Ref</FormLabel>
-                        <FormControl>
-                          <Input {...field} value={field.value as string} />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={path(index, `taxes_charged.${taxIndex}.tax_rate`)}
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Tax Rate</FormLabel>
@@ -491,10 +513,12 @@ export function RiskRow({
                           <Input
                             type="number"
                             step="0.000001"
+                            readOnly
                             {...field}
                             value={field.value as string}
                           />
                         </FormControl>
+                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -515,7 +539,107 @@ export function RiskRow({
                       </FormItem>
                     )}
                   />
-                  <div className="flex items-end justify-end md:col-span-6">
+                  <FormField
+                    control={form.control}
+                    name={path(
+                      index,
+                      `taxes_charged.${taxIndex}.is_tax_exempted`,
+                    )}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Exempted</FormLabel>
+                        <Select
+                          value={field.value ? 'Y' : 'N'}
+                          onValueChange={(value) => {
+                            const isExempted = value === 'Y';
+                            field.onChange(isExempted);
+                            if (!isExempted) {
+                              form.setValue(
+                                path(
+                                  index,
+                                  `taxes_charged.${taxIndex}.tax_exemption_type`,
+                                ),
+                                '',
+                              );
+                              form.setValue(
+                                path(
+                                  index,
+                                  `taxes_charged.${taxIndex}.tax_exemption_reference`,
+                                ),
+                                '',
+                              );
+                            }
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select option" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {TAX_EXEMPTION_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={path(
+                      index,
+                      `taxes_charged.${taxIndex}.tax_exemption_type`,
+                    )}
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Exemption Type</FormLabel>
+                        <Select
+                          value={(field.value as string) || undefined}
+                          onValueChange={field.onChange}
+                          disabled={!form.watch(path(index, `taxes_charged.${taxIndex}.is_tax_exempted`))}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select exemption type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {TAX_EXEMPTION_TYPE_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={path(
+                      index,
+                      `taxes_charged.${taxIndex}.tax_exemption_reference`,
+                    )}
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Exemption Reference</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            value={field.value as string}
+                            disabled={!form.watch(path(index, `taxes_charged.${taxIndex}.is_tax_exempted`))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="flex items-end justify-end md:col-span-4">
                     <Button
                       type="button"
                       variant="ghost"

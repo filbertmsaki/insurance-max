@@ -4,6 +4,10 @@ import {
   customerFormSchema,
   getCustomerDefaultValues,
 } from '../customers/schemas';
+import {
+  getTaxRateForCode,
+  isSupportedTaxCode,
+} from './wizard/utils/taxOptions';
 import type {
   QuotationFormValues,
   QuotationPayload,
@@ -155,40 +159,62 @@ export function createEmptyAddonRow(): QuotationWizardAddonRow {
 const quotationMotorSchema = z.object({
   // Set once an existing vehicle is selected, or after a new one is created at save time.
   vehicle_id: optionalText,
+  motor_category_code: z.enum(['1', '2']).optional().or(z.literal('')),
+  motor_type_code: z.enum(['1', '2']).optional().or(z.literal('')),
   registration_no: z.string().trim().max(50).optional().or(z.literal('')),
   chassis_no: z.string().trim().max(50).optional().or(z.literal('')),
   engine_no: z.string().trim().max(50).optional().or(z.literal('')),
   make: z.string().trim().max(100).optional().or(z.literal('')),
   model: z.string().trim().max(100).optional().or(z.literal('')),
+  model_no: z.string().trim().max(100).optional().or(z.literal('')),
   body_type: z.string().trim().max(100).optional().or(z.literal('')),
   color: z.string().trim().max(50).optional().or(z.literal('')),
   manufacture_year: optionalText,
   usage_type: z.string().trim().max(100).optional().or(z.literal('')),
+  motor_usage_code: z.enum(['1', '2']).optional().or(z.literal('')),
   vehicle_category: z.string().trim().max(100).optional().or(z.literal('')),
   seating_capacity: optionalText,
   tonnage: optionalText,
   cubic_capacity: optionalText,
   fuel_type: z.string().trim().max(50).optional().or(z.literal('')),
+  number_of_axles: optionalText,
+  axle_distance: optionalText,
+  tare_weight: optionalText,
+  gross_weight: optionalText,
+  owner_name: z.string().trim().max(150).optional().or(z.literal('')),
+  owner_category: z.enum(['1', '2']).optional().or(z.literal('')),
+  owner_address: z.string().trim().max(255).optional().or(z.literal('')),
   vehicle_value: optionalText,
 });
 
 export function createEmptyMotorDetails(): QuotationFormValues['motor'] {
   return {
     vehicle_id: '',
+    motor_category_code: '',
+    motor_type_code: '1',
     registration_no: '',
     chassis_no: '',
     engine_no: '',
     make: '',
     model: '',
+    model_no: '',
     body_type: '',
     color: '',
     manufacture_year: '',
     usage_type: '',
+    motor_usage_code: '',
     vehicle_category: '',
     seating_capacity: '',
     tonnage: '',
     cubic_capacity: '',
     fuel_type: '',
+    number_of_axles: '',
+    axle_distance: '',
+    tare_weight: '',
+    gross_weight: '',
+    owner_name: '',
+    owner_category: '',
+    owner_address: '',
     vehicle_value: '',
   };
 }
@@ -414,6 +440,53 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
 
     values.risks.forEach((row, index) => {
       if (!row.sum_insured?.trim()) {
+        row.discounts_offered.forEach((discount, discountIndex) => {
+          if (!discount.discount_type?.trim()) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ['risks', index, 'discounts_offered', discountIndex, 'discount_type'],
+              message: 'Discount type is required',
+            });
+            return;
+          }
+
+          if (discount.discount_type !== '1') {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ['risks', index, 'discounts_offered', discountIndex, 'discount_type'],
+              message: 'Only Fleet discount is currently supported',
+            });
+          }
+        });
+
+        row.taxes_charged.forEach((tax, taxIndex) => {
+          if (!tax.tax_code?.trim()) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ['risks', index, 'taxes_charged', taxIndex, 'tax_code'],
+              message: 'Tax code is required',
+            });
+            return;
+          }
+
+          if (!isSupportedTaxCode(tax.tax_code)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ['risks', index, 'taxes_charged', taxIndex, 'tax_code'],
+              message: 'Select a supported tax code',
+            });
+            return;
+          }
+
+          const expectedRate = getTaxRateForCode(tax.tax_code);
+          if (tax.tax_rate !== expectedRate) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ['risks', index, 'taxes_charged', taxIndex, 'tax_rate'],
+              message: `Tax rate must be ${expectedRate} for ${tax.tax_code}`,
+            });
+          }
+        });
         return;
       }
 
@@ -425,6 +498,54 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
           message: 'Sum insured must be zero or a positive number',
         });
       }
+
+      row.discounts_offered.forEach((discount, discountIndex) => {
+        if (!discount.discount_type?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['risks', index, 'discounts_offered', discountIndex, 'discount_type'],
+            message: 'Discount type is required',
+          });
+          return;
+        }
+
+        if (discount.discount_type !== '1') {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['risks', index, 'discounts_offered', discountIndex, 'discount_type'],
+            message: 'Only Fleet discount is currently supported',
+          });
+        }
+      });
+
+      row.taxes_charged.forEach((tax, taxIndex) => {
+        if (!tax.tax_code?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['risks', index, 'taxes_charged', taxIndex, 'tax_code'],
+            message: 'Tax code is required',
+          });
+          return;
+        }
+
+        if (!isSupportedTaxCode(tax.tax_code)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['risks', index, 'taxes_charged', taxIndex, 'tax_code'],
+            message: 'Select a supported tax code',
+          });
+          return;
+        }
+
+        const expectedRate = getTaxRateForCode(tax.tax_code);
+        if (tax.tax_rate !== expectedRate) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['risks', index, 'taxes_charged', taxIndex, 'tax_rate'],
+            message: `Tax rate must be ${expectedRate} for ${tax.tax_code}`,
+          });
+        }
+      });
     });
 
     if (
@@ -486,6 +607,24 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
             path: ['addons', index, 'taxes', taxIndex, 'tax_code'],
             message: 'Tax code is required',
           });
+          return;
+        }
+        if (!isSupportedTaxCode(tax.tax_code)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['addons', index, 'taxes', taxIndex, 'tax_code'],
+            message: 'Select a supported tax code',
+          });
+          return;
+        }
+
+        const expectedRate = getTaxRateForCode(tax.tax_code);
+        if (tax.tax_rate !== expectedRate) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['addons', index, 'taxes', taxIndex, 'tax_rate'],
+            message: `Tax rate must be ${expectedRate} for ${tax.tax_code}`,
+          });
         }
         if (!tax.is_tax_exempted) {
           const rate = Number(tax.tax_rate);
@@ -516,6 +655,20 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
             code: z.ZodIssueCode.custom,
             path: ['motor', 'chassis_no'],
             message: 'Chassis number is required',
+          });
+        }
+        if (!values.motor.motor_category_code?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['motor', 'motor_category_code'],
+            message: 'Motor category is required',
+          });
+        }
+        if (!values.motor.motor_type_code?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['motor', 'motor_type_code'],
+            message: 'Motor type is required',
           });
         }
         if (!values.motor.make?.trim()) {

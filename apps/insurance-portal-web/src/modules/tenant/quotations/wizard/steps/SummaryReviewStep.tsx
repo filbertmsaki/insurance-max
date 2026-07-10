@@ -130,14 +130,15 @@ export function SummaryReviewStep({
             </p>
           ) : (
             <p>
-              {values.policyholder.customer_type === 'CORPORATE'
-                ? values.policyholder.company_name || 'New corporate customer'
-                : [
-                    values.policyholder.first_name,
-                    values.policyholder.last_name,
-                  ]
-                    .filter(Boolean)
-                    .join(' ') || 'New individual customer'}
+              {values.policyholder.full_name ||
+                (values.policyholder.customer_type === 'CORPORATE'
+                  ? values.policyholder.company_name || 'New corporate customer'
+                  : [
+                      values.policyholder.first_name,
+                      values.policyholder.last_name,
+                    ]
+                      .filter(Boolean)
+                      .join(' ') || 'New individual customer')}
               {' — '}
               {values.policyholder.phone || 'no phone'}
             </p>

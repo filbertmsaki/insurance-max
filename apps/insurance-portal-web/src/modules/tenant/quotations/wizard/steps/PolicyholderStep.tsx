@@ -1,6 +1,5 @@
 import type { FieldPath, UseFormReturn } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -8,8 +7,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   CUSTOMER_ID_TYPE_OPTIONS,
   getCustomerDisplayName,
-  getCustomerIdFieldName,
-  type CustomerIdType,
   type CustomerRecord,
 } from '@/modules/tenant/customers/types';
 import type { QuotationFormSchemaValues } from '../../schemas';
@@ -19,7 +16,7 @@ interface Props {
   customerOptions: CustomerRecord[];
 }
 
-// Dynamic nested paths (policyholder.first_name, policyholder.nida_no, ...) can't be
+// Dynamic nested paths (policyholder.full_name, policyholder.id_number, ...) can't be
 // enumerated as a literal union without duplicating every CustomerFormValues key here,
 // so this cast is the pragmatic bridge into RHF's FieldPath type for a dynamic name.
 function fieldName(name: string): FieldPath<QuotationFormSchemaValues> {
@@ -30,13 +27,31 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
   const mode = form.watch('policyholder_mode');
   const customerId = form.watch('customer_id');
   const selectedCustomer = customerOptions.find((c) => c.id === customerId);
+  const today = new Date().toISOString().slice(0, 10);
 
   const customerType = form.watch('policyholder.customer_type');
-  const idType = form.watch('policyholder.id_type');
-  const selectedIdField = getCustomerIdFieldName(customerType, idType as CustomerIdType | '');
+  const currentIdType = form.watch('policyholder.id_type');
   const idFieldOptions = CUSTOMER_ID_TYPE_OPTIONS.filter(
     (option) => option.appliesTo === 'BOTH' || option.appliesTo === customerType,
   );
+
+  function handleCustomerTypeChange(nextType: 'INDIVIDUAL' | 'CORPORATE') {
+    form.setValue('policyholder.customer_type', nextType);
+
+    const idTypeStillValid = CUSTOMER_ID_TYPE_OPTIONS.some(
+      (option) =>
+        option.value === currentIdType &&
+        (option.appliesTo === 'BOTH' || option.appliesTo === nextType),
+    );
+
+    if (!idTypeStillValid) {
+      form.setValue('policyholder.id_type', '');
+    }
+
+    if (nextType === 'CORPORATE') {
+      form.setValue('policyholder.gender', '');
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -137,7 +152,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => form.setValue('policyholder.customer_type', option.value)}
+                    onClick={() => handleCustomerTypeChange(option.value)}
                     className={[
                       'rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
                       customerType === option.value
@@ -151,89 +166,46 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
               </div>
             </div>
 
-            {customerType === 'INDIVIDUAL' ? (
-              <>
-                <FormField control={form.control} name={fieldName('first_name')} render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>First Name</FormLabel>
-                    <FormControl><Input {...field} value={field.value as string} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name={fieldName('middle_name')} render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Middle Name (optional)</FormLabel>
-                    <FormControl><Input {...field} value={field.value as string} /></FormControl>
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name={fieldName('last_name')} render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Last Name</FormLabel>
-                    <FormControl><Input {...field} value={field.value as string} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name={fieldName('gender')} render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Gender</FormLabel>
-                    <Select value={(field.value as string) || undefined} onValueChange={field.onChange}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="M">Male</SelectItem>
-                        <SelectItem value="F">Female</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name={fieldName('date_of_birth')} render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Date of Birth</FormLabel>
-                    <FormControl><Input type="date" {...field} value={field.value as string} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name={fieldName('nationality')} render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nationality (optional)</FormLabel>
-                    <FormControl><Input {...field} value={field.value as string} /></FormControl>
-                  </FormItem>
-                )} />
-              </>
-            ) : (
-              <>
-                <FormField control={form.control} name={fieldName('company_name')} render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Company Name</FormLabel>
-                    <FormControl><Input {...field} value={field.value as string} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name={fieldName('registration_no')} render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Registration No (optional)</FormLabel>
-                    <FormControl><Input {...field} value={field.value as string} /></FormControl>
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name={fieldName('incorporation_certificate_no')} render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Incorporation Certificate No (optional)</FormLabel>
-                    <FormControl><Input {...field} value={field.value as string} /></FormControl>
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name={fieldName('tin')} render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>TIN (optional)</FormLabel>
-                    <FormControl><Input {...field} value={field.value as string} /></FormControl>
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name={fieldName('vrn')} render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>VRN (optional)</FormLabel>
-                    <FormControl><Input {...field} value={field.value as string} /></FormControl>
-                  </FormItem>
-                )} />
-              </>
+            <FormField control={form.control} name={fieldName('full_name')} render={({ field }) => (
+              <FormItem className="md:col-span-2">
+                <FormLabel>Full Name</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    value={field.value as string}
+                    placeholder={
+                      customerType === 'INDIVIDUAL'
+                        ? 'Augustino Aidan Mwageni'
+                        : 'KISWIGU Company Ltd'
+                    }
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <FormField control={form.control} name={fieldName('date_of_birth')} render={({ field }) => (
+              <FormItem>
+                <FormLabel>Date of Birth / Incorporation Date</FormLabel>
+                <FormControl><Input type="date" max={today} {...field} value={field.value as string} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            {customerType === 'INDIVIDUAL' && (
+              <FormField control={form.control} name={fieldName('gender')} render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Gender</FormLabel>
+                  <Select value={(field.value as string) || undefined} onValueChange={field.onChange}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="M">Male</SelectItem>
+                      <SelectItem value="F">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
             )}
 
             <FormField control={form.control} name={fieldName('id_type')} render={({ field }) => (
@@ -254,15 +226,13 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
               </FormItem>
             )} />
 
-            {selectedIdField && (
-              <FormField control={form.control} name={fieldName(selectedIdField)} render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{idFieldOptions.find((o) => o.field === selectedIdField)?.label} Number</FormLabel>
-                  <FormControl><Input {...field} value={field.value as string} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            )}
+            <FormField control={form.control} name={fieldName('id_number')} render={({ field }) => (
+              <FormItem>
+                <FormLabel>Identification Number</FormLabel>
+                <FormControl><Input {...field} value={field.value as string} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
 
             <FormField control={form.control} name={fieldName('phone')} render={({ field }) => (
               <FormItem>
@@ -271,17 +241,17 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
                 <FormMessage />
               </FormItem>
             )} />
-            <FormField control={form.control} name={fieldName('alternate_phone')} render={({ field }) => (
-              <FormItem>
-                <FormLabel>Alternate Phone (optional)</FormLabel>
-                <FormControl><Input {...field} value={field.value as string} /></FormControl>
-              </FormItem>
-            )} />
             <FormField control={form.control} name={fieldName('email')} render={({ field }) => (
               <FormItem>
                 <FormLabel>Email (optional)</FormLabel>
                 <FormControl><Input type="email" {...field} value={field.value as string} /></FormControl>
                 <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name={fieldName('fax')} render={({ field }) => (
+              <FormItem>
+                <FormLabel>Fax (optional)</FormLabel>
+                <FormControl><Input {...field} value={field.value as string} /></FormControl>
               </FormItem>
             )} />
 
@@ -306,12 +276,6 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
                 <FormMessage />
               </FormItem>
             )} />
-            <FormField control={form.control} name={fieldName('ward')} render={({ field }) => (
-              <FormItem>
-                <FormLabel>Ward (optional)</FormLabel>
-                <FormControl><Input {...field} value={field.value as string} /></FormControl>
-              </FormItem>
-            )} />
             <FormField control={form.control} name={fieldName('street')} render={({ field }) => (
               <FormItem>
                 <FormLabel>Street (optional)</FormLabel>
@@ -319,18 +283,10 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
               </FormItem>
             )} />
             <FormField control={form.control} name={fieldName('postal_address')} render={({ field }) => (
-              <FormItem>
-                <FormLabel>Postal Address (optional)</FormLabel>
+              <FormItem className="md:col-span-2">
+                <FormLabel>Postal Address</FormLabel>
                 <FormControl><Input {...field} value={field.value as string} /></FormControl>
-              </FormItem>
-            )} />
-
-            <FormField control={form.control} name={fieldName('document_verified')} render={({ field }) => (
-              <FormItem className="flex items-center gap-2 md:col-span-2">
-                <FormControl>
-                  <Checkbox checked={field.value as boolean} onCheckedChange={field.onChange} />
-                </FormControl>
-                <FormLabel className="!mt-0">Identity document verified</FormLabel>
+                <FormMessage />
               </FormItem>
             )} />
           </CardContent>

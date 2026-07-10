@@ -84,6 +84,39 @@ export class MotorVehicle {
   @Column({ type: 'varchar', length: 50, nullable: true })
   fuel_type: string | null;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  model_no: string | null;
+
+  @Column({ type: 'smallint', nullable: true })
+  number_of_axles: number | null;
+
+  @Column({ type: 'numeric', precision: 10, scale: 2, nullable: true })
+  axle_distance: string | null;
+
+  @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true })
+  tare_weight: string | null;
+
+  @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true })
+  gross_weight: string | null;
+
+  @Column({ type: 'smallint', nullable: true })
+  motor_category: number | null;
+
+  @Column({ type: 'smallint', nullable: true })
+  motor_type: number | null;
+
+  @Column({ type: 'smallint', nullable: true })
+  motor_usage: number | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  owner_name: string | null;
+
+  @Column({ type: 'smallint', nullable: true })
+  owner_category: number | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  owner_address: string | null;
+
   @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
   vehicle_value: string;
 

@@ -78,6 +78,50 @@ export class CreateMotorVehicleDto {
   fuel_type?: string | null;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  model_no?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  number_of_axles?: number | null;
+
+  @IsOptional()
+  axle_distance?: number | string | null;
+
+  @IsOptional()
+  tare_weight?: number | string | null;
+
+  @IsOptional()
+  gross_weight?: number | string | null;
+
+  @IsOptional()
+  @IsInt()
+  motor_category?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  motor_type?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  motor_usage?: number | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  owner_name?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  owner_category?: number | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  owner_address?: string | null;
+
+  @IsOptional()
   vehicle_value?: number | string | null;
 
   @IsOptional()

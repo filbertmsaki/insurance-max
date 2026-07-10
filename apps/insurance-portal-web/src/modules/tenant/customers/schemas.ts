@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import {
+  getCustomerFullName,
   getCustomerIdFieldName,
+  splitCustomerFullName,
   type CustomerFormValues,
   type CustomerIdType,
   type CustomerPayload,
@@ -19,6 +21,7 @@ const optionalText = z.string().trim().max(255).optional().or(z.literal(''));
 export const customerFormObjectSchema = z.object({
     customer_type: z.enum(['INDIVIDUAL', 'CORPORATE']),
     customer_no: z.string().optional().or(z.literal('')),
+    full_name: z.string().trim().max(150).optional().or(z.literal('')),
     first_name: z.string().trim().max(50).optional().or(z.literal('')),
     middle_name: z.string().trim().max(50).optional().or(z.literal('')),
     last_name: z.string().trim().max(50).optional().or(z.literal('')),
@@ -75,39 +78,75 @@ export const customerFormObjectSchema = z.object({
 
 export const customerFormSchema = customerFormObjectSchema.superRefine((values, ctx) => {
     const text = (value?: string | null) => (value ?? '').trim();
+    const fullName = text(values.full_name);
+    const nameParts = fullName ? fullName.split(/\s+/).filter(Boolean) : [];
     const isIndividual = values.customer_type === 'INDIVIDUAL';
     const isCorporate = values.customer_type === 'CORPORATE';
+    const today = new Date().toISOString().slice(0, 10);
     const idField = getCustomerIdFieldName(
       values.customer_type,
       values.id_type as CustomerIdType | '',
     );
     const idSpecificValue =
       idField ? text((values as unknown as Record<string, string | undefined>)[idField]) : '';
+    const resolvedIdNumber = text(values.id_number) || idSpecificValue;
+
+    if (values.id_type && !idField) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['id_type'],
+        message: 'Select a valid identification type for this policyholder type',
+      });
+    }
 
     if (isIndividual) {
-      if (!text(values.first_name)) ctx.addIssue({ code: 'custom', path: ['first_name'], message: 'First name is required' });
-      if (!text(values.last_name)) ctx.addIssue({ code: 'custom', path: ['last_name'], message: 'Last name is required' });
+      if (!fullName && !text(values.first_name) && !text(values.last_name)) {
+        ctx.addIssue({ code: 'custom', path: ['full_name'], message: 'Full name is required' });
+      }
+      if (fullName && nameParts.length < 2) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['full_name'],
+          message: 'Enter at least first and last name',
+        });
+      }
       if (!values.gender) ctx.addIssue({ code: 'custom', path: ['gender'], message: 'Gender is required' });
       if (!values.date_of_birth) ctx.addIssue({ code: 'custom', path: ['date_of_birth'], message: 'Date of birth is required' });
+      if (values.date_of_birth && values.date_of_birth > today) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['date_of_birth'],
+          message: 'Date of birth cannot be in the future',
+        });
+      }
       if (!values.id_type) ctx.addIssue({ code: 'custom', path: ['id_type'], message: 'ID type is required' });
-      if (!text(values.id_number)) ctx.addIssue({ code: 'custom', path: ['id_number'], message: 'ID number is required' });
+      if (!resolvedIdNumber) ctx.addIssue({ code: 'custom', path: ['id_number'], message: 'ID number is required' });
       if (!text(values.phone)) ctx.addIssue({ code: 'custom', path: ['phone'], message: 'Phone is required' });
       if (!text(values.country_code)) ctx.addIssue({ code: 'custom', path: ['country_code'], message: 'Country code is required' });
       if (!text(values.region)) ctx.addIssue({ code: 'custom', path: ['region'], message: 'Region is required' });
       if (!text(values.district)) ctx.addIssue({ code: 'custom', path: ['district'], message: 'District is required' });
-      if (values.id_type && !idSpecificValue) {
-        ctx.addIssue({
-          code: 'custom',
-          path: [idField ?? 'id_number'],
-          message: `Please enter the ${idField ?? 'selected'} value`,
-        });
-      }
     }
 
     if (isCorporate) {
-      if (!text(values.company_name)) ctx.addIssue({ code: 'custom', path: ['company_name'], message: 'Company name is required' });
+      if (!fullName && !text(values.company_name)) {
+        ctx.addIssue({ code: 'custom', path: ['full_name'], message: 'Full name is required' });
+      }
       if (!values.id_type) ctx.addIssue({ code: 'custom', path: ['id_type'], message: 'ID type is required' });
-      if (!text(values.id_number)) ctx.addIssue({ code: 'custom', path: ['id_number'], message: 'ID number is required' });
+      if (!resolvedIdNumber) ctx.addIssue({ code: 'custom', path: ['id_number'], message: 'ID number is required' });
+      if (!values.date_of_birth) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['date_of_birth'],
+          message: 'Date of birth / incorporation date is required',
+        });
+      }
+      if (values.date_of_birth && values.date_of_birth > today) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['date_of_birth'],
+          message: 'Date of birth / incorporation date cannot be in the future',
+        });
+      }
       if (!text(values.phone)) ctx.addIssue({ code: 'custom', path: ['phone'], message: 'Phone is required' });
       if (!text(values.country_code)) ctx.addIssue({ code: 'custom', path: ['country_code'], message: 'Country code is required' });
       if (!text(values.region)) ctx.addIssue({ code: 'custom', path: ['region'], message: 'Region is required' });
@@ -119,6 +158,7 @@ export function getCustomerDefaultValues(customer?: Partial<CustomerRecord> | nu
   return {
     customer_type: customer?.customer_type ?? 'INDIVIDUAL',
     customer_no: customer?.customer_no ?? '',
+    full_name: getCustomerFullName(customer ?? null),
     first_name: customer?.first_name ?? '',
     middle_name: customer?.middle_name ?? '',
     last_name: customer?.last_name ?? '',
@@ -169,6 +209,8 @@ function normalizeText(value: string) {
 }
 
 export function buildCustomerPayload(values: CustomerFormValues): CustomerPayload {
+  const fullName = normalizeText(values.full_name) ?? '';
+  const derivedNames = fullName ? splitCustomerFullName(fullName) : null;
   const idType = (values.id_type || 1) as CustomerIdType;
   const idField = getCustomerIdFieldName(values.customer_type, idType);
   const formValues = values as unknown as Record<string, string>;
@@ -190,13 +232,23 @@ export function buildCustomerPayload(values: CustomerFormValues): CustomerPayloa
     status: values.status,
   } as CustomerPayload & Record<string, string | number | boolean | null | undefined>;
 
-  if (normalizeText(values.first_name)) payload.first_name = normalizeText(values.first_name);
-  if (normalizeText(values.middle_name)) payload.middle_name = normalizeText(values.middle_name);
-  if (normalizeText(values.last_name)) payload.last_name = normalizeText(values.last_name);
+  if (values.customer_type === 'INDIVIDUAL') {
+    const firstName = normalizeText(values.first_name) ?? derivedNames?.first_name;
+    const middleName = normalizeText(values.middle_name) ?? derivedNames?.middle_name;
+    const lastName = normalizeText(values.last_name) ?? derivedNames?.last_name;
+
+    if (firstName) payload.first_name = firstName;
+    if (middleName) payload.middle_name = middleName;
+    if (lastName) payload.last_name = lastName;
+  }
+
   if (values.gender) payload.gender = values.gender;
   if (values.date_of_birth) payload.date_of_birth = values.date_of_birth;
   if (normalizeText(values.nationality)) payload.nationality = normalizeText(values.nationality);
-  if (normalizeText(values.company_name)) payload.company_name = normalizeText(values.company_name);
+  if (values.customer_type === 'CORPORATE') {
+    const companyName = normalizeText(values.company_name) ?? fullName;
+    if (companyName) payload.company_name = companyName;
+  }
   if (normalizeText(values.registration_no)) payload.registration_no = normalizeText(values.registration_no);
   if (normalizeText(values.incorporation_certificate_no)) payload.incorporation_certificate_no = normalizeText(values.incorporation_certificate_no);
   if (normalizeText(values.tin)) payload.tin = normalizeText(values.tin);

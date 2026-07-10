@@ -425,20 +425,31 @@ export interface QuotationWizardAddonRow {
  */
 export interface QuotationWizardMotorDetails {
   vehicle_id: string;
+  motor_category_code: string;
+  motor_type_code: string;
   registration_no: string;
   chassis_no: string;
   engine_no: string;
   make: string;
   model: string;
+  model_no: string;
   body_type: string;
   color: string;
   manufacture_year: string;
   usage_type: string;
+  motor_usage_code: string;
   vehicle_category: string;
   seating_capacity: string;
   tonnage: string;
   cubic_capacity: string;
   fuel_type: string;
+  number_of_axles: string;
+  axle_distance: string;
+  tare_weight: string;
+  gross_weight: string;
+  owner_name: string;
+  owner_category: string;
+  owner_address: string;
   vehicle_value: string;
 }
 

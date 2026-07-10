@@ -99,6 +99,7 @@ export interface CustomerListParams {
 export interface CustomerFormValues {
   customer_type: CustomerType;
   customer_no?: string;
+  full_name: string;
   first_name: string;
   middle_name: string;
   last_name: string;
@@ -230,15 +231,45 @@ export const CUSTOMER_ID_TYPE_OPTIONS: {
   field: CustomerIdField;
   appliesTo: CustomerType | 'BOTH';
 }[] = [
-  { value: 1, label: 'NIDA', field: 'nida_no', appliesTo: 'INDIVIDUAL' },
-  { value: 2, label: 'Voter ID', field: 'voter_no', appliesTo: 'INDIVIDUAL' },
-  { value: 3, label: 'Passport', field: 'passport_no', appliesTo: 'INDIVIDUAL' },
-  { value: 4, label: 'Driving License', field: 'driving_license_no', appliesTo: 'INDIVIDUAL' },
-  { value: 5, label: 'ZANID', field: 'zanid_no', appliesTo: 'INDIVIDUAL' },
-  { value: 6, label: 'TIN', field: 'tin', appliesTo: 'CORPORATE' },
+  {
+    value: 1,
+    label: 'National Identification Number (NIN)',
+    field: 'nida_no',
+    appliesTo: 'INDIVIDUAL',
+  },
+  {
+    value: 2,
+    label: 'Voters Registration Number',
+    field: 'voter_no',
+    appliesTo: 'INDIVIDUAL',
+  },
+  {
+    value: 3,
+    label: 'Passport Number',
+    field: 'passport_no',
+    appliesTo: 'INDIVIDUAL',
+  },
+  {
+    value: 4,
+    label: 'Driving License',
+    field: 'driving_license_no',
+    appliesTo: 'INDIVIDUAL',
+  },
+  {
+    value: 5,
+    label: 'Zanzibar Resident ID (ZANID)',
+    field: 'zanid_no',
+    appliesTo: 'INDIVIDUAL',
+  },
+  {
+    value: 6,
+    label: 'Tax Identification Number (TIN)',
+    field: 'tin',
+    appliesTo: 'CORPORATE',
+  },
   {
     value: 7,
-    label: 'Incorporation Certificate',
+    label: 'Company Incorporation Certificate Number',
     field: 'incorporation_certificate_no',
     appliesTo: 'CORPORATE',
   },
@@ -255,6 +286,12 @@ export function getCustomerIdFieldName(
 }
 
 export function getCustomerDisplayName(customer: Pick<CustomerRecord, 'customer_type' | 'first_name' | 'middle_name' | 'last_name' | 'company_name'>) {
+  const fullName = getCustomerFullName(customer);
+
+  if (fullName) {
+    return fullName;
+  }
+
   if (customer.customer_type === 'CORPORATE') {
     return customer.company_name || 'Corporate Customer';
   }
@@ -262,4 +299,56 @@ export function getCustomerDisplayName(customer: Pick<CustomerRecord, 'customer_
   return [customer.first_name, customer.middle_name, customer.last_name]
     .filter(Boolean)
     .join(' ') || 'Individual Customer';
+}
+
+export function getCustomerFullName(
+  customer:
+    | Partial<
+        Pick<
+          CustomerRecord,
+          'customer_type' | 'first_name' | 'middle_name' | 'last_name' | 'company_name'
+        >
+      >
+    | null
+    | undefined,
+) {
+  if (!customer) return '';
+
+  if (customer.customer_type === 'CORPORATE') {
+    return customer.company_name?.trim() ?? '';
+  }
+
+  return [customer.first_name, customer.middle_name, customer.last_name]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(' ');
+}
+
+export function splitCustomerFullName(fullName: string) {
+  const parts = fullName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return {
+      first_name: '',
+      middle_name: '',
+      last_name: '',
+    };
+  }
+
+  if (parts.length === 1) {
+    return {
+      first_name: parts[0],
+      middle_name: '',
+      last_name: '',
+    };
+  }
+
+  return {
+    first_name: parts[0],
+    middle_name: parts.slice(1, -1).join(' '),
+    last_name: parts[parts.length - 1],
+  };
 }
