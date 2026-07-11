@@ -1,9 +1,9 @@
 export const APP_NAME = import.meta.env.VITE_APP_NAME ?? 'Insurance Portal';
 export const APP_ENV = import.meta.env.VITE_APP_ENV ?? 'development';
-export const APP_PORT = import.meta.env.VITE_APP_PORT ?? '9091';
-export const APP_URL = import.meta.env.VITE_APP_URL ?? 'http://localhost:9091';
+export const APP_PORT = import.meta.env.VITE_APP_PORT ?? '9092';
+export const APP_URL = import.meta.env.VITE_APP_URL ?? 'http://localhost:9092';
 export const FRONTEND_URL =
-  import.meta.env.VITE_FRONTEND_URL ?? 'http://localhost:9091';
+  import.meta.env.VITE_FRONTEND_URL ?? 'http://localhost:9092';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 export const API_BASE_URL_DEV =

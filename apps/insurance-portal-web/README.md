@@ -5,8 +5,8 @@ Standalone frontend service for the Insurance Portal microservice architecture.
 ## Service details
 
 - Service name: `insurance-portal-web`
-- Port: `9091`
-- Frontend URL: `http://localhost:9091`
+- Port: `9092`
+- Frontend URL: `http://localhost:9092`
 - Backend portal service URL: `http://localhost:9090`
 - API base path: `/api/v1`
 
@@ -38,7 +38,7 @@ cp .env-example .env
 
 ## Development
 
-Run the service locally on port `9091`:
+Run the service locally on port `9092`:
 
 ```bash
 npm run dev
@@ -65,15 +65,15 @@ npm run preview
 ## Notes
 
 - The frontend uses `src/api/client.ts` with a centralized `VITE_API_BASE_URL`.
-- The backend portal service must allow CORS from `http://localhost:9091`.
+- The backend portal service must allow CORS from `http://localhost:9092`.
 - Authentication and token refresh are handled centrally in `src/api/client.ts`.
 - Existing routes, auth flow, and UI behavior are preserved.
 
 ## Troubleshooting
 
-- If the app does not start on port `9091`, verify `vite.config.ts` contains `server.port: 9091`.
+- If the app does not start on port `9092`, verify `vite.config.ts` contains `server.port: 9092`.
 - If API calls fail, verify `.env` contains the correct `VITE_API_BASE_URL` and the backend is running on `http://localhost:9090`.
-- For CORS issues, ensure the backend `CORS_ORIGIN` includes `http://localhost:9091`.
+- For CORS issues, ensure the backend `CORS_ORIGIN` includes `http://localhost:9092`.
 
 You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
