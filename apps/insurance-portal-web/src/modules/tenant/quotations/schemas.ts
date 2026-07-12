@@ -4,11 +4,16 @@ import {
   customerFormSchema,
   getCustomerDefaultValues,
 } from '../customers/schemas';
+import { getCustomerFullName } from '../customers/types';
+import type { CustomerRecord } from '../customers/types';
+import type { MotorVehicleRecord } from '../motor/types';
 import {
   getTaxRateForCode,
   isSupportedTaxCode,
 } from './wizard/utils/taxOptions';
 import type {
+  FlatQuotationPayload,
+  MotorCoverNoteQuotationPayload,
   QuotationFormValues,
   QuotationPayload,
   QuotationRiskFormRow,
@@ -932,6 +937,461 @@ function sumRiskTaxes(values: QuotationFormSchemaValues['risks']) {
   );
 }
 
+type MotorQuotationPayloadContext = {
+  salePointCode?: string | null;
+  productCode?: string | null;
+  coverNoteDesc?: string | null;
+  operativeClause?: string | null;
+  existingCustomer?: CustomerRecord | null;
+  existingVehicle?: MotorVehicleRecord | null;
+};
+
+function toMotorDateTime(value: string | null | undefined, endOfDay: boolean) {
+  if (!value) return '';
+  return `${value}T${endOfDay ? '23:59:59' : '00:00:00'}`;
+}
+
+function toMotorNumber(value: string | number | null | undefined) {
+  return normalizeNumber(value) ?? 0;
+}
+
+function toMotorNullableNumber(value: string | number | null | undefined) {
+  return normalizeNumber(value) ?? null;
+}
+
+function buildMotorPolicyHolder(
+  values: QuotationFormSchemaValues,
+  existingCustomer?: CustomerRecord | null,
+) {
+  if (values.policyholder_mode === 'existing' && existingCustomer) {
+    return {
+      policy_holder_name:
+        getCustomerFullName(existingCustomer) ||
+        existingCustomer.company_name ||
+        '',
+      policy_holder_birth_date: existingCustomer.date_of_birth || null,
+      policy_holder_type:
+        existingCustomer.policy_holder_type ??
+        (existingCustomer.customer_type === 'CORPORATE' ? 2 : 1),
+      policy_holder_id_number: existingCustomer.id_number || '',
+      policy_holder_id_type: existingCustomer.id_type ?? null,
+      gender: existingCustomer.gender || null,
+      country_code: existingCustomer.country_code || '',
+      region: existingCustomer.region || '',
+      district: existingCustomer.district || '',
+      street: existingCustomer.street || null,
+      policy_holder_phone_number: existingCustomer.phone || '',
+      policy_holder_fax: existingCustomer.fax || null,
+      postal_address: existingCustomer.postal_address || null,
+      email_address: existingCustomer.email || null,
+    };
+  }
+
+  const policyholder = values.policyholder;
+  const isCorporate = policyholder.customer_type === 'CORPORATE';
+  const policyHolderName = isCorporate
+    ? policyholder.company_name || policyholder.full_name || ''
+    : policyholder.full_name ||
+      [policyholder.first_name, policyholder.middle_name, policyholder.last_name]
+        .filter(Boolean)
+        .join(' ');
+
+  return {
+    policy_holder_name: policyHolderName,
+    policy_holder_birth_date: policyholder.date_of_birth || null,
+    policy_holder_type: isCorporate ? 2 : 1,
+    policy_holder_id_number: policyholder.id_number || '',
+    policy_holder_id_type: normalizeNumber(policyholder.id_type) ?? null,
+    gender: policyholder.gender || null,
+    country_code: policyholder.country_code || '',
+    region: policyholder.region || '',
+    district: policyholder.district || '',
+    street: policyholder.street || null,
+    policy_holder_phone_number: policyholder.phone || '',
+    policy_holder_fax: policyholder.fax || null,
+    postal_address: policyholder.postal_address || null,
+    email_address: policyholder.email || null,
+  };
+}
+
+function buildMotorVehicleDetails(
+  values: QuotationFormSchemaValues,
+  existingCustomer?: CustomerRecord | null,
+  existingVehicle?: MotorVehicleRecord | null,
+) {
+  const motor = values.motor;
+
+  if (values.motor_mode === 'existing' && existingVehicle) {
+    return {
+      motor_category: existingVehicle.motor_category ?? null,
+      motor_type: existingVehicle.motor_type ?? null,
+      registration_number: existingVehicle.registration_no || '',
+      chassis_number: existingVehicle.chassis_no || '',
+      make: existingVehicle.make || '',
+      model: existingVehicle.model || '',
+      model_number: existingVehicle.model_no || null,
+      body_type: existingVehicle.body_type || '',
+      color: existingVehicle.color || '',
+      engine_number: existingVehicle.engine_no || '',
+      engine_capacity:
+        existingVehicle.cubic_capacity != null
+          ? String(existingVehicle.cubic_capacity)
+          : null,
+      fuel_used: existingVehicle.fuel_type || null,
+      number_of_axles: existingVehicle.number_of_axles ?? null,
+      axle_distance: toMotorNullableNumber(existingVehicle.axle_distance),
+      sitting_capacity: existingVehicle.seating_capacity ?? null,
+      year_of_manufacture: existingVehicle.manufacture_year ?? null,
+      tare_weight: toMotorNullableNumber(existingVehicle.tare_weight),
+      gross_weight: toMotorNullableNumber(existingVehicle.gross_weight),
+      motor_usage: existingVehicle.motor_usage ?? null,
+      owner_name:
+        existingVehicle.owner_name ||
+        buildMotorPolicyHolder(values, existingCustomer).policy_holder_name,
+      owner_category: existingVehicle.owner_category ?? null,
+      owner_address: existingVehicle.owner_address || '',
+    };
+  }
+
+  return {
+    motor_category: toMotorNullableNumber(motor.motor_category_code),
+    motor_type: toMotorNullableNumber(motor.motor_type_code),
+    registration_number: motor.registration_no || '',
+    chassis_number: motor.chassis_no || '',
+    make: motor.make || '',
+    model: motor.model || '',
+    model_number: motor.model_no || null,
+    body_type: motor.body_type || '',
+    color: motor.color || '',
+    engine_number: motor.engine_no || '',
+    engine_capacity: motor.cubic_capacity || null,
+    fuel_used: motor.fuel_type || null,
+    number_of_axles: toMotorNullableNumber(motor.number_of_axles),
+    axle_distance: toMotorNullableNumber(motor.axle_distance),
+    sitting_capacity: toMotorNullableNumber(motor.seating_capacity),
+    year_of_manufacture: toMotorNullableNumber(motor.manufacture_year),
+    tare_weight: toMotorNullableNumber(motor.tare_weight),
+    gross_weight: toMotorNullableNumber(motor.gross_weight),
+    motor_usage: toMotorNullableNumber(motor.motor_usage_code),
+    owner_name: motor.owner_name || '',
+    owner_category: toMotorNullableNumber(motor.owner_category),
+    owner_address: motor.owner_address || '',
+  };
+}
+
+function buildMotorRisksCovered(values: QuotationFormSchemaValues) {
+  return values.risks.map((row) => ({
+    risk_code: row.risk_code || '',
+    sum_insured: toMotorNumber(row.sum_insured),
+    sum_insured_equivalent: toMotorNumber(row.sum_insured_equivalent),
+    premium_rate: toMotorNumber(row.premium_rate ?? row.rate),
+    premium_before_discount: toMotorNumber(row.premium_before_discount),
+    premium_after_discount: toMotorNumber(row.premium_after_discount),
+    premium_excluding_tax_equivalent: toMotorNumber(
+      row.premium_excluding_tax_equivalent,
+    ),
+    premium_including_tax: toMotorNumber(
+      row.premium_including_tax ?? row.total_premium,
+    ),
+    discounts_offered: row.discounts_offered
+      .filter((discount) => discount.discount_type)
+      .map((discount) => ({
+        discount_type: toMotorNumber(discount.discount_type),
+        discount_rate: toMotorNumber(discount.discount_rate),
+        discount_amount: toMotorNumber(discount.discount_amount),
+      })),
+    taxes_charged: row.taxes_charged
+      .filter((tax) => tax.tax_code)
+      .map((tax) => ({
+        tax_code: tax.tax_code || '',
+        is_tax_exempted: (tax.is_tax_exempted ? 'Y' : 'N') as 'Y' | 'N',
+        tax_exemption_type: tax.is_tax_exempted
+          ? toMotorNullableNumber(tax.tax_exemption_type)
+          : null,
+        tax_exemption_reference: tax.is_tax_exempted
+          ? tax.tax_exemption_reference || null
+          : null,
+        tax_rate: toMotorNumber(tax.tax_rate),
+        tax_amount: toMotorNumber(
+          tax.tax_amount ?? toMotorNumber(row.premium_excluding_tax_equivalent) * toMotorNumber(tax.tax_rate),
+        ),
+      })),
+  }));
+}
+
+function buildMotorAddons(values: QuotationFormSchemaValues) {
+  return values.addons
+    .filter((addon) => addon.enabled)
+      .map((addon) => ({
+        addon_reference: addon.addon_reference || '',
+        addon_desc: addon.addon_desc || '',
+        addon_amount: toMotorNumber(addon.addon_amount),
+        addon_premium_rate: toMotorNumber(addon.addon_premium_rate),
+      premium_excluding_tax: toMotorNumber(addon.premium_excluding_tax),
+      premium_excluding_tax_equivalent: toMotorNumber(
+        addon.premium_excluding_tax,
+      ),
+      premium_including_tax:
+        toMotorNumber(addon.premium_excluding_tax) +
+        addon.taxes.reduce((sum, tax) => sum + toMotorNumber(tax.tax_rate), 0),
+      taxes_charged: addon.taxes
+        .filter((tax) => tax.tax_code)
+        .map((tax) => ({
+          tax_code: tax.tax_code || '',
+          is_tax_exempted: (tax.is_tax_exempted ? 'Y' : 'N') as 'Y' | 'N',
+          tax_exemption_type: tax.is_tax_exempted
+            ? toMotorNullableNumber(tax.tax_exemption_type)
+            : null,
+          tax_exemption_reference: tax.is_tax_exempted
+            ? tax.tax_exemption_reference || null
+            : null,
+          tax_rate: toMotorNumber(tax.tax_rate),
+          tax_amount:
+            toMotorNumber(addon.premium_excluding_tax) *
+            toMotorNumber(tax.tax_rate),
+        })),
+    }));
+}
+
+function buildMotorSubjectMatters(
+  values: QuotationFormSchemaValues,
+  context?: MotorQuotationPayloadContext,
+) {
+  const existingVehicle = context?.existingVehicle;
+  const subjectItems = values.nonMotor.items
+    .filter((item) => item.subject_code || item.description)
+    .map((item) => ({
+      subject_matter_reference: item.subject_code || '',
+      subject_matter_desc: item.description || item.subject_type || '',
+    }));
+
+  if (subjectItems.length > 0) return subjectItems;
+
+  const reference =
+    values.motor.registration_no ||
+    existingVehicle?.registration_no ||
+    values.motor.vehicle_id ||
+    values.product_id ||
+    'MOTOR';
+  const description =
+    values.motor.vehicle_category ||
+    existingVehicle?.vehicle_category ||
+    values.motor.body_type ||
+    existingVehicle?.body_type ||
+    'Motor vehicle';
+
+  return [
+    {
+      subject_matter_reference: reference,
+      subject_matter_desc: description,
+    },
+  ];
+}
+
+function buildFlatQuotationPayload(
+  values: QuotationFormSchemaValues,
+  customerId: string,
+): FlatQuotationPayload {
+  const isFleet = values.quotation_flow === 'MOTOR_FLEET';
+
+  return {
+    insurer_company_id: values.insurer_company_id,
+    intermediary_company_id:
+      normalizeText(values.intermediary_company_id) ?? null,
+    branch_id: normalizeText(values.branch_id) ?? null,
+    department_id: normalizeText(values.department_id) ?? null,
+    customer_id: customerId,
+    category_id: values.category_id,
+    product_id: values.product_id,
+    sub_class_id: normalizeText(values.sub_class_id) ?? null,
+    quotation_type:
+      values.quotation_flow === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR',
+    quotation_flow: values.quotation_flow,
+    is_fleet: isFleet,
+    channel_type: values.channel_type,
+    status: values.status,
+    currency: values.currency.trim().toUpperCase(),
+    exchange_rate: normalizeNumber(values.exchange_rate) ?? 1,
+    cover_note_type: values.cover_note_type,
+    prev_cover_note_reference_number:
+      normalizeText(values.prev_cover_note_reference) ?? null,
+    payment_mode_tira: values.payment_mode_tira,
+    officer_name: normalizeText(values.officer_name) ?? null,
+    officer_title: normalizeText(values.officer_title) ?? null,
+    sum_insured:
+      normalizeNumber(values.sum_insured) ??
+      sumRiskRows(values.risks, 'sum_insured'),
+    basic_premium:
+      (normalizeNumber(values.basic_premium) ??
+        sumRiskRows(values.risks, 'basic_premium')) ||
+      sumRiskRows(values.risks, 'net_premium'),
+    total_discount:
+      normalizeNumber(values.total_discount) ?? sumRiskDiscounts(values.risks),
+    total_tax: normalizeNumber(values.total_tax) ?? sumRiskTaxes(values.risks),
+    total_charges: normalizeNumber(values.total_charges) ?? 0,
+    total_commission: normalizeNumber(values.total_commission) ?? 0,
+    total_premium:
+      (normalizeNumber(values.total_premium) ??
+        sumRiskRows(values.risks, 'total_premium')) ||
+      sumRiskRows(values.risks, 'net_premium'),
+    net_premium:
+      (normalizeNumber(values.net_premium) ??
+        sumRiskRows(values.risks, 'net_premium')) ||
+      sumRiskRows(values.risks, 'total_premium'),
+    valid_from: values.valid_from,
+    valid_until: values.valid_until,
+    rating_version: normalizeText(values.rating_version) ?? null,
+    rating_metadata: {
+      quotation_flow: values.quotation_flow,
+    },
+    rejection_reason: normalizeText(values.rejection_reason) ?? null,
+    risks: values.risks.map((row) => {
+      const discountsOffered = row.discounts_offered.map((discount) => ({
+        discount_type: normalizeText(discount.discount_type) ?? '1',
+        discount_rate: normalizeNumber(discount.discount_rate) ?? 0,
+        discount_amount: normalizeNumber(discount.discount_amount) ?? 0,
+      }));
+      const taxesCharged = row.taxes_charged.map((tax) => ({
+        tax_code: normalizeText(tax.tax_code) ?? '',
+        is_tax_exempted: tax.is_tax_exempted,
+        tax_exemption_type: normalizeText(tax.tax_exemption_type) ?? null,
+        tax_exemption_reference:
+          normalizeText(tax.tax_exemption_reference) ?? null,
+        tax_rate: normalizeNumber(tax.tax_rate) ?? 0,
+        tax_amount: normalizeNumber(tax.tax_amount) ?? 0,
+      }));
+
+      return {
+        client_ref: row.client_ref,
+        risk_id: row.risk_id,
+        subject_matter_id: normalizeText(row.subject_matter_id) ?? null,
+        motor_vehicle_id: normalizeText(row.motor_vehicle_id) ?? null,
+        sum_insured: normalizeNumber(row.sum_insured) ?? 0,
+        rate: normalizeNumber(row.premium_rate ?? row.rate) ?? 0,
+        basic_premium:
+          normalizeNumber(row.premium_after_discount ?? row.basic_premium) ?? 0,
+        discount_amount:
+          discountsOffered.reduce(
+            (sum, discount) => sum + discount.discount_amount,
+            0,
+          ) ||
+          normalizeNumber(row.discount_amount) ||
+          0,
+        tax_amount:
+          taxesCharged.reduce((sum, tax) => sum + tax.tax_amount, 0) ||
+          normalizeNumber(row.tax_amount) ||
+          0,
+        charges_amount: normalizeNumber(row.charges_amount) ?? 0,
+        commission_amount: normalizeNumber(row.commission_amount) ?? 0,
+        total_premium:
+          normalizeNumber(row.premium_including_tax ?? row.total_premium) ?? 0,
+        net_premium: normalizeNumber(row.net_premium) ?? 0,
+        rating_result_metadata: {
+          risk_code: normalizeText(row.risk_code) ?? '',
+          sum_insured_equivalent:
+            normalizeNumber(row.sum_insured_equivalent) ?? 0,
+          premium_rate: normalizeNumber(row.premium_rate) ?? 0,
+          premium_before_discount:
+            normalizeNumber(row.premium_before_discount) ?? 0,
+          premium_after_discount:
+            normalizeNumber(row.premium_after_discount) ?? 0,
+          premium_excluding_tax_equivalent:
+            normalizeNumber(row.premium_excluding_tax_equivalent) ?? 0,
+          premium_including_tax:
+            normalizeNumber(row.premium_including_tax) ?? 0,
+          discounts_offered: discountsOffered,
+          taxes_charged: taxesCharged,
+        },
+      };
+    }),
+    addons: values.addons
+      .filter((addon) => addon.enabled)
+      .map((addon) => ({
+        addon_reference: addon.addon_reference ?? '',
+        addon_desc: addon.addon_desc ?? '',
+        addon_amount: normalizeNumber(addon.addon_amount) ?? 0,
+        addon_premium_rate: normalizeNumber(addon.addon_premium_rate) ?? 0,
+        premium_excluding_tax:
+          normalizeNumber(addon.premium_excluding_tax) ?? 0,
+        premium_excluding_tax_equivalent:
+          normalizeNumber(addon.premium_excluding_tax) ?? 0,
+        premium_including_tax:
+          (normalizeNumber(addon.premium_excluding_tax) ?? 0) +
+          addon.taxes.reduce(
+            (sum, tax) => sum + (normalizeNumber(tax.tax_rate) ?? 0),
+            0,
+          ),
+        taxes: addon.taxes.map((tax) => ({
+          tax_code: tax.tax_code ?? '',
+          is_tax_exempted: tax.is_tax_exempted,
+          tax_exemption_type: normalizeText(tax.tax_exemption_type) ?? null,
+          tax_exemption_reference:
+            normalizeText(tax.tax_exemption_reference) ?? null,
+          tax_rate: normalizeNumber(tax.tax_rate) ?? 0,
+          tax_amount: 0,
+        })),
+      })),
+  };
+}
+
+function buildMotorCoverNotePayload(
+  values: QuotationFormSchemaValues,
+  customerId: string,
+  context: MotorQuotationPayloadContext = {},
+): MotorCoverNoteQuotationPayload {
+  return {
+    motor_cover_note_payload: {
+      internal_quotation: {
+        insurer_company_id: values.insurer_company_id,
+        intermediary_company_id:
+          normalizeText(values.intermediary_company_id) ?? null,
+        branch_id: normalizeText(values.branch_id) ?? null,
+        department_id: normalizeText(values.department_id) ?? null,
+        category_id: values.category_id,
+        product_id: values.product_id,
+        sub_class_id: normalizeText(values.sub_class_id) ?? null,
+        quotation_type: 'MOTOR',
+        quotation_flow: 'MOTOR_SINGLE',
+        channel_type: values.channel_type,
+        is_fleet: false,
+      },
+      cover_note_hdr: {
+        cover_note_type: Number(values.cover_note_type),
+      },
+      cover_note_dtl: {
+        sale_point_code: context.salePointCode ?? null,
+        cover_note_start_date: toMotorDateTime(values.valid_from, false),
+        cover_note_end_date: toMotorDateTime(values.valid_until, true),
+        cover_note_desc: context.coverNoteDesc ?? 'Motor cover note',
+        operative_clause:
+          context.operativeClause ?? 'Motor Comprehensive Cover',
+        payment_mode: toMotorNumber(values.payment_mode_tira),
+        currency_code: values.currency.trim().toUpperCase(),
+        exchange_rate: toMotorNumber(values.exchange_rate),
+        total_premium_excluding_tax: toMotorNumber(values.basic_premium),
+        total_premium_including_tax: toMotorNumber(values.total_premium),
+        commision_paid: toMotorNumber(values.total_commission),
+        commision_rate: 0,
+        officer_name: normalizeText(values.officer_name) ?? null,
+        officer_title: normalizeText(values.officer_title) ?? null,
+        product_code:
+          context.productCode ?? values.product_id,
+        risks_covered: buildMotorRisksCovered(values),
+        subject_matters_covered: buildMotorSubjectMatters(values, context),
+        cover_note_addons: buildMotorAddons(values),
+        policy_holders: [
+          buildMotorPolicyHolder(values, context.existingCustomer),
+        ],
+        motor_dtl: buildMotorVehicleDetails(
+          values,
+          context.existingCustomer,
+          context.existingVehicle,
+        ),
+      },
+    },
+  };
+}
+
 /**
  * `customerIdOverride` lets callers pass the freshly-created customer id when
  * `policyholder_mode === 'new'` without waiting on a form.setValue re-render —
@@ -940,11 +1400,16 @@ function sumRiskTaxes(values: QuotationFormSchemaValues['risks']) {
 export function buildQuotationPayload(
   values: QuotationFormSchemaValues,
   customerIdOverride?: string,
+  context?: MotorQuotationPayloadContext,
 ): QuotationPayload {
   const customerId = customerIdOverride ?? values.customer_id;
 
   if (!customerId) {
     throw new Error('A policyholder is required before saving a quotation');
+  }
+
+  if (values.quotation_flow === 'MOTOR_SINGLE') {
+    return buildMotorCoverNotePayload(values, customerId, context);
   }
 
   const isFleet = values.quotation_flow === 'MOTOR_FLEET';

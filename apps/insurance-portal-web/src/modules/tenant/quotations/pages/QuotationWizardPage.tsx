@@ -278,7 +278,10 @@ export function QuotationWizardPage() {
             // (see Phase 7) — cover_type/no-claim-discount/excess fields aren't
             // captured, so only the vehicle's own physical attributes hydrate here.
             const vehicle = await motorApi.getVehicle(vehicleId);
-            const metadata = (vehicle.metadata ?? {}) as Record<string, unknown>;
+            const metadata = (vehicle.metadata ?? {}) as Record<
+              string,
+              unknown
+            >;
             setMotorVehicleId(vehicle.id);
             base.motor = {
               vehicle_id: vehicle.id,
@@ -548,7 +551,9 @@ export function QuotationWizardPage() {
     if (!valid) {
       const errors = fields.map((field) => form.formState.errors[field]);
       const message = errors.map(findFirstErrorMessage).find(Boolean);
-      toast.error(message ?? 'Please fix the highlighted fields before continuing');
+      toast.error(
+        message ?? 'Please fix the highlighted fields before continuing',
+      );
       return;
     }
 
@@ -618,7 +623,9 @@ export function QuotationWizardPage() {
         ? Number(motor.manufacture_year)
         : null,
       usage_type: motor.usage_type || null,
-      motor_usage: motor.motor_usage_code ? Number(motor.motor_usage_code) : null,
+      motor_usage: motor.motor_usage_code
+        ? Number(motor.motor_usage_code)
+        : null,
       vehicle_category:
         getVehicleCategoryLabelFromCode(motor.motor_category_code) ||
         motor.vehicle_category ||
@@ -642,7 +649,9 @@ export function QuotationWizardPage() {
         : null,
       motor_type: motor.motor_type_code ? Number(motor.motor_type_code) : null,
       owner_name: motor.owner_name || null,
-      owner_category: motor.owner_category ? Number(motor.owner_category) : null,
+      owner_category: motor.owner_category
+        ? Number(motor.owner_category)
+        : null,
       owner_address: motor.owner_address || null,
       vehicle_value: motor.vehicle_value || 0,
       metadata: {
@@ -808,17 +817,33 @@ export function QuotationWizardPage() {
         toast.error(getApiErrorMessage(error));
         return;
       }
-      const payload = buildQuotationPayload(values, customerId);
       const salePoint = activeSalePoints.find(
         (sp) => sp.id === values.sale_point_id,
       );
-      payload.sale_point_code = salePoint?.salePointCode ?? null;
-      if (vehicleId) {
-        payload.risks = payload.risks?.map((risk) => ({
-          ...risk,
-          motor_vehicle_id: vehicleId,
-        }));
-      }
+      const selectedCustomer = customerOptions.find(
+        (customer) => customer.id === customerId,
+      );
+      const selectedVehicle = vehicleOptions.find(
+        (vehicle) => vehicle.id === values.motor.vehicle_id,
+      );
+      const selectedProduct = productOptions.find(
+        (product) => product.id === values.product_id,
+      );
+      const payload = buildQuotationPayload(values, customerId, {
+        salePointCode: salePoint?.salePointCode ?? null,
+        productCode:
+          selectedProduct?.tiramis_product_code ??
+          selectedProduct?.product_code ??
+          null,
+        coverNoteDesc: selectedProduct
+          ? `Cover note for ${selectedProduct.product_name}`
+          : 'Motor cover note',
+        operativeClause: 'Motor Comprehensive Cover',
+        existingCustomer: selectedCustomer ?? null,
+        existingVehicle: selectedVehicle ?? null,
+      });
+
+      console.log('Quotation wizard submit payload', payload);
 
       const quotation = quotationId
         ? await quotationsApi.update(quotationId, payload)

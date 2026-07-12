@@ -200,7 +200,7 @@ export interface QuotationListParams {
   sortOrder?: SortOrder;
 }
 
-export interface QuotationPayload {
+export interface FlatQuotationPayload {
   insurer_company_id: string;
   intermediary_company_id?: string | null;
   branch_id?: string | null;
@@ -293,6 +293,130 @@ export interface QuotationPayload {
     }>;
   }>;
 }
+
+export interface MotorCoverNoteQuotationPayload {
+  motor_cover_note_payload: {
+    internal_quotation: {
+      insurer_company_id: string;
+      intermediary_company_id: string | null;
+      branch_id: string | null;
+      department_id: string | null;
+      category_id: string;
+      product_id: string;
+      sub_class_id: string | null;
+      quotation_type: QuotationType;
+      quotation_flow: Exclude<QuotationFlow, 'NON_MOTOR'>;
+      channel_type: ProductChannelType;
+      is_fleet: boolean;
+    };
+    cover_note_hdr: {
+      cover_note_type: number;
+    };
+    cover_note_dtl: {
+      sale_point_code: string | null;
+      cover_note_start_date: string;
+      cover_note_end_date: string;
+      cover_note_desc: string;
+      operative_clause: string;
+      payment_mode: number;
+      currency_code: string;
+      exchange_rate: number;
+      total_premium_excluding_tax: number;
+      total_premium_including_tax: number;
+      commision_paid: number;
+      commision_rate: number;
+      officer_name: string | null;
+      officer_title: string | null;
+      product_code: string;
+      risks_covered: Array<{
+        risk_code: string;
+        sum_insured: number;
+        sum_insured_equivalent: number;
+        premium_rate: number;
+        premium_before_discount: number;
+        premium_after_discount: number;
+        premium_excluding_tax_equivalent: number;
+        premium_including_tax: number;
+        discounts_offered: Array<{
+          discount_type: number;
+          discount_rate: number;
+          discount_amount: number;
+        }>;
+        taxes_charged: Array<{
+          tax_code: string;
+          is_tax_exempted: 'Y' | 'N';
+          tax_exemption_type: number | null;
+          tax_exemption_reference: string | null;
+          tax_rate: number;
+          tax_amount: number;
+        }>;
+      }>;
+      subject_matters_covered: Array<{
+        subject_matter_reference: string;
+        subject_matter_desc: string;
+      }>;
+      cover_note_addons: Array<{
+        addon_reference: string;
+        addon_desc: string;
+        addon_amount: number;
+        addon_premium_rate: number;
+        premium_excluding_tax: number;
+        premium_excluding_tax_equivalent: number;
+        premium_including_tax: number;
+        taxes_charged: Array<{
+          tax_code: string;
+          is_tax_exempted: 'Y' | 'N';
+          tax_exemption_type: number | null;
+          tax_exemption_reference: string | null;
+          tax_rate: number;
+          tax_amount: number;
+        }>;
+      }>;
+      policy_holders: Array<{
+        policy_holder_name: string;
+        policy_holder_birth_date: string | null;
+        policy_holder_type: number;
+        policy_holder_id_number: string;
+        policy_holder_id_type: number | null;
+        gender: string | null;
+        country_code: string;
+        region: string;
+        district: string;
+        street: string | null;
+        policy_holder_phone_number: string;
+        policy_holder_fax: string | null;
+        postal_address: string | null;
+        email_address: string | null;
+      }>;
+      motor_dtl: {
+        motor_category: number | null;
+        motor_type: number | null;
+        registration_number: string;
+        chassis_number: string;
+        make: string;
+        model: string;
+        model_number: string | null;
+        body_type: string;
+        color: string;
+        engine_number: string;
+        engine_capacity: string | null;
+        fuel_used: string | null;
+        number_of_axles: number | null;
+        axle_distance: number | null;
+        sitting_capacity: number | null;
+        year_of_manufacture: number | null;
+        tare_weight: number | null;
+        gross_weight: number | null;
+        motor_usage: number | null;
+        owner_name: string;
+        owner_category: number | null;
+        owner_address: string;
+      };
+    };
+  };
+}
+
+export type QuotationPayload = FlatQuotationPayload | MotorCoverNoteQuotationPayload;
 
 export interface QuotationFormValues {
   insurer_company_id: string;
