@@ -356,6 +356,20 @@ export function QuotationWizardPage() {
                   chassis_no: vehicle.chassis_no ?? '',
                   make: vehicle.make ?? '',
                   model: vehicle.model ?? '',
+                  model_no: vehicle.model_no ?? '',
+                  body_type: vehicle.body_type ?? '',
+                  color: vehicle.color ?? '',
+                  engine_no: vehicle.engine_no ?? '',
+                  engine_capacity:
+                    vehicle.cubic_capacity != null
+                      ? String(vehicle.cubic_capacity)
+                      : '',
+                  fuel_used: vehicle.fuel_type ?? '',
+                  number_of_axles:
+                    vehicle.number_of_axles != null
+                      ? String(vehicle.number_of_axles)
+                      : '',
+                  axle_distance: vehicle.axle_distance ?? '',
                   manufacture_year:
                     vehicle.manufacture_year != null
                       ? String(vehicle.manufacture_year)
@@ -364,9 +378,31 @@ export function QuotationWizardPage() {
                     vehicle.seating_capacity != null
                       ? String(vehicle.seating_capacity)
                       : '',
+                  tare_weight: vehicle.tare_weight ?? '',
+                  gross_weight: vehicle.gross_weight ?? '',
+                  motor_category_code:
+                    vehicle.motor_category != null
+                      ? String(vehicle.motor_category)
+                      : '',
+                  motor_type_code:
+                    vehicle.motor_type != null
+                      ? String(vehicle.motor_type)
+                      : '',
+                  motor_usage_code:
+                    vehicle.motor_usage != null
+                      ? String(vehicle.motor_usage)
+                      : '',
+                  owner_name: vehicle.owner_name ?? '',
+                  owner_category:
+                    vehicle.owner_category != null
+                      ? String(vehicle.owner_category)
+                      : '',
+                  owner_address: vehicle.owner_address ?? '',
                   vehicle_value: vehicle.vehicle_value ?? '',
                   sum_insured: item.sum_insured ?? '',
                   premium: item.premium ?? '',
+                  cover_note_desc: '',
+                  operative_clause: 'Motor Comprehensive Cover',
                 };
               }),
             );
@@ -375,6 +411,10 @@ export function QuotationWizardPage() {
                 fleet_id: fullFleet.id,
                 fleet_no: fullFleet.fleet_no ?? '',
                 fleet_name: fullFleet.fleet_name ?? '',
+                fleet_size:
+                  fullFleet.total_vehicles != null
+                    ? String(fullFleet.total_vehicles)
+                    : '',
                 fleet_type: '1',
                 comprehensive_insured: '',
               },
@@ -385,21 +425,18 @@ export function QuotationWizardPage() {
 
         if (base.quotation_flow === 'NON_MOTOR') {
           const details = await nonMotorApi.getQuotationDetails(editId);
-          base.nonMotor = {
-            items: details.map((detail) => ({
-              subject_matter_id: detail.subject_matter_id,
-              detail_id: detail.id,
-              subject_type: detail.subject_matter?.subject_type ?? '',
-              subject_code: detail.subject_matter?.subject_code ?? '',
-              description: detail.subject_matter?.description ?? '',
-              location: detail.subject_matter?.location ?? '',
-              value: detail.subject_matter?.value ?? '',
-              cover_description: detail.cover_description ?? '',
-              risk_location: detail.risk_location ?? '',
-              insured_value: detail.insured_value ?? '',
-              limit_of_liability: detail.limit_of_liability ?? '',
-            })),
-          };
+            base.nonMotor = {
+              items: details.map((detail) => ({
+                subject_matter_id: detail.subject_matter_id,
+                detail_id: detail.id,
+                subject_matter_reference:
+                  detail.subject_matter?.subject_code ?? '',
+                subject_matter_desc:
+                  detail.subject_matter?.description ??
+                  detail.cover_description ??
+                  '',
+              })),
+            };
         }
 
         if (cancelled) return;
@@ -504,11 +541,19 @@ export function QuotationWizardPage() {
 
   function addFleetVehicle() {
     fleetFieldArray.append(createEmptyFleetItemRow());
+    form.setValue(
+      'fleet.header.fleet_size',
+      String(fleetFieldArray.fields.length + 1),
+    );
   }
 
   function removeFleetVehicle(index: number) {
     if (fleetFieldArray.fields.length <= 1) return;
     fleetFieldArray.remove(index);
+    form.setValue(
+      'fleet.header.fleet_size',
+      String(Math.max(1, fleetFieldArray.fields.length - 1)),
+    );
   }
 
   // Capped at risks.length — each subject matter row must link to a real risk row.
@@ -693,7 +738,7 @@ export function QuotationWizardPage() {
 
     const fleetPayload = {
       customer_id: customerId,
-      fleet_no: values.fleet.header.fleet_no ?? '',
+      fleet_no: values.fleet.header.fleet_id || values.fleet.header.fleet_no || '',
       fleet_name: values.fleet.header.fleet_name || null,
       total_vehicles: items.length,
       total_sum_insured: totalSumInsured,
@@ -704,6 +749,7 @@ export function QuotationWizardPage() {
       : await motorApi.createFleet(fleetPayload);
     setMotorFleetId(fleet.id);
     form.setValue('fleet.header.fleet_id', fleet.id);
+    form.setValue('fleet.header.fleet_no', fleet.id);
 
     for (let index = 0; index < items.length; index += 1) {
       const item = items[index];
@@ -711,15 +757,48 @@ export function QuotationWizardPage() {
         customer_id: customerId,
         registration_no: item.registration_no || null,
         chassis_no: item.chassis_no || null,
+        engine_no: item.engine_no || null,
         make: item.make || null,
         model: item.model || null,
+        model_no: item.model_no || null,
+        body_type: item.body_type || null,
+        color: item.color || null,
         manufacture_year: item.manufacture_year
           ? Number(item.manufacture_year)
           : null,
+        usage_type: item.fuel_used || null,
+        motor_usage: item.motor_usage_code
+          ? Number(item.motor_usage_code)
+          : null,
+        vehicle_category: null,
         seating_capacity: item.seating_capacity
           ? Number(item.seating_capacity)
           : null,
+        tonnage: null,
+        cubic_capacity: item.engine_capacity
+          ? Number(item.engine_capacity)
+          : null,
+        fuel_type: item.fuel_used || null,
+        number_of_axles: item.number_of_axles
+          ? Number(item.number_of_axles)
+          : null,
+        axle_distance: item.axle_distance || null,
+        tare_weight: item.tare_weight || null,
+        gross_weight: item.gross_weight || null,
+        motor_category: item.motor_category_code
+          ? Number(item.motor_category_code)
+          : null,
+        motor_type: item.motor_type_code ? Number(item.motor_type_code) : null,
+        owner_name: item.owner_name || null,
+        owner_category: item.owner_category
+          ? Number(item.owner_category)
+          : null,
+        owner_address: item.owner_address || null,
         vehicle_value: item.vehicle_value || 0,
+        metadata: {
+          motor_category_code: item.motor_category_code || null,
+          motor_type_code: item.motor_type_code || null,
+        },
       };
       const vehicle = item.vehicle_id
         ? await motorApi.updateVehicle(item.vehicle_id, vehiclePayload)
@@ -766,11 +845,11 @@ export function QuotationWizardPage() {
 
       const subjectMatterPayload: SubjectMatterPayload = {
         customer_id: customerId,
-        subject_type: item.subject_type || null,
-        subject_code: item.subject_code || '',
-        description: item.description || null,
-        location: item.location || null,
-        value: item.value || 0,
+        subject_type: null,
+        subject_code: item.subject_matter_reference || '',
+        description: item.subject_matter_desc || null,
+        location: null,
+        value: 0,
       };
       const subjectMatter = item.subject_matter_id
         ? await nonMotorApi.updateSubjectMatter(
@@ -787,10 +866,10 @@ export function QuotationWizardPage() {
         quotation_id: quotationId,
         quotation_risk_id: risk.id,
         subject_matter_id: subjectMatter.id,
-        cover_description: item.cover_description || null,
-        risk_location: item.risk_location || null,
-        insured_value: item.insured_value || null,
-        limit_of_liability: item.limit_of_liability || null,
+        cover_description: item.subject_matter_desc || null,
+        risk_location: null,
+        insured_value: null,
+        limit_of_liability: null,
       };
       const detail = item.detail_id
         ? await nonMotorApi.updateQuotationDetail(item.detail_id, detailPayload)

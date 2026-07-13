@@ -125,8 +125,8 @@ export function buildMotorCoverNoteRefReqPreview(
   }));
 
   const subjectMattersCovered = values.nonMotor.items.map((item) => ({
-    SubjectMatterReference: item.subject_code || '',
-    SubjectMatterDesc: item.description || '',
+    SubjectMatterReference: item.subject_matter_reference || '',
+    SubjectMatterDesc: item.subject_matter_desc || '',
   }));
 
   const coverNoteAddons = values.addons

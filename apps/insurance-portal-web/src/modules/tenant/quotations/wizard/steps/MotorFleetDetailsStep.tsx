@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { FieldPath, UseFieldArrayReturn, UseFormReturn } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
@@ -31,17 +32,31 @@ function itemPath(index: number, name: string): FieldPath<QuotationFormSchemaVal
 export function MotorFleetDetailsStep({ form, fieldArray, onAddVehicle, onRemoveVehicle }: Props) {
   const { fields } = fieldArray;
 
+  useEffect(() => {
+    form.setValue('fleet.header.fleet_size', String(fields.length));
+  }, [fields.length, form]);
+
   return (
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Step 5B. Motor Fleet Details</CardTitle>
+          <CardTitle className="text-base">Fleet Header</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
-          <FormField control={form.control} name="fleet.header.fleet_no" render={({ field }) => (
+          <FormField control={form.control} name="fleet.header.fleet_id" render={({ field }) => (
             <FormItem>
-              <FormLabel>Fleet Number</FormLabel>
-              <FormControl><Input {...field} value={field.value as string} /></FormControl>
+              <FormLabel>Fleet ID</FormLabel>
+              <FormControl>
+                <Input
+                  {...field}
+                  value={field.value as string}
+                  placeholder="FLEET-2026-000001"
+                  onChange={(event) => {
+                    field.onChange(event.target.value);
+                    form.setValue('fleet.header.fleet_no', event.target.value);
+                  }}
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )} />
@@ -72,6 +87,12 @@ export function MotorFleetDetailsStep({ form, fieldArray, onAddVehicle, onRemove
             <FormItem>
               <FormLabel>Comprehensive Insured Count (optional)</FormLabel>
               <FormControl><Input type="number" {...field} value={field.value as string} /></FormControl>
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="fleet.header.fleet_size" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Fleet Size</FormLabel>
+              <FormControl><Input {...field} value={field.value as string} readOnly /></FormControl>
             </FormItem>
           )} />
         </CardContent>

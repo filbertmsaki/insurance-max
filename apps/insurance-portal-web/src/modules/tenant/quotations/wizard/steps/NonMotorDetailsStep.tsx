@@ -3,7 +3,6 @@ import type { FieldPath, UseFieldArrayReturn, UseFormReturn } from 'react-hook-f
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import type { QuotationFormSchemaValues } from '../../schemas';
 
@@ -36,8 +35,8 @@ export function NonMotorDetailsStep({ form, fieldArray, riskCount, onAddItem, on
         <CardContent>
           <p className="text-sm text-slate-500">
             Each subject matter links to one risk row from Step 3 ({fields.length} of {riskCount} used).
-            Product-specific data points (building type, vessel details, liability limits, etc.) are
-            configured as rating factors on the risk itself in Product Engine, not captured here.
+            Keep the entry short and specific. The final payload will only send the reference and
+            description fields shown here.
           </p>
         </CardContent>
       </Card>
@@ -59,61 +58,18 @@ export function NonMotorDetailsStep({ form, fieldArray, riskCount, onAddItem, on
             </Button>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
-            <FormField control={form.control} name={itemPath(index, 'subject_code')} render={({ field: f }) => (
+            <FormField control={form.control} name={itemPath(index, 'subject_matter_reference')} render={({ field: f }) => (
               <FormItem>
                 <FormLabel>Reference</FormLabel>
                 <FormControl><Input {...f} value={f.value as string} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
-            <FormField control={form.control} name={itemPath(index, 'subject_type')} render={({ field: f }) => (
-              <FormItem>
-                <FormLabel>Type (optional)</FormLabel>
-                <FormControl><Input {...f} value={f.value as string} /></FormControl>
-              </FormItem>
-            )} />
-            <FormField control={form.control} name={itemPath(index, 'description')} render={({ field: f }) => (
+            <FormField control={form.control} name={itemPath(index, 'subject_matter_desc')} render={({ field: f }) => (
               <FormItem className="md:col-span-2">
                 <FormLabel>Description</FormLabel>
-                <FormControl><Textarea rows={2} {...f} value={f.value as string} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name={itemPath(index, 'location')} render={({ field: f }) => (
-              <FormItem>
-                <FormLabel>Location (optional)</FormLabel>
                 <FormControl><Input {...f} value={f.value as string} /></FormControl>
-              </FormItem>
-            )} />
-            <FormField control={form.control} name={itemPath(index, 'value')} render={({ field: f }) => (
-              <FormItem>
-                <FormLabel>Value (optional)</FormLabel>
-                <FormControl><Input type="number" {...f} value={f.value as string} /></FormControl>
-              </FormItem>
-            )} />
-            <FormField control={form.control} name={itemPath(index, 'cover_description')} render={({ field: f }) => (
-              <FormItem className="md:col-span-2">
-                <FormLabel>Cover Description (optional)</FormLabel>
-                <FormControl><Textarea rows={2} {...f} value={f.value as string} /></FormControl>
-              </FormItem>
-            )} />
-            <FormField control={form.control} name={itemPath(index, 'risk_location')} render={({ field: f }) => (
-              <FormItem>
-                <FormLabel>Risk Location (optional)</FormLabel>
-                <FormControl><Input {...f} value={f.value as string} /></FormControl>
-              </FormItem>
-            )} />
-            <FormField control={form.control} name={itemPath(index, 'insured_value')} render={({ field: f }) => (
-              <FormItem>
-                <FormLabel>Insured Value (optional)</FormLabel>
-                <FormControl><Input type="number" {...f} value={f.value as string} /></FormControl>
                 <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name={itemPath(index, 'limit_of_liability')} render={({ field: f }) => (
-              <FormItem>
-                <FormLabel>Limit of Liability (optional)</FormLabel>
-                <FormControl><Input type="number" {...f} value={f.value as string} /></FormControl>
               </FormItem>
             )} />
           </CardContent>

@@ -549,8 +549,8 @@ export interface QuotationWizardAddonRow {
  */
 export interface QuotationWizardMotorDetails {
   vehicle_id: string;
-  motor_category_code: string;
-  motor_type_code: string;
+  motor_category_code: '' | '1' | '2';
+  motor_type_code: '' | '1' | '2';
   registration_no: string;
   chassis_no: string;
   engine_no: string;
@@ -561,7 +561,7 @@ export interface QuotationWizardMotorDetails {
   color: string;
   manufacture_year: string;
   usage_type: string;
-  motor_usage_code: string;
+  motor_usage_code: '' | '1' | '2';
   vehicle_category: string;
   seating_capacity: string;
   tonnage: string;
@@ -572,7 +572,7 @@ export interface QuotationWizardMotorDetails {
   tare_weight: string;
   gross_weight: string;
   owner_name: string;
-  owner_category: string;
+  owner_category: '' | '1' | '2';
   owner_address: string;
   vehicle_value: string;
 }
@@ -587,6 +587,7 @@ export interface QuotationWizardFleetHeader {
   fleet_id: string;
   fleet_no: string;
   fleet_name: string;
+  fleet_size: string;
   /** TIRA FleetType: '1' New, '2' Addition. */
   fleet_type: '1' | '2';
   comprehensive_insured: string;
@@ -608,11 +609,29 @@ export interface QuotationWizardFleetItemRow {
   chassis_no: string;
   make: string;
   model: string;
+  model_no: string;
+  body_type: string;
+  color: string;
+  engine_no: string;
+  engine_capacity: string;
+  fuel_used: string;
+  number_of_axles: string;
+  axle_distance: string;
   manufacture_year: string;
   seating_capacity: string;
+  tare_weight: string;
+  gross_weight: string;
+  motor_category_code: '' | '1' | '2';
+  motor_type_code: '' | '1' | '2';
+  motor_usage_code: '' | '1' | '2';
+  owner_name: string;
+  owner_category: '' | '1' | '2';
+  owner_address: string;
   vehicle_value: string;
   sum_insured: string;
   premium: string;
+  cover_note_desc: string;
+  operative_clause: string;
 }
 
 /**
@@ -629,15 +648,8 @@ export interface QuotationWizardFleetItemRow {
 export interface QuotationWizardNonMotorItemRow {
   subject_matter_id: string;
   detail_id: string;
-  subject_type: string;
-  subject_code: string;
-  description: string;
-  location: string;
-  value: string;
-  cover_description: string;
-  risk_location: string;
-  insured_value: string;
-  limit_of_liability: string;
+  subject_matter_reference: string;
+  subject_matter_desc: string;
 }
 
 export type QuotationPage = PaginatedResponse<QuotationRecord>;

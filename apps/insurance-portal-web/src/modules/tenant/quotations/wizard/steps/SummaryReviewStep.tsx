@@ -9,9 +9,9 @@ import {
 } from '@/modules/tenant/customers/types';
 import type { InsuranceRisk } from '@/types/product-engine';
 import { computeAddonAmounts } from '../utils/addonCalculations';
-import { buildMotorCoverNoteRefReqPreview } from '../utils/motorCoverNotePayload';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import type { QuotationWizardStepId } from '../types';
+import { buildQuotationPayloadPreview } from '../utils/quotationPayloadPreview';
 
 interface OptionLike {
   id: string;
@@ -94,9 +94,7 @@ export function SummaryReviewStep({
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">
-            Step 7. Summary &amp; Review
-          </CardTitle>
+          <CardTitle className="text-base">Final Review</CardTitle>
         </CardHeader>
         <CardContent className="flex items-center gap-2">
           <Badge variant="outline">{values.quotation_type}</Badge>
@@ -236,30 +234,6 @@ export function SummaryReviewStep({
         </Card>
       )}
 
-      {values.quotation_type === 'MOTOR' && !values.is_fleet && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              TIRA Payload Preview (MotorCoverNoteRefReq)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="max-h-96 overflow-auto rounded-lg bg-slate-950 p-3 text-xs text-slate-100">
-              {JSON.stringify(
-                buildMotorCoverNoteRefReqPreview(values, {
-                  salePointCode: salePoint?.salePointCode ?? null,
-                  productCode:
-                    product?.tiramis_product_code || product?.product_code || null,
-                  existingCustomer,
-                }),
-                null,
-                2,
-              )}
-            </pre>
-          </CardContent>
-        </Card>
-      )}
-
       {values.quotation_type === 'MOTOR' && values.is_fleet && (
         <Card>
           <SectionHeader
@@ -268,7 +242,7 @@ export function SummaryReviewStep({
           />
           <CardContent className="text-sm">
             <p>
-              Fleet {values.fleet.header.fleet_no || '(no number yet)'} —{' '}
+              Fleet {values.fleet.header.fleet_id || values.fleet.header.fleet_no || '(no number yet)'} —{' '}
               {values.fleet.items.length} vehicle(s)
             </p>
             <p className="text-slate-500">
@@ -288,10 +262,7 @@ export function SummaryReviewStep({
 
       {values.quotation_type === 'NON_MOTOR' && (
         <Card>
-          <SectionHeader
-            title="Non-Motor Details"
-            onEdit={() => onEditStep('non-motor')}
-          />
+          <SectionHeader title="Subject Matters" onEdit={() => onEditStep('non-motor')} />
           <CardContent className="space-y-1 text-sm">
             {values.nonMotor.items.length === 0 ? (
               <p className="text-slate-500">No subject matters added</p>
@@ -302,11 +273,12 @@ export function SummaryReviewStep({
                   className="flex items-center justify-between border-b border-slate-100 py-1 last:border-0"
                 >
                   <span>
-                    {item.subject_code || `Subject matter #${index + 1}`} —{' '}
-                    {item.description}
+                    {item.subject_matter_reference ||
+                      `Subject matter #${index + 1}`}{' '}
+                    - {item.subject_matter_desc}
                   </span>
                   <span className="text-slate-500">
-                    Insured: {item.insured_value || '—'}
+                    Linked risk #{index + 1}
                   </span>
                 </div>
               ))
@@ -317,22 +289,27 @@ export function SummaryReviewStep({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Premium Breakdown</CardTitle>
+          <CardTitle className="text-base">Prepared Submission Payload</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-1 text-sm md:grid-cols-2">
-          <p>Sum insured: {values.sum_insured || '0'}</p>
-          <p>Basic premium: {values.basic_premium || '0'}</p>
-          <p>Discount: {values.total_discount || '0'}</p>
-          <p>Tax: {values.total_tax || '0'}</p>
-          <p>Charges: {values.total_charges || '0'}</p>
-          <p>Commission: {values.total_commission || '0'}</p>
-          <p>Add-ons: {addonsTotal.toFixed(2)}</p>
-          <p className="font-medium text-slate-900">
-            Total premium: {values.total_premium || '0'}
-          </p>
-          <p className="font-medium text-slate-900">
-            Net premium: {values.net_premium || '0'}
-          </p>
+          <div className="md:col-span-2">
+            <p className="mb-3 text-slate-500">
+              This preview follows the flow-specific payload shape that will be
+              submitted to TIRAMIS.
+            </p>
+            <pre className="max-h-[36rem] overflow-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">
+              {JSON.stringify(
+                buildQuotationPayloadPreview(values, {
+                  salePointCode: salePoint?.salePointCode ?? null,
+                  productCode:
+                    product?.tiramis_product_code || product?.product_code || null,
+                  existingCustomer,
+                }),
+                null,
+                2,
+              )}
+            </pre>
+          </div>
         </CardContent>
       </Card>
     </div>

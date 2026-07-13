@@ -233,6 +233,7 @@ const quotationFleetHeaderSchema = z.object({
   fleet_id: optionalText,
   fleet_no: z.string().trim().max(50).optional().or(z.literal('')),
   fleet_name: z.string().trim().max(150).optional().or(z.literal('')),
+  fleet_size: optionalText,
   fleet_type: z.enum(['1', '2']),
   comprehensive_insured: optionalText,
 });
@@ -244,11 +245,29 @@ const quotationFleetItemRowSchema = z.object({
   chassis_no: z.string().trim().max(50).optional().or(z.literal('')),
   make: z.string().trim().max(100).optional().or(z.literal('')),
   model: z.string().trim().max(100).optional().or(z.literal('')),
+  model_no: z.string().trim().max(100).optional().or(z.literal('')),
+  body_type: z.string().trim().max(100).optional().or(z.literal('')),
+  color: z.string().trim().max(50).optional().or(z.literal('')),
+  engine_no: z.string().trim().max(50).optional().or(z.literal('')),
+  engine_capacity: optionalText,
+  fuel_used: z.string().trim().max(50).optional().or(z.literal('')),
+  number_of_axles: optionalText,
+  axle_distance: optionalText,
   manufacture_year: optionalText,
   seating_capacity: optionalText,
+  tare_weight: optionalText,
+  gross_weight: optionalText,
+  motor_category_code: z.enum(['1', '2']).optional().or(z.literal('')),
+  motor_type_code: z.enum(['1', '2']).optional().or(z.literal('')),
+  motor_usage_code: z.enum(['1', '2']).optional().or(z.literal('')),
+  owner_name: z.string().trim().max(150).optional().or(z.literal('')),
+  owner_category: z.enum(['1', '2']).optional().or(z.literal('')),
+  owner_address: z.string().trim().max(255).optional().or(z.literal('')),
   vehicle_value: optionalText,
   sum_insured: optionalText,
   premium: optionalText,
+  cover_note_desc: optionalText,
+  operative_clause: optionalText,
 });
 
 export function createEmptyFleetItemRow(): QuotationFormValues['fleet']['items'][number] {
@@ -259,11 +278,29 @@ export function createEmptyFleetItemRow(): QuotationFormValues['fleet']['items']
     chassis_no: '',
     make: '',
     model: '',
+    model_no: '',
+    body_type: '',
+    color: '',
+    engine_no: '',
+    engine_capacity: '',
+    fuel_used: '',
+    number_of_axles: '',
+    axle_distance: '',
     manufacture_year: '',
     seating_capacity: '',
+    tare_weight: '',
+    gross_weight: '',
+    motor_category_code: '',
+    motor_type_code: '',
+    motor_usage_code: '',
+    owner_name: '',
+    owner_category: '',
+    owner_address: '',
     vehicle_value: '',
     sum_insured: '',
     premium: '',
+    cover_note_desc: '',
+    operative_clause: '',
   };
 }
 
@@ -273,6 +310,7 @@ export function createEmptyFleetDetails(): QuotationFormValues['fleet'] {
       fleet_id: '',
       fleet_no: '',
       fleet_name: '',
+      fleet_size: '',
       fleet_type: '1',
       comprehensive_insured: '',
     },
@@ -287,30 +325,16 @@ export function createEmptyFleetDetails(): QuotationFormValues['fleet'] {
 const quotationNonMotorItemRowSchema = z.object({
   subject_matter_id: optionalText,
   detail_id: optionalText,
-  subject_type: z.string().trim().max(100).optional().or(z.literal('')),
-  subject_code: z.string().trim().max(100).optional().or(z.literal('')),
-  description: optionalText,
-  location: optionalText,
-  value: optionalText,
-  cover_description: optionalText,
-  risk_location: optionalText,
-  insured_value: optionalText,
-  limit_of_liability: optionalText,
+  subject_matter_reference: z.string().trim().max(100).optional().or(z.literal('')),
+  subject_matter_desc: optionalText,
 });
 
 export function createEmptyNonMotorItemRow(): QuotationFormValues['nonMotor']['items'][number] {
   return {
     subject_matter_id: '',
     detail_id: '',
-    subject_type: '',
-    subject_code: '',
-    description: '',
-    location: '',
-    value: '',
-    cover_description: '',
-    risk_location: '',
-    insured_value: '',
-    limit_of_liability: '',
+    subject_matter_reference: '',
+    subject_matter_desc: '',
   };
 }
 
@@ -669,6 +693,13 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
         }
       } else {
         const currentYear = new Date().getFullYear();
+        if (!values.motor.registration_no?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['motor', 'registration_no'],
+            message: 'Registration number is required',
+          });
+        }
         if (!values.motor.chassis_no?.trim()) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -746,11 +777,11 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
     }
 
     if (quotationFlow === 'MOTOR_FLEET') {
-      if (!values.fleet.header.fleet_no?.trim()) {
+      if (!values.fleet.header.fleet_id?.trim() && !values.fleet.header.fleet_no?.trim()) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ['fleet', 'header', 'fleet_no'],
-          message: 'Fleet number is required',
+          path: ['fleet', 'header', 'fleet_id'],
+          message: 'Fleet ID is required',
         });
       }
       if (!values.fleet.items.length) {
@@ -765,6 +796,13 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
       const seenChassis = new Map<string, number>();
 
       values.fleet.items.forEach((item, index) => {
+        if (!item.registration_no?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['fleet', 'items', index, 'registration_no'],
+            message: 'Registration number is required',
+          });
+        }
         if (!item.chassis_no?.trim()) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -786,6 +824,20 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
             message: 'Model is required',
           });
         }
+        if (!item.body_type?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['fleet', 'items', index, 'body_type'],
+            message: 'Body type is required',
+          });
+        }
+        if (!item.color?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['fleet', 'items', index, 'color'],
+            message: 'Color is required',
+          });
+        }
         const value = Number(item.vehicle_value);
         if (!item.vehicle_value || !Number.isFinite(value) || value <= 0) {
           ctx.addIssue({
@@ -804,6 +856,20 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
             code: z.ZodIssueCode.custom,
             path: ['fleet', 'items', index, 'sum_insured'],
             message: 'Sum insured must be a positive number',
+          });
+        }
+        if (!item.owner_name?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['fleet', 'items', index, 'owner_name'],
+            message: 'Owner name is required',
+          });
+        }
+        if (!item.owner_address?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['fleet', 'items', index, 'owner_address'],
+            message: 'Owner address is required',
           });
         }
 
@@ -851,29 +917,19 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
       }
 
       items.forEach((item, index) => {
-        if (!item.subject_code?.trim()) {
+        if (!item.subject_matter_reference?.trim()) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['nonMotor', 'items', index, 'subject_code'],
+            path: ['nonMotor', 'items', index, 'subject_matter_reference'],
             message: 'Subject matter reference is required',
           });
         }
-        if (!item.description?.trim()) {
+        if (!item.subject_matter_desc?.trim()) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['nonMotor', 'items', index, 'description'],
+            path: ['nonMotor', 'items', index, 'subject_matter_desc'],
             message: 'Subject matter description is required',
           });
-        }
-        if (item.insured_value) {
-          const insured = Number(item.insured_value);
-          if (!Number.isFinite(insured) || insured < 0) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              path: ['nonMotor', 'items', index, 'insured_value'],
-              message: 'Insured value must be a non-negative number',
-            });
-          }
         }
       });
     }
@@ -1159,10 +1215,13 @@ function buildMotorSubjectMatters(
 ) {
   const existingVehicle = context?.existingVehicle;
   const subjectItems = values.nonMotor.items
-    .filter((item) => item.subject_code || item.description)
+    .filter(
+      (item) =>
+        item.subject_matter_reference || item.subject_matter_desc,
+    )
     .map((item) => ({
-      subject_matter_reference: item.subject_code || '',
-      subject_matter_desc: item.description || item.subject_type || '',
+      subject_matter_reference: item.subject_matter_reference || '',
+      subject_matter_desc: item.subject_matter_desc || '',
     }));
 
   if (subjectItems.length > 0) return subjectItems;
