@@ -34,6 +34,11 @@ import {
   TAX_EXEMPTION_TYPE_OPTIONS,
   getTaxRateForCode,
 } from '../utils/taxOptions';
+import {
+  fromSelectValue,
+  SELECT_NONE_VALUE,
+  toSelectValue,
+} from '../utils/selectValue';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -153,8 +158,8 @@ export function RiskRow({
               <FormItem>
                 <FormLabel>Risk</FormLabel>
                 <Select
-                  value={field.value as string}
-                  onValueChange={field.onChange}
+                  value={toSelectValue(field.value as string)}
+                  onValueChange={(value) => field.onChange(fromSelectValue(value))}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -162,6 +167,7 @@ export function RiskRow({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
+                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                     {riskOptions.map((risk) => (
                       <SelectItem key={risk.id} value={risk.id}>
                         {risk.risk_name} ({risk.risk_code})
@@ -320,7 +326,7 @@ export function RiskRow({
         <div className="space-y-3 border-t border-slate-100 pt-4">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Discounts Offered
+              Discounts Offered (optional)
             </p>
             <Button
               type="button"
@@ -355,8 +361,21 @@ export function RiskRow({
                       <FormItem>
                         <FormLabel>Discount Type</FormLabel>
                         <Select
-                          value={(field.value as string) || undefined}
-                          onValueChange={field.onChange}
+                          value={toSelectValue(field.value as string)}
+                          onValueChange={(value) => {
+                            const nextValue = fromSelectValue(value);
+                            field.onChange(nextValue);
+                            if (value === SELECT_NONE_VALUE) {
+                              form.setValue(
+                                path(index, `discounts_offered.${discountIndex}.discount_rate`),
+                                '',
+                              );
+                              form.setValue(
+                                path(index, `discounts_offered.${discountIndex}.discount_amount`),
+                                '',
+                              );
+                            }
+                          }}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -364,6 +383,7 @@ export function RiskRow({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
+                            <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                             {DISCOUNT_TYPE_OPTIONS.map((option) => (
                               <SelectItem key={option.value} value={option.value}>
                                 {option.label}
@@ -474,13 +494,32 @@ export function RiskRow({
                       <FormItem>
                         <FormLabel>Tax Code (required)</FormLabel>
                         <Select
-                          value={(field.value as string) || undefined}
+                          value={toSelectValue(field.value as string)}
                           onValueChange={(value) => {
-                            field.onChange(value);
+                            const nextValue = fromSelectValue(value);
+                            field.onChange(nextValue);
                             form.setValue(
                               path(index, `taxes_charged.${taxIndex}.tax_rate`),
-                              getTaxRateForCode(value),
+                              getTaxRateForCode(nextValue),
                             );
+                            if (value === SELECT_NONE_VALUE) {
+                              form.setValue(
+                                path(index, `taxes_charged.${taxIndex}.tax_amount`),
+                                '',
+                              );
+                              form.setValue(
+                                path(index, `taxes_charged.${taxIndex}.is_tax_exempted`),
+                                false,
+                              );
+                              form.setValue(
+                                path(index, `taxes_charged.${taxIndex}.tax_exemption_type`),
+                                '',
+                              );
+                              form.setValue(
+                                path(index, `taxes_charged.${taxIndex}.tax_exemption_reference`),
+                                '',
+                              );
+                            }
                           }}
                         >
                           <FormControl>
@@ -489,6 +528,7 @@ export function RiskRow({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
+                            <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                             {TAX_CODE_OPTIONS.map((option) => (
                               <SelectItem key={option.value} value={option.value}>
                                 {option.label}
@@ -551,6 +591,18 @@ export function RiskRow({
                         <Select
                           value={field.value ? 'Y' : 'N'}
                           onValueChange={(value) => {
+                            if (value === SELECT_NONE_VALUE) {
+                              field.onChange(false);
+                              form.setValue(
+                                path(index, `taxes_charged.${taxIndex}.tax_exemption_type`),
+                                '',
+                              );
+                              form.setValue(
+                                path(index, `taxes_charged.${taxIndex}.tax_exemption_reference`),
+                                '',
+                              );
+                              return;
+                            }
                             const isExempted = value === 'Y';
                             field.onChange(isExempted);
                             if (!isExempted) {
@@ -577,6 +629,7 @@ export function RiskRow({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
+                            <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                             {TAX_EXEMPTION_OPTIONS.map((option) => (
                               <SelectItem key={option.value} value={option.value}>
                                 {option.label}
@@ -598,8 +651,8 @@ export function RiskRow({
                       <FormItem className="md:col-span-2">
                         <FormLabel>Exemption Type</FormLabel>
                         <Select
-                          value={(field.value as string) || undefined}
-                          onValueChange={field.onChange}
+                          value={toSelectValue(field.value as string)}
+                          onValueChange={(value) => field.onChange(fromSelectValue(value))}
                           disabled={!form.watch(path(index, `taxes_charged.${taxIndex}.is_tax_exempted`))}
                         >
                           <FormControl>
@@ -608,6 +661,7 @@ export function RiskRow({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
+                            <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                             {TAX_EXEMPTION_TYPE_OPTIONS.map((option) => (
                               <SelectItem key={option.value} value={option.value}>
                                 {option.label}

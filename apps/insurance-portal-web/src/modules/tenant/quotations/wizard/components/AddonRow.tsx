@@ -15,6 +15,11 @@ import {
   TAX_EXEMPTION_TYPE_OPTIONS,
   getTaxRateForCode,
 } from '../utils/taxOptions';
+import {
+  fromSelectValue,
+  SELECT_NONE_VALUE,
+  toSelectValue,
+} from '../utils/selectValue';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -110,13 +115,19 @@ export function AddonRow({ form, index, onRemove, canRemove, exchangeRate }: Pro
                 <FormItem>
                   <FormLabel>Tax Code</FormLabel>
                   <Select
-                    value={(field.value as string) || undefined}
+                    value={toSelectValue(field.value as string)}
                     onValueChange={(value) => {
-                      field.onChange(value);
+                      const nextValue = fromSelectValue(value);
+                      field.onChange(nextValue);
                       form.setValue(
                         path(index, `taxes.${taxIndex}.tax_rate`),
-                        getTaxRateForCode(value),
+                        getTaxRateForCode(nextValue),
                       );
+                      if (value === SELECT_NONE_VALUE) {
+                        form.setValue(path(index, `taxes.${taxIndex}.is_tax_exempted`), false);
+                        form.setValue(path(index, `taxes.${taxIndex}.tax_exemption_type`), '');
+                        form.setValue(path(index, `taxes.${taxIndex}.tax_exemption_reference`), '');
+                      }
                     }}
                   >
                     <FormControl>
@@ -125,6 +136,7 @@ export function AddonRow({ form, index, onRemove, canRemove, exchangeRate }: Pro
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                       {TAX_CODE_OPTIONS.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}
@@ -165,6 +177,12 @@ export function AddonRow({ form, index, onRemove, canRemove, exchangeRate }: Pro
                   <Select
                     value={field.value ? 'Y' : 'N'}
                     onValueChange={(value) => {
+                      if (value === SELECT_NONE_VALUE) {
+                        field.onChange(false);
+                        form.setValue(path(index, `taxes.${taxIndex}.tax_exemption_type`), '');
+                        form.setValue(path(index, `taxes.${taxIndex}.tax_exemption_reference`), '');
+                        return;
+                      }
                       const isExempted = value === 'Y';
                       field.onChange(isExempted);
                       if (!isExempted) {
@@ -179,6 +197,7 @@ export function AddonRow({ form, index, onRemove, canRemove, exchangeRate }: Pro
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                       {TAX_EXEMPTION_OPTIONS.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}
@@ -193,8 +212,8 @@ export function AddonRow({ form, index, onRemove, canRemove, exchangeRate }: Pro
                 <FormItem className="md:col-span-2">
                   <FormLabel>Exemption Type</FormLabel>
                   <Select
-                    value={(field.value as string) || undefined}
-                    onValueChange={field.onChange}
+                    value={toSelectValue(field.value as string)}
+                    onValueChange={(value) => field.onChange(fromSelectValue(value))}
                     disabled={!form.watch(path(index, `taxes.${taxIndex}.is_tax_exempted`))}
                   >
                     <FormControl>
@@ -203,6 +222,7 @@ export function AddonRow({ form, index, onRemove, canRemove, exchangeRate }: Pro
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                       {TAX_EXEMPTION_TYPE_OPTIONS.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}

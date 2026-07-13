@@ -21,6 +21,11 @@ import type { Branch } from '@/types';
 import type { TiramisSalePointRecord } from '@/modules/tenant/tiramis/types';
 import { useQuotationDistributionChannels } from '../../hooks';
 import type { QuotationFormSchemaValues } from '../../schemas';
+import {
+  fromSelectValue,
+  SELECT_NONE_VALUE,
+  toSelectValue,
+} from '../utils/selectValue';
 
 interface OptionLike {
   id: string;
@@ -208,10 +213,11 @@ export function CoverNoteSetupStep({
               <FormItem>
                 <FormLabel>Category</FormLabel>
                 <Select
-                  value={field.value}
+                  value={toSelectValue(field.value)}
                   onValueChange={(value) => {
-                    field.onChange(value);
+                    field.onChange(fromSelectValue(value));
                     form.setValue('product_id', '');
+                    form.setValue('intermediary_company_id', '');
                   }}
                 >
                   <FormControl>
@@ -220,6 +226,7 @@ export function CoverNoteSetupStep({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
+                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                     {categoryOptions.map((category) => (
                       <SelectItem key={category.id} value={category.id}>
                         {category.name}
@@ -239,9 +246,9 @@ export function CoverNoteSetupStep({
               <FormItem>
                 <FormLabel>Product</FormLabel>
                 <Select
-                  value={field.value}
+                  value={toSelectValue(field.value)}
                   onValueChange={(value) => {
-                    field.onChange(value);
+                    field.onChange(fromSelectValue(value));
                     form.setValue('intermediary_company_id', '');
                   }}
                 >
@@ -251,6 +258,7 @@ export function CoverNoteSetupStep({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
+                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                     {productOptions.map((product) => (
                       <SelectItem key={product.id} value={product.id}>
                         {product.product_name}
@@ -270,9 +278,9 @@ export function CoverNoteSetupStep({
               <FormItem>
                 <FormLabel>Channel</FormLabel>
                 <Select
-                  value={field.value}
+                  value={toSelectValue(field.value)}
                   onValueChange={(value) => {
-                    field.onChange(value);
+                    field.onChange(fromSelectValue(value));
                     form.setValue('intermediary_company_id', '');
                   }}
                 >
@@ -282,6 +290,7 @@ export function CoverNoteSetupStep({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
+                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                     {CHANNEL_TYPES.map((item) => (
                       <SelectItem key={item} value={item}>
                         {item}
@@ -491,13 +500,22 @@ export function CoverNoteSetupStep({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Cover Note Type</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={toSelectValue(field.value)}
+                  onValueChange={(value) => {
+                    field.onChange(fromSelectValue(value));
+                    if (value === SELECT_NONE_VALUE) {
+                      form.setValue('prev_cover_note_reference', '');
+                    }
+                  }}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
+                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                     {COVER_NOTE_TYPES.map((item) => (
                       <SelectItem key={item.value} value={item.value}>
                         {item.label}
@@ -557,13 +575,17 @@ export function CoverNoteSetupStep({
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Payment Mode (TIRAMIS)</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
+                <Select
+                  value={toSelectValue(field.value)}
+                  onValueChange={(value) => field.onChange(fromSelectValue(value))}
+                >
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
+                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                     {PAYMENT_MODES_TIRA.map((item) => (
                       <SelectItem key={item.value} value={item.value}>
                         {item.label}

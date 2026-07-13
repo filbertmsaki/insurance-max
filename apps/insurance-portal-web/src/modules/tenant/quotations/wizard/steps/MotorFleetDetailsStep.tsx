@@ -6,6 +6,11 @@ import { Input } from '@/components/ui/input';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { QuotationFormSchemaValues } from '../../schemas';
+import {
+  fromSelectValue,
+  SELECT_NONE_VALUE,
+  toSelectValue,
+} from '../utils/selectValue';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -49,9 +54,13 @@ export function MotorFleetDetailsStep({ form, fieldArray, onAddVehicle, onRemove
           <FormField control={form.control} name="fleet.header.fleet_type" render={({ field }) => (
             <FormItem>
               <FormLabel>Fleet Type</FormLabel>
-              <Select value={field.value} onValueChange={field.onChange}>
+              <Select
+                value={toSelectValue(field.value)}
+                onValueChange={(value) => field.onChange(fromSelectValue(value))}
+              >
                 <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                 <SelectContent>
+                  <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                   {FLEET_TYPES.map((option) => (
                     <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                   ))}

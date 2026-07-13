@@ -5,13 +5,21 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/comp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Combobox } from '@/components/ui/combobox';
 import type { MotorVehicleRecord } from '@/modules/tenant/motor/types';
-import type { QuotationFormSchemaValues } from '../../schemas';
+import {
+  createEmptyMotorDetails,
+  type QuotationFormSchemaValues,
+} from '../../schemas';
 import {
   MOTOR_CATEGORY_OPTIONS,
   MOTOR_TYPE_OPTIONS,
   getMotorCategoryCodeFromVehicleCategory,
   getVehicleCategoryLabelFromCode,
 } from '../utils/motorOptions';
+import {
+  fromSelectValue,
+  SELECT_NONE_VALUE,
+  toSelectValue,
+} from '../utils/selectValue';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -58,11 +66,11 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
       String(
         metadata.motor_category_code ??
           getMotorCategoryCodeFromVehicleCategory(vehicle.vehicle_category),
-      ),
+      ) as QuotationFormSchemaValues['motor']['motor_category_code'],
     );
     form.setValue(
       'motor.motor_type_code',
-      String(metadata.motor_type_code ?? '1'),
+      String(metadata.motor_type_code ?? '1') as QuotationFormSchemaValues['motor']['motor_type_code'],
     );
     form.setValue('motor.registration_no', vehicle.registration_no ?? '');
     form.setValue('motor.chassis_no', vehicle.chassis_no ?? '');
@@ -76,7 +84,9 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
     form.setValue('motor.usage_type', vehicle.usage_type ?? '');
     form.setValue(
       'motor.motor_usage_code',
-      vehicle.motor_usage != null ? String(vehicle.motor_usage) : getUsageCodeFromLabel(vehicle.usage_type),
+      (vehicle.motor_usage != null
+        ? String(vehicle.motor_usage)
+        : getUsageCodeFromLabel(vehicle.usage_type)) as QuotationFormSchemaValues['motor']['motor_usage_code'],
     );
     form.setValue('motor.vehicle_category', vehicle.vehicle_category ?? '');
     form.setValue('motor.seating_capacity', vehicle.seating_capacity != null ? String(vehicle.seating_capacity) : '');
@@ -88,7 +98,10 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
     form.setValue('motor.tare_weight', vehicle.tare_weight ?? '');
     form.setValue('motor.gross_weight', vehicle.gross_weight ?? '');
     form.setValue('motor.owner_name', vehicle.owner_name ?? '');
-    form.setValue('motor.owner_category', vehicle.owner_category != null ? String(vehicle.owner_category) : '');
+    form.setValue(
+      'motor.owner_category',
+      (vehicle.owner_category != null ? String(vehicle.owner_category) : '') as QuotationFormSchemaValues['motor']['owner_category'],
+    );
     form.setValue('motor.owner_address', vehicle.owner_address ?? '');
     form.setValue('motor.vehicle_value', vehicle.vehicle_value ?? '');
   }
@@ -131,10 +144,14 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                 <FormItem>
                   <FormLabel>Vehicle (linked to the selected policyholder)</FormLabel>
                   <Select
-                    value={field.value}
+                    value={toSelectValue(field.value)}
                     onValueChange={(value) => {
-                      const vehicle = vehicleOptions.find((v) => v.id === value);
+                      const nextValue = fromSelectValue(value);
+                      const vehicle = vehicleOptions.find((v) => v.id === nextValue);
                       if (vehicle) fillFromExisting(vehicle);
+                      if (value === SELECT_NONE_VALUE) {
+                        form.setValue('motor', createEmptyMotorDetails() as QuotationFormSchemaValues['motor']);
+                      }
                     }}
                   >
                     <FormControl>
@@ -143,6 +160,7 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                       {vehicleOptions.map((vehicle) => (
                         <SelectItem key={vehicle.id} value={vehicle.id}>
                           {vehicle.registration_no ?? vehicle.chassis_no ?? vehicle.id} — {vehicle.make} {vehicle.model}
@@ -181,14 +199,21 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
               <FormItem>
                 <FormLabel>Motor Category</FormLabel>
                 <Select
-                  value={(field.value as string) || undefined}
+                  value={toSelectValue(field.value as string)}
                   onValueChange={(value) => {
-                    field.onChange(value);
-                    form.setValue('motor.vehicle_category', getVehicleCategoryLabelFromCode(value));
+                    const nextValue = fromSelectValue(value);
+                    field.onChange(nextValue);
+                    form.setValue(
+                      'motor.vehicle_category',
+                      getVehicleCategoryLabelFromCode(
+                        nextValue as Parameters<typeof getVehicleCategoryLabelFromCode>[0],
+                      ),
+                    );
                   }}
                 >
                   <FormControl><SelectTrigger><SelectValue placeholder="Select motor category" /></SelectTrigger></FormControl>
                   <SelectContent>
+                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                     {MOTOR_CATEGORY_OPTIONS.map((option) => (
                       <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                     ))}
@@ -200,9 +225,13 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
             <FormField control={form.control} name="motor.motor_type_code" render={({ field }) => (
               <FormItem>
                 <FormLabel>Motor Type</FormLabel>
-                <Select value={(field.value as string) || undefined} onValueChange={field.onChange}>
+                <Select
+                  value={toSelectValue(field.value as string)}
+                  onValueChange={(value) => field.onChange(fromSelectValue(value))}
+                >
                   <FormControl><SelectTrigger><SelectValue placeholder="Select motor type" /></SelectTrigger></FormControl>
                   <SelectContent>
+                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                     {MOTOR_TYPE_OPTIONS.map((option) => (
                       <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                     ))}
@@ -215,14 +244,21 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
               <FormItem>
                 <FormLabel>Vehicle Usage</FormLabel>
                 <Select
-                  value={(field.value as string) || undefined}
+                  value={toSelectValue(field.value as string)}
                   onValueChange={(value) => {
-                    field.onChange(value);
-                    form.setValue('motor.usage_type', getUsageLabelFromCode(value));
+                    const nextValue = fromSelectValue(value);
+                    field.onChange(nextValue);
+                    form.setValue(
+                      'motor.usage_type',
+                      getUsageLabelFromCode(
+                        nextValue as Parameters<typeof getUsageLabelFromCode>[0],
+                      ),
+                    );
                   }}
                 >
                   <FormControl><SelectTrigger><SelectValue placeholder="Select usage" /></SelectTrigger></FormControl>
                   <SelectContent>
+                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                     {USAGE_OPTIONS.map((option) => (
                       <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                     ))}
@@ -352,9 +388,13 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
             <FormField control={form.control} name="motor.owner_category" render={({ field }) => (
               <FormItem>
                 <FormLabel>Owner Category (optional)</FormLabel>
-                <Select value={(field.value as string) || undefined} onValueChange={field.onChange}>
+                <Select
+                  value={toSelectValue(field.value as string)}
+                  onValueChange={(value) => field.onChange(fromSelectValue(value))}
+                >
                   <FormControl><SelectTrigger><SelectValue placeholder="Select owner category" /></SelectTrigger></FormControl>
                   <SelectContent>
+                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                     {OWNER_CATEGORY_OPTIONS.map((option) => (
                       <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                     ))}

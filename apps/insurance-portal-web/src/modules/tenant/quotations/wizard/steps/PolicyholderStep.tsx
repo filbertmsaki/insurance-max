@@ -10,6 +10,11 @@ import {
   type CustomerRecord,
 } from '@/modules/tenant/customers/types';
 import type { QuotationFormSchemaValues } from '../../schemas';
+import {
+  fromSelectValue,
+  SELECT_NONE_VALUE,
+  toSelectValue,
+} from '../utils/selectValue';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -90,13 +95,17 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Existing Customer</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={toSelectValue(field.value)}
+                    onValueChange={(value) => field.onChange(fromSelectValue(value))}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Search or select a customer" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                       {customerOptions.map((customer) => (
                         <SelectItem key={customer.id} value={customer.id}>
                           {getCustomerDisplayName(customer)} ({customer.customer_no})
@@ -196,9 +205,13 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
               <FormField control={form.control} name={fieldName('gender')} render={({ field }) => (
                 <FormItem>
                   <FormLabel>Gender</FormLabel>
-                  <Select value={(field.value as string) || undefined} onValueChange={field.onChange}>
+                  <Select
+                    value={toSelectValue(field.value as string)}
+                    onValueChange={(value) => field.onChange(fromSelectValue(value))}
+                  >
                     <FormControl><SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger></FormControl>
                     <SelectContent>
+                      <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                       <SelectItem value="M">Male</SelectItem>
                       <SelectItem value="F">Female</SelectItem>
                     </SelectContent>
@@ -212,11 +225,14 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
               <FormItem>
                 <FormLabel>Identification Type</FormLabel>
                 <Select
-                  value={field.value ? String(field.value) : undefined}
-                  onValueChange={(value) => field.onChange(Number(value))}
+                  value={field.value ? String(field.value) : SELECT_NONE_VALUE}
+                  onValueChange={(value) => {
+                    field.onChange(value === SELECT_NONE_VALUE ? '' : Number(value));
+                  }}
                 >
                   <FormControl><SelectTrigger><SelectValue placeholder="Select ID type" /></SelectTrigger></FormControl>
                   <SelectContent>
+                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                     {idFieldOptions.map((option) => (
                       <SelectItem key={option.value} value={String(option.value)}>{option.label}</SelectItem>
                     ))}
