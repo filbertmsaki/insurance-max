@@ -295,7 +295,7 @@ export interface FlatQuotationPayload {
 }
 
 export interface MotorCoverNoteQuotationPayload {
-  motor_cover_note_payload: {
+  cover_note_payload: {
     internal_quotation: {
       insurer_company_id: string;
       intermediary_company_id: string | null;

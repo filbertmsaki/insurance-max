@@ -1340,7 +1340,7 @@ function buildMotorCoverNotePayload(
   context: MotorQuotationPayloadContext = {},
 ): MotorCoverNoteQuotationPayload {
   return {
-    motor_cover_note_payload: {
+    cover_note_payload: {
       internal_quotation: {
         insurer_company_id: values.insurer_company_id,
         intermediary_company_id:
