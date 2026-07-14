@@ -44,15 +44,17 @@ function SectionHeader({
   onEdit,
 }: {
   title: string;
-  onEdit: () => void;
+  onEdit?: () => void;
 }) {
   return (
     <CardHeader className="flex flex-row items-center justify-between">
       <CardTitle className="text-base">{title}</CardTitle>
-      <Button type="button" variant="ghost" size="sm" onClick={onEdit}>
-        <Pencil className="mr-2 h-3.5 w-3.5" />
-        Edit
-      </Button>
+      {onEdit && (
+        <Button type="button" variant="ghost" size="sm" onClick={onEdit}>
+          <Pencil className="mr-2 h-3.5 w-3.5" />
+          Edit
+        </Button>
+      )}
     </CardHeader>
   );
 }
@@ -262,27 +264,13 @@ export function SummaryReviewStep({
 
       {values.quotation_type === 'NON_MOTOR' && (
         <Card>
-          <SectionHeader title="Subject Matters" onEdit={() => onEditStep('non-motor')} />
+          <SectionHeader title="Subject Matters" />
           <CardContent className="space-y-1 text-sm">
-            {values.nonMotor.items.length === 0 ? (
-              <p className="text-slate-500">No subject matters added</p>
-            ) : (
-              values.nonMotor.items.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between border-b border-slate-100 py-1 last:border-0"
-                >
-                  <span>
-                    {item.subject_matter_reference ||
-                      `Subject matter #${index + 1}`}{' '}
-                    - {item.subject_matter_desc}
-                  </span>
-                  <span className="text-slate-500">
-                    Linked risk #{index + 1}
-                  </span>
-                </div>
-              ))
-            )}
+            <p className="text-slate-500">
+              Generated automatically for each risk row on save — reference is
+              the product code plus a timestamp, description is the product
+              name.
+            </p>
           </CardContent>
         </Card>
       )}
@@ -303,6 +291,7 @@ export function SummaryReviewStep({
                   salePointCode: salePoint?.salePointCode ?? null,
                   productCode:
                     product?.tiramis_product_code || product?.product_code || null,
+                  productName: product?.product_name || null,
                   existingCustomer,
                 }),
                 null,

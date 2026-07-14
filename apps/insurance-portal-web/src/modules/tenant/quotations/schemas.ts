@@ -929,37 +929,10 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
       });
     }
 
-    if (quotationFlow === 'NON_MOTOR') {
-      const items = values.nonMotor.items;
-      // Each subject matter row maps 1:1 by index to a Risk & Premium row (see
-      // QuotationWizardNonMotorItemRow) because NonMotorQuotationDetail requires
-      // a real quotation_risk_id — there's no way to have more subject matters
-      // than risks to attach them to.
-      if (items.length > values.risks.length) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['nonMotor', 'items'],
-          message: `Cannot have more subject matters (${items.length}) than risk rows (${values.risks.length}) — each subject matter links to one risk`,
-        });
-      }
-
-      items.forEach((item, index) => {
-        if (!item.subject_matter_reference?.trim()) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['nonMotor', 'items', index, 'subject_matter_reference'],
-            message: 'Subject matter reference is required',
-          });
-        }
-        if (!item.subject_matter_desc?.trim()) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['nonMotor', 'items', index, 'subject_matter_desc'],
-            message: 'Subject matter description is required',
-          });
-        }
-      });
-    }
+    // Non-motor subject matters are generated automatically per risk row
+    // (product code + timestamp / product name) rather than entered in the
+    // wizard — see resolveNonMotor in QuotationWizardPage — so no validation
+    // is needed here.
   },
 );
 

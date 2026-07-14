@@ -8,6 +8,7 @@ import type {
 type QuotationPayloadPreviewContext = {
   salePointCode?: string | null;
   productCode?: string | null;
+  productName?: string | null;
   existingCustomer?: CustomerRecord | null;
   existingVehicle?: MotorVehicleRecord | null;
 };
@@ -160,11 +161,16 @@ function buildAddons(values: QuotationFormSchemaValues) {
     }));
 }
 
-function buildSubjectMatters(values: QuotationFormSchemaValues) {
+function buildSubjectMatters(
+  values: QuotationFormSchemaValues,
+  context: QuotationPayloadPreviewContext = {},
+) {
   if (values.quotation_flow === 'NON_MOTOR') {
-    return values.nonMotor.items.map((item) => ({
-      subject_matter_reference: item.subject_matter_reference || '',
-      subject_matter_desc: item.subject_matter_desc || '',
+    const productCode = context.productCode || values.product_id || 'PRODUCT';
+    const productName = context.productName || 'Non-motor cover';
+    return values.risks.map((_, index) => ({
+      subject_matter_reference: `${productCode}-${Date.now()}-${index}`,
+      subject_matter_desc: productName,
     }));
   }
 
@@ -383,7 +389,7 @@ export function buildQuotationPayloadPreview(
     cover_note_dtl: {
       ...coverNoteDtlBase,
       risks_covered: buildRisksCovered(values),
-      subject_matters_covered: buildSubjectMatters(values),
+      subject_matters_covered: buildSubjectMatters(values, context),
       cover_note_addons: buildAddons(values),
       policy_holders: [buildPolicyHolder(values, context.existingCustomer)],
       ...(values.quotation_flow === 'MOTOR_SINGLE'

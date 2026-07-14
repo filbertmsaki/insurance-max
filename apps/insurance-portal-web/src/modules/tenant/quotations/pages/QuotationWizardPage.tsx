@@ -55,7 +55,6 @@ import {
   createEmptyFleetItemRow,
   createEmptyMotorDetails,
   createEmptyNonMotorDetails,
-  createEmptyNonMotorItemRow,
   createEmptyRiskRow,
   quotationFormSchema,
   quotationRecordToFormValues,
@@ -75,7 +74,6 @@ import { RiskPremiumStep } from '../wizard/steps/RiskPremiumStep';
 import { AddOnsStep } from '../wizard/steps/AddOnsStep';
 import { MotorDetailsStep } from '../wizard/steps/MotorDetailsStep';
 import { MotorFleetDetailsStep } from '../wizard/steps/MotorFleetDetailsStep';
-import { NonMotorDetailsStep } from '../wizard/steps/NonMotorDetailsStep';
 import { SummaryReviewStep } from '../wizard/steps/SummaryReviewStep';
 import {
   getMotorCategoryCodeFromVehicleCategory,
@@ -121,7 +119,6 @@ const STEP_FIELDS: Partial<
   addons: ['addons'],
   motor: ['motor_mode', 'motor'],
   'motor-fleet': ['fleet'],
-  'non-motor': ['nonMotor'],
 };
 
 const DEFAULT_VALUES: QuotationFormSchemaValues = {
@@ -203,10 +200,6 @@ export function QuotationWizardPage() {
   const addonFieldArray = useFieldArray({
     control: form.control,
     name: 'addons',
-  });
-  const nonMotorFieldArray = useFieldArray({
-    control: form.control,
-    name: 'nonMotor.items',
   });
 
   // Hydrate insurer_company_id once the current company resolves, and restore
@@ -556,16 +549,6 @@ export function QuotationWizardPage() {
     );
   }
 
-  // Capped at risks.length — each subject matter row must link to a real risk row.
-  function addNonMotorItem() {
-    if (nonMotorFieldArray.fields.length >= riskFieldArray.fields.length)
-      return;
-    nonMotorFieldArray.append(createEmptyNonMotorItemRow());
-  }
-
-  function removeNonMotorItem(index: number) {
-    nonMotorFieldArray.remove(index);
-  }
 
   function goToStep(id: QuotationWizardStepId) {
     setCompletedSteps((prev) =>
@@ -837,23 +820,33 @@ export function QuotationWizardPage() {
   ): Promise<void> {
     if (values.quotation_type !== 'NON_MOTOR') return;
 
-    const items = values.nonMotor.items;
-    for (let index = 0; index < items.length; index += 1) {
-      const item = items[index];
+    const selectedProduct = productOptions.find(
+      (product) => product.id === values.product_id,
+    );
+    const productCode =
+      selectedProduct?.tiramis_product_code ??
+      selectedProduct?.product_code ??
+      values.product_id;
+    const productName = selectedProduct?.product_name ?? 'Non-motor cover';
+
+    for (let index = 0; index < savedRisks.length; index += 1) {
       const risk = savedRisks[index];
-      if (!risk) continue;
+      const existingItem = values.nonMotor.items[index];
+      const reference =
+        existingItem?.subject_matter_reference ||
+        `${productCode}-${Date.now()}-${index}`;
 
       const subjectMatterPayload: SubjectMatterPayload = {
         customer_id: customerId,
         subject_type: null,
-        subject_code: item.subject_matter_reference || '',
-        description: item.subject_matter_desc || null,
+        subject_code: reference,
+        description: productName,
         location: null,
         value: 0,
       };
-      const subjectMatter = item.subject_matter_id
+      const subjectMatter = existingItem?.subject_matter_id
         ? await nonMotorApi.updateSubjectMatter(
-            item.subject_matter_id,
+            existingItem.subject_matter_id,
             subjectMatterPayload,
           )
         : await nonMotorApi.createSubjectMatter(subjectMatterPayload);
@@ -861,18 +854,20 @@ export function QuotationWizardPage() {
         `nonMotor.items.${index}.subject_matter_id`,
         subjectMatter.id,
       );
+      form.setValue(`nonMotor.items.${index}.subject_matter_reference`, reference);
+      form.setValue(`nonMotor.items.${index}.subject_matter_desc`, productName);
 
       const detailPayload: NonMotorQuotationDetailPayload = {
         quotation_id: quotationId,
         quotation_risk_id: risk.id,
         subject_matter_id: subjectMatter.id,
-        cover_description: item.subject_matter_desc || null,
+        cover_description: productName,
         risk_location: null,
         insured_value: null,
         limit_of_liability: null,
       };
-      const detail = item.detail_id
-        ? await nonMotorApi.updateQuotationDetail(item.detail_id, detailPayload)
+      const detail = existingItem?.detail_id
+        ? await nonMotorApi.updateQuotationDetail(existingItem.detail_id, detailPayload)
         : await nonMotorApi.createQuotationDetail(detailPayload);
       form.setValue(`nonMotor.items.${index}.detail_id`, detail.id);
     }
@@ -1092,15 +1087,6 @@ export function QuotationWizardPage() {
                   fieldArray={fleetFieldArray}
                   onAddVehicle={addFleetVehicle}
                   onRemoveVehicle={removeFleetVehicle}
-                />
-              )}
-              {stepId === 'non-motor' && (
-                <NonMotorDetailsStep
-                  form={form}
-                  fieldArray={nonMotorFieldArray}
-                  riskCount={riskFieldArray.fields.length}
-                  onAddItem={addNonMotorItem}
-                  onRemoveItem={removeNonMotorItem}
                 />
               )}
               {stepId === 'summary' && (
