@@ -300,9 +300,16 @@ export function buildQuotationPayloadPreview(
     officer_name: values.officer_name || null,
     officer_title: values.officer_title || null,
     product_code: productCode,
-    endorsement_type: null,
-    endorsement_reason: null,
-    endorsement_premium_earned: null,
+    endorsement_type:
+      values.cover_note_type === '3'
+        ? toNumber(values.endorsement_type) || null
+        : null,
+    endorsement_reason:
+      values.cover_note_type === '3' ? values.endorsement_reason || null : null,
+    endorsement_premium_earned:
+      values.cover_note_type === '3'
+        ? toNumber(values.endorsement_premium_earned) || null
+        : null,
   };
 
   if (values.quotation_flow === 'MOTOR_FLEET') {

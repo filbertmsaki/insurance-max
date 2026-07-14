@@ -68,7 +68,7 @@
     "ms": "^2.1.3",
     "mysql2": "^3.22.4",
     "node-forge": "^1.4.0",
-    "nodemailer": "^8.0.10",
+    "nodemailer": "^9.0.3",
     "oracledb": "^6.10.0",
     "otplib": "^13.1.1",
     "passport": "^0.7.0",
@@ -141,5 +141,13 @@
       "^@insurance-max/shared-config$": "<rootDir>/libs/shared-config/src",
       "^@insurance-max/shared-kernel$": "<rootDir>/libs/shared-kernel/src"
     }
+  },
+  "allowScripts": {
+    "argon2@0.43.1": true,
+    "msgpackr-extract@3.0.4": true,
+    "oracledb@6.10.0": true,
+    "unrs-resolver@1.12.2": true,
+    "@nestjs/core@11.1.24": true,
+    "@scarf/scarf@1.4.0": true
   }
 }

@@ -59,6 +59,12 @@ const PAYMENT_MODES_TIRA = [
   { value: '2', label: 'Cheque' },
   { value: '3', label: 'EFT' },
 ] as const;
+const ENDORSEMENT_TYPES = [
+  { value: '1', label: 'Increasing Premium Charged' },
+  { value: '2', label: 'Decreasing Premium Charged' },
+  { value: '3', label: 'Cover Details Change' },
+  { value: '4', label: 'Cover Cancellation' },
+] as const;
 
 export function CoverNoteSetupStep({
   form,
@@ -507,6 +513,11 @@ export function CoverNoteSetupStep({
                     if (value === SELECT_NONE_VALUE) {
                       form.setValue('prev_cover_note_reference', '');
                     }
+                    if (value !== '3') {
+                      form.setValue('endorsement_type', '');
+                      form.setValue('endorsement_reason', '');
+                      form.setValue('endorsement_premium_earned', '');
+                    }
                   }}
                 >
                   <FormControl>
@@ -541,6 +552,69 @@ export function CoverNoteSetupStep({
                 </FormItem>
               )}
             />
+          )}
+
+          {coverNoteType === '3' && (
+            <>
+              <FormField
+                control={form.control}
+                name="endorsement_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Endorsement Type</FormLabel>
+                    <Select
+                      value={toSelectValue(field.value)}
+                      onValueChange={(value) =>
+                        field.onChange(fromSelectValue(value))
+                      }
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select endorsement type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
+                        {ENDORSEMENT_TYPES.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="endorsement_premium_earned"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Endorsement Premium Earned</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="endorsement_reason"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Endorsement Reason</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
           )}
 
           <FormField

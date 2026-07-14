@@ -155,6 +155,9 @@ export interface QuotationRecord {
   exchange_rate: string;
   cover_note_type: string;
   prev_cover_note_reference_number: string | null;
+  endorsement_type: string | null;
+  endorsement_reason: string | null;
+  endorsement_premium_earned: string | null;
   sale_point_code: string | null;
   payment_mode_tira: string;
   officer_name: string | null;
@@ -218,6 +221,9 @@ export interface FlatQuotationPayload {
   exchange_rate?: number | string | null;
   cover_note_type?: string;
   prev_cover_note_reference_number?: string | null;
+  endorsement_type?: string | null;
+  endorsement_reason?: string | null;
+  endorsement_premium_earned?: number | string | null;
   sale_point_code?: string | null;
   payment_mode_tira?: string;
   officer_name?: string | null;
@@ -318,6 +324,9 @@ export interface MotorCoverNoteQuotationPayload {
       cover_note_end_date: string;
       cover_note_desc: string;
       operative_clause: string;
+      endorsement_type?: number | null;
+      endorsement_reason?: string | null;
+      endorsement_premium_earned?: number | null;
       payment_mode: number;
       currency_code: string;
       exchange_rate: number;

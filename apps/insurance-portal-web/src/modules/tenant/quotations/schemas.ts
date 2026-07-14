@@ -414,6 +414,9 @@ const quotationFormObjectSchema = z.object({
   // TIRA submission payload is assembled (Phase 13).
   cover_note_type: z.enum(['1', '2', '3']),
   prev_cover_note_reference: optionalText,
+  endorsement_type: z.enum(['1', '2', '3', '4']).or(z.literal('')).optional(),
+  endorsement_reason: optionalText,
+  endorsement_premium_earned: z.string().trim().optional().or(z.literal('')),
   officer_name: optionalText,
   officer_title: optionalText,
   payment_mode_tira: z.enum(['1', '2', '3']),
@@ -601,6 +604,30 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
         message:
           'Previous cover note reference is required for renewals and endorsements',
       });
+    }
+
+    if (values.cover_note_type === '3') {
+      if (!values.endorsement_type) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['endorsement_type'],
+          message: 'Endorsement type is required for endorsements',
+        });
+      }
+      if (!values.endorsement_reason?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['endorsement_reason'],
+          message: 'Endorsement reason is required for endorsements',
+        });
+      }
+      if (!values.endorsement_premium_earned?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['endorsement_premium_earned'],
+          message: 'Endorsement premium earned is required for endorsements',
+        });
+      }
     }
 
     values.addons.forEach((addon, index) => {
@@ -1274,6 +1301,10 @@ function buildFlatQuotationPayload(
     cover_note_type: values.cover_note_type,
     prev_cover_note_reference_number:
       normalizeText(values.prev_cover_note_reference) ?? null,
+    endorsement_type: normalizeText(values.endorsement_type) ?? null,
+    endorsement_reason: normalizeText(values.endorsement_reason) ?? null,
+    endorsement_premium_earned:
+      normalizeNumber(values.endorsement_premium_earned) ?? null,
     payment_mode_tira: values.payment_mode_tira,
     officer_name: normalizeText(values.officer_name) ?? null,
     officer_title: normalizeText(values.officer_title) ?? null,
@@ -1424,6 +1455,12 @@ function buildMotorCoverNotePayload(
         cover_note_desc: context.coverNoteDesc ?? 'Motor cover note',
         operative_clause:
           context.operativeClause ?? 'Motor Comprehensive Cover',
+        endorsement_type: values.endorsement_type
+          ? Number(values.endorsement_type)
+          : null,
+        endorsement_reason: normalizeText(values.endorsement_reason) ?? null,
+        endorsement_premium_earned:
+          normalizeNumber(values.endorsement_premium_earned) ?? null,
         payment_mode: toMotorNumber(values.payment_mode_tira),
         currency_code: values.currency.trim().toUpperCase(),
         exchange_rate: toMotorNumber(values.exchange_rate),
@@ -1496,6 +1533,10 @@ export function buildQuotationPayload(
     cover_note_type: values.cover_note_type,
     prev_cover_note_reference_number:
       normalizeText(values.prev_cover_note_reference) ?? null,
+    endorsement_type: normalizeText(values.endorsement_type) ?? null,
+    endorsement_reason: normalizeText(values.endorsement_reason) ?? null,
+    endorsement_premium_earned:
+      normalizeNumber(values.endorsement_premium_earned) ?? null,
     payment_mode_tira: values.payment_mode_tira,
     officer_name: normalizeText(values.officer_name) ?? null,
     officer_title: normalizeText(values.officer_title) ?? null,
@@ -1659,6 +1700,12 @@ export function quotationRecordToFormValues(
     rejection_reason: record.rejection_reason ?? '',
     cover_note_type: record.cover_note_type ?? '1',
     prev_cover_note_reference: record.prev_cover_note_reference_number ?? '',
+    endorsement_type: record.endorsement_type ?? '',
+    endorsement_reason: record.endorsement_reason ?? '',
+    endorsement_premium_earned:
+      record.endorsement_premium_earned != null
+        ? String(record.endorsement_premium_earned)
+        : '',
     officer_name: record.officer_name ?? '',
     officer_title: record.officer_title ?? '',
     payment_mode_tira: record.payment_mode_tira ?? '1',
