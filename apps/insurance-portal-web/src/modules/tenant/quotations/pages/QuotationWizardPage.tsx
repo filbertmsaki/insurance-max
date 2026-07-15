@@ -167,6 +167,102 @@ const DEFAULT_VALUES: QuotationFormSchemaValues = {
   exchange_rate: '',
 };
 
+function mergeFleetDefaults(
+  fleet: Partial<QuotationFormSchemaValues['fleet']> | undefined,
+): QuotationFormSchemaValues['fleet'] {
+  const defaultFleet = createEmptyFleetDetails();
+  const defaultPolicyHolder = defaultFleet.header.policy_holders[0];
+  const defaultFleetRisk = {
+    risk_code: '',
+    sum_insured: '',
+    sum_insured_equivalent: '',
+    premium_rate: '',
+    premium_before_discount: '',
+    premium_after_discount: '',
+    premium_excluding_tax_equivalent: '',
+    premium_including_tax: '',
+    discounts_offered: [
+      { discount_type: '1', discount_rate: '', discount_amount: '' },
+    ],
+    taxes_charged: [
+      {
+        tax_code: '',
+        is_tax_exempted: false,
+        tax_exemption_type: '',
+        tax_exemption_reference: '',
+        tax_rate: '',
+        tax_amount: '',
+      },
+    ],
+  };
+  const defaultFleetAddon = {
+    addon_reference: '',
+    addon_desc: '',
+    addon_amount: '',
+    addon_premium_rate: '',
+    premium_excluding_tax: '',
+    premium_excluding_tax_equivalent: '',
+    premium_including_tax: '',
+    taxes: [],
+  };
+
+  return {
+    header: {
+      ...defaultFleet.header,
+      ...(fleet?.header ?? {}),
+      policy_holders: (fleet?.header?.policy_holders?.length
+        ? fleet.header.policy_holders
+        : defaultFleet.header.policy_holders
+      ).map((policyHolder) => ({
+        ...defaultPolicyHolder,
+        ...policyHolder,
+      })),
+    },
+    items: (fleet?.items?.length ? fleet.items : defaultFleet.items).map(
+      (item) => {
+        const defaultItem = createEmptyFleetItemRow();
+        return {
+          ...defaultItem,
+          ...item,
+          risks_covered: (item?.risks_covered?.length
+            ? item.risks_covered
+            : defaultItem.risks_covered
+          ).map((risk) => ({
+            ...defaultFleetRisk,
+            ...risk,
+            discounts_offered: (risk?.discounts_offered?.length
+              ? risk.discounts_offered
+              : defaultFleetRisk.discounts_offered
+            ).map((discount) => ({ ...discount })),
+            taxes_charged: (risk?.taxes_charged?.length
+              ? risk.taxes_charged
+              : defaultFleetRisk.taxes_charged
+            ).map((tax) => ({ ...tax })),
+          })),
+          subject_matters_covered: (item?.subject_matters_covered?.length
+            ? item.subject_matters_covered
+            : defaultItem.subject_matters_covered
+          ).map((subjectMatter) => ({ ...subjectMatter })),
+          cover_note_addons: (item?.cover_note_addons?.length
+            ? item.cover_note_addons
+            : defaultItem.cover_note_addons
+          ).map((addon) => ({
+            ...defaultFleetAddon,
+            ...addon,
+            taxes: (addon?.taxes?.length ? addon.taxes : []).map((tax) => ({
+              ...tax,
+            })),
+          })),
+          motor_dtl: {
+            ...defaultItem.motor_dtl,
+            ...(item?.motor_dtl ?? {}),
+          },
+        };
+      },
+    ),
+  };
+}
+
 export function QuotationWizardPage() {
   const navigate = useNavigate();
   const { id: editId } = useParams<{ id?: string }>();
@@ -212,6 +308,7 @@ export function QuotationWizardPage() {
       form.reset({
         ...DEFAULT_VALUES,
         ...draft,
+        fleet: mergeFleetDefaults(draft.fleet),
         // Always the current company, never trust a stale/blank value that
         // may have been captured in the draft before companyId resolved (or
         // from a since-switched company) — the backend validates category/
@@ -399,8 +496,9 @@ export function QuotationWizardPage() {
                 };
               }),
             );
-            base.fleet = {
+            base.fleet = mergeFleetDefaults({
               header: {
+                ...base.fleet.header,
                 fleet_id: fullFleet.id,
                 fleet_no: fullFleet.fleet_no ?? '',
                 fleet_name: fullFleet.fleet_name ?? '',
@@ -412,7 +510,7 @@ export function QuotationWizardPage() {
                 comprehensive_insured: '',
               },
               items: items.length ? items : [createEmptyFleetItemRow()],
-            };
+            });
           }
         }
 
@@ -546,6 +644,26 @@ export function QuotationWizardPage() {
     form.setValue(
       'fleet.header.fleet_size',
       String(Math.max(1, fleetFieldArray.fields.length - 1)),
+    );
+  }
+
+  function duplicateFleetVehicle(index: number) {
+    const current = form.getValues(`fleet.items.${index}`);
+    const duplicated = structuredClone(current ?? createEmptyFleetItemRow());
+
+    duplicated.fleet_item_id = '';
+    duplicated.vehicle_id = '';
+    duplicated.fleet_entry = String(fleetFieldArray.fields.length + 1);
+    duplicated.cover_note_number = '';
+    duplicated.prev_cover_note_reference_number = '';
+    duplicated.endorsement_type = '';
+    duplicated.endorsement_reason = '';
+    duplicated.endorsement_premium_earned = '';
+
+    fleetFieldArray.insert(index + 1, duplicated);
+    form.setValue(
+      'fleet.header.fleet_size',
+      String(fleetFieldArray.fields.length + 1),
     );
   }
 
@@ -1084,9 +1202,12 @@ export function QuotationWizardPage() {
               {stepId === 'motor-fleet' && (
                 <MotorFleetDetailsStep
                   form={form}
+                  customerOptions={customerOptions}
+                  riskOptions={riskOptions}
                   fieldArray={fleetFieldArray}
                   onAddVehicle={addFleetVehicle}
                   onRemoveVehicle={removeFleetVehicle}
+                  onDuplicateVehicle={duplicateFleetVehicle}
                 />
               )}
               {stepId === 'summary' && (

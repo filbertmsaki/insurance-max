@@ -231,43 +231,143 @@ export function createEmptyMotorDetails(): QuotationFormValues['motor'] {
 
 const quotationFleetHeaderSchema = z.object({
   fleet_id: optionalText,
-  fleet_no: z.string().trim().max(50).optional().or(z.literal('')),
-  fleet_name: z.string().trim().max(150).optional().or(z.literal('')),
   fleet_size: optionalText,
-  fleet_type: z.enum(['1', '2']),
+  fleet_type: z
+    .union([z.string(), z.number()])
+    .transform((value) => String(value))
+    .pipe(z.enum(['1', '2'])),
   comprehensive_insured: optionalText,
+  sale_point_code: optionalText,
+  product_code: optionalText,
+  cover_note_type: z
+    .union([z.string(), z.number()])
+    .transform((value) => String(value))
+    .pipe(z.enum(['1', '2', '3'])),
+  cover_note_start_date: z.string().trim().optional().or(z.literal('')),
+  cover_note_end_date: z.string().trim().optional().or(z.literal('')),
+  payment_mode: z
+    .union([z.string(), z.number()])
+    .transform((value) => String(value))
+    .pipe(z.enum(['1', '2', '3'])),
+  currency_code: z.string().trim().optional().or(z.literal('')),
+  exchange_rate: z.string().trim().optional().or(z.literal('')),
+  commision_paid: z.string().trim().optional().or(z.literal('')),
+  commision_rate: z.string().trim().optional().or(z.literal('')),
+  officer_name: optionalText,
+  officer_title: optionalText,
+  policy_holders: z.array(
+    z.object({
+      policy_holder_name: optionalText,
+      policy_holder_birth_date: z.string().trim().optional().or(z.literal('')),
+      policy_holder_type: z.string().trim().optional().or(z.literal('')),
+      policy_holder_id_number: optionalText,
+      policy_holder_id_type: z.string().trim().optional().or(z.literal('')),
+      gender: optionalText,
+      country_code: optionalText,
+      region: optionalText,
+      district: optionalText,
+      street: optionalText,
+      policy_holder_phone_number: optionalText,
+      policy_holder_fax: optionalText,
+      postal_address: optionalText,
+      email_address: optionalText,
+    }),
+  ),
 });
 
 const quotationFleetItemRowSchema = z.object({
-  vehicle_id: optionalText,
-  fleet_item_id: optionalText,
-  registration_no: z.string().trim().max(50).optional().or(z.literal('')),
-  chassis_no: z.string().trim().max(50).optional().or(z.literal('')),
-  make: z.string().trim().max(100).optional().or(z.literal('')),
-  model: z.string().trim().max(100).optional().or(z.literal('')),
-  model_no: z.string().trim().max(100).optional().or(z.literal('')),
-  body_type: z.string().trim().max(100).optional().or(z.literal('')),
-  color: z.string().trim().max(50).optional().or(z.literal('')),
-  engine_no: z.string().trim().max(50).optional().or(z.literal('')),
-  engine_capacity: optionalText,
-  fuel_used: z.string().trim().max(50).optional().or(z.literal('')),
-  number_of_axles: optionalText,
-  axle_distance: optionalText,
-  manufacture_year: optionalText,
-  seating_capacity: optionalText,
-  tare_weight: optionalText,
-  gross_weight: optionalText,
-  motor_category_code: z.enum(['1', '2']).optional().or(z.literal('')),
-  motor_type_code: z.enum(['1', '2']).optional().or(z.literal('')),
-  motor_usage_code: z.enum(['1', '2']).optional().or(z.literal('')),
-  owner_name: z.string().trim().max(150).optional().or(z.literal('')),
-  owner_category: z.enum(['1', '2']).optional().or(z.literal('')),
-  owner_address: z.string().trim().max(255).optional().or(z.literal('')),
-  vehicle_value: optionalText,
-  sum_insured: optionalText,
-  premium: optionalText,
+  fleet_entry: optionalText,
+  cover_note_number: optionalText,
+  prev_cover_note_reference_number: optionalText,
   cover_note_desc: optionalText,
   operative_clause: optionalText,
+  endorsement_type: z.enum(['1', '2', '3', '4']).optional().or(z.literal('')),
+  endorsement_reason: optionalText,
+  endorsement_premium_earned: optionalText,
+  risks_covered: z
+    .array(
+      z.object({
+        risk_code: z.string().trim().min(1, 'Risk is required'),
+        sum_insured: z.string().trim().min(1, 'Sum insured is required'),
+        sum_insured_equivalent: optionalText,
+        premium_rate: optionalText,
+        premium_before_discount: optionalText,
+        premium_after_discount: optionalText,
+        premium_excluding_tax_equivalent: optionalText,
+        premium_including_tax: optionalText,
+        discounts_offered: z.array(
+          z.object({
+            discount_type: optionalText,
+            discount_rate: optionalText,
+            discount_amount: optionalText,
+          }),
+        ),
+        taxes_charged: z.array(
+          z.object({
+            tax_code: optionalText,
+            is_tax_exempted: z.boolean().optional().default(false),
+            tax_exemption_type: optionalText,
+            tax_exemption_reference: optionalText,
+            tax_rate: optionalText,
+            tax_amount: optionalText,
+          }),
+        ),
+      }),
+    )
+    .min(1, 'At least one risk is required'),
+  subject_matters_covered: z
+    .array(
+      z.object({
+        subject_matter_reference: optionalText,
+        subject_matter_desc: optionalText,
+      }),
+    )
+    .min(1),
+  cover_note_addons: z.array(
+    z.object({
+      addon_reference: optionalText,
+      addon_desc: optionalText,
+      addon_amount: optionalText,
+      addon_premium_rate: optionalText,
+      premium_excluding_tax: optionalText,
+      premium_excluding_tax_equivalent: optionalText,
+      premium_including_tax: optionalText,
+      taxes: z.array(
+        z.object({
+          tax_code: optionalText,
+          is_tax_exempted: z.boolean().optional().default(false),
+          tax_exemption_type: optionalText,
+          tax_exemption_reference: optionalText,
+          tax_rate: optionalText,
+          tax_amount: optionalText,
+        }),
+      ),
+    }),
+  ),
+  motor_dtl: z.object({
+    motor_category: z.enum(['1', '2']).optional().or(z.literal('')),
+    motor_type: z.enum(['1', '2']).optional().or(z.literal('')),
+    registration_number: z.string().trim().max(50).optional().or(z.literal('')),
+    chassis_number: z.string().trim().max(50).optional().or(z.literal('')),
+    make: z.string().trim().max(100).optional().or(z.literal('')),
+    model: z.string().trim().max(100).optional().or(z.literal('')),
+    model_number: z.string().trim().max(100).optional().or(z.literal('')),
+    body_type: z.string().trim().max(100).optional().or(z.literal('')),
+    color: z.string().trim().max(50).optional().or(z.literal('')),
+    engine_number: z.string().trim().max(50).optional().or(z.literal('')),
+    engine_capacity: optionalText,
+    fuel_used: z.string().trim().max(50).optional().or(z.literal('')),
+    number_of_axles: optionalText,
+    axle_distance: optionalText,
+    sitting_capacity: optionalText,
+    year_of_manufacture: optionalText,
+    tare_weight: optionalText,
+    gross_weight: optionalText,
+    motor_usage: z.enum(['1', '2']).optional().or(z.literal('')),
+    owner_name: z.string().trim().max(150).optional().or(z.literal('')),
+    owner_category: z.enum(['1', '2']).optional().or(z.literal('')),
+    owner_address: z.string().trim().max(255).optional().or(z.literal('')),
+  }),
 });
 
 export function createEmptyFleetItemRow(): QuotationFormValues['fleet']['items'][number] {
@@ -301,6 +401,74 @@ export function createEmptyFleetItemRow(): QuotationFormValues['fleet']['items']
     premium: '',
     cover_note_desc: '',
     operative_clause: '',
+    fleet_entry: '',
+    cover_note_number: '',
+    prev_cover_note_reference_number: '',
+    cover_note_desc: '',
+    operative_clause: '',
+    endorsement_type: '',
+    endorsement_reason: '',
+    endorsement_premium_earned: '',
+    risks_covered: [createEmptyFleetRiskRow()],
+    subject_matters_covered: [
+      {
+        subject_matter_reference: '',
+        subject_matter_desc: '',
+      },
+    ],
+    cover_note_addons: [],
+    motor_dtl: {
+      motor_category: '',
+      motor_type: '',
+      registration_number: '',
+      chassis_number: '',
+      make: '',
+      model: '',
+      model_number: '',
+      body_type: '',
+      color: '',
+      engine_number: '',
+      engine_capacity: '',
+      fuel_used: '',
+      number_of_axles: '',
+      axle_distance: '',
+      sitting_capacity: '',
+      year_of_manufacture: '',
+      tare_weight: '',
+      gross_weight: '',
+      motor_usage: '',
+      owner_name: '',
+      owner_category: '',
+      owner_address: '',
+    },
+  };
+}
+
+function createEmptyFleetRiskRow(): QuotationFormValues['fleet']['items'][number]['risks_covered'][number] {
+  return {
+    risk_code: '',
+    sum_insured: '',
+    sum_insured_equivalent: '',
+    premium_rate: '',
+    premium_before_discount: '',
+    premium_after_discount: '',
+    premium_excluding_tax_equivalent: '',
+    premium_including_tax: '',
+    discounts_offered: [createEmptyRiskDiscountRow()],
+    taxes_charged: [createEmptyRiskTaxRow()],
+  };
+}
+
+function createEmptyFleetAddonRow(): QuotationFormValues['fleet']['items'][number]['cover_note_addons'][number] {
+  return {
+    addon_reference: '',
+    addon_desc: '',
+    addon_amount: '',
+    addon_premium_rate: '',
+    premium_excluding_tax: '',
+    premium_excluding_tax_equivalent: '',
+    premium_including_tax: '',
+    taxes: [],
   };
 }
 
@@ -313,6 +481,36 @@ export function createEmptyFleetDetails(): QuotationFormValues['fleet'] {
       fleet_size: '',
       fleet_type: '1',
       comprehensive_insured: '',
+      sale_point_code: '',
+      product_code: '',
+      cover_note_type: '1',
+      cover_note_start_date: '',
+      cover_note_end_date: '',
+      payment_mode: '1',
+      currency_code: '',
+      exchange_rate: '',
+      commision_paid: '',
+      commision_rate: '',
+      officer_name: '',
+      officer_title: '',
+      policy_holders: [
+        {
+          policy_holder_name: '',
+          policy_holder_birth_date: '',
+          policy_holder_type: '',
+          policy_holder_id_number: '',
+          policy_holder_id_type: '',
+          gender: '',
+          country_code: '',
+          region: '',
+          district: '',
+          street: '',
+          policy_holder_phone_number: '',
+          policy_holder_fax: '',
+          postal_address: '',
+          email_address: '',
+        },
+      ],
     },
     items: [createEmptyFleetItemRow()],
   };
@@ -361,9 +559,7 @@ const quotationFormObjectSchema = z.object({
   category_id: z.string().min(1, 'Category is required'),
   product_id: z.string().min(1, 'Product is required'),
   sub_class_id: optionalText,
-  risks: z
-    .array(quotationRiskRowSchema)
-    .min(1, 'At least one risk is required'),
+  risks: z.array(quotationRiskRowSchema),
   addons: z.array(quotationAddonRowSchema),
   // Only meaningful when quotation_type === 'MOTOR' && !is_fleet (Step 5A).
   motor_mode: z.enum(['existing', 'new']),
@@ -484,13 +680,42 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
       });
     }
 
-    values.risks.forEach((row, index) => {
-      if (!row.sum_insured?.trim()) {
+    if (quotationFlow !== 'MOTOR_FLEET' && values.risks.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['risks'],
+        message: 'At least one risk is required',
+      });
+    }
+
+    if (quotationFlow !== 'MOTOR_FLEET') {
+      values.risks.forEach((row, index) => {
+        const sumInsured = Number(row.sum_insured);
+        if (!row.sum_insured?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['risks', index, 'sum_insured'],
+            message: 'Sum insured is required',
+          });
+        } else if (!Number.isFinite(sumInsured) || sumInsured < 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['risks', index, 'sum_insured'],
+            message: 'Sum insured must be zero or a positive number',
+          });
+        }
+
         row.discounts_offered.forEach((discount, discountIndex) => {
           if (!discount.discount_type?.trim()) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              path: ['risks', index, 'discounts_offered', discountIndex, 'discount_type'],
+              path: [
+                'risks',
+                index,
+                'discounts_offered',
+                discountIndex,
+                'discount_type',
+              ],
               message: 'Discount type is required',
             });
             return;
@@ -499,7 +724,13 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
           if (discount.discount_type !== '1') {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              path: ['risks', index, 'discounts_offered', discountIndex, 'discount_type'],
+              path: [
+                'risks',
+                index,
+                'discounts_offered',
+                discountIndex,
+                'discount_type',
+              ],
               message: 'Only Fleet discount is currently supported',
             });
           }
@@ -533,66 +764,8 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
             });
           }
         });
-        return;
-      }
-
-      const sumInsured = Number(row.sum_insured);
-      if (!Number.isFinite(sumInsured) || sumInsured < 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['risks', index, 'sum_insured'],
-          message: 'Sum insured must be zero or a positive number',
-        });
-      }
-
-      row.discounts_offered.forEach((discount, discountIndex) => {
-        if (!discount.discount_type?.trim()) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['risks', index, 'discounts_offered', discountIndex, 'discount_type'],
-            message: 'Discount type is required',
-          });
-          return;
-        }
-
-        if (discount.discount_type !== '1') {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['risks', index, 'discounts_offered', discountIndex, 'discount_type'],
-            message: 'Only Fleet discount is currently supported',
-          });
-        }
       });
-
-      row.taxes_charged.forEach((tax, taxIndex) => {
-        if (!tax.tax_code?.trim()) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['risks', index, 'taxes_charged', taxIndex, 'tax_code'],
-            message: 'Tax code is required',
-          });
-          return;
-        }
-
-        if (!isSupportedTaxCode(tax.tax_code)) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['risks', index, 'taxes_charged', taxIndex, 'tax_code'],
-            message: 'Select a supported tax code',
-          });
-          return;
-        }
-
-        const expectedRate = getTaxRateForCode(tax.tax_code);
-        if (tax.tax_rate !== expectedRate) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['risks', index, 'taxes_charged', taxIndex, 'tax_rate'],
-            message: `Tax rate must be ${expectedRate} for ${tax.tax_code}`,
-          });
-        }
-      });
-    });
+    }
 
     if (
       values.cover_note_type !== '1' &&
@@ -804,11 +977,80 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
     }
 
     if (quotationFlow === 'MOTOR_FLEET') {
-      if (!values.fleet.header.fleet_id?.trim() && !values.fleet.header.fleet_no?.trim()) {
+      if (!values.fleet.header.fleet_id?.trim()) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['fleet', 'header', 'fleet_id'],
           message: 'Fleet ID is required',
+        });
+      }
+      if (!values.fleet.header.fleet_type?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['fleet', 'header', 'fleet_type'],
+          message: 'Fleet type is required',
+        });
+      }
+      if (!values.fleet.header.cover_note_type?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['fleet', 'header', 'cover_note_type'],
+          message: 'Cover note type is required',
+        });
+      }
+      if (!values.fleet.header.cover_note_start_date?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['fleet', 'header', 'cover_note_start_date'],
+          message: 'Start date is required',
+        });
+      }
+      if (!values.fleet.header.cover_note_end_date?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['fleet', 'header', 'cover_note_end_date'],
+          message: 'End date is required',
+        });
+      }
+      if (!values.fleet.header.payment_mode?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['fleet', 'header', 'payment_mode'],
+          message: 'Payment mode is required',
+        });
+      }
+      if (!values.fleet.header.currency_code?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['fleet', 'header', 'currency_code'],
+          message: 'Currency is required',
+        });
+      }
+      if (!values.fleet.header.exchange_rate?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['fleet', 'header', 'exchange_rate'],
+          message: 'Exchange rate is required',
+        });
+      } else if (Number(values.fleet.header.exchange_rate) <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['fleet', 'header', 'exchange_rate'],
+          message: 'Exchange rate must be greater than zero',
+        });
+      }
+      if (!values.fleet.header.sale_point_code?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['fleet', 'header', 'sale_point_code'],
+          message: 'Sale point code is required',
+        });
+      }
+      if (!values.fleet.header.product_code?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['fleet', 'header', 'product_code'],
+          message: 'Product code is required',
         });
       }
       if (!values.fleet.items.length) {
@@ -818,114 +1060,150 @@ export const quotationFormSchema = quotationFormObjectSchema.superRefine(
           message: 'At least one fleet vehicle is required',
         });
       }
+      if (values.fleet.header.fleet_size && Number(values.fleet.header.fleet_size) !== values.fleet.items.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['fleet', 'header', 'fleet_size'],
+          message: 'Fleet size must equal the number of vehicles',
+        });
+      }
 
       const seenRegistrations = new Map<string, number>();
       const seenChassis = new Map<string, number>();
+      const seenEngines = new Map<string, number>();
 
       values.fleet.items.forEach((item, index) => {
-        if (!item.registration_no?.trim()) {
+        const motor = item.motor_dtl;
+        const registrationValue =
+          normalizeText(motor.registration_number) ??
+          normalizeText(item.registration_no) ??
+          '';
+        const chassisValue =
+          normalizeText(motor.chassis_number) ??
+          normalizeText(item.chassis_no) ??
+          '';
+        const makeValue = normalizeText(motor.make) ?? normalizeText(item.make) ?? '';
+        const modelValue = normalizeText(motor.model) ?? normalizeText(item.model) ?? '';
+        const engineValue =
+          normalizeText(motor.engine_number) ??
+          normalizeText(item.engine_no) ??
+          '';
+        if (!registrationValue) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['fleet', 'items', index, 'registration_no'],
+            path: ['fleet', 'items', index, 'motor_dtl', 'registration_number'],
             message: 'Registration number is required',
           });
         }
-        if (!item.chassis_no?.trim()) {
+        if (!chassisValue) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['fleet', 'items', index, 'chassis_no'],
+            path: ['fleet', 'items', index, 'motor_dtl', 'chassis_number'],
             message: 'Chassis number is required',
           });
         }
-        if (!item.make?.trim()) {
+        if (!makeValue) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['fleet', 'items', index, 'make'],
+            path: ['fleet', 'items', index, 'motor_dtl', 'make'],
             message: 'Make is required',
           });
         }
-        if (!item.model?.trim()) {
+        if (!modelValue) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['fleet', 'items', index, 'model'],
+            path: ['fleet', 'items', index, 'motor_dtl', 'model'],
             message: 'Model is required',
           });
         }
-        if (!item.body_type?.trim()) {
+        const hasRiskRows =
+          item.risks_covered.length > 0 ||
+          Boolean(item.sum_insured && item.premium);
+        if (!hasRiskRows) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['fleet', 'items', index, 'body_type'],
-            message: 'Body type is required',
+            path: ['fleet', 'items', index, 'risks_covered'],
+            message: 'At least one risk is required for each vehicle',
           });
         }
-        if (!item.color?.trim()) {
+        if (!item.subject_matters_covered.length && !registrationValue) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            path: ['fleet', 'items', index, 'color'],
-            message: 'Color is required',
+            path: ['fleet', 'items', index, 'subject_matters_covered'],
+            message: 'At least one subject matter is required',
           });
         }
-        const value = Number(item.vehicle_value);
-        if (!item.vehicle_value || !Number.isFinite(value) || value <= 0) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['fleet', 'items', index, 'vehicle_value'],
-            message: 'Vehicle value must be a positive number',
-          });
-        }
-        const sumInsured = Number(item.sum_insured);
-        if (
-          !item.sum_insured ||
-          !Number.isFinite(sumInsured) ||
-          sumInsured <= 0
-        ) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['fleet', 'items', index, 'sum_insured'],
-            message: 'Sum insured must be a positive number',
-          });
-        }
-        if (!item.owner_name?.trim()) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['fleet', 'items', index, 'owner_name'],
-            message: 'Owner name is required',
-          });
-        }
-        if (!item.owner_address?.trim()) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['fleet', 'items', index, 'owner_address'],
-            message: 'Owner address is required',
-          });
-        }
-
-        const registration = item.registration_no?.trim().toUpperCase();
+        const registration = registrationValue.toUpperCase();
         if (registration) {
           const firstIndex = seenRegistrations.get(registration);
           if (firstIndex !== undefined) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              path: ['fleet', 'items', index, 'registration_no'],
+              path: ['fleet', 'items', index, 'motor_dtl', 'registration_number'],
               message: `Duplicate registration number (also used in row ${firstIndex + 1})`,
             });
           } else {
             seenRegistrations.set(registration, index);
           }
         }
-        const chassis = item.chassis_no?.trim().toUpperCase();
+        const chassis = chassisValue.toUpperCase();
         if (chassis) {
           const firstIndex = seenChassis.get(chassis);
           if (firstIndex !== undefined) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              path: ['fleet', 'items', index, 'chassis_no'],
+              path: ['fleet', 'items', index, 'motor_dtl', 'chassis_number'],
               message: `Duplicate chassis number (also used in row ${firstIndex + 1})`,
             });
           } else {
             seenChassis.set(chassis, index);
           }
         }
+        const engine = engineValue.toUpperCase();
+        if (engine) {
+          const firstIndex = seenEngines.get(engine);
+          if (firstIndex !== undefined) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ['fleet', 'items', index, 'motor_dtl', 'engine_number'],
+              message: `Duplicate engine number (also used in row ${firstIndex + 1})`,
+            });
+          } else {
+            seenEngines.set(engine, index);
+          }
+        }
+        const risks = item.risks_covered.length
+          ? item.risks_covered
+          : [
+              {
+                ...createEmptyRiskRow(),
+                risk_code: '',
+                sum_insured: item.sum_insured ?? '',
+                sum_insured_equivalent: item.sum_insured ?? '',
+                premium_rate: '',
+                premium_before_discount: '',
+                premium_after_discount: item.premium ?? '',
+                premium_excluding_tax_equivalent: item.premium ?? '',
+                premium_including_tax: item.premium ?? '',
+              },
+            ];
+        risks.forEach((risk, riskIndex) => {
+          const sumInsured = Number(risk.sum_insured);
+          if (!risk.risk_code?.trim()) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ['fleet', 'items', index, 'risks_covered', riskIndex, 'risk_code'],
+              message: 'Risk code is required',
+            });
+          }
+          if (!risk.sum_insured?.trim() || !Number.isFinite(sumInsured) || sumInsured <= 0) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ['fleet', 'items', index, 'risks_covered', riskIndex, 'sum_insured'],
+              message: 'Sum insured must be greater than zero',
+            });
+          }
+        });
       });
     }
 
@@ -1483,6 +1761,295 @@ export function buildQuotationPayload(
 
   const isFleet = values.quotation_flow === 'MOTOR_FLEET';
 
+  if (isFleet) {
+    const fleetHeader = values.fleet.header;
+    const selectedPolicyHolder = fleetHeader.policy_holders[0];
+    const policyHolderName =
+      normalizeText(selectedPolicyHolder.policy_holder_name) ??
+      normalizeText(values.policyholder.full_name) ??
+      normalizeText(values.policyholder.company_name) ??
+      null;
+    const policyHolderType =
+      normalizeNumber(selectedPolicyHolder.policy_holder_type) ??
+      (values.policyholder.customer_type === 'CORPORATE' ? 2 : 1);
+    const fleetDetails = values.fleet.items.map((item, index) => {
+      const motor = item.motor_dtl;
+      const fallbackRisk = {
+        ...createEmptyRiskRow(),
+        risk_code: '',
+        sum_insured: item.sum_insured ?? '',
+        sum_insured_equivalent: item.sum_insured ?? '',
+        premium_rate: '',
+        premium_before_discount: '',
+        premium_after_discount: item.premium ?? '',
+        premium_excluding_tax_equivalent: item.premium ?? '',
+        premium_including_tax: item.premium ?? '',
+      };
+      const risksCoveredSource =
+        item.risks_covered.length > 0 &&
+        item.risks_covered.some(
+          (risk) =>
+            risk.risk_code?.trim() ||
+            risk.sum_insured?.trim() ||
+            risk.premium_including_tax?.trim(),
+        )
+          ? item.risks_covered
+          : [fallbackRisk];
+      const risksCovered = risksCoveredSource.map((risk) => {
+        const discounts = risk.discounts_offered.map((discount) => ({
+          discount_type: normalizeNumber(discount.discount_type) ?? 0,
+          discount_rate: normalizeNumber(discount.discount_rate) ?? 0,
+          discount_amount: normalizeNumber(discount.discount_amount) ?? 0,
+        }));
+        const taxes = risk.taxes_charged.map((tax) => ({
+          tax_code: normalizeText(tax.tax_code) ?? '',
+          is_tax_exempted: tax.is_tax_exempted ? 'Y' : 'N',
+          tax_exemption_type: tax.is_tax_exempted
+            ? normalizeNumber(tax.tax_exemption_type) ?? null
+            : null,
+          tax_exemption_reference: tax.is_tax_exempted
+            ? normalizeText(tax.tax_exemption_reference) ?? null
+            : null,
+          tax_rate: normalizeNumber(tax.tax_rate) ?? 0,
+          tax_amount: normalizeNumber(tax.tax_amount) ?? 0,
+        }));
+
+        return {
+          risk_code: normalizeText(risk.risk_code) ?? '',
+          sum_insured: normalizeNumber(risk.sum_insured) ?? 0,
+          sum_insured_equivalent:
+            normalizeNumber(risk.sum_insured_equivalent) ??
+            (normalizeNumber(risk.sum_insured) ?? 0) *
+              (normalizeNumber(fleetHeader.exchange_rate) ?? 1),
+          premium_rate: normalizeNumber(risk.premium_rate) ?? 0,
+          premium_before_discount:
+            normalizeNumber(risk.premium_before_discount) ??
+            (normalizeNumber(risk.sum_insured) ?? 0) *
+              (normalizeNumber(risk.premium_rate) ?? 0),
+          premium_after_discount:
+            normalizeNumber(risk.premium_after_discount) ?? 0,
+          premium_excluding_tax_equivalent:
+            normalizeNumber(risk.premium_excluding_tax_equivalent) ?? 0,
+          premium_including_tax: normalizeNumber(risk.premium_including_tax) ?? 0,
+          discounts_offered: discounts,
+          taxes_charged: taxes,
+        };
+      });
+      const subjectMatters = item.subject_matters_covered
+        .filter((subjectMatter) => subjectMatter.subject_matter_reference || subjectMatter.subject_matter_desc)
+        .map((subjectMatter) => ({
+          subject_matter_reference:
+            normalizeText(subjectMatter.subject_matter_reference) ?? '',
+          subject_matter_desc:
+            normalizeText(subjectMatter.subject_matter_desc) ?? '',
+        }));
+      const addons = item.cover_note_addons.map((addon) => ({
+        addon_reference: normalizeText(addon.addon_reference) ?? '',
+        addon_desc: normalizeText(addon.addon_desc) ?? '',
+        addon_amount: normalizeNumber(addon.addon_amount) ?? 0,
+        addon_premium_rate: normalizeNumber(addon.addon_premium_rate) ?? 0,
+        premium_excluding_tax:
+          normalizeNumber(addon.premium_excluding_tax) ?? 0,
+        premium_excluding_tax_equivalent:
+          normalizeNumber(addon.premium_excluding_tax_equivalent) ?? 0,
+        premium_including_tax:
+          normalizeNumber(addon.premium_including_tax) ?? 0,
+        taxes_charged: addon.taxes.map((tax) => ({
+          tax_code: normalizeText(tax.tax_code) ?? '',
+          is_tax_exempted: tax.is_tax_exempted ? 'Y' : 'N',
+          tax_exemption_type: tax.is_tax_exempted
+            ? normalizeNumber(tax.tax_exemption_type) ?? null
+            : null,
+          tax_exemption_reference: tax.is_tax_exempted
+            ? normalizeText(tax.tax_exemption_reference) ?? null
+            : null,
+          tax_rate: normalizeNumber(tax.tax_rate) ?? 0,
+          tax_amount: normalizeNumber(tax.tax_amount) ?? 0,
+        })),
+      }));
+
+      const registrationValue =
+        normalizeText(motor.registration_number) ??
+        normalizeText(item.registration_no) ??
+        '';
+      const chassisValue =
+        normalizeText(motor.chassis_number) ??
+        normalizeText(item.chassis_no) ??
+        '';
+      const makeValue =
+        normalizeText(motor.make) ?? normalizeText(item.make) ?? '';
+      const modelValue =
+        normalizeText(motor.model) ?? normalizeText(item.model) ?? '';
+      const engineValue =
+        normalizeText(motor.engine_number) ??
+        normalizeText(item.engine_no) ??
+        '';
+
+      return {
+        fleet_entry: Number(item.fleet_entry) || index + 1,
+        cover_note_number:
+          normalizeText(item.cover_note_number) ??
+          `${fleetHeader.fleet_id || 'FLEET'}-${String(index + 1).padStart(2, '0')}`,
+        prev_cover_note_reference_number:
+          normalizeText(item.prev_cover_note_reference_number) ?? null,
+        cover_note_desc:
+          normalizeText(item.cover_note_desc) ??
+          `Fleet vehicle ${motor.registration_number || index + 1}`,
+        operative_clause:
+          normalizeText(item.operative_clause) ?? 'Motor Comprehensive Cover',
+        endorsement_type: normalizeText(item.endorsement_type) ?? null,
+        endorsement_reason: normalizeText(item.endorsement_reason) ?? null,
+        endorsement_premium_earned:
+          normalizeNumber(item.endorsement_premium_earned) ?? null,
+        risks_covered: risksCovered,
+        subject_matters_covered: subjectMatters.length
+          ? subjectMatters
+          : [
+              {
+                subject_matter_reference: registrationValue,
+                subject_matter_desc:
+                  makeValue ||
+                  modelValue ||
+                  'Motor vehicle',
+              },
+            ],
+        cover_note_addons: addons,
+        motor_dtl: {
+          motor_category: normalizeNumber(motor.motor_category) ?? null,
+          motor_type: normalizeNumber(motor.motor_type) ?? null,
+          registration_number: registrationValue,
+          chassis_number: chassisValue,
+          make: makeValue,
+          model: modelValue,
+          model_number: normalizeText(motor.model_number) ?? null,
+          body_type: normalizeText(motor.body_type) ?? '',
+          color: normalizeText(motor.color) ?? '',
+          engine_number: engineValue,
+          engine_capacity: normalizeText(motor.engine_capacity) ?? null,
+          fuel_used: normalizeText(motor.fuel_used) ?? null,
+          number_of_axles: normalizeNumber(motor.number_of_axles) ?? null,
+          axle_distance: normalizeNumber(motor.axle_distance) ?? null,
+          sitting_capacity: normalizeNumber(motor.sitting_capacity) ?? null,
+          year_of_manufacture:
+            normalizeNumber(motor.year_of_manufacture) ?? null,
+          tare_weight: normalizeNumber(motor.tare_weight) ?? null,
+          gross_weight: normalizeNumber(motor.gross_weight) ?? null,
+          motor_usage: normalizeNumber(motor.motor_usage) ?? null,
+          owner_name: normalizeText(motor.owner_name) ?? '',
+          owner_category: normalizeNumber(motor.owner_category) ?? null,
+          owner_address: normalizeText(motor.owner_address) ?? '',
+        },
+      };
+    });
+
+    const totalPremiumExcludingTax = fleetDetails.reduce(
+      (sum, item) =>
+        sum +
+        item.risks_covered.reduce(
+          (riskSum, risk) => riskSum + risk.premium_excluding_tax_equivalent,
+          0,
+        ),
+      0,
+    );
+    const totalPremiumIncludingTax = fleetDetails.reduce(
+      (sum, item) =>
+        sum +
+        item.risks_covered.reduce(
+          (riskSum, risk) => riskSum + risk.premium_including_tax,
+          0,
+        ),
+      0,
+    );
+
+    return {
+      internal_quotation: {
+        insurer_company_id: values.insurer_company_id,
+        intermediary_company_id:
+          normalizeText(values.intermediary_company_id) ?? null,
+        branch_id: normalizeText(values.branch_id) ?? null,
+        department_id: normalizeText(values.department_id) ?? null,
+        category_id: values.category_id,
+        product_id: values.product_id,
+        sub_class_id: normalizeText(values.sub_class_id) ?? null,
+        quotation_type: 'MOTOR',
+        quotation_flow: 'MOTOR_FLEET',
+        channel_type: values.channel_type,
+        is_fleet: true,
+      },
+      cover_note_hdr: {
+        cover_note_type: normalizeNumber(fleetHeader.cover_note_type) ?? 1,
+      },
+      cover_note_dtl: {
+        fleet_hdr: {
+          fleet_id: normalizeText(fleetHeader.fleet_id) ?? '',
+          fleet_type: normalizeNumber(fleetHeader.fleet_type) ?? 1,
+          fleet_size: fleetDetails.length,
+          comprehensive_insured:
+            normalizeNumber(fleetHeader.comprehensive_insured) ??
+            fleetDetails.filter((item) =>
+              item.risks_covered.some(
+                (risk) => Number(risk.sum_insured) > 0,
+              ),
+            ).length,
+          sale_point_code:
+            normalizeText(fleetHeader.sale_point_code) ?? null,
+          cover_note_start_date:
+            normalizeText(fleetHeader.cover_note_start_date) ?? null,
+          cover_note_end_date:
+            normalizeText(fleetHeader.cover_note_end_date) ?? null,
+          payment_mode: normalizeNumber(fleetHeader.payment_mode) ?? 1,
+          currency_code:
+            normalizeText(fleetHeader.currency_code)?.toUpperCase() ?? '',
+          exchange_rate: normalizeNumber(fleetHeader.exchange_rate) ?? 1,
+          total_premium_excluding_tax: totalPremiumExcludingTax,
+          total_premium_including_tax: totalPremiumIncludingTax,
+          commision_paid: normalizeNumber(fleetHeader.commision_paid) ?? 0,
+          commision_rate: normalizeNumber(fleetHeader.commision_rate) ?? 0,
+          officer_name: normalizeText(fleetHeader.officer_name) ?? null,
+          officer_title: normalizeText(fleetHeader.officer_title) ?? null,
+          product_code:
+            normalizeText(fleetHeader.product_code) ??
+            normalizeText(values.product_id) ??
+            '',
+          policy_holders: [
+            {
+              policy_holder_name: policyHolderName ?? '',
+              policy_holder_birth_date:
+                normalizeText(selectedPolicyHolder.policy_holder_birth_date) ??
+                null,
+              policy_holder_type: policyHolderType,
+              policy_holder_id_number:
+                normalizeText(selectedPolicyHolder.policy_holder_id_number) ??
+                '',
+              policy_holder_id_type:
+                normalizeNumber(selectedPolicyHolder.policy_holder_id_type) ??
+                null,
+              gender:
+                normalizeText(selectedPolicyHolder.gender) ??
+                null,
+              country_code:
+                normalizeText(selectedPolicyHolder.country_code) ?? '',
+              region: normalizeText(selectedPolicyHolder.region) ?? '',
+              district: normalizeText(selectedPolicyHolder.district) ?? '',
+              street: normalizeText(selectedPolicyHolder.street) ?? null,
+              policy_holder_phone_number:
+                normalizeText(
+                  selectedPolicyHolder.policy_holder_phone_number,
+                ) ?? '',
+              policy_holder_fax:
+                normalizeText(selectedPolicyHolder.policy_holder_fax) ?? null,
+              postal_address:
+                normalizeText(selectedPolicyHolder.postal_address) ?? null,
+              email_address:
+                normalizeText(selectedPolicyHolder.email_address) ?? null,
+            },
+          ],
+        },
+        fleet_dtls: fleetDetails,
+      },
+    };
+  }
+
   return {
     insurer_company_id: values.insurer_company_id,
     intermediary_company_id:
@@ -1671,7 +2238,10 @@ export function quotationRecordToFormValues(
     valid_until: record.valid_until ?? '',
     rating_version: record.rating_version ?? '',
     rejection_reason: record.rejection_reason ?? '',
-    cover_note_type: record.cover_note_type ?? '1',
+    cover_note_type: String(record.cover_note_type ?? '1') as
+      | '1'
+      | '2'
+      | '3',
     prev_cover_note_reference: record.prev_cover_note_reference_number ?? '',
     endorsement_type: record.endorsement_type ?? '',
     endorsement_reason: record.endorsement_reason ?? '',
@@ -1681,7 +2251,10 @@ export function quotationRecordToFormValues(
         : '',
     officer_name: record.officer_name ?? '',
     officer_title: record.officer_title ?? '',
-    payment_mode_tira: record.payment_mode_tira ?? '1',
+    payment_mode_tira: String(record.payment_mode_tira ?? '1') as
+      | '1'
+      | '2'
+      | '3',
     sale_point_id: '',
     addons: (record.addons ?? []).map((addon: Record<string, unknown>) => ({
       enabled: Boolean(addon.is_active ?? true),

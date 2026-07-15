@@ -319,33 +319,148 @@ export function buildQuotationPayloadPreview(
   };
 
   if (values.quotation_flow === 'MOTOR_FLEET') {
-    const fleetItems = values.fleet.items.map((item, index) => ({
-      fleet_entry: index + 1,
-      cover_note_number: `${values.fleet.header.fleet_id || 'FLEET'}-${String(index + 1).padStart(2, '0')}`,
-      prev_cover_note_reference_number: null,
-      cover_note_desc:
-        item.cover_note_desc ||
-        `Fleet vehicle ${item.registration_no || index + 1}`,
-      operative_clause: item.operative_clause || 'Motor Comprehensive Cover',
-      endorsement_type: null,
-      endorsement_reason: null,
-      endorsement_premium_earned: null,
-      risks_covered: buildRisksCovered(values),
-      subject_matters_covered: [
-        {
-          subject_matter_reference: item.registration_no || `FLEET-${index + 1}`,
-          subject_matter_desc:
-            item.cover_note_desc ||
-            `${item.make || 'Vehicle'} ${item.model || ''}`.trim() ||
-            'Fleet vehicle',
+    const fleetItems = values.fleet.items.map((item, index) => {
+      const motor = item.motor_dtl;
+      const registration =
+        motor.registration_number || item.registration_no || `FLEET-${index + 1}`;
+      const make = motor.make || item.make || '';
+      const model = motor.model || item.model || '';
+      const risks =
+        item.risks_covered.length > 0
+          ? item.risks_covered.map((risk) => ({
+              risk_code: risk.risk_code || '',
+              sum_insured: toNumber(risk.sum_insured),
+              sum_insured_equivalent:
+                toNumber(risk.sum_insured_equivalent) ||
+                toNumber(risk.sum_insured),
+              premium_rate: toNumber(risk.premium_rate),
+              premium_before_discount: toNumber(risk.premium_before_discount),
+              premium_after_discount: toNumber(risk.premium_after_discount),
+              premium_excluding_tax_equivalent: toNumber(
+                risk.premium_excluding_tax_equivalent,
+              ),
+              premium_including_tax: toNumber(risk.premium_including_tax),
+              discounts_offered: risk.discounts_offered.map((discount) => ({
+                discount_type: toNumber(discount.discount_type),
+                discount_rate: toNumber(discount.discount_rate),
+                discount_amount: toNumber(discount.discount_amount),
+              })),
+              taxes_charged: risk.taxes_charged.map((tax) => ({
+                tax_code: tax.tax_code || '',
+                is_tax_exempted: toTaxFlag(tax.is_tax_exempted),
+                tax_exemption_type: tax.is_tax_exempted
+                  ? toNullableNumber(tax.tax_exemption_type)
+                  : null,
+                tax_exemption_reference: tax.is_tax_exempted
+                  ? toNullableText(tax.tax_exemption_reference)
+                  : null,
+                tax_rate: toNumber(tax.tax_rate),
+                tax_amount: toNumber(tax.tax_amount),
+              })),
+            }))
+          : [
+              {
+                risk_code: '',
+                sum_insured: toNumber(item.sum_insured),
+                sum_insured_equivalent: toNumber(item.sum_insured),
+                premium_rate: 0,
+                premium_before_discount: 0,
+                premium_after_discount: toNumber(item.premium),
+                premium_excluding_tax_equivalent: toNumber(item.premium),
+                premium_including_tax: toNumber(item.premium),
+                discounts_offered: [],
+                taxes_charged: [],
+              },
+            ];
+
+      return {
+        fleet_entry: toNumber(item.fleet_entry) || index + 1,
+        cover_note_number:
+          item.cover_note_number || `${values.fleet.header.fleet_id || 'FLEET'}-${String(index + 1).padStart(2, '0')}`,
+        prev_cover_note_reference_number: toNullableText(
+          item.prev_cover_note_reference_number,
+        ),
+        cover_note_desc:
+          item.cover_note_desc || `Fleet vehicle ${registration}`,
+        operative_clause: item.operative_clause || 'Motor Comprehensive Cover',
+        endorsement_type: item.endorsement_type
+          ? toNumber(item.endorsement_type)
+          : null,
+        endorsement_reason: toNullableText(item.endorsement_reason),
+        endorsement_premium_earned: toNullableNumber(
+          item.endorsement_premium_earned,
+        ),
+        risks_covered: risks,
+        subject_matters_covered: item.subject_matters_covered.length
+          ? item.subject_matters_covered.map((subjectMatter) => ({
+              subject_matter_reference:
+                subjectMatter.subject_matter_reference || '',
+              subject_matter_desc: subjectMatter.subject_matter_desc || '',
+            }))
+          : [
+              {
+                subject_matter_reference: registration,
+                subject_matter_desc:
+                  `${make || 'Vehicle'} ${model}`.trim() || 'Fleet vehicle',
+              },
+            ],
+        cover_note_addons: item.cover_note_addons.map((addon) => ({
+          addon_reference: addon.addon_reference || '',
+          addon_desc: addon.addon_desc || '',
+          addon_amount: toNumber(addon.addon_amount),
+          addon_premium_rate: toNumber(addon.addon_premium_rate),
+          premium_excluding_tax: toNumber(addon.premium_excluding_tax),
+          premium_excluding_tax_equivalent: toNumber(
+            addon.premium_excluding_tax_equivalent,
+          ),
+          premium_including_tax: toNumber(addon.premium_including_tax),
+          taxes_charged: addon.taxes.map((tax) => ({
+            tax_code: tax.tax_code || '',
+            is_tax_exempted: toTaxFlag(tax.is_tax_exempted),
+            tax_exemption_type: tax.is_tax_exempted
+              ? toNullableNumber(tax.tax_exemption_type)
+              : null,
+            tax_exemption_reference: tax.is_tax_exempted
+              ? toNullableText(tax.tax_exemption_reference)
+              : null,
+            tax_rate: toNumber(tax.tax_rate),
+            tax_amount: toNumber(tax.tax_amount),
+          })),
+        })),
+        motor_dtl: {
+          motor_category: toNullableNumber(motor.motor_category),
+          motor_type: toNullableNumber(motor.motor_type),
+          registration_number: registration,
+          chassis_number: motor.chassis_number || item.chassis_no || '',
+          make: make,
+          model: model,
+          model_number: toNullableText(motor.model_number),
+          body_type: motor.body_type || item.body_type || '',
+          color: motor.color || item.color || '',
+          engine_number: motor.engine_number || item.engine_no || '',
+          engine_capacity: toNullableText(motor.engine_capacity),
+          fuel_used: toNullableText(motor.fuel_used),
+          number_of_axles: toNullableNumber(motor.number_of_axles),
+          axle_distance: toNullableNumber(motor.axle_distance),
+          sitting_capacity: toNullableNumber(motor.sitting_capacity),
+          year_of_manufacture: toNullableNumber(motor.year_of_manufacture),
+          tare_weight: toNullableNumber(motor.tare_weight),
+          gross_weight: toNullableNumber(motor.gross_weight),
+          motor_usage: toNullableNumber(motor.motor_usage),
+          owner_name: motor.owner_name || item.owner_name || '',
+          owner_category: toNullableNumber(motor.owner_category),
+          owner_address: motor.owner_address || item.owner_address || '',
         },
-      ],
-      cover_note_addons: buildAddons(values),
-      motor_dtl: buildFleetMotorDtl(item),
-    }));
+      };
+    });
 
     return {
-      internal_quotation: commonInternal,
+      internal_quotation: {
+        ...commonInternal,
+        quotation_type: 'MOTOR',
+        quotation_flow: 'MOTOR_FLEET',
+        is_fleet: true,
+      },
       cover_note_hdr: {
         cover_note_type: coverNoteType,
       },
@@ -353,27 +468,41 @@ export function buildQuotationPayloadPreview(
         fleet_hdr: {
           fleet_id: values.fleet.header.fleet_id || `FLEET-${Date.now()}`,
           fleet_type: toNumber(values.fleet.header.fleet_type) || 1,
-          fleet_size: values.fleet.items.length,
+          fleet_size: fleetItems.length,
           comprehensive_insured:
             toNumber(values.fleet.header.comprehensive_insured) ||
-            values.fleet.items.length,
+            fleetItems.filter((item) => item.risks_covered.length > 0).length,
           sale_point_code: context.salePointCode || null,
           cover_note_start_date: toDateTime(values.valid_from, false),
           cover_note_end_date: toDateTime(values.valid_until, true),
           payment_mode: toNumber(values.payment_mode_tira) || 1,
           currency_code: values.currency?.trim().toUpperCase() || 'TZS',
           exchange_rate: toNumber(values.exchange_rate) || 1,
-          total_premium_excluding_tax:
-            toNumber(values.basic_premium) ||
-            values.risks.reduce((sum, risk) => sum + toNumber(risk.premium_after_discount), 0),
-          total_premium_including_tax:
-            toNumber(values.total_premium) ||
-            values.risks.reduce((sum, risk) => sum + toNumber(risk.premium_including_tax), 0),
+          total_premium_excluding_tax: fleetItems.reduce(
+            (sum, item) =>
+              sum +
+              item.risks_covered.reduce(
+                (riskTotal, risk) =>
+                  riskTotal + toNumber(risk.premium_excluding_tax_equivalent),
+                0,
+              ),
+            0,
+          ),
+          total_premium_including_tax: fleetItems.reduce(
+            (sum, item) =>
+              sum +
+              item.risks_covered.reduce(
+                (riskTotal, risk) =>
+                  riskTotal + toNumber(risk.premium_including_tax),
+                0,
+              ),
+            0,
+          ),
           commision_paid: toNumber(values.total_commission),
           commision_rate: 0,
           officer_name: values.officer_name || null,
           officer_title: values.officer_title || null,
-          product_code: productCode,
+          product_code: context.productCode || productCode,
           policy_holders: [buildPolicyHolder(values, context.existingCustomer)],
         },
         fleet_dtls: fleetItems,
