@@ -7,11 +7,12 @@ import {
   JoinColumn,
   ManyToOne,
   OneToMany,
+  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { Branch } from '../../branches/entities/branch.entity';
 import { Company } from '../../../platform/companies/entities/company.entity';
+import { Branch } from '../../branches/entities/branch.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Department } from '../../departments/entities/department.entity';
 import { InsuranceCategory } from '../../insurance-categories/entities/insurance-category.entity';
@@ -19,14 +20,16 @@ import { InsuranceProduct } from '../../insurance-products/entities/insurance-pr
 import { InsuranceSubClass } from '../../insurance-sub-classes/entities/insurance-sub-class.entity';
 import { ProductChannelType } from '../../product-distribution/enums/product-channel-type.enum';
 import { User } from '../../users/entities/user.entity';
-import { QuotationStatus } from '../enums/quotation-status.enum';
 import { QuotationFlow } from '../enums/quotation-flow.enum';
+import { QuotationStatus } from '../enums/quotation-status.enum';
 import { QuotationType } from '../enums/quotation-type.enum';
 import { QuotationAddon } from './quotation-addon.entity';
-import { QuotationRisk } from './quotation-risk.entity';
 import { QuotationFactorValue } from './quotation-factor-value.entity';
 import { QuotationPremiumBreakdown } from './quotation-premium-breakdown.entity';
+import { QuotationRisk } from './quotation-risk.entity';
 import { QuotationStatusHistory } from './quotation-status-history.entity';
+import { QuotationCoverNote } from './structured/quotation-cover-note.entity';
+import { QuotationPolicyHolder } from './structured/quotation-policy-holder.entity';
 
 @Entity('quotations')
 @Index('IDX_quotations_company_id', ['company_id'])
@@ -34,17 +37,27 @@ import { QuotationStatusHistory } from './quotation-status-history.entity';
 @Index('IDX_quotations_company_customer_id', ['company_id', 'customer_id'])
 @Index('IDX_quotations_company_product_id', ['company_id', 'product_id'])
 @Index('IDX_quotations_company_flow', ['company_id', 'quotation_flow'])
-@Index('IDX_quotations_company_quotation_no', ['company_id', 'quotation_no'], {
-  unique: true,
-  where: 'deleted_at IS NULL',
-})
+@Index(
+  'IDX_quotations_company_quotation_no',
+  ['company_id', 'quotation_no'],
+  {
+    unique: true,
+    where: 'deleted_at IS NULL',
+  },
+)
 export class Quotation {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  /**
+   * Tenant that owns the quotation.
+   */
   @Column({ type: 'uuid' })
   company_id: string;
 
+  /**
+   * Insurance company responsible for issuing the cover.
+   */
   @Column({ type: 'uuid' })
   insurer_company_id: string;
 
@@ -60,8 +73,23 @@ export class Quotation {
   @Column({ type: 'uuid', nullable: true })
   created_by: string | null;
 
-  @Column({ type: 'uuid' })
-  customer_id: string;
+  @Column({ type: 'uuid', nullable: true })
+  updated_by: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  submitted_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  submitted_at: Date | null;
+
+  /**
+   * Optional internal customer link.
+   *
+   * This field is not exposed in the authoritative TIRAMIS payload.
+   * Policyholder data is stored separately.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  customer_id: string | null;
 
   @Column({ type: 'uuid' })
   category_id: string;
@@ -108,66 +136,6 @@ export class Quotation {
   })
   status: QuotationStatus;
 
-  @Column({ type: 'varchar', length: 10, default: 'TZS' })
-  currency: string;
-
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 1 })
-  exchange_rate: string;
-
-  @Column({ type: 'varchar', length: 1, default: '1' })
-  cover_note_type: string;
-
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  prev_cover_note_reference_number: string | null;
-
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  sale_point_code: string | null;
-
-  @Column({ type: 'varchar', length: 1, default: '1' })
-  payment_mode_tira: string;
-
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  officer_name: string | null;
-
-  @Column({ type: 'varchar', length: 100, nullable: true })
-  officer_title: string | null;
-
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
-  sum_insured: string;
-
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
-  basic_premium: string;
-
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
-  total_discount: string;
-
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
-  total_tax: string;
-
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
-  total_charges: string;
-
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
-  total_commission: string;
-
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
-  total_premium: string;
-
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
-  net_premium: string;
-
-  @Column({ type: 'date' })
-  valid_from: string;
-
-  @Column({ type: 'date' })
-  valid_until: string;
-
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  rating_version: string | null;
-
-  @Column({ type: 'jsonb', nullable: true })
-  rating_metadata: Record<string, unknown> | null;
-
   @Column({ type: 'text', nullable: true })
   rejection_reason: string | null;
 
@@ -204,9 +172,17 @@ export class Quotation {
   @JoinColumn({ name: 'created_by' })
   creator: User | null;
 
-  @ManyToOne(() => Customer, { onDelete: 'RESTRICT' })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'updated_by' })
+  updater: User | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'submitted_by' })
+  submitter: User | null;
+
+  @ManyToOne(() => Customer, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'customer_id' })
-  customer: Customer;
+  customer: Customer | null;
 
   @ManyToOne(() => InsuranceCategory, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'category_id' })
@@ -220,6 +196,22 @@ export class Quotation {
   @JoinColumn({ name: 'sub_class_id' })
   sub_class: InsuranceSubClass | null;
 
+  @OneToOne(
+    () => QuotationCoverNote,
+    (coverNote) => coverNote.quotation,
+  )
+  cover_note: QuotationCoverNote;
+
+  @OneToMany(
+    () => QuotationPolicyHolder,
+    (holder) => holder.quotation,
+  )
+  policy_holders: QuotationPolicyHolder[];
+
+  /*
+   * Legacy relations retained until Phase 8 cleanup removes the old
+   * quotation child tables and their consumers.
+   */
   @OneToMany(() => QuotationRisk, (risk) => risk.quotation)
   risks: QuotationRisk[];
 

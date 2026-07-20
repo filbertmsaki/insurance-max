@@ -1,5 +1,11 @@
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 import { PaginationDto } from '@insurance-max/portal-shared/dto/pagination.dto';
+import { QuotationFlow } from '../enums/quotation-flow.enum';
 import { QuotationStatus } from '../enums/quotation-status.enum';
 import { QuotationType } from '../enums/quotation-type.enum';
 
@@ -17,10 +23,14 @@ export class FilterQuotationDto extends PaginationDto {
   quotation_type?: QuotationType;
 
   @IsOptional()
-  @IsString()
+  @IsEnum(QuotationFlow)
+  quotation_flow?: QuotationFlow;
+
+  @IsOptional()
+  @IsUUID()
   customer_id?: string;
 
   @IsOptional()
-  @IsString()
+  @IsUUID()
   product_id?: string;
 }
