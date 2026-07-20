@@ -23,10 +23,6 @@ import { User } from '../../users/entities/user.entity';
 import { QuotationFlow } from '../enums/quotation-flow.enum';
 import { QuotationStatus } from '../enums/quotation-status.enum';
 import { QuotationType } from '../enums/quotation-type.enum';
-import { QuotationAddon } from './quotation-addon.entity';
-import { QuotationFactorValue } from './quotation-factor-value.entity';
-import { QuotationPremiumBreakdown } from './quotation-premium-breakdown.entity';
-import { QuotationRisk } from './quotation-risk.entity';
 import { QuotationStatusHistory } from './quotation-status-history.entity';
 import { QuotationCoverNote } from './structured/quotation-cover-note.entity';
 import { QuotationPolicyHolder } from './structured/quotation-policy-holder.entity';
@@ -207,22 +203,6 @@ export class Quotation {
     (holder) => holder.quotation,
   )
   policy_holders: QuotationPolicyHolder[];
-
-  /*
-   * Legacy relations retained until Phase 8 cleanup removes the old
-   * quotation child tables and their consumers.
-   */
-  @OneToMany(() => QuotationRisk, (risk) => risk.quotation)
-  risks: QuotationRisk[];
-
-  @OneToMany(() => QuotationFactorValue, (value) => value.quotation)
-  factor_values: QuotationFactorValue[];
-
-  @OneToMany(() => QuotationPremiumBreakdown, (item) => item.quotation)
-  premium_breakdowns: QuotationPremiumBreakdown[];
-
-  @OneToMany(() => QuotationAddon, (addon) => addon.quotation)
-  addons: QuotationAddon[];
 
   @OneToMany(() => QuotationStatusHistory, (history) => history.quotation)
   status_history: QuotationStatusHistory[];

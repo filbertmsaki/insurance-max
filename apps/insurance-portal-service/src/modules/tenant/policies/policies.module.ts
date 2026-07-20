@@ -10,10 +10,9 @@ import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { NonMotorPolicyDetail } from '../non-motor/entities/non-motor-policy-detail.entity';
-import { NonMotorQuotationDetail } from '../non-motor/entities/non-motor-quotation-detail.entity';
 import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
-import { QuotationRisk } from '../quotations/entities/quotation-risk.entity';
+import { QuotationEntryRisk } from '../quotations/entities/structured/quotation-entry-risk.entity';
 import { User } from '../users/entities/user.entity';
 import { PolicyPremiumBreakdown } from './entities/policy-premium-breakdown.entity';
 import { PolicyRisk } from './entities/policy-risk.entity';
@@ -39,10 +38,9 @@ import { PoliciesService } from './policies.service';
       InsuranceRisk,
       SubjectMatter,
       MotorVehicle,
-      NonMotorQuotationDetail,
       NonMotorPolicyDetail,
       Quotation,
-      QuotationRisk,
+      QuotationEntryRisk,
       User,
     ]),
   ],

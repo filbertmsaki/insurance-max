@@ -9,14 +9,14 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { QuotationRisk } from '../../quotations/entities/quotation-risk.entity';
+import { QuotationEntryRisk } from '../../quotations/entities/structured/quotation-entry-risk.entity';
 import { MotorFleet } from './motor-fleet.entity';
 import { MotorVehicle } from './motor-vehicle.entity';
 
 @Entity('motor_fleet_items')
 @Index('IDX_mfi_fleet_id', ['fleet_id'])
 @Index('IDX_mfi_motor_vehicle_id', ['motor_vehicle_id'])
-@Index('IDX_mfi_quotation_risk_id', ['quotation_risk_id'])
+@Index('IDX_mfi_quotation_entry_risk_id', ['quotation_entry_risk_id'])
 export class MotorFleetItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -28,7 +28,7 @@ export class MotorFleetItem {
   motor_vehicle_id: string;
 
   @Column({ type: 'uuid', nullable: true })
-  quotation_risk_id: string | null;
+  quotation_entry_risk_id: string | null;
 
   @Column({ type: 'uuid', nullable: true })
   policy_risk_id: string | null;
@@ -62,7 +62,10 @@ export class MotorFleetItem {
   @JoinColumn({ name: 'motor_vehicle_id' })
   motor_vehicle: MotorVehicle;
 
-  @ManyToOne(() => QuotationRisk, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'quotation_risk_id' })
-  quotation_risk: QuotationRisk | null;
+  @ManyToOne(() => QuotationEntryRisk, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'quotation_entry_risk_id' })
+  quotation_entry_risk: QuotationEntryRisk | null;
 }

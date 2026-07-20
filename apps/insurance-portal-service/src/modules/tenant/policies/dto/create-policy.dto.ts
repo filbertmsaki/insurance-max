@@ -20,7 +20,7 @@ import { QuotationPremiumItemType } from '../../quotations/enums/quotation-premi
 export class CreatePolicyRiskDto {
   @IsOptional()
   @IsUUID()
-  quotation_risk_id?: string | null;
+  quotation_entry_risk_id?: string | null;
 
   @IsUUID()
   risk_id: string;

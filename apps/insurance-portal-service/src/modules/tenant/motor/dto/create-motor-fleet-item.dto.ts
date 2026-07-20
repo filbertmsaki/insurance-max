@@ -6,7 +6,7 @@ export class CreateMotorFleetItemDto {
 
   @IsOptional()
   @IsUUID()
-  quotation_risk_id?: string | null;
+  quotation_entry_risk_id?: string | null;
 
   @IsOptional()
   @IsUUID()

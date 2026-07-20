@@ -10,7 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { InsuranceRisk } from '../../insurance-risks/entities/insurance-risk.entity';
-import { QuotationRisk } from '../../quotations/entities/quotation-risk.entity';
+import { QuotationEntryRisk } from '../../quotations/entities/structured/quotation-entry-risk.entity';
 import { SubjectMatter } from '../../non-motor/entities/subject-matter.entity';
 import { MotorVehicle } from '../../motor/entities/motor-vehicle.entity';
 import { Policy } from './policy.entity';
@@ -26,7 +26,7 @@ export class PolicyRisk {
   policy_id: string;
 
   @Column({ type: 'uuid', nullable: true })
-  quotation_risk_id: string | null;
+  quotation_entry_risk_id: string | null;
 
   @Column({ type: 'uuid' })
   risk_id: string;
@@ -99,9 +99,12 @@ export class PolicyRisk {
   @JoinColumn({ name: 'risk_id' })
   risk: InsuranceRisk;
 
-  @ManyToOne(() => QuotationRisk, { onDelete: 'SET NULL', nullable: true })
-  @JoinColumn({ name: 'quotation_risk_id' })
-  quotation_risk: QuotationRisk | null;
+  @ManyToOne(() => QuotationEntryRisk, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'quotation_entry_risk_id' })
+  quotation_entry_risk: QuotationEntryRisk | null;
 
   @ManyToOne(() => SubjectMatter, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'subject_matter_id' })
