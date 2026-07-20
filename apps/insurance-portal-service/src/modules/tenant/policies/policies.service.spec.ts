@@ -15,11 +15,10 @@ import { InsuranceCategory } from '../insurance-categories/entities/insurance-ca
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
-import { QuotationRisk } from '../quotations/entities/quotation-risk.entity';
+import { QuotationEntryRisk } from '../quotations/entities/structured/quotation-entry-risk.entity';
 import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
 import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
-import { NonMotorQuotationDetail } from '../non-motor/entities/non-motor-quotation-detail.entity';
 import { NonMotorPolicyDetail } from '../non-motor/entities/non-motor-policy-detail.entity';
 import { User } from '../users/entities/user.entity';
 import { QuotationStatus } from '../quotations/enums/quotation-status.enum';
@@ -150,14 +149,13 @@ describe('PoliciesService â€” atomic quotation conversion', () => {
           useValue: mockRepo(),
         },
         { provide: getRepositoryToken(Quotation), useValue: quotationRepo },
-        { provide: getRepositoryToken(QuotationRisk), useValue: mockRepo() },
+        {
+          provide: getRepositoryToken(QuotationEntryRisk),
+          useValue: mockRepo(),
+        },
         { provide: getRepositoryToken(InsuranceRisk), useValue: mockRepo() },
         { provide: getRepositoryToken(SubjectMatter), useValue: mockRepo() },
         { provide: getRepositoryToken(MotorVehicle), useValue: mockRepo() },
-        {
-          provide: getRepositoryToken(NonMotorQuotationDetail),
-          useValue: mockRepo(),
-        },
         {
           provide: getRepositoryToken(NonMotorPolicyDetail),
           useValue: mockRepo(),

@@ -22,15 +22,14 @@ import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { NonMotorPolicyDetail } from '../non-motor/entities/non-motor-policy-detail.entity';
-import { NonMotorQuotationDetail } from '../non-motor/entities/non-motor-quotation-detail.entity';
 import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
 import { ProductChannelType } from '../product-distribution/enums/product-channel-type.enum';
 import { QuotationCalculationBase } from '../quotations/enums/quotation-calculation-base.enum';
 import { QuotationPremiumItemType } from '../quotations/enums/quotation-premium-item-type.enum';
 import { QuotationStatus } from '../quotations/enums/quotation-status.enum';
 import { Quotation } from '../quotations/entities/quotation.entity';
-import { QuotationRisk } from '../quotations/entities/quotation-risk.entity';
 import { QuotationStatusHistory } from '../quotations/entities/quotation-status-history.entity';
+import { QuotationEntryRisk } from '../quotations/entities/structured/quotation-entry-risk.entity';
 import { User } from '../users/entities/user.entity';
 import { CreatePolicyDto } from './dto/create-policy.dto';
 import { FilterPolicyDto } from './dto/filter-policy.dto';
@@ -85,8 +84,8 @@ export class PoliciesService {
     @InjectRepository(Quotation)
     private readonly quotationRepository: Repository<Quotation>,
 
-    @InjectRepository(QuotationRisk)
-    private readonly quotationRiskRepository: Repository<QuotationRisk>,
+    @InjectRepository(QuotationEntryRisk)
+    private readonly quotationEntryRiskRepository: Repository<QuotationEntryRisk>,
 
     @InjectRepository(InsuranceRisk)
     private readonly insuranceRiskRepository: Repository<InsuranceRisk>,
@@ -96,9 +95,6 @@ export class PoliciesService {
 
     @InjectRepository(MotorVehicle)
     private readonly motorVehicleRepository: Repository<MotorVehicle>,
-
-    @InjectRepository(NonMotorQuotationDetail)
-    private readonly nonMotorQuotationDetailRepository: Repository<NonMotorQuotationDetail>,
 
     @InjectRepository(NonMotorPolicyDetail)
     private readonly nonMotorPolicyDetailRepository: Repository<NonMotorPolicyDetail>,
@@ -258,17 +254,23 @@ export class PoliciesService {
     return policy;
   }
 
-  private async ensureQuotationRiskBelongsToPolicyContext(
+  private async ensureQuotationEntryRiskBelongsToPolicyContext(
     companyId: string,
-    quotationRiskId: string,
-  ): Promise<QuotationRisk> {
-    const risk = await this.quotationRiskRepository.findOne({
-      where: { id: quotationRiskId },
-      relations: { quotation: true },
+    quotationEntryRiskId: string,
+  ): Promise<QuotationEntryRisk> {
+    const risk = await this.quotationEntryRiskRepository.findOne({
+      where: { id: quotationEntryRiskId },
+      relations: {
+        entry: {
+          cover_note: {
+            quotation: true,
+          },
+        },
+      },
     });
-    if (!risk || risk.quotation.company_id !== companyId) {
+    if (!risk || risk.entry.cover_note.quotation.company_id !== companyId) {
       throw new BadRequestException(
-        'Quotation risk not found for this company',
+        'Quotation entry risk not found for this company',
       );
     }
     return risk;
@@ -313,27 +315,6 @@ export class PoliciesService {
     return vehicle;
   }
 
-  private async ensurePolicyRelatedDetails(
-    manager: any,
-    policy: Policy,
-  ): Promise<void> {
-    if (policy.quotation_id) {
-      const quotationDetails = await manager
-        .getRepository(NonMotorQuotationDetail)
-        .find({
-          where: { quotation_id: policy.quotation_id },
-        });
-      if (quotationDetails.length) {
-        for (const detail of quotationDetails) {
-          await this.ensureSubjectMatter(
-            policy.company_id,
-            detail.subject_matter_id,
-          );
-        }
-      }
-    }
-  }
-
   private async replacePolicyChildren(
     manager: any,
     policy: Policy,
@@ -351,10 +332,10 @@ export class PoliciesService {
         risk.risk_id,
         policy.product_id,
       );
-      if (risk.quotation_risk_id) {
-        await this.ensureQuotationRiskBelongsToPolicyContext(
+      if (risk.quotation_entry_risk_id) {
+        await this.ensureQuotationEntryRiskBelongsToPolicyContext(
           policy.company_id,
-          risk.quotation_risk_id,
+          risk.quotation_entry_risk_id,
         );
       }
       if (risk.subject_matter_id) {
@@ -371,7 +352,7 @@ export class PoliciesService {
     const risks = (dto.risks ?? []).map((risk) =>
       riskRepo.create({
         policy_id: policy.id,
-        quotation_risk_id: risk.quotation_risk_id ?? null,
+        quotation_entry_risk_id: risk.quotation_entry_risk_id ?? null,
         risk_id: risk.risk_id,
         subject_matter_id: risk.subject_matter_id ?? null,
         motor_vehicle_id: risk.motor_vehicle_id ?? null,
@@ -481,7 +462,6 @@ export class PoliciesService {
 
         const saved = await policyRepo.save(policy);
         await this.replacePolicyChildren(manager, saved, dto);
-        await this.ensurePolicyRelatedDetails(manager, saved);
         await historyRepo.save(
           historyRepo.create({
             policy_id: saved.id,

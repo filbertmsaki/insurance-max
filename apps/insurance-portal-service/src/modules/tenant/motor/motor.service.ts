@@ -10,25 +10,22 @@ import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
-import { QuotationRisk } from '../quotations/entities/quotation-risk.entity';
+import { QuotationEntryRisk } from '../quotations/entities/structured/quotation-entry-risk.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { PolicyRisk } from '../policies/entities/policy-risk.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateMotorFleetDto } from './dto/create-motor-fleet.dto';
 import { CreateMotorFleetItemDto } from './dto/create-motor-fleet-item.dto';
 import { CreateMotorPolicyDetailDto } from './dto/create-motor-policy-detail.dto';
-import { CreateMotorQuotationDetailDto } from './dto/create-motor-quotation-detail.dto';
 import { CreateMotorVehicleDto } from './dto/create-motor-vehicle.dto';
 import { FilterMotorDto } from './dto/filter-motor.dto';
 import { UpdateMotorFleetDto } from './dto/update-motor-fleet.dto';
 import { UpdateMotorFleetItemDto } from './dto/update-motor-fleet-item.dto';
 import { UpdateMotorPolicyDetailDto } from './dto/update-motor-policy-detail.dto';
-import { UpdateMotorQuotationDetailDto } from './dto/update-motor-quotation-detail.dto';
 import { UpdateMotorVehicleDto } from './dto/update-motor-vehicle.dto';
 import { MotorFleet } from './entities/motor-fleet.entity';
 import { MotorFleetItem } from './entities/motor-fleet-item.entity';
 import { MotorPolicyDetail } from './entities/motor-policy-detail.entity';
-import { MotorQuotationDetail } from './entities/motor-quotation-detail.entity';
 import { MotorVehicle } from './entities/motor-vehicle.entity';
 
 type NumericLike = number | string | null | undefined;
@@ -45,9 +42,6 @@ export class MotorService {
     @InjectRepository(MotorFleetItem)
     private readonly motorFleetItemRepository: Repository<MotorFleetItem>,
 
-    @InjectRepository(MotorQuotationDetail)
-    private readonly motorQuotationDetailRepository: Repository<MotorQuotationDetail>,
-
     @InjectRepository(MotorPolicyDetail)
     private readonly motorPolicyDetailRepository: Repository<MotorPolicyDetail>,
 
@@ -60,8 +54,8 @@ export class MotorService {
     @InjectRepository(Quotation)
     private readonly quotationRepository: Repository<Quotation>,
 
-    @InjectRepository(QuotationRisk)
-    private readonly quotationRiskRepository: Repository<QuotationRisk>,
+    @InjectRepository(QuotationEntryRisk)
+    private readonly quotationEntryRiskRepository: Repository<QuotationEntryRisk>,
 
     @InjectRepository(Policy)
     private readonly policyRepository: Repository<Policy>,
@@ -98,14 +92,6 @@ export class MotorService {
     return String(Math.round(num * 100) / 100);
   }
 
-  private normalizeRate(value: NumericLike): string {
-    const num =
-      value === null || value === undefined || value === '' ? 0 : Number(value);
-    if (!Number.isFinite(num))
-      throw new BadRequestException('Invalid numeric value');
-    return String(Math.round(num * 1000000) / 1000000);
-  }
-
   private async ensureCompany(companyId: string): Promise<Company> {
     const company = await this.companyRepository.findOne({
       where: { id: companyId },
@@ -138,17 +124,23 @@ export class MotorService {
     return quotation;
   }
 
-  private async ensureQuotationRisk(
+  private async ensureQuotationEntryRisk(
     companyId: string,
-    quotationRiskId: string,
-  ): Promise<QuotationRisk> {
-    const risk = await this.quotationRiskRepository.findOne({
-      where: { id: quotationRiskId },
-      relations: { quotation: true },
+    quotationEntryRiskId: string,
+  ): Promise<QuotationEntryRisk> {
+    const risk = await this.quotationEntryRiskRepository.findOne({
+      where: { id: quotationEntryRiskId },
+      relations: {
+        entry: {
+          cover_note: {
+            quotation: true,
+          },
+        },
+      },
     });
-    if (!risk || risk.quotation.company_id !== companyId) {
+    if (!risk || risk.entry.cover_note.quotation.company_id !== companyId) {
       throw new BadRequestException(
-        'Quotation risk not found for this company',
+        'Quotation entry risk not found for this company',
       );
     }
     return risk;
@@ -552,8 +544,11 @@ export class MotorService {
   ) {
     await this.ensureFleet(companyId, fleetId);
     await this.ensureMotorVehicle(companyId, dto.motor_vehicle_id);
-    if (dto.quotation_risk_id)
-      await this.ensureQuotationRisk(companyId, dto.quotation_risk_id);
+    if (dto.quotation_entry_risk_id)
+      await this.ensureQuotationEntryRisk(
+        companyId,
+        dto.quotation_entry_risk_id,
+      );
     if (dto.policy_risk_id)
       await this.ensurePolicyRisk(companyId, dto.policy_risk_id);
 
@@ -561,7 +556,7 @@ export class MotorService {
       this.motorFleetItemRepository.create({
         fleet_id: fleetId,
         motor_vehicle_id: dto.motor_vehicle_id,
-        quotation_risk_id: dto.quotation_risk_id ?? null,
+        quotation_entry_risk_id: dto.quotation_entry_risk_id ?? null,
         policy_risk_id: dto.policy_risk_id ?? null,
         sum_insured: this.normalizeMoney(dto.sum_insured),
         premium: this.normalizeMoney(dto.premium),
@@ -600,10 +595,13 @@ export class MotorService {
       await this.ensureMotorVehicle(companyId, dto.motor_vehicle_id);
       item.motor_vehicle_id = dto.motor_vehicle_id;
     }
-    if (dto.quotation_risk_id !== undefined) {
-      if (dto.quotation_risk_id)
-        await this.ensureQuotationRisk(companyId, dto.quotation_risk_id);
-      item.quotation_risk_id = dto.quotation_risk_id ?? null;
+    if (dto.quotation_entry_risk_id !== undefined) {
+      if (dto.quotation_entry_risk_id)
+        await this.ensureQuotationEntryRisk(
+          companyId,
+          dto.quotation_entry_risk_id,
+        );
+      item.quotation_entry_risk_id = dto.quotation_entry_risk_id ?? null;
     }
     if (dto.policy_risk_id !== undefined) {
       if (dto.policy_risk_id)
@@ -626,134 +624,6 @@ export class MotorService {
   ): Promise<void> {
     const item = await this.findFleetItem(companyId, fleetId, id);
     await this.motorFleetItemRepository.softDelete(item.id);
-  }
-
-  async createQuotationDetail(
-    companyId: string,
-    dto: CreateMotorQuotationDetailDto,
-  ) {
-    await this.ensureQuotation(companyId, dto.quotation_id);
-    await this.ensureQuotationRisk(companyId, dto.quotation_risk_id);
-    await this.ensureMotorVehicle(companyId, dto.motor_vehicle_id);
-
-    return this.motorQuotationDetailRepository.save(
-      this.motorQuotationDetailRepository.create({
-        quotation_id: dto.quotation_id,
-        quotation_risk_id: dto.quotation_risk_id,
-        motor_vehicle_id: dto.motor_vehicle_id,
-        cover_type: this.normalizeText(dto.cover_type),
-        usage_type: this.normalizeText(dto.usage_type),
-        no_claim_discount_rate:
-          dto.no_claim_discount_rate === undefined ||
-          dto.no_claim_discount_rate === null
-            ? null
-            : this.normalizeRate(dto.no_claim_discount_rate),
-        no_claim_discount_amount:
-          dto.no_claim_discount_amount === undefined ||
-          dto.no_claim_discount_amount === null
-            ? null
-            : this.normalizeMoney(dto.no_claim_discount_amount),
-        excess_applicable: dto.excess_applicable ?? false,
-        excess_type: this.normalizeText(dto.excess_type),
-        excess_rate:
-          dto.excess_rate === undefined || dto.excess_rate === null
-            ? null
-            : this.normalizeRate(dto.excess_rate),
-        excess_amount:
-          dto.excess_amount === undefined || dto.excess_amount === null
-            ? null
-            : this.normalizeMoney(dto.excess_amount),
-      }),
-    );
-  }
-
-  async listQuotationDetails(companyId: string, quotationId?: string) {
-    const qb = this.motorQuotationDetailRepository
-      .createQueryBuilder('detail')
-      .leftJoinAndSelect('detail.motor_vehicle', 'vehicle')
-      .leftJoinAndSelect('detail.quotation', 'quotation')
-      .where('quotation.company_id = :companyId', { companyId });
-
-    if (quotationId)
-      qb.andWhere('detail.quotation_id = :quotationId', { quotationId });
-
-    return qb.orderBy('detail.created_at', 'DESC').getMany();
-  }
-
-  async findQuotationDetail(companyId: string, id: string) {
-    const detail = await this.motorQuotationDetailRepository.findOne({
-      where: { id },
-      relations: { quotation: true, quotation_risk: true, motor_vehicle: true },
-    });
-    if (!detail || detail.quotation.company_id !== companyId) {
-      throw new NotFoundException('Motor quotation detail not found');
-    }
-    return detail;
-  }
-
-  async updateQuotationDetail(
-    companyId: string,
-    id: string,
-    dto: UpdateMotorQuotationDetailDto,
-  ) {
-    const detail = await this.findQuotationDetail(companyId, id);
-    if (dto.quotation_id !== undefined) {
-      await this.ensureQuotation(companyId, dto.quotation_id);
-      detail.quotation_id = dto.quotation_id;
-    }
-    if (dto.quotation_risk_id !== undefined) {
-      await this.ensureQuotationRisk(companyId, dto.quotation_risk_id);
-      detail.quotation_risk_id = dto.quotation_risk_id;
-    }
-    if (dto.motor_vehicle_id !== undefined) {
-      await this.ensureMotorVehicle(companyId, dto.motor_vehicle_id);
-      detail.motor_vehicle_id = dto.motor_vehicle_id;
-    }
-    if (dto.cover_type !== undefined)
-      detail.cover_type = this.normalizeText(dto.cover_type);
-    if (dto.usage_type !== undefined)
-      detail.usage_type = this.normalizeText(dto.usage_type);
-    if (dto.no_claim_discount_rate !== undefined)
-      detail.no_claim_discount_rate =
-        dto.no_claim_discount_rate === null
-          ? null
-          : this.normalizeRate(dto.no_claim_discount_rate);
-    if (dto.no_claim_discount_amount !== undefined)
-      detail.no_claim_discount_amount =
-        dto.no_claim_discount_amount === null
-          ? null
-          : this.normalizeMoney(dto.no_claim_discount_amount);
-    if (dto.excess_applicable !== undefined)
-      detail.excess_applicable = dto.excess_applicable;
-    if (dto.excess_type !== undefined)
-      detail.excess_type = this.normalizeText(dto.excess_type);
-    if (dto.excess_rate !== undefined)
-      detail.excess_rate =
-        dto.excess_rate === null ? null : this.normalizeRate(dto.excess_rate);
-    if (dto.excess_amount !== undefined)
-      detail.excess_amount =
-        dto.excess_amount === null
-          ? null
-          : this.normalizeMoney(dto.excess_amount);
-
-    return this.motorQuotationDetailRepository.save(detail);
-  }
-
-  async removeQuotationDetail(companyId: string, id: string): Promise<void> {
-    const detail = await this.findQuotationDetail(companyId, id);
-    await this.motorQuotationDetailRepository.softDelete(detail.id);
-  }
-
-  async restoreQuotationDetail(companyId: string, id: string): Promise<void> {
-    const detail = await this.motorQuotationDetailRepository.findOne({
-      where: { id },
-      relations: { quotation: true },
-      withDeleted: true,
-    });
-    if (!detail || detail.quotation.company_id !== companyId) {
-      throw new NotFoundException('Motor quotation detail not found');
-    }
-    await this.motorQuotationDetailRepository.restore(detail.id);
   }
 
   async createPolicyDetail(companyId: string, dto: CreateMotorPolicyDetailDto) {

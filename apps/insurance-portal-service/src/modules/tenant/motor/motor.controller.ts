@@ -20,13 +20,11 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 import { CreateMotorFleetDto } from './dto/create-motor-fleet.dto';
 import { CreateMotorFleetItemDto } from './dto/create-motor-fleet-item.dto';
 import { CreateMotorPolicyDetailDto } from './dto/create-motor-policy-detail.dto';
-import { CreateMotorQuotationDetailDto } from './dto/create-motor-quotation-detail.dto';
 import { CreateMotorVehicleDto } from './dto/create-motor-vehicle.dto';
 import { FilterMotorDto } from './dto/filter-motor.dto';
 import { UpdateMotorFleetDto } from './dto/update-motor-fleet.dto';
 import { UpdateMotorFleetItemDto } from './dto/update-motor-fleet-item.dto';
 import { UpdateMotorPolicyDetailDto } from './dto/update-motor-policy-detail.dto';
-import { UpdateMotorQuotationDetailDto } from './dto/update-motor-quotation-detail.dto';
 import { UpdateMotorVehicleDto } from './dto/update-motor-vehicle.dto';
 import { MotorService } from './motor.service';
 
@@ -210,75 +208,6 @@ export class MotorController {
   ) {
     await this.motorService.removeFleetItem(user.companyId!, fleetId, id);
     return { message: 'Motor fleet item deleted successfully' };
-  }
-
-  @Get('quotation-details')
-  @UseGuards(PermissionsGuard)
-  @Permissions('motor:read')
-  @ApiOperation({ summary: 'List motor quotation details' })
-  listQuotationDetails(
-    @CurrentUser() user: AuthenticatedUser,
-    @Query('quotation_id') quotationId?: string,
-  ) {
-    return this.motorService.listQuotationDetails(user.companyId!, quotationId);
-  }
-
-  @Post('quotation-details')
-  @UseGuards(PermissionsGuard)
-  @Permissions('motor:create')
-  @ApiOperation({ summary: 'Create a motor quotation detail' })
-  createQuotationDetail(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: CreateMotorQuotationDetailDto,
-  ) {
-    return this.motorService.createQuotationDetail(user.companyId!, dto);
-  }
-
-  @Get('quotation-details/:id')
-  @UseGuards(PermissionsGuard)
-  @Permissions('motor:read')
-  @ApiOperation({ summary: 'Get a motor quotation detail by ID' })
-  findQuotationDetail(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.motorService.findQuotationDetail(user.companyId!, id);
-  }
-
-  @Patch('quotation-details/:id')
-  @UseGuards(PermissionsGuard)
-  @Permissions('motor:update')
-  @ApiOperation({ summary: 'Update a motor quotation detail' })
-  updateQuotationDetail(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateMotorQuotationDetailDto,
-  ) {
-    return this.motorService.updateQuotationDetail(user.companyId!, id, dto);
-  }
-
-  @Delete('quotation-details/:id')
-  @UseGuards(PermissionsGuard)
-  @Permissions('motor:delete')
-  @ApiOperation({ summary: 'Delete a motor quotation detail' })
-  async removeQuotationDetail(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    await this.motorService.removeQuotationDetail(user.companyId!, id);
-    return { message: 'Motor quotation detail deleted successfully' };
-  }
-
-  @Patch('quotation-details/:id/restore')
-  @UseGuards(PermissionsGuard)
-  @Permissions('motor:update')
-  @ApiOperation({ summary: 'Restore a soft-deleted motor quotation detail' })
-  async restoreQuotationDetail(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    await this.motorService.restoreQuotationDetail(user.companyId!, id);
-    return { message: 'Motor quotation detail restored successfully' };
   }
 
   @Get('policy-details')

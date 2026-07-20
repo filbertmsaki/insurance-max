@@ -18,12 +18,10 @@ import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permission
 import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { CreateNonMotorPolicyDetailDto } from './dto/create-non-motor-policy-detail.dto';
-import { CreateNonMotorQuotationDetailDto } from './dto/create-non-motor-quotation-detail.dto';
 import { CreateSubjectMatterFactorValueDto } from './dto/create-subject-matter-factor-value.dto';
 import { CreateSubjectMatterDto } from './dto/create-subject-matter.dto';
 import { FilterNonMotorDto } from './dto/filter-non-motor.dto';
 import { UpdateNonMotorPolicyDetailDto } from './dto/update-non-motor-policy-detail.dto';
-import { UpdateNonMotorQuotationDetailDto } from './dto/update-non-motor-quotation-detail.dto';
 import { UpdateSubjectMatterDto } from './dto/update-subject-matter.dto';
 import { NonMotorService } from './non-motor.service';
 
@@ -123,66 +121,6 @@ export class NonMotorController {
     @Body() dto: CreateSubjectMatterFactorValueDto,
   ) {
     return this.nonMotorService.createFactorValue(user.companyId!, dto);
-  }
-
-  @Post('quotation-details')
-  @UseGuards(PermissionsGuard)
-  @Permissions('non-motor:create')
-  @ApiOperation({ summary: 'Create a non-motor quotation detail' })
-  createQuotationDetail(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: CreateNonMotorQuotationDetailDto,
-  ) {
-    return this.nonMotorService.createQuotationDetail(user.companyId!, dto);
-  }
-
-  @Get('quotation-details')
-  @UseGuards(PermissionsGuard)
-  @Permissions('non-motor:read')
-  @ApiOperation({ summary: 'List non-motor quotation details' })
-  listQuotationDetails(
-    @CurrentUser() user: AuthenticatedUser,
-    @Query('quotation_id') quotationId?: string,
-  ) {
-    return this.nonMotorService.listQuotationDetails(
-      user.companyId!,
-      quotationId,
-    );
-  }
-
-  @Get('quotation-details/:id')
-  @UseGuards(PermissionsGuard)
-  @Permissions('non-motor:read')
-  @ApiOperation({ summary: 'Get a non-motor quotation detail by ID' })
-  findQuotationDetail(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.nonMotorService.findQuotationDetail(user.companyId!, id);
-  }
-
-  @Patch('quotation-details/:id')
-  @UseGuards(PermissionsGuard)
-  @Permissions('non-motor:update')
-  @ApiOperation({ summary: 'Update a non-motor quotation detail' })
-  updateQuotationDetail(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: UpdateNonMotorQuotationDetailDto,
-  ) {
-    return this.nonMotorService.updateQuotationDetail(user.companyId!, id, dto);
-  }
-
-  @Delete('quotation-details/:id')
-  @UseGuards(PermissionsGuard)
-  @Permissions('non-motor:delete')
-  @ApiOperation({ summary: 'Delete a non-motor quotation detail' })
-  async removeQuotationDetail(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    await this.nonMotorService.removeQuotationDetail(user.companyId!, id);
-    return { message: 'Non-motor quotation detail deleted successfully' };
   }
 
   @Post('policy-details')

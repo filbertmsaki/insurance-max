@@ -9,22 +9,17 @@ import { QueryFailedError, Repository } from 'typeorm';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { Customer } from '../customers/entities/customer.entity';
-import { Quotation } from '../quotations/entities/quotation.entity';
-import { QuotationRisk } from '../quotations/entities/quotation-risk.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { PolicyRisk } from '../policies/entities/policy-risk.entity';
 import { RatingFactor } from '../rating-factors/entities/rating-factor.entity';
 import { User } from '../users/entities/user.entity';
 import { CreateNonMotorPolicyDetailDto } from './dto/create-non-motor-policy-detail.dto';
-import { CreateNonMotorQuotationDetailDto } from './dto/create-non-motor-quotation-detail.dto';
 import { CreateSubjectMatterFactorValueDto } from './dto/create-subject-matter-factor-value.dto';
 import { CreateSubjectMatterDto } from './dto/create-subject-matter.dto';
 import { FilterNonMotorDto } from './dto/filter-non-motor.dto';
 import { UpdateNonMotorPolicyDetailDto } from './dto/update-non-motor-policy-detail.dto';
-import { UpdateNonMotorQuotationDetailDto } from './dto/update-non-motor-quotation-detail.dto';
 import { UpdateSubjectMatterDto } from './dto/update-subject-matter.dto';
 import { NonMotorPolicyDetail } from './entities/non-motor-policy-detail.entity';
-import { NonMotorQuotationDetail } from './entities/non-motor-quotation-detail.entity';
 import { SubjectMatterFactorValue } from './entities/subject-matter-factor-value.entity';
 import { SubjectMatter } from './entities/subject-matter.entity';
 
@@ -37,18 +32,12 @@ export class NonMotorService {
     private readonly subjectMatterRepository: Repository<SubjectMatter>,
     @InjectRepository(SubjectMatterFactorValue)
     private readonly factorValueRepository: Repository<SubjectMatterFactorValue>,
-    @InjectRepository(NonMotorQuotationDetail)
-    private readonly quotationDetailRepository: Repository<NonMotorQuotationDetail>,
     @InjectRepository(NonMotorPolicyDetail)
     private readonly policyDetailRepository: Repository<NonMotorPolicyDetail>,
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
-    @InjectRepository(Quotation)
-    private readonly quotationRepository: Repository<Quotation>,
-    @InjectRepository(QuotationRisk)
-    private readonly quotationRiskRepository: Repository<QuotationRisk>,
     @InjectRepository(Policy)
     private readonly policyRepository: Repository<Policy>,
     @InjectRepository(PolicyRisk)
@@ -118,34 +107,6 @@ export class NonMotorService {
     if (!customer)
       throw new BadRequestException('Customer not found for this company');
     return customer;
-  }
-
-  private async ensureQuotation(
-    companyId: string,
-    quotationId: string,
-  ): Promise<Quotation> {
-    const quotation = await this.quotationRepository.findOne({
-      where: { id: quotationId, company_id: companyId },
-    });
-    if (!quotation)
-      throw new BadRequestException('Quotation not found for this company');
-    return quotation;
-  }
-
-  private async ensureQuotationRisk(
-    companyId: string,
-    quotationRiskId: string,
-  ): Promise<QuotationRisk> {
-    const risk = await this.quotationRiskRepository.findOne({
-      where: { id: quotationRiskId },
-      relations: { quotation: true },
-    });
-    if (!risk || risk.quotation.company_id !== companyId) {
-      throw new BadRequestException(
-        'Quotation risk not found for this company',
-      );
-    }
-    return risk;
   }
 
   private async ensureSubjectMatter(
@@ -405,101 +366,6 @@ export class NonMotorService {
         subjectMatterId,
       });
     return qb.orderBy('value.created_at', 'DESC').getMany();
-  }
-
-  async createQuotationDetail(
-    companyId: string,
-    dto: CreateNonMotorQuotationDetailDto,
-  ) {
-    await this.ensureQuotation(companyId, dto.quotation_id);
-    await this.ensureQuotationRisk(companyId, dto.quotation_risk_id);
-    await this.ensureSubjectMatter(companyId, dto.subject_matter_id);
-
-    return this.quotationDetailRepository.save(
-      this.quotationDetailRepository.create({
-        quotation_id: dto.quotation_id,
-        quotation_risk_id: dto.quotation_risk_id,
-        subject_matter_id: dto.subject_matter_id,
-        cover_description: this.normalizeText(dto.cover_description),
-        risk_location: this.normalizeText(dto.risk_location),
-        insured_value:
-          dto.insured_value === undefined || dto.insured_value === null
-            ? null
-            : this.normalizeMoney(dto.insured_value),
-        limit_of_liability:
-          dto.limit_of_liability === undefined ||
-          dto.limit_of_liability === null
-            ? null
-            : this.normalizeMoney(dto.limit_of_liability),
-      }),
-    );
-  }
-
-  async listQuotationDetails(companyId: string, quotationId?: string) {
-    const qb = this.quotationDetailRepository
-      .createQueryBuilder('detail')
-      .leftJoinAndSelect('detail.subject_matter', 'subjectMatter')
-      .leftJoinAndSelect('detail.quotation', 'quotation')
-      .where('quotation.company_id = :companyId', { companyId });
-    if (quotationId)
-      qb.andWhere('detail.quotation_id = :quotationId', { quotationId });
-    return qb.orderBy('detail.created_at', 'DESC').getMany();
-  }
-
-  async findQuotationDetail(companyId: string, id: string) {
-    const detail = await this.quotationDetailRepository.findOne({
-      where: { id },
-      relations: {
-        quotation: true,
-        quotation_risk: true,
-        subject_matter: true,
-      },
-    });
-    if (!detail || detail.quotation.company_id !== companyId) {
-      throw new NotFoundException('Non-motor quotation detail not found');
-    }
-    return detail;
-  }
-
-  async updateQuotationDetail(
-    companyId: string,
-    id: string,
-    dto: UpdateNonMotorQuotationDetailDto,
-  ) {
-    const detail = await this.findQuotationDetail(companyId, id);
-    if (dto.quotation_id !== undefined) {
-      await this.ensureQuotation(companyId, dto.quotation_id);
-      detail.quotation_id = dto.quotation_id;
-    }
-    if (dto.quotation_risk_id !== undefined) {
-      await this.ensureQuotationRisk(companyId, dto.quotation_risk_id);
-      detail.quotation_risk_id = dto.quotation_risk_id;
-    }
-    if (dto.subject_matter_id !== undefined) {
-      await this.ensureSubjectMatter(companyId, dto.subject_matter_id);
-      detail.subject_matter_id = dto.subject_matter_id;
-    }
-    if (dto.cover_description !== undefined)
-      detail.cover_description = this.normalizeText(dto.cover_description);
-    if (dto.risk_location !== undefined)
-      detail.risk_location = this.normalizeText(dto.risk_location);
-    if (dto.insured_value !== undefined)
-      detail.insured_value =
-        dto.insured_value === null
-          ? null
-          : this.normalizeMoney(dto.insured_value);
-    if (dto.limit_of_liability !== undefined)
-      detail.limit_of_liability =
-        dto.limit_of_liability === null
-          ? null
-          : this.normalizeMoney(dto.limit_of_liability);
-
-    return this.quotationDetailRepository.save(detail);
-  }
-
-  async removeQuotationDetail(companyId: string, id: string): Promise<void> {
-    const detail = await this.findQuotationDetail(companyId, id);
-    await this.quotationDetailRepository.softDelete(detail.id);
   }
 
   async createPolicyDetail(
