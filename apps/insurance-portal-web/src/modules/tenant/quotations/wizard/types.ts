@@ -40,7 +40,7 @@ export function getWizardStepsForFlow(flow: QuotationWizardFlow): QuotationWizar
   const commonHead: QuotationWizardStepId[] = ['cover-note', 'policyholder', 'risk-premium'];
   const branchSteps: QuotationWizardStepId[] =
     flow === 'NON_MOTOR'
-      ? ['addons']
+      ? ['non-motor', 'addons']
       : flow === 'MOTOR_SINGLE'
         ? ['motor', 'addons']
         : ['motor-fleet', 'addons'];

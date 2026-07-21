@@ -6,7 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
@@ -17,17 +23,14 @@ import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { useQuotationDetail } from '../hooks';
 import { PaymentStatusBadge } from '../components/PaymentStatusBadge';
 
-const PAYMENT_METHODS = ['Cash', 'Cheque', 'EFT', 'Bank Transfer', 'Mobile Money'];
+const PAYMENT_METHODS = [
+  'Cash',
+  'Cheque',
+  'EFT',
+  'Bank Transfer',
+  'Mobile Money',
+];
 
-/**
- * There is no payment gateway integration anywhere in this backend (no
- * Azampay/Selcom/M-Pesa client, no checkout/webhook endpoint) — this page is
- * the real, working flow instead: generate an Invoice for the quotation, then
- * record a Receipt + PaymentTransaction for money already received offline,
- * and reconcile the invoice's paid/balance/status by hand since nothing does
- * that automatically server-side. "Direct payment" beyond this manual
- * recording flow isn't something the backend supports yet.
- */
 export function QuotationPaymentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -41,16 +44,36 @@ export function QuotationPaymentPage() {
   const [amount, setAmount] = useState('');
   const [reference, setReference] = useState('');
 
+  const currencyCode =
+    quotation?.cover_note_dtl.fleet_hdr?.currency_code ??
+    quotation?.cover_note_dtl.currency_code ??
+    'TZS';
+  const basicPremium =
+    Number(
+      quotation?.cover_note_dtl.fleet_hdr?.total_premium_excluding_tax ??
+        quotation?.cover_note_dtl.total_premium_excluding_tax ??
+        0,
+    ) || 0;
+  const totalPremium =
+    Number(
+      quotation?.cover_note_dtl.fleet_hdr?.total_premium_including_tax ??
+        quotation?.cover_note_dtl.total_premium_including_tax ??
+        0,
+    ) || 0;
+  const taxAmount = Math.max(0, totalPremium - basicPremium);
+  const customerReference =
+    quotation?.internal_quotation.intermediary_company_id ??
+    quotation?.internal_quotation.insurer_company_id ??
+    '';
+
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
+
     (async () => {
       try {
-        // No quotation_id filter exists on the invoices list endpoint — same
-        // full-list-then-filter pattern used elsewhere in this wizard (vehicles
-        // by customer, fleets by quotation).
         const page = await billingApi.getInvoices({ limit: API_MAX_LIST_LIMIT });
-        const existing = page.data.find((inv) => inv.quotation_id === id) ?? null;
+        const existing = page.data.find((item) => item.quotation_id === id) ?? null;
         if (!cancelled) {
           setInvoice(existing);
           if (existing) setAmount(existing.balance_amount);
@@ -61,6 +84,7 @@ export function QuotationPaymentPage() {
         if (!cancelled) setLoadingInvoice(false);
       }
     })();
+
     return () => {
       cancelled = true;
     };
@@ -70,20 +94,19 @@ export function QuotationPaymentPage() {
     if (!quotation) return;
     setGenerating(true);
     try {
-      const totalAmount = Number(quotation.total_premium) || 0;
       const created = await billingApi.createInvoice({
-        insurer_company_id: quotation.insurer_company_id,
-        customer_id: quotation.customer_id,
+        insurer_company_id: quotation.internal_quotation.insurer_company_id,
+        customer_id: customerReference,
         quotation_id: quotation.id,
         invoice_type: 'POLICY',
-        currency: quotation.currency,
-        gross_amount: Number(quotation.basic_premium) || 0,
-        discount_amount: Number(quotation.total_discount) || 0,
-        tax_amount: Number(quotation.total_tax) || 0,
-        charges_amount: Number(quotation.total_charges) || 0,
-        total_amount: totalAmount,
+        currency: currencyCode,
+        gross_amount: basicPremium,
+        discount_amount: 0,
+        tax_amount: taxAmount,
+        charges_amount: 0,
+        total_amount: totalPremium,
         paid_amount: 0,
-        balance_amount: totalAmount,
+        balance_amount: totalPremium,
         status: 'ISSUED',
       });
       setInvoice(created);
@@ -152,7 +175,12 @@ export function QuotationPaymentPage() {
     return (
       <div className="py-24 text-center text-sm text-slate-500">
         <p className="font-medium">Quotation not found</p>
-        <Button variant="link" onClick={() => navigate(underwritingPaths.quotations)}>Back to Quotations</Button>
+        <Button
+          variant="link"
+          onClick={() => navigate(underwritingPaths.quotations)}
+        >
+          Back to Quotations
+        </Button>
       </div>
     );
   }
@@ -162,7 +190,11 @@ export function QuotationPaymentPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(underwritingPaths.quotationDetail(quotation.id))}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(underwritingPaths.quotationDetail(quotation.id))}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <PageHeader title="Payment" description={quotation.quotation_no} />
@@ -177,8 +209,7 @@ export function QuotationPaymentPage() {
           {!invoice ? (
             <>
               <p className="text-slate-500">
-                No invoice has been generated for this quotation yet. Generating one uses the
-                quotation's own premium breakdown — total premium: {quotation.total_premium} {quotation.currency}.
+                No invoice has been generated for this quotation yet. Generating one uses the authoritative quotation premium totals: {totalPremium} {currencyCode}.
               </p>
               <Button type="button" onClick={generateInvoice} disabled={generating}>
                 {generating ? 'Generating...' : 'Generate Invoice'}
@@ -203,28 +234,39 @@ export function QuotationPaymentPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-xs text-slate-400">
-              This records money already received outside the system (bank deposit, mobile money,
-              cheque, cash) — there is no in-app payment gateway to collect it directly.
+              Record money already received outside the system. This remains a manual billing flow.
             </p>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <Label className="mb-2 block">Payment Method</Label>
                 <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {PAYMENT_METHODS.map((method) => (
-                      <SelectItem key={method} value={method}>{method}</SelectItem>
+                      <SelectItem key={method} value={method}>
+                        {method}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label className="mb-2 block">Amount</Label>
-                <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+                <Input
+                  type="number"
+                  value={amount}
+                  onChange={(event) => setAmount(event.target.value)}
+                />
               </div>
               <div className="md:col-span-2">
                 <Label className="mb-2 block">Reference (optional)</Label>
-                <Input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Transaction/receipt reference" />
+                <Input
+                  value={reference}
+                  onChange={(event) => setReference(event.target.value)}
+                  placeholder="Transaction or receipt reference"
+                />
               </div>
             </div>
             <Button type="button" onClick={recordPayment} disabled={recording}>
@@ -237,8 +279,13 @@ export function QuotationPaymentPage() {
       {isPaid && (
         <Card>
           <CardContent className="flex items-center justify-between pt-6 text-sm">
-            <p className="text-emerald-700">Payment complete. This quotation can now proceed to underwriting/TIRAMIS submission.</p>
-            <Button type="button" onClick={() => navigate(underwritingPaths.quotationDetail(quotation.id))}>
+            <p className="text-emerald-700">
+              Payment complete. This quotation can now proceed to TIRAMIS submission from the quotation detail page.
+            </p>
+            <Button
+              type="button"
+              onClick={() => navigate(underwritingPaths.quotationDetail(quotation.id))}
+            >
               Back to Quotation
             </Button>
           </CardContent>

@@ -1,35 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CreditCard, Pencil, Play, Plus, Trash2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  CreditCard,
+  Pencil,
+  Play,
+  Trash2,
+} from 'lucide-react';
 import { billingApi } from '@/modules/tenant/billing/api';
 import type { InvoiceRecord } from '@/modules/tenant/billing/types';
 import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
-import { PaymentStatusBadge } from '../components/PaymentStatusBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { QuotationStatusBadge } from '../components/QuotationStatusBadge';
-import { useDeleteQuotation, useQuotationDetail } from '../hooks';
-import { useSubmitQuotationToTiramis } from '@/modules/tenant/tiramis/hooks';
-import { TiramisSubmissionDialog } from '@/modules/tenant/tiramis/components/TiramisSubmissionDialog';
-import { DataTable, type Column } from '@/components/shared/DataTable';
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { PaymentStatusBadge } from '../components/PaymentStatusBadge';
 import {
-  useCreateNonMotorQuotationDetail,
-  useNonMotorQuotationDetails,
-  useNonMotorQuotationRisks,
-  useSubjectMatterOptions,
-} from '@/modules/tenant/non-motor/hooks';
-import { QuotationNonMotorDetailForm } from '@/modules/tenant/non-motor/components/QuotationNonMotorDetailForm';
-import type { NonMotorQuotationDetailRecord } from '@/modules/tenant/non-motor/types';
+  useDeleteQuotation,
+  useQuotationDetail,
+  useQuotationPayload,
+  useSubmitQuotation,
+} from '../hooks';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 
 function Row({
@@ -41,7 +34,7 @@ function Row({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="min-w-36 text-sm text-slate-500">{label}</span>
+      <span className="min-w-44 text-sm text-slate-500">{label}</span>
       <span className="text-sm text-slate-900">{value ?? ' - '}</span>
     </div>
   );
@@ -50,68 +43,32 @@ function Row({
 export function QuotationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { hasPermission } = useAuthStore();
-  const canCreate = hasPermission('non-motor:create');
   const { data: quotation, isLoading } = useQuotationDetail(id);
+  const { data: payload } = useQuotationPayload(id);
   const deleteMutation = useDeleteQuotation();
-  const submitMutation = useSubmitQuotationToTiramis(quotation);
-  const { data: nonMotorDetails = [] } = useNonMotorQuotationDetails(
-    quotation?.id,
-  );
-  const { data: quotationRisks = [] } = useNonMotorQuotationRisks(
-    quotation?.id,
-  );
-  const { data: subjectMatterOptions = [] } = useSubjectMatterOptions();
-  const createNonMotorMutation = useCreateNonMotorQuotationDetail();
+  const submitMutation = useSubmitQuotation(id);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [nonMotorOpen, setNonMotorOpen] = useState(false);
-  const [submitOpen, setSubmitOpen] = useState(false);
   const [invoice, setInvoice] = useState<InvoiceRecord | null>(null);
-  const isPaid = invoice?.status === 'PAID';
 
   useEffect(() => {
     if (!quotation?.id) return;
     let cancelled = false;
     billingApi.getInvoices({ limit: API_MAX_LIST_LIMIT }).then((page) => {
-      if (!cancelled) setInvoice(page.data.find((inv) => inv.quotation_id === quotation.id) ?? null);
+      if (cancelled) return;
+      setInvoice(page.data.find((item) => item.quotation_id === quotation.id) ?? null);
     });
     return () => {
       cancelled = true;
     };
   }, [quotation?.id]);
 
-  const nonMotorColumns: Column<NonMotorQuotationDetailRecord>[] = useMemo(
-    () => [
-      {
-        key: 'subject_matter',
-        header: 'Subject Matter',
-        cell: (row) =>
-          row.subject_matter?.subject_code ?? row.subject_matter_id,
-      },
-      {
-        key: 'risk',
-        header: 'Quotation Risk',
-        cell: (row) =>
-          row.quotation_risk?.risk?.risk_name ?? row.quotation_risk_id,
-      },
-      {
-        key: 'insured_value',
-        header: 'Insured Value',
-        cell: (row) => row.insured_value ?? ' - ',
-      },
-      {
-        key: 'limit',
-        header: 'Limit',
-        cell: (row) => row.limit_of_liability ?? ' - ',
-      },
-      {
-        key: 'created_at',
-        header: 'Created',
-        cell: (row) => new Date(row.created_at).toLocaleString(),
-      },
-    ],
-    [],
-  );
+  const isPaid = invoice?.status === 'PAID';
+  const policyHolder = useMemo(() => {
+    if (!quotation) return null;
+    return quotation.internal_quotation.quotation_flow === 'MOTOR_FLEET'
+      ? quotation.cover_note_dtl.fleet_hdr?.policy_holders?.[0] ?? null
+      : quotation.cover_note_dtl.policy_holders?.[0] ?? null;
+  }, [quotation]);
 
   if (isLoading) {
     return (
@@ -124,7 +81,7 @@ export function QuotationDetailPage() {
 
   if (!quotation) {
     return (
-      <div className="text-center py-24 text-slate-500">
+      <div className="py-24 text-center text-slate-500">
         <p className="font-medium">Quotation not found</p>
         <Button
           variant="link"
@@ -156,10 +113,11 @@ export function QuotationDetailPage() {
               <PaymentStatusBadge status={invoice?.status} />
             </div>
             <p className="text-sm text-slate-500">
-              {quotation.customer?.company_name ?? quotation.customer_id}
+              {policyHolder?.policy_holder_name ?? 'Policyholder not available'}
             </p>
           </div>
         </div>
+
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -172,9 +130,19 @@ export function QuotationDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setSubmitOpen(true)}
-            disabled={submitMutation.isPending || !isPaid}
-            title={isPaid ? undefined : 'Payment must be completed before submitting to TIRAMIS'}
+            disabled={!isPaid || submitMutation.isPending}
+            title={
+              isPaid
+                ? undefined
+                : 'Payment must be completed before submitting to TIRAMIS'
+            }
+            onClick={() =>
+              submitMutation.mutate(undefined, {
+                onSuccess: (result) => {
+                  navigate(underwritingPaths.submissionDetail(result.submission.id));
+                },
+              })
+            }
           >
             <Play className="mr-1.5 h-3.5 w-3.5" />
             Submit to TIRAMIS
@@ -182,9 +150,7 @@ export function QuotationDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() =>
-              navigate(underwritingPaths.quotationWizardEdit(quotation.id))
-            }
+            onClick={() => navigate(underwritingPaths.quotationWizardEdit(quotation.id))}
           >
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             Edit
@@ -201,181 +167,71 @@ export function QuotationDetailPage() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="flex-wrap h-auto gap-1">
+        <TabsList className="h-auto flex-wrap gap-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="risks">Risks</TabsTrigger>
-          <TabsTrigger value="non-motor">Non-Motor Details</TabsTrigger>
-          <TabsTrigger value="breakdowns">Premium Breakdown</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="payload">Authoritative Payload</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Quotation Details</CardTitle>
+            <CardHeader>
+              <CardTitle className="text-base">Quotation Summary</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Row
-                label="Customer"
-                value={
-                  quotation.customer?.company_name ?? quotation.customer_id
-                }
-              />
-              <Row
-                label="Category"
-                value={quotation.category?.name ?? quotation.category_id}
-              />
-              <Row
-                label="Product"
-                value={quotation.product?.product_name ?? quotation.product_id}
-              />
-              <Row
-                label="Sub-Class"
-                value={quotation.sub_class?.name ?? quotation.sub_class_id}
-              />
-              <Row label="Type" value={quotation.quotation_type} />
-              <Row label="Channel" value={quotation.channel_type} />
-              <Row
-                label="Sum Insured"
-                value={`${quotation.currency} ${quotation.sum_insured}`}
-              />
+              <Row label="Quotation Number" value={quotation.quotation_no} />
+              <Row label="Flow" value={quotation.internal_quotation.quotation_flow} />
+              <Row label="Type" value={quotation.internal_quotation.quotation_type} />
+              <Row label="Channel" value={quotation.internal_quotation.channel_type} />
+              <Row label="Branch" value={quotation.internal_quotation.branch_id} />
+              <Row label="Department" value={quotation.internal_quotation.department_id} />
+              <Row label="Category" value={quotation.internal_quotation.category_id} />
+              <Row label="Product" value={quotation.internal_quotation.product_id} />
+              <Row label="Sub-Class" value={quotation.internal_quotation.sub_class_id} />
+              <Row label="Policyholder" value={policyHolder?.policy_holder_name} />
               <Row
                 label="Premium"
-                value={`${quotation.currency} ${quotation.total_premium}`}
+                value={`${quotation.cover_note_dtl.fleet_hdr?.currency_code ?? quotation.cover_note_dtl.currency_code ?? 'TZS'} ${
+                  quotation.cover_note_dtl.fleet_hdr?.total_premium_including_tax ??
+                  quotation.cover_note_dtl.total_premium_including_tax ??
+                  0
+                }`}
               />
               <Row
-                label="Validity"
-                value={`${quotation.valid_from} to ${quotation.valid_until}`}
+                label="Cover Period"
+                value={`${
+                  quotation.cover_note_dtl.fleet_hdr?.cover_note_start_date ??
+                  quotation.cover_note_dtl.cover_note_start_date
+                } to ${
+                  quotation.cover_note_dtl.fleet_hdr?.cover_note_end_date ??
+                  quotation.cover_note_dtl.cover_note_end_date
+                }`}
               />
+              <Row label="Submitted At" value={quotation.submitted_at} />
+              <Row label="Created At" value={quotation.created_at} />
+              <Row label="Updated At" value={quotation.updated_at} />
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="risks" className="space-y-4">
-          {(quotation.risks ?? []).map((risk) => (
-            <Card key={risk.id}>
-              <CardContent className="space-y-2 pt-6">
-                <Row
-                  label="Risk"
-                  value={risk.risk?.risk_name ?? risk.risk_id}
-                />
-                <Row label="Sum Insured" value={risk.sum_insured} />
-                <Row label="Rate" value={risk.rate} />
-                <Row label="Premium" value={risk.total_premium} />
-                <Row
-                  label="Vehicle"
-                  value={
-                    risk.motor_vehicle?.registration_no ?? risk.motor_vehicle_id
-                  }
-                />
-              </CardContent>
-            </Card>
-          ))}
-          {(quotation.risks ?? []).length === 0 && (
-            <p className="text-sm text-slate-500">No risks attached.</p>
-          )}
-        </TabsContent>
-
-        <TabsContent value="non-motor" className="space-y-4">
-          {canCreate && (
-            <div className="flex justify-end">
-              <Button onClick={() => setNonMotorOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Non-Motor Detail
-              </Button>
-            </div>
-          )}
-          <DataTable
-            columns={nonMotorColumns}
-            data={nonMotorDetails}
-            loading={false}
-            page={1}
-            limit={nonMotorDetails.length || 1}
-            total={nonMotorDetails.length}
-            totalPages={1}
-            onPageChange={() => undefined}
-            onLimitChange={() => undefined}
-          />
-        </TabsContent>
-
-        <TabsContent value="breakdowns" className="space-y-4">
-          {(quotation.premium_breakdowns ?? []).map((item) => (
-            <Card key={item.id}>
-              <CardContent className="space-y-2 pt-6">
-                <Row label="Item" value={item.item_name} />
-                <Row label="Code" value={item.item_code} />
-                <Row label="Amount" value={item.amount} />
-              </CardContent>
-            </Card>
-          ))}
-          {(quotation.premium_breakdowns ?? []).length === 0 && (
-            <p className="text-sm text-slate-500">No breakdown items.</p>
-          )}
-        </TabsContent>
-
-        <TabsContent value="history" className="space-y-4">
-          {(quotation.status_history ?? []).map((entry) => (
-            <Card key={entry.id}>
-              <CardContent className="space-y-2 pt-6">
-                <Row label="From" value={entry.old_status} />
-                <Row label="To" value={entry.new_status} />
-                <Row label="Reason" value={entry.reason} />
-                <Row label="Changed At" value={entry.created_at} />
-              </CardContent>
-            </Card>
-          ))}
-          {(quotation.status_history ?? []).length === 0 && (
-            <p className="text-sm text-slate-500">No history yet.</p>
-          )}
+        <TabsContent value="payload">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Authoritative Payload</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <pre className="max-h-[40rem] overflow-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">
+                {JSON.stringify(payload ?? quotation, null, 2)}
+              </pre>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
-
-      <Dialog open={nonMotorOpen} onOpenChange={setNonMotorOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add Non-Motor Detail</DialogTitle>
-          </DialogHeader>
-          {canCreate && (
-            <QuotationNonMotorDetailForm
-              quotation={quotation}
-              risks={quotationRisks}
-              subjectMatters={subjectMatterOptions}
-              isPending={createNonMotorMutation.isPending}
-              submitLabel="Create Detail"
-              onSubmit={(values) => {
-                createNonMotorMutation.mutate(values, {
-                  onSuccess: () => setNonMotorOpen(false),
-                });
-              }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <TiramisSubmissionDialog
-        open={submitOpen}
-        onOpenChange={setSubmitOpen}
-        title="Submit Quotation to TIRAMIS"
-        description="Choose the branch and sale point for this submission. If a unique or default sale point exists, it will be used automatically."
-        initialBranchId={quotation.branch_id}
-        isPending={submitMutation.isPending}
-        onSubmit={(selection) => {
-          submitMutation.mutate(selection, {
-            onSuccess: (result) => {
-              setSubmitOpen(false);
-              navigate(
-                underwritingPaths.submissionDetail(result.submission.id),
-              );
-            },
-          });
-        }}
-      />
 
       <ConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         title="Delete Quotation"
-        description="This will soft-delete the quotation."
+        description="This deletes the quotation draft from the current company workspace."
         confirmLabel="Delete"
         loading={deleteMutation.isPending}
         onConfirm={() =>

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { QuotationFormSchemaValues } from '../schemas';
 
 const DRAFT_STORAGE_KEY = 'insurance-portal:quotation-wizard:draft';
@@ -24,7 +24,7 @@ export function useQuotationWizardDraft(quotationId: string | null) {
     }
   }, [quotationId, key]);
 
-  function loadDraft(): Partial<QuotationFormSchemaValues> | null {
+  const loadDraft = useCallback((): Partial<QuotationFormSchemaValues> | null => {
     if (quotationId) return null;
     const raw = localStorage.getItem(key);
     if (!raw) return null;
@@ -33,16 +33,16 @@ export function useQuotationWizardDraft(quotationId: string | null) {
     } catch {
       return null;
     }
-  }
+  }, [key, quotationId]);
 
-  function saveDraft(values: QuotationFormSchemaValues) {
+  const saveDraft = useCallback((values: QuotationFormSchemaValues) => {
     if (quotationId) return;
     localStorage.setItem(key, JSON.stringify(values));
-  }
+  }, [key, quotationId]);
 
-  function clearDraft() {
+  const clearDraft = useCallback(() => {
     localStorage.removeItem(key);
-  }
+  }, [key]);
 
   return { loadDraft, saveDraft, clearDraft };
 }

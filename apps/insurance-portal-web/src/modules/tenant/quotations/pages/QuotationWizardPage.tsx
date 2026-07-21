@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Form } from '@/components/ui/form';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { usePageFooter } from '@/components/layout/PageFooterSlot';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,56 +19,36 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Form } from '@/components/ui/form';
-import { Skeleton } from '@/components/ui/skeleton';
-import { PageHeader } from '@/components/shared/PageHeader';
-import { usePageFooter } from '@/components/layout/PageFooterSlot';
-import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
-import { customersApi } from '@/modules/tenant/customers/api';
-import {
-  buildCustomerPayload,
-  getCustomerDefaultValues,
-} from '@/modules/tenant/customers/schemas';
-import { motorApi } from '@/modules/tenant/motor/api';
-import type {
-  MotorFleetItemPayload,
-  MotorVehiclePayload,
-} from '@/modules/tenant/motor/types';
-import { nonMotorApi } from '@/modules/tenant/non-motor/api';
-import type {
-  NonMotorQuotationDetailPayload,
-  SubjectMatterPayload,
-} from '@/modules/tenant/non-motor/types';
-import { getApiErrorMessage } from '@/lib/api-error';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
-import { quotationsApi } from '../api';
 import {
-  useQuotationBranches,
-  useQuotationCategories,
-  useQuotationCurrentCompanyId,
-  useQuotationCustomers,
-  useQuotationDepartments,
-  useQuotationProducts,
-  useQuotationRisks,
-  useQuotationSalePoints,
-  useQuotationVehicles,
-} from '../hooks';
-import {
-  buildQuotationPayload,
+  createEmptyAddonRow,
   createEmptyFleetDetails,
   createEmptyFleetItemRow,
   createEmptyMotorDetails,
   createEmptyNonMotorDetails,
+  createEmptyNonMotorItemRow,
   createEmptyRiskRow,
   quotationFormSchema,
   quotationRecordToFormValues,
   type QuotationFormSchemaValues,
 } from '../schemas';
+import {
+  useCreateQuotation,
+  useQuotationBranches,
+  useQuotationCategories,
+  useQuotationCurrentCompanyId,
+  useQuotationCustomers,
+  useQuotationDetail,
+  useQuotationProducts,
+  useQuotationRisks,
+  useQuotationSalePoints,
+  useQuotationVehicles,
+  useUpdateQuotation,
+} from '../hooks';
 import { QuotationWizardStepper } from '../wizard/QuotationWizardStepper';
 import { useQuotationWizardDraft } from '../wizard/useQuotationWizardDraft';
 import {
   getWizardStepsForFlow,
-  resolveWizardFlow,
   type QuotationWizardStepId,
 } from '../wizard/types';
 import { aggregateRiskTotals } from '../wizard/utils/premiumAggregation';
@@ -75,29 +59,8 @@ import { AddOnsStep } from '../wizard/steps/AddOnsStep';
 import { MotorDetailsStep } from '../wizard/steps/MotorDetailsStep';
 import { MotorFleetDetailsStep } from '../wizard/steps/MotorFleetDetailsStep';
 import { SummaryReviewStep } from '../wizard/steps/SummaryReviewStep';
-import {
-  getMotorCategoryCodeFromVehicleCategory,
-  getVehicleCategoryLabelFromCode,
-} from '../wizard/utils/motorOptions';
+import { NonMotorDetailsStep } from '../wizard/steps/NonMotorDetailsStep';
 
-// Walks a react-hook-form nested errors object looking for the first `.message`
-// string, so a failed step-level validation can surface a concrete reason
-// instead of silently refusing to advance.
-function findFirstErrorMessage(node: unknown): string | null {
-  if (!node || typeof node !== 'object') return null;
-  const record = node as Record<string, unknown>;
-  if (typeof record.message === 'string' && record.message) {
-    return record.message;
-  }
-  for (const value of Object.values(record)) {
-    const found = findFirstErrorMessage(value);
-    if (found) return found;
-  }
-  return null;
-}
-
-// Fields validated (via form.trigger) before allowing "Next" out of a step.
-// Steps not listed here have no fields to validate yet (placeholders).
 const STEP_FIELDS: Partial<
   Record<QuotationWizardStepId, (keyof QuotationFormSchemaValues)[]>
 > = {
@@ -113,9 +76,11 @@ const STEP_FIELDS: Partial<
     'exchange_rate',
     'cover_note_type',
     'prev_cover_note_reference',
+    'sale_point_id',
   ],
   policyholder: ['customer_id', 'policyholder'],
   'risk-premium': ['risks'],
+  'non-motor': ['nonMotor'],
   addons: ['addons'],
   motor: ['motor_mode', 'motor'],
   'motor-fleet': ['fleet'],
@@ -128,22 +93,19 @@ const DEFAULT_VALUES: QuotationFormSchemaValues = {
   department_id: '',
   policyholder_mode: 'existing',
   customer_id: '',
-  policyholder: getCustomerDefaultValues(),
+  policyholder: {
+    ...createEmptyCustomerDefaults(),
+  },
   category_id: '',
   product_id: '',
   sub_class_id: '',
-  risks: [createEmptyRiskRow()],
-  addons: [],
-  motor_mode: 'existing',
-  motor: createEmptyMotorDetails(),
-  fleet: createEmptyFleetDetails(),
-  nonMotor: createEmptyNonMotorDetails(),
   quotation_flow: 'NON_MOTOR',
   quotation_type: 'NON_MOTOR',
   is_fleet: false,
   channel_type: 'DIRECT',
   status: 'DRAFT',
   currency: 'TZS',
+  exchange_rate: '1',
   sum_insured: '',
   basic_premium: '',
   total_discount: '',
@@ -152,429 +114,135 @@ const DEFAULT_VALUES: QuotationFormSchemaValues = {
   total_commission: '',
   total_premium: '',
   net_premium: '',
-  valid_from: new Date().toISOString().slice(0, 10),
-  valid_until: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10),
+  valid_from: '2026-07-21',
+  valid_until: '2027-07-20',
   rating_version: '',
   rejection_reason: '',
+  sale_point_id: '',
   cover_note_type: '1',
   prev_cover_note_reference: '',
+  endorsement_type: '',
+  endorsement_reason: '',
+  endorsement_premium_earned: '',
   officer_name: '',
   officer_title: '',
   payment_mode_tira: '1',
-  sale_point_id: '',
-  exchange_rate: '',
+  risks: [createEmptyRiskRow()],
+  addons: [],
+  motor_mode: 'existing',
+  motor: createEmptyMotorDetails(),
+  fleet: createEmptyFleetDetails(),
+  nonMotor: createEmptyNonMotorDetails(),
 };
 
-function mergeFleetDefaults(
-  fleet: Partial<QuotationFormSchemaValues['fleet']> | undefined,
-): QuotationFormSchemaValues['fleet'] {
-  const defaultFleet = createEmptyFleetDetails();
-  const defaultPolicyHolder = defaultFleet.header.policy_holders[0];
-  const defaultFleetRisk = {
-    risk_code: '',
-    sum_insured: '',
-    sum_insured_equivalent: '',
-    premium_rate: '',
-    premium_before_discount: '',
-    premium_after_discount: '',
-    premium_excluding_tax_equivalent: '',
-    premium_including_tax: '',
-    discounts_offered: [
-      { discount_type: '1', discount_rate: '', discount_amount: '' },
-    ],
-    taxes_charged: [
-      {
-        tax_code: '',
-        is_tax_exempted: false,
-        tax_exemption_type: '',
-        tax_exemption_reference: '',
-        tax_rate: '',
-        tax_amount: '',
-      },
-    ],
-  };
-  const defaultFleetAddon = {
-    addon_reference: '',
-    addon_desc: '',
-    addon_amount: '',
-    addon_premium_rate: '',
-    premium_excluding_tax: '',
-    premium_excluding_tax_equivalent: '',
-    premium_including_tax: '',
-    taxes: [],
-  };
-
+function createEmptyCustomerDefaults() {
   return {
-    header: {
-      ...defaultFleet.header,
-      ...(fleet?.header ?? {}),
-      policy_holders: (fleet?.header?.policy_holders?.length
-        ? fleet.header.policy_holders
-        : defaultFleet.header.policy_holders
-      ).map((policyHolder) => ({
-        ...defaultPolicyHolder,
-        ...policyHolder,
-      })),
-    },
-    items: (fleet?.items?.length ? fleet.items : defaultFleet.items).map(
-      (item) => {
-        const defaultItem = createEmptyFleetItemRow();
-        return {
-          ...defaultItem,
-          ...item,
-          risks_covered: (item?.risks_covered?.length
-            ? item.risks_covered
-            : defaultItem.risks_covered
-          ).map((risk) => ({
-            ...defaultFleetRisk,
-            ...risk,
-            discounts_offered: (risk?.discounts_offered?.length
-              ? risk.discounts_offered
-              : defaultFleetRisk.discounts_offered
-            ).map((discount) => ({ ...discount })),
-            taxes_charged: (risk?.taxes_charged?.length
-              ? risk.taxes_charged
-              : defaultFleetRisk.taxes_charged
-            ).map((tax) => ({ ...tax })),
-          })),
-          subject_matters_covered: (item?.subject_matters_covered?.length
-            ? item.subject_matters_covered
-            : defaultItem.subject_matters_covered
-          ).map((subjectMatter) => ({ ...subjectMatter })),
-          cover_note_addons: (item?.cover_note_addons?.length
-            ? item.cover_note_addons
-            : defaultItem.cover_note_addons
-          ).map((addon) => ({
-            ...defaultFleetAddon,
-            ...addon,
-            taxes: (addon?.taxes?.length ? addon.taxes : []).map((tax) => ({
-              ...tax,
-            })),
-          })),
-          motor_dtl: {
-            ...defaultItem.motor_dtl,
-            ...(item?.motor_dtl ?? {}),
-          },
-        };
-      },
-    ),
+    customer_type: 'INDIVIDUAL' as const,
+    customer_no: '',
+    full_name: '',
+    first_name: '',
+    middle_name: '',
+    last_name: '',
+    gender: '' as const,
+    date_of_birth: '',
+    nationality: '',
+    company_name: '',
+    registration_no: '',
+    incorporation_certificate_no: '',
+    tin: '',
+    vrn: '',
+    id_type: '' as const,
+    id_number: '',
+    nida_no: '',
+    voter_no: '',
+    passport_no: '',
+    driving_license_no: '',
+    zanid_no: '',
+    phone: '',
+    alternate_phone: '',
+    fax: '',
+    email: '',
+    country: '',
+    country_code: 'TZA',
+    region: '',
+    district: '',
+    ward: '',
+    street: '',
+    postal_address: '',
+    contact_name: '',
+    contact_role: '',
+    contact_phone: '',
+    contact_email: '',
+    kyc_status: 'PENDING' as const,
+    document_type: '',
+    document_no: '',
+    document_file_name: '',
+    document_file_url: '',
+    document_mime_type: '',
+    document_verified: false,
+    status: 'ACTIVE' as const,
   };
+}
+
+function findFirstErrorMessage(node: unknown): string | null {
+  if (!node || typeof node !== 'object') return null;
+  const record = node as Record<string, unknown>;
+  if (typeof record.message === 'string' && record.message) {
+    return record.message;
+  }
+  for (const value of Object.values(record)) {
+    const found = findFirstErrorMessage(value);
+    if (found) return found;
+  }
+  return null;
 }
 
 export function QuotationWizardPage() {
   const navigate = useNavigate();
-  const { id: editId } = useParams<{ id?: string }>();
-  const isEditMode = Boolean(editId);
+  const { id } = useParams<{ id?: string }>();
+  const isEditMode = Boolean(id);
   const companyId = useQuotationCurrentCompanyId();
+  const { data: existingQuotation, isLoading: loadingQuotation, error } =
+    useQuotationDetail(id);
   const { data: customerOptions = [] } = useQuotationCustomers();
-
-  const [quotationId, setQuotationId] = useState<string | null>(null);
-  const [policyholderCustomerId, setPolicyholderCustomerId] = useState<
-    string | null
-  >(null);
-  const [motorVehicleId, setMotorVehicleId] = useState<string | null>(null);
-  const [motorFleetId, setMotorFleetId] = useState<string | null>(null);
-  const [loadingQuotation, setLoadingQuotation] = useState(isEditMode);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const { loadDraft, saveDraft, clearDraft } =
-    useQuotationWizardDraft(quotationId);
+  const [stepId, setStepId] = useState<QuotationWizardStepId>('cover-note');
+  const [completedSteps, setCompletedSteps] = useState<QuotationWizardStepId[]>([]);
+  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
 
   const form = useForm<QuotationFormSchemaValues>({
-    resolver: zodResolver(quotationFormSchema),
-    defaultValues: { ...DEFAULT_VALUES, insurer_company_id: companyId },
+    resolver: zodResolver(quotationFormSchema as any) as any,
+    defaultValues: DEFAULT_VALUES,
   });
+
   const riskFieldArray = useFieldArray({
     control: form.control,
     name: 'risks',
-  });
-  const fleetFieldArray = useFieldArray({
-    control: form.control,
-    name: 'fleet.items',
   });
   const addonFieldArray = useFieldArray({
     control: form.control,
     name: 'addons',
   });
-
-  // Hydrate insurer_company_id once the current company resolves, and restore
-  // any unsaved draft from a previous session (only relevant before first save,
-  // and only for the create flow — edit mode always loads from the server below).
-  useEffect(() => {
-    if (isEditMode) return;
-    const draft = loadDraft();
-    if (draft) {
-      form.reset({
-        ...DEFAULT_VALUES,
-        ...draft,
-        fleet: mergeFleetDefaults(draft.fleet),
-        // Always the current company, never trust a stale/blank value that
-        // may have been captured in the draft before companyId resolved (or
-        // from a since-switched company) — the backend validates category/
-        // product ownership against this exact id.
-        insurer_company_id: companyId,
-      });
-    } else if (companyId) {
-      form.setValue('insurer_company_id', companyId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyId, isEditMode]);
-
-  // A restored draft (or a customer created in an earlier company context)
-  // can carry a customer_id that no longer belongs to the current company —
-  // the backend rejects that at submit time with "Customer not found for
-  // company". Once the company-scoped customer list loads, drop any
-  // customer_id/mode that doesn't resolve against it so the user re-selects
-  // instead of hitting that error at the very end of the wizard.
-  useEffect(() => {
-    if (isEditMode || !customerOptions.length) return;
-    const customerId = form.getValues('customer_id');
-    const mode = form.getValues('policyholder_mode');
-    if (
-      mode === 'existing' &&
-      customerId &&
-      !customerOptions.some((c) => c.id === customerId)
-    ) {
-      form.setValue('customer_id', '');
-      toast.error(
-        'The previously selected policyholder is no longer available — please select or create one again.',
-      );
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customerOptions, isEditMode]);
-
-  // Edit mode: load the quotation plus its motor/fleet/non-motor detail rows
-  // (each lives on a separate entity — there's no single "get everything"
-  // endpoint) and merge them into the base form values built from the
-  // quotation record itself.
-  useEffect(() => {
-    if (!editId) return;
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const quotation = await quotationsApi.getById(editId);
-        const base = quotationRecordToFormValues(
-          quotation,
-        ) as QuotationFormSchemaValues;
-        const isFleetFlow = base.quotation_flow === 'MOTOR_FLEET';
-        const isMotorFlow = base.quotation_flow === 'MOTOR_SINGLE';
-
-        if (isMotorFlow) {
-          const vehicleId = quotation.risks?.[0]?.motor_vehicle_id ?? null;
-          if (vehicleId) {
-            // NOTE: no MotorQuotationDetail row is created by this wizard yet
-            // (see Phase 7) — cover_type/no-claim-discount/excess fields aren't
-            // captured, so only the vehicle's own physical attributes hydrate here.
-            const vehicle = await motorApi.getVehicle(vehicleId);
-            const metadata = (vehicle.metadata ?? {}) as Record<
-              string,
-              unknown
-            >;
-            setMotorVehicleId(vehicle.id);
-            base.motor = {
-              vehicle_id: vehicle.id,
-              motor_category_code: String(
-                metadata.motor_category_code ??
-                  getMotorCategoryCodeFromVehicleCategory(
-                    vehicle.vehicle_category,
-                  ),
-              ),
-              motor_type_code: String(metadata.motor_type_code ?? '1'),
-              registration_no: vehicle.registration_no ?? '',
-              chassis_no: vehicle.chassis_no ?? '',
-              engine_no: vehicle.engine_no ?? '',
-              make: vehicle.make ?? '',
-              model: vehicle.model ?? '',
-              model_no: vehicle.model_no ?? '',
-              body_type: vehicle.body_type ?? '',
-              color: vehicle.color ?? '',
-              manufacture_year:
-                vehicle.manufacture_year != null
-                  ? String(vehicle.manufacture_year)
-                  : '',
-              usage_type: vehicle.usage_type ?? '',
-              motor_usage_code:
-                vehicle.motor_usage != null ? String(vehicle.motor_usage) : '',
-              vehicle_category: vehicle.vehicle_category ?? '',
-              seating_capacity:
-                vehicle.seating_capacity != null
-                  ? String(vehicle.seating_capacity)
-                  : '',
-              tonnage: vehicle.tonnage ?? '',
-              cubic_capacity:
-                vehicle.cubic_capacity != null
-                  ? String(vehicle.cubic_capacity)
-                  : '',
-              fuel_type: vehicle.fuel_type ?? '',
-              number_of_axles:
-                vehicle.number_of_axles != null
-                  ? String(vehicle.number_of_axles)
-                  : '',
-              axle_distance: vehicle.axle_distance ?? '',
-              tare_weight: vehicle.tare_weight ?? '',
-              gross_weight: vehicle.gross_weight ?? '',
-              owner_name: vehicle.owner_name ?? '',
-              owner_category:
-                vehicle.owner_category != null
-                  ? String(vehicle.owner_category)
-                  : '',
-              owner_address: vehicle.owner_address ?? '',
-              vehicle_value: vehicle.vehicle_value ?? '',
-            };
-          }
-        }
-
-        if (isFleetFlow) {
-          const fleets = await motorApi.getFleets({
-            limit: API_MAX_LIST_LIMIT,
-          });
-          const fleet = fleets.data.find((f) => f.quotation_id === editId);
-          if (fleet) {
-            const fullFleet = await motorApi.getFleet(fleet.id);
-            setMotorFleetId(fullFleet.id);
-            const items = await Promise.all(
-              (fullFleet.items ?? []).map(async (item) => {
-                const vehicle = await motorApi.getVehicle(
-                  item.motor_vehicle_id,
-                );
-                return {
-                  vehicle_id: vehicle.id,
-                  fleet_item_id: item.id,
-                  registration_no: vehicle.registration_no ?? '',
-                  chassis_no: vehicle.chassis_no ?? '',
-                  make: vehicle.make ?? '',
-                  model: vehicle.model ?? '',
-                  model_no: vehicle.model_no ?? '',
-                  body_type: vehicle.body_type ?? '',
-                  color: vehicle.color ?? '',
-                  engine_no: vehicle.engine_no ?? '',
-                  engine_capacity:
-                    vehicle.cubic_capacity != null
-                      ? String(vehicle.cubic_capacity)
-                      : '',
-                  fuel_used: vehicle.fuel_type ?? '',
-                  number_of_axles:
-                    vehicle.number_of_axles != null
-                      ? String(vehicle.number_of_axles)
-                      : '',
-                  axle_distance: vehicle.axle_distance ?? '',
-                  manufacture_year:
-                    vehicle.manufacture_year != null
-                      ? String(vehicle.manufacture_year)
-                      : '',
-                  seating_capacity:
-                    vehicle.seating_capacity != null
-                      ? String(vehicle.seating_capacity)
-                      : '',
-                  tare_weight: vehicle.tare_weight ?? '',
-                  gross_weight: vehicle.gross_weight ?? '',
-                  motor_category_code:
-                    vehicle.motor_category != null
-                      ? String(vehicle.motor_category)
-                      : '',
-                  motor_type_code:
-                    vehicle.motor_type != null
-                      ? String(vehicle.motor_type)
-                      : '',
-                  motor_usage_code:
-                    vehicle.motor_usage != null
-                      ? String(vehicle.motor_usage)
-                      : '',
-                  owner_name: vehicle.owner_name ?? '',
-                  owner_category:
-                    vehicle.owner_category != null
-                      ? String(vehicle.owner_category)
-                      : '',
-                  owner_address: vehicle.owner_address ?? '',
-                  vehicle_value: vehicle.vehicle_value ?? '',
-                  sum_insured: item.sum_insured ?? '',
-                  premium: item.premium ?? '',
-                  cover_note_desc: '',
-                  operative_clause: 'Motor Comprehensive Cover',
-                };
-              }),
-            );
-            base.fleet = mergeFleetDefaults({
-              header: {
-                ...base.fleet.header,
-                fleet_id: fullFleet.id,
-                fleet_no: fullFleet.fleet_no ?? '',
-                fleet_name: fullFleet.fleet_name ?? '',
-                fleet_size:
-                  fullFleet.total_vehicles != null
-                    ? String(fullFleet.total_vehicles)
-                    : '',
-                fleet_type: '1',
-                comprehensive_insured: '',
-              },
-              items: items.length ? items : [createEmptyFleetItemRow()],
-            });
-          }
-        }
-
-        if (base.quotation_flow === 'NON_MOTOR') {
-          const details = await nonMotorApi.getQuotationDetails(editId);
-            base.nonMotor = {
-              items: details.map((detail) => ({
-                subject_matter_id: detail.subject_matter_id,
-                detail_id: detail.id,
-                subject_matter_reference:
-                  detail.subject_matter?.subject_code ?? '',
-                subject_matter_desc:
-                  detail.subject_matter?.description ??
-                  detail.cover_description ??
-                  '',
-              })),
-            };
-        }
-
-        if (cancelled) return;
-        setQuotationId(quotation.id);
-        setPolicyholderCustomerId(quotation.customer_id);
-        form.reset(base);
-      } catch (error) {
-        if (!cancelled) setLoadError(getApiErrorMessage(error));
-      } finally {
-        if (!cancelled) setLoadingQuotation(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editId]);
-
-  useEffect(() => {
-    const subscription = form.watch((values) => {
-      saveDraft(values as QuotationFormSchemaValues);
-    });
-    return () => subscription.unsubscribe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quotationId]);
+  const fleetFieldArray = useFieldArray({
+    control: form.control,
+    name: 'fleet.items',
+  });
+  const nonMotorFieldArray = useFieldArray({
+    control: form.control,
+    name: 'nonMotor.items',
+  });
 
   const quotationFlow = form.watch('quotation_flow');
-  const flow = useMemo(() => resolveWizardFlow(quotationFlow), [quotationFlow]);
-  const steps = useMemo(() => getWizardStepsForFlow(flow), [flow]);
-
-  const [stepId, setStepId] = useState<QuotationWizardStepId>('cover-note');
-  const [completedSteps, setCompletedSteps] = useState<QuotationWizardStepId[]>(
-    [],
-  );
-
-  // If switching flow removes the currently active step (e.g. leaving Motor
-  // Fleet while sitting on the fleet-details step), fall back to the first step.
-  useEffect(() => {
-    if (!steps.some((step) => step.id === stepId)) {
-      setStepId(steps[0]?.id ?? 'cover-note');
-    }
-  }, [steps, stepId]);
-
   const categoryId = form.watch('category_id');
   const productId = form.watch('product_id');
   const branchId = form.watch('branch_id');
+  const customerId = form.watch('customer_id');
+  const policyholderMode = form.watch('policyholder_mode');
+  const watchedRisks = useWatch({
+    control: form.control,
+    name: 'risks',
+  });
+
+  const { loadDraft, saveDraft, clearDraft } = useQuotationWizardDraft(id ?? null);
   const businessLine = quotationFlow === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR';
   const { data: categoryOptions = [] } = useQuotationCategories(businessLine);
   const { data: productOptions = [] } = useQuotationProducts({
@@ -582,537 +250,325 @@ export function QuotationWizardPage() {
     business_line: businessLine,
     supports_fleet: quotationFlow === 'MOTOR_FLEET' ? true : undefined,
   });
-  const { data: riskOptions = [] } = useQuotationRisks(productId);
   const { data: branchOptions = [] } = useQuotationBranches();
-  const { data: departmentOptions = [] } = useQuotationDepartments(
-    branchId || undefined,
-  );
-  const { data: salePointOptions = [] } = useQuotationSalePoints(
-    branchId || undefined,
-  );
-  const activeSalePoints = useMemo(
-    () => salePointOptions.filter((sp) => sp.isActive),
-    [salePointOptions],
-  );
-  const customerIdWatch = form.watch('customer_id');
+  const { data: riskOptions = [] } = useQuotationRisks(productId);
+  const { data: activeSalePoints = [] } = useQuotationSalePoints(branchId);
   const { data: vehicleOptions = [] } = useQuotationVehicles(
-    customerIdWatch || undefined,
+    policyholderMode === 'existing' ? customerId : undefined,
+  );
+  const createMutation = useCreateQuotation();
+  const updateMutation = useUpdateQuotation(id);
+
+  const steps = useMemo(
+    () => getWizardStepsForFlow(quotationFlow),
+    [quotationFlow],
   );
   const salePointRequired = activeSalePoints.length > 1;
-  const [saving, setSaving] = useState(false);
-  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
-  const watchedRisks = form.watch('risks');
-
-  function applyAggregateTotals() {
-    const totals = aggregateRiskTotals(form.getValues('risks'));
-    form.setValue('sum_insured', totals.sum_insured);
-    form.setValue('basic_premium', totals.basic_premium);
-    form.setValue('total_discount', totals.total_discount);
-    form.setValue('total_tax', totals.total_tax);
-    form.setValue('total_charges', totals.total_charges);
-    form.setValue('total_commission', totals.total_commission);
-    form.setValue('total_premium', totals.total_premium);
-    form.setValue('net_premium', totals.net_premium);
-  }
 
   useEffect(() => {
-    applyAggregateTotals();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedRisks]);
+    if (companyId) {
+      form.setValue('insurer_company_id', companyId);
+    }
+  }, [companyId, form]);
+
+  useEffect(() => {
+    if (isEditMode || !companyId) return;
+    const draft = loadDraft();
+    if (draft) {
+      form.reset({
+        ...DEFAULT_VALUES,
+        ...draft,
+        insurer_company_id: companyId,
+      });
+      return;
+    }
+    form.reset({
+      ...DEFAULT_VALUES,
+      insurer_company_id: companyId,
+    });
+  }, [companyId, form, isEditMode, loadDraft]);
+
+  useEffect(() => {
+    if (!existingQuotation) return;
+    form.reset({
+      ...DEFAULT_VALUES,
+      ...quotationRecordToFormValues(existingQuotation),
+      insurer_company_id: existingQuotation.internal_quotation.insurer_company_id,
+    });
+  }, [existingQuotation, form]);
+
+  useEffect(() => {
+    if (!steps.some((step) => step.id === stepId)) {
+      setStepId(steps[0]?.id ?? 'cover-note');
+    }
+  }, [stepId, steps]);
+
+  useEffect(() => {
+    form.setValue('quotation_type', quotationFlow === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR');
+    form.setValue('is_fleet', quotationFlow === 'MOTOR_FLEET');
+
+    if (quotationFlow === 'NON_MOTOR') {
+      if (form.getValues('nonMotor.items').length === 0) {
+        form.setValue('nonMotor.items', [createEmptyNonMotorItemRow()]);
+      }
+    }
+
+    if (quotationFlow !== 'NON_MOTOR') {
+      if (form.getValues('nonMotor.items').length === 0) {
+        form.setValue('nonMotor.items', [createEmptyNonMotorItemRow()]);
+      }
+    }
+
+    if (quotationFlow !== 'MOTOR_SINGLE') {
+      form.clearErrors('motor');
+    }
+
+    if (quotationFlow !== 'MOTOR_FLEET') {
+      form.clearErrors('fleet');
+    }
+  }, [form, quotationFlow]);
+
+  useEffect(() => {
+    const subscription = form.watch((values) => {
+      if (isEditMode) return;
+      saveDraft(values as Partial<QuotationFormSchemaValues>);
+    });
+    return () => subscription.unsubscribe();
+  }, [form, isEditMode, saveDraft]);
+
+  useEffect(() => {
+    const totals = aggregateRiskTotals(
+      (watchedRisks ?? []) as QuotationFormSchemaValues['risks'],
+    );
+    const current = form.getValues();
+    if (current.sum_insured !== totals.sum_insured) {
+      form.setValue('sum_insured', totals.sum_insured);
+    }
+    if (current.basic_premium !== totals.basic_premium) {
+      form.setValue('basic_premium', totals.basic_premium);
+    }
+    if (current.total_discount !== totals.total_discount) {
+      form.setValue('total_discount', totals.total_discount);
+    }
+    if (current.total_tax !== totals.total_tax) {
+      form.setValue('total_tax', totals.total_tax);
+    }
+    if (current.total_charges !== totals.total_charges) {
+      form.setValue('total_charges', totals.total_charges);
+    }
+    if (current.total_commission !== totals.total_commission) {
+      form.setValue('total_commission', totals.total_commission);
+    }
+    if (current.total_premium !== totals.total_premium) {
+      form.setValue('total_premium', totals.total_premium);
+    }
+    if (current.net_premium !== totals.net_premium) {
+      form.setValue('net_premium', totals.net_premium);
+    }
+  }, [form, watchedRisks]);
+
+  useEffect(() => {
+    const risks = form.getValues('risks');
+    risks.forEach((risk, index) => {
+      if (!risk.risk_code && risk.risk_id) {
+        const match = riskOptions.find((option) => option.id === risk.risk_id);
+        if (match?.risk_code) {
+          form.setValue(`risks.${index}.risk_code`, match.risk_code);
+        }
+      }
+      if (!risk.risk_id && risk.risk_code) {
+        const match = riskOptions.find((option) => option.risk_code === risk.risk_code);
+        if (match?.id) {
+          form.setValue(`risks.${index}.risk_id`, match.id);
+        }
+      }
+    });
+  }, [form, riskOptions]);
+
+  const goToStep = useCallback(async (nextStep: QuotationWizardStepId) => {
+    const fields = STEP_FIELDS[stepId];
+    if (fields?.length) {
+      const valid = await form.trigger(fields, { shouldFocus: true });
+      if (!valid) {
+        toast.error(findFirstErrorMessage(form.formState.errors) ?? 'Please fix the highlighted fields before continuing.');
+        return;
+      }
+    }
+
+    setCompletedSteps((previous) =>
+      previous.includes(stepId) ? previous : [...previous, stepId],
+    );
+    setStepId(nextStep);
+  }, [form, stepId]);
+
+  const goNext = useCallback(async () => {
+    const currentIndex = steps.findIndex((step) => step.id === stepId);
+    const next = steps[currentIndex + 1];
+    if (next) {
+      await goToStep(next.id);
+    }
+  }, [goToStep, stepId, steps]);
+
+  const goBack = useCallback(() => {
+    const currentIndex = steps.findIndex((step) => step.id === stepId);
+    const previous = steps[currentIndex - 1];
+    if (previous) {
+      setStepId(previous.id);
+    }
+  }, [stepId, steps]);
 
   function addRisk() {
     riskFieldArray.append(createEmptyRiskRow());
   }
 
   function removeRisk(index: number) {
-    if (riskFieldArray.fields.length <= 1) return;
+    if (riskFieldArray.fields.length === 1) return;
     riskFieldArray.remove(index);
-    applyAggregateTotals();
   }
 
   function addFleetVehicle() {
-    fleetFieldArray.append(createEmptyFleetItemRow());
-    form.setValue(
-      'fleet.header.fleet_size',
-      String(fleetFieldArray.fields.length + 1),
-    );
+    fleetFieldArray.append({
+      ...createEmptyFleetItemRow(),
+      fleet_entry: String(fleetFieldArray.fields.length + 1),
+    });
   }
 
   function removeFleetVehicle(index: number) {
-    if (fleetFieldArray.fields.length <= 1) return;
+    if (fleetFieldArray.fields.length === 1) return;
+    if (!window.confirm('Remove this fleet vehicle from the quotation?')) return;
     fleetFieldArray.remove(index);
-    form.setValue(
-      'fleet.header.fleet_size',
-      String(Math.max(1, fleetFieldArray.fields.length - 1)),
-    );
+    const remaining = form.getValues('fleet.items');
+    remaining.forEach((_, itemIndex) => {
+      form.setValue(`fleet.items.${itemIndex}.fleet_entry`, String(itemIndex + 1));
+    });
   }
 
   function duplicateFleetVehicle(index: number) {
-    const current = form.getValues(`fleet.items.${index}`);
-    const duplicated = structuredClone(current ?? createEmptyFleetItemRow());
-
-    duplicated.fleet_item_id = '';
-    duplicated.vehicle_id = '';
-    duplicated.fleet_entry = String(fleetFieldArray.fields.length + 1);
-    duplicated.cover_note_number = '';
-    duplicated.prev_cover_note_reference_number = '';
-    duplicated.endorsement_type = '';
-    duplicated.endorsement_reason = '';
-    duplicated.endorsement_premium_earned = '';
-
-    fleetFieldArray.insert(index + 1, duplicated);
-    form.setValue(
-      'fleet.header.fleet_size',
-      String(fleetFieldArray.fields.length + 1),
-    );
-  }
-
-
-  function goToStep(id: QuotationWizardStepId) {
-    setCompletedSteps((prev) =>
-      prev.includes(stepId) ? prev : [...prev, stepId],
-    );
-    setStepId(id);
-  }
-
-  async function goNext() {
-    const fields = STEP_FIELDS[stepId] ?? [];
-    const valid = fields.length ? await form.trigger(fields) : true;
-
-    if (
-      stepId === 'cover-note' &&
-      branchId &&
-      !form.getValues('sale_point_id')
-    ) {
-      form.setError('sale_point_id', {
-        type: 'manual',
-        message:
-          activeSalePoints.length > 0
-            ? 'A sale point is required for the selected branch'
-            : 'No active sale point is configured for the selected branch',
-      });
-      return;
-    }
-
-    if (!valid) {
-      const errors = fields.map((field) => form.formState.errors[field]);
-      const message = errors.map(findFirstErrorMessage).find(Boolean);
-      toast.error(
-        message ?? 'Please fix the highlighted fields before continuing',
-      );
-      return;
-    }
-
-    const index = steps.findIndex((step) => step.id === stepId);
-    const next = steps[index + 1];
-    if (next) goToStep(next.id);
-  }
-
-  function goBack() {
-    const index = steps.findIndex((step) => step.id === stepId);
-    const prev = steps[index - 1];
-    if (prev) setStepId(prev.id);
-  }
-
-  async function resolveCustomerId(
-    values: QuotationFormSchemaValues,
-  ): Promise<string> {
-    if (values.policyholder_mode === 'existing') {
-      if (!values.customer_id) {
-        throw new Error('Select an existing customer before saving');
-      }
-      return values.customer_id;
-    }
-    // values.policyholder is the zod-inferred shape (optional string fields);
-    // buildCustomerPayload's hand-written CustomerFormValues type requires them
-    // present. At runtime they're always '' (never undefined) because
-    // getCustomerDefaultValues() seeds every field — this bridges the type gap.
-    const customerPayload = buildCustomerPayload(
-      values.policyholder as unknown as Parameters<
-        typeof buildCustomerPayload
-      >[0],
-    );
-    const customer = policyholderCustomerId
-      ? await customersApi.updateCustomer(
-          policyholderCustomerId,
-          customerPayload,
-        )
-      : await customersApi.createCustomer(customerPayload);
-    setPolicyholderCustomerId(customer.id);
-    return customer.id;
-  }
-
-  /** Only applies to the non-fleet Motor flow; returns null for Non-Motor/Fleet. */
-  async function resolveMotorVehicleId(
-    values: QuotationFormSchemaValues,
-    customerId: string,
-  ): Promise<string | null> {
-    if (values.quotation_type !== 'MOTOR' || values.is_fleet) return null;
-    if (values.motor_mode === 'existing') {
-      if (!values.motor.vehicle_id) {
-        throw new Error('Select an existing vehicle before saving');
-      }
-      return values.motor.vehicle_id;
-    }
-    const motor = values.motor;
-    const vehiclePayload: MotorVehiclePayload = {
-      customer_id: customerId,
-      registration_no: motor.registration_no || null,
-      chassis_no: motor.chassis_no || null,
-      engine_no: motor.engine_no || null,
-      make: motor.make || null,
-      model: motor.model || null,
-      model_no: motor.model_no || null,
-      body_type: motor.body_type || null,
-      color: motor.color || null,
-      manufacture_year: motor.manufacture_year
-        ? Number(motor.manufacture_year)
-        : null,
-      usage_type: motor.usage_type || null,
-      motor_usage: motor.motor_usage_code
-        ? Number(motor.motor_usage_code)
-        : null,
-      vehicle_category:
-        getVehicleCategoryLabelFromCode(motor.motor_category_code) ||
-        motor.vehicle_category ||
-        null,
-      seating_capacity: motor.seating_capacity
-        ? Number(motor.seating_capacity)
-        : null,
-      tonnage: motor.tonnage || null,
-      cubic_capacity: motor.cubic_capacity
-        ? Number(motor.cubic_capacity)
-        : null,
-      fuel_type: motor.fuel_type || null,
-      number_of_axles: motor.number_of_axles
-        ? Number(motor.number_of_axles)
-        : null,
-      axle_distance: motor.axle_distance || null,
-      tare_weight: motor.tare_weight || null,
-      gross_weight: motor.gross_weight || null,
-      motor_category: motor.motor_category_code
-        ? Number(motor.motor_category_code)
-        : null,
-      motor_type: motor.motor_type_code ? Number(motor.motor_type_code) : null,
-      owner_name: motor.owner_name || null,
-      owner_category: motor.owner_category
-        ? Number(motor.owner_category)
-        : null,
-      owner_address: motor.owner_address || null,
-      vehicle_value: motor.vehicle_value || 0,
-      metadata: {
-        motor_category_code: motor.motor_category_code || null,
-        motor_type_code: motor.motor_type_code || null,
+    const source = form.getValues(`fleet.items.${index}`);
+    fleetFieldArray.insert(index + 1, {
+      ...source,
+      fleet_entry: String(index + 2),
+      cover_note_number: '',
+      motor_dtl: {
+        ...source.motor_dtl,
+        registration_number: '',
+        chassis_number: '',
+        engine_number: '',
       },
-    };
-    const vehicle = motorVehicleId
-      ? await motorApi.updateVehicle(motorVehicleId, vehiclePayload)
-      : await motorApi.createVehicle(vehiclePayload);
-    setMotorVehicleId(vehicle.id);
-    return vehicle.id;
+    });
   }
 
-  /**
-   * Only applies to the Motor Fleet flow. Creates/updates the MotorFleet header,
-   * then for each table row creates/updates its own MotorVehicle (owned by the
-   * policyholder, same as the single-vehicle Motor flow) plus a MotorFleetItem
-   * linking that vehicle to the fleet with its own sum insured/premium.
-   * quotation_risk_id is intentionally left unset on each item — a fleet's
-   * risks[] rows represent product-level pricing, not one risk per vehicle,
-   * and there's no correlation key to attribute one to the other yet.
-   */
-  async function resolveFleet(
-    values: QuotationFormSchemaValues,
-    customerId: string,
-  ): Promise<void> {
-    if (values.quotation_type !== 'MOTOR' || !values.is_fleet) return;
+  const persistQuotation = useCallback(async (proceedToPayment: boolean) => {
+    const valid = await form.trigger(undefined, { shouldFocus: true });
+    if (!valid) {
+      toast.error(findFirstErrorMessage(form.formState.errors) ?? 'Please complete the required quotation fields.');
+      return;
+    }
 
-    const items = values.fleet.items;
-    const totalSumInsured = items.reduce(
-      (sum, item) => sum + (Number(item.sum_insured) || 0),
-      0,
+    const values = form.getValues();
+    const salePoint = activeSalePoints.find((item) => item.id === values.sale_point_id);
+    const product = productOptions.find((item) => item.id === values.product_id);
+    const existingCustomer = customerOptions.find(
+      (item) => item.id === values.customer_id,
     );
-    const totalPremium = items.reduce(
-      (sum, item) => sum + (Number(item.premium) || 0),
-      0,
-    );
+    const salePointCode = salePoint?.salePointCode;
+    const productCode = product?.tiramis_product_code || product?.product_code || product?.id;
 
-    const fleetPayload = {
-      customer_id: customerId,
-      fleet_no: values.fleet.header.fleet_id || values.fleet.header.fleet_no || '',
-      fleet_name: values.fleet.header.fleet_name || null,
-      total_vehicles: items.length,
-      total_sum_insured: totalSumInsured,
-      total_premium: totalPremium,
-    };
-    const fleet = motorFleetId
-      ? await motorApi.updateFleet(motorFleetId, fleetPayload)
-      : await motorApi.createFleet(fleetPayload);
-    setMotorFleetId(fleet.id);
-    form.setValue('fleet.header.fleet_id', fleet.id);
-    form.setValue('fleet.header.fleet_no', fleet.id);
+    if (!salePointCode) {
+      toast.error('Select a valid sale point before saving this quotation.');
+      return;
+    }
 
-    for (let index = 0; index < items.length; index += 1) {
-      const item = items[index];
-      const vehiclePayload: MotorVehiclePayload = {
-        customer_id: customerId,
-        registration_no: item.registration_no || null,
-        chassis_no: item.chassis_no || null,
-        engine_no: item.engine_no || null,
-        make: item.make || null,
-        model: item.model || null,
-        model_no: item.model_no || null,
-        body_type: item.body_type || null,
-        color: item.color || null,
-        manufacture_year: item.manufacture_year
-          ? Number(item.manufacture_year)
-          : null,
-        usage_type: item.fuel_used || null,
-        motor_usage: item.motor_usage_code
-          ? Number(item.motor_usage_code)
-          : null,
-        vehicle_category: null,
-        seating_capacity: item.seating_capacity
-          ? Number(item.seating_capacity)
-          : null,
-        tonnage: null,
-        cubic_capacity: item.engine_capacity
-          ? Number(item.engine_capacity)
-          : null,
-        fuel_type: item.fuel_used || null,
-        number_of_axles: item.number_of_axles
-          ? Number(item.number_of_axles)
-          : null,
-        axle_distance: item.axle_distance || null,
-        tare_weight: item.tare_weight || null,
-        gross_weight: item.gross_weight || null,
-        motor_category: item.motor_category_code
-          ? Number(item.motor_category_code)
-          : null,
-        motor_type: item.motor_type_code ? Number(item.motor_type_code) : null,
-        owner_name: item.owner_name || null,
-        owner_category: item.owner_category
-          ? Number(item.owner_category)
-          : null,
-        owner_address: item.owner_address || null,
-        vehicle_value: item.vehicle_value || 0,
-        metadata: {
-          motor_category_code: item.motor_category_code || null,
-          motor_type_code: item.motor_type_code || null,
+    if (!productCode) {
+      toast.error('Select a valid product before saving this quotation.');
+      return;
+    }
+
+    const mutation = isEditMode ? updateMutation : createMutation;
+    mutation.mutate(
+      {
+        values,
+        salePointCode,
+        productCode,
+        existingCustomer,
+      },
+      {
+        onSuccess: (quotation) => {
+          clearDraft();
+          if (proceedToPayment) {
+            navigate(underwritingPaths.quotationPayment(quotation.id));
+            return;
+          }
+          navigate(underwritingPaths.quotationDetail(quotation.id));
         },
-      };
-      const vehicle = item.vehicle_id
-        ? await motorApi.updateVehicle(item.vehicle_id, vehiclePayload)
-        : await motorApi.createVehicle(vehiclePayload);
-      form.setValue(`fleet.items.${index}.vehicle_id`, vehicle.id);
-
-      const itemPayload: MotorFleetItemPayload = {
-        motor_vehicle_id: vehicle.id,
-        sum_insured: Number(item.sum_insured) || 0,
-        premium: Number(item.premium) || 0,
-      };
-      const fleetItem = item.fleet_item_id
-        ? await motorApi.updateFleetItem(
-            fleet.id,
-            item.fleet_item_id,
-            itemPayload,
-          )
-        : await motorApi.createFleetItem(fleet.id, itemPayload);
-      form.setValue(`fleet.items.${index}.fleet_item_id`, fleetItem.id);
-    }
-  }
-
-  /**
-   * Only applies to the Non-Motor flow, and must run *after* the quotation has
-   * been created/updated — NonMotorQuotationDetail requires a real
-   * quotation_risk_id, which doesn't exist until the risk rows are persisted.
-   * Each subject matter row is matched 1:1 by index to `savedRisks` (same
-   * order-preservation assumption already relied on for multi-risk premium
-   * calculation results).
-   */
-  async function resolveNonMotor(
-    values: QuotationFormSchemaValues,
-    customerId: string,
-    quotationId: string,
-    savedRisks: { id: string }[],
-  ): Promise<void> {
-    if (values.quotation_type !== 'NON_MOTOR') return;
-
-    const selectedProduct = productOptions.find(
-      (product) => product.id === values.product_id,
+      },
     );
-    const productCode =
-      selectedProduct?.tiramis_product_code ??
-      selectedProduct?.product_code ??
-      values.product_id;
-    const productName = selectedProduct?.product_name ?? 'Non-motor cover';
+  }, [
+    activeSalePoints,
+    clearDraft,
+    createMutation,
+    customerOptions,
+    form,
+    isEditMode,
+    navigate,
+    productOptions,
+    updateMutation,
+  ]);
 
-    for (let index = 0; index < savedRisks.length; index += 1) {
-      const risk = savedRisks[index];
-      const existingItem = values.nonMotor.items[index];
-      const reference =
-        existingItem?.subject_matter_reference ||
-        `${productCode}-${Date.now()}-${index}`;
-
-      const subjectMatterPayload: SubjectMatterPayload = {
-        customer_id: customerId,
-        subject_type: null,
-        subject_code: reference,
-        description: productName,
-        location: null,
-        value: 0,
-      };
-      const subjectMatter = existingItem?.subject_matter_id
-        ? await nonMotorApi.updateSubjectMatter(
-            existingItem.subject_matter_id,
-            subjectMatterPayload,
-          )
-        : await nonMotorApi.createSubjectMatter(subjectMatterPayload);
-      form.setValue(
-        `nonMotor.items.${index}.subject_matter_id`,
-        subjectMatter.id,
-      );
-      form.setValue(`nonMotor.items.${index}.subject_matter_reference`, reference);
-      form.setValue(`nonMotor.items.${index}.subject_matter_desc`, productName);
-
-      const detailPayload: NonMotorQuotationDetailPayload = {
-        quotation_id: quotationId,
-        quotation_risk_id: risk.id,
-        subject_matter_id: subjectMatter.id,
-        cover_description: productName,
-        risk_location: null,
-        insured_value: null,
-        limit_of_liability: null,
-      };
-      const detail = existingItem?.detail_id
-        ? await nonMotorApi.updateQuotationDetail(existingItem.detail_id, detailPayload)
-        : await nonMotorApi.createQuotationDetail(detailPayload);
-      form.setValue(`nonMotor.items.${index}.detail_id`, detail.id);
-    }
-  }
-
-  async function saveQuotation({
-    proceedToPayment,
-  }: {
-    proceedToPayment: boolean;
-  }) {
-    setSaving(true);
-    try {
-      const values = form.getValues();
-      let customerId: string;
-      let vehicleId: string | null;
-      try {
-        customerId = await resolveCustomerId(values);
-        vehicleId = await resolveMotorVehicleId(values, customerId);
-        await resolveFleet(values, customerId);
-      } catch (error) {
-        toast.error(getApiErrorMessage(error));
-        return;
-      }
-      const salePoint = activeSalePoints.find(
-        (sp) => sp.id === values.sale_point_id,
-      );
-      const selectedCustomer = customerOptions.find(
-        (customer) => customer.id === customerId,
-      );
-      const selectedVehicle = vehicleOptions.find(
-        (vehicle) => vehicle.id === values.motor.vehicle_id,
-      );
-      const selectedProduct = productOptions.find(
-        (product) => product.id === values.product_id,
-      );
-      const payload = buildQuotationPayload(values, customerId, {
-        salePointCode: salePoint?.salePointCode ?? null,
-        productCode:
-          selectedProduct?.tiramis_product_code ??
-          selectedProduct?.product_code ??
-          null,
-        coverNoteDesc: selectedProduct
-          ? `Cover note for ${selectedProduct.product_name}`
-          : 'Motor cover note',
-        operativeClause: 'Motor Comprehensive Cover',
-        existingCustomer: selectedCustomer ?? null,
-        existingVehicle: selectedVehicle ?? null,
-      });
-
-      console.log('Quotation wizard submit payload', payload);
-
-      const quotation = quotationId
-        ? await quotationsApi.update(quotationId, payload)
-        : await quotationsApi.create(payload);
-      setQuotationId(quotation.id);
-
-      try {
-        await resolveNonMotor(
-          values,
-          customerId,
-          quotation.id,
-          quotation.risks ?? [],
-        );
-      } catch (error) {
-        toast.error(getApiErrorMessage(error));
-      }
-
-      clearDraft();
-
-      // No TIRAMIS submission happens here. Business rule: nothing may be
-      // submitted to TIRA before payment is completed — the actual gated
-      // submission (post-payment) is built in Phase 13. Until then, "Save &
-      // Proceed to Payment" only ever saves and routes to the payment page.
-      if (proceedToPayment) {
-        navigate(underwritingPaths.quotationPayment(quotation.id));
-        return;
-      }
-      navigate(underwritingPaths.quotationDetail(quotation.id));
-    } finally {
-      setSaving(false);
-    }
-  }
-
+  const isSaving = createMutation.isPending || updateMutation.isPending;
   const isFirstStep = steps[0]?.id === stepId;
   const isLastStep = steps[steps.length - 1]?.id === stepId;
-  const showFooter = !loadingQuotation && !loadError;
 
-  usePageFooter(
-    showFooter ? (
-      <div className="flex items-center justify-between">
-        <Button
-          type="button"
-          variant="outline"
-          className="cursor-pointer"
-          onClick={goBack}
-          disabled={isFirstStep}
-        >
-          Back
-        </Button>
-        <div className="flex gap-2">
+  const footerNode = useMemo(
+    () =>
+      !loadingQuotation ? (
+        <div className="flex items-center justify-between">
           <Button
             type="button"
             variant="outline"
-            className="cursor-pointer"
-            onClick={() => saveQuotation({ proceedToPayment: false })}
-            disabled={saving || !companyId}
+            onClick={goBack}
+            disabled={isFirstStep}
           >
-            {saving ? 'Saving...' : 'Save Draft'}
+            Back
           </Button>
-          {isLastStep ? (
+          <div className="flex gap-2">
             <Button
               type="button"
-              className="cursor-pointer"
-              onClick={() => setConfirmSubmitOpen(true)}
-              disabled={saving || !companyId}
+              variant="outline"
+              onClick={() => persistQuotation(false)}
+              disabled={isSaving || !companyId}
             >
-              {saving ? 'Saving...' : 'Save & Proceed to Payment'}
+              {isSaving ? 'Saving...' : 'Save Draft'}
             </Button>
-          ) : (
-            <Button type="button" className="cursor-pointer" onClick={goNext}>
-              Next
-            </Button>
-          )}
+            {isLastStep ? (
+              <Button
+                type="button"
+                onClick={() => setConfirmSubmitOpen(true)}
+                disabled={isSaving || !companyId}
+              >
+                {isSaving ? 'Saving...' : 'Save & Proceed to Payment'}
+              </Button>
+            ) : (
+              <Button type="button" onClick={goNext}>
+                Next
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
-    ) : null,
+      ) : null,
+    [
+      companyId,
+      goBack,
+      goNext,
+      isFirstStep,
+      isLastStep,
+      isSaving,
+      loadingQuotation,
+      persistQuotation,
+    ],
   );
+
+  usePageFooter(footerNode);
 
   if (loadingQuotation) {
     return (
@@ -1123,10 +579,10 @@ export function QuotationWizardPage() {
     );
   }
 
-  if (loadError) {
+  if (error) {
     return (
       <div className="space-y-4 py-12 text-center text-sm text-red-600">
-        <p>Could not load this quotation for editing: {loadError}</p>
+        <p>Could not load this quotation for editing: {String(error)}</p>
         <Button
           variant="outline"
           onClick={() => navigate(underwritingPaths.quotations)}
@@ -1151,81 +607,89 @@ export function QuotationWizardPage() {
           title={isEditMode ? 'Edit Quotation' : 'Quotation Wizard'}
           description={
             isEditMode
-              ? 'Resume and update this draft quotation'
-              : 'Guided quotation creation with automatic TIRAMIS submission'
+              ? 'Continue editing this quotation draft using the current backend quotation contract.'
+              : 'Create one quotation wizard that supports motor single, motor fleet, and non-motor flows.'
           }
         />
       </div>
 
-      <div className="mx-auto w-full max-w-4xl">
-        <div className="space-y-4">
-          <QuotationWizardStepper
-            steps={steps}
-            value={stepId}
-            completed={completedSteps}
-            onChange={goToStep}
-          />
+      <div className="mx-auto w-full max-w-5xl space-y-4">
+        <QuotationWizardStepper
+          steps={steps}
+          value={stepId}
+          completed={completedSteps}
+          onChange={goToStep}
+        />
 
-          <Form {...form}>
-            <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
-              {stepId === 'cover-note' && (
-                <CoverNoteSetupStep
-                  form={form}
-                  categoryOptions={categoryOptions}
-                  productOptions={productOptions}
-                  branchOptions={branchOptions}
-                  salePointOptions={activeSalePoints}
-                  salePointRequired={salePointRequired}
-                />
-              )}
-              {stepId === 'policyholder' && (
-                <PolicyholderStep
-                  form={form}
-                  customerOptions={customerOptions}
-                />
-              )}
-              {stepId === 'risk-premium' && (
-                <RiskPremiumStep
-                  form={form}
-                  riskOptions={riskOptions}
-                  fieldArray={riskFieldArray}
-                  onRemoveRisk={removeRisk}
-                  onAddRisk={addRisk}
-                />
-              )}
-              {stepId === 'addons' && (
-                <AddOnsStep form={form} fieldArray={addonFieldArray} />
-              )}
-              {stepId === 'motor' && (
-                <MotorDetailsStep form={form} vehicleOptions={vehicleOptions} />
-              )}
-              {stepId === 'motor-fleet' && (
-                <MotorFleetDetailsStep
-                  form={form}
-                  customerOptions={customerOptions}
-                  riskOptions={riskOptions}
-                  fieldArray={fleetFieldArray}
-                  onAddVehicle={addFleetVehicle}
-                  onRemoveVehicle={removeFleetVehicle}
-                  onDuplicateVehicle={duplicateFleetVehicle}
-                />
-              )}
-              {stepId === 'summary' && (
-                <SummaryReviewStep
-                  form={form}
-                  customerOptions={customerOptions}
-                  categoryOptions={categoryOptions}
-                  productOptions={productOptions}
-                  branchOptions={branchOptions}
-                  salePointOptions={activeSalePoints}
-                  riskOptions={riskOptions}
-                  riskCount={riskFieldArray.fields.length}
-                  onEditStep={goToStep}
-                />
-              )}
-            </form>
-          </Form>
-        </div>
+        <Form {...form}>
+          <form className="space-y-6" onSubmit={(event) => event.preventDefault()}>
+            {stepId === 'cover-note' && (
+              <CoverNoteSetupStep
+                form={form}
+                categoryOptions={categoryOptions}
+                productOptions={productOptions}
+                branchOptions={branchOptions}
+                salePointOptions={activeSalePoints}
+                salePointRequired={salePointRequired}
+              />
+            )}
+
+            {stepId === 'policyholder' && (
+              <PolicyholderStep form={form} customerOptions={customerOptions} />
+            )}
+
+            {stepId === 'risk-premium' && (
+              <RiskPremiumStep
+                form={form}
+                riskOptions={riskOptions}
+                fieldArray={riskFieldArray}
+                onRemoveRisk={removeRisk}
+                onAddRisk={addRisk}
+              />
+            )}
+
+            {stepId === 'non-motor' && (
+              <NonMotorDetailsStep
+                form={form}
+                fieldArray={nonMotorFieldArray}
+              />
+            )}
+
+            {stepId === 'addons' && (
+              <AddOnsStep form={form} fieldArray={addonFieldArray} />
+            )}
+
+            {stepId === 'motor' && (
+              <MotorDetailsStep form={form} vehicleOptions={vehicleOptions} />
+            )}
+
+            {stepId === 'motor-fleet' && (
+              <MotorFleetDetailsStep
+                form={form}
+                customerOptions={customerOptions}
+                riskOptions={riskOptions}
+                fieldArray={fleetFieldArray}
+                onAddVehicle={addFleetVehicle}
+                onRemoveVehicle={removeFleetVehicle}
+                onDuplicateVehicle={duplicateFleetVehicle}
+              />
+            )}
+
+            {stepId === 'summary' && (
+              <SummaryReviewStep
+                form={form}
+                customerOptions={customerOptions}
+                categoryOptions={categoryOptions}
+                productOptions={productOptions}
+                branchOptions={branchOptions}
+                salePointOptions={activeSalePoints}
+                riskOptions={riskOptions}
+                riskCount={riskFieldArray.fields.length}
+                onEditStep={setStepId}
+              />
+            )}
+          </form>
+        </Form>
       </div>
 
       <AlertDialog open={confirmSubmitOpen} onOpenChange={setConfirmSubmitOpen}>
@@ -1233,11 +697,9 @@ export function QuotationWizardPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Proceed to payment?</AlertDialogTitle>
             <AlertDialogDescription>
-              This saves the quotation and takes you to the payment page.
-              Nothing is submitted to TIRAMIS yet — that only happens after
-              payment is recorded as complete. Total premium:{' '}
-              {form.watch('total_premium') || '0'} {form.watch('currency')},
-              across {riskFieldArray.fields.length} risk(s).
+              This saves the quotation draft and takes you to the payment page.
+              TIRAMIS submission still happens from the backend after payment
+              requirements are satisfied.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1245,7 +707,7 @@ export function QuotationWizardPage() {
             <AlertDialogAction
               onClick={() => {
                 setConfirmSubmitOpen(false);
-                saveQuotation({ proceedToPayment: true });
+                void persistQuotation(true);
               }}
             >
               Confirm &amp; Continue

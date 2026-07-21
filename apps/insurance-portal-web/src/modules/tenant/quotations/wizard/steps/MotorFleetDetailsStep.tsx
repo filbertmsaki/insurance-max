@@ -131,7 +131,7 @@ function FleetRiskEditor({
               <FormItem>
                 <FormLabel>Risk Code</FormLabel>
                 <Select
-                  value={toSelectValue(field.value)}
+                  value={toSelectValue(field.value as string)}
                   onValueChange={(value) => field.onChange(fromSelectValue(value))}
                 >
                   <FormControl>
@@ -338,7 +338,7 @@ function FleetRiskEditor({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tax Code</FormLabel>
-                    <Select value={toSelectValue(field.value)} onValueChange={(value) => {
+                    <Select value={toSelectValue(field.value as string)} onValueChange={(value) => {
                       field.onChange(fromSelectValue(value));
                       form.setValue(riskPath(vehicleIndex, riskIndex, `taxes_charged.${taxIndex}.tax_rate`), getTaxRateForCode(value));
                     }}>
@@ -414,7 +414,7 @@ function FleetRiskEditor({
                 render={({ field }) => (
                   <FormItem className="md:col-span-2">
                     <FormLabel>Exemption Type</FormLabel>
-                    <Select value={toSelectValue(field.value)} onValueChange={(value) => field.onChange(fromSelectValue(value))}>
+                    <Select value={toSelectValue(field.value as string)} onValueChange={(value) => field.onChange(fromSelectValue(value))}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select exemption type" />
@@ -582,7 +582,7 @@ function FleetAddonEditor({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tax Code</FormLabel>
-                    <Select value={toSelectValue(field.value)} onValueChange={(value) => {
+                    <Select value={toSelectValue(field.value as string)} onValueChange={(value) => {
                       field.onChange(fromSelectValue(value));
                       form.setValue(addonPath(vehicleIndex, addonIndex, `taxes.${taxIndex}.tax_rate`), getTaxRateForCode(value));
                     }}>
@@ -658,7 +658,7 @@ function FleetAddonEditor({
                 render={({ field }) => (
                   <FormItem className="md:col-span-2">
                     <FormLabel>Exemption Type</FormLabel>
-                    <Select value={toSelectValue(field.value)} onValueChange={(value) => field.onChange(fromSelectValue(value))}>
+                    <Select value={toSelectValue(field.value as string)} onValueChange={(value) => field.onChange(fromSelectValue(value))}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select exemption type" />
@@ -1079,7 +1079,7 @@ export function MotorFleetDetailsStep({
             <FormItem>
               <FormLabel>Fleet Type</FormLabel>
               <Select
-                value={toSelectValue(field.value)}
+                value={toSelectValue(field.value as string)}
                 onValueChange={(value) => field.onChange(fromSelectValue(value))}
               >
                 <FormControl><SelectTrigger><SelectValue placeholder="Select fleet type" /></SelectTrigger></FormControl>
