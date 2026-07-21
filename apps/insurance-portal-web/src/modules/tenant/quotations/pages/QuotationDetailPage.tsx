@@ -59,17 +59,17 @@ export function QuotationDetailPage() {
   }, [quotation?.id]);
 
   const isPaid = invoice?.status === 'PAID';
+  const detail = quotation?.cover_note_dtl;
+  const internalQuotation = quotation?.internal_quotation;
   const paymentMode =
-    quotation.cover_note_dtl.fleet_hdr?.payment_mode ??
-    quotation.cover_note_dtl.payment_mode ??
-    1;
+    detail?.fleet_hdr?.payment_mode ?? detail?.payment_mode ?? 1;
   const canSubmitToTiramis = paymentMode === 1 || isPaid;
   const policyHolder = useMemo(() => {
-    if (!quotation) return null;
-    return quotation.internal_quotation.quotation_flow === 'MOTOR_FLEET'
-      ? (quotation.cover_note_dtl.fleet_hdr?.policy_holders?.[0] ?? null)
-      : (quotation.cover_note_dtl.policy_holders?.[0] ?? null);
-  }, [quotation]);
+    if (!detail || !internalQuotation) return null;
+    return internalQuotation.quotation_flow === 'MOTOR_FLEET'
+      ? (detail.fleet_hdr?.policy_holders?.[0] ?? null)
+      : (detail.policy_holders?.[0] ?? null);
+  }, [detail, internalQuotation]);
 
   if (isLoading) {
     return (
@@ -188,35 +188,35 @@ export function QuotationDetailPage() {
               <Row label="Quotation Number" value={quotation.quotation_no} />
               <Row
                 label="Flow"
-                value={quotation.internal_quotation.quotation_flow}
+                value={internalQuotation?.quotation_flow}
               />
               <Row
                 label="Type"
-                value={quotation.internal_quotation.quotation_type}
+                value={internalQuotation?.quotation_type}
               />
               <Row
                 label="Channel"
-                value={quotation.internal_quotation.channel_type}
+                value={internalQuotation?.channel_type}
               />
               <Row
                 label="Branch"
-                value={quotation.internal_quotation.branch_id}
+                value={internalQuotation?.branch_id}
               />
               <Row
                 label="Department"
-                value={quotation.internal_quotation.department_id}
+                value={internalQuotation?.department_id}
               />
               <Row
                 label="Category"
-                value={quotation.internal_quotation.category_id}
+                value={internalQuotation?.category_id}
               />
               <Row
                 label="Product"
-                value={quotation.internal_quotation.product_id}
+                value={internalQuotation?.product_id}
               />
               <Row
                 label="Sub-Class"
-                value={quotation.internal_quotation.sub_class_id}
+                value={internalQuotation?.sub_class_id}
               />
               <Row
                 label="Policyholder"
@@ -224,21 +224,21 @@ export function QuotationDetailPage() {
               />
               <Row
                 label="Premium"
-                value={`${quotation.cover_note_dtl.fleet_hdr?.currency_code ?? quotation.cover_note_dtl.currency_code ?? 'TZS'} ${
-                  quotation.cover_note_dtl.fleet_hdr
+                value={`${detail?.fleet_hdr?.currency_code ?? detail?.currency_code ?? 'TZS'} ${
+                  detail?.fleet_hdr
                     ?.total_premium_including_tax ??
-                  quotation.cover_note_dtl.total_premium_including_tax ??
+                  detail?.total_premium_including_tax ??
                   0
                 }`}
               />
               <Row
                 label="Cover Period"
                 value={`${
-                  quotation.cover_note_dtl.fleet_hdr?.cover_note_start_date ??
-                  quotation.cover_note_dtl.cover_note_start_date
+                  detail?.fleet_hdr?.cover_note_start_date ??
+                  detail?.cover_note_start_date
                 } to ${
-                  quotation.cover_note_dtl.fleet_hdr?.cover_note_end_date ??
-                  quotation.cover_note_dtl.cover_note_end_date
+                  detail?.fleet_hdr?.cover_note_end_date ??
+                  detail?.cover_note_end_date
                 }`}
               />
               <Row label="Submitted At" value={quotation.submitted_at} />
