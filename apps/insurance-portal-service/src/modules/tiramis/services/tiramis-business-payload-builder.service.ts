@@ -15,8 +15,10 @@ type BuilderContext = {
   systemCode: string | null;
   systemName: string | null;
   insurerCompanyCode: string | null;
+  tranCompanyCode: string | null;
   clientCode: string | null;
   salePointCode: string | null;
+  callbackUrl: string | null;
 };
 
 @Injectable()
@@ -313,12 +315,33 @@ export class TiramisBusinessPayloadBuilderService {
           'insurerCompanyCode',
         ) ||
         null,
+      tranCompanyCode:
+        config?.tran_company_code ||
+        this.value(
+          params.record,
+          'tran_company_code',
+          'tranCompanyCode',
+        ) ||
+        config?.insurer_company_code ||
+        company?.tira_insurer_company_code ||
+        company?.tira_company_code ||
+        this.value(
+          params.record,
+          'insurer_company_code',
+          'insurerCompanyCode',
+        ) ||
+        null,
       clientCode:
         config?.client_code ||
         company?.tira_client_code ||
         this.value(params.record, 'client_code', 'clientCode') ||
         null,
       salePointCode,
+      callbackUrl:
+        config?.callback_url ||
+        company?.tira_callback_url ||
+        this.value(params.record, 'callback_url', 'callbackUrl') ||
+        null,
     };
   }
 
@@ -416,8 +439,10 @@ export class TiramisBusinessPayloadBuilderService {
       systemCode: context.systemCode,
       systemName: context.systemName,
       insurerCompanyCode: context.insurerCompanyCode,
+      tranCompanyCode: context.tranCompanyCode || context.insurerCompanyCode,
       clientCode: context.clientCode,
       salePointCode: context.salePointCode,
+      callbackUrl: context.callbackUrl,
     });
   }
 
