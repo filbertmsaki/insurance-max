@@ -23,6 +23,7 @@ import { QuotationRiskDiscount } from './entities/structured/quotation-risk-disc
 import { QuotationRiskTax } from './entities/structured/quotation-risk-tax.entity';
 import { QuotationSubjectMatter } from './entities/structured/quotation-subject-matter.entity';
 import { QuotationPayloadMapper } from './mappers/quotation-payload.mapper';
+import { QuotationTiramisPayloadMapper } from './mappers/quotation-tiramis-payload.mapper';
 import { QuotationsController } from './quotations.controller';
 import { QuotationsRepository } from './repositories/quotations.repository';
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
@@ -60,12 +61,14 @@ import { QuotationsService } from './quotations.service';
     QuotationsService,
     QuotationsRepository,
     QuotationPayloadMapper,
+    QuotationTiramisPayloadMapper,
     QuotationPayloadValidator,
   ],
   exports: [
     QuotationsService,
     QuotationsRepository,
     QuotationPayloadMapper,
+    QuotationTiramisPayloadMapper,
   ],
 })
 export class QuotationsModule {}

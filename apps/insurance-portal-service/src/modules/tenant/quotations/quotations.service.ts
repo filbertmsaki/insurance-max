@@ -49,6 +49,7 @@ import { QuotationFlow } from './enums/quotation-flow.enum';
 import { QuotationStatus } from './enums/quotation-status.enum';
 import { QuotationType } from './enums/quotation-type.enum';
 import { QuotationPayloadMapper } from './mappers/quotation-payload.mapper';
+import { QuotationTiramisPayloadMapper } from './mappers/quotation-tiramis-payload.mapper';
 import { QuotationsRepository } from './repositories/quotations.repository';
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
 import { parseTiramisDateTime } from './utils/tiramis-date.util';
@@ -128,6 +129,7 @@ export class QuotationsService {
     private readonly dataSource: DataSource,
     private readonly quotationsRepository: QuotationsRepository,
     private readonly payloadMapper: QuotationPayloadMapper,
+    private readonly tiramisPayloadMapper: QuotationTiramisPayloadMapper,
     private readonly payloadValidator: QuotationPayloadValidator,
     private readonly tiramisBusinessSubmitService: TiramisBusinessSubmitService,
   ) {}
@@ -324,6 +326,7 @@ export class QuotationsService {
 
     const payload = this.payloadMapper.toAuthoritativePayload(quotation);
     this.payloadValidator.assertValid(payload);
+    const tiramisPayload = this.tiramisPayloadMapper.toTiramisPayload(payload);
     await this.assertPaymentReady(quotation);
 
     const requestType = this.toTiramisRequestType(quotation.quotation_flow);
@@ -333,7 +336,7 @@ export class QuotationsService {
       sourceModule: 'quotations',
       sourceRecordId: quotation.id,
       businessReference: this.payloadMapper.businessReference(quotation),
-      payload: payload as unknown as Record<string, unknown>,
+      payload: tiramisPayload as Record<string, unknown>,
       forceResubmit: submitOptions.force_resubmit,
       returnExisting: submitOptions.return_existing,
       authContext: {
