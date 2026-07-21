@@ -35,7 +35,7 @@ export function useQuotationWizardDraft(quotationId: string | null) {
     }
   }, [key, quotationId]);
 
-  const saveDraft = useCallback((values: QuotationFormSchemaValues) => {
+  const saveDraft = useCallback((values: Partial<QuotationFormSchemaValues>) => {
     if (quotationId) return;
     localStorage.setItem(key, JSON.stringify(values));
   }, [key, quotationId]);

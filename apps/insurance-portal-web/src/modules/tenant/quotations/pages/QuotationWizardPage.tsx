@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
 import {
   createEmptyAddonRow,
   createEmptyFleetDetails,
@@ -59,7 +60,31 @@ import { AddOnsStep } from '../wizard/steps/AddOnsStep';
 import { MotorDetailsStep } from '../wizard/steps/MotorDetailsStep';
 import { MotorFleetDetailsStep } from '../wizard/steps/MotorFleetDetailsStep';
 import { SummaryReviewStep } from '../wizard/steps/SummaryReviewStep';
-import { NonMotorDetailsStep } from '../wizard/steps/NonMotorDetailsStep';
+import { FleetSetupStep } from '../wizard/steps/FleetSetupStep';
+
+const FLOW_OPTIONS = [
+  {
+    label: 'Non-Motor',
+    description: 'Fire, marine, engineering, GIT, and miscellaneous covers',
+    quotation_flow: 'NON_MOTOR' as const,
+    quotation_type: 'NON_MOTOR' as const,
+    is_fleet: false,
+  },
+  {
+    label: 'Motor - Single Vehicle',
+    description: 'One vehicle under a single motor quotation',
+    quotation_flow: 'MOTOR_SINGLE' as const,
+    quotation_type: 'MOTOR' as const,
+    is_fleet: false,
+  },
+  {
+    label: 'Motor - Fleet',
+    description: 'Multiple vehicles under one fleet quotation',
+    quotation_flow: 'MOTOR_FLEET' as const,
+    quotation_type: 'MOTOR' as const,
+    is_fleet: true,
+  },
+] as const;
 
 const STEP_FIELDS: Partial<
   Record<QuotationWizardStepId, (keyof QuotationFormSchemaValues)[]>
@@ -74,16 +99,37 @@ const STEP_FIELDS: Partial<
     'valid_until',
     'currency',
     'exchange_rate',
+    'cover_note_number',
+    'cover_note_desc',
+    'operative_clause',
     'cover_note_type',
     'prev_cover_note_reference',
+    'commission_paid',
+    'commission_rate',
     'sale_point_id',
   ],
+  'fleet-setup': [
+    'category_id',
+    'product_id',
+    'branch_id',
+    'channel_type',
+    'intermediary_company_id',
+    'valid_from',
+    'valid_until',
+    'currency',
+    'exchange_rate',
+    'cover_note_type',
+    'prev_cover_note_reference',
+    'commission_paid',
+    'commission_rate',
+    'sale_point_id',
+    'fleet',
+  ],
   policyholder: ['customer_id', 'policyholder'],
-  'risk-premium': ['risks'],
-  'non-motor': ['nonMotor'],
+  'risk-premium': ['risks', 'nonMotor'],
   addons: ['addons'],
   motor: ['motor_mode', 'motor'],
-  'motor-fleet': ['fleet'],
+  'fleet-vehicles': ['fleet'],
 };
 
 const DEFAULT_VALUES: QuotationFormSchemaValues = {
@@ -93,9 +139,7 @@ const DEFAULT_VALUES: QuotationFormSchemaValues = {
   department_id: '',
   policyholder_mode: 'existing',
   customer_id: '',
-  policyholder: {
-    ...createEmptyCustomerDefaults(),
-  },
+  policyholder: getCustomerDefaultValues(),
   category_id: '',
   product_id: '',
   sub_class_id: '',
@@ -119,11 +163,16 @@ const DEFAULT_VALUES: QuotationFormSchemaValues = {
   rating_version: '',
   rejection_reason: '',
   sale_point_id: '',
+  cover_note_number: '',
+  cover_note_desc: '',
+  operative_clause: '',
   cover_note_type: '1',
   prev_cover_note_reference: '',
   endorsement_type: '',
   endorsement_reason: '',
   endorsement_premium_earned: '',
+  commission_paid: '',
+  commission_rate: '',
   officer_name: '',
   officer_title: '',
   payment_mode_tira: '1',
@@ -134,55 +183,6 @@ const DEFAULT_VALUES: QuotationFormSchemaValues = {
   fleet: createEmptyFleetDetails(),
   nonMotor: createEmptyNonMotorDetails(),
 };
-
-function createEmptyCustomerDefaults() {
-  return {
-    customer_type: 'INDIVIDUAL' as const,
-    customer_no: '',
-    full_name: '',
-    first_name: '',
-    middle_name: '',
-    last_name: '',
-    gender: '' as const,
-    date_of_birth: '',
-    nationality: '',
-    company_name: '',
-    registration_no: '',
-    incorporation_certificate_no: '',
-    tin: '',
-    vrn: '',
-    id_type: '' as const,
-    id_number: '',
-    nida_no: '',
-    voter_no: '',
-    passport_no: '',
-    driving_license_no: '',
-    zanid_no: '',
-    phone: '',
-    alternate_phone: '',
-    fax: '',
-    email: '',
-    country: '',
-    country_code: 'TZA',
-    region: '',
-    district: '',
-    ward: '',
-    street: '',
-    postal_address: '',
-    contact_name: '',
-    contact_role: '',
-    contact_phone: '',
-    contact_email: '',
-    kyc_status: 'PENDING' as const,
-    document_type: '',
-    document_no: '',
-    document_file_name: '',
-    document_file_url: '',
-    document_mime_type: '',
-    document_verified: false,
-    status: 'ACTIVE' as const,
-  };
-}
 
 function findFirstErrorMessage(node: unknown): string | null {
   if (!node || typeof node !== 'object') return null;
@@ -417,6 +417,19 @@ export function QuotationWizardPage() {
     }
   }, [stepId, steps]);
 
+  const handleFlowChange = useCallback(
+    (nextFlow: (typeof FLOW_OPTIONS)[number]) => {
+      form.setValue('quotation_flow', nextFlow.quotation_flow);
+      form.setValue('quotation_type', nextFlow.quotation_type);
+      form.setValue('is_fleet', nextFlow.is_fleet);
+      form.setValue('category_id', '');
+      form.setValue('product_id', '');
+      form.setValue('intermediary_company_id', '');
+      setCompletedSteps([]);
+    },
+    [form],
+  );
+
   function addRisk() {
     riskFieldArray.append(createEmptyRiskRow());
   }
@@ -614,6 +627,42 @@ export function QuotationWizardPage() {
       </div>
 
       <div className="mx-auto w-full max-w-5xl space-y-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-sm font-semibold text-slate-900">Quotation Type</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Choose whether this quotation is non-motor, a single motor cover, or a motor fleet cover.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {FLOW_OPTIONS.map((option) => {
+              const active = quotationFlow === option.quotation_flow;
+
+              return (
+                <button
+                  key={option.quotation_flow}
+                  type="button"
+                  onClick={() => handleFlowChange(option)}
+                  className={[
+                    'rounded-xl border p-4 text-left transition-colors',
+                    active
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+                  ].join(' ')}
+                >
+                  <div className="text-sm font-semibold">{option.label}</div>
+                  <div
+                    className={[
+                      'mt-1 text-xs',
+                      active ? 'text-slate-200' : 'text-slate-400',
+                    ].join(' ')}
+                  >
+                    {option.description}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <QuotationWizardStepper
           steps={steps}
           value={stepId}
@@ -625,6 +674,18 @@ export function QuotationWizardPage() {
           <form className="space-y-6" onSubmit={(event) => event.preventDefault()}>
             {stepId === 'cover-note' && (
               <CoverNoteSetupStep
+                form={form}
+                categoryOptions={categoryOptions}
+                productOptions={productOptions}
+                branchOptions={branchOptions}
+                salePointOptions={activeSalePoints}
+                salePointRequired={salePointRequired}
+                showFlowSelector={false}
+              />
+            )}
+
+            {stepId === 'fleet-setup' && (
+              <FleetSetupStep
                 form={form}
                 categoryOptions={categoryOptions}
                 productOptions={productOptions}
@@ -643,15 +704,10 @@ export function QuotationWizardPage() {
                 form={form}
                 riskOptions={riskOptions}
                 fieldArray={riskFieldArray}
+                flow={quotationFlow}
+                subjectMatterFieldArray={nonMotorFieldArray}
                 onRemoveRisk={removeRisk}
                 onAddRisk={addRisk}
-              />
-            )}
-
-            {stepId === 'non-motor' && (
-              <NonMotorDetailsStep
-                form={form}
-                fieldArray={nonMotorFieldArray}
               />
             )}
 
@@ -663,7 +719,7 @@ export function QuotationWizardPage() {
               <MotorDetailsStep form={form} vehicleOptions={vehicleOptions} />
             )}
 
-            {stepId === 'motor-fleet' && (
+            {stepId === 'fleet-vehicles' && (
               <MotorFleetDetailsStep
                 form={form}
                 customerOptions={customerOptions}

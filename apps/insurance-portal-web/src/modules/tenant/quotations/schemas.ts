@@ -360,11 +360,16 @@ const quotationFormObjectSchema = z.object({
   valid_until: z.string().min(1, 'Cover end date is required'),
   rating_version: optionalText,
   rejection_reason: optionalText,
+  cover_note_number: optionalText,
+  cover_note_desc: optionalText,
+  operative_clause: optionalText,
   cover_note_type: z.enum(['1', '2', '3']),
   prev_cover_note_reference: optionalText,
   endorsement_type: z.enum(['', '1', '2', '3', '4']),
   endorsement_reason: optionalText,
   endorsement_premium_earned: optionalText,
+  commission_paid: optionalText,
+  commission_rate: optionalText,
   officer_name: optionalText,
   officer_title: optionalText,
   payment_mode_tira: z.enum(['1', '2', '3']),
@@ -416,7 +421,7 @@ function validatePolicyholder(
 }
 
 function validateRiskRows(
-  risks: QuotationFormValues['risks'],
+  risks: Array<{ risk_id?: string; risk_code?: string }>,
   ctx: z.RefinementCtx,
   path: (string | number)[] = ['risks'],
 ) {
@@ -1025,22 +1030,25 @@ function buildCommonDetail(
   const risks = values.risks.map(buildRiskPayload);
   return {
     cover_note_number:
-      values.quotation_flow === 'NON_MOTOR'
+      normalizeText(values.cover_note_number) ??
+      (values.quotation_flow === 'NON_MOTOR'
         ? `NM-${Date.now()}`
-        : values.motor.registration_no || `MTR-${Date.now()}`,
+        : values.motor.registration_no || `MTR-${Date.now()}`),
     prev_cover_note_reference_number:
       normalizeText(values.prev_cover_note_reference),
     sale_point_code: salePointCode,
     cover_note_start_date: formatDateTime(values.valid_from, false),
     cover_note_end_date: formatDateTime(values.valid_until, true),
     cover_note_desc:
-      values.quotation_flow === 'NON_MOTOR'
+      normalizeText(values.cover_note_desc) ??
+      (values.quotation_flow === 'NON_MOTOR'
         ? 'Non-motor cover note'
-        : 'Motor cover note',
+        : 'Motor cover note'),
     operative_clause:
-      values.quotation_flow === 'NON_MOTOR'
+      normalizeText(values.operative_clause) ??
+      (values.quotation_flow === 'NON_MOTOR'
         ? 'Non-motor operative clause'
-        : 'Motor Comprehensive Cover',
+        : 'Motor Comprehensive Cover'),
     payment_mode: normalizePositiveNumber(values.payment_mode_tira),
     currency_code: values.currency.trim().toUpperCase(),
     exchange_rate:
@@ -1053,8 +1061,10 @@ function buildCommonDetail(
     total_premium_including_tax:
       normalizeNumber(values.total_premium) ||
       risks.reduce((sum, risk) => sum + risk.premium_including_tax, 0),
-    commision_paid: normalizeNumber(values.total_commission),
-    commision_rate: 0,
+    commision_paid:
+      normalizeNumber(values.commission_paid) ||
+      normalizeNumber(values.total_commission),
+    commision_rate: normalizeNumber(values.commission_rate),
     officer_name: normalizeText(values.officer_name) ?? '',
     officer_title: normalizeText(values.officer_title) ?? '',
     product_code: productCode,
@@ -1292,8 +1302,10 @@ export function buildMotorFleetQuotationPayload(
             ),
           0,
         ),
-        commision_paid: normalizeNumber(values.total_commission),
-        commision_rate: 0,
+        commision_paid:
+          normalizeNumber(values.commission_paid) ||
+          normalizeNumber(values.total_commission),
+        commision_rate: normalizeNumber(values.commission_rate),
         officer_name: normalizeText(values.officer_name) ?? '',
         officer_title: normalizeText(values.officer_title) ?? '',
         product_code: context.productCode,
@@ -1375,7 +1387,9 @@ function mapPolicyHolderToForm(record: QuotationDetailRecord): CustomerFormValue
   return buildPolicyholderFormDefaults(source);
 }
 
-function mapRiskRows(detailRisks: QuotationRiskCoveredPayload[] | undefined) {
+function mapRiskRows(
+  detailRisks: QuotationRiskCoveredPayload[] | undefined,
+): QuotationRiskFormRow[] {
   return (detailRisks ?? []).map((risk) => ({
     client_ref: createClientRef(),
     risk_id: '',
@@ -1517,6 +1531,9 @@ export function quotationRecordToFormValues(
     rating_version: '',
     rejection_reason: '',
     sale_point_id: '',
+    cover_note_number: record.cover_note_dtl.cover_note_number ?? '',
+    cover_note_desc: record.cover_note_dtl.cover_note_desc ?? '',
+    operative_clause: record.cover_note_dtl.operative_clause ?? '',
     cover_note_type: String(record.cover_note_hdr.cover_note_type) as
       | '1'
       | '2'
@@ -1540,6 +1557,16 @@ export function quotationRecordToFormValues(
             null
           ? String(record.cover_note_dtl.fleet_dtls[0].endorsement_premium_earned)
           : '',
+    commission_paid: String(
+      record.cover_note_dtl.fleet_hdr?.commision_paid ??
+        record.cover_note_dtl.commision_paid ??
+        0,
+    ),
+    commission_rate: String(
+      record.cover_note_dtl.fleet_hdr?.commision_rate ??
+        record.cover_note_dtl.commision_rate ??
+        0,
+    ),
     officer_name:
       record.cover_note_dtl.fleet_hdr?.officer_name ??
       record.cover_note_dtl.officer_name ??

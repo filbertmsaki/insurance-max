@@ -110,7 +110,7 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Step 5A. Motor Details</CardTitle>
+          <CardTitle className="text-base">Step 5. Motor Details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex gap-2">

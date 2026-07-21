@@ -3,6 +3,7 @@ import type { UseFormReturn } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   FormControl,
   FormField,
@@ -40,6 +41,8 @@ interface Props {
   branchOptions: Branch[];
   salePointOptions: TiramisSalePointRecord[];
   salePointRequired: boolean;
+  title?: string;
+  showFlowSelector?: boolean;
 }
 
 const CHANNEL_TYPES = [
@@ -73,6 +76,8 @@ export function CoverNoteSetupStep({
   branchOptions,
   salePointOptions,
   salePointRequired,
+  title = 'Step 1. Cover Note Setup',
+  showFlowSelector = true,
 }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const validFrom = form.watch('valid_from');
@@ -149,10 +154,11 @@ export function CoverNoteSetupStep({
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Step 1. Cover Note Setup</CardTitle>
+          <CardTitle className="text-base">{title}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
-          <div className="md:col-span-2">
+          {showFlowSelector && (
+            <div className="md:col-span-2">
             <Label className="mb-2 block">Quotation Flow</Label>
             <div className="grid gap-2 md:grid-cols-3">
               {[
@@ -210,7 +216,8 @@ export function CoverNoteSetupStep({
                 );
               })}
             </div>
-          </div>
+            </div>
+          )}
 
           <FormField
             control={form.control}
@@ -502,6 +509,20 @@ export function CoverNoteSetupStep({
         <CardContent className="grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
+            name="cover_note_number"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cover Note Number</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
             name="cover_note_type"
             render={({ field }) => (
               <FormItem>
@@ -553,6 +574,34 @@ export function CoverNoteSetupStep({
               )}
             />
           )}
+
+          <FormField
+            control={form.control}
+            name="cover_note_desc"
+            render={({ field }) => (
+              <FormItem className="md:col-span-2">
+                <FormLabel>Cover Note Description</FormLabel>
+                <FormControl>
+                  <Textarea {...field} rows={3} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="operative_clause"
+            render={({ field }) => (
+              <FormItem className="md:col-span-2">
+                <FormLabel>Operative Clause</FormLabel>
+                <FormControl>
+                  <Textarea {...field} rows={3} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           {coverNoteType === '3' && (
             <>
@@ -616,6 +665,32 @@ export function CoverNoteSetupStep({
               />
             </>
           )}
+
+          <FormField
+            control={form.control}
+            name="commission_paid"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Commission Paid</FormLabel>
+                <FormControl>
+                  <Input type="number" step="0.01" {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="commission_rate"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Commission Rate</FormLabel>
+                <FormControl>
+                  <Input type="number" step="0.000001" {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
 
           <FormField
             control={form.control}

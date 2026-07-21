@@ -5,12 +5,12 @@ export type QuotationWizardFlow =
 
 export type QuotationWizardStepId =
   | 'cover-note'
+  | 'fleet-setup'
   | 'policyholder'
   | 'risk-premium'
   | 'addons'
   | 'motor'
-  | 'motor-fleet'
-  | 'non-motor'
+  | 'fleet-vehicles'
   | 'summary';
 
 export interface QuotationWizardStepDef {
@@ -20,12 +20,12 @@ export interface QuotationWizardStepDef {
 
 const ALL_STEPS: Record<QuotationWizardStepId, QuotationWizardStepDef> = {
   'cover-note': { id: 'cover-note', label: 'Cover Note Setup' },
+  'fleet-setup': { id: 'fleet-setup', label: 'Fleet & Cover Note Setup' },
   policyholder: { id: 'policyholder', label: 'Policyholders' },
   'risk-premium': { id: 'risk-premium', label: 'Risks & Premium' },
   addons: { id: 'addons', label: 'Optional Add-ons' },
   motor: { id: 'motor', label: 'Motor Details' },
-  'motor-fleet': { id: 'motor-fleet', label: 'Fleet Vehicles' },
-  'non-motor': { id: 'non-motor', label: 'Subject Matters' },
+  'fleet-vehicles': { id: 'fleet-vehicles', label: 'Fleet Vehicles' },
   summary: { id: 'summary', label: 'Review & Submit' },
 };
 
@@ -37,13 +37,16 @@ export function resolveWizardFlow(
 
 /** Steps visible for a given flow, in wizard order. */
 export function getWizardStepsForFlow(flow: QuotationWizardFlow): QuotationWizardStepDef[] {
-  const commonHead: QuotationWizardStepId[] = ['cover-note', 'policyholder', 'risk-premium'];
-  const branchSteps: QuotationWizardStepId[] =
+  const ids: QuotationWizardStepId[] =
     flow === 'NON_MOTOR'
-      ? ['non-motor', 'addons']
+      ? ['cover-note', 'policyholder', 'risk-premium', 'addons', 'summary']
       : flow === 'MOTOR_SINGLE'
-        ? ['motor', 'addons']
-        : ['motor-fleet', 'addons'];
-  const ids: QuotationWizardStepId[] = [...commonHead, ...branchSteps, 'summary'];
+        ? ['cover-note', 'policyholder', 'risk-premium', 'addons', 'motor', 'summary']
+        : [
+            'fleet-setup',
+            'policyholder',
+            'fleet-vehicles',
+            'summary',
+          ];
   return ids.map((id) => ALL_STEPS[id]);
 }

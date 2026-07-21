@@ -1,5 +1,8 @@
 import type { PolicyRecord } from '@/modules/tenant/policies/types';
-import type { QuotationRecord } from '@/modules/tenant/quotations/types';
+import type {
+  QuotationRecord,
+  QuotationRiskCoveredPayload,
+} from '@/modules/tenant/quotations/types';
 import type { PortalTiramisSubmitPayload, TiramisRequestType } from './types';
 
 type TiramisRiskPayload = {
@@ -44,8 +47,8 @@ type TiramisPremiumBreakdownSource = {
   quotation_risk_id?: string | null;
   policy_risk_id?: string | null;
   risk_client_ref?: string | null;
-  item_type: string;
-  item_code: string;
+  item_type?: string | null;
+  item_code?: string | null;
   rate?: string | number | null;
   amount?: string | number | null;
 };
@@ -74,7 +77,12 @@ function buildBasePayload(record: {
 export function inferQuotationRequestType(
   quotation: QuotationRecord,
 ): TiramisRequestType {
-  return quotation.quotation_type === 'MOTOR' ? 'MOTOR' : 'NON_MOTOR';
+  if (quotation.internal_quotation.quotation_flow === 'MOTOR_FLEET') {
+    return 'MOTOR_FLEET';
+  }
+  return quotation.internal_quotation.quotation_type === 'MOTOR'
+    ? 'MOTOR'
+    : 'NON_MOTOR';
 }
 
 export function inferPolicyRequestType(
@@ -95,6 +103,13 @@ export function buildQuotationTiramisPayload(
     sale_point_id?: string;
   },
 ): PortalTiramisSubmitPayload {
+  const normalizedRisks =
+    quotation.internal_quotation.quotation_flow === 'MOTOR_FLEET'
+      ? (quotation.cover_note_dtl.fleet_dtls ?? []).flatMap(
+          (item) => item.risks_covered,
+        )
+      : (quotation.cover_note_dtl.risks_covered ?? []);
+
   return buildBasePayload({
     id: quotation.id,
     businessReference: quotation.quotation_no,
@@ -102,10 +117,13 @@ export function buildQuotationTiramisPayload(
     sourceRecordId: quotation.id,
     requestType: inferQuotationRequestType(quotation),
     payload: {
-      RisksCovered: mapRisksCovered(
-        quotation.risks ?? [],
-        quotation.premium_breakdowns ?? [],
-      ),
+      RisksCovered:
+        normalizedRisks.length > 0
+          ? mapNormalizedRisks(normalizedRisks)
+          : mapRisksCovered(
+              (quotation.risks ?? []) as TiramisRiskSource[],
+              quotation.premium_breakdowns ?? [],
+            ),
     },
     branch_id: options?.branch_id,
     sale_point_id: options?.sale_point_id,
@@ -161,12 +179,40 @@ export function formatDateTime(value?: string | null) {
 }
 
 function toNumber(
-  value: string | number | null | undefined,
+  value: unknown,
   fallback = 0,
 ): number {
   if (value === null || value === undefined || value === '') return fallback;
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function mapNormalizedRisks(
+  risks: QuotationRiskCoveredPayload[],
+): TiramisRiskPayload[] {
+  return risks.map((risk) => ({
+    RiskCode: risk.risk_code,
+    SumInsured: risk.sum_insured,
+    SumInsuredEquivalent: risk.sum_insured_equivalent,
+    PremiumRate: risk.premium_rate,
+    PremiumBeforeDiscount: risk.premium_before_discount,
+    PremiumAfterDiscount: risk.premium_after_discount,
+    PremiumExcludingTaxEquivalent: risk.premium_excluding_tax_equivalent,
+    PremiumIncludingTax: risk.premium_including_tax,
+    DiscountsOffered: risk.discounts_offered.map((discount) => ({
+      DiscountType: discount.discount_type,
+      DiscountRate: discount.discount_rate,
+      DiscountAmount: discount.discount_amount,
+    })),
+    TaxesCharged: risk.taxes_charged.map((tax) => ({
+      TaxCode: tax.tax_code,
+      IsTaxExempted: tax.is_tax_exempted,
+      TaxExemptionType: tax.tax_exemption_type ?? '',
+      TaxExemptionReference: tax.tax_exemption_reference ?? '',
+      TaxRate: tax.tax_rate,
+      TaxAmount: tax.tax_amount,
+    })),
+  }));
 }
 
 function groupBreakdownsByRisk(
@@ -282,7 +328,7 @@ function buildTaxes(
   }
 
   const taxes = breakdowns.filter((item) =>
-    ['TAX', 'LEVY', 'CHARGE'].includes(item.item_type),
+    item.item_type ? ['TAX', 'LEVY', 'CHARGE'].includes(item.item_type) : false,
   );
 
   if (taxes.length > 0) {

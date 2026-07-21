@@ -527,11 +527,16 @@ export interface QuotationFormValues {
   rating_version: string;
   rejection_reason: string;
   sale_point_id: string;
+  cover_note_number: string;
+  cover_note_desc: string;
+  operative_clause: string;
   cover_note_type: '1' | '2' | '3';
   prev_cover_note_reference: string;
   endorsement_type: '1' | '2' | '3' | '4' | '';
   endorsement_reason: string;
   endorsement_premium_earned: string;
+  commission_paid: string;
+  commission_rate: string;
   officer_name: string;
   officer_title: string;
   payment_mode_tira: '1' | '2' | '3';

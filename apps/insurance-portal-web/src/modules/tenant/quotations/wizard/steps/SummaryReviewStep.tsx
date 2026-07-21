@@ -49,12 +49,12 @@ function SectionHeader({
   return (
     <CardHeader className="flex flex-row items-center justify-between">
       <CardTitle className="text-base">{title}</CardTitle>
-      {onEdit && (
+      {onEdit ? (
         <Button type="button" variant="ghost" size="sm" onClick={onEdit}>
           <Pencil className="mr-2 h-3.5 w-3.5" />
           Edit
         </Button>
-      )}
+      ) : null}
     </CardHeader>
   );
 }
@@ -71,17 +71,11 @@ export function SummaryReviewStep({
   onEditStep,
 }: Props) {
   const values = form.watch();
-  const category = categoryOptions.find(
-    (item) => item.id === values.category_id,
-  );
+  const category = categoryOptions.find((item) => item.id === values.category_id);
   const product = productOptions.find((item) => item.id === values.product_id);
   const branch = branchOptions.find((item) => item.id === values.branch_id);
-  const existingCustomer = customerOptions.find(
-    (item) => item.id === values.customer_id,
-  );
-  const salePoint = salePointOptions.find(
-    (item) => item.id === values.sale_point_id,
-  );
+  const existingCustomer = customerOptions.find((item) => item.id === values.customer_id);
+  const salePoint = salePointOptions.find((item) => item.id === values.sale_point_id);
   const currency = values.currency?.trim().toUpperCase();
   const exchangeRate =
     currency && currency !== 'TZS' ? Number(values.exchange_rate) || 1 : 1;
@@ -89,6 +83,25 @@ export function SummaryReviewStep({
   const addonsTotal = enabledAddons.reduce(
     (sum, addon) =>
       sum + computeAddonAmounts(addon, exchangeRate).premiumIncludingTax,
+    0,
+  );
+  const fleetTotalSumInsured = values.fleet.items.reduce(
+    (sum, item) =>
+      sum +
+      item.risks_covered.reduce(
+        (riskSum, risk) => riskSum + (Number(risk.sum_insured) || 0),
+        0,
+      ),
+    0,
+  );
+  const fleetTotalPremium = values.fleet.items.reduce(
+    (sum, item) =>
+      sum +
+      item.risks_covered.reduce(
+        (riskSum, risk) =>
+          riskSum + (Number(risk.premium_including_tax) || 0),
+        0,
+      ),
     0,
   );
 
@@ -100,29 +113,32 @@ export function SummaryReviewStep({
         </CardHeader>
         <CardContent className="flex items-center gap-2">
           <Badge variant="outline">{values.quotation_type}</Badge>
-          {values.is_fleet && <Badge variant="outline">Fleet</Badge>}
+          {values.is_fleet ? <Badge variant="outline">Fleet</Badge> : null}
           <Badge>{values.status}</Badge>
         </CardContent>
       </Card>
 
       <Card>
         <SectionHeader
-          title="Cover Note Setup"
-          onEdit={() => onEditStep('cover-note')}
+          title={values.is_fleet ? 'Fleet & Cover Note Setup' : 'Cover Note Setup'}
+          onEdit={() => onEditStep(values.is_fleet ? 'fleet-setup' : 'cover-note')}
         />
         <CardContent className="grid gap-1 text-sm md:grid-cols-2">
           <p>Category: {category?.name ?? 'Not selected'}</p>
           <p>Product: {product?.product_name ?? 'Not selected'}</p>
           <p>Channel: {values.channel_type}</p>
-          <p>Branch: {branch?.name ?? '—'}</p>
+          <p>Branch: {branch?.name ?? '-'}</p>
+          <p>Sale point: {salePoint?.salePointCode ?? '-'}</p>
+          <p>Cover note number: {values.cover_note_number || '-'}</p>
           <p>
             Currency: {values.currency}{' '}
-            {currency !== 'TZS' && `(rate: ${values.exchange_rate || '—'})`}
+            {currency !== 'TZS' ? `(rate: ${values.exchange_rate || '-'})` : ''}
           </p>
           <p>
-            Cover period: {values.valid_from || '—'} to{' '}
-            {values.valid_until || '—'}
+            Cover period: {values.valid_from || '-'} to {values.valid_until || '-'}
           </p>
+          <p>Commission paid: {values.commission_paid || values.total_commission || '0'}</p>
+          <p>Commission rate: {values.commission_rate || '0'}</p>
         </CardContent>
       </Card>
 
@@ -134,25 +150,18 @@ export function SummaryReviewStep({
         <CardContent className="text-sm">
           {values.policyholder_mode === 'existing' ? (
             <p>
-              {existingCustomer
-                ? getCustomerDisplayName(existingCustomer)
-                : 'Not selected'}{' '}
-              {existingCustomer?.customer_no
-                ? `(${existingCustomer.customer_no})`
-                : ''}
+              {existingCustomer ? getCustomerDisplayName(existingCustomer) : 'Not selected'}{' '}
+              {existingCustomer?.customer_no ? `(${existingCustomer.customer_no})` : ''}
             </p>
           ) : (
             <p>
               {values.policyholder.full_name ||
                 (values.policyholder.customer_type === 'CORPORATE'
                   ? values.policyholder.company_name || 'New corporate customer'
-                  : [
-                      values.policyholder.first_name,
-                      values.policyholder.last_name,
-                    ]
+                  : [values.policyholder.first_name, values.policyholder.last_name]
                       .filter(Boolean)
                       .join(' ') || 'New individual customer')}
-              {' — '}
+              {' - '}
               {values.policyholder.phone || 'no phone'}
             </p>
           )}
@@ -162,24 +171,23 @@ export function SummaryReviewStep({
       <Card>
         <SectionHeader
           title="Risk & Premium"
-          onEdit={() => onEditStep('risk-premium')}
+          onEdit={() => onEditStep(values.is_fleet ? 'fleet-vehicles' : 'risk-premium')}
         />
         <CardContent className="space-y-2 text-sm">
           {values.risks.map((risk, index) => {
-            const riskDef = riskOptions.find((r) => r.id === risk.risk_id);
+            const riskDef = riskOptions.find((item) => item.id === risk.risk_id);
             return (
               <div
-                key={index}
+                key={`${risk.client_ref}-${index}`}
                 className="flex items-center justify-between border-b border-slate-100 py-1 last:border-0"
               >
                 <span>
                   {riskDef
                     ? `${riskDef.risk_name} (${riskDef.risk_code})`
-                    : `Risk #${index + 1}`}
+                    : risk.risk_code || `Risk #${index + 1}`}
                 </span>
                 <span className="text-slate-500">
-                  SI {risk.sum_insured || '0'} · Premium{' '}
-                  {risk.total_premium || '0'}
+                  SI {risk.sum_insured || '0'} - Premium {risk.total_premium || risk.premium_including_tax || '0'}
                 </span>
               </div>
             );
@@ -188,24 +196,37 @@ export function SummaryReviewStep({
         </CardContent>
       </Card>
 
-      {enabledAddons.length > 0 && (
+      {values.quotation_type === 'NON_MOTOR' ? (
+        <Card>
+          <SectionHeader title="Subject Matters" onEdit={() => onEditStep('risk-premium')} />
+          <CardContent className="space-y-2 text-sm">
+            {values.nonMotor.items.map((subject, index) => (
+              <div
+                key={`${subject.subject_matter_reference}-${index}`}
+                className="flex items-center justify-between border-b border-slate-100 py-1 last:border-0"
+              >
+                <span>{subject.subject_matter_reference || `Subject #${index + 1}`}</span>
+                <span className="text-slate-500">{subject.subject_matter_desc || '-'}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {enabledAddons.length > 0 ? (
         <Card>
           <SectionHeader title="Add-ons" onEdit={() => onEditStep('addons')} />
           <CardContent className="space-y-2 text-sm">
             {enabledAddons.map((addon, index) => (
               <div
-                key={index}
+                key={`${addon.addon_reference}-${index}`}
                 className="flex items-center justify-between border-b border-slate-100 py-1 last:border-0"
               >
                 <span>
-                  {addon.addon_reference || `Add-on #${index + 1}`} —{' '}
-                  {addon.addon_desc}
+                  {addon.addon_reference || `Add-on #${index + 1}`} - {addon.addon_desc}
                 </span>
                 <span className="text-slate-500">
-                  {computeAddonAmounts(
-                    addon,
-                    exchangeRate,
-                  ).premiumIncludingTax.toFixed(2)}
+                  {computeAddonAmounts(addon, exchangeRate).premiumIncludingTax.toFixed(2)}
                 </span>
               </div>
             ))}
@@ -214,66 +235,54 @@ export function SummaryReviewStep({
             </p>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
-      {values.quotation_type === 'MOTOR' && !values.is_fleet && (
+      {values.quotation_type === 'MOTOR' && !values.is_fleet ? (
         <Card>
-          <SectionHeader
-            title="Motor Details"
-            onEdit={() => onEditStep('motor')}
-          />
+          <SectionHeader title="Motor Details" onEdit={() => onEditStep('motor')} />
           <CardContent className="text-sm">
-            <p>
-              {values.motor.registration_no ||
-                values.motor.chassis_no ||
-                'Vehicle not yet identified'}
-            </p>
+            <p>{values.motor.registration_no || values.motor.chassis_no || 'Vehicle not yet identified'}</p>
             <p className="text-slate-500">
-              {values.motor.make} {values.motor.model} · Value{' '}
-              {values.motor.vehicle_value || '—'}
+              {values.motor.make} {values.motor.model} - Value {values.motor.vehicle_value || '-'}
             </p>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
-      {values.quotation_type === 'MOTOR' && values.is_fleet && (
-        <Card>
-          <SectionHeader
-            title="Motor Fleet Details"
-            onEdit={() => onEditStep('motor-fleet')}
-          />
-          <CardContent className="text-sm">
-            <p>
-              Fleet {values.fleet.header.fleet_id || values.fleet.header.fleet_no || '(no number yet)'} —{' '}
-              {values.fleet.items.length} vehicle(s)
-            </p>
-            <p className="text-slate-500">
-              Total sum insured:{' '}
-              {values.fleet.items
-                .reduce((sum, item) => sum + (Number(item.sum_insured) || 0), 0)
-                .toFixed(2)}
-              {' · '}
-              Total premium:{' '}
-              {values.fleet.items
-                .reduce((sum, item) => sum + (Number(item.premium) || 0), 0)
-                .toFixed(2)}
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {values.quotation_type === 'NON_MOTOR' && (
-        <Card>
-          <SectionHeader title="Subject Matters" />
-          <CardContent className="space-y-1 text-sm">
-            <p className="text-slate-500">
-              Generated automatically for each risk row on save — reference is
-              the product code plus a timestamp, description is the product
-              name.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      {values.quotation_type === 'MOTOR' && values.is_fleet ? (
+        <>
+          <Card>
+            <SectionHeader
+              title="Fleet Vehicles"
+              onEdit={() => onEditStep('fleet-vehicles')}
+            />
+            <CardContent className="text-sm">
+              <p>
+                Fleet {values.fleet.header.fleet_id || values.fleet.header.fleet_no || '(no number yet)'} -{' '}
+                {values.fleet.items.length} vehicle(s)
+              </p>
+              <p className="text-slate-500">
+                Total sum insured: {fleetTotalSumInsured.toFixed(2)} - Total premium:{' '}
+                {fleetTotalPremium.toFixed(2)}
+              </p>
+            </CardContent>
+          </Card>
+          <Card>
+            <SectionHeader
+              title="Fleet Summary"
+              onEdit={() => onEditStep('fleet-vehicles')}
+            />
+            <CardContent className="grid gap-1 text-sm md:grid-cols-2">
+              <p>Expected fleet size: {values.fleet.header.fleet_size || values.fleet.items.length}</p>
+              <p>Vehicles entered: {values.fleet.items.length}</p>
+              <p>
+                Comprehensively insured vehicles: {values.fleet.header.comprehensive_insured || '0'}
+              </p>
+              <p>Fleet type: {values.fleet.header.fleet_type === '2' ? 'Fleet Addition' : 'New Fleet'}</p>
+            </CardContent>
+          </Card>
+        </>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -282,8 +291,7 @@ export function SummaryReviewStep({
         <CardContent className="grid gap-1 text-sm md:grid-cols-2">
           <div className="md:col-span-2">
             <p className="mb-3 text-slate-500">
-              This preview follows the flow-specific payload shape that will be
-              submitted to TIRAMIS.
+              This preview follows the flow-specific payload shape that will be submitted to TIRAMIS.
             </p>
             <pre className="max-h-[36rem] overflow-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">
               {JSON.stringify(
