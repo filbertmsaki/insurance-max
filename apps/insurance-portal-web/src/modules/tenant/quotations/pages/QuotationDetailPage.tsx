@@ -1,12 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  ArrowLeft,
-  CreditCard,
-  Pencil,
-  Play,
-  Trash2,
-} from 'lucide-react';
+import { ArrowLeft, CreditCard, Pencil, Play, Trash2 } from 'lucide-react';
 import { billingApi } from '@/modules/tenant/billing/api';
 import type { InvoiceRecord } from '@/modules/tenant/billing/types';
 import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
@@ -55,7 +49,9 @@ export function QuotationDetailPage() {
     let cancelled = false;
     billingApi.getInvoices({ limit: API_MAX_LIST_LIMIT }).then((page) => {
       if (cancelled) return;
-      setInvoice(page.data.find((item) => item.quotation_id === quotation.id) ?? null);
+      setInvoice(
+        page.data.find((item) => item.quotation_id === quotation.id) ?? null,
+      );
     });
     return () => {
       cancelled = true;
@@ -63,11 +59,16 @@ export function QuotationDetailPage() {
   }, [quotation?.id]);
 
   const isPaid = invoice?.status === 'PAID';
+  const paymentMode =
+    quotation.cover_note_dtl.fleet_hdr?.payment_mode ??
+    quotation.cover_note_dtl.payment_mode ??
+    1;
+  const canSubmitToTiramis = paymentMode === 1 || isPaid;
   const policyHolder = useMemo(() => {
     if (!quotation) return null;
     return quotation.internal_quotation.quotation_flow === 'MOTOR_FLEET'
-      ? quotation.cover_note_dtl.fleet_hdr?.policy_holders?.[0] ?? null
-      : quotation.cover_note_dtl.policy_holders?.[0] ?? null;
+      ? (quotation.cover_note_dtl.fleet_hdr?.policy_holders?.[0] ?? null)
+      : (quotation.cover_note_dtl.policy_holders?.[0] ?? null);
   }, [quotation]);
 
   if (isLoading) {
@@ -122,7 +123,9 @@ export function QuotationDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate(underwritingPaths.quotationPayment(quotation.id))}
+            onClick={() =>
+              navigate(underwritingPaths.quotationPayment(quotation.id))
+            }
           >
             <CreditCard className="mr-1.5 h-3.5 w-3.5" />
             Payment
@@ -130,16 +133,18 @@ export function QuotationDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            disabled={!isPaid || submitMutation.isPending}
+            disabled={!canSubmitToTiramis || submitMutation.isPending}
             title={
-              isPaid
+              canSubmitToTiramis
                 ? undefined
                 : 'Payment must be completed before submitting to TIRAMIS'
             }
             onClick={() =>
               submitMutation.mutate(undefined, {
                 onSuccess: (result) => {
-                  navigate(underwritingPaths.submissionDetail(result.submission.id));
+                  navigate(
+                    underwritingPaths.submissionDetail(result.submission.id),
+                  );
                 },
               })
             }
@@ -150,7 +155,9 @@ export function QuotationDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate(underwritingPaths.quotationWizardEdit(quotation.id))}
+            onClick={() =>
+              navigate(underwritingPaths.quotationWizardEdit(quotation.id))
+            }
           >
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             Edit
@@ -179,19 +186,47 @@ export function QuotationDetailPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <Row label="Quotation Number" value={quotation.quotation_no} />
-              <Row label="Flow" value={quotation.internal_quotation.quotation_flow} />
-              <Row label="Type" value={quotation.internal_quotation.quotation_type} />
-              <Row label="Channel" value={quotation.internal_quotation.channel_type} />
-              <Row label="Branch" value={quotation.internal_quotation.branch_id} />
-              <Row label="Department" value={quotation.internal_quotation.department_id} />
-              <Row label="Category" value={quotation.internal_quotation.category_id} />
-              <Row label="Product" value={quotation.internal_quotation.product_id} />
-              <Row label="Sub-Class" value={quotation.internal_quotation.sub_class_id} />
-              <Row label="Policyholder" value={policyHolder?.policy_holder_name} />
+              <Row
+                label="Flow"
+                value={quotation.internal_quotation.quotation_flow}
+              />
+              <Row
+                label="Type"
+                value={quotation.internal_quotation.quotation_type}
+              />
+              <Row
+                label="Channel"
+                value={quotation.internal_quotation.channel_type}
+              />
+              <Row
+                label="Branch"
+                value={quotation.internal_quotation.branch_id}
+              />
+              <Row
+                label="Department"
+                value={quotation.internal_quotation.department_id}
+              />
+              <Row
+                label="Category"
+                value={quotation.internal_quotation.category_id}
+              />
+              <Row
+                label="Product"
+                value={quotation.internal_quotation.product_id}
+              />
+              <Row
+                label="Sub-Class"
+                value={quotation.internal_quotation.sub_class_id}
+              />
+              <Row
+                label="Policyholder"
+                value={policyHolder?.policy_holder_name}
+              />
               <Row
                 label="Premium"
                 value={`${quotation.cover_note_dtl.fleet_hdr?.currency_code ?? quotation.cover_note_dtl.currency_code ?? 'TZS'} ${
-                  quotation.cover_note_dtl.fleet_hdr?.total_premium_including_tax ??
+                  quotation.cover_note_dtl.fleet_hdr
+                    ?.total_premium_including_tax ??
                   quotation.cover_note_dtl.total_premium_including_tax ??
                   0
                 }`}
