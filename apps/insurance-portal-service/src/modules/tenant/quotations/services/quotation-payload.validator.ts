@@ -901,7 +901,6 @@ export class QuotationPayloadValidator {
       'product_code',
       'risks_covered',
       'subject_matters_covered',
-      'cover_note_addons',
       'policy_holders',
     ];
 

@@ -18,6 +18,15 @@ describe('QuotationPayloadValidator', () => {
     expect(() => validator.assertValid(payload)).not.toThrow();
   });
 
+  it('accepts an empty cover_note_addons list and empty discounts', () => {
+    const payload = createValidNonMotorPayload();
+
+    payload.cover_note_dtl.cover_note_addons = [];
+    payload.cover_note_dtl.risks_covered![0].discounts_offered = [];
+
+    expect(() => validator.assertValid(payload)).not.toThrow();
+  });
+
   it('rejects a NON_MOTOR payload containing motor details', () => {
     const payload = createValidNonMotorPayload();
 
@@ -108,8 +117,8 @@ function createValidNonMotorPayload(): CreateQuotationDto {
       payment_mode: 1,
       currency_code: 'TZS',
       exchange_rate: 1,
-      total_premium_excluding_tax: 105000,
-      total_premium_including_tax: 123900,
+      total_premium_excluding_tax: 100000,
+      total_premium_including_tax: 118000,
       commision_paid: 0,
       commision_rate: 0,
       officer_name: 'Silas Parks',
@@ -147,27 +156,7 @@ function createValidNonMotorPayload(): CreateQuotationDto {
           subject_matter_desc: 'Residential building and installed fixtures',
         },
       ],
-      cover_note_addons: [
-        {
-          addon_reference: 'ADDON-001',
-          addon_desc: 'Loss of rent',
-          addon_amount: 500000,
-          addon_premium_rate: 0.01,
-          premium_excluding_tax: 5000,
-          premium_excluding_tax_equivalent: 5000,
-          premium_including_tax: 5900,
-          taxes_charged: [
-            {
-              tax_code: 'VAT-MAINLAND',
-              is_tax_exempted: 'N',
-              tax_exemption_type: null,
-              tax_exemption_reference: null,
-              tax_rate: 0.18,
-              tax_amount: 900,
-            },
-          ],
-        },
-      ],
+      cover_note_addons: [],
       policy_holders: [
         {
           policy_holder_name: 'Filbert Elisaia Msaki',
