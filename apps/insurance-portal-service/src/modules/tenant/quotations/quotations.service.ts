@@ -343,6 +343,28 @@ export class QuotationsService {
         ...user,
         userId: user.id,
         companyId,
+        branchId:
+          quotation.branch_id ??
+          (user as AuthenticatedUser & {
+            branchId?: string | null;
+            activeBranchId?: string | null;
+          }).branchId ??
+          (user as AuthenticatedUser & {
+            branchId?: string | null;
+            activeBranchId?: string | null;
+          }).activeBranchId ??
+          null,
+        activeBranchId:
+          quotation.branch_id ??
+          (user as AuthenticatedUser & {
+            branchId?: string | null;
+            activeBranchId?: string | null;
+          }).branchId ??
+          (user as AuthenticatedUser & {
+            branchId?: string | null;
+            activeBranchId?: string | null;
+          }).activeBranchId ??
+          null,
       },
     });
 
