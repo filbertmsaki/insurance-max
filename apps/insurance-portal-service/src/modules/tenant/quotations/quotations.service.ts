@@ -379,6 +379,7 @@ export class QuotationsService {
 
       const shouldSetSubmittedAt =
         !lockedQuotation.submitted_at || submitOptions.force_resubmit;
+      const nextStatus = QuotationStatus.PENDING_APPROVAL;
 
       await manager.getRepository(Quotation).update(
         {
@@ -390,9 +391,20 @@ export class QuotationsService {
           submitted_at: shouldSetSubmittedAt
             ? submittedAt
             : lockedQuotation.submitted_at,
+          status: nextStatus,
           updated_by: user.id,
         },
       );
+
+      if (lockedQuotation.status !== nextStatus) {
+        await manager.getRepository(QuotationStatusHistory).save({
+          quotation_id: quotation.id,
+          old_status: lockedQuotation.status,
+          new_status: nextStatus,
+          reason: 'Quotation submitted to TIRAMIS',
+          changed_by: user.id,
+        });
+      }
     });
 
     return {

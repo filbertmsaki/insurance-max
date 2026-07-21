@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 
 import { Quotation } from './entities/quotation.entity';
+import { QuotationStatusHistory } from './entities/quotation-status-history.entity';
 import { QuotationStatus } from './enums/quotation-status.enum';
 import { QuotationPayloadMapper } from './mappers/quotation-payload.mapper';
 import { QuotationTiramisPayloadMapper } from './mappers/quotation-tiramis-payload.mapper';
@@ -41,12 +42,23 @@ describe('QuotationsService submit payload mapping', () => {
       update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
 
+    const quotationStatusHistoryRepoInManager = {
+      save: jest.fn().mockResolvedValue({}),
+    };
+
     const dataSource = {
       transaction: jest.fn(async (callback: any) =>
         callback({
           getRepository: (entity: unknown) => {
-            expect(entity).toBe(Quotation);
-            return quotationRepoInManager;
+            if (entity === Quotation) {
+              return quotationRepoInManager;
+            }
+
+            if (entity === QuotationStatusHistory) {
+              return quotationStatusHistoryRepoInManager;
+            }
+
+            throw new Error(`Unexpected repository: ${String(entity)}`);
           },
         }),
       ),
@@ -130,5 +142,27 @@ describe('QuotationsService submit payload mapping', () => {
         tiramisBusinessSubmitService.submitAnyBusinessRecord as jest.Mock
       ).mock.calls[0][0].payload,
     ).not.toHaveProperty('internal_quotation');
+
+    expect(quotationRepoInManager.update).toHaveBeenCalledWith(
+      {
+        id: quotation.id,
+        company_id: 'company-1',
+      },
+      expect.objectContaining({
+        status: QuotationStatus.PENDING_APPROVAL,
+        submitted_by: 'user-1',
+        updated_by: 'user-1',
+      }),
+    );
+
+    expect(quotationStatusHistoryRepoInManager.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        quotation_id: quotation.id,
+        old_status: QuotationStatus.DRAFT,
+        new_status: QuotationStatus.PENDING_APPROVAL,
+        reason: 'Quotation submitted to TIRAMIS',
+        changed_by: 'user-1',
+      }),
+    );
   });
 });
