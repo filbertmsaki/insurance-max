@@ -9,16 +9,6 @@ import { Form } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { usePageFooter } from '@/components/layout/PageFooterSlot';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
 import {
@@ -207,7 +197,6 @@ export function QuotationWizardPage() {
   const { data: customerOptions = [] } = useQuotationCustomers();
   const [stepId, setStepId] = useState<QuotationWizardStepId>('cover-note');
   const [completedSteps, setCompletedSteps] = useState<QuotationWizardStepId[]>([]);
-  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
 
   const form = useForm<QuotationFormSchemaValues>({
     resolver: zodResolver(quotationFormSchema as any) as any,
@@ -471,7 +460,7 @@ export function QuotationWizardPage() {
     });
   }
 
-  const persistQuotation = useCallback(async (proceedToPayment: boolean) => {
+  const persistQuotation = useCallback(async () => {
     const valid = await form.trigger(undefined, { shouldFocus: true });
     if (!valid) {
       toast.error(findFirstErrorMessage(form.formState.errors) ?? 'Please complete the required quotation fields.');
@@ -508,10 +497,6 @@ export function QuotationWizardPage() {
       {
         onSuccess: (quotation) => {
           clearDraft();
-          if (proceedToPayment) {
-            navigate(underwritingPaths.quotationPayment(quotation.id));
-            return;
-          }
           navigate(underwritingPaths.quotationDetail(quotation.id));
         },
       },
@@ -548,7 +533,7 @@ export function QuotationWizardPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => persistQuotation(false)}
+              onClick={() => void persistQuotation()}
               disabled={isSaving || !companyId}
             >
               {isSaving ? 'Saving...' : 'Save Draft'}
@@ -556,10 +541,14 @@ export function QuotationWizardPage() {
             {isLastStep ? (
               <Button
                 type="button"
-                onClick={() => setConfirmSubmitOpen(true)}
+                onClick={() => void persistQuotation()}
                 disabled={isSaving || !companyId}
               >
-                {isSaving ? 'Saving...' : 'Save & Proceed to Payment'}
+                {isSaving
+                  ? 'Submitting...'
+                  : isEditMode
+                    ? 'Update Quotation'
+                    : 'Submit Quotation'}
               </Button>
             ) : (
               <Button type="button" onClick={goNext}>
@@ -747,30 +736,6 @@ export function QuotationWizardPage() {
           </form>
         </Form>
       </div>
-
-      <AlertDialog open={confirmSubmitOpen} onOpenChange={setConfirmSubmitOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Proceed to payment?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This saves the quotation draft and takes you to the payment page.
-              TIRAMIS submission still happens from the backend after payment
-              requirements are satisfied.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setConfirmSubmitOpen(false);
-                void persistQuotation(true);
-              }}
-            >
-              Confirm &amp; Continue
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
