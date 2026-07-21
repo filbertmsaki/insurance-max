@@ -11,8 +11,8 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { usePageFooter } from '@/components/layout/PageFooterSlot';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
+import { getApiErrorMessage } from '@/lib/api-error';
 import {
-  createEmptyAddonRow,
   createEmptyFleetDetails,
   createEmptyFleetItemRow,
   createEmptyMotorDetails,
@@ -36,6 +36,7 @@ import {
   useQuotationVehicles,
   useUpdateQuotation,
 } from '../hooks';
+import { quotationsApi } from '../api';
 import { QuotationWizardStepper } from '../wizard/QuotationWizardStepper';
 import { useQuotationWizardDraft } from '../wizard/useQuotationWizardDraft';
 import {
@@ -192,11 +193,16 @@ export function QuotationWizardPage() {
   const { id } = useParams<{ id?: string }>();
   const isEditMode = Boolean(id);
   const companyId = useQuotationCurrentCompanyId();
-  const { data: existingQuotation, isLoading: loadingQuotation, error } =
-    useQuotationDetail(id);
+  const {
+    data: existingQuotation,
+    isLoading: loadingQuotation,
+    error,
+  } = useQuotationDetail(id);
   const { data: customerOptions = [] } = useQuotationCustomers();
   const [stepId, setStepId] = useState<QuotationWizardStepId>('cover-note');
-  const [completedSteps, setCompletedSteps] = useState<QuotationWizardStepId[]>([]);
+  const [completedSteps, setCompletedSteps] = useState<QuotationWizardStepId[]>(
+    [],
+  );
 
   const form = useForm<QuotationFormSchemaValues>({
     resolver: zodResolver(quotationFormSchema as any) as any,
@@ -231,7 +237,9 @@ export function QuotationWizardPage() {
     name: 'risks',
   });
 
-  const { loadDraft, saveDraft, clearDraft } = useQuotationWizardDraft(id ?? null);
+  const { loadDraft, saveDraft, clearDraft } = useQuotationWizardDraft(
+    id ?? null,
+  );
   const businessLine = quotationFlow === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR';
   const { data: categoryOptions = [] } = useQuotationCategories(businessLine);
   const { data: productOptions = [] } = useQuotationProducts({
@@ -247,6 +255,7 @@ export function QuotationWizardPage() {
   );
   const createMutation = useCreateQuotation();
   const updateMutation = useUpdateQuotation(id);
+  const [isSubmittingToTiramis, setIsSubmittingToTiramis] = useState(false);
 
   const steps = useMemo(
     () => getWizardStepsForFlow(quotationFlow),
@@ -282,7 +291,8 @@ export function QuotationWizardPage() {
     form.reset({
       ...DEFAULT_VALUES,
       ...quotationRecordToFormValues(existingQuotation),
-      insurer_company_id: existingQuotation.internal_quotation.insurer_company_id,
+      insurer_company_id:
+        existingQuotation.internal_quotation.insurer_company_id,
     });
   }, [existingQuotation, form]);
 
@@ -293,7 +303,10 @@ export function QuotationWizardPage() {
   }, [stepId, steps]);
 
   useEffect(() => {
-    form.setValue('quotation_type', quotationFlow === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR');
+    form.setValue(
+      'quotation_type',
+      quotationFlow === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR',
+    );
     form.setValue('is_fleet', quotationFlow === 'MOTOR_FLEET');
 
     if (quotationFlow === 'NON_MOTOR') {
@@ -366,7 +379,9 @@ export function QuotationWizardPage() {
         }
       }
       if (!risk.risk_id && risk.risk_code) {
-        const match = riskOptions.find((option) => option.risk_code === risk.risk_code);
+        const match = riskOptions.find(
+          (option) => option.risk_code === risk.risk_code,
+        );
         if (match?.id) {
           form.setValue(`risks.${index}.risk_id`, match.id);
         }
@@ -374,21 +389,27 @@ export function QuotationWizardPage() {
     });
   }, [form, riskOptions]);
 
-  const goToStep = useCallback(async (nextStep: QuotationWizardStepId) => {
-    const fields = STEP_FIELDS[stepId];
-    if (fields?.length) {
-      const valid = await form.trigger(fields, { shouldFocus: true });
-      if (!valid) {
-        toast.error(findFirstErrorMessage(form.formState.errors) ?? 'Please fix the highlighted fields before continuing.');
-        return;
+  const goToStep = useCallback(
+    async (nextStep: QuotationWizardStepId) => {
+      const fields = STEP_FIELDS[stepId];
+      if (fields?.length) {
+        const valid = await form.trigger(fields, { shouldFocus: true });
+        if (!valid) {
+          toast.error(
+            findFirstErrorMessage(form.formState.errors) ??
+              'Please fix the highlighted fields before continuing.',
+          );
+          return;
+        }
       }
-    }
 
-    setCompletedSteps((previous) =>
-      previous.includes(stepId) ? previous : [...previous, stepId],
-    );
-    setStepId(nextStep);
-  }, [form, stepId]);
+      setCompletedSteps((previous) =>
+        previous.includes(stepId) ? previous : [...previous, stepId],
+      );
+      setStepId(nextStep);
+    },
+    [form, stepId],
+  );
 
   const goNext = useCallback(async () => {
     const currentIndex = steps.findIndex((step) => step.id === stepId);
@@ -437,11 +458,15 @@ export function QuotationWizardPage() {
 
   function removeFleetVehicle(index: number) {
     if (fleetFieldArray.fields.length === 1) return;
-    if (!window.confirm('Remove this fleet vehicle from the quotation?')) return;
+    if (!window.confirm('Remove this fleet vehicle from the quotation?'))
+      return;
     fleetFieldArray.remove(index);
     const remaining = form.getValues('fleet.items');
     remaining.forEach((_, itemIndex) => {
-      form.setValue(`fleet.items.${itemIndex}.fleet_entry`, String(itemIndex + 1));
+      form.setValue(
+        `fleet.items.${itemIndex}.fleet_entry`,
+        String(itemIndex + 1),
+      );
     });
   }
 
@@ -460,60 +485,92 @@ export function QuotationWizardPage() {
     });
   }
 
-  const persistQuotation = useCallback(async () => {
-    const valid = await form.trigger(undefined, { shouldFocus: true });
-    if (!valid) {
-      toast.error(findFirstErrorMessage(form.formState.errors) ?? 'Please complete the required quotation fields.');
-      return;
-    }
+  const persistQuotation = useCallback(
+    async (options?: { submitAfterSave?: boolean }) => {
+      const valid = await form.trigger(undefined, { shouldFocus: true });
+      if (!valid) {
+        toast.error(
+          findFirstErrorMessage(form.formState.errors) ??
+            'Please complete the required quotation fields.',
+        );
+        return;
+      }
 
-    const values = form.getValues();
-    const salePoint = activeSalePoints.find((item) => item.id === values.sale_point_id);
-    const product = productOptions.find((item) => item.id === values.product_id);
-    const existingCustomer = customerOptions.find(
-      (item) => item.id === values.customer_id,
-    );
-    const salePointCode = salePoint?.salePointCode;
-    const productCode = product?.tiramis_product_code || product?.product_code || product?.id;
+      const values = form.getValues();
+      const salePoint = activeSalePoints.find(
+        (item) => item.id === values.sale_point_id,
+      );
+      const product = productOptions.find(
+        (item) => item.id === values.product_id,
+      );
+      const existingCustomer = customerOptions.find(
+        (item) => item.id === values.customer_id,
+      );
+      const salePointCode = salePoint?.salePointCode;
+      const productCode =
+        product?.tiramis_product_code || product?.product_code || product?.id;
 
-    if (!salePointCode) {
-      toast.error('Select a valid sale point before saving this quotation.');
-      return;
-    }
+      if (!salePointCode) {
+        toast.error('Select a valid sale point before saving this quotation.');
+        return;
+      }
 
-    if (!productCode) {
-      toast.error('Select a valid product before saving this quotation.');
-      return;
-    }
+      if (!productCode) {
+        toast.error('Select a valid product before saving this quotation.');
+        return;
+      }
 
-    const mutation = isEditMode ? updateMutation : createMutation;
-    mutation.mutate(
-      {
-        values,
-        salePointCode,
-        productCode,
-        existingCustomer,
-      },
-      {
-        onSuccess: (quotation) => {
-          clearDraft();
-          navigate(underwritingPaths.quotationDetail(quotation.id));
-        },
-      },
-    );
-  }, [
-    activeSalePoints,
-    clearDraft,
-    createMutation,
-    customerOptions,
-    form,
-    isEditMode,
-    navigate,
-    productOptions,
-    updateMutation,
-  ]);
+      const mutation = isEditMode ? updateMutation : createMutation;
+      try {
+        const quotation = await mutation.mutateAsync({
+          values,
+          salePointCode,
+          productCode,
+          existingCustomer,
+        });
 
-  const isSaving = createMutation.isPending || updateMutation.isPending;
+        clearDraft();
+
+        if (options?.submitAfterSave) {
+          setIsSubmittingToTiramis(true);
+          try {
+            const submission = await quotationsApi.submit(quotation.id);
+            toast.success('Quotation submitted to TIRAMIS');
+            navigate(
+              underwritingPaths.submissionDetail(submission.submission.id),
+            );
+            return;
+          } catch (submitError) {
+            toast.error(getApiErrorMessage(submitError));
+            navigate(underwritingPaths.quotationDetail(quotation.id));
+            return;
+          } finally {
+            setIsSubmittingToTiramis(false);
+          }
+        }
+
+        navigate(underwritingPaths.quotationDetail(quotation.id));
+      } catch {
+        // Mutation hooks already surface the error toast.
+      }
+    },
+    [
+      activeSalePoints,
+      clearDraft,
+      createMutation,
+      customerOptions,
+      form,
+      isEditMode,
+      navigate,
+      productOptions,
+      updateMutation,
+    ],
+  );
+
+  const isSaving =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    isSubmittingToTiramis;
   const isFirstStep = steps[0]?.id === stepId;
   const isLastStep = steps[steps.length - 1]?.id === stepId;
 
@@ -541,14 +598,10 @@ export function QuotationWizardPage() {
             {isLastStep ? (
               <Button
                 type="button"
-                onClick={() => void persistQuotation()}
+                onClick={() => void persistQuotation({ submitAfterSave: true })}
                 disabled={isSaving || !companyId}
               >
-                {isSaving
-                  ? 'Submitting...'
-                  : isEditMode
-                    ? 'Update Quotation'
-                    : 'Submit Quotation'}
+                {isSaving ? 'Submitting...' : 'Save & Submit to TIRAMIS'}
               </Button>
             ) : (
               <Button type="button" onClick={goNext}>
@@ -619,7 +672,8 @@ export function QuotationWizardPage() {
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
           <p className="text-sm font-semibold text-slate-900">Quotation Type</p>
           <p className="mt-1 text-sm text-slate-500">
-            Choose whether this quotation is non-motor, a single motor cover, or a motor fleet cover.
+            Choose whether this quotation is non-motor, a single motor cover, or
+            a motor fleet cover.
           </p>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             {FLOW_OPTIONS.map((option) => {
@@ -660,7 +714,10 @@ export function QuotationWizardPage() {
         />
 
         <Form {...form}>
-          <form className="space-y-6" onSubmit={(event) => event.preventDefault()}>
+          <form
+            className="space-y-6"
+            onSubmit={(event) => event.preventDefault()}
+          >
             {stepId === 'cover-note' && (
               <CoverNoteSetupStep
                 form={form}

@@ -8,6 +8,7 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 import {
   DataSource,
   EntityManager,
+  Brackets,
   In,
   QueryFailedError,
 } from 'typeorm';
@@ -15,6 +16,11 @@ import { Company } from '../../platform/companies/entities/company.entity';
 import { TiramisRequestType } from '../../tiramis/enums/tiramis-request-type.enum';
 import { TiramisBusinessSubmitService } from '../../tiramis/services/tiramis-business-submit.service';
 import { Branch } from '../branches/entities/branch.entity';
+import { CustomerKycStatus } from '../customers/enums/customer-kyc-status.enum';
+import { CustomerGender } from '../customers/enums/customer-gender.enum';
+import { CustomerPolicyHolderType } from '../customers/enums/customer-policy-holder-type.enum';
+import { CustomerType } from '../customers/enums/customer-type.enum';
+import { CustomerStatus } from '../customers/enums/customer-status.enum';
 import { Customer } from '../customers/entities/customer.entity';
 import { Department } from '../departments/entities/department.entity';
 import { InsuranceCategory } from '../insurance-categories/entities/insurance-category.entity';
@@ -53,12 +59,9 @@ import { QuotationTiramisPayloadMapper } from './mappers/quotation-tiramis-paylo
 import { QuotationsRepository } from './repositories/quotations.repository';
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
 import { parseTiramisDateTime } from './utils/tiramis-date.util';
+import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 
-type NumericValue =
-  | number
-  | string
-  | null
-  | undefined;
+type NumericValue = number | string | null | undefined;
 
 interface ScopeValidationResult {
   product: InsuranceProduct;
@@ -134,17 +137,21 @@ export class QuotationsService {
     private readonly tiramisBusinessSubmitService: TiramisBusinessSubmitService,
   ) {}
 
-  async create(
-    companyId: string,
-    payload: CreateQuotationDto,
-    userId: string,
-  ) {
+  async create(companyId: string, payload: CreateQuotationDto, userId: string) {
     this.payloadValidator.assertValid(payload);
 
     const scope = await this.validateScope(companyId, payload);
 
     try {
       const quotationId = await this.dataSource.transaction(async (manager) => {
+        const customerId = await this.resolveOrCreateCustomerId(
+          manager,
+          companyId,
+          payload,
+          scope.customerId,
+          userId,
+        );
+
         const quotationNo = await this.generateQuotationNo(
           manager,
           companyId,
@@ -157,7 +164,7 @@ export class QuotationsService {
           quotationNo,
           payload,
           userId,
-          scope.customerId,
+          customerId,
           null,
         );
 
@@ -166,7 +173,8 @@ export class QuotationsService {
           quotation,
           payload,
           scope.riskByCode,
-          scope.customerId,
+          customerId,
+          userId,
         );
 
         return quotation.id;
@@ -186,7 +194,10 @@ export class QuotationsService {
   ) {
     this.payloadValidator.assertValid(payload);
 
-    const existing = await this.quotationsRepository.findOneAggregate(companyId, id);
+    const existing = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
     this.assertQuotationEditable(existing);
 
     const scope = await this.validateScope(companyId, payload);
@@ -202,6 +213,13 @@ export class QuotationsService {
         this.assertQuotationEditable(lockedQuotation);
 
         const previousStatus = lockedQuotation.status;
+        const customerId = await this.resolveOrCreateCustomerId(
+          manager,
+          companyId,
+          payload,
+          scope.customerId,
+          userId,
+        );
 
         await manager.getRepository(QuotationCoverNote).delete({
           quotation_id: id,
@@ -217,7 +235,7 @@ export class QuotationsService {
           lockedQuotation.quotation_no,
           payload,
           userId,
-          scope.customerId,
+          customerId,
           lockedQuotation,
         );
 
@@ -226,7 +244,8 @@ export class QuotationsService {
           quotation,
           payload,
           scope.riskByCode,
-          scope.customerId,
+          customerId,
+          userId,
         );
 
         if (previousStatus !== QuotationStatus.DRAFT) {
@@ -246,39 +265,38 @@ export class QuotationsService {
     }
   }
 
-  async findAll(
-    companyId: string,
-    query: FilterQuotationDto,
-  ) {
+  async findAll(companyId: string, query: FilterQuotationDto) {
     const result = await this.quotationsRepository.findAll(companyId, query);
 
     return {
-      items: result.items.map((quotation) => this.payloadMapper.toListItem(quotation)),
+      items: result.items.map((quotation) =>
+        this.payloadMapper.toListItem(quotation),
+      ),
       meta: result.meta,
     };
   }
 
-  async findOne(
-    companyId: string,
-    id: string,
-  ) {
-    const quotation = await this.quotationsRepository.findOneAggregate(companyId, id);
+  async findOne(companyId: string, id: string) {
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
     return this.payloadMapper.toResponse(quotation);
   }
 
-  async getAuthoritativePayload(
-    companyId: string,
-    id: string,
-  ) {
-    const quotation = await this.quotationsRepository.findOneAggregate(companyId, id);
+  async getAuthoritativePayload(companyId: string, id: string) {
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
     return this.payloadMapper.toAuthoritativePayload(quotation);
   }
 
-  async remove(
-    companyId: string,
-    id: string,
-  ): Promise<void> {
-    const quotation = await this.quotationsRepository.findOneAggregate(companyId, id);
+  async remove(companyId: string, id: string): Promise<void> {
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
 
     if (quotation.submitted_at) {
       throw new ConflictException('A submitted quotation cannot be deleted');
@@ -306,7 +324,10 @@ export class QuotationsService {
   ) {
     const submitOptions = dto ?? {};
 
-    const quotation = await this.quotationsRepository.findOneAggregate(companyId, id);
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
 
     if (TERMINAL_QUOTATION_STATUSES.includes(quotation.status)) {
       throw new ConflictException(
@@ -331,42 +352,51 @@ export class QuotationsService {
 
     const requestType = this.toTiramisRequestType(quotation.quotation_flow);
 
-    const result = await this.tiramisBusinessSubmitService.submitAnyBusinessRecord({
-      requestType,
-      sourceModule: 'quotations',
-      sourceRecordId: quotation.id,
-      businessReference: this.payloadMapper.businessReference(quotation),
-      payload: tiramisPayload as Record<string, unknown>,
-      forceResubmit: submitOptions.force_resubmit,
-      returnExisting: submitOptions.return_existing,
-      authContext: {
-        ...user,
-        userId: user.id,
-        companyId,
-        branchId:
-          quotation.branch_id ??
-          (user as AuthenticatedUser & {
-            branchId?: string | null;
-            activeBranchId?: string | null;
-          }).branchId ??
-          (user as AuthenticatedUser & {
-            branchId?: string | null;
-            activeBranchId?: string | null;
-          }).activeBranchId ??
-          null,
-        activeBranchId:
-          quotation.branch_id ??
-          (user as AuthenticatedUser & {
-            branchId?: string | null;
-            activeBranchId?: string | null;
-          }).branchId ??
-          (user as AuthenticatedUser & {
-            branchId?: string | null;
-            activeBranchId?: string | null;
-          }).activeBranchId ??
-          null,
-      },
-    });
+    const result =
+      await this.tiramisBusinessSubmitService.submitAnyBusinessRecord({
+        requestType,
+        sourceModule: 'quotations',
+        sourceRecordId: quotation.id,
+        businessReference: this.payloadMapper.businessReference(quotation),
+        payload: tiramisPayload as Record<string, unknown>,
+        forceResubmit: submitOptions.force_resubmit,
+        returnExisting: submitOptions.return_existing,
+        authContext: {
+          ...user,
+          userId: user.id,
+          companyId,
+          branchId:
+            quotation.branch_id ??
+            (
+              user as AuthenticatedUser & {
+                branchId?: string | null;
+                activeBranchId?: string | null;
+              }
+            ).branchId ??
+            (
+              user as AuthenticatedUser & {
+                branchId?: string | null;
+                activeBranchId?: string | null;
+              }
+            ).activeBranchId ??
+            null,
+          activeBranchId:
+            quotation.branch_id ??
+            (
+              user as AuthenticatedUser & {
+                branchId?: string | null;
+                activeBranchId?: string | null;
+              }
+            ).branchId ??
+            (
+              user as AuthenticatedUser & {
+                branchId?: string | null;
+                activeBranchId?: string | null;
+              }
+            ).activeBranchId ??
+            null,
+        },
+      });
 
     const submittedAt = new Date();
 
@@ -431,24 +461,25 @@ export class QuotationsService {
     const subClassRepository = this.dataSource.getRepository(InsuranceSubClass);
     const riskRepository = this.dataSource.getRepository(InsuranceRisk);
 
-    const [tenantCompany, insurerCompany, category, product] = await Promise.all([
-      companyRepository.findOne({ where: { id: companyId } }),
-      companyRepository.findOne({
-        where: { id: internal.insurer_company_id },
-      }),
-      categoryRepository.findOne({
-        where: {
-          id: internal.category_id,
-          company_id: internal.insurer_company_id,
-        },
-      }),
-      productRepository.findOne({
-        where: {
-          id: internal.product_id,
-          company_id: internal.insurer_company_id,
-        },
-      }),
-    ]);
+    const [tenantCompany, insurerCompany, category, product] =
+      await Promise.all([
+        companyRepository.findOne({ where: { id: companyId } }),
+        companyRepository.findOne({
+          where: { id: internal.insurer_company_id },
+        }),
+        categoryRepository.findOne({
+          where: {
+            id: internal.category_id,
+            company_id: internal.insurer_company_id,
+          },
+        }),
+        productRepository.findOne({
+          where: {
+            id: internal.product_id,
+            company_id: internal.insurer_company_id,
+          },
+        }),
+      ]);
 
     if (!tenantCompany) {
       throw new BadRequestException('Current company was not found');
@@ -621,7 +652,9 @@ export class QuotationsService {
       }
     }
 
-    const requestedRiskCodes = Array.from(new Set(this.collectRiskCodes(payload)));
+    const requestedRiskCodes = Array.from(
+      new Set(this.collectRiskCodes(payload)),
+    );
     const risks =
       requestedRiskCodes.length > 0
         ? await riskRepository.find({
@@ -702,6 +735,122 @@ export class QuotationsService {
     return customer?.id ?? null;
   }
 
+  private async resolveOrCreateCustomerId(
+    manager: EntityManager,
+    companyId: string,
+    payload: CreateQuotationDto,
+    existingCustomerId: string | null,
+    userId: string,
+  ): Promise<string | null> {
+    if (existingCustomerId) {
+      return existingCustomerId;
+    }
+
+    const holder =
+      payload.cover_note_dtl.policy_holders?.[0] ??
+      payload.cover_note_dtl.fleet_hdr?.policy_holders?.[0] ??
+      null;
+
+    if (!holder) {
+      return null;
+    }
+
+    const customerType =
+      holder.policy_holder_type === 1
+        ? CustomerType.INDIVIDUAL
+        : CustomerType.CORPORATE;
+    const customerRepository = manager.getRepository(Customer);
+    const customerNo = await this.generateCustomerNo(manager, companyId);
+    const nameParts = holder.policy_holder_name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+    const customer = customerRepository.create({
+      company_id: companyId,
+      customer_no: customerNo,
+      customer_type: customerType,
+      first_name:
+        customerType === CustomerType.INDIVIDUAL
+          ? (nameParts[0] ?? holder.policy_holder_name.trim())
+          : null,
+      middle_name:
+        customerType === CustomerType.INDIVIDUAL && nameParts.length > 2
+          ? nameParts.slice(1, -1).join(' ')
+          : null,
+      last_name:
+        customerType === CustomerType.INDIVIDUAL
+          ? nameParts.length > 1
+            ? nameParts[nameParts.length - 1]
+            : holder.policy_holder_name.trim()
+          : null,
+      gender:
+        customerType === CustomerType.INDIVIDUAL
+          ? (holder.gender as CustomerGender | null)
+          : null,
+      date_of_birth: holder.policy_holder_birth_date ?? null,
+      nationality: null,
+      company_name:
+        customerType === CustomerType.CORPORATE
+          ? holder.policy_holder_name.trim()
+          : null,
+      registration_no: null,
+      incorporation_certificate_no: null,
+      tin:
+        holder.policy_holder_id_type === 6
+          ? holder.policy_holder_id_number.trim()
+          : null,
+      vrn: null,
+      policy_holder_type:
+        holder.policy_holder_type === 1
+          ? CustomerPolicyHolderType.INDIVIDUAL
+          : CustomerPolicyHolderType.CORPORATE,
+      id_type: holder.policy_holder_id_type,
+      id_number: holder.policy_holder_id_number.trim().toUpperCase(),
+      nida_no: null,
+      voter_no: null,
+      passport_no: null,
+      driving_license_no: null,
+      zanid_no: null,
+      phone: holder.policy_holder_phone_number.trim(),
+      alternate_phone: null,
+      fax: holder.policy_holder_fax?.trim() ?? null,
+      email: holder.email_address?.trim().toLowerCase() ?? null,
+      country: null,
+      country_code: holder.country_code.trim().toUpperCase(),
+      region: holder.region.trim(),
+      district: holder.district.trim(),
+      ward: null,
+      street: holder.street?.trim() ?? null,
+      postal_address: holder.postal_address?.trim() ?? null,
+      latitude: null,
+      longitude: null,
+      contact_name: null,
+      contact_role: null,
+      contact_phone: null,
+      contact_email: null,
+      kyc_status: CustomerKycStatus.PENDING,
+      document_type: null,
+      document_no: null,
+      document_file_name: null,
+      document_file_url: null,
+      document_mime_type: null,
+      document_verified: false,
+      document_verified_by: null,
+      document_verified_at: null,
+      status: CustomerStatus.ACTIVE,
+      metadata: {
+        source: 'quotation',
+        quotation_flow: payload.internal_quotation.quotation_flow,
+      },
+      created_by: userId,
+      updated_by: userId,
+    });
+
+    const savedCustomer = await customerRepository.save(customer);
+    return savedCustomer.id;
+  }
+
   private async persistRoot(
     manager: EntityManager,
     companyId: string,
@@ -747,6 +896,7 @@ export class QuotationsService {
     payload: CreateQuotationDto,
     riskByCode: Map<string, InsuranceRisk>,
     customerId: string | null,
+    userId: string,
   ): Promise<void> {
     const header = this.resolveHeader(payload);
     const fleetHeader = payload.cover_note_dtl.fleet_hdr;
@@ -757,7 +907,9 @@ export class QuotationsService {
         quotation_id: quotation.id,
         cover_note_type: payload.cover_note_hdr.cover_note_type,
         sale_point_code: header.sale_point_code.trim().toUpperCase(),
-        cover_note_start_date: parseTiramisDateTime(header.cover_note_start_date),
+        cover_note_start_date: parseTiramisDateTime(
+          header.cover_note_start_date,
+        ),
         cover_note_end_date: parseTiramisDateTime(header.cover_note_end_date),
         payment_mode: header.payment_mode,
         currency_code: header.currency_code.trim().toUpperCase(),
@@ -805,7 +957,8 @@ export class QuotationsService {
           fleet_entry: quotation.is_fleet ? input.fleet_entry : null,
           cover_note_number: input.cover_note_number.trim().toUpperCase(),
           prev_cover_note_reference_number:
-            input.prev_cover_note_reference_number?.trim().toUpperCase() ?? null,
+            input.prev_cover_note_reference_number?.trim().toUpperCase() ??
+            null,
           cover_note_desc: input.cover_note_desc.trim(),
           operative_clause: input.operative_clause.trim(),
           endorsement_type: input.endorsement_type ?? null,
@@ -818,7 +971,16 @@ export class QuotationsService {
         }),
       );
 
-      await this.persistEntryChildren(manager, entry, input, riskByCode);
+      await this.persistEntryChildren(
+        manager,
+        entry,
+        input,
+        riskByCode,
+        customerId,
+        quotation,
+        userId,
+        header.currency_code,
+      );
     }
   }
 
@@ -863,6 +1025,10 @@ export class QuotationsService {
     entry: QuotationCoverNoteEntry,
     input: ResolvedEntry,
     riskByCode: Map<string, InsuranceRisk>,
+    customerId: string | null,
+    quotation: Quotation,
+    userId: string,
+    currencyCode: string,
   ): Promise<void> {
     await this.persistEntryRisks(manager, entry, input, riskByCode);
     await this.persistSubjectMatters(manager, entry, input);
@@ -877,7 +1043,136 @@ export class QuotationsService {
           ...this.mapMotorForPersistence(input.motor_dtl),
         }),
       );
+
+      if (customerId) {
+        await this.persistMotorVehicle(
+          manager,
+          quotation,
+          customerId,
+          input.motor_dtl,
+          userId,
+          currencyCode,
+        );
+      }
     }
+  }
+
+  private async persistMotorVehicle(
+    manager: EntityManager,
+    quotation: Quotation,
+    customerId: string,
+    motor: MotorDetailDto,
+    userId: string,
+    currencyCode: string,
+  ): Promise<void> {
+    const repository = manager.getRepository(MotorVehicle);
+    const registrationNumber = this.normalizeUppercase(
+      motor.registration_number,
+    );
+    const chassisNumber = this.normalizeUppercase(motor.chassis_number);
+    const engineNumber = this.normalizeUppercase(motor.engine_number);
+
+    const existingVehicle = await repository
+      .createQueryBuilder('vehicle')
+      .where('vehicle.company_id = :companyId', {
+        companyId: quotation.company_id,
+      })
+      .andWhere('vehicle.customer_id = :customerId', { customerId })
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where(
+            'UPPER(TRIM(vehicle.registration_no)) = :registrationNumber',
+            {
+              registrationNumber,
+            },
+          );
+          qb.orWhere('UPPER(TRIM(vehicle.chassis_no)) = :chassisNumber', {
+            chassisNumber,
+          });
+          qb.orWhere('UPPER(TRIM(vehicle.engine_no)) = :engineNumber', {
+            engineNumber,
+          });
+        }),
+      )
+      .getOne();
+
+    const vehicle = existingVehicle ?? repository.create();
+
+    Object.assign(vehicle, {
+      company_id: quotation.company_id,
+      customer_id: customerId,
+      registration_no: registrationNumber,
+      chassis_no: chassisNumber,
+      engine_no: engineNumber,
+      make: motor.make.trim(),
+      model: motor.model.trim(),
+      body_type: motor.body_type.trim(),
+      color: motor.color.trim(),
+      manufacture_year: motor.year_of_manufacture,
+      usage_type: motor.fuel_used.trim(),
+      seating_capacity: motor.sitting_capacity,
+      cubic_capacity: Number.isFinite(Number(motor.engine_capacity))
+        ? Number(motor.engine_capacity)
+        : null,
+      fuel_type: motor.fuel_used.trim(),
+      model_no: motor.model_number?.trim() ?? null,
+      number_of_axles: motor.number_of_axles,
+      axle_distance: this.numeric(motor.axle_distance, 2),
+      tare_weight: this.numeric(motor.tare_weight, 2),
+      gross_weight: this.numeric(motor.gross_weight, 2),
+      motor_category: motor.motor_category,
+      motor_type: motor.motor_type,
+      motor_usage: motor.motor_usage,
+      owner_name: motor.owner_name.trim(),
+      owner_category: motor.owner_category,
+      owner_address: motor.owner_address.trim(),
+      vehicle_value: '0',
+      currency: currencyCode.trim().toUpperCase(),
+      status: 'ACTIVE',
+      metadata: {
+        source: 'quotation',
+        quotation_id: quotation.id,
+        quotation_no: quotation.quotation_no,
+        quotation_flow: quotation.quotation_flow,
+      },
+      created_by: existingVehicle?.created_by ?? userId,
+      updated_by: userId,
+    });
+
+    await repository.save(vehicle);
+  }
+
+  private async generateCustomerNo(
+    manager: EntityManager,
+    companyId: string,
+  ): Promise<string> {
+    const year = this.getEastAfricaYear();
+    const prefix = `CUST-${year}-`;
+    const lockKey = `${companyId}:${prefix}:${year}`;
+
+    await manager.query(
+      `
+        SELECT pg_advisory_xact_lock(
+          hashtext($1)
+        )
+      `,
+      [lockKey],
+    );
+
+    const lastCustomer = await manager
+      .getRepository(Customer)
+      .createQueryBuilder('customer')
+      .where('customer.company_id = :companyId', { companyId })
+      .andWhere('customer.customer_no LIKE :prefix', { prefix: `${prefix}%` })
+      .orderBy('customer.customer_no', 'DESC')
+      .limit(1)
+      .getOne();
+
+    const next = lastCustomer?.customer_no
+      ? Number(lastCustomer.customer_no.substring(prefix.length)) + 1
+      : 1;
+
+    return `${prefix}${String(next).padStart(6, '0')}`;
   }
 
   private async persistEntryRisks(
@@ -890,7 +1185,11 @@ export class QuotationsService {
     const discountRepository = manager.getRepository(QuotationRiskDiscount);
     const taxRepository = manager.getRepository(QuotationRiskTax);
 
-    for (let riskIndex = 0; riskIndex < input.risks_covered.length; riskIndex += 1) {
+    for (
+      let riskIndex = 0;
+      riskIndex < input.risks_covered.length;
+      riskIndex += 1
+    ) {
       const inputRisk = input.risks_covered[riskIndex];
       const normalizedRiskCode = this.normalizeUppercase(inputRisk.risk_code);
       const configuredRisk = riskByCode.get(normalizedRiskCode);
@@ -902,15 +1201,27 @@ export class QuotationsService {
           sequence_no: riskIndex + 1,
           risk_code: normalizedRiskCode,
           sum_insured: this.numeric(inputRisk.sum_insured, 2),
-          sum_insured_equivalent: this.numeric(inputRisk.sum_insured_equivalent, 2),
+          sum_insured_equivalent: this.numeric(
+            inputRisk.sum_insured_equivalent,
+            2,
+          ),
           premium_rate: this.numeric(inputRisk.premium_rate, 6),
-          premium_before_discount: this.numeric(inputRisk.premium_before_discount, 2),
-          premium_after_discount: this.numeric(inputRisk.premium_after_discount, 2),
+          premium_before_discount: this.numeric(
+            inputRisk.premium_before_discount,
+            2,
+          ),
+          premium_after_discount: this.numeric(
+            inputRisk.premium_after_discount,
+            2,
+          ),
           premium_excluding_tax_equivalent: this.numeric(
             inputRisk.premium_excluding_tax_equivalent,
             2,
           ),
-          premium_including_tax: this.numeric(inputRisk.premium_including_tax, 2),
+          premium_including_tax: this.numeric(
+            inputRisk.premium_including_tax,
+            2,
+          ),
         }),
       );
 
@@ -977,7 +1288,11 @@ export class QuotationsService {
     const addonRepository = manager.getRepository(QuotationEntryAddon);
     const taxRepository = manager.getRepository(QuotationEntryAddonTax);
 
-    for (let addonIndex = 0; addonIndex < input.cover_note_addons.length; addonIndex += 1) {
+    for (
+      let addonIndex = 0;
+      addonIndex < input.cover_note_addons.length;
+      addonIndex += 1
+    ) {
       const inputAddon = input.cover_note_addons[addonIndex];
 
       const addon = await addonRepository.save(
@@ -988,12 +1303,18 @@ export class QuotationsService {
           addon_desc: inputAddon.addon_desc.trim(),
           addon_amount: this.numeric(inputAddon.addon_amount, 2),
           addon_premium_rate: this.numeric(inputAddon.addon_premium_rate, 6),
-          premium_excluding_tax: this.numeric(inputAddon.premium_excluding_tax, 2),
+          premium_excluding_tax: this.numeric(
+            inputAddon.premium_excluding_tax,
+            2,
+          ),
           premium_excluding_tax_equivalent: this.numeric(
             inputAddon.premium_excluding_tax_equivalent,
             2,
           ),
-          premium_including_tax: this.numeric(inputAddon.premium_including_tax, 2),
+          premium_including_tax: this.numeric(
+            inputAddon.premium_including_tax,
+            2,
+          ),
         }),
       );
 
@@ -1044,7 +1365,9 @@ export class QuotationsService {
   }
 
   private resolveHeader(payload: CreateQuotationDto): ResolvedHeader {
-    if (payload.internal_quotation.quotation_flow === QuotationFlow.MOTOR_FLEET) {
+    if (
+      payload.internal_quotation.quotation_flow === QuotationFlow.MOTOR_FLEET
+    ) {
       const fleetHeader = payload.cover_note_dtl.fleet_hdr!;
 
       return {
@@ -1090,7 +1413,9 @@ export class QuotationsService {
   }
 
   private resolveEntries(payload: CreateQuotationDto): ResolvedEntry[] {
-    if (payload.internal_quotation.quotation_flow === QuotationFlow.MOTOR_FLEET) {
+    if (
+      payload.internal_quotation.quotation_flow === QuotationFlow.MOTOR_FLEET
+    ) {
       return (payload.cover_note_dtl.fleet_dtls ?? []).map((entry) => ({
         fleet_entry: entry.fleet_entry,
         cover_note_number: entry.cover_note_number,
@@ -1131,7 +1456,9 @@ export class QuotationsService {
 
   private collectRiskCodes(payload: CreateQuotationDto): string[] {
     return this.resolveEntries(payload).flatMap((entry) =>
-      entry.risks_covered.map((risk) => this.normalizeUppercase(risk.risk_code)),
+      entry.risks_covered.map((risk) =>
+        this.normalizeUppercase(risk.risk_code),
+      ),
     );
   }
 
@@ -1141,8 +1468,7 @@ export class QuotationsService {
     quotationType: QuotationType,
   ): Promise<string> {
     const year = this.getEastAfricaYear();
-    const prefix =
-      quotationType === QuotationType.MOTOR ? 'QTN-MTR' : 'QTN-NM';
+    const prefix = quotationType === QuotationType.MOTOR ? 'QTN-MTR' : 'QTN-NM';
     const lockKey = `${companyId}:${prefix}:${year}`;
 
     await manager.query(
@@ -1215,9 +1541,7 @@ export class QuotationsService {
     }
   }
 
-  private async assertPaymentReady(
-    quotation: Quotation,
-  ): Promise<void> {
+  private async assertPaymentReady(quotation: Quotation): Promise<void> {
     const paymentMode = quotation.cover_note?.payment_mode;
 
     if (paymentMode === DIRECT_PAYMENT_MODE) {
@@ -1275,18 +1599,19 @@ export class QuotationsService {
       case QuotationFlow.MOTOR_FLEET:
         return TiramisRequestType.MOTOR_FLEET;
       default:
-        throw new BadRequestException(`Unsupported quotation flow: ${String(flow)}`);
+        throw new BadRequestException(
+          `Unsupported quotation flow: ${String(flow)}`,
+        );
     }
   }
 
-  private numeric(
-    value: NumericValue,
-    scale: number,
-  ): string {
+  private numeric(value: NumericValue, scale: number): string {
     const numberValue = Number(value);
 
     if (!Number.isFinite(numberValue)) {
-      throw new BadRequestException('Quotation contains an invalid numeric value');
+      throw new BadRequestException(
+        'Quotation contains an invalid numeric value',
+      );
     }
 
     return numberValue.toFixed(scale);
@@ -1318,7 +1643,9 @@ export class QuotationsService {
 
       if (code === '23505') {
         if (constraint.includes('cover_note_number')) {
-          throw new ConflictException('The supplied cover-note number already exists');
+          throw new ConflictException(
+            'The supplied cover-note number already exists',
+          );
         }
 
         if (constraint.includes('fleet_id')) {

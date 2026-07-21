@@ -9,6 +9,7 @@ import { InsuranceCategory } from '../insurance-categories/entities/insurance-ca
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
 import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
+import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { User } from '../users/entities/user.entity';
 import { Quotation } from './entities/quotation.entity';
 import { QuotationStatusHistory } from './entities/quotation-status-history.entity';
@@ -44,6 +45,7 @@ import { QuotationsService } from './quotations.service';
       QuotationEntryAddon,
       QuotationEntryAddonTax,
       QuotationMotorDetail,
+      MotorVehicle,
       Company,
       Customer,
       Branch,
