@@ -7,6 +7,7 @@ import { Policy } from '../policies/entities/policy.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 import { TiramisModule } from '../../tiramis/tiramis.module';
+import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { TiramisClientService } from './tiramis-client.service';
 import { PortalTiraSubmissionEvent } from './entities/portal-tira-submission-event.entity';
 import { PortalTiraSubmission } from './entities/portal-tira-submission.entity';
@@ -37,7 +38,11 @@ import { TiramisIntegrationService } from './tiramis-integration.service';
     ]),
   ],
   controllers: [TiramisIntegrationController, TiramisIntegrationListener],
-  providers: [TiramisIntegrationService, TiramisClientService],
+  providers: [
+    TiramisIntegrationService,
+    TiramisClientService,
+    IdentifierGeneratorService,
+  ],
   exports: [TiramisIntegrationService, TiramisClientService],
 })
 export class TiramisIntegrationModule {}

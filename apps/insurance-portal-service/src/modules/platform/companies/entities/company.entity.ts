@@ -3,6 +3,7 @@ import {
   CreateDateColumn,
   DeleteDateColumn,
   Entity,
+  Index,
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
@@ -28,6 +29,7 @@ export interface CompanySettings {
 }
 
 @Entity('companies')
+@Index('UQ_companies_identifier_prefix', ['identifier_prefix'], { unique: true })
 export class Company {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -37,6 +39,9 @@ export class Company {
 
   @Column({ unique: true, length: 120 })
   slug: string;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  identifier_prefix!: string | null;
 
   @Column({ default: 'active', length: 20 })
   status: string;

@@ -428,9 +428,10 @@ export class FleetDetailDto {
   @Min(1)
   fleet_entry: number;
 
+  @IsOptional()
   @IsString()
   @MaxLength(100)
-  cover_note_number: string;
+  cover_note_number?: string;
 
   @IsOptional()
   @IsString()

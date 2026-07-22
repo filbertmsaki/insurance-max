@@ -12,7 +12,6 @@ function getVehicleIssues(
 ): string[] {
   const issues: string[] = [];
 
-  if (!item.cover_note_number.trim()) issues.push('Missing cover note number');
   if (!item.cover_note_desc.trim()) issues.push('Missing cover note description');
   if (!item.operative_clause.trim()) issues.push('Missing operative clause');
   if (!item.motor_dtl.registration_number.trim() && !item.motor_dtl.chassis_number.trim()) {

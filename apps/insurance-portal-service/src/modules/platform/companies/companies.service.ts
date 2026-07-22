@@ -26,6 +26,7 @@ import {
   CompanyMembershipContext,
   CompanySummary,
 } from './interfaces/company-membership-context.interface';
+import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 
 @Injectable()
 export class CompaniesService {
@@ -50,6 +51,8 @@ export class CompaniesService {
 
     @InjectRepository(Permission)
     private readonly permissionRepository: Repository<Permission>,
+
+    private readonly identifierGeneratorService: IdentifierGeneratorService,
   ) {}
 
   private getCompanyRepository(manager?: EntityManager): Repository<Company> {
@@ -286,6 +289,11 @@ export class CompaniesService {
   ): Promise<Company> {
     const companyRepository = this.getCompanyRepository(manager);
     const normalizedName = dto.name.trim();
+    const identifierPrefix =
+      await this.identifierGeneratorService.generateCompanyIdentifierPrefix(
+        normalizedName,
+        manager,
+      );
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const uniqueSlug = await this.generateUniqueCompanySlug(
@@ -296,6 +304,7 @@ export class CompaniesService {
       const company = companyRepository.create({
         name: normalizedName,
         slug: uniqueSlug,
+        identifier_prefix: identifierPrefix,
         status: 'active',
         company_type: dto.company_type,
         tira_license_number: dto.tira_license_number ?? null,
@@ -451,6 +460,7 @@ export class CompaniesService {
         'company.id AS id',
         'company.name AS name',
         'company.slug AS slug',
+        'company.identifier_prefix AS identifier_prefix',
         'company.status AS status',
         'company.contact_email AS contact_email',
         'company.contact_phone AS contact_phone',
@@ -468,6 +478,7 @@ export class CompaniesService {
       .groupBy('company.id')
       .addGroupBy('company.name')
       .addGroupBy('company.slug')
+      .addGroupBy('company.identifier_prefix')
       .addGroupBy('company.status')
       .addGroupBy('company.contact_email')
       .addGroupBy('company.contact_phone')

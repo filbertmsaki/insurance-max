@@ -9,6 +9,7 @@ import { CompanyUserPermission } from './entities/company-user-permission.entity
 import { CompanyUserRole } from './entities/company-user-role.entity';
 import { CompaniesService } from './companies.service';
 import { CompaniesController } from './companies.controller';
+import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { CompaniesController } from './companies.controller';
     ]),
   ],
   controllers: [CompaniesController],
-  providers: [CompaniesService],
+  providers: [CompaniesService, IdentifierGeneratorService],
   exports: [CompaniesService, TypeOrmModule],
 })
 export class CompaniesModule {}

@@ -39,6 +39,7 @@ export class TiramisClientService {
       policyId: params.dto.policy_id || null,
       quotationId: params.dto.quotation_id || null,
       businessReference: params.dto.business_reference,
+      requestId: params.dto.requestId || null,
       requestType: params.dto.requestType,
       payload: params.dto.payload,
     };

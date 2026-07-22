@@ -129,7 +129,6 @@ export function SummaryReviewStep({
           <p>Channel: {values.channel_type}</p>
           <p>Branch: {branch?.name ?? '-'}</p>
           <p>Sale point: {salePoint?.salePointCode ?? '-'}</p>
-          <p>Cover note number: {values.cover_note_number || '-'}</p>
           <p>
             Currency: {values.currency}{' '}
             {currency !== 'TZS' ? `(rate: ${values.exchange_rate || '-'})` : ''}

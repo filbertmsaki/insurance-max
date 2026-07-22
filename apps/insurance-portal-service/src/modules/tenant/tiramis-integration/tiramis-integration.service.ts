@@ -15,6 +15,7 @@ import { TiramisSubmissionStatus } from '../../tiramis/enums/tiramis-submission-
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
 import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/tiramis-submission-tracking.repository';
 import { TiramisBusinessRecordSyncService } from '../../tiramis/services/tiramis-business-record-sync.service';
+import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { FilterPortalTiraSubmissionDto } from './dto/filter-portal-tira-submission.dto';
 import { TiramisNotificationEventDto } from './dto/tiramis-notification-event.dto';
 import { SubmitPortalTiraDto } from './dto/submit-portal-tira.dto';
@@ -45,6 +46,7 @@ export class TiramisIntegrationService {
     private readonly tiramisClientService: TiramisClientService,
     private readonly localTrackingRepository: TiramisSubmissionTrackingRepository,
     private readonly tiramisBusinessRecordSyncService: TiramisBusinessRecordSyncService,
+    private readonly identifierGeneratorService: IdentifierGeneratorService,
   ) {}
 
   async submitToTiramis(params: {
@@ -52,7 +54,7 @@ export class TiramisIntegrationService {
     userId?: string | null;
     dto: SubmitPortalTiraDto;
   }) {
-    const dto = params.dto;
+    const dto = { ...params.dto };
     const resolvedPayload = await this.resolveSubmissionPayload({
       companyId: params.companyId,
       dto,
@@ -80,6 +82,13 @@ export class TiramisIntegrationService {
       );
     }
 
+    const requestId =
+      existing?.tiramis_request_id ||
+      dto.requestId ||
+      (await this.identifierGeneratorService.generateRequestId(params.companyId));
+
+    dto.requestId = requestId;
+
     const sourceRecordId =
       dto.source_record_id || dto.policy_id || dto.quotation_id || null;
 
@@ -97,6 +106,7 @@ export class TiramisIntegrationService {
         submitted_at: new Date(),
         last_event_at: new Date(),
         last_payload: resolvedPayload,
+        tiramis_request_id: requestId,
       });
 
     submission.request_type = dto.requestType;
@@ -105,6 +115,7 @@ export class TiramisIntegrationService {
     submission.last_payload = resolvedPayload;
     submission.submitted_at = submission.submitted_at || new Date();
     submission.last_event_at = new Date();
+    submission.tiramis_request_id = requestId;
 
     const savedSubmission = await this.submissionRepository.save(submission);
 
@@ -116,7 +127,7 @@ export class TiramisIntegrationService {
       sourceRecordId,
       businessReference: dto.business_reference,
       tiramisTransactionId: savedSubmission.tiramis_transaction_id,
-      requestId: savedSubmission.tiramis_request_id || 'PENDING',
+      requestId,
       serviceType: dto.requestType,
       statusCode: null,
       statusDescription: 'Portal submitted request to TIRAMIS service',
@@ -140,7 +151,7 @@ export class TiramisIntegrationService {
         normalized.tiramisTransactionId ||
         savedSubmission.tiramis_transaction_id;
       savedSubmission.tiramis_request_id =
-        normalized.requestId || savedSubmission.tiramis_request_id;
+        normalized.requestId || savedSubmission.tiramis_request_id || requestId;
       savedSubmission.service_type =
         normalized.serviceType || savedSubmission.service_type;
       savedSubmission.root_element =
@@ -166,7 +177,7 @@ export class TiramisIntegrationService {
         sourceRecordId,
         businessReference: dto.business_reference,
         tiramisTransactionId: updatedSubmission.tiramis_transaction_id,
-        requestId: updatedSubmission.tiramis_request_id || 'UNKNOWN',
+        requestId: updatedSubmission.tiramis_request_id || requestId,
         serviceType: updatedSubmission.service_type,
         rootElement: updatedSubmission.root_element,
         statusCode: updatedSubmission.status_code,
@@ -196,7 +207,7 @@ export class TiramisIntegrationService {
         sourceRecordId,
         businessReference: dto.business_reference,
         tiramisTransactionId: failedSubmission.tiramis_transaction_id,
-        requestId: failedSubmission.tiramis_request_id || 'FAILED',
+        requestId: failedSubmission.tiramis_request_id || requestId,
         serviceType: dto.requestType,
         statusCode: null,
         statusDescription: 'Portal failed to submit request to TIRAMIS service',

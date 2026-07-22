@@ -46,7 +46,8 @@ export class TiramisPolicyService {
 
     this.validatePayload(resolvedDto);
 
-    const requestId = this.tiramisRequestIdService.generate('AIC');
+    const requestId =
+      sourceMetadata?.requestId || this.tiramisRequestIdService.generate('AIC');
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
       clientConfigurationId: resolvedDto.clientConfigurationId,

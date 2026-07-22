@@ -261,6 +261,7 @@ export class TiramisInternalController {
       quotationId: command.quotationId || null,
       businessReference:
         command.businessReference || this.resolveBusinessReference(command),
+      requestId: command.requestId || null,
       requestType: command.requestType,
     };
   }

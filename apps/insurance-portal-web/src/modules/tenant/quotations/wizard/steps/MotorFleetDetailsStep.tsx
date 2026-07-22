@@ -64,7 +64,6 @@ function getVehicleIssues(
 ): string[] {
   const issues: string[] = [];
 
-  if (!item.cover_note_number.trim()) issues.push('Missing cover note number');
   if (!item.cover_note_desc.trim()) issues.push('Missing cover note description');
   if (!item.operative_clause.trim()) issues.push('Missing operative clause');
   if (
@@ -181,19 +180,6 @@ function FleetVehicleEditor({
                   <FormControl>
                     <Input {...field} readOnly />
                   </FormControl>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name={`fleet.items.${index}.cover_note_number` as const}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cover Note Number</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />

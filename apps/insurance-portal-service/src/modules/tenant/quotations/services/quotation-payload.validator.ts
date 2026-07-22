@@ -22,7 +22,7 @@ interface EntryFinancialTotals {
 
 interface QuotationEntryPayload {
   fleet_entry?: number;
-  cover_note_number: string;
+  cover_note_number?: string;
   prev_cover_note_reference_number?: string | null;
   cover_note_desc: string;
   operative_clause: string;
@@ -883,7 +883,6 @@ export class QuotationPayloadValidator {
     errors: string[],
   ): void {
     const requiredFields: Array<keyof CoverNoteDetailDto> = [
-      'cover_note_number',
       'sale_point_code',
       'cover_note_start_date',
       'cover_note_end_date',
@@ -929,7 +928,6 @@ export class QuotationPayloadValidator {
     errors: string[],
   ): void {
     const standardFields: Array<keyof CoverNoteDetailDto> = [
-      'cover_note_number',
       'prev_cover_note_reference_number',
       'sale_point_code',
       'cover_note_start_date',
@@ -981,7 +979,7 @@ export class QuotationPayloadValidator {
 
   private registerUniqueValue(
     values: Set<string>,
-    value: string,
+    value: string | null | undefined,
     path: string,
     errors: string[],
   ): void {

@@ -36,6 +36,7 @@ import { QuotationsController } from './quotations.controller';
 import { QuotationsRepository } from './repositories/quotations.repository';
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
 import { QuotationsService } from './quotations.service';
+import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { QuotationsService } from './quotations.service';
     QuotationPreviewMapper,
     QuotationTiramisPayloadMapper,
     QuotationPayloadValidator,
+    IdentifierGeneratorService,
   ],
   exports: [
     QuotationsService,

@@ -56,7 +56,8 @@ export class TiramisDischargeVoucherService {
 
     this.validateDischargeVoucherPayload(resolvedDto);
 
-    const requestId = this.tiramisRequestIdService.generate('AIC');
+    const requestId =
+      sourceMetadata?.requestId || this.tiramisRequestIdService.generate('AIC');
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
       clientConfigurationId: resolvedDto.clientConfigurationId,

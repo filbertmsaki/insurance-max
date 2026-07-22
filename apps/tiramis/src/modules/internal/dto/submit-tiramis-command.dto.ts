@@ -25,6 +25,7 @@ export interface SubmitTiramisCommandDto {
   policyId?: string | null;
   quotationId?: string | null;
   businessReference?: string | null;
+  requestId?: string | null;
   requestType: TiramisPortalRequestType;
 
   /**

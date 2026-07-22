@@ -148,7 +148,7 @@ export interface FleetHeaderPayload {
 
 export interface FleetDetailPayload {
   fleet_entry: number;
-  cover_note_number: string;
+  cover_note_number?: string;
   prev_cover_note_reference_number: string | null;
   cover_note_desc: string;
   operative_clause: string;

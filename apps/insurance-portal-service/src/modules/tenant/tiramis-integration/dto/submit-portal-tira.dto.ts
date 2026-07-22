@@ -61,6 +61,10 @@ export class SubmitPortalTiraDto {
   @IsString()
   business_reference!: string;
 
+  @IsOptional()
+  @IsString()
+  requestId?: string;
+
   /**
    * Already prepared TIRAMIS payload for Motor or Non-Motor submission.
    */

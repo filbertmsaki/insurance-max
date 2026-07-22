@@ -443,9 +443,10 @@ function validateStandardCoverNoteFields(
   values: z.infer<typeof quotationFormObjectSchema>,
   ctx: z.RefinementCtx,
 ) {
-  const requiredFields: Array<
-    'cover_note_number' | 'cover_note_desc' | 'operative_clause'
-  > = ['cover_note_number', 'cover_note_desc', 'operative_clause'];
+  const requiredFields: Array<'cover_note_desc' | 'operative_clause'> = [
+    'cover_note_desc',
+    'operative_clause',
+  ];
 
   requiredFields.forEach((field) => {
     if (!normalizeText(values[field])) {
@@ -532,13 +533,6 @@ function validateFleet(
   const seenEngine = new Map<string, number>();
 
   values.fleet.items.forEach((item, index) => {
-    if (!normalizeText(item.cover_note_number)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['fleet', 'items', index, 'cover_note_number'],
-        message: 'Cover note number is required',
-      });
-    }
     if (!normalizeText(item.cover_note_desc)) {
       ctx.addIssue({
         code: 'custom',
@@ -1103,7 +1097,6 @@ function buildCommonDetail(
 ) {
   const risks = values.risks.map(buildRiskPayload);
   return {
-    cover_note_number: normalizeText(values.cover_note_number) ?? '',
     prev_cover_note_reference_number: normalizeText(
       values.prev_cover_note_reference,
     ),
@@ -1263,9 +1256,6 @@ export function buildMotorFleetQuotationPayload(
 
     return {
       fleet_entry: normalizePositiveNumber(item.fleet_entry, index + 1),
-      cover_note_number:
-        normalizeText(item.cover_note_number) ??
-        `${values.fleet.header.fleet_id || 'FLEET'}-${index + 1}`,
       prev_cover_note_reference_number: normalizeText(
         item.prev_cover_note_reference_number,
       ),
@@ -1733,7 +1723,6 @@ export function quotationRecordToFormValues(
       items: fleetItems.map((item) => ({
         ...createEmptyFleetItemRow(),
         fleet_entry: String(item.fleet_entry),
-        cover_note_number: item.cover_note_number,
         prev_cover_note_reference_number:
           item.prev_cover_note_reference_number ?? '',
         cover_note_desc: item.cover_note_desc,

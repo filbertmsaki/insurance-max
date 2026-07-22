@@ -8,4 +8,5 @@ export interface TiramisSourceMetadataDto {
   quotationId?: string | null;
   businessReference?: string | null;
   requestType?: string | null;
+  requestId?: string | null;
 }

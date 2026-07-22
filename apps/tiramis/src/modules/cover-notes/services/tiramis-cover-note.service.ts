@@ -52,7 +52,8 @@ export class TiramisCoverNoteService {
 
     this.validateNonMotorPayload(resolvedDto);
 
-    const requestId = this.tiramisRequestIdService.generate('AIC');
+    const requestId =
+      sourceMetadata?.requestId || this.tiramisRequestIdService.generate('AIC');
 
     const transaction = await this.tiramisSubmissionService.createTransaction({
       clientConfigurationId: resolvedDto.clientConfigurationId,

@@ -53,7 +53,8 @@ export class TiramisMotorService {
 
     this.validateMotorPayload(resolvedDto);
 
-    const requestId = this.tiramisRequestIdService.generate('AIC');
+    const requestId =
+      sourceMetadata?.requestId || this.tiramisRequestIdService.generate('AIC');
     const serviceType = resolvedDto.isFleet
       ? 'MOTOR_COVER_NOTE_FLEET'
       : 'MOTOR_COVER_NOTE_NON_FLEET';

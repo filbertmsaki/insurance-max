@@ -69,6 +69,7 @@ import { PortalTiraSubmission } from '../tiramis-integration/entities/portal-tir
 import { PortalTiraSubmissionEvent } from '../tiramis-integration/entities/portal-tira-submission-event.entity';
 import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/tiramis-submission-tracking.repository';
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
+import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 
 type NumericValue = number | string | null | undefined;
 
@@ -146,12 +147,18 @@ export class QuotationsService {
     private readonly payloadValidator: QuotationPayloadValidator,
     private readonly tiramisBusinessSubmitService: TiramisBusinessSubmitService,
     private readonly tiramisSubmissionTrackingRepository: TiramisSubmissionTrackingRepository,
+    private readonly identifierGeneratorService: IdentifierGeneratorService,
   ) {}
 
   async create(companyId: string, payload: CreateQuotationDto, userId: string) {
-    this.payloadValidator.assertValid(payload);
+    const preparedPayload = await this.preparePayloadWithGeneratedIdentifiers(
+      companyId,
+      payload,
+    );
 
-    const scope = await this.validateScope(companyId, payload);
+    this.payloadValidator.assertValid(preparedPayload);
+
+    const scope = await this.validateScope(companyId, preparedPayload);
 
     try {
       const quotationId = await this.dataSource.transaction(async (manager) => {
@@ -163,17 +170,16 @@ export class QuotationsService {
           userId,
         );
 
-        const quotationNo = await this.generateQuotationNo(
-          manager,
+        const quotationNo = await this.identifierGeneratorService.generateQuotationNumber(
           companyId,
-          payload.internal_quotation.quotation_type,
+          manager,
         );
 
         const quotation = await this.persistRoot(
           manager,
           companyId,
           quotationNo,
-          payload,
+          preparedPayload,
           userId,
           customerId,
           null,
@@ -182,7 +188,7 @@ export class QuotationsService {
         await this.persistAggregate(
           manager,
           quotation,
-          payload,
+          preparedPayload,
           scope.riskByCode,
           customerId,
           userId,
@@ -203,15 +209,20 @@ export class QuotationsService {
     payload: UpdateQuotationDto,
     userId: string,
   ) {
-    this.payloadValidator.assertValid(payload);
-
     const existing = await this.quotationsRepository.findOneAggregate(
       companyId,
       id,
     );
     this.assertQuotationEditable(existing);
 
-    const scope = await this.validateScope(companyId, payload);
+    const preparedPayload = await this.preparePayloadWithGeneratedIdentifiers(
+      companyId,
+      payload,
+      existing,
+    );
+
+    this.payloadValidator.assertValid(preparedPayload);
+    const scope = await this.validateScope(companyId, preparedPayload);
 
     try {
       await this.dataSource.transaction(async (manager) => {
@@ -233,10 +244,10 @@ export class QuotationsService {
         }
 
         const previousStatus = lockedQuotation.status;
-        const customerId = await this.resolveOrCreateCustomerId(
+          const customerId = await this.resolveOrCreateCustomerId(
           manager,
           companyId,
-          payload,
+          preparedPayload,
           scope.customerId,
           userId,
         );
@@ -253,7 +264,7 @@ export class QuotationsService {
           manager,
           companyId,
           lockedQuotation.quotation_no,
-          payload,
+          preparedPayload,
           userId,
           customerId,
           lockedQuotation,
@@ -262,7 +273,7 @@ export class QuotationsService {
         await this.persistAggregate(
           manager,
           quotation,
-          payload,
+          preparedPayload,
           scope.riskByCode,
           customerId,
           userId,
@@ -1472,7 +1483,7 @@ export class QuotationsService {
     ) {
       return (payload.cover_note_dtl.fleet_dtls ?? []).map((entry) => ({
         fleet_entry: entry.fleet_entry,
-        cover_note_number: entry.cover_note_number,
+        cover_note_number: entry.cover_note_number ?? '',
         prev_cover_note_reference_number:
           entry.prev_cover_note_reference_number ?? null,
         cover_note_desc: entry.cover_note_desc,
@@ -1508,56 +1519,67 @@ export class QuotationsService {
     ];
   }
 
+  private async preparePayloadWithGeneratedIdentifiers(
+    companyId: string,
+    payload: CreateQuotationDto | UpdateQuotationDto,
+    currentQuotation?: Quotation | null,
+  ): Promise<CreateQuotationDto | UpdateQuotationDto> {
+    const prepared = JSON.parse(JSON.stringify(payload)) as
+      | CreateQuotationDto
+      | UpdateQuotationDto;
+
+    const flow = prepared.internal_quotation.quotation_flow;
+    const existingEntries = currentQuotation?.cover_note?.entries ?? [];
+
+    if (flow === QuotationFlow.MOTOR_FLEET) {
+      const fleetDetails = prepared.cover_note_dtl.fleet_dtls ?? [];
+      const existingNumbers = new Map<number, string>();
+
+      for (const entry of existingEntries) {
+        const key = Number(entry.fleet_entry ?? entry.entry_number);
+        if (Number.isFinite(key) && entry.cover_note_number) {
+          existingNumbers.set(key, entry.cover_note_number);
+        }
+      }
+
+      const missingCount = fleetDetails.filter((item, index) => {
+        const key = Number(item.fleet_entry ?? index + 1);
+        return !existingNumbers.has(key);
+      }).length;
+
+      const generatedNumbers = await this.identifierGeneratorService.generateFleetCoverNoteNumbers(
+        companyId,
+        missingCount,
+      );
+
+      let generatedIndex = 0;
+      fleetDetails.forEach((item, index) => {
+        const key = Number(item.fleet_entry ?? index + 1);
+        const existingNumber = existingNumbers.get(key);
+        item.cover_note_number =
+          existingNumber ||
+          generatedNumbers[generatedIndex++] ||
+          item.cover_note_number ||
+          '';
+      });
+    } else {
+      const existingNumber = existingEntries[0]?.cover_note_number ?? null;
+      prepared.cover_note_dtl.cover_note_number =
+        existingNumber ||
+        (await this.identifierGeneratorService.generateCoverNoteNumber(
+          companyId,
+        ));
+    }
+
+    return prepared;
+  }
+
   private collectRiskCodes(payload: CreateQuotationDto): string[] {
     return this.resolveEntries(payload).flatMap((entry) =>
       entry.risks_covered.map((risk) =>
         this.normalizeUppercase(risk.risk_code),
       ),
     );
-  }
-
-  private async generateQuotationNo(
-    manager: EntityManager,
-    companyId: string,
-    quotationType: QuotationType,
-  ): Promise<string> {
-    const year = this.getEastAfricaYear();
-    const prefix = quotationType === QuotationType.MOTOR ? 'QTN-MTR' : 'QTN-NM';
-    const lockKey = `${companyId}:${prefix}:${year}`;
-
-    await manager.query(
-      `
-        SELECT pg_advisory_xact_lock(
-          hashtext($1)
-        )
-      `,
-      [lockKey],
-    );
-
-    const rows: Array<{ quotation_no: string }> = await manager.query(
-      `
-        SELECT quotation_no
-        FROM quotations
-        WHERE company_id = $1
-          AND quotation_no LIKE $2
-        ORDER BY quotation_no DESC
-        LIMIT 1
-      `,
-      [companyId, `${prefix}-${year}-%`],
-    );
-
-    const currentNumber = rows[0]?.quotation_no;
-    let nextSequence = 1;
-
-    if (currentNumber) {
-      const currentSequence = Number(currentNumber.split('-').pop());
-
-      if (Number.isFinite(currentSequence)) {
-        nextSequence = currentSequence + 1;
-      }
-    }
-
-    return `${prefix}-${year}-${String(nextSequence).padStart(6, '0')}`;
   }
 
   private async lockQuotationForUpdate(

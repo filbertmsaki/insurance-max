@@ -367,7 +367,7 @@ export function CoverNoteSetupStep({
               <FormItem>
                 <FormLabel>Currency (required)</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} readOnly />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -510,25 +510,7 @@ export function CoverNoteSetupStep({
         <CardHeader>
           <CardTitle className="text-base">TIRAMIS Cover Note Header</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="cover_note_number"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  {requiresStandardCoverNoteFields
-                    ? 'Cover Note Number (required)'
-                    : 'Cover Note Number'}
-                </FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
+        <CardContent className="grid gap-4 md:grid-cols-1">
           <FormField
             control={form.control}
             name="cover_note_type"
