@@ -915,6 +915,7 @@ const roleSeeds: RoleSeed[] = [
       'permissions:read',
       'tiramis-submissions:read',
       'tiramis-submissions:create',
+      'tiramis.tracking.view',
       'branches:read',
       'branches:create',
       'branches:update',
