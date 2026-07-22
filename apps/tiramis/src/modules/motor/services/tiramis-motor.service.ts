@@ -469,6 +469,7 @@ export class TiramisMotorService {
     if (errors.length > 0) {
       throw new BadRequestException({
         message: 'Motor payload validation failed',
+        validation_errors: errors,
         errors,
       });
     }

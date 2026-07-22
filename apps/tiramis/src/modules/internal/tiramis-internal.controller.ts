@@ -207,10 +207,16 @@ export class TiramisInternalController {
         error?.stack,
       );
 
+      const response = error?.response || error?.error || null;
+
       throw new RpcException({
         ok: false,
         message: error?.message || 'TIRAMIS submission failed',
-        details: error?.response || null,
+        details: response,
+        ...(Array.isArray(response?.validation_errors)
+          ? { validation_errors: response.validation_errors }
+          : {}),
+        ...(Array.isArray(response?.errors) ? { errors: response.errors } : {}),
       });
     }
   }

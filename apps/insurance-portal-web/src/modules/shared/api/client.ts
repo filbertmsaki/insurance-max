@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { API_BASE_URL } from '@/modules/shared/config';
 import { normalizePaginatedResponse } from './pagination';
+import { parseApiError } from '@/lib/api-error';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -122,11 +123,7 @@ apiClient.interceptors.response.use(
       }
     }
 
-    const message =
-      error.response?.data?.message ||
-      error.response?.data?.error ||
-      error.message ||
-      'An unexpected error occurred';
+    const message = parseApiError(error).message;
 
     if (error.response?.status !== 401) {
       toast.error(Array.isArray(message) ? message[0] : message);

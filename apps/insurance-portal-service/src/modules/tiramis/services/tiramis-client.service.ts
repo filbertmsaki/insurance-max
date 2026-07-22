@@ -625,15 +625,28 @@ export class TiramisClientService {
         );
       }
 
+      const response = this.extractTiramisErrorResponse(error);
+      const validationErrors = this.extractValidationErrors(response);
       const message =
+        response?.message ||
         error?.message ||
-        error?.response?.message ||
-        error?.error?.message ||
+        response?.error?.message ||
         'Failed to communicate with tiramis-service';
 
       throw new BadRequestException({
         message,
-        details: error?.response || error?.error || null,
+        ...(validationErrors.length > 0
+          ? { validation_errors: validationErrors }
+          : {}),
+        details:
+          response && typeof response === 'object'
+            ? {
+                ...response,
+                ...(validationErrors.length > 0
+                  ? { validation_errors: validationErrors }
+                  : {}),
+              }
+            : response ?? null,
       });
     }
   }
@@ -718,5 +731,35 @@ export class TiramisClientService {
       TiramisSubmissionStatus.RETRY_EXHAUSTED,
       TiramisSubmissionStatus.CALLBACK_OVERDUE,
     ].includes(status as TiramisSubmissionStatus);
+  }
+
+  private extractTiramisErrorResponse(error: any): any {
+    return (
+      error?.response ||
+      error?.error?.response ||
+      error?.error ||
+      error?.details ||
+      null
+    );
+  }
+
+  private extractValidationErrors(response: any): string[] {
+    const validationErrors =
+      response?.validation_errors ||
+      response?.errors ||
+      response?.details?.validation_errors ||
+      response?.details?.errors ||
+      response?.error?.validation_errors ||
+      response?.error?.errors;
+
+    if (!validationErrors) {
+      return [];
+    }
+
+    if (Array.isArray(validationErrors)) {
+      return validationErrors.map((item) => String(item));
+    }
+
+    return [String(validationErrors)];
   }
 }
