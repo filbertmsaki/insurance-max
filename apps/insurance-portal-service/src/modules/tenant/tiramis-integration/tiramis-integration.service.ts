@@ -505,7 +505,9 @@ export class TiramisIntegrationService {
   }
 
   async findAll(companyId: string, query: FilterPortalTiraSubmissionDto) {
-    if (this.isQuotationSource(query.source_module)) {
+    const sourceModule = query.source_module || query.sourceModule || null;
+
+    if (this.isQuotationSource(sourceModule)) {
       return this.findQuotationTrackingSubmissions(companyId, query);
     }
 
@@ -548,9 +550,9 @@ export class TiramisIntegrationService {
       });
     }
 
-    if (query.source_module) {
+    if (sourceModule) {
       qb.andWhere('submission.source_module = :sourceModule', {
-        sourceModule: query.source_module,
+        sourceModule,
       });
     }
 

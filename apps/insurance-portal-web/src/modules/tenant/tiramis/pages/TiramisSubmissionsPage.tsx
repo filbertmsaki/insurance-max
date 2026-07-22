@@ -26,7 +26,7 @@ export function TiramisSubmissionsPage() {
     setBusinessReference,
     setPage,
     setLimit,
-  } = useTenantSubmissionsList({ source_module: 'quotations' });
+  } = useTenantSubmissionsList({ sourceModule: 'quotations' });
 
   const columns: Column<TiramisSubmissionRecord>[] = [
     { key: 'status', header: 'Status', cell: (row) => <TiramisStatusBadge status={row.status} /> },

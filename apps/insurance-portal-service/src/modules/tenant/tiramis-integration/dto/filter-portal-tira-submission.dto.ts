@@ -1,3 +1,5 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { IsOptional, IsString } from 'class-validator';
 
 import { PaginationDto } from '@insurance-max/portal-shared/dto/pagination.dto';
@@ -27,7 +29,22 @@ export class FilterPortalTiraSubmissionDto extends PaginationDto {
   @IsString()
   declare business_reference?: string;
 
+  @ApiPropertyOptional({
+    example: 'quotations',
+    description: 'Filter by source module',
+  })
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => value)
   declare source_module?: string;
+
+  @ApiPropertyOptional({
+    example: 'quotations',
+    description: 'Alias for source_module',
+  })
+  @IsOptional()
+  @IsString()
+  @Transform(({ value, obj }) => value ?? obj?.source_module)
+  declare sourceModule?: string;
+
 }

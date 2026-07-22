@@ -69,7 +69,7 @@ function useTiramisSearchParams() {
 }
 
 export function useTenantSubmissionsList(
-  defaults?: Pick<TenantTiramisSubmissionListParams, 'source_module'>,
+  defaults?: Pick<TenantTiramisSubmissionListParams, 'sourceModule'>,
 ) {
   const {
     page,
@@ -87,7 +87,7 @@ export function useTenantSubmissionsList(
       limit,
       search: search || undefined,
       status: status || undefined,
-      source_module: defaults?.source_module || undefined,
+      sourceModule: defaults?.sourceModule || undefined,
       request_id: requestId || undefined,
       business_reference: businessReference || undefined,
     }),
@@ -98,7 +98,7 @@ export function useTenantSubmissionsList(
       status,
       requestId,
       businessReference,
-      defaults?.source_module,
+      defaults?.sourceModule,
     ],
   );
 
