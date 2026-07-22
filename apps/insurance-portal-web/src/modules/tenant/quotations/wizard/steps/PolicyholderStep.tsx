@@ -94,7 +94,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
               name="customer_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Existing Customer</FormLabel>
+                  <FormLabel>Existing Customer (required)</FormLabel>
                   <Select
                     value={toSelectValue(field.value)}
                     onValueChange={(value) => field.onChange(fromSelectValue(value))}
@@ -177,7 +177,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
 
             <FormField control={form.control} name={fieldName('full_name')} render={({ field }) => (
               <FormItem className="md:col-span-2">
-                <FormLabel>Full Name</FormLabel>
+                <FormLabel>Full Name (required)</FormLabel>
                 <FormControl>
                   <Input
                     {...field}
@@ -195,7 +195,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
 
             <FormField control={form.control} name={fieldName('date_of_birth')} render={({ field }) => (
               <FormItem>
-                <FormLabel>Date of Birth / Incorporation Date</FormLabel>
+                <FormLabel>Date of Birth / Incorporation Date (required)</FormLabel>
                 <FormControl><Input type="date" max={today} {...field} value={field.value as string} /></FormControl>
                 <FormMessage />
               </FormItem>
@@ -204,7 +204,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
             {customerType === 'INDIVIDUAL' && (
               <FormField control={form.control} name={fieldName('gender')} render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Gender</FormLabel>
+                  <FormLabel>Gender (required)</FormLabel>
                   <Select
                     value={toSelectValue(field.value as string)}
                     onValueChange={(value) => field.onChange(fromSelectValue(value))}
@@ -223,7 +223,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
 
             <FormField control={form.control} name={fieldName('id_type')} render={({ field }) => (
               <FormItem>
-                <FormLabel>Identification Type</FormLabel>
+                <FormLabel>Identification Type (required)</FormLabel>
                 <Select
                   value={field.value ? String(field.value) : SELECT_NONE_VALUE}
                   onValueChange={(value) => {
@@ -244,7 +244,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
 
             <FormField control={form.control} name={fieldName('id_number')} render={({ field }) => (
               <FormItem>
-                <FormLabel>Identification Number</FormLabel>
+                <FormLabel>Identification Number (required)</FormLabel>
                 <FormControl><Input {...field} value={field.value as string} /></FormControl>
                 <FormMessage />
               </FormItem>
@@ -252,7 +252,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
 
             <FormField control={form.control} name={fieldName('phone')} render={({ field }) => (
               <FormItem>
-                <FormLabel>Phone Number</FormLabel>
+                <FormLabel>Phone Number (required)</FormLabel>
                 <FormControl><Input {...field} value={field.value as string} /></FormControl>
                 <FormMessage />
               </FormItem>
@@ -273,21 +273,21 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
 
             <FormField control={form.control} name={fieldName('country_code')} render={({ field }) => (
               <FormItem>
-                <FormLabel>Country Code (ISO alpha-3)</FormLabel>
+                <FormLabel>Country Code (ISO alpha-3, required)</FormLabel>
                 <FormControl><Input maxLength={3} {...field} value={field.value as string} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
             <FormField control={form.control} name={fieldName('region')} render={({ field }) => (
               <FormItem>
-                <FormLabel>Region</FormLabel>
+                <FormLabel>Region (required)</FormLabel>
                 <FormControl><Input {...field} value={field.value as string} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
             <FormField control={form.control} name={fieldName('district')} render={({ field }) => (
               <FormItem>
-                <FormLabel>District</FormLabel>
+                <FormLabel>District (required)</FormLabel>
                 <FormControl><Input {...field} value={field.value as string} /></FormControl>
                 <FormMessage />
               </FormItem>

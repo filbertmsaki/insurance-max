@@ -1,5 +1,4 @@
 import { AxiosError } from 'axios';
-import type { Path } from 'react-hook-form';
 
 export interface ApiErrorDetails {
   status: number;
@@ -19,23 +18,40 @@ export function parseApiError(error: unknown): ApiErrorDetails {
   if (error instanceof AxiosError && error.response) {
     const { status, data } = error.response;
     const rawMessage = data?.message;
+    const validationErrors = Array.isArray(data?.validation_errors)
+      ? data.validation_errors.filter(
+          (value: unknown): value is string => typeof value === 'string',
+        )
+      : undefined;
 
-    const message: string = Array.isArray(rawMessage)
-      ? rawMessage[0]
-      : typeof rawMessage === 'string'
-        ? rawMessage
-        : (STATUS_MESSAGES[status] ??
-          data?.error ??
-          error.message ??
-          'An unexpected error occurred');
+    const message: string =
+      validationErrors?.[0] ??
+      (Array.isArray(rawMessage)
+        ? rawMessage[0]
+        : typeof rawMessage === 'string'
+          ? rawMessage
+          : (STATUS_MESSAGES[status] ??
+            data?.error ??
+            error.message ??
+            'An unexpected error occurred'));
 
     return {
       status,
       message,
-      errors: Array.isArray(rawMessage) ? rawMessage : undefined,
+      errors:
+        validationErrors ??
+        (Array.isArray(rawMessage)
+          ? rawMessage.filter(
+              (value: unknown): value is string => typeof value === 'string',
+            )
+          : undefined),
     };
   }
-  return { status: 0, message: 'Network error — please check your connection' };
+
+  return {
+    status: 0,
+    message: 'Network error - please check your connection',
+  };
 }
 
 export function getApiErrorMessage(error: unknown): string {

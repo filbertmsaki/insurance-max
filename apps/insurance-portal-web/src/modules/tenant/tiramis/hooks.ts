@@ -275,7 +275,7 @@ export function useLocalTrackingDetail(id?: string) {
     queryKey: id
       ? tiramisKeys.localTrackingDetail(id)
       : tiramisKeys.localTrackingDetail(''),
-    queryFn: () => tiramisApi.getAdminSubmission(id!),
+    queryFn: () => tiramisApi.getLocalTrackingById(id!),
     enabled: !!id,
     staleTime: 30_000,
   });

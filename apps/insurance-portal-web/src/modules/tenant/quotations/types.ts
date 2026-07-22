@@ -279,7 +279,9 @@ export interface QuotationSubmitResponse {
   request_type: string;
   submitted_at: string;
   submission: {
-    id: string;
+    id?: string | null;
+    localTrackingId?: string | null;
+    localStatus?: string | null;
     [key: string]: unknown;
   };
 }

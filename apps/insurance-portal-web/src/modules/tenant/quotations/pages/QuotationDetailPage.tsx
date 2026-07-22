@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { getSubmissionDetailId } from '@/modules/tenant/tiramis/utils';
 import { QuotationStatusBadge } from '../components/QuotationStatusBadge';
 import { PaymentStatusBadge } from '../components/PaymentStatusBadge';
 import {
@@ -142,9 +143,17 @@ export function QuotationDetailPage() {
             onClick={() =>
               submitMutation.mutate(undefined, {
                 onSuccess: (result) => {
-                  navigate(
-                    underwritingPaths.submissionDetail(result.submission.id),
+                  const submissionDetailId = getSubmissionDetailId(
+                    result.submission,
                   );
+                  if (submissionDetailId) {
+                    navigate(
+                      underwritingPaths.submissionDetail(submissionDetailId),
+                    );
+                    return;
+                  }
+
+                  navigate(underwritingPaths.quotationDetail(quotation.id));
                 },
               })
             }

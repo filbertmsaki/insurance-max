@@ -11,6 +11,10 @@ import { Branch } from '../branches/entities/branch.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
+import { TiramisSubmissionStatus } from '../../tiramis/enums/tiramis-submission-status.enum';
+import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
+import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/tiramis-submission-tracking.repository';
+import { TiramisBusinessRecordSyncService } from '../../tiramis/services/tiramis-business-record-sync.service';
 import { FilterPortalTiraSubmissionDto } from './dto/filter-portal-tira-submission.dto';
 import { TiramisNotificationEventDto } from './dto/tiramis-notification-event.dto';
 import { SubmitPortalTiraDto } from './dto/submit-portal-tira.dto';
@@ -39,6 +43,8 @@ export class TiramisIntegrationService {
     @InjectRepository(TiramisSalePointEntity)
     private readonly salePointRepository: Repository<TiramisSalePointEntity>,
     private readonly tiramisClientService: TiramisClientService,
+    private readonly localTrackingRepository: TiramisSubmissionTrackingRepository,
+    private readonly tiramisBusinessRecordSyncService: TiramisBusinessRecordSyncService,
   ) {}
 
   async submitToTiramis(params: {
@@ -483,8 +489,17 @@ export class TiramisIntegrationService {
 
     const savedSubmission = await this.submissionRepository.save(submission);
 
+    const updatedTracking =
+      await this.syncLocalTrackingFromNotification(payload);
+
     await this.createEvent(savedSubmission, payload);
     await this.updateLinkedPolicy(savedSubmission, payload);
+
+    if (updatedTracking) {
+      await this.tiramisBusinessRecordSyncService.syncFromTracking(
+        updatedTracking,
+      );
+    }
 
     return savedSubmission;
   }
@@ -743,6 +758,129 @@ export class TiramisIntegrationService {
     return null;
   }
 
+  private async syncLocalTrackingFromNotification(
+    payload: TiramisNotificationEventDto,
+  ): Promise<TiramisSubmissionTrackingEntity | null> {
+    const tracking = await this.findMatchingLocalTracking(payload);
+
+    if (!tracking) {
+      return null;
+    }
+
+    const occurredAt = payload.occurredAt
+      ? new Date(payload.occurredAt)
+      : new Date();
+
+    tracking.status = this.mapEventToLocalTrackingStatus(
+      payload,
+      tracking.status,
+    );
+    tracking.tiramisTransactionId =
+      payload.tiramisTransactionId || tracking.tiramisTransactionId;
+    tracking.tiramisRequestId = payload.requestId || tracking.tiramisRequestId;
+    tracking.tiramisServiceType =
+      payload.serviceType || tracking.tiramisServiceType;
+    tracking.tiramisRootElement = payload.rootElement || tracking.tiramisRootElement;
+
+    if (payload.eventType === 'TIRAMIS_ACK_RECEIVED') {
+      tracking.acknowledgementStatusCode =
+        payload.statusCode || tracking.acknowledgementStatusCode;
+      tracking.acknowledgementStatusDesc =
+        payload.statusDescription || tracking.acknowledgementStatusDesc;
+      tracking.acknowledgedAt = tracking.acknowledgedAt || occurredAt;
+    }
+
+    if (
+      payload.responseId ||
+      payload.statusCode ||
+      payload.eventType.startsWith('TIRAMIS_FINAL') ||
+      payload.eventType === 'TIRAMIS_CALLBACK_REJECTED'
+    ) {
+      tracking.finalResponseId = payload.responseId || tracking.finalResponseId;
+      tracking.finalResponseStatusCode =
+        payload.statusCode || tracking.finalResponseStatusCode;
+      tracking.finalResponseStatusDesc =
+        payload.statusDescription || tracking.finalResponseStatusDesc;
+      tracking.finalResponseReceivedAt =
+        tracking.finalResponseReceivedAt || occurredAt;
+      tracking.finalResponsePayload = payload as Record<string, any>;
+    }
+
+    tracking.lastErrorMessage =
+      payload.errorMessage ||
+      (tracking.status === TiramisSubmissionStatus.FINAL_SUCCESS
+        ? null
+        : tracking.lastErrorMessage);
+    tracking.lastSyncedAt = occurredAt;
+    tracking.syncAttempts = Number(tracking.syncAttempts || 0) + 1;
+
+    if (
+      tracking.status === TiramisSubmissionStatus.FINAL_FAILED ||
+      tracking.status === TiramisSubmissionStatus.FAILED ||
+      tracking.status === TiramisSubmissionStatus.CALLBACK_OVERDUE ||
+      tracking.status === TiramisSubmissionStatus.ACK_FAILED
+    ) {
+      tracking.failedAt = tracking.failedAt || occurredAt;
+    }
+
+    if (tracking.status === TiramisSubmissionStatus.FINAL_SUCCESS) {
+      tracking.failedAt = null;
+      tracking.isRetryable = false;
+      tracking.nextRetryAt = null;
+      tracking.retryLockId = null;
+      tracking.retryLockedAt = null;
+      tracking.retryErrorMessage = null;
+    }
+
+    return this.localTrackingRepository.save(tracking);
+  }
+
+  private async findMatchingLocalTracking(
+    payload: TiramisNotificationEventDto,
+  ): Promise<TiramisSubmissionTrackingEntity | null> {
+    if (payload.tiramisTransactionId) {
+      const byTransaction = await this.localTrackingRepository.findByTransactionId(
+        payload.tiramisTransactionId,
+      );
+
+      if (byTransaction) {
+        return byTransaction;
+      }
+    }
+
+    if (payload.requestId) {
+      const byRequest = await this.localTrackingRepository.findByRequestId(
+        payload.requestId,
+      );
+
+      if (byRequest) {
+        return byRequest;
+      }
+    }
+
+    if (payload.sourceRecordId) {
+      const matches = await this.localTrackingRepository.findBySourceRecordId(
+        payload.sourceRecordId,
+      );
+
+      if (matches.length > 0) {
+        return matches[0];
+      }
+    }
+
+    if (payload.businessReference) {
+      const matches = await this.localTrackingRepository.findByBusinessReference(
+        payload.businessReference,
+      );
+
+      if (matches.length > 0) {
+        return matches[0];
+      }
+    }
+
+    return null;
+  }
+
   private async createEvent(
     submission: PortalTiraSubmission,
     payload: TiramisNotificationEventDto,
@@ -960,6 +1098,40 @@ export class TiramisIntegrationService {
         }
 
         return PortalTiraSubmissionStatus.SUBMITTED_TO_TIRAMIS;
+    }
+  }
+
+  private mapEventToLocalTrackingStatus(
+    payload: TiramisNotificationEventDto,
+    fallback: TiramisSubmissionStatus,
+  ): TiramisSubmissionStatus {
+    switch (payload.eventType) {
+      case 'TIRAMIS_ACK_RECEIVED':
+        return TiramisSubmissionStatus.ACK_ACCEPTED;
+      case 'TIRAMIS_ACK_FAILED':
+        return TiramisSubmissionStatus.ACK_FAILED;
+      case 'TIRAMIS_FINAL_RESPONSE_RECEIVED':
+        return TiramisSubmissionStatus.PENDING_FINAL;
+      case 'TIRAMIS_FINAL_SUCCESS':
+      case 'TIRAMIS_RESPONSE_ACK_SENT':
+        return TiramisSubmissionStatus.FINAL_SUCCESS;
+      case 'TIRAMIS_FINAL_FAILED':
+        return TiramisSubmissionStatus.FINAL_FAILED;
+      case 'TIRAMIS_FINAL_CALLBACK_OVERDUE':
+        return TiramisSubmissionStatus.CALLBACK_OVERDUE;
+      case 'TIRAMIS_CALLBACK_REJECTED':
+      case 'TIRAMIS_SUBMISSION_FAILED':
+        return TiramisSubmissionStatus.FAILED;
+      default:
+        if (payload.transactionStatus === 'SUCCESS') {
+          return TiramisSubmissionStatus.FINAL_SUCCESS;
+        }
+
+        if (payload.transactionStatus === 'FAILED') {
+          return TiramisSubmissionStatus.FINAL_FAILED;
+        }
+
+        return fallback;
     }
   }
 

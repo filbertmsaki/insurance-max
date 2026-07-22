@@ -12,6 +12,7 @@ import { usePageFooter } from '@/components/layout/PageFooterSlot';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { getSubmissionDetailId } from '@/modules/tenant/tiramis/utils';
 import {
   createEmptyFleetDetails,
   createEmptyFleetItemRow,
@@ -95,8 +96,14 @@ const STEP_FIELDS: Partial<
     'operative_clause',
     'cover_note_type',
     'prev_cover_note_reference',
+    'endorsement_type',
+    'endorsement_reason',
+    'endorsement_premium_earned',
     'commission_paid',
     'commission_rate',
+    'officer_name',
+    'officer_title',
+    'payment_mode_tira',
     'sale_point_id',
   ],
   'fleet-setup': [
@@ -111,8 +118,14 @@ const STEP_FIELDS: Partial<
     'exchange_rate',
     'cover_note_type',
     'prev_cover_note_reference',
+    'endorsement_type',
+    'endorsement_reason',
+    'endorsement_premium_earned',
     'commission_paid',
     'commission_rate',
+    'officer_name',
+    'officer_title',
+    'payment_mode_tira',
     'sale_point_id',
     'fleet',
   ],
@@ -536,9 +549,18 @@ export function QuotationWizardPage() {
           try {
             const submission = await quotationsApi.submit(quotation.id);
             toast.success('Quotation submitted to TIRAMIS');
-            navigate(
-              underwritingPaths.submissionDetail(submission.submission.id),
+            const submissionDetailId = getSubmissionDetailId(
+              submission.submission,
             );
+            if (submissionDetailId) {
+              navigate(underwritingPaths.submissionDetail(submissionDetailId));
+              return;
+            }
+
+            toast.error(
+              'Quotation was submitted, but the submission detail link was missing.',
+            );
+            navigate(underwritingPaths.quotationDetail(quotation.id));
             return;
           } catch (submitError) {
             toast.error(getApiErrorMessage(submitError));

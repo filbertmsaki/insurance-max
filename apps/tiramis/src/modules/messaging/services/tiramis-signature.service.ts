@@ -16,13 +16,14 @@ export class TiramisSignatureService {
     privateKeyPfxPassword?: string | null;
   }): string {
     try {
+      const contentXml = this.normalizeXmlForSignature(params.contentXml);
       const privateKeyPem = this.loadPrivateKeyFromPfx(
         params.privateKeyPfxPath,
         params.privateKeyPfxPassword,
       );
 
       const signer = createSign('RSA-SHA1');
-      signer.update(params.contentXml);
+      signer.update(contentXml);
       signer.end();
 
       return signer.sign(
@@ -49,13 +50,14 @@ export class TiramisSignatureService {
     publicCertificatePfxPassword?: string | null;
   }): boolean {
     try {
+      const contentXml = this.normalizeXmlForSignature(params.contentXml);
       const publicCertificatePem = this.loadPublicCertificate(
         params.publicCertificatePfxPath,
         params.publicCertificatePfxPassword,
       );
 
       const verifier = createVerify('RSA-SHA1');
-      verifier.update(params.contentXml);
+      verifier.update(contentXml);
       verifier.end();
 
       return verifier.verify(publicCertificatePem, params.signature, 'base64');
@@ -66,6 +68,12 @@ export class TiramisSignatureService {
 
   removeXmlDeclaration(xml: string): string {
     return xml.replace(/<\?xml.*?\?>/g, '').trim();
+  }
+
+  private normalizeXmlForSignature(xml: string): string {
+    return this.removeXmlDeclaration(String(xml || ''))
+      .replace(/>\s+</g, '><')
+      .trim();
   }
 
   private loadPrivateKeyFromPfx(

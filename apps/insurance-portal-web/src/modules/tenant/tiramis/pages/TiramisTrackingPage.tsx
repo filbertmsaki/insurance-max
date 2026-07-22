@@ -7,13 +7,13 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable, type Column } from '@/components/shared/DataTable';
 import { TiramisStatusBadge } from '../components/TiramisStatusBadge';
 import { formatDateTime, prettyJson } from '../utils';
-import { useAdminSubmission, useLocalTrackingList, useRetryLocalTracking, useRetryOneLocalTracking, useSyncOneLocalTracking } from '../hooks';
+import { useLocalTrackingDetail, useLocalTrackingList, useRetryLocalTracking, useRetryOneLocalTracking, useSyncOneLocalTracking } from '../hooks';
 import type { TiramisTrackingRecord } from '../types';
 
 export function TiramisTrackingPage() {
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const list = useLocalTrackingList();
-  const detail = useAdminSubmission(selectedId);
+  const detail = useLocalTrackingDetail(selectedId);
   const retryAll = useRetryLocalTracking();
   const retryOne = useRetryOneLocalTracking();
   const syncOne = useSyncOneLocalTracking();

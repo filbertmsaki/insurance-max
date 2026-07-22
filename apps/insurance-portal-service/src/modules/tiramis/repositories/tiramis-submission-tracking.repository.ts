@@ -37,6 +37,20 @@ export class TiramisSubmissionTrackingRepository {
     });
   }
 
+  findByRequestId(requestId: string) {
+    return this.repository.findOne({
+      where: { tiramisRequestId: requestId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  findByTransactionId(transactionId: string) {
+    return this.repository.findOne({
+      where: { tiramisTransactionId: transactionId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   findByBusinessReference(businessReference: string) {
     return this.repository.find({
       where: { businessReference },

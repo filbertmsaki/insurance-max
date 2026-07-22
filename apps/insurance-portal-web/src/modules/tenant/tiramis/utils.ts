@@ -178,6 +178,17 @@ export function formatDateTime(value?: string | null) {
   return date.toLocaleString();
 }
 
+export function getSubmissionDetailId(
+  submission?:
+    | {
+        id?: string | null;
+        localTrackingId?: string | null;
+      }
+    | null,
+) {
+  return submission?.localTrackingId ?? submission?.id ?? null;
+}
+
 function toNumber(
   value: unknown,
   fallback = 0,

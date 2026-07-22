@@ -62,6 +62,10 @@ function readFile(filePath, encoding = 'utf8') {
   return fs.readFileSync(resolved, encoding);
 }
 
+function isPkcs12File(filePath) {
+  return /\.(pfx|p12)$/i.test(String(filePath || ''));
+}
+
 function extractPkcs12(pfxPath, password = '') {
   const resolved = resolveFilePath(pfxPath);
 
@@ -122,7 +126,16 @@ function loadCertificates() {
   }
 
   if (!tiraCertificatePem && fileExists(CONFIG.tiraCertificatePath)) {
-    tiraCertificatePem = readFile(CONFIG.tiraCertificatePath);
+    if (isPkcs12File(CONFIG.tiraCertificatePath)) {
+      const extracted = extractPkcs12(
+        CONFIG.tiraCertificatePath,
+        CONFIG.tiraPublicCertPassword || CONFIG.tiraPfxPassword,
+      );
+
+      tiraCertificatePem = extracted.certificatePem;
+    } else {
+      tiraCertificatePem = readFile(CONFIG.tiraCertificatePath);
+    }
   }
 
   if (fileExists(CONFIG.clientPfxPath)) {
@@ -133,7 +146,16 @@ function loadCertificates() {
   }
 
   if (!clientCertificatePem && fileExists(CONFIG.clientCertificatePath)) {
-    clientCertificatePem = readFile(CONFIG.clientCertificatePath);
+    if (isPkcs12File(CONFIG.clientCertificatePath)) {
+      const extracted = extractPkcs12(
+        CONFIG.clientCertificatePath,
+        CONFIG.clientPublicCertPassword || CONFIG.clientPfxPassword,
+      );
+
+      clientCertificatePem = extracted.certificatePem;
+    } else {
+      clientCertificatePem = readFile(CONFIG.clientCertificatePath);
+    }
   }
 
   if (!clientPrivateKeyPem && fileExists(CONFIG.clientPrivateKeyPath)) {

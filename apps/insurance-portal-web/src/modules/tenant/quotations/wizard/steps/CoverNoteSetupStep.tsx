@@ -88,6 +88,7 @@ export function CoverNoteSetupStep({
   const productId = form.watch('product_id');
   const branchId = form.watch('branch_id');
   const salePointId = form.watch('sale_point_id');
+  const requiresStandardCoverNoteFields = quotationFlow !== 'MOTOR_FLEET';
   const intermediaryCompanyId = form.watch('intermediary_company_id');
   const { data: distributionChannels = [] } =
     useQuotationDistributionChannels();
@@ -159,63 +160,66 @@ export function CoverNoteSetupStep({
         <CardContent className="grid gap-4 md:grid-cols-2">
           {showFlowSelector && (
             <div className="md:col-span-2">
-            <Label className="mb-2 block">Quotation Flow</Label>
-            <div className="grid gap-2 md:grid-cols-3">
-              {[
-                {
-                  label: 'Non-Motor',
-                  description: 'Fire, Marine, Engineering, GIT, Miscellaneous',
-                  quotation_flow: 'NON_MOTOR' as const,
-                  quotation_type: 'NON_MOTOR' as const,
-                  is_fleet: false,
-                },
-                {
-                  label: 'Motor - Single Vehicle',
-                  description: 'One vehicle cover note',
-                  quotation_flow: 'MOTOR_SINGLE' as const,
-                  quotation_type: 'MOTOR' as const,
-                  is_fleet: false,
-                },
-                {
-                  label: 'Motor - Fleet',
-                  description: 'Multiple vehicles under one fleet',
-                  quotation_flow: 'MOTOR_FLEET' as const,
-                  quotation_type: 'MOTOR' as const,
-                  is_fleet: true,
-                },
-              ].map((option) => {
-                const active = quotationFlow === option.quotation_flow;
-                return (
-                  <button
-                    key={option.quotation_flow}
-                    type="button"
-                    onClick={() => {
-                      form.setValue('quotation_flow', option.quotation_flow);
-                      form.setValue('quotation_type', option.quotation_type);
-                      form.setValue('is_fleet', option.is_fleet);
-                      form.setValue('category_id', '');
-                      form.setValue('product_id', '');
-                    }}
-                    className={[
-                      'rounded-lg border p-4 text-left transition-colors',
-                      active
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
-                    ].join(' ')}
-                  >
-                    <div className="text-sm font-semibold">{option.label}</div>
-                    <div
+              <Label className="mb-2 block">Quotation Flow</Label>
+              <div className="grid gap-2 md:grid-cols-3">
+                {[
+                  {
+                    label: 'Non-Motor',
+                    description:
+                      'Fire, Marine, Engineering, GIT, Miscellaneous',
+                    quotation_flow: 'NON_MOTOR' as const,
+                    quotation_type: 'NON_MOTOR' as const,
+                    is_fleet: false,
+                  },
+                  {
+                    label: 'Motor - Single Vehicle',
+                    description: 'One vehicle cover note',
+                    quotation_flow: 'MOTOR_SINGLE' as const,
+                    quotation_type: 'MOTOR' as const,
+                    is_fleet: false,
+                  },
+                  {
+                    label: 'Motor - Fleet',
+                    description: 'Multiple vehicles under one fleet',
+                    quotation_flow: 'MOTOR_FLEET' as const,
+                    quotation_type: 'MOTOR' as const,
+                    is_fleet: true,
+                  },
+                ].map((option) => {
+                  const active = quotationFlow === option.quotation_flow;
+                  return (
+                    <button
+                      key={option.quotation_flow}
+                      type="button"
+                      onClick={() => {
+                        form.setValue('quotation_flow', option.quotation_flow);
+                        form.setValue('quotation_type', option.quotation_type);
+                        form.setValue('is_fleet', option.is_fleet);
+                        form.setValue('category_id', '');
+                        form.setValue('product_id', '');
+                      }}
                       className={[
-                        'mt-1 text-xs',
-                        active ? 'text-slate-200' : 'text-slate-400',
+                        'rounded-lg border p-4 text-left transition-colors',
+                        active
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
                       ].join(' ')}
                     >
-                      {option.description}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                      <div className="text-sm font-semibold">
+                        {option.label}
+                      </div>
+                      <div
+                        className={[
+                          'mt-1 text-xs',
+                          active ? 'text-slate-200' : 'text-slate-400',
+                        ].join(' ')}
+                      >
+                        {option.description}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -224,7 +228,7 @@ export function CoverNoteSetupStep({
             name="category_id"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Category</FormLabel>
+                <FormLabel>Category (required)</FormLabel>
                 <Select
                   value={toSelectValue(field.value)}
                   onValueChange={(value) => {
@@ -257,7 +261,7 @@ export function CoverNoteSetupStep({
             name="product_id"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Product</FormLabel>
+                <FormLabel>Product (required)</FormLabel>
                 <Select
                   value={toSelectValue(field.value)}
                   onValueChange={(value) => {
@@ -361,7 +365,7 @@ export function CoverNoteSetupStep({
             name="currency"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Currency</FormLabel>
+                <FormLabel>Currency (required)</FormLabel>
                 <FormControl>
                   <Input {...field} />
                 </FormControl>
@@ -376,7 +380,7 @@ export function CoverNoteSetupStep({
               name="exchange_rate"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Exchange Rate (to TZS)</FormLabel>
+                  <FormLabel>Exchange Rate (to TZS, required)</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.01" {...field} />
                   </FormControl>
@@ -391,7 +395,7 @@ export function CoverNoteSetupStep({
             name="valid_from"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Cover Start Date</FormLabel>
+                <FormLabel>Cover Start Date (required)</FormLabel>
                 <FormControl>
                   <Input type="date" min={today} {...field} />
                 </FormControl>
@@ -405,7 +409,7 @@ export function CoverNoteSetupStep({
             name="valid_until"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Cover End Date</FormLabel>
+                <FormLabel>Cover End Date (required)</FormLabel>
                 <FormControl>
                   <Input type="date" min={validFrom || today} {...field} />
                 </FormControl>
@@ -426,7 +430,7 @@ export function CoverNoteSetupStep({
             name="branch_id"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Branch</FormLabel>
+                <FormLabel>Branch (required)</FormLabel>
                 <Select
                   value={field.value || 'none'}
                   onValueChange={(value) => {
@@ -512,7 +516,11 @@ export function CoverNoteSetupStep({
             name="cover_note_number"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Cover Note Number</FormLabel>
+                <FormLabel>
+                  {requiresStandardCoverNoteFields
+                    ? 'Cover Note Number (required)'
+                    : 'Cover Note Number'}
+                </FormLabel>
                 <FormControl>
                   <Input {...field} />
                 </FormControl>
@@ -526,7 +534,7 @@ export function CoverNoteSetupStep({
             name="cover_note_type"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Cover Note Type</FormLabel>
+                <FormLabel>Cover Note Type (required)</FormLabel>
                 <Select
                   value={toSelectValue(field.value)}
                   onValueChange={(value) => {
@@ -565,7 +573,9 @@ export function CoverNoteSetupStep({
               name="prev_cover_note_reference"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Previous Cover Note Reference</FormLabel>
+                  <FormLabel>
+                    Previous Cover Note Reference (required)
+                  </FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
@@ -580,7 +590,11 @@ export function CoverNoteSetupStep({
             name="cover_note_desc"
             render={({ field }) => (
               <FormItem className="md:col-span-2">
-                <FormLabel>Cover Note Description</FormLabel>
+                <FormLabel>
+                  {requiresStandardCoverNoteFields
+                    ? 'Cover Note Description (required)'
+                    : 'Cover Note Description'}
+                </FormLabel>
                 <FormControl>
                   <Textarea {...field} rows={3} />
                 </FormControl>
@@ -594,7 +608,11 @@ export function CoverNoteSetupStep({
             name="operative_clause"
             render={({ field }) => (
               <FormItem className="md:col-span-2">
-                <FormLabel>Operative Clause</FormLabel>
+                <FormLabel>
+                  {requiresStandardCoverNoteFields
+                    ? 'Operative Clause (required)'
+                    : 'Operative Clause'}
+                </FormLabel>
                 <FormControl>
                   <Textarea {...field} rows={3} />
                 </FormControl>
@@ -610,7 +628,7 @@ export function CoverNoteSetupStep({
                 name="endorsement_type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Endorsement Type</FormLabel>
+                    <FormLabel>Endorsement Type (required)</FormLabel>
                     <Select
                       value={toSelectValue(field.value)}
                       onValueChange={(value) =>
@@ -655,7 +673,7 @@ export function CoverNoteSetupStep({
                 name="endorsement_reason"
                 render={({ field }) => (
                   <FormItem className="md:col-span-2">
-                    <FormLabel>Endorsement Reason</FormLabel>
+                    <FormLabel>Endorsement Reason (required)</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -697,10 +715,11 @@ export function CoverNoteSetupStep({
             name="officer_name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Authorizing Officer Name</FormLabel>
+                <FormLabel>Authorizing Officer Name (required)</FormLabel>
                 <FormControl>
                   <Input {...field} />
                 </FormControl>
+                <FormMessage />
               </FormItem>
             )}
           />
@@ -710,10 +729,11 @@ export function CoverNoteSetupStep({
             name="officer_title"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Authorizing Officer Title</FormLabel>
+                <FormLabel>Authorizing Officer Title (required)</FormLabel>
                 <FormControl>
                   <Input {...field} />
                 </FormControl>
+                <FormMessage />
               </FormItem>
             )}
           />
@@ -723,10 +743,12 @@ export function CoverNoteSetupStep({
             name="payment_mode_tira"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Payment Mode (TIRAMIS)</FormLabel>
+                <FormLabel>Payment Mode (TIRAMIS, required)</FormLabel>
                 <Select
                   value={toSelectValue(field.value)}
-                  onValueChange={(value) => field.onChange(fromSelectValue(value))}
+                  onValueChange={(value) =>
+                    field.onChange(fromSelectValue(value))
+                  }
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -742,6 +764,7 @@ export function CoverNoteSetupStep({
                     ))}
                   </SelectContent>
                 </Select>
+                <FormMessage />
               </FormItem>
             )}
           />

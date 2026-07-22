@@ -29,6 +29,7 @@ export class TiramisXmlParserService {
   }
 
   parseTiraMessage(xml: string): TiramisParsedMessage {
+    const contentXml = this.extractSignedContentXml(xml);
     const parsed = this.parse(xml);
 
     const tiraMsg = this.getRecordValue(parsed, 'TiraMsg');
@@ -66,6 +67,7 @@ export class TiramisXmlParserService {
             this.getStringValue(tiraMsg, 'MsgSignature') ??
             this.getStringValue(tiraMsg, 'Signature') ??
             this.getStringValue(tiraMsg, 'signature'),
+          contentXml,
         };
       }
     }
@@ -77,7 +79,8 @@ export class TiramisXmlParserService {
       signature:
         this.getStringValue(tiraMsg, 'MsgSignature') ??
         this.getStringValue(tiraMsg, 'Signature') ??
-      this.getStringValue(tiraMsg, 'signature'),
+        this.getStringValue(tiraMsg, 'signature'),
+      contentXml,
     };
   }
 
@@ -399,5 +402,31 @@ export class TiramisXmlParserService {
     }
 
     return this.getStringValue(nestedContent, childKey);
+  }
+
+  private extractSignedContentXml(xml: string): string {
+    const text = String(xml || '').trim();
+    const wrappedContentMatch = text.match(/<Content[^>]*>([\s\S]*?)<\/Content>/i);
+
+    if (wrappedContentMatch) {
+      return this.unescapeXml(wrappedContentMatch[1].trim());
+    }
+
+    const wrapperMatch = text.match(/<TiraMsg[^>]*>([\s\S]*)<\/TiraMsg>/i);
+    const innerXml = wrapperMatch ? wrapperMatch[1] : text;
+
+    return innerXml
+      .replace(/<MsgSignature[^>]*>[\s\S]*?<\/MsgSignature>/i, '')
+      .replace(/<Signature[^>]*>[\s\S]*?<\/Signature>/i, '')
+      .trim();
+  }
+
+  private unescapeXml(value: string): string {
+    return String(value || '')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&amp;/g, '&');
   }
 }

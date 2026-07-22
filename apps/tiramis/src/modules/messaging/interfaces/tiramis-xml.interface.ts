@@ -3,6 +3,7 @@ export interface TiramisParsedMessage {
   rootName: string | null;
   content: Record<string, unknown> | null;
   signature: string | null;
+  contentXml: string;
 }
 
 export interface TiramisBuildMessageParams {

@@ -81,7 +81,8 @@ function buildPolicyholderFormDefaults(
         : '',
     gender: policyHolder.gender ?? '',
     date_of_birth: policyHolder.policy_holder_birth_date,
-    id_type: policyHolder.policy_holder_id_type as CustomerFormValues['id_type'],
+    id_type:
+      policyHolder.policy_holder_id_type as CustomerFormValues['id_type'],
     id_number: policyHolder.policy_holder_id_number,
     phone: policyHolder.policy_holder_phone_number,
     fax: policyHolder.policy_holder_fax ?? '',
@@ -373,7 +374,9 @@ const quotationFormObjectSchema = z.object({
   officer_name: optionalText,
   officer_title: optionalText,
   payment_mode_tira: z.enum(['1', '2', '3']),
-  risks: z.array(quotationRiskRowSchema).min(1, 'At least one risk is required'),
+  risks: z
+    .array(quotationRiskRowSchema)
+    .min(1, 'At least one risk is required'),
   addons: z.array(addonSchema),
   motor_mode: z.enum(['existing', 'new']),
   motor: motorSchema,
@@ -434,6 +437,41 @@ function validateRiskRows(
       });
     }
   });
+}
+
+function validateStandardCoverNoteFields(
+  values: z.infer<typeof quotationFormObjectSchema>,
+  ctx: z.RefinementCtx,
+) {
+  const requiredFields: Array<
+    'cover_note_number' | 'cover_note_desc' | 'operative_clause'
+  > = ['cover_note_number', 'cover_note_desc', 'operative_clause'];
+
+  requiredFields.forEach((field) => {
+    if (!normalizeText(values[field])) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [field],
+        message: 'Required',
+      });
+    }
+  });
+
+  if (!normalizeText(values.officer_name)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['officer_name'],
+      message: 'Required',
+    });
+  }
+
+  if (!normalizeText(values.officer_title)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['officer_title'],
+      message: 'Required',
+    });
+  }
 }
 
 function validateMotorSingle(
@@ -574,7 +612,14 @@ function validateFleet(
       if (!normalizeText(risk.risk_code)) {
         ctx.addIssue({
           code: 'custom',
-          path: ['fleet', 'items', index, 'risks_covered', riskIndex, 'risk_code'],
+          path: [
+            'fleet',
+            'items',
+            index,
+            'risks_covered',
+            riskIndex,
+            'risk_code',
+          ],
           message: 'Risk code is required',
         });
       }
@@ -624,6 +669,26 @@ export const quotationFormSchema: z.ZodType<QuotationFormValues> =
   quotationFormObjectSchema.superRefine((values, ctx) => {
     validatePolicyholder(values, ctx);
     validateRiskRows(values.risks, ctx);
+
+    if (values.quotation_flow !== 'MOTOR_FLEET') {
+      validateStandardCoverNoteFields(values, ctx);
+    } else {
+      if (!normalizeText(values.officer_name)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['officer_name'],
+          message: 'Required',
+        });
+      }
+
+      if (!normalizeText(values.officer_title)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['officer_title'],
+          message: 'Required',
+        });
+      }
+    }
 
     if (values.valid_until < values.valid_from) {
       ctx.addIssue({
@@ -907,7 +972,11 @@ function buildPolicyHolderPayload(
     normalizeText(policyholder.full_name) ??
     (isCorporate
       ? normalizeText(policyholder.company_name)
-      : [policyholder.first_name, policyholder.middle_name, policyholder.last_name]
+      : [
+          policyholder.first_name,
+          policyholder.middle_name,
+          policyholder.last_name,
+        ]
           .map((part) => part.trim())
           .filter(Boolean)
           .join(' ')) ??
@@ -973,7 +1042,9 @@ function buildDiscountPayload(
     }));
 }
 
-function buildRiskPayload(risk: QuotationRiskFormRow): QuotationRiskCoveredPayload {
+function buildRiskPayload(
+  risk: QuotationRiskFormRow,
+): QuotationRiskCoveredPayload {
   return {
     risk_code: risk.risk_code,
     sum_insured: normalizeNumber(risk.sum_insured),
@@ -1016,7 +1087,10 @@ function buildAddonPayload(
       premium_including_tax:
         normalizeNumber(addon.premium_including_tax) ||
         normalizeNumber(addon.premium_excluding_tax) +
-          buildTaxPayload(addon.taxes).reduce((sum, tax) => sum + tax.tax_amount, 0),
+          buildTaxPayload(addon.taxes).reduce(
+            (sum, tax) => sum + tax.tax_amount,
+            0,
+          ),
       taxes_charged: buildTaxPayload(addon.taxes),
     }));
 }
@@ -1029,26 +1103,15 @@ function buildCommonDetail(
 ) {
   const risks = values.risks.map(buildRiskPayload);
   return {
-    cover_note_number:
-      normalizeText(values.cover_note_number) ??
-      (values.quotation_flow === 'NON_MOTOR'
-        ? `NM-${Date.now()}`
-        : values.motor.registration_no || `MTR-${Date.now()}`),
-    prev_cover_note_reference_number:
-      normalizeText(values.prev_cover_note_reference),
+    cover_note_number: normalizeText(values.cover_note_number) ?? '',
+    prev_cover_note_reference_number: normalizeText(
+      values.prev_cover_note_reference,
+    ),
     sale_point_code: salePointCode,
     cover_note_start_date: formatDateTime(values.valid_from, false),
     cover_note_end_date: formatDateTime(values.valid_until, true),
-    cover_note_desc:
-      normalizeText(values.cover_note_desc) ??
-      (values.quotation_flow === 'NON_MOTOR'
-        ? 'Non-motor cover note'
-        : 'Motor cover note'),
-    operative_clause:
-      normalizeText(values.operative_clause) ??
-      (values.quotation_flow === 'NON_MOTOR'
-        ? 'Non-motor operative clause'
-        : 'Motor Comprehensive Cover'),
+    cover_note_desc: normalizeText(values.cover_note_desc) ?? '',
+    operative_clause: normalizeText(values.operative_clause) ?? '',
     payment_mode: normalizePositiveNumber(values.payment_mode_tira),
     currency_code: values.currency.trim().toUpperCase(),
     exchange_rate:
@@ -1089,7 +1152,10 @@ export function buildMotorSingleQuotationPayload(
     existingCustomer?: CustomerRecord | null;
   },
 ): QuotationPayload {
-  const policyHolder = buildPolicyHolderPayload(values, context.existingCustomer);
+  const policyHolder = buildPolicyHolderPayload(
+    values,
+    context.existingCustomer,
+  );
   const detail = buildCommonDetail(
     values,
     policyHolder,
@@ -1127,7 +1193,9 @@ export function buildMotorSingleQuotationPayload(
         },
       ],
       motor_dtl: {
-        motor_category: normalizePositiveNumber(values.motor.motor_category_code),
+        motor_category: normalizePositiveNumber(
+          values.motor.motor_category_code,
+        ),
         motor_type: normalizePositiveNumber(values.motor.motor_type_code),
         registration_number: values.motor.registration_no,
         chassis_number: values.motor.chassis_no,
@@ -1141,8 +1209,12 @@ export function buildMotorSingleQuotationPayload(
         fuel_used: values.motor.fuel_type,
         number_of_axles: normalizePositiveNumber(values.motor.number_of_axles),
         axle_distance: normalizeNumber(values.motor.axle_distance),
-        sitting_capacity: normalizePositiveNumber(values.motor.seating_capacity),
-        year_of_manufacture: normalizePositiveNumber(values.motor.manufacture_year),
+        sitting_capacity: normalizePositiveNumber(
+          values.motor.seating_capacity,
+        ),
+        year_of_manufacture: normalizePositiveNumber(
+          values.motor.manufacture_year,
+        ),
         tare_weight: normalizeNumber(values.motor.tare_weight),
         gross_weight: normalizeNumber(values.motor.gross_weight),
         motor_usage: normalizePositiveNumber(values.motor.motor_usage_code),
@@ -1162,7 +1234,10 @@ export function buildMotorFleetQuotationPayload(
     existingCustomer?: CustomerRecord | null;
   },
 ): QuotationPayload {
-  const policyHolder = buildPolicyHolderPayload(values, context.existingCustomer);
+  const policyHolder = buildPolicyHolderPayload(
+    values,
+    context.existingCustomer,
+  );
   const fleetItems = values.fleet.items.map((item, index) => {
     const taxMappedAddons = item.cover_note_addons.map((addon) => ({
       addon_reference: addon.addon_reference,
@@ -1179,7 +1254,10 @@ export function buildMotorFleetQuotationPayload(
       premium_including_tax:
         normalizeNumber(addon.premium_including_tax) ||
         normalizeNumber(addon.premium_excluding_tax) +
-          buildTaxPayload(addon.taxes).reduce((sum, tax) => sum + tax.tax_amount, 0),
+          buildTaxPayload(addon.taxes).reduce(
+            (sum, tax) => sum + tax.tax_amount,
+            0,
+          ),
       taxes_charged: buildTaxPayload(addon.taxes),
     }));
 
@@ -1188,8 +1266,9 @@ export function buildMotorFleetQuotationPayload(
       cover_note_number:
         normalizeText(item.cover_note_number) ??
         `${values.fleet.header.fleet_id || 'FLEET'}-${index + 1}`,
-      prev_cover_note_reference_number:
-        normalizeText(item.prev_cover_note_reference_number),
+      prev_cover_note_reference_number: normalizeText(
+        item.prev_cover_note_reference_number,
+      ),
       cover_note_desc: item.cover_note_desc,
       operative_clause: item.operative_clause,
       endorsement_type: item.endorsement_type
@@ -1233,9 +1312,13 @@ export function buildMotorFleetQuotationPayload(
         engine_number: item.motor_dtl.engine_number,
         engine_capacity: item.motor_dtl.engine_capacity,
         fuel_used: item.motor_dtl.fuel_used,
-        number_of_axles: normalizePositiveNumber(item.motor_dtl.number_of_axles),
+        number_of_axles: normalizePositiveNumber(
+          item.motor_dtl.number_of_axles,
+        ),
         axle_distance: normalizeNumber(item.motor_dtl.axle_distance),
-        sitting_capacity: normalizePositiveNumber(item.motor_dtl.sitting_capacity),
+        sitting_capacity: normalizePositiveNumber(
+          item.motor_dtl.sitting_capacity,
+        ),
         year_of_manufacture: normalizePositiveNumber(
           item.motor_dtl.year_of_manufacture,
         ),
@@ -1324,7 +1407,10 @@ export function buildNonMotorQuotationPayload(
     existingCustomer?: CustomerRecord | null;
   },
 ): QuotationPayload {
-  const policyHolder = buildPolicyHolderPayload(values, context.existingCustomer);
+  const policyHolder = buildPolicyHolderPayload(
+    values,
+    context.existingCustomer,
+  );
   const detail = buildCommonDetail(
     values,
     policyHolder,
@@ -1378,7 +1464,9 @@ export function buildQuotationPayload(
   }
 }
 
-function mapPolicyHolderToForm(record: QuotationDetailRecord): CustomerFormValues {
+function mapPolicyHolderToForm(
+  record: QuotationDetailRecord,
+): CustomerFormValues {
   const source =
     record.internal_quotation.quotation_flow === 'MOTOR_FLEET'
       ? record.cover_note_dtl.fleet_hdr?.policy_holders?.[0]
@@ -1539,8 +1627,7 @@ export function quotationRecordToFormValues(
       | '2'
       | '3',
     prev_cover_note_reference:
-      record.cover_note_dtl.prev_cover_note_reference_number ??
-      '',
+      record.cover_note_dtl.prev_cover_note_reference_number ?? '',
     endorsement_type: String(
       record.cover_note_dtl.endorsement_type ??
         record.cover_note_dtl.fleet_dtls?.[0]?.endorsement_type ??
@@ -1555,7 +1642,9 @@ export function quotationRecordToFormValues(
         ? String(record.cover_note_dtl.endorsement_premium_earned)
         : record.cover_note_dtl.fleet_dtls?.[0]?.endorsement_premium_earned !=
             null
-          ? String(record.cover_note_dtl.fleet_dtls[0].endorsement_premium_earned)
+          ? String(
+              record.cover_note_dtl.fleet_dtls[0].endorsement_premium_earned,
+            )
           : '',
     commission_paid: String(
       record.cover_note_dtl.fleet_hdr?.commision_paid ??
@@ -1581,9 +1670,7 @@ export function quotationRecordToFormValues(
         1,
     ) as '1' | '2' | '3',
     addons: mapAddons(
-      flow === 'MOTOR_FLEET'
-        ? []
-        : record.cover_note_dtl.cover_note_addons,
+      flow === 'MOTOR_FLEET' ? [] : record.cover_note_dtl.cover_note_addons,
     ),
     motor_mode: 'new' as const,
     motor: createEmptyMotorDetails(),
@@ -1689,10 +1776,12 @@ export function quotationRecordToFormValues(
                 }))
               : [createEmptyTaxRow()],
         })),
-        subject_matters_covered: item.subject_matters_covered.map((subject) => ({
-          subject_matter_reference: subject.subject_matter_reference,
-          subject_matter_desc: subject.subject_matter_desc,
-        })),
+        subject_matters_covered: item.subject_matters_covered.map(
+          (subject) => ({
+            subject_matter_reference: subject.subject_matter_reference,
+            subject_matter_desc: subject.subject_matter_desc,
+          }),
+        ),
         cover_note_addons: item.cover_note_addons.map((addon) => ({
           addon_reference: addon.addon_reference,
           addon_desc: addon.addon_desc,
@@ -1742,11 +1831,10 @@ export function quotationRecordToFormValues(
 
   if (flow === 'NON_MOTOR') {
     common.nonMotor = {
-      items:
-        record.cover_note_dtl.subject_matters_covered?.map((subject) => ({
-          subject_matter_reference: subject.subject_matter_reference,
-          subject_matter_desc: subject.subject_matter_desc,
-        })) ?? [createEmptyNonMotorItemRow()],
+      items: record.cover_note_dtl.subject_matters_covered?.map((subject) => ({
+        subject_matter_reference: subject.subject_matter_reference,
+        subject_matter_desc: subject.subject_matter_desc,
+      })) ?? [createEmptyNonMotorItemRow()],
     };
   }
 
