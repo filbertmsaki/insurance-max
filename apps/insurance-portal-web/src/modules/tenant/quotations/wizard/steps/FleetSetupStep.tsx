@@ -39,6 +39,7 @@ interface Props {
   branchOptions: Branch[];
   salePointOptions: TiramisSalePointRecord[];
   salePointRequired: boolean;
+  isHydrating?: boolean;
 }
 
 const FLEET_TYPES = [
@@ -53,6 +54,7 @@ export function FleetSetupStep({
   branchOptions,
   salePointOptions,
   salePointRequired,
+  isHydrating = false,
 }: Props) {
   const fleetItems = form.watch('fleet.items');
   const computedPremiumExcludingTax = fleetItems.reduce(
@@ -169,6 +171,7 @@ export function FleetSetupStep({
         branchOptions={branchOptions}
         salePointOptions={salePointOptions}
         salePointRequired={salePointRequired}
+        isHydrating={isHydrating}
         title="Common Cover Note Setup"
         showFlowSelector={false}
       />

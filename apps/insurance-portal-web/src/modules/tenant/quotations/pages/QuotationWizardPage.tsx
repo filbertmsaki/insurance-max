@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -98,7 +98,6 @@ const STEP_FIELDS: Partial<
     'valid_until',
     'currency',
     'exchange_rate',
-    'cover_note_number',
     'cover_note_desc',
     'operative_clause',
     'cover_note_type',
@@ -223,6 +222,8 @@ export function QuotationWizardPage() {
   const [completedSteps, setCompletedSteps] = useState<QuotationWizardStepId[]>(
     [],
   );
+  const hasHydratedEditRef = useRef(false);
+  const [isEditHydrating, setIsEditHydrating] = useState(isEditMode);
 
   const form = useForm<QuotationFormSchemaValues>({
     resolver: zodResolver(quotationFormSchema as any) as any,
@@ -256,20 +257,40 @@ export function QuotationWizardPage() {
     control: form.control,
     name: 'risks',
   });
+  const savedCategoryId =
+    existingQuotation?.internal_quotation.category_id ?? '';
+  const savedProductId = existingQuotation?.internal_quotation.product_id ?? '';
+  const savedBranchId = existingQuotation?.internal_quotation.branch_id ?? '';
+  const savedSalePointCode =
+    existingQuotation?.cover_note_dtl.sale_point_code ??
+    existingQuotation?.cover_note_dtl.fleet_hdr?.sale_point_code ??
+    '';
+  const quotationFlowForQueries =
+    isEditMode && existingQuotation
+      ? existingQuotation.internal_quotation.quotation_flow
+      : quotationFlow;
 
   const { loadDraft, saveDraft, clearDraft } = useQuotationWizardDraft(
     id ?? null,
   );
-  const businessLine = quotationFlow === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR';
+  const businessLine =
+    quotationFlowForQueries === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR';
   const { data: categoryOptions = [] } = useQuotationCategories(businessLine);
+  const effectiveCategoryId =
+    categoryId || (isEditMode ? savedCategoryId || undefined : undefined);
   const { data: productOptions = [] } = useQuotationProducts({
-    category_id: categoryId || undefined,
+    category_id: effectiveCategoryId,
     business_line: businessLine,
-    supports_fleet: quotationFlow === 'MOTOR_FLEET' ? true : undefined,
+    supports_fleet:
+      quotationFlowForQueries === 'MOTOR_FLEET' ? true : undefined,
   });
   const { data: branchOptions = [] } = useQuotationBranches();
-  const { data: riskOptions = [] } = useQuotationRisks(productId);
-  const { data: activeSalePoints = [] } = useQuotationSalePoints(branchId);
+  const { data: riskOptions = [] } = useQuotationRisks(
+    productId || (isEditMode ? savedProductId || undefined : undefined),
+  );
+  const { data: activeSalePoints = [] } = useQuotationSalePoints(
+    branchId || (isEditMode ? savedBranchId || undefined : undefined),
+  );
   const { data: vehicleOptions = [] } = useQuotationVehicles(
     policyholderMode === 'existing' ? customerId : undefined,
   );
@@ -278,10 +299,21 @@ export function QuotationWizardPage() {
   const [isSubmittingToTiramis, setIsSubmittingToTiramis] = useState(false);
 
   const steps = useMemo(
-    () => getWizardStepsForFlow(quotationFlow),
-    [quotationFlow],
+    () => getWizardStepsForFlow(quotationFlowForQueries),
+    [quotationFlowForQueries],
   );
   const salePointRequired = activeSalePoints.length > 1;
+  const editOptionsReady =
+    !isEditMode ||
+    !existingQuotation ||
+    (categoryOptions.some((option) => option.id === savedCategoryId) &&
+      productOptions.some((option) => option.id === savedProductId) &&
+      branchOptions.some((option) => option.id === savedBranchId) &&
+      (savedSalePointCode
+        ? activeSalePoints.some(
+            (salePoint) => salePoint.salePointCode === savedSalePointCode,
+          )
+        : true));
 
   useEffect(() => {
     if (companyId) {
@@ -307,14 +339,42 @@ export function QuotationWizardPage() {
   }, [companyId, form, isEditMode, loadDraft]);
 
   useEffect(() => {
-    if (!existingQuotation) return;
+    if (
+      !existingQuotation ||
+      hasHydratedEditRef.current ||
+      !editOptionsReady
+    ) {
+      return;
+    }
+
+    const matchedSalePoint = savedSalePointCode
+      ? activeSalePoints.find(
+          (salePoint) => salePoint.salePointCode === savedSalePointCode,
+        )
+      : undefined;
+
     form.reset({
       ...DEFAULT_VALUES,
       ...quotationRecordToFormValues(existingQuotation),
+      sale_point_id: matchedSalePoint?.id ?? '',
       insurer_company_id:
         existingQuotation.internal_quotation.insurer_company_id,
     });
-  }, [existingQuotation, form]);
+    hasHydratedEditRef.current = true;
+    setIsEditHydrating(false);
+  }, [
+    activeSalePoints,
+    branchOptions,
+    categoryOptions,
+    editOptionsReady,
+    existingQuotation,
+    form,
+    productOptions,
+    savedBranchId,
+    savedCategoryId,
+    savedProductId,
+    savedSalePointCode,
+  ]);
 
   useEffect(() => {
     if (
@@ -773,6 +833,7 @@ export function QuotationWizardPage() {
                 branchOptions={branchOptions}
                 salePointOptions={activeSalePoints}
                 salePointRequired={salePointRequired}
+                isHydrating={isEditHydrating}
                 showFlowSelector={false}
               />
             )}
@@ -785,6 +846,7 @@ export function QuotationWizardPage() {
                 branchOptions={branchOptions}
                 salePointOptions={activeSalePoints}
                 salePointRequired={salePointRequired}
+                isHydrating={isEditHydrating}
               />
             )}
 

@@ -41,6 +41,7 @@ interface Props {
   branchOptions: Branch[];
   salePointOptions: TiramisSalePointRecord[];
   salePointRequired: boolean;
+  isHydrating?: boolean;
   title?: string;
   showFlowSelector?: boolean;
 }
@@ -76,6 +77,7 @@ export function CoverNoteSetupStep({
   branchOptions,
   salePointOptions,
   salePointRequired,
+  isHydrating = false,
   title = 'Step 1. Cover Note Setup',
   showFlowSelector = true,
 }: Props) {
@@ -127,6 +129,10 @@ export function CoverNoteSetupStep({
   }, [channelType, distributionChannels, productId]);
 
   useEffect(() => {
+    if (isHydrating) {
+      return;
+    }
+
     if (!branchId) {
       if (salePointId) {
         form.setValue('sale_point_id', '');
@@ -149,7 +155,14 @@ export function CoverNoteSetupStep({
       form.setValue('sale_point_id', defaultSalePointId);
       form.clearErrors('sale_point_id');
     }
-  }, [branchId, defaultSalePointId, form, salePointId, salePointOptions]);
+  }, [
+    branchId,
+    defaultSalePointId,
+    form,
+    isHydrating,
+    salePointId,
+    salePointOptions,
+  ]);
 
   return (
     <div className="space-y-4">

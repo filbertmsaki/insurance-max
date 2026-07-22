@@ -1613,7 +1613,6 @@ export function quotationRecordToFormValues(
     rating_version: '',
     rejection_reason: '',
     sale_point_id: '',
-    cover_note_number: record.cover_note_dtl.cover_note_number ?? '',
     cover_note_desc: record.cover_note_dtl.cover_note_desc ?? '',
     operative_clause: record.cover_note_dtl.operative_clause ?? '',
     cover_note_type: String(record.cover_note_hdr.cover_note_type) as
