@@ -9,6 +9,10 @@ import type {
   QuotationSubmitResponse,
 } from './types';
 
+export type QuotationUpdatePayload = QuotationPayload & {
+  expected_updated_at?: string;
+};
+
 type QuotationListApiResponse = {
   items: QuotationListItem[];
   meta: {
@@ -64,7 +68,7 @@ export const quotationsApi = {
     apiClient
       .post<QuotationDetailRecord>('/tenant/quotations', data)
       .then((response) => response.data),
-  update: (id: string, data: QuotationPayload) =>
+  update: (id: string, data: QuotationUpdatePayload) =>
     apiClient
       .put<QuotationDetailRecord>(`/tenant/quotations/${id}`, data)
       .then((response) => response.data),

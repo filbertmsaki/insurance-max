@@ -29,6 +29,7 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 import { FilterQuotationDto } from './dto/filter-quotation.dto';
 import {
   CreateQuotationDto,
+  UpdateQuotationDto,
   SubmitQuotationDto,
 } from './dto/quotation-payload.dto';
 import { QuotationsService } from './quotations.service';
@@ -115,6 +116,24 @@ export class QuotationsController {
     return this.quotationsService.findOne(user.companyId!, id);
   }
 
+  @Get(':id/edit')
+  @UseGuards(PermissionsGuard)
+  @Permissions('quotations:update')
+  @ApiOperation({
+    summary: 'Get an editable quotation graph',
+    description:
+      'Returns the complete quotation graph for pre-populating the edit wizard.',
+  })
+  @ApiOkResponse({
+    description: 'Editable quotation retrieved successfully',
+  })
+  findOneForEdit(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.quotationsService.findOne(user.companyId!, id);
+  }
+
   @Get(':id/preview')
   @UseGuards(PermissionsGuard)
   @Permissions('quotations:read')
@@ -148,7 +167,7 @@ export class QuotationsController {
   replace(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: CreateQuotationDto,
+    @Body() dto: UpdateQuotationDto,
   ) {
     return this.quotationsService.replace(
       user.companyId!,

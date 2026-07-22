@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/api-error';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import type { PolicyRecord } from '@/modules/tenant/policies/types';
 import type { QuotationRecord } from '@/modules/tenant/quotations/types';
 import {
@@ -71,6 +72,9 @@ function useTiramisSearchParams() {
 export function useTenantSubmissionsList(
   defaults?: Pick<TenantTiramisSubmissionListParams, 'sourceModule'>,
 ) {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const company = useAuthStore((state) => state.company);
+  const [hydrated, setHydrated] = useState(useAuthStore.persist.hasHydrated());
   const {
     page,
     limit,
@@ -81,6 +85,15 @@ export function useTenantSubmissionsList(
     setParam,
     setParams,
   } = useTiramisSearchParams();
+
+  useEffect(() => {
+    const unsubscribe = useAuthStore.persist.onFinishHydration(() => {
+      setHydrated(true);
+    });
+
+    return unsubscribe;
+  }, []);
+
   const queryParams = useMemo(
     () => ({
       page,
@@ -105,6 +118,7 @@ export function useTenantSubmissionsList(
   const query = useQuery({
     queryKey: [...tiramisKeys.tenantSubmissions(), queryParams],
     queryFn: () => tiramisApi.getSubmissions(queryParams),
+    enabled: hydrated && !!accessToken && !!company?.id,
     staleTime: 30_000,
   });
 

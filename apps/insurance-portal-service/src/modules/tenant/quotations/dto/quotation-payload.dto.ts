@@ -652,6 +652,12 @@ export class CreateQuotationDto {
   cover_note_dtl: CoverNoteDetailDto;
 }
 
+export class UpdateQuotationDto extends CreateQuotationDto {
+  @IsOptional()
+  @IsDateString()
+  expected_updated_at?: string;
+}
+
 export class SubmitQuotationDto {
   @IsOptional()
   @IsBoolean()

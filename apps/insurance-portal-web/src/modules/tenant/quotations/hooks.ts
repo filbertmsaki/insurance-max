@@ -28,6 +28,7 @@ import type {
   QuotationPreviewRecord,
   QuotationSubmitResponse,
 } from './types';
+import type { QuotationUpdatePayload } from './api';
 
 const quotationKeys = {
   all: ['quotations'] as const,
@@ -189,19 +190,24 @@ export function useUpdateQuotation(id?: string) {
       salePointCode,
       productCode,
       existingCustomer,
+      expectedUpdatedAt,
     }: {
       values: QuotationFormSchemaValues;
       salePointCode: string;
       productCode: string;
       existingCustomer?: Parameters<typeof buildQuotationPayload>[1]['existingCustomer'];
+      expectedUpdatedAt?: string;
     }) =>
       quotationsApi.update(
         id!,
-        buildQuotationPayload(values, {
-          salePointCode,
-          productCode,
-          existingCustomer: existingCustomer ?? null,
-        }),
+        {
+          ...buildQuotationPayload(values, {
+            salePointCode,
+            productCode,
+            existingCustomer: existingCustomer ?? null,
+          }),
+          expected_updated_at: expectedUpdatedAt,
+        } satisfies QuotationUpdatePayload,
       ),
     onSuccess: (quotation) => {
       queryClient.invalidateQueries({ queryKey: quotationKeys.all });

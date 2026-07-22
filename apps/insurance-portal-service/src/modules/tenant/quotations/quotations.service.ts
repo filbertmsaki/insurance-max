@@ -35,6 +35,7 @@ import {
   PolicyHolderDto,
   RiskCoveredDto,
   SubjectMatterCoveredDto,
+  UpdateQuotationDto,
   SubmitQuotationDto,
 } from './dto/quotation-payload.dto';
 import { FilterQuotationDto } from './dto/filter-quotation.dto';
@@ -199,7 +200,7 @@ export class QuotationsService {
   async replace(
     companyId: string,
     id: string,
-    payload: CreateQuotationDto,
+    payload: UpdateQuotationDto,
     userId: string,
   ) {
     this.payloadValidator.assertValid(payload);
@@ -221,6 +222,15 @@ export class QuotationsService {
         );
 
         this.assertQuotationEditable(lockedQuotation);
+
+        if (
+          payload.expected_updated_at &&
+          lockedQuotation.updated_at.toISOString() !== payload.expected_updated_at
+        ) {
+          throw new ConflictException(
+            'This quotation was updated by another user. Reload the latest version before saving your changes.',
+          );
+        }
 
         const previousStatus = lockedQuotation.status;
         const customerId = await this.resolveOrCreateCustomerId(

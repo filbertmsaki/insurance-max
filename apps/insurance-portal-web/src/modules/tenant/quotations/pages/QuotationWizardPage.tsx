@@ -78,6 +78,13 @@ const FLOW_OPTIONS = [
   },
 ] as const;
 
+const EDITABLE_STATUSES = new Set([
+  'DRAFT',
+  'RATED',
+  'REFERRED',
+  'REJECTED',
+]);
+
 const STEP_FIELDS: Partial<
   Record<QuotationWizardStepId, (keyof QuotationFormSchemaValues)[]>
 > = {
@@ -310,6 +317,23 @@ export function QuotationWizardPage() {
   }, [existingQuotation, form]);
 
   useEffect(() => {
+    if (
+      !isEditMode ||
+      !existingQuotation ||
+      EDITABLE_STATUSES.has(existingQuotation.status)
+    ) {
+      return;
+    }
+
+    toast.error(
+      'This quotation cannot be edited in its current status. Please create an endorsement or renewal where required.',
+    );
+    navigate(underwritingPaths.quotationDetail(existingQuotation.id), {
+      replace: true,
+    });
+  }, [existingQuotation, isEditMode, navigate]);
+
+  useEffect(() => {
     if (!steps.some((step) => step.id === stepId)) {
       setStepId(steps[0]?.id ?? 'cover-note');
     }
@@ -540,6 +564,7 @@ export function QuotationWizardPage() {
           salePointCode,
           productCode,
           existingCustomer,
+          expectedUpdatedAt: isEditMode ? existingQuotation?.updated_at : undefined,
         });
 
         clearDraft();
