@@ -55,11 +55,19 @@ import { QuotationFlow } from './enums/quotation-flow.enum';
 import { QuotationStatus } from './enums/quotation-status.enum';
 import { QuotationType } from './enums/quotation-type.enum';
 import { QuotationPayloadMapper } from './mappers/quotation-payload.mapper';
+import { QuotationPreviewMapper } from './mappers/quotation-preview.mapper';
 import { QuotationTiramisPayloadMapper } from './mappers/quotation-tiramis-payload.mapper';
 import { QuotationsRepository } from './repositories/quotations.repository';
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
 import { parseTiramisDateTime } from './utils/tiramis-date.util';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
+import { Invoice } from '../billing-commission/entities/invoice.entity';
+import { Receipt } from '../billing-commission/entities/receipt.entity';
+import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
+import { PortalTiraSubmission } from '../tiramis-integration/entities/portal-tira-submission.entity';
+import { PortalTiraSubmissionEvent } from '../tiramis-integration/entities/portal-tira-submission-event.entity';
+import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/tiramis-submission-tracking.repository';
+import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
 
 type NumericValue = number | string | null | undefined;
 
@@ -132,9 +140,11 @@ export class QuotationsService {
     private readonly dataSource: DataSource,
     private readonly quotationsRepository: QuotationsRepository,
     private readonly payloadMapper: QuotationPayloadMapper,
+    private readonly previewMapper: QuotationPreviewMapper,
     private readonly tiramisPayloadMapper: QuotationTiramisPayloadMapper,
     private readonly payloadValidator: QuotationPayloadValidator,
     private readonly tiramisBusinessSubmitService: TiramisBusinessSubmitService,
+    private readonly tiramisSubmissionTrackingRepository: TiramisSubmissionTrackingRepository,
   ) {}
 
   async create(companyId: string, payload: CreateQuotationDto, userId: string) {
@@ -290,6 +300,40 @@ export class QuotationsService {
       id,
     );
     return this.payloadMapper.toAuthoritativePayload(quotation);
+  }
+
+  async getPreview(companyId: string, id: string) {
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
+
+    const [
+      invoice,
+      receipt,
+      paymentTransaction,
+      portalSubmission,
+      tiramisTracking,
+      tiramisTrackingByEntry,
+    ] =
+      await Promise.all([
+        this.findLatestInvoice(companyId, quotation.id),
+        this.findLatestReceipt(companyId, quotation.id),
+        this.findLatestPaymentTransaction(companyId, quotation.id),
+        this.findLatestPortalSubmission(companyId, quotation.id),
+        this.findLatestTiramisTracking(companyId, quotation),
+        this.findTiramisTrackingByEntry(companyId, quotation),
+      ]);
+
+    return this.previewMapper.toResponse(quotation, {
+      invoice,
+      receipt,
+      paymentTransaction,
+      portalSubmission,
+      portalSubmissionEvents: portalSubmission?.events ?? [],
+      tiramisTracking,
+      tiramisTrackingByEntry,
+    });
   }
 
   async remove(companyId: string, id: string): Promise<void> {
@@ -1588,6 +1632,172 @@ export class QuotationsService {
         'Quotation payment is not settled. Only direct payment mode can be submitted without a settled invoice.',
       );
     }
+  }
+
+  private async findLatestInvoice(companyId: string, quotationId: string) {
+    return this.dataSource
+      .getRepository(Invoice)
+      .createQueryBuilder('invoice')
+      .where('invoice.company_id = :companyId', { companyId })
+      .andWhere('invoice.quotation_id = :quotationId', { quotationId })
+      .andWhere('invoice.deleted_at IS NULL')
+      .orderBy('invoice.created_at', 'DESC')
+      .getOne();
+  }
+
+  private async findLatestReceipt(companyId: string, quotationId: string) {
+    const invoice = await this.findLatestInvoice(companyId, quotationId);
+
+    if (!invoice) {
+      return null;
+    }
+
+    return this.dataSource
+      .getRepository(Receipt)
+      .createQueryBuilder('receipt')
+      .where('receipt.company_id = :companyId', { companyId })
+      .andWhere('receipt.invoice_id = :invoiceId', { invoiceId: invoice.id })
+      .andWhere('receipt.deleted_at IS NULL')
+      .orderBy('receipt.created_at', 'DESC')
+      .getOne();
+  }
+
+  private async findLatestPaymentTransaction(
+    companyId: string,
+    quotationId: string,
+  ) {
+    const invoice = await this.findLatestInvoice(companyId, quotationId);
+
+    if (!invoice) {
+      return null;
+    }
+
+    return this.dataSource
+      .getRepository(PaymentTransaction)
+      .createQueryBuilder('paymentTransaction')
+      .where('paymentTransaction.company_id = :companyId', { companyId })
+      .andWhere('paymentTransaction.invoice_id = :invoiceId', {
+        invoiceId: invoice.id,
+      })
+      .andWhere('paymentTransaction.deleted_at IS NULL')
+      .orderBy('paymentTransaction.created_at', 'DESC')
+      .getOne();
+  }
+
+  private async findLatestPortalSubmission(
+    companyId: string,
+    quotationId: string,
+  ) {
+    return this.dataSource.getRepository(PortalTiraSubmission)
+      .createQueryBuilder('submission')
+      .leftJoinAndSelect('submission.events', 'event')
+      .where('submission.company_id = :companyId', { companyId })
+      .andWhere('submission.quotation_id = :quotationId', { quotationId })
+      .andWhere('submission.deleted_at IS NULL')
+      .orderBy('submission.created_at', 'DESC')
+      .addOrderBy('event.created_at', 'ASC')
+      .getOne();
+  }
+
+  private async findLatestTiramisTracking(
+    companyId: string,
+    quotation: Quotation,
+  ) {
+    const trackingRepository = this.dataSource.getRepository(
+      TiramisSubmissionTrackingEntity,
+    );
+
+    const entries = quotation.cover_note?.entries ?? [];
+    const businessReferences = Array.from(
+      new Set(
+        [
+          quotation.id,
+          quotation.quotation_no,
+          quotation.cover_note?.fleet_id,
+          ...entries.map((entry) => entry.cover_note_number),
+        ].filter((value): value is string => Boolean(value && value.trim())),
+      ),
+    );
+
+    const trackings = await trackingRepository
+      .createQueryBuilder('tracking')
+      .where('tracking.deleted_at IS NULL')
+      .andWhere('tracking.source_company_id = :companyId', { companyId })
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where('tracking.source_module = :module', {
+            module: 'quotations',
+          }).orWhere('tracking.source_module ILIKE :fleetModule', {
+            fleetModule: '%quotation%',
+          });
+        }),
+      )
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where('tracking.source_record_id IN (:...references)', {
+            references: businessReferences,
+          }).orWhere('tracking.business_reference IN (:...references)', {
+            references: businessReferences,
+          });
+        }),
+      )
+      .orderBy('tracking.created_at', 'DESC')
+      .getMany();
+
+    return trackings[0] ?? null;
+  }
+
+  private async findTiramisTrackingByEntry(
+    companyId: string,
+    quotation: Quotation,
+  ) {
+    const trackingRepository = this.dataSource.getRepository(
+      TiramisSubmissionTrackingEntity,
+    );
+    const entries = quotation.cover_note?.entries ?? [];
+    const references = Array.from(
+      new Set(
+        entries
+          .map((entry) => entry.cover_note_number)
+          .filter((value): value is string => Boolean(value && value.trim())),
+      ),
+    );
+
+    if (references.length === 0) {
+      return new Map<string, TiramisSubmissionTrackingEntity | null>();
+    }
+
+    const trackings = await trackingRepository
+      .createQueryBuilder('tracking')
+      .where('tracking.deleted_at IS NULL')
+      .andWhere('tracking.source_company_id = :companyId', { companyId })
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where('tracking.source_record_id IN (:...references)', {
+            references,
+          }).orWhere('tracking.business_reference IN (:...references)', {
+            references,
+          });
+        }),
+      )
+      .orderBy('tracking.created_at', 'DESC')
+      .getMany();
+
+    const byReference = new Map<string, TiramisSubmissionTrackingEntity | null>();
+    for (const tracking of trackings) {
+      const key = tracking.sourceRecordId || tracking.businessReference || '';
+      if (key && !byReference.has(key)) {
+        byReference.set(key, tracking);
+      }
+    }
+
+    for (const reference of references) {
+      if (!byReference.has(reference)) {
+        byReference.set(reference, null);
+      }
+    }
+
+    return byReference;
   }
 
   private toTiramisRequestType(flow: QuotationFlow): TiramisRequestType {

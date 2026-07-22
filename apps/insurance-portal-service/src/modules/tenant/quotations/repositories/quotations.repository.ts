@@ -40,9 +40,22 @@ export class QuotationsRepository {
   ): Promise<Quotation> {
     const quotation = await this.quotationRepository
       .createQueryBuilder('quotation')
+      .leftJoinAndSelect('quotation.company', 'company')
+      .leftJoinAndSelect('quotation.insurer_company', 'insurerCompany')
+      .leftJoinAndSelect('quotation.intermediary_company', 'intermediaryCompany')
+      .leftJoinAndSelect('quotation.branch', 'branch')
+      .leftJoinAndSelect('quotation.department', 'department')
+      .leftJoinAndSelect('quotation.creator', 'creator')
+      .leftJoinAndSelect('quotation.updater', 'updater')
+      .leftJoinAndSelect('quotation.submitter', 'submitter')
+      .leftJoinAndSelect('quotation.customer', 'customer')
+      .leftJoinAndSelect('quotation.category', 'category')
+      .leftJoinAndSelect('quotation.product', 'product')
+      .leftJoinAndSelect('quotation.sub_class', 'subClass')
       .leftJoinAndSelect('quotation.cover_note', 'coverNote')
       .leftJoinAndSelect('coverNote.entries', 'entry')
       .leftJoinAndSelect('entry.risks', 'risk')
+      .leftJoinAndSelect('risk.insurance_risk', 'insuranceRisk')
       .leftJoinAndSelect('risk.discounts', 'riskDiscount')
       .leftJoinAndSelect('risk.taxes', 'riskTax')
       .leftJoinAndSelect('entry.subject_matters', 'subjectMatter')
@@ -50,6 +63,8 @@ export class QuotationsRepository {
       .leftJoinAndSelect('addon.taxes', 'addonTax')
       .leftJoinAndSelect('entry.motor_detail', 'motorDetail')
       .leftJoinAndSelect('quotation.policy_holders', 'policyHolder')
+      .leftJoinAndSelect('quotation.status_history', 'statusHistory')
+      .leftJoinAndSelect('statusHistory.changer', 'statusChanger')
       .where('quotation.id = :id', { id })
       .andWhere('quotation.company_id = :companyId', { companyId })
       .andWhere('quotation.deleted_at IS NULL')
@@ -61,6 +76,7 @@ export class QuotationsRepository {
       .addOrderBy('addon.sequence_no', 'ASC')
       .addOrderBy('addonTax.sequence_no', 'ASC')
       .addOrderBy('policyHolder.sequence_no', 'ASC')
+      .addOrderBy('statusHistory.created_at', 'ASC')
       .getOne();
 
     if (!quotation) {

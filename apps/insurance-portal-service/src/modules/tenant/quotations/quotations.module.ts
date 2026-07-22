@@ -2,7 +2,11 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { TiramisModule } from '../../tiramis/tiramis.module';
+import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
 import { Branch } from '../branches/entities/branch.entity';
+import { Invoice } from '../billing-commission/entities/invoice.entity';
+import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
+import { Receipt } from '../billing-commission/entities/receipt.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { Department } from '../departments/entities/department.entity';
 import { InsuranceCategory } from '../insurance-categories/entities/insurance-category.entity';
@@ -23,7 +27,10 @@ import { QuotationPolicyHolder } from './entities/structured/quotation-policy-ho
 import { QuotationRiskDiscount } from './entities/structured/quotation-risk-discount.entity';
 import { QuotationRiskTax } from './entities/structured/quotation-risk-tax.entity';
 import { QuotationSubjectMatter } from './entities/structured/quotation-subject-matter.entity';
+import { PortalTiraSubmission } from '../tiramis-integration/entities/portal-tira-submission.entity';
+import { PortalTiraSubmissionEvent } from '../tiramis-integration/entities/portal-tira-submission-event.entity';
 import { QuotationPayloadMapper } from './mappers/quotation-payload.mapper';
+import { QuotationPreviewMapper } from './mappers/quotation-preview.mapper';
 import { QuotationTiramisPayloadMapper } from './mappers/quotation-tiramis-payload.mapper';
 import { QuotationsController } from './quotations.controller';
 import { QuotationsRepository } from './repositories/quotations.repository';
@@ -45,6 +52,12 @@ import { QuotationsService } from './quotations.service';
       QuotationEntryAddon,
       QuotationEntryAddonTax,
       QuotationMotorDetail,
+      Invoice,
+      Receipt,
+      PaymentTransaction,
+      PortalTiraSubmission,
+      PortalTiraSubmissionEvent,
+      TiramisSubmissionTrackingEntity,
       MotorVehicle,
       Company,
       Customer,
@@ -63,6 +76,7 @@ import { QuotationsService } from './quotations.service';
     QuotationsService,
     QuotationsRepository,
     QuotationPayloadMapper,
+    QuotationPreviewMapper,
     QuotationTiramisPayloadMapper,
     QuotationPayloadValidator,
   ],
@@ -70,6 +84,7 @@ import { QuotationsService } from './quotations.service';
     QuotationsService,
     QuotationsRepository,
     QuotationPayloadMapper,
+    QuotationPreviewMapper,
     QuotationTiramisPayloadMapper,
   ],
 })

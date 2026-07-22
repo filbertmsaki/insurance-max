@@ -5,6 +5,7 @@ import type {
   QuotationListItem,
   QuotationListParams,
   QuotationPayload,
+  QuotationPreviewRecord,
   QuotationSubmitResponse,
 } from './types';
 
@@ -50,6 +51,10 @@ export const quotationsApi = {
   getById: (id: string) =>
     apiClient
       .get<QuotationDetailRecord>(`/tenant/quotations/${id}`)
+      .then((response) => response.data),
+  getPreview: (id: string) =>
+    apiClient
+      .get<QuotationPreviewRecord>(`/tenant/quotations/${id}/preview`)
       .then((response) => response.data),
   getPayload: (id: string) =>
     apiClient

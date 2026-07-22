@@ -115,6 +115,24 @@ export class QuotationsController {
     return this.quotationsService.findOne(user.companyId!, id);
   }
 
+  @Get(':id/preview')
+  @UseGuards(PermissionsGuard)
+  @Permissions('quotations:read')
+  @ApiOperation({
+    summary: 'Get a structured quotation preview',
+    description:
+      'Returns a presentation-friendly quotation preview with related records, totals, payment, TIRAMIS and audit data.',
+  })
+  @ApiOkResponse({
+    description: 'Quotation preview retrieved successfully',
+  })
+  preview(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.quotationsService.getPreview(user.companyId!, id);
+  }
+
   @Put(':id')
   @UseGuards(PermissionsGuard)
   @Permissions('quotations:update')

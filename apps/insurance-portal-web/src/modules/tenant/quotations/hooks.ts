@@ -25,6 +25,7 @@ import type { QuotationFormSchemaValues } from './schemas';
 import type {
   QuotationDetailRecord,
   QuotationListParams,
+  QuotationPreviewRecord,
   QuotationSubmitResponse,
 } from './types';
 
@@ -32,6 +33,7 @@ const quotationKeys = {
   all: ['quotations'] as const,
   list: (params: QuotationListParams) => ['quotations', 'list', params] as const,
   detail: (id: string) => ['quotations', 'detail', id] as const,
+  preview: (id: string) => ['quotations', 'preview', id] as const,
   payload: (id: string) => ['quotations', 'payload', id] as const,
 };
 
@@ -124,6 +126,15 @@ export function useQuotationDetail(id?: string) {
   return useQuery({
     queryKey: id ? quotationKeys.detail(id) : quotationKeys.detail(''),
     queryFn: () => quotationsApi.getById(id!),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+}
+
+export function useQuotationPreview(id?: string) {
+  return useQuery({
+    queryKey: id ? quotationKeys.preview(id) : quotationKeys.preview(''),
+    queryFn: () => quotationsApi.getPreview(id!),
     enabled: !!id,
     staleTime: 30_000,
   });
@@ -379,4 +390,4 @@ export function useQuotationDistributionChannels() {
 }
 
 export { quotationKeys };
-export type { QuotationDetailRecord, QuotationSubmitResponse };
+export type { QuotationDetailRecord, QuotationPreviewRecord, QuotationSubmitResponse };
