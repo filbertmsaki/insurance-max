@@ -26,10 +26,11 @@ export function TiramisSubmissionsPage() {
     setBusinessReference,
     setPage,
     setLimit,
-  } = useTenantSubmissionsList();
+  } = useTenantSubmissionsList({ source_module: 'quotations' });
 
   const columns: Column<TiramisSubmissionRecord>[] = [
     { key: 'status', header: 'Status', cell: (row) => <TiramisStatusBadge status={row.status} /> },
+    { key: 'quotation', header: 'Quotation', cell: (row) => row.quotation?.quotation_no ?? row.quotation_id ?? row.business_reference ?? ' - ' },
     { key: 'requestId', header: 'Request ID', cell: (row) => row.tiramis_request_id ?? ' - ' },
     { key: 'businessReference', header: 'Business Ref', cell: (row) => row.business_reference ?? ' - ' },
     { key: 'type', header: 'Type', cell: (row) => row.request_type ?? ' - ' },
@@ -49,7 +50,7 @@ export function TiramisSubmissionsPage() {
     <div className="space-y-6">
       <PageHeader
         title="TIRAMIS Submissions"
-        description="Monitor tenant submissions sent to TIRAMIS"
+        description="Monitor quotation submissions sent to TIRAMIS"
         action={<Button onClick={() => navigate(underwritingPaths.quotationWizard)}><Plus className="mr-2 h-4 w-4" />Create Quotation</Button>}
       />
 

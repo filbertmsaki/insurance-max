@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository } from 'typeorm';
+import { Brackets, In, Repository } from 'typeorm';
 
 import { Branch } from '../branches/entities/branch.entity';
 import { Policy } from '../policies/entities/policy.entity';
@@ -505,6 +505,10 @@ export class TiramisIntegrationService {
   }
 
   async findAll(companyId: string, query: FilterPortalTiraSubmissionDto) {
+    if (this.isQuotationSource(query.source_module)) {
+      return this.findQuotationTrackingSubmissions(companyId, query);
+    }
+
     const page = Number(query.page || 1);
     const limit = Number(query.limit || 20);
     const skip = (page - 1) * limit;
@@ -541,6 +545,12 @@ export class TiramisIntegrationService {
     if (query.business_reference) {
       qb.andWhere('submission.business_reference = :businessReference', {
         businessReference: query.business_reference,
+      });
+    }
+
+    if (query.source_module) {
+      qb.andWhere('submission.source_module = :sourceModule', {
+        sourceModule: query.source_module,
       });
     }
 
@@ -628,11 +638,17 @@ export class TiramisIntegrationService {
       },
     });
 
-    if (!submission) {
-      throw new NotFoundException('TIRAMIS submission not found');
+    if (submission) {
+      return submission;
     }
 
-    return submission;
+    const tracking = await this.localTrackingRepository.findById(id);
+
+    if (tracking?.sourceCompanyId === companyId) {
+      return this.mapTrackingToPortalSubmission(companyId, tracking);
+    }
+
+    throw new NotFoundException('TIRAMIS submission not found');
   }
 
   async findByRequestId(companyId: string, requestId: string) {
@@ -649,11 +665,195 @@ export class TiramisIntegrationService {
       },
     });
 
-    if (!submission) {
-      throw new NotFoundException('TIRAMIS submission not found');
+    if (submission) {
+      return submission;
     }
 
-    return submission;
+    const tracking = await this.localTrackingRepository.findByRequestId(
+      requestId,
+    );
+
+    if (tracking?.sourceCompanyId === companyId) {
+      return this.mapTrackingToPortalSubmission(companyId, tracking);
+    }
+
+    throw new NotFoundException('TIRAMIS submission not found');
+  }
+
+  private async findQuotationTrackingSubmissions(
+    companyId: string,
+    query: FilterPortalTiraSubmissionDto,
+  ) {
+    const submissions =
+      await this.localTrackingRepository.findDashboardSubmissionsScoped(
+        {
+          page: query.page,
+          limit: query.limit,
+          search: query.search,
+          status: query.status,
+          sourceModule: 'quotations',
+          businessReference: query.business_reference,
+          tiramisRequestId: query.request_id,
+        } as any,
+        {
+          companyId,
+          canAccessAllCompanies: false,
+        },
+      );
+
+    const items = await this.mapTrackingListToPortalSubmissions(
+      companyId,
+      submissions.items,
+    );
+
+    return {
+      items,
+      meta: {
+        total: submissions.meta.total,
+        page: submissions.meta.page,
+        limit: submissions.meta.limit,
+        pages: submissions.meta.totalPages,
+      },
+    };
+  }
+
+  private async mapTrackingListToPortalSubmissions(
+    companyId: string,
+    trackingItems: TiramisSubmissionTrackingEntity[],
+  ) {
+    const quotationIds = Array.from(
+      new Set(
+        trackingItems
+          .map((item) => item.quotationId)
+          .filter((value): value is string => !!value),
+      ),
+    );
+    const policyIds = Array.from(
+      new Set(
+        trackingItems
+          .map((item) => item.policyId)
+          .filter((value): value is string => !!value),
+      ),
+    );
+
+    const [quotations, policies] = await Promise.all([
+      quotationIds.length
+        ? this.quotationRepository.find({
+            where: {
+              company_id: companyId,
+              id: In(quotationIds),
+            },
+          })
+        : Promise.resolve([]),
+      policyIds.length
+        ? this.policyRepository.find({
+            where: {
+              company_id: companyId,
+              id: In(policyIds),
+            },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const quotationsById = new Map(quotations.map((item) => [item.id, item]));
+    const policiesById = new Map(policies.map((item) => [item.id, item]));
+
+    return trackingItems.map((item) =>
+      this.mapTrackingToPortalSubmission(
+        companyId,
+        item,
+        quotationsById.get(item.quotationId || ''),
+        policiesById.get(item.policyId || ''),
+      ),
+    );
+  }
+
+  private mapTrackingToPortalSubmission(
+    companyId: string,
+    tracking: TiramisSubmissionTrackingEntity,
+    quotation?: Quotation | null,
+    policy?: Policy | null,
+  ) {
+    return {
+      id: tracking.id,
+      company_id: companyId,
+      policy_id: tracking.policyId ?? null,
+      quotation_id: tracking.quotationId ?? null,
+      source_module: tracking.sourceModule ?? null,
+      source_record_id: tracking.sourceRecordId ?? null,
+      business_reference: tracking.businessReference ?? null,
+      request_type: tracking.requestType ?? null,
+      service_type: tracking.tiramisServiceType ?? null,
+      root_element: tracking.tiramisRootElement ?? null,
+      tiramis_transaction_id: tracking.tiramisTransactionId ?? null,
+      tiramis_request_id: tracking.tiramisRequestId ?? null,
+      tiramis_response_id: tracking.finalResponseId ?? null,
+      status: tracking.status,
+      status_code:
+        tracking.finalResponseStatusCode ??
+        tracking.acknowledgementStatusCode ??
+        null,
+      status_description:
+        tracking.finalResponseStatusDesc ??
+        tracking.acknowledgementStatusDesc ??
+        tracking.lastErrorMessage ??
+        null,
+      cover_note_reference_number: this.readTrackingPayloadValue(tracking, [
+        'coverNoteReferenceNumber',
+        'cover_note_reference_number',
+      ]),
+      policy_reference_number: this.readTrackingPayloadValue(tracking, [
+        'policyReferenceNumber',
+        'policy_reference_number',
+      ]),
+      sticker_number: this.readTrackingPayloadValue(tracking, [
+        'stickerNumber',
+        'sticker_number',
+      ]),
+      last_error: tracking.lastErrorMessage ?? null,
+      last_payload: tracking.requestPayload ?? null,
+      submitted_at: tracking.submittedAt ?? null,
+      last_event_at:
+        tracking.finalResponseReceivedAt ??
+        tracking.acknowledgedAt ??
+        tracking.updatedAt,
+      completed_at:
+        tracking.finalResponseReceivedAt ?? tracking.failedAt ?? null,
+      created_at: tracking.createdAt,
+      updated_at: tracking.updatedAt,
+      deleted_at: tracking.deletedAt ?? null,
+      company: null,
+      policy: policy ?? null,
+      quotation: quotation ?? null,
+      events: [],
+    };
+  }
+
+  private readTrackingPayloadValue(
+    tracking: TiramisSubmissionTrackingEntity,
+    keys: string[],
+  ) {
+    const sources = [
+      tracking.finalResponsePayload,
+      tracking.tiramisResponsePayload,
+      tracking.requestPayload,
+    ];
+
+    for (const source of sources) {
+      if (!source || typeof source !== 'object') {
+        continue;
+      }
+
+      for (const key of keys) {
+        const value = (source as Record<string, unknown>)[key];
+
+        if (typeof value === 'string' && value.trim()) {
+          return value.trim();
+        }
+      }
+    }
+
+    return null;
   }
 
   private async findOrCreateSubmissionFromEvent(

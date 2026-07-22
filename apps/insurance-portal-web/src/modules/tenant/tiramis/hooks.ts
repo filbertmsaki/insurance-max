@@ -10,7 +10,10 @@ import {
   buildQuotationTiramisPayload,
 } from './utils';
 import { tiramisApi } from './api';
-import type { PortalTiramisSubmitPayload } from './types';
+import type {
+  PortalTiramisSubmitPayload,
+  TenantTiramisSubmissionListParams,
+} from './types';
 
 const tiramisKeys = {
   all: ['tiramis'] as const,
@@ -65,7 +68,9 @@ function useTiramisSearchParams() {
   };
 }
 
-export function useTenantSubmissionsList() {
+export function useTenantSubmissionsList(
+  defaults?: Pick<TenantTiramisSubmissionListParams, 'source_module'>,
+) {
   const {
     page,
     limit,
@@ -82,10 +87,19 @@ export function useTenantSubmissionsList() {
       limit,
       search: search || undefined,
       status: status || undefined,
+      source_module: defaults?.source_module || undefined,
       request_id: requestId || undefined,
       business_reference: businessReference || undefined,
     }),
-    [page, limit, search, status, requestId, businessReference],
+    [
+      page,
+      limit,
+      search,
+      status,
+      requestId,
+      businessReference,
+      defaults?.source_module,
+    ],
   );
 
   const query = useQuery({

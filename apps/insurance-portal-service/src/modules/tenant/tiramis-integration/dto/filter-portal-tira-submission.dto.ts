@@ -26,4 +26,8 @@ export class FilterPortalTiraSubmissionDto extends PaginationDto {
   @IsOptional()
   @IsString()
   declare business_reference?: string;
+
+  @IsOptional()
+  @IsString()
+  declare source_module?: string;
 }

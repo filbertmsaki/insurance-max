@@ -59,20 +59,27 @@ export const tiramisApi = {
     params?: TenantTiramisSubmissionListParams,
   ): Promise<TiramisSubmissionPage> => {
     const response = await apiClient.get<
+      | LegacyPageResponse<TiramisSubmissionRecord>
       | BackendPaginatedResponse<TiramisSubmissionRecord>
       | PaginatedResponse<TiramisSubmissionRecord>
     >('/tenant/tiramis-submissions', { params });
-    return 'pagination' in response.data
-      ? response.data
-      : {
-          data: response.data.data,
-          pagination: {
-            page: response.data.meta.currentPage,
-            limit: response.data.meta.itemsPerPage,
-            total: response.data.meta.totalItems,
-            totalPages: response.data.meta.totalPages,
-          },
-        };
+    if ('pagination' in response.data) {
+      return response.data;
+    }
+
+    if ('items' in response.data) {
+      return normalizeLegacyPage<TiramisSubmissionRecord>(response.data);
+    }
+
+    return {
+      data: response.data.data,
+      pagination: {
+        page: response.data.meta.currentPage,
+        limit: response.data.meta.itemsPerPage,
+        total: response.data.meta.totalItems,
+        totalPages: response.data.meta.totalPages,
+      },
+    };
   },
   getSubmission: (id: string) =>
     apiClient
