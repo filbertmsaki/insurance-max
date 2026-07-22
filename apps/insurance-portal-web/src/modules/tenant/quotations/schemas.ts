@@ -1558,14 +1558,18 @@ export function quotationRecordToFormValues(
   record: QuotationDetailRecord,
 ): Partial<QuotationFormValues> {
   const flow = record.internal_quotation.quotation_flow;
+  const hasExistingCustomer = !!record.customer_id;
+  const policyholderMode: 'existing' | 'new' = hasExistingCustomer
+    ? 'existing'
+    : 'new';
   const common = {
     insurer_company_id: record.internal_quotation.insurer_company_id,
     intermediary_company_id:
       record.internal_quotation.intermediary_company_id ?? '',
     branch_id: record.internal_quotation.branch_id ?? '',
     department_id: record.internal_quotation.department_id ?? '',
-    policyholder_mode: 'new' as const,
-    customer_id: '',
+    policyholder_mode: policyholderMode,
+    customer_id: record.customer_id ?? '',
     policyholder: mapPolicyHolderToForm(record),
     category_id: record.internal_quotation.category_id,
     product_id: record.internal_quotation.product_id,

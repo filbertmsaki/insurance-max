@@ -52,6 +52,7 @@ export interface QuotationListItemResponse {
 export type QuotationDetailResponse = {
   id: string;
   quotation_no: string;
+  customer_id: string | null;
   status: string;
   submitted_by: string | null;
   submitted_at: string | null;
@@ -65,6 +66,7 @@ export class QuotationPayloadMapper {
     return {
       id: quotation.id,
       quotation_no: quotation.quotation_no,
+      customer_id: quotation.customer_id ?? null,
       status: quotation.status,
       submitted_by: quotation.submitted_by ?? null,
       submitted_at: quotation.submitted_at

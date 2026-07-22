@@ -220,6 +220,7 @@ export interface QuotationListItem {
 export interface QuotationDetailRecord extends QuotationPayload {
   id: string;
   quotation_no: string;
+  customer_id?: string | null;
   status: QuotationStatus;
   submitted_by: string | null;
   submitted_at: string | null;

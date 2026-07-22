@@ -103,19 +103,19 @@ export class TiramisPayloadValidationService {
 
       this.requireString(risk.riskCode, `${riskPath}.riskCode`, errors);
 
-      this.requirePositiveNumber(
+      this.requireNonNegativeNumber(
         risk.sumInsured,
         `${riskPath}.sumInsured`,
         errors,
       );
 
-      this.requirePositiveNumber(
+      this.requireNonNegativeNumber(
         risk.sumInsuredEquivalent,
         `${riskPath}.sumInsuredEquivalent`,
         errors,
       );
 
-      this.requirePositiveNumber(
+      this.requireNonNegativeNumber(
         risk.premiumRate,
         `${riskPath}.premiumRate`,
         errors,

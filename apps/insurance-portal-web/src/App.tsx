@@ -275,7 +275,7 @@ export default function App() {
         <Route path="/quotations/new" element={<Navigate to={underwritingPaths.quotationCreate} replace />} />
         <Route path="/quotations/wizard" element={<Navigate to={underwritingPaths.quotationWizard} replace />} />
         <Route path="/quotations/:id" element={<Navigate to={underwritingPaths.quotations} replace />} />
-        <Route path="/quotations/:id/edit" element={<Navigate to={underwritingPaths.quotationCreate} replace />} />
+        <Route path="/quotations/:id/edit" element={<QuotationEditPage />} />
         <Route path="/policies" element={<Navigate to={underwritingPaths.policies} replace />} />
         <Route path="/policies/new" element={<Navigate to={underwritingPaths.policyCreate} replace />} />
         <Route path="/policies/:id" element={<Navigate to={underwritingPaths.policies} replace />} />
