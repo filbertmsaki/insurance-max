@@ -154,7 +154,9 @@ export class IdentifierGeneratorService {
   }): Promise<string> {
     const manager = params.manager;
     const sequenceDate = params.datePart;
-    const sequenceTimeBucket = params.timePart ?? null;
+    // Use a non-null sentinel for "no time bucket" so Postgres uniqueness
+    // and conflict detection work for quotation/request sequences too.
+    const sequenceTimeBucket = params.timePart ?? '';
     const maxAttempts = 10;
 
     for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
@@ -200,30 +202,51 @@ export class IdentifierGeneratorService {
     companyId: string;
     identifierType: IdentifierType;
     sequenceDate: string;
-    sequenceTimeBucket: string | null;
+    sequenceTimeBucket: string;
     manager?: EntityManager;
   }): Promise<number> {
     const manager = params.manager ?? this.dataSource.manager;
     const rows = await manager.query(
       `
-        INSERT INTO identifier_sequences (
-          company_id,
-          identifier_type,
-          sequence_date,
-          sequence_time_bucket,
-          current_value
+        WITH existing AS (
+          SELECT id
+          FROM identifier_sequences
+          WHERE company_id = $1
+            AND identifier_type = $2
+            AND sequence_date = $3
+            AND COALESCE(sequence_time_bucket, '') = $4
+          ORDER BY
+            CASE WHEN sequence_time_bucket = $4 THEN 0 ELSE 1 END,
+            current_value DESC,
+            updated_at DESC,
+            created_at DESC,
+            id DESC
+          LIMIT 1
+          FOR UPDATE
+        ),
+        updated AS (
+          UPDATE identifier_sequences
+          SET current_value = current_value + 1,
+              sequence_time_bucket = $4,
+              updated_at = NOW()
+          WHERE id IN (SELECT id FROM existing)
+          RETURNING current_value
+        ),
+        inserted AS (
+          INSERT INTO identifier_sequences (
+            company_id,
+            identifier_type,
+            sequence_date,
+            sequence_time_bucket,
+            current_value
+          )
+          SELECT $1, $2, $3, $4, 1
+          WHERE NOT EXISTS (SELECT 1 FROM existing)
+          RETURNING current_value
         )
-        VALUES ($1, $2, $3, $4, 1)
-        ON CONFLICT (
-          company_id,
-          identifier_type,
-          sequence_date,
-          sequence_time_bucket
-        )
-        DO UPDATE
-        SET current_value = identifier_sequences.current_value + 1,
-            updated_at = NOW()
-        RETURNING current_value
+        SELECT current_value FROM updated
+        UNION ALL
+        SELECT current_value FROM inserted
       `,
       [
         params.companyId,

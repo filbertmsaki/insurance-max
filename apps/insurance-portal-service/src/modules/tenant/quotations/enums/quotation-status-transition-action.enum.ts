@@ -1,0 +1,11 @@
+export enum QuotationStatusTransitionAction {
+  RATE = 'RATE',
+  REFER = 'REFER',
+  REQUEST_APPROVAL = 'REQUEST_APPROVAL',
+  APPROVE = 'APPROVE',
+  REJECT = 'REJECT',
+  CANCEL = 'CANCEL',
+  EXPIRE = 'EXPIRE',
+  RESET_TO_DRAFT = 'RESET_TO_DRAFT',
+  CONVERT = 'CONVERT',
+}

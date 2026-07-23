@@ -13,7 +13,15 @@ const statusClasses: Record<QuotationStatus, string> = {
   CANCELLED: 'bg-rose-100 text-rose-700 border-rose-200',
 };
 
-export function QuotationStatusBadge({ status }: { status: QuotationStatus | string }) {
+export function QuotationStatusBadge({
+  status,
+}: {
+  status?: QuotationStatus | string | null;
+}) {
+  if (!status) {
+    return <Badge variant="outline" className={statusClasses.DRAFT}>Unknown</Badge>;
+  }
+
   const key = (status in statusClasses ? status : 'DRAFT') as QuotationStatus;
   return <Badge variant="outline" className={statusClasses[key]}>{status}</Badge>;
 }

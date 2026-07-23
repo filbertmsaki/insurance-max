@@ -14,6 +14,16 @@ export type QuotationStatus =
   | 'CONVERTED'
   | 'EXPIRED'
   | 'CANCELLED';
+export type QuotationStatusTransitionAction =
+  | 'RATE'
+  | 'REFER'
+  | 'REQUEST_APPROVAL'
+  | 'APPROVE'
+  | 'REJECT'
+  | 'CANCEL'
+  | 'EXPIRE'
+  | 'RESET_TO_DRAFT'
+  | 'CONVERT';
 export type ProductChannelType =
   | 'DIRECT'
   | 'BROKER'
@@ -559,6 +569,11 @@ export interface QuotationSubmitResponse {
     localStatus?: string | null;
     [key: string]: unknown;
   };
+}
+
+export interface TransitionQuotationStatusPayload {
+  action: QuotationStatusTransitionAction;
+  reason?: string;
 }
 
 export interface QuotationListParams {

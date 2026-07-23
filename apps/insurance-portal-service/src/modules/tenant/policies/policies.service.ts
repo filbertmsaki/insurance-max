@@ -27,9 +27,11 @@ import { ProductChannelType } from '../product-distribution/enums/product-channe
 import { QuotationCalculationBase } from '../quotations/enums/quotation-calculation-base.enum';
 import { QuotationPremiumItemType } from '../quotations/enums/quotation-premium-item-type.enum';
 import { QuotationStatus } from '../quotations/enums/quotation-status.enum';
+import { QuotationStatusTransitionAction } from '../quotations/enums/quotation-status-transition-action.enum';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationStatusHistory } from '../quotations/entities/quotation-status-history.entity';
 import { QuotationEntryRisk } from '../quotations/entities/structured/quotation-entry-risk.entity';
+import { assertQuotationStatusTransition } from '../quotations/utils/quotation-status-transition.util';
 import { User } from '../users/entities/user.entity';
 import { CreatePolicyDto } from './dto/create-policy.dto';
 import { FilterPolicyDto } from './dto/filter-policy.dto';
@@ -485,24 +487,20 @@ export class PoliciesService {
               'Quotation not found for this company',
             );
           }
-          if (quotation.status === QuotationStatus.CONVERTED) {
-            throw new ConflictException(
-              'This quotation has already been converted to a policy',
-            );
-          }
-          if (quotation.status !== QuotationStatus.APPROVED) {
-            throw new ConflictException(
-              'Only an approved quotation can be converted to a policy',
-            );
-          }
+          const nextQuotationStatus = assertQuotationStatusTransition({
+            currentStatus: quotation.status,
+            action: QuotationStatusTransitionAction.CONVERT,
+            reason: `Converted to policy ${saved.policy_no}`,
+          });
           const previousStatus = quotation.status;
-          quotation.status = QuotationStatus.CONVERTED;
+          quotation.status = nextQuotationStatus;
+          quotation.rejection_reason = null;
           await quotationRepo.save(quotation);
           await quotationHistoryRepo.save(
             quotationHistoryRepo.create({
               quotation_id: quotation.id,
               old_status: previousStatus,
-              new_status: QuotationStatus.CONVERTED,
+              new_status: nextQuotationStatus,
               reason: `Converted to policy ${saved.policy_no}`,
               changed_by: userId,
             }),

@@ -27,6 +27,8 @@ import type {
   QuotationListParams,
   QuotationPreviewRecord,
   QuotationSubmitResponse,
+  QuotationStatus,
+  QuotationStatusTransitionAction,
 } from './types';
 import type { QuotationUpdatePayload } from './api';
 
@@ -245,6 +247,41 @@ export function useSubmitQuotation(id?: string) {
         queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
       }
       toast.success('Quotation submitted to TIRAMIS');
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error)),
+  });
+}
+
+export function useTransitionQuotationStatus(id?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: {
+      action: QuotationStatusTransitionAction;
+      reason?: string;
+    }) => quotationsApi.transitionStatus(id!, payload),
+    onSuccess: (quotation, payload) => {
+      queryClient.invalidateQueries({ queryKey: quotationKeys.all });
+      if (id) {
+        queryClient.setQueryData(
+          quotationKeys.detail(id),
+          quotation satisfies QuotationDetailRecord,
+        );
+        queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
+        queryClient.invalidateQueries({ queryKey: quotationKeys.preview(id) });
+      }
+
+      const actionMessages: Partial<Record<QuotationStatusTransitionAction, string>> = {
+        APPROVE: 'Quotation approved',
+        REJECT: 'Quotation rejected',
+        CANCEL: 'Quotation cancelled',
+      };
+
+      const message =
+        actionMessages[payload.action] ||
+        `Quotation moved to ${(quotation.status as QuotationStatus).toLowerCase().replace(/_/g, ' ')}`;
+
+      toast.success(message);
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });

@@ -32,6 +32,7 @@ import {
   UpdateQuotationDto,
   SubmitQuotationDto,
 } from './dto/quotation-payload.dto';
+import { TransitionQuotationStatusDto } from './dto/transition-quotation-status.dto';
 import { QuotationsService } from './quotations.service';
 
 @ApiTags('quotations')
@@ -199,6 +200,32 @@ export class QuotationsController {
     @Body() dto: SubmitQuotationDto = {},
   ) {
     return this.quotationsService.submit(user.companyId!, id, dto, user);
+  }
+
+  @Post(':id/status')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PermissionsGuard)
+  @Permissions('quotations:update')
+  @ApiOperation({
+    summary: 'Transition a quotation status',
+    description:
+      'Applies the quotation lifecycle transition matrix and records audit history.',
+  })
+  @ApiBody({ type: TransitionQuotationStatusDto })
+  @ApiOkResponse({
+    description: 'Quotation status updated successfully',
+  })
+  transitionStatus(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: TransitionQuotationStatusDto,
+  ) {
+    return this.quotationsService.transitionStatus(
+      user.companyId!,
+      id,
+      dto,
+      user.id,
+    );
   }
 
   @Delete(':id')

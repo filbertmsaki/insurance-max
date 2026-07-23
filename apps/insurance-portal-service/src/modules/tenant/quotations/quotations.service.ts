@@ -39,6 +39,7 @@ import {
   SubmitQuotationDto,
 } from './dto/quotation-payload.dto';
 import { FilterQuotationDto } from './dto/filter-quotation.dto';
+import { TransitionQuotationStatusDto } from './dto/transition-quotation-status.dto';
 import { Quotation } from './entities/quotation.entity';
 import { QuotationStatusHistory } from './entities/quotation-status-history.entity';
 import { QuotationCoverNoteEntry } from './entities/structured/quotation-cover-note-entry.entity';
@@ -54,6 +55,7 @@ import { QuotationSubjectMatter } from './entities/structured/quotation-subject-
 import { QuotationEntryType } from './enums/quotation-entry-type.enum';
 import { QuotationFlow } from './enums/quotation-flow.enum';
 import { QuotationStatus } from './enums/quotation-status.enum';
+import { QuotationStatusTransitionAction } from './enums/quotation-status-transition-action.enum';
 import { QuotationType } from './enums/quotation-type.enum';
 import { QuotationPayloadMapper } from './mappers/quotation-payload.mapper';
 import { QuotationPreviewMapper } from './mappers/quotation-preview.mapper';
@@ -70,6 +72,11 @@ import { PortalTiraSubmissionEvent } from '../tiramis-integration/entities/porta
 import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/tiramis-submission-tracking.repository';
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
+import {
+  assertQuotationStatusTransition,
+  EDITABLE_QUOTATION_STATUSES,
+  TERMINAL_QUOTATION_STATUSES,
+} from './utils/quotation-status-transition.util';
 
 type NumericValue = number | string | null | undefined;
 
@@ -122,19 +129,6 @@ interface PostgreSqlDriverError {
 }
 
 const DIRECT_PAYMENT_MODE = 1;
-
-const EDITABLE_QUOTATION_STATUSES: QuotationStatus[] = [
-  QuotationStatus.DRAFT,
-  QuotationStatus.RATED,
-  QuotationStatus.REFERRED,
-  QuotationStatus.REJECTED,
-];
-
-const TERMINAL_QUOTATION_STATUSES: QuotationStatus[] = [
-  QuotationStatus.CONVERTED,
-  QuotationStatus.CANCELLED,
-  QuotationStatus.EXPIRED,
-];
 
 @Injectable()
 export class QuotationsService {
@@ -280,12 +274,12 @@ export class QuotationsService {
         );
 
         if (previousStatus !== QuotationStatus.DRAFT) {
-          await manager.getRepository(QuotationStatusHistory).save({
-            quotation_id: quotation.id,
-            old_status: previousStatus,
-            new_status: QuotationStatus.DRAFT,
+          await this.recordQuotationStatusHistory(manager, {
+            quotationId: quotation.id,
+            previousStatus,
+            nextStatus: QuotationStatus.DRAFT,
             reason: 'Quotation payload was replaced',
-            changed_by: userId,
+            changedBy: userId,
           });
         }
       });
@@ -474,32 +468,31 @@ export class QuotationsService {
 
       const shouldSetSubmittedAt =
         !lockedQuotation.submitted_at || submitOptions.force_resubmit;
-      const nextStatus = QuotationStatus.PENDING_APPROVAL;
+      let nextStatus = lockedQuotation.status;
 
-      await manager.getRepository(Quotation).update(
-        {
-          id: quotation.id,
-          company_id: companyId,
-        },
-        {
-          submitted_by: user.id,
-          submitted_at: shouldSetSubmittedAt
-            ? submittedAt
-            : lockedQuotation.submitted_at,
-          status: nextStatus,
-          updated_by: user.id,
-        },
-      );
-
-      if (lockedQuotation.status !== nextStatus) {
-        await manager.getRepository(QuotationStatusHistory).save({
-          quotation_id: quotation.id,
-          old_status: lockedQuotation.status,
-          new_status: nextStatus,
+      if (
+        lockedQuotation.status !== QuotationStatus.APPROVED &&
+        lockedQuotation.status !== QuotationStatus.PENDING_APPROVAL
+      ) {
+        nextStatus = assertQuotationStatusTransition({
+          currentStatus: lockedQuotation.status,
+          action: QuotationStatusTransitionAction.REQUEST_APPROVAL,
           reason: 'Quotation submitted to TIRAMIS',
-          changed_by: user.id,
         });
       }
+
+      await this.applyQuotationStatusUpdate(manager, lockedQuotation, {
+        nextStatus,
+        reason:
+          lockedQuotation.status === nextStatus
+            ? 'Quotation resubmitted to TIRAMIS'
+            : 'Quotation submitted to TIRAMIS',
+        changedBy: user.id,
+        submittedBy: user.id,
+        submittedAt: shouldSetSubmittedAt
+          ? submittedAt
+          : lockedQuotation.submitted_at,
+      });
     });
 
     return {
@@ -509,6 +502,37 @@ export class QuotationsService {
       submitted_at: submittedAt.toISOString(),
       submission: result,
     };
+  }
+
+  async transitionStatus(
+    companyId: string,
+    id: string,
+    dto: TransitionQuotationStatusDto,
+    userId: string,
+  ) {
+    await this.dataSource.transaction(async (manager) => {
+      const lockedQuotation = await this.lockQuotationForUpdate(
+        manager,
+        companyId,
+        id,
+      );
+
+      const nextStatus = assertQuotationStatusTransition({
+        currentStatus: lockedQuotation.status,
+        action: dto.action,
+        reason: dto.reason,
+      });
+
+      await this.applyQuotationStatusUpdate(manager, lockedQuotation, {
+        nextStatus,
+        reason:
+          dto.reason?.trim() ||
+          this.defaultTransitionReason(dto.action, nextStatus),
+        changedBy: userId,
+      });
+    });
+
+    return this.findOne(companyId, id);
   }
 
   private async validateScope(
@@ -1601,6 +1625,100 @@ export class QuotationsService {
     }
 
     return quotation;
+  }
+
+  private async applyQuotationStatusUpdate(
+    manager: EntityManager,
+    quotation: Quotation,
+    params: {
+      nextStatus: QuotationStatus;
+      reason: string;
+      changedBy: string | null;
+      submittedBy?: string | null;
+      submittedAt?: Date | null;
+    },
+  ) {
+    const updates: Partial<Quotation> = {
+      status: params.nextStatus,
+      updated_by: params.changedBy,
+      rejection_reason:
+        params.nextStatus === QuotationStatus.REJECTED
+          ? params.reason
+          : null,
+    };
+
+    if (params.submittedBy !== undefined) {
+      updates.submitted_by = params.submittedBy;
+    }
+
+    if (params.submittedAt !== undefined) {
+      updates.submitted_at = params.submittedAt;
+    }
+
+    await manager.getRepository(Quotation).update(
+      {
+        id: quotation.id,
+        company_id: quotation.company_id,
+      },
+      updates as any,
+    );
+
+    if (quotation.status !== params.nextStatus) {
+      await this.recordQuotationStatusHistory(manager, {
+        quotationId: quotation.id,
+        previousStatus: quotation.status,
+        nextStatus: params.nextStatus,
+        reason: params.reason,
+        changedBy: params.changedBy,
+      });
+    }
+  }
+
+  private async recordQuotationStatusHistory(
+    manager: EntityManager,
+    params: {
+      quotationId: string;
+      previousStatus: QuotationStatus;
+      nextStatus: QuotationStatus;
+      reason: string | null;
+      changedBy: string | null;
+    },
+  ) {
+    await manager.getRepository(QuotationStatusHistory).save({
+      quotation_id: params.quotationId,
+      old_status: params.previousStatus,
+      new_status: params.nextStatus,
+      reason: params.reason,
+      changed_by: params.changedBy,
+    });
+  }
+
+  private defaultTransitionReason(
+    action: QuotationStatusTransitionAction,
+    nextStatus: QuotationStatus,
+  ) {
+    switch (action) {
+      case QuotationStatusTransitionAction.RATE:
+        return 'Quotation rated successfully';
+      case QuotationStatusTransitionAction.REFER:
+        return 'Quotation referred for review';
+      case QuotationStatusTransitionAction.REQUEST_APPROVAL:
+        return 'Quotation sent for approval';
+      case QuotationStatusTransitionAction.APPROVE:
+        return 'Quotation approved';
+      case QuotationStatusTransitionAction.REJECT:
+        return 'Quotation rejected';
+      case QuotationStatusTransitionAction.CANCEL:
+        return 'Quotation cancelled';
+      case QuotationStatusTransitionAction.EXPIRE:
+        return 'Quotation expired';
+      case QuotationStatusTransitionAction.RESET_TO_DRAFT:
+        return 'Quotation returned to draft';
+      case QuotationStatusTransitionAction.CONVERT:
+        return `Quotation transitioned to ${nextStatus}`;
+      default:
+        return `Quotation transitioned to ${nextStatus}`;
+    }
   }
 
   private assertQuotationEditable(quotation: Quotation): void {

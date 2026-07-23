@@ -7,6 +7,7 @@ import type {
   QuotationPayload,
   QuotationPreviewRecord,
   QuotationSubmitResponse,
+  TransitionQuotationStatusPayload,
 } from './types';
 
 export type QuotationUpdatePayload = QuotationPayload & {
@@ -75,6 +76,10 @@ export const quotationsApi = {
   submit: (id: string, data: { force_resubmit?: boolean; return_existing?: boolean } = {}) =>
     apiClient
       .post<QuotationSubmitResponse>(`/tenant/quotations/${id}/submit`, data)
+      .then((response) => response.data),
+  transitionStatus: (id: string, data: TransitionQuotationStatusPayload) =>
+    apiClient
+      .post<QuotationDetailRecord>(`/tenant/quotations/${id}/status`, data)
       .then((response) => response.data),
   delete: (id: string) =>
     apiClient.delete(`/tenant/quotations/${id}`).then((response) => response.data),
