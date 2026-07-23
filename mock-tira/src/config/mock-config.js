@@ -142,6 +142,18 @@ const CONFIG = {
   responseUseRequestId:
     process.env.MOCK_RESPONSE_USE_REQUEST_ID !== 'false',
 
+  defaultCoverNoteReferenceNumber:
+    process.env.MOCK_DEFAULT_COVER_NOTE_REFERENCE_NUMBER ||
+    '11025-19963-92620',
+
+  defaultMotorCoverNoteReferenceNumber:
+    process.env.MOCK_DEFAULT_MOTOR_COVER_NOTE_REFERENCE_NUMBER ||
+    process.env.MOCK_DEFAULT_COVER_NOTE_REFERENCE_NUMBER ||
+    '11025-19963-92620',
+
+  defaultStickerNumber:
+    process.env.MOCK_DEFAULT_STICKER_NUMBER || '25001-19917-40920',
+
   coverNoteRefPrefix: process.env.MOCK_COVER_NOTE_REF_PREFIX || 'CN',
 
   motorCoverNoteRefPrefix:

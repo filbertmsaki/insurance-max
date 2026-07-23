@@ -307,6 +307,11 @@ function registerMockAdminRoutes(app, deps = {}) {
       success: true,
       envDefaults: {
         responseUseRequestId: CONFIG.responseUseRequestId,
+        defaultCoverNoteReferenceNumber:
+          CONFIG.defaultCoverNoteReferenceNumber,
+        defaultMotorCoverNoteReferenceNumber:
+          CONFIG.defaultMotorCoverNoteReferenceNumber,
+        defaultStickerNumber: CONFIG.defaultStickerNumber,
         coverNoteRefPrefix: CONFIG.coverNoteRefPrefix,
         motorCoverNoteRefPrefix: CONFIG.motorCoverNoteRefPrefix,
         stickerPrefix: CONFIG.stickerPrefix,

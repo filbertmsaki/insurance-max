@@ -198,16 +198,22 @@ function resolveMockResponseData(params = {}) {
     coverNoteReferenceNumber: firstValue(
       overrides.coverNoteReferenceNumber,
       RUNTIME_RESPONSE_CONFIG.coverNoteReferenceNumber,
+      CONFIG.defaultCoverNoteReferenceNumber,
       buildReference(CONFIG.coverNoteRefPrefix, requestId),
     ),
     motorCoverNoteReferenceNumber: firstValue(
       overrides.motorCoverNoteReferenceNumber,
+      overrides.coverNoteReferenceNumber,
       RUNTIME_RESPONSE_CONFIG.motorCoverNoteReferenceNumber,
+      RUNTIME_RESPONSE_CONFIG.coverNoteReferenceNumber,
+      CONFIG.defaultMotorCoverNoteReferenceNumber,
+      CONFIG.defaultCoverNoteReferenceNumber,
       buildReference(CONFIG.motorCoverNoteRefPrefix, requestId),
     ),
     stickerNumber: firstValue(
       overrides.stickerNumber,
       RUNTIME_RESPONSE_CONFIG.stickerNumber,
+      CONFIG.defaultStickerNumber,
       buildReference(CONFIG.stickerPrefix, requestId),
     ),
     policyReferenceNumber: firstValue(
