@@ -6,7 +6,10 @@ const forge = require('node-forge');
 const { CONFIG } = require('../config/mock-config');
 const { RESPONSE_CODES } = require('../constants/response-codes.constant');
 const { extractContentXml, getTag, escapeXml } = require('../utils/xml.util');
-const { buildTiraMessage } = require('./response-builder.service');
+const {
+  buildTiraMessage,
+  buildRawTiraMessage,
+} = require('./response-builder.service');
 
 const CERT_CACHE = {
   tiraPrivateKeyPem: null,
@@ -245,6 +248,10 @@ function signResponseContent(contentXml) {
 }
 
 function wrapTiraMessage(contentXml) {
+  if (String(contentXml || '').trim().startsWith('<CoverNoteVerificationRes>')) {
+    return buildRawTiraMessage(contentXml, signResponseContent);
+  }
+
   return buildTiraMessage(contentXml, signResponseContent);
 }
 

@@ -166,7 +166,7 @@ const BUSINESS_VALIDATION_RULES = {
   },
 
   CoverNoteVerificationReq: {
-    required: [...COMMON_SYNC_HEADER_FIELDS, 'CoverNoteReferenceNumber'],
+    required: [...COMMON_SYNC_HEADER_FIELDS],
   },
 
   MotorVerificationReq: {

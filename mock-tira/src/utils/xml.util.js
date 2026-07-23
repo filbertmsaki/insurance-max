@@ -35,6 +35,12 @@ function hasTag(xml, tagName) {
   );
 }
 
+function hasNonEmptyTag(xml, tagName) {
+  const value = getTag(xml, tagName);
+
+  return String(value || '').trim().length > 0;
+}
+
 function extractContentXml(xml) {
   const text = String(xml || '');
   const match = text.match(/<Content[^>]*>([\s\S]*?)<\/Content>/i);
@@ -113,6 +119,7 @@ module.exports = {
   getRoot,
   getTag,
   hasTag,
+  hasNonEmptyTag,
   extractContentXml,
   escapeXml,
   unescapeXml,

@@ -15,14 +15,27 @@ export class TiramisVerificationPayloadService {
     dto: CoverNoteVerificationDto & TiramisResolvedRequestDtoFields,
     requestId: string,
   ): Record<string, any> {
+    const verificationDtl: Record<string, any> = {};
+
+    if (dto.coverNoteReferenceNumber) {
+      verificationDtl.CoverNoteReferenceNumber = dto.coverNoteReferenceNumber;
+    }
+
+    if (dto.stickerNumber) {
+      verificationDtl.StickerNumber = dto.stickerNumber;
+    }
+
+    if (dto.motorRegistrationNumber) {
+      verificationDtl.MotorRegistrationNumber = dto.motorRegistrationNumber;
+    }
+
+    if (dto.motorChassisNumber) {
+      verificationDtl.MotorChassisNumber = dto.motorChassisNumber;
+    }
+
     return {
       VerificationHdr: this.buildHeader(dto, requestId),
-      VerificationDtl: {
-        CoverNoteReferenceNumber: dto.coverNoteReferenceNumber || '',
-        StickerNumber: dto.stickerNumber || '',
-        MotorRegistrationNumber: dto.motorRegistrationNumber || '',
-        MotorChassisNumber: dto.motorChassisNumber || '',
-      },
+      VerificationDtl: verificationDtl,
     };
   }
 

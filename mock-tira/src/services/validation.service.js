@@ -8,7 +8,7 @@ const {
   YES_NO_FIELDS,
 } = require('../constants/validation-rules.constant');
 const { RESPONSE_CODES } = require('../constants/response-codes.constant');
-const { getTag, hasTag } = require('../utils/xml.util');
+const { getTag, hasTag, hasNonEmptyTag } = require('../utils/xml.util');
 
 function validateDateTime(value) {
   if (!value) {
@@ -87,6 +87,25 @@ function validateBusinessXml(root, xml, endpointDefinition) {
   for (const tagName of rules.required || []) {
     if (!hasTag(xml, tagName)) {
       errors.push(`Missing required tag: ${tagName}`);
+    }
+  }
+
+  if (root === 'CoverNoteVerificationReq') {
+    const verificationDtlFields = [
+      'CoverNoteReferenceNumber',
+      'StickerNumber',
+      'MotorRegistrationNumber',
+      'MotorChassisNumber',
+    ];
+
+    const hasAnyVerificationDtlField = verificationDtlFields.some((tagName) =>
+      hasNonEmptyTag(xml, tagName),
+    );
+
+    if (!hasAnyVerificationDtlField) {
+      errors.push(
+        `One of these tags is required and must not be empty: ${verificationDtlFields.join(', ')}`,
+      );
     }
   }
 

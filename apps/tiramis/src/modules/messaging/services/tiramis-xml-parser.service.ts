@@ -207,22 +207,35 @@ export class TiramisXmlParserService {
     }
 
     const payload = parsedMessage.content || {};
+    const coverNoteHdr = this.getRecordValue(payload, 'CoverNoteHdr');
+    const coverNoteDtl = this.getRecordValue(payload, 'CoverNoteDtl');
 
     return {
       rootElement,
       responseAckRoot: definition.responseAckRoot,
       serviceType: definition.serviceType,
-      requestId: this.getXmlValue(payload.RequestId),
-      responseId: this.getXmlValue(payload.ResponseId),
-      responseStatusCode: this.getXmlValue(payload.ResponseStatusCode),
-      responseStatusDesc: this.getXmlValue(payload.ResponseStatusDesc),
+      requestId: this.getXmlValue(
+        payload.RequestId ?? coverNoteHdr?.RequestId ?? '',
+      ),
+      responseId: this.getXmlValue(
+        payload.ResponseId ?? coverNoteHdr?.ResponseId ?? '',
+      ),
+      responseStatusCode: this.getXmlValue(
+        payload.ResponseStatusCode ?? coverNoteHdr?.ResponseStatusCode ?? '',
+      ),
+      responseStatusDesc: this.getXmlValue(
+        payload.ResponseStatusDesc ?? coverNoteHdr?.ResponseStatusDesc ?? '',
+      ),
       claimReferenceNumber: this.getOptionalXmlValue(
-        payload.ClaimReferenceNumber,
+        payload.ClaimReferenceNumber ?? coverNoteDtl?.ClaimReferenceNumber,
       ),
       coverNoteReferenceNumber: this.getOptionalXmlValue(
-        payload.CoverNoteReferenceNumber,
+        payload.CoverNoteReferenceNumber ??
+          coverNoteDtl?.CoverNoteReferenceNumber,
       ),
-      stickerNumber: this.getOptionalXmlValue(payload.StickerNumber),
+      stickerNumber: this.getOptionalXmlValue(
+        payload.StickerNumber ?? coverNoteDtl?.StickerNumber,
+      ),
       payload,
       rawXml: xml,
     };
@@ -238,6 +251,7 @@ export class TiramisXmlParserService {
     return (
       this.getStringValue(message.content, 'RequestId') ||
       this.getNestedStringValue(message.content, 'CoverNoteHdr', 'RequestId') ||
+      this.getNestedStringValue(message.content, 'CoverNoteDtl', 'RequestId') ||
       this.getNestedStringValue(
         message.content,
         'MotorCoverNoteHdr',
@@ -290,7 +304,11 @@ export class TiramisXmlParserService {
       return null;
     }
 
-    return this.getStringValue(message.content, 'ResponseId');
+    return (
+      this.getStringValue(message.content, 'ResponseId') ||
+      this.getNestedStringValue(message.content, 'CoverNoteHdr', 'ResponseId') ||
+      null
+    );
   }
 
   getAcknowledgementId(xml: string): string | null {
@@ -312,6 +330,11 @@ export class TiramisXmlParserService {
 
     return (
       this.getStringValue(message.content, 'ResponseStatusCode') ||
+      this.getNestedStringValue(
+        message.content,
+        'CoverNoteHdr',
+        'ResponseStatusCode',
+      ) ||
       this.getStringValue(message.content, 'AcknowledgementStatusCode') ||
       null
     );
@@ -326,6 +349,11 @@ export class TiramisXmlParserService {
 
     return (
       this.getStringValue(message.content, 'ResponseStatusDesc') ||
+      this.getNestedStringValue(
+        message.content,
+        'CoverNoteHdr',
+        'ResponseStatusDesc',
+      ) ||
       this.getStringValue(message.content, 'AcknowledgementStatusDesc') ||
       null
     );

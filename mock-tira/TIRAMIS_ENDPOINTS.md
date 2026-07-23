@@ -351,17 +351,32 @@ Endpoint: `POST {{baseUrl}}/eclaim/api/claim/claim-rejection/v1/request`
 
 Endpoint: `POST {{baseUrl}}/ecovernote/api/covernote/verification/min/v1/request`
 
+`VerificationDtl` accepts these optional fields:
+
+- `CoverNoteReferenceNumber`
+- `StickerNumber`
+- `MotorRegistrationNumber`
+- `MotorChassisNumber`
+
+At least one of the four fields must be provided with a non-empty value.
+
 ```xml
+<TiraMsg>
 <CoverNoteVerificationReq>
   <VerificationHdr>
-    <RequestId>REQ-CNV-001</RequestId>
-    <CompanyCode>ICC110</CompanyCode>
+    <RequestId>NIC22424232355</RequestId>
+    <CompanyCode>IC0003</CompanyCode>
     <SystemCode>LSYS_ALLIANCE_003</SystemCode>
   </VerificationHdr>
   <VerificationDtl>
-    <CoverNoteReferenceNumber>TIRA-CN-001</CoverNoteReferenceNumber>
+    <CoverNoteReferenceNumber>42424-246767-65768</CoverNoteReferenceNumber>
+    <StickerNumber>13143-14145-12412</StickerNumber>
+    <MotorRegistrationNumber>T233SQA</MotorRegistrationNumber>
+    <MotorChassisNumber>4353646</MotorChassisNumber>
   </VerificationDtl>
 </CoverNoteVerificationReq>
+<MsgSignature>figuiiojwjfuufewbfwiufwnihfergiengi</MsgSignature>
+</TiraMsg>
 ```
 
 ### Motor Verification
@@ -425,14 +440,53 @@ Sync endpoints return a signed final response immediately:
 
 ```xml
 <TiraMsg>
-  <MotorVerificationRes>
-    <ResponseId>RES...</ResponseId>
-    <RequestId>REQ-MV-001</RequestId>
-    <RegistrationNumber>T123ABC</RegistrationNumber>
-    <ChassisNumber>CHASSIS001</ChassisNumber>
-    <ResponseStatusCode>TIRA001</ResponseStatusCode>
-    <ResponseStatusDesc>Successful</ResponseStatusDesc>
-  </MotorVerificationRes>
+  <CoverNoteVerificationRes>
+    <CoverNoteHdr>
+      <ResponseId>TIRA22424232355</ResponseId>
+      <RequestId>NIC22424232355</RequestId>
+      <ResponseStatusCode>TIRA001</ResponseStatusCode>
+      <ResponseStatusDesc>Successful</ResponseStatusDesc>
+    </CoverNoteHdr>
+    <CoverNoteDtl>
+      <CoverNoteTypeDesc>Endorsement</CoverNoteTypeDesc>
+      <CoverNoteNumber>NIC00001</CoverNoteNumber>
+      <CoverNoteReferenceNumber>45632525252</CoverNoteReferenceNumber>
+      <PrevCoverNoteReferenceNumber>32525252</PrevCoverNoteReferenceNumber>
+      <InsurerCompanyCode>IC0003</InsurerCompanyCode>
+      <InsurerCompanyName>NIC</InsurerCompanyName>
+      <TransactionCompanyCode>IC0003</TransactionCompanyCode>
+      <TransactionCompanyName>NMB</TransactionCompanyName>
+      <BranchCode>BR0003</BranchCode>
+      <BranchDescription>BR0003</BranchDescription>
+      <SalePointCode>SP0003</SalePointCode>
+      <SalePointDescription>SP0003</SalePointDescription>
+      <CoverNoteIssueDate>2020-07-30T23:24:22</CoverNoteIssueDate>
+      <CoverNoteStartDate>2020-09-15T13:55:22</CoverNoteStartDate>
+      <CoverNoteEndDate>2021-07-30T23:59:59</CoverNoteEndDate>
+      <CoverNoteDesc>Cover note verification response</CoverNoteDesc>
+      <OperativeClause>Fire and Allied Perils</OperativeClause>
+      <PaymentMode>1</PaymentMode>
+      <CurrencyCode>USD</CurrencyCode>
+      <ExchangeRate>2000.00</ExchangeRate>
+      <TotalPremiumExcludingTax>3000.00</TotalPremiumExcludingTax>
+      <TotalPremiumIncludingTax>3380.00</TotalPremiumIncludingTax>
+      <CommisionPaid>0.00</CommisionPaid>
+      <CommisionRate>0.00</CommisionRate>
+      <IsFleet>Y</IsFleet>
+      <FleetId>FL122340</FleetId>
+      <FleetSize>23</FleetSize>
+      <OfficerName>John Doe</OfficerName>
+      <OfficerTitle>Underwriter</OfficerTitle>
+      <ProductCode>CP20100000</ProductCode>
+      <ProductName>Lala Salama</ProductName>
+      <VerificationStatus>VALID</VerificationStatus>
+      <VerificationMessage>Verified successfully</VerificationMessage>
+    </CoverNoteDtl>
+  </CoverNoteVerificationRes>
   <MsgSignature>...</MsgSignature>
 </TiraMsg>
 ```
+
+For `CoverNoteVerificationReq`, the response is wrapped in `CoverNoteHdr` and
+`CoverNoteDtl`. The mock echoes provided verification identifiers and fills the
+remaining cover note detail fields with mock data.
