@@ -35,6 +35,8 @@ import { QuotationTiramisPayloadMapper } from './mappers/quotation-tiramis-paylo
 import { QuotationsController } from './quotations.controller';
 import { QuotationsRepository } from './repositories/quotations.repository';
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
+import { QuotationDisplayStatusResolver } from './services/quotation-display-status.resolver';
+import { QuotationLifecycleService } from './services/quotation-lifecycle.service';
 import { QuotationsService } from './quotations.service';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 
@@ -80,6 +82,8 @@ import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-
     QuotationPreviewMapper,
     QuotationTiramisPayloadMapper,
     QuotationPayloadValidator,
+    QuotationDisplayStatusResolver,
+    QuotationLifecycleService,
     IdentifierGeneratorService,
   ],
   exports: [
@@ -88,6 +92,8 @@ import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-
     QuotationPayloadMapper,
     QuotationPreviewMapper,
     QuotationTiramisPayloadMapper,
+    QuotationDisplayStatusResolver,
+    QuotationLifecycleService,
   ],
 })
 export class QuotationsModule {}

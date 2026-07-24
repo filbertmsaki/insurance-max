@@ -11,7 +11,7 @@ import { Branch } from '../branches/entities/branch.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { QuotationStatusHistory } from '../quotations/entities/quotation-status-history.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
-import { QuotationStatus } from '../quotations/enums/quotation-status.enum';
+import { QuotationLifecycleService } from '../quotations/services/quotation-lifecycle.service';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 import { TiramisSubmissionStatus } from '../../tiramis/enums/tiramis-submission-status.enum';
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
@@ -51,6 +51,7 @@ export class TiramisIntegrationService {
     private readonly localTrackingRepository: TiramisSubmissionTrackingRepository,
     private readonly tiramisBusinessRecordSyncService: TiramisBusinessRecordSyncService,
     private readonly identifierGeneratorService: IdentifierGeneratorService,
+    private readonly quotationLifecycleService: QuotationLifecycleService,
   ) {}
 
   async submitToTiramis(params: {
@@ -1167,30 +1168,86 @@ export class TiramisIntegrationService {
       return;
     }
 
-    const nextStatus = this.mapPortalSubmissionStatusToQuotationStatus(
-      submission.status,
-    );
-
-    if (!nextStatus || quotation.status === nextStatus) {
-      return;
-    }
-
-    const previousStatus = quotation.status;
-    quotation.status = nextStatus;
-
-    await this.quotationRepository.save(quotation);
-
-    await this.quotationStatusHistoryRepository.save({
-      quotation_id: quotation.id,
-      old_status: previousStatus,
-      new_status: nextStatus,
+    const context = {
+      changedBy: null,
+      changedByType: 'SYSTEM',
+      source: 'TIRAMIS',
       reason:
         payload.statusDescription ||
         submission.status_description ||
         payload.errorMessage ||
-        `TIRAMIS callback updated quotation status to ${nextStatus}`,
-      changed_by: null,
-    });
+        null,
+      requestId: payload.requestId,
+      tiraRequestId: payload.requestId,
+      tiraResponseId: payload.responseId ?? null,
+      metadata: {
+        eventType: payload.eventType,
+        transactionStatus: payload.transactionStatus ?? null,
+        statusCode: payload.statusCode ?? null,
+        statusDescription:
+          payload.statusDescription ?? submission.status_description ?? null,
+        errorMessage: payload.errorMessage ?? null,
+        submissionStatus: submission.status,
+      },
+    };
+
+    switch (payload.eventType) {
+      case 'TIRAMIS_ACK_RECEIVED':
+      case 'TIRAMIS_FINAL_RESPONSE_RECEIVED':
+        await this.quotationLifecycleService.markTiraProcessing(
+          submission.company_id,
+          quotation.id,
+          context,
+        );
+        break;
+      case 'TIRAMIS_FINAL_SUCCESS':
+      case 'TIRAMIS_RESPONSE_ACK_SENT':
+        await this.quotationLifecycleService.markTiraSuccessful(
+          submission.company_id,
+          quotation.id,
+          context,
+        );
+        break;
+      case 'TIRAMIS_CALLBACK_REJECTED':
+        await this.quotationLifecycleService.markTiraRejected(
+          submission.company_id,
+          quotation.id,
+          context,
+        );
+        break;
+      case 'TIRAMIS_ACK_FAILED':
+      case 'TIRAMIS_FINAL_FAILED':
+      case 'TIRAMIS_FINAL_CALLBACK_OVERDUE':
+      case 'TIRAMIS_SUBMISSION_FAILED':
+        await this.quotationLifecycleService.markTiraFailed(
+          submission.company_id,
+          quotation.id,
+          context,
+        );
+        break;
+      default:
+        if (submission.status === PortalTiraSubmissionStatus.COMPLETED) {
+          await this.quotationLifecycleService.markTiraSuccessful(
+            submission.company_id,
+            quotation.id,
+            context,
+          );
+        } else if (
+          [
+            PortalTiraSubmissionStatus.FAILED,
+            PortalTiraSubmissionStatus.ACK_FAILED,
+            PortalTiraSubmissionStatus.FINAL_FAILED,
+            PortalTiraSubmissionStatus.FINAL_CALLBACK_OVERDUE,
+          ].includes(submission.status)
+        ) {
+          await this.quotationLifecycleService.markTiraFailed(
+            submission.company_id,
+            quotation.id,
+            context,
+          );
+        }
+        break;
+    }
   }
 
   private async findLinkedPolicy(
@@ -1393,23 +1450,6 @@ export class TiramisIntegrationService {
         }
 
         return PortalTiraSubmissionStatus.SUBMITTED_TO_TIRAMIS;
-    }
-  }
-
-  private mapPortalSubmissionStatusToQuotationStatus(
-    status: PortalTiraSubmissionStatus,
-  ): QuotationStatus | null {
-    switch (status) {
-      case PortalTiraSubmissionStatus.COMPLETED:
-        return QuotationStatus.COMPLETED;
-      case PortalTiraSubmissionStatus.FAILED:
-      case PortalTiraSubmissionStatus.ACK_FAILED:
-      case PortalTiraSubmissionStatus.FINAL_FAILED:
-      case PortalTiraSubmissionStatus.CALLBACK_REJECTED:
-      case PortalTiraSubmissionStatus.FINAL_CALLBACK_OVERDUE:
-        return QuotationStatus.FAILED;
-      default:
-        return null;
     }
   }
 

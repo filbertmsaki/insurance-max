@@ -16,6 +16,13 @@ export interface QuotationPreviewOverview {
   quotation_type: string;
   quotation_flow: string;
   quotation_status: string;
+  approval_status: string;
+  payment_status: string;
+  tira_status: string;
+  display_status: string;
+  display_label: string;
+  requires_approval: boolean;
+  requires_payment: boolean;
   channel_type: string;
   company: QuotationPreviewRef;
   branch: QuotationPreviewRef;
@@ -220,6 +227,7 @@ export interface QuotationPreviewFleetSummary {
 }
 
 export interface QuotationPreviewPayment {
+  quotation_payment_status: string | null;
   payment_status: string | null;
   payment_method: string | null;
   payment_reference: string | null;

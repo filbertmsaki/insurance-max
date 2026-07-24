@@ -9,8 +9,14 @@ import { Badge } from '@/components/ui/badge';
 const STATUS_VARIANTS: Record<string, 'muted' | 'warning' | 'success' | 'danger'> = {
   DRAFT: 'muted',
   ISSUED: 'warning',
+  NOT_INITIATED: 'warning',
+  REQUESTED: 'warning',
+  PROCESSING: 'warning',
   PARTIALLY_PAID: 'warning',
   PAID: 'success',
+  REFUNDED: 'muted',
+  FAILED: 'danger',
+  EXPIRED: 'danger',
   CANCELLED: 'danger',
   OVERDUE: 'danger',
 };

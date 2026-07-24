@@ -6,6 +6,7 @@ import { Branch } from '../branches/entities/branch.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { QuotationStatusHistory } from '../quotations/entities/quotation-status-history.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
+import { QuotationsModule } from '../quotations/quotations.module';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 import { TiramisModule } from '../../tiramis/tiramis.module';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
@@ -18,6 +19,7 @@ import { TiramisIntegrationService } from './tiramis-integration.service';
 
 @Module({
   imports: [
+    QuotationsModule,
     TiramisModule,
     TypeOrmModule.forFeature([
       PortalTiraSubmission,

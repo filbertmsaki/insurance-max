@@ -6,26 +6,78 @@ export type QuotationType = 'MOTOR' | 'NON_MOTOR';
 export type QuotationFlow = 'NON_MOTOR' | 'MOTOR_SINGLE' | 'MOTOR_FLEET';
 export type QuotationStatus =
   | 'DRAFT'
-  | 'RATED'
-  | 'REFERRED'
-  | 'PENDING_APPROVAL'
+  | 'PENDING_REQUIREMENTS'
+  | 'READY_FOR_SUBMISSION'
+  | 'SUBMITTING_TO_TIRA'
   | 'SUBMITTED_TO_TIRA'
+  | 'TIRA_PROCESSING'
   | 'COMPLETED'
-  | 'FAILED'
-  | 'APPROVED'
   | 'REJECTED'
-  | 'CONVERTED'
+  | 'FAILED'
   | 'EXPIRED'
   | 'CANCELLED';
+export type ApprovalStatus =
+  | 'NOT_REQUIRED'
+  | 'NOT_SUBMITTED'
+  | 'PENDING'
+  | 'APPROVED'
+  | 'CHANGES_REQUESTED'
+  | 'REJECTED'
+  | 'CANCELLED';
+export type PaymentStatus =
+  | 'NOT_REQUIRED'
+  | 'NOT_INITIATED'
+  | 'REQUESTED'
+  | 'PROCESSING'
+  | 'PARTIALLY_PAID'
+  | 'PAID'
+  | 'FAILED'
+  | 'EXPIRED'
+  | 'CANCELLED'
+  | 'REFUNDED';
+export type TiraStatus =
+  | 'NOT_SUBMITTED'
+  | 'SUBMITTING'
+  | 'SUBMITTED'
+  | 'PROCESSING'
+  | 'SUCCESS'
+  | 'REJECTED'
+  | 'FAILED';
+export type QuotationDisplayStatus =
+  | 'DRAFT'
+  | 'PENDING_APPROVAL'
+  | 'CHANGES_REQUESTED'
+  | 'APPROVAL_REJECTED'
+  | 'PAYMENT_REQUIRED'
+  | 'AWAITING_PAYMENT'
+  | 'PAYMENT_PROCESSING'
+  | 'PARTIALLY_PAID'
+  | 'PAYMENT_FAILED'
+  | 'PAYMENT_REQUEST_EXPIRED'
+  | 'READY_FOR_TIRA_SUBMISSION'
+  | 'SUBMITTING_TO_TIRAMIS'
+  | 'SUBMITTED_TO_TIRAMIS'
+  | 'PROCESSING_AT_TIRAMIS'
+  | 'REJECTED_BY_TIRAMIS'
+  | 'TIRAMIS_SUBMISSION_FAILED'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'EXPIRED';
 export type QuotationStatusTransitionAction =
-  | 'RATE'
-  | 'REFER'
-  | 'REQUEST_APPROVAL'
+  | 'EVALUATE_REQUIREMENTS'
+  | 'SUBMIT_FOR_APPROVAL'
   | 'APPROVE'
-  | 'REJECT'
+  | 'REQUEST_CHANGES'
+  | 'REJECT_APPROVAL'
+  | 'MARK_PAYMENT_REQUESTED'
+  | 'MARK_PAYMENT_PROCESSING'
+  | 'MARK_PARTIALLY_PAID'
+  | 'MARK_PAYMENT_PAID'
+  | 'MARK_PAYMENT_FAILED'
+  | 'MARK_PAYMENT_EXPIRED'
+  | 'MARK_PAYMENT_REFUNDED'
   | 'CANCEL'
   | 'EXPIRE'
-  | 'RESET_TO_DRAFT'
   | 'CONVERT';
 export type ProductChannelType =
   | 'DIRECT'
@@ -217,6 +269,14 @@ export interface QuotationListItem {
   quotation_flow: QuotationFlow;
   channel_type: ProductChannelType;
   status: QuotationStatus;
+  quotation_status: QuotationStatus;
+  approval_status: ApprovalStatus;
+  payment_status: PaymentStatus;
+  tira_status: TiraStatus;
+  display_status: QuotationDisplayStatus;
+  display_label: string;
+  requires_approval: boolean;
+  requires_payment: boolean;
   is_fleet: boolean;
   fleet_id: string | null;
   currency_code: string;
@@ -235,6 +295,14 @@ export interface QuotationDetailRecord extends QuotationPayload {
   quotation_no: string;
   customer_id?: string | null;
   status: QuotationStatus;
+  quotation_status: QuotationStatus;
+  approval_status: ApprovalStatus;
+  payment_status: PaymentStatus;
+  tira_status: TiraStatus;
+  display_status: QuotationDisplayStatus;
+  display_label: string;
+  requires_approval: boolean;
+  requires_payment: boolean;
   submitted_by: string | null;
   submitted_at: string | null;
   created_at: string;
@@ -396,6 +464,7 @@ export interface QuotationPreviewFleetSummary {
 }
 
 export interface QuotationPreviewPayment {
+  quotation_payment_status: PaymentStatus | null;
   payment_status: string | null;
   payment_method: string | null;
   payment_reference: string | null;
@@ -447,6 +516,13 @@ export interface QuotationPreviewRecord {
     quotation_type: QuotationType;
     quotation_flow: QuotationFlow;
     quotation_status: QuotationStatus;
+    approval_status: ApprovalStatus;
+    payment_status: PaymentStatus;
+    tira_status: TiraStatus;
+    display_status: QuotationDisplayStatus;
+    display_label: string;
+    requires_approval: boolean;
+    requires_payment: boolean;
     channel_type: ProductChannelType;
     company: QuotationPreviewRef;
     branch: QuotationPreviewRef;
@@ -577,6 +653,12 @@ export interface QuotationSubmitResponse {
 export interface TransitionQuotationStatusPayload {
   action: QuotationStatusTransitionAction;
   reason?: string;
+  comments?: string;
+  request_id?: string;
+  payment_transaction_id?: string;
+  tira_request_id?: string;
+  tira_response_id?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface QuotationListParams {

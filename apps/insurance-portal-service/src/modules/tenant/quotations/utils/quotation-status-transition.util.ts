@@ -8,17 +8,18 @@ import { QuotationStatusTransitionAction } from '../enums/quotation-status-trans
 
 export const EDITABLE_QUOTATION_STATUSES: QuotationStatus[] = [
   QuotationStatus.DRAFT,
-  QuotationStatus.RATED,
-  QuotationStatus.REFERRED,
+  QuotationStatus.PENDING_REQUIREMENTS,
+  QuotationStatus.READY_FOR_SUBMISSION,
+  QuotationStatus.FAILED,
   QuotationStatus.REJECTED,
 ];
 
 export const TERMINAL_QUOTATION_STATUSES: QuotationStatus[] = [
   QuotationStatus.COMPLETED,
   QuotationStatus.FAILED,
-  QuotationStatus.CONVERTED,
   QuotationStatus.CANCELLED,
   QuotationStatus.EXPIRED,
+  QuotationStatus.REJECTED,
 ];
 
 const QUOTATION_TRANSITION_MAP: Record<
@@ -26,57 +27,35 @@ const QUOTATION_TRANSITION_MAP: Record<
   Partial<Record<QuotationStatusTransitionAction, QuotationStatus>>
 > = {
   [QuotationStatus.DRAFT]: {
-    [QuotationStatusTransitionAction.RATE]: QuotationStatus.RATED,
-    [QuotationStatusTransitionAction.REFER]: QuotationStatus.REFERRED,
-    [QuotationStatusTransitionAction.REQUEST_APPROVAL]:
-      QuotationStatus.SUBMITTED_TO_TIRA,
+    [QuotationStatusTransitionAction.EVALUATE_REQUIREMENTS]:
+      QuotationStatus.PENDING_REQUIREMENTS,
     [QuotationStatusTransitionAction.CANCEL]: QuotationStatus.CANCELLED,
     [QuotationStatusTransitionAction.EXPIRE]: QuotationStatus.EXPIRED,
   },
-  [QuotationStatus.RATED]: {
-    [QuotationStatusTransitionAction.REFER]: QuotationStatus.REFERRED,
-    [QuotationStatusTransitionAction.REQUEST_APPROVAL]:
-      QuotationStatus.SUBMITTED_TO_TIRA,
-    [QuotationStatusTransitionAction.APPROVE]: QuotationStatus.APPROVED,
-    [QuotationStatusTransitionAction.RESET_TO_DRAFT]: QuotationStatus.DRAFT,
-  },
-  [QuotationStatus.REFERRED]: {
-    [QuotationStatusTransitionAction.RESET_TO_DRAFT]: QuotationStatus.DRAFT,
-    [QuotationStatusTransitionAction.REQUEST_APPROVAL]:
-      QuotationStatus.SUBMITTED_TO_TIRA,
-    [QuotationStatusTransitionAction.APPROVE]: QuotationStatus.APPROVED,
-    [QuotationStatusTransitionAction.REJECT]: QuotationStatus.REJECTED,
-  },
-  [QuotationStatus.PENDING_APPROVAL]: {
-    [QuotationStatusTransitionAction.REQUEST_APPROVAL]:
-      QuotationStatus.SUBMITTED_TO_TIRA,
-    [QuotationStatusTransitionAction.APPROVE]: QuotationStatus.APPROVED,
-    [QuotationStatusTransitionAction.REJECT]: QuotationStatus.REJECTED,
+  [QuotationStatus.PENDING_REQUIREMENTS]: {
+    [QuotationStatusTransitionAction.EVALUATE_REQUIREMENTS]:
+      QuotationStatus.READY_FOR_SUBMISSION,
+    [QuotationStatusTransitionAction.REQUEST_CHANGES]: QuotationStatus.DRAFT,
+    [QuotationStatusTransitionAction.REJECT_APPROVAL]: QuotationStatus.REJECTED,
     [QuotationStatusTransitionAction.CANCEL]: QuotationStatus.CANCELLED,
-  },
-  [QuotationStatus.SUBMITTED_TO_TIRA]: {
-    [QuotationStatusTransitionAction.APPROVE]: QuotationStatus.APPROVED,
-    [QuotationStatusTransitionAction.REJECT]: QuotationStatus.REJECTED,
-    [QuotationStatusTransitionAction.CANCEL]: QuotationStatus.CANCELLED,
-  },
-  [QuotationStatus.APPROVED]: {
-    [QuotationStatusTransitionAction.REQUEST_APPROVAL]:
-      QuotationStatus.SUBMITTED_TO_TIRA,
-    [QuotationStatusTransitionAction.CONVERT]: QuotationStatus.CONVERTED,
     [QuotationStatusTransitionAction.EXPIRE]: QuotationStatus.EXPIRED,
+  },
+  [QuotationStatus.READY_FOR_SUBMISSION]: {
     [QuotationStatusTransitionAction.CANCEL]: QuotationStatus.CANCELLED,
+    [QuotationStatusTransitionAction.EXPIRE]: QuotationStatus.EXPIRED,
+    [QuotationStatusTransitionAction.CONVERT]: QuotationStatus.COMPLETED,
   },
-  [QuotationStatus.REJECTED]: {
-    [QuotationStatusTransitionAction.RESET_TO_DRAFT]: QuotationStatus.DRAFT,
-    [QuotationStatusTransitionAction.REQUEST_APPROVAL]:
-      QuotationStatus.SUBMITTED_TO_TIRA,
-    [QuotationStatusTransitionAction.REFER]: QuotationStatus.REFERRED,
-  },
-  [QuotationStatus.CONVERTED]: {},
+  [QuotationStatus.SUBMITTING_TO_TIRA]: {},
+  [QuotationStatus.SUBMITTED_TO_TIRA]: {},
+  [QuotationStatus.TIRA_PROCESSING]: {},
   [QuotationStatus.COMPLETED]: {},
-  [QuotationStatus.FAILED]: {},
-  [QuotationStatus.EXPIRED]: {},
+  [QuotationStatus.REJECTED]: {},
+  [QuotationStatus.FAILED]: {
+    [QuotationStatusTransitionAction.EVALUATE_REQUIREMENTS]:
+      QuotationStatus.PENDING_REQUIREMENTS,
+  },
   [QuotationStatus.CANCELLED]: {},
+  [QuotationStatus.EXPIRED]: {},
 };
 
 export function resolveQuotationStatusTransition(params: {
@@ -103,13 +82,12 @@ export function assertQuotationStatusTransition(params: {
   const nextStatus = resolveQuotationStatusTransition(params);
   const trimmedReason = params.reason?.trim() ?? '';
 
-  const requiresReason =
-    params.action === QuotationStatusTransitionAction.REFER ||
-    params.action === QuotationStatusTransitionAction.REJECT ||
-    params.action === QuotationStatusTransitionAction.CANCEL ||
-    params.action === QuotationStatusTransitionAction.EXPIRE ||
-    (params.action === QuotationStatusTransitionAction.APPROVE &&
-      params.currentStatus === QuotationStatus.REFERRED);
+  const requiresReason = [
+    QuotationStatusTransitionAction.REQUEST_CHANGES,
+    QuotationStatusTransitionAction.REJECT_APPROVAL,
+    QuotationStatusTransitionAction.CANCEL,
+    QuotationStatusTransitionAction.EXPIRE,
+  ].includes(params.action);
 
   if (requiresReason && !trimmedReason) {
     throw new BadRequestException(

@@ -272,14 +272,24 @@ export function useTransitionQuotationStatus(id?: string) {
       }
 
       const actionMessages: Partial<Record<QuotationStatusTransitionAction, string>> = {
+        EVALUATE_REQUIREMENTS: 'Quotation requirements re-evaluated',
+        SUBMIT_FOR_APPROVAL: 'Quotation submitted for approval',
         APPROVE: 'Quotation approved',
-        REJECT: 'Quotation rejected',
+        REQUEST_CHANGES: 'Changes requested',
+        REJECT_APPROVAL: 'Quotation rejected',
+        MARK_PAYMENT_REQUESTED: 'Payment request recorded',
+        MARK_PAYMENT_PROCESSING: 'Payment marked as processing',
+        MARK_PARTIALLY_PAID: 'Partial payment recorded',
+        MARK_PAYMENT_PAID: 'Payment recorded in full',
+        MARK_PAYMENT_FAILED: 'Payment marked as failed',
+        MARK_PAYMENT_EXPIRED: 'Payment request marked as expired',
+        MARK_PAYMENT_REFUNDED: 'Payment marked as refunded',
         CANCEL: 'Quotation cancelled',
       };
 
       const message =
         actionMessages[payload.action] ||
-        `Quotation moved to ${(quotation.status as QuotationStatus).toLowerCase().replace(/_/g, ' ')}`;
+        `Quotation moved to ${(quotation.quotation_status as QuotationStatus).toLowerCase().replace(/_/g, ' ')}`;
 
       toast.success(message);
     },

@@ -54,9 +54,12 @@ import { QuotationRiskTax } from './entities/structured/quotation-risk-tax.entit
 import { QuotationSubjectMatter } from './entities/structured/quotation-subject-matter.entity';
 import { QuotationEntryType } from './enums/quotation-entry-type.enum';
 import { QuotationFlow } from './enums/quotation-flow.enum';
+import { ApprovalStatus } from './enums/approval-status.enum';
+import { PaymentStatus } from './enums/payment-status.enum';
 import { QuotationStatus } from './enums/quotation-status.enum';
 import { QuotationStatusTransitionAction } from './enums/quotation-status-transition-action.enum';
 import { QuotationType } from './enums/quotation-type.enum';
+import { TiraStatus } from './enums/tira-status.enum';
 import { QuotationPayloadMapper } from './mappers/quotation-payload.mapper';
 import { QuotationPreviewMapper } from './mappers/quotation-preview.mapper';
 import { QuotationTiramisPayloadMapper } from './mappers/quotation-tiramis-payload.mapper';
@@ -73,10 +76,10 @@ import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import {
-  assertQuotationStatusTransition,
   EDITABLE_QUOTATION_STATUSES,
   TERMINAL_QUOTATION_STATUSES,
 } from './utils/quotation-status-transition.util';
+import { QuotationLifecycleService } from './services/quotation-lifecycle.service';
 
 type NumericValue = number | string | null | undefined;
 
@@ -142,6 +145,7 @@ export class QuotationsService {
     private readonly tiramisBusinessSubmitService: TiramisBusinessSubmitService,
     private readonly tiramisSubmissionTrackingRepository: TiramisSubmissionTrackingRepository,
     private readonly identifierGeneratorService: IdentifierGeneratorService,
+    private readonly quotationLifecycleService: QuotationLifecycleService,
   ) {}
 
   async create(companyId: string, payload: CreateQuotationDto, userId: string) {
@@ -153,6 +157,13 @@ export class QuotationsService {
     this.payloadValidator.assertValid(preparedPayload);
 
     const scope = await this.validateScope(companyId, preparedPayload);
+    const lifecycleContext = {
+      changedBy: userId,
+      changedByType: 'USER' as const,
+      source: 'USER' as const,
+      channel: preparedPayload.internal_quotation.channel_type,
+      reason: 'Quotation requirements evaluated after creation',
+    };
 
     try {
       const quotationId = await this.dataSource.transaction(async (manager) => {
@@ -191,6 +202,12 @@ export class QuotationsService {
         return quotation.id;
       });
 
+      await this.quotationLifecycleService.evaluateRequirements(
+        companyId,
+        quotationId,
+        lifecycleContext,
+      );
+
       return this.findOne(companyId, quotationId);
     } catch (error) {
       this.rethrowConstraintError(error);
@@ -217,6 +234,14 @@ export class QuotationsService {
 
     this.payloadValidator.assertValid(preparedPayload);
     const scope = await this.validateScope(companyId, preparedPayload);
+    const lifecycleContext = {
+      changedBy: userId,
+      changedByType: 'USER' as const,
+      source: 'USER' as const,
+      channel: preparedPayload.internal_quotation.channel_type,
+      reason: 'Quotation payload was replaced',
+    };
+    let shouldEvaluateRequirements = false;
 
     try {
       await this.dataSource.transaction(async (manager) => {
@@ -238,7 +263,7 @@ export class QuotationsService {
         }
 
         const previousStatus = lockedQuotation.status;
-          const customerId = await this.resolveOrCreateCustomerId(
+        const customerId = await this.resolveOrCreateCustomerId(
           manager,
           companyId,
           preparedPayload,
@@ -274,15 +299,17 @@ export class QuotationsService {
         );
 
         if (previousStatus !== QuotationStatus.DRAFT) {
-          await this.recordQuotationStatusHistory(manager, {
-            quotationId: quotation.id,
-            previousStatus,
-            nextStatus: QuotationStatus.DRAFT,
-            reason: 'Quotation payload was replaced',
-            changedBy: userId,
-          });
+          shouldEvaluateRequirements = true;
         }
       });
+
+      if (shouldEvaluateRequirements) {
+        await this.quotationLifecycleService.evaluateRequirements(
+          companyId,
+          id,
+          lifecycleContext,
+        );
+      }
 
       return this.findOne(companyId, id);
     } catch (error) {
@@ -407,12 +434,39 @@ export class QuotationsService {
     const payload = this.payloadMapper.toAuthoritativePayload(quotation);
     this.payloadValidator.assertValid(payload);
     const tiramisPayload = this.tiramisPayloadMapper.toTiramisPayload(payload);
-    await this.assertPaymentReady(quotation);
 
     const requestType = this.toTiramisRequestType(quotation.quotation_flow);
+    const shouldReuseExistingSubmission =
+      !!submitOptions.return_existing &&
+      quotation.tira_status !== TiraStatus.NOT_SUBMITTED;
 
-    const result =
-      await this.tiramisBusinessSubmitService.submitAnyBusinessRecord({
+    if (!shouldReuseExistingSubmission) {
+      await this.quotationLifecycleService.startTiraSubmission(
+        companyId,
+        quotation.id,
+        {
+          changedBy: user.id,
+          changedByType: 'USER',
+          source: 'USER',
+          channel: quotation.channel_type,
+          reason: submitOptions.force_resubmit
+            ? 'Quotation resubmitted to TIRAMIS'
+            : 'Quotation submitted to TIRAMIS',
+          metadata: {
+            forceResubmit: !!submitOptions.force_resubmit,
+            returnExisting: !!submitOptions.return_existing,
+          },
+        },
+        {
+          allowRetryFromFailure: !!submitOptions.force_resubmit,
+        },
+      );
+    }
+
+    let result: Record<string, unknown>;
+
+    try {
+      result = (await this.tiramisBusinessSubmitService.submitAnyBusinessRecord({
         requestType,
         sourceModule: 'quotations',
         sourceRecordId: quotation.id,
@@ -455,41 +509,45 @@ export class QuotationsService {
             ).activeBranchId ??
             null,
         },
-      });
+      })) as Record<string, unknown>;
+    } catch (error) {
+      if (!shouldReuseExistingSubmission) {
+        await this.quotationLifecycleService.markTiraFailed(companyId, quotation.id, {
+          changedBy: user.id,
+          changedByType: 'USER',
+          source: 'SYSTEM',
+          channel: quotation.channel_type,
+          reason: error instanceof Error ? error.message : 'TIRAMIS submission failed',
+          metadata: {
+            error:
+              error instanceof Error
+                ? {
+                    name: error.name,
+                    message: error.message,
+                  }
+                : { value: String(error) },
+          },
+        });
+      }
+      throw error;
+    }
 
     const submittedAt = new Date();
 
-    await this.dataSource.transaction(async (manager) => {
-      const lockedQuotation = await this.lockQuotationForUpdate(
-        manager,
-        companyId,
-        quotation.id,
-      );
-
-      const shouldSetSubmittedAt =
-        !lockedQuotation.submitted_at || submitOptions.force_resubmit;
-      const nextStatus =
-        lockedQuotation.status === QuotationStatus.SUBMITTED_TO_TIRA
-          ? lockedQuotation.status
-          : assertQuotationStatusTransition({
-              currentStatus: lockedQuotation.status,
-              action: QuotationStatusTransitionAction.REQUEST_APPROVAL,
-              reason: 'Quotation submitted to TIRAMIS',
-            });
-
-      await this.applyQuotationStatusUpdate(manager, lockedQuotation, {
-        nextStatus,
-        reason:
-          lockedQuotation.status === nextStatus
-            ? 'Quotation resubmitted to TIRAMIS'
-            : 'Quotation submitted to TIRAMIS',
+    if (!shouldReuseExistingSubmission) {
+      await this.quotationLifecycleService.markTiraSubmitted(companyId, quotation.id, {
         changedBy: user.id,
-        submittedBy: user.id,
-        submittedAt: shouldSetSubmittedAt
-          ? submittedAt
-          : lockedQuotation.submitted_at,
+        changedByType: 'USER',
+        source: 'USER',
+        channel: quotation.channel_type,
+        reason: 'TIRAMIS accepted the submission request',
+        tiraRequestId:
+          typeof (result as { requestId?: unknown }).requestId === 'string'
+            ? ((result as { requestId?: string }).requestId ?? null)
+            : null,
+        metadata: result,
       });
-    });
+    }
 
     return {
       quotation_id: quotation.id,
@@ -506,27 +564,82 @@ export class QuotationsService {
     dto: TransitionQuotationStatusDto,
     userId: string,
   ) {
-    await this.dataSource.transaction(async (manager) => {
-      const lockedQuotation = await this.lockQuotationForUpdate(
-        manager,
-        companyId,
-        id,
+    const context = {
+      changedBy: userId,
+      changedByType: 'USER',
+      source: 'USER',
+      reason: dto.reason?.trim() || undefined,
+      comments: dto.comments?.trim() || undefined,
+      paymentTransactionId: dto.payment_transaction_id?.trim() || undefined,
+      requestId: dto.request_id?.trim() || undefined,
+      tiraRequestId: dto.tira_request_id?.trim() || undefined,
+      tiraResponseId: dto.tira_response_id?.trim() || undefined,
+      metadata: dto.metadata ?? undefined,
+    };
+
+    if (
+      [
+        QuotationStatusTransitionAction.REQUEST_CHANGES,
+        QuotationStatusTransitionAction.REJECT_APPROVAL,
+        QuotationStatusTransitionAction.CANCEL,
+        QuotationStatusTransitionAction.EXPIRE,
+      ].includes(dto.action) &&
+      !context.reason
+    ) {
+      throw new BadRequestException(
+        `A reason is required to ${dto.action.toLowerCase().replace(/_/g, ' ')}`,
       );
+    }
 
-      const nextStatus = assertQuotationStatusTransition({
-        currentStatus: lockedQuotation.status,
-        action: dto.action,
-        reason: dto.reason,
-      });
-
-      await this.applyQuotationStatusUpdate(manager, lockedQuotation, {
-        nextStatus,
-        reason:
-          dto.reason?.trim() ||
-          this.defaultTransitionReason(dto.action, nextStatus),
-        changedBy: userId,
-      });
-    });
+    switch (dto.action) {
+      case QuotationStatusTransitionAction.EVALUATE_REQUIREMENTS:
+        await this.quotationLifecycleService.evaluateRequirements(companyId, id, context);
+        break;
+      case QuotationStatusTransitionAction.SUBMIT_FOR_APPROVAL:
+        await this.quotationLifecycleService.submitForApproval(companyId, id, context);
+        break;
+      case QuotationStatusTransitionAction.APPROVE:
+        await this.quotationLifecycleService.approveQuotation(companyId, id, context);
+        break;
+      case QuotationStatusTransitionAction.REQUEST_CHANGES:
+        await this.quotationLifecycleService.requestChanges(companyId, id, context);
+        break;
+      case QuotationStatusTransitionAction.REJECT_APPROVAL:
+        await this.quotationLifecycleService.rejectApproval(companyId, id, context);
+        break;
+      case QuotationStatusTransitionAction.MARK_PAYMENT_REQUESTED:
+        await this.quotationLifecycleService.markPaymentRequested(companyId, id, context);
+        break;
+      case QuotationStatusTransitionAction.MARK_PAYMENT_PROCESSING:
+        await this.quotationLifecycleService.markPaymentProcessing(companyId, id, context);
+        break;
+      case QuotationStatusTransitionAction.MARK_PARTIALLY_PAID:
+        await this.quotationLifecycleService.markPartiallyPaid(companyId, id, context);
+        break;
+      case QuotationStatusTransitionAction.MARK_PAYMENT_PAID:
+        await this.quotationLifecycleService.markPaymentPaid(companyId, id, context);
+        break;
+      case QuotationStatusTransitionAction.MARK_PAYMENT_FAILED:
+        await this.quotationLifecycleService.markPaymentFailed(companyId, id, context);
+        break;
+      case QuotationStatusTransitionAction.MARK_PAYMENT_EXPIRED:
+        await this.quotationLifecycleService.markPaymentExpired(companyId, id, context);
+        break;
+      case QuotationStatusTransitionAction.MARK_PAYMENT_REFUNDED:
+        await this.quotationLifecycleService.markPaymentRefunded(companyId, id, context);
+        break;
+      case QuotationStatusTransitionAction.CANCEL:
+        await this.quotationLifecycleService.cancelQuotation(companyId, id, context);
+        break;
+      case QuotationStatusTransitionAction.EXPIRE:
+        await this.quotationLifecycleService.expireQuotation(companyId, id, context);
+        break;
+      case QuotationStatusTransitionAction.CONVERT:
+        await this.quotationLifecycleService.convertQuotation(companyId, id, context);
+        break;
+      default:
+        throw new ConflictException(`Unsupported quotation transition ${dto.action}`);
+    }
 
     return this.findOne(companyId, id);
   }
@@ -936,6 +1049,26 @@ export class QuotationsService {
     return savedCustomer.id;
   }
 
+  private mergeLifecycleState(quotation: Quotation, paymentMode: number) {
+    const requiresPayment = paymentMode !== DIRECT_PAYMENT_MODE;
+    const requiresApproval = quotation.requires_approval;
+
+    return {
+      requires_approval: requiresApproval,
+      requires_payment: requiresPayment,
+      approval_status: requiresApproval
+        ? quotation.approval_status
+        : ApprovalStatus.NOT_REQUIRED,
+      payment_status: requiresPayment
+        ? quotation.requires_payment
+          ? quotation.payment_status
+          : PaymentStatus.NOT_INITIATED
+        : PaymentStatus.NOT_REQUIRED,
+      tira_status: quotation.tira_status,
+      status: quotation.status,
+    };
+  }
+
   private async persistRoot(
     manager: EntityManager,
     companyId: string,
@@ -948,6 +1081,12 @@ export class QuotationsService {
     const internal = payload.internal_quotation;
     const repository = manager.getRepository(Quotation);
     const quotation = current ?? repository.create();
+    const header = this.resolveHeader(payload);
+    const lifecycleState = current
+      ? this.mergeLifecycleState(current, header.payment_mode)
+      : this.quotationLifecycleService.initializeForCreation({
+          paymentMode: header.payment_mode,
+        });
 
     Object.assign(quotation, {
       company_id: companyId,
@@ -966,10 +1105,25 @@ export class QuotationsService {
       quotation_flow: internal.quotation_flow,
       is_fleet: internal.is_fleet,
       channel_type: internal.channel_type,
-      status: QuotationStatus.DRAFT,
+      ...lifecycleState,
       rejection_reason: null,
       submitted_by: current?.submitted_by ?? null,
       submitted_at: current?.submitted_at ?? null,
+      approval_submitted_by: current?.approval_submitted_by ?? null,
+      approval_submitted_at: current?.approval_submitted_at ?? null,
+      approval_decided_by: current?.approval_decided_by ?? null,
+      approval_decided_at: current?.approval_decided_at ?? null,
+      approval_comments: current?.approval_comments ?? null,
+      approval_reason: current?.approval_reason ?? null,
+      payment_request_reference: current?.payment_request_reference ?? null,
+      payment_requested_at: current?.payment_requested_at ?? null,
+      payment_completed_at: current?.payment_completed_at ?? null,
+      payment_failure_reason: current?.payment_failure_reason ?? null,
+      tira_request_id: current?.tira_request_id ?? null,
+      tira_response_id: current?.tira_response_id ?? null,
+      tira_response_code: current?.tira_response_code ?? null,
+      tira_response_description: current?.tira_response_description ?? null,
+      tira_error_details: current?.tira_error_details ?? null,
     });
 
     return repository.save(quotation);
@@ -1694,22 +1848,34 @@ export class QuotationsService {
     nextStatus: QuotationStatus,
   ) {
     switch (action) {
-      case QuotationStatusTransitionAction.RATE:
-        return 'Quotation rated successfully';
-      case QuotationStatusTransitionAction.REFER:
-        return 'Quotation referred for review';
-      case QuotationStatusTransitionAction.REQUEST_APPROVAL:
-        return 'Quotation submitted to TIRAMIS';
+      case QuotationStatusTransitionAction.EVALUATE_REQUIREMENTS:
+        return 'Quotation requirements evaluated';
+      case QuotationStatusTransitionAction.SUBMIT_FOR_APPROVAL:
+        return 'Quotation submitted for approval';
       case QuotationStatusTransitionAction.APPROVE:
         return 'Quotation approved';
-      case QuotationStatusTransitionAction.REJECT:
-        return 'Quotation rejected';
+      case QuotationStatusTransitionAction.REQUEST_CHANGES:
+        return 'Changes requested';
+      case QuotationStatusTransitionAction.REJECT_APPROVAL:
+        return 'Quotation rejected during approval';
+      case QuotationStatusTransitionAction.MARK_PAYMENT_REQUESTED:
+        return 'Payment requested';
+      case QuotationStatusTransitionAction.MARK_PAYMENT_PROCESSING:
+        return 'Payment processing';
+      case QuotationStatusTransitionAction.MARK_PARTIALLY_PAID:
+        return 'Quotation partially paid';
+      case QuotationStatusTransitionAction.MARK_PAYMENT_PAID:
+        return 'Quotation paid in full';
+      case QuotationStatusTransitionAction.MARK_PAYMENT_FAILED:
+        return 'Payment failed';
+      case QuotationStatusTransitionAction.MARK_PAYMENT_EXPIRED:
+        return 'Payment request expired';
+      case QuotationStatusTransitionAction.MARK_PAYMENT_REFUNDED:
+        return 'Payment refunded';
       case QuotationStatusTransitionAction.CANCEL:
         return 'Quotation cancelled';
       case QuotationStatusTransitionAction.EXPIRE:
         return 'Quotation expired';
-      case QuotationStatusTransitionAction.RESET_TO_DRAFT:
-        return 'Quotation returned to draft';
       case QuotationStatusTransitionAction.CONVERT:
         return `Quotation transitioned to ${nextStatus}`;
       default:

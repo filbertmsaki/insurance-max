@@ -27,11 +27,10 @@ import { ProductChannelType } from '../product-distribution/enums/product-channe
 import { QuotationCalculationBase } from '../quotations/enums/quotation-calculation-base.enum';
 import { QuotationPremiumItemType } from '../quotations/enums/quotation-premium-item-type.enum';
 import { QuotationStatus } from '../quotations/enums/quotation-status.enum';
-import { QuotationStatusTransitionAction } from '../quotations/enums/quotation-status-transition-action.enum';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationStatusHistory } from '../quotations/entities/quotation-status-history.entity';
+import { QuotationLifecycleService } from '../quotations/services/quotation-lifecycle.service';
 import { QuotationEntryRisk } from '../quotations/entities/structured/quotation-entry-risk.entity';
-import { assertQuotationStatusTransition } from '../quotations/utils/quotation-status-transition.util';
 import { User } from '../users/entities/user.entity';
 import { CreatePolicyDto } from './dto/create-policy.dto';
 import { FilterPolicyDto } from './dto/filter-policy.dto';
@@ -103,6 +102,7 @@ export class PoliciesService {
 
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly quotationLifecycleService: QuotationLifecycleService,
   ) {}
 
   private isDuplicateEntryError(error: unknown): boolean {
@@ -407,7 +407,7 @@ export class PoliciesService {
     userId: string,
   ): Promise<Policy> {
     await this.validateScope(companyId, dto);
-    return this.dataSource
+    const created = await this.dataSource
       .transaction(async (manager) => {
         const policyRepo = manager.getRepository(Policy);
         const historyRepo = manager.getRepository(PolicyStatusHistory);
@@ -476,9 +476,6 @@ export class PoliciesService {
 
         if (dto.quotation_id) {
           const quotationRepo = manager.getRepository(Quotation);
-          const quotationHistoryRepo = manager.getRepository(
-            QuotationStatusHistory,
-          );
           const quotation = await quotationRepo.findOne({
             where: { id: dto.quotation_id, company_id: companyId },
           });
@@ -487,44 +484,18 @@ export class PoliciesService {
               'Quotation not found for this company',
             );
           }
-          const nextQuotationStatus = assertQuotationStatusTransition({
-            currentStatus: quotation.status,
-            action: QuotationStatusTransitionAction.CONVERT,
-            reason: `Converted to policy ${saved.policy_no}`,
-          });
-          const previousStatus = quotation.status;
-          quotation.status = nextQuotationStatus;
-          quotation.rejection_reason = null;
-          await quotationRepo.save(quotation);
-          await quotationHistoryRepo.save(
-            quotationHistoryRepo.create({
-              quotation_id: quotation.id,
-              old_status: previousStatus,
-              new_status: nextQuotationStatus,
-              reason: `Converted to policy ${saved.policy_no}`,
-              changed_by: userId,
-            }),
-          );
+          if (
+            quotation.status === QuotationStatus.COMPLETED ||
+            quotation.status === QuotationStatus.CANCELLED ||
+            quotation.status === QuotationStatus.EXPIRED
+          ) {
+            throw new ConflictException(
+              `Quotation in ${quotation.status} status cannot be converted to a policy`,
+            );
+          }
         }
 
-        return policyRepo.findOneOrFail({
-          where: { id: saved.id, company_id: companyId },
-          relations: {
-            company: true,
-            insurer_company: true,
-            intermediary_company: true,
-            branch: true,
-            department: true,
-            creator: true,
-            customer: true,
-            category: true,
-            product: true,
-            sub_class: true,
-            risks: true,
-            premium_breakdowns: true,
-            status_history: true,
-          },
-        });
+        return saved;
       })
       .catch((error) => {
         if (this.isDuplicateEntryError(error)) {
@@ -534,6 +505,38 @@ export class PoliciesService {
         }
         throw error;
       });
+
+    if (dto.quotation_id) {
+      await this.quotationLifecycleService.convertQuotation(
+        companyId,
+        dto.quotation_id,
+        {
+          changedBy: userId,
+          changedByType: 'USER',
+          source: 'SYSTEM',
+          reason: `Converted to policy ${created.policy_no}`,
+        },
+      );
+    }
+
+    return this.policyRepository.findOneOrFail({
+      where: { id: created.id, company_id: companyId },
+      relations: {
+        company: true,
+        insurer_company: true,
+        intermediary_company: true,
+        branch: true,
+        department: true,
+        creator: true,
+        customer: true,
+        category: true,
+        product: true,
+        sub_class: true,
+        risks: true,
+        premium_breakdowns: true,
+        status_history: true,
+      },
+    });
   }
 
   async findAll(companyId: string, query: FilterPolicyDto) {

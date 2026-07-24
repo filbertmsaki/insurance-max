@@ -20,8 +20,11 @@ import { InsuranceProduct } from '../../insurance-products/entities/insurance-pr
 import { InsuranceSubClass } from '../../insurance-sub-classes/entities/insurance-sub-class.entity';
 import { ProductChannelType } from '../../product-distribution/enums/product-channel-type.enum';
 import { User } from '../../users/entities/user.entity';
+import { ApprovalStatus } from '../enums/approval-status.enum';
+import { PaymentStatus } from '../enums/payment-status.enum';
 import { QuotationFlow } from '../enums/quotation-flow.enum';
 import { QuotationStatus } from '../enums/quotation-status.enum';
+import { TiraStatus } from '../enums/tira-status.enum';
 import { QuotationType } from '../enums/quotation-type.enum';
 import { QuotationStatusHistory } from './quotation-status-history.entity';
 import { QuotationCoverNote } from './structured/quotation-cover-note.entity';
@@ -30,6 +33,9 @@ import { QuotationPolicyHolder } from './structured/quotation-policy-holder.enti
 @Entity('quotations')
 @Index('IDX_quotations_company_id', ['company_id'])
 @Index('IDX_quotations_company_status', ['company_id', 'status'])
+@Index('IDX_quotations_company_approval_status', ['company_id', 'approval_status'])
+@Index('IDX_quotations_company_payment_status', ['company_id', 'payment_status'])
+@Index('IDX_quotations_company_tira_status', ['company_id', 'tira_status'])
 @Index('IDX_quotations_company_customer_id', ['company_id', 'customer_id'])
 @Index('IDX_quotations_company_product_id', ['company_id', 'product_id'])
 @Index('IDX_quotations_company_flow', ['company_id', 'quotation_flow'])
@@ -128,9 +134,85 @@ export class Quotation {
     type: 'enum',
     enum: QuotationStatus,
     enumName: 'quotation_status_enum',
+    name: 'quotation_status',
     default: QuotationStatus.DRAFT,
   })
   status: QuotationStatus;
+
+  @Column({ type: 'boolean', default: false })
+  requires_approval: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  requires_payment: boolean;
+
+  @Column({
+    type: 'enum',
+    enum: ApprovalStatus,
+    enumName: 'approval_status_enum',
+    default: ApprovalStatus.NOT_REQUIRED,
+  })
+  approval_status: ApprovalStatus;
+
+  @Column({
+    type: 'enum',
+    enum: PaymentStatus,
+    enumName: 'payment_status_enum',
+    default: PaymentStatus.NOT_REQUIRED,
+  })
+  payment_status: PaymentStatus;
+
+  @Column({
+    type: 'enum',
+    enum: TiraStatus,
+    enumName: 'tira_status_enum',
+    default: TiraStatus.NOT_SUBMITTED,
+  })
+  tira_status: TiraStatus;
+
+  @Column({ type: 'uuid', nullable: true })
+  approval_submitted_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  approval_submitted_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  approval_decided_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  approval_decided_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  approval_comments: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  approval_reason: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  payment_request_reference: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  payment_requested_at: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  payment_completed_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  payment_failure_reason: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  tira_request_id: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  tira_response_id: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  tira_response_code: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  tira_response_description: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  tira_error_details: Record<string, unknown> | null;
 
   @Column({ type: 'text', nullable: true })
   rejection_reason: string | null;
@@ -175,6 +257,14 @@ export class Quotation {
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'submitted_by' })
   submitter: User | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'approval_submitted_by' })
+  approval_submitter: User | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'approval_decided_by' })
+  approval_decider: User | null;
 
   @ManyToOne(() => Customer, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'customer_id' })

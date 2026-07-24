@@ -22,6 +22,7 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { useQuotationDetail } from '../hooks';
 import { PaymentStatusBadge } from '../components/PaymentStatusBadge';
+import { useTransitionQuotationStatus } from '../hooks';
 
 const PAYMENT_METHODS = [
   'Cash',
@@ -35,6 +36,7 @@ export function QuotationPaymentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: quotation, isLoading: loadingQuotation } = useQuotationDetail(id);
+  const transitionStatusMutation = useTransitionQuotationStatus(id);
 
   const [invoice, setInvoice] = useState<InvoiceRecord | null>(null);
   const [loadingInvoice, setLoadingInvoice] = useState(true);
@@ -110,6 +112,10 @@ export function QuotationPaymentPage() {
         balance_amount: totalPremium,
         status: 'ISSUED',
       });
+      await transitionStatusMutation.mutateAsync({
+        action: 'MARK_PAYMENT_REQUESTED',
+        reason: `Invoice ${created.invoice_no} generated for quotation payment`,
+      });
       setInvoice(created);
       setAmount(created.balance_amount);
       toast.success(`Invoice ${created.invoice_no} generated`);
@@ -156,6 +162,14 @@ export function QuotationPaymentPage() {
         paid_amount: newPaid,
         balance_amount: newBalance,
         status: newBalance <= 0 ? 'PAID' : 'PARTIALLY_PAID',
+      });
+      await transitionStatusMutation.mutateAsync({
+        action: newBalance <= 0 ? 'MARK_PAYMENT_PAID' : 'MARK_PARTIALLY_PAID',
+        reason:
+          newBalance <= 0
+            ? 'Payment completed from manual quotation payment screen'
+            : 'Partial payment recorded from manual quotation payment screen',
+        payment_transaction_id: reference || receipt.receipt_no,
       });
       setInvoice(updated);
       setAmount(updated.balance_amount);

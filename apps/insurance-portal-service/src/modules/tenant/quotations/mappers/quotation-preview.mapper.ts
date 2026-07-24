@@ -12,6 +12,7 @@ import { QuotationRiskTax } from '../entities/structured/quotation-risk-tax.enti
 import { QuotationSubjectMatter } from '../entities/structured/quotation-subject-matter.entity';
 import { QuotationFlow } from '../enums/quotation-flow.enum';
 import { QuotationType } from '../enums/quotation-type.enum';
+import { QuotationDisplayStatusResolver } from '../services/quotation-display-status.resolver';
 import { PortalTiraSubmission } from '../../tiramis-integration/entities/portal-tira-submission.entity';
 import { PortalTiraSubmissionEvent } from '../../tiramis-integration/entities/portal-tira-submission-event.entity';
 import { Invoice } from '../../billing-commission/entities/invoice.entity';
@@ -51,6 +52,10 @@ type QuotationPreviewRelations = {
 
 @Injectable()
 export class QuotationPreviewMapper {
+  constructor(
+    private readonly quotationDisplayStatusResolver: QuotationDisplayStatusResolver,
+  ) {}
+
   toResponse(
     quotation: Quotation,
     relations: QuotationPreviewRelations = {},
@@ -108,12 +113,29 @@ export class QuotationPreviewMapper {
   }
 
   private buildOverview(quotation: Quotation): QuotationPreviewOverview {
+    const display = this.quotationDisplayStatusResolver.resolve(quotation);
+    const salesPointCode =
+      quotation.cover_note?.sale_point_code ??
+      quotation.branch?.sale_point_code ??
+      null;
+    const salesPointName =
+      quotation.branch?.sale_point_name ??
+      quotation.branch?.name ??
+      null;
+
     return {
       quotation_id: quotation.id,
       quotation_no: quotation.quotation_no,
       quotation_type: quotation.quotation_type,
       quotation_flow: quotation.quotation_flow,
       quotation_status: quotation.status,
+      approval_status: quotation.approval_status,
+      payment_status: quotation.payment_status,
+      tira_status: quotation.tira_status,
+      display_status: display.displayStatus,
+      display_label: display.displayLabel,
+      requires_approval: quotation.requires_approval,
+      requires_payment: quotation.requires_payment,
       channel_type: quotation.channel_type,
       company: this.ref(quotation.company),
       branch: this.ref(quotation.branch, 'code', 'name'),
@@ -127,9 +149,9 @@ export class QuotationPreviewMapper {
       },
       subclass: this.ref(quotation.sub_class, 'code', 'name'),
       sales_point: {
-        id: quotation.branch?.sale_point_code ?? null,
-        code: quotation.branch?.sale_point_code ?? null,
-        name: quotation.branch?.sale_point_name ?? quotation.branch?.name ?? null,
+        id: salesPointCode,
+        code: salesPointCode,
+        name: salesPointName,
       },
       created_by: this.userRef(quotation.creator),
       updated_by: this.userRef(quotation.updater),
@@ -432,6 +454,7 @@ export class QuotationPreviewMapper {
     }
 
     return {
+      quotation_payment_status: quotation.payment_status,
       payment_status: this.text(invoice?.status ?? receipt?.status ?? paymentTransaction?.status),
       payment_method: this.text(receipt?.payment_method),
       payment_reference: this.text(
@@ -574,7 +597,7 @@ export class QuotationPreviewMapper {
 
     for (const statusHistory of quotation.status_history ?? []) {
       history.push({
-        action: this.statusActionLabel(statusHistory.new_status),
+        action: this.statusActionLabel(statusHistory.new_status ?? 'UNKNOWN'),
         previous_status: statusHistory.old_status ?? null,
         new_status: statusHistory.new_status ?? null,
         performed_by: this.userLabel(statusHistory.changer),
@@ -878,18 +901,22 @@ export class QuotationPreviewMapper {
     switch (status) {
       case 'SUBMITTED_TO_TIRA':
         return 'Quotation submitted to TIRAMIS';
+      case 'PENDING_REQUIREMENTS':
+        return 'Quotation pending requirements';
+      case 'READY_FOR_SUBMISSION':
+        return 'Quotation ready for TIRAMIS submission';
+      case 'SUBMITTING_TO_TIRA':
+        return 'Submitting quotation to TIRAMIS';
+      case 'TIRA_PROCESSING':
+        return 'Processing at TIRAMIS';
       case 'COMPLETED':
         return 'TIRAMIS submission completed';
       case 'FAILED':
         return 'TIRAMIS submission failed';
-      case 'APPROVED':
-        return 'Quotation approved';
       case 'REJECTED':
         return 'Quotation rejected';
       case 'CANCELLED':
         return 'Quotation cancelled';
-      case 'CONVERTED':
-        return 'Quotation converted';
       default:
         return `Quotation status changed to ${status}`;
     }

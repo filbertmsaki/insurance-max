@@ -67,7 +67,7 @@ export function QuotationsPage() {
     {
       key: 'status',
       header: 'Status',
-      cell: (row) => <QuotationStatusBadge status={row.status} />,
+      cell: (row) => <QuotationStatusBadge status={row.display_status} />,
     },
     {
       key: 'premium',
@@ -142,15 +142,14 @@ export function QuotationsPage() {
             <SelectItem value="all">All Statuses</SelectItem>
             {[
               'DRAFT',
-              'RATED',
-              'REFERRED',
-              'PENDING_APPROVAL',
+              'PENDING_REQUIREMENTS',
+              'READY_FOR_SUBMISSION',
+              'SUBMITTING_TO_TIRA',
               'SUBMITTED_TO_TIRA',
+              'TIRA_PROCESSING',
               'COMPLETED',
-              'FAILED',
-              'APPROVED',
               'REJECTED',
-              'CONVERTED',
+              'FAILED',
               'EXPIRED',
               'CANCELLED',
             ].map((value) => (

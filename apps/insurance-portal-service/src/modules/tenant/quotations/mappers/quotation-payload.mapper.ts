@@ -24,6 +24,7 @@ import { QuotationEntryRisk } from '../entities/structured/quotation-entry-risk.
 import { QuotationMotorDetail } from '../entities/structured/quotation-motor-detail.entity';
 import { QuotationPolicyHolder } from '../entities/structured/quotation-policy-holder.entity';
 import { QuotationFlow } from '../enums/quotation-flow.enum';
+import { QuotationDisplayStatusResolver } from '../services/quotation-display-status.resolver';
 import {
   formatDateOnly,
   formatTiramisDateTime,
@@ -36,6 +37,14 @@ export interface QuotationListItemResponse {
   quotation_flow: string;
   channel_type: string;
   status: string;
+  quotation_status: string;
+  approval_status: string;
+  payment_status: string;
+  tira_status: string;
+  display_status: string;
+  display_label: string;
+  requires_approval: boolean;
+  requires_payment: boolean;
   is_fleet: boolean;
   fleet_id: string | null;
   currency_code: string;
@@ -54,6 +63,14 @@ export type QuotationDetailResponse = {
   quotation_no: string;
   customer_id: string | null;
   status: string;
+  quotation_status: string;
+  approval_status: string;
+  payment_status: string;
+  tira_status: string;
+  display_status: string;
+  display_label: string;
+  requires_approval: boolean;
+  requires_payment: boolean;
   submitted_by: string | null;
   submitted_at: string | null;
   created_at: string;
@@ -62,12 +79,26 @@ export type QuotationDetailResponse = {
 
 @Injectable()
 export class QuotationPayloadMapper {
+  constructor(
+    private readonly quotationDisplayStatusResolver: QuotationDisplayStatusResolver,
+  ) {}
+
   toResponse(quotation: Quotation): QuotationDetailResponse {
+    const display = this.quotationDisplayStatusResolver.resolve(quotation);
+
     return {
       id: quotation.id,
       quotation_no: quotation.quotation_no,
       customer_id: quotation.customer_id ?? null,
       status: quotation.status,
+      quotation_status: quotation.status,
+      approval_status: quotation.approval_status,
+      payment_status: quotation.payment_status,
+      tira_status: quotation.tira_status,
+      display_status: display.displayStatus,
+      display_label: display.displayLabel,
+      requires_approval: quotation.requires_approval,
+      requires_payment: quotation.requires_payment,
       submitted_by: quotation.submitted_by ?? null,
       submitted_at: quotation.submitted_at
         ? quotation.submitted_at.toISOString()
@@ -80,6 +111,7 @@ export class QuotationPayloadMapper {
 
   toListItem(quotation: Quotation): QuotationListItemResponse {
     const coverNote = this.requireCoverNote(quotation);
+    const display = this.quotationDisplayStatusResolver.resolve(quotation);
 
     return {
       id: quotation.id,
@@ -88,6 +120,14 @@ export class QuotationPayloadMapper {
       quotation_flow: quotation.quotation_flow,
       channel_type: quotation.channel_type,
       status: quotation.status,
+      quotation_status: quotation.status,
+      approval_status: quotation.approval_status,
+      payment_status: quotation.payment_status,
+      tira_status: quotation.tira_status,
+      display_status: display.displayStatus,
+      display_label: display.displayLabel,
+      requires_approval: quotation.requires_approval,
+      requires_payment: quotation.requires_payment,
       is_fleet: quotation.is_fleet,
       fleet_id: coverNote.fleet_id,
       currency_code: coverNote.currency_code,

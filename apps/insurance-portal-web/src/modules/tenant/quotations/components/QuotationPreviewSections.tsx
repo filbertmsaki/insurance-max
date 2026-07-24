@@ -131,7 +131,11 @@ export function QuotationOverviewPreview({
             { label: 'Quotation Number', value: overview.quotation_no },
             { label: 'Quotation Type', value: overview.quotation_type },
             { label: 'Quotation Flow', value: overview.quotation_flow },
+            { label: 'Display Status', value: overview.display_label },
             { label: 'Quotation Status', value: overview.quotation_status },
+            { label: 'Approval Status', value: overview.approval_status },
+            { label: 'Payment Status', value: overview.payment_status },
+            { label: 'TIRAMIS Status', value: overview.tira_status },
             { label: 'Channel Type', value: overview.channel_type },
             { label: 'Company', value: overview.company.name ?? overview.company.code },
             { label: 'Branch', value: overview.branch.name ?? overview.branch.code },
@@ -709,6 +713,7 @@ export function PaymentPreview({ payment }: { payment: QuotationPreviewPayment |
     <SectionCard title="Payment Information">
       <KeyValueGrid
         items={[
+          { label: 'Quotation Payment Status', value: displayValue(payment.quotation_payment_status) },
           { label: 'Payment Status', value: displayValue(payment.payment_status) },
           { label: 'Payment Method', value: displayValue(payment.payment_method) },
           { label: 'Payment Reference', value: displayValue(payment.payment_reference) },

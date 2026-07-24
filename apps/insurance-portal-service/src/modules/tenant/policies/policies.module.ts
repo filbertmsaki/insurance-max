@@ -13,6 +13,7 @@ import { NonMotorPolicyDetail } from '../non-motor/entities/non-motor-policy-det
 import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationEntryRisk } from '../quotations/entities/structured/quotation-entry-risk.entity';
+import { QuotationsModule } from '../quotations/quotations.module';
 import { User } from '../users/entities/user.entity';
 import { PolicyPremiumBreakdown } from './entities/policy-premium-breakdown.entity';
 import { PolicyRisk } from './entities/policy-risk.entity';
@@ -23,6 +24,7 @@ import { PoliciesService } from './policies.service';
 
 @Module({
   imports: [
+    QuotationsModule,
     TypeOrmModule.forFeature([
       Policy,
       PolicyRisk,

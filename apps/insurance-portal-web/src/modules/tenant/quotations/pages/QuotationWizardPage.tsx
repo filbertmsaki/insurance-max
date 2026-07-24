@@ -80,9 +80,10 @@ const FLOW_OPTIONS = [
 
 const EDITABLE_STATUSES = new Set([
   'DRAFT',
-  'RATED',
-  'REFERRED',
+  'PENDING_REQUIREMENTS',
+  'READY_FOR_SUBMISSION',
   'REJECTED',
+  'FAILED',
 ]);
 
 const STEP_FIELDS: Partial<
@@ -212,6 +213,7 @@ export function QuotationWizardPage() {
   const { id, sourceId } = useParams<{ id?: string; sourceId?: string }>();
   const isEditMode = Boolean(id);
   const isEndorsementMode = Boolean(sourceId && !isEditMode);
+  const usesPrefilledQuotation = isEditMode || isEndorsementMode;
   const companyId = useQuotationCurrentCompanyId();
   const {
     data: existingQuotation,
@@ -229,7 +231,9 @@ export function QuotationWizardPage() {
     [],
   );
   const hasHydratedEditRef = useRef(false);
-  const [isEditHydrating, setIsEditHydrating] = useState(isEditMode);
+  const [isEditHydrating, setIsEditHydrating] = useState(
+    usesPrefilledQuotation,
+  );
 
   const form = useForm<QuotationFormSchemaValues>({
     resolver: zodResolver(quotationFormSchema as any) as any,
@@ -287,7 +291,8 @@ export function QuotationWizardPage() {
     quotationFlowForQueries === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR';
   const { data: categoryOptions = [] } = useQuotationCategories(businessLine);
   const effectiveCategoryId =
-    categoryId || (isEditMode ? savedCategoryId || undefined : undefined);
+    categoryId ||
+    (usesPrefilledQuotation ? savedCategoryId || undefined : undefined);
   const { data: productOptions = [] } = useQuotationProducts({
     category_id: effectiveCategoryId,
     business_line: businessLine,
@@ -296,10 +301,10 @@ export function QuotationWizardPage() {
   });
   const { data: branchOptions = [] } = useQuotationBranches();
   const { data: riskOptions = [] } = useQuotationRisks(
-    productId || (isEditMode ? savedProductId || undefined : undefined),
+    productId || (usesPrefilledQuotation ? savedProductId || undefined : undefined),
   );
   const { data: activeSalePoints = [] } = useQuotationSalePoints(
-    branchId || (isEditMode ? savedBranchId || undefined : undefined),
+    branchId || (usesPrefilledQuotation ? savedBranchId || undefined : undefined),
   );
   const { data: vehicleOptions = [] } = useQuotationVehicles(
     policyholderMode === 'existing' ? customerId : undefined,
@@ -314,7 +319,7 @@ export function QuotationWizardPage() {
   );
   const salePointRequired = activeSalePoints.length > 1;
   const editOptionsReady =
-    !isEditMode ||
+    !usesPrefilledQuotation ||
     !quotationContext ||
     (categoryOptions.some((option) => option.id === savedCategoryId) &&
       productOptions.some((option) => option.id === savedProductId) &&

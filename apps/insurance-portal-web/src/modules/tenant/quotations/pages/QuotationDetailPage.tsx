@@ -49,29 +49,17 @@ import {
 import type { QuotationStatusTransitionAction } from '../types';
 
 const TERMINAL_STATUSES = new Set([
-  'CONVERTED',
   'CANCELLED',
   'EXPIRED',
-  'SUBMITTED_TO_TIRA',
   'COMPLETED',
-  'FAILED',
+  'REJECTED',
 ]);
-const EDITABLE_STATUSES = new Set(['DRAFT', 'RATED', 'REFERRED', 'REJECTED']);
-const APPROVABLE_STATUSES = new Set([
-  'PENDING_APPROVAL',
-  'SUBMITTED_TO_TIRA',
-  'REFERRED',
-]);
-const REJECTABLE_STATUSES = new Set([
-  'PENDING_APPROVAL',
-  'SUBMITTED_TO_TIRA',
-  'REFERRED',
-]);
-const CANCELLABLE_STATUSES = new Set([
+const EDITABLE_STATUSES = new Set([
   'DRAFT',
-  'PENDING_APPROVAL',
-  'SUBMITTED_TO_TIRA',
-  'APPROVED',
+  'PENDING_REQUIREMENTS',
+  'READY_FOR_SUBMISSION',
+  'FAILED',
+  'REJECTED',
 ]);
 const DIRECT_PAYMENT_MODE = 1;
 
@@ -82,10 +70,16 @@ type StatusActionDialogState = {
 
 function actionLabel(action: QuotationStatusTransitionAction) {
   switch (action) {
+    case 'EVALUATE_REQUIREMENTS':
+      return 'Re-evaluate Requirements';
+    case 'SUBMIT_FOR_APPROVAL':
+      return 'Submit for Approval';
     case 'APPROVE':
       return 'Approve';
-    case 'REJECT':
-      return 'Reject';
+    case 'REQUEST_CHANGES':
+      return 'Request Changes';
+    case 'REJECT_APPROVAL':
+      return 'Reject Approval';
     case 'CANCEL':
       return 'Cancel';
     default:
@@ -97,11 +91,15 @@ function requiresReason(
   action: QuotationStatusTransitionAction,
   quotationStatus: string | null,
 ) {
-  if (action === 'REJECT' || action === 'CANCEL') {
+  if (
+    action === 'REQUEST_CHANGES' ||
+    action === 'REJECT_APPROVAL' ||
+    action === 'CANCEL'
+  ) {
     return true;
   }
 
-  return action === 'APPROVE' && quotationStatus === 'REFERRED';
+  return false;
 }
 
 export function QuotationDetailPage() {
@@ -117,25 +115,31 @@ export function QuotationDetailPage() {
   const [transitionReason, setTransitionReason] = useState('');
 
   const quotationStatus = preview?.overview.quotation_status ?? null;
-  const paymentStatus = preview?.payment?.payment_status ?? null;
-  const paymentMode = preview?.payment?.payment_mode ?? null;
+  const approvalStatus = preview?.overview.approval_status ?? null;
+  const paymentStatus = preview?.overview.payment_status ?? null;
+  const tiraStatus = preview?.overview.tira_status ?? null;
+  const displayStatus = preview?.overview.display_status ?? null;
+  const paymentMode = preview?.cover_note.payment_mode ?? null;
+  const requiresApproval = preview?.overview.requires_approval ?? false;
+  const requiresPayment = preview?.overview.requires_payment ?? false;
   const submittedAt = preview?.overview.submitted_at ?? null;
   const canEdit = quotationStatus
     ? EDITABLE_STATUSES.has(quotationStatus)
     : false;
   const canEndorse = quotationStatus === 'COMPLETED';
-  const canSubmit =
-    quotationStatus && submittedAt === null
-      ? !TERMINAL_STATUSES.has(quotationStatus)
-      : false;
+  const canSubmit = quotationStatus === 'READY_FOR_SUBMISSION';
   const isDirectPay = paymentMode === DIRECT_PAYMENT_MODE;
-  const canApprove = quotationStatus
-    ? APPROVABLE_STATUSES.has(quotationStatus) && !isDirectPay
-    : false;
-  const canReject = quotationStatus
-    ? REJECTABLE_STATUSES.has(quotationStatus) && !isDirectPay
-    : false;
-  const canCancel = quotationStatus ? CANCELLABLE_STATUSES.has(quotationStatus) : false;
+  const canEvaluateRequirements = quotationStatus === 'DRAFT';
+  const canSubmitForApproval =
+    requiresApproval &&
+    (approvalStatus === 'NOT_SUBMITTED' || approvalStatus === 'CHANGES_REQUESTED');
+  const canApprove = approvalStatus === 'PENDING';
+  const canRequestChanges = approvalStatus === 'PENDING';
+  const canReject = approvalStatus === 'PENDING';
+  const canCancel =
+    !!quotationStatus &&
+    !TERMINAL_STATUSES.has(quotationStatus) &&
+    tiraStatus === 'NOT_SUBMITTED';
   const showFleetTabs = preview?.overview.quotation_flow === 'MOTOR_FLEET';
   const showMotorTab = preview?.overview.quotation_flow === 'MOTOR_SINGLE';
   const tabs = ['overview', 'policyholders'];
@@ -266,6 +270,26 @@ export function QuotationDetailPage() {
           Add Endorsement
         </Button>
       ) : null}
+      {canEvaluateRequirements ? (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={transitionStatusMutation.isPending}
+          onClick={() => openStatusActionDialog('EVALUATE_REQUIREMENTS')}
+        >
+          Re-evaluate Requirements
+        </Button>
+      ) : null}
+      {canSubmitForApproval ? (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={transitionStatusMutation.isPending}
+          onClick={() => openStatusActionDialog('SUBMIT_FOR_APPROVAL')}
+        >
+          Submit for Approval
+        </Button>
+      ) : null}
       {canApprove ? (
         <Button
           variant="outline"
@@ -277,15 +301,25 @@ export function QuotationDetailPage() {
           Approve
         </Button>
       ) : null}
+      {canRequestChanges ? (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={transitionStatusMutation.isPending}
+          onClick={() => openStatusActionDialog('REQUEST_CHANGES')}
+        >
+          Request Changes
+        </Button>
+      ) : null}
       {canReject ? (
         <Button
           variant="outline"
           size="sm"
           disabled={transitionStatusMutation.isPending}
-          onClick={() => openStatusActionDialog('REJECT')}
+          onClick={() => openStatusActionDialog('REJECT_APPROVAL')}
         >
           <XCircle className="mr-1.5 h-3.5 w-3.5" />
-          Reject
+          Reject Approval
         </Button>
       ) : null}
       {canCancel ? (
@@ -311,7 +345,7 @@ export function QuotationDetailPage() {
             })
           }
         >
-          Submit
+          Submit to TIRAMIS
         </Button>
       ) : null}
       <Button variant="outline" size="sm" onClick={() => window.print()}>
@@ -351,7 +385,7 @@ export function QuotationDetailPage() {
               <h1 className="text-xl font-semibold text-slate-900">
                 {preview.overview.quotation_no}
               </h1>
-              <QuotationStatusBadge status={quotationStatus} />
+              <QuotationStatusBadge status={displayStatus} />
               <PaymentStatusBadge status={paymentStatus} />
             </div>
             <p className="text-sm text-slate-500">
@@ -463,9 +497,15 @@ export function QuotationDetailPage() {
               {actionLabel(statusActionDialog?.action ?? 'APPROVE')} Quotation
             </DialogTitle>
             <DialogDescription>
-              {statusActionDialog?.action === 'APPROVE'
+              {statusActionDialog?.action === 'EVALUATE_REQUIREMENTS'
+                ? 'Recalculate whether this quotation is ready for approval, payment, or TIRAMIS submission.'
+                : statusActionDialog?.action === 'SUBMIT_FOR_APPROVAL'
+                  ? 'Send this quotation into the approval workflow.'
+                : statusActionDialog?.action === 'APPROVE'
                 ? 'Approve this quotation and keep a short note when needed.'
-                : statusActionDialog?.action === 'REJECT'
+                : statusActionDialog?.action === 'REQUEST_CHANGES'
+                  ? 'Provide change instructions so the quotation can be updated and resubmitted.'
+                : statusActionDialog?.action === 'REJECT_APPROVAL'
                   ? 'Provide a rejection reason so the audit trail stays complete.'
                   : 'Provide a cancellation reason before closing this quotation.'}
             </DialogDescription>
@@ -490,9 +530,15 @@ export function QuotationDetailPage() {
               value={transitionReason}
               onChange={(event) => setTransitionReason(event.target.value)}
               placeholder={
-                statusActionDialog?.action === 'APPROVE'
+                statusActionDialog?.action === 'EVALUATE_REQUIREMENTS'
+                  ? 'Optional note about this requirement evaluation'
+                  : statusActionDialog?.action === 'SUBMIT_FOR_APPROVAL'
+                    ? 'Optional note for approvers'
+                  : statusActionDialog?.action === 'APPROVE'
                   ? 'Approval note or referral resolution comment'
-                  : statusActionDialog?.action === 'REJECT'
+                  : statusActionDialog?.action === 'REQUEST_CHANGES'
+                    ? 'What needs to change before this can be approved'
+                  : statusActionDialog?.action === 'REJECT_APPROVAL'
                     ? 'Why this quotation is being rejected'
                     : 'Why this quotation is being cancelled'
               }
@@ -519,7 +565,8 @@ export function QuotationDetailPage() {
             <Button
               type="button"
               variant={
-                statusActionDialog?.action === 'REJECT' ||
+                statusActionDialog?.action === 'REQUEST_CHANGES' ||
+                statusActionDialog?.action === 'REJECT_APPROVAL' ||
                 statusActionDialog?.action === 'CANCEL'
                   ? 'destructive'
                   : 'default'

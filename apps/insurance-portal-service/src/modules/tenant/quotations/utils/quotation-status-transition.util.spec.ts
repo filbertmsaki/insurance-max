@@ -6,13 +6,13 @@ import { QuotationStatus } from '../enums/quotation-status.enum';
 import { QuotationStatusTransitionAction } from '../enums/quotation-status-transition-action.enum';
 
 describe('quotation status transition util', () => {
-  it('maps DRAFT request approval to SUBMITTED_TO_TIRA', () => {
+  it('maps draft requirement evaluation to pending requirements', () => {
     expect(
       resolveQuotationStatusTransition({
         currentStatus: QuotationStatus.DRAFT,
-        action: QuotationStatusTransitionAction.REQUEST_APPROVAL,
+        action: QuotationStatusTransitionAction.EVALUATE_REQUIREMENTS,
       }),
-    ).toBe(QuotationStatus.SUBMITTED_TO_TIRA);
+    ).toBe(QuotationStatus.PENDING_REQUIREMENTS);
   });
 
   it('rejects invalid transitions', () => {
@@ -27,28 +27,28 @@ describe('quotation status transition util', () => {
   it('requires a reason for rejection transitions', () => {
     expect(() =>
       assertQuotationStatusTransition({
-        currentStatus: QuotationStatus.PENDING_APPROVAL,
-        action: QuotationStatusTransitionAction.REJECT,
+        currentStatus: QuotationStatus.PENDING_REQUIREMENTS,
+        action: QuotationStatusTransitionAction.REJECT_APPROVAL,
       }),
-    ).toThrow('A reason is required to reject');
+    ).toThrow('A reason is required to reject approval');
   });
 
-  it('allows approved quotations to convert', () => {
+  it('allows ready quotations to convert', () => {
     expect(
       assertQuotationStatusTransition({
-        currentStatus: QuotationStatus.APPROVED,
+        currentStatus: QuotationStatus.READY_FOR_SUBMISSION,
         action: QuotationStatusTransitionAction.CONVERT,
       }),
-    ).toBe(QuotationStatus.CONVERTED);
+    ).toBe(QuotationStatus.COMPLETED);
   });
 
-  it('allows submitted quotations to approve', () => {
+  it('allows pending quotations to request changes', () => {
     expect(
       resolveQuotationStatusTransition({
-        currentStatus: QuotationStatus.SUBMITTED_TO_TIRA,
-        action: QuotationStatusTransitionAction.APPROVE,
+        currentStatus: QuotationStatus.PENDING_REQUIREMENTS,
+        action: QuotationStatusTransitionAction.REQUEST_CHANGES,
       }),
-    ).toBe(QuotationStatus.APPROVED);
+    ).toBe(QuotationStatus.DRAFT);
   });
 
   it('treats completed quotations as terminal', () => {

@@ -1,7 +1,7 @@
+import { ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
-import { ConflictException } from '@nestjs/common';
 import { PoliciesService } from './policies.service';
 import { Policy } from './entities/policy.entity';
 import { PolicyRisk } from './entities/policy-risk.entity';
@@ -16,6 +16,7 @@ import { InsuranceProduct } from '../insurance-products/entities/insurance-produ
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationEntryRisk } from '../quotations/entities/structured/quotation-entry-risk.entity';
+import { QuotationLifecycleService } from '../quotations/services/quotation-lifecycle.service';
 import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
 import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
@@ -44,16 +45,18 @@ function mockRepo(overrides: Record<string, any> = {}) {
   };
 }
 
-describe('PoliciesService â€” atomic quotation conversion', () => {
+describe('PoliciesService - quotation lifecycle conversion', () => {
   let service: PoliciesService;
   let quotationRepoInManager: ReturnType<typeof mockRepo>;
-  let quotationHistoryRepoInManager: ReturnType<typeof mockRepo>;
   let policyRepo: ReturnType<typeof mockRepo>;
   let companyRepo: ReturnType<typeof mockRepo>;
   let customerRepo: ReturnType<typeof mockRepo>;
   let categoryRepo: ReturnType<typeof mockRepo>;
   let productRepo: ReturnType<typeof mockRepo>;
   let quotationRepo: ReturnType<typeof mockRepo>;
+  let quotationLifecycleService: {
+    convertQuotation: jest.Mock;
+  };
 
   const companyId = 'company-1';
   const quotationId = 'quotation-1';
@@ -66,7 +69,6 @@ describe('PoliciesService â€” atomic quotation conversion', () => {
         status: quotationStatus,
       }),
     });
-    quotationHistoryRepoInManager = mockRepo();
 
     const policyRepoInManager = mockRepo({
       save: jest.fn((v: any) => ({
@@ -86,14 +88,18 @@ describe('PoliciesService â€” atomic quotation conversion', () => {
         if (entity === PolicyPremiumBreakdown) return breakdownRepoInManager;
         if (entity === PolicyStatusHistory) return policyHistoryRepoInManager;
         if (entity === Quotation) return quotationRepoInManager;
-        // QuotationStatusHistory falls through here (not imported to avoid an unused-import lint warning)
-        return quotationHistoryRepoInManager;
+        return mockRepo();
       },
     };
   }
 
   beforeEach(async () => {
-    policyRepo = mockRepo();
+    policyRepo = mockRepo({
+      findOneOrFail: jest.fn().mockResolvedValue({
+        id: 'policy-1',
+        policy_no: 'POL-DIR-2026-00001',
+      }),
+    });
     companyRepo = mockRepo({
       findOne: jest.fn().mockResolvedValue({ id: companyId }),
     });
@@ -111,10 +117,13 @@ describe('PoliciesService â€” atomic quotation conversion', () => {
         .fn()
         .mockResolvedValue({ id: quotationId, company_id: companyId }),
     });
+    quotationLifecycleService = {
+      convertQuotation: jest.fn().mockResolvedValue(undefined),
+    };
 
     const dataSourceMock = {
       transaction: jest.fn(async (cb: any) =>
-        cb(buildManagerRepos(QuotationStatus.APPROVED)),
+        cb(buildManagerRepos(QuotationStatus.READY_FOR_SUBMISSION)),
       ),
     };
 
@@ -161,6 +170,10 @@ describe('PoliciesService â€” atomic quotation conversion', () => {
           useValue: mockRepo(),
         },
         { provide: getRepositoryToken(User), useValue: mockRepo() },
+        {
+          provide: QuotationLifecycleService,
+          useValue: quotationLifecycleService,
+        },
       ],
     }).compile();
 
@@ -190,22 +203,25 @@ describe('PoliciesService â€” atomic quotation conversion', () => {
     ceded_premium: 0,
   };
 
-  it('marks the source quotation as CONVERTED when creating a policy from it', async () => {
+  it('marks the source quotation as completed through the lifecycle service', async () => {
     await service.create(companyId, baseDto, 'user-1');
 
-    expect(quotationRepoInManager.save).toHaveBeenCalledWith(
-      expect.objectContaining({ status: QuotationStatus.CONVERTED }),
+    expect(quotationLifecycleService.convertQuotation).toHaveBeenCalledWith(
+      companyId,
+      quotationId,
+      expect.objectContaining({
+        changedBy: 'user-1',
+        reason: 'Converted to policy POL-DIR-2026-00001',
+      }),
     );
-    expect(quotationHistoryRepoInManager.save).toHaveBeenCalled();
   });
 
-  it('refuses to create a policy from a quotation that is already CONVERTED', async () => {
-    const dataSourceMock = {
+  it('refuses to create a policy from a completed quotation', async () => {
+    (service as any).dataSource = {
       transaction: jest.fn(async (cb: any) =>
-        cb(buildManagerRepos(QuotationStatus.CONVERTED)),
+        cb(buildManagerRepos(QuotationStatus.COMPLETED)),
       ),
     };
-    (service as any).dataSource = dataSourceMock;
 
     await expect(
       service.create(companyId, baseDto, 'user-1'),
