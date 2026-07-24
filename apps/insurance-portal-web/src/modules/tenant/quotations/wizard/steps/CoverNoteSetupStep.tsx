@@ -68,7 +68,7 @@ const ENDORSEMENT_TYPES = [
   { value: '1', label: 'Increasing Premium Charged' },
   { value: '2', label: 'Decreasing Premium Charged' },
   { value: '3', label: 'Cover Details Change' },
-  { value: '4', label: 'Cover Cancellation' },
+  { value: '4', label: 'Cancellation' },
 ] as const;
 
 export function CoverNoteSetupStep({

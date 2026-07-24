@@ -25,6 +25,7 @@ import { PortalTiraSubmissionEvent } from './entities/portal-tira-submission-eve
 import { PortalTiraSubmission } from './entities/portal-tira-submission.entity';
 import { PortalTiraSubmissionStatus } from './enums/portal-tira-submission-status.enum';
 import { TiramisClientService } from './tiramis-client.service';
+import { resolveTiramisCallbackOutcome } from './utils/tiramis-callback-outcome.util';
 
 const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
 
@@ -1188,8 +1189,14 @@ export class TiramisIntegrationService {
           payload.statusDescription ?? submission.status_description ?? null,
         errorMessage: payload.errorMessage ?? null,
         submissionStatus: submission.status,
+        callbackTimestamp: payload.occurredAt ?? new Date().toISOString(),
       },
     };
+
+    const callbackOutcome = resolveTiramisCallbackOutcome(
+      payload.statusCode,
+      payload.statusDescription || submission.status_description,
+    );
 
     switch (payload.eventType) {
       case 'TIRAMIS_ACK_RECEIVED':
@@ -1202,11 +1209,19 @@ export class TiramisIntegrationService {
         break;
       case 'TIRAMIS_FINAL_SUCCESS':
       case 'TIRAMIS_RESPONSE_ACK_SENT':
-        await this.quotationLifecycleService.markTiraSuccessful(
-          submission.company_id,
-          quotation.id,
-          context,
-        );
+        if (callbackOutcome === 'CANCELLED') {
+          await this.quotationLifecycleService.markTiraCancelled(
+            submission.company_id,
+            quotation.id,
+            context,
+          );
+        } else {
+          await this.quotationLifecycleService.markTiraSuccessful(
+            submission.company_id,
+            quotation.id,
+            context,
+          );
+        }
         break;
       case 'TIRAMIS_CALLBACK_REJECTED':
         await this.quotationLifecycleService.markTiraRejected(
