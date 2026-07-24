@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   CreditCard,
   Download,
+  FilePlus2,
   Pencil,
   Printer,
   Trash2,
@@ -119,10 +120,10 @@ export function QuotationDetailPage() {
   const paymentStatus = preview?.payment?.payment_status ?? null;
   const paymentMode = preview?.payment?.payment_mode ?? null;
   const submittedAt = preview?.overview.submitted_at ?? null;
-  const canEdit =
-    quotationStatus && submittedAt === null
-      ? EDITABLE_STATUSES.has(quotationStatus)
-      : false;
+  const canEdit = quotationStatus
+    ? EDITABLE_STATUSES.has(quotationStatus)
+    : false;
+  const canEndorse = quotationStatus === 'COMPLETED';
   const canSubmit =
     quotationStatus && submittedAt === null
       ? !TERMINAL_STATUSES.has(quotationStatus)
@@ -251,6 +252,18 @@ export function QuotationDetailPage() {
         >
           <Pencil className="mr-1.5 h-3.5 w-3.5" />
           Edit
+        </Button>
+      ) : null}
+      {canEndorse ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            navigate(underwritingPaths.quotationEndorsement(preview.overview.quotation_id))
+          }
+        >
+          <FilePlus2 className="mr-1.5 h-3.5 w-3.5" />
+          Add Endorsement
         </Button>
       ) : null}
       {canApprove ? (

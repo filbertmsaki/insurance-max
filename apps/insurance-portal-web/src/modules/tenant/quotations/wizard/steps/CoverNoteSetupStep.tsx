@@ -44,6 +44,7 @@ interface Props {
   isHydrating?: boolean;
   title?: string;
   showFlowSelector?: boolean;
+  isEndorsementMode?: boolean;
 }
 
 const CHANNEL_TYPES = [
@@ -80,6 +81,7 @@ export function CoverNoteSetupStep({
   isHydrating = false,
   title = 'Step 1. Cover Note Setup',
   showFlowSelector = true,
+  isEndorsementMode = false,
 }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const validFrom = form.watch('valid_from');
@@ -532,6 +534,7 @@ export function CoverNoteSetupStep({
                 <FormLabel>Cover Note Type (required)</FormLabel>
                 <Select
                   value={toSelectValue(field.value)}
+                  disabled={isEndorsementMode}
                   onValueChange={(value) => {
                     field.onChange(fromSelectValue(value));
                     if (value === SELECT_NONE_VALUE) {
@@ -558,6 +561,11 @@ export function CoverNoteSetupStep({
                     ))}
                   </SelectContent>
                 </Select>
+                {isEndorsementMode ? (
+                  <p className="text-xs text-slate-500">
+                    Endorsement mode is fixed from the completed quotation.
+                  </p>
+                ) : null}
               </FormItem>
             )}
           />

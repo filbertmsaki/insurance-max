@@ -170,6 +170,7 @@ export default function App() {
             <Route element={<ProtectedRoute requiredPermission="quotations:create" />}>
               <Route path={underwritingPaths.quotationCreate} element={<QuotationCreatePage />} />
               <Route path={underwritingPaths.quotationWizard} element={<QuotationWizardPage />} />
+              <Route path={underwritingPaths.quotationEndorsement(':sourceId')} element={<QuotationWizardPage />} />
             </Route>
             <Route element={<ProtectedRoute requiredPermission="quotations:update" />}>
               <Route path={underwritingPaths.quotationWizardEdit(':id')} element={<QuotationWizardPage />} />

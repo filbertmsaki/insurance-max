@@ -209,14 +209,20 @@ function findFirstErrorMessage(node: unknown): string | null {
 
 export function QuotationWizardPage() {
   const navigate = useNavigate();
-  const { id } = useParams<{ id?: string }>();
+  const { id, sourceId } = useParams<{ id?: string; sourceId?: string }>();
   const isEditMode = Boolean(id);
+  const isEndorsementMode = Boolean(sourceId && !isEditMode);
   const companyId = useQuotationCurrentCompanyId();
   const {
     data: existingQuotation,
     isLoading: loadingQuotation,
     error,
   } = useQuotationDetail(id);
+  const {
+    data: sourceQuotation,
+    isLoading: loadingSourceQuotation,
+    error: sourceQuotationError,
+  } = useQuotationDetail(sourceId);
   const { data: customerOptions = [] } = useQuotationCustomers();
   const [stepId, setStepId] = useState<QuotationWizardStepId>('cover-note');
   const [completedSteps, setCompletedSteps] = useState<QuotationWizardStepId[]>(
@@ -257,21 +263,25 @@ export function QuotationWizardPage() {
     control: form.control,
     name: 'risks',
   });
+  const quotationContext =
+    (isEditMode ? existingQuotation : null) ??
+    (isEndorsementMode ? sourceQuotation : null);
   const savedCategoryId =
-    existingQuotation?.internal_quotation.category_id ?? '';
-  const savedProductId = existingQuotation?.internal_quotation.product_id ?? '';
-  const savedBranchId = existingQuotation?.internal_quotation.branch_id ?? '';
+    quotationContext?.internal_quotation.category_id ?? '';
+  const savedProductId = quotationContext?.internal_quotation.product_id ?? '';
+  const savedBranchId = quotationContext?.internal_quotation.branch_id ?? '';
   const savedSalePointCode =
-    existingQuotation?.cover_note_dtl.sale_point_code ??
-    existingQuotation?.cover_note_dtl.fleet_hdr?.sale_point_code ??
+    quotationContext?.cover_note_dtl.sale_point_code ??
+    quotationContext?.cover_note_dtl.fleet_hdr?.sale_point_code ??
     '';
   const quotationFlowForQueries =
-    isEditMode && existingQuotation
-      ? existingQuotation.internal_quotation.quotation_flow
+    quotationContext
+      ? quotationContext.internal_quotation.quotation_flow
       : quotationFlow;
 
   const { loadDraft, saveDraft, clearDraft } = useQuotationWizardDraft(
-    id ?? null,
+    isEditMode ? id ?? null : null,
+    isEndorsementMode && sourceId ? `endorsement:${sourceId}` : 'new',
   );
   const businessLine =
     quotationFlowForQueries === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR';
@@ -305,7 +315,7 @@ export function QuotationWizardPage() {
   const salePointRequired = activeSalePoints.length > 1;
   const editOptionsReady =
     !isEditMode ||
-    !existingQuotation ||
+    !quotationContext ||
     (categoryOptions.some((option) => option.id === savedCategoryId) &&
       productOptions.some((option) => option.id === savedProductId) &&
       branchOptions.some((option) => option.id === savedBranchId) &&
@@ -322,7 +332,7 @@ export function QuotationWizardPage() {
   }, [companyId, form]);
 
   useEffect(() => {
-    if (isEditMode || !companyId) return;
+    if (isEditMode || isEndorsementMode || !companyId) return;
     const draft = loadDraft();
     if (draft) {
       form.reset({
@@ -336,11 +346,23 @@ export function QuotationWizardPage() {
       ...DEFAULT_VALUES,
       insurer_company_id: companyId,
     });
-  }, [companyId, form, isEditMode, loadDraft]);
+  }, [companyId, form, isEditMode, isEndorsementMode, loadDraft]);
+
+  useEffect(() => {
+    if (!isEndorsementMode || isEditMode || !companyId) return;
+    const draft = loadDraft();
+    if (draft) {
+      form.reset({
+        ...DEFAULT_VALUES,
+        ...draft,
+        insurer_company_id: companyId,
+      });
+    }
+  }, [companyId, form, isEditMode, isEndorsementMode, loadDraft]);
 
   useEffect(() => {
     if (
-      !existingQuotation ||
+      !quotationContext ||
       hasHydratedEditRef.current ||
       !editOptionsReady
     ) {
@@ -355,10 +377,33 @@ export function QuotationWizardPage() {
 
     form.reset({
       ...DEFAULT_VALUES,
-      ...quotationRecordToFormValues(existingQuotation),
+      ...quotationRecordToFormValues(quotationContext),
+      status: isEndorsementMode ? 'DRAFT' : quotationContext.status,
+      cover_note_type: isEndorsementMode
+        ? '3'
+        : (quotationContext.cover_note_hdr.cover_note_type?.toString() as
+            | '1'
+            | '2'
+            | '3'),
+      prev_cover_note_reference: isEndorsementMode
+        ? quotationContext.cover_note_dtl.cover_note_number ??
+          quotationContext.quotation_no
+        : quotationContext.cover_note_dtl.prev_cover_note_reference_number ?? '',
+      endorsement_type: isEndorsementMode
+        ? ''
+        : (quotationContext.cover_note_dtl.endorsement_type != null
+            ? String(quotationContext.cover_note_dtl.endorsement_type)
+            : '') as '1' | '2' | '3' | '4' | '',
+      endorsement_reason: isEndorsementMode
+        ? ''
+        : quotationContext.cover_note_dtl.endorsement_reason ?? '',
+      endorsement_premium_earned: isEndorsementMode
+        ? ''
+        : quotationContext.cover_note_dtl.endorsement_premium_earned != null
+          ? String(quotationContext.cover_note_dtl.endorsement_premium_earned)
+          : '',
       sale_point_id: matchedSalePoint?.id ?? '',
-      insurer_company_id:
-        existingQuotation.internal_quotation.insurer_company_id,
+      insurer_company_id: quotationContext.internal_quotation.insurer_company_id,
     });
     hasHydratedEditRef.current = true;
     setIsEditHydrating(false);
@@ -367,7 +412,8 @@ export function QuotationWizardPage() {
     branchOptions,
     categoryOptions,
     editOptionsReady,
-    existingQuotation,
+    isEndorsementMode,
+    quotationContext,
     form,
     productOptions,
     savedBranchId,
@@ -377,21 +423,34 @@ export function QuotationWizardPage() {
   ]);
 
   useEffect(() => {
-    if (
-      !isEditMode ||
-      !existingQuotation ||
-      EDITABLE_STATUSES.has(existingQuotation.status)
-    ) {
+    if (!isEditMode || !quotationContext) {
+      return;
+    }
+
+    if (EDITABLE_STATUSES.has(quotationContext.status)) {
       return;
     }
 
     toast.error(
       'This quotation cannot be edited in its current status. Please create an endorsement or renewal where required.',
     );
-    navigate(underwritingPaths.quotationDetail(existingQuotation.id), {
+    navigate(underwritingPaths.quotationDetail(quotationContext.id), {
       replace: true,
     });
-  }, [existingQuotation, isEditMode, navigate]);
+  }, [isEditMode, navigate, quotationContext]);
+
+  useEffect(() => {
+    if (!isEndorsementMode || !sourceQuotation || !sourceId) {
+      return;
+    }
+
+    if (sourceQuotation.status !== 'COMPLETED') {
+      toast.error(
+        'Endorsements are only available after the quotation has been completed by TIRAMIS.',
+      );
+      navigate(underwritingPaths.quotationDetail(sourceId), { replace: true });
+    }
+  }, [isEndorsementMode, navigate, sourceId, sourceQuotation]);
 
   useEffect(() => {
     if (!steps.some((step) => step.id === stepId)) {
@@ -741,10 +800,36 @@ export function QuotationWizardPage() {
     );
   }
 
+  if (isEndorsementMode && loadingSourceQuotation) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-96 w-full" />
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="space-y-4 py-12 text-center text-sm text-red-600">
         <p>Could not load this quotation for editing: {String(error)}</p>
+        <Button
+          variant="outline"
+          onClick={() => navigate(underwritingPaths.quotations)}
+        >
+          Back to Quotations
+        </Button>
+      </div>
+    );
+  }
+
+  if (isEndorsementMode && sourceQuotationError) {
+    return (
+      <div className="space-y-4 py-12 text-center text-sm text-red-600">
+        <p>
+          Could not load the quotation for endorsement:{' '}
+          {String(sourceQuotationError)}
+        </p>
         <Button
           variant="outline"
           onClick={() => navigate(underwritingPaths.quotations)}
@@ -766,52 +851,81 @@ export function QuotationWizardPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <PageHeader
-          title={isEditMode ? 'Edit Quotation' : 'Quotation Wizard'}
+          title={
+            isEditMode
+              ? 'Edit Quotation'
+              : isEndorsementMode
+                ? 'Add Endorsement'
+                : 'Quotation Wizard'
+          }
           description={
             isEditMode
               ? 'Continue editing this quotation draft using the current backend quotation contract.'
-              : 'Create one quotation wizard that supports motor single, motor fleet, and non-motor flows.'
+              : isEndorsementMode
+                ? 'Create a follow-up endorsement quotation based on the completed quotation.'
+                : 'Create one quotation wizard that supports motor single, motor fleet, and non-motor flows.'
           }
         />
       </div>
 
       <div className="mx-auto w-full max-w-5xl space-y-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <p className="text-sm font-semibold text-slate-900">Quotation Type</p>
-          <p className="mt-1 text-sm text-slate-500">
-            Choose whether this quotation is non-motor, a single motor cover, or
-            a motor fleet cover.
-          </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            {FLOW_OPTIONS.map((option) => {
-              const active = quotationFlow === option.quotation_flow;
+        {!isEditMode && !isEndorsementMode ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-sm font-semibold text-slate-900">Quotation Type</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Choose whether this quotation is non-motor, a single motor cover, or
+              a motor fleet cover.
+            </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              {FLOW_OPTIONS.map((option) => {
+                const active = quotationFlow === option.quotation_flow;
 
-              return (
-                <button
-                  key={option.quotation_flow}
-                  type="button"
-                  onClick={() => handleFlowChange(option)}
-                  className={[
-                    'rounded-xl border p-4 text-left transition-colors',
-                    active
-                      ? 'border-slate-900 bg-slate-900 text-white'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
-                  ].join(' ')}
-                >
-                  <div className="text-sm font-semibold">{option.label}</div>
-                  <div
+                return (
+                  <button
+                    key={option.quotation_flow}
+                    type="button"
+                    onClick={() => handleFlowChange(option)}
                     className={[
-                      'mt-1 text-xs',
-                      active ? 'text-slate-200' : 'text-slate-400',
+                      'rounded-xl border p-4 text-left transition-colors',
+                      active
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
                     ].join(' ')}
                   >
-                    {option.description}
-                  </div>
-                </button>
-              );
-            })}
+                    <div className="text-sm font-semibold">{option.label}</div>
+                    <div
+                      className={[
+                        'mt-1 text-xs',
+                        active ? 'text-slate-200' : 'text-slate-400',
+                      ].join(' ')}
+                    >
+                      {option.description}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ) : null}
+
+        {isEndorsementMode && sourceQuotation ? (
+          <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4">
+            <p className="text-sm font-semibold text-cyan-900">
+              Endorsement mode
+            </p>
+            <p className="mt-1 text-sm text-cyan-800">
+              This endorsement is prefilled from quotation{' '}
+              <span className="font-medium">{sourceQuotation.quotation_no}</span>
+              . The original flow, customer, product, and vehicle details are
+              copied across so you can focus on the change itself.
+            </p>
+            <p className="mt-2 text-xs text-cyan-700">
+              Previous cover note:{' '}
+              {sourceQuotation.cover_note_dtl.cover_note_number ??
+                sourceQuotation.quotation_no}
+            </p>
+          </div>
+        ) : null}
 
         <QuotationWizardStepper
           steps={steps}
@@ -835,6 +949,12 @@ export function QuotationWizardPage() {
                 salePointRequired={salePointRequired}
                 isHydrating={isEditHydrating}
                 showFlowSelector={false}
+                isEndorsementMode={isEndorsementMode}
+                title={
+                  isEndorsementMode
+                    ? 'Step 1. Endorsement Details'
+                    : 'Step 1. Cover Note Setup'
+                }
               />
             )}
 

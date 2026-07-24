@@ -13,8 +13,11 @@ const DRAFT_STORAGE_KEY = 'insurance-portal:quotation-wizard:draft';
  * Once a quotation has been saved to the backend (`quotationId` is set),
  * the draft is cleared — the backend record is the source of truth from then on.
  */
-export function useQuotationWizardDraft(quotationId: string | null) {
-  const key = `${DRAFT_STORAGE_KEY}:new`;
+export function useQuotationWizardDraft(
+  quotationId: string | null,
+  draftScope = 'new',
+) {
+  const key = `${DRAFT_STORAGE_KEY}:${draftScope}`;
   const cleared = useRef(false);
 
   useEffect(() => {
