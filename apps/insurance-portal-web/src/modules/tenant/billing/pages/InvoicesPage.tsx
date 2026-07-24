@@ -20,11 +20,11 @@ export function InvoicesPage() {
   const columns: Column<InvoiceRecord>[] = [
     { key: 'invoice_no', header: 'Invoice No.', cell: (row) => row.invoice_no },
     { key: 'customer', header: 'Customer', cell: (row) => row.customer ? getCustomerDisplayName(row.customer) : row.customer_id },
-    { key: 'policy', header: 'Policy', cell: (row) => row.policy?.policy_no ?? row.policy_id ?? ' - ' },
-    { key: 'quotation', header: 'Quotation', cell: (row) => row.quotation?.quotation_no ?? row.quotation_id ?? ' - ' },
+    { key: 'policy', header: 'Policy', defaultVisible: false, cell: (row) => row.policy?.policy_no ?? row.policy_id ?? ' - ' },
+    { key: 'quotation', header: 'Quotation', defaultVisible: false, cell: (row) => row.quotation?.quotation_no ?? row.quotation_id ?? ' - ' },
     { key: 'status', header: 'Status', cell: (row) => <BillingStatusBadge status={row.status} /> },
     { key: 'amount', header: 'Total', cell: (row) => `${row.currency} ${row.total_amount}` },
-    { key: 'created_at', header: 'Created', cell: (row) => new Date(row.created_at).toLocaleDateString() },
+    { key: 'created_at', header: 'Created', defaultVisible: false, cell: (row) => new Date(row.created_at).toLocaleDateString() },
     {
       key: 'actions',
       header: '',

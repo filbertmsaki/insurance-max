@@ -8,6 +8,11 @@ const statusConfig: Record<string, { label: string; variant: 'success' | 'muted'
   locked: { label: 'Locked', variant: 'danger' },
   revoked: { label: 'Revoked', variant: 'danger' },
   trusted: { label: 'Trusted', variant: 'success' },
+  pending: { label: 'Pending', variant: 'warning' },
+  completed: { label: 'Completed', variant: 'success' },
+  paid: { label: 'Paid', variant: 'success' },
+  failed: { label: 'Failed', variant: 'danger' },
+  rejected: { label: 'Rejected', variant: 'danger' },
 }
 
 interface StatusBadgeProps {

@@ -82,6 +82,7 @@ export function CustomersTable({
     },
     {
       key: 'phone',
+      defaultVisible: false,
       header: 'Phone',
       cell: (row) => <span className="text-sm text-slate-600">{row.phone}</span>,
     },
@@ -104,6 +105,7 @@ export function CustomersTable({
     },
     {
       key: 'email',
+      defaultVisible: false,
       header: 'Email',
       cell: (row) => <span className="text-sm text-slate-600">{row.email ?? ' - '}</span>,
     },

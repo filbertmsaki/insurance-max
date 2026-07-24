@@ -1,19 +1,41 @@
 import type { ReactNode } from 'react'
+import { ChevronRight, Home } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface PageHeaderProps {
   title: string
   description?: string
   action?: ReactNode
+  breadcrumbs?: string[]
+  eyebrow?: string
+  status?: ReactNode
 }
 
-export function PageHeader({ title, description, action }: PageHeaderProps) {
+export function PageHeader({ title, description, action, breadcrumbs, eyebrow, status }: PageHeaderProps) {
   return (
-    <div className="flex items-center justify-between mb-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">{title}</h1>
-        {description && <p className="text-sm text-slate-500 mt-1">{description}</p>}
+    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="min-w-0">
+        {breadcrumbs?.length ? (
+          <nav aria-label="Breadcrumb" className="mb-2 flex items-center gap-1 text-xs text-slate-500">
+            <Home className="h-3.5 w-3.5" aria-hidden="true" />
+            {breadcrumbs.map((crumb, index) => (
+              <span key={crumb + index} className="flex min-w-0 items-center gap-1">
+                {index > 0 && <ChevronRight className="h-3 w-3 shrink-0 text-slate-300" aria-hidden="true" />}
+                <span className={cn('truncate', index === breadcrumbs.length - 1 && 'font-medium text-slate-700')}>
+                  {crumb}
+                </span>
+              </span>
+            ))}
+          </nav>
+        ) : null}
+        {eyebrow && <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-blue-600">{eyebrow}</p>}
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">{title}</h1>
+          {status}
+        </div>
+        {description && <p className="mt-1.5 max-w-3xl text-sm leading-6 text-slate-500">{description}</p>}
       </div>
-      {action && <div>{action}</div>}
+      {action && <div className="flex shrink-0 flex-wrap items-center gap-2">{action}</div>}
     </div>
   )
 }

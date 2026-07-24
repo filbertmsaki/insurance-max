@@ -60,6 +60,7 @@ export function QuotationsPage() {
     },
     {
       key: 'period',
+      defaultVisible: false,
       header: 'Cover Period',
       cell: (row) =>
         `${new Date(row.cover_note_start_date).toLocaleDateString()} - ${new Date(row.cover_note_end_date).toLocaleDateString()}`,

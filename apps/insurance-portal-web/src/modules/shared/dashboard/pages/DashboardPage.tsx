@@ -1,45 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { Users, Monitor, Smartphone, Key, Activity } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { DashboardCard } from '@/components/shared/DashboardCard'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { usersApi } from '@/modules/tenant/users/api/users'
 import { sessionsApi } from '@/modules/shared/sessions/api/sessions'
 import { devicesApi } from '@/modules/shared/devices/api/devices'
 import { apiClientsApi } from '@/modules/platform/api-clients/api/api-clients'
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
-
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  loading,
-  color,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  value: number | undefined
-  loading: boolean
-  color: string
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-slate-500">{label}</CardTitle>
-        <div className={`p-2 rounded-lg ${color}`}>
-          <Icon className="h-4 w-4 text-white" />
-        </div>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <Skeleton className="h-8 w-24" />
-        ) : (
-          <p className="text-3xl font-bold text-slate-900">{value ?? 0}</p>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
 
 const recentActivity = [
   { id: 1, action: 'User login', description: 'admin@example.com signed in', time: '2 minutes ago' },
@@ -52,27 +20,10 @@ const recentActivity = [
 export function DashboardPage() {
   const { user } = useAuthStore()
   const isPlatformAccount = user?.scope === 'platform'
-
-  const { data: users, isLoading: usersLoading } = useQuery({
-    queryKey: ['users', { page: 1, limit: 1 }],
-    queryFn: () => usersApi.getUsers({ page: 1, limit: 1 }),
-  })
-
-  const { data: sessions, isLoading: sessionsLoading } = useQuery({
-    queryKey: ['sessions'],
-    queryFn: sessionsApi.getSessions,
-  })
-
-  const { data: devices, isLoading: devicesLoading } = useQuery({
-    queryKey: ['devices'],
-    queryFn: devicesApi.getDevices,
-  })
-
-  const { data: apiClients, isLoading: apiClientsLoading } = useQuery({
-    queryKey: ['api-clients', { page: 1, limit: 1 }],
-    queryFn: () => apiClientsApi.getApiClients({ page: 1, limit: 1 }),
-    enabled: isPlatformAccount,
-  })
+  const { data: users, isLoading: usersLoading } = useQuery({ queryKey: ['users', { page: 1, limit: 1 }], queryFn: () => usersApi.getUsers({ page: 1, limit: 1 }) })
+  const { data: sessions, isLoading: sessionsLoading } = useQuery({ queryKey: ['sessions'], queryFn: sessionsApi.getSessions })
+  const { data: devices, isLoading: devicesLoading } = useQuery({ queryKey: ['devices'], queryFn: devicesApi.getDevices })
+  const { data: apiClients, isLoading: apiClientsLoading } = useQuery({ queryKey: ['api-clients', { page: 1, limit: 1 }], queryFn: () => apiClientsApi.getApiClients({ page: 1, limit: 1 }), enabled: isPlatformAccount })
 
   const activeSessions = sessions?.filter((s) => !s.revoked).length
   const trustedDevices = devices?.filter((d) => d.trusted).length
@@ -80,65 +31,16 @@ export function DashboardPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Dashboard"
-        description={`Welcome back, ${user?.email}`}
-      />
-
-      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 ${isPlatformAccount ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
-        <StatCard
-          icon={Users}
-          label="Total Users"
-          value={users?.pagination?.total}
-          loading={usersLoading}
-          color="bg-blue-500"
-        />
-        <StatCard
-          icon={Monitor}
-          label="Active Sessions"
-          value={activeSessions}
-          loading={sessionsLoading}
-          color="bg-green-500"
-        />
-        <StatCard
-          icon={Smartphone}
-          label="Trusted Devices"
-          value={trustedDevices}
-          loading={devicesLoading}
-          color="bg-purple-500"
-        />
-        {isPlatformAccount ? (
-          <StatCard
-            icon={Key}
-            label="Active API Clients"
-            value={activeClients}
-            loading={apiClientsLoading}
-            color="bg-amber-500"
-          />
-        ) : null}
+      <PageHeader eyebrow="Insurance operations" title="Dashboard" description={'Welcome back, ' + user?.email} />
+      <div className={'mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 ' + (isPlatformAccount ? 'lg:grid-cols-4' : 'lg:grid-cols-3')}>
+        <DashboardCard icon={Users} title="Total Users" value={users?.pagination?.total ?? 0} loading={usersLoading} description="Accounts in the current workspace" />
+        <DashboardCard icon={Monitor} title="Active Sessions" value={activeSessions ?? 0} loading={sessionsLoading} description="Sessions that are currently active" />
+        <DashboardCard icon={Smartphone} title="Trusted Devices" value={trustedDevices ?? 0} loading={devicesLoading} description="Trusted devices available to users" />
+        {isPlatformAccount && <DashboardCard icon={Key} title="Active API Clients" value={activeClients ?? 0} loading={apiClientsLoading} description="Active credentials for integrations" />}
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-slate-400" />
-            Recent Activity
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {recentActivity.map((item) => (
-              <div key={item.id} className="flex items-start gap-3 py-2 border-b border-slate-100 last:border-0">
-                <div className="h-2 w-2 rounded-full bg-blue-400 mt-2 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900">{item.action}</p>
-                  <p className="text-xs text-slate-500">{item.description}</p>
-                </div>
-                <span className="text-xs text-slate-400 whitespace-nowrap">{item.time}</span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
+      <Card className="rounded-xl border-slate-200 shadow-sm">
+        <CardHeader><CardTitle className="flex items-center gap-2"><Activity className="h-5 w-5 text-blue-600" aria-hidden="true" />Recent Activity</CardTitle></CardHeader>
+        <CardContent><div className="space-y-4">{recentActivity.map((item) => <div key={item.id} className="flex items-start gap-3 border-b border-slate-100 py-2 last:border-0"><div className="mt-2 h-2 w-2 shrink-0 rounded-full bg-blue-400" /><div className="min-w-0 flex-1"><p className="text-sm font-medium text-slate-900">{item.action}</p><p className="text-xs text-slate-500">{item.description}</p></div><span className="whitespace-nowrap text-xs text-slate-400">{item.time}</span></div>)}</div></CardContent>
       </Card>
     </div>
   )
