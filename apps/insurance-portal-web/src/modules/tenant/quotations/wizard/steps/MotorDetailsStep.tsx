@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -75,35 +76,102 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
     (v) => v.id === form.watch('motor.vehicle_id'),
   );
 
+  function resolveMotorCategoryCode(vehicle: MotorVehicleRecord) {
+    const metadata = (vehicle.metadata ?? {}) as Record<string, unknown>;
+    const metadataCode = metadata.motor_category_code;
+
+    if (metadataCode !== null && metadataCode !== undefined && metadataCode !== '') {
+      return String(metadataCode) as QuotationFormSchemaValues['motor']['motor_category_code'];
+    }
+
+    const resolvedCode = getMotorCategoryCodeFromVehicleCategory(
+      vehicle.motor_category ?? vehicle.vehicle_category,
+    );
+
+    return resolvedCode as QuotationFormSchemaValues['motor']['motor_category_code'];
+  }
+
   function fillFromExisting(vehicle: MotorVehicleRecord) {
     const metadata = (vehicle.metadata ?? {}) as Record<string, unknown>;
-    form.setValue('motor.vehicle_id', vehicle.id);
+    form.setValue('motor.vehicle_id', vehicle.id, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
     form.setValue(
       'motor.motor_category_code',
-      String(
-        metadata.motor_category_code ??
-          getMotorCategoryCodeFromVehicleCategory(vehicle.vehicle_category),
-      ) as QuotationFormSchemaValues['motor']['motor_category_code'],
+      resolveMotorCategoryCode(vehicle),
+      {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      },
     );
     form.setValue(
       'motor.motor_type_code',
       String(
-        metadata.motor_type_code ?? '1',
+        metadata.motor_type_code ?? vehicle.motor_type ?? '1',
       ) as QuotationFormSchemaValues['motor']['motor_type_code'],
+      {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      },
     );
-    form.setValue('motor.registration_no', vehicle.registration_no ?? '');
-    form.setValue('motor.chassis_no', vehicle.chassis_no ?? '');
-    form.setValue('motor.engine_no', vehicle.engine_no ?? '');
-    form.setValue('motor.make', vehicle.make ?? '');
-    form.setValue('motor.model', vehicle.model ?? '');
-    form.setValue('motor.model_no', vehicle.model_no ?? '');
-    form.setValue('motor.body_type', vehicle.body_type ?? '');
-    form.setValue('motor.color', vehicle.color ?? '');
+    form.setValue('motor.registration_no', vehicle.registration_no ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    form.setValue('motor.chassis_no', vehicle.chassis_no ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    form.setValue('motor.engine_no', vehicle.engine_no ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    form.setValue('motor.make', vehicle.make ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    form.setValue('motor.model', vehicle.model ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    form.setValue('motor.model_no', vehicle.model_no ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    form.setValue('motor.body_type', vehicle.body_type ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    form.setValue('motor.color', vehicle.color ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
     form.setValue(
       'motor.manufacture_year',
       vehicle.manufacture_year != null ? String(vehicle.manufacture_year) : '',
+      {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      },
     );
-    form.setValue('motor.usage_type', vehicle.usage_type ?? '');
+    form.setValue('motor.usage_type', vehicle.usage_type ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
     form.setValue(
       'motor.motor_usage_code',
       (vehicle.motor_usage != null
@@ -111,35 +179,104 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
         : getUsageCodeFromLabel(
             vehicle.usage_type,
           )) as QuotationFormSchemaValues['motor']['motor_usage_code'],
+      {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      },
     );
-    form.setValue('motor.vehicle_category', vehicle.vehicle_category ?? '');
+    form.setValue('motor.vehicle_category', vehicle.vehicle_category ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
     form.setValue(
       'motor.seating_capacity',
       vehicle.seating_capacity != null ? String(vehicle.seating_capacity) : '',
+      {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      },
     );
-    form.setValue('motor.tonnage', vehicle.tonnage ?? '');
+    form.setValue('motor.tonnage', vehicle.tonnage ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
     form.setValue(
       'motor.cubic_capacity',
       vehicle.cubic_capacity != null ? String(vehicle.cubic_capacity) : '',
+      {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      },
     );
-    form.setValue('motor.fuel_type', vehicle.fuel_type ?? '');
+    form.setValue('motor.fuel_type', vehicle.fuel_type ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
     form.setValue(
       'motor.number_of_axles',
       vehicle.number_of_axles != null ? String(vehicle.number_of_axles) : '',
+      {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      },
     );
-    form.setValue('motor.axle_distance', vehicle.axle_distance ?? '');
-    form.setValue('motor.tare_weight', vehicle.tare_weight ?? '');
-    form.setValue('motor.gross_weight', vehicle.gross_weight ?? '');
-    form.setValue('motor.owner_name', vehicle.owner_name ?? '');
+    form.setValue('motor.axle_distance', vehicle.axle_distance ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    form.setValue('motor.tare_weight', vehicle.tare_weight ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    form.setValue('motor.gross_weight', vehicle.gross_weight ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    form.setValue('motor.owner_name', vehicle.owner_name ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
     form.setValue(
       'motor.owner_category',
       (vehicle.owner_category != null
         ? String(vehicle.owner_category)
         : '') as QuotationFormSchemaValues['motor']['owner_category'],
+      {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      },
     );
-    form.setValue('motor.owner_address', vehicle.owner_address ?? '');
-    form.setValue('motor.vehicle_value', vehicle.vehicle_value ?? '');
+    form.setValue('motor.owner_address', vehicle.owner_address ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    form.setValue('motor.vehicle_value', vehicle.vehicle_value ?? '', {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
   }
+
+  useEffect(() => {
+    if (mode !== 'existing' || !selectedVehicle) {
+      return;
+    }
+
+    fillFromExisting(selectedVehicle);
+  }, [mode, selectedVehicle?.id]);
 
   return (
     <div className="space-y-4">
@@ -182,6 +319,7 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                     value={toSelectValue(field.value)}
                     onValueChange={(value) => {
                       const nextValue = fromSelectValue(value);
+                      field.onChange(nextValue);
                       const vehicle = vehicleOptions.find(
                         (v) => v.id === nextValue,
                       );

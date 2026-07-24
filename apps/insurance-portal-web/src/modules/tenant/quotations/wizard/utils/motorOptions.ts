@@ -22,10 +22,15 @@ export function getVehicleCategoryLabelFromCode(
 }
 
 export function getMotorCategoryCodeFromVehicleCategory(
-  vehicleCategory: string | null | undefined,
+  vehicleCategory: string | number | null | undefined,
 ) {
-  const normalized = vehicleCategory?.trim().toLowerCase();
-  if (normalized === 'motor vehicle') return '1';
-  if (normalized === 'motor cycle' || normalized === 'motorcycle') return '2';
+  const normalized = String(vehicleCategory ?? '').trim().toLowerCase();
+  if (normalized === '1' || normalized === 'motor vehicle') return '1';
+  if (
+    normalized === '2' ||
+    normalized === 'motor cycle' ||
+    normalized === 'motorcycle'
+  )
+    return '2';
   return '';
 }
