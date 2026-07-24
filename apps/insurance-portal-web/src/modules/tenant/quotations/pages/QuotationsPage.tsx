@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DataTable, type Column } from '@/components/shared/DataTable';
+import { ActionMenu } from '@/components/shared/ActionMenu';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
@@ -79,28 +80,31 @@ export function QuotationsPage() {
       header: '',
       className: 'w-12',
       cell: (row) => (
-        <div className="flex justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(underwritingPaths.quotationDetail(row.id))}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(underwritingPaths.quotationWizardEdit(row.id))}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDeleteItem(row)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+        <div className="flex justify-end">
+          <ActionMenu
+            contentClassName="w-44"
+            items={[
+              {
+                label: 'View quotation',
+                icon: <Eye className="h-4 w-4" />,
+                onClick: () =>
+                  navigate(underwritingPaths.quotationDetail(row.id)),
+              },
+              {
+                label: 'Edit quotation',
+                icon: <Pencil className="h-4 w-4" />,
+                onClick: () =>
+                  navigate(underwritingPaths.quotationWizardEdit(row.id)),
+              },
+              {
+                label: 'Delete quotation',
+                icon: <Trash2 className="h-4 w-4" />,
+                destructive: true,
+                separatorBefore: true,
+                onClick: () => setDeleteItem(row),
+              },
+            ]}
+          />
         </div>
       ),
     },
