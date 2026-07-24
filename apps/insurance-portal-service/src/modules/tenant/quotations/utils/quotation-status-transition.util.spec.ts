@@ -6,22 +6,22 @@ import { QuotationStatus } from '../enums/quotation-status.enum';
 import { QuotationStatusTransitionAction } from '../enums/quotation-status-transition-action.enum';
 
 describe('quotation status transition util', () => {
-  it('maps DRAFT request approval to PENDING_APPROVAL', () => {
+  it('maps DRAFT request approval to SUBMITTED_TO_TIRA', () => {
     expect(
       resolveQuotationStatusTransition({
         currentStatus: QuotationStatus.DRAFT,
         action: QuotationStatusTransitionAction.REQUEST_APPROVAL,
       }),
-    ).toBe(QuotationStatus.PENDING_APPROVAL);
+    ).toBe(QuotationStatus.SUBMITTED_TO_TIRA);
   });
 
   it('rejects invalid transitions', () => {
     expect(() =>
       resolveQuotationStatusTransition({
-        currentStatus: QuotationStatus.APPROVED,
-        action: QuotationStatusTransitionAction.REQUEST_APPROVAL,
+        currentStatus: QuotationStatus.DRAFT,
+        action: QuotationStatusTransitionAction.APPROVE,
       }),
-    ).toThrow('Quotation in APPROVED status cannot perform REQUEST_APPROVAL');
+    ).toThrow('Quotation in DRAFT status cannot perform APPROVE');
   });
 
   it('requires a reason for rejection transitions', () => {
@@ -40,5 +40,14 @@ describe('quotation status transition util', () => {
         action: QuotationStatusTransitionAction.CONVERT,
       }),
     ).toBe(QuotationStatus.CONVERTED);
+  });
+
+  it('allows submitted quotations to approve', () => {
+    expect(
+      resolveQuotationStatusTransition({
+        currentStatus: QuotationStatus.SUBMITTED_TO_TIRA,
+        action: QuotationStatusTransitionAction.APPROVE,
+      }),
+    ).toBe(QuotationStatus.APPROVED);
   });
 });

@@ -27,30 +27,39 @@ const QUOTATION_TRANSITION_MAP: Record<
     [QuotationStatusTransitionAction.RATE]: QuotationStatus.RATED,
     [QuotationStatusTransitionAction.REFER]: QuotationStatus.REFERRED,
     [QuotationStatusTransitionAction.REQUEST_APPROVAL]:
-      QuotationStatus.PENDING_APPROVAL,
+      QuotationStatus.SUBMITTED_TO_TIRA,
     [QuotationStatusTransitionAction.CANCEL]: QuotationStatus.CANCELLED,
     [QuotationStatusTransitionAction.EXPIRE]: QuotationStatus.EXPIRED,
   },
   [QuotationStatus.RATED]: {
     [QuotationStatusTransitionAction.REFER]: QuotationStatus.REFERRED,
     [QuotationStatusTransitionAction.REQUEST_APPROVAL]:
-      QuotationStatus.PENDING_APPROVAL,
+      QuotationStatus.SUBMITTED_TO_TIRA,
     [QuotationStatusTransitionAction.APPROVE]: QuotationStatus.APPROVED,
     [QuotationStatusTransitionAction.RESET_TO_DRAFT]: QuotationStatus.DRAFT,
   },
   [QuotationStatus.REFERRED]: {
     [QuotationStatusTransitionAction.RESET_TO_DRAFT]: QuotationStatus.DRAFT,
     [QuotationStatusTransitionAction.REQUEST_APPROVAL]:
-      QuotationStatus.PENDING_APPROVAL,
+      QuotationStatus.SUBMITTED_TO_TIRA,
     [QuotationStatusTransitionAction.APPROVE]: QuotationStatus.APPROVED,
     [QuotationStatusTransitionAction.REJECT]: QuotationStatus.REJECTED,
   },
   [QuotationStatus.PENDING_APPROVAL]: {
+    [QuotationStatusTransitionAction.REQUEST_APPROVAL]:
+      QuotationStatus.SUBMITTED_TO_TIRA,
+    [QuotationStatusTransitionAction.APPROVE]: QuotationStatus.APPROVED,
+    [QuotationStatusTransitionAction.REJECT]: QuotationStatus.REJECTED,
+    [QuotationStatusTransitionAction.CANCEL]: QuotationStatus.CANCELLED,
+  },
+  [QuotationStatus.SUBMITTED_TO_TIRA]: {
     [QuotationStatusTransitionAction.APPROVE]: QuotationStatus.APPROVED,
     [QuotationStatusTransitionAction.REJECT]: QuotationStatus.REJECTED,
     [QuotationStatusTransitionAction.CANCEL]: QuotationStatus.CANCELLED,
   },
   [QuotationStatus.APPROVED]: {
+    [QuotationStatusTransitionAction.REQUEST_APPROVAL]:
+      QuotationStatus.SUBMITTED_TO_TIRA,
     [QuotationStatusTransitionAction.CONVERT]: QuotationStatus.CONVERTED,
     [QuotationStatusTransitionAction.EXPIRE]: QuotationStatus.EXPIRED,
     [QuotationStatusTransitionAction.CANCEL]: QuotationStatus.CANCELLED,
@@ -58,7 +67,7 @@ const QUOTATION_TRANSITION_MAP: Record<
   [QuotationStatus.REJECTED]: {
     [QuotationStatusTransitionAction.RESET_TO_DRAFT]: QuotationStatus.DRAFT,
     [QuotationStatusTransitionAction.REQUEST_APPROVAL]:
-      QuotationStatus.PENDING_APPROVAL,
+      QuotationStatus.SUBMITTED_TO_TIRA,
     [QuotationStatusTransitionAction.REFER]: QuotationStatus.REFERRED,
   },
   [QuotationStatus.CONVERTED]: {},

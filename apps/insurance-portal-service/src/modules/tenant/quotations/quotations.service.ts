@@ -468,18 +468,14 @@ export class QuotationsService {
 
       const shouldSetSubmittedAt =
         !lockedQuotation.submitted_at || submitOptions.force_resubmit;
-      let nextStatus = lockedQuotation.status;
-
-      if (
-        lockedQuotation.status !== QuotationStatus.APPROVED &&
-        lockedQuotation.status !== QuotationStatus.PENDING_APPROVAL
-      ) {
-        nextStatus = assertQuotationStatusTransition({
-          currentStatus: lockedQuotation.status,
-          action: QuotationStatusTransitionAction.REQUEST_APPROVAL,
-          reason: 'Quotation submitted to TIRAMIS',
-        });
-      }
+      const nextStatus =
+        lockedQuotation.status === QuotationStatus.SUBMITTED_TO_TIRA
+          ? lockedQuotation.status
+          : assertQuotationStatusTransition({
+              currentStatus: lockedQuotation.status,
+              action: QuotationStatusTransitionAction.REQUEST_APPROVAL,
+              reason: 'Quotation submitted to TIRAMIS',
+            });
 
       await this.applyQuotationStatusUpdate(manager, lockedQuotation, {
         nextStatus,
@@ -1703,7 +1699,7 @@ export class QuotationsService {
       case QuotationStatusTransitionAction.REFER:
         return 'Quotation referred for review';
       case QuotationStatusTransitionAction.REQUEST_APPROVAL:
-        return 'Quotation sent for approval';
+        return 'Quotation submitted to TIRAMIS';
       case QuotationStatusTransitionAction.APPROVE:
         return 'Quotation approved';
       case QuotationStatusTransitionAction.REJECT:

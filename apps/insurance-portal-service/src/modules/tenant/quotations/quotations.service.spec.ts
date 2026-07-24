@@ -180,7 +180,7 @@ describe('QuotationsService', () => {
         company_id: 'company-1',
       },
       expect.objectContaining({
-        status: QuotationStatus.PENDING_APPROVAL,
+        status: QuotationStatus.SUBMITTED_TO_TIRA,
         submitted_by: 'user-1',
         updated_by: 'user-1',
       }),
@@ -192,14 +192,14 @@ describe('QuotationsService', () => {
       expect.objectContaining({
         quotation_id: fixture.quotation.id,
         old_status: QuotationStatus.DRAFT,
-        new_status: QuotationStatus.PENDING_APPROVAL,
+        new_status: QuotationStatus.SUBMITTED_TO_TIRA,
         reason: 'Quotation submitted to TIRAMIS',
         changed_by: 'user-1',
       }),
     );
   });
 
-  it('keeps APPROVED quotations approved when submitting to TIRAMIS', async () => {
+  it('marks approved quotations as submitted to TIRAMIS when resubmitting', async () => {
     const fixture = createServiceFixture(QuotationStatus.APPROVED);
 
     await fixture.service.submit(
@@ -217,13 +217,21 @@ describe('QuotationsService', () => {
         company_id: 'company-1',
       },
       expect.objectContaining({
-        status: QuotationStatus.APPROVED,
+        status: QuotationStatus.SUBMITTED_TO_TIRA,
       }),
     );
 
     expect(
       fixture.quotationStatusHistoryRepoInManager.save,
-    ).not.toHaveBeenCalled();
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        quotation_id: fixture.quotation.id,
+        old_status: QuotationStatus.APPROVED,
+        new_status: QuotationStatus.SUBMITTED_TO_TIRA,
+        reason: 'Quotation submitted to TIRAMIS',
+        changed_by: 'user-1',
+      }),
+    );
   });
 
   it('requires a reason when rejecting a quotation', async () => {

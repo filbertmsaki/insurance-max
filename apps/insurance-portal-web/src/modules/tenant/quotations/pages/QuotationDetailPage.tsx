@@ -47,11 +47,30 @@ import {
 } from '../hooks';
 import type { QuotationStatusTransitionAction } from '../types';
 
-const TERMINAL_STATUSES = new Set(['CONVERTED', 'CANCELLED', 'EXPIRED']);
+const TERMINAL_STATUSES = new Set([
+  'CONVERTED',
+  'CANCELLED',
+  'EXPIRED',
+  'SUBMITTED_TO_TIRA',
+]);
 const EDITABLE_STATUSES = new Set(['DRAFT', 'RATED', 'REFERRED', 'REJECTED']);
-const APPROVABLE_STATUSES = new Set(['PENDING_APPROVAL', 'REFERRED']);
-const REJECTABLE_STATUSES = new Set(['PENDING_APPROVAL', 'REFERRED']);
-const CANCELLABLE_STATUSES = new Set(['DRAFT', 'PENDING_APPROVAL', 'APPROVED']);
+const APPROVABLE_STATUSES = new Set([
+  'PENDING_APPROVAL',
+  'SUBMITTED_TO_TIRA',
+  'REFERRED',
+]);
+const REJECTABLE_STATUSES = new Set([
+  'PENDING_APPROVAL',
+  'SUBMITTED_TO_TIRA',
+  'REFERRED',
+]);
+const CANCELLABLE_STATUSES = new Set([
+  'DRAFT',
+  'PENDING_APPROVAL',
+  'SUBMITTED_TO_TIRA',
+  'APPROVED',
+]);
+const DIRECT_PAYMENT_MODE = 1;
 
 type StatusActionDialogState = {
   action: QuotationStatusTransitionAction;
@@ -96,10 +115,23 @@ export function QuotationDetailPage() {
 
   const quotationStatus = preview?.overview.quotation_status ?? null;
   const paymentStatus = preview?.payment?.payment_status ?? null;
-  const canEdit = quotationStatus ? EDITABLE_STATUSES.has(quotationStatus) : false;
-  const canSubmit = quotationStatus ? !TERMINAL_STATUSES.has(quotationStatus) : false;
-  const canApprove = quotationStatus ? APPROVABLE_STATUSES.has(quotationStatus) : false;
-  const canReject = quotationStatus ? REJECTABLE_STATUSES.has(quotationStatus) : false;
+  const paymentMode = preview?.payment?.payment_mode ?? null;
+  const submittedAt = preview?.overview.submitted_at ?? null;
+  const canEdit =
+    quotationStatus && submittedAt === null
+      ? EDITABLE_STATUSES.has(quotationStatus)
+      : false;
+  const canSubmit =
+    quotationStatus && submittedAt === null
+      ? !TERMINAL_STATUSES.has(quotationStatus)
+      : false;
+  const isDirectPay = paymentMode === DIRECT_PAYMENT_MODE;
+  const canApprove = quotationStatus
+    ? APPROVABLE_STATUSES.has(quotationStatus) && !isDirectPay
+    : false;
+  const canReject = quotationStatus
+    ? REJECTABLE_STATUSES.has(quotationStatus) && !isDirectPay
+    : false;
   const canCancel = quotationStatus ? CANCELLABLE_STATUSES.has(quotationStatus) : false;
   const showFleetTabs = preview?.overview.quotation_flow === 'MOTOR_FLEET';
   const showMotorTab = preview?.overview.quotation_flow === 'MOTOR_SINGLE';

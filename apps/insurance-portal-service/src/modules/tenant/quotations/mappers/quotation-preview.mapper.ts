@@ -876,6 +876,8 @@ export class QuotationPreviewMapper {
 
   private statusActionLabel(status: string) {
     switch (status) {
+      case 'SUBMITTED_TO_TIRA':
+        return 'Quotation submitted to TIRAMIS';
       case 'APPROVED':
         return 'Quotation approved';
       case 'REJECTED':
