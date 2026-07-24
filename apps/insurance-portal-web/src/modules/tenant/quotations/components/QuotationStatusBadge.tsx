@@ -7,6 +7,8 @@ const statusClasses: Record<QuotationStatus, string> = {
   REFERRED: 'bg-amber-100 text-amber-700 border-amber-200',
   PENDING_APPROVAL: 'bg-blue-100 text-blue-700 border-blue-200',
   SUBMITTED_TO_TIRA: 'bg-cyan-100 text-cyan-800 border-cyan-200',
+  COMPLETED: 'bg-green-100 text-green-800 border-green-200',
+  FAILED: 'bg-red-100 text-red-800 border-red-200',
   APPROVED: 'bg-green-100 text-green-700 border-green-200',
   REJECTED: 'bg-red-100 text-red-700 border-red-200',
   CONVERTED: 'bg-violet-100 text-violet-700 border-violet-200',

@@ -878,6 +878,10 @@ export class QuotationPreviewMapper {
     switch (status) {
       case 'SUBMITTED_TO_TIRA':
         return 'Quotation submitted to TIRAMIS';
+      case 'COMPLETED':
+        return 'TIRAMIS submission completed';
+      case 'FAILED':
+        return 'TIRAMIS submission failed';
       case 'APPROVED':
         return 'Quotation approved';
       case 'REJECTED':

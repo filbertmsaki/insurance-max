@@ -9,6 +9,12 @@ export class AddSubmittedToTiraQuotationStatus1784900000000
     await queryRunner.query(
       `ALTER TYPE "public"."quotation_status_enum" ADD VALUE IF NOT EXISTS 'SUBMITTED_TO_TIRA'`,
     );
+    await queryRunner.query(
+      `ALTER TYPE "public"."quotation_status_enum" ADD VALUE IF NOT EXISTS 'COMPLETED'`,
+    );
+    await queryRunner.query(
+      `ALTER TYPE "public"."quotation_status_enum" ADD VALUE IF NOT EXISTS 'FAILED'`,
+    );
   }
 
   public async down(): Promise<void> {

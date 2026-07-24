@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { Branch } from '../branches/entities/branch.entity';
 import { Policy } from '../policies/entities/policy.entity';
+import { QuotationStatusHistory } from '../quotations/entities/quotation-status-history.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 import { TiramisModule } from '../../tiramis/tiramis.module';
@@ -22,6 +23,7 @@ import { TiramisIntegrationService } from './tiramis-integration.service';
       PortalTiraSubmission,
       PortalTiraSubmissionEvent,
       Policy,
+      QuotationStatusHistory,
       Quotation,
       Branch,
       TiramisSalePointEntity,

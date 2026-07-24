@@ -142,6 +142,8 @@ export function QuotationsPage() {
               'REFERRED',
               'PENDING_APPROVAL',
               'SUBMITTED_TO_TIRA',
+              'COMPLETED',
+              'FAILED',
               'APPROVED',
               'REJECTED',
               'CONVERTED',

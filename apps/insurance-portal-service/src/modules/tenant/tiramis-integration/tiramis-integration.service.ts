@@ -9,7 +9,9 @@ import { Brackets, In, Repository } from 'typeorm';
 
 import { Branch } from '../branches/entities/branch.entity';
 import { Policy } from '../policies/entities/policy.entity';
+import { QuotationStatusHistory } from '../quotations/entities/quotation-status-history.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
+import { QuotationStatus } from '../quotations/enums/quotation-status.enum';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 import { TiramisSubmissionStatus } from '../../tiramis/enums/tiramis-submission-status.enum';
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
@@ -39,6 +41,8 @@ export class TiramisIntegrationService {
     private readonly policyRepository: Repository<Policy>,
     @InjectRepository(Quotation)
     private readonly quotationRepository: Repository<Quotation>,
+    @InjectRepository(QuotationStatusHistory)
+    private readonly quotationStatusHistoryRepository: Repository<QuotationStatusHistory>,
     @InjectRepository(Branch)
     private readonly branchRepository: Repository<Branch>,
     @InjectRepository(TiramisSalePointEntity)
@@ -505,6 +509,7 @@ export class TiramisIntegrationService {
 
     await this.createEvent(savedSubmission, payload);
     await this.updateLinkedPolicy(savedSubmission, payload);
+    await this.updateLinkedQuotation(savedSubmission, payload);
 
     if (updatedTracking) {
       await this.tiramisBusinessRecordSyncService.syncFromTracking(
@@ -1152,6 +1157,42 @@ export class TiramisIntegrationService {
     await this.policyRepository.save(policy);
   }
 
+  private async updateLinkedQuotation(
+    submission: PortalTiraSubmission,
+    payload: TiramisNotificationEventDto,
+  ) {
+    const quotation = await this.findLinkedQuotation(submission, payload);
+
+    if (!quotation) {
+      return;
+    }
+
+    const nextStatus = this.mapPortalSubmissionStatusToQuotationStatus(
+      submission.status,
+    );
+
+    if (!nextStatus || quotation.status === nextStatus) {
+      return;
+    }
+
+    const previousStatus = quotation.status;
+    quotation.status = nextStatus;
+
+    await this.quotationRepository.save(quotation);
+
+    await this.quotationStatusHistoryRepository.save({
+      quotation_id: quotation.id,
+      old_status: previousStatus,
+      new_status: nextStatus,
+      reason:
+        payload.statusDescription ||
+        submission.status_description ||
+        payload.errorMessage ||
+        `TIRAMIS callback updated quotation status to ${nextStatus}`,
+      changed_by: null,
+    });
+  }
+
   private async findLinkedPolicy(
     submission: PortalTiraSubmission,
     payload: TiramisNotificationEventDto,
@@ -1195,6 +1236,47 @@ export class TiramisIntegrationService {
 
       if (policy) {
         return policy;
+      }
+    }
+
+    return null;
+  }
+
+  private async findLinkedQuotation(
+    submission: PortalTiraSubmission,
+    payload: TiramisNotificationEventDto,
+  ) {
+    if (submission.quotation_id) {
+      const quotation = await this.quotationRepository.findOne({
+        where: {
+          id: submission.quotation_id,
+          company_id: submission.company_id,
+        },
+      });
+
+      if (quotation) {
+        return quotation;
+      }
+    }
+
+    const sourceModule =
+      submission.source_module || payload.sourceModule || payload.sourceService;
+    const sourceRecordId =
+      submission.source_record_id || payload.sourceRecordId || null;
+
+    if (
+      this.isQuotationSource(sourceModule) &&
+      sourceRecordId
+    ) {
+      const quotation = await this.quotationRepository.findOne({
+        where: {
+          id: sourceRecordId,
+          company_id: submission.company_id,
+        },
+      });
+
+      if (quotation) {
+        return quotation;
       }
     }
 
@@ -1311,6 +1393,23 @@ export class TiramisIntegrationService {
         }
 
         return PortalTiraSubmissionStatus.SUBMITTED_TO_TIRAMIS;
+    }
+  }
+
+  private mapPortalSubmissionStatusToQuotationStatus(
+    status: PortalTiraSubmissionStatus,
+  ): QuotationStatus | null {
+    switch (status) {
+      case PortalTiraSubmissionStatus.COMPLETED:
+        return QuotationStatus.COMPLETED;
+      case PortalTiraSubmissionStatus.FAILED:
+      case PortalTiraSubmissionStatus.ACK_FAILED:
+      case PortalTiraSubmissionStatus.FINAL_FAILED:
+      case PortalTiraSubmissionStatus.CALLBACK_REJECTED:
+      case PortalTiraSubmissionStatus.FINAL_CALLBACK_OVERDUE:
+        return QuotationStatus.FAILED;
+      default:
+        return null;
     }
   }
 

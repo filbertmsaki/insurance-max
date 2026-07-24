@@ -50,4 +50,13 @@ describe('quotation status transition util', () => {
       }),
     ).toBe(QuotationStatus.APPROVED);
   });
+
+  it('treats completed quotations as terminal', () => {
+    expect(() =>
+      resolveQuotationStatusTransition({
+        currentStatus: QuotationStatus.COMPLETED,
+        action: QuotationStatusTransitionAction.APPROVE,
+      }),
+    ).toThrow('Quotation in COMPLETED status cannot perform APPROVE');
+  });
 });

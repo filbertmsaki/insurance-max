@@ -342,6 +342,8 @@ const quotationFormObjectSchema = z.object({
     'REFERRED',
     'PENDING_APPROVAL',
     'SUBMITTED_TO_TIRA',
+    'COMPLETED',
+    'FAILED',
     'APPROVED',
     'REJECTED',
     'CONVERTED',

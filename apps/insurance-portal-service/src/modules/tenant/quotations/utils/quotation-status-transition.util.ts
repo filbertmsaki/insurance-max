@@ -14,6 +14,8 @@ export const EDITABLE_QUOTATION_STATUSES: QuotationStatus[] = [
 ];
 
 export const TERMINAL_QUOTATION_STATUSES: QuotationStatus[] = [
+  QuotationStatus.COMPLETED,
+  QuotationStatus.FAILED,
   QuotationStatus.CONVERTED,
   QuotationStatus.CANCELLED,
   QuotationStatus.EXPIRED,
@@ -71,6 +73,8 @@ const QUOTATION_TRANSITION_MAP: Record<
     [QuotationStatusTransitionAction.REFER]: QuotationStatus.REFERRED,
   },
   [QuotationStatus.CONVERTED]: {},
+  [QuotationStatus.COMPLETED]: {},
+  [QuotationStatus.FAILED]: {},
   [QuotationStatus.EXPIRED]: {},
   [QuotationStatus.CANCELLED]: {},
 };

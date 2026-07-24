@@ -10,6 +10,8 @@ export type QuotationStatus =
   | 'REFERRED'
   | 'PENDING_APPROVAL'
   | 'SUBMITTED_TO_TIRA'
+  | 'COMPLETED'
+  | 'FAILED'
   | 'APPROVED'
   | 'REJECTED'
   | 'CONVERTED'
