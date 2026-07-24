@@ -61,10 +61,7 @@ export function QuotationPaymentPage() {
         0,
     ) || 0;
   const taxAmount = Math.max(0, totalPremium - basicPremium);
-  const customerReference =
-    quotation?.internal_quotation.intermediary_company_id ??
-    quotation?.internal_quotation.insurer_company_id ??
-    '';
+  const customerReference = quotation?.customer_id ?? '';
 
   useEffect(() => {
     if (!id) return;
@@ -92,6 +89,10 @@ export function QuotationPaymentPage() {
 
   async function generateInvoice() {
     if (!quotation) return;
+    if (!customerReference) {
+      toast.error('Quotation customer is missing. Please reload the quotation or create it again.');
+      return;
+    }
     setGenerating(true);
     try {
       const created = await billingApi.createInvoice({

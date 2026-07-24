@@ -334,10 +334,10 @@ export class BillingCommissionService {
     );
   }
 
-  private async validateInvoiceScope(
+  private async resolveInvoiceCustomerId(
     companyId: string,
     dto: CreateInvoiceDto | UpdateInvoiceDto,
-  ): Promise<void> {
+  ): Promise<string> {
     await this.ensureExists(
       this.companyRepository,
       { id: companyId },
@@ -356,11 +356,46 @@ export class BillingCommissionService {
         'Intermediary company not found',
       );
     }
-    await this.ensureExists(
-      this.customerRepository,
-      { id: dto.customer_id, company_id: companyId },
-      'Customer not found for company',
-    );
+
+    const directCustomerId = this.normalizeText(dto.customer_id);
+    if (directCustomerId) {
+      const directCustomer = await this.customerRepository.findOne({
+        where: { id: directCustomerId, company_id: companyId },
+      });
+
+      if (directCustomer) {
+        return directCustomer.id;
+      }
+    }
+
+    if (dto.quotation_id) {
+      const quotation = await this.quotationRepository.findOne({
+        where: { id: dto.quotation_id, company_id: companyId },
+        select: {
+          id: true,
+          customer_id: true,
+        },
+      });
+
+      if (quotation?.customer_id) {
+        const quotationCustomer = await this.customerRepository.findOne({
+          where: { id: quotation.customer_id, company_id: companyId },
+        });
+
+        if (quotationCustomer) {
+          return quotationCustomer.id;
+        }
+      }
+    }
+
+    throw new BadRequestException('Customer not found for company');
+  }
+
+  private async validateInvoiceScope(
+    companyId: string,
+    dto: CreateInvoiceDto | UpdateInvoiceDto,
+  ): Promise<string> {
+    const customerId = await this.resolveInvoiceCustomerId(companyId, dto);
 
     if (dto.quotation_id) {
       await this.ensureExists(
@@ -376,6 +411,8 @@ export class BillingCommissionService {
         'Policy not found for company',
       );
     }
+
+    return customerId;
   }
 
   async createInvoice(
@@ -383,7 +420,7 @@ export class BillingCommissionService {
     dto: CreateInvoiceDto,
     userId: string,
   ): Promise<Invoice> {
-    await this.validateInvoiceScope(companyId, dto);
+    const customerId = await this.validateInvoiceScope(companyId, dto);
     return this.dataSource
       .transaction(async (manager) => {
         const invoiceRepo = manager.getRepository(Invoice);
@@ -403,7 +440,7 @@ export class BillingCommissionService {
           company_id: companyId,
           insurer_company_id: dto.insurer_company_id,
           intermediary_company_id: dto.intermediary_company_id ?? null,
-          customer_id: dto.customer_id,
+          customer_id: customerId,
           quotation_id: dto.quotation_id ?? null,
           policy_id: dto.policy_id ?? null,
           endorsement_id: dto.endorsement_id ?? null,
@@ -502,7 +539,7 @@ export class BillingCommissionService {
   ): Promise<Invoice> {
     const invoice = await this.ensureInvoice(companyId, id);
     const merged = { ...invoice, ...dto } as CreateInvoiceDto;
-    await this.validateInvoiceScope(companyId, merged);
+    const customerId = await this.validateInvoiceScope(companyId, merged);
 
     return this.dataSource.transaction(async (manager) => {
       const invoiceRepo = manager.getRepository(Invoice);
@@ -510,7 +547,7 @@ export class BillingCommissionService {
         invoice.insurer_company_id = dto.insurer_company_id;
       if (dto.intermediary_company_id !== undefined)
         invoice.intermediary_company_id = dto.intermediary_company_id ?? null;
-      if (dto.customer_id !== undefined) invoice.customer_id = dto.customer_id;
+      if (dto.customer_id !== undefined) invoice.customer_id = customerId;
       if (dto.quotation_id !== undefined)
         invoice.quotation_id = dto.quotation_id ?? null;
       if (dto.policy_id !== undefined)
