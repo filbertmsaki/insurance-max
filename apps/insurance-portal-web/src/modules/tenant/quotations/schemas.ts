@@ -24,7 +24,7 @@ import type {
 } from './types';
 import {
   inclusiveDayCount,
-  isBeforeLocalNow,
+  isBeforeToday,
 } from './wizard/utils/coverNoteDateRange';
 
 const optionalText = z.string().trim().optional().or(z.literal(''));
@@ -762,11 +762,11 @@ export function createQuotationFormSchema(
   return quotationFormSchema.superRefine((values, ctx) => {
     if (values.quotation_flow === 'MOTOR_FLEET') return;
 
-    if (isBeforeLocalNow(values.valid_from)) {
+    if (isBeforeToday(values.valid_from)) {
       ctx.addIssue({
         code: 'custom',
         path: ['valid_from'],
-        message: 'Cover start date cannot be earlier than now',
+        message: 'Cover start date cannot be earlier than today',
       });
     }
 

@@ -48,6 +48,17 @@ function parseLocal(value: string): Date {
   return new Date(`${datePart}T${timePart}`);
 }
 
+/** Recomputes the end date from a (possibly just-edited) start date, keeping the same day-count rule as the modal. */
+export function computeCoverNoteEndFromStart(
+  validFrom: string,
+  days: number,
+): string {
+  if (!validFrom) return '';
+  const start = parseLocal(validFrom);
+  if (Number.isNaN(start.getTime())) return '';
+  return formatLocalDateTime(addLocalDays(start, days - 1));
+}
+
 /** Inclusive day count between two date/datetime strings (30 days = valid_until is 29 days after valid_from). */
 export function inclusiveDayCount(
   validFrom?: string | null,
@@ -61,11 +72,10 @@ export function inclusiveDayCount(
   return diffDays + 1;
 }
 
-export function isBeforeLocalNow(value?: string | null): boolean {
+/** Date-only check (ignores time of day) — a start date picker only lets the user pick a day. */
+export function isBeforeToday(value?: string | null): boolean {
   if (!value) return false;
-  const parsed = parseLocal(value);
-  if (Number.isNaN(parsed.getTime())) return false;
-  return parsed.getTime() < Date.now();
+  return dateOnlyPart(value) < todayLocalDatePart();
 }
 
 /** Finds the preset (if any) whose day count matches the given range, for cosmetic preselection on reopen. */

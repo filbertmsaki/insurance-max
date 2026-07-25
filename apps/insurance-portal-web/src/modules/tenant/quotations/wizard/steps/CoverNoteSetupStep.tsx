@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -29,8 +29,10 @@ import {
 } from '../utils/selectValue';
 import {
   addLocalDays,
+  computeCoverNoteEndFromStart,
   dateOnlyPart,
   formatLocalDateTime,
+  inclusiveDayCount,
 } from '../utils/coverNoteDateRange';
 
 interface OptionLike {
@@ -155,6 +157,380 @@ export function CoverNoteSetupStep({
     salePointId,
     salePointOptions,
   ]);
+
+  const [coverPeriodDays] = useState(
+    () =>
+      inclusiveDayCount(
+        form.getValues('valid_from'),
+        form.getValues('valid_until'),
+      ) ?? 30,
+  );
+
+  useEffect(() => {
+    if (!enforceFreshCoverPeriod || !requiresStandardCoverNoteFields || !validFrom) {
+      return;
+    }
+    const nextValidUntil = computeCoverNoteEndFromStart(validFrom, coverPeriodDays);
+    if (nextValidUntil && nextValidUntil !== form.getValues('valid_until')) {
+      form.setValue('valid_until', nextValidUntil, { shouldValidate: true });
+    }
+  }, [
+    coverPeriodDays,
+    enforceFreshCoverPeriod,
+    form,
+    requiresStandardCoverNoteFields,
+    validFrom,
+  ]);
+
+  if (enforceFreshCoverPeriod && requiresStandardCoverNoteFields) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{title}</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="valid_from"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cover Start Date (required)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="date"
+                    min={today}
+                    name={field.name}
+                    ref={field.ref}
+                    onBlur={field.onBlur}
+                    value={dateOnlyPart(field.value)}
+                    onChange={(event) => field.onChange(event.target.value)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="valid_until"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Cover End Date</FormLabel>
+                <FormControl>
+                  <Input
+                    type="date"
+                    disabled
+                    className="cursor-not-allowed bg-slate-50 text-slate-500"
+                    value={dateOnlyPart(field.value)}
+                    readOnly
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          {currency?.trim().toUpperCase() !== 'TZS' && (
+            <FormField
+              control={form.control}
+              name="exchange_rate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Exchange Rate (to TZS, required)</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.01" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          <FormField
+            control={form.control}
+            name="branch_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Branch (required)</FormLabel>
+                <Select
+                  value={field.value || 'none'}
+                  onValueChange={(value) => {
+                    field.onChange(value === 'none' ? '' : value);
+                    form.setValue('department_id', '');
+                    form.setValue('sale_point_id', '');
+                  }}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select branch" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {branchOptions.map((branch) => (
+                      <SelectItem key={branch.id} value={branch.id}>
+                        {branch.name} ({branch.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="sale_point_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>TIRAMIS Sale Point (required)</FormLabel>
+                <Select
+                  value={field.value || 'none'}
+                  onValueChange={(value) =>
+                    field.onChange(value === 'none' ? '' : value)
+                  }
+                  disabled={salePointOptions.length === 0}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          salePointOptions.length === 0
+                            ? 'Select a branch first'
+                            : 'Select sale point'
+                        }
+                      />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {salePointOptions.map((salePoint) => (
+                      <SelectItem key={salePoint.id} value={salePoint.id}>
+                        {salePoint.salePointName ?? salePoint.salePointCode} (
+                        {salePoint.salePointCode})
+                        {salePoint.isDefault ? ' - default' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+                {salePointRequired && salePointOptions.length > 1 && (
+                  <p className="text-xs text-amber-600">
+                    This branch has more than one active sale point. The
+                    default is selected automatically, but you can change it
+                    here.
+                  </p>
+                )}
+              </FormItem>
+            )}
+          />
+
+          {coverNoteType !== '1' && (
+            <FormField
+              control={form.control}
+              name="prev_cover_note_reference"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Previous Cover Note Reference (required)
+                  </FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          <FormField
+            control={form.control}
+            name="cover_note_desc"
+            render={({ field }) => (
+              <FormItem className="md:col-span-2">
+                <FormLabel>
+                  {requiresStandardCoverNoteFields
+                    ? 'Cover Note Description (required)'
+                    : 'Cover Note Description'}
+                </FormLabel>
+                <FormControl>
+                  <Textarea {...field} rows={3} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="operative_clause"
+            render={({ field }) => (
+              <FormItem className="md:col-span-2">
+                <FormLabel>
+                  {requiresStandardCoverNoteFields
+                    ? 'Operative Clause (required)'
+                    : 'Operative Clause'}
+                </FormLabel>
+                <FormControl>
+                  <Textarea {...field} rows={3} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {coverNoteType === '3' && (
+            <>
+              <FormField
+                control={form.control}
+                name="endorsement_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Endorsement Type (required)</FormLabel>
+                    <Select
+                      value={toSelectValue(field.value)}
+                      onValueChange={(value) =>
+                        field.onChange(fromSelectValue(value))
+                      }
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select endorsement type" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
+                        {ENDORSEMENT_TYPES.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="endorsement_premium_earned"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Endorsement Premium Earned</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="endorsement_reason"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Endorsement Reason (required)</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
+          )}
+
+          <FormField
+            control={form.control}
+            name="commission_paid"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Commission Paid</FormLabel>
+                <FormControl>
+                  <Input type="number" step="0.01" {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="commission_rate"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Commission Rate</FormLabel>
+                <FormControl>
+                  <Input type="number" step="0.000001" {...field} />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="officer_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Authorizing Officer Name (required)</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="officer_title"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Authorizing Officer Title (required)</FormLabel>
+                <FormControl>
+                  <Input {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="payment_mode_tira"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Payment Mode (TIRAMIS, required)</FormLabel>
+                <Select
+                  value={toSelectValue(field.value)}
+                  onValueChange={(value) =>
+                    field.onChange(fromSelectValue(value))
+                  }
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
+                    {PAYMENT_MODES_TIRA.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-4">
