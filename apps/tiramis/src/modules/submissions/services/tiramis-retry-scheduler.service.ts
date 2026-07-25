@@ -293,12 +293,11 @@ export class TiramisRetrySchedulerService {
   private async detectMissingFinalCallbacks() {
     const limit = Number(process.env.TIRAMIS_RETRY_BATCH_SIZE || 20);
 
-    const attempts = await this.attemptRepository.findFinalCallbackOverdueAttempts(
-      {
+    const attempts =
+      await this.attemptRepository.findFinalCallbackOverdueAttempts({
         now: new Date(),
         limit,
-      },
-    );
+      });
 
     for (const attempt of attempts) {
       const transaction = await this.transactionRepository.findById(

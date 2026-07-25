@@ -267,7 +267,11 @@ export function resolveSubmissionStatusFromNormalized(
 }
 
 export function isTiraSuccessCode(code?: string | null): boolean {
-  return String(code || '').trim().toUpperCase() === 'TIRA001';
+  return (
+    String(code || '')
+      .trim()
+      .toUpperCase() === 'TIRA001'
+  );
 }
 
 export function isFailureTiramisStatus(status?: string | null): boolean {
@@ -287,7 +291,9 @@ export function isFinalTiramisStatus(status?: string | null): boolean {
 export function getTiramisFailureMessage(
   normalized: NormalizedTiramisPortalResponse,
 ): string | null {
-  return normalized.final.statusDesc || normalized.acknowledgement.statusDesc || null;
+  return (
+    normalized.final.statusDesc || normalized.acknowledgement.statusDesc || null
+  );
 }
 
 function firstValue(...values: any[]): string | null {

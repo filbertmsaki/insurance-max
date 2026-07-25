@@ -48,6 +48,28 @@ const {
 
 const { sendCallbackWithRetry } = require('./callback.service');
 
+function isCoverCancellationEndorsement(xml) {
+  const coverNoteType = String(getTag(xml, 'CoverNoteType') || '').trim();
+  const endorsementType = String(getTag(xml, 'EndorsementType') || '').trim();
+
+  return coverNoteType === '3' && endorsementType === '4';
+}
+
+function resolveFinalResponseStatus({ xml, finalStatus }) {
+  if (!finalStatus || String(finalStatus.code || '').trim() !== 'TIRA001') {
+    return finalStatus;
+  }
+
+  if (isCoverCancellationEndorsement(xml)) {
+    return {
+      ...finalStatus,
+      desc: 'Transaction successfully cancelled',
+    };
+  }
+
+  return finalStatus;
+}
+
 function createTiramisRequestHandler(deps) {
   const validateHeaders = deps.validateHeaders;
   const verifyClientRequestSignature = deps.verifyClientRequestSignature;
@@ -479,7 +501,10 @@ function createTiramisRequestHandler(deps) {
       return;
     }
 
-    const finalStatus = getScenarioFinalStatus(scenario);
+    const finalStatus = resolveFinalResponseStatus({
+      xml: contentXml || xml,
+      finalStatus: getScenarioFinalStatus(scenario),
+    });
 
     const finalContent = buildAsyncFinalResponseContent(
       root,
@@ -546,4 +571,6 @@ module.exports = {
   createTiramisRequestHandler,
   isRootAllowedForEndpoint,
   isSyncRequest,
+  isCoverCancellationEndorsement,
+  resolveFinalResponseStatus,
 };

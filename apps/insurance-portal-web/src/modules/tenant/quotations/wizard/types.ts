@@ -1,7 +1,4 @@
-export type QuotationWizardFlow =
-  | 'NON_MOTOR'
-  | 'MOTOR_SINGLE'
-  | 'MOTOR_FLEET';
+export type QuotationWizardFlow = 'NON_MOTOR' | 'MOTOR_SINGLE' | 'MOTOR_FLEET';
 
 export type QuotationWizardStepId =
   | 'cover-note'
@@ -36,17 +33,21 @@ export function resolveWizardFlow(
 }
 
 /** Steps visible for a given flow, in wizard order. */
-export function getWizardStepsForFlow(flow: QuotationWizardFlow): QuotationWizardStepDef[] {
+export function getWizardStepsForFlow(
+  flow: QuotationWizardFlow,
+): QuotationWizardStepDef[] {
   const ids: QuotationWizardStepId[] =
     flow === 'NON_MOTOR'
       ? ['cover-note', 'policyholder', 'risk-premium', 'addons', 'summary']
       : flow === 'MOTOR_SINGLE'
-        ? ['cover-note', 'policyholder', 'risk-premium', 'addons', 'motor', 'summary']
-        : [
-            'fleet-setup',
+        ? [
+            'cover-note',
             'policyholder',
-            'fleet-vehicles',
+            'risk-premium',
+            'addons',
+            'motor',
             'summary',
-          ];
+          ]
+        : ['fleet-setup', 'policyholder', 'fleet-vehicles', 'summary'];
   return ids.map((id) => ALL_STEPS[id]);
 }

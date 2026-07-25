@@ -19,7 +19,10 @@ import { InsuranceBusinessLine } from '../enums/insurance-business-line.enum';
 @Unique('UQ_insurance_categories_company_name', ['company_id', 'name'])
 @Index('IDX_insurance_categories_company_id', ['company_id'])
 @Index('IDX_insurance_categories_is_active', ['is_active'])
-@Index('IDX_insurance_categories_business_line', ['company_id', 'business_line'])
+@Index('IDX_insurance_categories_business_line', [
+  'company_id',
+  'business_line',
+])
 export class InsuranceCategory {
   @PrimaryGeneratedColumn('uuid')
   id: string;

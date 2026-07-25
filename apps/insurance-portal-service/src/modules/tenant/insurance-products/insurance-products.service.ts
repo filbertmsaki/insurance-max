@@ -88,11 +88,9 @@ export class InsuranceProductsService {
         dto.business_line === InsuranceBusinessLine.MOTOR
           ? (dto.supports_fleet ?? false)
           : false,
-      tiramis_product_code:
-        dto.tiramis_product_code?.trim()
-          ? dto.tiramis_product_code.trim().toUpperCase()
-          :
-        dto.product_code.trim().toUpperCase(),
+      tiramis_product_code: dto.tiramis_product_code?.trim()
+        ? dto.tiramis_product_code.trim().toUpperCase()
+        : dto.product_code.trim().toUpperCase(),
       is_active: dto.is_active ?? true,
       created_by: userId,
       updated_by: userId,
@@ -207,7 +205,7 @@ export class InsuranceProductsService {
       });
       if (!category)
         throw new BadRequestException(
-            'Category not found or does not belong to this company',
+          'Category not found or does not belong to this company',
         );
       product.category_id = dto.category_id;
     }
@@ -257,10 +255,9 @@ export class InsuranceProductsService {
       product.supports_fleet = false;
     }
     if (dto.tiramis_product_code !== undefined) {
-      product.tiramis_product_code =
-        dto.tiramis_product_code?.trim()
-          ? dto.tiramis_product_code.trim().toUpperCase()
-          : null;
+      product.tiramis_product_code = dto.tiramis_product_code?.trim()
+        ? dto.tiramis_product_code.trim().toUpperCase()
+        : null;
     }
     if (dto.is_active !== undefined) product.is_active = dto.is_active;
     product.updated_by = userId;

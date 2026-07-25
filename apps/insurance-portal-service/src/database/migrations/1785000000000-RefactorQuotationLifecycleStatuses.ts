@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class RefactorQuotationLifecycleStatuses1785000000000
-  implements MigrationInterface
-{
+export class RefactorQuotationLifecycleStatuses1785000000000 implements MigrationInterface {
   name = 'RefactorQuotationLifecycleStatuses1785000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -449,9 +447,15 @@ export class RefactorQuotationLifecycleStatuses1785000000000
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_quotations_company_tira_status"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_quotations_company_payment_status"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_quotations_company_approval_status"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_quotations_company_tira_status"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_quotations_company_payment_status"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_quotations_company_approval_status"`,
+    );
     await queryRunner.query(`
       ALTER TABLE "quotations"
       DROP CONSTRAINT IF EXISTS "FK_quotations_approval_decided_by"
@@ -540,9 +544,15 @@ export class RefactorQuotationLifecycleStatuses1785000000000
     `);
 
     await queryRunner.query(`DROP TYPE IF EXISTS "public"."tira_status_enum"`);
-    await queryRunner.query(`DROP TYPE IF EXISTS "public"."payment_status_enum"`);
-    await queryRunner.query(`DROP TYPE IF EXISTS "public"."approval_status_enum"`);
-    await queryRunner.query(`DROP TYPE IF EXISTS "public"."quotation_status_enum"`);
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS "public"."payment_status_enum"`,
+    );
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS "public"."approval_status_enum"`,
+    );
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS "public"."quotation_status_enum"`,
+    );
     await queryRunner.query(`
       DO $$
       BEGIN

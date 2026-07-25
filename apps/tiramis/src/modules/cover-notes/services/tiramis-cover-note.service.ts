@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 
 import {
   TiramisConfigService,
@@ -224,12 +228,11 @@ export class TiramisCoverNoteService {
       });
     }
 
-    const endpoint = await this.tiramisConfigService.getFullEndpointUrlForConfiguration(
-      {
+    const endpoint =
+      await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
         configuration,
         serviceType: this.serviceType,
-      },
-    );
+      });
 
     const headers =
       await this.tiramisConfigService.getRequestHeadersForConfiguration(
@@ -396,8 +399,7 @@ export class TiramisCoverNoteService {
       const failedAttempt = await this.tiramisSubmissionService.markFailed({
         requestId: coverNote.requestId,
         errorMessage:
-          error?.message ||
-          'Failed to submit Non-Motor request to TIRAMIS',
+          error?.message || 'Failed to submit Non-Motor request to TIRAMIS',
         rawPayload: error?.response?.data || null,
         isRetryable: true,
       });
@@ -444,7 +446,10 @@ export class TiramisCoverNoteService {
       errors,
     );
     this.payloadValidator.validateAddons(dto.addons || [], 'addons', errors);
-    this.payloadValidator.validatePolicyHolders(dto.policyHolders || [], errors);
+    this.payloadValidator.validatePolicyHolders(
+      dto.policyHolders || [],
+      errors,
+    );
 
     if (errors.length > 0) {
       throw new BadRequestException({

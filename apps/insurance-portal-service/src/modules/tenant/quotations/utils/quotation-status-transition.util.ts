@@ -1,7 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 
 import { QuotationStatus } from '../enums/quotation-status.enum';
 import { QuotationStatusTransitionAction } from '../enums/quotation-status-transition-action.enum';

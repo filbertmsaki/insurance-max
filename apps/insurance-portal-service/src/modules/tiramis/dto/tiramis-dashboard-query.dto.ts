@@ -1,10 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsBooleanString,
-  IsEnum,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { IsBooleanString, IsEnum, IsOptional, IsString } from 'class-validator';
 
 import { TiramisRequestType } from '../enums/tiramis-request-type.enum';
 import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum';

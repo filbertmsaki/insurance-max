@@ -16,7 +16,9 @@ export const TAX_EXEMPTION_TYPE_OPTIONS = [
 export type SupportedTaxCode = (typeof TAX_CODE_OPTIONS)[number]['value'];
 
 export function getTaxRateForCode(taxCode: string | null | undefined) {
-  return TAX_CODE_OPTIONS.find((option) => option.value === taxCode)?.rate ?? '';
+  return (
+    TAX_CODE_OPTIONS.find((option) => option.value === taxCode)?.rate ?? ''
+  );
 }
 
 export function isSupportedTaxCode(

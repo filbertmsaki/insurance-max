@@ -377,13 +377,17 @@ export class MotorService {
       vehicle.number_of_axles = dto.number_of_axles ?? null;
     if (dto.axle_distance !== undefined)
       vehicle.axle_distance =
-        dto.axle_distance === null ? null : this.normalizeMoney(dto.axle_distance);
+        dto.axle_distance === null
+          ? null
+          : this.normalizeMoney(dto.axle_distance);
     if (dto.tare_weight !== undefined)
       vehicle.tare_weight =
         dto.tare_weight === null ? null : this.normalizeMoney(dto.tare_weight);
     if (dto.gross_weight !== undefined)
       vehicle.gross_weight =
-        dto.gross_weight === null ? null : this.normalizeMoney(dto.gross_weight);
+        dto.gross_weight === null
+          ? null
+          : this.normalizeMoney(dto.gross_weight);
     if (dto.motor_category !== undefined)
       vehicle.motor_category = dto.motor_category ?? null;
     if (dto.motor_type !== undefined)

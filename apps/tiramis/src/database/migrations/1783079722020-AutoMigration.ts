@@ -1,260 +1,697 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AutoMigration1783079722020 implements MigrationInterface {
-    name = 'AutoMigration1783079722020'
+  name = 'AutoMigration1783079722020';
 
-    public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`CREATE TABLE "tiramis_service_endpoints" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "client_configuration_id" uuid NOT NULL, "service_type" character varying(80) NOT NULL, "endpoint_url" character varying(500) NOT NULL, "http_method" character varying(10) NOT NULL DEFAULT 'POST', "content_type" character varying(50) NOT NULL DEFAULT 'application/xml', "is_active" integer NOT NULL DEFAULT '1', CONSTRAINT "PK_7190cfb2c78292addcae0ded32e" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_bb05af80f05d76970291c523b2" ON "tiramis_service_endpoints" ("client_configuration_id", "service_type") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_client_configurations" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "environment" character varying(30) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "client_code" character varying(100) NOT NULL, "client_key" character varying(255) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "sale_point_code" character varying(12), "tran_company_code" character varying(6), "base_url" character varying(500) NOT NULL, "callback_base_url" character varying(500) NOT NULL, "client_private_certificate_path" character varying(500), "client_private_certificate_password" character varying(255), "tira_public_certificate_path" character varying(500), "tira_public_certificate_password" character varying(255), "signature_algorithm" character varying(100), "is_active" integer NOT NULL DEFAULT '1', CONSTRAINT "PK_1afd82c9aef589bbf5852a681bf" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_30da4e184a5906a438a5866412" ON "tiramis_client_configurations" ("environment", "company_code", "system_code") `);
-        await queryRunner.query(`CREATE INDEX "IDX_708112a775077b60804e3b6c0f" ON "tiramis_client_configurations" ("environment") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_response_codes" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "code" character varying(20) NOT NULL, "description" character varying(255) NOT NULL, "category" character varying(50), "is_success" integer NOT NULL DEFAULT '0', "is_retryable" integer NOT NULL DEFAULT '0', "is_active" integer NOT NULL DEFAULT '1', CONSTRAINT "PK_c2daa553a1c089ffbec5d5b58f7" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_b4c102f9abaebe8f528684f573" ON "tiramis_response_codes" ("code") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_transactions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "client_configuration_id" character varying NOT NULL, "service_type" character varying(80) NOT NULL, "source_module" character varying(80), "source_record_id" character varying(100), "business_reference" character varying(100) NOT NULL, "status" character varying(50) NOT NULL DEFAULT 'PENDING', "original_request_id" character varying(50), "current_request_id" character varying(50), "successful_request_id" character varying(50), "total_attempts" integer NOT NULL DEFAULT '0', "last_attempt_at" TIMESTAMP, "successful_at" TIMESTAMP, "last_error" text, CONSTRAINT "PK_f5e674d89dbfa357ab58d5690f6" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_cb6df03892211d01fbb617dcd5" ON "tiramis_transactions" ("successful_request_id") `);
-        await queryRunner.query(`CREATE INDEX "IDX_ac91ccf1729ac2c9683ab86001" ON "tiramis_transactions" ("current_request_id") `);
-        await queryRunner.query(`CREATE INDEX "IDX_624602f3aeb151074eeb841d4e" ON "tiramis_transactions" ("business_reference") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_submission_attempts" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "attempt_no" integer NOT NULL, "request_id" character varying(50) NOT NULL, "previous_request_id" character varying(50), "root_element" character varying(80) NOT NULL, "resubmission_reason" character varying(255), "status" character varying(50) NOT NULL DEFAULT 'PENDING', "request_xml" text, "request_signature" text, "acknowledgement_id" character varying(50), "acknowledgement_status_code" character varying(20), "acknowledgement_status_desc" character varying(255), "acknowledgement_xml" text, "ack_received_at" TIMESTAMP, "response_id" character varying(50), "response_status_code" character varying(20), "response_status_desc" character varying(255), "response_xml" text, "response_signature" text, "final_response_received_at" TIMESTAMP, "response_acknowledgement_id" character varying(50), "response_ack_status_code" character varying(20), "response_ack_status_desc" character varying(255), "response_ack_xml" text, "response_ack_sent_at" TIMESTAMP, "sent_at" TIMESTAMP, "error_message" text, CONSTRAINT "PK_ca73df8a7ecbbf4da6a0dc83ee3" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_4dc803eae48f834f1a2c86f3f2" ON "tiramis_submission_attempts" ("transaction_id", "attempt_no") `);
-        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_b74687d5fb3f4f83e843ad5ac1" ON "tiramis_submission_attempts" ("request_id") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_claim_intimations" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "claim_intimation_number" character varying(50) NOT NULL, "claim_reference_number" character varying(50) NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, "claim_intimation_date" TIMESTAMP NOT NULL, "currency_code" character varying(3) NOT NULL, "exchange_rate" numeric(36,2) NOT NULL, "claim_estimated_amount" numeric(36,2) NOT NULL, "claim_reserve_amount" numeric(36,2) NOT NULL, "claim_reserve_method" character varying(100) NOT NULL, "loss_assessment_option" integer NOT NULL, "assessor_name" character varying(100), "assessor_id_number" character varying(50), "assessor_id_type" integer, CONSTRAINT "PK_60520a5d4c94ee9492d2b6328e2" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_256faea69e8a52e3cdde836968" ON "tiramis_claim_intimations" ("cover_note_reference_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_195a0c2b96192f2aeeba03c7c9" ON "tiramis_claim_intimations" ("claim_reference_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_665f67fba5e659a0d44709d1eb" ON "tiramis_claim_intimations" ("claim_intimation_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_c642ed190b0bef0122c31b66aa" ON "tiramis_claim_intimations" ("request_id") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_claim_payments" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "claim_payment_number" character varying(50) NOT NULL, "claim_reference_number" character varying(50) NOT NULL, "claim_intimation_number" character varying(50) NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, "payment_date" TIMESTAMP NOT NULL, "paid_amount" numeric(36,2) NOT NULL, "payment_mode" integer NOT NULL, "parties_notified" character varying(1), "net_premium_earned" numeric(36,2), "claim_resulted_litigation" character varying(1), "litigation_reason" character varying(1000), "currency_code" character varying(3) NOT NULL, "exchange_rate" numeric(36,2) NOT NULL, CONSTRAINT "PK_eb5bbb56965503c9e12f1a874cc" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_62759002944cfb2e1299932c5f" ON "tiramis_claim_payments" ("claim_reference_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_79bb33a4c2795b18e989474524" ON "tiramis_claim_payments" ("claim_payment_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_70082ad740d60f08da1cb15123" ON "tiramis_claim_payments" ("request_id") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_claim_rejections" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "claim_rejection_number" character varying(50) NOT NULL, "claim_reference_number" character varying(50) NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, "rejection_date" TIMESTAMP NOT NULL, "rejection_reason" character varying(1000) NOT NULL, CONSTRAINT "PK_550879cb08cbb67cd97bf7b816e" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_7fa2d6a95b0645f11270742d35" ON "tiramis_claim_rejections" ("claim_reference_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_16fea49e3f118cff83fb07d014" ON "tiramis_claim_rejections" ("claim_rejection_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_aea0e23c08f1e344cc4838f38c" ON "tiramis_claim_rejections" ("request_id") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_discharge_vouchers" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "discharge_voucher_number" character varying(50) NOT NULL, "claim_assessment_number" character varying(50) NOT NULL, "claim_reference_number" character varying(50) NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, "discharge_voucher_date" TIMESTAMP NOT NULL, "currency_code" character varying(3) NOT NULL, "exchange_rate" numeric(36,2) NOT NULL, "claim_offer_communication_date" TIMESTAMP, "claim_offer_amount" numeric(36,2) NOT NULL, "claimant_response_date" TIMESTAMP, "adjustment_date" TIMESTAMP, "adjustment_reason" character varying(1000), "adjustment_amount" numeric(36,2), "reconciliation_date" TIMESTAMP, "reconciliation_summary" text, "reconciled_amount" numeric(36,2), "offer_accepted" character varying(1), CONSTRAINT "PK_3cb84c3d3bf256cc255e7222c16" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_de8e64efa7a4826d29fd1dd2de" ON "tiramis_discharge_vouchers" ("claim_reference_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_81d01b500342d57de31c2f58df" ON "tiramis_discharge_vouchers" ("discharge_voucher_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_dcf2b6e16a28a0cc61e5d00b79" ON "tiramis_discharge_vouchers" ("request_id") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_claimants" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "claim_intimation_id" uuid, "claim_assessment_id" uuid, "discharge_voucher_id" uuid, "claim_payment_id" uuid, "claim_rejection_id" uuid, "claimant_name" character varying(100) NOT NULL, "claimant_birth_date" date, "claimant_category" integer NOT NULL, "claimant_type" integer NOT NULL, "claimant_id_number" character varying(50) NOT NULL, "claimant_id_type" integer NOT NULL, "gender" character varying(1), "country_code" character varying(3) NOT NULL, "region" character varying(50) NOT NULL, "district" character varying(50) NOT NULL, "street" character varying(50), "claimant_phone_number" character varying(50) NOT NULL, "claimant_fax" character varying(50), "postal_address" character varying(100), "email_address" character varying(100), CONSTRAINT "PK_4d2a6d46628de48c20284c08884" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE TABLE "tiramis_claim_assessments" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "claim_assessment_number" character varying(50) NOT NULL, "claim_intimation_number" character varying(50) NOT NULL, "claim_reference_number" character varying(50) NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, "assessment_received_date" TIMESTAMP NOT NULL, "assessment_report_summary" text, "currency_code" character varying(3) NOT NULL, "exchange_rate" numeric(36,2) NOT NULL, "assessment_amount" numeric(36,2) NOT NULL, "approved_claim_amount" numeric(36,2) NOT NULL, "claim_approval_date" TIMESTAMP, "claim_approval_authority" character varying(150), "is_re_assessment" character varying(1), CONSTRAINT "PK_9a1f731213f69f0945a37f9b449" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_6573dc3012698b340dbdceb93b" ON "tiramis_claim_assessments" ("claim_reference_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_91b054f31595cfe2fc60970391" ON "tiramis_claim_assessments" ("claim_assessment_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_6b4c236b77910ea5478a802536" ON "tiramis_claim_assessments" ("request_id") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_claim_notifications" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "tran_company_code" character varying(6), "claim_notification_number" character varying(50) NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, "claim_report_date" TIMESTAMP NOT NULL, "claim_form_dully_filled" character varying(10), "loss_date" TIMESTAMP NOT NULL, "loss_nature" character varying(255), "loss_type" character varying(100), "loss_location" character varying(250), "officer_name" character varying(100) NOT NULL, "officer_title" character varying(100) NOT NULL, CONSTRAINT "PK_bf974ef253c9c042a0c54d4bc9a" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_95038f46aefc7413d599abbf33" ON "tiramis_claim_notifications" ("cover_note_reference_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_83c9a3596c8941ac50341d19a4" ON "tiramis_claim_notifications" ("claim_notification_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_ef91a562e37611260a4ef9bab3" ON "tiramis_claim_notifications" ("request_id") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_cover_note_discounts" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_risk_id" uuid NOT NULL, "discount_type" integer, "discount_rate" numeric(10,5), "discount_amount" numeric(36,2), CONSTRAINT "PK_b9ad010380bbf9c0451da225f41" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE TABLE "tiramis_cover_note_taxes" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_risk_id" uuid, "cover_note_addon_id" uuid, "tax_code" character varying(50) NOT NULL, "is_tax_exempted" character varying(1) NOT NULL DEFAULT 'N', "tax_exemption_type" character varying(50), "tax_exemption_reference" character varying(50), "tax_rate" numeric(10,5) NOT NULL, "tax_amount" numeric(36,2) NOT NULL, CONSTRAINT "PK_efc268ef3f533fac7d796b9d79f" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE TABLE "tiramis_cover_note_risks" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_id" uuid NOT NULL, "motor_fleet_item_id" uuid, "risk_code" character varying(50) NOT NULL, "sum_insured" numeric(36,2) NOT NULL, "sum_insured_equivalent" numeric(36,2) NOT NULL, "premium_rate" numeric(10,5) NOT NULL, "premium_before_discount" numeric(36,2) NOT NULL, "premium_after_discount" numeric(36,2) NOT NULL, "premium_excluding_tax_equivalent" numeric(36,2) NOT NULL, "premium_including_tax" numeric(36,2) NOT NULL, CONSTRAINT "PK_b0ac766aea7fcbb0ba928d087b8" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE TABLE "tiramis_policy_holders" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_id" uuid NOT NULL, "policy_holder_name" character varying(100) NOT NULL, "policy_holder_birth_date" date, "policy_holder_type" integer NOT NULL, "policy_holder_id_number" character varying(50) NOT NULL, "policy_holder_id_type" integer NOT NULL, "gender" character varying(1), "country_code" character varying(3) NOT NULL, "region" character varying(50) NOT NULL, "district" character varying(50) NOT NULL, "street" character varying(50), "phone_number" character varying(50) NOT NULL, "fax" character varying(50), "postal_address" character varying(100), "email_address" character varying(100), CONSTRAINT "PK_46327745022ba79087bc0bdf096" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE TABLE "tiramis_subject_matters" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_id" uuid NOT NULL, "subject_matter_reference" character varying(50) NOT NULL, "subject_matter_desc" character varying(250) NOT NULL, CONSTRAINT "PK_dc31ae548f1cd06ba267bd9745f" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE TABLE "tiramis_cover_notes" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "insurance_type" character varying(30) NOT NULL, "is_fleet" integer NOT NULL DEFAULT '0', "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "tran_company_code" character varying(6), "cover_note_type" integer NOT NULL, "cover_note_number" character varying(50) NOT NULL, "prev_cover_note_reference_number" character varying(50), "cover_note_reference_number" character varying(50), "sticker_number" character varying(50), "sale_point_code" character varying(12) NOT NULL, "cover_note_start_date" TIMESTAMP NOT NULL, "cover_note_end_date" TIMESTAMP NOT NULL, "cover_note_desc" character varying(1000) NOT NULL, "operative_clause" character varying(1000) NOT NULL, "payment_mode" integer NOT NULL, "currency_code" character varying(3) NOT NULL, "exchange_rate" numeric(36,2) NOT NULL, "total_premium_excluding_tax" numeric(36,2) NOT NULL, "total_premium_including_tax" numeric(36,2) NOT NULL, "commission_paid" numeric(36,2), "commission_rate" numeric(10,5), "officer_name" character varying(100) NOT NULL, "officer_title" character varying(100) NOT NULL, "product_code" character varying(50) NOT NULL, "endorsement_type" integer, "endorsement_reason" character varying(1000), "endorsement_premium_earned" numeric(36,2), CONSTRAINT "PK_e164ee0314005291c6bd90b25ed" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_0675bc0b7fb5e85f6278f3f23f" ON "tiramis_cover_notes" ("request_id") `);
-        await queryRunner.query(`CREATE INDEX "IDX_210d8290d49bf435c8b15061e5" ON "tiramis_cover_notes" ("cover_note_reference_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_7f217621de6a635dbe8eca9411" ON "tiramis_cover_notes" ("cover_note_number") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_cover_note_addons" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_id" uuid NOT NULL, "motor_fleet_item_id" uuid, "addon_reference" character varying(50) NOT NULL, "addon_desc" character varying(250) NOT NULL, "addon_amount" numeric(36,2) NOT NULL, "addon_premium_rate" numeric(10,5) NOT NULL, "premium_excluding_tax" numeric(36,2) NOT NULL, "premium_excluding_tax_equivalent" numeric(36,2) NOT NULL, "premium_including_tax" numeric(36,2) NOT NULL, CONSTRAINT "PK_a36749ab3caef08233126625b1f" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE TABLE "tiramis_motor_fleets" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_id" uuid NOT NULL, "fleet_id" character varying(50) NOT NULL, "fleet_type" integer, "fleet_size" integer NOT NULL, "comprehensive_insured" numeric(36,2), CONSTRAINT "PK_7450d3d80ec978bef782e0102e8" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE TABLE "tiramis_motor_fleet_items" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "motor_fleet_id" uuid NOT NULL, "cover_note_id" uuid NOT NULL, "fleet_entry" character varying(50), "cover_note_number" character varying(50) NOT NULL, "prev_cover_note_reference_number" character varying(50), "cover_note_desc" character varying(1000), "operative_clause" character varying(1000), "endorsement_type" integer, "endorsement_reason" character varying(1000), "endorsement_premium_earned" numeric(36,2), CONSTRAINT "PK_95f6acd219d859fe0df12eb55e8" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE TABLE "tiramis_motor_details" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_id" uuid NOT NULL, "motor_fleet_item_id" uuid, "motor_category" integer, "motor_type" integer, "registration_number" character varying(50), "chassis_number" character varying(100) NOT NULL, "make" character varying(100), "model" character varying(100), "model_number" character varying(100), "body_type" character varying(100), "color" character varying(50), "engine_number" character varying(100), "engine_capacity" character varying(50), "fuel_used" character varying(50), "number_of_axles" integer, "axle_distance" character varying(50), "sitting_capacity" integer, "year_of_manufacture" integer, "tare_weight" numeric(36,2), "gross_weight" numeric(36,2), "motor_usage" integer, "owner_name" character varying(150), "owner_category" integer, "owner_address" character varying(250), CONSTRAINT "PK_201c518a1422d05b471e653a5c8" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_3cfaf9f72afc0106265adc47fd" ON "tiramis_motor_details" ("chassis_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_f1668fa99143f254f1fa37b512" ON "tiramis_motor_details" ("registration_number") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_policies" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "policy_number" character varying(50) NOT NULL, "policy_reference_number" character varying(50), "policy_operative_clause" text NOT NULL, "special_conditions" text NOT NULL, "exclusions" text, CONSTRAINT "PK_bdd8463043f86e46d8ddc57ce4e" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_59222b8dfaa334df47fa7e0dc1" ON "tiramis_policies" ("policy_reference_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_854541e1ffa8dd05e5224ebc5a" ON "tiramis_policies" ("policy_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_4131b8e43be68384988249d418" ON "tiramis_policies" ("request_id") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_policy_cover_notes" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "policy_id" uuid NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, CONSTRAINT "PK_7dcc778e08c2d65d09e3ddb6c6a" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_6751028068dff57739b7e68f88" ON "tiramis_policy_cover_notes" ("cover_note_reference_number") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_reinsurance_participants" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "reinsurance_id" uuid NOT NULL, "participant_code" character varying(50) NOT NULL, "participant_type" integer NOT NULL, "reinsurance_form" integer NOT NULL, "reinsurance_type" integer NOT NULL, "re_broker_code" character varying(50), "brokerage_commission" numeric(36,2) NOT NULL, "reinsurance_commission" numeric(36,2) NOT NULL, "premium_share" numeric(36,2) NOT NULL, "participation_date" TIMESTAMP NOT NULL, CONSTRAINT "PK_e423899eef33793bce6eee231c0" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE TABLE "tiramis_reinsurances" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, "premium_including_tax" numeric(36,2) NOT NULL, "currency_code" character varying(3) NOT NULL, "exchange_rate" numeric(36,2) NOT NULL, "authorizing_officer_name" character varying(100) NOT NULL, "authorizing_officer_title" character varying(100) NOT NULL, "reinsurance_category" integer NOT NULL, CONSTRAINT "PK_aca18bfa6efa360da39e7e24606" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_45ca52c2c56f54cc415ed08530" ON "tiramis_reinsurances" ("cover_note_reference_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_8abe31a833399c670a07d5094a" ON "tiramis_reinsurances" ("request_id") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_submission_events" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "attempt_id" uuid NOT NULL, "event_type" character varying(80) NOT NULL, "request_id" character varying(50) NOT NULL, "status_code" character varying(20), "status_desc" character varying(255), "raw_payload" text, "error_message" text, CONSTRAINT "PK_6411d6f53cb33e0724c09919a52" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_e4f1d438672c5a2fafe105f436" ON "tiramis_submission_events" ("event_type") `);
-        await queryRunner.query(`CREATE INDEX "IDX_26868cddae738057a53456405c" ON "tiramis_submission_events" ("request_id") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_verification_responses" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "verification_request_id" uuid NOT NULL, "response_id" character varying(50), "request_id" character varying(50) NOT NULL, "response_status_code" character varying(20), "response_status_desc" character varying(255), "raw_response_xml" text, "response_signature" text, "response_payload" text, "responded_at" TIMESTAMP, CONSTRAINT "REL_aff772380e3399bc7879561be9" UNIQUE ("verification_request_id"), CONSTRAINT "PK_0b5f1e736cdec69139d275b9f0c" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_f51b7f80f4fd546f0273849619" ON "tiramis_verification_responses" ("response_status_code") `);
-        await queryRunner.query(`CREATE INDEX "IDX_ecf4fb980e0610219e2ac14cc3" ON "tiramis_verification_responses" ("request_id") `);
-        await queryRunner.query(`CREATE TABLE "tiramis_verification_requests" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid, "attempt_id" uuid, "verification_type" character varying(50) NOT NULL, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "cover_note_reference_number" character varying(50), "sticker_number" character varying(50), "motor_registration_number" character varying(50), "motor_chassis_number" character varying(100), "nin" character varying(50), "incorporation_certificate_number" character varying(50), "raw_request_xml" text, "request_signature" text, "status" character varying(50) NOT NULL DEFAULT 'PENDING', CONSTRAINT "PK_a07af1c0f402fadd94a7271a104" PRIMARY KEY ("id"))`);
-        await queryRunner.query(`CREATE INDEX "IDX_23cf64081b0c321a8de3b5a333" ON "tiramis_verification_requests" ("incorporation_certificate_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_3b4505c4f87db4d797f9935425" ON "tiramis_verification_requests" ("nin") `);
-        await queryRunner.query(`CREATE INDEX "IDX_fb5338d0b029fe709295147fda" ON "tiramis_verification_requests" ("motor_chassis_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_5cd59708cdfaf9f0d348423871" ON "tiramis_verification_requests" ("motor_registration_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_b24df754d5b291c5e23c910948" ON "tiramis_verification_requests" ("sticker_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_6980a00bfde3633565a8c46bb8" ON "tiramis_verification_requests" ("cover_note_reference_number") `);
-        await queryRunner.query(`CREATE INDEX "IDX_ae8e54260cdc4dc0f44e73cb4a" ON "tiramis_verification_requests" ("verification_type") `);
-        await queryRunner.query(`CREATE INDEX "IDX_cdd5cb3cab69c6e8cf43e194f4" ON "tiramis_verification_requests" ("request_id") `);
-        await queryRunner.query(`ALTER TABLE "tiramis_service_endpoints" ADD CONSTRAINT "FK_4b1078525bf8596f299d59f8120" FOREIGN KEY ("client_configuration_id") REFERENCES "tiramis_client_configurations"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_submission_attempts" ADD CONSTRAINT "FK_94c29c4014cd3178e0d18854e92" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_intimations" ADD CONSTRAINT "FK_906f6132f8ec29ac984fbd36d68" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_intimations" ADD CONSTRAINT "FK_7b9d3471b5027ef38fe686d800f" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_payments" ADD CONSTRAINT "FK_fb61b042c0067dbb16e6146f6ce" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_payments" ADD CONSTRAINT "FK_6f017c481be1c59d213677f9d9c" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_rejections" ADD CONSTRAINT "FK_1a84a9da18b76fb74d0881af717" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_rejections" ADD CONSTRAINT "FK_938a6ce60f6a5f780f92c144016" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_discharge_vouchers" ADD CONSTRAINT "FK_b205a349f3fe0784c4f2e9cf79b" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_discharge_vouchers" ADD CONSTRAINT "FK_f8dabd6b35cf835378f66064194" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claimants" ADD CONSTRAINT "FK_71dca3bd97d426af8cd926dc483" FOREIGN KEY ("claim_intimation_id") REFERENCES "tiramis_claim_intimations"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claimants" ADD CONSTRAINT "FK_052ca62ff20f0ffe2c6a165d165" FOREIGN KEY ("claim_assessment_id") REFERENCES "tiramis_claim_assessments"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claimants" ADD CONSTRAINT "FK_9732b0fdec36fbb01941ef73682" FOREIGN KEY ("discharge_voucher_id") REFERENCES "tiramis_discharge_vouchers"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claimants" ADD CONSTRAINT "FK_8ebbf4512bfeffbd81782683180" FOREIGN KEY ("claim_payment_id") REFERENCES "tiramis_claim_payments"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claimants" ADD CONSTRAINT "FK_8152872a3e69ede31472c4065fb" FOREIGN KEY ("claim_rejection_id") REFERENCES "tiramis_claim_rejections"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_assessments" ADD CONSTRAINT "FK_6966d8c6a83889631b138214074" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_assessments" ADD CONSTRAINT "FK_91f8131bbf99df94561a90087eb" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_notifications" ADD CONSTRAINT "FK_f6fbb7edd72d42f28e850273bc1" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_notifications" ADD CONSTRAINT "FK_b09ccbcb8facdfc2ecff59faa3d" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_cover_note_discounts" ADD CONSTRAINT "FK_5facc70908102cfb17f49353774" FOREIGN KEY ("cover_note_risk_id") REFERENCES "tiramis_cover_note_risks"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_cover_note_taxes" ADD CONSTRAINT "FK_97b75f8ba1c49531ea054261388" FOREIGN KEY ("cover_note_risk_id") REFERENCES "tiramis_cover_note_risks"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_cover_note_taxes" ADD CONSTRAINT "FK_a73489a65a3b5fc55d3458fbdda" FOREIGN KEY ("cover_note_addon_id") REFERENCES "tiramis_cover_note_addons"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_cover_note_risks" ADD CONSTRAINT "FK_85e20195e1391217123d847e7c7" FOREIGN KEY ("cover_note_id") REFERENCES "tiramis_cover_notes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_policy_holders" ADD CONSTRAINT "FK_cf06b262c4c6532abe32b662e91" FOREIGN KEY ("cover_note_id") REFERENCES "tiramis_cover_notes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_subject_matters" ADD CONSTRAINT "FK_7c269665193c3b354da2b211bc8" FOREIGN KEY ("cover_note_id") REFERENCES "tiramis_cover_notes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_cover_notes" ADD CONSTRAINT "FK_2dfcf67370a2eb1d00bf6d495ae" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_cover_notes" ADD CONSTRAINT "FK_df80fcc008984e91a0d051f3b6c" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_cover_note_addons" ADD CONSTRAINT "FK_a07080880b02068b6b9ff8c5f34" FOREIGN KEY ("cover_note_id") REFERENCES "tiramis_cover_notes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_motor_fleets" ADD CONSTRAINT "FK_fecb71eeeaf7a66ccb1475bbb1e" FOREIGN KEY ("cover_note_id") REFERENCES "tiramis_cover_notes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_motor_fleet_items" ADD CONSTRAINT "FK_feb94e380f1d662f8d95f7f765c" FOREIGN KEY ("motor_fleet_id") REFERENCES "tiramis_motor_fleets"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_motor_fleet_items" ADD CONSTRAINT "FK_8a7817d6ff219732abc8c51d016" FOREIGN KEY ("cover_note_id") REFERENCES "tiramis_cover_notes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_motor_details" ADD CONSTRAINT "FK_c81693a3ad74de2054b886f24a4" FOREIGN KEY ("cover_note_id") REFERENCES "tiramis_cover_notes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_motor_details" ADD CONSTRAINT "FK_9e6846a01e0c8bd2ec2c8b4cb01" FOREIGN KEY ("motor_fleet_item_id") REFERENCES "tiramis_motor_fleet_items"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_policies" ADD CONSTRAINT "FK_9d4d94e3b55c1d4ddefdd31d5ef" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_policies" ADD CONSTRAINT "FK_a8226f3ea5c38004c5eddf29797" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_policy_cover_notes" ADD CONSTRAINT "FK_13c722272f1b0cdabbc2c3a374b" FOREIGN KEY ("policy_id") REFERENCES "tiramis_policies"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_reinsurance_participants" ADD CONSTRAINT "FK_dd7d2f430f0a21f9d2bb6e11fae" FOREIGN KEY ("reinsurance_id") REFERENCES "tiramis_reinsurances"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_reinsurances" ADD CONSTRAINT "FK_3b10bce6fb832263d9b556af8c4" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_reinsurances" ADD CONSTRAINT "FK_da7c414fd4ff1c93568facadceb" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_submission_events" ADD CONSTRAINT "FK_8238d53e7c441e3f794cd47af35" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_submission_events" ADD CONSTRAINT "FK_5736c7bf5a826227d57144ec863" FOREIGN KEY ("attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_verification_responses" ADD CONSTRAINT "FK_aff772380e3399bc7879561be9f" FOREIGN KEY ("verification_request_id") REFERENCES "tiramis_verification_requests"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_verification_requests" ADD CONSTRAINT "FK_937a63842714da1857e69e7b6ca" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-        await queryRunner.query(`ALTER TABLE "tiramis_verification_requests" ADD CONSTRAINT "FK_20c8020c26a8762c0652dc58e86" FOREIGN KEY ("attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`);
-    }
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_service_endpoints" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "client_configuration_id" uuid NOT NULL, "service_type" character varying(80) NOT NULL, "endpoint_url" character varying(500) NOT NULL, "http_method" character varying(10) NOT NULL DEFAULT 'POST', "content_type" character varying(50) NOT NULL DEFAULT 'application/xml', "is_active" integer NOT NULL DEFAULT '1', CONSTRAINT "PK_7190cfb2c78292addcae0ded32e" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "IDX_bb05af80f05d76970291c523b2" ON "tiramis_service_endpoints" ("client_configuration_id", "service_type") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_client_configurations" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "environment" character varying(30) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "client_code" character varying(100) NOT NULL, "client_key" character varying(255) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "sale_point_code" character varying(12), "tran_company_code" character varying(6), "base_url" character varying(500) NOT NULL, "callback_base_url" character varying(500) NOT NULL, "client_private_certificate_path" character varying(500), "client_private_certificate_password" character varying(255), "tira_public_certificate_path" character varying(500), "tira_public_certificate_password" character varying(255), "signature_algorithm" character varying(100), "is_active" integer NOT NULL DEFAULT '1', CONSTRAINT "PK_1afd82c9aef589bbf5852a681bf" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "IDX_30da4e184a5906a438a5866412" ON "tiramis_client_configurations" ("environment", "company_code", "system_code") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_708112a775077b60804e3b6c0f" ON "tiramis_client_configurations" ("environment") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_response_codes" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "code" character varying(20) NOT NULL, "description" character varying(255) NOT NULL, "category" character varying(50), "is_success" integer NOT NULL DEFAULT '0', "is_retryable" integer NOT NULL DEFAULT '0', "is_active" integer NOT NULL DEFAULT '1', CONSTRAINT "PK_c2daa553a1c089ffbec5d5b58f7" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "IDX_b4c102f9abaebe8f528684f573" ON "tiramis_response_codes" ("code") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_transactions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "client_configuration_id" character varying NOT NULL, "service_type" character varying(80) NOT NULL, "source_module" character varying(80), "source_record_id" character varying(100), "business_reference" character varying(100) NOT NULL, "status" character varying(50) NOT NULL DEFAULT 'PENDING', "original_request_id" character varying(50), "current_request_id" character varying(50), "successful_request_id" character varying(50), "total_attempts" integer NOT NULL DEFAULT '0', "last_attempt_at" TIMESTAMP, "successful_at" TIMESTAMP, "last_error" text, CONSTRAINT "PK_f5e674d89dbfa357ab58d5690f6" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_cb6df03892211d01fbb617dcd5" ON "tiramis_transactions" ("successful_request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_ac91ccf1729ac2c9683ab86001" ON "tiramis_transactions" ("current_request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_624602f3aeb151074eeb841d4e" ON "tiramis_transactions" ("business_reference") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_submission_attempts" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "attempt_no" integer NOT NULL, "request_id" character varying(50) NOT NULL, "previous_request_id" character varying(50), "root_element" character varying(80) NOT NULL, "resubmission_reason" character varying(255), "status" character varying(50) NOT NULL DEFAULT 'PENDING', "request_xml" text, "request_signature" text, "acknowledgement_id" character varying(50), "acknowledgement_status_code" character varying(20), "acknowledgement_status_desc" character varying(255), "acknowledgement_xml" text, "ack_received_at" TIMESTAMP, "response_id" character varying(50), "response_status_code" character varying(20), "response_status_desc" character varying(255), "response_xml" text, "response_signature" text, "final_response_received_at" TIMESTAMP, "response_acknowledgement_id" character varying(50), "response_ack_status_code" character varying(20), "response_ack_status_desc" character varying(255), "response_ack_xml" text, "response_ack_sent_at" TIMESTAMP, "sent_at" TIMESTAMP, "error_message" text, CONSTRAINT "PK_ca73df8a7ecbbf4da6a0dc83ee3" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "IDX_4dc803eae48f834f1a2c86f3f2" ON "tiramis_submission_attempts" ("transaction_id", "attempt_no") `,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "IDX_b74687d5fb3f4f83e843ad5ac1" ON "tiramis_submission_attempts" ("request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_claim_intimations" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "claim_intimation_number" character varying(50) NOT NULL, "claim_reference_number" character varying(50) NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, "claim_intimation_date" TIMESTAMP NOT NULL, "currency_code" character varying(3) NOT NULL, "exchange_rate" numeric(36,2) NOT NULL, "claim_estimated_amount" numeric(36,2) NOT NULL, "claim_reserve_amount" numeric(36,2) NOT NULL, "claim_reserve_method" character varying(100) NOT NULL, "loss_assessment_option" integer NOT NULL, "assessor_name" character varying(100), "assessor_id_number" character varying(50), "assessor_id_type" integer, CONSTRAINT "PK_60520a5d4c94ee9492d2b6328e2" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_256faea69e8a52e3cdde836968" ON "tiramis_claim_intimations" ("cover_note_reference_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_195a0c2b96192f2aeeba03c7c9" ON "tiramis_claim_intimations" ("claim_reference_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_665f67fba5e659a0d44709d1eb" ON "tiramis_claim_intimations" ("claim_intimation_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_c642ed190b0bef0122c31b66aa" ON "tiramis_claim_intimations" ("request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_claim_payments" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "claim_payment_number" character varying(50) NOT NULL, "claim_reference_number" character varying(50) NOT NULL, "claim_intimation_number" character varying(50) NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, "payment_date" TIMESTAMP NOT NULL, "paid_amount" numeric(36,2) NOT NULL, "payment_mode" integer NOT NULL, "parties_notified" character varying(1), "net_premium_earned" numeric(36,2), "claim_resulted_litigation" character varying(1), "litigation_reason" character varying(1000), "currency_code" character varying(3) NOT NULL, "exchange_rate" numeric(36,2) NOT NULL, CONSTRAINT "PK_eb5bbb56965503c9e12f1a874cc" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_62759002944cfb2e1299932c5f" ON "tiramis_claim_payments" ("claim_reference_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_79bb33a4c2795b18e989474524" ON "tiramis_claim_payments" ("claim_payment_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_70082ad740d60f08da1cb15123" ON "tiramis_claim_payments" ("request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_claim_rejections" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "claim_rejection_number" character varying(50) NOT NULL, "claim_reference_number" character varying(50) NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, "rejection_date" TIMESTAMP NOT NULL, "rejection_reason" character varying(1000) NOT NULL, CONSTRAINT "PK_550879cb08cbb67cd97bf7b816e" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_7fa2d6a95b0645f11270742d35" ON "tiramis_claim_rejections" ("claim_reference_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_16fea49e3f118cff83fb07d014" ON "tiramis_claim_rejections" ("claim_rejection_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_aea0e23c08f1e344cc4838f38c" ON "tiramis_claim_rejections" ("request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_discharge_vouchers" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "discharge_voucher_number" character varying(50) NOT NULL, "claim_assessment_number" character varying(50) NOT NULL, "claim_reference_number" character varying(50) NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, "discharge_voucher_date" TIMESTAMP NOT NULL, "currency_code" character varying(3) NOT NULL, "exchange_rate" numeric(36,2) NOT NULL, "claim_offer_communication_date" TIMESTAMP, "claim_offer_amount" numeric(36,2) NOT NULL, "claimant_response_date" TIMESTAMP, "adjustment_date" TIMESTAMP, "adjustment_reason" character varying(1000), "adjustment_amount" numeric(36,2), "reconciliation_date" TIMESTAMP, "reconciliation_summary" text, "reconciled_amount" numeric(36,2), "offer_accepted" character varying(1), CONSTRAINT "PK_3cb84c3d3bf256cc255e7222c16" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_de8e64efa7a4826d29fd1dd2de" ON "tiramis_discharge_vouchers" ("claim_reference_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_81d01b500342d57de31c2f58df" ON "tiramis_discharge_vouchers" ("discharge_voucher_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_dcf2b6e16a28a0cc61e5d00b79" ON "tiramis_discharge_vouchers" ("request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_claimants" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "claim_intimation_id" uuid, "claim_assessment_id" uuid, "discharge_voucher_id" uuid, "claim_payment_id" uuid, "claim_rejection_id" uuid, "claimant_name" character varying(100) NOT NULL, "claimant_birth_date" date, "claimant_category" integer NOT NULL, "claimant_type" integer NOT NULL, "claimant_id_number" character varying(50) NOT NULL, "claimant_id_type" integer NOT NULL, "gender" character varying(1), "country_code" character varying(3) NOT NULL, "region" character varying(50) NOT NULL, "district" character varying(50) NOT NULL, "street" character varying(50), "claimant_phone_number" character varying(50) NOT NULL, "claimant_fax" character varying(50), "postal_address" character varying(100), "email_address" character varying(100), CONSTRAINT "PK_4d2a6d46628de48c20284c08884" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_claim_assessments" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "claim_assessment_number" character varying(50) NOT NULL, "claim_intimation_number" character varying(50) NOT NULL, "claim_reference_number" character varying(50) NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, "assessment_received_date" TIMESTAMP NOT NULL, "assessment_report_summary" text, "currency_code" character varying(3) NOT NULL, "exchange_rate" numeric(36,2) NOT NULL, "assessment_amount" numeric(36,2) NOT NULL, "approved_claim_amount" numeric(36,2) NOT NULL, "claim_approval_date" TIMESTAMP, "claim_approval_authority" character varying(150), "is_re_assessment" character varying(1), CONSTRAINT "PK_9a1f731213f69f0945a37f9b449" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_6573dc3012698b340dbdceb93b" ON "tiramis_claim_assessments" ("claim_reference_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_91b054f31595cfe2fc60970391" ON "tiramis_claim_assessments" ("claim_assessment_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_6b4c236b77910ea5478a802536" ON "tiramis_claim_assessments" ("request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_claim_notifications" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "tran_company_code" character varying(6), "claim_notification_number" character varying(50) NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, "claim_report_date" TIMESTAMP NOT NULL, "claim_form_dully_filled" character varying(10), "loss_date" TIMESTAMP NOT NULL, "loss_nature" character varying(255), "loss_type" character varying(100), "loss_location" character varying(250), "officer_name" character varying(100) NOT NULL, "officer_title" character varying(100) NOT NULL, CONSTRAINT "PK_bf974ef253c9c042a0c54d4bc9a" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_95038f46aefc7413d599abbf33" ON "tiramis_claim_notifications" ("cover_note_reference_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_83c9a3596c8941ac50341d19a4" ON "tiramis_claim_notifications" ("claim_notification_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_ef91a562e37611260a4ef9bab3" ON "tiramis_claim_notifications" ("request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_cover_note_discounts" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_risk_id" uuid NOT NULL, "discount_type" integer, "discount_rate" numeric(10,5), "discount_amount" numeric(36,2), CONSTRAINT "PK_b9ad010380bbf9c0451da225f41" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_cover_note_taxes" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_risk_id" uuid, "cover_note_addon_id" uuid, "tax_code" character varying(50) NOT NULL, "is_tax_exempted" character varying(1) NOT NULL DEFAULT 'N', "tax_exemption_type" character varying(50), "tax_exemption_reference" character varying(50), "tax_rate" numeric(10,5) NOT NULL, "tax_amount" numeric(36,2) NOT NULL, CONSTRAINT "PK_efc268ef3f533fac7d796b9d79f" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_cover_note_risks" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_id" uuid NOT NULL, "motor_fleet_item_id" uuid, "risk_code" character varying(50) NOT NULL, "sum_insured" numeric(36,2) NOT NULL, "sum_insured_equivalent" numeric(36,2) NOT NULL, "premium_rate" numeric(10,5) NOT NULL, "premium_before_discount" numeric(36,2) NOT NULL, "premium_after_discount" numeric(36,2) NOT NULL, "premium_excluding_tax_equivalent" numeric(36,2) NOT NULL, "premium_including_tax" numeric(36,2) NOT NULL, CONSTRAINT "PK_b0ac766aea7fcbb0ba928d087b8" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_policy_holders" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_id" uuid NOT NULL, "policy_holder_name" character varying(100) NOT NULL, "policy_holder_birth_date" date, "policy_holder_type" integer NOT NULL, "policy_holder_id_number" character varying(50) NOT NULL, "policy_holder_id_type" integer NOT NULL, "gender" character varying(1), "country_code" character varying(3) NOT NULL, "region" character varying(50) NOT NULL, "district" character varying(50) NOT NULL, "street" character varying(50), "phone_number" character varying(50) NOT NULL, "fax" character varying(50), "postal_address" character varying(100), "email_address" character varying(100), CONSTRAINT "PK_46327745022ba79087bc0bdf096" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_subject_matters" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_id" uuid NOT NULL, "subject_matter_reference" character varying(50) NOT NULL, "subject_matter_desc" character varying(250) NOT NULL, CONSTRAINT "PK_dc31ae548f1cd06ba267bd9745f" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_cover_notes" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "insurance_type" character varying(30) NOT NULL, "is_fleet" integer NOT NULL DEFAULT '0', "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "tran_company_code" character varying(6), "cover_note_type" integer NOT NULL, "cover_note_number" character varying(50) NOT NULL, "prev_cover_note_reference_number" character varying(50), "cover_note_reference_number" character varying(50), "sticker_number" character varying(50), "sale_point_code" character varying(12) NOT NULL, "cover_note_start_date" TIMESTAMP NOT NULL, "cover_note_end_date" TIMESTAMP NOT NULL, "cover_note_desc" character varying(1000) NOT NULL, "operative_clause" character varying(1000) NOT NULL, "payment_mode" integer NOT NULL, "currency_code" character varying(3) NOT NULL, "exchange_rate" numeric(36,2) NOT NULL, "total_premium_excluding_tax" numeric(36,2) NOT NULL, "total_premium_including_tax" numeric(36,2) NOT NULL, "commission_paid" numeric(36,2), "commission_rate" numeric(10,5), "officer_name" character varying(100) NOT NULL, "officer_title" character varying(100) NOT NULL, "product_code" character varying(50) NOT NULL, "endorsement_type" integer, "endorsement_reason" character varying(1000), "endorsement_premium_earned" numeric(36,2), CONSTRAINT "PK_e164ee0314005291c6bd90b25ed" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_0675bc0b7fb5e85f6278f3f23f" ON "tiramis_cover_notes" ("request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_210d8290d49bf435c8b15061e5" ON "tiramis_cover_notes" ("cover_note_reference_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_7f217621de6a635dbe8eca9411" ON "tiramis_cover_notes" ("cover_note_number") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_cover_note_addons" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_id" uuid NOT NULL, "motor_fleet_item_id" uuid, "addon_reference" character varying(50) NOT NULL, "addon_desc" character varying(250) NOT NULL, "addon_amount" numeric(36,2) NOT NULL, "addon_premium_rate" numeric(10,5) NOT NULL, "premium_excluding_tax" numeric(36,2) NOT NULL, "premium_excluding_tax_equivalent" numeric(36,2) NOT NULL, "premium_including_tax" numeric(36,2) NOT NULL, CONSTRAINT "PK_a36749ab3caef08233126625b1f" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_motor_fleets" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_id" uuid NOT NULL, "fleet_id" character varying(50) NOT NULL, "fleet_type" integer, "fleet_size" integer NOT NULL, "comprehensive_insured" numeric(36,2), CONSTRAINT "PK_7450d3d80ec978bef782e0102e8" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_motor_fleet_items" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "motor_fleet_id" uuid NOT NULL, "cover_note_id" uuid NOT NULL, "fleet_entry" character varying(50), "cover_note_number" character varying(50) NOT NULL, "prev_cover_note_reference_number" character varying(50), "cover_note_desc" character varying(1000), "operative_clause" character varying(1000), "endorsement_type" integer, "endorsement_reason" character varying(1000), "endorsement_premium_earned" numeric(36,2), CONSTRAINT "PK_95f6acd219d859fe0df12eb55e8" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_motor_details" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_id" uuid NOT NULL, "motor_fleet_item_id" uuid, "motor_category" integer, "motor_type" integer, "registration_number" character varying(50), "chassis_number" character varying(100) NOT NULL, "make" character varying(100), "model" character varying(100), "model_number" character varying(100), "body_type" character varying(100), "color" character varying(50), "engine_number" character varying(100), "engine_capacity" character varying(50), "fuel_used" character varying(50), "number_of_axles" integer, "axle_distance" character varying(50), "sitting_capacity" integer, "year_of_manufacture" integer, "tare_weight" numeric(36,2), "gross_weight" numeric(36,2), "motor_usage" integer, "owner_name" character varying(150), "owner_category" integer, "owner_address" character varying(250), CONSTRAINT "PK_201c518a1422d05b471e653a5c8" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_3cfaf9f72afc0106265adc47fd" ON "tiramis_motor_details" ("chassis_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_f1668fa99143f254f1fa37b512" ON "tiramis_motor_details" ("registration_number") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_policies" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "policy_number" character varying(50) NOT NULL, "policy_reference_number" character varying(50), "policy_operative_clause" text NOT NULL, "special_conditions" text NOT NULL, "exclusions" text, CONSTRAINT "PK_bdd8463043f86e46d8ddc57ce4e" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_59222b8dfaa334df47fa7e0dc1" ON "tiramis_policies" ("policy_reference_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_854541e1ffa8dd05e5224ebc5a" ON "tiramis_policies" ("policy_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_4131b8e43be68384988249d418" ON "tiramis_policies" ("request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_policy_cover_notes" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "policy_id" uuid NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, CONSTRAINT "PK_7dcc778e08c2d65d09e3ddb6c6a" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_6751028068dff57739b7e68f88" ON "tiramis_policy_cover_notes" ("cover_note_reference_number") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_reinsurance_participants" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "reinsurance_id" uuid NOT NULL, "participant_code" character varying(50) NOT NULL, "participant_type" integer NOT NULL, "reinsurance_form" integer NOT NULL, "reinsurance_type" integer NOT NULL, "re_broker_code" character varying(50), "brokerage_commission" numeric(36,2) NOT NULL, "reinsurance_commission" numeric(36,2) NOT NULL, "premium_share" numeric(36,2) NOT NULL, "participation_date" TIMESTAMP NOT NULL, CONSTRAINT "PK_e423899eef33793bce6eee231c0" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_reinsurances" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, "premium_including_tax" numeric(36,2) NOT NULL, "currency_code" character varying(3) NOT NULL, "exchange_rate" numeric(36,2) NOT NULL, "authorizing_officer_name" character varying(100) NOT NULL, "authorizing_officer_title" character varying(100) NOT NULL, "reinsurance_category" integer NOT NULL, CONSTRAINT "PK_aca18bfa6efa360da39e7e24606" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_45ca52c2c56f54cc415ed08530" ON "tiramis_reinsurances" ("cover_note_reference_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_8abe31a833399c670a07d5094a" ON "tiramis_reinsurances" ("request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_submission_events" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "attempt_id" uuid NOT NULL, "event_type" character varying(80) NOT NULL, "request_id" character varying(50) NOT NULL, "status_code" character varying(20), "status_desc" character varying(255), "raw_payload" text, "error_message" text, CONSTRAINT "PK_6411d6f53cb33e0724c09919a52" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_e4f1d438672c5a2fafe105f436" ON "tiramis_submission_events" ("event_type") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_26868cddae738057a53456405c" ON "tiramis_submission_events" ("request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_verification_responses" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "verification_request_id" uuid NOT NULL, "response_id" character varying(50), "request_id" character varying(50) NOT NULL, "response_status_code" character varying(20), "response_status_desc" character varying(255), "raw_response_xml" text, "response_signature" text, "response_payload" text, "responded_at" TIMESTAMP, CONSTRAINT "REL_aff772380e3399bc7879561be9" UNIQUE ("verification_request_id"), CONSTRAINT "PK_0b5f1e736cdec69139d275b9f0c" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_f51b7f80f4fd546f0273849619" ON "tiramis_verification_responses" ("response_status_code") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_ecf4fb980e0610219e2ac14cc3" ON "tiramis_verification_responses" ("request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_verification_requests" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid, "attempt_id" uuid, "verification_type" character varying(50) NOT NULL, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "cover_note_reference_number" character varying(50), "sticker_number" character varying(50), "motor_registration_number" character varying(50), "motor_chassis_number" character varying(100), "nin" character varying(50), "incorporation_certificate_number" character varying(50), "raw_request_xml" text, "request_signature" text, "status" character varying(50) NOT NULL DEFAULT 'PENDING', CONSTRAINT "PK_a07af1c0f402fadd94a7271a104" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_23cf64081b0c321a8de3b5a333" ON "tiramis_verification_requests" ("incorporation_certificate_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_3b4505c4f87db4d797f9935425" ON "tiramis_verification_requests" ("nin") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_fb5338d0b029fe709295147fda" ON "tiramis_verification_requests" ("motor_chassis_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_5cd59708cdfaf9f0d348423871" ON "tiramis_verification_requests" ("motor_registration_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_b24df754d5b291c5e23c910948" ON "tiramis_verification_requests" ("sticker_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_6980a00bfde3633565a8c46bb8" ON "tiramis_verification_requests" ("cover_note_reference_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_ae8e54260cdc4dc0f44e73cb4a" ON "tiramis_verification_requests" ("verification_type") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_cdd5cb3cab69c6e8cf43e194f4" ON "tiramis_verification_requests" ("request_id") `,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_service_endpoints" ADD CONSTRAINT "FK_4b1078525bf8596f299d59f8120" FOREIGN KEY ("client_configuration_id") REFERENCES "tiramis_client_configurations"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_submission_attempts" ADD CONSTRAINT "FK_94c29c4014cd3178e0d18854e92" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_intimations" ADD CONSTRAINT "FK_906f6132f8ec29ac984fbd36d68" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_intimations" ADD CONSTRAINT "FK_7b9d3471b5027ef38fe686d800f" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_payments" ADD CONSTRAINT "FK_fb61b042c0067dbb16e6146f6ce" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_payments" ADD CONSTRAINT "FK_6f017c481be1c59d213677f9d9c" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_rejections" ADD CONSTRAINT "FK_1a84a9da18b76fb74d0881af717" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_rejections" ADD CONSTRAINT "FK_938a6ce60f6a5f780f92c144016" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_discharge_vouchers" ADD CONSTRAINT "FK_b205a349f3fe0784c4f2e9cf79b" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_discharge_vouchers" ADD CONSTRAINT "FK_f8dabd6b35cf835378f66064194" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claimants" ADD CONSTRAINT "FK_71dca3bd97d426af8cd926dc483" FOREIGN KEY ("claim_intimation_id") REFERENCES "tiramis_claim_intimations"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claimants" ADD CONSTRAINT "FK_052ca62ff20f0ffe2c6a165d165" FOREIGN KEY ("claim_assessment_id") REFERENCES "tiramis_claim_assessments"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claimants" ADD CONSTRAINT "FK_9732b0fdec36fbb01941ef73682" FOREIGN KEY ("discharge_voucher_id") REFERENCES "tiramis_discharge_vouchers"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claimants" ADD CONSTRAINT "FK_8ebbf4512bfeffbd81782683180" FOREIGN KEY ("claim_payment_id") REFERENCES "tiramis_claim_payments"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claimants" ADD CONSTRAINT "FK_8152872a3e69ede31472c4065fb" FOREIGN KEY ("claim_rejection_id") REFERENCES "tiramis_claim_rejections"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_assessments" ADD CONSTRAINT "FK_6966d8c6a83889631b138214074" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_assessments" ADD CONSTRAINT "FK_91f8131bbf99df94561a90087eb" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_notifications" ADD CONSTRAINT "FK_f6fbb7edd72d42f28e850273bc1" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_notifications" ADD CONSTRAINT "FK_b09ccbcb8facdfc2ecff59faa3d" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_cover_note_discounts" ADD CONSTRAINT "FK_5facc70908102cfb17f49353774" FOREIGN KEY ("cover_note_risk_id") REFERENCES "tiramis_cover_note_risks"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_cover_note_taxes" ADD CONSTRAINT "FK_97b75f8ba1c49531ea054261388" FOREIGN KEY ("cover_note_risk_id") REFERENCES "tiramis_cover_note_risks"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_cover_note_taxes" ADD CONSTRAINT "FK_a73489a65a3b5fc55d3458fbdda" FOREIGN KEY ("cover_note_addon_id") REFERENCES "tiramis_cover_note_addons"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_cover_note_risks" ADD CONSTRAINT "FK_85e20195e1391217123d847e7c7" FOREIGN KEY ("cover_note_id") REFERENCES "tiramis_cover_notes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_policy_holders" ADD CONSTRAINT "FK_cf06b262c4c6532abe32b662e91" FOREIGN KEY ("cover_note_id") REFERENCES "tiramis_cover_notes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_subject_matters" ADD CONSTRAINT "FK_7c269665193c3b354da2b211bc8" FOREIGN KEY ("cover_note_id") REFERENCES "tiramis_cover_notes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_cover_notes" ADD CONSTRAINT "FK_2dfcf67370a2eb1d00bf6d495ae" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_cover_notes" ADD CONSTRAINT "FK_df80fcc008984e91a0d051f3b6c" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_cover_note_addons" ADD CONSTRAINT "FK_a07080880b02068b6b9ff8c5f34" FOREIGN KEY ("cover_note_id") REFERENCES "tiramis_cover_notes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_motor_fleets" ADD CONSTRAINT "FK_fecb71eeeaf7a66ccb1475bbb1e" FOREIGN KEY ("cover_note_id") REFERENCES "tiramis_cover_notes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_motor_fleet_items" ADD CONSTRAINT "FK_feb94e380f1d662f8d95f7f765c" FOREIGN KEY ("motor_fleet_id") REFERENCES "tiramis_motor_fleets"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_motor_fleet_items" ADD CONSTRAINT "FK_8a7817d6ff219732abc8c51d016" FOREIGN KEY ("cover_note_id") REFERENCES "tiramis_cover_notes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_motor_details" ADD CONSTRAINT "FK_c81693a3ad74de2054b886f24a4" FOREIGN KEY ("cover_note_id") REFERENCES "tiramis_cover_notes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_motor_details" ADD CONSTRAINT "FK_9e6846a01e0c8bd2ec2c8b4cb01" FOREIGN KEY ("motor_fleet_item_id") REFERENCES "tiramis_motor_fleet_items"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_policies" ADD CONSTRAINT "FK_9d4d94e3b55c1d4ddefdd31d5ef" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_policies" ADD CONSTRAINT "FK_a8226f3ea5c38004c5eddf29797" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_policy_cover_notes" ADD CONSTRAINT "FK_13c722272f1b0cdabbc2c3a374b" FOREIGN KEY ("policy_id") REFERENCES "tiramis_policies"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_reinsurance_participants" ADD CONSTRAINT "FK_dd7d2f430f0a21f9d2bb6e11fae" FOREIGN KEY ("reinsurance_id") REFERENCES "tiramis_reinsurances"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_reinsurances" ADD CONSTRAINT "FK_3b10bce6fb832263d9b556af8c4" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_reinsurances" ADD CONSTRAINT "FK_da7c414fd4ff1c93568facadceb" FOREIGN KEY ("current_attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_submission_events" ADD CONSTRAINT "FK_8238d53e7c441e3f794cd47af35" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_submission_events" ADD CONSTRAINT "FK_5736c7bf5a826227d57144ec863" FOREIGN KEY ("attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_verification_responses" ADD CONSTRAINT "FK_aff772380e3399bc7879561be9f" FOREIGN KEY ("verification_request_id") REFERENCES "tiramis_verification_requests"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_verification_requests" ADD CONSTRAINT "FK_937a63842714da1857e69e7b6ca" FOREIGN KEY ("transaction_id") REFERENCES "tiramis_transactions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_verification_requests" ADD CONSTRAINT "FK_20c8020c26a8762c0652dc58e86" FOREIGN KEY ("attempt_id") REFERENCES "tiramis_submission_attempts"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
+    );
+  }
 
-    public async down(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`ALTER TABLE "tiramis_verification_requests" DROP CONSTRAINT "FK_20c8020c26a8762c0652dc58e86"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_verification_requests" DROP CONSTRAINT "FK_937a63842714da1857e69e7b6ca"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_verification_responses" DROP CONSTRAINT "FK_aff772380e3399bc7879561be9f"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_submission_events" DROP CONSTRAINT "FK_5736c7bf5a826227d57144ec863"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_submission_events" DROP CONSTRAINT "FK_8238d53e7c441e3f794cd47af35"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_reinsurances" DROP CONSTRAINT "FK_da7c414fd4ff1c93568facadceb"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_reinsurances" DROP CONSTRAINT "FK_3b10bce6fb832263d9b556af8c4"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_reinsurance_participants" DROP CONSTRAINT "FK_dd7d2f430f0a21f9d2bb6e11fae"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_policy_cover_notes" DROP CONSTRAINT "FK_13c722272f1b0cdabbc2c3a374b"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_policies" DROP CONSTRAINT "FK_a8226f3ea5c38004c5eddf29797"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_policies" DROP CONSTRAINT "FK_9d4d94e3b55c1d4ddefdd31d5ef"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_motor_details" DROP CONSTRAINT "FK_9e6846a01e0c8bd2ec2c8b4cb01"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_motor_details" DROP CONSTRAINT "FK_c81693a3ad74de2054b886f24a4"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_motor_fleet_items" DROP CONSTRAINT "FK_8a7817d6ff219732abc8c51d016"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_motor_fleet_items" DROP CONSTRAINT "FK_feb94e380f1d662f8d95f7f765c"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_motor_fleets" DROP CONSTRAINT "FK_fecb71eeeaf7a66ccb1475bbb1e"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_cover_note_addons" DROP CONSTRAINT "FK_a07080880b02068b6b9ff8c5f34"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_cover_notes" DROP CONSTRAINT "FK_df80fcc008984e91a0d051f3b6c"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_cover_notes" DROP CONSTRAINT "FK_2dfcf67370a2eb1d00bf6d495ae"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_subject_matters" DROP CONSTRAINT "FK_7c269665193c3b354da2b211bc8"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_policy_holders" DROP CONSTRAINT "FK_cf06b262c4c6532abe32b662e91"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_cover_note_risks" DROP CONSTRAINT "FK_85e20195e1391217123d847e7c7"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_cover_note_taxes" DROP CONSTRAINT "FK_a73489a65a3b5fc55d3458fbdda"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_cover_note_taxes" DROP CONSTRAINT "FK_97b75f8ba1c49531ea054261388"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_cover_note_discounts" DROP CONSTRAINT "FK_5facc70908102cfb17f49353774"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_notifications" DROP CONSTRAINT "FK_b09ccbcb8facdfc2ecff59faa3d"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_notifications" DROP CONSTRAINT "FK_f6fbb7edd72d42f28e850273bc1"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_assessments" DROP CONSTRAINT "FK_91f8131bbf99df94561a90087eb"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_assessments" DROP CONSTRAINT "FK_6966d8c6a83889631b138214074"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claimants" DROP CONSTRAINT "FK_8152872a3e69ede31472c4065fb"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claimants" DROP CONSTRAINT "FK_8ebbf4512bfeffbd81782683180"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claimants" DROP CONSTRAINT "FK_9732b0fdec36fbb01941ef73682"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claimants" DROP CONSTRAINT "FK_052ca62ff20f0ffe2c6a165d165"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claimants" DROP CONSTRAINT "FK_71dca3bd97d426af8cd926dc483"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_discharge_vouchers" DROP CONSTRAINT "FK_f8dabd6b35cf835378f66064194"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_discharge_vouchers" DROP CONSTRAINT "FK_b205a349f3fe0784c4f2e9cf79b"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_rejections" DROP CONSTRAINT "FK_938a6ce60f6a5f780f92c144016"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_rejections" DROP CONSTRAINT "FK_1a84a9da18b76fb74d0881af717"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_payments" DROP CONSTRAINT "FK_6f017c481be1c59d213677f9d9c"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_payments" DROP CONSTRAINT "FK_fb61b042c0067dbb16e6146f6ce"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_intimations" DROP CONSTRAINT "FK_7b9d3471b5027ef38fe686d800f"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_claim_intimations" DROP CONSTRAINT "FK_906f6132f8ec29ac984fbd36d68"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_submission_attempts" DROP CONSTRAINT "FK_94c29c4014cd3178e0d18854e92"`);
-        await queryRunner.query(`ALTER TABLE "tiramis_service_endpoints" DROP CONSTRAINT "FK_4b1078525bf8596f299d59f8120"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_cdd5cb3cab69c6e8cf43e194f4"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_ae8e54260cdc4dc0f44e73cb4a"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_6980a00bfde3633565a8c46bb8"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_b24df754d5b291c5e23c910948"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_5cd59708cdfaf9f0d348423871"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_fb5338d0b029fe709295147fda"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_3b4505c4f87db4d797f9935425"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_23cf64081b0c321a8de3b5a333"`);
-        await queryRunner.query(`DROP TABLE "tiramis_verification_requests"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_ecf4fb980e0610219e2ac14cc3"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_f51b7f80f4fd546f0273849619"`);
-        await queryRunner.query(`DROP TABLE "tiramis_verification_responses"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_26868cddae738057a53456405c"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_e4f1d438672c5a2fafe105f436"`);
-        await queryRunner.query(`DROP TABLE "tiramis_submission_events"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_8abe31a833399c670a07d5094a"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_45ca52c2c56f54cc415ed08530"`);
-        await queryRunner.query(`DROP TABLE "tiramis_reinsurances"`);
-        await queryRunner.query(`DROP TABLE "tiramis_reinsurance_participants"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_6751028068dff57739b7e68f88"`);
-        await queryRunner.query(`DROP TABLE "tiramis_policy_cover_notes"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_4131b8e43be68384988249d418"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_854541e1ffa8dd05e5224ebc5a"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_59222b8dfaa334df47fa7e0dc1"`);
-        await queryRunner.query(`DROP TABLE "tiramis_policies"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_f1668fa99143f254f1fa37b512"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_3cfaf9f72afc0106265adc47fd"`);
-        await queryRunner.query(`DROP TABLE "tiramis_motor_details"`);
-        await queryRunner.query(`DROP TABLE "tiramis_motor_fleet_items"`);
-        await queryRunner.query(`DROP TABLE "tiramis_motor_fleets"`);
-        await queryRunner.query(`DROP TABLE "tiramis_cover_note_addons"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_7f217621de6a635dbe8eca9411"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_210d8290d49bf435c8b15061e5"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_0675bc0b7fb5e85f6278f3f23f"`);
-        await queryRunner.query(`DROP TABLE "tiramis_cover_notes"`);
-        await queryRunner.query(`DROP TABLE "tiramis_subject_matters"`);
-        await queryRunner.query(`DROP TABLE "tiramis_policy_holders"`);
-        await queryRunner.query(`DROP TABLE "tiramis_cover_note_risks"`);
-        await queryRunner.query(`DROP TABLE "tiramis_cover_note_taxes"`);
-        await queryRunner.query(`DROP TABLE "tiramis_cover_note_discounts"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_ef91a562e37611260a4ef9bab3"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_83c9a3596c8941ac50341d19a4"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_95038f46aefc7413d599abbf33"`);
-        await queryRunner.query(`DROP TABLE "tiramis_claim_notifications"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_6b4c236b77910ea5478a802536"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_91b054f31595cfe2fc60970391"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_6573dc3012698b340dbdceb93b"`);
-        await queryRunner.query(`DROP TABLE "tiramis_claim_assessments"`);
-        await queryRunner.query(`DROP TABLE "tiramis_claimants"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_dcf2b6e16a28a0cc61e5d00b79"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_81d01b500342d57de31c2f58df"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_de8e64efa7a4826d29fd1dd2de"`);
-        await queryRunner.query(`DROP TABLE "tiramis_discharge_vouchers"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_aea0e23c08f1e344cc4838f38c"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_16fea49e3f118cff83fb07d014"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_7fa2d6a95b0645f11270742d35"`);
-        await queryRunner.query(`DROP TABLE "tiramis_claim_rejections"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_70082ad740d60f08da1cb15123"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_79bb33a4c2795b18e989474524"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_62759002944cfb2e1299932c5f"`);
-        await queryRunner.query(`DROP TABLE "tiramis_claim_payments"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_c642ed190b0bef0122c31b66aa"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_665f67fba5e659a0d44709d1eb"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_195a0c2b96192f2aeeba03c7c9"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_256faea69e8a52e3cdde836968"`);
-        await queryRunner.query(`DROP TABLE "tiramis_claim_intimations"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_b74687d5fb3f4f83e843ad5ac1"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_4dc803eae48f834f1a2c86f3f2"`);
-        await queryRunner.query(`DROP TABLE "tiramis_submission_attempts"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_624602f3aeb151074eeb841d4e"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_ac91ccf1729ac2c9683ab86001"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_cb6df03892211d01fbb617dcd5"`);
-        await queryRunner.query(`DROP TABLE "tiramis_transactions"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_b4c102f9abaebe8f528684f573"`);
-        await queryRunner.query(`DROP TABLE "tiramis_response_codes"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_708112a775077b60804e3b6c0f"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_30da4e184a5906a438a5866412"`);
-        await queryRunner.query(`DROP TABLE "tiramis_client_configurations"`);
-        await queryRunner.query(`DROP INDEX "public"."IDX_bb05af80f05d76970291c523b2"`);
-        await queryRunner.query(`DROP TABLE "tiramis_service_endpoints"`);
-    }
-
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_verification_requests" DROP CONSTRAINT "FK_20c8020c26a8762c0652dc58e86"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_verification_requests" DROP CONSTRAINT "FK_937a63842714da1857e69e7b6ca"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_verification_responses" DROP CONSTRAINT "FK_aff772380e3399bc7879561be9f"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_submission_events" DROP CONSTRAINT "FK_5736c7bf5a826227d57144ec863"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_submission_events" DROP CONSTRAINT "FK_8238d53e7c441e3f794cd47af35"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_reinsurances" DROP CONSTRAINT "FK_da7c414fd4ff1c93568facadceb"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_reinsurances" DROP CONSTRAINT "FK_3b10bce6fb832263d9b556af8c4"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_reinsurance_participants" DROP CONSTRAINT "FK_dd7d2f430f0a21f9d2bb6e11fae"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_policy_cover_notes" DROP CONSTRAINT "FK_13c722272f1b0cdabbc2c3a374b"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_policies" DROP CONSTRAINT "FK_a8226f3ea5c38004c5eddf29797"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_policies" DROP CONSTRAINT "FK_9d4d94e3b55c1d4ddefdd31d5ef"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_motor_details" DROP CONSTRAINT "FK_9e6846a01e0c8bd2ec2c8b4cb01"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_motor_details" DROP CONSTRAINT "FK_c81693a3ad74de2054b886f24a4"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_motor_fleet_items" DROP CONSTRAINT "FK_8a7817d6ff219732abc8c51d016"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_motor_fleet_items" DROP CONSTRAINT "FK_feb94e380f1d662f8d95f7f765c"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_motor_fleets" DROP CONSTRAINT "FK_fecb71eeeaf7a66ccb1475bbb1e"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_cover_note_addons" DROP CONSTRAINT "FK_a07080880b02068b6b9ff8c5f34"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_cover_notes" DROP CONSTRAINT "FK_df80fcc008984e91a0d051f3b6c"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_cover_notes" DROP CONSTRAINT "FK_2dfcf67370a2eb1d00bf6d495ae"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_subject_matters" DROP CONSTRAINT "FK_7c269665193c3b354da2b211bc8"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_policy_holders" DROP CONSTRAINT "FK_cf06b262c4c6532abe32b662e91"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_cover_note_risks" DROP CONSTRAINT "FK_85e20195e1391217123d847e7c7"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_cover_note_taxes" DROP CONSTRAINT "FK_a73489a65a3b5fc55d3458fbdda"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_cover_note_taxes" DROP CONSTRAINT "FK_97b75f8ba1c49531ea054261388"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_cover_note_discounts" DROP CONSTRAINT "FK_5facc70908102cfb17f49353774"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_notifications" DROP CONSTRAINT "FK_b09ccbcb8facdfc2ecff59faa3d"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_notifications" DROP CONSTRAINT "FK_f6fbb7edd72d42f28e850273bc1"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_assessments" DROP CONSTRAINT "FK_91f8131bbf99df94561a90087eb"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_assessments" DROP CONSTRAINT "FK_6966d8c6a83889631b138214074"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claimants" DROP CONSTRAINT "FK_8152872a3e69ede31472c4065fb"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claimants" DROP CONSTRAINT "FK_8ebbf4512bfeffbd81782683180"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claimants" DROP CONSTRAINT "FK_9732b0fdec36fbb01941ef73682"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claimants" DROP CONSTRAINT "FK_052ca62ff20f0ffe2c6a165d165"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claimants" DROP CONSTRAINT "FK_71dca3bd97d426af8cd926dc483"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_discharge_vouchers" DROP CONSTRAINT "FK_f8dabd6b35cf835378f66064194"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_discharge_vouchers" DROP CONSTRAINT "FK_b205a349f3fe0784c4f2e9cf79b"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_rejections" DROP CONSTRAINT "FK_938a6ce60f6a5f780f92c144016"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_rejections" DROP CONSTRAINT "FK_1a84a9da18b76fb74d0881af717"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_payments" DROP CONSTRAINT "FK_6f017c481be1c59d213677f9d9c"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_payments" DROP CONSTRAINT "FK_fb61b042c0067dbb16e6146f6ce"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_intimations" DROP CONSTRAINT "FK_7b9d3471b5027ef38fe686d800f"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_claim_intimations" DROP CONSTRAINT "FK_906f6132f8ec29ac984fbd36d68"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_submission_attempts" DROP CONSTRAINT "FK_94c29c4014cd3178e0d18854e92"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "tiramis_service_endpoints" DROP CONSTRAINT "FK_4b1078525bf8596f299d59f8120"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_cdd5cb3cab69c6e8cf43e194f4"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_ae8e54260cdc4dc0f44e73cb4a"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_6980a00bfde3633565a8c46bb8"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_b24df754d5b291c5e23c910948"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_5cd59708cdfaf9f0d348423871"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_fb5338d0b029fe709295147fda"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_3b4505c4f87db4d797f9935425"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_23cf64081b0c321a8de3b5a333"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_verification_requests"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_ecf4fb980e0610219e2ac14cc3"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_f51b7f80f4fd546f0273849619"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_verification_responses"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_26868cddae738057a53456405c"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_e4f1d438672c5a2fafe105f436"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_submission_events"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_8abe31a833399c670a07d5094a"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_45ca52c2c56f54cc415ed08530"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_reinsurances"`);
+    await queryRunner.query(`DROP TABLE "tiramis_reinsurance_participants"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_6751028068dff57739b7e68f88"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_policy_cover_notes"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_4131b8e43be68384988249d418"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_854541e1ffa8dd05e5224ebc5a"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_59222b8dfaa334df47fa7e0dc1"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_policies"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_f1668fa99143f254f1fa37b512"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_3cfaf9f72afc0106265adc47fd"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_motor_details"`);
+    await queryRunner.query(`DROP TABLE "tiramis_motor_fleet_items"`);
+    await queryRunner.query(`DROP TABLE "tiramis_motor_fleets"`);
+    await queryRunner.query(`DROP TABLE "tiramis_cover_note_addons"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_7f217621de6a635dbe8eca9411"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_210d8290d49bf435c8b15061e5"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_0675bc0b7fb5e85f6278f3f23f"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_cover_notes"`);
+    await queryRunner.query(`DROP TABLE "tiramis_subject_matters"`);
+    await queryRunner.query(`DROP TABLE "tiramis_policy_holders"`);
+    await queryRunner.query(`DROP TABLE "tiramis_cover_note_risks"`);
+    await queryRunner.query(`DROP TABLE "tiramis_cover_note_taxes"`);
+    await queryRunner.query(`DROP TABLE "tiramis_cover_note_discounts"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_ef91a562e37611260a4ef9bab3"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_83c9a3596c8941ac50341d19a4"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_95038f46aefc7413d599abbf33"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_claim_notifications"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_6b4c236b77910ea5478a802536"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_91b054f31595cfe2fc60970391"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_6573dc3012698b340dbdceb93b"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_claim_assessments"`);
+    await queryRunner.query(`DROP TABLE "tiramis_claimants"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_dcf2b6e16a28a0cc61e5d00b79"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_81d01b500342d57de31c2f58df"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_de8e64efa7a4826d29fd1dd2de"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_discharge_vouchers"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_aea0e23c08f1e344cc4838f38c"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_16fea49e3f118cff83fb07d014"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_7fa2d6a95b0645f11270742d35"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_claim_rejections"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_70082ad740d60f08da1cb15123"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_79bb33a4c2795b18e989474524"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_62759002944cfb2e1299932c5f"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_claim_payments"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_c642ed190b0bef0122c31b66aa"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_665f67fba5e659a0d44709d1eb"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_195a0c2b96192f2aeeba03c7c9"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_256faea69e8a52e3cdde836968"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_claim_intimations"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_b74687d5fb3f4f83e843ad5ac1"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_4dc803eae48f834f1a2c86f3f2"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_submission_attempts"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_624602f3aeb151074eeb841d4e"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_ac91ccf1729ac2c9683ab86001"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_cb6df03892211d01fbb617dcd5"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_transactions"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_b4c102f9abaebe8f528684f573"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_response_codes"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_708112a775077b60804e3b6c0f"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_30da4e184a5906a438a5866412"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_client_configurations"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_bb05af80f05d76970291c523b2"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_service_endpoints"`);
+  }
 }

@@ -7,14 +7,15 @@ import { TiramisBusinessSubmissionService } from './services/tiramis-business-su
 import { TiramisPayloadValidationService } from './services/tiramis-payload-validation.service';
 
 @Module({
-  imports: [TiramisConfigModule, TiramisMessagingModule, TiramisSubmissionsModule],
+  imports: [
+    TiramisConfigModule,
+    TiramisMessagingModule,
+    TiramisSubmissionsModule,
+  ],
   providers: [
     TiramisPayloadValidationService,
     TiramisBusinessSubmissionService,
   ],
-  exports: [
-    TiramisPayloadValidationService,
-    TiramisBusinessSubmissionService,
-  ],
+  exports: [TiramisPayloadValidationService, TiramisBusinessSubmissionService],
 })
 export class TiramisSharedModule {}

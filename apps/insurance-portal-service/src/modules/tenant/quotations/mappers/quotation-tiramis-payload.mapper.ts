@@ -29,7 +29,9 @@ export class QuotationTiramisPayloadMapper {
     }
   }
 
-  private mapNonMotorPayload(payload: CreateQuotationDto): Record<string, unknown> {
+  private mapNonMotorPayload(
+    payload: CreateQuotationDto,
+  ): Record<string, unknown> {
     const detail = payload.cover_note_dtl;
 
     return {
@@ -222,9 +224,7 @@ export class QuotationTiramisPayloadMapper {
     }));
   }
 
-  private mapMotorDetail(
-    motor: MotorDetailDto,
-  ): Record<string, unknown> {
+  private mapMotorDetail(motor: MotorDetailDto): Record<string, unknown> {
     return {
       motorCategory: motor.motor_category,
       motorType: motor.motor_type,

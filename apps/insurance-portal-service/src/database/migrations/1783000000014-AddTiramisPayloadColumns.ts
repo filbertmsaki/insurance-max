@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddTiramisPayloadColumns1783000000014
-  implements MigrationInterface
-{
+export class AddTiramisPayloadColumns1783000000014 implements MigrationInterface {
   name = 'AddTiramisPayloadColumns1783000000014';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

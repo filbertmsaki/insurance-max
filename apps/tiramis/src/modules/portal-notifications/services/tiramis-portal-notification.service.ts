@@ -20,20 +20,18 @@ export class TiramisPortalNotificationService {
 
     try {
       await firstValueFrom(
-        this.portalClient
-          .emit('tiramis.submission.status.updated', event)
-          .pipe(
-            timeout(5000),
-            catchError((error) => {
-              this.logger.warn(
-                `Failed to notify insurance portal for requestId ${event.requestId}: ${
-                  error?.message || 'Unknown error'
-                }`,
-              );
+        this.portalClient.emit('tiramis.submission.status.updated', event).pipe(
+          timeout(5000),
+          catchError((error) => {
+            this.logger.warn(
+              `Failed to notify insurance portal for requestId ${event.requestId}: ${
+                error?.message || 'Unknown error'
+              }`,
+            );
 
-              return of(null);
-            }),
-          ),
+            return of(null);
+          }),
+        ),
       );
     } catch (error: any) {
       this.logger.warn(

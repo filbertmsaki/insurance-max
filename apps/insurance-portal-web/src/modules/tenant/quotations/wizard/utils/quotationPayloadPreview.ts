@@ -1,5 +1,8 @@
 import type { CustomerRecord } from '@/modules/tenant/customers/types';
-import { buildQuotationPayload, type QuotationFormSchemaValues } from '../../schemas';
+import {
+  buildQuotationPayload,
+  type QuotationFormSchemaValues,
+} from '../../schemas';
 
 type QuotationPayloadPreviewContext = {
   salePointCode?: string | null;

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class RemoveLegacyQuotationSchema1784800000000
-  implements MigrationInterface
-{
+export class RemoveLegacyQuotationSchema1784800000000 implements MigrationInterface {
   name = 'RemoveLegacyQuotationSchema1784800000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

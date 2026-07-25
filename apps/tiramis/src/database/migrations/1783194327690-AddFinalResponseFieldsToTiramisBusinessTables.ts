@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddFinalResponseFieldsToTiramisBusinessTables1783194327690
-  implements MigrationInterface
-{
+export class AddFinalResponseFieldsToTiramisBusinessTables1783194327690 implements MigrationInterface {
   name = 'AddFinalResponseFieldsToTiramisBusinessTables1783194327690';
 
   async up(queryRunner: QueryRunner): Promise<void> {

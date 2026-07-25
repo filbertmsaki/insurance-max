@@ -598,10 +598,10 @@ export class TiramisBusinessSubmitService {
             builtPayload.payload,
           ) ||
           params.sourceRecordId,
-        errors: (error as any)?.response?.errors || [],
+        errors: error?.response?.errors || [],
         metadata: {
           payloadSource: builtPayload.source,
-          warnings: (error as any)?.response?.warnings || [],
+          warnings: error?.response?.warnings || [],
         },
       });
 

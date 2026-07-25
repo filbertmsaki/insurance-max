@@ -18,12 +18,11 @@ export function parseApiError(error: unknown): ApiErrorDetails {
   if (error instanceof AxiosError && error.response) {
     const { status, data } = error.response;
     const rawMessage = data?.message;
-    const rawValidationErrors =
-      Array.isArray(data?.validation_errors)
-        ? data.validation_errors
-        : Array.isArray(data?.details?.validation_errors)
-          ? data.details.validation_errors
-          : undefined;
+    const rawValidationErrors = Array.isArray(data?.validation_errors)
+      ? data.validation_errors
+      : Array.isArray(data?.details?.validation_errors)
+        ? data.details.validation_errors
+        : undefined;
     const validationErrors = rawValidationErrors?.filter(
       (value: unknown): value is string => typeof value === 'string',
     );

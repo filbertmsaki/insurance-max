@@ -4,7 +4,9 @@ import { departmentsKeys } from './query-keys';
 
 export function useDepartment(departmentId?: string) {
   return useQuery({
-    queryKey: departmentId ? departmentsKeys.detail(departmentId) : departmentsKeys.detail(''),
+    queryKey: departmentId
+      ? departmentsKeys.detail(departmentId)
+      : departmentsKeys.detail(''),
     queryFn: () => departmentsApi.getDepartment(departmentId!),
     enabled: !!departmentId,
     staleTime: 30_000,

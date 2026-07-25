@@ -164,9 +164,7 @@ export class TiramisInternalController {
   }
 
   @MessagePattern('tiramis.submission.trace')
-  async getSubmissionTrace(
-    @Payload() query: TiramisSubmissionQueryCommandDto,
-  ) {
+  async getSubmissionTrace(@Payload() query: TiramisSubmissionQueryCommandDto) {
     try {
       return await this.submissionService.getSubmissionTrace({
         transactionId: query.transactionId || undefined,
@@ -285,7 +283,9 @@ export class TiramisInternalController {
   }
 
   private formatSubmitResponse(result: any) {
-    const coverNote = this.mapCoverNote(result?.coverNote || result?.motorCoverNote || null);
+    const coverNote = this.mapCoverNote(
+      result?.coverNote || result?.motorCoverNote || null,
+    );
     const reinsurance = this.mapShallowRecord(result?.reinsurance || null);
     const policy = this.mapShallowRecord(result?.policy || null);
     const record = this.mapShallowRecord(result?.record || null);
@@ -394,7 +394,8 @@ export class TiramisInternalController {
       nextRetryAt: attempt.nextRetryAt || null,
       lastRetryAt: attempt.lastRetryAt || null,
       finalCallbackDeadlineAt: attempt.finalCallbackDeadlineAt || null,
-      finalCallbackOverdueNotified: attempt.finalCallbackOverdueNotified ?? null,
+      finalCallbackOverdueNotified:
+        attempt.finalCallbackOverdueNotified ?? null,
     };
   }
 

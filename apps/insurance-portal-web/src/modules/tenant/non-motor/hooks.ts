@@ -30,15 +30,21 @@ import type {
 const nonMotorKeys = {
   all: ['non-motor'] as const,
   subjectMatters: () => [...nonMotorKeys.all, 'subject-matters'] as const,
-  subjectMatter: (id: string) => [...nonMotorKeys.all, 'subject-matter', id] as const,
-  factorValues: (subjectMatterId?: string) => [...nonMotorKeys.all, 'factor-values', subjectMatterId ?? 'all'] as const,
-  quotationDetails: (quotationId?: string) => [...nonMotorKeys.all, 'quotation-details', quotationId ?? 'all'] as const,
-  policyDetails: (policyId?: string) => [...nonMotorKeys.all, 'policy-details', policyId ?? 'all'] as const,
+  subjectMatter: (id: string) =>
+    [...nonMotorKeys.all, 'subject-matter', id] as const,
+  factorValues: (subjectMatterId?: string) =>
+    [...nonMotorKeys.all, 'factor-values', subjectMatterId ?? 'all'] as const,
+  quotationDetails: (quotationId?: string) =>
+    [...nonMotorKeys.all, 'quotation-details', quotationId ?? 'all'] as const,
+  policyDetails: (policyId?: string) =>
+    [...nonMotorKeys.all, 'policy-details', policyId ?? 'all'] as const,
   customers: () => [...nonMotorKeys.all, 'customers'] as const,
   quotations: () => [...nonMotorKeys.all, 'quotations'] as const,
   policies: () => [...nonMotorKeys.all, 'policies'] as const,
-  quotationRisks: (quotationId: string) => [...nonMotorKeys.all, 'quotation-risks', quotationId] as const,
-  policyRisks: (policyId: string) => [...nonMotorKeys.all, 'policy-risks', policyId] as const,
+  quotationRisks: (quotationId: string) =>
+    [...nonMotorKeys.all, 'quotation-risks', quotationId] as const,
+  policyRisks: (policyId: string) =>
+    [...nonMotorKeys.all, 'policy-risks', policyId] as const,
   factors: () => [...nonMotorKeys.all, 'factors'] as const,
 };
 
@@ -48,11 +54,14 @@ export function useSubjectMattersList() {
   const limit = Number(params.get('limit') ?? '10');
   const search = params.get('q') ?? '';
 
-  const queryParams = useMemo<SubjectMatterListParams>(() => ({
-    page,
-    limit,
-    search: search || undefined,
-  }), [page, limit, search]);
+  const queryParams = useMemo<SubjectMatterListParams>(
+    () => ({
+      page,
+      limit,
+      search: search || undefined,
+    }),
+    [page, limit, search],
+  );
 
   const { data, isLoading, error } = useQuery({
     queryKey: [...nonMotorKeys.subjectMatters(), queryParams],
@@ -60,15 +69,18 @@ export function useSubjectMattersList() {
     staleTime: 30_000,
   });
 
-  const setParam = useCallback((key: string, value: string | null) => {
-    setParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (value === null) next.delete(key);
-      else next.set(key, value);
-      next.set('page', '1');
-      return next;
-    });
-  }, [setParams]);
+  const setParam = useCallback(
+    (key: string, value: string | null) => {
+      setParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (value === null) next.delete(key);
+        else next.set(key, value);
+        next.set('page', '1');
+        return next;
+      });
+    },
+    [setParams],
+  );
 
   return {
     data,
@@ -78,14 +90,27 @@ export function useSubjectMattersList() {
     limit,
     search,
     setSearch: (value: string) => setParam('q', value),
-    setPage: (value: number) => setParams((prev) => { const next = new URLSearchParams(prev); next.set('page', String(value)); return next; }),
-    setLimit: (value: number) => setParams((prev) => { const next = new URLSearchParams(prev); next.set('limit', String(value)); next.set('page', '1'); return next; }),
+    setPage: (value: number) =>
+      setParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('page', String(value));
+        return next;
+      }),
+    setLimit: (value: number) =>
+      setParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('limit', String(value));
+        next.set('page', '1');
+        return next;
+      }),
   };
 }
 
 export function useSubjectMatter(id?: string) {
   return useQuery({
-    queryKey: id ? nonMotorKeys.subjectMatter(id) : nonMotorKeys.subjectMatter(''),
+    queryKey: id
+      ? nonMotorKeys.subjectMatter(id)
+      : nonMotorKeys.subjectMatter(''),
     queryFn: () => nonMotorApi.getSubjectMatter(id!),
     enabled: !!id,
     staleTime: 30_000,
@@ -95,7 +120,8 @@ export function useSubjectMatter(id?: string) {
 export function useCreateSubjectMatter() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (values: SubjectMatterFormValues) => nonMotorApi.createSubjectMatter(buildSubjectMatterPayload(values)),
+    mutationFn: (values: SubjectMatterFormValues) =>
+      nonMotorApi.createSubjectMatter(buildSubjectMatterPayload(values)),
     onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: nonMotorKeys.subjectMatters() });
       qc.setQueryData(nonMotorKeys.subjectMatter(created.id), created);
@@ -108,7 +134,8 @@ export function useCreateSubjectMatter() {
 export function useUpdateSubjectMatter(id?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (values: SubjectMatterFormValues) => nonMotorApi.updateSubjectMatter(id!, buildSubjectMatterPayload(values)),
+    mutationFn: (values: SubjectMatterFormValues) =>
+      nonMotorApi.updateSubjectMatter(id!, buildSubjectMatterPayload(values)),
     onSuccess: (updated) => {
       qc.invalidateQueries({ queryKey: nonMotorKeys.subjectMatters() });
       if (id) qc.setQueryData(nonMotorKeys.subjectMatter(id), updated);
@@ -142,7 +169,13 @@ export function useSubjectMatterFactorValues(subjectMatterId?: string) {
 export function useSubjectMatterOptions() {
   return useQuery({
     queryKey: [...nonMotorKeys.subjectMatters(), 'options'] as const,
-    queryFn: async () => (await nonMotorApi.getSubjectMatters({ page: 1, limit: API_MAX_LIST_LIMIT })).data,
+    queryFn: async () =>
+      (
+        await nonMotorApi.getSubjectMatters({
+          page: 1,
+          limit: API_MAX_LIST_LIMIT,
+        })
+      ).data,
     staleTime: 60_000,
   });
 }
@@ -151,10 +184,16 @@ export function useCreateSubjectMatterFactorValue() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (values: SubjectMatterFactorValueFormValues) =>
-      nonMotorApi.createSubjectMatterFactorValue(buildSubjectMatterFactorValuePayload(values)),
+      nonMotorApi.createSubjectMatterFactorValue(
+        buildSubjectMatterFactorValuePayload(values),
+      ),
     onSuccess: (_created, variables) => {
-      qc.invalidateQueries({ queryKey: nonMotorKeys.factorValues(variables.subject_matter_id) });
-      qc.invalidateQueries({ queryKey: nonMotorKeys.subjectMatter(variables.subject_matter_id) });
+      qc.invalidateQueries({
+        queryKey: nonMotorKeys.factorValues(variables.subject_matter_id),
+      });
+      qc.invalidateQueries({
+        queryKey: nonMotorKeys.subjectMatter(variables.subject_matter_id),
+      });
       toast.success('Factor value added');
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
@@ -174,9 +213,13 @@ export function useCreateNonMotorQuotationDetail() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (values: NonMotorQuotationDetailFormValues) =>
-      nonMotorApi.createQuotationDetail(buildNonMotorQuotationDetailPayload(values)),
+      nonMotorApi.createQuotationDetail(
+        buildNonMotorQuotationDetailPayload(values),
+      ),
     onSuccess: (_created, variables) => {
-      qc.invalidateQueries({ queryKey: nonMotorKeys.quotationDetails(variables.quotation_id) });
+      qc.invalidateQueries({
+        queryKey: nonMotorKeys.quotationDetails(variables.quotation_id),
+      });
       toast.success('Non-motor quotation detail created');
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
@@ -198,7 +241,9 @@ export function useCreateNonMotorPolicyDetail() {
     mutationFn: (values: NonMotorPolicyDetailFormValues) =>
       nonMotorApi.createPolicyDetail(buildNonMotorPolicyDetailPayload(values)),
     onSuccess: (_created, variables) => {
-      qc.invalidateQueries({ queryKey: nonMotorKeys.policyDetails(variables.policy_id) });
+      qc.invalidateQueries({
+        queryKey: nonMotorKeys.policyDetails(variables.policy_id),
+      });
       toast.success('Non-motor policy detail created');
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
@@ -208,7 +253,8 @@ export function useCreateNonMotorPolicyDetail() {
 export function useNonMotorCustomers() {
   return useQuery({
     queryKey: nonMotorKeys.customers(),
-    queryFn: async () => (await customersApi.getCustomers({ limit: API_MAX_LIST_LIMIT })).data,
+    queryFn: async () =>
+      (await customersApi.getCustomers({ limit: API_MAX_LIST_LIMIT })).data,
     staleTime: 60_000,
   });
 }
@@ -231,7 +277,9 @@ export function useNonMotorPolicies() {
 
 export function useNonMotorQuotationRisks(quotationId?: string) {
   return useQuery({
-    queryKey: quotationId ? nonMotorKeys.quotationRisks(quotationId) : nonMotorKeys.quotationRisks(''),
+    queryKey: quotationId
+      ? nonMotorKeys.quotationRisks(quotationId)
+      : nonMotorKeys.quotationRisks(''),
     queryFn: () => motorApi.getQuotationRisks(quotationId!),
     enabled: !!quotationId,
     staleTime: 30_000,
@@ -240,7 +288,9 @@ export function useNonMotorQuotationRisks(quotationId?: string) {
 
 export function useNonMotorPolicyRisks(policyId?: string) {
   return useQuery({
-    queryKey: policyId ? nonMotorKeys.policyRisks(policyId) : nonMotorKeys.policyRisks(''),
+    queryKey: policyId
+      ? nonMotorKeys.policyRisks(policyId)
+      : nonMotorKeys.policyRisks(''),
     queryFn: () => motorApi.getPolicyRisks(policyId!),
     enabled: !!policyId,
     staleTime: 30_000,

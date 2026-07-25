@@ -44,8 +44,8 @@ export const companyFeaturesApi = {
   /** GET /company-features/:companyUserId/branches — branches assigned to a user */
   getUserBranches: (companyUserId: string) =>
     apiClient
-      .get<CompanyUserBranchAssignment[]>(
-        `/company-features/${companyUserId}/branches`,
-      )
+      .get<
+        CompanyUserBranchAssignment[]
+      >(`/company-features/${companyUserId}/branches`)
       .then((r) => r.data),
 };

@@ -9,7 +9,13 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { RequireTiramisPermissions } from '../auth/tiramis-permission.decorator';
 import { TiramisPermissionGuard } from '../auth/tiramis-permission.guard';
@@ -103,7 +109,8 @@ export class TiramisController {
   }
 
   @ApiOperation({
-    summary: 'Get local portal-side TIRAMIS tracking records by business reference',
+    summary:
+      'Get local portal-side TIRAMIS tracking records by business reference',
   })
   @RequireTiramisPermissions(TiramisPermissions.VIEW_TRACKING)
   @Get('local-tracking/business-reference/:businessReference')
@@ -122,7 +129,9 @@ export class TiramisController {
   @RequireTiramisPermissions(TiramisPermissions.VIEW_TRACKING)
   @Get('local-tracking')
   getRecentLocalTracking(@Query('limit') limit?: string) {
-    return this.tiramisClientService.getRecentLocalTracking(Number(limit || 50));
+    return this.tiramisClientService.getRecentLocalTracking(
+      Number(limit || 50),
+    );
   }
 
   @ApiOperation({
@@ -191,7 +200,8 @@ export class TiramisController {
   }
 
   @ApiOperation({
-    summary: 'Manually sync one local TIRAMIS tracking record to its business record',
+    summary:
+      'Manually sync one local TIRAMIS tracking record to its business record',
   })
   @RequireTiramisPermissions(TiramisPermissions.SYNC)
   @Post('local-tracking/:id/sync-business-record')

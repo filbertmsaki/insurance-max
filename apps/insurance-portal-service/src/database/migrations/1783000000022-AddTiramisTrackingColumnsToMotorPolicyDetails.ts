@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddTiramisTrackingColumnsToMotorPolicyDetails1783000000022
-  implements MigrationInterface
-{
+export class AddTiramisTrackingColumnsToMotorPolicyDetails1783000000022 implements MigrationInterface {
   name = 'AddTiramisTrackingColumnsToMotorPolicyDetails1783000000022';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

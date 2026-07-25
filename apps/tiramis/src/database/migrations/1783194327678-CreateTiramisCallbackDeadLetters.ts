@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateTiramisCallbackDeadLetters1783194327678
-  implements MigrationInterface
-{
+export class CreateTiramisCallbackDeadLetters1783194327678 implements MigrationInterface {
   name = 'CreateTiramisCallbackDeadLetters1783194327678';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

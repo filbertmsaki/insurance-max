@@ -616,10 +616,7 @@ export class PoliciesService {
 
     if (dto.policy_status !== undefined) {
       const newStatus = dto.policy_status.trim().toUpperCase();
-      if (
-        newStatus !== oldStatus &&
-        POLICY_TERMINAL_STATUSES.has(oldStatus)
-      ) {
+      if (newStatus !== oldStatus && POLICY_TERMINAL_STATUSES.has(oldStatus)) {
         throw new ConflictException(
           `Cannot change policy status from terminal state ${oldStatus} to ${newStatus}`,
         );

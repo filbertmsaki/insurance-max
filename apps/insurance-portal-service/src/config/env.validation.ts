@@ -120,9 +120,8 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   TIRAMIS_NOTIFICATION_DEDUPE_MINUTES: Joi.number().default(30),
   TIRAMIS_NOTIFICATION_MAX_METADATA_SIZE: Joi.number().default(20000),
   TIRAMIS_NOTIFICATION_NOTIFY_FINAL_SUCCESS: Joi.boolean().default(false),
-  TIRAMIS_NOTIFICATION_NOTIFY_BUSINESS_SYNC_SUCCESS: Joi.boolean().default(
-    false,
-  ),
+  TIRAMIS_NOTIFICATION_NOTIFY_BUSINESS_SYNC_SUCCESS:
+    Joi.boolean().default(false),
   TIRAMIS_DASHBOARD_DEFAULT_DAYS: Joi.number().default(30),
   TIRAMIS_DASHBOARD_RECENT_LIMIT: Joi.number().default(20),
   TIRAMIS_DASHBOARD_OVERDUE_MINUTES: Joi.number().default(10),

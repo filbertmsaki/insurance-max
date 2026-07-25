@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 
@@ -351,13 +360,11 @@ export class TiramisAdminController {
   markAllNotificationsRead(@Req() req: any) {
     const scope = this.getScope(req);
 
-    return this.tiramisNotificationService.markAllRead(
-      {
-        userId: req.user?.id || req.user?.sub || null,
-        sourceCompanyId: scope.companyId,
-        canAccessAllCompanies: scope.canAccessAllCompanies,
-      },
-    );
+    return this.tiramisNotificationService.markAllRead({
+      userId: req.user?.id || req.user?.sub || null,
+      sourceCompanyId: scope.companyId,
+      canAccessAllCompanies: scope.canAccessAllCompanies,
+    });
   }
 
   private getScope(req: any) {
@@ -402,10 +409,7 @@ export class TiramisAdminController {
         req?.user?.permissions ||
         [],
       roleCodes:
-        req?.user?.role_codes ||
-        req?.user?.roleCodes ||
-        req?.user?.roles ||
-        [],
+        req?.user?.role_codes || req?.user?.roleCodes || req?.user?.roles || [],
       correlationId:
         req?.headers?.['x-correlation-id'] ||
         req?.headers?.['x-request-id'] ||

@@ -145,13 +145,9 @@ export class QuotationMotorDetail {
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
 
-  @OneToOne(
-    () => QuotationCoverNoteEntry,
-    (entry) => entry.motor_detail,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
+  @OneToOne(() => QuotationCoverNoteEntry, (entry) => entry.motor_detail, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'entry_id' })
   entry: QuotationCoverNoteEntry;
 }

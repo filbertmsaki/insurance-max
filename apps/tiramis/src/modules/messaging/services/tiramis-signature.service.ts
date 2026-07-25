@@ -163,7 +163,9 @@ export class TiramisSignatureService {
     );
 
     if (!resolvedPublicCertificatePath) {
-      throw new BadRequestException('TIRAMIS public certificate path is missing');
+      throw new BadRequestException(
+        'TIRAMIS public certificate path is missing',
+      );
     }
 
     if (this.isPkcs12File(resolvedPublicCertificatePath)) {
@@ -210,9 +212,7 @@ export class TiramisSignatureService {
         password || '',
       );
     } catch (error: any) {
-      throw new BadRequestException(
-        'Failed to read PKCS#12 certificate file',
-      );
+      throw new BadRequestException('Failed to read PKCS#12 certificate file');
     }
   }
 

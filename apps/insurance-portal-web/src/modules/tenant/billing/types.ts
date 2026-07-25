@@ -113,7 +113,11 @@ export interface CommissionTransactionRecord {
   policy?: PolicyRecord | null;
   invoice?: InvoiceRecord | null;
   receipt?: ReceiptRecord | null;
-  commission_rule?: { id: string; name: string; commission_type: string } | null;
+  commission_rule?: {
+    id: string;
+    name: string;
+    commission_type: string;
+  } | null;
 }
 
 export interface CommissionPaymentItemRecord {
@@ -243,7 +247,8 @@ export interface CommissionPaymentPayload {
 
 export type InvoicePage = PaginatedResponse<InvoiceRecord>;
 export type ReceiptPage = PaginatedResponse<ReceiptRecord>;
-export type PaymentTransactionPage = PaginatedResponse<PaymentTransactionRecord>;
-export type CommissionTransactionPage = PaginatedResponse<CommissionTransactionRecord>;
+export type PaymentTransactionPage =
+  PaginatedResponse<PaymentTransactionRecord>;
+export type CommissionTransactionPage =
+  PaginatedResponse<CommissionTransactionRecord>;
 export type CommissionPaymentPage = PaginatedResponse<CommissionPaymentRecord>;
-

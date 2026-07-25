@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class RelaxLegacyQuotationStatusHistoryColumns1785000000001
-  implements MigrationInterface
-{
+export class RelaxLegacyQuotationStatusHistoryColumns1785000000001 implements MigrationInterface {
   name = 'RelaxLegacyQuotationStatusHistoryColumns1785000000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

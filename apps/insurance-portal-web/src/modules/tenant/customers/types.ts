@@ -92,7 +92,14 @@ export interface CustomerListParams {
   customer_type?: CustomerType;
   status?: CustomerStatus;
   kyc_status?: CustomerKycStatus;
-  sortBy?: 'customer_no' | 'first_name' | 'last_name' | 'company_name' | 'status' | 'created_at' | 'updated_at';
+  sortBy?:
+    | 'customer_no'
+    | 'first_name'
+    | 'last_name'
+    | 'company_name'
+    | 'status'
+    | 'created_at'
+    | 'updated_at';
   sortOrder?: SortOrder;
 }
 
@@ -195,24 +202,36 @@ export const CUSTOMER_TYPE_OPTIONS: { value: CustomerType; label: string }[] = [
   { value: 'CORPORATE', label: 'Corporate' },
 ];
 
-export const CUSTOMER_GENDER_OPTIONS: { value: CustomerGender; label: string }[] = [
+export const CUSTOMER_GENDER_OPTIONS: {
+  value: CustomerGender;
+  label: string;
+}[] = [
   { value: 'M', label: 'Male' },
   { value: 'F', label: 'Female' },
 ];
 
-export const CUSTOMER_STATUS_OPTIONS: { value: CustomerStatus; label: string }[] = [
+export const CUSTOMER_STATUS_OPTIONS: {
+  value: CustomerStatus;
+  label: string;
+}[] = [
   { value: 'ACTIVE', label: 'Active' },
   { value: 'INACTIVE', label: 'Inactive' },
   { value: 'BLACKLISTED', label: 'Blacklisted' },
 ];
 
-export const CUSTOMER_KYC_STATUS_OPTIONS: { value: CustomerKycStatus; label: string }[] = [
+export const CUSTOMER_KYC_STATUS_OPTIONS: {
+  value: CustomerKycStatus;
+  label: string;
+}[] = [
   { value: 'PENDING', label: 'Pending' },
   { value: 'VERIFIED', label: 'Verified' },
   { value: 'REJECTED', label: 'Rejected' },
 ];
 
-export const CUSTOMER_DOCUMENT_TYPE_OPTIONS: { value: CustomerDocumentType; label: string }[] = [
+export const CUSTOMER_DOCUMENT_TYPE_OPTIONS: {
+  value: CustomerDocumentType;
+  label: string;
+}[] = [
   { value: 'NIDA', label: 'NIDA' },
   { value: 'VOTER_ID', label: 'Voter ID' },
   { value: 'PASSPORT', label: 'Passport' },
@@ -280,12 +299,23 @@ export function getCustomerIdFieldName(
   idType: CustomerIdType | '',
 ): CustomerIdField | null {
   const option = CUSTOMER_ID_TYPE_OPTIONS.find(
-    (item) => item.value === idType && (item.appliesTo === 'BOTH' || item.appliesTo === customerType),
+    (item) =>
+      item.value === idType &&
+      (item.appliesTo === 'BOTH' || item.appliesTo === customerType),
   );
   return option?.field ?? null;
 }
 
-export function getCustomerDisplayName(customer: Pick<CustomerRecord, 'customer_type' | 'first_name' | 'middle_name' | 'last_name' | 'company_name'>) {
+export function getCustomerDisplayName(
+  customer: Pick<
+    CustomerRecord,
+    | 'customer_type'
+    | 'first_name'
+    | 'middle_name'
+    | 'last_name'
+    | 'company_name'
+  >,
+) {
   const fullName = getCustomerFullName(customer);
 
   if (fullName) {
@@ -296,9 +326,11 @@ export function getCustomerDisplayName(customer: Pick<CustomerRecord, 'customer_
     return customer.company_name || 'Corporate Customer';
   }
 
-  return [customer.first_name, customer.middle_name, customer.last_name]
-    .filter(Boolean)
-    .join(' ') || 'Individual Customer';
+  return (
+    [customer.first_name, customer.middle_name, customer.last_name]
+      .filter(Boolean)
+      .join(' ') || 'Individual Customer'
+  );
 }
 
 export function getCustomerFullName(
@@ -306,7 +338,11 @@ export function getCustomerFullName(
     | Partial<
         Pick<
           CustomerRecord,
-          'customer_type' | 'first_name' | 'middle_name' | 'last_name' | 'company_name'
+          | 'customer_type'
+          | 'first_name'
+          | 'middle_name'
+          | 'last_name'
+          | 'company_name'
         >
       >
     | null
@@ -325,10 +361,7 @@ export function getCustomerFullName(
 }
 
 export function splitCustomerFullName(fullName: string) {
-  const parts = fullName
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
 
   if (parts.length === 0) {
     return {

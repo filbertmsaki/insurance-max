@@ -46,7 +46,9 @@ export class TiramisPayloadValidationService {
       !this.isBlank(dto.currencyCode) &&
       String(dto.currencyCode).trim().length !== 3
     ) {
-      errors.push('currencyCode must be a 3-letter currency code, example: TZS');
+      errors.push(
+        'currencyCode must be a 3-letter currency code, example: TZS',
+      );
     }
 
     this.requirePositiveNumber(dto.exchangeRate, 'exchangeRate', errors);
@@ -224,7 +226,11 @@ export class TiramisPayloadValidationService {
       }
 
       this.requireNonNegativeNumber(tax.taxRate, `${taxPath}.taxRate`, errors);
-      this.requireNonNegativeNumber(tax.taxAmount, `${taxPath}.taxAmount`, errors);
+      this.requireNonNegativeNumber(
+        tax.taxAmount,
+        `${taxPath}.taxAmount`,
+        errors,
+      );
     });
   }
 

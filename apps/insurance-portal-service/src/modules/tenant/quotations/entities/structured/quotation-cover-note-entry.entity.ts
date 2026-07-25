@@ -109,37 +109,21 @@ export class QuotationCoverNoteEntry {
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
 
-  @ManyToOne(
-    () => QuotationCoverNote,
-    (coverNote) => coverNote.entries,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
+  @ManyToOne(() => QuotationCoverNote, (coverNote) => coverNote.entries, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'cover_note_id' })
   cover_note: QuotationCoverNote;
 
-  @OneToMany(
-    () => QuotationEntryRisk,
-    (risk) => risk.entry,
-  )
+  @OneToMany(() => QuotationEntryRisk, (risk) => risk.entry)
   risks: QuotationEntryRisk[];
 
-  @OneToMany(
-    () => QuotationSubjectMatter,
-    (subject) => subject.entry,
-  )
+  @OneToMany(() => QuotationSubjectMatter, (subject) => subject.entry)
   subject_matters: QuotationSubjectMatter[];
 
-  @OneToMany(
-    () => QuotationEntryAddon,
-    (addon) => addon.entry,
-  )
+  @OneToMany(() => QuotationEntryAddon, (addon) => addon.entry)
   addons: QuotationEntryAddon[];
 
-  @OneToOne(
-    () => QuotationMotorDetail,
-    (motor) => motor.entry,
-  )
+  @OneToOne(() => QuotationMotorDetail, (motor) => motor.entry)
   motor_detail: QuotationMotorDetail | null;
 }

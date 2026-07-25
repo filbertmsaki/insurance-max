@@ -55,7 +55,8 @@ export class TiramisNotificationService {
       type: TiramisNotificationType.VALIDATION_FAILED,
       severity: TiramisNotificationSeverity.WARNING,
       title: 'TIRAMIS validation failed',
-      message: 'The TIRAMIS payload failed portal validation before submission.',
+      message:
+        'The TIRAMIS payload failed portal validation before submission.',
       tracking: params.tracking,
       requestType: params.requestType,
       sourceCompanyId: params.sourceCompanyId,

@@ -27,21 +27,25 @@ export function useQuotationWizardDraft(
     }
   }, [quotationId, key]);
 
-  const loadDraft = useCallback((): Partial<QuotationFormSchemaValues> | null => {
-    if (quotationId) return null;
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    try {
-      return JSON.parse(raw) as Partial<QuotationFormSchemaValues>;
-    } catch {
-      return null;
-    }
-  }, [key, quotationId]);
+  const loadDraft =
+    useCallback((): Partial<QuotationFormSchemaValues> | null => {
+      if (quotationId) return null;
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw) as Partial<QuotationFormSchemaValues>;
+      } catch {
+        return null;
+      }
+    }, [key, quotationId]);
 
-  const saveDraft = useCallback((values: Partial<QuotationFormSchemaValues>) => {
-    if (quotationId) return;
-    localStorage.setItem(key, JSON.stringify(values));
-  }, [key, quotationId]);
+  const saveDraft = useCallback(
+    (values: Partial<QuotationFormSchemaValues>) => {
+      if (quotationId) return;
+      localStorage.setItem(key, JSON.stringify(values));
+    },
+    [key, quotationId],
+  );
 
   const clearDraft = useCallback(() => {
     localStorage.removeItem(key);

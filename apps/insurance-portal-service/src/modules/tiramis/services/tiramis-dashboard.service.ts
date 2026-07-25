@@ -15,11 +15,15 @@ export class TiramisDashboardService {
     query: TiramisDashboardQueryDto,
     scope?: { companyId?: string | null; canAccessAllCompanies?: boolean },
   ) {
-    const submissions = await this.trackingRepository.findDashboardSubmissionsScoped(
-      query,
+    const submissions =
+      await this.trackingRepository.findDashboardSubmissionsScoped(
+        query,
+        scope,
+      );
+    const notifications = await this.notificationRepository.findRecent(
+      10,
       scope,
     );
-    const notifications = await this.notificationRepository.findRecent(10, scope);
 
     return {
       success: true,

@@ -16,8 +16,9 @@ export function calculateNextRetryAt(params: {
 }
 
 export function isRetryableError(error: any) {
-  const text = String(error?.message || error?.response?.message || error || '')
-    .toLowerCase();
+  const text = String(
+    error?.message || error?.response?.message || error || '',
+  ).toLowerCase();
 
   return (
     text.includes('timeout') ||

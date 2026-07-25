@@ -122,8 +122,10 @@ export class TiramisClaimService {
         sourceMetadata?.businessReference || dto.claimNotificationNumber,
       );
 
-    const { transaction, record } =
-      await this.createClaimNotificationDraft(resolvedDto, sourceMetadata);
+    const { transaction, record } = await this.createClaimNotificationDraft(
+      resolvedDto,
+      sourceMetadata,
+    );
 
     const payload = this.claimPayloadService.buildClaimNotificationPayload({
       dto: resolvedDto,
@@ -221,8 +223,7 @@ export class TiramisClaimService {
         sourceMetadata?.quotationId ||
         resolvedDto.claimIntimationNumber,
       businessReference:
-        sourceMetadata?.businessReference ||
-        resolvedDto.claimIntimationNumber,
+        sourceMetadata?.businessReference || resolvedDto.claimIntimationNumber,
       originalRequestId: requestId,
     });
 
@@ -384,9 +385,8 @@ export class TiramisClaimService {
   }
 
   async findByClaimPaymentNumber(claimPaymentNumber: string) {
-    const claim = await this.claimRepository.findByClaimPaymentNumber(
-      claimPaymentNumber,
-    );
+    const claim =
+      await this.claimRepository.findByClaimPaymentNumber(claimPaymentNumber);
 
     if (!claim) {
       throw new NotFoundException('TIRAMIS claim payment not found');
@@ -501,8 +501,7 @@ export class TiramisClaimService {
         sourceMetadata?.quotationId ||
         resolvedDto.claimAssessmentNumber,
       businessReference:
-        sourceMetadata?.businessReference ||
-        resolvedDto.claimAssessmentNumber,
+        sourceMetadata?.businessReference || resolvedDto.claimAssessmentNumber,
       originalRequestId: requestId,
     });
 
@@ -698,9 +697,10 @@ export class TiramisClaimService {
   }
 
   async findByClaimRejectionNumber(claimRejectionNumber: string) {
-    const claim = await this.claimRepository.findByClaimRejectionNumber(
-      claimRejectionNumber,
-    );
+    const claim =
+      await this.claimRepository.findByClaimRejectionNumber(
+        claimRejectionNumber,
+      );
 
     if (!claim) {
       throw new NotFoundException('TIRAMIS claim rejection not found');
@@ -743,8 +743,7 @@ export class TiramisClaimService {
         (resolvedDto as any).sourceRecordId ||
         resolvedDto.claimRejectionNumber,
       businessReference:
-        sourceMetadata?.businessReference ||
-        resolvedDto.claimRejectionNumber,
+        sourceMetadata?.businessReference || resolvedDto.claimRejectionNumber,
       originalRequestId: requestId,
     });
 
@@ -871,9 +870,10 @@ export class TiramisClaimService {
   }
 
   async findByClaimReferenceNumber(claimReferenceNumber: string) {
-    const claim = await this.claimRepository.findByClaimReferenceNumber(
-      claimReferenceNumber,
-    );
+    const claim =
+      await this.claimRepository.findByClaimReferenceNumber(
+        claimReferenceNumber,
+      );
 
     if (!claim) {
       throw new NotFoundException('TIRAMIS claim reference not found');
@@ -940,14 +940,22 @@ export class TiramisClaimService {
       'claimIntimationNumber',
       errors,
     );
-    this.requireString(dto.claimReferenceNumber, 'claimReferenceNumber', errors);
+    this.requireString(
+      dto.claimReferenceNumber,
+      'claimReferenceNumber',
+      errors,
+    );
     this.requireString(
       dto.coverNoteReferenceNumber,
       'coverNoteReferenceNumber',
       errors,
     );
 
-    this.requireDate(dto.assessmentReceivedDate, 'assessmentReceivedDate', errors);
+    this.requireDate(
+      dto.assessmentReceivedDate,
+      'assessmentReceivedDate',
+      errors,
+    );
     this.requireString(
       dto.assessmentReportSummary,
       'assessmentReportSummary',
@@ -980,7 +988,11 @@ export class TiramisClaimService {
       errors.push('isReAssessment must be Y or N');
     }
 
-    if (!dto.claimants || !Array.isArray(dto.claimants) || dto.claimants.length === 0) {
+    if (
+      !dto.claimants ||
+      !Array.isArray(dto.claimants) ||
+      dto.claimants.length === 0
+    ) {
       errors.push('claimants must contain at least one claimant');
     }
 
@@ -1031,7 +1043,11 @@ export class TiramisClaimService {
       'claimIntimationNumber',
       errors,
     );
-    this.requireString(dto.claimReferenceNumber, 'claimReferenceNumber', errors);
+    this.requireString(
+      dto.claimReferenceNumber,
+      'claimReferenceNumber',
+      errors,
+    );
     this.requireString(
       dto.coverNoteReferenceNumber,
       'coverNoteReferenceNumber',
@@ -1047,7 +1063,11 @@ export class TiramisClaimService {
     }
 
     this.requireString(dto.exchangeRate, 'exchangeRate', errors);
-    this.requireString(dto.claimEstimatedAmount, 'claimEstimatedAmount', errors);
+    this.requireString(
+      dto.claimEstimatedAmount,
+      'claimEstimatedAmount',
+      errors,
+    );
     this.requireString(dto.claimReserveAmount, 'claimReserveAmount', errors);
     this.requireString(dto.claimReserveMethod, 'claimReserveMethod', errors);
 
@@ -1072,7 +1092,11 @@ export class TiramisClaimService {
       errors.push('assessorIdType is required');
     }
 
-    if (!dto.claimants || !Array.isArray(dto.claimants) || dto.claimants.length === 0) {
+    if (
+      !dto.claimants ||
+      !Array.isArray(dto.claimants) ||
+      dto.claimants.length === 0
+    ) {
       errors.push('claimants must contain at least one claimant');
     }
 
@@ -1120,7 +1144,11 @@ export class TiramisClaimService {
     const errors: string[] = [];
 
     this.requireString(dto.claimPaymentNumber, 'claimPaymentNumber', errors);
-    this.requireString(dto.claimReferenceNumber, 'claimReferenceNumber', errors);
+    this.requireString(
+      dto.claimReferenceNumber,
+      'claimReferenceNumber',
+      errors,
+    );
     this.requireString(
       dto.claimIntimationNumber,
       'claimIntimationNumber',
@@ -1191,7 +1219,10 @@ export class TiramisClaimService {
         errors.push(`${path}.claimantCategory is required`);
       }
 
-      if (claimant.claimantType === null || claimant.claimantType === undefined) {
+      if (
+        claimant.claimantType === null ||
+        claimant.claimantType === undefined
+      ) {
         errors.push(`${path}.claimantType is required`);
       }
 
@@ -1225,7 +1256,11 @@ export class TiramisClaimService {
       'claimRejectionNumber',
       errors,
     );
-    this.requireString(dto.claimReferenceNumber, 'claimReferenceNumber', errors);
+    this.requireString(
+      dto.claimReferenceNumber,
+      'claimReferenceNumber',
+      errors,
+    );
     this.requireString(
       dto.claimIntimationNumber,
       'claimIntimationNumber',
@@ -1284,7 +1319,10 @@ export class TiramisClaimService {
         errors.push(`${path}.claimantCategory is required`);
       }
 
-      if (claimant.claimantType === null || claimant.claimantType === undefined) {
+      if (
+        claimant.claimantType === null ||
+        claimant.claimantType === undefined
+      ) {
         errors.push(`${path}.claimantType is required`);
       }
 

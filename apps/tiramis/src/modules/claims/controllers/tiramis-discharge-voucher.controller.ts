@@ -26,8 +26,7 @@ export class TiramisDischargeVoucherController {
   }
 
   @ApiOperation({
-    summary:
-      'Preview generated Discharge Voucher XML without sending to TIRA',
+    summary: 'Preview generated Discharge Voucher XML without sending to TIRA',
   })
   @ApiBody({ type: CreateDischargeVoucherDto })
   @ApiQuery({

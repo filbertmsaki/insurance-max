@@ -311,7 +311,9 @@ export class TiramisClaimPayloadService {
         ClaimReferenceNumber: claim.claimReferenceNumber,
         ClaimIntimationNumber: claim.claimIntimationNumber,
         CoverNoteReferenceNumber: claim.coverNoteReferenceNumber,
-        PaymentDate: claim.paymentDate ? this.formatDateTime(claim.paymentDate) : '',
+        PaymentDate: claim.paymentDate
+          ? this.formatDateTime(claim.paymentDate)
+          : '',
         PaidAmount: claim.paidAmount,
         PaymentMode: claim.paymentMode,
         PartiesNotified: claim.partiesNotified,

@@ -9,6 +9,7 @@ import { Brackets, In, Repository } from 'typeorm';
 
 import { Branch } from '../branches/entities/branch.entity';
 import { Policy } from '../policies/entities/policy.entity';
+import { PolicyStatusHistory } from '../policies/entities/policy-status-history.entity';
 import { QuotationStatusHistory } from '../quotations/entities/quotation-status-history.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationLifecycleService } from '../quotations/services/quotation-lifecycle.service';
@@ -25,8 +26,10 @@ import { PortalTiraSubmissionEvent } from './entities/portal-tira-submission-eve
 import { PortalTiraSubmission } from './entities/portal-tira-submission.entity';
 import { PortalTiraSubmissionStatus } from './enums/portal-tira-submission-status.enum';
 import { TiramisClientService } from './tiramis-client.service';
+import { resolveTiramisSuccessOutcome } from './utils/tiramis-callback-outcome.util';
 
 const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
+const POLICY_TERMINAL_STATUSES = new Set(['CANCELLED', 'EXPIRED', 'LAPSED']);
 
 @Injectable()
 export class TiramisIntegrationService {
@@ -39,6 +42,8 @@ export class TiramisIntegrationService {
     private readonly eventRepository: Repository<PortalTiraSubmissionEvent>,
     @InjectRepository(Policy)
     private readonly policyRepository: Repository<Policy>,
+    @InjectRepository(PolicyStatusHistory)
+    private readonly policyStatusHistoryRepository: Repository<PolicyStatusHistory>,
     @InjectRepository(Quotation)
     private readonly quotationRepository: Repository<Quotation>,
     @InjectRepository(QuotationStatusHistory)
@@ -90,7 +95,9 @@ export class TiramisIntegrationService {
     const requestId =
       existing?.tiramis_request_id ||
       dto.requestId ||
-      (await this.identifierGeneratorService.generateRequestId(params.companyId));
+      (await this.identifierGeneratorService.generateRequestId(
+        params.companyId,
+      ));
 
     dto.requestId = requestId;
 
@@ -473,6 +480,9 @@ export class TiramisIntegrationService {
 
     const submission = await this.findOrCreateSubmissionFromEvent(payload);
     const nextStatus = this.mapEventToPortalStatus(payload);
+    const occurredAt = payload.occurredAt
+      ? new Date(payload.occurredAt)
+      : new Date();
 
     submission.status = nextStatus;
     submission.status_code = payload.statusCode || submission.status_code;
@@ -495,12 +505,10 @@ export class TiramisIntegrationService {
       payload.stickerNumber || submission.sticker_number;
     submission.last_error = payload.errorMessage || null;
     submission.last_payload = payload as any;
-    submission.last_event_at = payload.occurredAt
-      ? new Date(payload.occurredAt)
-      : new Date();
+    submission.last_event_at = occurredAt;
 
     if (this.isTerminalStatus(nextStatus)) {
-      submission.completed_at = new Date();
+      submission.completed_at = submission.completed_at || occurredAt;
     }
 
     const savedSubmission = await this.submissionRepository.save(submission);
@@ -688,9 +696,8 @@ export class TiramisIntegrationService {
       return submission;
     }
 
-    const tracking = await this.localTrackingRepository.findByRequestId(
-      requestId,
-    );
+    const tracking =
+      await this.localTrackingRepository.findByRequestId(requestId);
 
     if (tracking?.sourceCompanyId === companyId) {
       return this.mapTrackingToPortalSubmission(companyId, tracking);
@@ -999,7 +1006,8 @@ export class TiramisIntegrationService {
     tracking.tiramisRequestId = payload.requestId || tracking.tiramisRequestId;
     tracking.tiramisServiceType =
       payload.serviceType || tracking.tiramisServiceType;
-    tracking.tiramisRootElement = payload.rootElement || tracking.tiramisRootElement;
+    tracking.tiramisRootElement =
+      payload.rootElement || tracking.tiramisRootElement;
 
     if (payload.eventType === 'TIRAMIS_ACK_RECEIVED') {
       tracking.acknowledgementStatusCode =
@@ -1058,9 +1066,10 @@ export class TiramisIntegrationService {
     payload: TiramisNotificationEventDto,
   ): Promise<TiramisSubmissionTrackingEntity | null> {
     if (payload.tiramisTransactionId) {
-      const byTransaction = await this.localTrackingRepository.findByTransactionId(
-        payload.tiramisTransactionId,
-      );
+      const byTransaction =
+        await this.localTrackingRepository.findByTransactionId(
+          payload.tiramisTransactionId,
+        );
 
       if (byTransaction) {
         return byTransaction;
@@ -1088,9 +1097,10 @@ export class TiramisIntegrationService {
     }
 
     if (payload.businessReference) {
-      const matches = await this.localTrackingRepository.findByBusinessReference(
-        payload.businessReference,
-      );
+      const matches =
+        await this.localTrackingRepository.findByBusinessReference(
+          payload.businessReference,
+        );
 
       if (matches.length > 0) {
         return matches[0];
@@ -1130,13 +1140,54 @@ export class TiramisIntegrationService {
       return;
     }
 
-    policy.tira_status = submission.status;
+    const callbackOutcome = resolveTiramisSuccessOutcome({
+      statusCode: payload.statusCode ?? submission.status_code,
+      statusDescription:
+        payload.statusDescription ?? submission.status_description,
+    });
+    const occurredAt = payload.occurredAt
+      ? new Date(payload.occurredAt)
+      : new Date();
+    const originalPolicyStatus = policy.policy_status;
+
+    policy.tira_status =
+      callbackOutcome === 'CANCELLED' ? 'CANCELLED' : submission.status;
     policy.tiramis_transaction_id =
       submission.tiramis_transaction_id || policy.tiramis_transaction_id;
     policy.tira_portal_transaction_id = submission.id;
+    policy.tiramis_status =
+      callbackOutcome === 'CANCELLED' ? 'CANCELLED' : submission.status;
+    policy.tiramis_request_id =
+      submission.tiramis_request_id || policy.tiramis_request_id;
+    policy.tiramis_service_type =
+      submission.service_type || policy.tiramis_service_type;
+    policy.tiramis_root_element =
+      submission.root_element || policy.tiramis_root_element;
+    policy.tiramis_final_response_id =
+      submission.tiramis_response_id || policy.tiramis_final_response_id;
+    policy.tiramis_final_response_status_code =
+      submission.status_code || policy.tiramis_final_response_status_code;
+    policy.tiramis_final_response_status_desc =
+      submission.status_description ||
+      policy.tiramis_final_response_status_desc;
+    policy.tiramis_last_error_message =
+      submission.last_error || policy.tiramis_last_error_message;
+    policy.tiramis_last_synced_at = occurredAt;
+    policy.tiramis_payload = payload as unknown as Record<string, unknown>;
 
     if (submission.cover_note_reference_number) {
       policy.cover_note_no = submission.cover_note_reference_number;
+    }
+
+    if (
+      callbackOutcome === 'CANCELLED' &&
+      !POLICY_TERMINAL_STATUSES.has(
+        String(policy.policy_status || '')
+          .trim()
+          .toUpperCase(),
+      )
+    ) {
+      policy.policy_status = 'CANCELLED';
     }
 
     policy.metadata = {
@@ -1144,7 +1195,8 @@ export class TiramisIntegrationService {
       tiramis: {
         requestId: submission.tiramis_request_id,
         responseId: submission.tiramis_response_id,
-        status: submission.status,
+        status:
+          callbackOutcome === 'CANCELLED' ? 'CANCELLED' : submission.status,
         statusCode: submission.status_code,
         statusDescription: submission.status_description,
         coverNoteReferenceNumber: submission.cover_note_reference_number,
@@ -1152,10 +1204,27 @@ export class TiramisIntegrationService {
         stickerNumber: submission.sticker_number,
         lastError: submission.last_error,
         lastEventAt: submission.last_event_at,
+        callbackTimestamp: occurredAt.toISOString(),
+        callbackOutcome,
+        payload,
       },
     };
 
     await this.policyRepository.save(policy);
+
+    if (
+      policy.policy_status !== originalPolicyStatus &&
+      policy.policy_status === 'CANCELLED'
+    ) {
+      await this.policyStatusHistoryRepository.save({
+        policy_id: policy.id,
+        old_status: originalPolicyStatus,
+        new_status: policy.policy_status,
+        reason:
+          submission.status_description || payload.statusDescription || null,
+        changed_by: null,
+      });
+    }
   }
 
   private async updateLinkedQuotation(
@@ -1168,6 +1237,15 @@ export class TiramisIntegrationService {
       return;
     }
 
+    const callbackOutcome = resolveTiramisSuccessOutcome({
+      statusCode: payload.statusCode ?? submission.status_code,
+      statusDescription:
+        payload.statusDescription ?? submission.status_description,
+    });
+    const callbackTimestamp =
+      payload.occurredAt ??
+      submission.last_event_at?.toISOString() ??
+      new Date().toISOString();
     const context = {
       changedBy: null,
       changedByType: 'SYSTEM',
@@ -1188,6 +1266,9 @@ export class TiramisIntegrationService {
           payload.statusDescription ?? submission.status_description ?? null,
         errorMessage: payload.errorMessage ?? null,
         submissionStatus: submission.status,
+        callbackTimestamp,
+        callbackOutcome,
+        callbackPayload: payload,
       },
     };
 
@@ -1202,10 +1283,11 @@ export class TiramisIntegrationService {
         break;
       case 'TIRAMIS_FINAL_SUCCESS':
       case 'TIRAMIS_RESPONSE_ACK_SENT':
-        await this.quotationLifecycleService.markTiraSuccessful(
-          submission.company_id,
+        await this.applySuccessfulQuotationOutcome(
+          submission,
           quotation.id,
           context,
+          callbackOutcome,
         );
         break;
       case 'TIRAMIS_CALLBACK_REJECTED':
@@ -1227,10 +1309,11 @@ export class TiramisIntegrationService {
         break;
       default:
         if (submission.status === PortalTiraSubmissionStatus.COMPLETED) {
-          await this.quotationLifecycleService.markTiraSuccessful(
-            submission.company_id,
+          await this.applySuccessfulQuotationOutcome(
+            submission,
             quotation.id,
             context,
+            callbackOutcome,
           );
         } else if (
           [
@@ -1248,6 +1331,36 @@ export class TiramisIntegrationService {
         }
         break;
     }
+  }
+
+  private async applySuccessfulQuotationOutcome(
+    submission: PortalTiraSubmission,
+    quotationId: string,
+    context: Parameters<QuotationLifecycleService['markTiraSuccessful']>[2],
+    outcome: ReturnType<typeof resolveTiramisSuccessOutcome>,
+  ) {
+    if (outcome === 'CANCELLED') {
+      await this.quotationLifecycleService.markTiraCancelled(
+        submission.company_id,
+        quotationId,
+        context,
+      );
+      return;
+    }
+
+    if (outcome === 'OTHER_SUCCESS') {
+      this.logger.warn(
+        `Unexpected successful TIRAMIS response description for requestId ${submission.tiramis_request_id}: ${
+          context?.metadata?.statusDescription || 'N/A'
+        }`,
+      );
+    }
+
+    await this.quotationLifecycleService.markTiraSuccessful(
+      submission.company_id,
+      quotationId,
+      context,
+    );
   }
 
   private async findLinkedPolicy(
@@ -1321,10 +1434,7 @@ export class TiramisIntegrationService {
     const sourceRecordId =
       submission.source_record_id || payload.sourceRecordId || null;
 
-    if (
-      this.isQuotationSource(sourceModule) &&
-      sourceRecordId
-    ) {
+    if (this.isQuotationSource(sourceModule) && sourceRecordId) {
       const quotation = await this.quotationRepository.findOne({
         where: {
           id: sourceRecordId,

@@ -52,10 +52,13 @@ function normalizeNumber(value: string | number | null | undefined) {
   return Number.isFinite(num) ? num : undefined;
 }
 
-export function buildPolicyPayload(values: PolicyFormSchemaValues): PolicyPayload {
+export function buildPolicyPayload(
+  values: PolicyFormSchemaValues,
+): PolicyPayload {
   return {
     insurer_company_id: values.insurer_company_id,
-    intermediary_company_id: normalizeText(values.intermediary_company_id) ?? null,
+    intermediary_company_id:
+      normalizeText(values.intermediary_company_id) ?? null,
     branch_id: normalizeText(values.branch_id) ?? null,
     department_id: normalizeText(values.department_id) ?? null,
     customer_id: values.customer_id,
@@ -84,12 +87,16 @@ export function buildPolicyPayload(values: PolicyFormSchemaValues): PolicyPayloa
     ceded_sum_insured: normalizeNumber(values.ceded_sum_insured) ?? 0,
     ceded_premium: normalizeNumber(values.ceded_premium) ?? 0,
     tira_status: normalizeText(values.tira_status) ?? undefined,
-    tira_portal_transaction_id: normalizeText(values.tira_portal_transaction_id) ?? null,
-    tiramis_transaction_id: normalizeText(values.tiramis_transaction_id) ?? null,
+    tira_portal_transaction_id:
+      normalizeText(values.tira_portal_transaction_id) ?? null,
+    tiramis_transaction_id:
+      normalizeText(values.tiramis_transaction_id) ?? null,
   };
 }
 
-export function policyRecordToFormValues(record: any): Partial<PolicyFormValues> {
+export function policyRecordToFormValues(
+  record: any,
+): Partial<PolicyFormValues> {
   return {
     insurer_company_id: record.insurer_company_id ?? '',
     intermediary_company_id: record.intermediary_company_id ?? '',

@@ -301,7 +301,8 @@ export class TiramisSubmissionService {
       );
 
       attempt.nextRetryAt =
-        params.nextRetryAt || this.calculateNextRetryAt(attempt.retryCount || 0);
+        params.nextRetryAt ||
+        this.calculateNextRetryAt(attempt.retryCount || 0);
     } else {
       attempt.nextRetryAt = null;
     }
@@ -422,18 +423,24 @@ export class TiramisSubmissionService {
       };
     }
 
-    const attempts =
-      await this.attemptRepository.findAllByTransactionId(transaction.id);
+    const attempts = await this.attemptRepository.findAllByTransactionId(
+      transaction.id,
+    );
 
     const currentAttempt =
-      attempts.find((attempt) => attempt.requestId === transaction.currentRequestId) ||
+      attempts.find(
+        (attempt) => attempt.requestId === transaction.currentRequestId,
+      ) ||
       attempts[attempts.length - 1] ||
       null;
 
     return {
       found: true,
       transaction,
-      currentAttempt: this.sanitizeAttempt(currentAttempt, !!params.includePayload),
+      currentAttempt: this.sanitizeAttempt(
+        currentAttempt,
+        !!params.includePayload,
+      ),
       attempts: attempts.map((attempt) =>
         this.sanitizeAttempt(attempt, !!params.includePayload),
       ),
@@ -547,9 +554,10 @@ export class TiramisSubmissionService {
     }
 
     if (params.businessReference) {
-      const transaction = await this.transactionRepository.findByBusinessReference(
-        params.businessReference,
-      );
+      const transaction =
+        await this.transactionRepository.findByBusinessReference(
+          params.businessReference,
+        );
 
       if (!transaction) {
         throw new NotFoundException(
@@ -659,7 +667,8 @@ export class TiramisSubmissionService {
     return {
       transactionStatus: transaction.status,
       attemptStatus: latestAttempt?.status || null,
-      requestId: latestAttempt?.requestId || transaction.currentRequestId || null,
+      requestId:
+        latestAttempt?.requestId || transaction.currentRequestId || null,
       acknowledgementReceived: !!latestAttempt?.ackReceivedAt,
       acknowledgementStatusCode:
         latestAttempt?.acknowledgementStatusCode || null,
@@ -757,7 +766,7 @@ export class TiramisSubmissionService {
       statusDesc: params.statusDesc || null,
       rawPayload: params.rawPayload || null,
       errorMessage: params.errorMessage || null,
-    } as DeepPartial<any>);
+    });
 
     return this.eventRepository.save(event);
   }

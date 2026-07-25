@@ -13,10 +13,12 @@ export interface ResolvedQuotationDisplayStatus {
 
 @Injectable()
 export class QuotationDisplayStatusResolver {
-  resolve(quotation: Pick<
-    Quotation,
-    'status' | 'approval_status' | 'payment_status' | 'tira_status'
-  >): ResolvedQuotationDisplayStatus {
+  resolve(
+    quotation: Pick<
+      Quotation,
+      'status' | 'approval_status' | 'payment_status' | 'tira_status'
+    >,
+  ): ResolvedQuotationDisplayStatus {
     if (quotation.status === QuotationStatus.COMPLETED) {
       return this.status(QuotationDisplayStatus.COMPLETED, 'Completed');
     }

@@ -60,7 +60,8 @@ export class TiramisMonitoringService {
   ) {
     void this.auditService.log({
       action: TiramisAuditAction.ADMIN_VIEW_SUBMISSIONS,
-      sourceCompanyId: authContext?.companyId || authContext?.activeCompanyId || null,
+      sourceCompanyId:
+        authContext?.companyId || authContext?.activeCompanyId || null,
       sourceUserId: authContext?.userId || null,
       authContext,
       metadata: {
@@ -81,7 +82,8 @@ export class TiramisMonitoringService {
   ) {
     void this.auditService.log({
       action: TiramisAuditAction.ADMIN_VIEW_STATISTICS,
-      sourceCompanyId: authContext?.companyId || authContext?.activeCompanyId || null,
+      sourceCompanyId:
+        authContext?.companyId || authContext?.activeCompanyId || null,
       sourceUserId: authContext?.userId || null,
       authContext,
       metadata: {
@@ -102,7 +104,8 @@ export class TiramisMonitoringService {
   ) {
     void this.auditService.log({
       action: TiramisAuditAction.ADMIN_VIEW_SUBMISSIONS,
-      sourceCompanyId: authContext?.companyId || authContext?.activeCompanyId || null,
+      sourceCompanyId:
+        authContext?.companyId || authContext?.activeCompanyId || null,
       sourceUserId: authContext?.userId || null,
       authContext,
       metadata: {
@@ -124,7 +127,8 @@ export class TiramisMonitoringService {
   ) {
     void this.auditService.log({
       action: TiramisAuditAction.ADMIN_VIEW_SUBMISSIONS,
-      sourceCompanyId: authContext?.companyId || authContext?.activeCompanyId || null,
+      sourceCompanyId:
+        authContext?.companyId || authContext?.activeCompanyId || null,
       sourceUserId: authContext?.userId || null,
       authContext,
       metadata: {
@@ -227,9 +231,8 @@ export class TiramisMonitoringService {
   ) {
     const tracking = await this.getSubmissionScoped(id, null, scope);
 
-    const result = await this.businessRecordSyncService.syncFromTracking(
-      tracking,
-    );
+    const result =
+      await this.businessRecordSyncService.syncFromTracking(tracking);
 
     return {
       tracking,

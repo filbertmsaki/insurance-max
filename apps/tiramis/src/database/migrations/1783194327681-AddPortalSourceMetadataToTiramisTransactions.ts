@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddPortalSourceMetadataToTiramisTransactions1783194327681
-  implements MigrationInterface
-{
+export class AddPortalSourceMetadataToTiramisTransactions1783194327681 implements MigrationInterface {
   name = 'AddPortalSourceMetadataToTiramisTransactions1783194327681';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

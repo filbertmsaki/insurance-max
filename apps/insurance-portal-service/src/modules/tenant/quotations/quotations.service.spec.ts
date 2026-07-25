@@ -117,18 +117,14 @@ describe('QuotationsService', () => {
   it('submits the final outbound payload to TIRAMIS using camelCase fields', async () => {
     const fixture = createServiceFixture();
 
-    await fixture.service.submit(
-      'company-1',
-      fixture.quotation.id,
-      undefined,
-      {
-        id: 'user-1',
-      } as any,
-    );
+    await fixture.service.submit('company-1', fixture.quotation.id, undefined, {
+      id: 'user-1',
+    } as any);
 
     expect(
       (
-        fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord as jest.Mock
+        fixture.tiramisBusinessSubmitService
+          .submitAnyBusinessRecord as jest.Mock
       ).mock.calls[0][0].payload,
     ).toMatchObject({
       coverNoteNumber: 'AICL-MTR-2026-000001',
@@ -159,12 +155,14 @@ describe('QuotationsService', () => {
 
     expect(
       (
-        fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord as jest.Mock
+        fixture.tiramisBusinessSubmitService
+          .submitAnyBusinessRecord as jest.Mock
       ).mock.calls[0][0].payload,
     ).not.toHaveProperty('cover_note_dtl');
     expect(
       (
-        fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord as jest.Mock
+        fixture.tiramisBusinessSubmitService
+          .submitAnyBusinessRecord as jest.Mock
       ).mock.calls[0][0].payload,
     ).not.toHaveProperty('internal_quotation');
 

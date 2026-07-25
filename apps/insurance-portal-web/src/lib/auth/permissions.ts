@@ -32,7 +32,10 @@ export function canAccessRoute(
 ): boolean {
   if (!user) return false;
 
-  if (options?.requiredPermission && !hasPermission(user, options.requiredPermission)) {
+  if (
+    options?.requiredPermission &&
+    !hasPermission(user, options.requiredPermission)
+  ) {
     return false;
   }
 

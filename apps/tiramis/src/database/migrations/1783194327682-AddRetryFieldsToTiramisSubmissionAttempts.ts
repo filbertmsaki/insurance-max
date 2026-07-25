@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddRetryFieldsToTiramisSubmissionAttempts1783194327682
-  implements MigrationInterface
-{
+export class AddRetryFieldsToTiramisSubmissionAttempts1783194327682 implements MigrationInterface {
   name = 'AddRetryFieldsToTiramisSubmissionAttempts1783194327682';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

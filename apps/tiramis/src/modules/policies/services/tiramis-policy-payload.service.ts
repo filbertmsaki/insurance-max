@@ -47,7 +47,9 @@ export class TiramisPolicyPayloadService {
         SpecialConditions: policy.specialConditions,
         Exclusions: policy.exclusions || '',
         AppliedCoverNotes: {
-          CoverNoteReferenceNumber: (policy.coverNotes || []).map((coverNote) => coverNote.coverNoteReferenceNumber),
+          CoverNoteReferenceNumber: (policy.coverNotes || []).map(
+            (coverNote) => coverNote.coverNoteReferenceNumber,
+          ),
         },
       },
     };

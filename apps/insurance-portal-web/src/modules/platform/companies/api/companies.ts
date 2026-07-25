@@ -106,7 +106,9 @@ export const companiesApi = {
 
   /** PATCH /companies/:id/primary-user — Owner only */
   setPrimaryUser: (id: string, user_id: string) =>
-    apiClient.patch(`/companies/${id}/primary-user`, { user_id }).then((r) => r.data),
+    apiClient
+      .patch(`/companies/${id}/primary-user`, { user_id })
+      .then((r) => r.data),
 
   /** PATCH /companies/:id — Owner only */
   updateCompany: (id: string, data: UpdateCompanyDto) =>

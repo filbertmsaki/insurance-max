@@ -25,7 +25,10 @@ export class TiramisXmlBuilderService {
     });
   }
 
-  buildCompactContentXml(rootName: string, payload: Record<string, any>): string {
+  buildCompactContentXml(
+    rootName: string,
+    payload: Record<string, any>,
+  ): string {
     return this.compactBuilder.build({
       [rootName]: payload,
     });

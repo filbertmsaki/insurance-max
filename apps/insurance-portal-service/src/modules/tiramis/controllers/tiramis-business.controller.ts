@@ -95,11 +95,11 @@ export class TiramisBusinessController {
   })
   @RequireTiramisPermissions(TiramisPermissions.VIEW_TRACKING)
   @Get('dashboard')
-  getTenantDashboard(@Query() query: TiramisDashboardQueryDto, @Req() req: any) {
-    return this.tiramisDashboardService.getDashboard(
-      query,
-      this.getScope(req),
-    );
+  getTenantDashboard(
+    @Query() query: TiramisDashboardQueryDto,
+    @Req() req: any,
+  ) {
+    return this.tiramisDashboardService.getDashboard(query, this.getScope(req));
   }
 
   @ApiOperation({
@@ -567,7 +567,7 @@ export class TiramisBusinessController {
       });
     }
 
-    return found as TiramisRequestType;
+    return found;
   }
 
   private getAuthContext(req: any) {

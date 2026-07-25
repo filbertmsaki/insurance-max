@@ -36,13 +36,16 @@ const motorKeys = {
   fleets: () => [...motorKeys.all, 'fleets'] as const,
   fleet: (id: string) => [...motorKeys.all, 'fleet', id] as const,
   quotationDetails: () => [...motorKeys.all, 'quotation-details'] as const,
-  quotationDetail: (id: string) => [...motorKeys.all, 'quotation-detail', id] as const,
+  quotationDetail: (id: string) =>
+    [...motorKeys.all, 'quotation-detail', id] as const,
   policyDetails: () => [...motorKeys.all, 'policy-details'] as const,
-  policyDetail: (id: string) => [...motorKeys.all, 'policy-detail', id] as const,
+  policyDetail: (id: string) =>
+    [...motorKeys.all, 'policy-detail', id] as const,
   customers: () => [...motorKeys.all, 'customers'] as const,
   quotations: () => [...motorKeys.all, 'quotations'] as const,
   policies: () => [...motorKeys.all, 'policies'] as const,
-  policyRisks: (policyId: string) => [...motorKeys.all, 'policy-risks', policyId] as const,
+  policyRisks: (policyId: string) =>
+    [...motorKeys.all, 'policy-risks', policyId] as const,
 };
 
 export function useMotorVehiclesList() {
@@ -89,15 +92,18 @@ export function useMotorVehiclesList() {
   const safePage = Math.min(page, totalPages);
   const items = filtered.slice((safePage - 1) * limit, safePage * limit);
 
-  const setParam = useCallback((key: string, value: string | null) => {
-    setParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (value === null) next.delete(key);
-      else next.set(key, value);
-      next.set('page', '1');
-      return next;
-    });
-  }, [setParams]);
+  const setParam = useCallback(
+    (key: string, value: string | null) => {
+      setParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (value === null) next.delete(key);
+        else next.set(key, value);
+        next.set('page', '1');
+        return next;
+      });
+    },
+    [setParams],
+  );
 
   return {
     vehicles: items,
@@ -111,10 +117,23 @@ export function useMotorVehiclesList() {
     isLoading,
     error,
     setSearch: (value: string) => setParam('q', value),
-    setStatus: (value: string) => setParam('status', value === 'all' ? null : value),
-    setCustomerId: (value: string) => setParam('customer_id', value === 'all' ? null : value),
-    setPage: (value: number) => setParams((prev) => { const next = new URLSearchParams(prev); next.set('page', String(value)); return next; }),
-    setLimit: (value: number) => setParams((prev) => { const next = new URLSearchParams(prev); next.set('limit', String(value)); next.set('page', '1'); return next; }),
+    setStatus: (value: string) =>
+      setParam('status', value === 'all' ? null : value),
+    setCustomerId: (value: string) =>
+      setParam('customer_id', value === 'all' ? null : value),
+    setPage: (value: number) =>
+      setParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('page', String(value));
+        return next;
+      }),
+    setLimit: (value: number) =>
+      setParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('limit', String(value));
+        next.set('page', '1');
+        return next;
+      }),
   };
 }
 
@@ -130,7 +149,8 @@ export function useMotorVehicle(id?: string) {
 export function useCreateMotorVehicle() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (values: MotorVehicleFormValues) => motorApi.createVehicle(buildMotorVehiclePayload(values)),
+    mutationFn: (values: MotorVehicleFormValues) =>
+      motorApi.createVehicle(buildMotorVehiclePayload(values)),
     onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: motorKeys.vehicles() });
       qc.setQueryData(motorKeys.vehicle(created.id), created);
@@ -143,7 +163,8 @@ export function useCreateMotorVehicle() {
 export function useUpdateMotorVehicle(id?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (values: MotorVehicleFormValues) => motorApi.updateVehicle(id!, buildMotorVehiclePayload(values)),
+    mutationFn: (values: MotorVehicleFormValues) =>
+      motorApi.updateVehicle(id!, buildMotorVehiclePayload(values)),
     onSuccess: (updated) => {
       qc.invalidateQueries({ queryKey: motorKeys.vehicles() });
       if (id) qc.setQueryData(motorKeys.vehicle(id), updated);
@@ -185,11 +206,18 @@ export function useMotorFleetsList() {
     return all.filter((item) => {
       const matchesSearch =
         !term ||
-        [item.fleet_no, item.fleet_name, item.customer?.company_name, item.customer?.first_name, item.customer?.last_name]
+        [
+          item.fleet_no,
+          item.fleet_name,
+          item.customer?.company_name,
+          item.customer?.first_name,
+          item.customer?.last_name,
+        ]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(term));
       const matchesStatus = status === 'all' ? true : item.status === status;
-      const matchesCustomer = customerId === 'all' ? true : item.customer_id === customerId;
+      const matchesCustomer =
+        customerId === 'all' ? true : item.customer_id === customerId;
       return matchesSearch && matchesStatus && matchesCustomer;
     });
   }, [all, customerId, search, status]);
@@ -199,15 +227,18 @@ export function useMotorFleetsList() {
   const safePage = Math.min(page, totalPages);
   const items = filtered.slice((safePage - 1) * limit, safePage * limit);
 
-  const setParam = useCallback((key: string, value: string | null) => {
-    setParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (value === null) next.delete(key);
-      else next.set(key, value);
-      next.set('page', '1');
-      return next;
-    });
-  }, [setParams]);
+  const setParam = useCallback(
+    (key: string, value: string | null) => {
+      setParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (value === null) next.delete(key);
+        else next.set(key, value);
+        next.set('page', '1');
+        return next;
+      });
+    },
+    [setParams],
+  );
 
   return {
     fleets: items,
@@ -221,10 +252,23 @@ export function useMotorFleetsList() {
     isLoading,
     error,
     setSearch: (value: string) => setParam('q', value),
-    setStatus: (value: string) => setParam('status', value === 'all' ? null : value),
-    setCustomerId: (value: string) => setParam('customer_id', value === 'all' ? null : value),
-    setPage: (value: number) => setParams((prev) => { const next = new URLSearchParams(prev); next.set('page', String(value)); return next; }),
-    setLimit: (value: number) => setParams((prev) => { const next = new URLSearchParams(prev); next.set('limit', String(value)); next.set('page', '1'); return next; }),
+    setStatus: (value: string) =>
+      setParam('status', value === 'all' ? null : value),
+    setCustomerId: (value: string) =>
+      setParam('customer_id', value === 'all' ? null : value),
+    setPage: (value: number) =>
+      setParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('page', String(value));
+        return next;
+      }),
+    setLimit: (value: number) =>
+      setParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('limit', String(value));
+        next.set('page', '1');
+        return next;
+      }),
   };
 }
 
@@ -240,7 +284,8 @@ export function useMotorFleet(id?: string) {
 export function useCreateMotorFleet() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (values: MotorFleetFormValues) => motorApi.createFleet(buildMotorFleetPayload(values)),
+    mutationFn: (values: MotorFleetFormValues) =>
+      motorApi.createFleet(buildMotorFleetPayload(values)),
     onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: motorKeys.fleets() });
       qc.setQueryData(motorKeys.fleet(created.id), created);
@@ -253,7 +298,8 @@ export function useCreateMotorFleet() {
 export function useUpdateMotorFleet(id?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (values: MotorFleetFormValues) => motorApi.updateFleet(id!, buildMotorFleetPayload(values)),
+    mutationFn: (values: MotorFleetFormValues) =>
+      motorApi.updateFleet(id!, buildMotorFleetPayload(values)),
     onSuccess: (updated) => {
       qc.invalidateQueries({ queryKey: motorKeys.fleets() });
       if (id) qc.setQueryData(motorKeys.fleet(id), updated);
@@ -285,7 +331,9 @@ export function useMotorQuotationDetails(quotationId?: string) {
 
 export function useMotorQuotationDetail(id?: string) {
   return useQuery({
-    queryKey: id ? motorKeys.quotationDetail(id) : motorKeys.quotationDetail(''),
+    queryKey: id
+      ? motorKeys.quotationDetail(id)
+      : motorKeys.quotationDetail(''),
     queryFn: () => motorApi.getQuotationDetail(id!),
     enabled: !!id,
     staleTime: 30_000,
@@ -295,7 +343,8 @@ export function useMotorQuotationDetail(id?: string) {
 export function useCreateMotorQuotationDetail() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (values: MotorQuotationDetailFormValues) => motorApi.createQuotationDetail(buildMotorQuotationDetailPayload(values)),
+    mutationFn: (values: MotorQuotationDetailFormValues) =>
+      motorApi.createQuotationDetail(buildMotorQuotationDetailPayload(values)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: motorKeys.quotationDetails() });
       toast.success('Motor quotation detail created');
@@ -307,7 +356,11 @@ export function useCreateMotorQuotationDetail() {
 export function useUpdateMotorQuotationDetail(id?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (values: MotorQuotationDetailFormValues) => motorApi.updateQuotationDetail(id!, buildMotorQuotationDetailPayload(values)),
+    mutationFn: (values: MotorQuotationDetailFormValues) =>
+      motorApi.updateQuotationDetail(
+        id!,
+        buildMotorQuotationDetailPayload(values),
+      ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: motorKeys.quotationDetails() });
       toast.success('Motor quotation detail updated');
@@ -360,7 +413,8 @@ export function useMotorPolicyDetail(id?: string) {
 export function useCreateMotorPolicyDetail() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (values: MotorPolicyDetailFormValues) => motorApi.createPolicyDetail(buildMotorPolicyDetailPayload(values)),
+    mutationFn: (values: MotorPolicyDetailFormValues) =>
+      motorApi.createPolicyDetail(buildMotorPolicyDetailPayload(values)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: motorKeys.policyDetails() });
       toast.success('Motor policy detail created');
@@ -372,7 +426,8 @@ export function useCreateMotorPolicyDetail() {
 export function useUpdateMotorPolicyDetail(id?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (values: MotorPolicyDetailFormValues) => motorApi.updatePolicyDetail(id!, buildMotorPolicyDetailPayload(values)),
+    mutationFn: (values: MotorPolicyDetailFormValues) =>
+      motorApi.updatePolicyDetail(id!, buildMotorPolicyDetailPayload(values)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: motorKeys.policyDetails() });
       toast.success('Motor policy detail updated');
@@ -409,7 +464,9 @@ export function useMotorCustomers() {
   return useQuery({
     queryKey: motorKeys.customers(),
     queryFn: async () => {
-      const response = await customersApi.getCustomers({ limit: API_MAX_LIST_LIMIT });
+      const response = await customersApi.getCustomers({
+        limit: API_MAX_LIST_LIMIT,
+      });
       return response.data;
     },
     staleTime: 60_000,
@@ -434,7 +491,9 @@ export function useMotorPolicies() {
 
 export function useMotorPolicyRisks(policyId?: string) {
   return useQuery({
-    queryKey: policyId ? motorKeys.policyRisks(policyId) : motorKeys.policyRisks(''),
+    queryKey: policyId
+      ? motorKeys.policyRisks(policyId)
+      : motorKeys.policyRisks(''),
     queryFn: () => motorApi.getPolicyRisks(policyId!),
     enabled: !!policyId,
     staleTime: 30_000,

@@ -476,8 +476,7 @@ export class TiramisCallbackService {
     const acknowledgementPayload = {
       AcknowledgementId: this.tiramisRequestIdService.generate('ACK'),
       ResponseId: params.finalResponse.responseId,
-      AcknowledgementStatusCode:
-        params.acknowledgementStatusCode || 'TIRA001',
+      AcknowledgementStatusCode: params.acknowledgementStatusCode || 'TIRA001',
       AcknowledgementStatusDesc:
         params.acknowledgementStatusDesc || 'Successful',
     };
@@ -507,8 +506,10 @@ export class TiramisCallbackService {
     return {
       acknowledgementId: acknowledgementPayload.AcknowledgementId,
       responseId: params.finalResponse.responseId,
-      acknowledgementStatusCode: acknowledgementPayload.AcknowledgementStatusCode,
-      acknowledgementStatusDesc: acknowledgementPayload.AcknowledgementStatusDesc,
+      acknowledgementStatusCode:
+        acknowledgementPayload.AcknowledgementStatusCode,
+      acknowledgementStatusDesc:
+        acknowledgementPayload.AcknowledgementStatusDesc,
       acknowledgementXml,
     };
   }
@@ -535,7 +536,8 @@ export class TiramisCallbackService {
       };
     }
 
-    existingReceipt.receiveCount = Number(existingReceipt.receiveCount || 0) + 1;
+    existingReceipt.receiveCount =
+      Number(existingReceipt.receiveCount || 0) + 1;
     existingReceipt.lastReceivedAt = new Date();
 
     await this.callbackReceiptRepository.save(existingReceipt);
@@ -650,7 +652,9 @@ export class TiramisCallbackService {
 
       await this.callbackReceiptRepository.save(existingReceipt);
 
-      const incomingPayloadHash = this.hashPayload(params.parsedCallback.rawXml);
+      const incomingPayloadHash = this.hashPayload(
+        params.parsedCallback.rawXml,
+      );
 
       if (
         existingReceipt.payloadHash &&
@@ -711,7 +715,8 @@ export class TiramisCallbackService {
       params.acknowledgement.acknowledgementStatusCode;
     params.receipt.acknowledgementStatusDesc =
       params.acknowledgement.acknowledgementStatusDesc;
-    params.receipt.acknowledgementXml = params.acknowledgement.acknowledgementXml;
+    params.receipt.acknowledgementXml =
+      params.acknowledgement.acknowledgementXml;
     params.receipt.lastError = null;
 
     await this.callbackReceiptRepository.save(params.receipt);
@@ -759,11 +764,13 @@ export class TiramisCallbackService {
         rootElement: params.parsedCallback.rootName,
         statusCode: params.parsedCallback.responseStatusCode,
         statusDescription: params.parsedCallback.responseStatusDesc,
-        transactionStatus: params.transactionStatus || transaction?.status || null,
+        transactionStatus:
+          params.transactionStatus || transaction?.status || null,
         attemptStatus: params.attemptStatus || null,
         coverNoteReferenceNumber:
           params.parsedCallback.coverNoteReferenceNumber || null,
-        policyReferenceNumber: params.parsedCallback.policyReferenceNumber || null,
+        policyReferenceNumber:
+          params.parsedCallback.policyReferenceNumber || null,
         stickerNumber: params.parsedCallback.stickerNumber || null,
         errorMessage: params.errorMessage || null,
         occurredAt: new Date().toISOString(),
@@ -778,7 +785,9 @@ export class TiramisCallbackService {
   }
 
   private hashPayload(rawXml: string): string {
-    return createHash('sha256').update(rawXml || '', 'utf8').digest('hex');
+    return createHash('sha256')
+      .update(rawXml || '', 'utf8')
+      .digest('hex');
   }
 
   private getStringValue(

@@ -72,7 +72,12 @@ export class TiramisBusinessRecordEntity {
   })
   tiramisSubmissionTrackingId!: string | null;
 
-  @Column({ name: 'tiramis_status', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'tiramis_status',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   tiramisStatus!: string | null;
 
   @Column({
@@ -150,7 +155,11 @@ export class TiramisBusinessRecordEntity {
   @Column({ name: 'tiramis_last_error_message', type: 'text', nullable: true })
   tiramisLastErrorMessage!: string | null;
 
-  @Column({ name: 'tiramis_last_synced_at', type: 'timestamptz', nullable: true })
+  @Column({
+    name: 'tiramis_last_synced_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
   tiramisLastSyncedAt!: Date | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

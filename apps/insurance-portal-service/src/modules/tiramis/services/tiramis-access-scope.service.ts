@@ -40,7 +40,10 @@ export class TiramisAccessScopeService {
       return true;
     }
 
-    if (scope?.companyId && String(scope.companyId) === String(requestedCompanyId)) {
+    if (
+      scope?.companyId &&
+      String(scope.companyId) === String(requestedCompanyId)
+    ) {
       return true;
     }
 

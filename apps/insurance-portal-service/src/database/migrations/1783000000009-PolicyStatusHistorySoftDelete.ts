@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class PolicyStatusHistorySoftDelete1783000000009
-  implements MigrationInterface
-{
+export class PolicyStatusHistorySoftDelete1783000000009 implements MigrationInterface {
   name = 'PolicyStatusHistorySoftDelete1783000000009';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

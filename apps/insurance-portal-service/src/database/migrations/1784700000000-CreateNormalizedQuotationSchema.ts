@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateNormalizedQuotationSchema1784700000000
-  implements MigrationInterface
-{
+export class CreateNormalizedQuotationSchema1784700000000 implements MigrationInterface {
   name = 'CreateNormalizedQuotationSchema1784700000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -711,21 +709,43 @@ export class CreateNormalizedQuotationSchema1784700000000
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP TABLE IF EXISTS "quotation_motor_details" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "quotation_entry_addon_taxes" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "quotation_entry_addons" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "quotation_subject_matters" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "quotation_risk_taxes" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "quotation_risk_discounts" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "quotation_entry_risks" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "quotation_policy_holders" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "quotation_cover_note_entries" CASCADE`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "quotation_cover_notes" CASCADE`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "quotation_motor_details" CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "quotation_entry_addon_taxes" CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "quotation_entry_addons" CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "quotation_subject_matters" CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "quotation_risk_taxes" CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "quotation_risk_discounts" CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "quotation_entry_risks" CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "quotation_policy_holders" CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "quotation_cover_note_entries" CASCADE`,
+    );
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "quotation_cover_notes" CASCADE`,
+    );
     await queryRunner.query(`
       ALTER TABLE "quotations"
       DROP CONSTRAINT IF EXISTS "CK_quotations_flow_shape"
     `);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_quotations_submitted_at"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_quotations_submitted_at"`,
+    );
     await queryRunner.query(`
       ALTER TABLE "quotations"
       DROP CONSTRAINT IF EXISTS "FK_quotations_updated_by"
@@ -800,6 +820,8 @@ export class CreateNormalizedQuotationSchema1784700000000
       ON DELETE RESTRICT
       ON UPDATE NO ACTION
     `);
-    await queryRunner.query(`DROP TYPE IF EXISTS "public"."quotation_entry_type_enum"`);
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS "public"."quotation_entry_type_enum"`,
+    );
   }
 }

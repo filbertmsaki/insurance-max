@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddMotorDetailColumnsToMotorVehicles1783700000001
-  implements MigrationInterface
-{
+export class AddMotorDetailColumnsToMotorVehicles1783700000001 implements MigrationInterface {
   name = 'AddMotorDetailColumnsToMotorVehicles1783700000001';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

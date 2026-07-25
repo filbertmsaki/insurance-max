@@ -123,7 +123,9 @@ export class TiramisMotorPayloadService {
         : parentDto.subjectMatters || [];
 
     const itemAddons =
-      item.addons && item.addons.length > 0 ? item.addons : parentDto.addons || [];
+      item.addons && item.addons.length > 0
+        ? item.addons
+        : parentDto.addons || [];
 
     return {
       FleetEntry: item.fleetEntry || String(index + 1),

@@ -11,7 +11,10 @@ import type {
 } from './types';
 
 const optionalText = z.string().trim().max(255).optional().or(z.literal(''));
-const optionalNumber = z.union([z.number(), z.string()]).optional().or(z.literal(''));
+const optionalNumber = z
+  .union([z.number(), z.string()])
+  .optional()
+  .or(z.literal(''));
 
 export const motorVehicleSchema = z.object({
   customer_id: z.string().min(1, 'Customer is required'),
@@ -22,12 +25,21 @@ export const motorVehicleSchema = z.object({
   model: optionalText,
   body_type: optionalText,
   color: optionalText,
-  manufacture_year: z.union([z.number(), z.string()]).optional().or(z.literal('')),
+  manufacture_year: z
+    .union([z.number(), z.string()])
+    .optional()
+    .or(z.literal('')),
   usage_type: optionalText,
   vehicle_category: optionalText,
-  seating_capacity: z.union([z.number(), z.string()]).optional().or(z.literal('')),
+  seating_capacity: z
+    .union([z.number(), z.string()])
+    .optional()
+    .or(z.literal('')),
   tonnage: optionalNumber,
-  cubic_capacity: z.union([z.number(), z.string()]).optional().or(z.literal('')),
+  cubic_capacity: z
+    .union([z.number(), z.string()])
+    .optional()
+    .or(z.literal('')),
   fuel_type: optionalText,
   vehicle_value: z.union([z.number(), z.string()]).optional().or(z.literal('')),
   currency: z.string().trim().max(10).optional().or(z.literal('')),
@@ -40,7 +52,10 @@ export const motorFleetSchema = z.object({
   policy_id: z.string().optional().or(z.literal('')),
   fleet_no: z.string().trim().min(1, 'Fleet number is required').max(50),
   fleet_name: optionalText,
-  total_vehicles: z.union([z.number(), z.string()]).optional().or(z.literal('')),
+  total_vehicles: z
+    .union([z.number(), z.string()])
+    .optional()
+    .or(z.literal('')),
   total_sum_insured: optionalNumber,
   total_premium: optionalNumber,
   status: z.string().trim().max(20).optional().or(z.literal('')),
@@ -72,8 +87,12 @@ export const motorPolicyDetailSchema = z.object({
 
 export type MotorVehicleFormValues = z.infer<typeof motorVehicleSchema>;
 export type MotorFleetFormValues = z.infer<typeof motorFleetSchema>;
-export type MotorQuotationDetailFormValues = z.infer<typeof motorQuotationDetailSchema>;
-export type MotorPolicyDetailFormValues = z.infer<typeof motorPolicyDetailSchema>;
+export type MotorQuotationDetailFormValues = z.infer<
+  typeof motorQuotationDetailSchema
+>;
+export type MotorPolicyDetailFormValues = z.infer<
+  typeof motorPolicyDetailSchema
+>;
 
 function normalizeText(value: string | null | undefined) {
   if (value === null || value === undefined) return undefined;
@@ -160,7 +179,9 @@ export function motorPolicyDetailRecordToFormValues(
   };
 }
 
-export function buildMotorVehiclePayload(values: MotorVehicleFormValues): MotorVehiclePayload {
+export function buildMotorVehiclePayload(
+  values: MotorVehicleFormValues,
+): MotorVehiclePayload {
   return {
     customer_id: values.customer_id,
     registration_no: normalizeText(values.registration_no),
@@ -170,12 +191,12 @@ export function buildMotorVehiclePayload(values: MotorVehicleFormValues): MotorV
     model: normalizeText(values.model),
     body_type: normalizeText(values.body_type),
     color: normalizeText(values.color),
-    manufacture_year: normalizeNumber(values.manufacture_year) as number | undefined,
+    manufacture_year: normalizeNumber(values.manufacture_year),
     usage_type: normalizeText(values.usage_type),
     vehicle_category: normalizeText(values.vehicle_category),
-    seating_capacity: normalizeNumber(values.seating_capacity) as number | undefined,
+    seating_capacity: normalizeNumber(values.seating_capacity),
     tonnage: normalizeNumber(values.tonnage),
-    cubic_capacity: normalizeNumber(values.cubic_capacity) as number | undefined,
+    cubic_capacity: normalizeNumber(values.cubic_capacity),
     fuel_type: normalizeText(values.fuel_type),
     vehicle_value: normalizeNumber(values.vehicle_value) ?? 0,
     currency: normalizeText(values.currency)?.toUpperCase() ?? 'TZS',
@@ -183,14 +204,16 @@ export function buildMotorVehiclePayload(values: MotorVehicleFormValues): MotorV
   };
 }
 
-export function buildMotorFleetPayload(values: MotorFleetFormValues): MotorFleetPayload {
+export function buildMotorFleetPayload(
+  values: MotorFleetFormValues,
+): MotorFleetPayload {
   return {
     customer_id: values.customer_id,
     quotation_id: normalizeText(values.quotation_id) ?? null,
     policy_id: normalizeText(values.policy_id) ?? null,
     fleet_no: values.fleet_no.trim(),
     fleet_name: normalizeText(values.fleet_name) ?? null,
-    total_vehicles: normalizeNumber(values.total_vehicles) as number | undefined,
+    total_vehicles: normalizeNumber(values.total_vehicles),
     total_sum_insured: normalizeNumber(values.total_sum_insured) ?? 0,
     total_premium: normalizeNumber(values.total_premium) ?? 0,
     status: normalizeText(values.status)?.toUpperCase() ?? 'ACTIVE',
@@ -206,8 +229,10 @@ export function buildMotorQuotationDetailPayload(
     motor_vehicle_id: values.motor_vehicle_id,
     cover_type: normalizeText(values.cover_type) ?? null,
     usage_type: normalizeText(values.usage_type) ?? null,
-    no_claim_discount_rate: normalizeNumber(values.no_claim_discount_rate) ?? null,
-    no_claim_discount_amount: normalizeNumber(values.no_claim_discount_amount) ?? null,
+    no_claim_discount_rate:
+      normalizeNumber(values.no_claim_discount_rate) ?? null,
+    no_claim_discount_amount:
+      normalizeNumber(values.no_claim_discount_amount) ?? null,
     excess_applicable: values.excess_applicable,
     excess_type: normalizeText(values.excess_type) ?? null,
     excess_rate: normalizeNumber(values.excess_rate) ?? null,

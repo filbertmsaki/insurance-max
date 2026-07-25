@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class TiramisCompanySetupAlignment1783000000020
-  implements MigrationInterface
-{
+export class TiramisCompanySetupAlignment1783000000020 implements MigrationInterface {
   name = 'TiramisCompanySetupAlignment1783000000020';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

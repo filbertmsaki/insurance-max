@@ -240,12 +240,7 @@ export default class ProductEngineSeeder implements Seeder {
         continue;
       }
 
-      const entity = await this.ensureProduct(
-        repo,
-        companyId,
-        category,
-        seed,
-      );
+      const entity = await this.ensureProduct(repo, companyId, category, seed);
       map.set(seed.product_code, entity);
     }
 

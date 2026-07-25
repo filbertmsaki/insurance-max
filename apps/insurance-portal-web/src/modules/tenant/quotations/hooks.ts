@@ -34,7 +34,8 @@ import type { QuotationUpdatePayload } from './api';
 
 const quotationKeys = {
   all: ['quotations'] as const,
-  list: (params: QuotationListParams) => ['quotations', 'list', params] as const,
+  list: (params: QuotationListParams) =>
+    ['quotations', 'list', params] as const,
   detail: (id: string) => ['quotations', 'detail', id] as const,
   preview: (id: string) => ['quotations', 'preview', id] as const,
   payload: (id: string) => ['quotations', 'payload', id] as const,
@@ -56,7 +57,9 @@ export function useQuotationsList() {
       limit,
       search: search || undefined,
       status:
-        status === 'all' ? undefined : (status as QuotationListParams['status']),
+        status === 'all'
+          ? undefined
+          : (status as QuotationListParams['status']),
       quotation_type:
         quotationType === 'all'
           ? undefined
@@ -165,7 +168,9 @@ export function useCreateQuotation() {
       values: QuotationFormSchemaValues;
       salePointCode: string;
       productCode: string;
-      existingCustomer?: Parameters<typeof buildQuotationPayload>[1]['existingCustomer'];
+      existingCustomer?: Parameters<
+        typeof buildQuotationPayload
+      >[1]['existingCustomer'];
     }) =>
       quotationsApi.create(
         buildQuotationPayload(values, {
@@ -197,20 +202,19 @@ export function useUpdateQuotation(id?: string) {
       values: QuotationFormSchemaValues;
       salePointCode: string;
       productCode: string;
-      existingCustomer?: Parameters<typeof buildQuotationPayload>[1]['existingCustomer'];
+      existingCustomer?: Parameters<
+        typeof buildQuotationPayload
+      >[1]['existingCustomer'];
       expectedUpdatedAt?: string;
     }) =>
-      quotationsApi.update(
-        id!,
-        {
-          ...buildQuotationPayload(values, {
-            salePointCode,
-            productCode,
-            existingCustomer: existingCustomer ?? null,
-          }),
-          expected_updated_at: expectedUpdatedAt,
-        } satisfies QuotationUpdatePayload,
-      ),
+      quotationsApi.update(id!, {
+        ...buildQuotationPayload(values, {
+          salePointCode,
+          productCode,
+          existingCustomer: existingCustomer ?? null,
+        }),
+        expected_updated_at: expectedUpdatedAt,
+      } satisfies QuotationUpdatePayload),
     onSuccess: (quotation) => {
       queryClient.invalidateQueries({ queryKey: quotationKeys.all });
       if (id) {
@@ -239,8 +243,10 @@ export function useSubmitQuotation(id?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (options?: { force_resubmit?: boolean; return_existing?: boolean }) =>
-      quotationsApi.submit(id!, options),
+    mutationFn: (options?: {
+      force_resubmit?: boolean;
+      return_existing?: boolean;
+    }) => quotationsApi.submit(id!, options),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: quotationKeys.all });
       if (id) {
@@ -271,7 +277,9 @@ export function useTransitionQuotationStatus(id?: string) {
         queryClient.invalidateQueries({ queryKey: quotationKeys.preview(id) });
       }
 
-      const actionMessages: Partial<Record<QuotationStatusTransitionAction, string>> = {
+      const actionMessages: Partial<
+        Record<QuotationStatusTransitionAction, string>
+      > = {
         EVALUATE_REQUIREMENTS: 'Quotation requirements re-evaluated',
         SUBMIT_FOR_APPROVAL: 'Quotation submitted for approval',
         APPROVE: 'Quotation approved',
@@ -289,7 +297,7 @@ export function useTransitionQuotationStatus(id?: string) {
 
       const message =
         actionMessages[payload.action] ||
-        `Quotation moved to ${(quotation.quotation_status as QuotationStatus).toLowerCase().replace(/_/g, ' ')}`;
+        `Quotation moved to ${quotation.quotation_status.toLowerCase().replace(/_/g, ' ')}`;
 
       toast.success(message);
     },
@@ -363,7 +371,8 @@ export function useQuotationDepartments(branchId?: string) {
       const all = page.data;
       if (!branchId) return all;
       return all.filter(
-        (department) => (department.branch_id ?? department.branch?.id ?? '') === branchId,
+        (department) =>
+          (department.branch_id ?? department.branch?.id ?? '') === branchId,
       );
     },
     staleTime: 60_000,
@@ -433,9 +442,9 @@ export function useQuotationDistributionChannels() {
     queryKey: ['quotations', 'distribution-channels', companyId || 'none'],
     queryFn: () =>
       apiClient
-        .get<QuotationDistributionChannelRecord[]>(
-          '/product-distribution/channels',
-        )
+        .get<
+          QuotationDistributionChannelRecord[]
+        >('/product-distribution/channels')
         .then((response) => response.data),
     enabled: !!companyId,
     staleTime: 60_000,
@@ -443,4 +452,8 @@ export function useQuotationDistributionChannels() {
 }
 
 export { quotationKeys };
-export type { QuotationDetailRecord, QuotationPreviewRecord, QuotationSubmitResponse };
+export type {
+  QuotationDetailRecord,
+  QuotationPreviewRecord,
+  QuotationSubmitResponse,
+};

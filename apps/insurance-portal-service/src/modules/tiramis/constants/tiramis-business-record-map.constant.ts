@@ -79,8 +79,7 @@ export const TIRAMIS_BUSINESS_RECORD_TABLE_MAP: TiramisBusinessRecordTableMappin
       ],
       tableName: 'tiramis_business_records',
       idColumn: 'id',
-      description:
-        'General verification staging records using stored payload.',
+      description: 'General verification staging records using stored payload.',
       usesStagingTable: true,
     },
     {

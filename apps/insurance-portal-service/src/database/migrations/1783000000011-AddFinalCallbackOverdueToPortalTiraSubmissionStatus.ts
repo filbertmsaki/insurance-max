@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddFinalCallbackOverdueToPortalTiraSubmissionStatus1783000000011
-  implements MigrationInterface
-{
+export class AddFinalCallbackOverdueToPortalTiraSubmissionStatus1783000000011 implements MigrationInterface {
   name = 'AddFinalCallbackOverdueToPortalTiraSubmissionStatus1783000000011';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

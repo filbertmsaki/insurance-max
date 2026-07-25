@@ -71,9 +71,14 @@ export const departmentsApi = {
       .patch<DepartmentRecord>(`/departments/${departmentId}`, data)
       .then((r) => r.data),
 
-  updateDepartmentStatus: (departmentId: string, status: 'active' | 'inactive') =>
+  updateDepartmentStatus: (
+    departmentId: string,
+    status: 'active' | 'inactive',
+  ) =>
     apiClient
-      .patch<DepartmentRecord>(`/departments/${departmentId}/status`, { status })
+      .patch<DepartmentRecord>(`/departments/${departmentId}/status`, {
+        status,
+      })
       .then((r) => r.data),
 
   deleteDepartment: (departmentId: string) =>

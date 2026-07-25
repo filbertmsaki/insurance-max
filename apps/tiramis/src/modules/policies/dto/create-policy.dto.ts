@@ -15,7 +15,8 @@ export class CreatePolicyDto {
   policyNumber!: string;
 
   @ApiProperty({
-    example: 'This policy covers the insured against the risks stated in the schedule.',
+    example:
+      'This policy covers the insured against the risks stated in the schedule.',
   })
   policyOperativeClause!: string;
 

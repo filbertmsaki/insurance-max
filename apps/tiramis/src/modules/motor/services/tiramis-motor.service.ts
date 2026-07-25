@@ -239,12 +239,11 @@ export class TiramisMotorService {
       });
     }
 
-    const endpoint = await this.tiramisConfigService.getFullEndpointUrlForConfiguration(
-      {
+    const endpoint =
+      await this.tiramisConfigService.getFullEndpointUrlForConfiguration({
         configuration,
         serviceType,
-      },
-    );
+      });
 
     const headers =
       await this.tiramisConfigService.getRequestHeadersForConfiguration(
@@ -465,7 +464,10 @@ export class TiramisMotorService {
       this.payloadValidator.validateAddons(dto.addons || [], 'addons', errors);
     }
 
-    this.payloadValidator.validatePolicyHolders(dto.policyHolders || [], errors);
+    this.payloadValidator.validatePolicyHolders(
+      dto.policyHolders || [],
+      errors,
+    );
 
     if (errors.length > 0) {
       throw new BadRequestException({
@@ -485,9 +487,21 @@ export class TiramisMotorService {
       return;
     }
 
-    this.payloadValidator.requireString(dto.fleet.fleetId, 'fleet.fleetId', errors);
-    this.payloadValidator.requireNumber(dto.fleet.fleetType, 'fleet.fleetType', errors);
-    this.payloadValidator.requirePositiveNumber(dto.fleet.fleetSize, 'fleet.fleetSize', errors);
+    this.payloadValidator.requireString(
+      dto.fleet.fleetId,
+      'fleet.fleetId',
+      errors,
+    );
+    this.payloadValidator.requireNumber(
+      dto.fleet.fleetType,
+      'fleet.fleetType',
+      errors,
+    );
+    this.payloadValidator.requirePositiveNumber(
+      dto.fleet.fleetSize,
+      'fleet.fleetSize',
+      errors,
+    );
     this.payloadValidator.requirePositiveNumber(
       dto.fleet.comprehensiveInsured,
       'fleet.comprehensiveInsured',
@@ -540,7 +554,11 @@ export class TiramisMotorService {
       if (!item.motorDetail) {
         errors.push(`${path}.motorDetail is required`);
       } else {
-        this.validateMotorDetail(item.motorDetail, `${path}.motorDetail`, errors);
+        this.validateMotorDetail(
+          item.motorDetail,
+          `${path}.motorDetail`,
+          errors,
+        );
       }
 
       const itemRisks =
@@ -562,7 +580,11 @@ export class TiramisMotorService {
       const itemAddons =
         item.addons && item.addons.length > 0 ? item.addons : dto.addons || [];
 
-      this.payloadValidator.validateAddons(itemAddons, `${path}.addons`, errors);
+      this.payloadValidator.validateAddons(
+        itemAddons,
+        `${path}.addons`,
+        errors,
+      );
     });
   }
 
@@ -581,17 +603,41 @@ export class TiramisMotorService {
     );
 
     if (Number(motor.motorType) === 1) {
-      this.payloadValidator.requireString(motor.registrationNumber, `${path}.registrationNumber`, errors);
+      this.payloadValidator.requireString(
+        motor.registrationNumber,
+        `${path}.registrationNumber`,
+        errors,
+      );
     }
 
-    this.payloadValidator.requireString(motor.chassisNumber, `${path}.chassisNumber`, errors);
+    this.payloadValidator.requireString(
+      motor.chassisNumber,
+      `${path}.chassisNumber`,
+      errors,
+    );
     this.payloadValidator.requireString(motor.make, `${path}.make`, errors);
     this.payloadValidator.requireString(motor.model, `${path}.model`, errors);
-    this.payloadValidator.requireString(motor.bodyType, `${path}.bodyType`, errors);
+    this.payloadValidator.requireString(
+      motor.bodyType,
+      `${path}.bodyType`,
+      errors,
+    );
     this.payloadValidator.requireString(motor.color, `${path}.color`, errors);
-    this.payloadValidator.requireString(motor.engineNumber, `${path}.engineNumber`, errors);
-    this.payloadValidator.requireString(motor.engineCapacity, `${path}.engineCapacity`, errors);
-    this.payloadValidator.requireString(motor.fuelUsed, `${path}.fuelUsed`, errors);
+    this.payloadValidator.requireString(
+      motor.engineNumber,
+      `${path}.engineNumber`,
+      errors,
+    );
+    this.payloadValidator.requireString(
+      motor.engineCapacity,
+      `${path}.engineCapacity`,
+      errors,
+    );
+    this.payloadValidator.requireString(
+      motor.fuelUsed,
+      `${path}.fuelUsed`,
+      errors,
+    );
 
     this.payloadValidator.requirePositiveNumber(
       motor.sittingCapacity,
@@ -618,9 +664,21 @@ export class TiramisMotorService {
       [1, 2],
       errors,
     );
-    this.payloadValidator.requireString(motor.ownerName, `${path}.ownerName`, errors);
-    this.payloadValidator.requireNumber(motor.ownerCategory, `${path}.ownerCategory`, errors);
-    this.payloadValidator.requireString(motor.ownerAddress, `${path}.ownerAddress`, errors);
+    this.payloadValidator.requireString(
+      motor.ownerName,
+      `${path}.ownerName`,
+      errors,
+    );
+    this.payloadValidator.requireNumber(
+      motor.ownerCategory,
+      `${path}.ownerCategory`,
+      errors,
+    );
+    this.payloadValidator.requireString(
+      motor.ownerAddress,
+      `${path}.ownerAddress`,
+      errors,
+    );
   }
 
   private mapMotorDetailForEntity(motor: any) {

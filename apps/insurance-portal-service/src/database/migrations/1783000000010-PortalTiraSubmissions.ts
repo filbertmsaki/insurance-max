@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class PortalTiraSubmissions1783000000010
-  implements MigrationInterface
-{
+export class PortalTiraSubmissions1783000000010 implements MigrationInterface {
   name = 'PortalTiraSubmissions1783000000010';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

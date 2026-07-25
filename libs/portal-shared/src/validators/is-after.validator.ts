@@ -34,7 +34,10 @@ export function IsAfter(
           const current = new Date(value);
           const related = new Date(relatedValue);
 
-          if (Number.isNaN(current.getTime()) || Number.isNaN(related.getTime())) {
+          if (
+            Number.isNaN(current.getTime()) ||
+            Number.isNaN(related.getTime())
+          ) {
             return true;
           }
 

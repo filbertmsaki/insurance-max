@@ -104,13 +104,9 @@ export class QuotationEntryRisk {
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
 
-  @ManyToOne(
-    () => QuotationCoverNoteEntry,
-    (entry) => entry.risks,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
+  @ManyToOne(() => QuotationCoverNoteEntry, (entry) => entry.risks, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'entry_id' })
   entry: QuotationCoverNoteEntry;
 
@@ -121,15 +117,9 @@ export class QuotationEntryRisk {
   @JoinColumn({ name: 'insurance_risk_id' })
   insurance_risk: InsuranceRisk | null;
 
-  @OneToMany(
-    () => QuotationRiskDiscount,
-    (discount) => discount.risk,
-  )
+  @OneToMany(() => QuotationRiskDiscount, (discount) => discount.risk)
   discounts: QuotationRiskDiscount[];
 
-  @OneToMany(
-    () => QuotationRiskTax,
-    (tax) => tax.risk,
-  )
+  @OneToMany(() => QuotationRiskTax, (tax) => tax.risk)
   taxes: QuotationRiskTax[];
 }

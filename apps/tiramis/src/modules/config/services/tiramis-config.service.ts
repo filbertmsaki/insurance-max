@@ -323,9 +323,8 @@ export class TiramisConfigService {
       tiraPublicCertificatePath: resolveTiramisCertificatePath(
         configuration.tiraPublicCertificatePath,
       ),
-      tiraPublicCertificatePassword: this.getTiraPublicCertificatePassword(
-        configuration,
-      ),
+      tiraPublicCertificatePassword:
+        this.getTiraPublicCertificatePassword(configuration),
       signatureAlgorithm: configuration.signatureAlgorithm,
     };
   }

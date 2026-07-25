@@ -6,7 +6,12 @@ import type {
   InsuranceRisk,
   InsuranceSubClass,
 } from '@/types/product-engine';
-import type { ProductChannelType, QuotationRiskRecord, QuotationPremiumBreakdownRecord, QuotationStatusHistoryRecord } from '../quotations/types';
+import type {
+  ProductChannelType,
+  QuotationRiskRecord,
+  QuotationPremiumBreakdownRecord,
+  QuotationStatusHistoryRecord,
+} from '../quotations/types';
 import type { SortOrder } from '@/types';
 
 export type PolicyStatus = string;
@@ -38,7 +43,12 @@ export interface PolicyRiskRecord {
   deleted_at: string | null;
   risk?: InsuranceRisk | null;
   quotation_risk?: QuotationRiskRecord | null;
-  motor_vehicle?: { id: string; registration_no: string | null; chassis_no: string | null; engine_no: string | null } | null;
+  motor_vehicle?: {
+    id: string;
+    registration_no: string | null;
+    chassis_no: string | null;
+    engine_no: string | null;
+  } | null;
 }
 
 export interface PolicyPremiumBreakdownRecord {
@@ -237,4 +247,3 @@ export interface PolicyFormValues {
 }
 
 export type PolicyPage = PaginatedResponse<PolicyRecord>;
-

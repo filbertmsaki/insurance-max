@@ -72,13 +72,9 @@ export class QuotationEntryAddonTax {
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
 
-  @ManyToOne(
-    () => QuotationEntryAddon,
-    (addon) => addon.taxes,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
+  @ManyToOne(() => QuotationEntryAddon, (addon) => addon.taxes, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'addon_id' })
   addon: QuotationEntryAddon;
 }

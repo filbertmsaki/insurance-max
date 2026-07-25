@@ -1,7 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   CoverNoteAddonDto,
   CoverNoteDetailDto,
@@ -175,7 +172,9 @@ export class QuotationPayloadValidator {
     }
 
     if (!Array.isArray(detail.fleet_dtls) || detail.fleet_dtls.length === 0) {
-      errors.push('cover_note_dtl.fleet_dtls must contain at least one vehicle');
+      errors.push(
+        'cover_note_dtl.fleet_dtls must contain at least one vehicle',
+      );
     }
 
     if (!detail.fleet_hdr || !detail.fleet_dtls?.length) {
@@ -235,7 +234,9 @@ export class QuotationPayloadValidator {
       const path = `cover_note_dtl.fleet_dtls[${index}]`;
 
       if (fleetEntryNumbers.has(fleetDetail.fleet_entry)) {
-        errors.push(`${path}.fleet_entry duplicates fleet entry ${fleetDetail.fleet_entry}`);
+        errors.push(
+          `${path}.fleet_entry duplicates fleet entry ${fleetDetail.fleet_entry}`,
+        );
       }
 
       fleetEntryNumbers.add(fleetDetail.fleet_entry);
@@ -282,7 +283,11 @@ export class QuotationPayloadValidator {
       }
     });
 
-    this.validateFleetEntrySequence(fleetEntryNumbers, fleetDetails.length, errors);
+    this.validateFleetEntrySequence(
+      fleetEntryNumbers,
+      fleetDetails.length,
+      errors,
+    );
 
     this.assertMoneyEqual(
       totalPremiumExcludingTax,
@@ -473,7 +478,9 @@ export class QuotationPayloadValidator {
     errors: string[],
   ): void {
     if (risk.premium_rate > this.maximumRate) {
-      errors.push(`${path}.premium_rate must be a decimal rate between 0 and 1`);
+      errors.push(
+        `${path}.premium_rate must be a decimal rate between 0 and 1`,
+      );
     }
 
     if (risk.premium_after_discount > risk.premium_before_discount) {
@@ -586,7 +593,9 @@ export class QuotationPayloadValidator {
       );
 
       if (tax.tax_rate > this.maximumRate) {
-        errors.push(`${taxPath}.tax_rate must be a decimal rate between 0 and 1`);
+        errors.push(
+          `${taxPath}.tax_rate must be a decimal rate between 0 and 1`,
+        );
       }
 
       if (tax.is_tax_exempted === 'Y') {
@@ -829,7 +838,9 @@ export class QuotationPayloadValidator {
     }
 
     if (commissionRate !== undefined && commissionRate > this.maximumRate) {
-      errors.push(`${path}.commision_rate must be a decimal rate between 0 and 1`);
+      errors.push(
+        `${path}.commision_rate must be a decimal rate between 0 and 1`,
+      );
     }
 
     if (
@@ -972,7 +983,9 @@ export class QuotationPayloadValidator {
   ): void {
     for (let expected = 1; expected <= expectedSize; expected += 1) {
       if (!entries.has(expected)) {
-        errors.push(`cover_note_dtl.fleet_dtls must contain fleet_entry ${expected}`);
+        errors.push(
+          `cover_note_dtl.fleet_dtls must contain fleet_entry ${expected}`,
+        );
       }
     }
   }

@@ -29,7 +29,9 @@ export interface CompanySettings {
 }
 
 @Entity('companies')
-@Index('UQ_companies_identifier_prefix', ['identifier_prefix'], { unique: true })
+@Index('UQ_companies_identifier_prefix', ['identifier_prefix'], {
+  unique: true,
+})
 export class Company {
   @PrimaryGeneratedColumn('uuid')
   id: string;

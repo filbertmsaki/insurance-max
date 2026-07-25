@@ -317,11 +317,7 @@ export class TiramisBusinessPayloadBuilderService {
         null,
       tranCompanyCode:
         config?.tran_company_code ||
-        this.value(
-          params.record,
-          'tran_company_code',
-          'tranCompanyCode',
-        ) ||
+        this.value(params.record, 'tran_company_code', 'tranCompanyCode') ||
         config?.insurer_company_code ||
         company?.tira_insurer_company_code ||
         company?.tira_company_code ||

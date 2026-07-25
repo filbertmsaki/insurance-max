@@ -43,7 +43,9 @@ export const productsApi = {
           limit: 100,
           is_active: true,
           ...(params?.category_id ? { category_id: params.category_id } : {}),
-          ...(params?.business_line ? { business_line: params.business_line } : {}),
+          ...(params?.business_line
+            ? { business_line: params.business_line }
+            : {}),
           ...(params?.supports_fleet !== undefined
             ? { supports_fleet: params.supports_fleet }
             : {}),

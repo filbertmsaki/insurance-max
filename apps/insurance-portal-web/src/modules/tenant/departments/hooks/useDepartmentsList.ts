@@ -29,7 +29,8 @@ export function useDepartmentsList() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: departmentsKeys.lists(),
-    queryFn: () => departmentsApi.getDepartments({ page: 1, limit: API_MAX_LIST_LIMIT }),
+    queryFn: () =>
+      departmentsApi.getDepartments({ page: 1, limit: API_MAX_LIST_LIMIT }),
     staleTime: 30_000,
   });
 
@@ -39,7 +40,9 @@ export function useDepartmentsList() {
     return allDepartments.filter((dept) => {
       const statusMatches = status === 'all' ? true : dept.status === status;
       const branchMatches =
-        branchId === 'all' ? true : (dept.branch_id ?? dept.branch?.id ?? '') === branchId;
+        branchId === 'all'
+          ? true
+          : (dept.branch_id ?? dept.branch?.id ?? '') === branchId;
       return statusMatches && branchMatches && matchesSearch(dept, search);
     });
   }, [allDepartments, branchId, search, status]);
@@ -71,8 +74,10 @@ export function useDepartmentsList() {
     isLoading,
     error,
     setSearch: (value: string) => setParam('search', value),
-    setStatus: (value: string) => setParam('status', value === 'all' ? null : value),
-    setBranchId: (value: string) => setParam('branch_id', value === 'all' ? null : value),
+    setStatus: (value: string) =>
+      setParam('status', value === 'all' ? null : value),
+    setBranchId: (value: string) =>
+      setParam('branch_id', value === 'all' ? null : value),
     setPage: (value: number) => {
       setParams((prev) => {
         const next = new URLSearchParams(prev);

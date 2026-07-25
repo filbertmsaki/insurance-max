@@ -20,10 +20,7 @@ import { QuotationCoverNoteEntry } from './quotation-cover-note-entry.entity';
   unique: true,
   where: 'fleet_id IS NOT NULL',
 })
-@Index('IDX_qcn_dates', [
-  'cover_note_start_date',
-  'cover_note_end_date',
-])
+@Index('IDX_qcn_dates', ['cover_note_start_date', 'cover_note_end_date'])
 export class QuotationCoverNote {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -138,19 +135,12 @@ export class QuotationCoverNote {
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
 
-  @OneToOne(
-    () => Quotation,
-    (quotation) => quotation.cover_note,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
+  @OneToOne(() => Quotation, (quotation) => quotation.cover_note, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'quotation_id' })
   quotation: Quotation;
 
-  @OneToMany(
-    () => QuotationCoverNoteEntry,
-    (entry) => entry.cover_note,
-  )
+  @OneToMany(() => QuotationCoverNoteEntry, (entry) => entry.cover_note)
   entries: QuotationCoverNoteEntry[];
 }

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddClaimPaymentFieldsToTiramisClaims1783194327688
-  implements MigrationInterface
-{
+export class AddClaimPaymentFieldsToTiramisClaims1783194327688 implements MigrationInterface {
   name = 'AddClaimPaymentFieldsToTiramisClaims1783194327688';
 
   async up(queryRunner: QueryRunner): Promise<void> {

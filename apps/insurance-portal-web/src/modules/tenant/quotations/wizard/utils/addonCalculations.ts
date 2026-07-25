@@ -31,14 +31,17 @@ export function computeAddonAmounts(
   exchangeRate: number,
 ): AddonComputed {
   const premiumExcludingTax = Number(addon.premium_excluding_tax) || 0;
-  const rate = Number.isFinite(exchangeRate) && exchangeRate > 0 ? exchangeRate : 1;
+  const rate =
+    Number.isFinite(exchangeRate) && exchangeRate > 0 ? exchangeRate : 1;
   const premiumExcludingTaxEquivalent = premiumExcludingTax * rate;
 
   // tax_rate is a fraction (e.g. 0.18 for 18%), matching TIRA's own TaxRate
   // convention (<TaxRate>0.18</TaxRate>) rather than a whole-number percentage.
   const taxes = addon.taxes.map((tax) => ({
     tax_code: tax.tax_code,
-    tax_amount: tax.is_tax_exempted ? 0 : premiumExcludingTax * (Number(tax.tax_rate) || 0),
+    tax_amount: tax.is_tax_exempted
+      ? 0
+      : premiumExcludingTax * (Number(tax.tax_rate) || 0),
   }));
 
   const totalTax = taxes.reduce((sum, tax) => sum + tax.tax_amount, 0);
@@ -53,8 +56,15 @@ export function computeAddonAmounts(
 }
 
 /** Sum of premium-including-tax across all enabled add-on rows. */
-export function sumEnabledAddonsTotal(addons: QuotationWizardAddonRow[], exchangeRate: number): number {
+export function sumEnabledAddonsTotal(
+  addons: QuotationWizardAddonRow[],
+  exchangeRate: number,
+): number {
   return addons
     .filter((addon) => addon.enabled)
-    .reduce((total, addon) => total + computeAddonAmounts(addon, exchangeRate).premiumIncludingTax, 0);
+    .reduce(
+      (total, addon) =>
+        total + computeAddonAmounts(addon, exchangeRate).premiumIncludingTax,
+      0,
+    );
 }

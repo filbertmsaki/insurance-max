@@ -33,20 +33,22 @@ import { QuotationPolicyHolder } from './structured/quotation-policy-holder.enti
 @Entity('quotations')
 @Index('IDX_quotations_company_id', ['company_id'])
 @Index('IDX_quotations_company_status', ['company_id', 'status'])
-@Index('IDX_quotations_company_approval_status', ['company_id', 'approval_status'])
-@Index('IDX_quotations_company_payment_status', ['company_id', 'payment_status'])
+@Index('IDX_quotations_company_approval_status', [
+  'company_id',
+  'approval_status',
+])
+@Index('IDX_quotations_company_payment_status', [
+  'company_id',
+  'payment_status',
+])
 @Index('IDX_quotations_company_tira_status', ['company_id', 'tira_status'])
 @Index('IDX_quotations_company_customer_id', ['company_id', 'customer_id'])
 @Index('IDX_quotations_company_product_id', ['company_id', 'product_id'])
 @Index('IDX_quotations_company_flow', ['company_id', 'quotation_flow'])
-@Index(
-  'IDX_quotations_company_quotation_no',
-  ['company_id', 'quotation_no'],
-  {
-    unique: true,
-    where: 'deleted_at IS NULL',
-  },
-)
+@Index('IDX_quotations_company_quotation_no', ['company_id', 'quotation_no'], {
+  unique: true,
+  where: 'deleted_at IS NULL',
+})
 export class Quotation {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -282,16 +284,10 @@ export class Quotation {
   @JoinColumn({ name: 'sub_class_id' })
   sub_class: InsuranceSubClass | null;
 
-  @OneToOne(
-    () => QuotationCoverNote,
-    (coverNote) => coverNote.quotation,
-  )
+  @OneToOne(() => QuotationCoverNote, (coverNote) => coverNote.quotation)
   cover_note: QuotationCoverNote;
 
-  @OneToMany(
-    () => QuotationPolicyHolder,
-    (holder) => holder.quotation,
-  )
+  @OneToMany(() => QuotationPolicyHolder, (holder) => holder.quotation)
   policy_holders: QuotationPolicyHolder[];
 
   @OneToMany(() => QuotationStatusHistory, (history) => history.quotation)

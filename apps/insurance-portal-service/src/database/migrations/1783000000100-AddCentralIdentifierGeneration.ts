@@ -14,9 +14,7 @@ type ExistingIdentifierRow = {
   related_entity_id: string;
 };
 
-export class AddCentralIdentifierGeneration1783000000100
-  implements MigrationInterface
-{
+export class AddCentralIdentifierGeneration1783000000100 implements MigrationInterface {
   name = 'AddCentralIdentifierGeneration1783000000100';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -108,7 +106,9 @@ export class AddCentralIdentifierGeneration1783000000100
     `);
   }
 
-  private async backfillCompanyPrefixes(queryRunner: QueryRunner): Promise<void> {
+  private async backfillCompanyPrefixes(
+    queryRunner: QueryRunner,
+  ): Promise<void> {
     const companies = (await queryRunner.query(
       `
         SELECT id, name, identifier_prefix
@@ -219,7 +219,7 @@ export class AddCentralIdentifierGeneration1783000000100
       .split(/\s+/)
       .map((word) => word.replace(/[^A-Za-z0-9]/g, ''))
       .filter(Boolean)
-      .map((word) => word[0]!.toUpperCase())
+      .map((word) => word[0].toUpperCase())
       .join('')
       .replace(/[^A-Z0-9]/g, '');
   }

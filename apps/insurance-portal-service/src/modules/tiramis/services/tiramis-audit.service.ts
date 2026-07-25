@@ -69,13 +69,9 @@ export class TiramisAuditService {
           params.authContext?.id ||
           null,
         actorUserType:
-          params.authContext?.userType ||
-          params.authContext?.user_type ||
-          null,
+          params.authContext?.userType || params.authContext?.user_type || null,
         actorEmail:
-          params.authContext?.email ||
-          params.authContext?.userEmail ||
-          null,
+          params.authContext?.email || params.authContext?.userEmail || null,
         sourceModule: params.sourceModule || null,
         sourceRecordId: params.sourceRecordId || null,
         businessReference: params.businessReference || null,
@@ -300,7 +296,9 @@ export class TiramisAuditService {
       return null;
     }
 
-    const maxSize = Number(process.env.TIRAMIS_AUDIT_MAX_METADATA_SIZE || 20000);
+    const maxSize = Number(
+      process.env.TIRAMIS_AUDIT_MAX_METADATA_SIZE || 20000,
+    );
     let clone: any;
 
     try {

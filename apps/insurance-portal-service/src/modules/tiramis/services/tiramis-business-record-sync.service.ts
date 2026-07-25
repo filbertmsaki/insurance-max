@@ -118,10 +118,10 @@ export class TiramisBusinessRecordSyncService {
         WHERE ${idColumn} = $${filteredEntries.length + 1}
       `;
 
-      await this.dataSource.query(
-        sql,
-        [...filteredEntries.map(([, value]) => value), tracking.sourceRecordId],
-      );
+      await this.dataSource.query(sql, [
+        ...filteredEntries.map(([, value]) => value),
+        tracking.sourceRecordId,
+      ]);
 
       await this.trackingRepository.markBusinessRecordSynced(tracking.id);
 
@@ -159,9 +159,9 @@ export class TiramisBusinessRecordSyncService {
 
       const failedTracking =
         await this.trackingRepository.markBusinessRecordSyncFailed(
-        tracking.id,
-        error,
-      );
+          tracking.id,
+          error,
+        );
 
       await this.notificationService.notifyBusinessRecordSyncFailed({
         tracking: failedTracking || tracking,

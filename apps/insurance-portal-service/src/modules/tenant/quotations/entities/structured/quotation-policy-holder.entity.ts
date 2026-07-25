@@ -125,13 +125,9 @@ export class QuotationPolicyHolder {
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
 
-  @ManyToOne(
-    () => Quotation,
-    (quotation) => quotation.policy_holders,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
+  @ManyToOne(() => Quotation, (quotation) => quotation.policy_holders, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'quotation_id' })
   quotation: Quotation;
 

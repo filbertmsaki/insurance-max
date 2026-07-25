@@ -8,7 +8,8 @@ export function useDeleteDepartment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (departmentId: string) => departmentsApi.deleteDepartment(departmentId),
+    mutationFn: (departmentId: string) =>
+      departmentsApi.deleteDepartment(departmentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: departmentsKeys.lists() });
       toast.success('Department deleted');

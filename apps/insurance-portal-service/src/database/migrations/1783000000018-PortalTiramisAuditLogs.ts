@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class PortalTiramisAuditLogs1783000000018
-  implements MigrationInterface
-{
+export class PortalTiramisAuditLogs1783000000018 implements MigrationInterface {
   name = 'PortalTiramisAuditLogs1783000000018';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -77,7 +75,9 @@ export class PortalTiramisAuditLogs1783000000018
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_tiramis_audit_created_at"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_tiramis_audit_created_at"`,
+    );
     await queryRunner.query(
       `DROP INDEX IF EXISTS "idx_tiramis_audit_local_tracking_id"`,
     );
@@ -96,7 +96,9 @@ export class PortalTiramisAuditLogs1783000000018
     await queryRunner.query(
       `DROP INDEX IF EXISTS "idx_tiramis_audit_source_company_id"`,
     );
-    await queryRunner.query(`DROP INDEX IF EXISTS "idx_tiramis_audit_request_type"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "idx_tiramis_audit_request_type"`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_tiramis_audit_action"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "tiramis_audit_logs"`);
   }

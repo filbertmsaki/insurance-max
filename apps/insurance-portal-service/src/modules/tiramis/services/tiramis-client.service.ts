@@ -526,7 +526,7 @@ export class TiramisClientService {
       );
     }
 
-    const requestType = tracking.requestType as TiramisRequestType;
+    const requestType = tracking.requestType;
     const pattern = this.submitPatternMap[requestType];
 
     if (!pattern) {
@@ -544,7 +544,7 @@ export class TiramisClientService {
         this.resolveSourceModule({
           requestType,
           payload: tracking.requestPayload,
-        } as any),
+        }),
       sourceRecordId: tracking.sourceRecordId || null,
       policyId: tracking.policyId || null,
       quotationId: tracking.quotationId || null,
@@ -553,7 +553,7 @@ export class TiramisClientService {
         this.resolveBusinessReference({
           requestType,
           payload: tracking.requestPayload,
-        } as any),
+        }),
       requestType,
       payload: tracking.requestPayload,
     };
@@ -646,7 +646,7 @@ export class TiramisClientService {
                   ? { validation_errors: validationErrors }
                   : {}),
               }
-            : response ?? null,
+            : (response ?? null),
       });
     }
   }

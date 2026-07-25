@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateTiramisCallbackReceipts1783194327679
-  implements MigrationInterface
-{
+export class CreateTiramisCallbackReceipts1783194327679 implements MigrationInterface {
   name = 'CreateTiramisCallbackReceipts1783194327679';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

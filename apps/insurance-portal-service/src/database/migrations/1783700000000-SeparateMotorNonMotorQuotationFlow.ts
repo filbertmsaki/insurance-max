@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class SeparateMotorNonMotorQuotationFlow1783700000000
-  implements MigrationInterface
-{
+export class SeparateMotorNonMotorQuotationFlow1783700000000 implements MigrationInterface {
   name = 'SeparateMotorNonMotorQuotationFlow1783700000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -282,35 +280,87 @@ export class SeparateMotorNonMotorQuotationFlow1783700000000
     await queryRunner.query(`DROP TABLE IF EXISTS "quotation_addon_taxes"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "quotation_addons"`);
 
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_quotation_risks_quotation_client_ref"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_quotations_company_flow"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_insurance_products_supports_fleet"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_insurance_products_business_line"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_insurance_categories_business_line"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_quotation_risks_quotation_client_ref"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_quotations_company_flow"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_insurance_products_supports_fleet"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_insurance_products_business_line"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_insurance_categories_business_line"`,
+    );
 
-    await queryRunner.query(`ALTER TABLE "motor_fleet_items" DROP COLUMN IF EXISTS "risk_client_ref"`);
-    await queryRunner.query(`ALTER TABLE "non_motor_quotation_details" DROP COLUMN IF EXISTS "risk_client_ref"`);
-    await queryRunner.query(`ALTER TABLE "motor_quotation_details" DROP COLUMN IF EXISTS "risk_client_ref"`);
-    await queryRunner.query(`ALTER TABLE "quotation_premium_breakdowns" DROP COLUMN IF EXISTS "risk_client_ref"`);
-    await queryRunner.query(`ALTER TABLE "quotation_factor_values" DROP COLUMN IF EXISTS "risk_client_ref"`);
-    await queryRunner.query(`ALTER TABLE "quotation_risks" DROP COLUMN IF EXISTS "client_ref"`);
+    await queryRunner.query(
+      `ALTER TABLE "motor_fleet_items" DROP COLUMN IF EXISTS "risk_client_ref"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "non_motor_quotation_details" DROP COLUMN IF EXISTS "risk_client_ref"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "motor_quotation_details" DROP COLUMN IF EXISTS "risk_client_ref"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "quotation_premium_breakdowns" DROP COLUMN IF EXISTS "risk_client_ref"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "quotation_factor_values" DROP COLUMN IF EXISTS "risk_client_ref"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "quotation_risks" DROP COLUMN IF EXISTS "client_ref"`,
+    );
 
-    await queryRunner.query(`ALTER TABLE "quotations" DROP COLUMN IF EXISTS "officer_title"`);
-    await queryRunner.query(`ALTER TABLE "quotations" DROP COLUMN IF EXISTS "officer_name"`);
-    await queryRunner.query(`ALTER TABLE "quotations" DROP COLUMN IF EXISTS "payment_mode_tira"`);
-    await queryRunner.query(`ALTER TABLE "quotations" DROP COLUMN IF EXISTS "sale_point_code"`);
-    await queryRunner.query(`ALTER TABLE "quotations" DROP COLUMN IF EXISTS "prev_cover_note_reference_number"`);
-    await queryRunner.query(`ALTER TABLE "quotations" DROP COLUMN IF EXISTS "cover_note_type"`);
-    await queryRunner.query(`ALTER TABLE "quotations" DROP COLUMN IF EXISTS "exchange_rate"`);
-    await queryRunner.query(`ALTER TABLE "quotations" DROP COLUMN IF EXISTS "is_fleet"`);
-    await queryRunner.query(`ALTER TABLE "quotations" DROP COLUMN IF EXISTS "quotation_flow"`);
+    await queryRunner.query(
+      `ALTER TABLE "quotations" DROP COLUMN IF EXISTS "officer_title"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "quotations" DROP COLUMN IF EXISTS "officer_name"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "quotations" DROP COLUMN IF EXISTS "payment_mode_tira"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "quotations" DROP COLUMN IF EXISTS "sale_point_code"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "quotations" DROP COLUMN IF EXISTS "prev_cover_note_reference_number"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "quotations" DROP COLUMN IF EXISTS "cover_note_type"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "quotations" DROP COLUMN IF EXISTS "exchange_rate"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "quotations" DROP COLUMN IF EXISTS "is_fleet"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "quotations" DROP COLUMN IF EXISTS "quotation_flow"`,
+    );
 
-    await queryRunner.query(`ALTER TABLE "insurance_products" DROP COLUMN IF EXISTS "tiramis_product_code"`);
-    await queryRunner.query(`ALTER TABLE "insurance_products" DROP COLUMN IF EXISTS "supports_fleet"`);
-    await queryRunner.query(`ALTER TABLE "insurance_products" DROP COLUMN IF EXISTS "business_line"`);
-    await queryRunner.query(`ALTER TABLE "insurance_categories" DROP COLUMN IF EXISTS "business_line"`);
+    await queryRunner.query(
+      `ALTER TABLE "insurance_products" DROP COLUMN IF EXISTS "tiramis_product_code"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "insurance_products" DROP COLUMN IF EXISTS "supports_fleet"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "insurance_products" DROP COLUMN IF EXISTS "business_line"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "insurance_categories" DROP COLUMN IF EXISTS "business_line"`,
+    );
 
-    await queryRunner.query(`DROP TYPE IF EXISTS "public"."quotation_flow_enum"`);
-    await queryRunner.query(`DROP TYPE IF EXISTS "public"."insurance_business_line_enum"`);
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS "public"."quotation_flow_enum"`,
+    );
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS "public"."insurance_business_line_enum"`,
+    );
   }
 }

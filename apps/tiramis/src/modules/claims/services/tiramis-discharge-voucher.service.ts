@@ -72,8 +72,7 @@ export class TiramisDischargeVoucherService {
         sourceMetadata?.quotationId ||
         resolvedDto.dischargeVoucherNumber,
       businessReference:
-        sourceMetadata?.businessReference ||
-        resolvedDto.dischargeVoucherNumber,
+        sourceMetadata?.businessReference || resolvedDto.dischargeVoucherNumber,
       originalRequestId: requestId,
     });
 
@@ -112,9 +111,8 @@ export class TiramisDischargeVoucherService {
       claimants: resolvedDto.claimants as any,
     });
 
-    const savedDischargeVoucher = await this.dischargeVoucherRepository.save(
-      dischargeVoucher,
-    );
+    const savedDischargeVoucher =
+      await this.dischargeVoucherRepository.save(dischargeVoucher);
 
     return {
       transaction,
@@ -137,12 +135,11 @@ export class TiramisDischargeVoucherService {
       sourceMetadata,
     );
 
-    const payload = this.dischargeVoucherPayloadService.buildDischargeVoucherPayload(
-      {
+    const payload =
+      this.dischargeVoucherPayloadService.buildDischargeVoucherPayload({
         dto: resolvedDto,
         requestId: record.requestId,
-      },
-    );
+      });
 
     const submission = await this.businessSubmissionService.submitSignedXml({
       configuration,
@@ -179,12 +176,11 @@ export class TiramisDischargeVoucherService {
 
     const requestId = this.tiramisRequestIdService.generate('AIC');
 
-    const payload = this.dischargeVoucherPayloadService.buildDischargeVoucherPayload(
-      {
+    const payload =
+      this.dischargeVoucherPayloadService.buildDischargeVoucherPayload({
         dto: resolvedDto,
         requestId,
-      },
-    );
+      });
 
     const preview = await this.businessSubmissionService.previewSignedXml({
       configuration,
@@ -215,9 +211,8 @@ export class TiramisDischargeVoucherService {
   }
 
   async findByRequestId(requestId: string) {
-    const record = await this.dischargeVoucherRepository.findByRequestId(
-      requestId,
-    );
+    const record =
+      await this.dischargeVoucherRepository.findByRequestId(requestId);
 
     if (!record) {
       throw new NotFoundException('TIRAMIS discharge voucher record not found');
@@ -287,21 +282,13 @@ export class TiramisDischargeVoucherService {
     }
   }
 
-  private requireString(
-    value: unknown,
-    fieldName: string,
-    errors: string[],
-  ) {
+  private requireString(value: unknown, fieldName: string, errors: string[]) {
     if (value === null || value === undefined || String(value).trim() === '') {
       errors.push(`${fieldName} is required`);
     }
   }
 
-  private requireDate(
-    value: unknown,
-    fieldName: string,
-    errors: string[],
-  ) {
+  private requireDate(value: unknown, fieldName: string, errors: string[]) {
     if (
       value === null ||
       value === undefined ||

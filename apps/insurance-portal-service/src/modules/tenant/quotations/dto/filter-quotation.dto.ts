@@ -1,9 +1,4 @@
-import {
-  IsEnum,
-  IsOptional,
-  IsString,
-  IsUUID,
-} from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 import { PaginationDto } from '@insurance-max/portal-shared/dto/pagination.dto';
 import { QuotationFlow } from '../enums/quotation-flow.enum';
 import { QuotationStatus } from '../enums/quotation-status.enum';

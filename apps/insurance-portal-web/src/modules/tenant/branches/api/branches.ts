@@ -69,7 +69,9 @@ export const branchesApi = {
   /** Convenience: fetch all branches for selectors and client-side filtering */
   getAllBranches: () =>
     apiClient
-      .get<PaginatedResponse<Branch>>('/branches', { params: { limit: API_MAX_LIST_LIMIT } })
+      .get<
+        PaginatedResponse<Branch>
+      >('/branches', { params: { limit: API_MAX_LIST_LIMIT } })
       .then((r) => r.data.data),
 
   /** POST /branches — create a new branch (requires branches:create) */

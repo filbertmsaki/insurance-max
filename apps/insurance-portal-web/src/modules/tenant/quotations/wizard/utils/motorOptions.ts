@@ -24,7 +24,9 @@ export function getVehicleCategoryLabelFromCode(
 export function getMotorCategoryCodeFromVehicleCategory(
   vehicleCategory: string | number | null | undefined,
 ) {
-  const normalized = String(vehicleCategory ?? '').trim().toLowerCase();
+  const normalized = String(vehicleCategory ?? '')
+    .trim()
+    .toLowerCase();
   if (normalized === '1' || normalized === 'motor vehicle') return '1';
   if (
     normalized === '2' ||

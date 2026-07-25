@@ -179,20 +179,15 @@ export function formatDateTime(value?: string | null) {
 }
 
 export function getSubmissionDetailId(
-  submission?:
-    | {
-        id?: string | null;
-        localTrackingId?: string | null;
-      }
-    | null,
+  submission?: {
+    id?: string | null;
+    localTrackingId?: string | null;
+  } | null,
 ) {
   return submission?.localTrackingId ?? submission?.id ?? null;
 }
 
-function toNumber(
-  value: unknown,
-  fallback = 0,
-): number {
+function toNumber(value: unknown, fallback = 0): number {
   if (value === null || value === undefined || value === '') return fallback;
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -264,7 +259,7 @@ function deriveRiskPremium(risk: TiramisRiskSource) {
   const totalPremium = toNumber(
     risk.total_premium,
     snapshotField(snapshot, 'premium_including_tax') != null
-      ? toNumber(snapshotField(snapshot, 'premium_including_tax') as any)
+      ? toNumber(snapshotField(snapshot, 'premium_including_tax'))
       : basePremium + taxAmount + snapshotTaxAmount,
   );
 
@@ -376,7 +371,7 @@ function buildRiskPayload(
   const pricing = deriveRiskPremium(risk);
   const snapshot = getRiskSnapshot(risk);
   const premiumBeforeDiscount =
-    toNumber(snapshotField(snapshot, 'premium_before_discount') as any) ||
+    toNumber(snapshotField(snapshot, 'premium_before_discount')) ||
     pricing.basePremium + pricing.discountAmount;
 
   return {
@@ -392,14 +387,13 @@ function buildRiskPayload(
     ),
     PremiumBeforeDiscount: premiumBeforeDiscount,
     PremiumAfterDiscount:
-      toNumber(snapshotField(snapshot, 'premium_after_discount') as any) ||
+      toNumber(snapshotField(snapshot, 'premium_after_discount')) ||
       pricing.basePremium,
     PremiumExcludingTaxEquivalent:
-      toNumber(
-        snapshotField(snapshot, 'premium_excluding_tax_equivalent') as any,
-      ) || pricing.basePremium,
+      toNumber(snapshotField(snapshot, 'premium_excluding_tax_equivalent')) ||
+      pricing.basePremium,
     PremiumIncludingTax:
-      toNumber(snapshotField(snapshot, 'premium_including_tax') as any) ||
+      toNumber(snapshotField(snapshot, 'premium_including_tax')) ||
       pricing.totalPremium,
     DiscountsOffered: buildDiscounts(breakdowns, risk),
     TaxesCharged: buildTaxes(breakdowns, risk),

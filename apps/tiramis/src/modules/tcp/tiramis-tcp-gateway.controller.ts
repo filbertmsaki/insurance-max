@@ -55,7 +55,7 @@ export class TiramisTcpGatewayController {
         {
           ...this.toDto(command),
           isFleet: true,
-        } as any,
+        },
         this.buildSourceMetadata(command),
       );
     });
@@ -66,7 +66,8 @@ export class TiramisTcpGatewayController {
     return this.handleSubmit(
       PATTERNS.SUBMIT_COVER_NOTE_VERIFICATION,
       command,
-      async () => this.verificationService.verifyCoverNote(command.payload as any),
+      async () =>
+        this.verificationService.verifyCoverNote(command.payload as any),
     );
   }
 
@@ -93,7 +94,8 @@ export class TiramisTcpGatewayController {
     return this.handleSubmit(
       PATTERNS.SUBMIT_COMPANY_VERIFICATION,
       command,
-      async () => this.verificationService.verifyCompany(command.payload as any),
+      async () =>
+        this.verificationService.verifyCompany(command.payload as any),
     );
   }
 
@@ -102,7 +104,8 @@ export class TiramisTcpGatewayController {
     return this.handleSubmit(
       PATTERNS.SUBMIT_DETAILS_VERIFICATION,
       command,
-      async () => this.verificationService.verifyDetails(command.payload as any),
+      async () =>
+        this.verificationService.verifyDetails(command.payload as any),
     );
   }
 
@@ -269,7 +272,8 @@ export class TiramisTcpGatewayController {
         result?.tiraHttpResponse ||
         (responseRecord
           ? {
-              acknowledgementStatusCode: responseRecord.responseStatusCode || null,
+              acknowledgementStatusCode:
+                responseRecord.responseStatusCode || null,
               acknowledgementStatusDesc:
                 responseRecord.responseStatusDesc || null,
               rawXml: responseRecord.rawResponseXml || null,

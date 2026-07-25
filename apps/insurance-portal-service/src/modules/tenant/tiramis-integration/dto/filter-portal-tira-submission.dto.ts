@@ -46,5 +46,4 @@ export class FilterPortalTiraSubmissionDto extends PaginationDto {
   @IsString()
   @Transform(({ value, obj }) => value ?? obj?.source_module)
   declare sourceModule?: string;
-
 }

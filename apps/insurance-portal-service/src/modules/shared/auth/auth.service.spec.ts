@@ -75,16 +75,16 @@ describe('AuthService', () => {
           useValue: {
             findByEmailForAuth: jest.fn(),
             findById: jest.fn(),
-              updateLastLogin: jest.fn(),
-              incrementLoginAttempts: jest.fn(),
-              resetLoginAttempts: jest.fn(),
-              lockAccount: jest.fn(),
-              findByEmail: jest.fn(),
-              findByPhone: jest.fn(),
-              updateVerificationToken: jest.fn(),
-              markEmailVerified: jest.fn(),
-              findByVerificationToken: jest.fn(),
-              updatePassword: jest.fn(),
+            updateLastLogin: jest.fn(),
+            incrementLoginAttempts: jest.fn(),
+            resetLoginAttempts: jest.fn(),
+            lockAccount: jest.fn(),
+            findByEmail: jest.fn(),
+            findByPhone: jest.fn(),
+            updateVerificationToken: jest.fn(),
+            markEmailVerified: jest.fn(),
+            findByVerificationToken: jest.fn(),
+            updatePassword: jest.fn(),
           },
         },
         {
@@ -205,9 +205,9 @@ describe('AuthService', () => {
         ...mockUser,
         locked_until: new Date(Date.now() + 60000),
       } as any);
-      await expect(service.validateUser(mockUser.email, 'pass')).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.validateUser(mockUser.email, 'pass'),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('returns the user even when account is inactive; status is enforced during login', async () => {

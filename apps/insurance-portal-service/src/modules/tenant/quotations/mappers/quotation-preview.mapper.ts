@@ -73,9 +73,7 @@ export class QuotationPreviewMapper {
     const header = this.buildOverview(quotation);
     const coverNotePreview = this.buildCoverNote(quotation, coverNote);
     const policyholders = this.mapPolicyHolders(quotation.policy_holders);
-    const risks = isFleet
-      ? []
-      : this.mapRisks(entries[0]?.risks ?? []);
+    const risks = isFleet ? [] : this.mapRisks(entries[0]?.risks ?? []);
     const subjectMatters = isFleet
       ? []
       : this.mapSubjectMatters(entries[0]?.subject_matters ?? []);
@@ -86,11 +84,16 @@ export class QuotationPreviewMapper {
       : null;
 
     const payment = this.buildPaymentPreview(quotation, relations);
-    const tiramis = this.buildTiramisPreview(quotation, coverNote, entries, relations);
+    const tiramis = this.buildTiramisPreview(
+      quotation,
+      coverNote,
+      entries,
+      relations,
+    );
     const history = this.buildHistoryPreview(
       quotation,
       relations,
-      isFleet ? fleet?.vehicles ?? [] : undefined,
+      isFleet ? (fleet?.vehicles ?? []) : undefined,
     );
 
     return {
@@ -119,9 +122,7 @@ export class QuotationPreviewMapper {
       quotation.branch?.sale_point_code ??
       null;
     const salesPointName =
-      quotation.branch?.sale_point_name ??
-      quotation.branch?.name ??
-      null;
+      quotation.branch?.sale_point_name ?? quotation.branch?.name ?? null;
 
     return {
       quotation_id: quotation.id,
@@ -172,7 +173,8 @@ export class QuotationPreviewMapper {
       cover_note_number: entry?.cover_note_number ?? null,
       previous_cover_note_reference_number:
         entry?.prev_cover_note_reference_number ?? null,
-      cover_note_start_date: coverNote.cover_note_start_date?.toISOString() ?? null,
+      cover_note_start_date:
+        coverNote.cover_note_start_date?.toISOString() ?? null,
       cover_note_end_date: coverNote.cover_note_end_date?.toISOString() ?? null,
       cover_note_description: entry?.cover_note_desc ?? null,
       operative_clause: entry?.operative_clause ?? null,
@@ -253,12 +255,14 @@ export class QuotationPreviewMapper {
 
     return {
       total_sum_insured: totalSumInsured,
-      total_premium_before_discount: totalRiskPremium + totalAddonPremium + totalTax,
+      total_premium_before_discount:
+        totalRiskPremium + totalAddonPremium + totalTax,
       total_discount_amount: risks.reduce(
         (sum, risk) =>
           sum +
           risk.discounts.reduce(
-            (discountSum, discount) => discountSum + (discount.discount_amount ?? 0),
+            (discountSum, discount) =>
+              discountSum + (discount.discount_amount ?? 0),
             0,
           ),
         0,
@@ -390,7 +394,10 @@ export class QuotationPreviewMapper {
           [...vehicle.risks, ...vehicle.addons].reduce(
             (taxableSum, item) =>
               taxableSum +
-              item.taxes.reduce((taxSum, tax) => taxSum + (tax.tax_amount ?? 0), 0),
+              item.taxes.reduce(
+                (taxSum, tax) => taxSum + (tax.tax_amount ?? 0),
+                0,
+              ),
             0,
           ),
         0,
@@ -399,14 +406,15 @@ export class QuotationPreviewMapper {
         this.toNumber(coverNote.total_premium_excluding_tax) ?? 0,
       total_premium_including_tax:
         this.toNumber(coverNote.total_premium_including_tax) ?? 0,
-      successful_entries: vehicles.filter(
-        (vehicle) => this.tiramisStatus(vehicle.tiramis)?.includes('SUCCESS'),
+      successful_entries: vehicles.filter((vehicle) =>
+        this.tiramisStatus(vehicle.tiramis)?.includes('SUCCESS'),
       ).length,
-      failed_entries: vehicles.filter(
-        (vehicle) => this.tiramisStatus(vehicle.tiramis)?.includes('FAILED'),
+      failed_entries: vehicles.filter((vehicle) =>
+        this.tiramisStatus(vehicle.tiramis)?.includes('FAILED'),
       ).length,
       pending_entries: vehicles.filter(
-        (vehicle) => !vehicle.tiramis || this.tiramisStatus(vehicle.tiramis) === 'PENDING',
+        (vehicle) =>
+          !vehicle.tiramis || this.tiramisStatus(vehicle.tiramis) === 'PENDING',
       ).length,
     };
   }
@@ -437,7 +445,11 @@ export class QuotationPreviewMapper {
       subject_matters: this.mapSubjectMatters(entry.subject_matters),
       addons: this.mapAddons(entry.addons),
       motor_details: this.mapMotorDetail(entry.motor_detail),
-      tiramis: this.mapTiramisSubmission(quotation, entry.cover_note_number, tracking),
+      tiramis: this.mapTiramisSubmission(
+        quotation,
+        entry.cover_note_number,
+        tracking,
+      ),
     };
   }
 
@@ -455,7 +467,9 @@ export class QuotationPreviewMapper {
 
     return {
       quotation_payment_status: quotation.payment_status,
-      payment_status: this.text(invoice?.status ?? receipt?.status ?? paymentTransaction?.status),
+      payment_status: this.text(
+        invoice?.status ?? receipt?.status ?? paymentTransaction?.status,
+      ),
       payment_method: this.text(receipt?.payment_method),
       payment_reference: this.text(
         receipt?.payment_reference ?? paymentTransaction?.provider_reference,
@@ -469,7 +483,9 @@ export class QuotationPreviewMapper {
         null,
       currency: this.text(receipt?.currency ?? invoice?.currency),
       outstanding_amount: this.toNumber(invoice?.balance_amount),
-      verification_status: this.text(paymentTransaction?.status ?? receipt?.status),
+      verification_status: this.text(
+        paymentTransaction?.status ?? receipt?.status,
+      ),
       invoice_number: this.text(invoice?.invoice_no),
     };
   }
@@ -488,21 +504,25 @@ export class QuotationPreviewMapper {
     }
 
     const eventHistory = relations.portalSubmissionEvents ?? [];
-    const acknowledgementEvent = eventHistory.find((event) =>
-      event.event_type === 'TIRAMIS_ACK_RECEIVED' ||
-      event.event_type === 'TIRAMIS_ACK_FAILED',
+    const acknowledgementEvent = eventHistory.find(
+      (event) =>
+        event.event_type === 'TIRAMIS_ACK_RECEIVED' ||
+        event.event_type === 'TIRAMIS_ACK_FAILED',
     );
-    const callbackEvent = eventHistory.find((event) =>
-      event.event_type === 'TIRAMIS_FINAL_RESPONSE_RECEIVED' ||
-      event.event_type === 'TIRAMIS_FINAL_SUCCESS' ||
-      event.event_type === 'TIRAMIS_FINAL_FAILED' ||
-      event.event_type === 'TIRAMIS_CALLBACK_REJECTED',
+    const callbackEvent = eventHistory.find(
+      (event) =>
+        event.event_type === 'TIRAMIS_FINAL_RESPONSE_RECEIVED' ||
+        event.event_type === 'TIRAMIS_FINAL_SUCCESS' ||
+        event.event_type === 'TIRAMIS_FINAL_FAILED' ||
+        event.event_type === 'TIRAMIS_CALLBACK_REJECTED',
     );
 
     return {
       source: this.determineTiramisSource(quotation),
       submission_status: this.text(submission?.status ?? tracking?.status),
-      request_id: this.text(submission?.tiramis_request_id ?? tracking?.tiramisRequestId),
+      request_id: this.text(
+        submission?.tiramis_request_id ?? tracking?.tiramisRequestId,
+      ),
       submission_attempt_number: this.toNumber(
         tracking?.syncAttempts ??
           tracking?.retryAttempts ??
@@ -513,8 +533,12 @@ export class QuotationPreviewMapper {
         tracking?.submittedAt?.toISOString() ??
         null,
       submitted_by: this.userLabel(quotation.submitter),
-      tiramis_environment: this.text(submission?.service_type ?? tracking?.tiramisServiceType),
-      last_submission_error: this.text(submission?.last_error ?? tracking?.lastErrorMessage),
+      tiramis_environment: this.text(
+        submission?.service_type ?? tracking?.tiramisServiceType,
+      ),
+      last_submission_error: this.text(
+        submission?.last_error ?? tracking?.lastErrorMessage,
+      ),
       next_retry_time: tracking?.nextRetryAt?.toISOString() ?? null,
       acknowledgement_id: this.text(
         acknowledgementEvent?.response_id ?? submission?.tiramis_response_id,
@@ -529,13 +553,17 @@ export class QuotationPreviewMapper {
         acknowledgementEvent?.created_at?.toISOString() ??
         tracking?.acknowledgedAt?.toISOString() ??
         null,
-      callback_received_status: this.text(callbackEvent?.status_description ?? tracking?.finalResponseStatusDesc),
+      callback_received_status: this.text(
+        callbackEvent?.status_description ?? tracking?.finalResponseStatusDesc,
+      ),
       callback_received_date:
         callbackEvent?.created_at?.toISOString() ??
         tracking?.finalResponseReceivedAt?.toISOString() ??
         null,
       response_id: this.text(
-        callbackEvent?.response_id ?? submission?.tiramis_response_id ?? tracking?.finalResponseId,
+        callbackEvent?.response_id ??
+          submission?.tiramis_response_id ??
+          tracking?.finalResponseId,
       ),
       response_status_code: this.text(
         callbackEvent?.status_code ?? tracking?.finalResponseStatusCode,
@@ -622,13 +650,19 @@ export class QuotationPreviewMapper {
       history.push({
         action: 'Payment confirmed',
         previous_status: null,
-        new_status: relations.receipt?.status ?? relations.paymentTransaction?.status ?? null,
+        new_status:
+          relations.receipt?.status ??
+          relations.paymentTransaction?.status ??
+          null,
         performed_by: null,
         date_time:
           relations.receipt?.received_at?.toISOString() ??
           relations.paymentTransaction?.created_at?.toISOString() ??
           null,
-        remarks: relations.receipt?.payment_reference ?? relations.paymentTransaction?.provider_reference ?? null,
+        remarks:
+          relations.receipt?.payment_reference ??
+          relations.paymentTransaction?.provider_reference ??
+          null,
       });
     }
 
@@ -640,7 +674,9 @@ export class QuotationPreviewMapper {
             previous_status: null,
             new_status: vehicle.tiramis.submission_status,
             performed_by: null,
-            date_time: vehicle.tiramis.callback_received_date ?? vehicle.tiramis.acknowledgement_received_date,
+            date_time:
+              vehicle.tiramis.callback_received_date ??
+              vehicle.tiramis.acknowledgement_received_date,
             remarks: vehicle.tiramis.last_submission_error,
           });
         }
@@ -649,7 +685,9 @@ export class QuotationPreviewMapper {
 
     return history
       .filter((item) => item.date_time)
-      .sort((left, right) => String(right.date_time).localeCompare(String(left.date_time)));
+      .sort((left, right) =>
+        String(right.date_time).localeCompare(String(left.date_time)),
+      );
   }
 
   private mapPolicyHolders(
@@ -659,7 +697,9 @@ export class QuotationPreviewMapper {
       policyholder_type: this.policyholderTypeLabel(holder.policy_holder_type),
       full_name: holder.policy_holder_name,
       date_of_birth: holder.policy_holder_birth_date ?? null,
-      identification_type: this.policyholderIdTypeLabel(holder.policy_holder_id_type),
+      identification_type: this.policyholderIdTypeLabel(
+        holder.policy_holder_id_type,
+      ),
       identification_number: holder.policy_holder_id_number,
       gender: this.genderLabel(holder.gender),
       country: holder.country_code,
@@ -673,11 +713,16 @@ export class QuotationPreviewMapper {
     }));
   }
 
-  private mapRisks(risks: QuotationEntryRisk[] | undefined): QuotationPreviewRisk[] {
+  private mapRisks(
+    risks: QuotationEntryRisk[] | undefined,
+  ): QuotationPreviewRisk[] {
     return this.sortedBySequence(risks).map((risk, index) => ({
       risk_number: risk.sequence_no ?? index + 1,
       risk_code: risk.risk_code ?? null,
-      risk_name: risk.insurance_risk?.risk_name ?? risk.insurance_risk?.risk_code ?? null,
+      risk_name:
+        risk.insurance_risk?.risk_name ??
+        risk.insurance_risk?.risk_code ??
+        null,
       sum_insured: this.toNumber(risk.sum_insured),
       sum_insured_equivalent: this.toNumber(risk.sum_insured_equivalent),
       premium_rate: this.toNumber(risk.premium_rate),
@@ -801,21 +846,37 @@ export class QuotationPreviewMapper {
     }
 
     return {
-      source: quotation.quotation_flow === QuotationFlow.MOTOR_FLEET ? 'fleet' : 'quotation',
+      source:
+        quotation.quotation_flow === QuotationFlow.MOTOR_FLEET
+          ? 'fleet'
+          : 'quotation',
       submission_status: this.text(tracking?.status),
       request_id: this.text(tracking?.tiramisRequestId),
-      submission_attempt_number: this.toNumber(tracking?.syncAttempts ?? tracking?.retryAttempts),
-      date_submitted: tracking?.submittedAt?.toISOString() ?? quotation.submitted_at?.toISOString() ?? null,
+      submission_attempt_number: this.toNumber(
+        tracking?.syncAttempts ?? tracking?.retryAttempts,
+      ),
+      date_submitted:
+        tracking?.submittedAt?.toISOString() ??
+        quotation.submitted_at?.toISOString() ??
+        null,
       submitted_by: this.userLabel(quotation.submitter),
       tiramis_environment: this.text(tracking?.tiramisServiceType),
-      last_submission_error: this.text(tracking?.lastErrorMessage ?? tracking?.retryErrorMessage),
+      last_submission_error: this.text(
+        tracking?.lastErrorMessage ?? tracking?.retryErrorMessage,
+      ),
       next_retry_time: tracking?.nextRetryAt?.toISOString() ?? null,
       acknowledgement_id: this.text(tracking?.tiramisRequestId),
-      acknowledgement_status_code: this.text(tracking?.acknowledgementStatusCode),
-      acknowledgement_status_description: this.text(tracking?.acknowledgementStatusDesc),
-      acknowledgement_received_date: tracking?.acknowledgedAt?.toISOString() ?? null,
+      acknowledgement_status_code: this.text(
+        tracking?.acknowledgementStatusCode,
+      ),
+      acknowledgement_status_description: this.text(
+        tracking?.acknowledgementStatusDesc,
+      ),
+      acknowledgement_received_date:
+        tracking?.acknowledgedAt?.toISOString() ?? null,
       callback_received_status: this.text(tracking?.finalResponseStatusDesc),
-      callback_received_date: tracking?.finalResponseReceivedAt?.toISOString() ?? null,
+      callback_received_date:
+        tracking?.finalResponseReceivedAt?.toISOString() ?? null,
       response_id: this.text(tracking?.finalResponseId),
       response_status_code: this.text(tracking?.finalResponseStatusCode),
       response_status_description: this.text(tracking?.finalResponseStatusDesc),
@@ -823,8 +884,10 @@ export class QuotationPreviewMapper {
         tracking?.businessReference ?? businessReference,
       ),
       sticker_number: this.text(
-        tracking?.finalResponsePayload && typeof tracking.finalResponsePayload === 'object'
-          ? (tracking.finalResponsePayload as Record<string, unknown>).stickerNumber as string | undefined
+        tracking?.finalResponsePayload &&
+          typeof tracking.finalResponsePayload === 'object'
+          ? (tracking.finalResponsePayload as Record<string, unknown>)
+              .stickerNumber
           : undefined,
       ),
     };
@@ -874,7 +937,10 @@ export class QuotationPreviewMapper {
     return {
       id: user.id ?? null,
       code: user.user_no ?? null,
-      name: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || null,
+      name:
+        [user.first_name, user.last_name].filter(Boolean).join(' ') ||
+        user.email ||
+        null,
       description: user.email ?? null,
     };
   }
@@ -894,7 +960,12 @@ export class QuotationPreviewMapper {
       return null;
     }
 
-    return [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email || user.user_no || null;
+    return (
+      [user.first_name, user.last_name].filter(Boolean).join(' ') ||
+      user.email ||
+      user.user_no ||
+      null
+    );
   }
 
   private statusActionLabel(status: string) {
@@ -1055,7 +1126,9 @@ export class QuotationPreviewMapper {
     if (quotation.quotation_flow === QuotationFlow.MOTOR_FLEET) {
       return 'fleet';
     }
-    return quotation.quotation_type === QuotationType.MOTOR ? 'quotation' : 'quotation';
+    return quotation.quotation_type === QuotationType.MOTOR
+      ? 'quotation'
+      : 'quotation';
   }
 
   private vehicleIsComprehensive(vehicle: QuotationPreviewFleetVehicle) {
@@ -1063,9 +1136,7 @@ export class QuotationPreviewMapper {
     return !status || !status.includes('THIRD');
   }
 
-  private tiramisStatus(
-    submission: QuotationPreviewTiramisSubmission | null,
-  ) {
+  private tiramisStatus(submission: QuotationPreviewTiramisSubmission | null) {
     return submission?.submission_status?.toUpperCase() ?? 'PENDING';
   }
 

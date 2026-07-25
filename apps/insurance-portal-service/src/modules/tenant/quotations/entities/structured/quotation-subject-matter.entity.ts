@@ -44,13 +44,9 @@ export class QuotationSubjectMatter {
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
 
-  @ManyToOne(
-    () => QuotationCoverNoteEntry,
-    (entry) => entry.subject_matters,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
+  @ManyToOne(() => QuotationCoverNoteEntry, (entry) => entry.subject_matters, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'entry_id' })
   entry: QuotationCoverNoteEntry;
 }

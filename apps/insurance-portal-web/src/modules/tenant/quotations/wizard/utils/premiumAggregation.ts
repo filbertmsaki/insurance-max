@@ -50,7 +50,7 @@ function sumField(
   field: keyof QuotationRiskFormRow,
 ) {
   return rows.reduce((total, row) => {
-    const value = Number(row[field] as string);
+    const value = Number(row[field]);
     return total + (Number.isFinite(value) ? value : 0);
   }, 0);
 }

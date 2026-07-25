@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-} from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import {
   CoverNoteAddonDto,
   CoverNoteDetailDto,
@@ -132,7 +129,9 @@ export class QuotationPayloadMapper {
       fleet_id: coverNote.fleet_id,
       currency_code: coverNote.currency_code,
       product_code: coverNote.product_code,
-      cover_note_start_date: formatTiramisDateTime(coverNote.cover_note_start_date),
+      cover_note_start_date: formatTiramisDateTime(
+        coverNote.cover_note_start_date,
+      ),
       cover_note_end_date: formatTiramisDateTime(coverNote.cover_note_end_date),
       total_premium_excluding_tax: this.toNumber(
         coverNote.total_premium_excluding_tax,
@@ -196,7 +195,9 @@ export class QuotationPayloadMapper {
       cover_note_number: entry.cover_note_number,
       prev_cover_note_reference_number: entry.prev_cover_note_reference_number,
       sale_point_code: coverNote.sale_point_code,
-      cover_note_start_date: formatTiramisDateTime(coverNote.cover_note_start_date),
+      cover_note_start_date: formatTiramisDateTime(
+        coverNote.cover_note_start_date,
+      ),
       cover_note_end_date: formatTiramisDateTime(coverNote.cover_note_end_date),
       cover_note_desc: entry.cover_note_desc,
       operative_clause: entry.operative_clause,
@@ -214,8 +215,14 @@ export class QuotationPayloadMapper {
       /*
        * Preserve the authoritative external spelling.
        */
-      commision_paid: this.toNumber(coverNote.commission_paid, 'commission_paid'),
-      commision_rate: this.toNumber(coverNote.commission_rate, 'commission_rate'),
+      commision_paid: this.toNumber(
+        coverNote.commission_paid,
+        'commission_paid',
+      ),
+      commision_rate: this.toNumber(
+        coverNote.commission_rate,
+        'commission_rate',
+      ),
       officer_name: coverNote.officer_name,
       officer_title: coverNote.officer_title,
       product_code: coverNote.product_code,
@@ -272,7 +279,9 @@ export class QuotationPayloadMapper {
         'comprehensive_insured',
       ),
       sale_point_code: coverNote.sale_point_code,
-      cover_note_start_date: formatTiramisDateTime(coverNote.cover_note_start_date),
+      cover_note_start_date: formatTiramisDateTime(
+        coverNote.cover_note_start_date,
+      ),
       cover_note_end_date: formatTiramisDateTime(coverNote.cover_note_end_date),
       payment_mode: coverNote.payment_mode,
       currency_code: coverNote.currency_code,
@@ -285,8 +294,14 @@ export class QuotationPayloadMapper {
         coverNote.total_premium_including_tax,
         'total_premium_including_tax',
       ),
-      commision_paid: this.toNumber(coverNote.commission_paid, 'commission_paid'),
-      commision_rate: this.toNumber(coverNote.commission_rate, 'commission_rate'),
+      commision_paid: this.toNumber(
+        coverNote.commission_paid,
+        'commission_paid',
+      ),
+      commision_rate: this.toNumber(
+        coverNote.commission_rate,
+        'commission_rate',
+      ),
       officer_name: coverNote.officer_name,
       officer_title: coverNote.officer_title,
       product_code: coverNote.product_code,
@@ -354,7 +369,10 @@ export class QuotationPayloadMapper {
     return this.sortedBySequence(risk.discounts).map((discount) => ({
       discount_type: discount.discount_type,
       discount_rate: this.toNumber(discount.discount_rate, 'discount_rate'),
-      discount_amount: this.toNumber(discount.discount_amount, 'discount_amount'),
+      discount_amount: this.toNumber(
+        discount.discount_amount,
+        'discount_amount',
+      ),
     }));
   }
 
@@ -369,7 +387,9 @@ export class QuotationPayloadMapper {
     }));
   }
 
-  private mapSubjectMatters(entry: QuotationCoverNoteEntry): SubjectMatterCoveredDto[] {
+  private mapSubjectMatters(
+    entry: QuotationCoverNoteEntry,
+  ): SubjectMatterCoveredDto[] {
     return this.sortedBySequence(entry.subject_matters).map((subject) => ({
       subject_matter_reference: subject.subject_matter_reference,
       subject_matter_desc: subject.subject_matter_desc,
@@ -412,7 +432,9 @@ export class QuotationPayloadMapper {
     }));
   }
 
-  private mapPolicyHolders(policyHolders: QuotationPolicyHolder[] | undefined): PolicyHolderDto[] {
+  private mapPolicyHolders(
+    policyHolders: QuotationPolicyHolder[] | undefined,
+  ): PolicyHolderDto[] {
     return this.sortedBySequence(policyHolders).map((holder) => ({
       policy_holder_name: holder.policy_holder_name,
       policy_holder_birth_date: formatDateOnly(holder.policy_holder_birth_date),
@@ -477,7 +499,9 @@ export class QuotationPayloadMapper {
     return quotation.cover_note;
   }
 
-  private sortedEntries(entries: QuotationCoverNoteEntry[] | undefined): QuotationCoverNoteEntry[] {
+  private sortedEntries(
+    entries: QuotationCoverNoteEntry[] | undefined,
+  ): QuotationCoverNoteEntry[] {
     return [...(entries ?? [])].sort(
       (first, second) => first.entry_number - second.entry_number,
     );

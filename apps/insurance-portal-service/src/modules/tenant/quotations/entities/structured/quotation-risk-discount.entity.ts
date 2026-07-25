@@ -48,13 +48,9 @@ export class QuotationRiskDiscount {
   @UpdateDateColumn({ type: 'timestamptz' })
   updated_at: Date;
 
-  @ManyToOne(
-    () => QuotationEntryRisk,
-    (risk) => risk.discounts,
-    {
-      onDelete: 'CASCADE',
-    },
-  )
+  @ManyToOne(() => QuotationEntryRisk, (risk) => risk.discounts, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'risk_id' })
   risk: QuotationEntryRisk;
 }

@@ -1,8 +1,4 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 
 import { TiramisAccessScopeService } from '../services/tiramis-access-scope.service';
 
@@ -25,10 +21,18 @@ export class TiramisCompanyScopeGuard implements CanActivate {
       sub: user.sub || null,
       email: user.email || null,
       userType: user.user_type || user.userType || null,
-      companyId: user.companyId || user.active_company_id || user.activeCompanyId || null,
+      companyId:
+        user.companyId ||
+        user.active_company_id ||
+        user.activeCompanyId ||
+        null,
       activeCompanyId:
-        user.active_company_id || user.activeCompanyId || user.companyId || null,
-      branchId: user.branchId || user.active_branch_id || user.activeBranchId || null,
+        user.active_company_id ||
+        user.activeCompanyId ||
+        user.companyId ||
+        null,
+      branchId:
+        user.branchId || user.active_branch_id || user.activeBranchId || null,
       permissionCodes:
         user.permission_codes || user.permissionCodes || user.permissions || [],
       roleCodes: user.role_codes || user.roleCodes || user.roles || [],

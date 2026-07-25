@@ -129,10 +129,13 @@ export class TiramisRetryService {
       };
     }
 
-    const updated = await this.trackingRepository.markRetryScheduled(record.id, {
-      error: new Error(reason || 'Manual retry scheduled'),
-      maxRetryAttempts: Number(process.env.TIRAMIS_RETRY_MAX_ATTEMPTS || 3),
-    });
+    const updated = await this.trackingRepository.markRetryScheduled(
+      record.id,
+      {
+        error: new Error(reason || 'Manual retry scheduled'),
+        maxRetryAttempts: Number(process.env.TIRAMIS_RETRY_MAX_ATTEMPTS || 3),
+      },
+    );
 
     await this.businessRecordSyncService.syncFromTracking(updated);
 
@@ -254,10 +257,12 @@ export class TiramisRetryService {
         `Retry failed for local tracking ${locked.id}: ${error?.message || error}`,
       );
 
-      const updated =
-        await this.trackingRepository.markRetryAttemptFailed(locked.id, {
+      const updated = await this.trackingRepository.markRetryAttemptFailed(
+        locked.id,
+        {
           error,
-        });
+        },
+      );
 
       await this.businessRecordSyncService.syncFromTracking(updated);
 

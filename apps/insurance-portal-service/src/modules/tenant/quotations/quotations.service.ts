@@ -175,10 +175,11 @@ export class QuotationsService {
           userId,
         );
 
-        const quotationNo = await this.identifierGeneratorService.generateQuotationNumber(
-          companyId,
-          manager,
-        );
+        const quotationNo =
+          await this.identifierGeneratorService.generateQuotationNumber(
+            companyId,
+            manager,
+          );
 
         const quotation = await this.persistRoot(
           manager,
@@ -255,7 +256,8 @@ export class QuotationsService {
 
         if (
           payload.expected_updated_at &&
-          lockedQuotation.updated_at.toISOString() !== payload.expected_updated_at
+          lockedQuotation.updated_at.toISOString() !==
+            payload.expected_updated_at
         ) {
           throw new ConflictException(
             'This quotation was updated by another user. Reload the latest version before saving your changes.',
@@ -357,15 +359,14 @@ export class QuotationsService {
       portalSubmission,
       tiramisTracking,
       tiramisTrackingByEntry,
-    ] =
-      await Promise.all([
-        this.findLatestInvoice(companyId, quotation.id),
-        this.findLatestReceipt(companyId, quotation.id),
-        this.findLatestPaymentTransaction(companyId, quotation.id),
-        this.findLatestPortalSubmission(companyId, quotation.id),
-        this.findLatestTiramisTracking(companyId, quotation),
-        this.findTiramisTrackingByEntry(companyId, quotation),
-      ]);
+    ] = await Promise.all([
+      this.findLatestInvoice(companyId, quotation.id),
+      this.findLatestReceipt(companyId, quotation.id),
+      this.findLatestPaymentTransaction(companyId, quotation.id),
+      this.findLatestPortalSubmission(companyId, quotation.id),
+      this.findLatestTiramisTracking(companyId, quotation),
+      this.findTiramisTrackingByEntry(companyId, quotation),
+    ]);
 
     return this.previewMapper.toResponse(quotation, {
       invoice,
@@ -466,12 +467,12 @@ export class QuotationsService {
     let result: Record<string, unknown>;
 
     try {
-      result = (await this.tiramisBusinessSubmitService.submitAnyBusinessRecord({
+      result = await this.tiramisBusinessSubmitService.submitAnyBusinessRecord({
         requestType,
         sourceModule: 'quotations',
         sourceRecordId: quotation.id,
         businessReference: this.payloadMapper.businessReference(quotation),
-        payload: tiramisPayload as Record<string, unknown>,
+        payload: tiramisPayload,
         forceResubmit: submitOptions.force_resubmit,
         returnExisting: submitOptions.return_existing,
         authContext: {
@@ -509,25 +510,32 @@ export class QuotationsService {
             ).activeBranchId ??
             null,
         },
-      })) as Record<string, unknown>;
+      });
     } catch (error) {
       if (!shouldReuseExistingSubmission) {
-        await this.quotationLifecycleService.markTiraFailed(companyId, quotation.id, {
-          changedBy: user.id,
-          changedByType: 'USER',
-          source: 'SYSTEM',
-          channel: quotation.channel_type,
-          reason: error instanceof Error ? error.message : 'TIRAMIS submission failed',
-          metadata: {
-            error:
+        await this.quotationLifecycleService.markTiraFailed(
+          companyId,
+          quotation.id,
+          {
+            changedBy: user.id,
+            changedByType: 'USER',
+            source: 'SYSTEM',
+            channel: quotation.channel_type,
+            reason:
               error instanceof Error
-                ? {
-                    name: error.name,
-                    message: error.message,
-                  }
-                : { value: String(error) },
+                ? error.message
+                : 'TIRAMIS submission failed',
+            metadata: {
+              error:
+                error instanceof Error
+                  ? {
+                      name: error.name,
+                      message: error.message,
+                    }
+                  : { value: String(error) },
+            },
           },
-        });
+        );
       }
       throw error;
     }
@@ -535,18 +543,22 @@ export class QuotationsService {
     const submittedAt = new Date();
 
     if (!shouldReuseExistingSubmission) {
-      await this.quotationLifecycleService.markTiraSubmitted(companyId, quotation.id, {
-        changedBy: user.id,
-        changedByType: 'USER',
-        source: 'USER',
-        channel: quotation.channel_type,
-        reason: 'TIRAMIS accepted the submission request',
-        tiraRequestId:
-          typeof (result as { requestId?: unknown }).requestId === 'string'
-            ? ((result as { requestId?: string }).requestId ?? null)
-            : null,
-        metadata: result,
-      });
+      await this.quotationLifecycleService.markTiraSubmitted(
+        companyId,
+        quotation.id,
+        {
+          changedBy: user.id,
+          changedByType: 'USER',
+          source: 'USER',
+          channel: quotation.channel_type,
+          reason: 'TIRAMIS accepted the submission request',
+          tiraRequestId:
+            typeof (result as { requestId?: unknown }).requestId === 'string'
+              ? ((result as { requestId?: string }).requestId ?? null)
+              : null,
+          metadata: result,
+        },
+      );
     }
 
     return {
@@ -593,52 +605,114 @@ export class QuotationsService {
 
     switch (dto.action) {
       case QuotationStatusTransitionAction.EVALUATE_REQUIREMENTS:
-        await this.quotationLifecycleService.evaluateRequirements(companyId, id, context);
+        await this.quotationLifecycleService.evaluateRequirements(
+          companyId,
+          id,
+          context,
+        );
         break;
       case QuotationStatusTransitionAction.SUBMIT_FOR_APPROVAL:
-        await this.quotationLifecycleService.submitForApproval(companyId, id, context);
+        await this.quotationLifecycleService.submitForApproval(
+          companyId,
+          id,
+          context,
+        );
         break;
       case QuotationStatusTransitionAction.APPROVE:
-        await this.quotationLifecycleService.approveQuotation(companyId, id, context);
+        await this.quotationLifecycleService.approveQuotation(
+          companyId,
+          id,
+          context,
+        );
         break;
       case QuotationStatusTransitionAction.REQUEST_CHANGES:
-        await this.quotationLifecycleService.requestChanges(companyId, id, context);
+        await this.quotationLifecycleService.requestChanges(
+          companyId,
+          id,
+          context,
+        );
         break;
       case QuotationStatusTransitionAction.REJECT_APPROVAL:
-        await this.quotationLifecycleService.rejectApproval(companyId, id, context);
+        await this.quotationLifecycleService.rejectApproval(
+          companyId,
+          id,
+          context,
+        );
         break;
       case QuotationStatusTransitionAction.MARK_PAYMENT_REQUESTED:
-        await this.quotationLifecycleService.markPaymentRequested(companyId, id, context);
+        await this.quotationLifecycleService.markPaymentRequested(
+          companyId,
+          id,
+          context,
+        );
         break;
       case QuotationStatusTransitionAction.MARK_PAYMENT_PROCESSING:
-        await this.quotationLifecycleService.markPaymentProcessing(companyId, id, context);
+        await this.quotationLifecycleService.markPaymentProcessing(
+          companyId,
+          id,
+          context,
+        );
         break;
       case QuotationStatusTransitionAction.MARK_PARTIALLY_PAID:
-        await this.quotationLifecycleService.markPartiallyPaid(companyId, id, context);
+        await this.quotationLifecycleService.markPartiallyPaid(
+          companyId,
+          id,
+          context,
+        );
         break;
       case QuotationStatusTransitionAction.MARK_PAYMENT_PAID:
-        await this.quotationLifecycleService.markPaymentPaid(companyId, id, context);
+        await this.quotationLifecycleService.markPaymentPaid(
+          companyId,
+          id,
+          context,
+        );
         break;
       case QuotationStatusTransitionAction.MARK_PAYMENT_FAILED:
-        await this.quotationLifecycleService.markPaymentFailed(companyId, id, context);
+        await this.quotationLifecycleService.markPaymentFailed(
+          companyId,
+          id,
+          context,
+        );
         break;
       case QuotationStatusTransitionAction.MARK_PAYMENT_EXPIRED:
-        await this.quotationLifecycleService.markPaymentExpired(companyId, id, context);
+        await this.quotationLifecycleService.markPaymentExpired(
+          companyId,
+          id,
+          context,
+        );
         break;
       case QuotationStatusTransitionAction.MARK_PAYMENT_REFUNDED:
-        await this.quotationLifecycleService.markPaymentRefunded(companyId, id, context);
+        await this.quotationLifecycleService.markPaymentRefunded(
+          companyId,
+          id,
+          context,
+        );
         break;
       case QuotationStatusTransitionAction.CANCEL:
-        await this.quotationLifecycleService.cancelQuotation(companyId, id, context);
+        await this.quotationLifecycleService.cancelQuotation(
+          companyId,
+          id,
+          context,
+        );
         break;
       case QuotationStatusTransitionAction.EXPIRE:
-        await this.quotationLifecycleService.expireQuotation(companyId, id, context);
+        await this.quotationLifecycleService.expireQuotation(
+          companyId,
+          id,
+          context,
+        );
         break;
       case QuotationStatusTransitionAction.CONVERT:
-        await this.quotationLifecycleService.convertQuotation(companyId, id, context);
+        await this.quotationLifecycleService.convertQuotation(
+          companyId,
+          id,
+          context,
+        );
         break;
       default:
-        throw new ConflictException(`Unsupported quotation transition ${dto.action}`);
+        throw new ConflictException(
+          `Unsupported quotation transition ${dto.action}`,
+        );
     }
 
     return this.findOne(companyId, id);
@@ -1721,10 +1795,11 @@ export class QuotationsService {
         return !existingNumbers.has(key);
       }).length;
 
-      const generatedNumbers = await this.identifierGeneratorService.generateFleetCoverNoteNumbers(
-        companyId,
-        missingCount,
-      );
+      const generatedNumbers =
+        await this.identifierGeneratorService.generateFleetCoverNoteNumbers(
+          companyId,
+          missingCount,
+        );
 
       let generatedIndex = 0;
       fleetDetails.forEach((item, index) => {
@@ -1792,9 +1867,7 @@ export class QuotationsService {
       status: params.nextStatus,
       updated_by: params.changedBy,
       rejection_reason:
-        params.nextStatus === QuotationStatus.REJECTED
-          ? params.reason
-          : null,
+        params.nextStatus === QuotationStatus.REJECTED ? params.reason : null,
     };
 
     if (params.submittedBy !== undefined) {
@@ -2000,7 +2073,8 @@ export class QuotationsService {
     companyId: string,
     quotationId: string,
   ) {
-    return this.dataSource.getRepository(PortalTiraSubmission)
+    return this.dataSource
+      .getRepository(PortalTiraSubmission)
       .createQueryBuilder('submission')
       .leftJoinAndSelect('submission.events', 'event')
       .where('submission.company_id = :companyId', { companyId })
@@ -2095,7 +2169,10 @@ export class QuotationsService {
       .orderBy('tracking.created_at', 'DESC')
       .getMany();
 
-    const byReference = new Map<string, TiramisSubmissionTrackingEntity | null>();
+    const byReference = new Map<
+      string,
+      TiramisSubmissionTrackingEntity | null
+    >();
     for (const tracking of trackings) {
       const key = tracking.sourceRecordId || tracking.businessReference || '';
       if (key && !byReference.has(key)) {

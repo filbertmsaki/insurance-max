@@ -4,7 +4,11 @@ import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { customersApi } from '@/modules/tenant/customers/api';
-import { useQuotationCategories, useQuotationProducts, useQuotationSubClasses } from '@/modules/tenant/quotations/hooks';
+import {
+  useQuotationCategories,
+  useQuotationProducts,
+  useQuotationSubClasses,
+} from '@/modules/tenant/quotations/hooks';
 import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { policiesApi } from './api';
@@ -28,13 +32,16 @@ export function usePoliciesList() {
   const policyStatus = params.get('policy_status') ?? 'all';
   const customerId = params.get('customer_id') ?? 'all';
 
-  const queryParams = useMemo<PolicyListParams>(() => ({
-    page,
-    limit,
-    search: search || undefined,
-    policy_status: policyStatus === 'all' ? undefined : policyStatus,
-    customer_id: customerId === 'all' ? undefined : customerId,
-  }), [page, limit, search, policyStatus, customerId]);
+  const queryParams = useMemo<PolicyListParams>(
+    () => ({
+      page,
+      limit,
+      search: search || undefined,
+      policy_status: policyStatus === 'all' ? undefined : policyStatus,
+      customer_id: customerId === 'all' ? undefined : customerId,
+    }),
+    [page, limit, search, policyStatus, customerId],
+  );
 
   const { data, isLoading, error } = useQuery({
     queryKey: policyKeys.list(queryParams),
@@ -42,15 +49,18 @@ export function usePoliciesList() {
     staleTime: 30_000,
   });
 
-  const setParam = useCallback((key: string, value: string | null) => {
-    setParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (value === null) next.delete(key);
-      else next.set(key, value);
-      next.set('page', '1');
-      return next;
-    });
-  }, [setParams]);
+  const setParam = useCallback(
+    (key: string, value: string | null) => {
+      setParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (value === null) next.delete(key);
+        else next.set(key, value);
+        next.set('page', '1');
+        return next;
+      });
+    },
+    [setParams],
+  );
 
   return {
     data,
@@ -62,10 +72,23 @@ export function usePoliciesList() {
     policyStatus,
     customerId,
     setSearch: (value: string) => setParam('search', value),
-    setPolicyStatus: (value: string) => setParam('policy_status', value === 'all' ? null : value),
-    setCustomerId: (value: string) => setParam('customer_id', value === 'all' ? null : value),
-    setPage: (value: number) => setParams((prev) => { const next = new URLSearchParams(prev); next.set('page', String(value)); return next; }),
-    setLimit: (value: number) => setParams((prev) => { const next = new URLSearchParams(prev); next.set('limit', String(value)); next.set('page', '1'); return next; }),
+    setPolicyStatus: (value: string) =>
+      setParam('policy_status', value === 'all' ? null : value),
+    setCustomerId: (value: string) =>
+      setParam('customer_id', value === 'all' ? null : value),
+    setPage: (value: number) =>
+      setParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('page', String(value));
+        return next;
+      }),
+    setLimit: (value: number) =>
+      setParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('limit', String(value));
+        next.set('page', '1');
+        return next;
+      }),
   };
 }
 
@@ -81,7 +104,8 @@ export function usePolicyDetail(id?: string) {
 export function useCreatePolicy() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (values: PolicyFormSchemaValues) => policiesApi.create(buildPolicyPayload(values)),
+    mutationFn: (values: PolicyFormSchemaValues) =>
+      policiesApi.create(buildPolicyPayload(values)),
     onSuccess: (policy) => {
       qc.invalidateQueries({ queryKey: policyKeys.all });
       qc.setQueryData(policyKeys.detail(policy.id), policy);
@@ -94,7 +118,8 @@ export function useCreatePolicy() {
 export function useUpdatePolicy(id?: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (values: PolicyFormSchemaValues) => policiesApi.update(id!, buildPolicyPayload(values)),
+    mutationFn: (values: PolicyFormSchemaValues) =>
+      policiesApi.update(id!, buildPolicyPayload(values)),
     onSuccess: (policy) => {
       qc.invalidateQueries({ queryKey: policyKeys.all });
       if (id) qc.setQueryData(policyKeys.detail(id), policy);
@@ -131,7 +156,8 @@ export function useRestorePolicy() {
 export function usePolicyCustomers() {
   return useQuery({
     queryKey: ['policies', 'customers'],
-    queryFn: async () => (await customersApi.getCustomers({ limit: API_MAX_LIST_LIMIT })).data,
+    queryFn: async () =>
+      (await customersApi.getCustomers({ limit: API_MAX_LIST_LIMIT })).data,
     staleTime: 60_000,
   });
 }
@@ -149,7 +175,9 @@ export function usePolicySubClasses(productId?: string) {
 }
 
 export function usePolicyCurrentCompanyId() {
-  return useAuthStore((state) => state.company?.id ?? state.user?.companyId ?? '');
+  return useAuthStore(
+    (state) => state.company?.id ?? state.user?.companyId ?? '',
+  );
 }
 
 export { policyKeys };

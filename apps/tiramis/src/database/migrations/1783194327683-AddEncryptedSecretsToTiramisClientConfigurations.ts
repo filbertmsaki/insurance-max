@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddEncryptedSecretsToTiramisClientConfigurations1783194327683
-  implements MigrationInterface
-{
+export class AddEncryptedSecretsToTiramisClientConfigurations1783194327683 implements MigrationInterface {
   name = 'AddEncryptedSecretsToTiramisClientConfigurations1783194327683';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

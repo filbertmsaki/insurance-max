@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class PortalTiramisSubmissionTracking1783000000011
-  implements MigrationInterface
-{
+export class PortalTiramisSubmissionTracking1783000000011 implements MigrationInterface {
   name = 'PortalTiramisSubmissionTracking1783000000011';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -82,6 +80,8 @@ export class PortalTiramisSubmissionTracking1783000000011
     await queryRunner.query(
       `DROP INDEX IF EXISTS "IDX_tiramis_tracking_request_type"`,
     );
-    await queryRunner.query(`DROP TABLE IF EXISTS "tiramis_submission_tracking"`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "tiramis_submission_tracking"`,
+    );
   }
 }

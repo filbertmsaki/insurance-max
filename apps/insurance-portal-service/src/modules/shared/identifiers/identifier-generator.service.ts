@@ -1,4 +1,9 @@
-import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import {
   IDENTIFIER_CONSTANTS,
@@ -38,7 +43,10 @@ export class IdentifierGeneratorService {
     }
 
     for (let suffix = 0; suffix < 1000; suffix += 1) {
-      const candidate = suffix === 0 ? basePrefix : `${basePrefix}${String(suffix).padStart(2, '0')}`;
+      const candidate =
+        suffix === 0
+          ? basePrefix
+          : `${basePrefix}${String(suffix).padStart(2, '0')}`;
       const existing = await repository
         .createQueryBuilder('company')
         .select(['company.id'])
@@ -51,7 +59,9 @@ export class IdentifierGeneratorService {
       }
     }
 
-    throw new ConflictException('Unable to generate a unique company identifier prefix');
+    throw new ConflictException(
+      'Unable to generate a unique company identifier prefix',
+    );
   }
 
   async generateQuotationNumber(
@@ -67,7 +77,10 @@ export class IdentifierGeneratorService {
       );
     }
 
-    const today = this.formatDate(new Date(), IDENTIFIER_DATE_FORMATS.quotation);
+    const today = this.formatDate(
+      new Date(),
+      IDENTIFIER_DATE_FORMATS.quotation,
+    );
     return this.generateFormattedIdentifier({
       companyId,
       identifierType: IdentifierType.QUOTATION,
@@ -86,8 +99,14 @@ export class IdentifierGeneratorService {
     const company = await this.resolveCompany(companyId, manager);
     const companyCode = this.resolveCompanyCode(company);
     const now = new Date();
-    const datePart = this.formatDate(now, IDENTIFIER_DATE_FORMATS.coverNoteDate);
-    const timePart = this.formatDate(now, IDENTIFIER_DATE_FORMATS.coverNoteTime);
+    const datePart = this.formatDate(
+      now,
+      IDENTIFIER_DATE_FORMATS.coverNoteDate,
+    );
+    const timePart = this.formatDate(
+      now,
+      IDENTIFIER_DATE_FORMATS.coverNoteTime,
+    );
 
     return this.generateFormattedIdentifier({
       companyId,
@@ -326,7 +345,7 @@ export class IdentifierGeneratorService {
       .split(/\s+/)
       .map((word) => word.replace(/[^A-Za-z0-9]/g, ''))
       .filter(Boolean)
-      .map((word) => word[0]!.toUpperCase())
+      .map((word) => word[0].toUpperCase())
       .join('')
       .replace(/[^A-Z0-9]/g, '');
   }
@@ -365,7 +384,9 @@ export class IdentifierGeneratorService {
   }
 
   private getCompanyRepository(manager?: EntityManager) {
-    return manager?.getRepository(Company) ?? this.dataSource.getRepository(Company);
+    return (
+      manager?.getRepository(Company) ?? this.dataSource.getRepository(Company)
+    );
   }
 
   private isDuplicateConstraintError(error: unknown): boolean {

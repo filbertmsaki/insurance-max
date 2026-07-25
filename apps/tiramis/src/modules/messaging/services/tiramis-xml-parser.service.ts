@@ -156,10 +156,7 @@ export class TiramisXmlParserService {
 
     const content = parsed.message.content;
 
-    const acknowledgementId = this.getStringValue(
-      content,
-      'AcknowledgementId',
-    );
+    const acknowledgementId = this.getStringValue(content, 'AcknowledgementId');
 
     const requestId = this.getStringValue(content, 'RequestId');
 
@@ -306,7 +303,11 @@ export class TiramisXmlParserService {
 
     return (
       this.getStringValue(message.content, 'ResponseId') ||
-      this.getNestedStringValue(message.content, 'CoverNoteHdr', 'ResponseId') ||
+      this.getNestedStringValue(
+        message.content,
+        'CoverNoteHdr',
+        'ResponseId',
+      ) ||
       null
     );
   }
@@ -434,7 +435,9 @@ export class TiramisXmlParserService {
 
   private extractSignedContentXml(xml: string): string {
     const text = String(xml || '').trim();
-    const wrappedContentMatch = text.match(/<Content[^>]*>([\s\S]*?)<\/Content>/i);
+    const wrappedContentMatch = text.match(
+      /<Content[^>]*>([\s\S]*?)<\/Content>/i,
+    );
 
     if (wrappedContentMatch) {
       return this.unescapeXml(wrappedContentMatch[1].trim());

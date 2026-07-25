@@ -11,7 +11,10 @@ import type {
 } from './types';
 
 const optionalText = z.string().trim().max(500).optional().or(z.literal(''));
-const optionalNumber = z.union([z.number(), z.string()]).optional().or(z.literal(''));
+const optionalNumber = z
+  .union([z.number(), z.string()])
+  .optional()
+  .or(z.literal(''));
 const optionalJsonText = z.string().trim().optional().or(z.literal(''));
 
 export const subjectMatterSchema = z.object({
@@ -63,9 +66,15 @@ export const nonMotorPolicyDetailSchema = z.object({
 });
 
 export type SubjectMatterFormValues = z.infer<typeof subjectMatterSchema>;
-export type SubjectMatterFactorValueFormValues = z.infer<typeof subjectMatterFactorValueSchema>;
-export type NonMotorQuotationDetailFormValues = z.infer<typeof nonMotorQuotationDetailSchema>;
-export type NonMotorPolicyDetailFormValues = z.infer<typeof nonMotorPolicyDetailSchema>;
+export type SubjectMatterFactorValueFormValues = z.infer<
+  typeof subjectMatterFactorValueSchema
+>;
+export type NonMotorQuotationDetailFormValues = z.infer<
+  typeof nonMotorQuotationDetailSchema
+>;
+export type NonMotorPolicyDetailFormValues = z.infer<
+  typeof nonMotorPolicyDetailSchema
+>;
 
 function normalizeText(value: string | null | undefined) {
   if (value === null || value === undefined) return undefined;
@@ -107,7 +116,9 @@ export function subjectMatterRecordToFormValues(
     value: record.value ?? '',
     currency: record.currency ?? 'TZS',
     status: record.status ?? 'ACTIVE',
-    metadata_json: record.metadata ? JSON.stringify(record.metadata, null, 2) : '',
+    metadata_json: record.metadata
+      ? JSON.stringify(record.metadata, null, 2)
+      : '',
   };
 }
 
@@ -121,11 +132,15 @@ export function subjectMatterFactorValueRecordToFormValues(
     value_number: record.value_number ?? '',
     value_date: record.value_date ?? '',
     value_boolean: record.value_boolean ?? false,
-    value_json: record.value_json ? JSON.stringify(record.value_json, null, 2) : '',
+    value_json: record.value_json
+      ? JSON.stringify(record.value_json, null, 2)
+      : '',
   };
 }
 
-export function buildSubjectMatterPayload(values: SubjectMatterFormValues): SubjectMatterPayload {
+export function buildSubjectMatterPayload(
+  values: SubjectMatterFormValues,
+): SubjectMatterPayload {
   return {
     customer_id: values.customer_id,
     subject_type: normalizeText(values.subject_type) ?? null,

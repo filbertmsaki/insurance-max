@@ -10,7 +10,8 @@ import { getApiErrorMessage } from '@/lib/api-error';
 const customersKeys = {
   all: ['customers'] as const,
   lists: () => [...customersKeys.all, 'list'] as const,
-  list: (params: CustomerListParams) => [...customersKeys.lists(), params] as const,
+  list: (params: CustomerListParams) =>
+    [...customersKeys.lists(), params] as const,
   detail: (id: string) => [...customersKeys.all, 'detail', id] as const,
 };
 
@@ -21,11 +22,21 @@ export function useCustomersList() {
   const search = searchParams.get('q') ?? '';
   const page = Math.max(1, Number(searchParams.get('page') ?? '1'));
   const limit = Number(searchParams.get('limit') ?? '10');
-  const customerType = (searchParams.get('customer_type') ?? 'all') as CustomerListParams['customer_type'] | 'all';
-  const status = (searchParams.get('status') ?? 'all') as CustomerListParams['status'] | 'all';
-  const kycStatus = (searchParams.get('kyc_status') ?? 'all') as CustomerListParams['kyc_status'] | 'all';
-  const sortBy = (searchParams.get('sortBy') as CustomerSortKey) ?? 'created_at';
-  const sortOrder = (searchParams.get('sortOrder') as NonNullable<CustomerListParams['sortOrder']>) ?? 'DESC';
+  const customerType = (searchParams.get('customer_type') ?? 'all') as
+    | CustomerListParams['customer_type']
+    | 'all';
+  const status = (searchParams.get('status') ?? 'all') as
+    | CustomerListParams['status']
+    | 'all';
+  const kycStatus = (searchParams.get('kyc_status') ?? 'all') as
+    | CustomerListParams['kyc_status']
+    | 'all';
+  const sortBy =
+    (searchParams.get('sortBy') as CustomerSortKey) ?? 'created_at';
+  const sortOrder =
+    (searchParams.get('sortOrder') as NonNullable<
+      CustomerListParams['sortOrder']
+    >) ?? 'DESC';
 
   const [liveSearch, setLiveSearch] = useState(search);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -47,56 +58,74 @@ export function useCustomersList() {
     placeholderData: (prev) => prev,
   });
 
-  const setSearch = useCallback((value: string) => {
-    setLiveSearch(value);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
+  const setSearch = useCallback(
+    (value: string) => {
+      setLiveSearch(value);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        setSearchParams((prev) => {
+          const next = new URLSearchParams(prev);
+          if (value) next.set('q', value);
+          else next.delete('q');
+          next.set('page', '1');
+          return next;
+        });
+      }, 350);
+    },
+    [setSearchParams],
+  );
+
+  const setFilter = useCallback(
+    (key: 'customer_type' | 'status' | 'kyc_status', value: string) => {
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
-        if (value) next.set('q', value);
-        else next.delete('q');
+        if (value === 'all') next.delete(key);
+        else next.set(key, value);
         next.set('page', '1');
         return next;
       });
-    }, 350);
-  }, [setSearchParams]);
+    },
+    [setSearchParams],
+  );
 
-  const setFilter = useCallback((key: 'customer_type' | 'status' | 'kyc_status', value: string) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (value === 'all') next.delete(key);
-      else next.set(key, value);
-      next.set('page', '1');
-      return next;
-    });
-  }, [setSearchParams]);
+  const setPage = useCallback(
+    (value: number) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('page', String(value));
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
 
-  const setPage = useCallback((value: number) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('page', String(value));
-      return next;
-    });
-  }, [setSearchParams]);
+  const setLimit = useCallback(
+    (value: number) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('limit', String(value));
+        next.set('page', '1');
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
 
-  const setLimit = useCallback((value: number) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('limit', String(value));
-      next.set('page', '1');
-      return next;
-    });
-  }, [setSearchParams]);
-
-  const setSort = useCallback((key: CustomerSortKey, order: NonNullable<CustomerListParams['sortOrder']>) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('sortBy', key);
-      next.set('sortOrder', order);
-      next.set('page', '1');
-      return next;
-    });
-  }, [setSearchParams]);
+  const setSort = useCallback(
+    (
+      key: CustomerSortKey,
+      order: NonNullable<CustomerListParams['sortOrder']>,
+    ) => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('sortBy', key);
+        next.set('sortOrder', order);
+        next.set('page', '1');
+        return next;
+      });
+    },
+    [setSearchParams],
+  );
 
   const clearFilters = useCallback(() => {
     setLiveSearch('');
@@ -120,7 +149,14 @@ export function useCustomersList() {
     sortOrder,
     page,
     limit,
-    hasActiveFilters: !!(search || customerType !== 'all' || status !== 'all' || kycStatus !== 'all' || sortBy !== 'created_at' || sortOrder !== 'DESC'),
+    hasActiveFilters: !!(
+      search ||
+      customerType !== 'all' ||
+      status !== 'all' ||
+      kycStatus !== 'all' ||
+      sortBy !== 'created_at' ||
+      sortOrder !== 'DESC'
+    ),
     setSearch,
     setFilter,
     setPage,
@@ -142,7 +178,8 @@ export function useCustomer(id?: string) {
 export function useCreateCustomer() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (values: CustomerFormValues) => customersApi.createCustomer(buildCustomerPayload(values)),
+    mutationFn: (values: CustomerFormValues) =>
+      customersApi.createCustomer(buildCustomerPayload(values)),
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: customersKeys.lists() });
       queryClient.setQueryData(customersKeys.detail(created.id), created);
@@ -155,7 +192,8 @@ export function useCreateCustomer() {
 export function useUpdateCustomer(id?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (values: CustomerFormValues) => customersApi.updateCustomer(id!, buildCustomerPayload(values)),
+    mutationFn: (values: CustomerFormValues) =>
+      customersApi.updateCustomer(id!, buildCustomerPayload(values)),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: customersKeys.lists() });
       if (id) queryClient.setQueryData(customersKeys.detail(id), updated);

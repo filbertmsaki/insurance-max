@@ -95,7 +95,7 @@ export const usersApi = {
 
   /** POST /users/2fa/backup-codes/regenerate */
   regenerateBackupCodes: (code: string) =>
-      apiClient
+    apiClient
       .post<{
         backup_codes: string[];
       }>('/users/2fa/backup-codes/regenerate', { token: code })

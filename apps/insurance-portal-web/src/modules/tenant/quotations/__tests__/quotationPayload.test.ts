@@ -126,7 +126,9 @@ describe('quotation payload builders', () => {
     });
 
     expect(payload.internal_quotation.quotation_flow).toBe('MOTOR_SINGLE');
-    expect(payload.cover_note_dtl.motor_dtl?.registration_number).toBe('T123ABC');
+    expect(payload.cover_note_dtl.motor_dtl?.registration_number).toBe(
+      'T123ABC',
+    );
     expect(payload.cover_note_dtl.policy_holders?.[0].policy_holder_name).toBe(
       'ABC Logistics Company Limited',
     );
@@ -189,9 +191,9 @@ describe('quotation payload builders', () => {
     expect(payload.internal_quotation.quotation_flow).toBe('MOTOR_FLEET');
     expect(payload.cover_note_dtl.fleet_hdr?.fleet_id).toBe('FLEET-001');
     expect(payload.cover_note_dtl.fleet_dtls).toHaveLength(1);
-    expect(payload.cover_note_dtl.fleet_dtls?.[0].motor_dtl.registration_number).toBe(
-      'T123ABC',
-    );
+    expect(
+      payload.cover_note_dtl.fleet_dtls?.[0].motor_dtl.registration_number,
+    ).toBe('T123ABC');
   });
 
   it('builds NON_MOTOR payload in backend snake_case shape', () => {
@@ -230,12 +232,17 @@ describe('quotation payload builders', () => {
     values.quotation_flow = 'MOTOR_FLEET';
     values.quotation_type = 'MOTOR';
     values.is_fleet = true;
-    values.fleet.items = [createEmptyFleetDetails().items[0], createEmptyFleetDetails().items[0]];
+    values.fleet.items = [
+      createEmptyFleetDetails().items[0],
+      createEmptyFleetDetails().items[0],
+    ];
     values.fleet.items[0].cover_note_number = 'CN-001';
     values.fleet.items[0].cover_note_desc = 'Vehicle 1';
     values.fleet.items[0].operative_clause = 'Motor Comprehensive Cover';
-    values.fleet.items[0].subject_matters_covered[0].subject_matter_reference = 'T123ABC';
-    values.fleet.items[0].subject_matters_covered[0].subject_matter_desc = 'Vehicle 1';
+    values.fleet.items[0].subject_matters_covered[0].subject_matter_reference =
+      'T123ABC';
+    values.fleet.items[0].subject_matters_covered[0].subject_matter_desc =
+      'Vehicle 1';
     values.fleet.items[0].risks_covered[0].risk_code = 'OD';
     values.fleet.items[0].motor_dtl.registration_number = 'T123ABC';
     values.fleet.items[0].motor_dtl.chassis_number = 'CHS-001';
@@ -243,8 +250,10 @@ describe('quotation payload builders', () => {
     values.fleet.items[1].cover_note_number = 'CN-002';
     values.fleet.items[1].cover_note_desc = 'Vehicle 2';
     values.fleet.items[1].operative_clause = 'Motor Comprehensive Cover';
-    values.fleet.items[1].subject_matters_covered[0].subject_matter_reference = 'T123ABD';
-    values.fleet.items[1].subject_matters_covered[0].subject_matter_desc = 'Vehicle 2';
+    values.fleet.items[1].subject_matters_covered[0].subject_matter_reference =
+      'T123ABD';
+    values.fleet.items[1].subject_matters_covered[0].subject_matter_desc =
+      'Vehicle 2';
     values.fleet.items[1].risks_covered[0].risk_code = 'OD';
     values.fleet.items[1].motor_dtl.registration_number = 'T123ABC';
     values.fleet.items[1].motor_dtl.chassis_number = 'CHS-002';

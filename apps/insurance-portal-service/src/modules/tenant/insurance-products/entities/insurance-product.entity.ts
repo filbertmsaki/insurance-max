@@ -26,7 +26,10 @@ import { InsuranceBusinessLine } from '../../insurance-categories/enums/insuranc
 @Index('IDX_insurance_products_category_id', ['category_id'])
 @Index('IDX_insurance_products_is_active', ['is_active'])
 @Index('IDX_insurance_products_business_line', ['company_id', 'business_line'])
-@Index('IDX_insurance_products_supports_fleet', ['company_id', 'supports_fleet'])
+@Index('IDX_insurance_products_supports_fleet', [
+  'company_id',
+  'supports_fleet',
+])
 export class InsuranceProduct {
   @PrimaryGeneratedColumn('uuid')
   id: string;

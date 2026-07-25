@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class TiramisTrackingViewToAdminRoles1783000000018
-  implements MigrationInterface
-{
+export class TiramisTrackingViewToAdminRoles1783000000018 implements MigrationInterface {
   name = 'TiramisTrackingViewToAdminRoles1783000000018';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

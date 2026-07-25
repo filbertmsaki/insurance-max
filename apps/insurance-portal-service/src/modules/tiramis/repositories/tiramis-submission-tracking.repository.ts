@@ -369,18 +369,21 @@ export class TiramisSubmissionTrackingRepository {
       reason: string;
     },
   ) {
-    await this.repository.update({ id }, {
-      status: TiramisSubmissionStatus.DUPLICATE_PREVENTED,
-      duplicateOfTrackingId: params.duplicateOfTrackingId,
-      duplicatePreventionReason: params.reason,
-      duplicateCheckedAt: new Date(),
-      lastErrorMessage: params.reason,
-      failedAt: new Date(),
-      isRetryable: false,
-      nextRetryAt: null,
-      retryLockId: null,
-      retryLockedAt: null,
-    } as any);
+    await this.repository.update(
+      { id },
+      {
+        status: TiramisSubmissionStatus.DUPLICATE_PREVENTED,
+        duplicateOfTrackingId: params.duplicateOfTrackingId,
+        duplicatePreventionReason: params.reason,
+        duplicateCheckedAt: new Date(),
+        lastErrorMessage: params.reason,
+        failedAt: new Date(),
+        isRetryable: false,
+        nextRetryAt: null,
+        retryLockId: null,
+        retryLockedAt: null,
+      },
+    );
 
     return this.findById(id);
   }
@@ -528,7 +531,7 @@ export class TiramisSubmissionTrackingRepository {
         retryLockId: null,
         retryLockedAt: null,
         retryStrategy: tracking.retryStrategy || 'EXPONENTIAL_BACKOFF',
-      } as any,
+      },
     );
 
     return this.findById(id);
@@ -572,7 +575,7 @@ export class TiramisSubmissionTrackingRepository {
         retryLockId: lockId,
         retryLockedAt: new Date(),
         lastRetryAt: new Date(),
-      } as any)
+      })
       .where('id = :id', { id })
       .andWhere(
         `(retry_lock_id IS NULL OR retry_locked_at < now() - interval '${lockMinutes} minutes')`,
@@ -610,7 +613,7 @@ export class TiramisSubmissionTrackingRepository {
         { id },
         {
           retryAttempts,
-        } as any,
+        },
       );
 
       return this.markRetryExhausted(id, {
@@ -642,7 +645,7 @@ export class TiramisSubmissionTrackingRepository {
           params.error?.message ||
           params.error?.response?.message ||
           String(params.error || 'Retry failed'),
-      } as any,
+      },
     );
 
     return this.findById(id);
@@ -670,7 +673,7 @@ export class TiramisSubmissionTrackingRepository {
         retryErrorMessage: errorMessage,
         lastErrorMessage: errorMessage,
         failedAt: new Date(),
-      } as any,
+      },
     );
 
     return this.findById(id);
@@ -690,70 +693,77 @@ export class TiramisSubmissionTrackingRepository {
     const isFailure = isFailureTiramisStatus(resolvedStatus);
     const now = new Date();
 
-    await this.repository.update({ id }, {
-      status: resolvedStatus,
-      submittedAt: tracking?.submittedAt || now,
-      tiramisTransactionId:
-        normalized.transactionId || tracking?.tiramisTransactionId || null,
-      tiramisRequestId:
-        normalized.requestId || tracking?.tiramisRequestId || null,
-      tiramisServiceType:
-        normalized.serviceType || tracking?.tiramisServiceType || null,
-      tiramisRootElement:
-        normalized.rootElement || tracking?.tiramisRootElement || null,
-      acknowledgementStatusCode:
-        normalized.acknowledgement.statusCode ||
-        tracking?.acknowledgementStatusCode ||
-        null,
-      acknowledgementStatusDesc:
-        normalized.acknowledgement.statusDesc ||
-        tracking?.acknowledgementStatusDesc ||
-        null,
-      acknowledgedAt: normalized.acknowledgement.statusCode
-        ? tracking?.acknowledgedAt || now
-        : tracking?.acknowledgedAt || null,
-      finalResponseId:
-        normalized.final.responseId || tracking?.finalResponseId || null,
-      finalResponseStatusCode:
-        normalized.final.statusCode ||
-        tracking?.finalResponseStatusCode ||
-        null,
-      finalResponseStatusDesc:
-        normalized.final.statusDesc ||
-        tracking?.finalResponseStatusDesc ||
-        null,
-      finalResponseReceivedAt:
-        normalized.final.statusCode || normalized.final.responseId
-          ? normalized.final.receivedAt
-            ? new Date(normalized.final.receivedAt)
-            : now
-          : tracking?.finalResponseReceivedAt || null,
-      finalResponsePayload:
-        normalized.final.payload || tracking?.finalResponsePayload || null,
-      tiramisResponsePayload:
-        response || tracking?.tiramisResponsePayload || null,
-      lastSyncedAt: options?.syncChecked ? now : tracking?.lastSyncedAt || null,
-      syncAttempts: options?.syncChecked
-        ? (tracking?.syncAttempts || 0) + 1
-        : tracking?.syncAttempts || 0,
-      failedAt: isFailure
-        ? tracking?.failedAt || now
-        : tracking?.failedAt || null,
-      lastErrorMessage: isFailure
-        ? getTiramisFailureMessage(normalized) ||
-          tracking?.lastErrorMessage ||
-          'TIRAMIS submission failed'
-        : null,
-      isRetryable: options?.clearRetry ? false : tracking?.isRetryable || false,
-      nextRetryAt: options?.clearRetry ? null : tracking?.nextRetryAt || null,
-      retryLockId: options?.clearRetry ? null : tracking?.retryLockId || null,
-      retryLockedAt: options?.clearRetry
-        ? null
-        : tracking?.retryLockedAt || null,
-      retryErrorMessage: options?.clearRetry
-        ? null
-        : tracking?.retryErrorMessage || null,
-    } as any);
+    await this.repository.update(
+      { id },
+      {
+        status: resolvedStatus,
+        submittedAt: tracking?.submittedAt || now,
+        tiramisTransactionId:
+          normalized.transactionId || tracking?.tiramisTransactionId || null,
+        tiramisRequestId:
+          normalized.requestId || tracking?.tiramisRequestId || null,
+        tiramisServiceType:
+          normalized.serviceType || tracking?.tiramisServiceType || null,
+        tiramisRootElement:
+          normalized.rootElement || tracking?.tiramisRootElement || null,
+        acknowledgementStatusCode:
+          normalized.acknowledgement.statusCode ||
+          tracking?.acknowledgementStatusCode ||
+          null,
+        acknowledgementStatusDesc:
+          normalized.acknowledgement.statusDesc ||
+          tracking?.acknowledgementStatusDesc ||
+          null,
+        acknowledgedAt: normalized.acknowledgement.statusCode
+          ? tracking?.acknowledgedAt || now
+          : tracking?.acknowledgedAt || null,
+        finalResponseId:
+          normalized.final.responseId || tracking?.finalResponseId || null,
+        finalResponseStatusCode:
+          normalized.final.statusCode ||
+          tracking?.finalResponseStatusCode ||
+          null,
+        finalResponseStatusDesc:
+          normalized.final.statusDesc ||
+          tracking?.finalResponseStatusDesc ||
+          null,
+        finalResponseReceivedAt:
+          normalized.final.statusCode || normalized.final.responseId
+            ? normalized.final.receivedAt
+              ? new Date(normalized.final.receivedAt)
+              : now
+            : tracking?.finalResponseReceivedAt || null,
+        finalResponsePayload:
+          normalized.final.payload || tracking?.finalResponsePayload || null,
+        tiramisResponsePayload:
+          response || tracking?.tiramisResponsePayload || null,
+        lastSyncedAt: options?.syncChecked
+          ? now
+          : tracking?.lastSyncedAt || null,
+        syncAttempts: options?.syncChecked
+          ? (tracking?.syncAttempts || 0) + 1
+          : tracking?.syncAttempts || 0,
+        failedAt: isFailure
+          ? tracking?.failedAt || now
+          : tracking?.failedAt || null,
+        lastErrorMessage: isFailure
+          ? getTiramisFailureMessage(normalized) ||
+            tracking?.lastErrorMessage ||
+            'TIRAMIS submission failed'
+          : null,
+        isRetryable: options?.clearRetry
+          ? false
+          : tracking?.isRetryable || false,
+        nextRetryAt: options?.clearRetry ? null : tracking?.nextRetryAt || null,
+        retryLockId: options?.clearRetry ? null : tracking?.retryLockId || null,
+        retryLockedAt: options?.clearRetry
+          ? null
+          : tracking?.retryLockedAt || null,
+        retryErrorMessage: options?.clearRetry
+          ? null
+          : tracking?.retryErrorMessage || null,
+      },
+    );
 
     return this.findById(id);
   }
@@ -975,7 +985,7 @@ export class TiramisSubmissionTrackingRepository {
           params?.response || tracking?.tiramisResponsePayload || null,
         lastSyncedAt: new Date(),
         syncAttempts: (tracking?.syncAttempts || 0) + 1,
-      } as any,
+      },
     );
 
     return this.findById(id);

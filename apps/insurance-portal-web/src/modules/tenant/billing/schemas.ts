@@ -8,7 +8,10 @@ import type {
 } from './types';
 
 const optionalText = z.string().trim().optional().or(z.literal(''));
-const optionalNumber = z.union([z.number(), z.string()]).optional().or(z.literal(''));
+const optionalNumber = z
+  .union([z.number(), z.string()])
+  .optional()
+  .or(z.literal(''));
 
 function normalizeText(value: string | null | undefined) {
   if (value === null || value === undefined) return undefined;
@@ -49,7 +52,8 @@ export type InvoiceFormValues = z.infer<typeof invoiceFormSchema>;
 export function buildInvoicePayload(values: InvoiceFormValues): InvoicePayload {
   return {
     insurer_company_id: values.insurer_company_id,
-    intermediary_company_id: normalizeText(values.intermediary_company_id) ?? null,
+    intermediary_company_id:
+      normalizeText(values.intermediary_company_id) ?? null,
     customer_id: values.customer_id,
     quotation_id: normalizeText(values.quotation_id) ?? null,
     policy_id: normalizeText(values.policy_id) ?? null,
@@ -111,9 +115,13 @@ export const paymentTransactionFormSchema = z.object({
   response_payload: z.string().optional().or(z.literal('')),
 });
 
-export type PaymentTransactionFormValues = z.infer<typeof paymentTransactionFormSchema>;
+export type PaymentTransactionFormValues = z.infer<
+  typeof paymentTransactionFormSchema
+>;
 
-export function buildPaymentTransactionPayload(values: PaymentTransactionFormValues): PaymentTransactionPayload {
+export function buildPaymentTransactionPayload(
+  values: PaymentTransactionFormValues,
+): PaymentTransactionPayload {
   const parseJson = (raw: string | undefined | null) => {
     if (!raw || !raw.trim()) return null;
     try {
@@ -132,8 +140,14 @@ export function buildPaymentTransactionPayload(values: PaymentTransactionFormVal
     amount: normalizeNumber(values.amount) ?? 0,
     currency: values.currency.trim().toUpperCase(),
     status: normalizeText(values.status) ?? undefined,
-    request_payload: parseJson(values.request_payload) as Record<string, unknown> | null,
-    response_payload: parseJson(values.response_payload) as Record<string, unknown> | null,
+    request_payload: parseJson(values.request_payload) as Record<
+      string,
+      unknown
+    > | null,
+    response_payload: parseJson(values.response_payload) as Record<
+      string,
+      unknown
+    > | null,
   };
 }
 
@@ -155,9 +169,13 @@ export const commissionTransactionFormSchema = z.object({
   paid_at: optionalText,
 });
 
-export type CommissionTransactionFormValues = z.infer<typeof commissionTransactionFormSchema>;
+export type CommissionTransactionFormValues = z.infer<
+  typeof commissionTransactionFormSchema
+>;
 
-export function buildCommissionTransactionPayload(values: CommissionTransactionFormValues): CommissionTransactionPayload {
+export function buildCommissionTransactionPayload(
+  values: CommissionTransactionFormValues,
+): CommissionTransactionPayload {
   return {
     insurer_company_id: values.insurer_company_id,
     intermediary_company_id: values.intermediary_company_id,
@@ -189,9 +207,13 @@ export const commissionPaymentFormSchema = z.object({
   paid_by: optionalText,
 });
 
-export type CommissionPaymentFormValues = z.infer<typeof commissionPaymentFormSchema>;
+export type CommissionPaymentFormValues = z.infer<
+  typeof commissionPaymentFormSchema
+>;
 
-export function buildCommissionPaymentPayload(values: CommissionPaymentFormValues): CommissionPaymentPayload {
+export function buildCommissionPaymentPayload(
+  values: CommissionPaymentFormValues,
+): CommissionPaymentPayload {
   return {
     intermediary_company_id: values.intermediary_company_id,
     payment_no: values.payment_no,
@@ -204,4 +226,3 @@ export function buildCommissionPaymentPayload(values: CommissionPaymentFormValue
     paid_by: normalizeText(values.paid_by) ?? null,
   };
 }
-

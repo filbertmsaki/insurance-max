@@ -1,5 +1,8 @@
 import { apiClient } from '@/modules/shared/api/client';
-import { normalizePaginatedResponse, type PaginatedResponse } from '@/modules/shared/api/pagination';
+import {
+  normalizePaginatedResponse,
+  type PaginatedResponse,
+} from '@/modules/shared/api/pagination';
 import type {
   QuotationDetailRecord,
   QuotationListItem,
@@ -73,7 +76,10 @@ export const quotationsApi = {
     apiClient
       .put<QuotationDetailRecord>(`/tenant/quotations/${id}`, data)
       .then((response) => response.data),
-  submit: (id: string, data: { force_resubmit?: boolean; return_existing?: boolean } = {}) =>
+  submit: (
+    id: string,
+    data: { force_resubmit?: boolean; return_existing?: boolean } = {},
+  ) =>
     apiClient
       .post<QuotationSubmitResponse>(`/tenant/quotations/${id}/submit`, data)
       .then((response) => response.data),
@@ -82,5 +88,7 @@ export const quotationsApi = {
       .post<QuotationDetailRecord>(`/tenant/quotations/${id}/status`, data)
       .then((response) => response.data),
   delete: (id: string) =>
-    apiClient.delete(`/tenant/quotations/${id}`).then((response) => response.data),
+    apiClient
+      .delete(`/tenant/quotations/${id}`)
+      .then((response) => response.data),
 };

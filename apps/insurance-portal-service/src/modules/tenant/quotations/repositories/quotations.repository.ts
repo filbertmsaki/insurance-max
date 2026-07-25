@@ -1,12 +1,6 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  Brackets,
-  Repository,
-} from 'typeorm';
+import { Brackets, Repository } from 'typeorm';
 import { FilterQuotationDto } from '../dto/filter-quotation.dto';
 import { Quotation } from '../entities/quotation.entity';
 
@@ -34,15 +28,15 @@ export class QuotationsRepository {
   /**
    * Load the complete quotation aggregate.
    */
-  async findOneAggregate(
-    companyId: string,
-    id: string,
-  ): Promise<Quotation> {
+  async findOneAggregate(companyId: string, id: string): Promise<Quotation> {
     const quotation = await this.quotationRepository
       .createQueryBuilder('quotation')
       .leftJoinAndSelect('quotation.company', 'company')
       .leftJoinAndSelect('quotation.insurer_company', 'insurerCompany')
-      .leftJoinAndSelect('quotation.intermediary_company', 'intermediaryCompany')
+      .leftJoinAndSelect(
+        'quotation.intermediary_company',
+        'intermediaryCompany',
+      )
       .leftJoinAndSelect('quotation.branch', 'branch')
       .leftJoinAndSelect('quotation.department', 'department')
       .leftJoinAndSelect('quotation.creator', 'creator')
@@ -135,11 +129,9 @@ export class QuotationsRepository {
     if (query.customer_id) {
       queryBuilder.andWhere(
         new Brackets((customerQuery) => {
-          customerQuery
-            .where('quotation.customer_id = :customerId', {
-              customerId: query.customer_id,
-            })
-            .orWhere(`
+          customerQuery.where('quotation.customer_id = :customerId', {
+            customerId: query.customer_id,
+          }).orWhere(`
               EXISTS (
                 SELECT 1
                 FROM quotation_policy_holders AS customer_holder
@@ -165,8 +157,7 @@ export class QuotationsRepository {
             })
             .orWhere('coverNote.fleet_id ILIKE :search')
             .orWhere('coverNote.product_code ILIKE :search')
-            .orWhere('coverNote.officer_name ILIKE :search')
-            .orWhere(`
+            .orWhere('coverNote.officer_name ILIKE :search').orWhere(`
               EXISTS (
                 SELECT 1
                 FROM quotation_cover_note_entries AS entry_search
@@ -177,8 +168,7 @@ export class QuotationsRepository {
                     OR entry_search.prev_cover_note_reference_number ILIKE :search
                   )
               )
-            `)
-            .orWhere(`
+            `).orWhere(`
               EXISTS (
                 SELECT 1
                 FROM quotation_policy_holders AS holder_search
@@ -191,8 +181,7 @@ export class QuotationsRepository {
                     OR holder_search.email_address ILIKE :search
                   )
               )
-            `)
-            .orWhere(`
+            `).orWhere(`
               EXISTS (
                 SELECT 1
                 FROM quotation_cover_note_entries AS motor_entry_search
@@ -207,8 +196,7 @@ export class QuotationsRepository {
                     OR motor_search.owner_name ILIKE :search
                   )
               )
-            `)
-            .orWhere(`
+            `).orWhere(`
               EXISTS (
                 SELECT 1
                 FROM quotation_cover_note_entries AS subject_entry_search
@@ -248,10 +236,7 @@ export class QuotationsRepository {
     };
   }
 
-  async exists(
-    companyId: string,
-    id: string,
-  ): Promise<boolean> {
+  async exists(companyId: string, id: string): Promise<boolean> {
     return this.quotationRepository.exists({
       where: {
         id,
