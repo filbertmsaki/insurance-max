@@ -21,6 +21,7 @@ import {
   type CustomerRecord,
 } from '@/modules/tenant/customers/types';
 import type { QuotationFormSchemaValues } from '../../schemas';
+import { formatCoverDateLabel } from '../utils/coverNoteDateRange';
 
 interface OptionLike {
   id: string;
@@ -34,21 +35,6 @@ interface Props {
   categoryOptions: OptionLike[];
   productOptions: OptionLike[];
   riskCount: number;
-}
-
-function formatDateLabel(value?: string) {
-  if (!value) return 'Not set';
-
-  const parsed = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat('en', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(parsed);
 }
 
 function formatCurrencyValue(currency: string, rawValue?: string) {
@@ -136,7 +122,7 @@ export function QuotationSummary({
     .replace(/_/g, ' ')
     .toLowerCase()
     .replace(/^\w/, (character) => character.toUpperCase());
-  const dateRange = `${formatDateLabel(values.valid_from)} to ${formatDateLabel(
+  const dateRange = `${formatCoverDateLabel(values.valid_from)} to ${formatCoverDateLabel(
     values.valid_until,
   )}`;
 

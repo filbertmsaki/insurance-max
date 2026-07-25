@@ -451,6 +451,49 @@ export function useQuotationDistributionChannels() {
   });
 }
 
+export interface IntermediaryCompanyOption {
+  id: string;
+  name: string;
+  slug: string;
+  company_type: string;
+}
+
+/**
+ * Tran Company options for a given channel + product, shared by the cover-note step
+ * and the quotation start modal so both stay in sync with a single filtering rule.
+ */
+export function useIntermediaryCompanyOptions(
+  channelType: QuotationChannelType | '',
+  productId?: string,
+): IntermediaryCompanyOption[] {
+  const { data: distributionChannels = [] } = useQuotationDistributionChannels();
+
+  return useMemo(() => {
+    if (!channelType || channelType === 'DIRECT' || !productId) return [];
+
+    const uniqueCompanies = new Map<string, IntermediaryCompanyOption>();
+
+    distributionChannels.forEach((channel) => {
+      if (
+        channel.channel_type !== channelType ||
+        channel.product_id !== productId ||
+        channel.status !== 'ACTIVE' ||
+        !channel.can_quote ||
+        !channel.intermediary_company
+      ) {
+        return;
+      }
+
+      const company = channel.intermediary_company;
+      if (!uniqueCompanies.has(company.id)) {
+        uniqueCompanies.set(company.id, company);
+      }
+    });
+
+    return [...uniqueCompanies.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [channelType, distributionChannels, productId]);
+}
+
 export { quotationKeys };
 export type {
   QuotationDetailRecord,

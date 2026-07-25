@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  useIntermediaryCompanyOptions,
   useQuotationCategories,
   useQuotationProducts,
 } from '../hooks';
@@ -25,6 +26,13 @@ import {
   CHANNEL_TYPES,
   COVER_NOTE_TYPES,
 } from './steps/CoverNoteSetupStep';
+import {
+  COVER_NOTE_DATE_RANGE_OPTIONS,
+  computeCoverNoteDateRange,
+  formatCoverDateLabel,
+  matchPresetDays,
+  type CoverNoteDateRangeValue,
+} from './utils/coverNoteDateRange';
 import type { QuotationWizardFlow } from './types';
 
 export const CURRENCY_OPTIONS = ['TZS', 'USD', 'GBP', 'EUR'] as const;
@@ -56,6 +64,8 @@ export const QUOTATION_FLOW_OPTIONS = [
   },
 ] as const;
 
+const DEFAULT_QUOTATION_FLOW: QuotationWizardFlow = 'MOTOR_SINGLE';
+
 export interface QuotationStartSelection {
   quotation_flow: QuotationWizardFlow;
   quotation_type: 'MOTOR' | 'NON_MOTOR';
@@ -65,10 +75,15 @@ export interface QuotationStartSelection {
   channel_type: (typeof CHANNEL_TYPES)[number];
   currency: string;
   cover_note_type: '1' | '2' | '3';
+  intermediary_company_id?: string;
+  date_range?: CoverNoteDateRangeValue;
+  valid_from?: string;
+  valid_until?: string;
 }
 
 interface Props {
   open: boolean;
+  initialSelection?: QuotationStartSelection | null;
   onProceed: (selection: QuotationStartSelection) => void;
   onClose: () => void;
 }
@@ -80,9 +95,15 @@ const FIELD_LABELS = {
   channel_type: 'Insurance Channel',
   currency: 'Currency',
   cover_note_type: 'Cover Note Type',
+  date_range: 'Date Range',
 } as const;
 
-export function QuotationStartModal({ open, onProceed, onClose }: Props) {
+export function QuotationStartModal({
+  open,
+  initialSelection,
+  onProceed,
+  onClose,
+}: Props) {
   const [quotationFlow, setQuotationFlow] = useState<
     QuotationWizardFlow | ''
   >('');
@@ -95,12 +116,28 @@ export function QuotationStartModal({ open, onProceed, onClose }: Props) {
   const [coverNoteType, setCoverNoteType] = useState<
     '1' | '2' | '3' | ''
   >('');
+  const [tranCompanyId, setTranCompanyId] = useState('');
+  const [dateRangeDays, setDateRangeDays] = useState<
+    CoverNoteDateRangeValue | ''
+  >('');
+  const [validFrom, setValidFrom] = useState('');
+  const [validUntil, setValidUntil] = useState('');
   const [touched, setTouched] = useState(false);
 
   const businessLine = useMemo(
     () => (quotationFlow === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR'),
     [quotationFlow],
   );
+  const requiresDateRange = quotationFlow !== '' && quotationFlow !== 'MOTOR_FLEET';
+  const requiresTranCompany = channelType !== '' && channelType !== 'DIRECT';
+  const tranCompanyLabel =
+    channelType === 'BROKER'
+      ? 'Broker Company'
+      : channelType === 'AGENCY'
+        ? 'Agency Company'
+        : channelType === 'BANCASSURANCE'
+          ? 'Bancassurance Company'
+          : 'Intermediary Company';
 
   const { data: categoryOptions = [] } = useQuotationCategories(
     quotationFlow ? businessLine : undefined,
@@ -110,23 +147,60 @@ export function QuotationStartModal({ open, onProceed, onClose }: Props) {
     business_line: quotationFlow ? businessLine : undefined,
     supports_fleet: quotationFlow === 'MOTOR_FLEET' ? true : undefined,
   });
+  const tranCompanyOptions = useIntermediaryCompanyOptions(
+    channelType,
+    productId || undefined,
+  );
 
   useEffect(() => {
-    if (!open) {
-      setQuotationFlow('');
+    if (!open) return;
+
+    if (initialSelection) {
+      setQuotationFlow(initialSelection.quotation_flow);
+      setCategoryId(initialSelection.category_id);
+      setProductId(initialSelection.product_id);
+      setChannelType(initialSelection.channel_type);
+      setCurrency(initialSelection.currency);
+      setCoverNoteType(initialSelection.cover_note_type);
+      setTranCompanyId(initialSelection.intermediary_company_id ?? '');
+      setValidFrom(initialSelection.valid_from ?? '');
+      setValidUntil(initialSelection.valid_until ?? '');
+      setDateRangeDays(
+        initialSelection.date_range ??
+          matchPresetDays(initialSelection.valid_from, initialSelection.valid_until),
+      );
+    } else {
+      setQuotationFlow(DEFAULT_QUOTATION_FLOW);
       setCategoryId('');
       setProductId('');
       setChannelType('');
       setCurrency('');
       setCoverNoteType('');
-      setTouched(false);
+      setTranCompanyId('');
+      setDateRangeDays('');
+      setValidFrom('');
+      setValidUntil('');
     }
-  }, [open]);
+    setTouched(false);
+  }, [open, initialSelection]);
+
+  // Derived rather than cleared via effect: automatically drops out whenever the
+  // channel is Direct or the selection no longer matches the current channel/product's
+  // option list (e.g. switching between two non-Direct channels, or changing product).
+  const effectiveTranCompanyId =
+    requiresTranCompany && tranCompanyOptions.some((option) => option.id === tranCompanyId)
+      ? tranCompanyId
+      : '';
 
   const handleFlowChange = (flow: QuotationWizardFlow) => {
     setQuotationFlow(flow);
     setCategoryId('');
     setProductId('');
+    if (flow === 'MOTOR_FLEET') {
+      setDateRangeDays('');
+      setValidFrom('');
+      setValidUntil('');
+    }
   };
 
   const handleCategoryChange = (value: string) => {
@@ -134,13 +208,32 @@ export function QuotationStartModal({ open, onProceed, onClose }: Props) {
     setProductId('');
   };
 
-  const errors: Partial<Record<keyof typeof FIELD_LABELS, string>> = {};
+  const handleDateRangeChange = (value: CoverNoteDateRangeValue) => {
+    setDateRangeDays(value);
+    const option = COVER_NOTE_DATE_RANGE_OPTIONS.find((item) => item.value === value);
+    if (!option) return;
+    const { validFrom: nextFrom, validUntil: nextUntil } = computeCoverNoteDateRange(
+      option.days,
+    );
+    setValidFrom(nextFrom);
+    setValidUntil(nextUntil);
+  };
+
+  const errors: Partial<
+    Record<keyof typeof FIELD_LABELS | 'intermediary_company_id', string>
+  > = {};
   if (!quotationFlow) errors.quotation_flow = `${FIELD_LABELS.quotation_flow} is required`;
   if (!categoryId) errors.category_id = `${FIELD_LABELS.category_id} is required`;
   if (!productId) errors.product_id = `${FIELD_LABELS.product_id} is required`;
   if (!channelType) errors.channel_type = `${FIELD_LABELS.channel_type} is required`;
   if (!currency) errors.currency = `${FIELD_LABELS.currency} is required`;
   if (!coverNoteType) errors.cover_note_type = `${FIELD_LABELS.cover_note_type} is required`;
+  if (requiresTranCompany && !effectiveTranCompanyId) {
+    errors.intermediary_company_id = `${tranCompanyLabel} is required`;
+  }
+  if (requiresDateRange && (!validFrom || !validUntil)) {
+    errors.date_range = `${FIELD_LABELS.date_range} is required`;
+  }
   const isValid = Object.keys(errors).length === 0;
 
   const handleProceed = () => {
@@ -161,6 +254,14 @@ export function QuotationStartModal({ open, onProceed, onClose }: Props) {
       channel_type: channelType,
       currency,
       cover_note_type: coverNoteType,
+      intermediary_company_id: effectiveTranCompanyId,
+      ...(requiresDateRange
+        ? {
+            date_range: dateRangeDays || undefined,
+            valid_from: validFrom,
+            valid_until: validUntil,
+          }
+        : {}),
     });
   };
 
@@ -267,6 +368,34 @@ export function QuotationStartModal({ open, onProceed, onClose }: Props) {
             )}
           </div>
 
+          {requiresTranCompany && (
+            <div>
+              <Label className="mb-2 block">{tranCompanyLabel}</Label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                value={effectiveTranCompanyId}
+                onChange={(event) => setTranCompanyId(event.target.value)}
+                disabled={tranCompanyOptions.length === 0}
+              >
+                <option value="">
+                  {tranCompanyOptions.length === 0
+                    ? 'No linked companies available'
+                    : 'Select Tran Company'}
+                </option>
+                {tranCompanyOptions.map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+              {touched && errors.intermediary_company_id && (
+                <p className="mt-1 text-sm text-red-600">
+                  {errors.intermediary_company_id}
+                </p>
+              )}
+            </div>
+          )}
+
           <div>
             <Label className="mb-2 block">{FIELD_LABELS.currency}</Label>
             <Select value={currency} onValueChange={setCurrency}>
@@ -309,6 +438,38 @@ export function QuotationStartModal({ open, onProceed, onClose }: Props) {
               <p className="mt-1 text-sm text-red-600">{errors.cover_note_type}</p>
             )}
           </div>
+
+          {requiresDateRange && (
+            <div>
+              <Label className="mb-2 block">{FIELD_LABELS.date_range}</Label>
+              <Select
+                value={dateRangeDays}
+                onValueChange={(value) =>
+                  handleDateRangeChange(value as CoverNoteDateRangeValue)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select date range" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COVER_NOTE_DATE_RANGE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {validFrom && validUntil ? (
+                <p className="mt-1 text-xs text-slate-500">
+                  Cover period: {formatCoverDateLabel(validFrom)} to{' '}
+                  {formatCoverDateLabel(validUntil)}
+                </p>
+              ) : null}
+              {touched && errors.date_range && (
+                <p className="mt-1 text-sm text-red-600">{errors.date_range}</p>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter>

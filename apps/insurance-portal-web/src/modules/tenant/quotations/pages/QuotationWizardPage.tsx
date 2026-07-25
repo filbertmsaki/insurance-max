@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Car, CheckCircle2, Shield, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
@@ -19,7 +18,7 @@ import {
   createEmptyNonMotorDetails,
   createEmptyNonMotorItemRow,
   createEmptyRiskRow,
-  quotationFormSchema,
+  createQuotationFormSchema,
   quotationRecordToFormValues,
   type QuotationFormSchemaValues,
 } from '../schemas';
@@ -56,33 +55,6 @@ import { MotorDetailsStep } from '../wizard/steps/MotorDetailsStep';
 import { MotorFleetDetailsStep } from '../wizard/steps/MotorFleetDetailsStep';
 import { SummaryReviewStep } from '../wizard/steps/SummaryReviewStep';
 import { FleetSetupStep } from '../wizard/steps/FleetSetupStep';
-
-const FLOW_OPTIONS = [
-  {
-    label: 'Non-Motor',
-    description: 'Fire, marine, engineering, GIT, and miscellaneous covers',
-    icon: Shield,
-    quotation_flow: 'NON_MOTOR' as const,
-    quotation_type: 'NON_MOTOR' as const,
-    is_fleet: false,
-  },
-  {
-    label: 'Motor - Single Vehicle',
-    description: 'One vehicle under a single motor quotation',
-    icon: Car,
-    quotation_flow: 'MOTOR_SINGLE' as const,
-    quotation_type: 'MOTOR' as const,
-    is_fleet: false,
-  },
-  {
-    label: 'Motor - Fleet',
-    description: 'Multiple vehicles under one fleet quotation',
-    icon: Truck,
-    quotation_flow: 'MOTOR_FLEET' as const,
-    quotation_type: 'MOTOR' as const,
-    is_fleet: true,
-  },
-] as const;
 
 const EDITABLE_STATUSES = new Set([
   'DRAFT',
@@ -244,8 +216,12 @@ export function QuotationWizardPage() {
     usesPrefilledQuotation,
   );
 
+  const quotationSchema = useMemo(
+    () => createQuotationFormSchema({ enforceFreshCoverPeriod: !usesPrefilledQuotation }),
+    [usesPrefilledQuotation],
+  );
   const form = useForm<QuotationFormSchemaValues>({
-    resolver: zodResolver(quotationFormSchema as any) as any,
+    resolver: zodResolver(quotationSchema as any) as any,
     defaultValues: DEFAULT_VALUES,
   });
 
@@ -602,19 +578,6 @@ export function QuotationWizardPage() {
     }
   }, [stepId, steps]);
 
-  const handleFlowChange = useCallback(
-    (nextFlow: (typeof FLOW_OPTIONS)[number]) => {
-      form.setValue('quotation_flow', nextFlow.quotation_flow);
-      form.setValue('quotation_type', nextFlow.quotation_type);
-      form.setValue('is_fleet', nextFlow.is_fleet);
-      form.setValue('category_id', '');
-      form.setValue('product_id', '');
-      form.setValue('intermediary_company_id', '');
-      setCompletedSteps([]);
-    },
-    [form],
-  );
-
   const handleStartGateProceed = useCallback(
     (selection: QuotationStartSelection) => {
       form.setValue('quotation_flow', selection.quotation_flow);
@@ -625,6 +588,13 @@ export function QuotationWizardPage() {
       form.setValue('channel_type', selection.channel_type);
       form.setValue('currency', selection.currency);
       form.setValue('cover_note_type', selection.cover_note_type);
+      if (selection.intermediary_company_id !== undefined) {
+        form.setValue('intermediary_company_id', selection.intermediary_company_id);
+      }
+      if (selection.quotation_flow !== 'MOTOR_FLEET' && selection.valid_from && selection.valid_until) {
+        form.setValue('valid_from', selection.valid_from);
+        form.setValue('valid_until', selection.valid_until);
+      }
       setStartGateComplete(true);
     },
     [form],
@@ -633,6 +603,28 @@ export function QuotationWizardPage() {
   const handleStartGateClose = useCallback(() => {
     navigate(underwritingPaths.quotations);
   }, [navigate]);
+
+  const [changeSetupInitial, setChangeSetupInitial] =
+    useState<QuotationStartSelection | null>(null);
+
+  const openChangeSetup = useCallback(() => {
+    const values = form.getValues();
+    setChangeSetupInitial({
+      quotation_flow: values.quotation_flow,
+      quotation_type: values.quotation_type,
+      is_fleet: values.is_fleet,
+      category_id: values.category_id,
+      product_id: values.product_id,
+      channel_type: values.channel_type,
+      currency: values.currency,
+      cover_note_type: values.cover_note_type,
+      intermediary_company_id: values.intermediary_company_id,
+      valid_from:
+        values.quotation_flow !== 'MOTOR_FLEET' ? values.valid_from : undefined,
+      valid_until:
+        values.quotation_flow !== 'MOTOR_FLEET' ? values.valid_until : undefined,
+    });
+  }, [form]);
 
   function addRisk() {
     riskFieldArray.append(createEmptyRiskRow());
@@ -898,71 +890,22 @@ export function QuotationWizardPage() {
 
   return (
     <div className="pb-8">
+      <QuotationStartModal
+        open={changeSetupInitial !== null}
+        initialSelection={changeSetupInitial}
+        onProceed={(selection) => {
+          handleStartGateProceed(selection);
+          setChangeSetupInitial(null);
+        }}
+        onClose={() => setChangeSetupInitial(null)}
+      />
       <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-6">
-        {!isEditMode && !isEndorsementMode ? (
-          <section className="rounded-[24px] border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
-            <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">
-              Quotation Type
-            </h2>
-
-            <div className="mt-3 grid gap-2.5 lg:grid-cols-3">
-              {FLOW_OPTIONS.map((option) => {
-                const active = quotationFlow === option.quotation_flow;
-                const Icon = option.icon;
-
-                return (
-                  <button
-                    key={option.quotation_flow}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => handleFlowChange(option)}
-                    className={[
-                      'group rounded-[18px] border p-3 text-left transition-all duration-200',
-                      active
-                        ? 'border-sky-200 bg-sky-50/40 shadow-[0_8px_20px_-18px_rgba(14,165,233,0.45)]'
-                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60',
-                    ].join(' ')}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={[
-                          'mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full',
-                          active ? 'bg-sky-500' : 'bg-slate-300',
-                        ].join(' ')}
-                      />
-                      <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
-                        <div
-                          className={[
-                            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors',
-                            active
-                              ? 'border-sky-200 bg-white text-sky-700'
-                              : 'border-slate-200 bg-slate-50 text-slate-500 group-hover:bg-white',
-                          ].join(' ')}
-                        >
-                          <Icon className="h-4 w-4" />
-                        </div>
-                        {active ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-700">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            Selected
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
-
-                    <div className="mt-3 pl-[22px]">
-                      <div className="text-sm font-semibold text-slate-900">
-                        {option.label}
-                      </div>
-                      <div className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
-                        {option.description}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+        {!isEditMode && !isEndorsementMode && isFirstStep ? (
+          <div className="flex justify-end">
+            <Button type="button" variant="outline" size="sm" onClick={openChangeSetup}>
+              Change quotation setup
+            </Button>
+          </div>
         ) : null}
 
         {isEndorsementMode && sourceQuotation ? (
@@ -1014,6 +957,7 @@ export function QuotationWizardPage() {
                     isHydrating={isEditHydrating}
                     showFlowSelector={false}
                     isEndorsementMode={isEndorsementMode}
+                    enforceFreshCoverPeriod={!usesPrefilledQuotation}
                     title={
                       isEndorsementMode
                         ? 'Step 1. Endorsement Details'

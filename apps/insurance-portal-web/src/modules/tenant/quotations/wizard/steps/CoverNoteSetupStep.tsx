@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -20,13 +20,18 @@ import {
 } from '@/components/ui/select';
 import type { Branch } from '@/types';
 import type { TiramisSalePointRecord } from '@/modules/tenant/tiramis/types';
-import { useQuotationDistributionChannels } from '../../hooks';
+import { useIntermediaryCompanyOptions } from '../../hooks';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import {
   fromSelectValue,
   SELECT_NONE_VALUE,
   toSelectValue,
 } from '../utils/selectValue';
+import {
+  addLocalDays,
+  dateOnlyPart,
+  formatLocalDateTime,
+} from '../utils/coverNoteDateRange';
 
 interface OptionLike {
   id: string;
@@ -45,6 +50,8 @@ interface Props {
   title?: string;
   showFlowSelector?: boolean;
   isEndorsementMode?: boolean;
+  /** Enforces "no earlier than now" / "minimum 30-day period" for brand-new Motor/Non-Motor quotations only. */
+  enforceFreshCoverPeriod?: boolean;
 }
 
 export const CHANNEL_TYPES = [
@@ -82,6 +89,7 @@ export function CoverNoteSetupStep({
   title = 'Step 1. Cover Note Setup',
   showFlowSelector = true,
   isEndorsementMode = false,
+  enforceFreshCoverPeriod = false,
 }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const validFrom = form.watch('valid_from');
@@ -93,42 +101,24 @@ export function CoverNoteSetupStep({
   const branchId = form.watch('branch_id');
   const salePointId = form.watch('sale_point_id');
   const requiresStandardCoverNoteFields = quotationFlow !== 'MOTOR_FLEET';
+  const validFromDateOnly = dateOnlyPart(validFrom) || today;
+  const minValidUntil =
+    enforceFreshCoverPeriod && requiresStandardCoverNoteFields
+      ? dateOnlyPart(
+          formatLocalDateTime(
+            addLocalDays(new Date(`${validFromDateOnly}T00:00:00`), 29),
+          ),
+        )
+      : validFromDateOnly;
   const intermediaryCompanyId = form.watch('intermediary_company_id');
-  const { data: distributionChannels = [] } =
-    useQuotationDistributionChannels();
   const defaultSalePointId =
     salePointOptions.find((salePoint) => salePoint.isDefault)?.id ??
     salePointOptions[0]?.id ??
     '';
-  const intermediaryOptions = useMemo(() => {
-    if (channelType === 'DIRECT' || !productId) return [];
-
-    const uniqueCompanies = new Map<
-      string,
-      { id: string; name: string; slug: string; company_type: string }
-    >();
-
-    distributionChannels.forEach((channel) => {
-      if (
-        channel.channel_type !== channelType ||
-        channel.product_id !== productId ||
-        channel.status !== 'ACTIVE' ||
-        !channel.can_quote ||
-        !channel.intermediary_company
-      ) {
-        return;
-      }
-
-      const company = channel.intermediary_company;
-      if (!uniqueCompanies.has(company.id)) {
-        uniqueCompanies.set(company.id, company);
-      }
-    });
-
-    return [...uniqueCompanies.values()].sort((a, b) =>
-      a.name.localeCompare(b.name),
-    );
-  }, [channelType, distributionChannels, productId]);
+  const intermediaryOptions = useIntermediaryCompanyOptions(
+    channelType,
+    productId,
+  );
 
   useEffect(() => {
     if (isHydrating) {
@@ -212,6 +202,16 @@ export function CoverNoteSetupStep({
                         form.setValue('is_fleet', option.is_fleet);
                         form.setValue('category_id', '');
                         form.setValue('product_id', '');
+                        if (option.quotation_flow === 'MOTOR_FLEET') {
+                          form.setValue(
+                            'valid_from',
+                            dateOnlyPart(form.getValues('valid_from')),
+                          );
+                          form.setValue(
+                            'valid_until',
+                            dateOnlyPart(form.getValues('valid_until')),
+                          );
+                        }
                       }}
                       className={[
                         'rounded-lg border p-4 text-left transition-colors',
@@ -412,7 +412,15 @@ export function CoverNoteSetupStep({
               <FormItem>
                 <FormLabel>Cover Start Date (required)</FormLabel>
                 <FormControl>
-                  <Input type="date" min={today} {...field} />
+                  <Input
+                    type="date"
+                    min={today}
+                    name={field.name}
+                    ref={field.ref}
+                    onBlur={field.onBlur}
+                    value={dateOnlyPart(field.value)}
+                    onChange={(event) => field.onChange(event.target.value)}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -426,7 +434,15 @@ export function CoverNoteSetupStep({
               <FormItem>
                 <FormLabel>Cover End Date (required)</FormLabel>
                 <FormControl>
-                  <Input type="date" min={validFrom || today} {...field} />
+                  <Input
+                    type="date"
+                    min={minValidUntil}
+                    name={field.name}
+                    ref={field.ref}
+                    onBlur={field.onBlur}
+                    value={dateOnlyPart(field.value)}
+                    onChange={(event) => field.onChange(event.target.value)}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

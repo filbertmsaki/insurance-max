@@ -12,6 +12,7 @@ import { computeAddonAmounts } from '../utils/addonCalculations';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import type { QuotationWizardStepId } from '../types';
 import { buildQuotationPayloadPreview } from '../utils/quotationPayloadPreview';
+import { formatCoverDateLabel } from '../utils/coverNoteDateRange';
 
 interface OptionLike {
   id: string;
@@ -134,7 +135,8 @@ export function SummaryReviewStep({
             {currency !== 'TZS' ? `(rate: ${values.exchange_rate || '-'})` : ''}
           </p>
           <p>
-            Cover period: {values.valid_from || '-'} to {values.valid_until || '-'}
+            Cover period: {formatCoverDateLabel(values.valid_from)} to{' '}
+            {formatCoverDateLabel(values.valid_until)}
           </p>
           <p>Commission paid: {values.commission_paid || values.total_commission || '0'}</p>
           <p>Commission rate: {values.commission_rate || '0'}</p>

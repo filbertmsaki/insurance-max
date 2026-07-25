@@ -22,6 +22,10 @@ import type {
   QuotationWizardFleetItemRow,
   QuotationWizardNonMotorItemRow,
 } from './types';
+import {
+  inclusiveDayCount,
+  isBeforeLocalNow,
+} from './wizard/utils/coverNoteDateRange';
 
 const optionalText = z.string().trim().optional().or(z.literal(''));
 
@@ -46,6 +50,7 @@ function normalizePositiveNumber(value?: string | number | null, fallback = 1) {
 }
 
 function formatDateTime(date: string, endOfDay: boolean) {
+  if (date.includes('T')) return date;
   return `${date}T${endOfDay ? '23:59:59' : '00:00:00'}`;
 }
 
@@ -743,6 +748,38 @@ export const quotationFormSchema: z.ZodType<QuotationFormValues> =
   }) as unknown as z.ZodType<QuotationFormValues>;
 
 export type QuotationFormSchemaValues = QuotationFormValues;
+
+/**
+ * Chains an extra cover-period rule onto the base schema for brand-new Motor/Non-Motor
+ * quotations only (never Fleet, never edit/endorsement mode). Returns the base schema
+ * unchanged when the option is off, so existing callers/tests see no behavior change.
+ */
+export function createQuotationFormSchema(
+  options: { enforceFreshCoverPeriod?: boolean } = {},
+): z.ZodType<QuotationFormValues> {
+  if (!options.enforceFreshCoverPeriod) return quotationFormSchema;
+
+  return quotationFormSchema.superRefine((values, ctx) => {
+    if (values.quotation_flow === 'MOTOR_FLEET') return;
+
+    if (isBeforeLocalNow(values.valid_from)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['valid_from'],
+        message: 'Cover start date cannot be earlier than now',
+      });
+    }
+
+    const totalDays = inclusiveDayCount(values.valid_from, values.valid_until);
+    if (totalDays !== null && totalDays < 30) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['valid_until'],
+        message: 'Cover period must be at least 30 days',
+      });
+    }
+  });
+}
 
 export function createEmptyRiskRow(): QuotationRiskFormRow {
   return {
