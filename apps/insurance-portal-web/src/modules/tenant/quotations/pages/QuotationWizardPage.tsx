@@ -929,18 +929,18 @@ export function QuotationWizardPage() {
           </section>
         ) : null}
 
-        <QuotationJourneyProgress
-          steps={steps}
-          currentStep={stepId}
-          completedSteps={completedSteps}
-          errorSteps={errorSteps}
-          onStepClick={(nextStep) =>
-            void goToStep(nextStep as QuotationWizardStepId)
-          }
-        />
+        <div className="rounded-[24px] border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
+          <QuotationJourneyProgress
+            steps={steps}
+            currentStep={stepId}
+            completedSteps={completedSteps}
+            errorSteps={errorSteps}
+            onStepClick={(nextStep) =>
+              void goToStep(nextStep as QuotationWizardStepId)
+            }
+          />
 
-        <div className="grid gap-6">
-          <div className="min-w-0 space-y-4">
+          <div className="mt-4 border-t border-slate-100 pt-6 sm:mt-5">
             <Form {...form}>
               <form
                 className="space-y-6"

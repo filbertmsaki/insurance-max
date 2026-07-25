@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   FormControl,
@@ -20,6 +19,7 @@ import type { Branch } from '@/types';
 import type { TiramisSalePointRecord } from '@/modules/tenant/tiramis/types';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { CoverNoteSetupStep } from './CoverNoteSetupStep';
+import { StepSection } from '../components/StepSection';
 import {
   fromSelectValue,
   SELECT_NONE_VALUE,
@@ -82,87 +82,86 @@ export function FleetSetupStep({
   }, [fleetItems.length, form]);
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Step 1. Fleet Header</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="fleet.header.fleet_id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Fleet ID</FormLabel>
+    <>
+      <StepSection
+        title="Step 1. Fleet Header"
+        first
+        contentClassName="grid gap-4 md:grid-cols-2"
+      >
+        <FormField
+          control={form.control}
+          name="fleet.header.fleet_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Fleet ID</FormLabel>
+              <FormControl>
+                <Input {...field} placeholder="FLEET-2026-0001" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="fleet.header.fleet_type"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Fleet Type</FormLabel>
+              <Select
+                value={toSelectValue(field.value)}
+                onValueChange={(value) => field.onChange(fromSelectValue(value))}
+              >
                 <FormControl>
-                  <Input {...field} placeholder="FLEET-2026-0001" />
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select fleet type" />
+                  </SelectTrigger>
                 </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="fleet.header.fleet_type"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Fleet Type</FormLabel>
-                <Select
-                  value={toSelectValue(field.value)}
-                  onValueChange={(value) => field.onChange(fromSelectValue(value))}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select fleet type" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
-                    {FLEET_TYPES.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="fleet.header.fleet_size"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Expected Fleet Size</FormLabel>
-                <FormControl>
-                  <Input {...field} readOnly />
-                </FormControl>
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="fleet.header.comprehensive_insured"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Comprehensively Insured Vehicles</FormLabel>
-                <FormControl>
-                  <Input type="number" min="0" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 md:col-span-2">
-            <p className="text-sm font-medium text-slate-900">Calculated Fleet Totals</p>
-            <div className="mt-2 grid gap-2 text-sm text-slate-600 md:grid-cols-2">
-              <p>Premium excluding tax: {computedPremiumExcludingTax.toFixed(2)}</p>
-              <p>Premium including tax: {computedPremiumIncludingTax.toFixed(2)}</p>
-            </div>
+                <SelectContent>
+                  <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
+                  {FLEET_TYPES.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="fleet.header.fleet_size"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Expected Fleet Size</FormLabel>
+              <FormControl>
+                <Input {...field} readOnly />
+              </FormControl>
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="fleet.header.comprehensive_insured"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Comprehensively Insured Vehicles</FormLabel>
+              <FormControl>
+                <Input type="number" min="0" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 md:col-span-2">
+          <p className="text-sm font-medium text-slate-900">Calculated Fleet Totals</p>
+          <div className="mt-2 grid gap-2 text-sm text-slate-600 md:grid-cols-2">
+            <p>Premium excluding tax: {computedPremiumExcludingTax.toFixed(2)}</p>
+            <p>Premium including tax: {computedPremiumIncludingTax.toFixed(2)}</p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </StepSection>
 
       <CoverNoteSetupStep
         form={form}
@@ -174,7 +173,8 @@ export function FleetSetupStep({
         isHydrating={isHydrating}
         title="Common Cover Note Setup"
         showFlowSelector={false}
+        firstSection={false}
       />
-    </div>
+    </>
   );
 }

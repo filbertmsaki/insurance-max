@@ -84,10 +84,7 @@ export function QuotationJourneyProgress({
     currentStepDef?.description ?? descriptions[currentStepDef?.id ?? ''];
 
   return (
-    <nav
-      aria-label="Quotation progress"
-      className="rounded-[24px] border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5"
-    >
+    <nav aria-label="Quotation progress">
       <div className="mb-4 flex items-center justify-between gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
           Step {activeIndex + 1} of {steps.length}

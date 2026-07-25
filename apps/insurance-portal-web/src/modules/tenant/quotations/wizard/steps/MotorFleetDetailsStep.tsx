@@ -13,7 +13,6 @@ import {
   type UseFormReturn,
 } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -33,6 +32,7 @@ import {
 import type { CustomerRecord } from '@/modules/tenant/customers/types';
 import type { InsuranceRisk } from '@/types/product-engine';
 import type { QuotationFormSchemaValues } from '../../schemas';
+import { StepSection } from '../components/StepSection';
 import {
   fromSelectValue,
   SELECT_NONE_VALUE,
@@ -135,21 +135,17 @@ function FleetVehicleEditor({
   const issues = getVehicleIssues(item);
 
   return (
-    <Card className="border-slate-300">
-      <CardHeader className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <CardTitle className="text-base">
-              Vehicle Wizard - Fleet Entry {item.fleet_entry || index + 1}
-            </CardTitle>
-            <p className="text-sm text-slate-500">
-              Shared policyholder: {customerName || 'Not selected yet'}
-            </p>
-          </div>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Back to Fleet Vehicles
-          </Button>
-        </div>
+    <StepSection
+      variant="item"
+      title={`Vehicle Wizard - Fleet Entry ${item.fleet_entry || index + 1}`}
+      description={`Shared policyholder: ${customerName || 'Not selected yet'}`}
+      action={
+        <Button type="button" variant="outline" onClick={onClose}>
+          Back to Fleet Vehicles
+        </Button>
+      }
+      contentClassName="space-y-6"
+    >
         <div className="flex flex-wrap gap-2">
           {VEHICLE_STEPS.map((vehicleStep) => (
             <button
@@ -167,8 +163,6 @@ function FleetVehicleEditor({
             </button>
           ))}
         </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
         {step === 0 && (
           <div className="grid gap-4 md:grid-cols-2">
             <FormField
@@ -316,9 +310,12 @@ function FleetVehicleEditor({
                 ) ?? [];
 
               return (
-                <Card key={field.id} className="border-slate-200 bg-slate-50/50">
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-sm">Risk #{riskIndex + 1}</CardTitle>
+                <StepSection
+                  key={field.id}
+                  variant="item"
+                  className="bg-slate-50/50"
+                  title={`Risk #${riskIndex + 1}`}
+                  action={
                     <Button
                       type="button"
                       variant="ghost"
@@ -328,8 +325,8 @@ function FleetVehicleEditor({
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+                  }
+                >
                     <div className="grid gap-4 md:grid-cols-2">
                       <FormField
                         control={form.control}
@@ -623,8 +620,7 @@ function FleetVehicleEditor({
                         </div>
                       ))}
                     </div>
-                  </CardContent>
-                </Card>
+                </StepSection>
               );
             })}
           </div>
@@ -632,9 +628,10 @@ function FleetVehicleEditor({
 
         {step === 2 && (
           <div className="space-y-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-sm">Subject Matters Covered</CardTitle>
+            <StepSection
+              first
+              title="Subject Matters Covered"
+              action={
                 <Button
                   type="button"
                   variant="outline"
@@ -649,8 +646,9 @@ function FleetVehicleEditor({
                   <Plus className="mr-2 h-4 w-4" />
                   Add Subject
                 </Button>
-              </CardHeader>
-              <CardContent className="space-y-3">
+              }
+              contentClassName="space-y-3"
+            >
                 {subjectArray.fields.map((field, subjectIndex) => (
                   <div key={field.id} className="grid gap-3 md:grid-cols-2">
                     <FormField
@@ -690,12 +688,11 @@ function FleetVehicleEditor({
                     </div>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+            </StepSection>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-sm">Add-ons</CardTitle>
+            <StepSection
+              title="Add-ons"
+              action={
                 <Button
                   type="button"
                   variant="outline"
@@ -716,8 +713,8 @@ function FleetVehicleEditor({
                   <Plus className="mr-2 h-4 w-4" />
                   Add Add-on
                 </Button>
-              </CardHeader>
-              <CardContent className="space-y-4">
+              }
+            >
                 {addonArray.fields.length === 0 ? (
                   <p className="text-sm text-slate-500">
                     No add-ons for this vehicle yet.
@@ -789,8 +786,7 @@ function FleetVehicleEditor({
                     </div>
                   ))
                 )}
-              </CardContent>
-            </Card>
+            </StepSection>
           </div>
         )}
 
@@ -1061,8 +1057,7 @@ function FleetVehicleEditor({
             Next
           </Button>
         </div>
-      </CardContent>
-    </Card>
+    </StepSection>
   );
 }
 
@@ -1101,15 +1096,12 @@ export function MotorFleetDetailsStep({
   }, [activeIndex, fields.length]);
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-base">Step 3. Fleet Vehicles</CardTitle>
-            <p className="text-sm text-slate-500">
-              Manage fleet entries first, then complete each vehicle through the nested editor.
-            </p>
-          </div>
+    <>
+      <StepSection
+        title="Step 3. Fleet Vehicles"
+        description="Manage fleet entries first, then complete each vehicle through the nested editor."
+        first
+        action={
           <Button
             type="button"
             onClick={() => {
@@ -1121,8 +1113,9 @@ export function MotorFleetDetailsStep({
             <Plus className="mr-2 h-4 w-4" />
             Add Vehicle
           </Button>
-        </CardHeader>
-        <CardContent className="space-y-3">
+        }
+        contentClassName="space-y-3"
+      >
           {fields.map((field, index) => {
             const item = form.watch(`fleet.items.${index}` as const);
             const issues = getVehicleIssues(item);
@@ -1210,8 +1203,7 @@ export function MotorFleetDetailsStep({
               </div>
             );
           })}
-        </CardContent>
-      </Card>
+      </StepSection>
 
       {activeIndex != null && fields[activeIndex] ? (
         <FleetVehicleEditor
@@ -1224,6 +1216,6 @@ export function MotorFleetDetailsStep({
           onClose={() => setActiveIndex(null)}
         />
       ) : null}
-    </div>
+    </>
   );
 }

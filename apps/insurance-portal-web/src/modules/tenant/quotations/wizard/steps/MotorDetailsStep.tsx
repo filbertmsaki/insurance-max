@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   FormControl,
@@ -33,6 +32,7 @@ import {
   SELECT_NONE_VALUE,
   toSelectValue,
 } from '../utils/selectValue';
+import { StepSection } from '../components/StepSection';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -279,13 +279,9 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
   }, [mode, selectedVehicle?.id]);
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Step 5. Motor Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
+    <>
+      <StepSection title="Step 5. Motor Details" first>
+        <div className="flex gap-2">
             {[
               { value: 'existing' as const, label: 'Existing Vehicle' },
               { value: 'new' as const, label: 'New Vehicle' },
@@ -374,15 +370,10 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
               <p>Year: {selectedVehicle.manufacture_year ?? '—'}</p>
             </div>
           )}
-        </CardContent>
-      </Card>
+      </StepSection>
 
       {mode === 'new' && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Vehicle Details</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
+        <StepSection title="Vehicle Details" contentClassName="grid gap-4 md:grid-cols-2">
             <FormField
               control={form.control}
               name="motor.motor_category_code"
@@ -787,9 +778,8 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                 </FormItem>
               )}
             />
-          </CardContent>
-        </Card>
+        </StepSection>
       )}
-    </div>
+    </>
   );
 }

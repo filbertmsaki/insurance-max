@@ -1,7 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { useFieldArray, type FieldPath, type UseFormReturn } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -20,6 +19,7 @@ import {
   SELECT_NONE_VALUE,
   toSelectValue,
 } from '../utils/selectValue';
+import { StepSection } from './StepSection';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -49,20 +49,20 @@ export function AddonRow({ form, index, onRemove, canRemove, exchangeRate }: Pro
   }, [addon.taxes, form, index]);
 
   return (
-    <Card className={enabled ? undefined : 'opacity-60'}>
-      <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <CardTitle className="text-base">Add-on #{index + 1}</CardTitle>
-          <div className="flex items-center gap-2">
-            <Switch checked={enabled} onCheckedChange={(checked) => form.setValue(`addons.${index}.enabled` as const, checked)} />
-            <span className="text-xs text-slate-500">{enabled ? 'Included' : 'Excluded'}</span>
-          </div>
+    <StepSection
+      variant="item"
+      className={enabled ? undefined : 'opacity-60'}
+      title={`Add-on #${index + 1}`}
+      action={
+        <div className="flex items-center gap-2">
+          <Switch checked={enabled} onCheckedChange={(checked) => form.setValue(`addons.${index}.enabled` as const, checked)} />
+          <span className="text-xs text-slate-500">{enabled ? 'Included' : 'Excluded'}</span>
+          <Button type="button" variant="ghost" size="icon" onClick={() => onRemove(index)} disabled={!canRemove}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
-        <Button type="button" variant="ghost" size="icon" onClick={() => onRemove(index)} disabled={!canRemove}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      }
+    >
         <div className="grid gap-4 md:grid-cols-2">
           <FormField control={form.control} name={path(index, 'addon_reference')} render={({ field }) => (
             <FormItem>
@@ -260,7 +260,6 @@ export function AddonRow({ form, index, onRemove, canRemove, exchangeRate }: Pro
           <p>Total tax: {computed.totalTax.toFixed(2)}</p>
           <p className="font-medium text-slate-900">Including tax: {computed.premiumIncludingTax.toFixed(2)}</p>
         </div>
-      </CardContent>
-    </Card>
+    </StepSection>
   );
 }

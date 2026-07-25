@@ -72,7 +72,12 @@ export function AppShell() {
                   <Outlet />
                 </div>
               </main>
-              {footer && <div className="shrink-0 border-t border-slate-200 bg-white px-6 py-3">{footer}</div>}
+              {footer && (
+                // width matched to QuotationWizardPage's content column (the current sole consumer of usePageFooter)
+                <div className="shrink-0 border-t border-slate-200/80 bg-white px-4 py-3 shadow-[0_-8px_20px_-18px_rgba(15,23,42,0.25)] sm:px-6 lg:px-8">
+                  <div className="mx-auto w-full max-w-[1380px]">{footer}</div>
+                </div>
+              )}
             </div>
           </div>
         )}

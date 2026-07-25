@@ -6,7 +6,6 @@ import {
   type UseFormReturn,
 } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
   FormControl,
@@ -39,6 +38,7 @@ import {
   SELECT_NONE_VALUE,
   toSelectValue,
 } from '../utils/selectValue';
+import { StepSection } from './StepSection';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -130,14 +130,17 @@ export function RiskRow({
   }, [form, index, taxes]);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <CardTitle className="text-base">
+    <StepSection
+      variant="item"
+      title={
+        <>
           Risk #{index + 1}{' '}
           {selectedRisk ? (
             <span className="text-slate-500">- {selectedRisk.risk_code}</span>
           ) : null}
-        </CardTitle>
+        </>
+      }
+      action={
         <Button
           type="button"
           variant="ghost"
@@ -147,9 +150,9 @@ export function RiskRow({
         >
           <Trash2 className="h-4 w-4" />
         </Button>
-      </CardHeader>
-
-      <CardContent className="space-y-6">
+      }
+      contentClassName="space-y-6"
+    >
         <div className="grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
@@ -725,7 +728,6 @@ export function RiskRow({
             Premium including tax: {premiumIncludingTaxValue.toFixed(2)}
           </p>
         </div>
-      </CardContent>
-    </Card>
+    </StepSection>
   );
 }
