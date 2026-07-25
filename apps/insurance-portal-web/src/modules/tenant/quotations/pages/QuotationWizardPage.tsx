@@ -38,6 +38,10 @@ import {
 } from '../hooks';
 import { quotationsApi } from '../api';
 import { QuotationJourneyProgress } from '../wizard/QuotationJourneyProgress';
+import {
+  QuotationStartModal,
+  type QuotationStartSelection,
+} from '../wizard/QuotationStartModal';
 import { useQuotationWizardDraft } from '../wizard/useQuotationWizardDraft';
 import {
   getWizardStepsForFlow,
@@ -234,6 +238,9 @@ export function QuotationWizardPage() {
   );
   const hasHydratedEditRef = useRef(false);
   const [isEditHydrating, setIsEditHydrating] = useState(
+    usesPrefilledQuotation,
+  );
+  const [startGateComplete, setStartGateComplete] = useState(
     usesPrefilledQuotation,
   );
 
@@ -608,6 +615,25 @@ export function QuotationWizardPage() {
     [form],
   );
 
+  const handleStartGateProceed = useCallback(
+    (selection: QuotationStartSelection) => {
+      form.setValue('quotation_flow', selection.quotation_flow);
+      form.setValue('quotation_type', selection.quotation_type);
+      form.setValue('is_fleet', selection.is_fleet);
+      form.setValue('category_id', selection.category_id);
+      form.setValue('product_id', selection.product_id);
+      form.setValue('channel_type', selection.channel_type);
+      form.setValue('currency', selection.currency);
+      form.setValue('cover_note_type', selection.cover_note_type);
+      setStartGateComplete(true);
+    },
+    [form],
+  );
+
+  const handleStartGateClose = useCallback(() => {
+    navigate(underwritingPaths.quotations);
+  }, [navigate]);
+
   function addRisk() {
     riskFieldArray.append(createEmptyRiskRow());
   }
@@ -857,6 +883,16 @@ export function QuotationWizardPage() {
           Back to Quotations
         </Button>
       </div>
+    );
+  }
+
+  if (!usesPrefilledQuotation && !startGateComplete) {
+    return (
+      <QuotationStartModal
+        open
+        onProceed={handleStartGateProceed}
+        onClose={handleStartGateClose}
+      />
     );
   }
 

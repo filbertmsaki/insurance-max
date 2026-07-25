@@ -47,14 +47,14 @@ interface Props {
   isEndorsementMode?: boolean;
 }
 
-const CHANNEL_TYPES = [
+export const CHANNEL_TYPES = [
   'DIRECT',
   'BROKER',
   'AGENCY',
   'BANCASSURANCE',
   'API',
 ] as const;
-const COVER_NOTE_TYPES = [
+export const COVER_NOTE_TYPES = [
   { value: '1', label: 'New' },
   { value: '2', label: 'Renew' },
   { value: '3', label: 'Endorsement' },
