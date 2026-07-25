@@ -313,6 +313,7 @@ export function QuotationWizardPage() {
   const createMutation = useCreateQuotation();
   const updateMutation = useUpdateQuotation(id);
   const [isSubmittingToTiramis, setIsSubmittingToTiramis] = useState(false);
+  const [lastDraftSavedAt, setLastDraftSavedAt] = useState<Date | null>(null);
 
   const steps = useMemo(
     () => getWizardStepsForFlow(quotationFlowForQueries),
@@ -697,6 +698,7 @@ export function QuotationWizardPage() {
         });
 
         clearDraft();
+        setLastDraftSavedAt(null);
 
         if (options?.submitAfterSave) {
           setIsSubmittingToTiramis(true);
@@ -750,7 +752,34 @@ export function QuotationWizardPage() {
   const isFirstStep = steps[0]?.id === stepId;
   const isLastStep = steps[steps.length - 1]?.id === stepId;
   const currentStep = steps.find((step) => step.id === stepId);
-  const errorSteps = steps.filter((step) => (STEP_FIELDS[step.id] ?? []).some((field) => form.getFieldState(field).invalid)).map((step) => step.id);
+  const currentStepIndex = Math.max(
+    0,
+    steps.findIndex((step) => step.id === stepId),
+  );
+  const errorSteps = steps
+    .filter((step) =>
+      (STEP_FIELDS[step.id] ?? []).some((field) =>
+        form.getFieldState(field).invalid,
+      ),
+    )
+    .map((step) => step.id);
+  const wizardModeLabel = isEditMode
+    ? 'Editing quotation'
+    : isEndorsementMode
+      ? 'Endorsement workflow'
+      : 'New quotation draft';
+  const flowLabel =
+    quotationFlowForQueries === 'NON_MOTOR'
+      ? 'Non-motor'
+      : quotationFlowForQueries === 'MOTOR_FLEET'
+        ? 'Motor fleet'
+        : 'Motor single';
+  const draftStatusLabel = lastDraftSavedAt
+    ? `Saved locally at ${lastDraftSavedAt.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      })}`
+    : 'Changes save locally as you type';
 
   const footerNode = useMemo(
     () =>
@@ -853,42 +882,100 @@ export function QuotationWizardPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(underwritingPaths.quotations)}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <PageHeader
-          title={
-            isEditMode
-              ? 'Edit Quotation'
-              : isEndorsementMode
-                ? 'Add Endorsement'
-                : 'Quotation Wizard'
-          }
-          description={
-            isEditMode
-              ? 'Continue editing this quotation draft using the current backend quotation contract.'
-              : isEndorsementMode
-                ? 'Create a follow-up endorsement quotation based on the completed quotation.'
-                : 'Create one quotation wizard that supports motor single, motor fleet, and non-motor flows.'
-          }
-        />
-      </div>
+    <div className="pb-8">
+      <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-6">
+        <section className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-[radial-gradient(circle_at_top_left,_rgba(186,230,253,0.8),_transparent_38%),linear-gradient(135deg,_#ffffff,_#f8fafc_55%,_#ecfeff)] p-6 shadow-[0_28px_80px_-42px_rgba(15,23,42,0.5)] sm:p-8">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+            <div className="flex items-start gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(underwritingPaths.quotations)}
+                className="mt-1 rounded-2xl border border-white/70 bg-white/80 shadow-sm backdrop-blur hover:bg-white"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
 
-      <div className="mx-auto w-full max-w-5xl space-y-4">
+              <div className="min-w-0">
+                <span className="inline-flex rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky-800">
+                  {wizardModeLabel}
+                </span>
+                <div className="mt-4">
+                  <PageHeader
+                    title={
+                      isEditMode
+                        ? 'Edit Quotation'
+                        : isEndorsementMode
+                          ? 'Add Endorsement'
+                          : 'Quotation Wizard'
+                    }
+                    description={
+                      isEditMode
+                        ? 'Continue editing this quotation draft using the current backend quotation contract.'
+                        : isEndorsementMode
+                          ? 'Create a follow-up endorsement quotation based on the completed quotation.'
+                          : 'Create one guided workflow for motor single, motor fleet, and non-motor quotations.'
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3 xl:w-[28rem]">
+              <div className="rounded-[24px] border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Current flow
+                </p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">
+                  {flowLabel}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  Adapted automatically to the selected product flow.
+                </p>
+              </div>
+              <div className="rounded-[24px] border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Current step
+                </p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">
+                  {currentStepIndex + 1} / {steps.length}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {currentStep?.label ?? 'Wizard step'}
+                </p>
+              </div>
+              <div className="rounded-[24px] border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                  Local draft
+                </p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">
+                  {lastDraftSavedAt ? 'Saved' : 'Autosave on'}
+                </p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {draftStatusLabel}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {!isEditMode && !isEndorsementMode ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-            <p className="text-sm font-semibold text-slate-900">Quotation Type</p>
-            <p className="mt-1 text-sm text-slate-500">
-              Choose whether this quotation is non-motor, a single motor cover, or
-              a motor fleet cover.
-            </p>
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <section className="rounded-[28px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_20px_50px_-32px_rgba(15,23,42,0.45)]">
+            <div className="max-w-2xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700">
+                Quotation Type
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-900">
+                Choose the underwriting path first
+              </h2>
+              <p className="mt-2 text-sm text-slate-500">
+                The wizard will reshape its steps and validations depending on
+                whether this is non-motor, a single motor cover, or a fleet
+                quotation.
+              </p>
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-3">
               {FLOW_OPTIONS.map((option) => {
                 const active = quotationFlow === option.quotation_flow;
 
@@ -898,45 +985,58 @@ export function QuotationWizardPage() {
                     type="button"
                     onClick={() => handleFlowChange(option)}
                     className={[
-                      'rounded-xl border p-4 text-left transition-colors',
+                      'group rounded-[24px] border p-5 text-left transition-all duration-200',
                       active
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+                        ? 'border-sky-300 bg-gradient-to-br from-sky-50 via-cyan-50 to-white shadow-[0_18px_40px_-28px_rgba(14,165,233,0.8)]'
+                        : 'border-slate-200 bg-slate-50/70 hover:border-slate-300 hover:bg-white',
                     ].join(' ')}
                   >
-                    <div className="text-sm font-semibold">{option.label}</div>
-                    <div
-                      className={[
-                        'mt-1 text-xs',
-                        active ? 'text-slate-200' : 'text-slate-400',
-                      ].join(' ')}
-                    >
-                      {option.description}
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-base font-semibold text-slate-900">
+                          {option.label}
+                        </div>
+                        <div className="mt-2 text-sm leading-6 text-slate-500">
+                          {option.description}
+                        </div>
+                      </div>
+                      <span
+                        className={[
+                          'rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em]',
+                          active
+                            ? 'bg-sky-100 text-sky-700'
+                            : 'bg-white text-slate-500',
+                        ].join(' ')}
+                      >
+                        {active ? 'Selected' : 'Available'}
+                      </span>
                     </div>
                   </button>
                 );
               })}
             </div>
-          </div>
+          </section>
         ) : null}
 
         {isEndorsementMode && sourceQuotation ? (
-          <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4">
-            <p className="text-sm font-semibold text-cyan-900">
+          <section className="rounded-[28px] border border-cyan-200/80 bg-[linear-gradient(135deg,_#ecfeff,_#f0fdfa_55%,_#ffffff)] p-5 shadow-[0_18px_45px_-32px_rgba(8,145,178,0.7)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-800">
               Endorsement mode
             </p>
-            <p className="mt-1 text-sm text-cyan-800">
-              This endorsement is prefilled from quotation{' '}
-              <span className="font-medium">{sourceQuotation.quotation_no}</span>
-              . The original flow, customer, product, and vehicle details are
-              copied across so you can focus on the change itself.
+            <h2 className="mt-2 text-xl font-semibold text-slate-900">
+              Starting from quotation {sourceQuotation.quotation_no}
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-cyan-950/80">
+              The original flow, customer, product, and vehicle details were
+              carried into this endorsement so you can focus on the actual
+              change instead of rebuilding the quotation from scratch.
             </p>
-            <p className="mt-2 text-xs text-cyan-700">
+            <p className="mt-3 text-sm font-medium text-cyan-900">
               Previous cover note:{' '}
               {sourceQuotation.cover_note_dtl.cover_note_number ??
                 sourceQuotation.quotation_no}
             </p>
-          </div>
+          </section>
         ) : null}
 
         <QuotationJourneyProgress
@@ -944,106 +1044,136 @@ export function QuotationWizardPage() {
           currentStep={stepId}
           completedSteps={completedSteps}
           errorSteps={errorSteps}
-          onStepClick={(nextStep) => void goToStep(nextStep as QuotationWizardStepId)}
+          onStepClick={(nextStep) =>
+            void goToStep(nextStep as QuotationWizardStepId)
+          }
         />
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
-          <div className="min-w-0">
-            <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div><div className="text-xs font-semibold uppercase tracking-wide text-blue-600">Step {steps.findIndex((step) => step.id === stepId) + 1} of {steps.length}</div><h2 className="mt-1 text-xl font-semibold text-slate-900">{currentStep?.label}</h2><p className="mt-1 text-sm text-slate-500">{currentStep?.description}</p></div>
-                <div className="text-right text-xs text-slate-500">{lastDraftSavedAt ? "Saved locally at " + lastDraftSavedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Changes save locally as you type"}</div>
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+          <div className="min-w-0 space-y-4">
+            <section className="rounded-[28px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_20px_55px_-34px_rgba(15,23,42,0.45)]">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="max-w-2xl">
+                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700">
+                    Step {currentStepIndex + 1} of {steps.length}
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-slate-900">
+                    {currentStep?.label}
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">
+                    {currentStep?.description}
+                  </p>
+                </div>
+
+                <div className="rounded-[22px] border border-slate-200 bg-slate-50/90 px-4 py-3 text-sm text-slate-600">
+                  <div className="font-medium text-slate-900">Local draft</div>
+                  <div className="mt-1">{draftStatusLabel}</div>
+                </div>
               </div>
-            </div>
+            </section>
+
             <Form {...form}>
-          <form
-            className="space-y-6"
-            onSubmit={(event) => event.preventDefault()}
-          >
-            {stepId === 'cover-note' && (
-              <CoverNoteSetupStep
-                form={form}
-                categoryOptions={categoryOptions}
-                productOptions={productOptions}
-                branchOptions={branchOptions}
-                salePointOptions={activeSalePoints}
-                salePointRequired={salePointRequired}
-                isHydrating={isEditHydrating}
-                showFlowSelector={false}
-                isEndorsementMode={isEndorsementMode}
-                title={
-                  isEndorsementMode
-                    ? 'Step 1. Endorsement Details'
-                    : 'Step 1. Cover Note Setup'
-                }
-              />
-            )}
+              <form
+                className="space-y-6"
+                onSubmit={(event) => event.preventDefault()}
+              >
+                {stepId === 'cover-note' && (
+                  <CoverNoteSetupStep
+                    form={form}
+                    categoryOptions={categoryOptions}
+                    productOptions={productOptions}
+                    branchOptions={branchOptions}
+                    salePointOptions={activeSalePoints}
+                    salePointRequired={salePointRequired}
+                    isHydrating={isEditHydrating}
+                    showFlowSelector={false}
+                    isEndorsementMode={isEndorsementMode}
+                    title={
+                      isEndorsementMode
+                        ? 'Step 1. Endorsement Details'
+                        : 'Step 1. Cover Note Setup'
+                    }
+                  />
+                )}
 
-            {stepId === 'fleet-setup' && (
-              <FleetSetupStep
-                form={form}
-                categoryOptions={categoryOptions}
-                productOptions={productOptions}
-                branchOptions={branchOptions}
-                salePointOptions={activeSalePoints}
-                salePointRequired={salePointRequired}
-                isHydrating={isEditHydrating}
-              />
-            )}
+                {stepId === 'fleet-setup' && (
+                  <FleetSetupStep
+                    form={form}
+                    categoryOptions={categoryOptions}
+                    productOptions={productOptions}
+                    branchOptions={branchOptions}
+                    salePointOptions={activeSalePoints}
+                    salePointRequired={salePointRequired}
+                    isHydrating={isEditHydrating}
+                  />
+                )}
 
-            {stepId === 'policyholder' && (
-              <PolicyholderStep form={form} customerOptions={customerOptions} />
-            )}
+                {stepId === 'policyholder' && (
+                  <PolicyholderStep
+                    form={form}
+                    customerOptions={customerOptions}
+                  />
+                )}
 
-            {stepId === 'risk-premium' && (
-              <RiskPremiumStep
-                form={form}
-                riskOptions={riskOptions}
-                fieldArray={riskFieldArray}
-                flow={quotationFlow}
-                subjectMatterFieldArray={nonMotorFieldArray}
-                onRemoveRisk={removeRisk}
-                onAddRisk={addRisk}
-              />
-            )}
+                {stepId === 'risk-premium' && (
+                  <RiskPremiumStep
+                    form={form}
+                    riskOptions={riskOptions}
+                    fieldArray={riskFieldArray}
+                    flow={quotationFlow}
+                    subjectMatterFieldArray={nonMotorFieldArray}
+                    onRemoveRisk={removeRisk}
+                    onAddRisk={addRisk}
+                  />
+                )}
 
-            {stepId === 'addons' && (
-              <AddOnsStep form={form} fieldArray={addonFieldArray} />
-            )}
+                {stepId === 'addons' && (
+                  <AddOnsStep form={form} fieldArray={addonFieldArray} />
+                )}
 
-            {stepId === 'motor' && (
-              <MotorDetailsStep form={form} vehicleOptions={vehicleOptions} />
-            )}
+                {stepId === 'motor' && (
+                  <MotorDetailsStep
+                    form={form}
+                    vehicleOptions={vehicleOptions}
+                  />
+                )}
 
-            {stepId === 'fleet-vehicles' && (
-              <MotorFleetDetailsStep
-                form={form}
-                customerOptions={customerOptions}
-                riskOptions={riskOptions}
-                fieldArray={fleetFieldArray}
-                onAddVehicle={addFleetVehicle}
-                onRemoveVehicle={removeFleetVehicle}
-                onDuplicateVehicle={duplicateFleetVehicle}
-              />
-            )}
+                {stepId === 'fleet-vehicles' && (
+                  <MotorFleetDetailsStep
+                    form={form}
+                    customerOptions={customerOptions}
+                    riskOptions={riskOptions}
+                    fieldArray={fleetFieldArray}
+                    onAddVehicle={addFleetVehicle}
+                    onRemoveVehicle={removeFleetVehicle}
+                    onDuplicateVehicle={duplicateFleetVehicle}
+                  />
+                )}
 
-            {stepId === 'summary' && (
-              <SummaryReviewStep
-                form={form}
-                customerOptions={customerOptions}
-                categoryOptions={categoryOptions}
-                productOptions={productOptions}
-                branchOptions={branchOptions}
-                salePointOptions={activeSalePoints}
-                riskOptions={riskOptions}
-                riskCount={riskFieldArray.fields.length}
-                onEditStep={setStepId}
-              />
-            )}
-          </form>
+                {stepId === 'summary' && (
+                  <SummaryReviewStep
+                    form={form}
+                    customerOptions={customerOptions}
+                    categoryOptions={categoryOptions}
+                    productOptions={productOptions}
+                    branchOptions={branchOptions}
+                    salePointOptions={activeSalePoints}
+                    riskOptions={riskOptions}
+                    riskCount={riskFieldArray.fields.length}
+                    onEditStep={setStepId}
+                  />
+                )}
+              </form>
             </Form>
           </div>
-          <QuotationSummary form={form} customerOptions={customerOptions} categoryOptions={categoryOptions} productOptions={productOptions} riskCount={riskFieldArray.fields.length} />
+
+          <QuotationSummary
+            form={form}
+            customerOptions={customerOptions}
+            categoryOptions={categoryOptions}
+            productOptions={productOptions}
+            riskCount={riskFieldArray.fields.length}
+          />
         </div>
       </div>
     </div>

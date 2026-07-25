@@ -1,11 +1,33 @@
-import { Calculator, CalendarDays, Car, FileText, UserRound } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Calculator,
+  CalendarDays,
+  Car,
+  FileText,
+  ShieldCheck,
+  UserRound,
+} from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
-import type { CustomerRecord } from '@/modules/tenant/customers/types';
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import {
+  getCustomerDisplayName,
+  type CustomerRecord,
+} from '@/modules/tenant/customers/types';
 import type { QuotationFormSchemaValues } from '../../schemas';
 
-interface OptionLike { id: string; name?: string; product_name?: string; }
+interface OptionLike {
+  id: string;
+  name?: string;
+  product_name?: string;
+}
+
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
   customerOptions: CustomerRecord[];
@@ -14,32 +36,213 @@ interface Props {
   riskCount: number;
 }
 
-function Metric({ icon: Icon, label, value }: { icon: typeof FileText; label: string; value: string }) {
-  return <div className="flex items-start gap-2"><Icon className="mt-0.5 h-4 w-4 text-slate-400" aria-hidden="true" /><div><div className="text-[11px] uppercase tracking-wide text-slate-400">{label}</div><div className="truncate text-sm font-medium text-slate-800">{value}</div></div></div>;
+function formatDateLabel(value?: string) {
+  if (!value) return 'Not set';
+
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat('en', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(parsed);
 }
 
-export function QuotationSummary({ form, customerOptions, categoryOptions, productOptions, riskCount }: Props) {
+function formatCurrencyValue(currency: string, rawValue?: string) {
+  const numeric = Number(rawValue ?? 0);
+  if (!Number.isFinite(numeric)) {
+    return `${currency} ${rawValue ?? '0.00'}`;
+  }
+
+  return `${currency} ${numeric.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function SummaryMetric({
+  icon: Icon,
+  label,
+  value,
+  tone = 'default',
+}: {
+  icon: typeof FileText;
+  label: string;
+  value: string;
+  tone?: 'default' | 'highlight';
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded-2xl border px-3.5 py-3',
+        tone === 'highlight'
+          ? 'border-sky-200 bg-sky-50/70'
+          : 'border-slate-200 bg-slate-50/80',
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className={cn(
+            'mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl',
+            tone === 'highlight'
+              ? 'bg-white text-sky-700 shadow-sm'
+              : 'bg-white text-slate-500 shadow-sm',
+          )}
+        >
+          <Icon className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+            {label}
+          </div>
+          <div className="mt-1 text-sm font-medium text-slate-900">
+            {value}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function QuotationSummary({
+  form,
+  customerOptions,
+  categoryOptions,
+  productOptions,
+  riskCount,
+}: Props) {
   const values = form.watch();
   const customer = customerOptions.find((item) => item.id === values.customer_id);
   const category = categoryOptions.find((item) => item.id === values.category_id);
   const product = productOptions.find((item) => item.id === values.product_id);
-  const customerName = customer?.full_name || customer?.company_name || values.policyholder.full_name || values.policyholder.company_name || 'Not selected';
-  const flow = values.quotation_flow === 'NON_MOTOR' ? 'Non-motor' : values.is_fleet ? 'Motor fleet' : 'Motor single';
-  const total = values.total_premium || values.net_premium || '0.00';
-  const status = values.status.replace(/_/g, ' ').toLowerCase();
 
-  return <Card className="quotation-summary-card border-slate-200 shadow-sm lg:sticky lg:top-4">
-    <CardHeader className="border-b border-slate-100 pb-3"><div className="flex items-center justify-between gap-2"><CardTitle className="text-base">Quotation summary</CardTitle><Badge variant="muted">{status}</Badge></div><p className="text-xs text-slate-500">Updates as you complete the quotation.</p></CardHeader>
-    <CardContent className="space-y-4 pt-4">
-      <div className="rounded-xl bg-slate-50 p-3"><div className="text-xs text-slate-500">Current quotation</div><div className="mt-1 text-lg font-semibold text-slate-900">{flow}</div><div className="mt-1 text-xs text-slate-500">{values.currency || 'TZS'} � {values.valid_from || 'Start date'} to {values.valid_until || 'End date'}</div></div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-        <Metric icon={UserRound} label="Policyholder" value={customerName} />
-        <Metric icon={FileText} label="Product" value={product?.product_name || 'Not selected'} />
-        <Metric icon={FileText} label="Category" value={category?.name || 'Not selected'} />
-        <Metric icon={Car} label="Risks" value={String(riskCount)} />
-        <Metric icon={CalendarDays} label="Cover period" value={values.valid_from && values.valid_until ? `${values.valid_from}+�u���T ${values.valid_until}` : 'Not set'} />
-      </div>
-      <div className="border-t border-slate-100 pt-3"><div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500"><Calculator className="h-4 w-4" aria-hidden="true" />Premium</div><div className="mt-2 flex items-end justify-between gap-3"><span className="text-sm text-slate-500">Total including taxes</span><span className="text-xl font-bold text-slate-900">{values.currency || 'TZS'} {total}</span></div><div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-500"><span>Before tax <strong className="block text-slate-700">{values.basic_premium || '0.00'}</strong></span><span>Tax <strong className="block text-slate-700">{values.total_tax || '0.00'}</strong></span><span>Discount <strong className="block text-slate-700">{values.total_discount || '0.00'}</strong></span><span>Payment <strong className="block text-slate-700">{values.payment_mode_tira || 'Not set'}</strong></span></div></div>
-    </CardContent>
-  </Card>;
+  const customerName =
+    (customer ? getCustomerDisplayName(customer) : null) ||
+    values.policyholder.full_name ||
+    values.policyholder.company_name ||
+    'Not selected';
+  const flow =
+    values.quotation_flow === 'NON_MOTOR'
+      ? 'Non-motor'
+      : values.is_fleet
+        ? 'Motor fleet'
+        : 'Motor single';
+  const total = values.total_premium || values.net_premium || '0.00';
+  const currency = values.currency || 'TZS';
+  const statusLabel = values.status
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/^\w/, (character) => character.toUpperCase());
+  const dateRange = `${formatDateLabel(values.valid_from)} to ${formatDateLabel(
+    values.valid_until,
+  )}`;
+
+  return (
+    <Card className="overflow-hidden rounded-[28px] border-slate-200/90 bg-white/95 shadow-[0_24px_60px_-32px_rgba(15,23,42,0.45)] xl:sticky xl:top-6">
+      <CardHeader className="border-b border-slate-100 bg-gradient-to-br from-slate-950 via-slate-900 to-sky-900 pb-5 text-white">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <Badge className="border-0 bg-white/12 text-sky-100" variant="outline">
+              Live summary
+            </Badge>
+            <CardTitle className="mt-3 text-xl text-white">
+              Quotation briefing
+            </CardTitle>
+            <CardDescription className="mt-1 text-sky-100/80">
+              A compact view of the details that matter while you complete the
+              workflow.
+            </CardDescription>
+          </div>
+          <Badge className="bg-white text-slate-900" variant="secondary">
+            {statusLabel}
+          </Badge>
+        </div>
+
+        <div className="mt-5 rounded-[24px] border border-white/10 bg-white/8 p-4">
+          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-100/75">
+            Estimated premium
+          </div>
+          <div className="mt-2 text-3xl font-semibold tracking-tight text-white">
+            {formatCurrencyValue(currency, total)}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs text-sky-100/80">
+            <span className="rounded-full bg-white/10 px-2.5 py-1">
+              {flow}
+            </span>
+            <span className="rounded-full bg-white/10 px-2.5 py-1">
+              {riskCount} risk item{riskCount === 1 ? '' : 's'}
+            </span>
+          </div>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-4 p-5">
+        <div className="grid gap-3">
+          <SummaryMetric
+            icon={UserRound}
+            label="Policyholder"
+            value={customerName}
+            tone="highlight"
+          />
+          <SummaryMetric
+            icon={FileText}
+            label="Product"
+            value={product?.product_name || 'Not selected'}
+          />
+          <SummaryMetric
+            icon={ShieldCheck}
+            label="Category"
+            value={category?.name || 'Not selected'}
+          />
+          <SummaryMetric
+            icon={CalendarDays}
+            label="Cover period"
+            value={dateRange}
+          />
+          <SummaryMetric
+            icon={Car}
+            label="Risk items"
+            value={`${riskCount}`}
+          />
+        </div>
+
+        <div className="rounded-[24px] border border-slate-200 bg-slate-50/90 p-4">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+            <Calculator className="h-4 w-4" aria-hidden="true" />
+            Premium breakdown
+          </div>
+
+          <div className="mt-4 space-y-3 text-sm">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-slate-500">Basic premium</span>
+              <span className="font-medium text-slate-900">
+                {formatCurrencyValue(currency, values.basic_premium)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-slate-500">Tax</span>
+              <span className="font-medium text-slate-900">
+                {formatCurrencyValue(currency, values.total_tax)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-slate-500">Discount</span>
+              <span className="font-medium text-slate-900">
+                {formatCurrencyValue(currency, values.total_discount)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-slate-500">Payment mode</span>
+              <span className="font-medium text-slate-900">
+                {values.payment_mode_tira || 'Not set'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
