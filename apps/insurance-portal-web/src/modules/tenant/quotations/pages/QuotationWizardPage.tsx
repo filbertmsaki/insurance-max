@@ -38,7 +38,6 @@ import {
 } from '../hooks';
 import { quotationsApi } from '../api';
 import { QuotationJourneyProgress } from '../wizard/QuotationJourneyProgress';
-import { QuotationSummary } from '../wizard/components/QuotationSummary';
 import { useQuotationWizardDraft } from '../wizard/useQuotationWizardDraft';
 import {
   getWizardStepsForFlow,
@@ -753,11 +752,6 @@ export function QuotationWizardPage() {
     isSubmittingToTiramis;
   const isFirstStep = steps[0]?.id === stepId;
   const isLastStep = steps[steps.length - 1]?.id === stepId;
-  const currentStep = steps.find((step) => step.id === stepId);
-  const currentStepIndex = Math.max(
-    0,
-    steps.findIndex((step) => step.id === stepId),
-  );
   const errorSteps = steps
     .filter((step) =>
       (STEP_FIELDS[step.id] ?? []).some((field) =>
@@ -765,12 +759,6 @@ export function QuotationWizardPage() {
       ),
     )
     .map((step) => step.id);
-  const draftStatusLabel = lastDraftSavedAt
-    ? `Saved locally at ${lastDraftSavedAt.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-      })}`
-    : 'Changes save locally as you type';
 
   const footerNode = useMemo(
     () =>
@@ -972,29 +960,8 @@ export function QuotationWizardPage() {
           }
         />
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+        <div className="grid gap-6">
           <div className="min-w-0 space-y-4">
-            <section className="rounded-[28px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_20px_55px_-34px_rgba(15,23,42,0.45)]">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="max-w-2xl">
-                  <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700">
-                    Step {currentStepIndex + 1} of {steps.length}
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-                    {currentStep?.label}
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">
-                    {currentStep?.description}
-                  </p>
-                </div>
-
-                <div className="rounded-[22px] border border-slate-200 bg-slate-50/90 px-4 py-3 text-sm text-slate-600">
-                  <div className="font-medium text-slate-900">Local draft</div>
-                  <div className="mt-1">{draftStatusLabel}</div>
-                </div>
-              </div>
-            </section>
-
             <Form {...form}>
               <form
                 className="space-y-6"
@@ -1089,14 +1056,6 @@ export function QuotationWizardPage() {
               </form>
             </Form>
           </div>
-
-          <QuotationSummary
-            form={form}
-            customerOptions={customerOptions}
-            categoryOptions={categoryOptions}
-            productOptions={productOptions}
-            riskCount={riskFieldArray.fields.length}
-          />
         </div>
       </div>
     </div>
