@@ -876,12 +876,12 @@ export function QuotationWizardPage() {
     <div className="pb-8">
       <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-6">
         {!isEditMode && !isEndorsementMode ? (
-          <section className="rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_20px_50px_-32px_rgba(15,23,42,0.45)] sm:p-6">
-            <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">
+          <section className="rounded-[24px] border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
+            <h2 className="text-lg font-semibold text-slate-900 sm:text-xl">
               Quotation Type
             </h2>
 
-            <div className="mt-4 grid gap-3 lg:grid-cols-3">
+            <div className="mt-3 grid gap-2.5 lg:grid-cols-3">
               {FLOW_OPTIONS.map((option) => {
                 const active = quotationFlow === option.quotation_flow;
                 const Icon = option.icon;
@@ -893,55 +893,45 @@ export function QuotationWizardPage() {
                     aria-pressed={active}
                     onClick={() => handleFlowChange(option)}
                     className={[
-                      'group relative overflow-hidden rounded-[24px] border p-4 text-left transition-all duration-200',
+                      'group rounded-[18px] border p-3 text-left transition-all duration-200',
                       active
-                        ? 'border-sky-300 bg-[linear-gradient(160deg,_rgba(240,249,255,0.98),_rgba(236,254,255,0.96)_52%,_rgba(255,255,255,1))] shadow-[0_24px_55px_-32px_rgba(14,165,233,0.65)]'
-                        : 'border-slate-200 bg-[linear-gradient(180deg,_rgba(248,250,252,0.96),_rgba(255,255,255,0.98))] hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_22px_48px_-36px_rgba(15,23,42,0.35)]',
+                        ? 'border-sky-200 bg-sky-50/40 shadow-[0_8px_20px_-18px_rgba(14,165,233,0.45)]'
+                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60',
                     ].join(' ')}
                   >
-                    <div
-                      className={[
-                        'absolute inset-x-0 top-0 h-1',
-                        active
-                          ? 'bg-[linear-gradient(90deg,#0ea5e9,#06b6d4,#22c55e)]'
-                          : 'bg-slate-200/80',
-                      ].join(' ')}
-                    />
-
-                    <div className="flex min-h-[140px] flex-col">
-                      <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={[
+                          'mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full',
+                          active ? 'bg-sky-500' : 'bg-slate-300',
+                        ].join(' ')}
+                      />
+                      <div className="flex min-w-0 flex-1 items-start justify-between gap-3">
                         <div
                           className={[
-                            'flex h-10 w-10 items-center justify-center rounded-xl border transition-colors',
+                            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition-colors',
                             active
-                              ? 'border-sky-200 bg-white text-sky-700 shadow-sm'
-                              : 'border-slate-200 bg-slate-100 text-slate-500 group-hover:bg-white',
+                              ? 'border-sky-200 bg-white text-sky-700'
+                              : 'border-slate-200 bg-slate-50 text-slate-500 group-hover:bg-white',
                           ].join(' ')}
                         >
                           <Icon className="h-4 w-4" />
                         </div>
-                        <span
-                          className={[
-                            'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]',
-                            active
-                              ? 'bg-sky-100 text-sky-700'
-                              : 'bg-white text-slate-500 ring-1 ring-slate-200',
-                          ].join(' ')}
-                        >
-                          {active ? (
+                        {active ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-sky-700">
                             <CheckCircle2 className="h-3.5 w-3.5" />
-                          ) : null}
-                          {active ? 'Selected' : 'Available'}
-                        </span>
+                            Selected
+                          </span>
+                        ) : null}
                       </div>
+                    </div>
 
-                      <div className="mt-4">
-                        <div className="text-base font-semibold text-slate-900">
-                          {option.label}
-                        </div>
-                        <div className="mt-1.5 text-sm leading-5 text-slate-500">
-                          {option.description}
-                        </div>
+                    <div className="mt-3 pl-[22px]">
+                      <div className="text-sm font-semibold text-slate-900">
+                        {option.label}
+                      </div>
+                      <div className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
+                        {option.description}
                       </div>
                     </div>
                   </button>
