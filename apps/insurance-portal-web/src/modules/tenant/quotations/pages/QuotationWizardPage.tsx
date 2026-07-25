@@ -2,12 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft } from 'lucide-react';
+import { Car, CheckCircle2, Shield, Truck } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PageHeader } from '@/components/shared/PageHeader';
 import { usePageFooter } from '@/components/layout/PageFooterSlot';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
@@ -59,6 +58,7 @@ const FLOW_OPTIONS = [
   {
     label: 'Non-Motor',
     description: 'Fire, marine, engineering, GIT, and miscellaneous covers',
+    icon: Shield,
     quotation_flow: 'NON_MOTOR' as const,
     quotation_type: 'NON_MOTOR' as const,
     is_fleet: false,
@@ -66,6 +66,7 @@ const FLOW_OPTIONS = [
   {
     label: 'Motor - Single Vehicle',
     description: 'One vehicle under a single motor quotation',
+    icon: Car,
     quotation_flow: 'MOTOR_SINGLE' as const,
     quotation_type: 'MOTOR' as const,
     is_fleet: false,
@@ -73,6 +74,7 @@ const FLOW_OPTIONS = [
   {
     label: 'Motor - Fleet',
     description: 'Multiple vehicles under one fleet quotation',
+    icon: Truck,
     quotation_flow: 'MOTOR_FLEET' as const,
     quotation_type: 'MOTOR' as const,
     is_fleet: true,
@@ -763,17 +765,6 @@ export function QuotationWizardPage() {
       ),
     )
     .map((step) => step.id);
-  const wizardModeLabel = isEditMode
-    ? 'Editing quotation'
-    : isEndorsementMode
-      ? 'Endorsement workflow'
-      : 'New quotation draft';
-  const flowLabel =
-    quotationFlowForQueries === 'NON_MOTOR'
-      ? 'Non-motor'
-      : quotationFlowForQueries === 'MOTOR_FLEET'
-        ? 'Motor fleet'
-        : 'Motor single';
   const draftStatusLabel = lastDraftSavedAt
     ? `Saved locally at ${lastDraftSavedAt.toLocaleTimeString([], {
         hour: '2-digit',
@@ -884,132 +875,74 @@ export function QuotationWizardPage() {
   return (
     <div className="pb-8">
       <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-6">
-        <section className="overflow-hidden rounded-[32px] border border-slate-200/80 bg-[radial-gradient(circle_at_top_left,_rgba(186,230,253,0.8),_transparent_38%),linear-gradient(135deg,_#ffffff,_#f8fafc_55%,_#ecfeff)] p-6 shadow-[0_28px_80px_-42px_rgba(15,23,42,0.5)] sm:p-8">
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-            <div className="flex items-start gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate(underwritingPaths.quotations)}
-                className="mt-1 rounded-2xl border border-white/70 bg-white/80 shadow-sm backdrop-blur hover:bg-white"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-
-              <div className="min-w-0">
-                <span className="inline-flex rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-sky-800">
-                  {wizardModeLabel}
-                </span>
-                <div className="mt-4">
-                  <PageHeader
-                    title={
-                      isEditMode
-                        ? 'Edit Quotation'
-                        : isEndorsementMode
-                          ? 'Add Endorsement'
-                          : 'Quotation Wizard'
-                    }
-                    description={
-                      isEditMode
-                        ? 'Continue editing this quotation draft using the current backend quotation contract.'
-                        : isEndorsementMode
-                          ? 'Create a follow-up endorsement quotation based on the completed quotation.'
-                          : 'Create one guided workflow for motor single, motor fleet, and non-motor quotations.'
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3 xl:w-[28rem]">
-              <div className="rounded-[24px] border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Current flow
-                </p>
-                <p className="mt-2 text-lg font-semibold text-slate-900">
-                  {flowLabel}
-                </p>
-                <p className="mt-1 text-sm text-slate-500">
-                  Adapted automatically to the selected product flow.
-                </p>
-              </div>
-              <div className="rounded-[24px] border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Current step
-                </p>
-                <p className="mt-2 text-lg font-semibold text-slate-900">
-                  {currentStepIndex + 1} / {steps.length}
-                </p>
-                <p className="mt-1 text-sm text-slate-500">
-                  {currentStep?.label ?? 'Wizard step'}
-                </p>
-              </div>
-              <div className="rounded-[24px] border border-white/70 bg-white/80 p-4 shadow-sm backdrop-blur">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Local draft
-                </p>
-                <p className="mt-2 text-lg font-semibold text-slate-900">
-                  {lastDraftSavedAt ? 'Saved' : 'Autosave on'}
-                </p>
-                <p className="mt-1 text-sm text-slate-500">
-                  {draftStatusLabel}
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {!isEditMode && !isEndorsementMode ? (
-          <section className="rounded-[28px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_20px_50px_-32px_rgba(15,23,42,0.45)]">
-            <div className="max-w-2xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-700">
-                Quotation Type
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-                Choose the underwriting path first
-              </h2>
-              <p className="mt-2 text-sm text-slate-500">
-                The wizard will reshape its steps and validations depending on
-                whether this is non-motor, a single motor cover, or a fleet
-                quotation.
-              </p>
-            </div>
+          <section className="rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_20px_50px_-32px_rgba(15,23,42,0.45)] sm:p-6">
+            <h2 className="text-xl font-semibold text-slate-900 sm:text-2xl">
+              Quotation Type
+            </h2>
 
-            <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            <div className="mt-4 grid gap-3 lg:grid-cols-3">
               {FLOW_OPTIONS.map((option) => {
                 const active = quotationFlow === option.quotation_flow;
+                const Icon = option.icon;
 
                 return (
                   <button
                     key={option.quotation_flow}
                     type="button"
+                    aria-pressed={active}
                     onClick={() => handleFlowChange(option)}
                     className={[
-                      'group rounded-[24px] border p-5 text-left transition-all duration-200',
+                      'group relative overflow-hidden rounded-[24px] border p-4 text-left transition-all duration-200',
                       active
-                        ? 'border-sky-300 bg-gradient-to-br from-sky-50 via-cyan-50 to-white shadow-[0_18px_40px_-28px_rgba(14,165,233,0.8)]'
-                        : 'border-slate-200 bg-slate-50/70 hover:border-slate-300 hover:bg-white',
+                        ? 'border-sky-300 bg-[linear-gradient(160deg,_rgba(240,249,255,0.98),_rgba(236,254,255,0.96)_52%,_rgba(255,255,255,1))] shadow-[0_24px_55px_-32px_rgba(14,165,233,0.65)]'
+                        : 'border-slate-200 bg-[linear-gradient(180deg,_rgba(248,250,252,0.96),_rgba(255,255,255,0.98))] hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_22px_48px_-36px_rgba(15,23,42,0.35)]',
                     ].join(' ')}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
+                    <div
+                      className={[
+                        'absolute inset-x-0 top-0 h-1',
+                        active
+                          ? 'bg-[linear-gradient(90deg,#0ea5e9,#06b6d4,#22c55e)]'
+                          : 'bg-slate-200/80',
+                      ].join(' ')}
+                    />
+
+                    <div className="flex min-h-[140px] flex-col">
+                      <div className="flex items-start justify-between gap-3">
+                        <div
+                          className={[
+                            'flex h-10 w-10 items-center justify-center rounded-xl border transition-colors',
+                            active
+                              ? 'border-sky-200 bg-white text-sky-700 shadow-sm'
+                              : 'border-slate-200 bg-slate-100 text-slate-500 group-hover:bg-white',
+                          ].join(' ')}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <span
+                          className={[
+                            'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]',
+                            active
+                              ? 'bg-sky-100 text-sky-700'
+                              : 'bg-white text-slate-500 ring-1 ring-slate-200',
+                          ].join(' ')}
+                        >
+                          {active ? (
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                          ) : null}
+                          {active ? 'Selected' : 'Available'}
+                        </span>
+                      </div>
+
+                      <div className="mt-4">
                         <div className="text-base font-semibold text-slate-900">
                           {option.label}
                         </div>
-                        <div className="mt-2 text-sm leading-6 text-slate-500">
+                        <div className="mt-1.5 text-sm leading-5 text-slate-500">
                           {option.description}
                         </div>
                       </div>
-                      <span
-                        className={[
-                          'rounded-full px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em]',
-                          active
-                            ? 'bg-sky-100 text-sky-700'
-                            : 'bg-white text-slate-500',
-                        ].join(' ')}
-                      >
-                        {active ? 'Selected' : 'Available'}
-                      </span>
                     </div>
                   </button>
                 );
