@@ -13,17 +13,18 @@ export type QuotationWizardStepId =
 export interface QuotationWizardStepDef {
   id: QuotationWizardStepId;
   label: string;
+  description: string;
 }
 
 const ALL_STEPS: Record<QuotationWizardStepId, QuotationWizardStepDef> = {
-  'cover-note': { id: 'cover-note', label: 'Cover Note Setup' },
-  'fleet-setup': { id: 'fleet-setup', label: 'Fleet & Cover Note Setup' },
-  policyholder: { id: 'policyholder', label: 'Policyholders' },
-  'risk-premium': { id: 'risk-premium', label: 'Risks & Premium' },
-  addons: { id: 'addons', label: 'Optional Add-ons' },
-  motor: { id: 'motor', label: 'Motor Details' },
-  'fleet-vehicles': { id: 'fleet-vehicles', label: 'Fleet Vehicles' },
-  summary: { id: 'summary', label: 'Review & Submit' },
+  'cover-note': { id: 'cover-note', label: 'Quotation setup', description: 'Choose the flow, product, branch, and cover period' },
+  'fleet-setup': { id: 'fleet-setup', label: 'Quotation setup', description: 'Set up the fleet, product, branch, and cover period' },
+  policyholder: { id: 'policyholder', label: 'Policyholder', description: 'Select an existing customer or capture a new one' },
+  'risk-premium': { id: 'risk-premium', label: 'Risk details', description: 'Add insured risks, subject matter, and values' },
+  addons: { id: 'addons', label: 'Cover & premium', description: 'Review optional covers and the premium calculation' },
+  motor: { id: 'motor', label: 'Vehicle details', description: 'Complete the vehicle and ownership information' },
+  'fleet-vehicles': { id: 'fleet-vehicles', label: 'Fleet risks', description: 'Add and validate each vehicle in the fleet' },
+  summary: { id: 'summary', label: 'Review & submit', description: 'Check the quotation before saving or submitting it' },
 };
 
 export function resolveWizardFlow(

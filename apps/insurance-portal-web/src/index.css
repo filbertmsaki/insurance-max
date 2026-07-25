@@ -42,4 +42,16 @@
     height: 100%;
     overflow: hidden;
   }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.16);
+  }
 }

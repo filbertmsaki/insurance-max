@@ -1,5 +1,6 @@
 import {
   normalizeTiramisResponseDescription,
+  resolveTiramisCallbackOutcome,
   resolveTiramisSuccessOutcome,
 } from './tiramis-callback-outcome.util';
 
@@ -17,6 +18,13 @@ describe('tiramis callback outcome util', () => {
         statusDescription: '  Transaction Successfully Cancelled  ',
       }),
     ).toBe('CANCELLED');
+
+    expect(
+      resolveTiramisCallbackOutcome(
+        ' TIRA001 ',
+        '  TRANSACTION SUCCESSFULLY CANCELLED  ',
+      ),
+    ).toBe('CANCELLED');
   });
 
   it('treats the standard successful description as completion', () => {
@@ -26,6 +34,26 @@ describe('tiramis callback outcome util', () => {
         statusDescription: 'Successful',
       }),
     ).toBe('COMPLETED');
+
+    expect(resolveTiramisCallbackOutcome('TIRA001', ' Successful ')).toBe(
+      'COMPLETED',
+    );
+  });
+
+  it('keeps unrecognized success descriptions in the generic success path', () => {
+    expect(
+      resolveTiramisSuccessOutcome({
+        statusCode: 'TIRA001',
+        statusDescription: 'Processed successfully by partner',
+      }),
+    ).toBe('OTHER_SUCCESS');
+
+    expect(
+      resolveTiramisCallbackOutcome(
+        'TIRA001',
+        'Processed successfully by partner',
+      ),
+    ).toBe('SUCCESS');
   });
 
   it('does not classify non-success response codes as successful outcomes', () => {
@@ -35,5 +63,9 @@ describe('tiramis callback outcome util', () => {
         statusDescription: 'Transaction successfully cancelled',
       }),
     ).toBe('NOT_SUCCESS');
+
+    expect(resolveTiramisCallbackOutcome('TIRA002', 'Successful')).toBe(
+      'FAILED',
+    );
   });
 });

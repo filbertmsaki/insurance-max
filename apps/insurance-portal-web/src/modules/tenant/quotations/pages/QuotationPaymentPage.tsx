@@ -203,7 +203,7 @@ export function QuotationPaymentPage() {
   const isPaid = invoice?.status === 'PAID';
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
@@ -231,7 +231,7 @@ export function QuotationPaymentPage() {
               </Button>
             </>
           ) : (
-            <div className="grid gap-1 md:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               <p>Invoice No: {invoice.invoice_no}</p>
               <p>Currency: {invoice.currency}</p>
               <p>Total: {invoice.total_amount}</p>

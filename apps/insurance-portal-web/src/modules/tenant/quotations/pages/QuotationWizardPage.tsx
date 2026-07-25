@@ -38,7 +38,8 @@ import {
   useUpdateQuotation,
 } from '../hooks';
 import { quotationsApi } from '../api';
-import { QuotationWizardStepper } from '../wizard/QuotationWizardStepper';
+import { QuotationJourneyProgress } from '../wizard/QuotationJourneyProgress';
+import { QuotationSummary } from '../wizard/components/QuotationSummary';
 import { useQuotationWizardDraft } from '../wizard/useQuotationWizardDraft';
 import {
   getWizardStepsForFlow,
@@ -495,6 +496,7 @@ export function QuotationWizardPage() {
     const subscription = form.watch((values) => {
       if (isEditMode) return;
       saveDraft(values as Partial<QuotationFormSchemaValues>);
+      setLastDraftSavedAt(new Date());
     });
     return () => subscription.unsubscribe();
   }, [form, isEditMode, saveDraft]);
@@ -552,8 +554,11 @@ export function QuotationWizardPage() {
 
   const goToStep = useCallback(
     async (nextStep: QuotationWizardStepId) => {
+      const currentIndex = steps.findIndex((step) => step.id === stepId);
+      const nextIndex = steps.findIndex((step) => step.id === nextStep);
+      if (nextIndex < 0 || (nextIndex > currentIndex + 1 && !completedSteps.includes(nextStep))) return;
       const fields = STEP_FIELDS[stepId];
-      if (fields?.length) {
+      if (nextIndex > currentIndex && fields?.length) {
         const valid = await form.trigger(fields, { shouldFocus: true });
         if (!valid) {
           toast.error(
@@ -744,6 +749,8 @@ export function QuotationWizardPage() {
     isSubmittingToTiramis;
   const isFirstStep = steps[0]?.id === stepId;
   const isLastStep = steps[steps.length - 1]?.id === stepId;
+  const currentStep = steps.find((step) => step.id === stepId);
+  const errorSteps = steps.filter((step) => (STEP_FIELDS[step.id] ?? []).some((field) => form.getFieldState(field).invalid)).map((step) => step.id);
 
   const footerNode = useMemo(
     () =>
@@ -769,7 +776,7 @@ export function QuotationWizardPage() {
             {isLastStep ? (
               <Button
                 type="button"
-                onClick={() => void persistQuotation({ submitAfterSave: true })}
+                onClick={() => { if (window.confirm('Review complete? This will save the quotation and submit it to TIRAMIS.')) void persistQuotation({ submitAfterSave: true }); }}
                 disabled={isSaving || !companyId}
               >
                 {isSaving ? 'Submitting...' : 'Save & Submit to TIRAMIS'}
@@ -932,14 +939,23 @@ export function QuotationWizardPage() {
           </div>
         ) : null}
 
-        <QuotationWizardStepper
+        <QuotationJourneyProgress
           steps={steps}
-          value={stepId}
-          completed={completedSteps}
-          onChange={goToStep}
+          currentStep={stepId}
+          completedSteps={completedSteps}
+          errorSteps={errorSteps}
+          onStepClick={(nextStep) => void goToStep(nextStep as QuotationWizardStepId)}
         />
 
-        <Form {...form}>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+          <div className="min-w-0">
+            <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div><div className="text-xs font-semibold uppercase tracking-wide text-blue-600">Step {steps.findIndex((step) => step.id === stepId) + 1} of {steps.length}</div><h2 className="mt-1 text-xl font-semibold text-slate-900">{currentStep?.label}</h2><p className="mt-1 text-sm text-slate-500">{currentStep?.description}</p></div>
+                <div className="text-right text-xs text-slate-500">{lastDraftSavedAt ? "Saved locally at " + lastDraftSavedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Changes save locally as you type"}</div>
+              </div>
+            </div>
+            <Form {...form}>
           <form
             className="space-y-6"
             onSubmit={(event) => event.preventDefault()}
@@ -1025,7 +1041,10 @@ export function QuotationWizardPage() {
               />
             )}
           </form>
-        </Form>
+            </Form>
+          </div>
+          <QuotationSummary form={form} customerOptions={customerOptions} categoryOptions={categoryOptions} productOptions={productOptions} riskCount={riskFieldArray.fields.length} />
+        </div>
       </div>
     </div>
   );

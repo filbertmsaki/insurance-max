@@ -43,3 +43,35 @@ export function resolveTiramisSuccessOutcome(params: {
 
   return 'OTHER_SUCCESS';
 }
+
+export type TiramisCallbackOutcome =
+  | 'CANCELLED'
+  | 'COMPLETED'
+  | 'SUCCESS'
+  | 'FAILED';
+
+export const TIRAMIS_SUCCESS_CODE = 'TIRA001';
+export const TIRAMIS_SUCCESS_DESCRIPTION = TIRAMIS_SUCCESSFUL_RESPONSE_DESC;
+export const TIRAMIS_CANCELLATION_DESCRIPTION =
+  TIRAMIS_CANCELLATION_RESPONSE_DESC;
+
+export function resolveTiramisCallbackOutcome(
+  statusCode?: string | null,
+  statusDescription?: string | null,
+): TiramisCallbackOutcome {
+  const outcome = resolveTiramisSuccessOutcome({
+    statusCode,
+    statusDescription,
+  });
+
+  switch (outcome) {
+    case 'CANCELLED':
+      return 'CANCELLED';
+    case 'COMPLETED':
+      return 'COMPLETED';
+    case 'OTHER_SUCCESS':
+      return 'SUCCESS';
+    default:
+      return 'FAILED';
+  }
+}

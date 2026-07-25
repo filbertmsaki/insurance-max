@@ -604,6 +604,33 @@ export class QuotationLifecycleService {
     );
   }
 
+  async markTiraCancelled(
+    companyId: string,
+    quotationId: string,
+    context: QuotationLifecycleContext = {},
+  ) {
+    return this.withLockedQuotation(companyId, quotationId, async (manager, quotation) => {
+      // A duplicate cancellation callback must not add another journal row.
+      if (quotation.status === QuotationStatus.CANCELLED) {
+        this.applyTiraMetadata(quotation, context);
+        await manager.getRepository(Quotation).save(quotation);
+        return quotation;
+      }
+
+      const previous = this.snapshot(quotation);
+      quotation.status = QuotationStatus.CANCELLED;
+      this.applyTiraMetadata(quotation, context);
+
+      return this.persistTransition(
+        manager,
+        quotation,
+        previous,
+        'MARK_TIRA_CANCELLED',
+        context,
+      );
+    });
+  }
+
   async markTiraRejected(
     companyId: string,
     quotationId: string,

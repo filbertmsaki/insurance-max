@@ -70,6 +70,13 @@ function resolveFinalResponseStatus({ xml, finalStatus }) {
   return finalStatus;
 }
 
+function resolveFinalStatus({ scenario, contentXml }) {
+  return resolveFinalResponseStatus({
+    xml: contentXml,
+    finalStatus: getScenarioFinalStatus(scenario),
+  });
+}
+
 function createTiramisRequestHandler(deps) {
   const validateHeaders = deps.validateHeaders;
   const verifyClientRequestSignature = deps.verifyClientRequestSignature;
@@ -501,9 +508,9 @@ function createTiramisRequestHandler(deps) {
       return;
     }
 
-    const finalStatus = resolveFinalResponseStatus({
-      xml: contentXml || xml,
-      finalStatus: getScenarioFinalStatus(scenario),
+    const finalStatus = resolveFinalStatus({
+      scenario,
+      contentXml: contentXml || xml,
     });
 
     const finalContent = buildAsyncFinalResponseContent(
@@ -547,6 +554,24 @@ function createTiramisRequestHandler(deps) {
   return handleTiramisRequest;
 }
 
+function resolveFinalStatus({ scenario, contentXml }) {
+  const scenarioStatus = getScenarioFinalStatus(scenario);
+
+  // CoverNoteType 3 is an endorsement; only endorsement type 4 is a
+  // cancellation. Other endorsements retain the normal scenario response.
+  if (
+    getTag(contentXml, 'CoverNoteType') === '3' &&
+    getTag(contentXml, 'EndorsementType') === '4'
+  ) {
+    return {
+      code: 'TIRA001',
+      desc: 'Transaction successfully cancelled',
+    };
+  }
+
+  return scenarioStatus;
+}
+
 function isRootAllowedForEndpoint(endpointDefinition, root) {
   if (!endpointDefinition?.requestRoots?.length) {
     return true;
@@ -573,4 +598,5 @@ module.exports = {
   isSyncRequest,
   isCoverCancellationEndorsement,
   resolveFinalResponseStatus,
+  resolveFinalStatus,
 };

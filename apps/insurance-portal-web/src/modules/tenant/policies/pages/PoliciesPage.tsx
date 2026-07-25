@@ -38,10 +38,10 @@ export function PoliciesPage() {
   const columns: Column<PolicyRecord>[] = [
     { key: 'policy_no', header: 'Policy No.', cell: (row) => row.policy_no },
     { key: 'customer', header: 'Customer', cell: (row) => row.customer ? getCustomerDisplayName(row.customer) : row.customer_id },
-    { key: 'product', header: 'Product', cell: (row) => row.product?.product_name ?? row.product_id },
+    { key: 'product', header: 'Product', defaultVisible: false, cell: (row) => row.product?.product_name ?? row.product_id },
     { key: 'status', header: 'Status', cell: (row) => <PolicyStatusBadge status={row.policy_status} /> },
     { key: 'premium', header: 'Premium', cell: (row) => `${row.currency} ${row.total_premium}` },
-    { key: 'created_at', header: 'Created', cell: (row) => new Date(row.created_at).toLocaleDateString() },
+    { key: 'created_at', header: 'Created', defaultVisible: false, cell: (row) => new Date(row.created_at).toLocaleDateString() },
     {
       key: 'actions',
       header: '',
