@@ -245,9 +245,15 @@ export function useRiskPremiumCalculation(
 
   // Guards against unmount: an in-flight request's response arriving after
   // this row has been removed (risk deleted, wizard navigated away) must not
-  // call setValue on a field that no longer exists in the array.
+  // call setValue on a field that no longer exists in the array. The flag is
+  // reset in the effect body (not just relied on via useRef's initial value)
+  // because React StrictMode double-invokes effects in development — mount,
+  // run cleanup, mount again — which would otherwise flip this to false
+  // permanently after the very first render and silently discard every
+  // future calculation result for the rest of the row's life.
   const mountedRef = useRef(true);
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
       mountedRef.current = false;
     };
