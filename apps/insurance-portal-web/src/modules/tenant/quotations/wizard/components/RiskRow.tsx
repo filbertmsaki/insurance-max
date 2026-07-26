@@ -1,5 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   useWatch,
   type FieldPath,
@@ -41,6 +41,7 @@ import {
   computePremiumAfterDiscount,
   computePremiumIncludingTax,
 } from '../utils/premiumAggregation';
+import { motorFieldNameForFactorCode } from '../utils/riskFactorResolver';
 import { useRiskPremiumCalculation } from '../hooks/useRiskPremiumCalculation';
 import { StepSection } from './StepSection';
 import { WizardFormItem } from './WizardFormItem';
@@ -92,7 +93,62 @@ export function RiskRow({
     form.setValue(path(index, 'risk_code'), selectedRisk?.risk_code ?? '');
   }, [form, index, selectedRisk?.risk_code]);
 
-  const { calculateMutation } = useRiskPremiumCalculation(form, index);
+  const { calculateMutation, requiredFactorsQuery } = useRiskPremiumCalculation(
+    form,
+    index,
+  );
+
+  // Snapshot of the currently-selected risk's required factor codes, kept
+  // fresh continuously (while riskId is unchanged) so that whenever a real
+  // switch happens, this ref still holds the OUTGOING risk's codes — the
+  // query for the new risk's factors has already moved on by the time this
+  // effect's sibling below runs in the same commit.
+  const currentFactorCodes = useMemo(
+    () => (requiredFactorsQuery.data ?? []).map((factor) => factor.factor.code),
+    [requiredFactorsQuery.data],
+  );
+  const previousFactorCodesRef = useRef<string[]>([]);
+  useEffect(() => {
+    previousFactorCodesRef.current = currentFactorCodes;
+  }, [currentFactorCodes]);
+
+  // Reset the row whenever the user actually changes risk_id to a different
+  // value — not on initial mount/hydration, where risk_id is simply being
+  // set from saved draft/quotation data.
+  const previousRiskIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const previousRiskId = previousRiskIdRef.current;
+    previousRiskIdRef.current = riskId;
+
+    if (!previousRiskId || previousRiskId === riskId) return;
+
+    form.setValue(path(index, 'sum_insured'), '');
+    form.setValue(path(index, 'sum_insured_equivalent'), '');
+    form.setValue(path(index, 'premium_rate'), '');
+    form.setValue(path(index, 'premium_before_discount'), '');
+    form.setValue(path(index, 'premium_after_discount'), '');
+    form.setValue(path(index, 'premium_excluding_tax_equivalent'), '');
+    form.setValue(path(index, 'premium_including_tax'), '');
+    form.setValue(path(index, 'discounts_offered'), [createEmptyRiskDiscountRow()]);
+    form.setValue(path(index, 'taxes_charged'), [createEmptyRiskTaxRow()]);
+    form.setValue(path(index, 'rating_result_metadata'), null);
+    form.setValue(path(index, 'minimum_amount'), '');
+
+    // Only clear factor fields the outgoing risk needed but the new one
+    // doesn't — fields describing the same physical vehicle (make, model,
+    // registration_no, ...) survive a risk swap when both risks need them.
+    const newFactorCodes = new Set(currentFactorCodes);
+    previousFactorCodesRef.current
+      .filter((code) => !newFactorCodes.has(code))
+      .forEach((code) => {
+        const motorField = motorFieldNameForFactorCode(code);
+        if (!motorField) return;
+        form.setValue(
+          `motor.${motorField}` as FieldPath<QuotationFormSchemaValues>,
+          '',
+        );
+      });
+  }, [form, index, riskId, currentFactorCodes]);
 
   const watchedDiscounts = useWatch({
     control: form.control,

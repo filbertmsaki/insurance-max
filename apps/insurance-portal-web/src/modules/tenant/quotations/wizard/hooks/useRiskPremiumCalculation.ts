@@ -90,6 +90,12 @@ export function useRiskPremiumCalculation(
   const calculateMutation = useMutation({
     mutationFn: calculatorApi.calculateSingle,
     onSuccess: (result) => {
+      // The user may have already switched this row to a different risk
+      // while this calculation was in flight — discard a now-stale result
+      // rather than clobbering the row the user is now looking at.
+      const currentRiskId = form.getValues(path(index, 'risk_id')) as string;
+      if (result.risk_id !== currentRiskId) return;
+
       const currentRow = form.getValues(`risks.${index}`);
       const updatedRow = applyRiskPremiumResult(currentRow, result);
 

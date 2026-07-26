@@ -10,51 +10,52 @@ const MOTOR_USAGE_CODE_TO_FACTOR_VALUE: Record<string, string> = {
 };
 
 /**
- * Wizard motor field -> backend rating factor code. Keeps the motor step's
- * dedicated form fields decoupled from the generic factor-driven calculation API.
+ * Backend rating factor code -> wizard motor field. Keeps the motor step's
+ * dedicated form fields decoupled from the generic factor-driven calculation
+ * API, and doubles as the lookup used to know which motor field to clear when
+ * a risk row switches to a risk that no longer declares a given factor.
+ *
+ * `motor_usage` is intentionally absent here — its factor value is derived
+ * from `motor_usage_code` via a value map, not a 1:1 field passthrough (see
+ * `resolveMotorFactorRawValue`), but the code->field association still holds
+ * for clearing purposes.
  */
+const MOTOR_FACTOR_FIELD_MAP: Partial<Record<string, keyof MotorDetails>> = {
+  year_of_manufacture: 'manufacture_year',
+  seat_capacity: 'seating_capacity',
+  vehicle_weight_kg: 'gross_weight',
+  cargo_weight_ton: 'tonnage',
+  motor_usage: 'motor_usage_code',
+  motor_category: 'motor_category_code',
+  motor_type: 'motor_type_code',
+  registration_number: 'registration_no',
+  chassis_number: 'chassis_no',
+  make: 'make',
+  model: 'model',
+  body_type: 'body_type',
+  engine_number: 'engine_no',
+  engine_capacity: 'cubic_capacity',
+  fuel_used: 'fuel_type',
+  owner_name: 'owner_name',
+  owner_category: 'owner_category',
+};
+
 function resolveMotorFactorRawValue(
   factorCode: string,
   motor: MotorDetails,
 ): string | undefined {
-  switch (factorCode) {
-    case 'year_of_manufacture':
-      return motor.manufacture_year;
-    case 'seat_capacity':
-      return motor.seating_capacity;
-    case 'vehicle_weight_kg':
-      return motor.gross_weight;
-    case 'cargo_weight_ton':
-      return motor.tonnage;
-    case 'motor_usage':
-      return MOTOR_USAGE_CODE_TO_FACTOR_VALUE[motor.motor_usage_code];
-    case 'motor_category':
-      return motor.motor_category_code;
-    case 'motor_type':
-      return motor.motor_type_code;
-    case 'registration_number':
-      return motor.registration_no;
-    case 'chassis_number':
-      return motor.chassis_no;
-    case 'make':
-      return motor.make;
-    case 'model':
-      return motor.model;
-    case 'body_type':
-      return motor.body_type;
-    case 'engine_number':
-      return motor.engine_no;
-    case 'engine_capacity':
-      return motor.cubic_capacity;
-    case 'fuel_used':
-      return motor.fuel_type;
-    case 'owner_name':
-      return motor.owner_name;
-    case 'owner_category':
-      return motor.owner_category;
-    default:
-      return undefined;
+  if (factorCode === 'motor_usage') {
+    return MOTOR_USAGE_CODE_TO_FACTOR_VALUE[motor.motor_usage_code];
   }
+  const field = MOTOR_FACTOR_FIELD_MAP[factorCode];
+  return field ? motor[field] : undefined;
+}
+
+/** The `motor.*` field a given rating factor code reads from, if any. */
+export function motorFieldNameForFactorCode(
+  factorCode: string,
+): keyof MotorDetails | undefined {
+  return MOTOR_FACTOR_FIELD_MAP[factorCode];
 }
 
 function coerceFactorValue(
