@@ -42,41 +42,35 @@ export function computePremiumIncludingTax(
  * not the legacy rate/basic_premium/total_premium fields from the dead-code
  * version of this function.
  *
- * Rule order:
+ * Only sets the fields the API result directly determines:
  *  1. Zero-rate (FIXED rate-type) risks have no sum-insured concept — force
  *     sum_insured/sum_insured_equivalent to '0' regardless of user input.
  *  2. premium_rate = result.percentage_rate.
  *  3. premium_before_discount = result.final_premium (the minimum floor, if
  *     any, is already baked in here — it is a pricing floor, not a discount).
- *  4-6. Discounts/tax are re-derived from whatever the row's existing
- *     discounts_offered/taxes_charged rows already contain, so calling this
- *     mid-edit doesn't clobber amounts the user already set.
+ *
+ * Deliberately does NOT compute premium_after_discount/premium_excluding_tax_equivalent/
+ * premium_including_tax here. RiskRow.tsx already has a reactive effect that
+ * derives those from premium_before_discount plus the row's current
+ * discounts_offered/taxes_charged the moment it changes — computing them a
+ * second time here, from a snapshot of discounts/taxes that may not reflect
+ * a still-in-flight tax_amount recalculation, previously produced a
+ * momentarily-wrong premium_including_tax that then got silently corrected a
+ * render later. Setting only premium_before_discount and letting that single
+ * reactive chain own the rest removes that race entirely.
  */
 export function applyRiskPremiumResult(
   row: QuotationRiskFormRow,
   result: RiskPremiumResult,
 ): QuotationRiskFormRow {
   const isZeroRate = result.percentage_rate === 0;
-  const premiumBeforeDiscount = String(result.final_premium ?? 0);
-  const premiumAfterDiscount = computePremiumAfterDiscount(
-    premiumBeforeDiscount,
-    row.discounts_offered,
-  );
-  const premiumExcludingTaxEquivalent = premiumAfterDiscount;
-  const premiumIncludingTax = computePremiumIncludingTax(
-    premiumExcludingTaxEquivalent,
-    row.taxes_charged,
-  );
 
   return {
     ...row,
     sum_insured: isZeroRate ? '0' : row.sum_insured,
     sum_insured_equivalent: isZeroRate ? '0' : String(result.sum_insured ?? 0),
     premium_rate: String(result.percentage_rate ?? 0),
-    premium_before_discount: premiumBeforeDiscount,
-    premium_after_discount: String(premiumAfterDiscount),
-    premium_excluding_tax_equivalent: String(premiumExcludingTaxEquivalent),
-    premium_including_tax: String(premiumIncludingTax),
+    premium_before_discount: String(result.final_premium ?? 0),
     rating_result_metadata: {
       minimum_applied: result.minimum_applied,
       minimum_amount: result.minimum_amount,

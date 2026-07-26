@@ -91,7 +91,13 @@ export function useRiskPremiumCalculation(
 
     const topRule = [...activeRules].sort((a, b) => a.priority - b.priority)[0];
     const minimumAmount = topRule.minimum_amount ?? 0;
-    form.setValue(path(index, 'minimum_amount'), String(minimumAmount));
+
+    const currentMinimumAmount = form.getValues(
+      path(index, 'minimum_amount'),
+    ) as string;
+    if (currentMinimumAmount !== String(minimumAmount)) {
+      form.setValue(path(index, 'minimum_amount'), String(minimumAmount));
+    }
 
     const hasExistingPremium = !!(
       form.getValues(path(index, 'premium_before_discount')) as string
@@ -107,43 +113,6 @@ export function useRiskPremiumCalculation(
 
   const calculateMutation = useMutation({
     mutationFn: calculatorApi.calculateSingle,
-    onSuccess: (result) => {
-      // The user may have already switched this row to a different risk
-      // while this calculation was in flight — discard a now-stale result
-      // rather than clobbering the row the user is now looking at.
-      const currentRiskId = form.getValues(path(index, 'risk_id')) as string;
-      if (result.risk_id !== currentRiskId) return;
-
-      const currentRow = form.getValues(`risks.${index}`);
-      const updatedRow = applyRiskPremiumResult(currentRow, result);
-
-      form.setValue(path(index, 'sum_insured'), updatedRow.sum_insured);
-      form.setValue(
-        path(index, 'sum_insured_equivalent'),
-        updatedRow.sum_insured_equivalent,
-      );
-      form.setValue(path(index, 'premium_rate'), updatedRow.premium_rate);
-      form.setValue(
-        path(index, 'premium_before_discount'),
-        updatedRow.premium_before_discount,
-      );
-      form.setValue(
-        path(index, 'premium_after_discount'),
-        updatedRow.premium_after_discount,
-      );
-      form.setValue(
-        path(index, 'premium_excluding_tax_equivalent'),
-        updatedRow.premium_excluding_tax_equivalent,
-      );
-      form.setValue(
-        path(index, 'premium_including_tax'),
-        updatedRow.premium_including_tax,
-      );
-      form.setValue(
-        path(index, 'rating_result_metadata'),
-        updatedRow.rating_result_metadata,
-      );
-    },
   });
 
   // Keep the mutate function reachable without making it an effect
@@ -154,6 +123,24 @@ export function useRiskPremiumCalculation(
   useEffect(() => {
     calculateMutateRef.current = calculateMutation.mutate;
   });
+
+  // Guards against unmount: an in-flight request's response arriving after
+  // this row has been removed (risk deleted, wizard navigated away) must not
+  // call setValue on a field that no longer exists in the array.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // Monotonic "latest request wins" token. Incremented the instant a
+  // request is actually sent (not merely armed) — any response whose token
+  // no longer matches the current one has been superseded by a newer
+  // request (risk switch, a further sum-insured edit, or a factor change)
+  // made before the earlier one resolved, and is discarded outright rather
+  // than risking a stale/partial apply.
+  const requestTokenRef = useRef(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -170,11 +157,39 @@ export function useRiskPremiumCalculation(
     if (Number(committedSumInsured) <= minimumAmount) return undefined;
 
     timeoutRef.current = setTimeout(() => {
-      calculateMutateRef.current({
-        risk_id: riskId,
-        sum_insured: Number(committedSumInsured) || 0,
-        factors: factorValues,
-      });
+      const token = ++requestTokenRef.current;
+      calculateMutateRef.current(
+        {
+          risk_id: riskId,
+          sum_insured: Number(committedSumInsured) || 0,
+          factors: factorValues,
+        },
+        {
+          onSuccess: (result) => {
+            if (!mountedRef.current || token !== requestTokenRef.current) {
+              return;
+            }
+
+            const currentRow = form.getValues(`risks.${index}`);
+            const updatedRow = applyRiskPremiumResult(currentRow, result);
+
+            form.setValue(path(index, 'sum_insured'), updatedRow.sum_insured);
+            form.setValue(
+              path(index, 'sum_insured_equivalent'),
+              updatedRow.sum_insured_equivalent,
+            );
+            form.setValue(path(index, 'premium_rate'), updatedRow.premium_rate);
+            form.setValue(
+              path(index, 'premium_before_discount'),
+              updatedRow.premium_before_discount,
+            );
+            form.setValue(
+              path(index, 'rating_result_metadata'),
+              updatedRow.rating_result_metadata,
+            );
+          },
+        },
+      );
     }, CALCULATION_DEBOUNCE_MS);
 
     return () => {

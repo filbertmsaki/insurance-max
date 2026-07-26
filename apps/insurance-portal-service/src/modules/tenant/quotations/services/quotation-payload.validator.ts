@@ -477,10 +477,8 @@ export class QuotationPayloadValidator {
     path: string,
     errors: string[],
   ): void {
-    if (risk.premium_rate > this.maximumRate) {
-      errors.push(
-        `${path}.premium_rate must be a decimal rate between 0 and 1`,
-      );
+    if (risk.premium_rate < 0) {
+      errors.push(`${path}.premium_rate must not be negative`);
     }
 
     if (risk.premium_after_discount > risk.premium_before_discount) {

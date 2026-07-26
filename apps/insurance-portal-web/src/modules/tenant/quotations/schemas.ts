@@ -102,11 +102,11 @@ function buildPolicyholderFormDefaults(
 
 function createEmptyTaxRow() {
   return {
-    tax_code: '',
+    tax_code: 'VAT-MAINLAND',
     is_tax_exempted: false,
     tax_exemption_type: '',
     tax_exemption_reference: '',
-    tax_rate: '',
+    tax_rate: '0.18',
     tax_amount: '',
   };
 }
