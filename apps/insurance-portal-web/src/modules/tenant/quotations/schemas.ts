@@ -141,6 +141,7 @@ const quotationRiskRowSchema = z.object({
   premium_after_discount: optionalText,
   premium_excluding_tax_equivalent: optionalText,
   premium_including_tax: optionalText,
+  minimum_amount: optionalText,
   discounts_offered: z.array(
     z.object({
       discount_type: optionalText,
@@ -793,6 +794,7 @@ export function createEmptyRiskRow(): QuotationRiskFormRow {
     premium_after_discount: '',
     premium_excluding_tax_equivalent: '',
     premium_including_tax: '',
+    minimum_amount: '',
     discounts_offered: [createEmptyDiscountRow()],
     taxes_charged: [createEmptyTaxRow()],
     rate: '',
@@ -1520,6 +1522,7 @@ function mapRiskRows(
       risk.premium_excluding_tax_equivalent,
     ),
     premium_including_tax: String(risk.premium_including_tax),
+    minimum_amount: '',
     discounts_offered:
       risk.discounts_offered.length > 0
         ? risk.discounts_offered.map((discount) => ({

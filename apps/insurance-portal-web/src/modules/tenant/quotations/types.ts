@@ -699,6 +699,7 @@ export interface QuotationRiskFormRow {
   premium_after_discount: string;
   premium_excluding_tax_equivalent: string;
   premium_including_tax: string;
+  minimum_amount: string;
   discounts_offered: QuotationWizardRiskDiscountRow[];
   taxes_charged: QuotationWizardRiskTaxRow[];
   rate: string;

@@ -6,31 +6,82 @@ import type { QuotationFormSchemaValues } from '../../schemas';
 // wizard's react-hook-form state.
 type QuotationRiskFormRow = QuotationFormSchemaValues['risks'][number];
 
+function toNumber(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === '') return 0;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/** Premium after discount = premium before discount, less all discount line items, floored at 0. */
+export function computePremiumAfterDiscount(
+  premiumBeforeDiscount: string | number,
+  discounts: QuotationRiskFormRow['discounts_offered'],
+) {
+  const totalDiscount = discounts.reduce(
+    (sum, discount) => sum + toNumber(discount.discount_amount),
+    0,
+  );
+  return Math.max(0, toNumber(premiumBeforeDiscount) - totalDiscount);
+}
+
+/** Premium including tax = premium excluding tax equivalent, plus all tax line items. */
+export function computePremiumIncludingTax(
+  premiumExcludingTaxEquivalent: string | number,
+  taxes: QuotationRiskFormRow['taxes_charged'],
+) {
+  const totalTax = taxes.reduce(
+    (sum, tax) => sum + toNumber(tax.tax_amount),
+    0,
+  );
+  return toNumber(premiumExcludingTaxEquivalent) + totalTax;
+}
+
 /**
- * Applies a rating-engine result onto a risk row's read-only computed fields.
+ * Applies a rating-engine result onto a risk row's premium fields — the real
+ * schema fields RiskRow.tsx renders (premium_rate, premium_before_discount, ...),
+ * not the legacy rate/basic_premium/total_premium fields from the dead-code
+ * version of this function.
  *
- * The rating engine (`RiskPremiumResult`) only returns base_premium/gross_premium/
- * final_premium — it does not break the total into discount/tax/charges/commission
- * line items (no such fields exist on the response), so those stay at '0' here.
- * This mirrors a gap already flagged in the wizard plan: reliable discount/tax/
- * charges/commission breakdown needs a taxes/levies reference source that
- * doesn't exist yet.
+ * Rule order:
+ *  1. Zero-rate (FIXED rate-type) risks have no sum-insured concept — force
+ *     sum_insured/sum_insured_equivalent to '0' regardless of user input.
+ *  2. premium_rate = result.percentage_rate.
+ *  3. premium_before_discount = result.final_premium (the minimum floor, if
+ *     any, is already baked in here — it is a pricing floor, not a discount).
+ *  4-6. Discounts/tax are re-derived from whatever the row's existing
+ *     discounts_offered/taxes_charged rows already contain, so calling this
+ *     mid-edit doesn't clobber amounts the user already set.
  */
 export function applyRiskPremiumResult(
   row: QuotationRiskFormRow,
   result: RiskPremiumResult,
 ): QuotationRiskFormRow {
+  const isZeroRate = result.percentage_rate === 0;
+  const premiumBeforeDiscount = String(result.final_premium ?? 0);
+  const premiumAfterDiscount = computePremiumAfterDiscount(
+    premiumBeforeDiscount,
+    row.discounts_offered,
+  );
+  const premiumExcludingTaxEquivalent = premiumAfterDiscount;
+  const premiumIncludingTax = computePremiumIncludingTax(
+    premiumExcludingTaxEquivalent,
+    row.taxes_charged,
+  );
+
   return {
     ...row,
-    rate: String(result.percentage_rate ?? 0),
-    basic_premium: String(result.base_premium ?? 0),
-    discount_amount: '0',
-    tax_amount: '0',
-    charges_amount: '0',
-    commission_amount: '0',
-    total_premium: String(result.final_premium ?? result.gross_premium ?? 0),
-    net_premium: String(result.final_premium ?? result.gross_premium ?? 0),
-    rating_result_metadata: result,
+    sum_insured: isZeroRate ? '0' : row.sum_insured,
+    sum_insured_equivalent: isZeroRate ? '0' : String(result.sum_insured ?? 0),
+    premium_rate: String(result.percentage_rate ?? 0),
+    premium_before_discount: premiumBeforeDiscount,
+    premium_after_discount: String(premiumAfterDiscount),
+    premium_excluding_tax_equivalent: String(premiumExcludingTaxEquivalent),
+    premium_including_tax: String(premiumIncludingTax),
+    rating_result_metadata: {
+      minimum_applied: result.minimum_applied,
+      minimum_amount: result.minimum_amount,
+      validation_errors: result.validation_errors,
+    },
   };
 }
 
