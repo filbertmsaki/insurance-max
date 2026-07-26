@@ -474,7 +474,7 @@ function FleetVehicleEditor({
                       {discountRows.map((_, discountIndex) => (
                         <div
                           key={`${riskIndex}-discount-${discountIndex}`}
-                          className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-3"
+                          className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-2"
                         >
                           <FormField
                             control={form.control}
@@ -564,7 +564,7 @@ function FleetVehicleEditor({
                       {taxRows.map((_, taxIndex) => (
                         <div
                           key={`${riskIndex}-tax-${taxIndex}`}
-                          className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-3"
+                          className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-2"
                         >
                           <FormField
                             control={form.control}
@@ -647,7 +647,7 @@ function FleetVehicleEditor({
                   Add Subject
                 </Button>
               }
-              contentClassName="space-y-3"
+              contentClassName="space-y-1"
             >
                 {subjectArray.fields.map((field, subjectIndex) => (
                   <div key={field.id} className="grid gap-3 md:grid-cols-2">
@@ -1114,7 +1114,7 @@ export function MotorFleetDetailsStep({
             Add Vehicle
           </Button>
         }
-        contentClassName="space-y-3"
+        contentClassName="space-y-1"
       >
           {fields.map((field, index) => {
             const item = form.watch(`fleet.items.${index}` as const);
