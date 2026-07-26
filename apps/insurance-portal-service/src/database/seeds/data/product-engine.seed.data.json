@@ -21543,10 +21543,10 @@
                   {
                       "risk_code":  "SP014001000003",
                       "rule_name":  "Base Rate From TIRA",
-                      "rate_type":  "PERCENTAGE",
+                      "rate_type":  "PERCENTAGE_PLUS_FIXED",
                       "rate_value":  2,
-                      "fixed_amount":  null,
-                      "formula":  "2%+TPP",
+                      "fixed_amount":  200000,
+                      "formula":  null,
                       "minimum_amount":  200000,
                       "priority":  1,
                       "source_rate_text":  "2%+TPP",

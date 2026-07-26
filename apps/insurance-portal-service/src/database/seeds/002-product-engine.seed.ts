@@ -612,39 +612,48 @@ export default class ProductEngineSeeder implements Seeder {
     const invalidFormulaText = /^(n\/a|#value!)$/i.test(rateText);
 
     if (rateText) {
-      const percentagePlusPerUnit = this.extractPercentagePlusPerUnit(rateText);
-      if (percentagePlusPerUnit) {
-        rateType = RateType.PERCENTAGE_PLUS_PER_UNIT;
-        percentageRate = percentagePlusPerUnit.percentageRate;
-        perUnitAmount = percentagePlusPerUnit.perUnitAmount;
-        perUnitFactorCode = percentagePlusPerUnit.perUnitFactorCode;
+      const percentagePlusTpp = this.extractPercentagePlusTpp(rateText);
+      if (percentagePlusTpp) {
+        rateType = RateType.PERCENTAGE_PLUS_FIXED;
+        percentageRate = percentagePlusTpp.percentageRate;
+        fixedAmount = this.toNumber(seed.minimum_amount) ?? 0;
         formula = null;
       } else {
-        const percentagePlusFixed = this.extractPercentagePlusFixed(rateText);
-        if (percentagePlusFixed) {
-          rateType = RateType.PERCENTAGE_PLUS_FIXED;
-          percentageRate = percentagePlusFixed.percentageRate;
-          fixedAmount = percentagePlusFixed.fixedAmount;
+        const percentagePlusPerUnit =
+          this.extractPercentagePlusPerUnit(rateText);
+        if (percentagePlusPerUnit) {
+          rateType = RateType.PERCENTAGE_PLUS_PER_UNIT;
+          percentageRate = percentagePlusPerUnit.percentageRate;
+          perUnitAmount = percentagePlusPerUnit.perUnitAmount;
+          perUnitFactorCode = percentagePlusPerUnit.perUnitFactorCode;
           formula = null;
         } else {
-          const perUnitOnly = this.extractPerUnitOnly(rateText);
-          if (perUnitOnly) {
-            rateType = RateType.PER_UNIT;
-            perUnitAmount = perUnitOnly.perUnitAmount;
-            perUnitFactorCode = perUnitOnly.perUnitFactorCode;
+          const percentagePlusFixed = this.extractPercentagePlusFixed(rateText);
+          if (percentagePlusFixed) {
+            rateType = RateType.PERCENTAGE_PLUS_FIXED;
+            percentageRate = percentagePlusFixed.percentageRate;
+            fixedAmount = percentagePlusFixed.fixedAmount;
             formula = null;
           } else {
-            const percentageOnly = this.extractPercentageOnly(rateText);
-            if (percentageOnly !== null) {
-              rateType = RateType.PERCENTAGE;
-              percentageRate = percentageOnly;
+            const perUnitOnly = this.extractPerUnitOnly(rateText);
+            if (perUnitOnly) {
+              rateType = RateType.PER_UNIT;
+              perUnitAmount = perUnitOnly.perUnitAmount;
+              perUnitFactorCode = perUnitOnly.perUnitFactorCode;
               formula = null;
             } else {
-              const fixedOnly = this.extractFixedOnly(rateText);
-              if (fixedOnly !== null) {
-                rateType = RateType.FIXED;
-                fixedAmount = fixedOnly;
+              const percentageOnly = this.extractPercentageOnly(rateText);
+              if (percentageOnly !== null) {
+                rateType = RateType.PERCENTAGE;
+                percentageRate = percentageOnly;
                 formula = null;
+              } else {
+                const fixedOnly = this.extractFixedOnly(rateText);
+                if (fixedOnly !== null) {
+                  rateType = RateType.FIXED;
+                  fixedAmount = fixedOnly;
+                  formula = null;
+                }
               }
             }
           }
@@ -700,6 +709,20 @@ export default class ProductEngineSeeder implements Seeder {
       per_unit_factor_code: perUnitFactorCode,
       formula,
     };
+  }
+
+  private extractPercentagePlusTpp(rateText: string): {
+    percentageRate: number;
+  } | null {
+    // TIRA sheets sometimes express a rate as e.g. "2%+TPP" (Third Party
+    // Property), where the added charge has no numeric literal in the rate
+    // text itself - its amount is carried in the row's minimum_amount
+    // column instead. Callers read that amount into fixed_amount.
+    const match = rateText.match(/^([\d.]+)\s*%\s*\+\s*tpp$/i);
+    if (!match) {
+      return null;
+    }
+    return { percentageRate: Number(match[1]) };
   }
 
   private extractPercentagePlusPerUnit(rateText: string): {
