@@ -16,17 +16,6 @@ type Props = {
   onStepClick?: (step: string) => void;
 };
 
-const descriptions: Record<string, string> = {
-  'cover-note': 'Set up quotation details and cover period.',
-  'fleet-setup': 'Define the fleet context before adding vehicles.',
-  policyholder: 'Select or create the policyholder profile.',
-  'risk-premium': 'Capture risks, values, and premium figures.',
-  addons: 'Add optional covers, taxes, and adjustments.',
-  motor: 'Complete vehicle and motor-specific details.',
-  'fleet-vehicles': 'Add fleet vehicles and validate each record.',
-  summary: 'Review the full quotation before saving or submitting.',
-};
-
 type StepStatus = 'error' | 'active' | 'complete' | 'upcoming';
 
 function getStatusLabel(status: StepStatus) {
@@ -76,12 +65,6 @@ export function QuotationJourneyProgress({
   const isPassed = steps.map(
     (step, index) => completedSteps.includes(step.id) || index < activeIndex,
   );
-
-  const currentStepDef = steps[activeIndex];
-  const currentLabel =
-    currentStepDef?.title ?? currentStepDef?.label ?? currentStepDef?.id ?? '';
-  const currentDescription =
-    currentStepDef?.description ?? descriptions[currentStepDef?.id ?? ''];
 
   return (
     <nav aria-label="Quotation progress">
@@ -173,13 +156,6 @@ export function QuotationJourneyProgress({
           );
         })}
       </ol>
-
-      {currentLabel ? (
-        <p className="mt-2 border-t border-slate-100 pt-2 text-xs leading-5 text-slate-500 sm:text-sm">
-          <span className="font-semibold text-slate-900">{currentLabel}.</span>{' '}
-          {currentDescription}
-        </p>
-      ) : null}
     </nav>
   );
 }
