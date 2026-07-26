@@ -289,7 +289,7 @@ export function QuotationStartModal({
                     aria-pressed={active}
                     onClick={() => handleFlowChange(option.quotation_flow)}
                     className={[
-                      'flex min-w-36 flex-1 cursor-pointer items-center gap-1 whitespace-nowrap rounded-lg border p-2.5 text-left text-sm transition-colors',
+                      'flex min-w-36 shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap rounded-lg border p-2.5 text-left text-sm transition-colors',
                       active
                         ? 'border-sky-300 bg-sky-50 text-sky-900'
                         : 'border-slate-200 bg-white hover:border-slate-300',
