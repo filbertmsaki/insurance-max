@@ -1,7 +1,8 @@
 import type { FieldPath, UseFormReturn } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { FormControl, FormField, FormLabel, FormMessage } from '@/components/ui/form';
+import { WizardFormItem } from '../components/WizardFormItem';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   CUSTOMER_ID_TYPE_OPTIONS,
@@ -73,7 +74,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
               type="button"
               onClick={() => form.setValue('policyholder_mode', option.value)}
               className={[
-                'rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
+                'cursor-pointer rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
                 mode === option.value
                   ? 'border-slate-900 bg-slate-900 text-white'
                   : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
@@ -89,7 +90,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
             control={form.control}
             name="customer_id"
             render={({ field }) => (
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>Existing Customer (required)</FormLabel>
                 <Select
                   value={toSelectValue(field.value)}
@@ -110,7 +111,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
                   </SelectContent>
                 </Select>
                 <FormMessage />
-              </FormItem>
+              </WizardFormItem>
             )}
           />
         ) : (
@@ -141,7 +142,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
       {mode === 'new' && (
         <StepSection
           title="New Policyholder Details"
-          contentClassName="grid gap-4 md:grid-cols-2"
+          contentClassName="grid gap-3 md:grid-cols-2"
         >
           <div className="md:col-span-2">
             <Label className="mb-2 block">Customer Type</Label>
@@ -157,7 +158,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
                   type="button"
                   onClick={() => handleCustomerTypeChange(option.value)}
                   className={[
-                    'rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
+                    'cursor-pointer rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
                     customerType === option.value
                       ? 'border-slate-900 bg-slate-900 text-white'
                       : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
@@ -170,7 +171,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
           </div>
 
           <FormField control={form.control} name={fieldName('full_name')} render={({ field }) => (
-            <FormItem className="md:col-span-2">
+            <WizardFormItem className="md:col-span-2">
               <FormLabel>Full Name (required)</FormLabel>
               <FormControl>
                 <Input
@@ -184,20 +185,20 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
                 />
               </FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )} />
 
           <FormField control={form.control} name={fieldName('date_of_birth')} render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Date of Birth / Incorporation Date (required)</FormLabel>
               <FormControl><Input type="date" max={today} {...field} value={field.value as string} /></FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )} />
 
           {customerType === 'INDIVIDUAL' && (
             <FormField control={form.control} name={fieldName('gender')} render={({ field }) => (
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>Gender (required)</FormLabel>
                 <Select
                   value={toSelectValue(field.value as string)}
@@ -211,12 +212,12 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
                   </SelectContent>
                 </Select>
                 <FormMessage />
-              </FormItem>
+              </WizardFormItem>
             )} />
           )}
 
           <FormField control={form.control} name={fieldName('id_type')} render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Identification Type (required)</FormLabel>
               <Select
                 value={field.value ? String(field.value) : SELECT_NONE_VALUE}
@@ -233,71 +234,71 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
                 </SelectContent>
               </Select>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )} />
 
           <FormField control={form.control} name={fieldName('id_number')} render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Identification Number (required)</FormLabel>
               <FormControl><Input {...field} value={field.value as string} /></FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )} />
 
           <FormField control={form.control} name={fieldName('phone')} render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Phone Number (required)</FormLabel>
               <FormControl><Input {...field} value={field.value as string} /></FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )} />
           <FormField control={form.control} name={fieldName('email')} render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Email (optional)</FormLabel>
               <FormControl><Input type="email" {...field} value={field.value as string} /></FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )} />
           <FormField control={form.control} name={fieldName('fax')} render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Fax (optional)</FormLabel>
               <FormControl><Input {...field} value={field.value as string} /></FormControl>
-            </FormItem>
+            </WizardFormItem>
           )} />
 
           <FormField control={form.control} name={fieldName('country_code')} render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Country Code (ISO alpha-3, required)</FormLabel>
               <FormControl><Input maxLength={3} {...field} value={field.value as string} /></FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )} />
           <FormField control={form.control} name={fieldName('region')} render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Region (required)</FormLabel>
               <FormControl><Input {...field} value={field.value as string} /></FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )} />
           <FormField control={form.control} name={fieldName('district')} render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>District (required)</FormLabel>
               <FormControl><Input {...field} value={field.value as string} /></FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )} />
           <FormField control={form.control} name={fieldName('street')} render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Street (optional)</FormLabel>
               <FormControl><Input {...field} value={field.value as string} /></FormControl>
-            </FormItem>
+            </WizardFormItem>
           )} />
           <FormField control={form.control} name={fieldName('postal_address')} render={({ field }) => (
-            <FormItem className="md:col-span-2">
+            <WizardFormItem className="md:col-span-2">
               <FormLabel>Postal Address</FormLabel>
               <FormControl><Input {...field} value={field.value as string} /></FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )} />
         </StepSection>
       )}

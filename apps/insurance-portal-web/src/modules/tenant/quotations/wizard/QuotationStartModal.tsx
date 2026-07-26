@@ -278,7 +278,7 @@ export function QuotationStartModal({
         <div className="grid gap-4 py-2 md:grid-cols-2">
           <div className="md:col-span-2">
             <Label className="mb-2 block">{FIELD_LABELS.quotation_flow}</Label>
-            <div className="grid gap-2 md:grid-cols-3">
+            <div className="grid gap-2 md:grid-cols-2">
               {QUOTATION_FLOW_OPTIONS.map((option) => {
                 const active = quotationFlow === option.quotation_flow;
                 const Icon = option.icon;
@@ -289,7 +289,7 @@ export function QuotationStartModal({
                     aria-pressed={active}
                     onClick={() => handleFlowChange(option.quotation_flow)}
                     className={[
-                      'rounded-lg border p-2.5 text-left text-sm transition-colors',
+                      'cursor-pointer rounded-lg border p-2.5 text-left text-sm transition-colors',
                       active
                         ? 'border-sky-300 bg-sky-50 text-sky-900'
                         : 'border-slate-200 bg-white hover:border-slate-300',
@@ -372,7 +372,7 @@ export function QuotationStartModal({
             <div>
               <Label className="mb-2 block">{tranCompanyLabel}</Label>
               <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                className="flex h-10 w-full cursor-pointer rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
                 value={effectiveTranCompanyId}
                 onChange={(event) => setTranCompanyId(event.target.value)}
                 disabled={tranCompanyOptions.length === 0}

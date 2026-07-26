@@ -85,7 +85,7 @@ export function QuotationJourneyProgress({
 
   return (
     <nav aria-label="Quotation progress">
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
           Step {activeIndex + 1} of {steps.length}
         </p>
@@ -175,7 +175,7 @@ export function QuotationJourneyProgress({
       </ol>
 
       {currentLabel ? (
-        <p className="mt-3 border-t border-slate-100 pt-3 text-xs leading-5 text-slate-500 sm:text-sm">
+        <p className="mt-2 border-t border-slate-100 pt-2 text-xs leading-5 text-slate-500 sm:text-sm">
           <span className="font-semibold text-slate-900">{currentLabel}.</span>{' '}
           {currentDescription}
         </p>

@@ -3,7 +3,7 @@ import { useFieldArray, type FieldPath, type UseFormReturn } from 'react-hook-fo
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { FormControl, FormField, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useEffect } from 'react';
 import { createEmptyAddonTaxRow, type QuotationFormSchemaValues } from '../../schemas';
@@ -20,6 +20,7 @@ import {
   toSelectValue,
 } from '../utils/selectValue';
 import { StepSection } from './StepSection';
+import { WizardFormItem } from './WizardFormItem';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -63,44 +64,44 @@ export function AddonRow({ form, index, onRemove, canRemove, exchangeRate }: Pro
         </div>
       }
     >
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           <FormField control={form.control} name={path(index, 'addon_reference')} render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Add-on Reference</FormLabel>
               <FormControl><Input {...field} value={field.value as string} /></FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )} />
           <FormField control={form.control} name={path(index, 'addon_desc')} render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Description</FormLabel>
               <FormControl><Input {...field} value={field.value as string} /></FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )} />
           <FormField control={form.control} name={path(index, 'addon_amount')} render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Insured Amount</FormLabel>
               <FormControl><Input type="number" {...field} value={field.value as string} /></FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )} />
           <FormField control={form.control} name={path(index, 'addon_premium_rate')} render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Premium Rate (optional)</FormLabel>
               <FormControl><Input type="number" step="0.0001" {...field} value={field.value as string} /></FormControl>
-            </FormItem>
+            </WizardFormItem>
           )} />
           <FormField control={form.control} name={path(index, 'premium_excluding_tax')} render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Premium Excluding Tax</FormLabel>
               <FormControl><Input type="number" {...field} value={field.value as string} /></FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )} />
         </div>
 
-        <div className="space-y-3 border-t border-slate-100 pt-4">
+        <div className="space-y-1 border-t border-slate-100 pt-4">
           <div className="flex items-center justify-between">
             <p className="text-xs font-medium text-slate-500">Taxes Charged</p>
             <Button type="button" variant="outline" size="sm" onClick={() => taxFieldArray.append(createEmptyAddonTaxRow())}>
@@ -112,7 +113,7 @@ export function AddonRow({ form, index, onRemove, canRemove, exchangeRate }: Pro
           {taxFieldArray.fields.map((taxField, taxIndex) => (
             <div key={taxField.id} className="grid gap-3 rounded-lg border border-slate-100 p-3 md:grid-cols-4">
               <FormField control={form.control} name={path(index, `taxes.${taxIndex}.tax_code`)} render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Tax Code</FormLabel>
                   <Select
                     value={toSelectValue(field.value as string)}
@@ -145,10 +146,10 @@ export function AddonRow({ form, index, onRemove, canRemove, exchangeRate }: Pro
                     </SelectContent>
                   </Select>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )} />
               <FormField control={form.control} name={path(index, `taxes.${taxIndex}.tax_rate`)} render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Tax Rate</FormLabel>
                   <FormControl>
                     <Input
@@ -160,9 +161,9 @@ export function AddonRow({ form, index, onRemove, canRemove, exchangeRate }: Pro
                     />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )} />
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>Tax Amount</FormLabel>
                 <FormControl>
                   <Input
@@ -170,9 +171,9 @@ export function AddonRow({ form, index, onRemove, canRemove, exchangeRate }: Pro
                     value={(computed.taxes[taxIndex]?.tax_amount ?? 0).toFixed(2)}
                   />
                 </FormControl>
-              </FormItem>
+              </WizardFormItem>
               <FormField control={form.control} name={path(index, `taxes.${taxIndex}.is_tax_exempted`)} render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Exempted</FormLabel>
                   <Select
                     value={field.value ? 'Y' : 'N'}
@@ -206,10 +207,10 @@ export function AddonRow({ form, index, onRemove, canRemove, exchangeRate }: Pro
                     </SelectContent>
                   </Select>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )} />
               <FormField control={form.control} name={path(index, `taxes.${taxIndex}.tax_exemption_type`)} render={({ field }) => (
-                <FormItem className="md:col-span-2">
+                <WizardFormItem className="md:col-span-2">
                   <FormLabel>Exemption Type</FormLabel>
                   <Select
                     value={toSelectValue(field.value as string)}
@@ -231,10 +232,10 @@ export function AddonRow({ form, index, onRemove, canRemove, exchangeRate }: Pro
                     </SelectContent>
                   </Select>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )} />
               <FormField control={form.control} name={path(index, `taxes.${taxIndex}.tax_exemption_reference`)} render={({ field }) => (
-                <FormItem className="md:col-span-2">
+                <WizardFormItem className="md:col-span-2">
                   <FormLabel>Exemption Reference</FormLabel>
                   <FormControl>
                     <Input
@@ -244,7 +245,7 @@ export function AddonRow({ form, index, onRemove, canRemove, exchangeRate }: Pro
                     />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )} />
               <div className="flex items-end justify-end">
                 <Button type="button" variant="ghost" size="icon" onClick={() => taxFieldArray.remove(taxIndex)}>

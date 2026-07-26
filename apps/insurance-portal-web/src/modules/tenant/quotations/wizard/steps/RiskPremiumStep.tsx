@@ -5,10 +5,10 @@ import { Input } from '@/components/ui/input';
 import {
   FormControl,
   FormField,
-  FormItem,
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { WizardFormItem } from '../components/WizardFormItem';
 import type { InsuranceRisk } from '@/types/product-engine';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { RiskRow } from '../components/RiskRow';
@@ -87,32 +87,32 @@ export function RiskPremiumStep({
           {subjectMatterFieldArray.fields.map((field, index) => (
             <div
               key={field.id}
-              className="grid gap-4 rounded-xl border border-slate-200 p-4 md:grid-cols-[1fr_1fr_auto]"
+              className="grid gap-3 rounded-xl border border-slate-200 p-3.5 md:grid-cols-[1fr_1fr_auto]"
             >
               <FormField
                 control={form.control}
                 name={`nonMotor.items.${index}.subject_matter_reference`}
                 render={({ field: formField }) => (
-                  <FormItem>
+                  <WizardFormItem>
                     <FormLabel>Reference</FormLabel>
                     <FormControl>
                       <Input {...formField} />
                     </FormControl>
                     <FormMessage />
-                  </FormItem>
+                  </WizardFormItem>
                 )}
               />
               <FormField
                 control={form.control}
                 name={`nonMotor.items.${index}.subject_matter_desc`}
                 render={({ field: formField }) => (
-                  <FormItem>
+                  <WizardFormItem>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
                       <Input {...formField} />
                     </FormControl>
                     <FormMessage />
-                  </FormItem>
+                  </WizardFormItem>
                 )}
               />
               <div className="flex items-end">

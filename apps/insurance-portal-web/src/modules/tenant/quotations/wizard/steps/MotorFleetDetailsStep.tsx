@@ -18,7 +18,6 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   FormControl,
   FormField,
-  FormItem,
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
@@ -33,6 +32,7 @@ import type { CustomerRecord } from '@/modules/tenant/customers/types';
 import type { InsuranceRisk } from '@/types/product-engine';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { StepSection } from '../components/StepSection';
+import { WizardFormItem } from '../components/WizardFormItem';
 import {
   fromSelectValue,
   SELECT_NONE_VALUE,
@@ -153,7 +153,7 @@ function FleetVehicleEditor({
               type="button"
               onClick={() => onStepChange(vehicleStep.id)}
               className={[
-                'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                'cursor-pointer rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
                 step === vehicleStep.id
                   ? 'border-slate-900 bg-slate-900 text-white'
                   : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
@@ -164,17 +164,17 @@ function FleetVehicleEditor({
           ))}
         </div>
         {step === 0 && (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             <FormField
               control={form.control}
               name={`fleet.items.${index}.fleet_entry` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Fleet Entry Number</FormLabel>
                   <FormControl>
                     <Input {...field} readOnly />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             {coverNoteType !== '1' && (
@@ -182,13 +182,13 @@ function FleetVehicleEditor({
                 control={form.control}
                 name={`fleet.items.${index}.prev_cover_note_reference_number` as const}
                 render={({ field }) => (
-                  <FormItem>
+                  <WizardFormItem>
                     <FormLabel>Previous Cover Note Reference</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
                     <FormMessage />
-                  </FormItem>
+                  </WizardFormItem>
                 )}
               />
             )}
@@ -196,26 +196,26 @@ function FleetVehicleEditor({
               control={form.control}
               name={`fleet.items.${index}.cover_note_desc` as const}
               render={({ field }) => (
-                <FormItem className="md:col-span-2">
+                <WizardFormItem className="md:col-span-2">
                   <FormLabel>Cover Note Description</FormLabel>
                   <FormControl>
                     <Textarea {...field} rows={3} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.operative_clause` as const}
               render={({ field }) => (
-                <FormItem className="md:col-span-2">
+                <WizardFormItem className="md:col-span-2">
                   <FormLabel>Operative Clause</FormLabel>
                   <FormControl>
                     <Textarea {...field} rows={3} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             {coverNoteType === '3' && (
@@ -224,36 +224,36 @@ function FleetVehicleEditor({
                   control={form.control}
                   name={`fleet.items.${index}.endorsement_type` as const}
                   render={({ field }) => (
-                    <FormItem>
+                    <WizardFormItem>
                       <FormLabel>Endorsement Type</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
-                    </FormItem>
+                    </WizardFormItem>
                   )}
                 />
                 <FormField
                   control={form.control}
                   name={`fleet.items.${index}.endorsement_premium_earned` as const}
                   render={({ field }) => (
-                    <FormItem>
+                    <WizardFormItem>
                       <FormLabel>Endorsement Premium Earned</FormLabel>
                       <FormControl>
                         <Input type="number" step="0.01" {...field} />
                       </FormControl>
-                    </FormItem>
+                    </WizardFormItem>
                   )}
                 />
                 <FormField
                   control={form.control}
                   name={`fleet.items.${index}.endorsement_reason` as const}
                   render={({ field }) => (
-                    <FormItem className="md:col-span-2">
+                    <WizardFormItem className="md:col-span-2">
                       <FormLabel>Endorsement Reason</FormLabel>
                       <FormControl>
                         <Textarea {...field} rows={2} />
                       </FormControl>
-                    </FormItem>
+                    </WizardFormItem>
                   )}
                 />
               </>
@@ -327,12 +327,12 @@ function FleetVehicleEditor({
                     </Button>
                   }
                 >
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-3 md:grid-cols-2">
                       <FormField
                         control={form.control}
                         name={`fleet.items.${index}.risks_covered.${riskIndex}.risk_code` as const}
                         render={({ field }) => (
-                          <FormItem>
+                          <WizardFormItem>
                             <FormLabel>Risk Code</FormLabel>
                             <Select
                               value={toSelectValue(field.value)}
@@ -355,96 +355,96 @@ function FleetVehicleEditor({
                               </SelectContent>
                             </Select>
                             <FormMessage />
-                          </FormItem>
+                          </WizardFormItem>
                         )}
                       />
                       <FormField
                         control={form.control}
                         name={`fleet.items.${index}.risks_covered.${riskIndex}.sum_insured` as const}
                         render={({ field }) => (
-                          <FormItem>
+                          <WizardFormItem>
                             <FormLabel>Sum Insured</FormLabel>
                             <FormControl>
                               <Input type="number" min="0" {...field} />
                             </FormControl>
-                          </FormItem>
+                          </WizardFormItem>
                         )}
                       />
                       <FormField
                         control={form.control}
                         name={`fleet.items.${index}.risks_covered.${riskIndex}.sum_insured_equivalent` as const}
                         render={({ field }) => (
-                          <FormItem>
+                          <WizardFormItem>
                             <FormLabel>Sum Insured Equivalent</FormLabel>
                             <FormControl>
                               <Input type="number" min="0" {...field} />
                             </FormControl>
-                          </FormItem>
+                          </WizardFormItem>
                         )}
                       />
                       <FormField
                         control={form.control}
                         name={`fleet.items.${index}.risks_covered.${riskIndex}.premium_rate` as const}
                         render={({ field }) => (
-                          <FormItem>
+                          <WizardFormItem>
                             <FormLabel>Premium Rate</FormLabel>
                             <FormControl>
                               <Input type="number" step="0.000001" {...field} />
                             </FormControl>
-                          </FormItem>
+                          </WizardFormItem>
                         )}
                       />
                       <FormField
                         control={form.control}
                         name={`fleet.items.${index}.risks_covered.${riskIndex}.premium_before_discount` as const}
                         render={({ field }) => (
-                          <FormItem>
+                          <WizardFormItem>
                             <FormLabel>Premium Before Discount</FormLabel>
                             <FormControl>
                               <Input type="number" step="0.01" {...field} />
                             </FormControl>
-                          </FormItem>
+                          </WizardFormItem>
                         )}
                       />
                       <FormField
                         control={form.control}
                         name={`fleet.items.${index}.risks_covered.${riskIndex}.premium_after_discount` as const}
                         render={({ field }) => (
-                          <FormItem>
+                          <WizardFormItem>
                             <FormLabel>Premium After Discount</FormLabel>
                             <FormControl>
                               <Input type="number" step="0.01" {...field} />
                             </FormControl>
-                          </FormItem>
+                          </WizardFormItem>
                         )}
                       />
                       <FormField
                         control={form.control}
                         name={`fleet.items.${index}.risks_covered.${riskIndex}.premium_excluding_tax_equivalent` as const}
                         render={({ field }) => (
-                          <FormItem>
+                          <WizardFormItem>
                             <FormLabel>Premium Excluding Tax Equivalent</FormLabel>
                             <FormControl>
                               <Input type="number" step="0.01" {...field} />
                             </FormControl>
-                          </FormItem>
+                          </WizardFormItem>
                         )}
                       />
                       <FormField
                         control={form.control}
                         name={`fleet.items.${index}.risks_covered.${riskIndex}.premium_including_tax` as const}
                         render={({ field }) => (
-                          <FormItem>
+                          <WizardFormItem>
                             <FormLabel>Premium Including Tax</FormLabel>
                             <FormControl>
                               <Input type="number" step="0.01" {...field} />
                             </FormControl>
-                          </FormItem>
+                          </WizardFormItem>
                         )}
                       />
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-1">
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                           Discounts
@@ -480,24 +480,24 @@ function FleetVehicleEditor({
                             control={form.control}
                             name={`fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered.${discountIndex}.discount_type` as const}
                             render={({ field }) => (
-                              <FormItem>
+                              <WizardFormItem>
                                 <FormLabel>Type</FormLabel>
                                 <FormControl>
                                   <Input {...field} />
                                 </FormControl>
-                              </FormItem>
+                              </WizardFormItem>
                             )}
                           />
                           <FormField
                             control={form.control}
                             name={`fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered.${discountIndex}.discount_rate` as const}
                             render={({ field }) => (
-                              <FormItem>
+                              <WizardFormItem>
                                 <FormLabel>Rate</FormLabel>
                                 <FormControl>
                                   <Input type="number" step="0.000001" {...field} />
                                 </FormControl>
-                              </FormItem>
+                              </WizardFormItem>
                             )}
                           />
                           <div className="flex items-end gap-2">
@@ -505,12 +505,12 @@ function FleetVehicleEditor({
                               control={form.control}
                               name={`fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered.${discountIndex}.discount_amount` as const}
                               render={({ field }) => (
-                                <FormItem className="flex-1">
+                                <WizardFormItem className="flex-1">
                                   <FormLabel>Amount</FormLabel>
                                   <FormControl>
                                     <Input type="number" step="0.01" {...field} />
                                   </FormControl>
-                                </FormItem>
+                                </WizardFormItem>
                               )}
                             />
                             <Button
@@ -531,7 +531,7 @@ function FleetVehicleEditor({
                       ))}
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-1">
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                           Taxes
@@ -570,24 +570,24 @@ function FleetVehicleEditor({
                             control={form.control}
                             name={`fleet.items.${index}.risks_covered.${riskIndex}.taxes_charged.${taxIndex}.tax_code` as const}
                             render={({ field }) => (
-                              <FormItem>
+                              <WizardFormItem>
                                 <FormLabel>Tax Code</FormLabel>
                                 <FormControl>
                                   <Input {...field} />
                                 </FormControl>
-                              </FormItem>
+                              </WizardFormItem>
                             )}
                           />
                           <FormField
                             control={form.control}
                             name={`fleet.items.${index}.risks_covered.${riskIndex}.taxes_charged.${taxIndex}.tax_rate` as const}
                             render={({ field }) => (
-                              <FormItem>
+                              <WizardFormItem>
                                 <FormLabel>Rate</FormLabel>
                                 <FormControl>
                                   <Input type="number" step="0.000001" {...field} />
                                 </FormControl>
-                              </FormItem>
+                              </WizardFormItem>
                             )}
                           />
                           <div className="flex items-end gap-2">
@@ -595,12 +595,12 @@ function FleetVehicleEditor({
                               control={form.control}
                               name={`fleet.items.${index}.risks_covered.${riskIndex}.taxes_charged.${taxIndex}.tax_amount` as const}
                               render={({ field }) => (
-                                <FormItem className="flex-1">
+                                <WizardFormItem className="flex-1">
                                   <FormLabel>Amount</FormLabel>
                                   <FormControl>
                                     <Input type="number" step="0.01" {...field} />
                                   </FormControl>
-                                </FormItem>
+                                </WizardFormItem>
                               )}
                             />
                             <Button
@@ -655,12 +655,12 @@ function FleetVehicleEditor({
                       control={form.control}
                       name={`fleet.items.${index}.subject_matters_covered.${subjectIndex}.subject_matter_reference` as const}
                       render={({ field }) => (
-                        <FormItem>
+                        <WizardFormItem>
                           <FormLabel>Reference</FormLabel>
                           <FormControl>
                             <Input {...field} />
                           </FormControl>
-                        </FormItem>
+                        </WizardFormItem>
                       )}
                     />
                     <div className="flex gap-2">
@@ -668,12 +668,12 @@ function FleetVehicleEditor({
                         control={form.control}
                         name={`fleet.items.${index}.subject_matters_covered.${subjectIndex}.subject_matter_desc` as const}
                         render={({ field }) => (
-                          <FormItem className="flex-1">
+                          <WizardFormItem className="flex-1">
                             <FormLabel>Description</FormLabel>
                             <FormControl>
                               <Input {...field} />
                             </FormControl>
-                          </FormItem>
+                          </WizardFormItem>
                         )}
                       />
                       <Button
@@ -729,36 +729,36 @@ function FleetVehicleEditor({
                         control={form.control}
                         name={`fleet.items.${index}.cover_note_addons.${addonIndex}.addon_reference` as const}
                         render={({ field }) => (
-                          <FormItem>
+                          <WizardFormItem>
                             <FormLabel>Add-on Reference</FormLabel>
                             <FormControl>
                               <Input {...field} />
                             </FormControl>
-                          </FormItem>
+                          </WizardFormItem>
                         )}
                       />
                       <FormField
                         control={form.control}
                         name={`fleet.items.${index}.cover_note_addons.${addonIndex}.addon_desc` as const}
                         render={({ field }) => (
-                          <FormItem>
+                          <WizardFormItem>
                             <FormLabel>Description</FormLabel>
                             <FormControl>
                               <Input {...field} />
                             </FormControl>
-                          </FormItem>
+                          </WizardFormItem>
                         )}
                       />
                       <FormField
                         control={form.control}
                         name={`fleet.items.${index}.cover_note_addons.${addonIndex}.addon_amount` as const}
                         render={({ field }) => (
-                          <FormItem>
+                          <WizardFormItem>
                             <FormLabel>Insured Amount</FormLabel>
                             <FormControl>
                               <Input type="number" step="0.01" {...field} />
                             </FormControl>
-                          </FormItem>
+                          </WizardFormItem>
                         )}
                       />
                       <div className="flex items-end gap-2">
@@ -766,12 +766,12 @@ function FleetVehicleEditor({
                           control={form.control}
                           name={`fleet.items.${index}.cover_note_addons.${addonIndex}.premium_including_tax` as const}
                           render={({ field }) => (
-                            <FormItem className="flex-1">
+                            <WizardFormItem className="flex-1">
                               <FormLabel>Premium Including Tax</FormLabel>
                               <FormControl>
                                 <Input type="number" step="0.01" {...field} />
                               </FormControl>
-                            </FormItem>
+                            </WizardFormItem>
                           )}
                         />
                         <Button
@@ -791,211 +791,211 @@ function FleetVehicleEditor({
         )}
 
         {step === 3 && (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.motor_category` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Motor Category</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.motor_type` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Motor Type</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.registration_number` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Registration Number</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.chassis_number` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Chassis Number</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.make` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Make</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.model` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Model</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.model_number` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Model Number</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.body_type` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Body Type</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.color` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Colour</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.engine_number` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Engine Number</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.engine_capacity` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Engine Capacity</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.fuel_used` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Fuel Type</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.number_of_axles` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Axles</FormLabel>
                   <FormControl>
                     <Input type="number" {...field} />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.sitting_capacity` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Seating Capacity</FormLabel>
                   <FormControl>
                     <Input type="number" {...field} />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.year_of_manufacture` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Year of Manufacture</FormLabel>
                   <FormControl>
                     <Input type="number" {...field} />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.owner_name` as const}
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Owner Name</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name={`fleet.items.${index}.motor_dtl.owner_address` as const}
               render={({ field }) => (
-                <FormItem className="md:col-span-2">
+                <WizardFormItem className="md:col-span-2">
                   <FormLabel>Owner Address</FormLabel>
                   <FormControl>
                     <Textarea {...field} rows={2} />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
           </div>
@@ -1003,7 +1003,7 @@ function FleetVehicleEditor({
 
         {step === 4 && (
           <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               <div className="rounded-xl border border-slate-200 p-4">
                 <p className="text-sm font-medium text-slate-900">Vehicle Summary</p>
                 <div className="mt-2 space-y-1 text-sm text-slate-600">

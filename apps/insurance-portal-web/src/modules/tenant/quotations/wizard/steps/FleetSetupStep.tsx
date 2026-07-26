@@ -4,10 +4,10 @@ import { Input } from '@/components/ui/input';
 import {
   FormControl,
   FormField,
-  FormItem,
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { WizardFormItem } from '../components/WizardFormItem';
 import {
   Select,
   SelectContent,
@@ -86,26 +86,26 @@ export function FleetSetupStep({
       <StepSection
         title="Step 1. Fleet Header"
         first
-        contentClassName="grid gap-4 md:grid-cols-2"
+        contentClassName="grid gap-3 md:grid-cols-2"
       >
         <FormField
           control={form.control}
           name="fleet.header.fleet_id"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Fleet ID</FormLabel>
               <FormControl>
                 <Input {...field} placeholder="FLEET-2026-0001" />
               </FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
         <FormField
           control={form.control}
           name="fleet.header.fleet_type"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Fleet Type</FormLabel>
               <Select
                 value={toSelectValue(field.value)}
@@ -126,32 +126,32 @@ export function FleetSetupStep({
                 </SelectContent>
               </Select>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
         <FormField
           control={form.control}
           name="fleet.header.fleet_size"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Expected Fleet Size</FormLabel>
               <FormControl>
                 <Input {...field} readOnly />
               </FormControl>
-            </FormItem>
+            </WizardFormItem>
           )}
         />
         <FormField
           control={form.control}
           name="fleet.header.comprehensive_insured"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Comprehensively Insured Vehicles</FormLabel>
               <FormControl>
                 <Input type="number" min="0" {...field} />
               </FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 md:col-span-2">

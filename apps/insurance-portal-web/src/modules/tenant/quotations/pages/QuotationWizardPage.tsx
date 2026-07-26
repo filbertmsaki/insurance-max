@@ -929,7 +929,7 @@ export function QuotationWizardPage() {
           </section>
         ) : null}
 
-        <div className="rounded-[24px] border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
+        <div className="rounded-[5px] border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
           <QuotationJourneyProgress
             steps={steps}
             currentStep={stepId}
@@ -940,7 +940,7 @@ export function QuotationWizardPage() {
             }
           />
 
-          <div className="mt-4 border-t border-slate-100 pt-6 sm:mt-5">
+          <div className="mt-3 border-t border-slate-100 pt-4 sm:mt-4">
             <Form {...form}>
               <form
                 className="space-y-6"

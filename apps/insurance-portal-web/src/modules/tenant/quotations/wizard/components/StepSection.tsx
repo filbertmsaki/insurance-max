@@ -35,13 +35,13 @@ export function StepSection({
     <div
       className={cn(
         isItem
-          ? 'rounded-xl border border-slate-200 p-4 sm:p-5'
-          : !first && 'border-t border-slate-100 pt-6',
+          ? 'rounded-xl border border-slate-200 p-3.5 sm:p-4'
+          : !first && 'border-t border-slate-100 pt-4',
         className,
       )}
     >
       {(title || action) && (
-        <div className="mb-3 flex flex-row items-center justify-between gap-2">
+        <div className="mb-2.5 flex flex-row items-center justify-between gap-2">
           <div>
             {title && (
               <h3
@@ -61,7 +61,7 @@ export function StepSection({
           {action}
         </div>
       )}
-      <div className={cn('space-y-4', contentClassName)}>{children}</div>
+      <div className={cn('space-y-1', contentClassName)}>{children}</div>
     </div>
   );
 }

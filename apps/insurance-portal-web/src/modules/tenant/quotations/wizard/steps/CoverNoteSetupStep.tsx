@@ -6,10 +6,10 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   FormControl,
   FormField,
-  FormItem,
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { WizardFormItem } from '../components/WizardFormItem';
 import {
   Select,
   SelectContent,
@@ -190,13 +190,13 @@ export function CoverNoteSetupStep({
       <StepSection
         title={title}
         first={firstSection}
-        contentClassName="grid gap-4 md:grid-cols-2"
+        contentClassName="grid gap-3 md:grid-cols-2"
       >
         <FormField
           control={form.control}
           name="valid_from"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Cover Start Date (required)</FormLabel>
               <FormControl>
                 <Input
@@ -210,7 +210,7 @@ export function CoverNoteSetupStep({
                 />
               </FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -218,7 +218,7 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="valid_until"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Cover End Date</FormLabel>
               <FormControl>
                 <Input
@@ -229,7 +229,7 @@ export function CoverNoteSetupStep({
                   readOnly
                 />
               </FormControl>
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -238,13 +238,13 @@ export function CoverNoteSetupStep({
             control={form.control}
             name="exchange_rate"
             render={({ field }) => (
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>Exchange Rate (to TZS, required)</FormLabel>
                 <FormControl>
                   <Input type="number" step="0.01" {...field} />
                 </FormControl>
                 <FormMessage />
-              </FormItem>
+              </WizardFormItem>
             )}
           />
         )}
@@ -253,7 +253,7 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="branch_id"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Branch (required)</FormLabel>
               <Select
                 value={field.value || 'none'}
@@ -278,7 +278,7 @@ export function CoverNoteSetupStep({
                 </SelectContent>
               </Select>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -286,7 +286,7 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="sale_point_id"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>TIRAMIS Sale Point (required)</FormLabel>
               <Select
                 value={field.value || 'none'}
@@ -325,7 +325,7 @@ export function CoverNoteSetupStep({
                   here.
                 </p>
               )}
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -334,7 +334,7 @@ export function CoverNoteSetupStep({
             control={form.control}
             name="prev_cover_note_reference"
             render={({ field }) => (
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>
                   Previous Cover Note Reference (required)
                 </FormLabel>
@@ -342,7 +342,7 @@ export function CoverNoteSetupStep({
                   <Input {...field} />
                 </FormControl>
                 <FormMessage />
-              </FormItem>
+              </WizardFormItem>
             )}
           />
         )}
@@ -351,7 +351,7 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="cover_note_desc"
           render={({ field }) => (
-            <FormItem className="md:col-span-2">
+            <WizardFormItem className="md:col-span-2">
               <FormLabel>
                 {requiresStandardCoverNoteFields
                   ? 'Cover Note Description (required)'
@@ -361,7 +361,7 @@ export function CoverNoteSetupStep({
                 <Textarea {...field} rows={3} />
               </FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -369,7 +369,7 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="operative_clause"
           render={({ field }) => (
-            <FormItem className="md:col-span-2">
+            <WizardFormItem className="md:col-span-2">
               <FormLabel>
                 {requiresStandardCoverNoteFields
                   ? 'Operative Clause (required)'
@@ -379,7 +379,7 @@ export function CoverNoteSetupStep({
                 <Textarea {...field} rows={3} />
               </FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -389,7 +389,7 @@ export function CoverNoteSetupStep({
               control={form.control}
               name="endorsement_type"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Endorsement Type (required)</FormLabel>
                   <Select
                     value={toSelectValue(field.value)}
@@ -412,7 +412,7 @@ export function CoverNoteSetupStep({
                     </SelectContent>
                   </Select>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
 
@@ -420,13 +420,13 @@ export function CoverNoteSetupStep({
               control={form.control}
               name="endorsement_premium_earned"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Endorsement Premium Earned</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.01" {...field} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
 
@@ -434,13 +434,13 @@ export function CoverNoteSetupStep({
               control={form.control}
               name="endorsement_reason"
               render={({ field }) => (
-                <FormItem className="md:col-span-2">
+                <WizardFormItem className="md:col-span-2">
                   <FormLabel>Endorsement Reason (required)</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
           </>
@@ -450,12 +450,12 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="commission_paid"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Commission Paid</FormLabel>
               <FormControl>
                 <Input type="number" step="0.01" {...field} />
               </FormControl>
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -463,12 +463,12 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="commission_rate"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Commission Rate</FormLabel>
               <FormControl>
                 <Input type="number" step="0.000001" {...field} />
               </FormControl>
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -476,13 +476,13 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="officer_name"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Authorizing Officer Name (required)</FormLabel>
               <FormControl>
                 <Input {...field} />
               </FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -490,13 +490,13 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="officer_title"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Authorizing Officer Title (required)</FormLabel>
               <FormControl>
                 <Input {...field} />
               </FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -504,7 +504,7 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="payment_mode_tira"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Payment Mode (TIRAMIS, required)</FormLabel>
               <Select
                 value={toSelectValue(field.value)}
@@ -527,7 +527,7 @@ export function CoverNoteSetupStep({
                 </SelectContent>
               </Select>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
       </StepSection>
@@ -539,12 +539,12 @@ export function CoverNoteSetupStep({
       <StepSection
         title={title}
         first={firstSection}
-        contentClassName="grid gap-4 md:grid-cols-2"
+        contentClassName="grid gap-3 md:grid-cols-2"
       >
         {showFlowSelector && (
           <div className="md:col-span-2">
             <Label className="mb-2 block">Quotation Flow</Label>
-            <div className="grid gap-2 md:grid-cols-3">
+            <div className="grid gap-2 md:grid-cols-2">
               {[
                 {
                   label: 'Non-Motor',
@@ -592,7 +592,7 @@ export function CoverNoteSetupStep({
                       }
                     }}
                     className={[
-                      'rounded-lg border p-4 text-left transition-colors',
+                      'cursor-pointer rounded-lg border p-4 text-left transition-colors',
                       active
                         ? 'border-slate-900 bg-slate-900 text-white'
                         : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
@@ -620,7 +620,7 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="category_id"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Category (required)</FormLabel>
               <Select
                 value={toSelectValue(field.value)}
@@ -645,7 +645,7 @@ export function CoverNoteSetupStep({
                 </SelectContent>
               </Select>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -653,7 +653,7 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="product_id"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Product (required)</FormLabel>
               <Select
                 value={toSelectValue(field.value)}
@@ -677,7 +677,7 @@ export function CoverNoteSetupStep({
                 </SelectContent>
               </Select>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -685,7 +685,7 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="channel_type"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Channel</FormLabel>
               <Select
                 value={toSelectValue(field.value)}
@@ -708,7 +708,7 @@ export function CoverNoteSetupStep({
                   ))}
                 </SelectContent>
               </Select>
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -717,7 +717,7 @@ export function CoverNoteSetupStep({
             control={form.control}
             name="intermediary_company_id"
             render={({ field }) => (
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>
                   {channelType === 'BROKER'
                     ? 'Broker Company'
@@ -730,7 +730,7 @@ export function CoverNoteSetupStep({
                 </FormLabel>
                 <FormControl>
                   <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                    className="flex h-10 w-full cursor-pointer rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
                     value={field.value}
                     onChange={(event) => field.onChange(event.target.value)}
                     disabled={intermediaryOptions.length === 0}
@@ -748,7 +748,7 @@ export function CoverNoteSetupStep({
                   </select>
                 </FormControl>
                 <FormMessage />
-              </FormItem>
+              </WizardFormItem>
             )}
           />
         ) : null}
@@ -757,13 +757,13 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="currency"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Currency (required)</FormLabel>
               <FormControl>
                 <Input {...field} readOnly />
               </FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -772,13 +772,13 @@ export function CoverNoteSetupStep({
             control={form.control}
             name="exchange_rate"
             render={({ field }) => (
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>Exchange Rate (to TZS, required)</FormLabel>
                 <FormControl>
                   <Input type="number" step="0.01" {...field} />
                 </FormControl>
                 <FormMessage />
-              </FormItem>
+              </WizardFormItem>
             )}
           />
         )}
@@ -787,7 +787,7 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="valid_from"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Cover Start Date (required)</FormLabel>
               <FormControl>
                 <Input
@@ -801,7 +801,7 @@ export function CoverNoteSetupStep({
                 />
               </FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -809,7 +809,7 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="valid_until"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Cover End Date (required)</FormLabel>
               <FormControl>
                 <Input
@@ -823,20 +823,20 @@ export function CoverNoteSetupStep({
                 />
               </FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
       </StepSection>
 
       <StepSection
         title="Branch & Sale Point"
-        contentClassName="grid gap-4 md:grid-cols-2"
+        contentClassName="grid gap-3 md:grid-cols-2"
       >
         <FormField
           control={form.control}
           name="branch_id"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Branch (required)</FormLabel>
               <Select
                 value={field.value || 'none'}
@@ -861,7 +861,7 @@ export function CoverNoteSetupStep({
                 </SelectContent>
               </Select>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -869,7 +869,7 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="sale_point_id"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>TIRAMIS Sale Point (required)</FormLabel>
               <Select
                 value={field.value || 'none'}
@@ -907,20 +907,20 @@ export function CoverNoteSetupStep({
                   is selected automatically, but you can change it here.
                 </p>
               )}
-            </FormItem>
+            </WizardFormItem>
           )}
         />
       </StepSection>
 
       <StepSection
         title="TIRAMIS Cover Note Header"
-        contentClassName="grid gap-4 md:grid-cols-1"
+        contentClassName="grid gap-3 md:grid-cols-1"
       >
         <FormField
           control={form.control}
           name="cover_note_type"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Cover Note Type (required)</FormLabel>
               <Select
                 value={toSelectValue(field.value)}
@@ -956,7 +956,7 @@ export function CoverNoteSetupStep({
                   Endorsement mode is fixed from the completed quotation.
                 </p>
               ) : null}
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -965,7 +965,7 @@ export function CoverNoteSetupStep({
             control={form.control}
             name="prev_cover_note_reference"
             render={({ field }) => (
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>
                   Previous Cover Note Reference (required)
                 </FormLabel>
@@ -973,7 +973,7 @@ export function CoverNoteSetupStep({
                   <Input {...field} />
                 </FormControl>
                 <FormMessage />
-              </FormItem>
+              </WizardFormItem>
             )}
           />
         )}
@@ -982,7 +982,7 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="cover_note_desc"
           render={({ field }) => (
-            <FormItem className="md:col-span-2">
+            <WizardFormItem className="md:col-span-2">
               <FormLabel>
                 {requiresStandardCoverNoteFields
                   ? 'Cover Note Description (required)'
@@ -992,7 +992,7 @@ export function CoverNoteSetupStep({
                 <Textarea {...field} rows={3} />
               </FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -1000,7 +1000,7 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="operative_clause"
           render={({ field }) => (
-            <FormItem className="md:col-span-2">
+            <WizardFormItem className="md:col-span-2">
               <FormLabel>
                 {requiresStandardCoverNoteFields
                   ? 'Operative Clause (required)'
@@ -1010,7 +1010,7 @@ export function CoverNoteSetupStep({
                 <Textarea {...field} rows={3} />
               </FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -1020,7 +1020,7 @@ export function CoverNoteSetupStep({
               control={form.control}
               name="endorsement_type"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Endorsement Type (required)</FormLabel>
                   <Select
                     value={toSelectValue(field.value)}
@@ -1043,7 +1043,7 @@ export function CoverNoteSetupStep({
                     </SelectContent>
                   </Select>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
 
@@ -1051,13 +1051,13 @@ export function CoverNoteSetupStep({
               control={form.control}
               name="endorsement_premium_earned"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Endorsement Premium Earned</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.01" {...field} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
 
@@ -1065,13 +1065,13 @@ export function CoverNoteSetupStep({
               control={form.control}
               name="endorsement_reason"
               render={({ field }) => (
-                <FormItem className="md:col-span-2">
+                <WizardFormItem className="md:col-span-2">
                   <FormLabel>Endorsement Reason (required)</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
           </>
@@ -1081,12 +1081,12 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="commission_paid"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Commission Paid</FormLabel>
               <FormControl>
                 <Input type="number" step="0.01" {...field} />
               </FormControl>
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -1094,12 +1094,12 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="commission_rate"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Commission Rate</FormLabel>
               <FormControl>
                 <Input type="number" step="0.000001" {...field} />
               </FormControl>
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -1107,13 +1107,13 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="officer_name"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Authorizing Officer Name (required)</FormLabel>
               <FormControl>
                 <Input {...field} />
               </FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -1121,13 +1121,13 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="officer_title"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Authorizing Officer Title (required)</FormLabel>
               <FormControl>
                 <Input {...field} />
               </FormControl>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
 
@@ -1135,7 +1135,7 @@ export function CoverNoteSetupStep({
           control={form.control}
           name="payment_mode_tira"
           render={({ field }) => (
-            <FormItem>
+            <WizardFormItem>
               <FormLabel>Payment Mode (TIRAMIS, required)</FormLabel>
               <Select
                 value={toSelectValue(field.value)}
@@ -1158,7 +1158,7 @@ export function CoverNoteSetupStep({
                 </SelectContent>
               </Select>
               <FormMessage />
-            </FormItem>
+            </WizardFormItem>
           )}
         />
       </StepSection>

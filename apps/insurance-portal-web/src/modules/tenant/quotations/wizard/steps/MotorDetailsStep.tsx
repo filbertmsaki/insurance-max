@@ -4,7 +4,6 @@ import { Input } from '@/components/ui/input';
 import {
   FormControl,
   FormField,
-  FormItem,
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
@@ -33,6 +32,7 @@ import {
   toSelectValue,
 } from '../utils/selectValue';
 import { StepSection } from '../components/StepSection';
+import { WizardFormItem } from '../components/WizardFormItem';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -291,7 +291,7 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                 type="button"
                 onClick={() => form.setValue('motor_mode', option.value)}
                 className={[
-                  'rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
+                  'cursor-pointer rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
                   mode === option.value
                     ? 'border-slate-900 bg-slate-900 text-white'
                     : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
@@ -307,7 +307,7 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
               control={form.control}
               name="motor.vehicle_id"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>
                     Vehicle (linked to the selected policyholder)
                   </FormLabel>
@@ -352,7 +352,7 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                     </SelectContent>
                   </Select>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
           ) : (
@@ -373,12 +373,12 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
       </StepSection>
 
       {mode === 'new' && (
-        <StepSection title="Vehicle Details" contentClassName="grid gap-4 md:grid-cols-2">
+        <StepSection title="Vehicle Details" contentClassName="grid gap-3 md:grid-cols-2">
             <FormField
               control={form.control}
               name="motor.motor_category_code"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Motor Category (required)</FormLabel>
                   <Select
                     value={toSelectValue(field.value as string)}
@@ -410,14 +410,14 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                     </SelectContent>
                   </Select>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.motor_type_code"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Motor Type (required)</FormLabel>
                   <Select
                     value={toSelectValue(field.value as string)}
@@ -440,14 +440,14 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                     </SelectContent>
                   </Select>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.motor_usage_code"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Vehicle Usage (required)</FormLabel>
                   <Select
                     value={toSelectValue(field.value as string)}
@@ -479,117 +479,117 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                     </SelectContent>
                   </Select>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.registration_no"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Registration Number (required)</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value as string} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.chassis_no"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Chassis Number (required)</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value as string} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.engine_no"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Engine Number (required)</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value as string} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.make"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Make (required)</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value as string} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.model"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Model (required)</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value as string} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.model_no"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Model Number (optional)</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value as string} />
                   </FormControl>
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.body_type"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Body Type (required)</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value as string} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.color"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Color (required)</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value as string} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.manufacture_year"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Year of Manufacture (required)</FormLabel>
                   <FormControl>
                     <Combobox
@@ -602,14 +602,14 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                     />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.seating_capacity"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Seating Capacity (required)</FormLabel>
                   <FormControl>
                     <Input
@@ -620,14 +620,14 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                     />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.cubic_capacity"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Engine Capacity (cc, required)</FormLabel>
                   <FormControl>
                     <Input
@@ -637,27 +637,27 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                     />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.fuel_type"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Fuel Type (required)</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value as string} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.number_of_axles"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Number of Axles (required)</FormLabel>
                   <FormControl>
                     <Input
@@ -668,14 +668,14 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                     />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.axle_distance"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Axle Distance (required)</FormLabel>
                   <FormControl>
                     <Input
@@ -685,14 +685,14 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                     />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.tare_weight"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Tare Weight (required)</FormLabel>
                   <FormControl>
                     <Input
@@ -702,14 +702,14 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                     />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.gross_weight"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Gross Weight (required)</FormLabel>
                   <FormControl>
                     <Input
@@ -719,27 +719,27 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                     />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.owner_name"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Owner Name (required)</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value as string} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.owner_category"
               render={({ field }) => (
-                <FormItem>
+                <WizardFormItem>
                   <FormLabel>Owner Category (required)</FormLabel>
                   <Select
                     value={toSelectValue(field.value as string)}
@@ -762,20 +762,20 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
                     </SelectContent>
                   </Select>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
             <FormField
               control={form.control}
               name="motor.owner_address"
               render={({ field }) => (
-                <FormItem className="md:col-span-2">
+                <WizardFormItem className="md:col-span-2">
                   <FormLabel>Owner Address (required)</FormLabel>
                   <FormControl>
                     <Input {...field} value={field.value as string} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </WizardFormItem>
               )}
             />
         </StepSection>

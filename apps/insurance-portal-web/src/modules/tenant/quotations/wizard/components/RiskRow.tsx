@@ -10,7 +10,6 @@ import { Input } from '@/components/ui/input';
 import {
   FormControl,
   FormField,
-  FormItem,
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
@@ -39,6 +38,7 @@ import {
   toSelectValue,
 } from '../utils/selectValue';
 import { StepSection } from './StepSection';
+import { WizardFormItem } from './WizardFormItem';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -153,12 +153,12 @@ export function RiskRow({
       }
       contentClassName="space-y-6"
     >
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           <FormField
             control={form.control}
             name={path(index, 'risk_id')}
             render={({ field }) => (
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>Risk</FormLabel>
                 <Select
                   value={toSelectValue(field.value as string)}
@@ -179,7 +179,7 @@ export function RiskRow({
                   </SelectContent>
                 </Select>
                 <FormMessage />
-              </FormItem>
+              </WizardFormItem>
             )}
           />
 
@@ -187,23 +187,23 @@ export function RiskRow({
             control={form.control}
             name={path(index, 'risk_code')}
             render={({ field }) => (
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>Risk Code</FormLabel>
                 <FormControl>
                   <Input {...field} value={field.value as string} readOnly />
                 </FormControl>
                 <FormMessage />
-              </FormItem>
+              </WizardFormItem>
             )}
           />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           <FormField
             control={form.control}
             name={path(index, 'sum_insured')}
             render={({ field }) => (
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>Sum Insured</FormLabel>
                 <FormControl>
                   <Input
@@ -214,14 +214,14 @@ export function RiskRow({
                   />
                 </FormControl>
                 <FormMessage />
-              </FormItem>
+              </WizardFormItem>
             )}
           />
           <FormField
             control={form.control}
             name={path(index, 'sum_insured_equivalent')}
             render={({ field }) => (
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>Sum Insured Equivalent</FormLabel>
                 <FormControl>
                   <Input
@@ -231,14 +231,14 @@ export function RiskRow({
                   />
                 </FormControl>
                 <FormMessage />
-              </FormItem>
+              </WizardFormItem>
             )}
           />
           <FormField
             control={form.control}
             name={path(index, 'premium_rate')}
             render={({ field }) => (
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>Premium Rate</FormLabel>
                 <FormControl>
                   <Input
@@ -249,14 +249,14 @@ export function RiskRow({
                   />
                 </FormControl>
                 <FormMessage />
-              </FormItem>
+              </WizardFormItem>
             )}
           />
           <FormField
             control={form.control}
             name={path(index, 'premium_before_discount')}
             render={({ field }) => (
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>Premium Before Discount</FormLabel>
                 <FormControl>
                   <Input
@@ -267,14 +267,14 @@ export function RiskRow({
                   />
                 </FormControl>
                 <FormMessage />
-              </FormItem>
+              </WizardFormItem>
             )}
           />
           <FormField
             control={form.control}
             name={path(index, 'premium_after_discount')}
             render={({ field }) => (
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>Premium After Discount</FormLabel>
                 <FormControl>
                   <Input
@@ -285,14 +285,14 @@ export function RiskRow({
                   />
                 </FormControl>
                 <FormMessage />
-              </FormItem>
+              </WizardFormItem>
             )}
           />
           <FormField
             control={form.control}
             name={path(index, 'premium_excluding_tax_equivalent')}
             render={({ field }) => (
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>Premium Excluding Tax Equivalent</FormLabel>
                 <FormControl>
                   <Input
@@ -303,14 +303,14 @@ export function RiskRow({
                   />
                 </FormControl>
                 <FormMessage />
-              </FormItem>
+              </WizardFormItem>
             )}
           />
           <FormField
             control={form.control}
             name={path(index, 'premium_including_tax')}
             render={({ field }) => (
-              <FormItem>
+              <WizardFormItem>
                 <FormLabel>Premium Including Tax</FormLabel>
                 <FormControl>
                   <Input
@@ -321,12 +321,12 @@ export function RiskRow({
                   />
                 </FormControl>
                 <FormMessage />
-              </FormItem>
+              </WizardFormItem>
             )}
           />
         </div>
 
-        <div className="space-y-3 border-t border-slate-100 pt-4">
+        <div className="space-y-1 border-t border-slate-100 pt-4">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
               Discounts Offered (optional)
@@ -348,7 +348,7 @@ export function RiskRow({
           </div>
 
           {discountFieldArray.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-1">
               {discountFieldArray.map((_, discountIndex) => (
                 <div
                   key={discountIndex}
@@ -361,7 +361,7 @@ export function RiskRow({
                       `discounts_offered.${discountIndex}.discount_type`,
                     )}
                     render={({ field }) => (
-                      <FormItem>
+                      <WizardFormItem>
                         <FormLabel>Discount Type</FormLabel>
                         <Select
                           value={toSelectValue(field.value as string)}
@@ -395,7 +395,7 @@ export function RiskRow({
                           </SelectContent>
                         </Select>
                         <FormMessage />
-                      </FormItem>
+                      </WizardFormItem>
                     )}
                   />
                   <FormField
@@ -405,7 +405,7 @@ export function RiskRow({
                       `discounts_offered.${discountIndex}.discount_rate`,
                     )}
                     render={({ field }) => (
-                      <FormItem>
+                      <WizardFormItem>
                         <FormLabel>Rate</FormLabel>
                         <FormControl>
                           <Input
@@ -415,7 +415,7 @@ export function RiskRow({
                             value={field.value as string}
                           />
                         </FormControl>
-                      </FormItem>
+                      </WizardFormItem>
                     )}
                   />
                   <FormField
@@ -425,7 +425,7 @@ export function RiskRow({
                       `discounts_offered.${discountIndex}.discount_amount`,
                     )}
                     render={({ field }) => (
-                      <FormItem>
+                      <WizardFormItem>
                         <FormLabel>Amount</FormLabel>
                         <FormControl>
                           <Input
@@ -435,7 +435,7 @@ export function RiskRow({
                             value={field.value as string}
                           />
                         </FormControl>
-                      </FormItem>
+                      </WizardFormItem>
                     )}
                   />
                   <div className="flex items-end justify-end">
@@ -462,7 +462,7 @@ export function RiskRow({
           ) : null}
         </div>
 
-        <div className="space-y-3 border-t border-slate-100 pt-4">
+        <div className="space-y-1 border-t border-slate-100 pt-4">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
               Taxes Charged
@@ -484,7 +484,7 @@ export function RiskRow({
           </div>
 
           {taxFieldArray.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-1">
               {taxFieldArray.map((_, taxIndex) => (
                 <div
                   key={taxIndex}
@@ -494,7 +494,7 @@ export function RiskRow({
                     control={form.control}
                     name={path(index, `taxes_charged.${taxIndex}.tax_code`)}
                     render={({ field }) => (
-                      <FormItem>
+                      <WizardFormItem>
                         <FormLabel>Tax Code (required)</FormLabel>
                         <Select
                           value={toSelectValue(field.value as string)}
@@ -540,7 +540,7 @@ export function RiskRow({
                           </SelectContent>
                         </Select>
                         <FormMessage />
-                      </FormItem>
+                      </WizardFormItem>
                     )}
                   />
                   <FormField
@@ -550,7 +550,7 @@ export function RiskRow({
                       `taxes_charged.${taxIndex}.tax_rate`,
                     )}
                     render={({ field }) => (
-                      <FormItem>
+                      <WizardFormItem>
                         <FormLabel>Tax Rate</FormLabel>
                         <FormControl>
                           <Input
@@ -562,14 +562,14 @@ export function RiskRow({
                           />
                         </FormControl>
                         <FormMessage />
-                      </FormItem>
+                      </WizardFormItem>
                     )}
                   />
                   <FormField
                     control={form.control}
                     name={path(index, `taxes_charged.${taxIndex}.tax_amount`)}
                     render={({ field }) => (
-                      <FormItem>
+                      <WizardFormItem>
                         <FormLabel>Tax Amount</FormLabel>
                         <FormControl>
                           <Input
@@ -579,7 +579,7 @@ export function RiskRow({
                             value={field.value as string}
                           />
                         </FormControl>
-                      </FormItem>
+                      </WizardFormItem>
                     )}
                   />
                   <FormField
@@ -589,7 +589,7 @@ export function RiskRow({
                       `taxes_charged.${taxIndex}.is_tax_exempted`,
                     )}
                     render={({ field }) => (
-                      <FormItem>
+                      <WizardFormItem>
                         <FormLabel>Exempted</FormLabel>
                         <Select
                           value={field.value ? 'Y' : 'N'}
@@ -641,7 +641,7 @@ export function RiskRow({
                           </SelectContent>
                         </Select>
                         <FormMessage />
-                      </FormItem>
+                      </WizardFormItem>
                     )}
                   />
                   <FormField
@@ -651,7 +651,7 @@ export function RiskRow({
                       `taxes_charged.${taxIndex}.tax_exemption_type`,
                     )}
                     render={({ field }) => (
-                      <FormItem className="md:col-span-2">
+                      <WizardFormItem className="md:col-span-2">
                         <FormLabel>Exemption Type</FormLabel>
                         <Select
                           value={toSelectValue(field.value as string)}
@@ -673,7 +673,7 @@ export function RiskRow({
                           </SelectContent>
                         </Select>
                         <FormMessage />
-                      </FormItem>
+                      </WizardFormItem>
                     )}
                   />
                   <FormField
@@ -683,7 +683,7 @@ export function RiskRow({
                       `taxes_charged.${taxIndex}.tax_exemption_reference`,
                     )}
                     render={({ field }) => (
-                      <FormItem className="md:col-span-2">
+                      <WizardFormItem className="md:col-span-2">
                         <FormLabel>Exemption Reference</FormLabel>
                         <FormControl>
                           <Input
@@ -693,7 +693,7 @@ export function RiskRow({
                           />
                         </FormControl>
                         <FormMessage />
-                      </FormItem>
+                      </WizardFormItem>
                     )}
                   />
                   <div className="flex items-end justify-end md:col-span-4">
