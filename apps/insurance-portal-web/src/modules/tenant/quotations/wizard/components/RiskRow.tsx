@@ -37,12 +37,12 @@ import {
   SELECT_NONE_VALUE,
   toSelectValue,
 } from '../utils/selectValue';
-import {
-  computePremiumAfterDiscount,
-  computePremiumIncludingTax,
-} from '../utils/premiumAggregation';
+import { toNumber } from '../utils/premiumAggregation';
 import { motorFieldNameForFactorCode } from '../utils/riskFactorResolver';
-import { useRiskPremiumCalculation } from '../hooks/useRiskPremiumCalculation';
+import {
+  recomputeRiskRow,
+  useRiskPremiumCalculation,
+} from '../hooks/useRiskPremiumCalculation';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { StepSection } from './StepSection';
 import { WizardFormItem } from './WizardFormItem';
@@ -68,12 +68,6 @@ function path(
   name: string,
 ): FieldPath<QuotationFormSchemaValues> {
   return `risks.${index}.${name}` as FieldPath<QuotationFormSchemaValues>;
-}
-
-function toNumber(value: string | number | null | undefined) {
-  if (value === null || value === undefined || value === '') return 0;
-  const parsed = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 export function RiskRow({
@@ -198,82 +192,26 @@ export function RiskRow({
     toNumber(sumInsuredEquivalent) ||
     toNumber(form.watch(`risks.${index}.sum_insured` as const));
 
-  // react-hook-form's useWatch returns a brand-new array reference for
-  // nested array paths on essentially every notify, even when the content
-  // is unchanged. Depending on `discounts`/`taxes` directly in the effects
-  // below would re-run them (and risk a setValue feedback loop) on every
-  // unrelated form update, so effects key off these stable content
-  // fingerprints instead — the effect bodies still read the live arrays.
-  // Only discount_amount/tax_amount feed the downstream premium recompute
-  // below, so only they need to be in the fingerprint — discount_rate is
-  // free-typed and would otherwise re-run that effect on every keystroke.
-  const discountsKey = discounts.map((d) => d.discount_amount).join(';');
-  const taxAmountsKey = taxes.map((t) => t.tax_amount).join(';');
-  // Drives the tax_rate/tax_amount auto-calc effect below — tax_code and
-  // is_tax_exempted are both discrete Select-driven inputs (not free-typed),
-  // so reacting to every change here carries no keystroke-jank risk.
+  // Drives the shared recompute effect below — tax_code/is_tax_exempted are
+  // discrete Select-driven inputs (not free-typed), so reacting to every
+  // change here carries no keystroke-jank risk. discount_rate/tax_rate
+  // keystrokes deliberately are NOT watched here; recomputeRiskRow is only
+  // ever invoked at discrete commit points (blur, a Select choice, a fresh
+  // calculation) — see the explicit call sites below.
   const taxRateInputsKey = taxes
     .map((t) => `${t.tax_code}|${t.tax_rate}|${t.is_tax_exempted}`)
     .join(';');
 
-  // Rules 4-6: premium_after_discount, premium_excluding_tax_equivalent and
-  // premium_including_tax always stay in sync with premium_before_discount
-  // and the current discount/tax line items, however those values changed.
+  // The one shared cascade (discount_amount -> premium_after_discount ->
+  // premium_excluding_tax_equivalent -> tax_amount -> premium_including_tax)
+  // lives in recomputeRiskRow (useRiskPremiumCalculation.ts) so every trigger
+  // below converges on the same implementation. This effect is the reactive
+  // safety net for the two inputs that change without any of the explicit
+  // calls firing (a fresh calculation, or a tax code/rate/exemption change) —
+  // neither is free-typed, so reacting to every change here is safe.
   useEffect(() => {
-    const nextAfterDiscount = computePremiumAfterDiscount(
-      premiumBeforeDiscount,
-      discounts,
-    );
-    const nextExcludingTaxEquivalent = nextAfterDiscount;
-    const nextIncludingTax = computePremiumIncludingTax(
-      nextExcludingTaxEquivalent,
-      taxes,
-    );
-
-    if (
-      toNumber(form.getValues(path(index, 'premium_after_discount')) as string) !==
-      nextAfterDiscount
-    ) {
-      form.setValue(path(index, 'premium_after_discount'), String(nextAfterDiscount));
-    }
-    if (
-      toNumber(
-        form.getValues(path(index, 'premium_excluding_tax_equivalent')) as string,
-      ) !== nextExcludingTaxEquivalent
-    ) {
-      form.setValue(
-        path(index, 'premium_excluding_tax_equivalent'),
-        String(nextExcludingTaxEquivalent),
-      );
-    }
-    if (
-      toNumber(form.getValues(path(index, 'premium_including_tax')) as string) !==
-      nextIncludingTax
-    ) {
-      form.setValue(path(index, 'premium_including_tax'), String(nextIncludingTax));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, index, premiumBeforeDiscount, discountsKey, taxAmountsKey]);
-
-  // Auto-fill discount_amount from discount_rate, but only once the user has
-  // finished editing the rate (blur) or picked a discount type — not on
-  // every keystroke, which used to cascade a recompute through
-  // premium_after_discount/excl-tax/incl-tax on each character typed and
-  // made the page visibly jump. Stays editable afterwards.
-  const applyDiscountAutoFill = (discountIndex: number) => {
-    const rate = form.getValues(
-      path(index, `discounts_offered.${discountIndex}.discount_rate`),
-    ) as string;
-    if (!rate) return;
-    const premiumBeforeDiscountValue = toNumber(
-      form.getValues(path(index, 'premium_before_discount')) as string,
-    );
-    const amount = premiumBeforeDiscountValue * (toNumber(rate) / 100);
-    form.setValue(
-      path(index, `discounts_offered.${discountIndex}.discount_amount`),
-      String(amount),
-    );
-  };
+    recomputeRiskRow(form, index);
+  }, [form, index, premiumBeforeDiscount, taxRateInputsKey]);
 
   // premium_rate is normally API-derived (set alongside premium_before_discount
   // by the calculation result), but for a manual-entry risk with no rating
@@ -300,46 +238,8 @@ export function RiskRow({
       path(index, 'premium_before_discount'),
       String(nextBeforeDiscount),
     );
+    recomputeRiskRow(form, index);
   };
-
-  // Keeps tax_rate in sync with tax_code, and tax_amount in sync with
-  // tax_rate/premium_excluding_tax_equivalent/is_tax_exempted — all of which
-  // are discrete, Select-driven or computed inputs rather than free-typed,
-  // so recomputing on every change here carries no keystroke-jank risk (see
-  // the discount_rate/sum_insured fixes above and earlier in this file for
-  // where that risk actually lives). Exempted rows are pinned to 0.
-  useEffect(() => {
-    const premiumExcludingTaxEquivalentValue = toNumber(
-      premiumExcludingTaxEquivalent,
-    );
-
-    taxes.forEach((tax, taxIndex) => {
-      const expectedRate = getTaxRateForCode(tax.tax_code);
-      if (expectedRate && tax.tax_rate !== expectedRate) {
-        form.setValue(
-          path(index, `taxes_charged.${taxIndex}.tax_rate`),
-          expectedRate,
-        );
-      }
-
-      const effectiveRate = expectedRate || tax.tax_rate;
-      const nextAmount = tax.is_tax_exempted
-        ? 0
-        : premiumExcludingTaxEquivalentValue * toNumber(effectiveRate);
-      const currentAmount = toNumber(
-        form.getValues(
-          path(index, `taxes_charged.${taxIndex}.tax_amount`),
-        ) as string,
-      );
-      if (currentAmount !== nextAmount) {
-        form.setValue(
-          path(index, `taxes_charged.${taxIndex}.tax_amount`),
-          String(nextAmount),
-        );
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, index, taxRateInputsKey, premiumExcludingTaxEquivalent]);
 
   return (
     <StepSection
@@ -636,7 +536,7 @@ export function RiskRow({
                                 '',
                               );
                             } else {
-                              applyDiscountAutoFill(discountIndex);
+                              recomputeRiskRow(form, index);
                             }
                           }}
                         >
@@ -675,7 +575,7 @@ export function RiskRow({
                             value={field.value as string}
                             onBlur={() => {
                               field.onBlur();
-                              applyDiscountAutoFill(discountIndex);
+                              recomputeRiskRow(form, index);
                             }}
                           />
                         </FormControl>
@@ -787,6 +687,7 @@ export function RiskRow({
                                 '',
                               );
                             }
+                            recomputeRiskRow(form, index);
                           }}
                         >
                           <FormControl>
@@ -868,6 +769,7 @@ export function RiskRow({
                                 path(index, `taxes_charged.${taxIndex}.tax_exemption_reference`),
                                 '',
                               );
+                              recomputeRiskRow(form, index);
                               return;
                             }
                             const isExempted = value === 'Y';
@@ -888,6 +790,7 @@ export function RiskRow({
                                 '',
                               );
                             }
+                            recomputeRiskRow(form, index);
                           }}
                         >
                           <FormControl>

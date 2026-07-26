@@ -47,6 +47,32 @@ export interface MultiRiskPremiumResult {
   grand_total: number;
 }
 
+export interface RiskRuleConditionSummary {
+  factor_code: string;
+  operator: ConditionOperator;
+  value_from: string | null;
+  value_to: string | null;
+  logical_operator: LogicalOperator;
+}
+
+export interface RiskRuleExplanation {
+  risk_id: string;
+  risk_code: string;
+  risk_name: string;
+  rule_id: string;
+  rule_name: string;
+  priority: number;
+  rate_type: RateType;
+  percentage_rate: number;
+  fixed_amount: number;
+  per_unit_amount: number;
+  per_unit_factor_code: string | null;
+  minimum_amount: number;
+  formula: string | null;
+  conditions: RiskRuleConditionSummary[];
+  other_active_rule_count: number;
+}
+
 interface RuleCalculationBreakdown {
   percentage_rate: number;
   base_premium: number;
@@ -152,6 +178,78 @@ export class PremiumCalculationService {
     return {
       risks: results,
       grand_total: this.roundMoney(grandTotal),
+    };
+  }
+
+  /**
+   * Resolves a risk's highest-priority active rating rule without requiring
+   * sum_insured or factor values, and without running a calculation. Powers
+   * the frontend's "show minimum premium the moment a risk is selected"
+   * behavior, and doubles as a QA tool to inspect why a risk prices the way
+   * it does without reverse-engineering the seed data.
+   *
+   * Deliberately does not attempt condition matching (rule conditions
+   * reference factor values, which aren't known yet at this point) — this
+   * mirrors the priority-only rule already used to populate the minimum on
+   * the frontend, and just exposes the rule's active conditions for
+   * visibility rather than evaluating them.
+   */
+  async explainRisk(
+    companyId: string,
+    riskId: string,
+  ): Promise<RiskRuleExplanation> {
+    const risk = await this.riskRepository.findOne({
+      where: { id: riskId, company_id: companyId, is_active: true },
+    });
+    if (!risk) {
+      throw new NotFoundException(`Risk not found or inactive: ${riskId}`);
+    }
+
+    const rules = await this.ruleRepository.find({
+      where: { company_id: companyId, risk_id: riskId, is_active: true },
+      relations: { conditions: true },
+      order: { priority: 'ASC' },
+    });
+
+    const topRule = rules[0];
+    if (!topRule) {
+      throw new NotFoundException(
+        `No active rating rule found for risk ${riskId}`,
+      );
+    }
+
+    const effectiveRule = this.resolveEffectiveRule(topRule);
+
+    return {
+      risk_id: risk.id,
+      risk_code: risk.risk_code,
+      risk_name: risk.risk_name,
+      rule_id: topRule.id,
+      rule_name: topRule.rule_name,
+      priority: topRule.priority,
+      rate_type: effectiveRule.rate_type,
+      percentage_rate: this.roundMoney(
+        Number(effectiveRule.percentage_rate ?? 0),
+      ),
+      fixed_amount: this.roundMoney(Number(effectiveRule.fixed_amount ?? 0)),
+      per_unit_amount: this.roundMoney(
+        Number(effectiveRule.per_unit_amount ?? 0),
+      ),
+      per_unit_factor_code: effectiveRule.per_unit_factor_code ?? null,
+      minimum_amount: this.roundMoney(
+        Number(effectiveRule.minimum_amount ?? 0),
+      ),
+      formula: effectiveRule.formula ?? null,
+      conditions: ((topRule.conditions ?? []) as RiskRuleCondition[]).map(
+        (condition) => ({
+          factor_code: condition.factor_code,
+          operator: condition.operator,
+          value_from: condition.value_from,
+          value_to: condition.value_to,
+          logical_operator: condition.logical_operator,
+        }),
+      ),
+      other_active_rule_count: Math.max(rules.length - 1, 0),
     };
   }
 

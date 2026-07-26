@@ -1,4 +1,12 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
@@ -64,5 +72,20 @@ export class PremiumCalculationController {
     @Body() dto: CalculateMultiRiskPremiumDto,
   ) {
     return this.service.calculateMultiRisk(user.companyId!, dto);
+  }
+
+  @Get('explain/:risk_id')
+  @UseGuards(PermissionsGuard)
+  @Permissions('premium-calculation:calculate')
+  @ApiOperation({
+    summary: "Explain a risk's resolved rating rule without calculating",
+    description:
+      'Returns the highest-priority active rating rule for a risk (rate_type, percentage_rate, fixed_amount, per_unit_amount/factor, minimum_amount, and its active conditions) without requiring sum_insured or factor values. Used to populate a minimum-amount reference the moment a risk is selected, and as a QA tool to inspect why a risk prices the way it does.',
+  })
+  async explain(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('risk_id', new ParseUUIDPipe()) riskId: string,
+  ) {
+    return this.service.explainRisk(user.companyId!, riskId);
   }
 }

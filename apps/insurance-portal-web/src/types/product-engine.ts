@@ -437,6 +437,34 @@ export interface MultiCalcResponse {
   grand_total: number;
 }
 
+export interface RiskRuleConditionSummary {
+  factor_code: string;
+  operator: ConditionOperator;
+  value_from: string | null;
+  value_to: string | null;
+  logical_operator: LogicalOperator;
+}
+
+/** Response of GET /premium-calculation/explain/:risk_id — the resolved
+ * highest-priority active rule for a risk, without running a calculation. */
+export interface RiskRuleExplanation {
+  risk_id: string;
+  risk_code: string;
+  risk_name: string;
+  rule_id: string;
+  rule_name: string;
+  priority: number;
+  rate_type: RateType;
+  percentage_rate: number;
+  fixed_amount: number;
+  per_unit_amount: number;
+  per_unit_factor_code: string | null;
+  minimum_amount: number;
+  formula: string | null;
+  conditions: RiskRuleConditionSummary[];
+  other_active_rule_count: number;
+}
+
 // ─── Department (for access dropdowns) ───────────────────────────────────────
 
 export interface Department {

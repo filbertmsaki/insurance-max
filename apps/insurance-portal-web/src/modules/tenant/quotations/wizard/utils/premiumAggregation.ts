@@ -6,7 +6,7 @@ import type { QuotationFormSchemaValues } from '../../schemas';
 // wizard's react-hook-form state.
 type QuotationRiskFormRow = QuotationFormSchemaValues['risks'][number];
 
-function toNumber(value: string | number | null | undefined) {
+export function toNumber(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === '') return 0;
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : 0;

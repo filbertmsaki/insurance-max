@@ -10,6 +10,7 @@ import { InsuranceProduct } from '../../modules/tenant/insurance-products/entiti
 import { InsuranceSubClass } from '../../modules/tenant/insurance-sub-classes/entities/insurance-sub-class.entity';
 import { InsuranceRisk } from '../../modules/tenant/insurance-risks/entities/insurance-risk.entity';
 import { RiskRatingRule } from '../../modules/tenant/risk-rating-rules/entities/risk-rating-rule.entity';
+import { normalizeFactorCode, parseRateText } from './rate-text-parser';
 
 type CategorySeed = {
   code: string;
@@ -603,7 +604,7 @@ export default class ProductEngineSeeder implements Seeder {
     let percentageRate = this.toNumber(seed.percentage_rate ?? seed.rate_value);
     let fixedAmount = this.toNumber(seed.fixed_amount);
     let perUnitAmount = this.toNumber(seed.per_unit_amount);
-    let perUnitFactorCode = this.normalizeFactorCode(
+    let perUnitFactorCode = normalizeFactorCode(
       seed.per_unit_factor_code ?? null,
     );
     let formula = seed.formula ?? null;
@@ -612,52 +613,17 @@ export default class ProductEngineSeeder implements Seeder {
     const invalidFormulaText = /^(n\/a|#value!)$/i.test(rateText);
 
     if (rateText) {
-      const percentagePlusTpp = this.extractPercentagePlusTpp(rateText);
-      if (percentagePlusTpp) {
-        rateType = RateType.PERCENTAGE_PLUS_FIXED;
-        percentageRate = percentagePlusTpp.percentageRate;
-        fixedAmount = this.toNumber(seed.minimum_amount) ?? 0;
+      const parsed = parseRateText(
+        rateText,
+        this.toNumber(seed.minimum_amount),
+      );
+      if (parsed) {
+        rateType = parsed.rateType;
+        percentageRate = parsed.percentageRate;
+        fixedAmount = parsed.fixedAmount;
+        perUnitAmount = parsed.perUnitAmount;
+        perUnitFactorCode = parsed.perUnitFactorCode;
         formula = null;
-      } else {
-        const percentagePlusPerUnit =
-          this.extractPercentagePlusPerUnit(rateText);
-        if (percentagePlusPerUnit) {
-          rateType = RateType.PERCENTAGE_PLUS_PER_UNIT;
-          percentageRate = percentagePlusPerUnit.percentageRate;
-          perUnitAmount = percentagePlusPerUnit.perUnitAmount;
-          perUnitFactorCode = percentagePlusPerUnit.perUnitFactorCode;
-          formula = null;
-        } else {
-          const percentagePlusFixed = this.extractPercentagePlusFixed(rateText);
-          if (percentagePlusFixed) {
-            rateType = RateType.PERCENTAGE_PLUS_FIXED;
-            percentageRate = percentagePlusFixed.percentageRate;
-            fixedAmount = percentagePlusFixed.fixedAmount;
-            formula = null;
-          } else {
-            const perUnitOnly = this.extractPerUnitOnly(rateText);
-            if (perUnitOnly) {
-              rateType = RateType.PER_UNIT;
-              perUnitAmount = perUnitOnly.perUnitAmount;
-              perUnitFactorCode = perUnitOnly.perUnitFactorCode;
-              formula = null;
-            } else {
-              const percentageOnly = this.extractPercentageOnly(rateText);
-              if (percentageOnly !== null) {
-                rateType = RateType.PERCENTAGE;
-                percentageRate = percentageOnly;
-                formula = null;
-              } else {
-                const fixedOnly = this.extractFixedOnly(rateText);
-                if (fixedOnly !== null) {
-                  rateType = RateType.FIXED;
-                  fixedAmount = fixedOnly;
-                  formula = null;
-                }
-              }
-            }
-          }
-        }
       }
     }
 
@@ -709,113 +675,6 @@ export default class ProductEngineSeeder implements Seeder {
       per_unit_factor_code: perUnitFactorCode,
       formula,
     };
-  }
-
-  private extractPercentagePlusTpp(rateText: string): {
-    percentageRate: number;
-  } | null {
-    // TIRA sheets sometimes express a rate as e.g. "2%+TPP" (Third Party
-    // Property), where the added charge has no numeric literal in the rate
-    // text itself - its amount is carried in the row's minimum_amount
-    // column instead. Callers read that amount into fixed_amount.
-    const match = rateText.match(/^([\d.]+)\s*%\s*\+\s*tpp$/i);
-    if (!match) {
-      return null;
-    }
-    return { percentageRate: Number(match[1]) };
-  }
-
-  private extractPercentagePlusPerUnit(rateText: string): {
-    percentageRate: number;
-    perUnitAmount: number;
-    perUnitFactorCode: string | null;
-  } | null {
-    const match = rateText.match(
-      /^([\d.]+)\s*%\s*\+\s*(?:tzs|tshs?|tsh\.?)?\s*([\d,]+(?:\.\d+)?)\s*per\s+([a-z_ ]+)$/i,
-    );
-    if (!match) {
-      return null;
-    }
-
-    return {
-      percentageRate: Number(match[1]),
-      perUnitAmount: this.parseAmount(match[2]),
-      perUnitFactorCode: this.normalizeFactorCode(match[3]),
-    };
-  }
-
-  private extractPercentagePlusFixed(rateText: string): {
-    percentageRate: number;
-    fixedAmount: number;
-  } | null {
-    const match = rateText.match(
-      /^([\d.]+)\s*%\s*\+\s*(?:tzs|tshs?|tsh\.?)?\s*([\d,]+(?:\.\d+)?)$/i,
-    );
-    if (!match) {
-      return null;
-    }
-
-    return {
-      percentageRate: Number(match[1]),
-      fixedAmount: this.parseAmount(match[2]),
-    };
-  }
-
-  private extractPerUnitOnly(rateText: string): {
-    perUnitAmount: number;
-    perUnitFactorCode: string | null;
-  } | null {
-    const match = rateText.match(
-      /^(?:tzs|tshs?|tsh\.?)?\s*([\d,]+(?:\.\d+)?)\s*per\s+([a-z_ ]+)$/i,
-    );
-    if (!match) {
-      return null;
-    }
-
-    return {
-      perUnitAmount: this.parseAmount(match[1]),
-      perUnitFactorCode: this.normalizeFactorCode(match[2]),
-    };
-  }
-
-  private extractPercentageOnly(rateText: string): number | null {
-    const match = rateText.match(/^([\d.]+)\s*%$/i);
-    if (!match) {
-      return null;
-    }
-
-    return Number(match[1]);
-  }
-
-  private extractFixedOnly(rateText: string): number | null {
-    const match = rateText.match(
-      /^(?:tzs|tshs?|tsh\.?)?\s*([\d,]+(?:\.\d+)?)$/i,
-    );
-    if (!match) {
-      return null;
-    }
-
-    return this.parseAmount(match[1]);
-  }
-
-  private normalizeFactorCode(raw: string | null): string | null {
-    if (!raw) return null;
-
-    const normalized = raw.trim().toLowerCase();
-    if (!normalized) return null;
-
-    if (normalized.includes('seat')) return 'seat_capacity';
-    if (normalized.includes('weight') && normalized.includes('vehicle')) {
-      return 'vehicle_weight_kg';
-    }
-    if (normalized.includes('ton')) return 'cargo_weight_ton';
-
-    return normalized.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  }
-
-  private parseAmount(raw: string): number {
-    const parsed = Number(raw.replace(/,/g, ''));
-    return Number.isFinite(parsed) ? parsed : 0;
   }
 
   private toNumber(value: number | null | undefined): number | null {

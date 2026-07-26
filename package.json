@@ -34,6 +34,7 @@
     "migration:revert:insurance-portal-service": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d apps/insurance-portal-service/src/database/data-source.ts migration:revert",
     "migration:show:insurance-portal-service": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d apps/insurance-portal-service/src/database/data-source.ts migration:show",
     "seed:insurance-portal-service": "node -r ts-node/register -r tsconfig-paths/register apps/insurance-portal-service/src/database/seeds/run-seed.ts",
+    "audit:rate-parsing:insurance-portal-service": "node -r ts-node/register -r tsconfig-paths/register apps/insurance-portal-service/src/database/seeds/scripts/audit-rate-parsing.ts",
     "test:quotations:create": "node -r ts-node/register -r tsconfig-paths/register scripts/create-quotation-smoke.ts"
   },
   "dependencies": {

@@ -6,7 +6,13 @@ import { useRuleList } from '@/modules/tenant/product-engine/hooks/useRatingRule
 import { calculatorApi } from '@/modules/tenant/product-engine/api/calculator';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { resolveFactorValues } from '../utils/riskFactorResolver';
-import { applyRiskPremiumResult } from '../utils/premiumAggregation';
+import {
+  applyRiskPremiumResult,
+  computePremiumAfterDiscount,
+  computePremiumIncludingTax,
+  toNumber,
+} from '../utils/premiumAggregation';
+import { getTaxRateForCode } from '../utils/taxOptions';
 
 const CALCULATION_DEBOUNCE_MS = 400;
 
@@ -15,6 +21,132 @@ function path(
   name: string,
 ): FieldPath<QuotationFormSchemaValues> {
   return `risks.${index}.${name}` as FieldPath<QuotationFormSchemaValues>;
+}
+
+/**
+ * The single shared recompute cascade for a risk row's derived premium
+ * fields: discount_amount (per row, from the current discount_rate) ->
+ * premium_after_discount -> premium_excluding_tax_equivalent -> tax_amount
+ * (per row, from the current tax_rate, skipping exempted rows) ->
+ * premium_including_tax — always derived fresh from whatever
+ * premium_before_discount/discounts_offered/taxes_charged currently hold, so
+ * a single change anywhere (a fresh calculation, a discount edit, a tax
+ * edit) always ends with a fully up-to-date premium_including_tax.
+ *
+ * Called explicitly from four places: after a calculation result lands
+ * (below), on a discount_rate/discount_type change, on a tax_code/tax_rate
+ * change, and after a hand-edited premium_rate recomputes
+ * premium_before_discount — plus reactively from RiskRow.tsx whenever
+ * premium_before_discount or the tax code/rate/exemption inputs change, so
+ * every path converges on this one implementation instead of diverging
+ * across separate handlers.
+ *
+ * This function itself is never wired to fire on every keystroke — only on
+ * discrete commit points (blur, a Select choice, a fresh calculation) — so
+ * unconditionally recomputing discount_amount/tax_amount here on every call
+ * doesn't reintroduce the page-jump regression that free-typed reactivity
+ * caused earlier (see the callers in RiskRow.tsx).
+ */
+export function recomputeRiskRow(
+  form: UseFormReturn<QuotationFormSchemaValues>,
+  index: number,
+) {
+  const premiumBeforeDiscount = form.getValues(
+    path(index, 'premium_before_discount'),
+  ) as string;
+
+  // Refresh discount_amount for every row with a rate set, from the current
+  // premium_before_discount — this is what keeps a discount correct after a
+  // *new* calculation result, not just after the rate itself changes. Rows
+  // with no rate set are left alone (nothing to derive from).
+  const discountsBeforeRefresh = (form.getValues(
+    path(index, 'discounts_offered'),
+  ) ?? []) as QuotationFormSchemaValues['risks'][number]['discounts_offered'];
+  discountsBeforeRefresh.forEach((discount, discountIndex) => {
+    if (!discount.discount_rate) return;
+    const nextDiscountAmount =
+      toNumber(premiumBeforeDiscount) * (toNumber(discount.discount_rate) / 100);
+    if (toNumber(discount.discount_amount) !== nextDiscountAmount) {
+      form.setValue(
+        path(index, `discounts_offered.${discountIndex}.discount_amount`),
+        String(nextDiscountAmount),
+      );
+    }
+  });
+
+  const discounts = (form.getValues(path(index, 'discounts_offered')) ??
+    []) as QuotationFormSchemaValues['risks'][number]['discounts_offered'];
+
+  const nextAfterDiscount = computePremiumAfterDiscount(
+    premiumBeforeDiscount,
+    discounts,
+  );
+  if (
+    toNumber(form.getValues(path(index, 'premium_after_discount')) as string) !==
+    nextAfterDiscount
+  ) {
+    form.setValue(
+      path(index, 'premium_after_discount'),
+      String(nextAfterDiscount),
+    );
+  }
+
+  const nextExcludingTaxEquivalent = nextAfterDiscount;
+  if (
+    toNumber(
+      form.getValues(path(index, 'premium_excluding_tax_equivalent')) as string,
+    ) !== nextExcludingTaxEquivalent
+  ) {
+    form.setValue(
+      path(index, 'premium_excluding_tax_equivalent'),
+      String(nextExcludingTaxEquivalent),
+    );
+  }
+
+  const taxes = (form.getValues(path(index, 'taxes_charged')) ??
+    []) as QuotationFormSchemaValues['risks'][number]['taxes_charged'];
+  taxes.forEach((tax, taxIndex) => {
+    const expectedRate = getTaxRateForCode(tax.tax_code);
+    if (expectedRate && tax.tax_rate !== expectedRate) {
+      form.setValue(
+        path(index, `taxes_charged.${taxIndex}.tax_rate`),
+        expectedRate,
+      );
+    }
+
+    const effectiveRate = expectedRate || tax.tax_rate;
+    const nextTaxAmount = tax.is_tax_exempted
+      ? 0
+      : nextExcludingTaxEquivalent * toNumber(effectiveRate);
+    if (
+      toNumber(
+        form.getValues(
+          path(index, `taxes_charged.${taxIndex}.tax_amount`),
+        ) as string,
+      ) !== nextTaxAmount
+    ) {
+      form.setValue(
+        path(index, `taxes_charged.${taxIndex}.tax_amount`),
+        String(nextTaxAmount),
+      );
+    }
+  });
+
+  const updatedTaxes = (form.getValues(path(index, 'taxes_charged')) ??
+    []) as QuotationFormSchemaValues['risks'][number]['taxes_charged'];
+  const nextIncludingTax = computePremiumIncludingTax(
+    nextExcludingTaxEquivalent,
+    updatedTaxes,
+  );
+  if (
+    toNumber(form.getValues(path(index, 'premium_including_tax')) as string) !==
+    nextIncludingTax
+  ) {
+    form.setValue(
+      path(index, 'premium_including_tax'),
+      String(nextIncludingTax),
+    );
+  }
 }
 
 /**
@@ -76,12 +208,10 @@ export function useRiskPremiumCalculation(
 
   // The moment the rule list for the selected risk resolves — before sum
   // insured is entered or any calculation call fires — surface the minimum
-  // premium from the highest-priority (lowest priority number) active rule,
-  // and pre-fill premium_rate/premium_before_discount from it too, but only
-  // when this row doesn't already carry a premium (a brand-new row). Rows
-  // hydrated from an existing quotation, or already calculated, are left
-  // alone; once the debounced calculation below succeeds, its result
-  // overwrites these with the real figures regardless.
+  // premium from the highest-priority (lowest priority number) active rule.
+  // Deliberately does NOT touch premium_rate/premium_before_discount or any
+  // other premium field here: those come only from a real calculation
+  // result (or a saved/hydrated quotation), never from this placeholder.
   useEffect(() => {
     if (!riskId) return;
 
@@ -90,24 +220,13 @@ export function useRiskPremiumCalculation(
     if (activeRules.length === 0) return;
 
     const topRule = [...activeRules].sort((a, b) => a.priority - b.priority)[0];
-    const minimumAmount = topRule.minimum_amount ?? 0;
+    const minimumAmount = String(topRule.minimum_amount ?? 0);
 
     const currentMinimumAmount = form.getValues(
       path(index, 'minimum_amount'),
     ) as string;
-    if (currentMinimumAmount !== String(minimumAmount)) {
-      form.setValue(path(index, 'minimum_amount'), String(minimumAmount));
-    }
-
-    const hasExistingPremium = !!(
-      form.getValues(path(index, 'premium_before_discount')) as string
-    );
-    if (!hasExistingPremium) {
-      form.setValue(
-        path(index, 'premium_rate'),
-        String(topRule.percentage_rate ?? 0),
-      );
-      form.setValue(path(index, 'premium_before_discount'), String(minimumAmount));
+    if (currentMinimumAmount !== minimumAmount) {
+      form.setValue(path(index, 'minimum_amount'), minimumAmount);
     }
   }, [form, index, riskId, ruleListQuery.data]);
 
@@ -187,6 +306,7 @@ export function useRiskPremiumCalculation(
               path(index, 'rating_result_metadata'),
               updatedRow.rating_result_metadata,
             );
+            recomputeRiskRow(form, index);
           },
         },
       );
