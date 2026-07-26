@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useWatch, type FieldPath, type UseFormReturn } from 'react-hook-form';
 import { useRequiredFactorsByRisk } from '@/modules/tenant/product-engine/hooks/useRequiredFactors';
@@ -27,9 +27,27 @@ export function useRiskPremiumCalculation(
   index: number,
 ) {
   const riskId = useWatch({ control: form.control, name: path(index, 'risk_id') }) as string;
-  const sumInsured = useWatch({ control: form.control, name: path(index, 'sum_insured') }) as string;
   const quotationType = useWatch({ control: form.control, name: 'quotation_type' });
   const motor = useWatch({ control: form.control, name: 'motor' });
+
+  // Sum insured only feeds a calculation once the user has finished editing
+  // it (blur), not on every keystroke — see handleSumInsuredBlur below. The
+  // commit is tagged with the risk_id it was made for, so a stale commit
+  // from a since-changed risk selection is derived away below rather than
+  // requiring an effect to reset it (avoids a render -> setState -> render
+  // cascade on every risk switch).
+  const [committedEntry, setCommittedEntry] = useState({
+    riskId: '',
+    sumInsured: '',
+  });
+  const handleSumInsuredBlur = useCallback(() => {
+    setCommittedEntry({
+      riskId: form.getValues(path(index, 'risk_id')) as string,
+      sumInsured: form.getValues(path(index, 'sum_insured')) as string,
+    });
+  }, [form, index]);
+  const committedSumInsured =
+    committedEntry.riskId === riskId ? committedEntry.sumInsured : '';
 
   const requiredFactorsQuery = useRequiredFactorsByRisk(riskId ?? '');
   const requiredFactors = useMemo(
@@ -43,11 +61,11 @@ export function useRiskPremiumCalculation(
     const pseudoFormValues = {
       quotation_type: quotationType,
       motor,
-      risks: [{ sum_insured: sumInsured }],
+      risks: [{ sum_insured: committedSumInsured }],
     } as QuotationFormSchemaValues;
 
     return resolveFactorValues(requiredFactors, pseudoFormValues, 0);
-  }, [requiredFactors, quotationType, motor, sumInsured]);
+  }, [requiredFactors, quotationType, motor, committedSumInsured]);
   const factorValuesKey = JSON.stringify(factorValues);
 
   // Deselecting a risk clears its stale minimum immediately.
@@ -141,12 +159,20 @@ export function useRiskPremiumCalculation(
   );
 
   useEffect(() => {
-    if (!riskId || !sumInsured) return undefined;
+    if (!riskId || !committedSumInsured) return undefined;
+
+    // Sum insured only ever reaches here once committed on blur; still gate
+    // on the risk's minimum here (rather than in the blur handler) so this
+    // is the single source of truth regardless of how committedSumInsured
+    // got its value (blur, or a future re-trigger from a factor change).
+    const minimumAmount =
+      Number(form.getValues(path(index, 'minimum_amount')) as string) || 0;
+    if (Number(committedSumInsured) <= minimumAmount) return undefined;
 
     timeoutRef.current = setTimeout(() => {
       calculateMutateRef.current({
         risk_id: riskId,
-        sum_insured: Number(sumInsured) || 0,
+        sum_insured: Number(committedSumInsured) || 0,
         factors: factorValues,
       });
     }, CALCULATION_DEBOUNCE_MS);
@@ -157,11 +183,12 @@ export function useRiskPremiumCalculation(
     // factorValues is intentionally tracked via its stable JSON key so the
     // debounce doesn't restart on every render from a new object identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [riskId, sumInsured, factorValuesKey]);
+  }, [form, index, riskId, committedSumInsured, factorValuesKey]);
 
   return {
     requiredFactorsQuery,
     ruleListQuery,
     calculateMutation,
+    handleSumInsuredBlur,
   };
 }

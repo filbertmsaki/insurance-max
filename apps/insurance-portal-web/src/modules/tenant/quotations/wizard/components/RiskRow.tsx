@@ -93,10 +93,8 @@ export function RiskRow({
     form.setValue(path(index, 'risk_code'), selectedRisk?.risk_code ?? '');
   }, [form, index, selectedRisk?.risk_code]);
 
-  const { calculateMutation, requiredFactorsQuery } = useRiskPremiumCalculation(
-    form,
-    index,
-  );
+  const { calculateMutation, requiredFactorsQuery, handleSumInsuredBlur } =
+    useRiskPremiumCalculation(form, index);
 
   // Snapshot of the currently-selected risk's required factor codes, kept
   // fresh continuously (while riskId is unchanged) so that whenever a real
@@ -398,6 +396,10 @@ export function RiskRow({
                     min="0"
                     {...field}
                     value={field.value as string}
+                    onBlur={() => {
+                      field.onBlur();
+                      handleSumInsuredBlur();
+                    }}
                   />
                 </FormControl>
                 <FormMessage />
