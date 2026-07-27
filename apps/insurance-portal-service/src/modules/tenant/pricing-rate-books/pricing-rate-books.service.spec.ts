@@ -9,6 +9,11 @@ function createServiceFixture(options?: {
   count?: number;
   overlappingPublished?: Array<Record<string, unknown>>;
 }) {
+  const overlapQueryBuilder = {
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    getMany: jest.fn().mockResolvedValue(options?.overlappingPublished ?? []),
+  };
   const rateBookRepository = {
     create: jest.fn().mockImplementation((value) => value),
     save: jest.fn().mockImplementation(async (value) => ({
@@ -18,6 +23,7 @@ function createServiceFixture(options?: {
     find: jest.fn().mockResolvedValue(options?.overlappingPublished ?? []),
     findOne: jest.fn(),
     count: jest.fn().mockResolvedValue(options?.count ?? 1),
+    createQueryBuilder: jest.fn().mockReturnValue(overlapQueryBuilder),
     manager: {
       transaction: jest.fn(),
     },
@@ -33,12 +39,16 @@ function createServiceFixture(options?: {
     count: jest.fn().mockResolvedValue(options?.count ?? 1),
   };
   const conditionRepository = {};
+  const pricingRuntimeCacheService = {
+    invalidateRateConfiguration: jest.fn().mockResolvedValue(undefined),
+  };
 
   const service = new PricingRateBooksService(
     rateBookRepository as any,
     productRepository as any,
     ruleRepository as any,
     conditionRepository as any,
+    pricingRuntimeCacheService as any,
   );
 
   return {
@@ -46,6 +56,7 @@ function createServiceFixture(options?: {
     rateBookRepository,
     productRepository,
     ruleRepository,
+    pricingRuntimeCacheService,
   };
 }
 

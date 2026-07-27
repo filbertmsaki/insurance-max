@@ -229,6 +229,7 @@ function createServiceFixture(options: {
     create: jest.fn().mockImplementation((value) => value),
     save: jest.fn().mockImplementation(async (value) => value),
     findOne: jest.fn(),
+    find: jest.fn().mockResolvedValue([]),
   };
   const pricingQuoteRiskRepository = {
     find: jest
@@ -241,18 +242,45 @@ function createServiceFixture(options: {
       sequenceNo: 1,
     }),
   };
+  const pricingRuntimeCacheService = {
+    getConfigurationSignature: jest
+      .fn()
+      .mockResolvedValue('product:0|rate:0|tax:0'),
+    getActiveRisk: jest.fn((_c: unknown, _r: unknown, loader: () => unknown) =>
+      loader(),
+    ),
+    getRequiredFactors: jest.fn(
+      (_c: unknown, _r: unknown, loader: () => unknown) => loader(),
+    ),
+    getConfiguredFactors: jest.fn(
+      (_c: unknown, _f: unknown, loader: () => unknown) => loader(),
+    ),
+    getActiveRules: jest.fn(
+      (_c: unknown, _r: unknown, _d: unknown, loader: () => unknown) =>
+        loader(),
+    ),
+    getActiveTaxRules: jest.fn(
+      (_c: unknown, _d: unknown, loader: () => unknown) => loader(),
+    ),
+    invalidateRateConfiguration: jest.fn(),
+    invalidateProductConfiguration: jest.fn(),
+    invalidateTaxConfiguration: jest.fn(),
+  };
 
   const pricingValidationService = new PricingValidationService(
     riskRepository as any,
+    pricingRuntimeCacheService as any,
   );
   const ratingFactorValidatorService = new RatingFactorValidatorService(
     requiredFactorRepository as any,
     ratingFactorRepository as any,
+    pricingRuntimeCacheService as any,
   );
   const ratingRuleMatcherService = new RatingRuleMatcherService(
     ruleRepository as any,
     matcherRiskRepository as any,
     rateBookRepository as any,
+    pricingRuntimeCacheService as any,
   );
   const structuredPricingCalculatorService =
     new StructuredPricingCalculatorService(
@@ -270,6 +298,7 @@ function createServiceFixture(options: {
   };
   const pricingChargeService = new PricingChargeService(
     productTaxRuleRepository as any,
+    pricingRuntimeCacheService as any,
   );
   const pricingEngineService = new PricingEngineService(
     pricingValidationService,
@@ -298,6 +327,7 @@ function createServiceFixture(options: {
         rounding_method: 'ROUND_HALF_UP',
       }),
     } as any,
+    pricingRuntimeCacheService as any,
     pricingQuoteRepository as any,
     pricingQuoteRiskRepository as any,
   );
