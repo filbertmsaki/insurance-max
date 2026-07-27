@@ -13,6 +13,7 @@ import { RiskRatingRule } from '../risk-rating-rules/entities/risk-rating-rule.e
 import { CreateRiskRuleConditionDto } from './dto/create-risk-rule-condition.dto';
 import { UpdateRiskRuleConditionDto } from './dto/update-risk-rule-condition.dto';
 import { RiskRuleCondition } from './entities/risk-rule-condition.entity';
+import { PricingRuntimeCacheService } from '../pricing/application/pricing-runtime-cache.service';
 
 @Injectable()
 export class RiskRuleConditionsService {
@@ -24,6 +25,8 @@ export class RiskRuleConditionsService {
     private readonly ruleRepository: Repository<RiskRatingRule>,
 
     private readonly ruleConfigurationValidator: RiskRatingRuleConfigurationValidatorService,
+
+    private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
   ) {}
 
   private isDuplicateEntryError(error: unknown): boolean {
@@ -70,7 +73,9 @@ export class RiskRuleConditionsService {
     );
 
     try {
-      return await this.conditionRepository.save(condition);
+      const saved = await this.conditionRepository.save(condition);
+      await this.pricingRuntimeCacheService.invalidateRateConfiguration(companyId);
+      return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
         throw new ConflictException(
@@ -137,7 +142,9 @@ export class RiskRuleConditionsService {
     );
 
     try {
-      return await this.conditionRepository.save(condition);
+      const saved = await this.conditionRepository.save(condition);
+      await this.pricingRuntimeCacheService.invalidateRateConfiguration(companyId);
+      return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
         throw new ConflictException(
@@ -164,6 +171,7 @@ export class RiskRuleConditionsService {
       condition.id,
     );
     await this.conditionRepository.delete(condition.id);
+    await this.pricingRuntimeCacheService.invalidateRateConfiguration(companyId);
   }
 
   private assertParentRuleEditable(rule: RiskRatingRule) {

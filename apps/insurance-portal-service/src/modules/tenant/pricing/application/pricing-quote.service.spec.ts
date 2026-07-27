@@ -62,6 +62,7 @@ describe('PricingQuoteService', () => {
       create: jest.fn().mockImplementation((value) => value),
       save: jest.fn().mockImplementation(async (value) => value),
       findOne: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
     };
     const riskRepository = {
       find: jest.fn().mockResolvedValue([
@@ -72,12 +73,18 @@ describe('PricingQuoteService', () => {
         },
       ]),
     };
+    const pricingRuntimeCacheService = {
+      getConfigurationSignature: jest
+        .fn()
+        .mockResolvedValue('product:0|rate:0|tax:0'),
+    };
 
     const service = new PricingQuoteService(
       pricingEngineService as any,
       quotationRecalculationService as any,
       identifierGeneratorService as any,
       exchangeRateGovernanceService as any,
+      pricingRuntimeCacheService as any,
       pricingQuoteRepository as any,
       riskRepository as any,
     );
@@ -129,6 +136,7 @@ describe('PricingQuoteService', () => {
       { createInputSignature: jest.fn() } as any,
       { generatePricingQuoteId: jest.fn() } as any,
       { resolveSnapshot: jest.fn() } as any,
+      { getConfigurationSignature: jest.fn() } as any,
       {
         create: jest.fn(),
         save: jest.fn(),
@@ -253,6 +261,7 @@ describe('PricingQuoteService', () => {
       create: jest.fn().mockImplementation((value) => value),
       save: jest.fn().mockImplementation(async (value) => value),
       findOne: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
     };
     const riskRepository = {
       find: jest.fn().mockResolvedValue([
@@ -263,12 +272,18 @@ describe('PricingQuoteService', () => {
         },
       ]),
     };
+    const pricingRuntimeCacheService = {
+      getConfigurationSignature: jest
+        .fn()
+        .mockResolvedValue('product:0|rate:0|tax:0'),
+    };
 
     const service = new PricingQuoteService(
       pricingEngineService as any,
       quotationRecalculationService as any,
       identifierGeneratorService as any,
       exchangeRateGovernanceService as any,
+      pricingRuntimeCacheService as any,
       pricingQuoteRepository as any,
       riskRepository as any,
     );
@@ -400,6 +415,7 @@ describe('PricingQuoteService', () => {
       create: jest.fn().mockImplementation((value) => value),
       save: jest.fn().mockImplementation(async (value) => value),
       findOne: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
     };
     const riskRepository = {
       find: jest.fn().mockResolvedValue([
@@ -410,12 +426,18 @@ describe('PricingQuoteService', () => {
         },
       ]),
     };
+    const pricingRuntimeCacheService = {
+      getConfigurationSignature: jest
+        .fn()
+        .mockResolvedValue('product:0|rate:0|tax:0'),
+    };
 
     const service = new PricingQuoteService(
       pricingEngineService as any,
       quotationRecalculationService as any,
       identifierGeneratorService as any,
       exchangeRateGovernanceService as any,
+      pricingRuntimeCacheService as any,
       pricingQuoteRepository as any,
       riskRepository as any,
     );
@@ -470,5 +492,119 @@ describe('PricingQuoteService', () => {
         }),
       }),
     );
+  });
+
+  it('reuses a non-expired snapshot for the same input and runtime configuration', async () => {
+    const exchangeRateGovernanceService = {
+      resolveSnapshot: jest.fn().mockResolvedValue({
+        quotation_currency_code: 'TZS',
+        base_currency_code: 'TZS',
+        exchange_rate: 1,
+      }),
+    };
+    const pricingEngineService = {
+      calculateSingleRisk: jest.fn(),
+    };
+    const quotationRecalculationService = {
+      createInputSignature: jest
+        .fn()
+        .mockImplementation((value: unknown) => JSON.stringify(value)),
+    };
+    const identifierGeneratorService = {
+      generatePricingQuoteId: jest.fn(),
+    };
+    const pricingQuoteRepository = {
+      create: jest.fn(),
+      save: jest.fn(),
+      findOne: jest.fn(),
+      find: jest.fn().mockResolvedValue([
+        {
+          pricing_quote_id: 'PQ-2026-00000088',
+          calculation_status: 'CALCULATED',
+          quote_scope: 'SINGLE_RISK',
+          calculated_at: new Date('2026-07-27T09:00:00.000Z'),
+          expires_at: new Date('2026-07-28T09:00:00.000Z'),
+          input_signature: JSON.stringify({
+            risk_id: 'risk-1',
+            sum_insured: 1000000,
+            factors: { vehicle_type: 'PRIVATE' },
+            quotation_type: 'NEW_BUSINESS',
+            currency_code: 'TZS',
+          }),
+          quotation_type: 'NEW_BUSINESS',
+          currency_code: 'TZS',
+          result_payload: {
+            risk_id: 'risk-1',
+            risk_code: 'RISK-001',
+            risk_name: 'Comprehensive',
+            rate_book_id: 'rate-book-1',
+            rate_book_code: 'MOTOR-STANDARD',
+            rate_book_version: '2026.1',
+            rule_id: 'rule-1',
+            rule_name: 'Base rate',
+            rule_version: 1,
+            sum_insured: 1000000,
+            rate_type: 'PERCENTAGE',
+            percentage_rate: 0.035,
+            base_premium: 35000,
+            per_unit_factor_code: null,
+            per_unit_value: 0,
+            per_unit_amount: 0,
+            per_unit_premium: 0,
+            fixed_amount: 0,
+            minimum_amount: 250000,
+            gross_premium: 35000,
+            final_premium: 250000,
+            minimum_applied: true,
+            factors: { vehicle_type: 'PRIVATE' },
+            validation_errors: [],
+            validation_warnings: [],
+          },
+          context_payload: {
+            exchange_rate_signature:
+              JSON.stringify({
+                quotation_currency_code: 'TZS',
+                base_currency_code: 'TZS',
+                exchange_rate: 1,
+              }),
+            runtime_configuration_signature: 'product:0|rate:0|tax:0',
+          },
+        },
+      ]),
+    };
+    const riskRepository = {
+      find: jest.fn(),
+    };
+    const pricingRuntimeCacheService = {
+      getConfigurationSignature: jest
+        .fn()
+        .mockResolvedValue('product:0|rate:0|tax:0'),
+    };
+
+    const service = new PricingQuoteService(
+      pricingEngineService as any,
+      quotationRecalculationService as any,
+      identifierGeneratorService as any,
+      exchangeRateGovernanceService as any,
+      pricingRuntimeCacheService as any,
+      pricingQuoteRepository as any,
+      riskRepository as any,
+    );
+
+    const result = await service.calculateSingleRiskQuote(
+      COMPANY_ID,
+      {
+        risk_id: 'risk-1',
+        sum_insured: 1000000,
+        factors: { vehicle_type: 'PRIVATE' },
+        quotation_type: 'NEW_BUSINESS',
+        currency_code: 'TZS',
+      },
+      'user-1',
+    );
+
+    expect(result.pricing_quote_id).toBe('PQ-2026-00000088');
+    expect(pricingEngineService.calculateSingleRisk).not.toHaveBeenCalled();
+    expect(pricingQuoteRepository.save).not.toHaveBeenCalled();
   });
 });

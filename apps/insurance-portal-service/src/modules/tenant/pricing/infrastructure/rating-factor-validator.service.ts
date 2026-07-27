@@ -10,6 +10,7 @@ import type {
   PricingSingleRiskInput,
   PricingValidationIssue,
 } from '../domain/pricing.types';
+import { PricingRuntimeCacheService } from '../application/pricing-runtime-cache.service';
 
 @Injectable()
 export class RatingFactorValidatorService {
@@ -19,6 +20,8 @@ export class RatingFactorValidatorService {
 
     @InjectRepository(RatingFactor)
     private readonly ratingFactorRepository: Repository<RatingFactor>,
+
+    private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
   ) {}
 
   normalizeInputFactors(input: PricingSingleRiskInput): PricingFactorValues {
@@ -54,23 +57,33 @@ export class RatingFactorValidatorService {
     riskId: string,
     factorValues: PricingFactorValues,
   ): Promise<PricingFactorValidationResult> {
-    const required = await this.requiredFactorRepository.find({
-      where: { company_id: companyId, risk_id: riskId, is_required: true },
-      relations: { factor: true },
-      order: { sort_order: 'ASC' },
-    });
+    const required = await this.pricingRuntimeCacheService.getRequiredFactors(
+      companyId,
+      riskId,
+      () =>
+        this.requiredFactorRepository.find({
+          where: { company_id: companyId, risk_id: riskId, is_required: true },
+          relations: { factor: true },
+          order: { sort_order: 'ASC' },
+        }),
+    );
 
     const factorCodes = Object.keys(factorValues).filter(
       (code) => code !== 'sum_insured' && code !== 'sum_insured_amount',
     );
     const configuredFactors =
       factorCodes.length > 0
-        ? await this.ratingFactorRepository.find({
-            where: {
-              company_id: companyId,
-              code: In(factorCodes),
-            },
-          })
+        ? await this.pricingRuntimeCacheService.getConfiguredFactors(
+            companyId,
+            factorCodes,
+            () =>
+              this.ratingFactorRepository.find({
+                where: {
+                  company_id: companyId,
+                  code: In(factorCodes),
+                },
+              }),
+          )
         : [];
 
     const configuredFactorMap = new Map(

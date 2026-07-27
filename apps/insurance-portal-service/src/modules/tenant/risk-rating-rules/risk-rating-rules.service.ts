@@ -21,6 +21,7 @@ import { FilterRiskRatingRuleDto } from './dto/filter-risk-rating-rule.dto';
 import { RiskRatingRuleConfigurationValidatorService } from './risk-rating-rule-configuration-validator.service';
 import { UpdateRiskRatingRuleDto } from './dto/update-risk-rating-rule.dto';
 import { RiskRatingRule } from './entities/risk-rating-rule.entity';
+import { PricingRuntimeCacheService } from '../pricing/application/pricing-runtime-cache.service';
 
 @Injectable()
 export class RiskRatingRulesService {
@@ -35,6 +36,8 @@ export class RiskRatingRulesService {
     private readonly rateBookRepository: Repository<PricingRateBook>,
 
     private readonly ruleConfigurationValidator: RiskRatingRuleConfigurationValidatorService,
+
+    private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
   ) {}
 
   private normalizePercentageRate(value: number | null | undefined): number | null {
@@ -373,7 +376,9 @@ export class RiskRatingRulesService {
     await this.ruleConfigurationValidator.assertRuleCanBeSaved(companyId, rule);
 
     try {
-      return await this.ruleRepository.save(rule);
+      const saved = await this.ruleRepository.save(rule);
+      await this.pricingRuntimeCacheService.invalidateRateConfiguration(companyId);
+      return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
         throw new ConflictException(
@@ -526,7 +531,9 @@ export class RiskRatingRulesService {
     await this.ruleConfigurationValidator.assertRuleCanBeSaved(companyId, rule);
 
     try {
-      return await this.ruleRepository.save(rule);
+      const saved = await this.ruleRepository.save(rule);
+      await this.pricingRuntimeCacheService.invalidateRateConfiguration(companyId);
+      return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
         throw new ConflictException(
@@ -545,5 +552,6 @@ export class RiskRatingRulesService {
       rule.risk.product_id,
     );
     await this.ruleRepository.softDelete(rule.id);
+    await this.pricingRuntimeCacheService.invalidateRateConfiguration(companyId);
   }
 }

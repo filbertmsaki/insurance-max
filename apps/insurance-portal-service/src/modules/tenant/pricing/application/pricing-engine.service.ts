@@ -61,6 +61,7 @@ export class PricingEngineService {
       companyId,
       input.risk_id,
       validationResult.normalized_factor_values,
+      input.effective_date ?? null,
     );
 
     if (!matchingRule) {

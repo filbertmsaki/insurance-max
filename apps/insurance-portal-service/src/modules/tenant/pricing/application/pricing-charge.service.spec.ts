@@ -48,7 +48,21 @@ describe('PricingChargeService', () => {
         },
       ]),
     };
-    const service = new PricingChargeService(repository as any);
+    const pricingRuntimeCacheService = {
+      getActiveTaxRules: jest
+        .fn()
+        .mockImplementation(
+          async (
+            _companyId: string,
+            _effectiveDate: string,
+            loader: () => Promise<unknown>,
+          ) => loader(),
+        ),
+    };
+    const service = new PricingChargeService(
+      repository as any,
+      pricingRuntimeCacheService as any,
+    );
 
     const result = await service.calculateCharges('company-1', {
       category_id: 'category-1',
@@ -143,7 +157,21 @@ describe('PricingChargeService', () => {
         },
       ]),
     };
-    const service = new PricingChargeService(repository as any);
+    const pricingRuntimeCacheService = {
+      getActiveTaxRules: jest
+        .fn()
+        .mockImplementation(
+          async (
+            _companyId: string,
+            _effectiveDate: string,
+            loader: () => Promise<unknown>,
+          ) => loader(),
+        ),
+    };
+    const service = new PricingChargeService(
+      repository as any,
+      pricingRuntimeCacheService as any,
+    );
 
     const result = await service.calculateCharges('company-1', {
       category_id: 'category-1',

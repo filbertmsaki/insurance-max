@@ -24,9 +24,12 @@ import { PercentagePricingStrategy } from './infrastructure/strategies/percentag
 import { PercentagePlusFixedPricingStrategy } from './infrastructure/strategies/percentage-plus-fixed-pricing.strategy';
 import { PercentagePlusPerUnitPricingStrategy } from './infrastructure/strategies/percentage-plus-per-unit-pricing.strategy';
 import { PerUnitPricingStrategy } from './infrastructure/strategies/per-unit-pricing.strategy';
+import { PricingRuntimeCacheModule } from './pricing-runtime-cache.module';
+import { PricingRuntimeCacheService } from './application/pricing-runtime-cache.service';
 
 @Module({
   imports: [
+    PricingRuntimeCacheModule,
     TypeOrmModule.forFeature([
       InsuranceRisk,
       PricingQuote,
@@ -65,6 +68,7 @@ import { PerUnitPricingStrategy } from './infrastructure/strategies/per-unit-pri
     PricingChargeService,
     ExchangeRateGovernanceService,
     PricingEngineService,
+    PricingRuntimeCacheModule,
     PricingQuoteService,
     QuotationRecalculationService,
   ],

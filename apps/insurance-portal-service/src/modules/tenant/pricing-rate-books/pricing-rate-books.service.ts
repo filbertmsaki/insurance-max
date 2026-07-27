@@ -15,6 +15,7 @@ import { FilterPricingRateBookDto } from './dto/filter-pricing-rate-book.dto';
 import { UpdatePricingRateBookDto } from './dto/update-pricing-rate-book.dto';
 import { PricingRateBookStatus } from './enums/pricing-rate-book-status.enum';
 import { PricingRateBook } from './entities/pricing-rate-book.entity';
+import { PricingRuntimeCacheService } from '../pricing/application/pricing-runtime-cache.service';
 
 @Injectable()
 export class PricingRateBooksService {
@@ -30,6 +31,8 @@ export class PricingRateBooksService {
 
     @InjectRepository(RiskRuleCondition)
     private readonly conditionRepository: Repository<RiskRuleCondition>,
+
+    private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
   ) {}
 
   async create(
@@ -362,7 +365,9 @@ export class PricingRateBooksService {
     rateBook.published_by = userId;
     rateBook.published_at = new Date();
     rateBook.updated_by = userId;
-    return this.rateBookRepository.save(rateBook);
+    const published = await this.rateBookRepository.save(rateBook);
+    await this.pricingRuntimeCacheService.invalidateRateConfiguration(companyId);
+    return published;
   }
 
   async retire(
@@ -376,7 +381,9 @@ export class PricingRateBooksService {
     }
     rateBook.status = PricingRateBookStatus.RETIRED;
     rateBook.updated_by = userId;
-    return this.rateBookRepository.save(rateBook);
+    const retired = await this.rateBookRepository.save(rateBook);
+    await this.pricingRuntimeCacheService.invalidateRateConfiguration(companyId);
+    return retired;
   }
 
   async remove(companyId: string, id: string): Promise<void> {

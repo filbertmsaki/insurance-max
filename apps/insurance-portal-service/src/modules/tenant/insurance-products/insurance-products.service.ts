@@ -13,6 +13,7 @@ import { CreateInsuranceProductDto } from './dto/create-insurance-product.dto';
 import { FilterInsuranceProductDto } from './dto/filter-insurance-product.dto';
 import { UpdateInsuranceProductDto } from './dto/update-insurance-product.dto';
 import { InsuranceProduct } from './entities/insurance-product.entity';
+import { PricingRuntimeCacheService } from '../pricing/application/pricing-runtime-cache.service';
 
 @Injectable()
 export class InsuranceProductsService {
@@ -22,6 +23,8 @@ export class InsuranceProductsService {
 
     @InjectRepository(InsuranceCategory)
     private readonly categoryRepository: Repository<InsuranceCategory>,
+
+    private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
   ) {}
 
   private isDuplicateEntryError(error: unknown): boolean {
@@ -97,7 +100,9 @@ export class InsuranceProductsService {
     });
 
     try {
-      return await this.productRepository.save(product);
+      const saved = await this.productRepository.save(product);
+      await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+      return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
         throw new ConflictException(
@@ -263,7 +268,9 @@ export class InsuranceProductsService {
     product.updated_by = userId;
 
     try {
-      return await this.productRepository.save(product);
+      const saved = await this.productRepository.save(product);
+      await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+      return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
         throw new ConflictException(
@@ -277,5 +284,6 @@ export class InsuranceProductsService {
   async remove(companyId: string, id: string): Promise<void> {
     const product = await this.requireProduct(companyId, id);
     await this.productRepository.softDelete(product.id);
+    await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
   }
 }

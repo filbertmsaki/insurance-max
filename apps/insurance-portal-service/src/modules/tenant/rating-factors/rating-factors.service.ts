@@ -10,12 +10,15 @@ import { CreateRatingFactorDto } from './dto/create-rating-factor.dto';
 import { FilterRatingFactorDto } from './dto/filter-rating-factor.dto';
 import { UpdateRatingFactorDto } from './dto/update-rating-factor.dto';
 import { RatingFactor } from './entities/rating-factor.entity';
+import { PricingRuntimeCacheService } from '../pricing/application/pricing-runtime-cache.service';
 
 @Injectable()
 export class RatingFactorsService {
   constructor(
     @InjectRepository(RatingFactor)
     private readonly factorRepository: Repository<RatingFactor>,
+
+    private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
   ) {}
 
   private isDuplicateEntryError(error: unknown): boolean {
@@ -67,7 +70,9 @@ export class RatingFactorsService {
     });
 
     try {
-      return await this.factorRepository.save(factor);
+      const saved = await this.factorRepository.save(factor);
+      await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+      return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
         throw new ConflictException(
@@ -165,7 +170,9 @@ export class RatingFactorsService {
     factor.updated_by = userId;
 
     try {
-      return await this.factorRepository.save(factor);
+      const saved = await this.factorRepository.save(factor);
+      await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+      return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
         throw new ConflictException(
@@ -179,5 +186,6 @@ export class RatingFactorsService {
   async remove(companyId: string, id: string): Promise<void> {
     const factor = await this.requireFactor(companyId, id);
     await this.factorRepository.softDelete(factor.id);
+    await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
   }
 }

@@ -27,6 +27,7 @@ import { ProductCommissionRule } from './entities/product-commission-rule.entity
 import { ProductDocumentRequirement } from './entities/product-document-requirement.entity';
 import { ProductTaxRule } from './entities/product-tax-rule.entity';
 import { ProductRuleStatus } from './enums/product-rule-status.enum';
+import { PricingRuntimeCacheService } from '../pricing/application/pricing-runtime-cache.service';
 
 @Injectable()
 export class ProductDistributionService {
@@ -57,6 +58,8 @@ export class ProductDistributionService {
 
     @InjectRepository(InsuranceRisk)
     private readonly riskRepository: Repository<InsuranceRisk>,
+
+    private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
   ) {}
 
   async createChannel(
@@ -298,7 +301,9 @@ export class ProductDistributionService {
       status: dto.status ?? ProductRuleStatus.ACTIVE,
     });
 
-    return this.taxRepository.save(record);
+    const saved = await this.taxRepository.save(record);
+    await this.pricingRuntimeCacheService.invalidateTaxConfiguration(companyId);
+    return saved;
   }
 
   async listTaxRules(companyId: string): Promise<ProductTaxRule[]> {
@@ -315,6 +320,7 @@ export class ProductDistributionService {
     });
     if (!record) throw new NotFoundException('Tax rule not found');
     await this.taxRepository.softDelete(record.id);
+    await this.pricingRuntimeCacheService.invalidateTaxConfiguration(companyId);
   }
 
   async restoreTaxRule(companyId: string, id: string): Promise<void> {
@@ -324,6 +330,7 @@ export class ProductDistributionService {
     });
     if (!record) throw new NotFoundException('Tax rule not found');
     await this.taxRepository.restore(record.id);
+    await this.pricingRuntimeCacheService.invalidateTaxConfiguration(companyId);
   }
 
   async createDocumentRequirement(

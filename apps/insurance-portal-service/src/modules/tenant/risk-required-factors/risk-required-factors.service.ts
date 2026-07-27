@@ -11,6 +11,7 @@ import { RatingFactor } from '../rating-factors/entities/rating-factor.entity';
 import { CreateRiskRequiredFactorDto } from './dto/create-risk-required-factor.dto';
 import { UpdateRiskRequiredFactorDto } from './dto/update-risk-required-factor.dto';
 import { RiskRequiredFactor } from './entities/risk-required-factor.entity';
+import { PricingRuntimeCacheService } from '../pricing/application/pricing-runtime-cache.service';
 
 @Injectable()
 export class RiskRequiredFactorsService {
@@ -23,6 +24,8 @@ export class RiskRequiredFactorsService {
 
     @InjectRepository(RatingFactor)
     private readonly factorRepository: Repository<RatingFactor>,
+
+    private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
   ) {}
 
   private isDuplicateEntryError(error: unknown): boolean {
@@ -68,7 +71,9 @@ export class RiskRequiredFactorsService {
     });
 
     try {
-      return await this.requiredFactorRepository.save(rf);
+      const saved = await this.requiredFactorRepository.save(rf);
+      await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+      return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
         throw new ConflictException(
@@ -110,7 +115,9 @@ export class RiskRequiredFactorsService {
     if (dto.sort_order !== undefined) rf.sort_order = dto.sort_order;
     rf.updated_by = userId;
 
-    return this.requiredFactorRepository.save(rf);
+    const saved = await this.requiredFactorRepository.save(rf);
+    await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+    return saved;
   }
 
   async remove(companyId: string, id: string): Promise<void> {
@@ -119,5 +126,6 @@ export class RiskRequiredFactorsService {
     });
     if (!rf) throw new NotFoundException('Risk required factor not found');
     await this.requiredFactorRepository.delete(rf.id);
+    await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
   }
 }

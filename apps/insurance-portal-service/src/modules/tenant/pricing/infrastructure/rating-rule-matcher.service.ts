@@ -18,6 +18,7 @@ import type {
   RiskRuleConditionSummary,
 } from '../domain/pricing.types';
 import { matchLegacyStructuredFormula } from './legacy-structured-formula.util';
+import { PricingRuntimeCacheService } from '../application/pricing-runtime-cache.service';
 
 @Injectable()
 export class RatingRuleMatcherService {
@@ -30,52 +31,64 @@ export class RatingRuleMatcherService {
 
     @InjectRepository(PricingRateBook)
     private readonly rateBookRepository: Repository<PricingRateBook>,
+
+    private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
   ) {}
 
   async findActiveRules(
     companyId: string,
     riskId: string,
+    effectiveDate?: string | null,
   ): Promise<RiskRatingRule[]> {
-    const applicableRateBook = await this.findApplicablePublishedRateBook(
+    return this.pricingRuntimeCacheService.getActiveRules(
       companyId,
       riskId,
-    );
+      this.normalizeEffectiveDate(effectiveDate),
+      async () => {
+        const applicableRateBook = await this.findApplicablePublishedRateBook(
+          companyId,
+          riskId,
+          effectiveDate,
+        );
 
-    if (applicableRateBook) {
-      const versionedRules = await this.ruleRepository.find({
-        where: {
-          company_id: companyId,
-          risk_id: riskId,
-          is_active: true,
-          rate_book_id: applicableRateBook.id,
-        },
-        relations: { conditions: true, rate_book: true },
-        order: { priority: 'ASC', created_at: 'ASC', id: 'ASC' },
-      });
+        if (applicableRateBook) {
+          const versionedRules = await this.ruleRepository.find({
+            where: {
+              company_id: companyId,
+              risk_id: riskId,
+              is_active: true,
+              rate_book_id: applicableRateBook.id,
+            },
+            relations: { conditions: true, rate_book: true },
+            order: { priority: 'ASC', created_at: 'ASC', id: 'ASC' },
+          });
 
-      if (versionedRules.length > 0) {
-        return versionedRules;
-      }
-    }
+          if (versionedRules.length > 0) {
+            return versionedRules;
+          }
+        }
 
-    return this.ruleRepository.find({
-      where: {
-        company_id: companyId,
-        risk_id: riskId,
-        is_active: true,
-        rate_book_id: IsNull(),
+        return this.ruleRepository.find({
+          where: {
+            company_id: companyId,
+            risk_id: riskId,
+            is_active: true,
+            rate_book_id: IsNull(),
+          },
+          relations: { conditions: true, rate_book: true },
+          order: { priority: 'ASC', created_at: 'ASC', id: 'ASC' },
+        });
       },
-      relations: { conditions: true, rate_book: true },
-      order: { priority: 'ASC', created_at: 'ASC', id: 'ASC' },
-    });
+    );
   }
 
   async findFirstMatchingRule(
     companyId: string,
     riskId: string,
     factorValues: PricingFactorValues,
+    effectiveDate?: string | null,
   ): Promise<RiskRatingRule | null> {
-    const rules = await this.findActiveRules(companyId, riskId);
+    const rules = await this.findActiveRules(companyId, riskId, effectiveDate);
     const matchingRules = rules.filter((rule) =>
       this.evaluateRuleConditions(rule.conditions ?? [], factorValues),
     );
@@ -106,6 +119,7 @@ export class RatingRuleMatcherService {
   private async findApplicablePublishedRateBook(
     companyId: string,
     riskId: string,
+    effectiveDate?: string | null,
   ): Promise<PricingRateBook | null> {
     const risk = await this.riskRepository.findOne({
       where: { id: riskId, company_id: companyId },
@@ -114,7 +128,7 @@ export class RatingRuleMatcherService {
       return null;
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = this.normalizeEffectiveDate(effectiveDate);
     const candidateBooks = await this.rateBookRepository.find({
       where: {
         company_id: companyId,
@@ -148,6 +162,10 @@ export class RatingRuleMatcherService {
     }
 
     return applicableBooks[0] ?? null;
+  }
+
+  private normalizeEffectiveDate(value?: string | null): string {
+    return value?.slice(0, 10) || new Date().toISOString().slice(0, 10);
   }
 
   summarizeConditions(

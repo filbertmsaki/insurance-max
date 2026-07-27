@@ -11,12 +11,15 @@ import type {
   PricingChargeCalculationInput,
   PricingChargeSummary,
 } from '../domain/pricing.types';
+import { PricingRuntimeCacheService } from './pricing-runtime-cache.service';
 
 @Injectable()
 export class PricingChargeService {
   constructor(
     @InjectRepository(ProductTaxRule)
     private readonly productTaxRuleRepository: Repository<ProductTaxRule>,
+
+    private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
   ) {}
 
   async calculateCharges(
@@ -24,16 +27,21 @@ export class PricingChargeService {
     input: PricingChargeCalculationInput,
   ): Promise<PricingChargeSummary & { charges: PricingChargeBreakdown[] }> {
     const effectiveDate = input.effective_date ?? this.today();
-    const rules = await this.productTaxRuleRepository.find({
-      where: {
-        company_id: companyId,
-        status: ProductRuleStatus.ACTIVE,
-      },
-      order: {
-        effective_from: 'ASC',
-        created_at: 'ASC',
-      },
-    });
+    const rules = await this.pricingRuntimeCacheService.getActiveTaxRules(
+      companyId,
+      effectiveDate,
+      () =>
+        this.productTaxRuleRepository.find({
+          where: {
+            company_id: companyId,
+            status: ProductRuleStatus.ACTIVE,
+          },
+          order: {
+            effective_from: 'ASC',
+            created_at: 'ASC',
+          },
+        }),
+    );
 
     const charges = rules
       .filter((rule) => this.ruleMatches(rule, input, effectiveDate))

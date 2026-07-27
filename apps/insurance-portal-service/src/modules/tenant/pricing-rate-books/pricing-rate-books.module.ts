@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
+import { PricingRuntimeCacheModule } from '../pricing/pricing-runtime-cache.module';
 import { RiskRuleCondition } from '../risk-rule-conditions/entities/risk-rule-condition.entity';
 import { RiskRatingRule } from '../risk-rating-rules/entities/risk-rating-rule.entity';
 import { PricingRateBooksController } from './pricing-rate-books.controller';
@@ -9,6 +10,7 @@ import { PricingRateBook } from './entities/pricing-rate-book.entity';
 
 @Module({
   imports: [
+    PricingRuntimeCacheModule,
     TypeOrmModule.forFeature([
       PricingRateBook,
       InsuranceProduct,

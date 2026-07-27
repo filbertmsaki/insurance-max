@@ -17,6 +17,7 @@ import {
 } from '../entities/pricing-quote.entity';
 import { PricingEngineService } from './pricing-engine.service';
 import { QuotationRecalculationService } from './quotation-recalculation.service';
+import { PricingRuntimeCacheService } from './pricing-runtime-cache.service';
 import type {
   MultiRiskPremiumResult,
   PersistedMultiRiskPremiumResult,
@@ -37,12 +38,17 @@ import type {
 @Injectable()
 export class PricingQuoteService {
   private readonly defaultExpiryHours = 24;
+  private readonly inFlightCalculations = new Map<
+    string,
+    Promise<PersistedRiskPremiumResult | PersistedMultiRiskPremiumResult>
+  >();
 
   constructor(
     private readonly pricingEngineService: PricingEngineService,
     private readonly quotationRecalculationService: QuotationRecalculationService,
     private readonly identifierGeneratorService: IdentifierGeneratorService,
     private readonly exchangeRateGovernanceService: ExchangeRateGovernanceService,
+    private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
 
     @InjectRepository(PricingQuote)
     private readonly pricingQuoteRepository: Repository<PricingQuote>,
@@ -67,39 +73,67 @@ export class PricingQuoteService {
         },
         user,
       );
-    const engineResult = await this.pricingEngineService.calculateSingleRisk(
-      companyId,
-      input,
-    );
-    const result: RiskPremiumResult = {
-      ...engineResult,
-      exchange_rate_snapshot: exchangeRateSnapshot,
-    };
-    const snapshot = await this.persistQuoteSnapshot(
-      companyId,
-      PricingQuoteScope.SINGLE_RISK,
-      input,
-      result,
-      calculatedBy,
-      {
-        company_user_id: null,
-        branch_id: null,
-        department_id: null,
-        exchange_rate_snapshot: exchangeRateSnapshot,
+    const inputSignature =
+      this.quotationRecalculationService.createInputSignature(input);
+    const exchangeRateSignature =
+      this.quotationRecalculationService.createInputSignature(
+        exchangeRateSnapshot ?? null,
+      );
+    const runtimeConfigurationSignature =
+      await this.pricingRuntimeCacheService.getConfigurationSignature(
+        companyId,
+        ['product', 'rate', 'tax'],
+      );
+
+    return this.runCoalescedCalculation(
+      this.buildCalculationKey(
+        companyId,
+        PricingQuoteScope.SINGLE_RISK,
+        inputSignature,
+        exchangeRateSignature,
+        runtimeConfigurationSignature,
+      ),
+      async () => {
+        const reusable = await this.findReusableQuoteSnapshot(
+          companyId,
+          PricingQuoteScope.SINGLE_RISK,
+          inputSignature,
+          exchangeRateSignature,
+          runtimeConfigurationSignature,
+        );
+        if (reusable) {
+          return this.mapPersistedQuote(
+            reusable,
+          ) as PersistedRiskPremiumResult;
+        }
+
+        const engineResult = await this.pricingEngineService.calculateSingleRisk(
+          companyId,
+          input,
+        );
+        const result: RiskPremiumResult = {
+          ...engineResult,
+          exchange_rate_snapshot: exchangeRateSnapshot,
+        };
+        const snapshot = await this.persistQuoteSnapshot(
+          companyId,
+          PricingQuoteScope.SINGLE_RISK,
+          input,
+          result,
+          calculatedBy,
+          {
+            company_user_id: null,
+            branch_id: null,
+            department_id: null,
+            exchange_rate_snapshot: exchangeRateSnapshot,
+            exchange_rate_signature: exchangeRateSignature,
+            runtime_configuration_signature: runtimeConfigurationSignature,
+          },
+          inputSignature,
+        );
+        return this.toPersistedResult(snapshot) as PersistedRiskPremiumResult;
       },
     );
-    const persistedResult = snapshot.result as RiskPremiumResult;
-
-    return {
-      ...persistedResult,
-      pricing_quote_id: snapshot.pricing_quote_id,
-      pricing_status: snapshot.pricing_status,
-      calculated_at: snapshot.calculated_at,
-      expires_at: snapshot.expires_at,
-      input_signature: snapshot.input_signature,
-      quotation_type: snapshot.quotation_type,
-      currency_code: snapshot.currency_code,
-    };
   }
 
   async calculateMultiRiskQuote(
@@ -118,42 +152,72 @@ export class PricingQuoteService {
         },
         user,
       );
-    const engineResult = await this.pricingEngineService.calculateMultiRisk(
-      companyId,
-      input,
-    );
-    const result: MultiRiskPremiumResult = {
-      ...engineResult,
-      risks: engineResult.risks.map((risk) => ({
-        ...risk,
-        exchange_rate_snapshot: exchangeRateSnapshot,
-      })),
-    };
-    const snapshot = await this.persistQuoteSnapshot(
-      companyId,
-      PricingQuoteScope.MULTI_RISK,
-      input,
-      result,
-      calculatedBy,
-      {
-        company_user_id: input.company_user_id ?? null,
-        branch_id: input.branch_id ?? null,
-        department_id: input.department_id ?? null,
-        exchange_rate_snapshot: exchangeRateSnapshot,
+    const inputSignature =
+      this.quotationRecalculationService.createInputSignature(input);
+    const exchangeRateSignature =
+      this.quotationRecalculationService.createInputSignature(
+        exchangeRateSnapshot ?? null,
+      );
+    const runtimeConfigurationSignature =
+      await this.pricingRuntimeCacheService.getConfigurationSignature(
+        companyId,
+        ['product', 'rate', 'tax'],
+      );
+
+    return this.runCoalescedCalculation(
+      this.buildCalculationKey(
+        companyId,
+        PricingQuoteScope.MULTI_RISK,
+        inputSignature,
+        exchangeRateSignature,
+        runtimeConfigurationSignature,
+      ),
+      async () => {
+        const reusable = await this.findReusableQuoteSnapshot(
+          companyId,
+          PricingQuoteScope.MULTI_RISK,
+          inputSignature,
+          exchangeRateSignature,
+          runtimeConfigurationSignature,
+        );
+        if (reusable) {
+          return this.mapPersistedQuote(
+            reusable,
+          ) as PersistedMultiRiskPremiumResult;
+        }
+
+        const engineResult = await this.pricingEngineService.calculateMultiRisk(
+          companyId,
+          input,
+        );
+        const result: MultiRiskPremiumResult = {
+          ...engineResult,
+          risks: engineResult.risks.map((risk) => ({
+            ...risk,
+            exchange_rate_snapshot: exchangeRateSnapshot,
+          })),
+        };
+        const snapshot = await this.persistQuoteSnapshot(
+          companyId,
+          PricingQuoteScope.MULTI_RISK,
+          input,
+          result,
+          calculatedBy,
+          {
+            company_user_id: input.company_user_id ?? null,
+            branch_id: input.branch_id ?? null,
+            department_id: input.department_id ?? null,
+            exchange_rate_snapshot: exchangeRateSnapshot,
+            exchange_rate_signature: exchangeRateSignature,
+            runtime_configuration_signature: runtimeConfigurationSignature,
+          },
+          inputSignature,
+        );
+        return this.toPersistedResult(
+          snapshot,
+        ) as PersistedMultiRiskPremiumResult;
       },
     );
-    const persistedResult = snapshot.result as MultiRiskPremiumResult;
-
-    return {
-      ...persistedResult,
-      pricing_quote_id: snapshot.pricing_quote_id,
-      pricing_status: snapshot.pricing_status,
-      calculated_at: snapshot.calculated_at,
-      expires_at: snapshot.expires_at,
-      input_signature: snapshot.input_signature,
-      quotation_type: snapshot.quotation_type,
-      currency_code: snapshot.currency_code,
-    };
   }
 
   async findStoredQuote(
@@ -204,13 +268,12 @@ export class PricingQuoteService {
     result: RiskPremiumResult | MultiRiskPremiumResult,
     calculatedBy: string | null,
     contextPayload: Record<string, unknown> | null,
+    inputSignature: string,
   ): Promise<PricingQuoteSnapshot<RiskPremiumResult | MultiRiskPremiumResult>> {
     const calculatedAt = new Date();
     const expiresAt = new Date(
       calculatedAt.getTime() + this.defaultExpiryHours * 60 * 60 * 1000,
     );
-    const inputSignature =
-      this.quotationRecalculationService.createInputSignature(input);
     const { pricingQuoteId, sequenceNo } =
       await this.identifierGeneratorService.generatePricingQuoteId();
     const riskIds = this.collectRiskIds(result);
@@ -269,6 +332,7 @@ export class PricingQuoteService {
       warning_messages: this.collectWarnings(enrichedResult),
       context_payload: {
         ...(contextPayload ?? {}),
+        pricing_trace_id: pricingQuoteId,
         risk_ids: riskIds,
         product_ids: productIds,
         rate_book_ids: this.collectRateBookIds(result),
@@ -288,6 +352,112 @@ export class PricingQuoteService {
       quotation_type: quotationType,
       currency_code: currencyCode,
       result: enrichedResult,
+    };
+  }
+
+  private async runCoalescedCalculation<
+    T extends PersistedRiskPremiumResult | PersistedMultiRiskPremiumResult,
+  >(key: string, loader: () => Promise<T>): Promise<T> {
+    const existing = this.inFlightCalculations.get(key) as Promise<T> | undefined;
+    if (existing) {
+      return existing;
+    }
+
+    const pending = loader();
+    this.inFlightCalculations.set(key, pending);
+
+    try {
+      return await pending;
+    } finally {
+      this.inFlightCalculations.delete(key);
+    }
+  }
+
+  private buildCalculationKey(
+    companyId: string,
+    quoteScope: PricingQuoteScope,
+    inputSignature: string,
+    exchangeRateSignature: string,
+    runtimeConfigurationSignature: string,
+  ): string {
+    return [
+      companyId,
+      quoteScope,
+      inputSignature,
+      exchangeRateSignature,
+      runtimeConfigurationSignature,
+    ].join(':');
+  }
+
+  private async findReusableQuoteSnapshot(
+    companyId: string,
+    quoteScope: PricingQuoteScope,
+    inputSignature: string,
+    exchangeRateSignature: string,
+    runtimeConfigurationSignature: string,
+  ): Promise<PricingQuote | null> {
+    const candidates = await this.pricingQuoteRepository.find({
+      where: {
+        company_id: companyId,
+        quote_scope: quoteScope,
+        calculation_status: PricingQuoteStatus.CALCULATED,
+        input_signature: inputSignature,
+      },
+      order: {
+        calculated_at: 'DESC',
+      },
+      take: 5,
+    });
+
+    const now = Date.now();
+
+    return (
+      candidates.find((candidate) => {
+        if (candidate.expires_at.getTime() <= now) {
+          return false;
+        }
+
+        const context = candidate.context_payload as Record<string, unknown> | null;
+        return (
+          context?.exchange_rate_signature === exchangeRateSignature &&
+          context?.runtime_configuration_signature ===
+            runtimeConfigurationSignature
+        );
+      }) ?? null
+    );
+  }
+
+  private mapPersistedQuote(
+    quote: PricingQuote,
+  ): PersistedRiskPremiumResult | PersistedMultiRiskPremiumResult {
+    const result = quote.result_payload as unknown as
+      | RiskPremiumResult
+      | MultiRiskPremiumResult;
+
+    return {
+      ...result,
+      pricing_quote_id: quote.pricing_quote_id,
+      pricing_status: quote.calculation_status,
+      calculated_at: quote.calculated_at.toISOString(),
+      expires_at: quote.expires_at.toISOString(),
+      input_signature: quote.input_signature,
+      quotation_type: quote.quotation_type,
+      currency_code: quote.currency_code,
+    };
+  }
+
+  private toPersistedResult(
+    snapshot: PricingQuoteSnapshot<RiskPremiumResult | MultiRiskPremiumResult>,
+  ): PersistedRiskPremiumResult | PersistedMultiRiskPremiumResult {
+    return {
+      ...snapshot.result,
+      pricing_quote_id: snapshot.pricing_quote_id,
+      pricing_status: snapshot.pricing_status,
+      calculated_at: snapshot.calculated_at,
+      expires_at: snapshot.expires_at,
+      input_signature: snapshot.input_signature,
+      quotation_type: snapshot.quotation_type,
+      currency_code: snapshot.currency_code,
     };
   }
 
