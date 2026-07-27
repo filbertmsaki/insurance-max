@@ -280,7 +280,7 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
 
   return (
     <>
-      <StepSection title="Step 5. Motor Details" first>
+      <StepSection title="Step 3. Motor Details" first>
         <div className="flex gap-2">
             {[
               { value: 'existing' as const, label: 'Existing Vehicle' },

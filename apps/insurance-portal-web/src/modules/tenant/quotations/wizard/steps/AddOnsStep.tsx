@@ -20,7 +20,11 @@ export function AddOnsStep({ form, fieldArray }: Props) {
 
   return (
     <StepSection
-      title="Step 4. Add-ons"
+      title={
+        form.watch('quotation_type') === 'MOTOR' && !form.watch('is_fleet')
+          ? 'Step 5. Add-ons'
+          : 'Step 4. Add-ons'
+      }
       first
       action={
         <Button type="button" variant="outline" size="sm" onClick={() => append(createEmptyAddonRow())}>

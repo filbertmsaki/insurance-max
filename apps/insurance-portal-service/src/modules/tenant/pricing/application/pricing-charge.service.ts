@@ -45,6 +45,12 @@ export class PricingChargeService {
 
     const charges = rules
       .filter((rule) => this.ruleMatches(rule, input, effectiveDate))
+      .filter(
+        (rule) =>
+          !input.tax_rule_ids ||
+          input.tax_rule_ids.length === 0 ||
+          input.tax_rule_ids.includes(rule.id),
+      )
       .map((rule) => this.toBreakdown(rule, input));
 
     const totalChargeAmount = roundMoney(

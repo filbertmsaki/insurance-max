@@ -4,6 +4,13 @@ import { RateType } from '@insurance-max/portal-shared/enums/rate-type.enum';
 
 export type PricingFactorValues = Record<string, string | number | boolean>;
 
+export interface PricingAdjustmentRequestInput {
+  rate?: number | null;
+  fixed_amount?: number | null;
+}
+
+export type PricingAdjustmentType = 'PERCENTAGE' | 'FIXED' | 'NONE';
+
 export interface PricingSingleRiskInput {
   client_reference?: string;
   risk_id: string;
@@ -14,6 +21,9 @@ export interface PricingSingleRiskInput {
   quotation_type?: string;
   currency_code?: string;
   exchange_rate?: number;
+  discount?: PricingAdjustmentRequestInput | null;
+  loading?: PricingAdjustmentRequestInput | null;
+  tax_rule_ids?: string[] | null;
 }
 
 export interface PricingMultiRiskInput {
@@ -100,6 +110,7 @@ export interface PricingChargeCalculationInput {
   basic_premium: number;
   net_premium: number;
   gross_premium: number;
+  tax_rule_ids?: string[] | null;
 }
 
 export type ExchangeRateSource = 'PARITY' | 'MANUAL';
@@ -242,6 +253,35 @@ export interface RiskPremiumResult {
   factors: PricingFactorValues;
   validation_errors: string[];
   validation_warnings: string[];
+
+  // --- Documented calculation-response contract (additive; mirrors the
+  // fields above under the names the frontend binds form fields to) ---
+  premium_rate: number;
+  premium_rate_percent: number;
+  raw_premium: number;
+  sum_insured_equivalent: number;
+  minimum_premium: number;
+  minimum_premium_applied: boolean;
+  /** Not yet supported: no maximum-premium ceiling exists on rating rules. */
+  maximum_premium: number | null;
+  maximum_premium_applied: boolean;
+  loading_rate: number | null;
+  loading_amount: number;
+  loading_approval_required: boolean;
+  discount_type: PricingAdjustmentType;
+  discount_rate: number | null;
+  discount_amount: number;
+  discount_approval_required: boolean;
+  premium_before_discount: number;
+  premium_after_discount: number;
+  premium_excluding_tax: number;
+  premium_excluding_tax_equivalent: number;
+  tax_rate: number | null;
+  tax_amount: number;
+  total_tax_amount: number;
+  premium_including_tax: number;
+  premium_including_tax_equivalent: number;
+  final_payable_premium: number;
 }
 
 export interface MultiRiskPremiumFailure {

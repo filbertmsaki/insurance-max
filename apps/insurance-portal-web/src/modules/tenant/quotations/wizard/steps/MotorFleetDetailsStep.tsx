@@ -77,9 +77,9 @@ type VehicleStep = 0 | 1 | 2 | 3 | 4;
 
 const VEHICLE_STEPS: Array<{ id: VehicleStep; label: string }> = [
   { id: 0, label: 'Vehicle Cover Note' },
+  { id: 3, label: 'Motor Details' },
   { id: 1, label: 'Risk & Premium' },
   { id: 2, label: 'Subject Matter & Add-ons' },
-  { id: 3, label: 'Motor Details' },
   { id: 4, label: 'Review & Save Vehicle' },
 ];
 

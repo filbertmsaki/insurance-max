@@ -44,9 +44,9 @@ export function getWizardStepsForFlow(
         ? [
             'cover-note',
             'policyholder',
+            'motor',
             'risk-premium',
             'addons',
-            'motor',
             'summary',
           ]
         : ['fleet-setup', 'policyholder', 'fleet-vehicles', 'summary'];
