@@ -168,9 +168,6 @@ export function useRiskPremiumCalculation(
   // The moment the rule list for the selected risk resolves — before sum
   // insured is entered or any calculation call fires — surface the minimum
   // premium from the highest-priority (lowest priority number) active rule.
-  // Deliberately does NOT touch premium_rate/premium_before_discount or any
-  // other premium field here: those come only from a real calculation
-  // result (or a saved/hydrated quotation), never from this placeholder.
   useEffect(() => {
     if (!riskId) return;
 
@@ -180,6 +177,12 @@ export function useRiskPremiumCalculation(
 
     const topRule = [...activeRules].sort((a, b) => a.priority - b.priority)[0];
     const minimumAmount = String(topRule.minimum_amount ?? 0);
+    const minimumRate = String(topRule.percentage_rate ?? 0);
+
+    const currentMetadata = readPricingQuoteMetadata(
+      form.getValues(path(index, 'rating_result_metadata')),
+    );
+    if (currentMetadata?.pricing_quote_id) return;
 
     const currentMinimumAmount = form.getValues(
       path(index, 'minimum_amount'),
@@ -187,6 +190,20 @@ export function useRiskPremiumCalculation(
     if (currentMinimumAmount !== minimumAmount) {
       form.setValue(path(index, 'minimum_amount'), minimumAmount);
     }
+
+    const previewFields = [
+      ['premium_rate', minimumRate],
+      ['premium_before_discount', minimumAmount],
+      ['premium_after_discount', minimumAmount],
+      ['premium_excluding_tax_equivalent', minimumAmount],
+      ['premium_including_tax', minimumAmount],
+    ] as const;
+    previewFields.forEach(([fieldName, value]) => {
+      const fieldPath = path(index, fieldName);
+      if (form.getValues(fieldPath) !== value) {
+        form.setValue(fieldPath, value);
+      }
+    });
   }, [form, index, riskId, ruleListQuery.data]);
 
   useEffect(() => {

@@ -30,17 +30,13 @@ import {
   TAX_CODE_OPTIONS,
   TAX_EXEMPTION_OPTIONS,
   TAX_EXEMPTION_TYPE_OPTIONS,
-  getTaxRateForCode,
 } from '../utils/taxOptions';
 import {
   fromSelectValue,
   SELECT_NONE_VALUE,
   toSelectValue,
 } from '../utils/selectValue';
-import {
-  recomputeRiskTaxTotals,
-  toNumber,
-} from '../utils/premiumAggregation';
+import { toNumber } from '../utils/premiumAggregation';
 import { motorFieldNameForFactorCode } from '../utils/riskFactorResolver';
 import { useRiskPremiumCalculation } from '../hooks/useRiskPremiumCalculation';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -164,30 +160,6 @@ export function RiskRow({
     name: `risks.${index}.taxes_charged` as const,
   });
   const taxes = watchedTaxes ?? EMPTY_TAX_ROWS;
-  const previousTaxCodesRef = useRef<string[]>([]);
-
-  useEffect(() => {
-    const previousCodes = previousTaxCodesRef.current;
-    const taxCodeChanged =
-      previousCodes.length === taxes.length &&
-      taxes.some((tax, taxIndex) => tax.tax_code !== previousCodes[taxIndex]);
-
-    if (taxCodeChanged) {
-      const nextTaxes = taxes.map((tax) => ({
-        ...tax,
-        tax_rate: getTaxRateForCode(tax.tax_code),
-        tax_amount: '',
-      }));
-      const nextRow = recomputeRiskTaxTotals({
-        ...form.getValues(`risks.${index}`),
-        taxes_charged: nextTaxes,
-      });
-      form.setValue(path(index, 'taxes_charged'), nextRow.taxes_charged);
-      form.setValue(path(index, 'premium_including_tax'), nextRow.premium_including_tax);
-    }
-
-    previousTaxCodesRef.current = taxes.map((tax) => tax.tax_code);
-  }, [form, index, taxes]);
   const premiumAfterDiscount = form.watch(
     `risks.${index}.premium_after_discount` as const,
   );
