@@ -150,7 +150,7 @@ export class AddCentralIdentifierGeneration1783000000100 implements MigrationInt
   }
 
   private async backfillRegistry(queryRunner: QueryRunner): Promise<void> {
-    const rows = (await queryRunner.query(
+    const queries: string[] = [
       `
         SELECT
           id::text AS related_entity_id,
@@ -160,9 +160,26 @@ export class AddCentralIdentifierGeneration1783000000100 implements MigrationInt
           'quotations' AS related_entity_type
         FROM quotations
         WHERE quotation_no IS NOT NULL
+      `,
+      `
+        SELECT
+          id::text AS related_entity_id,
+          company_id::text AS company_id,
+          'TIRAMIS_REQUEST' AS identifier_type,
+          tiramis_request_id AS identifier_value,
+          'portal_tira_submissions' AS related_entity_type
+        FROM portal_tira_submissions
+        WHERE tiramis_request_id IS NOT NULL
+      `,
+    ];
 
-        UNION ALL
-
+    // On a fresh migration run this table is created later, by
+    // CreateNormalizedQuotationSchema1784700000000 — skip the backfill until it exists.
+    const hasCoverNoteEntries = await queryRunner.hasTable(
+      'quotation_cover_note_entries',
+    );
+    if (hasCoverNoteEntries) {
+      queries.push(`
         SELECT
           entry.id::text AS related_entity_id,
           quotation.company_id::text AS company_id,
@@ -175,18 +192,11 @@ export class AddCentralIdentifierGeneration1783000000100 implements MigrationInt
         INNER JOIN quotations quotation
           ON quotation.id = cover_note.quotation_id
         WHERE entry.cover_note_number IS NOT NULL
+      `);
+    }
 
-        UNION ALL
-
-        SELECT
-          id::text AS related_entity_id,
-          company_id::text AS company_id,
-          'TIRAMIS_REQUEST' AS identifier_type,
-          tiramis_request_id AS identifier_value,
-          'portal_tira_submissions' AS related_entity_type
-        FROM portal_tira_submissions
-        WHERE tiramis_request_id IS NOT NULL
-      `,
+    const rows = (await queryRunner.query(
+      queries.join('\nUNION ALL\n'),
     )) as ExistingIdentifierRow[];
 
     for (const row of rows) {
