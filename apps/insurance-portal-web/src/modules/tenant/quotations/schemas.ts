@@ -188,7 +188,7 @@ export function createEmptyRiskTaxRow() {
   return createEmptyTaxRow();
 }
 
-const quotationRiskRowSchema = z.object({
+export const quotationRiskRowSchema = z.object({
   client_ref: z
     .string()
     .optional()
