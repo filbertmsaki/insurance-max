@@ -256,8 +256,13 @@ function createServiceFixture(options: {
       (_c: unknown, _f: unknown, loader: () => unknown) => loader(),
     ),
     getActiveRules: jest.fn(
-      (_c: unknown, _r: unknown, _d: unknown, loader: () => unknown) =>
-        loader(),
+      (
+        _c: unknown,
+        _r: unknown,
+        _d: unknown,
+        _cur: unknown,
+        loader: () => unknown,
+      ) => loader(),
     ),
     getActiveTaxRules: jest.fn(
       (_c: unknown, _d: unknown, loader: () => unknown) => loader(),

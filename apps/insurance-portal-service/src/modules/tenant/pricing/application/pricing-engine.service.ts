@@ -62,6 +62,7 @@ export class PricingEngineService {
       input.risk_id,
       validationResult.normalized_factor_values,
       input.effective_date ?? null,
+      input.currency_code ?? null,
     );
 
     if (!matchingRule) {

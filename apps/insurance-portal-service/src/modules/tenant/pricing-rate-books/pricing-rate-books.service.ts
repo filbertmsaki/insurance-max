@@ -207,6 +207,20 @@ export class PricingRateBooksService {
               per_unit_amount: rule.per_unit_amount,
               per_unit_factor_code: rule.per_unit_factor_code,
               minimum_amount: rule.minimum_amount,
+              max_discount_rate: rule.max_discount_rate,
+              max_discount_amount: rule.max_discount_amount,
+              discount_approval_threshold_rate:
+                rule.discount_approval_threshold_rate,
+              discount_approval_threshold_amount:
+                rule.discount_approval_threshold_amount,
+              max_loading_rate: rule.max_loading_rate,
+              max_loading_amount: rule.max_loading_amount,
+              loading_approval_threshold_rate:
+                rule.loading_approval_threshold_rate,
+              loading_approval_threshold_amount:
+                rule.loading_approval_threshold_amount,
+              adjustment_effective_from: rule.adjustment_effective_from,
+              adjustment_effective_to: rule.adjustment_effective_to,
               formula: rule.formula,
               priority: rule.priority,
               is_active: rule.is_active,

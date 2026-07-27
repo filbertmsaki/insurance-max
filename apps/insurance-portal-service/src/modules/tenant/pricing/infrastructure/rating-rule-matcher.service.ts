@@ -39,16 +39,19 @@ export class RatingRuleMatcherService {
     companyId: string,
     riskId: string,
     effectiveDate?: string | null,
+    currencyCode?: string | null,
   ): Promise<RiskRatingRule[]> {
     return this.pricingRuntimeCacheService.getActiveRules(
       companyId,
       riskId,
       this.normalizeEffectiveDate(effectiveDate),
+      currencyCode ?? null,
       async () => {
         const applicableRateBook = await this.findApplicablePublishedRateBook(
           companyId,
           riskId,
           effectiveDate,
+          currencyCode,
         );
 
         if (applicableRateBook) {
@@ -87,8 +90,14 @@ export class RatingRuleMatcherService {
     riskId: string,
     factorValues: PricingFactorValues,
     effectiveDate?: string | null,
+    currencyCode?: string | null,
   ): Promise<RiskRatingRule | null> {
-    const rules = await this.findActiveRules(companyId, riskId, effectiveDate);
+    const rules = await this.findActiveRules(
+      companyId,
+      riskId,
+      effectiveDate,
+      currencyCode,
+    );
     const matchingRules = rules.filter((rule) =>
       this.evaluateRuleConditions(rule.conditions ?? [], factorValues),
     );
@@ -120,6 +129,7 @@ export class RatingRuleMatcherService {
     companyId: string,
     riskId: string,
     effectiveDate?: string | null,
+    currencyCode?: string | null,
   ): Promise<PricingRateBook | null> {
     const risk = await this.riskRepository.findOne({
       where: { id: riskId, company_id: companyId },
@@ -144,7 +154,16 @@ export class RatingRuleMatcherService {
 
     const applicableBooks = candidateBooks.filter((book) => {
       const endsAfterToday = !book.effective_to || book.effective_to >= today;
-      return book.effective_from <= today && endsAfterToday;
+      const isEffective = book.effective_from <= today && endsAfterToday;
+      // A rate book scoped to a specific currency only applies to a
+      // calculation requesting that same currency. Currency-agnostic books
+      // (currency_code IS NULL) remain their own bucket, matching the
+      // overlap guard already enforced in PricingRateBooksService.publish().
+      const matchesCurrency =
+        !currencyCode ||
+        !book.currency_code ||
+        book.currency_code === currencyCode;
+      return isEffective && matchesCurrency;
     });
 
     if (applicableBooks.length > 1) {

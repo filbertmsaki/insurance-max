@@ -73,12 +73,13 @@ export class PricingRuntimeCacheService {
     companyId: string,
     riskId: string,
     effectiveDate: string,
+    currencyCode: string | null,
     loader: () => Promise<T>,
   ): Promise<T> {
     return this.getOrLoadJson(
       'active-rules',
       companyId,
-      [riskId, effectiveDate],
+      [riskId, effectiveDate, currencyCode ?? 'ANY'],
       ['product', 'rate'],
       loader,
     );
