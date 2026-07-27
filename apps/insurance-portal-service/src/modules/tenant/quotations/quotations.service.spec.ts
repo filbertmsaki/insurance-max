@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 import { ApprovalStatus } from './enums/approval-status.enum';
@@ -228,7 +232,13 @@ describe('QuotationsService', () => {
       toResponse: jest.fn().mockImplementation((value: any) => value),
     } as unknown as QuotationPayloadMapper;
 
-    const previewMapper = {} as QuotationPreviewMapper;
+    const previewMapper = {
+      toResponse: jest.fn().mockReturnValue({
+        overview: {
+          quotation_flow: authoritativePayload.internal_quotation.quotation_flow,
+        },
+      }),
+    } as unknown as QuotationPreviewMapper;
 
     const payloadValidator = {
       assertValid: jest.fn(),
@@ -335,6 +345,7 @@ describe('QuotationsService', () => {
       quotation,
       premiumOverrideRepositoryMock,
       payloadMapper,
+      previewMapper,
       pricingChargeService,
       quotationLifecycleService,
       quotationEntryRiskRepositoryMock,
@@ -438,7 +449,13 @@ describe('QuotationsService', () => {
   it('exposes a current pricing integration summary on quotation detail responses', async () => {
     const fixture = createServiceFixture();
 
-    const result = await fixture.service.findOne('company-1', fixture.quotation.id);
+    const result = await fixture.service.findOne(
+      'company-1',
+      fixture.quotation.id,
+      {
+        permissions: ['pricing.view_breakdown'],
+      } as any,
+    );
 
     expect(result.pricing_integration).toEqual(
       expect.objectContaining({
@@ -454,6 +471,182 @@ describe('QuotationsService', () => {
         approval_status: ApprovalStatus.NOT_REQUIRED,
       }),
     );
+  });
+
+  it('hides pricing integration on quotation detail responses without breakdown permission', async () => {
+    const fixture = createServiceFixture();
+
+    const result = await fixture.service.findOne(
+      'company-1',
+      fixture.quotation.id,
+      {
+        permissions: [],
+      } as any,
+    );
+
+    expect(result.pricing_integration).toBeNull();
+  });
+
+  it('only includes premium overrides in previews when the caller can view pricing audit data', async () => {
+    const fixture = createServiceFixture();
+    jest
+      .spyOn(fixture.service as any, 'findLatestInvoice')
+      .mockResolvedValue(null);
+    jest
+      .spyOn(fixture.service as any, 'findLatestReceipt')
+      .mockResolvedValue(null);
+    jest
+      .spyOn(fixture.service as any, 'findLatestPaymentTransaction')
+      .mockResolvedValue(null);
+    jest
+      .spyOn(fixture.service as any, 'findLatestPortalSubmission')
+      .mockResolvedValue(null);
+    jest
+      .spyOn(fixture.service as any, 'findLatestTiramisTracking')
+      .mockResolvedValue(null);
+    jest
+      .spyOn(fixture.service as any, 'findTiramisTrackingByEntry')
+      .mockResolvedValue(new Map());
+
+    const withAuditResult = await fixture.service.getPreview(
+      'company-1',
+      fixture.quotation.id,
+      {
+        permissions: ['pricing.view_audit', 'pricing.view_breakdown'],
+      } as any,
+    );
+
+    expect(fixture.previewMapper.toResponse).toHaveBeenLastCalledWith(
+      fixture.quotation,
+      expect.any(Object),
+      expect.objectContaining({
+        includePremiumOverrides: true,
+      }),
+    );
+    expect(withAuditResult.pricing_integration).toEqual(
+      expect.objectContaining({
+        pricing_status: 'CURRENT',
+      }),
+    );
+
+    const withoutAuditResult = await fixture.service.getPreview(
+      'company-1',
+      fixture.quotation.id,
+      {
+        permissions: [],
+      } as any,
+    );
+
+    expect(fixture.previewMapper.toResponse).toHaveBeenLastCalledWith(
+      fixture.quotation,
+      expect.any(Object),
+      expect.objectContaining({
+        includePremiumOverrides: false,
+      }),
+    );
+    expect(withoutAuditResult.pricing_integration).toBeNull();
+  });
+
+  it('blocks quotation creation when discount requests are submitted without request permission', async () => {
+    const fixture = createServiceFixture();
+    const payload = createMotorSingleQuotationPayload();
+
+    jest
+      .spyOn(fixture.service as any, 'preparePayloadWithGeneratedIdentifiers')
+      .mockResolvedValue(payload);
+    jest.spyOn(fixture.service as any, 'validateScope').mockResolvedValue({
+      product: { id: 'product-1' },
+      riskByCode: new Map([['SP005001000001', { id: 'risk-1' }]]),
+    });
+    jest
+      .spyOn(fixture.service as any, 'resolveExchangeRateSnapshot')
+      .mockResolvedValue(null);
+    jest
+      .spyOn(fixture.service as any, 'validateAuthoritativePricing')
+      .mockResolvedValue(undefined);
+
+    await expect(
+      fixture.service.create('company-1', payload, {
+        id: 'user-1',
+        permissions: [],
+      } as any),
+    ).rejects.toThrow(ForbiddenException);
+    await expect(
+      fixture.service.create('company-1', payload, {
+        id: 'user-1',
+        permissions: [],
+      } as any),
+    ).rejects.toThrow('You do not have permission to request quotation discounts');
+    expect(fixture.dataSource.transaction).not.toHaveBeenCalled();
+  });
+
+  it('allows unchanged approved discounts to remain on replacement without approval permission changes', () => {
+    const fixture = createServiceFixture();
+    const payload = createMotorSingleQuotationPayload();
+    const discount = payload.cover_note_dtl.risks_covered?.[0]?.discounts_offered?.[0];
+
+    if (!discount) {
+      throw new Error('Expected fixture payload to include a discount');
+    }
+
+    Object.assign(discount, {
+      approval_status: 'APPROVED',
+      approved_rate: 0.05,
+      approved_amount: 5000,
+      approved_by: 'manager-1',
+      approval_date: '2026-07-27',
+    });
+    fixture.quotation.cover_note.entries[0].risks[0].discounts = [
+      {
+        sequence_no: 1,
+        discount_rate: 0.05,
+        discount_amount: 5000,
+        request_reason_code: 'LOYALTY',
+        request_comment: 'Introductory loyalty discount',
+        effective_from: null,
+        effective_to: null,
+        approval_status: 'APPROVED',
+        approved_rate: 0.05,
+        approved_amount: 5000,
+        approved_by: 'manager-1',
+        approval_date: '2026-07-27',
+        rejection_reason: null,
+      },
+    ];
+
+    expect(() =>
+      (fixture.service as any).assertDiscountPermissions(
+        payload,
+        {
+          permissions: [],
+        },
+        fixture.quotation,
+      ),
+    ).not.toThrow();
+  });
+
+  it('blocks discount approval decisions when the caller lacks approval permission', () => {
+    const fixture = createServiceFixture();
+    const payload = createMotorSingleQuotationPayload();
+    const discount = payload.cover_note_dtl.risks_covered?.[0]?.discounts_offered?.[0];
+
+    if (!discount) {
+      throw new Error('Expected fixture payload to include a discount');
+    }
+
+    Object.assign(discount, {
+      approval_status: 'APPROVED',
+      approved_rate: 0.04,
+      approved_amount: 4000,
+      approved_by: 'manager-1',
+      approval_date: '2026-07-27',
+    });
+
+    expect(() =>
+      (fixture.service as any).assertDiscountPermissions(payload, {
+        permissions: ['pricing.request_discount'],
+      }),
+    ).toThrow('You do not have permission to approve quotation discounts');
   });
 
   it('reuses the existing submission without re-triggering lifecycle transitions', async () => {

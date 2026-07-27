@@ -193,7 +193,7 @@ export const NAV_NODES: NavNode[] = [
         label: 'Rating Rules',
         to: '/product-engine/rating-rules',
         icon: BookOpen,
-        permission: 'risk-rating-rules:read',
+        permission: 'pricing.manage_rules',
       },
       {
         kind: 'link',
@@ -214,6 +214,7 @@ export const NAV_NODES: NavNode[] = [
         label: 'Calculator',
         to: '/product-engine/calculator',
         icon: Calculator,
+        permission: 'pricing.calculate',
       },
     ],
   },

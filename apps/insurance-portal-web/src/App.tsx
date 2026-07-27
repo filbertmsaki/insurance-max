@@ -212,7 +212,7 @@ export default function App() {
             <Route element={<ProtectedRoute requiredPermission="rating-factors:read" />}>
               <Route path="/product-engine/rating-factors" element={<RatingFactorsPage />} />
             </Route>
-            <Route element={<ProtectedRoute requiredPermission="risk-rating-rules:read" />}>
+            <Route element={<ProtectedRoute requiredPermission="pricing.manage_rules" />}>
               <Route path="/product-engine/rating-rules" element={<RatingRulesPage />} />
             </Route>
             <Route element={<ProtectedRoute requiredPermission="category-access:read" />}>
@@ -221,7 +221,9 @@ export default function App() {
             <Route element={<ProtectedRoute requiredPermission="product-access:read" />}>
               <Route path="/product-engine/access/products" element={<ProductAccessPage />} />
             </Route>
-            <Route path="/product-engine/calculator" element={<CalculatorPage />} />
+            <Route element={<ProtectedRoute requiredPermission="pricing.calculate" />}>
+              <Route path="/product-engine/calculator" element={<CalculatorPage />} />
+            </Route>
 
             <Route element={<ProtectedRoute requiredPermission="motor:read" />}>
               <Route path={underwritingPaths.motorVehicles} element={<MotorVehiclesPage />} />

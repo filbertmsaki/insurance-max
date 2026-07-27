@@ -191,9 +191,9 @@ export function QuotationDetailPage() {
     !!quotationStatus &&
     !TERMINAL_STATUSES.has(quotationStatus) &&
     tiraStatus === 'NOT_SUBMITTED';
-  const canRequestPremiumOverride = hasPermission('pricing.override.request');
-  const canApprovePremiumOverride = hasPermission('pricing.override.approve');
-  const canRejectPremiumOverride = hasPermission('pricing.override.reject');
+  const canRequestPremiumOverride = hasPermission('pricing.request_override');
+  const canApprovePremiumOverride = hasPermission('pricing.approve_override');
+  const canRejectPremiumOverride = hasPermission('pricing.approve_override');
   const showFleetTabs = preview?.overview.quotation_flow === 'MOTOR_FLEET';
   const showMotorTab = preview?.overview.quotation_flow === 'MOTOR_SINGLE';
   const tabs = ['overview', 'policyholders'];

@@ -2158,7 +2158,9 @@ export class QuotationsService {
     return true;
   }
 
-  private extractDateOnly(value: string | null | undefined): string | null {
+  private extractDateOnly(
+    value: string | Date | null | undefined,
+  ): string | null {
     if (!value) {
       return null;
     }
@@ -2344,16 +2346,287 @@ export class QuotationsService {
     ].includes(action);
   }
 
-  private canViewPremiumOverrides(
+  private canViewPricingBreakdown(
+    user?: Pick<AuthenticatedUser, 'permissions'> | null,
+  ): boolean {
+    return this.hasPermission(user, PRICING_VIEW_BREAKDOWN_PERMISSION);
+  }
+
+  private canViewPricingAudit(
     user?: Pick<AuthenticatedUser, 'permissions'>,
   ): boolean {
     return (
       user?.permissions?.some((permission) =>
-        PREMIUM_OVERRIDE_VIEW_PERMISSIONS.includes(
-          permission as (typeof PREMIUM_OVERRIDE_VIEW_PERMISSIONS)[number],
+        PRICING_AUDIT_VIEW_PERMISSIONS.includes(
+          permission as (typeof PRICING_AUDIT_VIEW_PERMISSIONS)[number],
         ),
       ) ?? false
     );
+  }
+
+  private hasPermission(
+    user: Pick<AuthenticatedUser, 'permissions'> | null | undefined,
+    permission: string,
+  ): boolean {
+    return user?.permissions?.includes(permission) ?? false;
+  }
+
+  private assertDiscountPermissions(
+    payload: CreateQuotationDto,
+    user: Pick<AuthenticatedUser, 'permissions'>,
+    currentQuotation?: Quotation | null,
+  ): void {
+    const existingDiscounts = this.indexPersistedDiscountSnapshots(currentQuotation);
+    const canRequestDiscount =
+      this.hasPermission(user, PRICING_REQUEST_DISCOUNT_PERMISSION) ||
+      this.hasPermission(user, PRICING_APPROVE_DISCOUNT_PERMISSION);
+    const canApproveDiscount = this.hasPermission(
+      user,
+      PRICING_APPROVE_DISCOUNT_PERMISSION,
+    );
+
+    for (const risk of this.resolveEntries(payload).flatMap((entry) => entry.risks_covered)) {
+      const riskKey = this.discountRiskKey(risk.pricing_quote_id, risk.risk_code);
+
+      for (const [index, discount] of (risk.discounts_offered ?? []).entries()) {
+        const snapshotKey = `${riskKey}:${index + 1}`;
+        const previous = existingDiscounts.get(snapshotKey);
+        const normalizedStatus = this.normalizeAdjustmentApprovalStatus(
+          discount.approval_status,
+        );
+        const hasRequest = this.discountHasRequest(discount);
+        const hadRequest = this.persistedDiscountHasRequest(previous);
+        const requestChanged =
+          hasRequest !== hadRequest ||
+          this.discountRequestDetailsChanged(previous, discount);
+        const decisionChanged = this.discountDecisionChanged(
+          previous,
+          discount,
+          normalizedStatus,
+        );
+
+        if (requestChanged && (hasRequest || hadRequest) && !canRequestDiscount) {
+          throw new ForbiddenException(
+            'You do not have permission to request quotation discounts',
+          );
+        }
+
+        if (decisionChanged && !canApproveDiscount) {
+          throw new ForbiddenException(
+            'You do not have permission to approve quotation discounts',
+          );
+        }
+      }
+    }
+  }
+
+  private indexPersistedDiscountSnapshots(
+    quotation?: Quotation | null,
+  ): Map<
+    string,
+    {
+      discount_rate: number;
+      discount_amount: number;
+      request_reason_code: string | null;
+      request_comment: string | null;
+      effective_from: string | null;
+      effective_to: string | null;
+      approval_status: string | null;
+      approved_rate: number | null;
+      approved_amount: number | null;
+      approved_by: string | null;
+      approval_date: string | null;
+      rejection_reason: string | null;
+    }
+  > {
+    const index = new Map<
+      string,
+      {
+        discount_rate: number;
+        discount_amount: number;
+        request_reason_code: string | null;
+        request_comment: string | null;
+        effective_from: string | null;
+        effective_to: string | null;
+        approval_status: string | null;
+        approved_rate: number | null;
+        approved_amount: number | null;
+        approved_by: string | null;
+        approval_date: string | null;
+        rejection_reason: string | null;
+      }
+    >();
+
+    for (const entry of quotation?.cover_note?.entries ?? []) {
+      for (const risk of entry.risks ?? []) {
+        const riskKey = this.discountRiskKey(risk.pricing_quote_id, risk.risk_code);
+
+        for (const discount of risk.discounts ?? []) {
+          index.set(`${riskKey}:${discount.sequence_no ?? 1}`, {
+            discount_rate: Number(discount.discount_rate ?? 0),
+            discount_amount: Number(discount.discount_amount ?? 0),
+            request_reason_code: discount.request_reason_code?.trim() ?? null,
+            request_comment: discount.request_comment?.trim() ?? null,
+            effective_from: this.extractDateOnly(discount.effective_from),
+            effective_to: this.extractDateOnly(discount.effective_to),
+            approval_status:
+              this.normalizeAdjustmentApprovalStatus(discount.approval_status) ??
+              null,
+            approved_rate: this.toStoredNumber(discount.approved_rate),
+            approved_amount: this.toStoredNumber(discount.approved_amount),
+            approved_by: discount.approved_by?.trim() ?? null,
+            approval_date: this.extractDateOnly(discount.approval_date),
+            rejection_reason: discount.rejection_reason?.trim() ?? null,
+          });
+        }
+      }
+    }
+
+    return index;
+  }
+
+  private discountRiskKey(
+    pricingQuoteId: string | null | undefined,
+    riskCode: string | null | undefined,
+  ): string {
+    return pricingQuoteId?.trim() || this.normalizeUppercase(riskCode ?? '');
+  }
+
+  private discountHasRequest(
+    discount: RiskCoveredDto['discounts_offered'][number],
+  ): boolean {
+    return (
+      Number(discount.discount_rate ?? 0) > RATE_TOLERANCE ||
+      Number(discount.discount_amount ?? 0) > MONEY_TOLERANCE
+    );
+  }
+
+  private persistedDiscountHasRequest(
+    discount:
+      | {
+          discount_rate: number;
+          discount_amount: number;
+        }
+      | undefined,
+  ): boolean {
+    return (
+      Number(discount?.discount_rate ?? 0) > RATE_TOLERANCE ||
+      Number(discount?.discount_amount ?? 0) > MONEY_TOLERANCE
+    );
+  }
+
+  private discountRequestDetailsChanged(
+    previous:
+      | {
+          discount_rate: number;
+          discount_amount: number;
+          request_reason_code: string | null;
+          request_comment: string | null;
+          effective_from: string | null;
+          effective_to: string | null;
+        }
+      | undefined,
+    discount: RiskCoveredDto['discounts_offered'][number],
+  ): boolean {
+    if (!previous) {
+      return true;
+    }
+
+    return (
+      !this.ratesEqual(previous.discount_rate, Number(discount.discount_rate ?? 0)) ||
+      !this.moneyEqual(
+        previous.discount_amount,
+        Number(discount.discount_amount ?? 0),
+      ) ||
+      previous.request_reason_code !==
+        (discount.request_reason_code?.trim() ?? null) ||
+      previous.request_comment !== (discount.request_comment?.trim() ?? null) ||
+      previous.effective_from !== this.extractDateOnly(discount.effective_from) ||
+      previous.effective_to !== this.extractDateOnly(discount.effective_to)
+    );
+  }
+
+  private discountDecisionChanged(
+    previous:
+      | {
+          approval_status: string | null;
+          approved_rate: number | null;
+          approved_amount: number | null;
+          approved_by: string | null;
+          approval_date: string | null;
+          rejection_reason: string | null;
+        }
+      | undefined,
+    discount: RiskCoveredDto['discounts_offered'][number],
+    normalizedStatus: string | null,
+  ): boolean {
+    const nextApprovedRate = this.toStoredNumber(discount.approved_rate);
+    const nextApprovedAmount = this.toStoredNumber(discount.approved_amount);
+    const nextApprovedBy = discount.approved_by?.trim() ?? null;
+    const nextApprovalDate = this.extractDateOnly(discount.approval_date);
+    const nextRejectionReason = discount.rejection_reason?.trim() ?? null;
+    const hasDecision =
+      normalizedStatus === 'APPROVED' ||
+      normalizedStatus === 'REJECTED' ||
+      nextApprovedRate !== null ||
+      nextApprovedAmount !== null ||
+      nextApprovedBy !== null ||
+      nextApprovalDate !== null ||
+      nextRejectionReason !== null;
+
+    if (!hasDecision) {
+      return false;
+    }
+
+    if (!previous) {
+      return true;
+    }
+
+    return (
+      previous.approval_status !== normalizedStatus ||
+      !this.nullableRateEqual(previous.approved_rate, nextApprovedRate) ||
+      !this.nullableMoneyEqual(previous.approved_amount, nextApprovedAmount) ||
+      previous.approved_by !== nextApprovedBy ||
+      previous.approval_date !== nextApprovalDate ||
+      previous.rejection_reason !== nextRejectionReason
+    );
+  }
+
+  private normalizeAdjustmentApprovalStatus(
+    value: string | null | undefined,
+  ): string | null {
+    const normalized = value?.trim().toUpperCase();
+    return normalized ? normalized : null;
+  }
+
+  private nullableMoneyEqual(
+    first: number | null | undefined,
+    second: number | null | undefined,
+  ): boolean {
+    if (first == null && second == null) {
+      return true;
+    }
+
+    if (first == null || second == null) {
+      return false;
+    }
+
+    return this.moneyEqual(first, second);
+  }
+
+  private nullableRateEqual(
+    first: number | null | undefined,
+    second: number | null | undefined,
+  ): boolean {
+    if (first == null && second == null) {
+      return true;
+    }
+
+    if (first == null || second == null) {
+      return false;
+    }
+
+    return this.ratesEqual(first, second);
   }
 
   private async evaluateQuotationPricingIntegration(

@@ -112,7 +112,7 @@ export class QuotationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.quotationsService.findOne(user.companyId!, id);
+    return this.quotationsService.findOne(user.companyId!, id, user);
   }
 
   @Get(':id/edit')
@@ -130,7 +130,7 @@ export class QuotationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.quotationsService.findOne(user.companyId!, id);
+    return this.quotationsService.findOne(user.companyId!, id, user);
   }
 
   @Get(':id/preview')

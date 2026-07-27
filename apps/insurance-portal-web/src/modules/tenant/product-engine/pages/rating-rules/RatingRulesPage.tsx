@@ -382,9 +382,9 @@ function ConditionsPanel({
 
 export function RatingRulesPage() {
   const { hasPermission } = useAuthStore()
-  const canCreate = hasPermission('risk-rating-rules:create')
-  const canUpdate = hasPermission('risk-rating-rules:update')
-  const canDelete = hasPermission('risk-rating-rules:delete')
+  const canCreate = hasPermission('pricing.manage_rules')
+  const canUpdate = hasPermission('pricing.manage_rules')
+  const canDelete = hasPermission('pricing.manage_rules')
 
   const [selectedProductId, setSelectedProductId] = useState('')
   const [selectedRiskId, setSelectedRiskId] = useState('')

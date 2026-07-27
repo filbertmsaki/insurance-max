@@ -607,6 +607,76 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'pricing.calculate',
+    displayName: 'Calculate premiums',
+    description:
+      'Allow invoking the pricing engine for premium calculations and rule explanations',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing.view_breakdown',
+    displayName: 'View pricing breakdowns',
+    description:
+      'Allow viewing stored pricing quote snapshots and quotation pricing breakdown summaries',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing.manage_rules',
+    displayName: 'Manage pricing rules',
+    description:
+      'Allow managing pricing rules and their conditions for authoritative premium calculation',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing.manage_rate_books',
+    displayName: 'Manage pricing rate books',
+    description:
+      'Allow creating, editing, cloning, and deleting pricing rate books',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing.publish_rate_books',
+    displayName: 'Publish pricing rate books',
+    description:
+      'Allow progressing pricing rate books through review, approval, publication, and retirement',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing.request_discount',
+    displayName: 'Request pricing discounts',
+    description:
+      'Allow requesting discount adjustments on quotations that rely on authoritative pricing',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing.approve_discount',
+    displayName: 'Approve pricing discounts',
+    description:
+      'Allow approving or rejecting controlled discount adjustments on quotations',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing.request_override',
+    displayName: 'Request pricing overrides',
+    description:
+      'Allow requesting manual premium overrides on quotation risks',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing.approve_override',
+    displayName: 'Approve pricing overrides',
+    description:
+      'Allow approving or rejecting manual premium override requests on quotation risks',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing.view_audit',
+    displayName: 'View pricing audit trail',
+    description:
+      'Allow viewing pricing-specific override and audit trail information on quotations',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'customers:read',
     displayName: 'Read customers',
     description: 'Allow listing and viewing customers within a company tenant',
@@ -1363,6 +1433,55 @@ const roleSeeds: RoleSeed[] = [
   },
 ];
 
+function withPricingPermissionAliases(permissionNames: string[]): string[] {
+  const expanded = new Set(permissionNames);
+
+  if (expanded.has('premium-calculation:calculate')) {
+    expanded.add('pricing.calculate');
+    expanded.add('pricing.view_breakdown');
+  }
+
+  if (
+    ['risk-rating-rules:read', 'risk-rating-rules:create', 'risk-rating-rules:update', 'risk-rating-rules:delete'].some(
+      (permission) => expanded.has(permission),
+    )
+  ) {
+    expanded.add('pricing.manage_rules');
+    expanded.add('pricing.manage_rate_books');
+  }
+
+  if (expanded.has('risk-rating-rules:update')) {
+    expanded.add('pricing.publish_rate_books');
+  }
+
+  if (expanded.has('quotations:create') || expanded.has('quotations:update')) {
+    expanded.add('pricing.request_discount');
+  }
+
+  if (
+    expanded.has('pricing.override.approve') ||
+    expanded.has('pricing.override.reject')
+  ) {
+    expanded.add('pricing.approve_discount');
+    expanded.add('pricing.approve_override');
+  }
+
+  if (expanded.has('pricing.override.request')) {
+    expanded.add('pricing.request_override');
+  }
+
+  if (
+    expanded.has('pricing.override.view') ||
+    expanded.has('pricing.override.request') ||
+    expanded.has('pricing.override.approve') ||
+    expanded.has('pricing.override.reject')
+  ) {
+    expanded.add('pricing.view_audit');
+  }
+
+  return [...expanded];
+}
+
 export default class InitialRbacSeeder implements Seeder {
   public async run(
     dataSource: DataSource,
@@ -1600,7 +1719,9 @@ export default class InitialRbacSeeder implements Seeder {
         }
 
         role.is_system_generated = true;
-        const permissionNames = [...new Set(definition.permissionNames)];
+        const permissionNames = [
+          ...new Set(withPricingPermissionAliases(definition.permissionNames)),
+        ];
 
         role.permissions = permissionNames.map((permissionName) => {
           const permission = permissionsByName.get(permissionName);
