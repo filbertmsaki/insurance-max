@@ -537,6 +537,7 @@ export function RiskRow({
                             value={field.value as string}
                           />
                         </FormControl>
+                        <FormMessage />
                       </WizardFormItem>
                     )}
                   />

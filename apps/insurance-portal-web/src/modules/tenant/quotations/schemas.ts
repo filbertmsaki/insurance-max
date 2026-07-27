@@ -207,36 +207,62 @@ const quotationRiskRowSchema = z.object({
   premium_including_tax: optionalText,
   minimum_amount: optionalText,
   discounts_offered: z.array(
-    z.object({
-      discount_type: optionalText,
-      discount_rate: optionalText,
-      discount_amount: optionalText,
-      request_reason_code: optionalText,
-      request_comment: optionalText,
-      effective_from: optionalText,
-      effective_to: optionalText,
-      requested_by: optionalText,
-      requested_at: optionalText,
-      max_permitted_rate: optionalText,
-      max_permitted_amount: optionalText,
-      approval_required: z.boolean().default(false),
-      approval_status: optionalText,
-      approved_rate: optionalText,
-      approved_amount: optionalText,
-      approved_by: optionalText,
-      approval_date: optionalText,
-      rejection_reason: optionalText,
-    }),
+    z
+      .object({
+        discount_type: optionalText,
+        discount_rate: optionalText,
+        discount_amount: optionalText,
+        request_reason_code: optionalText,
+        request_comment: optionalText,
+        effective_from: optionalText,
+        effective_to: optionalText,
+        requested_by: optionalText,
+        requested_at: optionalText,
+        max_permitted_rate: optionalText,
+        max_permitted_amount: optionalText,
+        approval_required: z.boolean().default(false),
+        approval_status: optionalText,
+        approved_rate: optionalText,
+        approved_amount: optionalText,
+        approved_by: optionalText,
+        approval_date: optionalText,
+        rejection_reason: optionalText,
+      })
+      .superRefine((row, ctx) => {
+        // discount_rate is only required once the user has committed to a
+        // discount type — a risk with no discount at all stays valid.
+        if (row.discount_type?.trim() && !row.discount_rate?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Discount rate is required once a discount type is selected.',
+            path: ['discount_rate'],
+          });
+        }
+      }),
   ),
   taxes_charged: z.array(
-    z.object({
-      tax_code: optionalText,
-      is_tax_exempted: z.boolean().default(false),
-      tax_exemption_type: optionalText,
-      tax_exemption_reference: optionalText,
-      tax_rate: optionalText,
-      tax_amount: optionalText,
-    }),
+    z
+      .object({
+        tax_code: optionalText,
+        is_tax_exempted: z.boolean().default(false),
+        tax_exemption_type: optionalText,
+        tax_exemption_reference: optionalText,
+        tax_rate: optionalText,
+        tax_amount: optionalText,
+      })
+      .superRefine((row, ctx) => {
+        // tax_rate is backend-calculated and required once a tax code is
+        // selected — it stays blank (and invalid) until a calculation
+        // resolves, so a quotation can never be submitted with an
+        // undetermined tax rate.
+        if (row.tax_code?.trim() && !row.tax_rate?.trim()) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'Tax rate is required once a tax code is selected.',
+            path: ['tax_rate'],
+          });
+        }
+      }),
   ),
   rate: optionalText,
   basic_premium: optionalText,
@@ -249,14 +275,24 @@ const quotationRiskRowSchema = z.object({
   rating_result_metadata: z.unknown().nullable(),
 });
 
-const addonTaxSchema = z.object({
-  tax_code: optionalText,
-  is_tax_exempted: z.boolean().default(false),
-  tax_exemption_type: optionalText,
-  tax_exemption_reference: optionalText,
-  tax_rate: optionalText,
-  tax_amount: optionalText,
-});
+const addonTaxSchema = z
+  .object({
+    tax_code: optionalText,
+    is_tax_exempted: z.boolean().default(false),
+    tax_exemption_type: optionalText,
+    tax_exemption_reference: optionalText,
+    tax_rate: optionalText,
+    tax_amount: optionalText,
+  })
+  .superRefine((row, ctx) => {
+    if (row.tax_code?.trim() && !row.tax_rate?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Tax rate is required once a tax code is selected.',
+        path: ['tax_rate'],
+      });
+    }
+  });
 
 const addonSchema = z.object({
   enabled: z.boolean(),
