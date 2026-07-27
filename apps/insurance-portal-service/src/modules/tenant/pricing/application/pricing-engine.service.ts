@@ -4,6 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  applyRate,
+  displayPercentageFromRate,
   roundMoney,
   sumDecimals,
 } from '@insurance-max/portal-shared/utils/pricing-calculation.util';
@@ -16,6 +18,8 @@ import type {
   MultiRiskPremiumFailure,
   MultiRiskPremiumResult,
   PricingAdjustmentControl,
+  PricingAdjustmentRequestInput,
+  PricingAdjustmentType,
   PricingMultiRiskInput,
   PricingSingleRiskInput,
   PricingFactorValidationResult,
@@ -77,6 +81,53 @@ export class PricingEngineService {
       effectiveRule,
       validationResult.normalized_factor_values,
     );
+
+    const discountControl = this.buildAdjustmentControl(
+      matchingRule,
+      'discount',
+    );
+    const loadingControl = this.buildAdjustmentControl(matchingRule, 'loading');
+
+    // Calculation order per PRICING_CALCULATION_SEQUENCE: minimum/maximum
+    // premium (already applied by buildBreakdown) -> loadings -> discounts ->
+    // taxes/levies/fees. Loading and discount are computed here as a live,
+    // unauthorized preview — the matched rule's own limits are used to flag
+    // discount_approval_required/loading_approval_required, but a value
+    // above the limit is still computed and returned (not rejected) so the
+    // frontend can show the user what would happen; actual enforcement
+    // happens at quotation submission time.
+    const loadingType = this.resolveAdjustmentType(input.loading);
+    const loadingRate = input.loading?.rate ?? null;
+    const loadingAmount = this.computeAdjustmentAmount(
+      breakdown.final_premium,
+      input.loading,
+    );
+    const loadingApprovalRequired = this.isAdjustmentApprovalRequired(
+      loadingControl,
+      loadingRate,
+      loadingAmount,
+    );
+
+    const premiumBeforeDiscount = roundMoney(
+      breakdown.final_premium + loadingAmount,
+    );
+
+    const discountType = this.resolveAdjustmentType(input.discount);
+    const discountRate = input.discount?.rate ?? null;
+    const discountAmount = this.computeAdjustmentAmount(
+      premiumBeforeDiscount,
+      input.discount,
+    );
+    const discountApprovalRequired = this.isAdjustmentApprovalRequired(
+      discountControl,
+      discountRate,
+      discountAmount,
+    );
+
+    const premiumAfterDiscount = roundMoney(
+      premiumBeforeDiscount - discountAmount,
+    );
+
     const chargeSummary = await this.pricingChargeService.calculateCharges(
       companyId,
       {
@@ -85,10 +136,15 @@ export class PricingEngineService {
         risk_id: risk.id,
         effective_date: input.effective_date ?? null,
         basic_premium: breakdown.base_premium,
-        net_premium: breakdown.final_premium,
-        gross_premium: breakdown.gross_premium,
+        net_premium: premiumAfterDiscount,
+        gross_premium: premiumBeforeDiscount,
+        tax_rule_ids: input.tax_rule_ids ?? null,
       },
     );
+
+    const sumInsured = roundMoney(Number(factorValues.sum_insured ?? 0));
+    const taxAmount = chargeSummary.total_charge_amount;
+    const premiumIncludingTax = chargeSummary.premium_including_charges;
 
     return {
       client_reference: input.client_reference ?? null,
@@ -101,7 +157,7 @@ export class PricingEngineService {
       rule_id: matchingRule.id,
       rule_name: matchingRule.rule_name,
       rule_version: matchingRule.rule_version ?? null,
-      sum_insured: roundMoney(Number(factorValues.sum_insured ?? 0)),
+      sum_insured: sumInsured,
       rate_type: effectiveRule.rate_type,
       percentage_rate: breakdown.percentage_rate,
       base_premium: breakdown.base_premium,
@@ -114,8 +170,8 @@ export class PricingEngineService {
       gross_premium: breakdown.gross_premium,
       final_premium: breakdown.final_premium,
       minimum_applied: breakdown.minimum_applied,
-      discount_control: this.buildAdjustmentControl(matchingRule, 'discount'),
-      loading_control: this.buildAdjustmentControl(matchingRule, 'loading'),
+      discount_control: discountControl,
+      loading_control: loadingControl,
       charges: chargeSummary.charges,
       total_charge_amount: chargeSummary.total_charge_amount,
       taxable_charge_amount: chargeSummary.taxable_charge_amount,
@@ -126,6 +182,35 @@ export class PricingEngineService {
       validation_warnings: validationResult.warnings.map(
         (warning) => warning.message,
       ),
+
+      // Documented response contract (additive).
+      premium_rate: breakdown.percentage_rate,
+      premium_rate_percent: displayPercentageFromRate(
+        breakdown.percentage_rate ?? 0,
+      ),
+      raw_premium: breakdown.base_premium,
+      sum_insured_equivalent: sumInsured,
+      minimum_premium: breakdown.minimum_amount,
+      minimum_premium_applied: breakdown.minimum_applied,
+      maximum_premium: null,
+      maximum_premium_applied: false,
+      loading_rate: loadingRate,
+      loading_amount: loadingAmount,
+      loading_approval_required: loadingApprovalRequired,
+      discount_type: discountType,
+      discount_rate: discountRate,
+      discount_amount: discountAmount,
+      discount_approval_required: discountApprovalRequired,
+      premium_before_discount: premiumBeforeDiscount,
+      premium_after_discount: premiumAfterDiscount,
+      premium_excluding_tax: premiumAfterDiscount,
+      premium_excluding_tax_equivalent: premiumAfterDiscount,
+      tax_rate: chargeSummary.charges[0]?.rate ?? null,
+      tax_amount: taxAmount,
+      total_tax_amount: taxAmount,
+      premium_including_tax: premiumIncludingTax,
+      premium_including_tax_equivalent: premiumIncludingTax,
+      final_payable_premium: premiumIncludingTax,
     };
   }
 
@@ -261,6 +346,65 @@ export class PricingEngineService {
       effective_from: rule.adjustment_effective_from ?? null,
       effective_to: rule.adjustment_effective_to ?? null,
     };
+  }
+
+  private resolveAdjustmentType(
+    input?: PricingAdjustmentRequestInput | null,
+  ): PricingAdjustmentType {
+    if (!input) return 'NONE';
+    if (typeof input.rate === 'number' && input.rate > 0) return 'PERCENTAGE';
+    if (typeof input.fixed_amount === 'number' && input.fixed_amount > 0) {
+      return 'FIXED';
+    }
+    return 'NONE';
+  }
+
+  private computeAdjustmentAmount(
+    base: number,
+    input?: PricingAdjustmentRequestInput | null,
+  ): number {
+    if (!input) return 0;
+    if (typeof input.rate === 'number' && input.rate > 0) {
+      return roundMoney(applyRate(base, input.rate));
+    }
+    if (typeof input.fixed_amount === 'number' && input.fixed_amount > 0) {
+      return roundMoney(input.fixed_amount);
+    }
+    return 0;
+  }
+
+  /**
+   * A live calculation preview never rejects an over-limit discount/loading
+   * outright — it flags approval_required so the frontend can surface it,
+   * while actual enforcement happens later at the quotation-level
+   * request/approve workflow (see quotations.service.ts).
+   */
+  private isAdjustmentApprovalRequired(
+    control: PricingAdjustmentControl,
+    rate: number | null,
+    amount: number,
+  ): boolean {
+    if (amount <= 0) return false;
+    if (control.max_rate !== null && rate !== null && rate > control.max_rate) {
+      return true;
+    }
+    if (control.max_amount !== null && amount > control.max_amount) {
+      return true;
+    }
+    if (
+      control.approval_threshold_rate !== null &&
+      rate !== null &&
+      rate > control.approval_threshold_rate
+    ) {
+      return true;
+    }
+    if (
+      control.approval_threshold_amount !== null &&
+      amount > control.approval_threshold_amount
+    ) {
+      return true;
+    }
+    return false;
   }
 
   private buildMultiRiskFailure(

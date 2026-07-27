@@ -45,27 +45,45 @@ export function computePremiumIncludingTax(
 }
 
 /**
+ * Maps charge lines from a calculation result onto the risk's existing
+ * taxes_charged rows, matched by tax_code — mirroring exactly what the
+ * backend's own authoritative recalculation (applyAuthoritativeChargesToRisk
+ * in quotations.service.ts) does at quotation-create time, so the wizard's
+ * live preview and the persisted result never diverge. An exempted row's
+ * tax_amount is always forced to 0 regardless of what the backend computed,
+ * since exemption is a business decision made on the frontend, not something
+ * the backend charge engine is told about at calculation time.
+ */
+function applyChargesToTaxRows(
+  taxRows: QuotationRiskFormRow['taxes_charged'],
+  charges: RiskPremiumResult['charges'],
+): QuotationRiskFormRow['taxes_charged'] {
+  const chargeByCode = new Map(
+    charges.map((charge) => [charge.charge_code, charge]),
+  );
+
+  return taxRows.map((row) => {
+    const charge = chargeByCode.get(row.tax_code);
+    if (!charge) return row;
+
+    return {
+      ...row,
+      tax_rate: String(charge.rate ?? 0),
+      tax_amount: row.is_tax_exempted ? '0' : String(charge.computed_amount),
+    };
+  });
+}
+
+/**
  * Applies a rating-engine result onto a risk row's premium fields — the real
- * schema fields RiskRow.tsx renders (premium_rate, premium_before_discount, ...),
- * not the legacy rate/basic_premium/total_premium fields from the dead-code
- * version of this function.
+ * schema fields RiskRow.tsx renders (premium_rate, premium_before_discount, ...).
  *
- * Only sets the fields the API result directly determines:
- *  1. Zero-rate (FIXED rate-type) risks have no sum-insured concept — force
- *     sum_insured/sum_insured_equivalent to '0' regardless of user input.
- *  2. premium_rate = result.percentage_rate.
- *  3. premium_before_discount = result.final_premium (the minimum floor, if
- *     any, is already baked in here — it is a pricing floor, not a discount).
- *
- * Deliberately does NOT compute premium_after_discount/premium_excluding_tax_equivalent/
- * premium_including_tax here. RiskRow.tsx already has a reactive effect that
- * derives those from premium_before_discount plus the row's current
- * discounts_offered/taxes_charged the moment it changes — computing them a
- * second time here, from a snapshot of discounts/taxes that may not reflect
- * a still-in-flight tax_amount recalculation, previously produced a
- * momentarily-wrong premium_including_tax that then got silently corrected a
- * render later. Setting only premium_before_discount and letting that single
- * reactive chain own the rest removes that race entirely.
+ * The backend is the sole authority for every calculated figure, including
+ * discount_amount, premium_after_discount, tax_rate/tax_amount, and
+ * premium_including_tax — none of these are recomputed on the frontend.
+ * Only the requested discount_rate (a user input, not a result) and each tax
+ * row's exemption flags are preserved from the current form state; every
+ * other financial field is overwritten from `result` directly.
  */
 export function applyRiskPremiumResult(
   row: QuotationRiskFormRow,
@@ -73,12 +91,35 @@ export function applyRiskPremiumResult(
 ): QuotationRiskFormRow {
   const isZeroRate = result.percentage_rate === 0;
 
+  const discounts =
+    row.discounts_offered.length > 0
+      ? row.discounts_offered.map((discount, discountIndex) =>
+          discountIndex === 0
+            ? {
+                ...discount,
+                discount_amount: String(result.discount_amount ?? 0),
+              }
+            : discount,
+        )
+      : row.discounts_offered;
+
+  const taxes = applyChargesToTaxRows(row.taxes_charged, result.charges);
+
   return {
     ...row,
     sum_insured: isZeroRate ? '0' : row.sum_insured,
-    sum_insured_equivalent: isZeroRate ? '0' : String(result.sum_insured ?? 0),
-    premium_rate: String(result.percentage_rate ?? 0),
-    premium_before_discount: String(result.final_premium ?? 0),
+    sum_insured_equivalent: isZeroRate
+      ? '0'
+      : String(result.sum_insured_equivalent ?? result.sum_insured ?? 0),
+    premium_rate: String(result.premium_rate ?? result.percentage_rate ?? 0),
+    premium_before_discount: String(result.premium_before_discount ?? 0),
+    discounts_offered: discounts,
+    premium_after_discount: String(result.premium_after_discount ?? 0),
+    premium_excluding_tax_equivalent: String(
+      result.premium_excluding_tax_equivalent ?? 0,
+    ),
+    taxes_charged: taxes,
+    premium_including_tax: String(result.premium_including_tax ?? 0),
     rating_result_metadata: {
       pricing_quote_id: result.pricing_quote_id ?? null,
       pricing_status: result.pricing_status ?? null,
@@ -88,10 +129,12 @@ export function applyRiskPremiumResult(
       quotation_type: result.quotation_type ?? null,
       currency_code: result.currency_code ?? null,
       exchange_rate_snapshot: result.exchange_rate_snapshot ?? null,
-      minimum_applied: result.minimum_applied,
-      minimum_amount: result.minimum_amount,
+      minimum_applied: result.minimum_premium_applied ?? result.minimum_applied,
+      minimum_amount: result.minimum_premium ?? result.minimum_amount,
       discount_control: result.discount_control,
       loading_control: result.loading_control,
+      discount_approval_required: result.discount_approval_required,
+      loading_approval_required: result.loading_approval_required,
       validation_errors: result.validation_errors,
       validation_warnings: result.validation_warnings,
     },

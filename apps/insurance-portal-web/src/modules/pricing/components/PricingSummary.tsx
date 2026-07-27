@@ -12,8 +12,12 @@ interface Props {
 const STATE_LABELS: Record<PricingCalculationState, string> = {
   IDLE: 'Idle',
   LOADING: 'Calculating',
+  CALCULATING: 'Calculating',
   CALCULATED: 'Calculated',
   INCOMPLETE: 'Incomplete',
+  WARNING: 'Calculated with warnings',
+  REFERRAL_REQUIRED: 'Referral required',
+  STALE: 'Recalculation required',
   ERROR: 'Error',
   EXPIRED: 'Expired',
 };

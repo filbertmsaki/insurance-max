@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsDateString,
   IsArray,
@@ -10,8 +11,31 @@ import {
   IsString,
   IsUUID,
   MaxLength,
+  Min,
+  ValidateNested,
 } from 'class-validator';
 import { QuotationType } from '../../quotations/enums/quotation-type.enum';
+
+export class PricingAdjustmentRequestDto {
+  @ApiPropertyOptional({
+    example: 0.05,
+    description:
+      'Adjustment rate as a decimal fraction (e.g. 0.05 for 5%). Mutually exclusive with fixed_amount — if both are supplied, rate takes precedence.',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  rate?: number;
+
+  @ApiPropertyOptional({
+    example: 15000,
+    description: 'Fixed adjustment amount in the quotation currency.',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  fixed_amount?: number;
+}
 
 export class CalculateSingleRiskPremiumDto {
   @ApiPropertyOptional({
@@ -95,6 +119,37 @@ export class CalculateSingleRiskPremiumDto {
   @IsOptional()
   @IsNumber()
   exchange_rate?: number;
+
+  @ApiPropertyOptional({
+    type: PricingAdjustmentRequestDto,
+    description:
+      'Requested discount. Computed as a live preview against the matched rule\'s discount limits — an over-limit request is still calculated and flagged, not rejected, here; approval is enforced at quotation submission.',
+  })
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => PricingAdjustmentRequestDto)
+  discount?: PricingAdjustmentRequestDto;
+
+  @ApiPropertyOptional({
+    type: PricingAdjustmentRequestDto,
+    description: 'Requested loading, computed the same way as discount.',
+  })
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => PricingAdjustmentRequestDto)
+  loading?: PricingAdjustmentRequestDto;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description:
+      'Specific product-tax-rule UUIDs to apply. When omitted, every currently active rule applicable to the product/risk is applied (unchanged default behavior).',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  tax_rule_ids?: string[];
 }
 
 export class CalculateMultiRiskPremiumDto {

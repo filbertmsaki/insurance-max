@@ -1,24 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useWatch, type FieldPath, type UseFormReturn } from 'react-hook-form';
 import {
-  applyRate,
-  roundMoney,
-} from '@insurance-max/portal-shared/utils/pricing-calculation.util';
-import {
   usePricingCalculator,
   usePricingRequiredFactors,
   usePricingRulePreview,
 } from '@/modules/pricing';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { resolveFactorValues } from '../utils/riskFactorResolver';
-import {
-  applyRiskPremiumResult,
-  computePremiumAfterDiscount,
-  computePremiumIncludingTax,
-  toNumber,
-} from '../utils/premiumAggregation';
+import { applyRiskPremiumResult, toNumber } from '../utils/premiumAggregation';
 import { readPricingQuoteMetadata } from '@/modules/pricing';
-import { getTaxRateForCode } from '../utils/taxOptions';
 import { buildSingleRiskPricingSignature } from '../utils/pricingStaleness';
 
 const CALCULATION_DEBOUNCE_MS = 400;
@@ -28,138 +18,6 @@ function path(
   name: string,
 ): FieldPath<QuotationFormSchemaValues> {
   return `risks.${index}.${name}` as FieldPath<QuotationFormSchemaValues>;
-}
-
-/**
- * The single shared recompute cascade for a risk row's derived premium
- * fields: discount_amount (per row, from the current discount_rate) ->
- * premium_after_discount -> premium_excluding_tax_equivalent -> tax_amount
- * (per row, from the current tax_rate, skipping exempted rows) ->
- * premium_including_tax — always derived fresh from whatever
- * premium_before_discount/discounts_offered/taxes_charged currently hold, so
- * a single change anywhere (a fresh calculation, a discount edit, a tax
- * edit) always ends with a fully up-to-date premium_including_tax.
- *
- * Called explicitly from four places: after a calculation result lands
- * (below), on a discount_rate/discount_type change, on a tax_code/tax_rate
- * change, and after a hand-edited premium_rate recomputes
- * premium_before_discount — plus reactively from RiskRow.tsx whenever
- * premium_before_discount or the tax code/rate/exemption inputs change, so
- * every path converges on this one implementation instead of diverging
- * across separate handlers.
- *
- * This function itself is never wired to fire on every keystroke — only on
- * discrete commit points (blur, a Select choice, a fresh calculation) — so
- * unconditionally recomputing discount_amount/tax_amount here on every call
- * doesn't reintroduce the page-jump regression that free-typed reactivity
- * caused earlier (see the callers in RiskRow.tsx).
- */
-export function recomputeRiskRow(
-  form: UseFormReturn<QuotationFormSchemaValues>,
-  index: number,
-) {
-  const premiumBeforeDiscount = form.getValues(
-    path(index, 'premium_before_discount'),
-  ) as string;
-
-  // Refresh discount_amount for every row with a rate set, from the current
-  // premium_before_discount — this is what keeps a discount correct after a
-  // *new* calculation result, not just after the rate itself changes. Rows
-  // with no rate set are left alone (nothing to derive from).
-  const discountsBeforeRefresh = (form.getValues(
-    path(index, 'discounts_offered'),
-  ) ?? []) as QuotationFormSchemaValues['risks'][number]['discounts_offered'];
-  discountsBeforeRefresh.forEach((discount, discountIndex) => {
-    if (!discount.discount_rate) return;
-    const nextDiscountAmount = roundMoney(
-      applyRate(
-        toNumber(premiumBeforeDiscount),
-        toNumber(discount.discount_rate),
-      ),
-    );
-    if (toNumber(discount.discount_amount) !== nextDiscountAmount) {
-      form.setValue(
-        path(index, `discounts_offered.${discountIndex}.discount_amount`),
-        String(nextDiscountAmount),
-      );
-    }
-  });
-
-  const discounts = (form.getValues(path(index, 'discounts_offered')) ??
-    []) as QuotationFormSchemaValues['risks'][number]['discounts_offered'];
-
-  const nextAfterDiscount = computePremiumAfterDiscount(
-    premiumBeforeDiscount,
-    discounts,
-  );
-  if (
-    toNumber(form.getValues(path(index, 'premium_after_discount')) as string) !==
-    nextAfterDiscount
-  ) {
-    form.setValue(
-      path(index, 'premium_after_discount'),
-      String(nextAfterDiscount),
-    );
-  }
-
-  const nextExcludingTaxEquivalent = nextAfterDiscount;
-  if (
-    toNumber(
-      form.getValues(path(index, 'premium_excluding_tax_equivalent')) as string,
-    ) !== nextExcludingTaxEquivalent
-  ) {
-    form.setValue(
-      path(index, 'premium_excluding_tax_equivalent'),
-      String(nextExcludingTaxEquivalent),
-    );
-  }
-
-  const taxes = (form.getValues(path(index, 'taxes_charged')) ??
-    []) as QuotationFormSchemaValues['risks'][number]['taxes_charged'];
-  taxes.forEach((tax, taxIndex) => {
-    const expectedRate = getTaxRateForCode(tax.tax_code);
-    if (expectedRate && tax.tax_rate !== expectedRate) {
-      form.setValue(
-        path(index, `taxes_charged.${taxIndex}.tax_rate`),
-        expectedRate,
-      );
-    }
-
-    const effectiveRate = expectedRate || tax.tax_rate;
-    const nextTaxAmount = tax.is_tax_exempted
-      ? 0
-      : roundMoney(
-          applyRate(nextExcludingTaxEquivalent, toNumber(effectiveRate)),
-        );
-    if (
-      toNumber(
-        form.getValues(
-          path(index, `taxes_charged.${taxIndex}.tax_amount`),
-        ) as string,
-      ) !== nextTaxAmount
-    ) {
-      form.setValue(
-        path(index, `taxes_charged.${taxIndex}.tax_amount`),
-        String(nextTaxAmount),
-      );
-    }
-  });
-
-  const updatedTaxes = (form.getValues(path(index, 'taxes_charged')) ??
-    []) as QuotationFormSchemaValues['risks'][number]['taxes_charged'];
-  const nextIncludingTax = computePremiumIncludingTax(
-    nextExcludingTaxEquivalent,
-    updatedTaxes,
-  );
-  if (
-    toNumber(form.getValues(path(index, 'premium_including_tax')) as string) !==
-    nextIncludingTax
-  ) {
-    form.setValue(
-      path(index, 'premium_including_tax'),
-      String(nextIncludingTax),
-    );
-  }
 }
 
 /**
@@ -415,6 +273,14 @@ export function useRiskPremiumCalculation(
 
     timeoutRef.current = setTimeout(() => {
       const token = ++requestTokenRef.current;
+      const requestedDiscountRate = Number(
+        (
+          form.getValues(
+            path(index, 'discounts_offered.0.discount_rate'),
+          ) as string | undefined
+        ) || 0,
+      );
+
       calculateMutateRef.current(
         {
           risk_id: riskId,
@@ -434,6 +300,16 @@ export function useRiskPremiumCalculation(
               .toUpperCase() === 'TZS'
               ? 1
               : Number(form.getValues('exchange_rate') as string) || 1),
+          // Only a requested discount RATE is sent — the backend computes
+          // discount_amount from it; the frontend never sends a
+          // pre-calculated amount as a trusted value. Loading and
+          // tax_rule_ids are intentionally omitted here: this wizard has no
+          // loading-request UI yet, and every currently active tax rule for
+          // the product should apply by default (unchanged behavior).
+          discount:
+            requestedDiscountRate > 0
+              ? { rate: requestedDiscountRate }
+              : undefined,
         },
         {
           onSuccess: (result) => {
@@ -455,6 +331,26 @@ export function useRiskPremiumCalculation(
               updatedRow.premium_before_discount,
             );
             form.setValue(
+              path(index, 'discounts_offered'),
+              updatedRow.discounts_offered,
+            );
+            form.setValue(
+              path(index, 'premium_after_discount'),
+              updatedRow.premium_after_discount,
+            );
+            form.setValue(
+              path(index, 'premium_excluding_tax_equivalent'),
+              updatedRow.premium_excluding_tax_equivalent,
+            );
+            form.setValue(
+              path(index, 'taxes_charged'),
+              updatedRow.taxes_charged,
+            );
+            form.setValue(
+              path(index, 'premium_including_tax'),
+              updatedRow.premium_including_tax,
+            );
+            form.setValue(
               path(index, 'rating_result_metadata'),
               {
                 ...updatedRow.rating_result_metadata,
@@ -464,7 +360,6 @@ export function useRiskPremiumCalculation(
                 stale_reason: null,
               },
             );
-            recomputeRiskRow(form, index);
           },
         },
       );

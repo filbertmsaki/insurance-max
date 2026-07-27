@@ -206,6 +206,7 @@ function createServiceFixture(options: {
   rules: Record<string, unknown>[];
   requiredFactors?: Record<string, unknown>[];
   configuredFactors?: Record<string, unknown>[];
+  taxRules?: Record<string, unknown>[];
 }) {
   const riskRepository = {
     findOne: jest.fn().mockResolvedValue(options.risk),
@@ -299,7 +300,7 @@ function createServiceFixture(options: {
     structuredPricingCalculatorService,
   );
   const productTaxRuleRepository = {
-    find: jest.fn().mockResolvedValue([]),
+    find: jest.fn().mockResolvedValue(options.taxRules ?? []),
   };
   const pricingChargeService = new PricingChargeService(
     productTaxRuleRepository as any,
@@ -425,6 +426,183 @@ describe('PremiumCalculationService', () => {
       expect(result.base_premium).toBe(350000);
       expect(result.minimum_applied).toBe(false);
       expect(result.final_premium).toBe(350000);
+    });
+  });
+
+  describe('inline discount calculation', () => {
+    it('computes discount_amount from the requested rate as a live preview', async () => {
+      const { service } = createServiceFixture({
+        risk: RISKS.comprehensive.risk,
+        rules: [RISKS.comprehensive.rule],
+      });
+
+      const result = await service.calculateSingleRisk(COMPANY_ID, {
+        risk_id: RISKS.comprehensive.risk.id,
+        sum_insured: 10000000,
+        factors: {},
+        discount: { rate: 0.05 },
+      });
+
+      expect(result.premium_before_discount).toBe(350000);
+      expect(result.discount_type).toBe('PERCENTAGE');
+      expect(result.discount_rate).toBe(0.05);
+      expect(result.discount_amount).toBe(17500);
+      expect(result.premium_after_discount).toBe(332500);
+      expect(result.final_payable_premium).toBe(332500);
+      expect(result.discount_approval_required).toBe(false);
+    });
+
+    it('computes a fixed-amount discount when fixed_amount is supplied instead of a rate', async () => {
+      const { service } = createServiceFixture({
+        risk: RISKS.comprehensive.risk,
+        rules: [RISKS.comprehensive.rule],
+      });
+
+      const result = await service.calculateSingleRisk(COMPANY_ID, {
+        risk_id: RISKS.comprehensive.risk.id,
+        sum_insured: 10000000,
+        factors: {},
+        discount: { fixed_amount: 20000 },
+      });
+
+      expect(result.discount_type).toBe('FIXED');
+      expect(result.discount_rate).toBeNull();
+      expect(result.discount_amount).toBe(20000);
+      expect(result.premium_after_discount).toBe(330000);
+    });
+
+    it('still computes an over-limit discount but flags discount_approval_required, rather than rejecting it', async () => {
+      const { service } = createServiceFixture({
+        risk: RISKS.comprehensive.risk,
+        rules: [
+          {
+            ...RISKS.comprehensive.rule,
+            max_discount_rate: 0.03,
+          },
+        ],
+      });
+
+      const result = await service.calculateSingleRisk(COMPANY_ID, {
+        risk_id: RISKS.comprehensive.risk.id,
+        sum_insured: 10000000,
+        factors: {},
+        discount: { rate: 0.05 },
+      });
+
+      expect(result.discount_amount).toBe(17500);
+      expect(result.premium_after_discount).toBe(332500);
+      expect(result.discount_approval_required).toBe(true);
+    });
+
+    it('applies loading before discount, per the documented calculation sequence', async () => {
+      const { service } = createServiceFixture({
+        risk: RISKS.comprehensive.risk,
+        rules: [RISKS.comprehensive.rule],
+      });
+
+      const result = await service.calculateSingleRisk(COMPANY_ID, {
+        risk_id: RISKS.comprehensive.risk.id,
+        sum_insured: 10000000,
+        factors: {},
+        loading: { rate: 0.1 },
+        discount: { rate: 0.05 },
+      });
+
+      // final_premium (350,000) + 10% loading = 385,000 premium_before_discount
+      expect(result.loading_amount).toBe(35000);
+      expect(result.premium_before_discount).toBe(385000);
+      // 5% discount applied to premium_before_discount, not the raw base premium
+      expect(result.discount_amount).toBe(19250);
+      expect(result.premium_after_discount).toBe(365750);
+    });
+
+    it('defaults to no discount/loading when neither is requested', async () => {
+      const { service } = createServiceFixture({
+        risk: RISKS.comprehensive.risk,
+        rules: [RISKS.comprehensive.rule],
+      });
+
+      const result = await service.calculateSingleRisk(COMPANY_ID, {
+        risk_id: RISKS.comprehensive.risk.id,
+        sum_insured: 10000000,
+        factors: {},
+      });
+
+      expect(result.discount_type).toBe('NONE');
+      expect(result.discount_amount).toBe(0);
+      expect(result.loading_amount).toBe(0);
+      expect(result.premium_before_discount).toBe(350000);
+      expect(result.premium_after_discount).toBe(350000);
+    });
+  });
+
+  describe('selective tax-rule application', () => {
+    const vatRule = {
+      id: 'tax-rule-vat',
+      company_id: COMPANY_ID,
+      category_id: null,
+      product_id: null,
+      risk_id: null,
+      tax_code: 'VAT-MAINLAND',
+      tax_name: 'VAT',
+      charge_category: 'TAX',
+      tax_type: 'PERCENTAGE',
+      calculation_base: 'NET_PREMIUM',
+      tax_rate: 0.18,
+      tax_amount: null,
+      minimum_charge_amount: null,
+      maximum_charge_amount: null,
+      is_taxable: false,
+      effective_from: '2020-01-01',
+      effective_to: '2999-12-31',
+      status: 'ACTIVE',
+    };
+    const withholdingRule = {
+      ...vatRule,
+      id: 'tax-rule-withholding',
+      tax_code: 'WITHHOLDING',
+      tax_name: 'Withholding Tax',
+      tax_rate: 0.01,
+    };
+
+    it('applies every active tax rule when tax_rule_ids is omitted (unchanged default)', async () => {
+      const { service } = createServiceFixture({
+        risk: RISKS.comprehensive.risk,
+        rules: [RISKS.comprehensive.rule],
+        taxRules: [vatRule, withholdingRule],
+      });
+
+      const result = await service.calculateSingleRisk(COMPANY_ID, {
+        risk_id: RISKS.comprehensive.risk.id,
+        sum_insured: 10000000,
+        factors: {},
+      });
+
+      // 350,000 * (0.18 + 0.01) = 66,500
+      expect(result.charges).toHaveLength(2);
+      expect(result.total_tax_amount).toBe(66500);
+    });
+
+    it('restricts charge calculation to the requested tax_rule_ids', async () => {
+      const { service } = createServiceFixture({
+        risk: RISKS.comprehensive.risk,
+        rules: [RISKS.comprehensive.rule],
+        taxRules: [vatRule, withholdingRule],
+      });
+
+      const result = await service.calculateSingleRisk(COMPANY_ID, {
+        risk_id: RISKS.comprehensive.risk.id,
+        sum_insured: 10000000,
+        factors: {},
+        tax_rule_ids: ['tax-rule-vat'],
+      });
+
+      expect(result.charges).toHaveLength(1);
+      expect(result.charges[0].applied_rule_id).toBe('tax-rule-vat');
+      // 350,000 * 0.18 = 63,000 (withholding excluded)
+      expect(result.total_tax_amount).toBe(63000);
+      expect(result.tax_rate).toBe(0.18);
+      expect(result.final_payable_premium).toBe(413000);
     });
   });
 

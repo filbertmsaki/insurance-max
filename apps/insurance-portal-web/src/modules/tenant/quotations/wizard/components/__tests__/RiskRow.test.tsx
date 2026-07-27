@@ -14,7 +14,6 @@ import {
 import { RiskRow } from '../RiskRow';
 
 vi.mock('../../hooks/useRiskPremiumCalculation', () => ({
-  recomputeRiskRow: vi.fn(),
   useRiskPremiumCalculation: () => ({
     calculateMutation: {
       isPending: false,

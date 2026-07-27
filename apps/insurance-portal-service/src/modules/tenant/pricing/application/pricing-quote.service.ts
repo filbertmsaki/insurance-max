@@ -111,10 +111,10 @@ export class PricingQuoteService {
           companyId,
           input,
         );
-        const result: RiskPremiumResult = {
+        const result: RiskPremiumResult = this.applyExchangeRateEquivalents({
           ...engineResult,
           exchange_rate_snapshot: exchangeRateSnapshot,
-        };
+        });
         const snapshot = await this.persistQuoteSnapshot(
           companyId,
           PricingQuoteScope.SINGLE_RISK,
@@ -192,10 +192,12 @@ export class PricingQuoteService {
         );
         const result: MultiRiskPremiumResult = {
           ...engineResult,
-          risks: engineResult.risks.map((risk) => ({
-            ...risk,
-            exchange_rate_snapshot: exchangeRateSnapshot,
-          })),
+          risks: engineResult.risks.map((risk) =>
+            this.applyExchangeRateEquivalents({
+              ...risk,
+              exchange_rate_snapshot: exchangeRateSnapshot,
+            }),
+          ),
         };
         const snapshot = await this.persistQuoteSnapshot(
           companyId,
@@ -258,6 +260,31 @@ export class PricingQuoteService {
       result_payload: quote.result_payload,
       warning_messages: quote.warning_messages ?? [],
       context_payload: quote.context_payload,
+    };
+  }
+
+  /**
+   * The engine computes *_equivalent fields as equal to their plain
+   * counterpart because it has no exchange-rate context. Once the snapshot
+   * is resolved here, recompute the true base-currency equivalents.
+   */
+  private applyExchangeRateEquivalents(
+    result: RiskPremiumResult,
+  ): RiskPremiumResult {
+    const rate = result.exchange_rate_snapshot?.exchange_rate;
+    if (!rate || rate === 1) {
+      return result;
+    }
+
+    return {
+      ...result,
+      sum_insured_equivalent: roundMoney(result.sum_insured * rate),
+      premium_excluding_tax_equivalent: roundMoney(
+        result.premium_excluding_tax * rate,
+      ),
+      premium_including_tax_equivalent: roundMoney(
+        result.premium_including_tax * rate,
+      ),
     };
   }
 

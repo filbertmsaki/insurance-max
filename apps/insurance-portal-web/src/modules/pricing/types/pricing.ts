@@ -22,8 +22,12 @@ export type PricingRuleExplanation = RiskRuleExplanation;
 export type PricingCalculationState =
   | 'IDLE'
   | 'LOADING'
+  | 'CALCULATING'
   | 'CALCULATED'
   | 'INCOMPLETE'
+  | 'WARNING'
+  | 'REFERRAL_REQUIRED'
+  | 'STALE'
   | 'ERROR'
   | 'EXPIRED';
 
@@ -70,6 +74,8 @@ export interface PricingQuoteMetadata {
     effective_from?: string | null;
     effective_to?: string | null;
   } | null;
+  discount_approval_required?: boolean;
+  loading_approval_required?: boolean;
   validation_errors?: string[];
   validation_warnings?: string[];
 }

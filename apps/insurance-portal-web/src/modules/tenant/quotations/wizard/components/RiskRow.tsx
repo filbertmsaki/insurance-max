@@ -30,7 +30,6 @@ import {
   TAX_CODE_OPTIONS,
   TAX_EXEMPTION_OPTIONS,
   TAX_EXEMPTION_TYPE_OPTIONS,
-  getTaxRateForCode,
 } from '../utils/taxOptions';
 import {
   fromSelectValue,
@@ -39,10 +38,7 @@ import {
 } from '../utils/selectValue';
 import { toNumber } from '../utils/premiumAggregation';
 import { motorFieldNameForFactorCode } from '../utils/riskFactorResolver';
-import {
-  recomputeRiskRow,
-  useRiskPremiumCalculation,
-} from '../hooks/useRiskPremiumCalculation';
+import { useRiskPremiumCalculation } from '../hooks/useRiskPremiumCalculation';
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
   PricingStatusAlert,
@@ -161,9 +157,6 @@ export function RiskRow({
     name: `risks.${index}.taxes_charged` as const,
   });
   const taxes = watchedTaxes ?? EMPTY_TAX_ROWS;
-  const premiumBeforeDiscount = form.watch(
-    `risks.${index}.premium_before_discount` as const,
-  );
   const premiumAfterDiscount = form.watch(
     `risks.${index}.premium_after_discount` as const,
   );
@@ -205,27 +198,6 @@ export function RiskRow({
   const sumInsuredEquivalentValue =
     toNumber(sumInsuredEquivalent) ||
     toNumber(form.watch(`risks.${index}.sum_insured` as const));
-
-  // Drives the shared recompute effect below — tax_code/is_tax_exempted are
-  // discrete Select-driven inputs (not free-typed), so reacting to every
-  // change here carries no keystroke-jank risk. discount_rate/tax_rate
-  // keystrokes deliberately are NOT watched here; recomputeRiskRow is only
-  // ever invoked at discrete commit points (blur, a Select choice, a fresh
-  // calculation) — see the explicit call sites below.
-  const taxRateInputsKey = taxes
-    .map((t) => `${t.tax_code}|${t.tax_rate}|${t.is_tax_exempted}`)
-    .join(';');
-
-  // The one shared cascade (discount_amount -> premium_after_discount ->
-  // premium_excluding_tax_equivalent -> tax_amount -> premium_including_tax)
-  // lives in recomputeRiskRow (useRiskPremiumCalculation.ts) so every trigger
-  // below converges on the same implementation. This effect is the reactive
-  // safety net for the two inputs that change without any of the explicit
-  // calls firing (a fresh calculation, or a tax code/rate/exemption change) —
-  // neither is free-typed, so reacting to every change here is safe.
-  useEffect(() => {
-    recomputeRiskRow(form, index);
-  }, [form, index, premiumBeforeDiscount, taxRateInputsKey]);
 
   return (
     <StepSection
@@ -557,9 +529,11 @@ export function RiskRow({
                                 path(index, `discounts_offered.${discountIndex}.discount_amount`),
                                 '',
                               );
-                            } else {
-                              recomputeRiskRow(form, index);
                             }
+                            // discount_amount is never computed here — the
+                            // reactive calculation hook watches
+                            // discounts_offered and requests a fresh,
+                            // backend-computed discount_amount automatically.
                           }}
                         >
                           <FormControl>
@@ -595,10 +569,6 @@ export function RiskRow({
                             step="0.000001"
                             {...field}
                             value={field.value as string}
-                            onBlur={() => {
-                              field.onBlur();
-                              recomputeRiskRow(form, index);
-                            }}
                           />
                         </FormControl>
                       </WizardFormItem>
@@ -726,15 +696,19 @@ export function RiskRow({
                           onValueChange={(value) => {
                             const nextValue = fromSelectValue(value);
                             field.onChange(nextValue);
+                            // tax_rate/tax_amount are never guessed here —
+                            // clearing them lets the reactive calculation
+                            // hook populate the real, backend-computed
+                            // values for the newly selected code.
                             form.setValue(
                               path(index, `taxes_charged.${taxIndex}.tax_rate`),
-                              getTaxRateForCode(nextValue),
+                              '',
+                            );
+                            form.setValue(
+                              path(index, `taxes_charged.${taxIndex}.tax_amount`),
+                              '',
                             );
                             if (value === SELECT_NONE_VALUE) {
-                              form.setValue(
-                                path(index, `taxes_charged.${taxIndex}.tax_amount`),
-                                '',
-                              );
                               form.setValue(
                                 path(index, `taxes_charged.${taxIndex}.is_tax_exempted`),
                                 false,
@@ -748,7 +722,6 @@ export function RiskRow({
                                 '',
                               );
                             }
-                            recomputeRiskRow(form, index);
                           }}
                         >
                           <FormControl>
@@ -831,7 +804,13 @@ export function RiskRow({
                                 path(index, `taxes_charged.${taxIndex}.tax_exemption_reference`),
                                 '',
                               );
-                              recomputeRiskRow(form, index);
+                              // Zeroing is a presentation-level clear, not a
+                              // calculation — safe to do immediately rather
+                              // than waiting on the debounced recalculation.
+                              form.setValue(
+                                path(index, `taxes_charged.${taxIndex}.tax_amount`),
+                                '0',
+                              );
                               return;
                             }
                             const isExempted = value === 'Y';
@@ -851,8 +830,18 @@ export function RiskRow({
                                 ),
                                 '',
                               );
+                              // Un-exempting means the true tax_amount is
+                              // unknown again until the backend recalculates.
+                              form.setValue(
+                                path(index, `taxes_charged.${taxIndex}.tax_amount`),
+                                '',
+                              );
+                            } else {
+                              form.setValue(
+                                path(index, `taxes_charged.${taxIndex}.tax_amount`),
+                                '0',
+                              );
                             }
-                            recomputeRiskRow(form, index);
                           }}
                         >
                           <FormControl>

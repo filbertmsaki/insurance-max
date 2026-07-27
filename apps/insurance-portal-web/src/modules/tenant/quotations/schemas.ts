@@ -149,7 +149,10 @@ function createEmptyTaxRow() {
     is_tax_exempted: false,
     tax_exemption_type: '',
     tax_exemption_reference: '',
-    tax_rate: '0.18',
+    // tax_rate/tax_amount are never guessed on the frontend — the backend
+    // pricing engine is the sole authority and populates both on the next
+    // calculation result.
+    tax_rate: '',
     tax_amount: '',
   };
 }

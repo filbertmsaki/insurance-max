@@ -580,6 +580,103 @@ describe('QuotationsService', () => {
     expect(fixture.dataSource.transaction).not.toHaveBeenCalled();
   });
 
+  describe('authoritative pricing validation on create (real validateAuthoritativePricing, not mocked)', () => {
+    function stubNonPricingConcerns(fixture: ReturnType<typeof createServiceFixture>) {
+      const payload = createMotorSingleQuotationPayload();
+      jest
+        .spyOn(fixture.service as any, 'preparePayloadWithGeneratedIdentifiers')
+        .mockResolvedValue(payload);
+      jest.spyOn(fixture.service as any, 'validateScope').mockResolvedValue({
+        product: { id: 'product-1' },
+        riskByCode: new Map([['SP005001000001', { id: 'risk-1' }]]),
+      });
+      jest
+        .spyOn(fixture.service as any, 'resolveExchangeRateSnapshot')
+        .mockResolvedValue(null);
+      return payload;
+    }
+
+    it('rejects an expired pricing quote', async () => {
+      const fixture = createServiceFixture({
+        pricingQuote: { expires_at: new Date('2020-01-01T00:00:00.000Z') },
+      });
+      stubNonPricingConcerns(fixture);
+
+      await expect(
+        fixture.service.create('company-1', createMotorSingleQuotationPayload(), {
+          id: 'user-1',
+          permissions: [],
+        } as any),
+      ).rejects.toThrow('expired');
+      expect(fixture.dataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects when the submitted sum insured no longer matches the pricing quote snapshot (tampered/changed sum insured)', async () => {
+      const fixture = createServiceFixture({
+        pricingQuote: {
+          result_payload: { sum_insured: 20000000, percentage_rate: 0.01 },
+        },
+      });
+      stubNonPricingConcerns(fixture);
+
+      await expect(
+        fixture.service.create('company-1', createMotorSingleQuotationPayload(), {
+          id: 'user-1',
+          permissions: [],
+        } as any),
+      ).rejects.toThrow('no longer matches the current sum insured');
+      expect(fixture.dataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects a manipulated premium that no longer matches the pricing quote snapshot', async () => {
+      const fixture = createServiceFixture({
+        pricingQuote: { final_premium: '999999999' },
+      });
+      stubNonPricingConcerns(fixture);
+
+      await expect(
+        fixture.service.create('company-1', createMotorSingleQuotationPayload(), {
+          id: 'user-1',
+          permissions: [],
+        } as any),
+      ).rejects.toThrow('no longer matches the premium amount');
+      expect(fixture.dataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects a pricing quote that cannot be found for the current company (cross-company access)', async () => {
+      const fixture = createServiceFixture();
+      stubNonPricingConcerns(fixture);
+      // Simulates a pricing_quote_id that belongs to a different company: the
+      // real query is scoped by `company_id: companyId`, so a cross-company
+      // id simply never comes back.
+      fixture.quotationRepositoryMock.find.mockResolvedValueOnce([]);
+
+      await expect(
+        fixture.service.create('company-1', createMotorSingleQuotationPayload(), {
+          id: 'user-1',
+          permissions: [],
+        } as any),
+      ).rejects.toThrow('was not found for the current company');
+      expect(fixture.dataSource.transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects a pricing quote already attached to a different quotation', async () => {
+      const fixture = createServiceFixture();
+      stubNonPricingConcerns(fixture);
+      (fixture.dataSource.query as jest.Mock).mockResolvedValueOnce([
+        { pricing_quote_id: 'PQ-2026-00000001', quotation_id: 'other-quotation' },
+      ]);
+
+      await expect(
+        fixture.service.create('company-1', createMotorSingleQuotationPayload(), {
+          id: 'user-1',
+          permissions: [],
+        } as any),
+      ).rejects.toThrow('already attached to another quotation');
+      expect(fixture.dataSource.transaction).not.toHaveBeenCalled();
+    });
+  });
+
   it('allows unchanged approved discounts to remain on replacement without approval permission changes', () => {
     const fixture = createServiceFixture();
     const payload = createMotorSingleQuotationPayload();

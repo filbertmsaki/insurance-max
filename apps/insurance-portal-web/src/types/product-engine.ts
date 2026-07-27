@@ -623,6 +623,33 @@ export interface RiskPremiumResult {
   input_signature?: string;
   quotation_type?: string | null;
   currency_code?: string | null;
+
+  // --- Documented calculation-response contract (additive) ---
+  premium_rate: number;
+  premium_rate_percent: number;
+  raw_premium: number;
+  sum_insured_equivalent: number;
+  minimum_premium: number;
+  minimum_premium_applied: boolean;
+  maximum_premium: number | null;
+  maximum_premium_applied: boolean;
+  loading_rate: number | null;
+  loading_amount: number;
+  loading_approval_required: boolean;
+  discount_type: 'PERCENTAGE' | 'FIXED' | 'NONE';
+  discount_rate: number | null;
+  discount_amount: number;
+  discount_approval_required: boolean;
+  premium_before_discount: number;
+  premium_after_discount: number;
+  premium_excluding_tax: number;
+  premium_excluding_tax_equivalent: number;
+  tax_rate: number | null;
+  tax_amount: number;
+  total_tax_amount: number;
+  premium_including_tax: number;
+  premium_including_tax_equivalent: number;
+  final_payable_premium: number;
 }
 
 export interface MultiCalcFailure {
@@ -651,6 +678,11 @@ export interface PricingValidationFailurePayload {
   validation_warnings: string[];
 }
 
+export interface PricingAdjustmentRequest {
+  rate?: number | null;
+  fixed_amount?: number | null;
+}
+
 export interface SingleCalcRequest {
   client_reference?: string;
   risk_id: string;
@@ -659,6 +691,9 @@ export interface SingleCalcRequest {
   effective_date?: string;
   currency_code?: string;
   exchange_rate?: number;
+  discount?: PricingAdjustmentRequest | null;
+  loading?: PricingAdjustmentRequest | null;
+  tax_rule_ids?: string[] | null;
 }
 
 export interface MultiCalcRequest {
