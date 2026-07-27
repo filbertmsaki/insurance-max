@@ -154,7 +154,7 @@ export class QuotationsController {
   @Post(':id/risks/:riskId/premium-overrides')
   @HttpCode(HttpStatus.OK)
   @UseGuards(PermissionsGuard)
-  @Permissions('pricing.override.request')
+  @Permissions('pricing.request_override')
   @ApiOperation({
     summary: 'Request a manual premium override for a quotation risk',
   })
@@ -177,7 +177,7 @@ export class QuotationsController {
   @Post(':id/risks/:riskId/premium-overrides/:overrideId/approve')
   @HttpCode(HttpStatus.OK)
   @UseGuards(PermissionsGuard)
-  @Permissions('pricing.override.approve')
+  @Permissions('pricing.approve_override')
   @ApiOperation({
     summary: 'Approve a manual premium override for a quotation risk',
   })
@@ -202,7 +202,7 @@ export class QuotationsController {
   @Post(':id/risks/:riskId/premium-overrides/:overrideId/reject')
   @HttpCode(HttpStatus.OK)
   @UseGuards(PermissionsGuard)
-  @Permissions('pricing.override.reject')
+  @Permissions('pricing.approve_override')
   @ApiOperation({
     summary: 'Reject a manual premium override for a quotation risk',
   })

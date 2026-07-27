@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 import { ApprovalStatus } from './enums/approval-status.enum';
@@ -89,11 +89,19 @@ describe('QuotationsService', () => {
           {
             risks: [
               {
+                id: 'quotation-risk-1',
                 risk_code:
                   authoritativePayload.cover_note_dtl.risks_covered?.[0]
                     ?.risk_code ?? 'SP005001000001',
                 insurance_risk_id: 'risk-1',
                 pricing_quote_id: pricingQuote.pricing_quote_id,
+                premium_before_discount: '100000.00',
+                premium_after_discount: '95000.00',
+                premium_excluding_tax_equivalent: '95000.00',
+                premium_including_tax: '112100.00',
+                discounts: [],
+                taxes: [],
+                premium_overrides: [],
               },
             ],
           },
@@ -102,6 +110,84 @@ describe('QuotationsService', () => {
       ...quotationOverrides,
     } as any;
 
+    const quotationRepositoryMock = {
+      findOne: jest.fn().mockResolvedValue(pricingQuote),
+      find: jest.fn().mockResolvedValue([pricingQuote]),
+      update: jest.fn().mockResolvedValue(undefined),
+      createQueryBuilder: jest.fn().mockReturnValue({
+        setLock: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(quotation),
+      }),
+    };
+    const premiumOverrideRepositoryMock = {
+      create: jest.fn().mockImplementation((value) => ({
+        id: 'override-1',
+        ...value,
+      })),
+      save: jest.fn().mockImplementation(async (value) => ({
+        id: 'override-1',
+        ...value,
+      })),
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+    const quotationEntryRiskRepositoryMock = {
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+    const quotationRiskDiscountRepositoryMock = {
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+    const quotationRiskTaxRepositoryMock = {
+      update: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const transactionManager = {
+      getRepository: jest.fn().mockImplementation((entity: unknown) => {
+        if (
+          typeof entity === 'function' &&
+          'name' in entity &&
+          entity.name === 'Quotation'
+        ) {
+          return quotationRepositoryMock;
+        }
+        if (
+          typeof entity === 'function' &&
+          'name' in entity &&
+          entity.name === 'QuotationRiskPremiumOverride'
+        ) {
+          return premiumOverrideRepositoryMock;
+        }
+        if (
+          typeof entity === 'function' &&
+          'name' in entity &&
+          entity.name === 'QuotationEntryRisk'
+        ) {
+          return quotationEntryRiskRepositoryMock;
+        }
+        if (
+          typeof entity === 'function' &&
+          'name' in entity &&
+          entity.name === 'QuotationRiskDiscount'
+        ) {
+          return quotationRiskDiscountRepositoryMock;
+        }
+        if (
+          typeof entity === 'function' &&
+          'name' in entity &&
+          entity.name === 'QuotationRiskTax'
+        ) {
+          return quotationRiskTaxRepositoryMock;
+        }
+
+        return {
+          update: jest.fn().mockResolvedValue(undefined),
+          create: jest.fn().mockImplementation((value) => value),
+          save: jest.fn().mockImplementation(async (value) => value),
+        };
+      }),
+    };
+
     const dataSource = {
       getRepository: jest.fn().mockImplementation((entity: unknown) => {
         if (
@@ -109,9 +195,7 @@ describe('QuotationsService', () => {
           'name' in entity &&
           entity.name === 'PricingQuote'
         ) {
-          return {
-            find: jest.fn().mockResolvedValue([pricingQuote]),
-          };
+          return quotationRepositoryMock;
         }
 
         if (
@@ -129,6 +213,9 @@ describe('QuotationsService', () => {
         };
       }),
       query: jest.fn().mockResolvedValue([]),
+      transaction: jest.fn().mockImplementation(async (callback) =>
+        callback(transactionManager as any),
+      ),
     } as unknown as DataSource;
 
     const quotationsRepository = {
@@ -244,11 +331,18 @@ describe('QuotationsService', () => {
     return {
       authoritativePayload,
       auditService,
+      dataSource,
       quotation,
+      premiumOverrideRepositoryMock,
       payloadMapper,
       pricingChargeService,
       quotationLifecycleService,
+      quotationEntryRiskRepositoryMock,
+      quotationRepositoryMock,
+      quotationRiskDiscountRepositoryMock,
+      quotationRiskTaxRepositoryMock,
       tiramisBusinessSubmitService,
+      transactionManager,
       service,
     };
   }
@@ -532,6 +626,123 @@ describe('QuotationsService', () => {
           new_value: expect.objectContaining({
             premium_including_tax: 118000,
           }),
+        }),
+      }),
+    );
+  });
+
+  it('prevents a requester from approving their own premium override', async () => {
+    const fixture = createServiceFixture();
+    fixture.quotation.cover_note.entries[0].risks[0].premium_overrides = [
+      {
+        id: 'override-1',
+        original_calculated_premium: '100000.00',
+        proposed_premium: '90000.00',
+        override_reason: 'Loyalty retention',
+        requested_by: 'user-1',
+        approval_status: 'PENDING',
+      },
+    ];
+
+    await expect(
+      fixture.service.approvePremiumOverride(
+        'company-1',
+        fixture.quotation.id,
+        'quotation-risk-1',
+        'override-1',
+        {},
+        {
+          id: 'user-1',
+        } as any,
+      ),
+    ).rejects.toThrow(
+      new ConflictException(
+        'You cannot approve your own premium override request',
+      ),
+    );
+  });
+
+  it('approves a pending premium override and recalculates the stored risk totals', async () => {
+    const fixture = createServiceFixture();
+    fixture.quotation.cover_note.entries[0].risks[0].discounts = [
+      {
+        id: 'discount-1',
+        discount_rate: '0.05',
+        discount_amount: '5000.00',
+      },
+    ];
+    fixture.quotation.cover_note.entries[0].risks[0].taxes = [
+      {
+        id: 'tax-1',
+        tax_rate: '0.18',
+        tax_amount: '17100.00',
+        is_tax_exempted: 'N',
+      },
+    ];
+    fixture.quotation.cover_note.entries[0].risks[0].premium_overrides = [
+      {
+        id: 'override-1',
+        original_calculated_premium: '100000.00',
+        proposed_premium: '80000.00',
+        override_reason: 'Commercial retention',
+        requested_by: 'underwriter-1',
+        approval_status: 'PENDING',
+      },
+    ];
+
+    const result = await fixture.service.approvePremiumOverride(
+      'company-1',
+      fixture.quotation.id,
+      'quotation-risk-1',
+      'override-1',
+      {},
+      {
+        id: 'approver-2',
+      } as any,
+    );
+
+    expect(result).toEqual({
+      id: 'override-1',
+      approval_status: 'APPROVED',
+    });
+    expect(fixture.premiumOverrideRepositoryMock.update).toHaveBeenCalledWith(
+      { id: 'override-1', risk_id: 'quotation-risk-1' },
+      expect.objectContaining({
+        approval_status: 'APPROVED',
+        approved_by: 'approver-2',
+      }),
+    );
+    expect(fixture.quotationEntryRiskRepositoryMock.update).toHaveBeenCalledWith(
+      { id: 'quotation-risk-1' },
+      expect.objectContaining({
+        premium_before_discount: '80000.00',
+        premium_after_discount: '76000.00',
+        premium_excluding_tax_equivalent: '76000.00',
+        premium_including_tax: '89680.00',
+      }),
+    );
+    expect(
+      fixture.quotationRiskDiscountRepositoryMock.update,
+    ).toHaveBeenCalledWith(
+      { id: 'discount-1' },
+      {
+        discount_amount: '4000.00',
+      },
+    );
+    expect(fixture.quotationRiskTaxRepositoryMock.update).toHaveBeenCalledWith(
+      { id: 'tax-1' },
+      {
+        tax_amount: '13680.00',
+      },
+    );
+    expect(fixture.auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'quotation.premium_override.approved',
+        metadata: expect.objectContaining({
+          premiumOverrideId: 'override-1',
+          new_value: {
+            proposed_premium: 80000,
+          },
         }),
       }),
     );

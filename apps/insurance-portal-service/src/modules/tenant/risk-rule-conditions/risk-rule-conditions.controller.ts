@@ -29,7 +29,7 @@ export class RiskRuleConditionsController {
 
   @Get('by-rule/:ruleId')
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:read')
+  @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'List all conditions for a rating rule' })
   async findByRule(
     @CurrentUser() user: AuthenticatedUser,
@@ -40,7 +40,7 @@ export class RiskRuleConditionsController {
 
   @Post()
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:create')
+  @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'Add a condition to a rating rule' })
   async create(
     @CurrentUser() user: AuthenticatedUser,
@@ -51,7 +51,7 @@ export class RiskRuleConditionsController {
 
   @Get(':conditionId')
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:read')
+  @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'Get a rule condition by ID' })
   async findOne(
     @CurrentUser() user: AuthenticatedUser,
@@ -62,7 +62,7 @@ export class RiskRuleConditionsController {
 
   @Patch(':conditionId')
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:update')
+  @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'Update a rule condition' })
   async update(
     @CurrentUser() user: AuthenticatedUser,
@@ -74,7 +74,7 @@ export class RiskRuleConditionsController {
 
   @Delete(':conditionId')
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:delete')
+  @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'Delete a rule condition' })
   async remove(
     @CurrentUser() user: AuthenticatedUser,

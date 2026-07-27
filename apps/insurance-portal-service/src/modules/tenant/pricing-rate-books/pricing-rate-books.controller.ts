@@ -32,7 +32,7 @@ export class PricingRateBooksController {
 
   @Get()
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:read')
+  @Permissions('pricing.manage_rate_books')
   @ApiOperation({ summary: 'List pricing rate books' })
   async findAll(
     @CurrentUser() user: AuthenticatedUser,
@@ -43,7 +43,7 @@ export class PricingRateBooksController {
 
   @Post()
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:create')
+  @Permissions('pricing.manage_rate_books')
   @ApiOperation({ summary: 'Create a draft pricing rate book' })
   async create(
     @CurrentUser() user: AuthenticatedUser,
@@ -54,7 +54,7 @@ export class PricingRateBooksController {
 
   @Post('clone')
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:create')
+  @Permissions('pricing.manage_rate_books')
   @ApiOperation({ summary: 'Clone an existing pricing rate book into a new draft version' })
   async clone(
     @CurrentUser() user: AuthenticatedUser,
@@ -65,7 +65,7 @@ export class PricingRateBooksController {
 
   @Get(':rateBookId')
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:read')
+  @Permissions('pricing.manage_rate_books')
   @ApiOperation({ summary: 'Get a pricing rate book with rules and conditions' })
   async findOne(
     @CurrentUser() user: AuthenticatedUser,
@@ -76,7 +76,7 @@ export class PricingRateBooksController {
 
   @Patch(':rateBookId')
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:update')
+  @Permissions('pricing.manage_rate_books')
   @ApiOperation({ summary: 'Update an editable pricing rate book' })
   async update(
     @CurrentUser() user: AuthenticatedUser,
@@ -88,7 +88,7 @@ export class PricingRateBooksController {
 
   @Post(':rateBookId/submit-review')
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:update')
+  @Permissions('pricing.publish_rate_books')
   @ApiOperation({ summary: 'Submit a pricing rate book for review' })
   async submitForReview(
     @CurrentUser() user: AuthenticatedUser,
@@ -99,7 +99,7 @@ export class PricingRateBooksController {
 
   @Post(':rateBookId/approve')
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:update')
+  @Permissions('pricing.publish_rate_books')
   @ApiOperation({ summary: 'Approve a pricing rate book' })
   async approve(
     @CurrentUser() user: AuthenticatedUser,
@@ -110,7 +110,7 @@ export class PricingRateBooksController {
 
   @Post(':rateBookId/reject')
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:update')
+  @Permissions('pricing.publish_rate_books')
   @ApiOperation({ summary: 'Reject a pricing rate book' })
   async reject(
     @CurrentUser() user: AuthenticatedUser,
@@ -121,7 +121,7 @@ export class PricingRateBooksController {
 
   @Post(':rateBookId/publish')
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:update')
+  @Permissions('pricing.publish_rate_books')
   @ApiOperation({ summary: 'Publish an approved pricing rate book' })
   async publish(
     @CurrentUser() user: AuthenticatedUser,
@@ -132,7 +132,7 @@ export class PricingRateBooksController {
 
   @Post(':rateBookId/retire')
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:update')
+  @Permissions('pricing.publish_rate_books')
   @ApiOperation({ summary: 'Retire a published pricing rate book' })
   async retire(
     @CurrentUser() user: AuthenticatedUser,
@@ -143,7 +143,7 @@ export class PricingRateBooksController {
 
   @Delete(':rateBookId')
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:delete')
+  @Permissions('pricing.manage_rate_books')
   @ApiOperation({ summary: 'Soft-delete an editable pricing rate book' })
   async remove(
     @CurrentUser() user: AuthenticatedUser,

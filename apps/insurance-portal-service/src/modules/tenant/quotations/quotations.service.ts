@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -203,11 +204,13 @@ interface PostgreSqlDriverError {
 const DIRECT_PAYMENT_MODE = 1;
 const MONEY_TOLERANCE = 0.01;
 const RATE_TOLERANCE = 0.000001;
-const PREMIUM_OVERRIDE_VIEW_PERMISSIONS = [
-  'pricing.override.view',
-  'pricing.override.request',
-  'pricing.override.approve',
-  'pricing.override.reject',
+const PRICING_VIEW_BREAKDOWN_PERMISSION = 'pricing.view_breakdown';
+const PRICING_REQUEST_DISCOUNT_PERMISSION = 'pricing.request_discount';
+const PRICING_APPROVE_DISCOUNT_PERMISSION = 'pricing.approve_discount';
+const PRICING_AUDIT_VIEW_PERMISSIONS = [
+  'pricing.view_audit',
+  'pricing.request_override',
+  'pricing.approve_override',
 ] as const;
 
 @Injectable()
@@ -248,6 +251,7 @@ export class QuotationsService {
       productId: scope.product.id,
       riskByCode: this.createPricingAuthorityRiskIndex(scope.riskByCode),
     });
+    this.assertDiscountPermissions(preparedPayload, user);
     const lifecycleContext = {
       changedBy: user.id,
       changedByType: 'USER' as const,
@@ -340,11 +344,11 @@ export class QuotationsService {
       preparedPayload,
       user,
     );
-    await this.validateAuthoritativePricing(
-      companyId,
-      preparedPayload,
-      {
-        productId: scope.product.id,
+      await this.validateAuthoritativePricing(
+        companyId,
+        preparedPayload,
+        {
+          productId: scope.product.id,
         riskByCode: this.createPricingAuthorityRiskIndex(scope.riskByCode),
         quotationId: existing.id,
       },
@@ -352,10 +356,11 @@ export class QuotationsService {
         userId: user.id,
         quotationId: existing.id,
         quotationNo: existing.quotation_no,
-        reason: 'Quotation payload validation succeeded before replacement',
-      },
-    );
-    const lifecycleContext = {
+          reason: 'Quotation payload validation succeeded before replacement',
+        },
+      );
+      this.assertDiscountPermissions(preparedPayload, user, existing);
+      const lifecycleContext = {
       changedBy: user.id,
       changedByType: 'USER' as const,
       source: 'USER' as const,
@@ -459,17 +464,20 @@ export class QuotationsService {
     };
   }
 
-  async findOne(companyId: string, id: string) {
+  async findOne(
+    companyId: string,
+    id: string,
+    user?: Pick<AuthenticatedUser, 'permissions'> | null,
+  ) {
     const quotation = await this.quotationsRepository.findOneAggregate(
       companyId,
       id,
     );
     return {
       ...this.payloadMapper.toResponse(quotation),
-      pricing_integration: await this.evaluateQuotationPricingIntegration(
-        companyId,
-        quotation,
-      ),
+      pricing_integration: this.canViewPricingBreakdown(user)
+        ? await this.evaluateQuotationPricingIntegration(companyId, quotation)
+        : null,
     };
   }
 
@@ -507,29 +515,28 @@ export class QuotationsService {
       this.findTiramisTrackingByEntry(companyId, quotation),
     ]);
 
-    const response = this.previewMapper.toResponse(
-      quotation,
-      {
-        invoice,
-        receipt,
-        paymentTransaction,
-        portalSubmission,
-        portalSubmissionEvents: portalSubmission?.events ?? [],
-        tiramisTracking,
-        tiramisTrackingByEntry,
-      },
-      {
-        includePremiumOverrides: this.canViewPremiumOverrides(user),
-      },
-    );
-
-    return {
-      ...response,
-      pricing_integration: await this.evaluateQuotationPricingIntegration(
-        companyId,
+      const response = this.previewMapper.toResponse(
         quotation,
-      ),
-    };
+        {
+          invoice,
+          receipt,
+          paymentTransaction,
+          portalSubmission,
+          portalSubmissionEvents: portalSubmission?.events ?? [],
+          tiramisTracking,
+          tiramisTrackingByEntry,
+        },
+        {
+          includePremiumOverrides: this.canViewPricingAudit(user),
+        },
+      );
+
+      return {
+        ...response,
+        pricing_integration: this.canViewPricingBreakdown(user)
+          ? await this.evaluateQuotationPricingIntegration(companyId, quotation)
+          : null,
+      };
   }
 
   async requestPremiumOverride(

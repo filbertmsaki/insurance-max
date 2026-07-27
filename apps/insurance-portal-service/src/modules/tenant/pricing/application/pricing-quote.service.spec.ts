@@ -326,5 +326,149 @@ describe('PricingQuoteService', () => {
         }),
       }),
     );
+    expect(result.risks[0].exchange_rate_snapshot).toEqual(
+      expect.objectContaining({
+        quotation_currency_code: 'TZS',
+        exchange_rate: 1,
+      }),
+    );
+  });
+
+  it('persists a manual exchange-rate snapshot for foreign-currency single-risk quotes', async () => {
+    const exchangeRateGovernanceService = {
+      resolveSnapshot: jest.fn().mockResolvedValue({
+        quotation_currency_code: 'USD',
+        base_currency_code: 'TZS',
+        exchange_rate: 2540.125,
+        exchange_rate_source: 'MANUAL',
+        exchange_rate_date: '2026-07-27',
+        exchange_rate_precision: 10,
+        approval_required: true,
+        approval_granted: true,
+        approved_by_user_id: 'approver-1',
+        approved_at: '2026-07-27T09:15:00.000Z',
+        conversion_direction: 'QUOTE_TO_BASE_MULTIPLY',
+        rounding_method: 'ROUND_HALF_UP',
+      }),
+    };
+    const pricingEngineService = {
+      calculateSingleRisk: jest.fn().mockResolvedValue({
+        risk_id: 'risk-1',
+        risk_code: 'RISK-USD',
+        risk_name: 'Marine Cargo',
+        rate_book_id: 'rate-book-2',
+        rate_book_code: 'MARINE-EXPORT',
+        rate_book_version: '2026.3',
+        rule_id: 'rule-99',
+        rule_name: 'USD cargo rate',
+        rule_version: 4,
+        sum_insured: 250000,
+        rate_type: 'PERCENTAGE',
+        percentage_rate: 0.0125,
+        base_premium: 3125,
+        per_unit_factor_code: null,
+        per_unit_value: 0,
+        per_unit_amount: 0,
+        per_unit_premium: 0,
+        fixed_amount: 0,
+        minimum_amount: 0,
+        gross_premium: 3125,
+        final_premium: 3125,
+        minimum_applied: false,
+        discount_control: null,
+        loading_control: null,
+        charges: [],
+        total_charge_amount: 0,
+        taxable_charge_amount: 0,
+        non_taxable_charge_amount: 0,
+        premium_including_charges: 3125,
+        factors: { cargo_type: 'GENERAL' },
+        validation_errors: [],
+        validation_warnings: [],
+      }),
+    };
+    const quotationRecalculationService = {
+      createInputSignature: jest.fn().mockReturnValue('hash-usd'),
+    };
+    const identifierGeneratorService = {
+      generatePricingQuoteId: jest.fn().mockResolvedValue({
+        pricingQuoteId: 'PQ-2026-00000021',
+        sequenceNo: 21,
+      }),
+    };
+    const pricingQuoteRepository = {
+      create: jest.fn().mockImplementation((value) => value),
+      save: jest.fn().mockImplementation(async (value) => value),
+      findOne: jest.fn(),
+    };
+    const riskRepository = {
+      find: jest.fn().mockResolvedValue([
+        {
+          id: 'risk-1',
+          company_id: COMPANY_ID,
+          product_id: 'product-marine',
+        },
+      ]),
+    };
+
+    const service = new PricingQuoteService(
+      pricingEngineService as any,
+      quotationRecalculationService as any,
+      identifierGeneratorService as any,
+      exchangeRateGovernanceService as any,
+      pricingQuoteRepository as any,
+      riskRepository as any,
+    );
+
+    const result = await service.calculateSingleRiskQuote(
+      COMPANY_ID,
+      {
+        risk_id: 'risk-1',
+        sum_insured: 250000,
+        factors: { cargo_type: 'GENERAL' },
+        quotation_type: 'NEW_BUSINESS',
+        currency_code: 'USD',
+        exchange_rate: 2540.125,
+        effective_date: '2026-07-27',
+      },
+      'user-approver',
+      {
+        id: 'user-approver',
+        permissions: [
+          'pricing.exchange-rate.manual',
+          'pricing.exchange-rate.approve',
+        ],
+      },
+    );
+
+    expect(result.currency_code).toBe('USD');
+    expect(result.exchange_rate_snapshot).toEqual(
+      expect.objectContaining({
+        quotation_currency_code: 'USD',
+        base_currency_code: 'TZS',
+        exchange_rate: 2540.125,
+        exchange_rate_source: 'MANUAL',
+        approval_required: true,
+      }),
+    );
+    expect(pricingQuoteRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pricing_quote_id: 'PQ-2026-00000021',
+        currency_code: 'USD',
+        context_payload: expect.objectContaining({
+          exchange_rate_snapshot: expect.objectContaining({
+            quotation_currency_code: 'USD',
+            exchange_rate: 2540.125,
+            approved_by_user_id: 'approver-1',
+          }),
+        }),
+        result_payload: expect.objectContaining({
+          exchange_rate_snapshot: expect.objectContaining({
+            quotation_currency_code: 'USD',
+            exchange_rate_source: 'MANUAL',
+          }),
+        }),
+      }),
+    );
   });
 });

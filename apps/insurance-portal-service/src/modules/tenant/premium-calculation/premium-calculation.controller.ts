@@ -29,7 +29,7 @@ export class PremiumCalculationController {
 
   @Post('single')
   @UseGuards(PermissionsGuard)
-  @Permissions('premium-calculation:calculate')
+  @Permissions('pricing.calculate')
   @ApiOperation({
     summary: 'Calculate premium for a single risk',
     description:
@@ -61,7 +61,7 @@ export class PremiumCalculationController {
 
   @Post('multi')
   @UseGuards(PermissionsGuard)
-  @Permissions('premium-calculation:calculate')
+  @Permissions('pricing.calculate')
   @ApiOperation({
     summary: 'Calculate premium for multiple risks at once',
     description:
@@ -76,7 +76,7 @@ export class PremiumCalculationController {
 
   @Get('explain/:risk_id')
   @UseGuards(PermissionsGuard)
-  @Permissions('premium-calculation:calculate')
+  @Permissions('pricing.calculate')
   @ApiOperation({
     summary: "Explain a risk's resolved rating rule without calculating",
     description:
@@ -91,7 +91,7 @@ export class PremiumCalculationController {
 
   @Get('quotes/:pricingQuoteId')
   @UseGuards(PermissionsGuard)
-  @Permissions('premium-calculation:calculate')
+  @Permissions('pricing.view_breakdown')
   @ApiOperation({
     summary: 'Fetch an immutable stored pricing quote snapshot',
   })

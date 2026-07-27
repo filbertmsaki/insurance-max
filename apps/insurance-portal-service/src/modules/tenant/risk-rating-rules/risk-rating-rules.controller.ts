@@ -31,7 +31,7 @@ export class RiskRatingRulesController {
 
   @Get()
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:read')
+  @Permissions('pricing.manage_rules')
   @ApiOperation({
     summary: 'List all rating rules (filter by risk_id, rate_type, is_active)',
   })
@@ -44,7 +44,7 @@ export class RiskRatingRulesController {
 
   @Post()
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:create')
+  @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'Create a new rating rule for a risk' })
   @ApiBody({
     type: CreateRiskRatingRuleDto,
@@ -118,7 +118,7 @@ export class RiskRatingRulesController {
 
   @Get(':ruleId')
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:read')
+  @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'Get a rating rule with its conditions' })
   async findOne(
     @CurrentUser() user: AuthenticatedUser,
@@ -129,7 +129,7 @@ export class RiskRatingRulesController {
 
   @Patch(':ruleId')
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:update')
+  @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'Update a rating rule' })
   async update(
     @CurrentUser() user: AuthenticatedUser,
@@ -141,7 +141,7 @@ export class RiskRatingRulesController {
 
   @Delete(':ruleId')
   @UseGuards(PermissionsGuard)
-  @Permissions('risk-rating-rules:delete')
+  @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'Soft-delete a rating rule' })
   async remove(
     @CurrentUser() user: AuthenticatedUser,
