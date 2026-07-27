@@ -14,7 +14,7 @@ import {
   useRisksByProduct,
   useSubClassesByProduct,
 } from '@/modules/tenant/product-engine/hooks';
-import { calculatorApi } from '@/modules/tenant/product-engine/api/calculator';
+import { usePricingCalculator } from '@/modules/pricing';
 import { tiramisApi } from '@/modules/tenant/tiramis/api';
 import { departmentsApi } from '@/modules/tenant/departments/api/departments';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -23,12 +23,15 @@ import { quotationsApi } from './api';
 import { buildQuotationPayload } from './schemas';
 import type { QuotationFormSchemaValues } from './schemas';
 import type {
+  DecideQuotationPremiumOverridePayload,
   QuotationDetailRecord,
   QuotationListParams,
   QuotationPreviewRecord,
+  RequestQuotationPremiumOverridePayload,
   QuotationSubmitResponse,
   QuotationStatus,
   QuotationStatusTransitionAction,
+  TransitionQuotationStatusPayload,
 } from './types';
 import type { QuotationUpdatePayload } from './api';
 
@@ -262,10 +265,8 @@ export function useTransitionQuotationStatus(id?: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: {
-      action: QuotationStatusTransitionAction;
-      reason?: string;
-    }) => quotationsApi.transitionStatus(id!, payload),
+    mutationFn: (payload: TransitionQuotationStatusPayload) =>
+      quotationsApi.transitionStatus(id!, payload),
     onSuccess: (quotation, payload) => {
       queryClient.invalidateQueries({ queryKey: quotationKeys.all });
       if (id) {
@@ -300,6 +301,81 @@ export function useTransitionQuotationStatus(id?: string) {
         `Quotation moved to ${quotation.quotation_status.toLowerCase().replace(/_/g, ' ')}`;
 
       toast.success(message);
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error)),
+  });
+}
+
+export function useRequestQuotationPremiumOverride(id?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      riskId,
+      payload,
+    }: {
+      riskId: string;
+      payload: RequestQuotationPremiumOverridePayload;
+    }) => quotationsApi.requestPremiumOverride(id!, riskId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: quotationKeys.all });
+      if (id) {
+        queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
+        queryClient.invalidateQueries({ queryKey: quotationKeys.preview(id) });
+      }
+      toast.success('Premium override request submitted');
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error)),
+  });
+}
+
+export function useApproveQuotationPremiumOverride(id?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      riskId,
+      overrideId,
+      payload,
+    }: {
+      riskId: string;
+      overrideId: string;
+      payload?: DecideQuotationPremiumOverridePayload;
+    }) =>
+      quotationsApi.approvePremiumOverride(id!, riskId, overrideId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: quotationKeys.all });
+      if (id) {
+        queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
+        queryClient.invalidateQueries({ queryKey: quotationKeys.preview(id) });
+      }
+      toast.success('Premium override approved');
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error)),
+  });
+}
+
+export function useRejectQuotationPremiumOverride(id?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      riskId,
+      overrideId,
+      payload,
+    }: {
+      riskId: string;
+      overrideId: string;
+      payload: DecideQuotationPremiumOverridePayload;
+    }) =>
+      quotationsApi.rejectPremiumOverride(id!, riskId, overrideId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: quotationKeys.all });
+      if (id) {
+        queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
+        queryClient.invalidateQueries({ queryKey: quotationKeys.preview(id) });
+      }
+      toast.success('Premium override rejected');
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });
@@ -402,13 +478,8 @@ export function useQuotationVehicles(customerId?: string) {
 }
 
 export function useQuotationCalculator() {
-  return useMutation({
-    mutationFn: (data: {
-      risk_id: string;
-      sum_insured: number;
-      factors: Record<string, string | number | boolean>;
-    }) => calculatorApi.calculateSingle(data),
-  });
+  const { calculateSingleMutation } = usePricingCalculator();
+  return calculateSingleMutation;
 }
 
 export function useQuotationCurrentCompanyId() {

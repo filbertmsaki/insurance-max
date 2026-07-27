@@ -3,6 +3,10 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
+  displayPercentageFromRate,
+  rateFromDisplayPercentage,
+} from '@insurance-max/portal-shared/utils/pricing-calculation.util'
+import {
   Plus, Pencil, Trash2, ChevronDown, ChevronRight,
   ToggleLeft, ToggleRight,
 } from 'lucide-react'
@@ -70,6 +74,16 @@ const ruleSchema = z.object({
   per_unit_amount: z.number().nullable().optional(),
   per_unit_factor_code: z.string().nullable().optional(),
   minimum_amount: z.number().nullable().optional(),
+  max_discount_rate: z.number().nullable().optional(),
+  max_discount_amount: z.number().nullable().optional(),
+  discount_approval_threshold_rate: z.number().nullable().optional(),
+  discount_approval_threshold_amount: z.number().nullable().optional(),
+  max_loading_rate: z.number().nullable().optional(),
+  max_loading_amount: z.number().nullable().optional(),
+  loading_approval_threshold_rate: z.number().nullable().optional(),
+  loading_approval_threshold_amount: z.number().nullable().optional(),
+  adjustment_effective_from: z.string().nullable().optional(),
+  adjustment_effective_to: z.string().nullable().optional(),
   formula: z.string().nullable().optional(),
   priority: z.number().int().min(1),
   is_active: z.boolean(),
@@ -101,11 +115,13 @@ function RateTypeBadge({ type }: { type: RateType }) {
 
 function rateValueSummary(rule: RiskRatingRule): string {
   switch (rule.rate_type) {
-    case 'PERCENTAGE': return `${rule.percentage_rate ?? 0}%`
+    case 'PERCENTAGE':
+      return `${displayPercentageFromRate(rule.percentage_rate ?? 0)}%`
     case 'FIXED': return `${rule.fixed_amount ?? 0}`
-    case 'PERCENTAGE_PLUS_FIXED': return `${rule.percentage_rate ?? 0}% + ${rule.fixed_amount ?? 0}`
+    case 'PERCENTAGE_PLUS_FIXED':
+      return `${displayPercentageFromRate(rule.percentage_rate ?? 0)}% + ${rule.fixed_amount ?? 0}`
     case 'PERCENTAGE_PLUS_PER_UNIT':
-      return `${rule.percentage_rate ?? 0}% + ${rule.per_unit_amount ?? 0} per ${rule.per_unit_factor_code ?? 'unit'}`
+      return `${displayPercentageFromRate(rule.percentage_rate ?? 0)}% + ${rule.per_unit_amount ?? 0} per ${rule.per_unit_factor_code ?? 'unit'}`
     case 'PER_UNIT': return `${rule.per_unit_amount ?? 0} per ${rule.per_unit_factor_code ?? 'unit'}`
     case 'FORMULA': return rule.formula ?? '—'
     default: return '—'
@@ -394,7 +410,18 @@ export function RatingRulesPage() {
       rule_name: '', rate_type: 'PERCENTAGE',
       percentage_rate: null, fixed_amount: null,
       per_unit_amount: null, per_unit_factor_code: null,
-      minimum_amount: null, formula: null,
+      minimum_amount: null,
+      max_discount_rate: null,
+      max_discount_amount: null,
+      discount_approval_threshold_rate: null,
+      discount_approval_threshold_amount: null,
+      max_loading_rate: null,
+      max_loading_amount: null,
+      loading_approval_threshold_rate: null,
+      loading_approval_threshold_amount: null,
+      adjustment_effective_from: null,
+      adjustment_effective_to: null,
+      formula: null,
       priority: 1, is_active: true,
     },
   })
@@ -406,7 +433,19 @@ export function RatingRulesPage() {
     form.reset({
       rule_name: '', rate_type: 'PERCENTAGE',
       percentage_rate: null, fixed_amount: null, per_unit_amount: null,
-      per_unit_factor_code: null, minimum_amount: null, formula: null,
+      per_unit_factor_code: null,
+      minimum_amount: null,
+      max_discount_rate: null,
+      max_discount_amount: null,
+      discount_approval_threshold_rate: null,
+      discount_approval_threshold_amount: null,
+      max_loading_rate: null,
+      max_loading_amount: null,
+      loading_approval_threshold_rate: null,
+      loading_approval_threshold_amount: null,
+      adjustment_effective_from: null,
+      adjustment_effective_to: null,
+      formula: null,
       priority: Math.max(1, rules.length + 1), is_active: true,
     })
     setDialogOpen(true)
@@ -417,11 +456,38 @@ export function RatingRulesPage() {
     form.reset({
       rule_name: rule.rule_name,
       rate_type: rule.rate_type,
-      percentage_rate: rule.percentage_rate,
+      percentage_rate:
+        rule.percentage_rate == null
+          ? null
+          : displayPercentageFromRate(rule.percentage_rate),
       fixed_amount: rule.fixed_amount,
       per_unit_amount: rule.per_unit_amount,
       per_unit_factor_code: rule.per_unit_factor_code,
       minimum_amount: rule.minimum_amount,
+      max_discount_rate:
+        rule.max_discount_rate == null
+          ? null
+          : displayPercentageFromRate(rule.max_discount_rate),
+      max_discount_amount: rule.max_discount_amount,
+      discount_approval_threshold_rate:
+        rule.discount_approval_threshold_rate == null
+          ? null
+          : displayPercentageFromRate(rule.discount_approval_threshold_rate),
+      discount_approval_threshold_amount:
+        rule.discount_approval_threshold_amount,
+      max_loading_rate:
+        rule.max_loading_rate == null
+          ? null
+          : displayPercentageFromRate(rule.max_loading_rate),
+      max_loading_amount: rule.max_loading_amount,
+      loading_approval_threshold_rate:
+        rule.loading_approval_threshold_rate == null
+          ? null
+          : displayPercentageFromRate(rule.loading_approval_threshold_rate),
+      loading_approval_threshold_amount:
+        rule.loading_approval_threshold_amount,
+      adjustment_effective_from: rule.adjustment_effective_from,
+      adjustment_effective_to: rule.adjustment_effective_to,
       formula: rule.formula,
       priority: rule.priority,
       is_active: rule.is_active,
@@ -431,10 +497,33 @@ export function RatingRulesPage() {
 
   function onSubmit(values: RuleFormValues) {
     if (!selectedRiskId) return
+    const payload = {
+      ...values,
+      percentage_rate:
+        values.percentage_rate == null
+          ? null
+          : rateFromDisplayPercentage(values.percentage_rate),
+      max_discount_rate:
+        values.max_discount_rate == null
+          ? null
+          : rateFromDisplayPercentage(values.max_discount_rate),
+      discount_approval_threshold_rate:
+        values.discount_approval_threshold_rate == null
+          ? null
+          : rateFromDisplayPercentage(values.discount_approval_threshold_rate),
+      max_loading_rate:
+        values.max_loading_rate == null
+          ? null
+          : rateFromDisplayPercentage(values.max_loading_rate),
+      loading_approval_threshold_rate:
+        values.loading_approval_threshold_rate == null
+          ? null
+          : rateFromDisplayPercentage(values.loading_approval_threshold_rate),
+    }
     if (editRule) {
-      updateMutation.mutate({ id: editRule.id, data: values }, { onSuccess: () => setDialogOpen(false) })
+      updateMutation.mutate({ id: editRule.id, data: payload }, { onSuccess: () => setDialogOpen(false) })
     } else {
-      createMutation.mutate({ ...values, risk_id: selectedRiskId }, { onSuccess: () => setDialogOpen(false) })
+      createMutation.mutate({ ...payload, risk_id: selectedRiskId }, { onSuccess: () => setDialogOpen(false) })
     }
   }
 
@@ -760,11 +849,11 @@ export function RatingRulesPage() {
                           value={field.value ?? ''}
                           onChange={(e) => field.onChange(e.target.value || null)}
                           rows={3}
-                          placeholder="e.g. sum_insured * 0.03"
+                          placeholder="e.g. 2% + 200,000"
                           className="font-mono text-sm"
                         />
                       </FormControl>
-                      <FormDescription>Use factor codes as variables, e.g. sum_insured * 0.03</FormDescription>
+                      <FormDescription>Legacy shorthand only. Supported examples: 2% + 200,000, 15,000 per seat, 5.5% + 15,000 per seat.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -790,6 +879,202 @@ export function RatingRulesPage() {
                   </FormItem>
                 )}
               />
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-slate-900">Discount Controls</p>
+                  <p className="text-xs text-slate-500">Set hard limits and approval thresholds for requested discounts on quotations that use this rule.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="max_discount_rate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Max Discount Rate (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.0001"
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="max_discount_amount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Max Discount Amount</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="discount_approval_threshold_rate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Approval Threshold Rate (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.0001"
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="discount_approval_threshold_amount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Approval Threshold Amount</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-slate-900">Loading Controls</p>
+                  <p className="text-xs text-slate-500">Reserve the same control window for loading requests so future pricing adjustments stay on the same policy model.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="max_loading_rate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Max Loading Rate (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.0001"
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="max_loading_amount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Max Loading Amount</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="loading_approval_threshold_rate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Approval Threshold Rate (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.0001"
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="loading_approval_threshold_amount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Approval Threshold Amount</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="adjustment_effective_from"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Controls Effective From</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value || null)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="adjustment_effective_to"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Controls Effective To</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="date"
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value || null)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
               <FormField
                 control={form.control}
                 name="is_active"

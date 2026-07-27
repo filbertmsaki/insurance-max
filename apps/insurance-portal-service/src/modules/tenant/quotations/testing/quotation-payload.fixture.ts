@@ -45,6 +45,7 @@ export function createNonMotorQuotationPayload(): CreateQuotationDto {
       risks_covered: [
         {
           risk_code: 'SP005001000001',
+          pricing_quote_id: 'PQ-2026-00000001',
           sum_insured: 10000000,
           sum_insured_equivalent: 10000000,
           premium_rate: 0.01,
@@ -57,6 +58,10 @@ export function createNonMotorQuotationPayload(): CreateQuotationDto {
               discount_type: 2,
               discount_rate: 0.05,
               discount_amount: 5000,
+              request_reason_code: 'LOYALTY',
+              request_comment: 'Introductory loyalty discount',
+              approval_required: false,
+              approval_status: 'NOT_REQUIRED',
             },
           ],
           taxes_charged: [
@@ -212,6 +217,7 @@ export function createMotorFleetQuotationPayload(): CreateQuotationDto {
           risks_covered: [
             {
               risk_code: 'SP005001000001',
+              pricing_quote_id: 'PQ-2026-00000002',
               sum_insured: 100000000,
               sum_insured_equivalent: 100000000,
               premium_rate: 0.01,
@@ -257,6 +263,7 @@ export function createMotorFleetQuotationPayload(): CreateQuotationDto {
           risks_covered: [
             {
               risk_code: 'SP005001000001',
+              pricing_quote_id: 'PQ-2026-00000003',
               sum_insured: 90000000,
               sum_insured_equivalent: 90000000,
               premium_rate: 0.01,

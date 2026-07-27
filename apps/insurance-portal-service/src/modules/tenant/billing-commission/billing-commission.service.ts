@@ -7,6 +7,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, ObjectLiteral, Repository } from 'typeorm';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
+import {
+  normalizeMoneyForStorage,
+  normalizeRateForStorage,
+} from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { Policy } from '../policies/entities/policy.entity';
@@ -77,7 +81,7 @@ export class BillingCommissionService {
     if (!Number.isFinite(num)) {
       throw new BadRequestException('Invalid numeric value');
     }
-    return String(Math.round(num * 100) / 100);
+    return normalizeMoneyForStorage(num);
   }
 
   private normalizeRate(value: NumericLike): string {
@@ -86,7 +90,7 @@ export class BillingCommissionService {
     if (!Number.isFinite(num)) {
       throw new BadRequestException('Invalid rate value');
     }
-    return String(Math.round(num * 1000000) / 1000000);
+    return normalizeRateForStorage(num);
   }
 
   private normalizeDate(value?: string | null): string | null {

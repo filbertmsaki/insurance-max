@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
 import { useWatch, type FieldPath, type UseFormReturn } from 'react-hook-form';
-import { useRequiredFactorsByRisk } from '@/modules/tenant/product-engine/hooks/useRequiredFactors';
-import { useRuleList } from '@/modules/tenant/product-engine/hooks/useRatingRules';
-import { calculatorApi } from '@/modules/tenant/product-engine/api/calculator';
+import {
+  applyRate,
+  roundMoney,
+} from '@insurance-max/portal-shared/utils/pricing-calculation.util';
+import {
+  usePricingCalculator,
+  usePricingRequiredFactors,
+  usePricingRulePreview,
+} from '@/modules/pricing';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { resolveFactorValues } from '../utils/riskFactorResolver';
 import {
@@ -64,8 +69,12 @@ export function recomputeRiskRow(
   ) ?? []) as QuotationFormSchemaValues['risks'][number]['discounts_offered'];
   discountsBeforeRefresh.forEach((discount, discountIndex) => {
     if (!discount.discount_rate) return;
-    const nextDiscountAmount =
-      toNumber(premiumBeforeDiscount) * (toNumber(discount.discount_rate) / 100);
+    const nextDiscountAmount = roundMoney(
+      applyRate(
+        toNumber(premiumBeforeDiscount),
+        toNumber(discount.discount_rate),
+      ),
+    );
     if (toNumber(discount.discount_amount) !== nextDiscountAmount) {
       form.setValue(
         path(index, `discounts_offered.${discountIndex}.discount_amount`),
@@ -117,7 +126,9 @@ export function recomputeRiskRow(
     const effectiveRate = expectedRate || tax.tax_rate;
     const nextTaxAmount = tax.is_tax_exempted
       ? 0
-      : nextExcludingTaxEquivalent * toNumber(effectiveRate);
+      : roundMoney(
+          applyRate(nextExcludingTaxEquivalent, toNumber(effectiveRate)),
+        );
     if (
       toNumber(
         form.getValues(
@@ -161,6 +172,10 @@ export function useRiskPremiumCalculation(
   const riskId = useWatch({ control: form.control, name: path(index, 'risk_id') }) as string;
   const quotationType = useWatch({ control: form.control, name: 'quotation_type' });
   const motor = useWatch({ control: form.control, name: 'motor' });
+  const factorValuesRow = useWatch({
+    control: form.control,
+    name: path(index, 'factor_values'),
+  }) as Record<string, string | number | boolean> | undefined;
 
   // Sum insured only feeds a calculation once the user has finished editing
   // it (blur), not on every keystroke — see handleSumInsuredBlur below. The
@@ -181,23 +196,34 @@ export function useRiskPremiumCalculation(
   const committedSumInsured =
     committedEntry.riskId === riskId ? committedEntry.sumInsured : '';
 
-  const requiredFactorsQuery = useRequiredFactorsByRisk(riskId ?? '');
+  const requiredFactorsQuery = usePricingRequiredFactors(riskId ?? '');
   const requiredFactors = useMemo(
     () => requiredFactorsQuery.data ?? [],
     [requiredFactorsQuery.data],
   );
 
-  const ruleListQuery = useRuleList({ risk_id: riskId || undefined });
+  const ruleListQuery = usePricingRulePreview(riskId || '');
 
   const factorValues = useMemo(() => {
     const pseudoFormValues = {
       quotation_type: quotationType,
       motor,
-      risks: [{ sum_insured: committedSumInsured }],
+      risks: [
+        {
+          sum_insured: committedSumInsured,
+          factor_values: factorValuesRow ?? {},
+        },
+      ],
     } as QuotationFormSchemaValues;
 
     return resolveFactorValues(requiredFactors, pseudoFormValues, 0);
-  }, [requiredFactors, quotationType, motor, committedSumInsured]);
+  }, [
+    requiredFactors,
+    quotationType,
+    motor,
+    committedSumInsured,
+    factorValuesRow,
+  ]);
   const factorValuesKey = JSON.stringify(factorValues);
 
   // Deselecting a risk clears its stale minimum immediately.
@@ -230,9 +256,7 @@ export function useRiskPremiumCalculation(
     }
   }, [form, index, riskId, ruleListQuery.data]);
 
-  const calculateMutation = useMutation({
-    mutationFn: calculatorApi.calculateSingle,
-  });
+  const { calculateSingleMutation: calculateMutation } = usePricingCalculator();
 
   // Keep the mutate function reachable without making it an effect
   // dependency — mutate() itself is expected to be stable, but routing it
@@ -271,7 +295,20 @@ export function useRiskPremiumCalculation(
   );
 
   useEffect(() => {
-    if (!riskId || !committedSumInsured) return undefined;
+    if (!riskId) return undefined;
+
+    const hasCommittedSumInsured = committedSumInsured !== '';
+    const hasNonMotorInputs =
+      quotationType === 'NON_MOTOR' &&
+      Object.entries(factorValues).some(
+        ([code, value]) =>
+          code !== 'sum_insured' &&
+          value !== '' &&
+          value !== null &&
+          value !== undefined,
+      );
+
+    if (!hasCommittedSumInsured && !hasNonMotorInputs) return undefined;
 
     // Sum insured only ever reaches here once committed on blur; still gate
     // on the risk's minimum here (rather than in the blur handler) so this
@@ -279,14 +316,22 @@ export function useRiskPremiumCalculation(
     // got its value (blur, or a future re-trigger from a factor change).
     const minimumAmount =
       Number(form.getValues(path(index, 'minimum_amount')) as string) || 0;
-    if (Number(committedSumInsured) <= minimumAmount) return undefined;
+    if (
+      hasCommittedSumInsured &&
+      Number(committedSumInsured) <= minimumAmount
+    ) {
+      return undefined;
+    }
 
     timeoutRef.current = setTimeout(() => {
       const token = ++requestTokenRef.current;
       calculateMutateRef.current(
         {
           risk_id: riskId,
-          sum_insured: Number(committedSumInsured) || 0,
+          sum_insured:
+            Number(form.getValues(path(index, 'sum_insured')) as string) ||
+            Number(factorValues.sum_insured) ||
+            0,
           factors: factorValues,
         },
         {
@@ -324,7 +369,14 @@ export function useRiskPremiumCalculation(
     // factorValues is intentionally tracked via its stable JSON key so the
     // debounce doesn't restart on every render from a new object identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form, index, riskId, committedSumInsured, factorValuesKey]);
+  }, [
+    form,
+    index,
+    riskId,
+    quotationType,
+    committedSumInsured,
+    factorValuesKey,
+  ]);
 
   return {
     requiredFactorsQuery,

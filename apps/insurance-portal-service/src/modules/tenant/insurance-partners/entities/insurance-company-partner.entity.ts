@@ -41,7 +41,7 @@ export class InsuranceCompanyPartner {
   })
   status!: PartnerRelationshipStatus;
 
-  @Column({ type: 'numeric', precision: 5, scale: 2, nullable: true })
+  @Column({ type: 'numeric', precision: 18, scale: 10, nullable: true })
   commission_rate!: string | null;
 
   @Column({ type: 'date', nullable: true })

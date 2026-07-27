@@ -13,6 +13,10 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
+        '@insurance-max/portal-shared': path.resolve(
+          __dirname,
+          '../../libs/portal-shared/src',
+        ),
       },
     },
     server: {

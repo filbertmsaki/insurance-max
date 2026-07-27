@@ -4,12 +4,14 @@ import {
   type PaginatedResponse,
 } from '@/modules/shared/api/pagination';
 import type {
+  DecideQuotationPremiumOverridePayload,
   QuotationDetailRecord,
   QuotationListItem,
   QuotationListParams,
   QuotationPayload,
   QuotationPreviewRecord,
   QuotationSubmitResponse,
+  RequestQuotationPremiumOverridePayload,
   TransitionQuotationStatusPayload,
 } from './types';
 
@@ -86,6 +88,41 @@ export const quotationsApi = {
   transitionStatus: (id: string, data: TransitionQuotationStatusPayload) =>
     apiClient
       .post<QuotationDetailRecord>(`/tenant/quotations/${id}/status`, data)
+      .then((response) => response.data),
+  requestPremiumOverride: (
+    quotationId: string,
+    riskId: string,
+    data: RequestQuotationPremiumOverridePayload,
+  ) =>
+    apiClient
+      .post<{ id: string; approval_status: string }>(
+        `/tenant/quotations/${quotationId}/risks/${riskId}/premium-overrides`,
+        data,
+      )
+      .then((response) => response.data),
+  approvePremiumOverride: (
+    quotationId: string,
+    riskId: string,
+    overrideId: string,
+    data: DecideQuotationPremiumOverridePayload = {},
+  ) =>
+    apiClient
+      .post<{ id: string; approval_status: string }>(
+        `/tenant/quotations/${quotationId}/risks/${riskId}/premium-overrides/${overrideId}/approve`,
+        data,
+      )
+      .then((response) => response.data),
+  rejectPremiumOverride: (
+    quotationId: string,
+    riskId: string,
+    overrideId: string,
+    data: DecideQuotationPremiumOverridePayload,
+  ) =>
+    apiClient
+      .post<{ id: string; approval_status: string }>(
+        `/tenant/quotations/${quotationId}/risks/${riskId}/premium-overrides/${overrideId}/reject`,
+        data,
+      )
       .then((response) => response.data),
   delete: (id: string) =>
     apiClient

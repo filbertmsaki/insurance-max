@@ -1,3 +1,9 @@
+import {
+  applyRate,
+  roundMoney,
+  sumDecimals,
+  toDecimal,
+} from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import type { QuotationFormSchemaValues } from '../../schemas';
 
 // The zod-inferred row shape (optional string fields) — not the hand-written
@@ -30,10 +36,12 @@ export function computeAddonAmounts(
   addon: QuotationWizardAddonRow,
   exchangeRate: number,
 ): AddonComputed {
-  const premiumExcludingTax = Number(addon.premium_excluding_tax) || 0;
+  const premiumExcludingTax = roundMoney(addon.premium_excluding_tax || 0);
   const rate =
     Number.isFinite(exchangeRate) && exchangeRate > 0 ? exchangeRate : 1;
-  const premiumExcludingTaxEquivalent = premiumExcludingTax * rate;
+  const premiumExcludingTaxEquivalent = roundMoney(
+    toDecimal(premiumExcludingTax).mul(rate),
+  );
 
   // tax_rate is a fraction (e.g. 0.18 for 18%), matching TIRA's own TaxRate
   // convention (<TaxRate>0.18</TaxRate>) rather than a whole-number percentage.
@@ -41,17 +49,19 @@ export function computeAddonAmounts(
     tax_code: tax.tax_code,
     tax_amount: tax.is_tax_exempted
       ? 0
-      : premiumExcludingTax * (Number(tax.tax_rate) || 0),
+      : roundMoney(applyRate(premiumExcludingTax, Number(tax.tax_rate) || 0)),
   }));
 
-  const totalTax = taxes.reduce((sum, tax) => sum + tax.tax_amount, 0);
+  const totalTax = roundMoney(sumDecimals(taxes.map((tax) => tax.tax_amount)));
 
   return {
     premiumExcludingTax,
     premiumExcludingTaxEquivalent,
     taxes,
     totalTax,
-    premiumIncludingTax: premiumExcludingTax + totalTax,
+    premiumIncludingTax: roundMoney(
+      toDecimal(premiumExcludingTax).plus(totalTax),
+    ),
   };
 }
 
@@ -60,11 +70,13 @@ export function sumEnabledAddonsTotal(
   addons: QuotationWizardAddonRow[],
   exchangeRate: number,
 ): number {
-  return addons
-    .filter((addon) => addon.enabled)
-    .reduce(
-      (total, addon) =>
-        total + computeAddonAmounts(addon, exchangeRate).premiumIncludingTax,
-      0,
-    );
+  return roundMoney(
+    sumDecimals(
+      addons
+        .filter((addon) => addon.enabled)
+        .map(
+          (addon) => computeAddonAmounts(addon, exchangeRate).premiumIncludingTax,
+        ),
+    ),
+  );
 }

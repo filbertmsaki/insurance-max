@@ -161,6 +161,33 @@ export class IdentifierGeneratorService {
     });
   }
 
+  async generatePricingQuoteId(manager?: EntityManager): Promise<{
+    pricingQuoteId: string;
+    sequenceNo: number;
+  }> {
+    const activeManager = manager ?? this.dataSource.manager;
+    const rows = await activeManager.query(
+      `SELECT nextval('pricing_quote_identifier_seq') AS sequence_no`,
+    );
+    const sequenceNo = Number(rows?.[0]?.sequence_no);
+
+    if (!Number.isFinite(sequenceNo) || sequenceNo <= 0) {
+      throw new ConflictException(
+        'Unable to generate a unique pricing quote sequence value',
+      );
+    }
+
+    const year = new Intl.DateTimeFormat('en-GB', {
+      timeZone: this.timeZone,
+      year: 'numeric',
+    }).format(new Date());
+
+    return {
+      pricingQuoteId: `PQ-${year}-${String(sequenceNo).padStart(8, '0')}`,
+      sequenceNo,
+    };
+  }
+
   private async generateFormattedIdentifier(params: {
     companyId: string;
     identifierType: IdentifierType;

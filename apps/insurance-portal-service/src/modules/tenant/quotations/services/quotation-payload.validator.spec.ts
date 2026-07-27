@@ -130,6 +130,7 @@ function createValidNonMotorPayload(): CreateQuotationDto {
       risks_covered: [
         {
           risk_code: 'SP005001000001',
+          pricing_quote_id: 'PQ-2026-00000001',
           sum_insured: 10000000,
           sum_insured_equivalent: 10000000,
           premium_rate: 0.01,

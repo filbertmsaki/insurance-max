@@ -105,12 +105,91 @@ export class DiscountOfferedDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   discount_amount: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  request_reason_code?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  request_comment?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  effective_from?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  effective_to?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  requested_by?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  requested_at?: string | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 6 })
+  @Min(0)
+  max_permitted_rate?: number | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  max_permitted_amount?: number | null;
+
+  @IsOptional()
+  @IsBoolean()
+  approval_required?: boolean | null;
+
+  @IsOptional()
+  @IsIn(['NOT_REQUIRED', 'PENDING', 'APPROVED', 'REJECTED'])
+  approval_status?:
+    | 'NOT_REQUIRED'
+    | 'PENDING'
+    | 'APPROVED'
+    | 'REJECTED'
+    | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 6 })
+  @Min(0)
+  approved_rate?: number | null;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  approved_amount?: number | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  approved_by?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  approval_date?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  rejection_reason?: string | null;
 }
 
 export class RiskCoveredDto {
   @IsString()
   @MaxLength(50)
   risk_code: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  pricing_quote_id?: string | null;
 
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)

@@ -1,7 +1,26 @@
-import { NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConditionOperator } from '@insurance-max/portal-shared/enums/condition-operator.enum';
+import { FactorDataType } from '@insurance-max/portal-shared/enums/factor-data-type.enum';
 import { LogicalOperator } from '@insurance-max/portal-shared/enums/logical-operator.enum';
 import { RateType } from '@insurance-max/portal-shared/enums/rate-type.enum';
+import { PricingEngineService } from '../pricing/application/pricing-engine.service';
+import { PricingChargeService } from '../pricing/application/pricing-charge.service';
+import { PricingQuoteService } from '../pricing/application/pricing-quote.service';
+import { PricingValidationService } from '../pricing/application/pricing-validation.service';
+import { QuotationRecalculationService } from '../pricing/application/quotation-recalculation.service';
+import { PremiumBreakdownService } from '../pricing/infrastructure/premium-breakdown.service';
+import { RatingFactorValidatorService } from '../pricing/infrastructure/rating-factor-validator.service';
+import { RatingRuleMatcherService } from '../pricing/infrastructure/rating-rule-matcher.service';
+import { StructuredPricingCalculatorService } from '../pricing/infrastructure/structured-pricing-calculator.service';
+import { FixedPricingStrategy } from '../pricing/infrastructure/strategies/fixed-pricing.strategy';
+import { PercentagePricingStrategy } from '../pricing/infrastructure/strategies/percentage-pricing.strategy';
+import { PercentagePlusFixedPricingStrategy } from '../pricing/infrastructure/strategies/percentage-plus-fixed-pricing.strategy';
+import { PercentagePlusPerUnitPricingStrategy } from '../pricing/infrastructure/strategies/percentage-plus-per-unit-pricing.strategy';
+import { PerUnitPricingStrategy } from '../pricing/infrastructure/strategies/per-unit-pricing.strategy';
 import { PremiumCalculationService } from './premium-calculation.service';
 
 const COMPANY_ID = 'company-1';
@@ -26,7 +45,7 @@ const RISKS = {
       risk_id: 'risk-comprehensive',
       rule_name: 'Base Rate From TIRA',
       rate_type: RateType.PERCENTAGE,
-      percentage_rate: 3.5,
+      percentage_rate: 0.035,
       fixed_amount: null,
       per_unit_amount: null,
       per_unit_factor_code: null,
@@ -52,7 +71,7 @@ const RISKS = {
       risk_id: 'risk-tpft',
       rule_name: 'Base Rate From TIRA',
       rate_type: RateType.PERCENTAGE_PLUS_FIXED,
-      percentage_rate: 2,
+      percentage_rate: 0.02,
       fixed_amount: 200000,
       per_unit_amount: null,
       per_unit_factor_code: null,
@@ -79,7 +98,7 @@ const RISKS = {
       risk_id: 'risk-passenger',
       rule_name: 'Base Rate From TIRA',
       rate_type: RateType.PERCENTAGE_PLUS_PER_UNIT,
-      percentage_rate: 5.5,
+      percentage_rate: 0.055,
       fixed_amount: null,
       per_unit_amount: 15000,
       per_unit_factor_code: 'seat_capacity',
@@ -162,7 +181,7 @@ const CONDITIONAL_RISK = {
     risk_id: 'risk-conditional',
     rule_name: 'No claim record rate',
     rate_type: RateType.PERCENTAGE,
-    percentage_rate: 3,
+    percentage_rate: 0.03,
     fixed_amount: null,
     per_unit_amount: null,
     per_unit_factor_code: null,
@@ -186,6 +205,7 @@ function createServiceFixture(options: {
   risk: Record<string, unknown> | null;
   rules: Record<string, unknown>[];
   requiredFactors?: Record<string, unknown>[];
+  configuredFactors?: Record<string, unknown>[];
 }) {
   const riskRepository = {
     findOne: jest.fn().mockResolvedValue(options.risk),
@@ -193,24 +213,128 @@ function createServiceFixture(options: {
   const requiredFactorRepository = {
     find: jest.fn().mockResolvedValue(options.requiredFactors ?? []),
   };
+  const ratingFactorRepository = {
+    find: jest.fn().mockResolvedValue(options.configuredFactors ?? []),
+  };
   const ruleRepository = {
     find: jest.fn().mockResolvedValue(options.rules),
   };
+  const matcherRiskRepository = {
+    findOne: jest.fn().mockResolvedValue(options.risk),
+  };
+  const rateBookRepository = {
+    find: jest.fn().mockResolvedValue([]),
+  };
+  const pricingQuoteRepository = {
+    create: jest.fn().mockImplementation((value) => value),
+    save: jest.fn().mockImplementation(async (value) => value),
+    findOne: jest.fn(),
+  };
+  const pricingQuoteRiskRepository = {
+    find: jest
+      .fn()
+      .mockResolvedValue(options.risk ? [{ ...options.risk, product_id: 'product-1' }] : []),
+  };
+  const identifierGeneratorService = {
+    generatePricingQuoteId: jest.fn().mockResolvedValue({
+      pricingQuoteId: 'PQ-2026-00000001',
+      sequenceNo: 1,
+    }),
+  };
 
-  const service = new PremiumCalculationService(
+  const pricingValidationService = new PricingValidationService(
     riskRepository as any,
+  );
+  const ratingFactorValidatorService = new RatingFactorValidatorService(
     requiredFactorRepository as any,
+    ratingFactorRepository as any,
+  );
+  const ratingRuleMatcherService = new RatingRuleMatcherService(
     ruleRepository as any,
+    matcherRiskRepository as any,
+    rateBookRepository as any,
+  );
+  const structuredPricingCalculatorService =
+    new StructuredPricingCalculatorService(
+      new PercentagePricingStrategy(),
+      new FixedPricingStrategy(),
+      new PercentagePlusFixedPricingStrategy(),
+      new PerUnitPricingStrategy(),
+      new PercentagePlusPerUnitPricingStrategy(),
+    );
+  const premiumBreakdownService = new PremiumBreakdownService(
+    structuredPricingCalculatorService,
+  );
+  const productTaxRuleRepository = {
+    find: jest.fn().mockResolvedValue([]),
+  };
+  const pricingChargeService = new PricingChargeService(
+    productTaxRuleRepository as any,
+  );
+  const pricingEngineService = new PricingEngineService(
+    pricingValidationService,
+    ratingFactorValidatorService,
+    ratingRuleMatcherService,
+    premiumBreakdownService,
+    pricingChargeService,
+  );
+  const pricingQuoteService = new PricingQuoteService(
+    pricingEngineService,
+    new QuotationRecalculationService(),
+    identifierGeneratorService as any,
+    pricingQuoteRepository as any,
+    pricingQuoteRiskRepository as any,
+  );
+  const auditService = {
+    log: jest.fn().mockResolvedValue(undefined),
+  };
+  const service = new PremiumCalculationService(
+    pricingQuoteService,
+    pricingEngineService,
+    auditService as any,
   );
 
-  return { service, riskRepository, requiredFactorRepository, ruleRepository };
+  return {
+    service,
+    riskRepository,
+    requiredFactorRepository,
+    ratingFactorRepository,
+    ruleRepository,
+    auditService,
+  };
 }
 
-function requiredFactor(code: string) {
+function configuredFactor(
+  code: string,
+  dataType: FactorDataType,
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    id: `factor-${code}`,
+    company_id: COMPANY_ID,
+    code,
+    name: code,
+    data_type: dataType,
+    options: null,
+    default_value: null,
+    is_required: false,
+    is_active: true,
+    ...overrides,
+  };
+}
+
+function requiredFactor(
+  code: string,
+  dataType: FactorDataType = FactorDataType.TEXT,
+  overrides: Record<string, unknown> = {},
+) {
   // Mirrors what the real query returns: it already filters to
   // is_required = true at the SQL level, so every row reaching the service
   // is required by definition.
-  return { is_required: true, factor: { code, name: code } };
+  return {
+    is_required: true,
+    factor: configuredFactor(code, dataType, overrides),
+  };
 }
 
 describe('PremiumCalculationService', () => {
@@ -227,6 +351,8 @@ describe('PremiumCalculationService', () => {
         factors: {},
       });
 
+      expect(result.pricing_quote_id).toBe('PQ-2026-00000001');
+      expect(result.pricing_status).toBe('CALCULATED');
       expect(result.base_premium).toBe(35000);
       expect(result.gross_premium).toBe(35000);
       expect(result.minimum_applied).toBe(true);
@@ -299,6 +425,9 @@ describe('PremiumCalculationService', () => {
       const { service } = createServiceFixture({
         risk: RISKS.passengerCarrying.risk,
         rules: [RISKS.passengerCarrying.rule],
+        configuredFactors: [
+          configuredFactor('seat_capacity', FactorDataType.NUMBER),
+        ],
       });
 
       const result = await service.calculateSingleRisk(COMPANY_ID, {
@@ -352,40 +481,166 @@ describe('PremiumCalculationService', () => {
     });
   });
 
-  describe('missing required factors', () => {
-    it('populates validation_errors but still returns a result when the matched rule has no conditions on the missing factors', async () => {
+  describe('legacy FORMULA migration bridge', () => {
+    it('supports legacy structured shorthand formulas by resolving them into safe strategies', async () => {
+      const formulaRule = {
+        ...RISKS.tpft.rule,
+        id: 'rule-legacy-formula',
+        rate_type: RateType.FORMULA,
+        percentage_rate: null,
+        fixed_amount: null,
+        formula: '2% + 200,000',
+      };
+      const { service } = createServiceFixture({
+        risk: RISKS.tpft.risk,
+        rules: [formulaRule],
+      });
+
+      const result = await service.calculateSingleRisk(COMPANY_ID, {
+        risk_id: RISKS.tpft.risk.id,
+        sum_insured: 1000000,
+        factors: {},
+      });
+
+      expect(result.base_premium).toBe(20000);
+      expect(result.fixed_amount).toBe(200000);
+      expect(result.gross_premium).toBe(220000);
+      expect(result.final_premium).toBe(220000);
+    });
+
+    it('rejects unresolved free-text formulas instead of executing dynamic JavaScript', async () => {
+      const formulaRule = {
+        ...RISKS.comprehensive.rule,
+        id: 'rule-unsupported-formula',
+        rate_type: RateType.FORMULA,
+        percentage_rate: null,
+        minimum_amount: 0,
+        formula: 'sum_insured * 0.03',
+      };
+      const { service } = createServiceFixture({
+        risk: RISKS.comprehensive.risk,
+        rules: [formulaRule],
+      });
+
+      await expect(
+        service.calculateSingleRisk(COMPANY_ID, {
+          risk_id: RISKS.comprehensive.risk.id,
+          sum_insured: 1000000,
+          factors: {},
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('rating-factor validation', () => {
+    it('throws a structured validation failure when required factors are missing', async () => {
       const { service } = createServiceFixture({
         risk: RISKS.comprehensive.risk,
         rules: [RISKS.comprehensive.rule],
-        // The real query filters to is_required: true at the SQL level
-        // (WHERE is_required = true), so only required rows are ever
-        // returned here — seat_capacity (not required for this risk) never
-        // reaches the service at all, which is exactly why it must not
-        // appear in validation_errors below.
         requiredFactors: [
           requiredFactor('motor_category'),
           requiredFactor('registration_number'),
         ],
       });
 
+      await expect(
+        service.calculateSingleRisk(COMPANY_ID, {
+          risk_id: RISKS.comprehensive.risk.id,
+          sum_insured: 10000000,
+          factors: {},
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      try {
+        await service.calculateSingleRisk(COMPANY_ID, {
+          risk_id: RISKS.comprehensive.risk.id,
+          sum_insured: 10000000,
+          factors: {},
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect((error as BadRequestException).getResponse()).toMatchObject({
+          status: 'INCOMPLETE',
+          calculation_allowed: false,
+          validation_errors: [
+            expect.stringContaining('motor_category'),
+            expect.stringContaining('registration_number'),
+          ],
+          errors: [
+            expect.objectContaining({
+              field: 'motor_category',
+              code: 'REQUIRED_FACTOR_MISSING',
+            }),
+            expect.objectContaining({
+              field: 'registration_number',
+              code: 'REQUIRED_FACTOR_MISSING',
+            }),
+          ],
+        });
+      }
+    });
+
+    it('throws a structured validation failure when a NUMBER factor is invalid', async () => {
+      const { service } = createServiceFixture({
+        risk: RISKS.comprehensive.risk,
+        rules: [RISKS.comprehensive.rule],
+        configuredFactors: [
+          configuredFactor('vehicle_value', FactorDataType.NUMBER),
+        ],
+      });
+
+      await expect(
+        service.calculateSingleRisk(COMPANY_ID, {
+          risk_id: RISKS.comprehensive.risk.id,
+          sum_insured: 1000000,
+          factors: { vehicle_value: 'not-a-number' as any },
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      try {
+        await service.calculateSingleRisk(COMPANY_ID, {
+          risk_id: RISKS.comprehensive.risk.id,
+          sum_insured: 1000000,
+          factors: { vehicle_value: 'not-a-number' as any },
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(BadRequestException);
+        expect((error as BadRequestException).getResponse()).toMatchObject({
+          status: 'INCOMPLETE',
+          calculation_allowed: false,
+          validation_errors: [
+            expect.stringContaining('vehicle_value'),
+          ],
+          errors: [
+            expect.objectContaining({
+              field: 'vehicle_value',
+              code: 'INVALID_NUMBER',
+            }),
+          ],
+        });
+      }
+    });
+
+    it('returns validation_warnings when a supplied factor is unknown but calculation can proceed', async () => {
+      const { service } = createServiceFixture({
+        risk: RISKS.comprehensive.risk,
+        rules: [RISKS.comprehensive.rule],
+      });
+
       const result = await service.calculateSingleRisk(COMPANY_ID, {
         risk_id: RISKS.comprehensive.risk.id,
         sum_insured: 10000000,
-        factors: {},
+        factors: { mystery_factor: 'surplus' },
       });
 
-      expect(result.validation_errors).toEqual([
-        expect.stringContaining('motor_category'),
-        expect.stringContaining('registration_number'),
+      expect(result.validation_errors).toEqual([]);
+      expect(result.validation_warnings).toEqual([
+        expect.stringContaining('mystery_factor'),
       ]);
-      expect(result.validation_errors).toHaveLength(2);
-      // The calculation itself doesn't hard-fail just because business
-      // factors are missing — only a rule condition referencing the
-      // missing factor would block the match (see the next test).
       expect(result.final_premium).toBe(350000);
     });
 
-    it('throws "no matching rule" when the missing factor is required by the matched rule condition', async () => {
+    it('throws "no matching rule" when the rule condition cannot be satisfied because its factor was omitted', async () => {
       const { service } = createServiceFixture({
         risk: CONDITIONAL_RISK.risk,
         rules: [CONDITIONAL_RISK.rule],
@@ -398,6 +653,26 @@ describe('PremiumCalculationService', () => {
           factors: {}, // claim_record deliberately omitted
         }),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws a configuration error when multiple active rules match at the same priority', async () => {
+      const conflictingRule = {
+        ...RISKS.comprehensive.rule,
+        id: 'rule-comprehensive-conflict',
+        rule_name: 'Another Base Rate From TIRA',
+      };
+      const { service } = createServiceFixture({
+        risk: RISKS.comprehensive.risk,
+        rules: [RISKS.comprehensive.rule, conflictingRule],
+      });
+
+      await expect(
+        service.calculateSingleRisk(COMPANY_ID, {
+          risk_id: RISKS.comprehensive.risk.id,
+          sum_insured: 10000000,
+          factors: {},
+        }),
+      ).rejects.toThrow(ConflictException);
     });
   });
 
@@ -414,7 +689,7 @@ describe('PremiumCalculationService', () => {
       );
 
       expect(result.rate_type).toBe(RateType.PERCENTAGE_PLUS_PER_UNIT);
-      expect(result.percentage_rate).toBe(5.5);
+      expect(result.percentage_rate).toBe(0.055);
       expect(result.per_unit_amount).toBe(15000);
       expect(result.per_unit_factor_code).toBe('seat_capacity');
       expect(result.minimum_amount).toBe(500000);

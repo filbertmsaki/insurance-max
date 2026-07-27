@@ -44,6 +44,12 @@ import {
   useRiskPremiumCalculation,
 } from '../hooks/useRiskPremiumCalculation';
 import { getApiErrorMessage } from '@/lib/api-error';
+import {
+  PricingStatusAlert,
+  RatingFactorFields,
+  readPricingQuoteMetadata,
+} from '@/modules/pricing';
+import type { PricingFactorValue } from '@/modules/pricing';
 import { StepSection } from './StepSection';
 import { WizardFormItem } from './WizardFormItem';
 
@@ -78,6 +84,7 @@ export function RiskRow({
   canRemove,
 }: Props) {
   const riskId = form.watch(`risks.${index}.risk_id` as const);
+  const quotationType = form.watch('quotation_type');
   const selectedRisk = riskOptions.find((risk) => risk.id === riskId) ?? null;
   const discountFieldArray =
     form.getValues(`risks.${index}.discounts_offered` as const) ?? [];
@@ -124,6 +131,7 @@ export function RiskRow({
     form.setValue(path(index, 'premium_including_tax'), '');
     form.setValue(path(index, 'discounts_offered'), [createEmptyRiskDiscountRow()]);
     form.setValue(path(index, 'taxes_charged'), [createEmptyRiskTaxRow()]);
+    form.setValue(path(index, 'factor_values'), {});
     form.setValue(path(index, 'rating_result_metadata'), null);
     form.setValue(path(index, 'minimum_amount'), '');
 
@@ -175,7 +183,13 @@ export function RiskRow({
     minimum_applied?: boolean;
     minimum_amount?: number;
     validation_errors?: string[];
+    validation_warnings?: string[];
   } | null;
+  const pricingMetadata = readPricingQuoteMetadata(ratingResultMetadata);
+  const factorValues =
+    (form.watch(path(index, 'factor_values')) as
+      | Record<string, PricingFactorValue>
+      | undefined) ?? {};
 
   const totalDiscount = discounts.reduce(
     (sum, row) => sum + toNumber(row.discount_amount),
@@ -212,34 +226,6 @@ export function RiskRow({
   useEffect(() => {
     recomputeRiskRow(form, index);
   }, [form, index, premiumBeforeDiscount, taxRateInputsKey]);
-
-  // premium_rate is normally API-derived (set alongside premium_before_discount
-  // by the calculation result), but for a manual-entry risk with no rating
-  // rule an admin may hand-edit it — in that case premium_before_discount
-  // must recompute from it, or it'd sit there disconnected from everything
-  // downstream. Guarded to only fire when the value actually changed between
-  // focus and blur, so merely tabbing through the field never overwrites an
-  // API-correct premium_before_discount (which may include per-unit/fixed/
-  // minimum-floor components this simple rate*sum-insured formula can't
-  // reconstruct) with this simplified recompute.
-  const premiumRateFocusValueRef = useRef<string | null>(null);
-  const applyPremiumRateOverride = () => {
-    const rate = form.getValues(path(index, 'premium_rate')) as string;
-    if (!rate) return;
-    // A manual-entry risk with no rating rule may never have had a
-    // calculation succeed, so sum_insured_equivalent could still be blank —
-    // fall back to the raw sum_insured the same way the display totals
-    // below already do.
-    const sumInsuredEquivalentForRate =
-      toNumber(form.getValues(path(index, 'sum_insured_equivalent')) as string) ||
-      toNumber(form.getValues(path(index, 'sum_insured')) as string);
-    const nextBeforeDiscount = sumInsuredEquivalentForRate * (toNumber(rate) / 100);
-    form.setValue(
-      path(index, 'premium_before_discount'),
-      String(nextBeforeDiscount),
-    );
-    recomputeRiskRow(form, index);
-  };
 
   return (
     <StepSection
@@ -342,6 +328,7 @@ export function RiskRow({
                 <FormControl>
                   <Input
                     type="number"
+                    readOnly
                     {...field}
                     value={field.value as string}
                   />
@@ -360,17 +347,9 @@ export function RiskRow({
                   <Input
                     type="number"
                     step="0.000001"
+                    readOnly
                     {...field}
                     value={field.value as string}
-                    onFocus={() => {
-                      premiumRateFocusValueRef.current = field.value as string;
-                    }}
-                    onBlur={() => {
-                      field.onBlur();
-                      if (premiumRateFocusValueRef.current !== (field.value as string)) {
-                        applyPremiumRateOverride();
-                      }
-                    }}
                   />
                 </FormControl>
                 <FormMessage />
@@ -387,6 +366,7 @@ export function RiskRow({
                   <Input
                     type="number"
                     step="0.01"
+                    readOnly
                     {...field}
                     value={field.value as string}
                   />
@@ -405,6 +385,7 @@ export function RiskRow({
                   <Input
                     type="number"
                     step="0.01"
+                    readOnly
                     {...field}
                     value={field.value as string}
                   />
@@ -423,6 +404,7 @@ export function RiskRow({
                   <Input
                     type="number"
                     step="0.01"
+                    readOnly
                     {...field}
                     value={field.value as string}
                   />
@@ -441,6 +423,7 @@ export function RiskRow({
                   <Input
                     type="number"
                     step="0.01"
+                    readOnly
                     {...field}
                     value={field.value as string}
                   />
@@ -451,10 +434,42 @@ export function RiskRow({
           />
         </div>
 
-        {(minimumAmount ||
-          calculateMutation.isPending ||
-          calculateMutation.isError ||
-          ratingResultMetadata) && (
+        <PricingStatusAlert
+          minimumAmount={minimumAmount}
+          isPending={calculateMutation.isPending}
+          errorMessage={
+            calculateMutation.isError
+              ? `Could not calculate premium: ${getApiErrorMessage(
+                  calculateMutation.error,
+                )}. The last known premium values are shown below.`
+              : null
+          }
+          metadata={pricingMetadata}
+        />
+
+        {quotationType === 'NON_MOTOR' ? (
+          <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+            <div>
+              <p className="text-sm font-medium text-slate-900">Rating Factors</p>
+              <p className="text-xs text-slate-500">
+                These factors are sent to the backend pricing engine for non-motor calculations.
+              </p>
+            </div>
+            <RatingFactorFields
+              requiredFactors={requiredFactorsQuery.data ?? []}
+              isLoading={requiredFactorsQuery.isLoading}
+              values={factorValues}
+              onChange={(code, value) =>
+                form.setValue(path(index, 'factor_values'), {
+                  ...factorValues,
+                  [code]: value,
+                })
+              }
+            />
+          </div>
+        ) : null}
+
+        {false && (
           <div className="space-y-1 rounded-lg border border-slate-100 bg-slate-50/60 p-3 text-xs text-slate-600">
             {minimumAmount ? (
               <p>Minimum premium: {toNumber(minimumAmount).toFixed(2)}</p>
@@ -476,7 +491,14 @@ export function RiskRow({
             ) : null}
             {ratingResultMetadata?.validation_errors?.length ? (
               <ul className="list-disc space-y-0.5 pl-4 text-red-600">
-                {ratingResultMetadata.validation_errors.map((message) => (
+                {(ratingResultMetadata?.validation_errors ?? []).map((message) => (
+                  <li key={message}>{message}</li>
+                ))}
+              </ul>
+            ) : null}
+            {ratingResultMetadata?.validation_warnings?.length ? (
+              <ul className="list-disc space-y-0.5 pl-4 text-amber-700">
+                {(ratingResultMetadata?.validation_warnings ?? []).map((message) => (
                   <li key={message}>{message}</li>
                 ))}
               </ul>
@@ -510,7 +532,7 @@ export function RiskRow({
               {discountFieldArray.map((_, discountIndex) => (
                 <div
                   key={discountIndex}
-                  className="grid gap-3 rounded-lg border border-slate-100 p-3 md:grid-cols-4"
+                  className="grid gap-3 rounded-lg border border-slate-100 p-3 md:grid-cols-5"
                 >
                   <FormField
                     control={form.control}
@@ -595,8 +617,47 @@ export function RiskRow({
                           <Input
                             type="number"
                             step="0.01"
+                            readOnly
                             {...field}
                             value={field.value as string}
+                          />
+                        </FormControl>
+                      </WizardFormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={path(
+                      index,
+                      `discounts_offered.${discountIndex}.request_reason_code`,
+                    )}
+                    render={({ field }) => (
+                      <WizardFormItem>
+                        <FormLabel>Reason Code</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            value={field.value as string}
+                            placeholder="e.g. LOYALTY"
+                          />
+                        </FormControl>
+                      </WizardFormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={path(
+                      index,
+                      `discounts_offered.${discountIndex}.request_comment`,
+                    )}
+                    render={({ field }) => (
+                      <WizardFormItem className="md:col-span-4">
+                        <FormLabel>Comment</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            value={field.value as string}
+                            placeholder="Why is this discount requested?"
                           />
                         </FormControl>
                       </WizardFormItem>
@@ -740,6 +801,7 @@ export function RiskRow({
                           <Input
                             type="number"
                             step="0.01"
+                            readOnly
                             {...field}
                             value={field.value as string}
                           />

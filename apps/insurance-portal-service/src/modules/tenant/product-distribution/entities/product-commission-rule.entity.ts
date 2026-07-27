@@ -57,16 +57,16 @@ export class ProductCommissionRule {
   })
   commission_type: ProductCommissionType;
 
-  @Column({ type: 'numeric', precision: 18, scale: 6, nullable: true })
+  @Column({ type: 'numeric', precision: 18, scale: 10, nullable: true })
   commission_rate: string | null;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, nullable: true })
+  @Column({ type: 'numeric', precision: 20, scale: 4, nullable: true })
   commission_amount: string | null;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, nullable: true })
+  @Column({ type: 'numeric', precision: 20, scale: 4, nullable: true })
   minimum_commission: string | null;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, nullable: true })
+  @Column({ type: 'numeric', precision: 20, scale: 4, nullable: true })
   maximum_commission: string | null;
 
   @Column({

@@ -6,6 +6,11 @@ import {
 } from '@nestjs/common';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
+  moneyEqual,
+  numbersEqual,
+  roundMoney,
+} from '@insurance-max/portal-shared/utils/pricing-calculation.util';
+import {
   DataSource,
   EntityManager,
   Brackets,
@@ -35,10 +40,12 @@ import {
   PolicyHolderDto,
   RiskCoveredDto,
   SubjectMatterCoveredDto,
-  UpdateQuotationDto,
   SubmitQuotationDto,
+  UpdateQuotationDto,
 } from './dto/quotation-payload.dto';
 import { FilterQuotationDto } from './dto/filter-quotation.dto';
+import { DecideQuotationPremiumOverrideDto } from './dto/quotation-premium-override.dto';
+import { RequestQuotationPremiumOverrideDto } from './dto/quotation-premium-override.dto';
 import { TransitionQuotationStatusDto } from './dto/transition-quotation-status.dto';
 import { Quotation } from './entities/quotation.entity';
 import { QuotationStatusHistory } from './entities/quotation-status-history.entity';
@@ -50,12 +57,14 @@ import { QuotationEntryRisk } from './entities/structured/quotation-entry-risk.e
 import { QuotationMotorDetail } from './entities/structured/quotation-motor-detail.entity';
 import { QuotationPolicyHolder } from './entities/structured/quotation-policy-holder.entity';
 import { QuotationRiskDiscount } from './entities/structured/quotation-risk-discount.entity';
+import { QuotationRiskPremiumOverride } from './entities/structured/quotation-risk-premium-override.entity';
 import { QuotationRiskTax } from './entities/structured/quotation-risk-tax.entity';
 import { QuotationSubjectMatter } from './entities/structured/quotation-subject-matter.entity';
 import { QuotationEntryType } from './enums/quotation-entry-type.enum';
 import { QuotationFlow } from './enums/quotation-flow.enum';
 import { ApprovalStatus } from './enums/approval-status.enum';
 import { PaymentStatus } from './enums/payment-status.enum';
+import { QuotationPremiumOverrideStatus } from './enums/quotation-premium-override-status.enum';
 import { QuotationStatus } from './enums/quotation-status.enum';
 import { QuotationStatusTransitionAction } from './enums/quotation-status-transition-action.enum';
 import { QuotationType } from './enums/quotation-type.enum';
@@ -72,9 +81,14 @@ import { Receipt } from '../billing-commission/entities/receipt.entity';
 import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
 import { PortalTiraSubmission } from '../tiramis-integration/entities/portal-tira-submission.entity';
 import { PortalTiraSubmissionEvent } from '../tiramis-integration/entities/portal-tira-submission-event.entity';
+import { AuditService } from '../../shared/audit/audit.service';
 import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/tiramis-submission-tracking.repository';
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
+import { PricingChargeService } from '../pricing/application/pricing-charge.service';
+import { PricingQuote, PricingQuoteScope, PricingQuoteStatus } from '../pricing/entities/pricing-quote.entity';
+import { PricingRateBook } from '../pricing-rate-books/entities/pricing-rate-book.entity';
+import { PricingRateBookStatus } from '../pricing-rate-books/enums/pricing-rate-book-status.enum';
 import {
   EDITABLE_QUOTATION_STATUSES,
   TERMINAL_QUOTATION_STATUSES,
@@ -87,6 +101,25 @@ interface ScopeValidationResult {
   product: InsuranceProduct;
   customerId: string | null;
   riskByCode: Map<string, InsuranceRisk>;
+}
+
+interface PricingAuthorityRiskContext {
+  riskId: string | null;
+}
+
+interface ApprovedPremiumOverrideSnapshot {
+  pricing_quote_id: string | null;
+  risk_code: string;
+  proposed_premium: number;
+}
+
+interface PricingAdjustmentControl {
+  max_rate: number | null;
+  max_amount: number | null;
+  approval_threshold_rate: number | null;
+  approval_threshold_amount: number | null;
+  effective_from: string | null;
+  effective_to: string | null;
 }
 
 interface ResolvedHeader {
@@ -132,6 +165,14 @@ interface PostgreSqlDriverError {
 }
 
 const DIRECT_PAYMENT_MODE = 1;
+const MONEY_TOLERANCE = 0.01;
+const RATE_TOLERANCE = 0.000001;
+const PREMIUM_OVERRIDE_VIEW_PERMISSIONS = [
+  'pricing.override.view',
+  'pricing.override.request',
+  'pricing.override.approve',
+  'pricing.override.reject',
+] as const;
 
 @Injectable()
 export class QuotationsService {
@@ -146,6 +187,8 @@ export class QuotationsService {
     private readonly tiramisSubmissionTrackingRepository: TiramisSubmissionTrackingRepository,
     private readonly identifierGeneratorService: IdentifierGeneratorService,
     private readonly quotationLifecycleService: QuotationLifecycleService,
+    private readonly auditService: AuditService,
+    private readonly pricingChargeService: PricingChargeService,
   ) {}
 
   async create(companyId: string, payload: CreateQuotationDto, userId: string) {
@@ -154,9 +197,12 @@ export class QuotationsService {
       payload,
     );
 
-    this.payloadValidator.assertValid(preparedPayload);
-
     const scope = await this.validateScope(companyId, preparedPayload);
+    await this.assertAuthoritativePricing(companyId, preparedPayload, {
+      productId: scope.product.id,
+      riskByCode: this.createPricingAuthorityRiskIndex(scope.riskByCode),
+    });
+    this.payloadValidator.assertValid(preparedPayload);
     const lifecycleContext = {
       changedBy: userId,
       changedByType: 'USER' as const,
@@ -226,6 +272,7 @@ export class QuotationsService {
       id,
     );
     this.assertQuotationEditable(existing);
+    this.assertNoPremiumOverrideHistory(existing);
 
     const preparedPayload = await this.preparePayloadWithGeneratedIdentifiers(
       companyId,
@@ -233,8 +280,13 @@ export class QuotationsService {
       existing,
     );
 
-    this.payloadValidator.assertValid(preparedPayload);
     const scope = await this.validateScope(companyId, preparedPayload);
+    await this.assertAuthoritativePricing(companyId, preparedPayload, {
+      productId: scope.product.id,
+      riskByCode: this.createPricingAuthorityRiskIndex(scope.riskByCode),
+      quotationId: existing.id,
+    });
+    this.payloadValidator.assertValid(preparedPayload);
     const lifecycleContext = {
       changedBy: userId,
       changedByType: 'USER' as const,
@@ -346,7 +398,11 @@ export class QuotationsService {
     return this.payloadMapper.toAuthoritativePayload(quotation);
   }
 
-  async getPreview(companyId: string, id: string) {
+  async getPreview(
+    companyId: string,
+    id: string,
+    user?: Pick<AuthenticatedUser, 'permissions'>,
+  ) {
     const quotation = await this.quotationsRepository.findOneAggregate(
       companyId,
       id,
@@ -368,15 +424,262 @@ export class QuotationsService {
       this.findTiramisTrackingByEntry(companyId, quotation),
     ]);
 
-    return this.previewMapper.toResponse(quotation, {
-      invoice,
-      receipt,
-      paymentTransaction,
-      portalSubmission,
-      portalSubmissionEvents: portalSubmission?.events ?? [],
-      tiramisTracking,
-      tiramisTrackingByEntry,
+    return this.previewMapper.toResponse(
+      quotation,
+      {
+        invoice,
+        receipt,
+        paymentTransaction,
+        portalSubmission,
+        portalSubmissionEvents: portalSubmission?.events ?? [],
+        tiramisTracking,
+        tiramisTrackingByEntry,
+      },
+      {
+        includePremiumOverrides: this.canViewPremiumOverrides(user),
+      },
+    );
+  }
+
+  async requestPremiumOverride(
+    companyId: string,
+    quotationId: string,
+    riskId: string,
+    dto: RequestQuotationPremiumOverrideDto,
+    user: AuthenticatedUser,
+  ) {
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      quotationId,
+    );
+    this.assertPremiumOverrideWorkflowAllowed(quotation);
+
+    const risk = this.findQuotationRiskOrFail(quotation, riskId);
+    this.assertNoPendingPremiumOverride(risk);
+
+    const originalCalculatedPremium =
+      await this.resolveOriginalCalculatedPremium(companyId, risk);
+    const proposedPremium = roundMoney(dto.proposed_premium);
+    this.assertPremiumOverrideProposal(
+      risk,
+      originalCalculatedPremium,
+      proposedPremium,
+    );
+
+    const premiumOverride = await this.dataSource.transaction(async (manager) => {
+      await this.lockQuotationForUpdate(manager, companyId, quotationId);
+      const repository = manager.getRepository(QuotationRiskPremiumOverride);
+
+      const savedPremiumOverride = await repository.save(
+        repository.create({
+          risk_id: risk.id,
+          sequence_no: (risk.premium_overrides?.length ?? 0) + 1,
+          original_calculated_premium: this.numeric(
+            originalCalculatedPremium,
+            2,
+          ),
+          proposed_premium: this.numeric(proposedPremium, 2),
+          difference_amount: this.numeric(
+            roundMoney(proposedPremium - originalCalculatedPremium),
+            2,
+          ),
+          difference_percentage:
+            originalCalculatedPremium > 0
+              ? this.numeric(
+                  ((proposedPremium - originalCalculatedPremium) /
+                    originalCalculatedPremium) *
+                    100,
+                  6,
+                )
+              : null,
+          override_reason: dto.override_reason.trim(),
+          supporting_notes: dto.supporting_notes?.trim() || null,
+          requested_by: user.id,
+          requested_at: new Date(),
+          approval_status: QuotationPremiumOverrideStatus.PENDING,
+        }),
+      );
+
+      await manager.getRepository(Quotation).update(quotation.id, {
+        updated_by: user.id,
+      });
+
+      return savedPremiumOverride;
     });
+
+    await this.auditService.log({
+      userId: user.id,
+      companyId,
+      action: 'quotation.premium_override.requested',
+      resource: 'quotation_risk',
+      resourceId: risk.id,
+      metadata: {
+        quotationId,
+        quotationNo: quotation.quotation_no,
+        riskId: risk.id,
+        riskCode: risk.risk_code,
+        premiumOverrideId: premiumOverride.id,
+        originalCalculatedPremium,
+        proposedPremium,
+      },
+    });
+
+    return {
+      id: premiumOverride.id,
+      approval_status: premiumOverride.approval_status,
+    };
+  }
+
+  async approvePremiumOverride(
+    companyId: string,
+    quotationId: string,
+    riskId: string,
+    overrideId: string,
+    dto: DecideQuotationPremiumOverrideDto,
+    user: AuthenticatedUser,
+  ) {
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      quotationId,
+    );
+    this.assertPremiumOverrideWorkflowAllowed(quotation);
+
+    const risk = this.findQuotationRiskOrFail(quotation, riskId);
+    const premiumOverride = this.findPremiumOverrideOrFail(risk, overrideId);
+
+    if (
+      premiumOverride.approval_status !== QuotationPremiumOverrideStatus.PENDING
+    ) {
+      throw new ConflictException(
+        'Only pending premium overrides can be approved',
+      );
+    }
+
+    if (premiumOverride.requested_by && premiumOverride.requested_by === user.id) {
+      throw new ConflictException(
+        'You cannot approve your own premium override request',
+      );
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      await this.lockQuotationForUpdate(manager, companyId, quotationId);
+
+      await manager.getRepository(QuotationRiskPremiumOverride).update(
+        { id: premiumOverride.id, risk_id: risk.id },
+        {
+          approval_status: QuotationPremiumOverrideStatus.APPROVED,
+          approved_by: user.id,
+          approved_at: new Date(),
+          rejection_reason: null,
+        },
+      );
+
+      await this.applyApprovedPremiumOverride(
+        manager,
+        quotation,
+        risk,
+        premiumOverride.proposed_premium,
+      );
+
+      await manager.getRepository(Quotation).update(quotation.id, {
+        updated_by: user.id,
+      });
+    });
+
+    await this.auditService.log({
+      userId: user.id,
+      companyId,
+      action: 'quotation.premium_override.approved',
+      resource: 'quotation_risk',
+      resourceId: risk.id,
+      metadata: {
+        quotationId,
+        quotationNo: quotation.quotation_no,
+        riskId: risk.id,
+        riskCode: risk.risk_code,
+        premiumOverrideId: premiumOverride.id,
+        proposedPremium: Number(premiumOverride.proposed_premium),
+        note: dto.rejection_reason?.trim() || null,
+      },
+    });
+
+    return {
+      id: premiumOverride.id,
+      approval_status: QuotationPremiumOverrideStatus.APPROVED,
+    };
+  }
+
+  async rejectPremiumOverride(
+    companyId: string,
+    quotationId: string,
+    riskId: string,
+    overrideId: string,
+    dto: DecideQuotationPremiumOverrideDto,
+    user: AuthenticatedUser,
+  ) {
+    const rejectionReason = dto.rejection_reason?.trim();
+    if (!rejectionReason) {
+      throw new BadRequestException(
+        'A rejection reason is required when rejecting a premium override',
+      );
+    }
+
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      quotationId,
+    );
+    this.assertPremiumOverrideWorkflowAllowed(quotation);
+
+    const risk = this.findQuotationRiskOrFail(quotation, riskId);
+    const premiumOverride = this.findPremiumOverrideOrFail(risk, overrideId);
+
+    if (
+      premiumOverride.approval_status !== QuotationPremiumOverrideStatus.PENDING
+    ) {
+      throw new ConflictException(
+        'Only pending premium overrides can be rejected',
+      );
+    }
+
+    await this.dataSource.transaction(async (manager) => {
+      await this.lockQuotationForUpdate(manager, companyId, quotationId);
+
+      await manager.getRepository(QuotationRiskPremiumOverride).update(
+        { id: premiumOverride.id, risk_id: risk.id },
+        {
+          approval_status: QuotationPremiumOverrideStatus.REJECTED,
+          approved_by: user.id,
+          approved_at: new Date(),
+          rejection_reason: rejectionReason,
+        },
+      );
+
+      await manager.getRepository(Quotation).update(quotation.id, {
+        updated_by: user.id,
+      });
+    });
+
+    await this.auditService.log({
+      userId: user.id,
+      companyId,
+      action: 'quotation.premium_override.rejected',
+      resource: 'quotation_risk',
+      resourceId: risk.id,
+      metadata: {
+        quotationId,
+        quotationNo: quotation.quotation_no,
+        riskId: risk.id,
+        riskCode: risk.risk_code,
+        premiumOverrideId: premiumOverride.id,
+        rejectionReason,
+      },
+      status: 'failure',
+    });
+
+    return {
+      id: premiumOverride.id,
+      approval_status: QuotationPremiumOverrideStatus.REJECTED,
+    };
   }
 
   async remove(companyId: string, id: string): Promise<void> {
@@ -433,6 +736,13 @@ export class QuotationsService {
     }
 
     const payload = this.payloadMapper.toAuthoritativePayload(quotation);
+    await this.assertAuthoritativePricing(companyId, payload, {
+      productId: quotation.product_id,
+      riskByCode: this.createPersistedPricingAuthorityRiskIndex(quotation),
+      quotationId: quotation.id,
+      approvedOverridePremiums:
+        this.buildApprovedPremiumOverrideIndex(quotation),
+    });
     this.payloadValidator.assertValid(payload);
     const tiramisPayload = this.tiramisPayloadMapper.toTiramisPayload(payload);
 
@@ -601,6 +911,22 @@ export class QuotationsService {
       throw new BadRequestException(
         `A reason is required to ${dto.action.toLowerCase().replace(/_/g, ' ')}`,
       );
+    }
+
+    if (this.requiresPricingAuthorityValidation(dto.action)) {
+      const quotation = await this.quotationsRepository.findOneAggregate(
+        companyId,
+        id,
+      );
+      const payload = this.payloadMapper.toAuthoritativePayload(quotation);
+      await this.assertAuthoritativePricing(companyId, payload, {
+        productId: quotation.product_id,
+        riskByCode: this.createPersistedPricingAuthorityRiskIndex(quotation),
+        quotationId: quotation.id,
+        approvedOverridePremiums:
+          this.buildApprovedPremiumOverrideIndex(quotation),
+      });
+      this.payloadValidator.assertValid(payload);
     }
 
     switch (dto.action) {
@@ -985,6 +1311,963 @@ export class QuotationsService {
     };
   }
 
+  private async assertAuthoritativePricing(
+    companyId: string,
+    payload: CreateQuotationDto,
+    options: {
+      productId: string;
+      riskByCode: Map<string, PricingAuthorityRiskContext>;
+      quotationId?: string;
+      approvedOverridePremiums?: Map<string, ApprovedPremiumOverrideSnapshot>;
+    },
+  ): Promise<void> {
+    const pricingQuoteIds = Array.from(
+      new Set(
+        this.resolveEntries(payload)
+          .flatMap((entry) =>
+            entry.risks_covered.map((risk) => risk.pricing_quote_id?.trim()),
+          )
+          .filter((value): value is string => !!value),
+      ),
+    );
+
+    if (pricingQuoteIds.length === 0) {
+      throw new BadRequestException(
+        'At least one pricing quote is required before a quotation can be saved or submitted',
+      );
+    }
+
+    const conflictingAssignments = await this.findPricingQuoteAssignments(
+      companyId,
+      pricingQuoteIds,
+      options.quotationId ?? null,
+    );
+    if (conflictingAssignments.length > 0) {
+      throw new ConflictException(
+        `Pricing quote ${conflictingAssignments[0].pricing_quote_id} is already attached to another quotation`,
+      );
+    }
+
+    const pricingQuoteRepository = this.dataSource.getRepository(PricingQuote);
+    const rateBookRepository = this.dataSource.getRepository(PricingRateBook);
+    const quotes = await pricingQuoteRepository.find({
+      where: {
+        company_id: companyId,
+        pricing_quote_id: In(pricingQuoteIds),
+      },
+    });
+    const quoteByPricingQuoteId = new Map(
+      quotes.map((quote) => [quote.pricing_quote_id, quote]),
+    );
+    const missingPricingQuoteIds = pricingQuoteIds.filter(
+      (pricingQuoteId) => !quoteByPricingQuoteId.has(pricingQuoteId),
+    );
+
+    if (missingPricingQuoteIds.length > 0) {
+      throw new BadRequestException(
+        `Pricing quote ${missingPricingQuoteIds[0]} was not found for the current company`,
+      );
+    }
+
+    const rateBookIds = Array.from(
+      new Set(
+        quotes
+          .map((quote) => quote.rate_book_id)
+          .filter((value): value is string => !!value),
+      ),
+    );
+    const rateBooks =
+      rateBookIds.length > 0
+        ? await rateBookRepository.find({
+            where: {
+              company_id: companyId,
+              id: In(rateBookIds),
+            },
+          })
+        : [];
+    const rateBookById = new Map(rateBooks.map((rateBook) => [rateBook.id, rateBook]));
+    const header = this.resolveHeader(payload);
+    const normalizedCurrencyCode = header.currency_code.trim().toUpperCase();
+    const normalizedQuotationType = payload.internal_quotation.quotation_type;
+    const coverStartDate = this.extractDateOnly(header.cover_note_start_date);
+    const now = new Date();
+
+    for (const entry of this.resolveEntries(payload)) {
+      for (const risk of entry.risks_covered) {
+        const pricingQuoteId = risk.pricing_quote_id?.trim();
+        if (!pricingQuoteId) {
+          throw new BadRequestException(
+            `Risk ${risk.risk_code} must include a pricing_quote_id from the backend rating engine`,
+          );
+        }
+
+        const quote = quoteByPricingQuoteId.get(pricingQuoteId);
+        if (!quote) {
+          throw new BadRequestException(
+            `Pricing quote ${pricingQuoteId} was not found for the current company`,
+          );
+        }
+
+        const normalizedRiskCode = this.normalizeUppercase(risk.risk_code);
+        const configuredRisk = options.riskByCode.get(normalizedRiskCode);
+        if (!configuredRisk) {
+          throw new BadRequestException(
+            `Risk ${risk.risk_code} is not configured for pricing validation`,
+          );
+        }
+
+        if (quote.quote_scope !== PricingQuoteScope.SINGLE_RISK) {
+          throw new BadRequestException(
+            `Pricing quote ${pricingQuoteId} cannot be used for an individual quotation risk`,
+          );
+        }
+
+        if (quote.calculation_status !== PricingQuoteStatus.CALCULATED) {
+          throw new BadRequestException(
+            `Pricing quote ${pricingQuoteId} is not in a calculated state`,
+          );
+        }
+
+        if (quote.expires_at.getTime() <= now.getTime()) {
+          throw new BadRequestException(
+            `Pricing quote ${pricingQuoteId} expired on ${quote.expires_at.toISOString()}. Recalculate the premium and try again.`,
+          );
+        }
+
+        if (quote.product_id && quote.product_id !== options.productId) {
+          throw new BadRequestException(
+            `Pricing quote ${pricingQuoteId} does not belong to the selected product`,
+          );
+        }
+
+        if (quote.risk_id && configuredRisk.riskId && quote.risk_id !== configuredRisk.riskId) {
+          throw new BadRequestException(
+            `Pricing quote ${pricingQuoteId} does not belong to risk ${risk.risk_code}`,
+          );
+        }
+
+        if (
+          quote.quotation_type &&
+          quote.quotation_type !== normalizedQuotationType
+        ) {
+          throw new BadRequestException(
+            `Pricing quote ${pricingQuoteId} was calculated for quotation type ${quote.quotation_type}, not ${normalizedQuotationType}`,
+          );
+        }
+
+        if (
+          quote.currency_code &&
+          this.normalizeUppercase(quote.currency_code) !== normalizedCurrencyCode
+        ) {
+          throw new BadRequestException(
+            `Pricing quote ${pricingQuoteId} was calculated in currency ${quote.currency_code}, not ${normalizedCurrencyCode}`,
+          );
+        }
+
+        const quotedSumInsured = this.toStoredNumber(
+          quote.result_payload['sum_insured'] ?? quote.input_payload['sum_insured'],
+        );
+        if (
+          quotedSumInsured !== null &&
+          !this.moneyEqual(quotedSumInsured, risk.sum_insured)
+        ) {
+          throw new BadRequestException(
+            `Pricing quote ${pricingQuoteId} no longer matches the current sum insured for risk ${risk.risk_code}`,
+          );
+        }
+
+        const quotedPremiumRate = this.toStoredNumber(
+          quote.result_payload['percentage_rate'],
+        );
+        if (
+          quotedPremiumRate !== null &&
+          !this.ratesEqual(quotedPremiumRate, risk.premium_rate)
+        ) {
+          throw new BadRequestException(
+            `Pricing quote ${pricingQuoteId} no longer matches the premium rate for risk ${risk.risk_code}`,
+          );
+        }
+
+        if (!this.moneyEqual(Number(quote.final_premium), risk.premium_before_discount)) {
+          const approvedOverride =
+            options.approvedOverridePremiums?.get(pricingQuoteId) ??
+            options.approvedOverridePremiums?.get(normalizedRiskCode);
+
+          if (
+            !approvedOverride ||
+            !this.moneyEqual(
+              approvedOverride.proposed_premium,
+              risk.premium_before_discount,
+            )
+          ) {
+            throw new BadRequestException(
+              `Pricing quote ${pricingQuoteId} no longer matches the premium amount for risk ${risk.risk_code}`,
+            );
+          }
+        }
+
+        const discountControl = this.readPricingAdjustmentControl(
+          quote.result_payload,
+          'discount_control',
+        );
+        this.assertDiscountControlCompliance(
+          pricingQuoteId,
+          risk,
+          coverStartDate,
+          discountControl,
+        );
+        this.applyDiscountControlSnapshot(risk, discountControl);
+        await this.applyAuthoritativeChargesToRisk(companyId, payload, {
+          quote,
+          risk,
+          configuredRisk,
+          productId: options.productId,
+          coverStartDate,
+        });
+
+        if (quote.rate_book_id) {
+          const rateBook = rateBookById.get(quote.rate_book_id);
+          if (!rateBook) {
+            throw new BadRequestException(
+              `Pricing quote ${pricingQuoteId} references a rate book that no longer exists`,
+            );
+          }
+
+          if (rateBook.status !== PricingRateBookStatus.PUBLISHED) {
+            throw new BadRequestException(
+              `Pricing quote ${pricingQuoteId} references rate book ${rateBook.code} ${rateBook.version}, which is no longer published`,
+            );
+          }
+
+          if (
+            coverStartDate &&
+            !this.isRateBookEffectiveForDate(rateBook, coverStartDate)
+          ) {
+            throw new BadRequestException(
+              `Pricing quote ${pricingQuoteId} references rate book ${rateBook.code} ${rateBook.version}, which is not effective for ${coverStartDate}`,
+            );
+          }
+        }
+      }
+    }
+
+    this.recalculateAuthoritativeTotals(payload);
+  }
+
+  private async applyAuthoritativeChargesToRisk(
+    companyId: string,
+    payload: CreateQuotationDto,
+    context: {
+      quote: PricingQuote;
+      risk: RiskCoveredDto;
+      configuredRisk: PricingAuthorityRiskContext;
+      productId: string;
+      coverStartDate: string | null;
+    },
+  ): Promise<void> {
+    const premiumAfterDiscount = roundMoney(
+      context.risk.premium_after_discount,
+    );
+    const premiumExcludingTaxEquivalent = roundMoney(
+      context.risk.premium_excluding_tax_equivalent || premiumAfterDiscount,
+    );
+    const chargeSummary = await this.pricingChargeService.calculateCharges(
+      companyId,
+      {
+        category_id: payload.internal_quotation.category_id,
+        product_id: context.productId,
+        risk_id: context.configuredRisk.riskId ?? context.quote.risk_id ?? null,
+        effective_date: context.coverStartDate,
+        basic_premium:
+          this.toStoredNumber(context.quote.result_payload['base_premium']) ??
+          this.toStoredNumber(context.quote.base_premium) ??
+          roundMoney(context.risk.premium_before_discount),
+        net_premium: premiumExcludingTaxEquivalent,
+        gross_premium: roundMoney(context.risk.premium_before_discount),
+      },
+    );
+    const exemptionsByCode = new Map(
+      (context.risk.taxes_charged ?? []).map((tax) => [
+        this.normalizeUppercase(tax.tax_code),
+        tax,
+      ]),
+    );
+
+    context.risk.premium_after_discount = premiumExcludingTaxEquivalent;
+    context.risk.premium_excluding_tax_equivalent =
+      premiumExcludingTaxEquivalent;
+    context.risk.taxes_charged = chargeSummary.charges.map((charge) => {
+      const existingTax = exemptionsByCode.get(
+        this.normalizeUppercase(charge.charge_code),
+      );
+      const isTaxExempted = existingTax?.is_tax_exempted === 'Y' ? 'Y' : 'N';
+
+      return {
+        tax_code: charge.charge_code,
+        is_tax_exempted: isTaxExempted,
+        tax_exemption_type:
+          isTaxExempted === 'Y'
+            ? existingTax?.tax_exemption_type?.trim() ?? null
+            : null,
+        tax_exemption_reference:
+          isTaxExempted === 'Y'
+            ? existingTax?.tax_exemption_reference?.trim() ?? null
+            : null,
+        tax_rate: charge.rate ?? 0,
+        tax_amount: isTaxExempted === 'Y' ? 0 : charge.computed_amount,
+      };
+    });
+    context.risk.premium_including_tax = roundMoney(
+      premiumExcludingTaxEquivalent +
+        context.risk.taxes_charged.reduce(
+          (sum, charge) => sum + charge.tax_amount,
+          0,
+        ),
+    );
+  }
+
+  private recalculateAuthoritativeTotals(payload: CreateQuotationDto): void {
+    const entries = this.resolveEntries(payload);
+    const totalPremiumExcludingTax = roundMoney(
+      entries.reduce(
+        (sum, entry) =>
+          sum +
+          entry.risks_covered.reduce(
+            (riskSum, risk) => riskSum + risk.premium_excluding_tax_equivalent,
+            0,
+          ) +
+          entry.cover_note_addons.reduce(
+            (addonSum, addon) =>
+              addonSum + (addon.premium_excluding_tax_equivalent || 0),
+            0,
+          ),
+        0,
+      ),
+    );
+    const totalPremiumIncludingTax = roundMoney(
+      entries.reduce(
+        (sum, entry) =>
+          sum +
+          entry.risks_covered.reduce(
+            (riskSum, risk) => riskSum + risk.premium_including_tax,
+            0,
+          ) +
+          entry.cover_note_addons.reduce(
+            (addonSum, addon) => addonSum + (addon.premium_including_tax || 0),
+            0,
+          ),
+        0,
+      ),
+    );
+
+    if (payload.internal_quotation.quotation_flow === QuotationFlow.MOTOR_FLEET) {
+      if (payload.cover_note_dtl.fleet_hdr) {
+        payload.cover_note_dtl.fleet_hdr.total_premium_excluding_tax =
+          totalPremiumExcludingTax;
+        payload.cover_note_dtl.fleet_hdr.total_premium_including_tax =
+          totalPremiumIncludingTax;
+      }
+      return;
+    }
+
+    payload.cover_note_dtl.total_premium_excluding_tax =
+      totalPremiumExcludingTax;
+    payload.cover_note_dtl.total_premium_including_tax =
+      totalPremiumIncludingTax;
+  }
+
+  private createPricingAuthorityRiskIndex(
+    riskByCode: Map<string, InsuranceRisk>,
+  ): Map<string, PricingAuthorityRiskContext> {
+    return new Map(
+      Array.from(riskByCode.entries()).map(([riskCode, risk]) => [
+        riskCode,
+        { riskId: risk.id },
+      ]),
+    );
+  }
+
+  private createPersistedPricingAuthorityRiskIndex(
+    quotation: Quotation,
+  ): Map<string, PricingAuthorityRiskContext> {
+    const riskIndex = new Map<string, PricingAuthorityRiskContext>();
+
+    for (const entry of quotation.cover_note?.entries ?? []) {
+      for (const risk of entry.risks ?? []) {
+        riskIndex.set(this.normalizeUppercase(risk.risk_code), {
+          riskId: risk.insurance_risk_id ?? null,
+        });
+      }
+    }
+
+    return riskIndex;
+  }
+
+  private buildApprovedPremiumOverrideIndex(
+    quotation: Quotation,
+  ): Map<string, ApprovedPremiumOverrideSnapshot> {
+    const approvedOverrides = new Map<string, ApprovedPremiumOverrideSnapshot>();
+
+    for (const entry of quotation.cover_note?.entries ?? []) {
+      for (const risk of entry.risks ?? []) {
+        const approvedOverride = this.latestApprovedPremiumOverride(
+          risk.premium_overrides,
+        );
+        if (!approvedOverride) {
+          continue;
+        }
+
+        const snapshot = {
+          pricing_quote_id: risk.pricing_quote_id ?? null,
+          risk_code: this.normalizeUppercase(risk.risk_code),
+          proposed_premium: roundMoney(Number(approvedOverride.proposed_premium)),
+        };
+
+        if (snapshot.pricing_quote_id) {
+          approvedOverrides.set(snapshot.pricing_quote_id, snapshot);
+        }
+        approvedOverrides.set(snapshot.risk_code, snapshot);
+      }
+    }
+
+    return approvedOverrides;
+  }
+
+  private async findPricingQuoteAssignments(
+    companyId: string,
+    pricingQuoteIds: string[],
+    quotationId: string | null,
+  ): Promise<Array<{ pricing_quote_id: string; quotation_id: string }>> {
+    if (pricingQuoteIds.length === 0) {
+      return [];
+    }
+
+    return this.dataSource.query(
+      `
+        SELECT
+          qer.pricing_quote_id,
+          q.id AS quotation_id
+        FROM quotation_entry_risks AS qer
+        INNER JOIN quotation_cover_note_entries AS qce
+          ON qce.id = qer.entry_id
+        INNER JOIN quotation_cover_notes AS qcn
+          ON qcn.id = qce.cover_note_id
+        INNER JOIN quotations AS q
+          ON q.id = qcn.quotation_id
+        WHERE q.company_id = $1
+          AND q.deleted_at IS NULL
+          AND qer.pricing_quote_id = ANY($2::varchar[])
+          AND ($3::uuid IS NULL OR q.id <> $3::uuid)
+      `,
+      [companyId, pricingQuoteIds, quotationId],
+    );
+  }
+
+  private isRateBookEffectiveForDate(
+    rateBook: PricingRateBook,
+    coverStartDate: string,
+  ): boolean {
+    if (coverStartDate < rateBook.effective_from) {
+      return false;
+    }
+
+    if (rateBook.effective_to && coverStartDate > rateBook.effective_to) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private extractDateOnly(value: string | null | undefined): string | null {
+    if (!value) {
+      return null;
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return null;
+    }
+
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  private toStoredNumber(value: unknown): number | null {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private readPricingAdjustmentControl(
+    source: Record<string, unknown> | null | undefined,
+    key: 'discount_control' | 'loading_control',
+  ): PricingAdjustmentControl {
+    const value = source?.[key];
+    if (!value || typeof value !== 'object') {
+      return {
+        max_rate: null,
+        max_amount: null,
+        approval_threshold_rate: null,
+        approval_threshold_amount: null,
+        effective_from: null,
+        effective_to: null,
+      };
+    }
+
+    const control = value as Record<string, unknown>;
+    return {
+      max_rate: this.toStoredNumber(control.max_rate),
+      max_amount: this.toStoredNumber(control.max_amount),
+      approval_threshold_rate: this.toStoredNumber(
+        control.approval_threshold_rate,
+      ),
+      approval_threshold_amount: this.toStoredNumber(
+        control.approval_threshold_amount,
+      ),
+      effective_from:
+        typeof control.effective_from === 'string'
+          ? control.effective_from.slice(0, 10)
+          : null,
+      effective_to:
+        typeof control.effective_to === 'string'
+          ? control.effective_to.slice(0, 10)
+          : null,
+    };
+  }
+
+  private assertDiscountControlCompliance(
+    pricingQuoteId: string,
+    risk: RiskCoveredDto,
+    coverStartDate: string | null,
+    control: PricingAdjustmentControl,
+  ) {
+    const totalDiscountAmount = roundMoney(
+      (risk.discounts_offered ?? []).reduce(
+        (sum, discount) => sum + discount.discount_amount,
+        0,
+      ),
+    );
+    const totalDiscountRate =
+      risk.premium_before_discount > 0
+        ? totalDiscountAmount / risk.premium_before_discount
+        : 0;
+
+    if (
+      control.effective_from &&
+      coverStartDate &&
+      coverStartDate < control.effective_from
+    ) {
+      throw new BadRequestException(
+        `Pricing quote ${pricingQuoteId} discount controls are not yet effective for the quotation start date`,
+      );
+    }
+
+    if (
+      control.effective_to &&
+      coverStartDate &&
+      coverStartDate > control.effective_to
+    ) {
+      throw new BadRequestException(
+        `Pricing quote ${pricingQuoteId} discount controls expired before the quotation start date`,
+      );
+    }
+
+    if (
+      control.max_rate !== null &&
+      totalDiscountRate - control.max_rate > RATE_TOLERANCE
+    ) {
+      throw new BadRequestException(
+        `Risk ${risk.risk_code} requested discount rate exceeds the maximum authorized discount rate for pricing quote ${pricingQuoteId}`,
+      );
+    }
+
+    if (
+      control.max_amount !== null &&
+      totalDiscountAmount - control.max_amount > MONEY_TOLERANCE
+    ) {
+      throw new BadRequestException(
+        `Risk ${risk.risk_code} requested discount amount exceeds the maximum authorized discount amount for pricing quote ${pricingQuoteId}`,
+      );
+    }
+  }
+
+  private applyDiscountControlSnapshot(
+    risk: RiskCoveredDto,
+    control: PricingAdjustmentControl,
+  ) {
+    const totalDiscountAmount = roundMoney(
+      (risk.discounts_offered ?? []).reduce(
+        (sum, discount) => sum + discount.discount_amount,
+        0,
+      ),
+    );
+    const totalDiscountRate =
+      risk.premium_before_discount > 0
+        ? totalDiscountAmount / risk.premium_before_discount
+        : 0;
+    const approvalRequired = this.isApprovalRequired(
+      totalDiscountRate,
+      totalDiscountAmount,
+      control,
+    );
+
+    risk.discounts_offered.forEach((discount) => {
+      const hasRequest = discount.discount_rate > 0 || discount.discount_amount > 0;
+      discount.max_permitted_rate = control.max_rate;
+      discount.max_permitted_amount = control.max_amount;
+      discount.approval_required = hasRequest ? approvalRequired : false;
+      if (!hasRequest) {
+        discount.approval_status = 'NOT_REQUIRED';
+        return;
+      }
+
+      discount.approval_status =
+        discount.approval_required
+          ? discount.approval_status ?? 'PENDING'
+          : 'NOT_REQUIRED';
+    });
+  }
+
+  private isApprovalRequired(
+    requestedRate: number,
+    requestedAmount: number,
+    control: PricingAdjustmentControl,
+  ) {
+    return (
+      (control.approval_threshold_rate !== null &&
+        requestedRate - control.approval_threshold_rate > RATE_TOLERANCE) ||
+      (control.approval_threshold_amount !== null &&
+        requestedAmount - control.approval_threshold_amount > MONEY_TOLERANCE)
+    );
+  }
+
+  private moneyEqual(first: number, second: number): boolean {
+    return moneyEqual(roundMoney(first), roundMoney(second), MONEY_TOLERANCE);
+  }
+
+  private ratesEqual(first: number, second: number): boolean {
+    return numbersEqual(first, second, RATE_TOLERANCE);
+  }
+
+  private requiresPricingAuthorityValidation(
+    action: QuotationStatusTransitionAction,
+  ): boolean {
+    return [
+      QuotationStatusTransitionAction.SUBMIT_FOR_APPROVAL,
+      QuotationStatusTransitionAction.APPROVE,
+      QuotationStatusTransitionAction.MARK_PAYMENT_REQUESTED,
+      QuotationStatusTransitionAction.MARK_PAYMENT_PROCESSING,
+      QuotationStatusTransitionAction.MARK_PARTIALLY_PAID,
+      QuotationStatusTransitionAction.MARK_PAYMENT_PAID,
+    ].includes(action);
+  }
+
+  private canViewPremiumOverrides(
+    user?: Pick<AuthenticatedUser, 'permissions'>,
+  ): boolean {
+    return (
+      user?.permissions?.some((permission) =>
+        PREMIUM_OVERRIDE_VIEW_PERMISSIONS.includes(
+          permission as (typeof PREMIUM_OVERRIDE_VIEW_PERMISSIONS)[number],
+        ),
+      ) ?? false
+    );
+  }
+
+  private assertPremiumOverrideWorkflowAllowed(quotation: Quotation): void {
+    if (quotation.submitted_at || quotation.tira_status !== TiraStatus.NOT_SUBMITTED) {
+      throw new ConflictException(
+        'Premium overrides are only available before TIRAMIS submission begins',
+      );
+    }
+
+    if (TERMINAL_QUOTATION_STATUSES.includes(quotation.status)) {
+      throw new ConflictException(
+        `Premium overrides are not available when the quotation is ${quotation.status}`,
+      );
+    }
+  }
+
+  private assertNoPremiumOverrideHistory(quotation: Quotation): void {
+    const hasPremiumOverrideHistory = (quotation.cover_note?.entries ?? []).some(
+      (entry) =>
+        (entry.risks ?? []).some(
+          (risk) => (risk.premium_overrides?.length ?? 0) > 0,
+        ),
+    );
+
+    if (hasPremiumOverrideHistory) {
+      throw new ConflictException(
+        'This quotation cannot be replaced because it contains premium override history',
+      );
+    }
+  }
+
+  private findQuotationRiskOrFail(
+    quotation: Quotation,
+    riskId: string,
+  ): QuotationEntryRisk {
+    for (const entry of quotation.cover_note?.entries ?? []) {
+      const risk = entry.risks?.find((item) => item.id === riskId);
+      if (risk) {
+        return risk;
+      }
+    }
+
+    throw new NotFoundException('Quotation risk not found');
+  }
+
+  private findPremiumOverrideOrFail(
+    risk: QuotationEntryRisk,
+    premiumOverrideId: string,
+  ): QuotationRiskPremiumOverride {
+    const premiumOverride = risk.premium_overrides?.find(
+      (item) => item.id === premiumOverrideId,
+    );
+
+    if (!premiumOverride) {
+      throw new NotFoundException('Premium override not found');
+    }
+
+    return premiumOverride;
+  }
+
+  private assertNoPendingPremiumOverride(risk: QuotationEntryRisk): void {
+    const hasPendingPremiumOverride = (risk.premium_overrides ?? []).some(
+      (premiumOverride) =>
+        premiumOverride.approval_status ===
+        QuotationPremiumOverrideStatus.PENDING,
+    );
+
+    if (hasPendingPremiumOverride) {
+      throw new ConflictException(
+        'This risk already has a pending premium override request',
+      );
+    }
+  }
+
+  private assertPremiumOverrideProposal(
+    risk: QuotationEntryRisk,
+    originalCalculatedPremium: number,
+    proposedPremium: number,
+  ): void {
+    if (this.moneyEqual(originalCalculatedPremium, proposedPremium)) {
+      throw new BadRequestException(
+        `Risk ${risk.risk_code} already matches the proposed premium`,
+      );
+    }
+
+    const totalDiscountAmount = roundMoney(
+      (risk.discounts ?? []).reduce((sum, discount) => {
+        if (Number(discount.discount_rate) > 0) {
+          return (
+            sum + roundMoney(proposedPremium * Number(discount.discount_rate))
+          );
+        }
+        return sum + Number(discount.discount_amount);
+      }, 0),
+    );
+
+    if (proposedPremium - totalDiscountAmount < -MONEY_TOLERANCE) {
+      throw new BadRequestException(
+        'The proposed premium is lower than the configured discount deductions for this risk',
+      );
+    }
+  }
+
+  private async resolveOriginalCalculatedPremium(
+    companyId: string,
+    risk: QuotationEntryRisk,
+  ): Promise<number> {
+    const pricingQuoteId = risk.pricing_quote_id?.trim();
+    if (!pricingQuoteId) {
+      throw new BadRequestException(
+        `Risk ${risk.risk_code} does not have a pricing quote to override`,
+      );
+    }
+
+    const pricingQuote = await this.dataSource.getRepository(PricingQuote).findOne({
+      where: {
+        company_id: companyId,
+        pricing_quote_id: pricingQuoteId,
+      },
+    });
+
+    if (!pricingQuote) {
+      throw new BadRequestException(
+        `Pricing quote ${pricingQuoteId} was not found for the current company`,
+      );
+    }
+
+    return roundMoney(Number(pricingQuote.final_premium));
+  }
+
+  private latestApprovedPremiumOverride(
+    overrides: QuotationRiskPremiumOverride[] | undefined,
+  ): QuotationRiskPremiumOverride | null {
+    return (
+      [...(overrides ?? [])]
+        .filter(
+          (premiumOverride) =>
+            premiumOverride.approval_status ===
+            QuotationPremiumOverrideStatus.APPROVED,
+        )
+        .sort(
+          (left, right) =>
+            (right.approved_at?.getTime() ?? 0) -
+            (left.approved_at?.getTime() ?? 0),
+        )[0] ?? null
+    );
+  }
+
+  private async applyApprovedPremiumOverride(
+    manager: EntityManager,
+    quotation: Quotation,
+    risk: QuotationEntryRisk,
+    proposedPremium: string,
+  ): Promise<void> {
+    const premiumBeforeDiscount = roundMoney(Number(proposedPremium));
+    const recalculatedDiscounts = (risk.discounts ?? []).map((discount) => ({
+      id: discount.id,
+      discount_amount:
+        Number(discount.discount_rate) > 0
+          ? roundMoney(premiumBeforeDiscount * Number(discount.discount_rate))
+          : roundMoney(Number(discount.discount_amount)),
+    }));
+    const totalDiscountAmount = roundMoney(
+      recalculatedDiscounts.reduce(
+        (sum, discount) => sum + discount.discount_amount,
+        0,
+      ),
+    );
+    const premiumAfterDiscount = roundMoney(
+      Math.max(0, premiumBeforeDiscount - totalDiscountAmount),
+    );
+    const recalculatedTaxes = (risk.taxes ?? []).map((tax) => ({
+      id: tax.id,
+      tax_amount:
+        tax.is_tax_exempted === 'Y'
+          ? 0
+          : roundMoney(premiumAfterDiscount * Number(tax.tax_rate)),
+    }));
+    const totalTaxAmount = roundMoney(
+      recalculatedTaxes.reduce((sum, tax) => sum + tax.tax_amount, 0),
+    );
+
+    await manager.getRepository(QuotationEntryRisk).update(
+      { id: risk.id },
+      {
+        premium_before_discount: this.numeric(premiumBeforeDiscount, 2),
+        premium_after_discount: this.numeric(premiumAfterDiscount, 2),
+        premium_excluding_tax_equivalent: this.numeric(
+          premiumAfterDiscount,
+          2,
+        ),
+        premium_including_tax: this.numeric(
+          premiumAfterDiscount + totalTaxAmount,
+          2,
+        ),
+      },
+    );
+
+    for (const discount of recalculatedDiscounts) {
+      await manager.getRepository(QuotationRiskDiscount).update(
+        { id: discount.id },
+        {
+          discount_amount: this.numeric(discount.discount_amount, 2),
+        },
+      );
+      const currentDiscount = risk.discounts?.find((item) => item.id === discount.id);
+      if (currentDiscount) {
+        currentDiscount.discount_amount = this.numeric(discount.discount_amount, 2);
+      }
+    }
+
+    for (const tax of recalculatedTaxes) {
+      await manager.getRepository(QuotationRiskTax).update(
+        { id: tax.id },
+        {
+          tax_amount: this.numeric(tax.tax_amount, 2),
+        },
+      );
+      const currentTax = risk.taxes?.find((item) => item.id === tax.id);
+      if (currentTax) {
+        currentTax.tax_amount = this.numeric(tax.tax_amount, 2);
+      }
+    }
+
+    risk.premium_before_discount = this.numeric(premiumBeforeDiscount, 2);
+    risk.premium_after_discount = this.numeric(premiumAfterDiscount, 2);
+    risk.premium_excluding_tax_equivalent = this.numeric(
+      premiumAfterDiscount,
+      2,
+    );
+    risk.premium_including_tax = this.numeric(
+      premiumAfterDiscount + totalTaxAmount,
+      2,
+    );
+    await this.refreshCoverNotePremiumTotals(manager, quotation);
+  }
+
+  private async refreshCoverNotePremiumTotals(
+    manager: EntityManager,
+    quotation: Quotation,
+  ): Promise<void> {
+    const entries = quotation.cover_note?.entries ?? [];
+    const totalPremiumExcludingTax = roundMoney(
+      entries.reduce(
+        (sum, entry) =>
+          sum +
+          (entry.risks ?? []).reduce(
+            (riskSum, riskItem) =>
+              riskSum + Number(riskItem.premium_excluding_tax_equivalent),
+            0,
+          ) +
+          (entry.addons ?? []).reduce(
+            (addonSum, addon) =>
+              addonSum + Number(addon.premium_excluding_tax),
+            0,
+          ),
+        0,
+      ),
+    );
+    const totalPremiumIncludingTax = roundMoney(
+      entries.reduce(
+        (sum, entry) =>
+          sum +
+          (entry.risks ?? []).reduce(
+            (riskSum, riskItem) =>
+              riskSum + Number(riskItem.premium_including_tax),
+            0,
+          ) +
+          (entry.addons ?? []).reduce(
+            (addonSum, addon) =>
+              addonSum + Number(addon.premium_including_tax),
+            0,
+          ),
+        0,
+      ),
+    );
+
+    await manager.getRepository(QuotationCoverNote).update(
+      { id: quotation.cover_note.id },
+      {
+        total_premium_excluding_tax: this.numeric(totalPremiumExcludingTax, 2),
+        total_premium_including_tax: this.numeric(totalPremiumIncludingTax, 2),
+      },
+    );
+    quotation.cover_note.total_premium_excluding_tax = this.numeric(
+      totalPremiumExcludingTax,
+      2,
+    );
+    quotation.cover_note.total_premium_including_tax = this.numeric(
+      totalPremiumIncludingTax,
+      2,
+    );
+  }
+
   private async resolveExistingCustomerId(
     companyId: string,
     holder: PolicyHolderDto,
@@ -1343,7 +2626,7 @@ export class QuotationsService {
     userId: string,
     currencyCode: string,
   ): Promise<void> {
-    await this.persistEntryRisks(manager, entry, input, riskByCode);
+    await this.persistEntryRisks(manager, entry, input, riskByCode, userId);
     await this.persistSubjectMatters(manager, entry, input);
     await this.persistAddons(manager, entry, input);
 
@@ -1493,6 +2776,7 @@ export class QuotationsService {
     entry: QuotationCoverNoteEntry,
     input: ResolvedEntry,
     riskByCode: Map<string, InsuranceRisk>,
+    userId: string,
   ): Promise<void> {
     const riskRepository = manager.getRepository(QuotationEntryRisk);
     const discountRepository = manager.getRepository(QuotationRiskDiscount);
@@ -1513,6 +2797,7 @@ export class QuotationsService {
           insurance_risk_id: configuredRisk?.id ?? null,
           sequence_no: riskIndex + 1,
           risk_code: normalizedRiskCode,
+          pricing_quote_id: inputRisk.pricing_quote_id?.trim() ?? null,
           sum_insured: this.numeric(inputRisk.sum_insured, 2),
           sum_insured_equivalent: this.numeric(
             inputRisk.sum_insured_equivalent,
@@ -1545,6 +2830,43 @@ export class QuotationsService {
           discount_type: discount.discount_type,
           discount_rate: this.numeric(discount.discount_rate, 6),
           discount_amount: this.numeric(discount.discount_amount, 2),
+          request_reason_code: discount.request_reason_code?.trim() ?? null,
+          request_comment: discount.request_comment?.trim() ?? null,
+          effective_from: this.extractDateOnly(discount.effective_from) ?? null,
+          effective_to: this.extractDateOnly(discount.effective_to) ?? null,
+          requested_by:
+            discount.requested_by?.trim() ||
+            (Number(discount.discount_amount) > 0 ? userId : null),
+          requested_at: discount.requested_at
+            ? new Date(discount.requested_at)
+            : Number(discount.discount_amount) > 0
+              ? new Date()
+              : null,
+          max_permitted_rate:
+            discount.max_permitted_rate != null
+              ? this.numeric(discount.max_permitted_rate, 6)
+              : null,
+          max_permitted_amount:
+            discount.max_permitted_amount != null
+              ? this.numeric(discount.max_permitted_amount, 2)
+              : null,
+          approval_required: discount.approval_required ?? false,
+          approval_status: discount.approval_required
+            ? discount.approval_status?.trim() || 'PENDING'
+            : 'NOT_REQUIRED',
+          approved_rate:
+            discount.approved_rate != null
+              ? this.numeric(discount.approved_rate, 6)
+              : null,
+          approved_amount:
+            discount.approved_amount != null
+              ? this.numeric(discount.approved_amount, 2)
+              : null,
+          approved_by: discount.approved_by?.trim() ?? null,
+          approval_date: discount.approval_date
+            ? new Date(discount.approval_date)
+            : null,
+          rejection_reason: discount.rejection_reason?.trim() ?? null,
         }),
       );
 

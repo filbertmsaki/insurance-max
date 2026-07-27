@@ -42,36 +42,36 @@ export class QuotationEntryAddon {
 
   @Column({
     type: 'numeric',
-    precision: 18,
-    scale: 2,
+    precision: 20,
+    scale: 4,
   })
   addon_amount: string;
 
   @Column({
     type: 'numeric',
     precision: 18,
-    scale: 6,
+    scale: 10,
   })
   addon_premium_rate: string;
 
   @Column({
     type: 'numeric',
-    precision: 18,
-    scale: 2,
+    precision: 20,
+    scale: 4,
   })
   premium_excluding_tax: string;
 
   @Column({
     type: 'numeric',
-    precision: 18,
-    scale: 2,
+    precision: 20,
+    scale: 4,
   })
   premium_excluding_tax_equivalent: string;
 
   @Column({
     type: 'numeric',
-    precision: 18,
-    scale: 2,
+    precision: 20,
+    scale: 4,
   })
   premium_including_tax: string;
 

@@ -94,6 +94,9 @@ describe('quotation payload builders', () => {
     values.risks[0].premium_after_discount = '50000';
     values.risks[0].premium_excluding_tax_equivalent = '50000';
     values.risks[0].premium_including_tax = '59000';
+    values.risks[0].rating_result_metadata = {
+      pricing_quote_id: 'PQ-2026-00000001',
+    };
     values.motor = {
       ...createEmptyMotorDetails(),
       motor_category_code: '1',
@@ -133,6 +136,9 @@ describe('quotation payload builders', () => {
       'ABC Logistics Company Limited',
     );
     expect(payload.cover_note_dtl.risks_covered?.[0].risk_code).toBe('OD');
+    expect(payload.cover_note_dtl.risks_covered?.[0].pricing_quote_id).toBe(
+      'PQ-2026-00000001',
+    );
   });
 
   it('builds MOTOR_FLEET payload in backend snake_case shape', () => {
@@ -158,6 +164,9 @@ describe('quotation payload builders', () => {
     values.fleet.items[0].risks_covered[0].premium_excluding_tax_equivalent =
       '50000';
     values.fleet.items[0].risks_covered[0].premium_including_tax = '59000';
+    values.fleet.items[0].risks_covered[0].rating_result_metadata = {
+      pricing_quote_id: 'PQ-2026-00000002',
+    };
     values.fleet.items[0].motor_dtl = {
       motor_category: '1',
       motor_type: '1',
@@ -194,6 +203,9 @@ describe('quotation payload builders', () => {
     expect(
       payload.cover_note_dtl.fleet_dtls?.[0].motor_dtl.registration_number,
     ).toBe('T123ABC');
+    expect(
+      payload.cover_note_dtl.fleet_dtls?.[0].risks_covered[0].pricing_quote_id,
+    ).toBe('PQ-2026-00000002');
   });
 
   it('builds NON_MOTOR payload in backend snake_case shape', () => {

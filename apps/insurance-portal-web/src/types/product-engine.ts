@@ -280,6 +280,16 @@ export interface RiskRatingRule {
   per_unit_amount: number | null;
   per_unit_factor_code: string | null;
   minimum_amount: number | null;
+  max_discount_rate: number | null;
+  max_discount_amount: number | null;
+  discount_approval_threshold_rate: number | null;
+  discount_approval_threshold_amount: number | null;
+  max_loading_rate: number | null;
+  max_loading_amount: number | null;
+  loading_approval_threshold_rate: number | null;
+  loading_approval_threshold_amount: number | null;
+  adjustment_effective_from: string | null;
+  adjustment_effective_to: string | null;
   formula: string | null;
   priority: number;
   is_active: boolean;
@@ -296,6 +306,16 @@ export interface CreateRuleDto {
   per_unit_amount?: number | null;
   per_unit_factor_code?: string | null;
   minimum_amount?: number | null;
+  max_discount_rate?: number | null;
+  max_discount_amount?: number | null;
+  discount_approval_threshold_rate?: number | null;
+  discount_approval_threshold_amount?: number | null;
+  max_loading_rate?: number | null;
+  max_loading_amount?: number | null;
+  loading_approval_threshold_rate?: number | null;
+  loading_approval_threshold_amount?: number | null;
+  adjustment_effective_from?: string | null;
+  adjustment_effective_to?: string | null;
   formula?: string | null;
   priority?: number;
   is_active?: boolean;
@@ -309,6 +329,16 @@ export interface UpdateRuleDto {
   per_unit_amount?: number | null;
   per_unit_factor_code?: string | null;
   minimum_amount?: number | null;
+  max_discount_rate?: number | null;
+  max_discount_amount?: number | null;
+  discount_approval_threshold_rate?: number | null;
+  discount_approval_threshold_amount?: number | null;
+  max_loading_rate?: number | null;
+  max_loading_amount?: number | null;
+  loading_approval_threshold_rate?: number | null;
+  loading_approval_threshold_amount?: number | null;
+  adjustment_effective_from?: string | null;
+  adjustment_effective_to?: string | null;
   formula?: string | null;
   priority?: number;
   is_active?: boolean;
@@ -400,6 +430,7 @@ export interface ResolveAccessDto {
 // ─── Premium Calculator ───────────────────────────────────────────────────────
 
 export interface RiskPremiumResult {
+  client_reference?: string | null;
   risk_id: string;
   risk_code: string;
   risk_name: string;
@@ -418,23 +449,110 @@ export interface RiskPremiumResult {
   gross_premium: number;
   final_premium: number;
   minimum_applied: boolean;
+  charges: Array<{
+    applied_rule_id: string;
+    charge_code: string;
+    charge_name: string;
+    charge_category:
+      | 'TAX'
+      | 'LEVY'
+      | 'FEE'
+      | 'POLICY_FEE'
+      | 'STAMP_DUTY'
+      | 'ADMINISTRATION_FEE'
+      | 'PRODUCT_CHARGE'
+      | 'RISK_CHARGE';
+    charge_scope: 'COMPANY' | 'CATEGORY' | 'PRODUCT' | 'RISK';
+    charge_type: 'PERCENTAGE' | 'FIXED';
+    calculation_base: 'BASIC_PREMIUM' | 'NET_PREMIUM' | 'GROSS_PREMIUM';
+    base_amount: number;
+    rate: number | null;
+    fixed_amount: number | null;
+    minimum_charge_amount: number | null;
+    maximum_charge_amount: number | null;
+    computed_amount: number;
+    is_taxable: boolean;
+    effective_from: string;
+    effective_to: string;
+  }>;
+  total_charge_amount: number;
+  taxable_charge_amount: number;
+  non_taxable_charge_amount: number;
+  premium_including_charges: number;
+  discount_control: {
+    max_rate: number | null;
+    max_amount: number | null;
+    approval_threshold_rate: number | null;
+    approval_threshold_amount: number | null;
+    effective_from: string | null;
+    effective_to: string | null;
+  };
+  loading_control: {
+    max_rate: number | null;
+    max_amount: number | null;
+    approval_threshold_rate: number | null;
+    approval_threshold_amount: number | null;
+    effective_from: string | null;
+    effective_to: string | null;
+  };
   factors: Record<string, string | number | boolean>;
   validation_errors: string[];
+  validation_warnings: string[];
+  pricing_quote_id?: string;
+  pricing_status?: 'CALCULATED';
+  calculated_at?: string;
+  expires_at?: string;
+  input_signature?: string;
+  quotation_type?: string | null;
+  currency_code?: string | null;
+}
+
+export interface MultiCalcFailure {
+  client_reference: string | null;
+  risk_id: string | null;
+  status: 'FAILED' | 'INCOMPLETE';
+  message: string;
+  validation_errors: string[];
+  validation_warnings: string[];
+  details: Record<string, unknown> | null;
+}
+
+export interface PricingValidationIssue {
+  field: string;
+  code: string;
+  message: string;
+}
+
+export interface PricingValidationFailurePayload {
+  status: 'INCOMPLETE';
+  calculation_allowed: false;
+  message: string;
+  errors: PricingValidationIssue[];
+  warnings: PricingValidationIssue[];
+  validation_errors: string[];
+  validation_warnings: string[];
 }
 
 export interface SingleCalcRequest {
+  client_reference?: string;
   risk_id: string;
   sum_insured: number;
   factors: Record<string, string | number | boolean>;
+  effective_date?: string;
 }
 
 export interface MultiCalcRequest {
+  product_code?: string;
+  effective_date?: string;
   risks: SingleCalcRequest[];
 }
 
 export interface MultiCalcResponse {
   risks: RiskPremiumResult[];
+  failed_risks: MultiCalcFailure[];
   grand_total: number;
+  successful_risk_count: number;
+  failed_risk_count: number;
 }
 
 export interface RiskRuleConditionSummary {

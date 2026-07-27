@@ -1,14 +1,29 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsDateString,
   IsArray,
+  IsEnum,
   IsNotEmpty,
   IsNumber,
   IsObject,
   IsOptional,
+  IsString,
   IsUUID,
+  MaxLength,
 } from 'class-validator';
+import { QuotationType } from '../../quotations/enums/quotation-type.enum';
 
 export class CalculateSingleRiskPremiumDto {
+  @ApiPropertyOptional({
+    example: 'VEHICLE-001',
+    description:
+      'Optional client-provided identifier echoed back in pricing responses.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  client_reference?: string;
+
   @ApiProperty({ description: 'Insurance risk UUID' })
   @IsUUID()
   @IsNotEmpty()
@@ -43,12 +58,58 @@ export class CalculateSingleRiskPremiumDto {
   @IsOptional()
   @IsObject()
   factor_values?: Record<string, string | number | boolean>;
+
+  @ApiPropertyOptional({
+    example: '2026-07-27',
+    description:
+      'Optional charge-rule effective date. Defaults to the server date when omitted.',
+  })
+  @IsOptional()
+  @IsDateString()
+  effective_date?: string;
+
+  @ApiPropertyOptional({
+    enum: QuotationType,
+    description:
+      'Optional quotation type context for snapshot storage and downstream pricing governance.',
+  })
+  @IsOptional()
+  @IsEnum(QuotationType)
+  quotation_type?: QuotationType;
+
+  @ApiPropertyOptional({
+    example: 'TZS',
+    description:
+      'Optional currency context stored with the pricing quote snapshot.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  currency_code?: string;
 }
 
 export class CalculateMultiRiskPremiumDto {
   @ApiProperty({ type: [CalculateSingleRiskPremiumDto] })
   @IsArray()
   risks: CalculateSingleRiskPremiumDto[];
+
+  @ApiPropertyOptional({
+    example: 'MOTOR',
+    description: 'Optional product code context for fleet or batch pricing.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  product_code?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-07-27',
+    description:
+      'Optional effective date context stored with the batch pricing request.',
+  })
+  @IsOptional()
+  @IsDateString()
+  effective_date?: string;
 
   @ApiPropertyOptional({ description: 'Company user UUID for access check' })
   @IsOptional()
@@ -64,4 +125,23 @@ export class CalculateMultiRiskPremiumDto {
   @IsOptional()
   @IsUUID()
   department_id?: string;
+
+  @ApiPropertyOptional({
+    enum: QuotationType,
+    description:
+      'Optional quotation type context for snapshot storage and downstream pricing governance.',
+  })
+  @IsOptional()
+  @IsEnum(QuotationType)
+  quotation_type?: QuotationType;
+
+  @ApiPropertyOptional({
+    example: 'TZS',
+    description:
+      'Optional currency context stored with the pricing quote snapshot.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  currency_code?: string;
 }

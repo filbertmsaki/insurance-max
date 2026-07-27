@@ -51,6 +51,15 @@ export class QuotationsRepository {
       .leftJoinAndSelect('entry.risks', 'risk')
       .leftJoinAndSelect('risk.insurance_risk', 'insuranceRisk')
       .leftJoinAndSelect('risk.discounts', 'riskDiscount')
+      .leftJoinAndSelect('risk.premium_overrides', 'riskPremiumOverride')
+      .leftJoinAndSelect(
+        'riskPremiumOverride.requester',
+        'riskPremiumOverrideRequester',
+      )
+      .leftJoinAndSelect(
+        'riskPremiumOverride.approver',
+        'riskPremiumOverrideApprover',
+      )
       .leftJoinAndSelect('risk.taxes', 'riskTax')
       .leftJoinAndSelect('entry.subject_matters', 'subjectMatter')
       .leftJoinAndSelect('entry.addons', 'addon')
@@ -65,6 +74,7 @@ export class QuotationsRepository {
       .orderBy('entry.entry_number', 'ASC')
       .addOrderBy('risk.sequence_no', 'ASC')
       .addOrderBy('riskDiscount.sequence_no', 'ASC')
+      .addOrderBy('riskPremiumOverride.sequence_no', 'ASC')
       .addOrderBy('riskTax.sequence_no', 'ASC')
       .addOrderBy('subjectMatter.sequence_no', 'ASC')
       .addOrderBy('addon.sequence_no', 'ASC')

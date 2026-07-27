@@ -7,6 +7,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { LogicalOperator } from '@insurance-max/portal-shared/enums/logical-operator.enum';
+import { PricingRateBookStatus } from '../pricing-rate-books/enums/pricing-rate-book-status.enum';
+import { RiskRatingRuleConfigurationValidatorService } from '../risk-rating-rules/risk-rating-rule-configuration-validator.service';
 import { RiskRatingRule } from '../risk-rating-rules/entities/risk-rating-rule.entity';
 import { CreateRiskRuleConditionDto } from './dto/create-risk-rule-condition.dto';
 import { UpdateRiskRuleConditionDto } from './dto/update-risk-rule-condition.dto';
@@ -20,6 +22,8 @@ export class RiskRuleConditionsService {
 
     @InjectRepository(RiskRatingRule)
     private readonly ruleRepository: Repository<RiskRatingRule>,
+
+    private readonly ruleConfigurationValidator: RiskRatingRuleConfigurationValidatorService,
   ) {}
 
   private isDuplicateEntryError(error: unknown): boolean {
@@ -40,11 +44,13 @@ export class RiskRuleConditionsService {
   ): Promise<RiskRuleCondition> {
     const rule = await this.ruleRepository.findOne({
       where: { id: dto.rule_id, company_id: companyId },
+      relations: { rate_book: true },
     });
     if (!rule)
       throw new BadRequestException(
         'Rating rule not found or does not belong to this company',
       );
+    this.assertParentRuleEditable(rule);
 
     const condition = this.conditionRepository.create({
       company_id: companyId,
@@ -57,6 +63,11 @@ export class RiskRuleConditionsService {
       created_by: userId,
       updated_by: userId,
     });
+    await this.ruleConfigurationValidator.assertConditionCanBeCreated(
+      companyId,
+      rule,
+      condition,
+    );
 
     try {
       return await this.conditionRepository.save(condition);
@@ -100,6 +111,14 @@ export class RiskRuleConditionsService {
     userId: string,
   ): Promise<RiskRuleCondition> {
     const condition = await this.findOne(companyId, id);
+    const rule = await this.ruleRepository.findOne({
+      where: { id: condition.rule_id, company_id: companyId },
+      relations: { rate_book: true },
+    });
+    if (!rule) {
+      throw new NotFoundException('Rating rule not found');
+    }
+    this.assertParentRuleEditable(rule);
 
     if (dto.factor_code !== undefined)
       condition.factor_code = dto.factor_code.trim().toLowerCase();
@@ -110,6 +129,12 @@ export class RiskRuleConditionsService {
     if (dto.logical_operator !== undefined)
       condition.logical_operator = dto.logical_operator;
     condition.updated_by = userId;
+    await this.ruleConfigurationValidator.assertConditionCanBeUpdated(
+      companyId,
+      rule,
+      condition.id,
+      condition,
+    );
 
     try {
       return await this.conditionRepository.save(condition);
@@ -125,6 +150,34 @@ export class RiskRuleConditionsService {
 
   async remove(companyId: string, id: string): Promise<void> {
     const condition = await this.findOne(companyId, id);
+    const rule = await this.ruleRepository.findOne({
+      where: { id: condition.rule_id, company_id: companyId },
+      relations: { rate_book: true },
+    });
+    if (!rule) {
+      throw new NotFoundException('Rating rule not found');
+    }
+    this.assertParentRuleEditable(rule);
+    await this.ruleConfigurationValidator.assertConditionCanBeRemoved(
+      companyId,
+      rule,
+      condition.id,
+    );
     await this.conditionRepository.delete(condition.id);
+  }
+
+  private assertParentRuleEditable(rule: RiskRatingRule) {
+    if (!rule.rate_book) {
+      return;
+    }
+    if (
+      ![PricingRateBookStatus.DRAFT, PricingRateBookStatus.REJECTED].includes(
+        rule.rate_book.status,
+      )
+    ) {
+      throw new ConflictException(
+        `Conditions cannot be edited because the parent rate book is ${rule.rate_book.status}`,
+      );
+    }
   }
 }

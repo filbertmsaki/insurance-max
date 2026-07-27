@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { InsuranceRisk } from '../../../insurance-risks/entities/insurance-risk.entity';
 import { QuotationRiskDiscount } from './quotation-risk-discount.entity';
+import { QuotationRiskPremiumOverride } from './quotation-risk-premium-override.entity';
 import { QuotationRiskTax } from './quotation-risk-tax.entity';
 import { QuotationCoverNoteEntry } from './quotation-cover-note-entry.entity';
 
@@ -50,51 +51,58 @@ export class QuotationEntryRisk {
   risk_code: string;
 
   @Column({
+    type: 'varchar',
+    length: 30,
+    nullable: true,
+  })
+  pricing_quote_id: string | null;
+
+  @Column({
     type: 'numeric',
-    precision: 18,
-    scale: 2,
+    precision: 20,
+    scale: 4,
   })
   sum_insured: string;
 
   @Column({
     type: 'numeric',
-    precision: 18,
-    scale: 2,
+    precision: 20,
+    scale: 4,
   })
   sum_insured_equivalent: string;
 
   @Column({
     type: 'numeric',
     precision: 18,
-    scale: 6,
+    scale: 10,
   })
   premium_rate: string;
 
   @Column({
     type: 'numeric',
-    precision: 18,
-    scale: 2,
+    precision: 20,
+    scale: 4,
   })
   premium_before_discount: string;
 
   @Column({
     type: 'numeric',
-    precision: 18,
-    scale: 2,
+    precision: 20,
+    scale: 4,
   })
   premium_after_discount: string;
 
   @Column({
     type: 'numeric',
-    precision: 18,
-    scale: 2,
+    precision: 20,
+    scale: 4,
   })
   premium_excluding_tax_equivalent: string;
 
   @Column({
     type: 'numeric',
-    precision: 18,
-    scale: 2,
+    precision: 20,
+    scale: 4,
   })
   premium_including_tax: string;
 
@@ -119,6 +127,12 @@ export class QuotationEntryRisk {
 
   @OneToMany(() => QuotationRiskDiscount, (discount) => discount.risk)
   discounts: QuotationRiskDiscount[];
+
+  @OneToMany(
+    () => QuotationRiskPremiumOverride,
+    (premiumOverride) => premiumOverride.risk,
+  )
+  premium_overrides: QuotationRiskPremiumOverride[];
 
   @OneToMany(() => QuotationRiskTax, (tax) => tax.risk)
   taxes: QuotationRiskTax[];

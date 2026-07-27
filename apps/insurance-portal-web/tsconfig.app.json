@@ -24,7 +24,9 @@
 
     /* Path aliases */
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@insurance-max/portal-shared": ["../../libs/portal-shared/src/index.ts"],
+      "@insurance-max/portal-shared/*": ["../../libs/portal-shared/src/*"]
     }
   },
   "include": ["src"]

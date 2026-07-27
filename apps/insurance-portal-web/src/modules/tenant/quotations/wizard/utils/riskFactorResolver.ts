@@ -3,6 +3,19 @@ import type { QuotationFormSchemaValues } from '../../schemas';
 
 type FactorValue = string | number | boolean;
 type MotorDetails = QuotationFormSchemaValues['motor'];
+type FleetMotorDetails = QuotationFormSchemaValues['fleet']['items'][number]['motor_dtl'];
+
+const NON_MOTOR_BASE_FACTOR_CODES = [
+  'annual_turnover',
+  'payroll',
+  'declared_value',
+  'limit_of_liability',
+  'sum_insured_amount',
+  'floor_area',
+  'number_of_units',
+  'number_of_locations',
+  'number_of_employees',
+] as const;
 
 const MOTOR_USAGE_CODE_TO_FACTOR_VALUE: Record<string, string> = {
   '1': 'PRIVATE',
@@ -40,6 +53,28 @@ const MOTOR_FACTOR_FIELD_MAP: Partial<Record<string, keyof MotorDetails>> = {
   owner_category: 'owner_category',
 };
 
+const FLEET_MOTOR_FACTOR_FIELD_MAP: Partial<
+  Record<string, keyof FleetMotorDetails>
+> = {
+  year_of_manufacture: 'year_of_manufacture',
+  seat_capacity: 'sitting_capacity',
+  vehicle_weight_kg: 'gross_weight',
+  cargo_weight_ton: 'gross_weight',
+  motor_usage: 'motor_usage',
+  motor_category: 'motor_category',
+  motor_type: 'motor_type',
+  registration_number: 'registration_number',
+  chassis_number: 'chassis_number',
+  make: 'make',
+  model: 'model',
+  body_type: 'body_type',
+  engine_number: 'engine_number',
+  engine_capacity: 'engine_capacity',
+  fuel_used: 'fuel_used',
+  owner_name: 'owner_name',
+  owner_category: 'owner_category',
+};
+
 function resolveMotorFactorRawValue(
   factorCode: string,
   motor: MotorDetails,
@@ -51,6 +86,14 @@ function resolveMotorFactorRawValue(
   return field ? motor[field] : undefined;
 }
 
+function resolveFleetMotorFactorRawValue(
+  factorCode: string,
+  motor: FleetMotorDetails,
+): string | undefined {
+  const field = FLEET_MOTOR_FACTOR_FIELD_MAP[factorCode];
+  return field ? motor[field] : undefined;
+}
+
 /** The `motor.*` field a given rating factor code reads from, if any. */
 export function motorFieldNameForFactorCode(
   factorCode: string,
@@ -59,17 +102,20 @@ export function motorFieldNameForFactorCode(
 }
 
 function coerceFactorValue(
-  raw: string,
+  raw: string | number | boolean,
   dataType: RiskRequiredFactor['factor']['data_type'],
 ): FactorValue {
+  const stringValue = String(raw);
+
   if (dataType === 'NUMBER') {
     const parsed = Number(raw);
     return Number.isFinite(parsed) ? parsed : raw;
   }
   if (dataType === 'BOOLEAN') {
-    return raw === 'true' || raw === '1';
+    if (typeof raw === 'boolean') return raw;
+    return stringValue === 'true' || stringValue === '1';
   }
-  return raw;
+  return typeof raw === 'string' ? raw : stringValue;
 }
 
 /**
@@ -85,19 +131,70 @@ export function resolveFactorValues(
   riskIndex: number,
 ): Record<string, FactorValue> {
   const isMotorFlow = formValues.quotation_type === 'MOTOR';
+  const rowFactorValues = formValues.risks[riskIndex]?.factor_values ?? {};
   const values: Record<string, FactorValue> = {};
 
   requiredFactors.forEach((requiredFactor) => {
     const code = requiredFactor.factor.code;
     const raw = isMotorFlow
       ? resolveMotorFactorRawValue(code, formValues.motor)
-      : undefined;
+      : rowFactorValues[code];
 
     if (raw === undefined || raw === '') return;
     values[code] = coerceFactorValue(raw, requiredFactor.factor.data_type);
   });
 
-  values.sum_insured = Number(formValues.risks[riskIndex]?.sum_insured) || 0;
+  values.sum_insured = resolveEffectiveSumInsured(
+    formValues.risks[riskIndex]?.sum_insured,
+    rowFactorValues,
+  );
+
+  return values;
+}
+
+function resolveEffectiveSumInsured(
+  explicitSumInsured: string | number | null | undefined,
+  factorValues: Record<string, FactorValue>,
+) {
+  const explicitNumber =
+    explicitSumInsured === '' || explicitSumInsured == null
+      ? NaN
+      : Number(explicitSumInsured);
+  if (Number.isFinite(explicitNumber) && explicitNumber > 0) {
+    return explicitNumber;
+  }
+
+  const factorSumInsured = Number(factorValues.sum_insured);
+  if (Number.isFinite(factorSumInsured) && factorSumInsured > 0) {
+    return factorSumInsured;
+  }
+
+  for (const code of NON_MOTOR_BASE_FACTOR_CODES) {
+    const candidate = Number(factorValues[code]);
+    if (Number.isFinite(candidate) && candidate > 0) {
+      return candidate;
+    }
+  }
+
+  return 0;
+}
+
+export function resolveFleetFactorValues(
+  requiredFactors: RiskRequiredFactor[],
+  item: QuotationFormSchemaValues['fleet']['items'][number],
+  riskIndex: number,
+): Record<string, FactorValue> {
+  const values: Record<string, FactorValue> = {};
+
+  requiredFactors.forEach((requiredFactor) => {
+    const code = requiredFactor.factor.code;
+    const raw = resolveFleetMotorFactorRawValue(code, item.motor_dtl);
+
+    if (raw === undefined || raw === '') return;
+    values[code] = coerceFactorValue(raw, requiredFactor.factor.data_type);
+  });
+
+  values.sum_insured = Number(item.risks_covered[riskIndex]?.sum_insured) || 0;
 
   return values;
 }

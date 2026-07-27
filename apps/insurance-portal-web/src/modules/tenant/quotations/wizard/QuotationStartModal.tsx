@@ -334,7 +334,7 @@ export function QuotationStartModal({
               <SelectContent>
                 {productOptions.map((option) => (
                   <SelectItem key={option.id} value={option.id}>
-                    {option.product_name ?? option.name ?? option.id}
+                    {option.product_name ?? option.id}
                   </SelectItem>
                 ))}
               </SelectContent>

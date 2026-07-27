@@ -8,9 +8,11 @@ import { QuotationEntryRisk } from '../entities/structured/quotation-entry-risk.
 import { QuotationMotorDetail } from '../entities/structured/quotation-motor-detail.entity';
 import { QuotationPolicyHolder } from '../entities/structured/quotation-policy-holder.entity';
 import { QuotationRiskDiscount } from '../entities/structured/quotation-risk-discount.entity';
+import { QuotationRiskPremiumOverride } from '../entities/structured/quotation-risk-premium-override.entity';
 import { QuotationRiskTax } from '../entities/structured/quotation-risk-tax.entity';
 import { QuotationSubjectMatter } from '../entities/structured/quotation-subject-matter.entity';
 import { QuotationFlow } from '../enums/quotation-flow.enum';
+import { QuotationPremiumOverrideStatus } from '../enums/quotation-premium-override-status.enum';
 import { QuotationType } from '../enums/quotation-type.enum';
 import { QuotationDisplayStatusResolver } from '../services/quotation-display-status.resolver';
 import { PortalTiraSubmission } from '../../tiramis-integration/entities/portal-tira-submission.entity';
@@ -35,6 +37,7 @@ import {
   QuotationPreviewRef,
   QuotationPreviewResponse,
   QuotationPreviewRisk,
+  QuotationPreviewPremiumOverride,
   QuotationPreviewSubjectMatter,
   QuotationPreviewTax,
   QuotationPreviewTiramisSubmission,
@@ -50,6 +53,10 @@ type QuotationPreviewRelations = {
   tiramisTrackingByEntry?: Map<string, TiramisSubmissionTrackingEntity | null>;
 };
 
+interface QuotationPreviewOptions {
+  includePremiumOverrides?: boolean;
+}
+
 @Injectable()
 export class QuotationPreviewMapper {
   constructor(
@@ -59,6 +66,7 @@ export class QuotationPreviewMapper {
   toResponse(
     quotation: Quotation,
     relations: QuotationPreviewRelations = {},
+    options: QuotationPreviewOptions = {},
   ): QuotationPreviewResponse {
     const coverNote = quotation.cover_note;
 
@@ -73,14 +81,16 @@ export class QuotationPreviewMapper {
     const header = this.buildOverview(quotation);
     const coverNotePreview = this.buildCoverNote(quotation, coverNote);
     const policyholders = this.mapPolicyHolders(quotation.policy_holders);
-    const risks = isFleet ? [] : this.mapRisks(entries[0]?.risks ?? []);
+    const risks = isFleet
+      ? []
+      : this.mapRisks(entries[0]?.risks ?? [], options.includePremiumOverrides);
     const subjectMatters = isFleet
       ? []
       : this.mapSubjectMatters(entries[0]?.subject_matters ?? []);
     const addons = isFleet ? [] : this.mapAddons(entries[0]?.addons ?? []);
     const motorDetails = this.mapMotorDetail(entries[0]?.motor_detail ?? null);
     const fleet = isFleet
-      ? this.buildFleetPreview(quotation, coverNote, entries, relations)
+      ? this.buildFleetPreview(quotation, coverNote, entries, relations, options)
       : null;
 
     const payment = this.buildPaymentPreview(quotation, relations);
@@ -93,6 +103,7 @@ export class QuotationPreviewMapper {
     const history = this.buildHistoryPreview(
       quotation,
       relations,
+      options,
       isFleet ? (fleet?.vehicles ?? []) : undefined,
     );
 
@@ -283,9 +294,10 @@ export class QuotationPreviewMapper {
     coverNote: Quotation['cover_note'],
     entries: QuotationCoverNoteEntry[],
     relations: QuotationPreviewRelations,
+    options: QuotationPreviewOptions,
   ) {
     const vehicles = entries.map((entry) =>
-      this.buildFleetVehicle(entry, relations, quotation),
+      this.buildFleetVehicle(entry, relations, quotation, options),
     );
     const summary = this.buildFleetSummary(coverNote, vehicles);
 
@@ -423,6 +435,7 @@ export class QuotationPreviewMapper {
     entry: QuotationCoverNoteEntry,
     relations: QuotationPreviewRelations,
     quotation: Quotation,
+    options: QuotationPreviewOptions,
   ): QuotationPreviewFleetVehicle {
     const tracking =
       relations.tiramisTrackingByEntry?.get(entry.cover_note_number) ??
@@ -441,7 +454,7 @@ export class QuotationPreviewMapper {
       endorsement_premium_earned: this.toNullableNumber(
         entry.endorsement_premium_earned,
       ),
-      risks: this.mapRisks(entry.risks),
+      risks: this.mapRisks(entry.risks, options.includePremiumOverrides),
       subject_matters: this.mapSubjectMatters(entry.subject_matters),
       addons: this.mapAddons(entry.addons),
       motor_details: this.mapMotorDetail(entry.motor_detail),
@@ -588,6 +601,7 @@ export class QuotationPreviewMapper {
   private buildHistoryPreview(
     quotation: Quotation,
     relations: QuotationPreviewRelations,
+    options: QuotationPreviewOptions,
     fleetVehicles?: QuotationPreviewFleetVehicle[],
   ): QuotationPreviewHistoryItem[] {
     const history: QuotationPreviewHistoryItem[] = [];
@@ -666,6 +680,55 @@ export class QuotationPreviewMapper {
       });
     }
 
+    if (options.includePremiumOverrides) {
+      for (const entry of quotation.cover_note?.entries ?? []) {
+        for (const risk of entry.risks ?? []) {
+          for (const premiumOverride of this.sortedBySequence(
+            risk.premium_overrides,
+          )) {
+            history.push({
+              action: `Premium override requested for ${risk.risk_code}`,
+              previous_status: null,
+              new_status: premiumOverride.approval_status,
+              performed_by: this.userLabel(premiumOverride.requester),
+              date_time: premiumOverride.requested_at?.toISOString() ?? null,
+              remarks: this.premiumOverrideRequestRemarks(premiumOverride),
+            });
+
+            if (
+              premiumOverride.approval_status ===
+                QuotationPremiumOverrideStatus.APPROVED &&
+              premiumOverride.approved_at
+            ) {
+              history.push({
+                action: `Premium override approved for ${risk.risk_code}`,
+                previous_status: QuotationPremiumOverrideStatus.PENDING,
+                new_status: premiumOverride.approval_status,
+                performed_by: this.userLabel(premiumOverride.approver),
+                date_time: premiumOverride.approved_at.toISOString(),
+                remarks: this.premiumOverrideApprovalRemarks(premiumOverride),
+              });
+            }
+
+            if (
+              premiumOverride.approval_status ===
+                QuotationPremiumOverrideStatus.REJECTED &&
+              premiumOverride.approved_at
+            ) {
+              history.push({
+                action: `Premium override rejected for ${risk.risk_code}`,
+                previous_status: QuotationPremiumOverrideStatus.PENDING,
+                new_status: premiumOverride.approval_status,
+                performed_by: this.userLabel(premiumOverride.approver),
+                date_time: premiumOverride.approved_at.toISOString(),
+                remarks: premiumOverride.rejection_reason ?? null,
+              });
+            }
+          }
+        }
+      }
+    }
+
     if (fleetVehicles) {
       for (const vehicle of fleetVehicles) {
         if (vehicle.tiramis) {
@@ -715,8 +778,10 @@ export class QuotationPreviewMapper {
 
   private mapRisks(
     risks: QuotationEntryRisk[] | undefined,
+    includePremiumOverrides = false,
   ): QuotationPreviewRisk[] {
     return this.sortedBySequence(risks).map((risk, index) => ({
+      risk_id: risk.id,
       risk_number: risk.sequence_no ?? index + 1,
       risk_code: risk.risk_code ?? null,
       risk_name:
@@ -733,8 +798,38 @@ export class QuotationPreviewMapper {
       ),
       premium_including_tax: this.toNumber(risk.premium_including_tax),
       discounts: this.mapDiscounts(risk.discounts),
+      premium_overrides: includePremiumOverrides
+        ? this.mapPremiumOverrides(risk.premium_overrides)
+        : [],
       taxes: this.mapRiskTaxes(risk.taxes),
     }));
+  }
+
+  private mapPremiumOverrides(
+    overrides: QuotationRiskPremiumOverride[] | undefined,
+  ): QuotationPreviewPremiumOverride[] {
+    return [...(overrides ?? [])]
+      .sort((left, right) => right.sequence_no - left.sequence_no)
+      .map((premiumOverride) => ({
+        id: premiumOverride.id,
+        sequence_no: premiumOverride.sequence_no ?? null,
+        original_calculated_premium: this.toNumber(
+          premiumOverride.original_calculated_premium,
+        ),
+        proposed_premium: this.toNumber(premiumOverride.proposed_premium),
+        difference_amount: this.toNumber(premiumOverride.difference_amount),
+        difference_percentage: this.toNumber(
+          premiumOverride.difference_percentage,
+        ),
+        override_reason: premiumOverride.override_reason ?? null,
+        supporting_notes: premiumOverride.supporting_notes ?? null,
+        requested_by: this.userRef(premiumOverride.requester),
+        requested_at: premiumOverride.requested_at?.toISOString() ?? null,
+        approval_status: premiumOverride.approval_status,
+        approved_by: this.userRef(premiumOverride.approver),
+        approved_at: premiumOverride.approved_at?.toISOString() ?? null,
+        rejection_reason: premiumOverride.rejection_reason ?? null,
+      }));
   }
 
   private mapDiscounts(
@@ -1008,6 +1103,28 @@ export class QuotationPreviewMapper {
       default:
         return eventType.replace(/_/g, ' ');
     }
+  }
+
+  private premiumOverrideRequestRemarks(
+    premiumOverride: QuotationRiskPremiumOverride,
+  ) {
+    const note = premiumOverride.supporting_notes?.trim();
+    const diffAmount = this.toNumber(premiumOverride.difference_amount);
+    const diffPercentage = this.toNumber(premiumOverride.difference_percentage);
+    const parts = [
+      premiumOverride.override_reason,
+      diffAmount !== null ? `Delta ${diffAmount.toFixed(2)}` : null,
+      diffPercentage !== null ? `(${diffPercentage.toFixed(2)}%)` : null,
+      note || null,
+    ].filter(Boolean);
+
+    return parts.length > 0 ? parts.join(' | ') : null;
+  }
+
+  private premiumOverrideApprovalRemarks(
+    premiumOverride: QuotationRiskPremiumOverride,
+  ) {
+    return premiumOverride.supporting_notes?.trim() || null;
   }
 
   private fleetTypeLabel(value: number | null | undefined) {

@@ -55,14 +55,14 @@ export class QuotationRiskTax {
   @Column({
     type: 'numeric',
     precision: 18,
-    scale: 6,
+    scale: 10,
   })
   tax_rate: string;
 
   @Column({
     type: 'numeric',
-    precision: 18,
-    scale: 2,
+    precision: 20,
+    scale: 4,
   })
   tax_amount: string;
 

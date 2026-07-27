@@ -338,6 +338,7 @@ export class QuotationPayloadMapper {
   private mapRisks(entry: QuotationCoverNoteEntry): RiskCoveredDto[] {
     return this.sortedBySequence(entry.risks).map((risk) => ({
       risk_code: risk.risk_code,
+      pricing_quote_id: risk.pricing_quote_id,
       sum_insured: this.toNumber(risk.sum_insured, 'sum_insured'),
       sum_insured_equivalent: this.toNumber(
         risk.sum_insured_equivalent,
@@ -373,6 +374,37 @@ export class QuotationPayloadMapper {
         discount.discount_amount,
         'discount_amount',
       ),
+      request_reason_code: discount.request_reason_code,
+      request_comment: discount.request_comment,
+      effective_from: discount.effective_from,
+      effective_to: discount.effective_to,
+      requested_by: discount.requested_by,
+      requested_at: discount.requested_at?.toISOString() ?? null,
+      max_permitted_rate: this.toNullableNumber(
+        discount.max_permitted_rate,
+        'max_permitted_rate',
+      ),
+      max_permitted_amount: this.toNullableNumber(
+        discount.max_permitted_amount,
+        'max_permitted_amount',
+      ),
+      approval_required: discount.approval_required,
+      approval_status: discount.approval_status as
+        | 'NOT_REQUIRED'
+        | 'PENDING'
+        | 'APPROVED'
+        | 'REJECTED',
+      approved_rate: this.toNullableNumber(
+        discount.approved_rate,
+        'approved_rate',
+      ),
+      approved_amount: this.toNullableNumber(
+        discount.approved_amount,
+        'approved_amount',
+      ),
+      approved_by: discount.approved_by,
+      approval_date: discount.approval_date?.toISOString() ?? null,
+      rejection_reason: discount.rejection_reason,
     }));
   }
 

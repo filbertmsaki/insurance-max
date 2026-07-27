@@ -25,6 +25,7 @@ import { QuotationEntryRisk } from './entities/structured/quotation-entry-risk.e
 import { QuotationMotorDetail } from './entities/structured/quotation-motor-detail.entity';
 import { QuotationPolicyHolder } from './entities/structured/quotation-policy-holder.entity';
 import { QuotationRiskDiscount } from './entities/structured/quotation-risk-discount.entity';
+import { QuotationRiskPremiumOverride } from './entities/structured/quotation-risk-premium-override.entity';
 import { QuotationRiskTax } from './entities/structured/quotation-risk-tax.entity';
 import { QuotationSubjectMatter } from './entities/structured/quotation-subject-matter.entity';
 import { PortalTiraSubmission } from '../tiramis-integration/entities/portal-tira-submission.entity';
@@ -39,6 +40,7 @@ import { QuotationDisplayStatusResolver } from './services/quotation-display-sta
 import { QuotationLifecycleService } from './services/quotation-lifecycle.service';
 import { QuotationsService } from './quotations.service';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
+import { PricingModule } from '../pricing/pricing.module';
 
 @Module({
   imports: [
@@ -50,6 +52,7 @@ import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-
       QuotationPolicyHolder,
       QuotationEntryRisk,
       QuotationRiskDiscount,
+      QuotationRiskPremiumOverride,
       QuotationRiskTax,
       QuotationSubjectMatter,
       QuotationEntryAddon,
@@ -73,6 +76,7 @@ import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-
       User,
     ]),
     TiramisModule,
+    PricingModule,
   ],
   controllers: [QuotationsController],
   providers: [

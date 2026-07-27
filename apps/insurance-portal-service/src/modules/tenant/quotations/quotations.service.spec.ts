@@ -14,16 +14,52 @@ import { QuotationLifecycleService } from './services/quotation-lifecycle.servic
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
 import { QuotationsService } from './quotations.service';
 import { createMotorSingleQuotationPayload } from './testing/quotation-payload.fixture';
+import { AuditService } from '../../shared/audit/audit.service';
 import { TiramisBusinessSubmitService } from '../../tiramis/services/tiramis-business-submit.service';
 import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/tiramis-submission-tracking.repository';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
+import { PricingChargeService } from '../pricing/application/pricing-charge.service';
 
 describe('QuotationsService', () => {
   function createServiceFixture(overrides?: Partial<Record<string, unknown>>) {
     const authoritativePayload = createMotorSingleQuotationPayload();
+    const pricingQuote = {
+      pricing_quote_id:
+        authoritativePayload.cover_note_dtl.risks_covered?.[0]
+          ?.pricing_quote_id ?? 'PQ-2026-00000001',
+      quote_scope: 'SINGLE_RISK',
+      calculation_status: 'CALCULATED',
+      expires_at: new Date('2026-07-30T08:00:00.000Z'),
+      product_id: 'product-1',
+      risk_id: 'risk-1',
+      quotation_type: authoritativePayload.internal_quotation.quotation_type,
+      currency_code: authoritativePayload.cover_note_dtl.currency_code,
+      final_premium: '100000',
+      result_payload: {
+        sum_insured:
+          authoritativePayload.cover_note_dtl.risks_covered?.[0]?.sum_insured,
+        percentage_rate:
+          authoritativePayload.cover_note_dtl.risks_covered?.[0]?.premium_rate,
+      },
+      input_payload: {
+        sum_insured:
+          authoritativePayload.cover_note_dtl.risks_covered?.[0]?.sum_insured,
+      },
+      rate_book_id: 'rate-book-1',
+    };
+    const rateBook = {
+      id: 'rate-book-1',
+      company_id: 'company-1',
+      code: 'RB-MTR',
+      version: '2026.1',
+      status: 'PUBLISHED',
+      effective_from: '2026-01-01',
+      effective_to: null,
+    };
     const quotation = {
       id: 'quotation-1',
       quotation_no: 'QTN-MTR-2026-000001',
+      product_id: 'product-1',
       quotation_flow: authoritativePayload.internal_quotation.quotation_flow,
       channel_type: authoritativePayload.internal_quotation.channel_type,
       status: QuotationStatus.READY_FOR_SUBMISSION,
@@ -38,11 +74,51 @@ describe('QuotationsService', () => {
       company_id: 'company-1',
       cover_note: {
         payment_mode: 1,
+        entries: [
+          {
+            risks: [
+              {
+                risk_code:
+                  authoritativePayload.cover_note_dtl.risks_covered?.[0]
+                    ?.risk_code ?? 'SP005001000001',
+                insurance_risk_id: 'risk-1',
+                pricing_quote_id: pricingQuote.pricing_quote_id,
+              },
+            ],
+          },
+        ],
       },
       ...overrides,
     } as any;
 
-    const dataSource = {} as DataSource;
+    const dataSource = {
+      getRepository: jest.fn().mockImplementation((entity: unknown) => {
+        if (
+          typeof entity === 'function' &&
+          'name' in entity &&
+          entity.name === 'PricingQuote'
+        ) {
+          return {
+            find: jest.fn().mockResolvedValue([pricingQuote]),
+          };
+        }
+
+        if (
+          typeof entity === 'function' &&
+          'name' in entity &&
+          entity.name === 'PricingRateBook'
+        ) {
+          return {
+            find: jest.fn().mockResolvedValue([rateBook]),
+          };
+        }
+
+        return {
+          find: jest.fn().mockResolvedValue([]),
+        };
+      }),
+      query: jest.fn().mockResolvedValue([]),
+    } as unknown as DataSource;
 
     const quotationsRepository = {
       findOneAggregate: jest.fn().mockResolvedValue(quotation),
@@ -90,6 +166,37 @@ describe('QuotationsService', () => {
 
     const tiramisTrackingRepository = {} as TiramisSubmissionTrackingRepository;
     const identifierGeneratorService = {} as IdentifierGeneratorService;
+    const auditService = {
+      log: jest.fn().mockResolvedValue(undefined),
+    } as unknown as AuditService;
+    const pricingChargeService = {
+      calculateCharges: jest.fn().mockResolvedValue({
+        charges: [
+          {
+            applied_rule_id: 'charge-rule-1',
+            charge_code: 'VAT-MAINLAND',
+            charge_name: 'VAT Mainland',
+            charge_category: 'TAX',
+            charge_scope: 'RISK',
+            charge_type: 'PERCENTAGE',
+            calculation_base: 'NET_PREMIUM',
+            base_amount: 100000,
+            rate: 0.18,
+            fixed_amount: null,
+            minimum_charge_amount: null,
+            maximum_charge_amount: null,
+            computed_amount: 18000,
+            is_taxable: false,
+            effective_from: '2026-01-01',
+            effective_to: '2026-12-31',
+          },
+        ],
+        total_charge_amount: 18000,
+        taxable_charge_amount: 0,
+        non_taxable_charge_amount: 18000,
+        premium_including_charges: 118000,
+      }),
+    } as unknown as PricingChargeService;
 
     const service = new QuotationsService(
       dataSource,
@@ -102,12 +209,15 @@ describe('QuotationsService', () => {
       tiramisTrackingRepository,
       identifierGeneratorService,
       quotationLifecycleService,
+      auditService,
+      pricingChargeService,
     );
 
     return {
       authoritativePayload,
       quotation,
       payloadMapper,
+      pricingChargeService,
       quotationLifecycleService,
       tiramisBusinessSubmitService,
       service,
@@ -231,5 +341,28 @@ describe('QuotationsService', () => {
         'user-1',
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('normalizes quotation taxes from backend charge rules before submission', async () => {
+    const fixture = createServiceFixture();
+    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].taxes_charged[0].tax_amount =
+      1;
+    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_including_tax =
+      100001;
+
+    await fixture.service.submit('company-1', fixture.quotation.id, undefined, {
+      id: 'user-1',
+    } as any);
+
+    expect(fixture.pricingChargeService.calculateCharges).toHaveBeenCalled();
+    expect(
+      (
+        fixture.tiramisBusinessSubmitService
+          .submitAnyBusinessRecord as jest.Mock
+      ).mock.calls[0][0].payload.risks[0].taxes[0],
+    ).toMatchObject({
+      taxCode: 'VAT-MAINLAND',
+      taxAmount: 18000,
+    });
   });
 });

@@ -23,7 +23,7 @@ export class CreateInsurancePartnerDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
-  @Max(100)
+  @Max(1)
   commission_rate?: number;
 
   @IsOptional()

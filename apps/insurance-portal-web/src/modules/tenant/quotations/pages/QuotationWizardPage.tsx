@@ -46,7 +46,10 @@ import {
   getWizardStepsForFlow,
   type QuotationWizardStepId,
 } from '../wizard/types';
-import { aggregateRiskTotals } from '../wizard/utils/premiumAggregation';
+import {
+  aggregateFleetRiskTotals,
+  aggregateRiskTotals,
+} from '../wizard/utils/premiumAggregation';
 import { CoverNoteSetupStep } from '../wizard/steps/CoverNoteSetupStep';
 import { PolicyholderStep } from '../wizard/steps/PolicyholderStep';
 import { RiskPremiumStep } from '../wizard/steps/RiskPremiumStep';
@@ -251,6 +254,10 @@ export function QuotationWizardPage() {
   const watchedRisks = useWatch({
     control: form.control,
     name: 'risks',
+  });
+  const watchedFleetItems = useWatch({
+    control: form.control,
+    name: 'fleet.items',
   });
   const quotationContext =
     (isEditMode ? existingQuotation : null) ??
@@ -487,9 +494,14 @@ export function QuotationWizardPage() {
   }, [form, isEditMode, saveDraft]);
 
   useEffect(() => {
-    const totals = aggregateRiskTotals(
-      (watchedRisks ?? []) as QuotationFormSchemaValues['risks'],
-    );
+    const totals =
+      quotationFlow === 'MOTOR_FLEET'
+        ? aggregateFleetRiskTotals(
+            (watchedFleetItems ?? []) as QuotationFormSchemaValues['fleet']['items'],
+          )
+        : aggregateRiskTotals(
+            (watchedRisks ?? []) as QuotationFormSchemaValues['risks'],
+          );
     const current = form.getValues();
     if (current.sum_insured !== totals.sum_insured) {
       form.setValue('sum_insured', totals.sum_insured);
@@ -515,7 +527,7 @@ export function QuotationWizardPage() {
     if (current.net_premium !== totals.net_premium) {
       form.setValue('net_premium', totals.net_premium);
     }
-  }, [form, watchedRisks]);
+  }, [form, quotationFlow, watchedFleetItems, watchedRisks]);
 
   useEffect(() => {
     const risks = form.getValues('risks');
@@ -534,6 +546,36 @@ export function QuotationWizardPage() {
           form.setValue(`risks.${index}.risk_id`, match.id);
         }
       }
+    });
+  }, [form, riskOptions]);
+
+  useEffect(() => {
+    const fleetItems = form.getValues('fleet.items');
+
+    fleetItems.forEach((item, itemIndex) => {
+      item.risks_covered.forEach((risk, riskIndex) => {
+        if (!risk.risk_code && risk.risk_id) {
+          const match = riskOptions.find((option) => option.id === risk.risk_id);
+          if (match?.risk_code) {
+            form.setValue(
+              `fleet.items.${itemIndex}.risks_covered.${riskIndex}.risk_code`,
+              match.risk_code,
+            );
+          }
+        }
+
+        if (!risk.risk_id && risk.risk_code) {
+          const match = riskOptions.find(
+            (option) => option.risk_code === risk.risk_code,
+          );
+          if (match?.id) {
+            form.setValue(
+              `fleet.items.${itemIndex}.risks_covered.${riskIndex}.risk_id`,
+              match.id,
+            );
+          }
+        }
+      });
     });
   }, [form, riskOptions]);
 

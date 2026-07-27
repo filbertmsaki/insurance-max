@@ -1,6 +1,8 @@
 import {
   IsDateString,
   IsEnum,
+  Max,
+  Min,
   IsNumber,
   IsOptional,
   IsUUID,
@@ -37,6 +39,8 @@ export class CreateProductCommissionRuleDto {
 
   @IsOptional()
   @IsNumber()
+  @Min(0)
+  @Max(1)
   commission_rate?: number | null;
 
   @IsOptional()

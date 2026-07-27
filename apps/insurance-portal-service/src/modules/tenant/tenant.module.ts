@@ -14,6 +14,8 @@ import { MotorModule } from './motor/motor.module';
 import { NonMotorModule } from './non-motor/non-motor.module';
 import { PoliciesModule } from './policies/policies.module';
 import { PremiumCalculationModule } from './premium-calculation/premium-calculation.module';
+import { PricingModule } from './pricing/pricing.module';
+import { PricingRateBooksModule } from './pricing-rate-books/pricing-rate-books.module';
 import { ProductAccessModule } from './product-access/product-access.module';
 import { ProductDistributionModule } from './product-distribution/product-distribution.module';
 import { QuotationsModule } from './quotations/quotations.module';
@@ -40,6 +42,8 @@ import { UsersModule } from './users/users.module';
     MotorModule,
     NonMotorModule,
     PoliciesModule,
+    PricingModule,
+    PricingRateBooksModule,
     BillingCommissionModule,
     RatingFactorsModule,
     RiskRequiredFactorsModule,
@@ -65,6 +69,8 @@ import { UsersModule } from './users/users.module';
     MotorModule,
     NonMotorModule,
     PoliciesModule,
+    PricingModule,
+    PricingRateBooksModule,
     BillingCommissionModule,
     RatingFactorsModule,
     RiskRequiredFactorsModule,

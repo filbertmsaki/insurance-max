@@ -93,3 +93,5 @@ npm run db:prepare:tiramis:e2e
 `npm run test:tiramis:e2e` now runs the fresh database prep step first, so it will reset both service databases, rerun migrations, and reseed data before the E2E assertions execute.
 
 If you want a fuller narrative description, see `docs/project-overview.md`.
+
+Pricing-engine implementation notes are documented in `docs/pricing-engine.md`.

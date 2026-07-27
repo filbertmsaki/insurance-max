@@ -12,6 +12,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -24,6 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { PaymentStatusBadge } from '../components/PaymentStatusBadge';
 import { QuotationStatusBadge } from '../components/QuotationStatusBadge';
@@ -41,12 +43,19 @@ import {
   TiramisSubmissionPreview,
 } from '../components/QuotationPreviewSections';
 import {
+  useApproveQuotationPremiumOverride,
   useDeleteQuotation,
+  useRejectQuotationPremiumOverride,
   useQuotationPreview,
+  useRequestQuotationPremiumOverride,
   useSubmitQuotation,
   useTransitionQuotationStatus,
 } from '../hooks';
-import type { QuotationStatusTransitionAction } from '../types';
+import type {
+  QuotationPreviewPremiumOverride,
+  QuotationPreviewRisk,
+  QuotationStatusTransitionAction,
+} from '../types';
 
 const TERMINAL_STATUSES = new Set([
   'CANCELLED',
@@ -65,6 +74,18 @@ const DIRECT_PAYMENT_MODE = 1;
 
 type StatusActionDialogState = {
   action: QuotationStatusTransitionAction;
+  open: boolean;
+};
+
+type PremiumOverrideRequestDialogState = {
+  risk: QuotationPreviewRisk;
+  open: boolean;
+};
+
+type PremiumOverrideDecisionDialogState = {
+  risk: QuotationPreviewRisk;
+  override: QuotationPreviewPremiumOverride;
+  action: 'approve' | 'reject';
   open: boolean;
 };
 
@@ -105,14 +126,27 @@ function requiresReason(
 export function QuotationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const hasPermission = useAuthStore((state) => state.hasPermission);
+  const currentUserId = useAuthStore((state) => state.user?.id ?? null);
   const { data: preview, isLoading } = useQuotationPreview(id);
   const deleteMutation = useDeleteQuotation();
   const submitMutation = useSubmitQuotation(id);
   const transitionStatusMutation = useTransitionQuotationStatus(id);
+  const requestPremiumOverrideMutation = useRequestQuotationPremiumOverride(id);
+  const approvePremiumOverrideMutation = useApproveQuotationPremiumOverride(id);
+  const rejectPremiumOverrideMutation = useRejectQuotationPremiumOverride(id);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [statusActionDialog, setStatusActionDialog] =
     useState<StatusActionDialogState | null>(null);
   const [transitionReason, setTransitionReason] = useState('');
+  const [premiumOverrideRequestDialog, setPremiumOverrideRequestDialog] =
+    useState<PremiumOverrideRequestDialogState | null>(null);
+  const [premiumOverrideDecisionDialog, setPremiumOverrideDecisionDialog] =
+    useState<PremiumOverrideDecisionDialogState | null>(null);
+  const [overrideProposedPremium, setOverrideProposedPremium] = useState('');
+  const [overrideReason, setOverrideReason] = useState('');
+  const [overrideNotes, setOverrideNotes] = useState('');
+  const [overrideDecisionReason, setOverrideDecisionReason] = useState('');
 
   const quotationStatus = preview?.overview.quotation_status ?? null;
   const approvalStatus = preview?.overview.approval_status ?? null;
@@ -123,8 +157,17 @@ export function QuotationDetailPage() {
   const requiresApproval = preview?.overview.requires_approval ?? false;
   const requiresPayment = preview?.overview.requires_payment ?? false;
   const submittedAt = preview?.overview.submitted_at ?? null;
+  const allPreviewRisks = [
+    ...(preview?.risks ?? []),
+    ...(
+      preview?.fleet?.vehicles.flatMap((vehicle) => vehicle.risks) ?? []
+    ),
+  ];
+  const hasPremiumOverrideHistory = allPreviewRisks.some(
+    (risk) => risk.premium_overrides.length > 0,
+  );
   const canEdit = quotationStatus
-    ? EDITABLE_STATUSES.has(quotationStatus)
+    ? EDITABLE_STATUSES.has(quotationStatus) && !hasPremiumOverrideHistory
     : false;
   const canEndorse = quotationStatus === 'COMPLETED';
   const canSubmit = quotationStatus === 'READY_FOR_SUBMISSION';
@@ -140,6 +183,14 @@ export function QuotationDetailPage() {
     !!quotationStatus &&
     !TERMINAL_STATUSES.has(quotationStatus) &&
     tiraStatus === 'NOT_SUBMITTED';
+  const canManagePremiumOverrides =
+    !submittedAt &&
+    !!quotationStatus &&
+    !TERMINAL_STATUSES.has(quotationStatus) &&
+    tiraStatus === 'NOT_SUBMITTED';
+  const canRequestPremiumOverride = hasPermission('pricing.override.request');
+  const canApprovePremiumOverride = hasPermission('pricing.override.approve');
+  const canRejectPremiumOverride = hasPermission('pricing.override.reject');
   const showFleetTabs = preview?.overview.quotation_flow === 'MOTOR_FLEET';
   const showMotorTab = preview?.overview.quotation_flow === 'MOTOR_SINGLE';
   const tabs = ['overview', 'policyholders'];
@@ -186,6 +237,53 @@ export function QuotationDetailPage() {
     setTransitionReason('');
   };
 
+  const openPremiumOverrideRequestDialog = (risk: QuotationPreviewRisk) => {
+    setOverrideProposedPremium('');
+    setOverrideReason('');
+    setOverrideNotes('');
+    setPremiumOverrideRequestDialog({
+      risk,
+      open: true,
+    });
+  };
+
+  const closePremiumOverrideRequestDialog = () => {
+    if (requestPremiumOverrideMutation.isPending) {
+      return;
+    }
+
+    setPremiumOverrideRequestDialog(null);
+    setOverrideProposedPremium('');
+    setOverrideReason('');
+    setOverrideNotes('');
+  };
+
+  const openPremiumOverrideDecisionDialog = (
+    risk: QuotationPreviewRisk,
+    override: QuotationPreviewPremiumOverride,
+    action: 'approve' | 'reject',
+  ) => {
+    setOverrideDecisionReason('');
+    setPremiumOverrideDecisionDialog({
+      risk,
+      override,
+      action,
+      open: true,
+    });
+  };
+
+  const closePremiumOverrideDecisionDialog = () => {
+    if (
+      approvePremiumOverrideMutation.isPending ||
+      rejectPremiumOverrideMutation.isPending
+    ) {
+      return;
+    }
+
+    setPremiumOverrideDecisionDialog(null);
+    setOverrideDecisionReason('');
+  };
+
   const handleStatusAction = () => {
     if (!statusActionDialog) {
       return;
@@ -211,6 +309,128 @@ export function QuotationDetailPage() {
           closeStatusActionDialog();
         },
       },
+    );
+  };
+
+  const handlePremiumOverrideRequest = () => {
+    if (!premiumOverrideRequestDialog) {
+      return;
+    }
+
+    const proposedPremium = Number(overrideProposedPremium);
+    if (!Number.isFinite(proposedPremium) || proposedPremium < 0) {
+      return;
+    }
+
+    const trimmedReason = overrideReason.trim();
+    if (!trimmedReason) {
+      return;
+    }
+
+    requestPremiumOverrideMutation.mutate(
+      {
+        riskId: premiumOverrideRequestDialog.risk.risk_id,
+        payload: {
+          proposed_premium: proposedPremium,
+          override_reason: trimmedReason,
+          supporting_notes: overrideNotes.trim() || undefined,
+        },
+      },
+      {
+        onSuccess: () => closePremiumOverrideRequestDialog(),
+      },
+    );
+  };
+
+  const handlePremiumOverrideDecision = () => {
+    if (!premiumOverrideDecisionDialog) {
+      return;
+    }
+
+    if (premiumOverrideDecisionDialog.action === 'approve') {
+      approvePremiumOverrideMutation.mutate(
+        {
+          riskId: premiumOverrideDecisionDialog.risk.risk_id,
+          overrideId: premiumOverrideDecisionDialog.override.id,
+        },
+        {
+          onSuccess: () => closePremiumOverrideDecisionDialog(),
+        },
+      );
+      return;
+    }
+
+    const rejectionReason = overrideDecisionReason.trim();
+    if (!rejectionReason) {
+      return;
+    }
+
+    rejectPremiumOverrideMutation.mutate(
+      {
+        riskId: premiumOverrideDecisionDialog.risk.risk_id,
+        overrideId: premiumOverrideDecisionDialog.override.id,
+        payload: {
+          rejection_reason: rejectionReason,
+        },
+      },
+      {
+        onSuccess: () => closePremiumOverrideDecisionDialog(),
+      },
+    );
+  };
+
+  const renderRiskActions = (risk: QuotationPreviewRisk) => {
+    if (!canManagePremiumOverrides) {
+      return null;
+    }
+
+    const pendingOverride =
+      risk.premium_overrides.find((override) => override.approval_status === 'PENDING') ??
+      null;
+    const canApprovePendingOverride =
+      !!pendingOverride &&
+      canApprovePremiumOverride &&
+      pendingOverride.requested_by.id !== currentUserId;
+    const canRejectPendingOverride =
+      !!pendingOverride && canRejectPremiumOverride;
+
+    return (
+      <>
+        {canRequestPremiumOverride && !pendingOverride ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => openPremiumOverrideRequestDialog(risk)}
+          >
+            Request Override
+          </Button>
+        ) : null}
+        {canApprovePendingOverride && pendingOverride ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              openPremiumOverrideDecisionDialog(risk, pendingOverride, 'approve')
+            }
+          >
+            Approve Override
+          </Button>
+        ) : null}
+        {canRejectPendingOverride && pendingOverride ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              openPremiumOverrideDecisionDialog(risk, pendingOverride, 'reject')
+            }
+          >
+            Reject Override
+          </Button>
+        ) : null}
+      </>
     );
   };
 
@@ -420,7 +640,10 @@ export function QuotationDetailPage() {
 
         {!showFleetTabs ? (
           <TabsContent value="risks" className="space-y-4">
-            <RiskPreview risks={preview.risks} />
+            <RiskPreview
+              risks={preview.risks}
+              renderRiskActions={renderRiskActions}
+            />
           </TabsContent>
         ) : null}
 
@@ -450,7 +673,10 @@ export function QuotationDetailPage() {
                   header={preview.fleet.header}
                   summary={preview.fleet.summary}
                 />
-                <FleetVehicleList vehicles={preview.fleet.vehicles} />
+                <FleetVehicleList
+                  vehicles={preview.fleet.vehicles}
+                  renderRiskActions={renderRiskActions}
+                />
               </>
             ) : null}
           </TabsContent>
@@ -584,6 +810,228 @@ export function QuotationDetailPage() {
               {transitionStatusMutation.isPending
                 ? 'Processing...'
                 : actionLabel(statusActionDialog?.action ?? 'APPROVE')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={premiumOverrideRequestDialog?.open ?? false}
+        onOpenChange={(open) => {
+          if (!open) {
+            closePremiumOverrideRequestDialog();
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Request Premium Override</DialogTitle>
+            <DialogDescription>
+              Submit a controlled premium override request for{' '}
+              {premiumOverrideRequestDialog?.risk.risk_name ??
+                premiumOverrideRequestDialog?.risk.risk_code ??
+                'this risk'}
+              . The calculated premium remains protected until an approver
+              decides the request.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              Current calculated premium:{' '}
+              {premiumOverrideRequestDialog?.risk.premium_before_discount?.toLocaleString(
+                'en-US',
+                {
+                  style: 'currency',
+                  currency: preview?.cover_note.currency ?? 'TZS',
+                },
+              ) ?? 'N/A'}
+            </div>
+            <div className="space-y-2">
+              <label
+                htmlFor="override-proposed-premium"
+                className="text-sm font-medium text-slate-700"
+              >
+                Proposed Premium *
+              </label>
+              <Input
+                id="override-proposed-premium"
+                type="number"
+                min="0"
+                step="0.01"
+                value={overrideProposedPremium}
+                onChange={(event) => setOverrideProposedPremium(event.target.value)}
+                placeholder="Enter the requested premium amount"
+              />
+            </div>
+            <div className="space-y-2">
+              <label
+                htmlFor="override-reason"
+                className="text-sm font-medium text-slate-700"
+              >
+                Override Reason *
+              </label>
+              <Textarea
+                id="override-reason"
+                rows={3}
+                value={overrideReason}
+                onChange={(event) => setOverrideReason(event.target.value)}
+                placeholder="Why should this premium be overridden?"
+              />
+            </div>
+            <div className="space-y-2">
+              <label
+                htmlFor="override-notes"
+                className="text-sm font-medium text-slate-700"
+              >
+                Supporting Notes
+              </label>
+              <Textarea
+                id="override-notes"
+                rows={4}
+                value={overrideNotes}
+                onChange={(event) => setOverrideNotes(event.target.value)}
+                placeholder="Competitive context, referral notes, or supporting justification"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closePremiumOverrideRequestDialog}
+              disabled={requestPremiumOverrideMutation.isPending}
+            >
+              Close
+            </Button>
+            <Button
+              type="button"
+              onClick={handlePremiumOverrideRequest}
+              disabled={
+                requestPremiumOverrideMutation.isPending ||
+                !overrideReason.trim() ||
+                !overrideProposedPremium.trim() ||
+                Number(overrideProposedPremium) < 0
+              }
+            >
+              {requestPremiumOverrideMutation.isPending
+                ? 'Submitting...'
+                : 'Submit Request'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={premiumOverrideDecisionDialog?.open ?? false}
+        onOpenChange={(open) => {
+          if (!open) {
+            closePremiumOverrideDecisionDialog();
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {premiumOverrideDecisionDialog?.action === 'approve'
+                ? 'Approve Premium Override'
+                : 'Reject Premium Override'}
+            </DialogTitle>
+            <DialogDescription>
+              Review the requested premium change before deciding this override.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              <div>
+                Risk:{' '}
+                {premiumOverrideDecisionDialog?.risk.risk_name ??
+                  premiumOverrideDecisionDialog?.risk.risk_code ??
+                  'N/A'}
+              </div>
+              <div>
+                Original calculated premium:{' '}
+                {premiumOverrideDecisionDialog?.override.original_calculated_premium?.toLocaleString(
+                  'en-US',
+                  {
+                    style: 'currency',
+                    currency: preview?.cover_note.currency ?? 'TZS',
+                  },
+                ) ?? 'N/A'}
+              </div>
+              <div>
+                Proposed premium:{' '}
+                {premiumOverrideDecisionDialog?.override.proposed_premium?.toLocaleString(
+                  'en-US',
+                  {
+                    style: 'currency',
+                    currency: preview?.cover_note.currency ?? 'TZS',
+                  },
+                ) ?? 'N/A'}
+              </div>
+              <div>
+                Requested by:{' '}
+                {premiumOverrideDecisionDialog?.override.requested_by.name ??
+                  premiumOverrideDecisionDialog?.override.requested_by.code ??
+                  'N/A'}
+              </div>
+            </div>
+            {premiumOverrideDecisionDialog?.action === 'reject' ? (
+              <div className="space-y-2">
+                <label
+                  htmlFor="override-decision-reason"
+                  className="text-sm font-medium text-slate-700"
+                >
+                  Rejection Reason *
+                </label>
+                <Textarea
+                  id="override-decision-reason"
+                  rows={4}
+                  value={overrideDecisionReason}
+                  onChange={(event) =>
+                    setOverrideDecisionReason(event.target.value)
+                  }
+                  placeholder="Why is this premium override being rejected?"
+                />
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closePremiumOverrideDecisionDialog}
+              disabled={
+                approvePremiumOverrideMutation.isPending ||
+                rejectPremiumOverrideMutation.isPending
+              }
+            >
+              Close
+            </Button>
+            <Button
+              type="button"
+              variant={
+                premiumOverrideDecisionDialog?.action === 'reject'
+                  ? 'destructive'
+                  : 'default'
+              }
+              onClick={handlePremiumOverrideDecision}
+              disabled={
+                approvePremiumOverrideMutation.isPending ||
+                rejectPremiumOverrideMutation.isPending ||
+                (premiumOverrideDecisionDialog?.action === 'reject' &&
+                  !overrideDecisionReason.trim())
+              }
+            >
+              {approvePremiumOverrideMutation.isPending ||
+              rejectPremiumOverrideMutation.isPending
+                ? 'Processing...'
+                : premiumOverrideDecisionDialog?.action === 'approve'
+                  ? 'Approve Override'
+                  : 'Reject Override'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,5 +1,12 @@
 import { z } from 'zod';
 import {
+  roundExchangeRate,
+  roundMoney,
+  roundRate,
+  sumDecimals,
+  toDecimal,
+} from '@insurance-max/portal-shared/utils/pricing-calculation.util';
+import {
   customerFormSchema,
   customerFormObjectSchema,
   getCustomerDefaultValues,
@@ -9,6 +16,7 @@ import {
   type CustomerFormValues,
   type CustomerRecord,
 } from '../customers/types';
+import { readPricingQuoteMetadata } from '@/modules/pricing';
 import type {
   QuotationDetailRecord,
   QuotationDiscountPayload,
@@ -47,6 +55,37 @@ function normalizeNumber(value?: string | number | null, fallback = 0) {
 function normalizePositiveNumber(value?: string | number | null, fallback = 1) {
   const parsed = normalizeNumber(value, fallback);
   return parsed > 0 ? parsed : fallback;
+}
+
+function normalizeMoneyNumber(value?: string | number | null, fallback = 0) {
+  return roundMoney(normalizeNumber(value, fallback));
+}
+
+function normalizeRateNumber(value?: string | number | null, fallback = 0) {
+  return roundRate(normalizeNumber(value, fallback));
+}
+
+function normalizeExchangeRateNumber(
+  value?: string | number | null,
+  fallback = 1,
+) {
+  return roundExchangeRate(normalizePositiveNumber(value, fallback));
+}
+
+function normalizeAdjustmentApprovalStatus(
+  value?: string | null,
+): QuotationDiscountPayload['approval_status'] {
+  const normalized = normalizeText(value)?.toUpperCase();
+  if (
+    normalized === 'NOT_REQUIRED' ||
+    normalized === 'PENDING' ||
+    normalized === 'APPROVED' ||
+    normalized === 'REJECTED'
+  ) {
+    return normalized;
+  }
+
+  return null;
 }
 
 function formatDateTime(date: string, endOfDay: boolean) {
@@ -116,6 +155,21 @@ function createEmptyDiscountRow() {
     discount_type: '1',
     discount_rate: '',
     discount_amount: '',
+    request_reason_code: '',
+    request_comment: '',
+    effective_from: '',
+    effective_to: '',
+    requested_by: '',
+    requested_at: '',
+    max_permitted_rate: '',
+    max_permitted_amount: '',
+    approval_required: false,
+    approval_status: '',
+    approved_rate: '',
+    approved_amount: '',
+    approved_by: '',
+    approval_date: '',
+    rejection_reason: '',
   };
 }
 
@@ -134,6 +188,9 @@ const quotationRiskRowSchema = z.object({
     .transform((value) => (value?.trim() ? value : createClientRef())),
   risk_id: optionalText,
   risk_code: optionalText,
+  factor_values: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+    .default({}),
   sum_insured: optionalText,
   sum_insured_equivalent: optionalText,
   premium_rate: optionalText,
@@ -147,6 +204,21 @@ const quotationRiskRowSchema = z.object({
       discount_type: optionalText,
       discount_rate: optionalText,
       discount_amount: optionalText,
+      request_reason_code: optionalText,
+      request_comment: optionalText,
+      effective_from: optionalText,
+      effective_to: optionalText,
+      requested_by: optionalText,
+      requested_at: optionalText,
+      max_permitted_rate: optionalText,
+      max_permitted_amount: optionalText,
+      approval_required: z.boolean().default(false),
+      approval_status: optionalText,
+      approved_rate: optionalText,
+      approved_amount: optionalText,
+      approved_by: optionalText,
+      approval_date: optionalText,
+      rejection_reason: optionalText,
     }),
   ),
   taxes_charged: z.array(
@@ -222,6 +294,11 @@ const motorSchema = z.object({
 });
 
 const fleetRiskSchema = z.object({
+  client_ref: z
+    .string()
+    .optional()
+    .transform((value) => (value?.trim() ? value : createClientRef('fleet-risk'))),
+  risk_id: optionalText,
   risk_code: optionalText,
   sum_insured: optionalText,
   sum_insured_equivalent: optionalText,
@@ -235,6 +312,21 @@ const fleetRiskSchema = z.object({
       discount_type: optionalText,
       discount_rate: optionalText,
       discount_amount: optionalText,
+      request_reason_code: optionalText,
+      request_comment: optionalText,
+      effective_from: optionalText,
+      effective_to: optionalText,
+      requested_by: optionalText,
+      requested_at: optionalText,
+      max_permitted_rate: optionalText,
+      max_permitted_amount: optionalText,
+      approval_required: z.boolean().default(false),
+      approval_status: optionalText,
+      approved_rate: optionalText,
+      approved_amount: optionalText,
+      approved_by: optionalText,
+      approval_date: optionalText,
+      rejection_reason: optionalText,
     }),
   ),
   taxes_charged: z.array(addonTaxSchema),
@@ -787,6 +879,7 @@ export function createEmptyRiskRow(): QuotationRiskFormRow {
     client_ref: createClientRef(),
     risk_id: '',
     risk_code: '',
+    factor_values: {},
     sum_insured: '',
     sum_insured_equivalent: '',
     premium_rate: '',
@@ -861,6 +954,8 @@ export function createEmptyMotorDetails(): QuotationFormValues['motor'] {
 
 function createEmptyFleetRiskRow(): QuotationFormValues['fleet']['items'][number]['risks_covered'][number] {
   return {
+    client_ref: createClientRef('fleet-risk'),
+    risk_id: '',
     risk_code: '',
     sum_insured: '',
     sum_insured_equivalent: '',
@@ -871,6 +966,7 @@ function createEmptyFleetRiskRow(): QuotationFormValues['fleet']['items'][number
     premium_including_tax: '',
     discounts_offered: [createEmptyDiscountRow()],
     taxes_charged: [createEmptyTaxRow()],
+    rating_result_metadata: null,
   };
 }
 
@@ -1056,8 +1152,8 @@ function buildTaxPayload(
       tax_exemption_reference: tax.is_tax_exempted
         ? normalizeText(tax.tax_exemption_reference)
         : null,
-      tax_rate: normalizeNumber(tax.tax_rate),
-      tax_amount: normalizeNumber(tax.tax_amount),
+      tax_rate: normalizeRateNumber(tax.tax_rate),
+      tax_amount: normalizeMoneyNumber(tax.tax_amount),
     }));
 }
 
@@ -1066,14 +1162,58 @@ function buildDiscountPayload(
     discount_type: string;
     discount_rate: string;
     discount_amount: string;
+    request_reason_code: string;
+    request_comment: string;
+    effective_from: string;
+    effective_to: string;
+    requested_by: string;
+    requested_at: string;
+    max_permitted_rate: string;
+    max_permitted_amount: string;
+    approval_required: boolean;
+    approval_status: string;
+    approved_rate: string;
+    approved_amount: string;
+    approved_by: string;
+    approval_date: string;
+    rejection_reason: string;
   }>,
 ): QuotationDiscountPayload[] {
   return discounts
     .filter((discount) => normalizeText(discount.discount_type))
     .map((discount) => ({
       discount_type: normalizePositiveNumber(discount.discount_type),
-      discount_rate: normalizeNumber(discount.discount_rate),
-      discount_amount: normalizeNumber(discount.discount_amount),
+      discount_rate: normalizeRateNumber(discount.discount_rate),
+      discount_amount: normalizeMoneyNumber(discount.discount_amount),
+      request_reason_code: normalizeText(discount.request_reason_code),
+      request_comment: normalizeText(discount.request_comment),
+      effective_from: normalizeText(discount.effective_from),
+      effective_to: normalizeText(discount.effective_to),
+      requested_by: normalizeText(discount.requested_by),
+      requested_at: normalizeText(discount.requested_at),
+      max_permitted_rate:
+        normalizeText(discount.max_permitted_rate) === null
+          ? null
+          : normalizeRateNumber(discount.max_permitted_rate),
+      max_permitted_amount:
+        normalizeText(discount.max_permitted_amount) === null
+          ? null
+          : normalizeMoneyNumber(discount.max_permitted_amount),
+      approval_required: discount.approval_required,
+      approval_status: normalizeAdjustmentApprovalStatus(
+        discount.approval_status,
+      ),
+      approved_rate:
+        normalizeText(discount.approved_rate) === null
+          ? null
+          : normalizeRateNumber(discount.approved_rate),
+      approved_amount:
+        normalizeText(discount.approved_amount) === null
+          ? null
+          : normalizeMoneyNumber(discount.approved_amount),
+      approved_by: normalizeText(discount.approved_by),
+      approval_date: normalizeText(discount.approval_date),
+      rejection_reason: normalizeText(discount.rejection_reason),
     }));
 }
 
@@ -1082,21 +1222,22 @@ function buildRiskPayload(
 ): QuotationRiskCoveredPayload {
   return {
     risk_code: risk.risk_code,
-    sum_insured: normalizeNumber(risk.sum_insured),
+    pricing_quote_id: extractPricingQuoteId(risk.rating_result_metadata),
+    sum_insured: normalizeMoneyNumber(risk.sum_insured),
     sum_insured_equivalent:
-      normalizeNumber(risk.sum_insured_equivalent) ||
-      normalizeNumber(risk.sum_insured),
-    premium_rate: normalizeNumber(risk.premium_rate || risk.rate),
-    premium_before_discount: normalizeNumber(risk.premium_before_discount),
+      normalizeMoneyNumber(risk.sum_insured_equivalent) ||
+      normalizeMoneyNumber(risk.sum_insured),
+    premium_rate: normalizeRateNumber(risk.premium_rate || risk.rate),
+    premium_before_discount: normalizeMoneyNumber(risk.premium_before_discount),
     premium_after_discount:
-      normalizeNumber(risk.premium_after_discount) ||
-      normalizeNumber(risk.basic_premium),
+      normalizeMoneyNumber(risk.premium_after_discount) ||
+      normalizeMoneyNumber(risk.basic_premium),
     premium_excluding_tax_equivalent:
-      normalizeNumber(risk.premium_excluding_tax_equivalent) ||
-      normalizeNumber(risk.basic_premium),
+      normalizeMoneyNumber(risk.premium_excluding_tax_equivalent) ||
+      normalizeMoneyNumber(risk.basic_premium),
     premium_including_tax:
-      normalizeNumber(risk.premium_including_tax) ||
-      normalizeNumber(risk.total_premium),
+      normalizeMoneyNumber(risk.premium_including_tax) ||
+      normalizeMoneyNumber(risk.total_premium),
     discounts_offered: buildDiscountPayload(risk.discounts_offered),
     taxes_charged: buildTaxPayload(risk.taxes_charged),
   };
@@ -1110,22 +1251,22 @@ function buildAddonPayload(
     .map((addon) => ({
       addon_reference: addon.addon_reference,
       addon_desc: addon.addon_desc,
-      addon_amount: normalizeNumber(addon.addon_amount),
-      addon_premium_rate: normalizeNumber(addon.addon_premium_rate),
+      addon_amount: normalizeMoneyNumber(addon.addon_amount),
+      addon_premium_rate: normalizeRateNumber(addon.addon_premium_rate),
       premium_excluding_tax:
-        normalizeNumber(addon.premium_excluding_tax) ||
-        normalizeNumber(addon.addon_amount),
+        normalizeMoneyNumber(addon.premium_excluding_tax) ||
+        normalizeMoneyNumber(addon.addon_amount),
       premium_excluding_tax_equivalent:
-        normalizeNumber(addon.premium_excluding_tax_equivalent) ||
-        normalizeNumber(addon.premium_excluding_tax) ||
-        normalizeNumber(addon.addon_amount),
+        normalizeMoneyNumber(addon.premium_excluding_tax_equivalent) ||
+        normalizeMoneyNumber(addon.premium_excluding_tax) ||
+        normalizeMoneyNumber(addon.addon_amount),
       premium_including_tax:
-        normalizeNumber(addon.premium_including_tax) ||
-        normalizeNumber(addon.premium_excluding_tax) +
-          buildTaxPayload(addon.taxes).reduce(
-            (sum, tax) => sum + tax.tax_amount,
-            0,
+        normalizeMoneyNumber(addon.premium_including_tax) ||
+        roundMoney(
+          toDecimal(normalizeMoneyNumber(addon.premium_excluding_tax)).plus(
+            sumDecimals(buildTaxPayload(addon.taxes).map((tax) => tax.tax_amount)),
           ),
+        ),
       taxes_charged: buildTaxPayload(addon.taxes),
     }));
 }
@@ -1151,17 +1292,17 @@ function buildCommonDetail(
     exchange_rate:
       values.currency.trim().toUpperCase() === 'TZS'
         ? 1
-        : normalizePositiveNumber(values.exchange_rate),
+        : normalizeExchangeRateNumber(values.exchange_rate),
     total_premium_excluding_tax:
-      normalizeNumber(values.basic_premium) ||
-      risks.reduce((sum, risk) => sum + risk.premium_after_discount, 0),
+      normalizeMoneyNumber(values.basic_premium) ||
+      roundMoney(sumDecimals(risks.map((risk) => risk.premium_after_discount))),
     total_premium_including_tax:
-      normalizeNumber(values.total_premium) ||
-      risks.reduce((sum, risk) => sum + risk.premium_including_tax, 0),
+      normalizeMoneyNumber(values.total_premium) ||
+      roundMoney(sumDecimals(risks.map((risk) => risk.premium_including_tax))),
     commision_paid:
-      normalizeNumber(values.commission_paid) ||
-      normalizeNumber(values.total_commission),
-    commision_rate: normalizeNumber(values.commission_rate),
+      normalizeMoneyNumber(values.commission_paid) ||
+      normalizeMoneyNumber(values.total_commission),
+    commision_rate: normalizeRateNumber(values.commission_rate),
     officer_name: normalizeText(values.officer_name) ?? '',
     officer_title: normalizeText(values.officer_title) ?? '',
     product_code: productCode,
@@ -1170,7 +1311,7 @@ function buildCommonDetail(
       : null,
     endorsement_reason: normalizeText(values.endorsement_reason),
     endorsement_premium_earned: values.endorsement_premium_earned
-      ? normalizeNumber(values.endorsement_premium_earned)
+      ? normalizeMoneyNumber(values.endorsement_premium_earned)
       : null,
     risks_covered: risks,
     cover_note_addons: buildAddonPayload(values.addons),
@@ -1276,22 +1417,22 @@ export function buildMotorFleetQuotationPayload(
     const taxMappedAddons = item.cover_note_addons.map((addon) => ({
       addon_reference: addon.addon_reference,
       addon_desc: addon.addon_desc,
-      addon_amount: normalizeNumber(addon.addon_amount),
-      addon_premium_rate: normalizeNumber(addon.addon_premium_rate),
+      addon_amount: normalizeMoneyNumber(addon.addon_amount),
+      addon_premium_rate: normalizeRateNumber(addon.addon_premium_rate),
       premium_excluding_tax:
-        normalizeNumber(addon.premium_excluding_tax) ||
-        normalizeNumber(addon.addon_amount),
+        normalizeMoneyNumber(addon.premium_excluding_tax) ||
+        normalizeMoneyNumber(addon.addon_amount),
       premium_excluding_tax_equivalent:
-        normalizeNumber(addon.premium_excluding_tax_equivalent) ||
-        normalizeNumber(addon.premium_excluding_tax) ||
-        normalizeNumber(addon.addon_amount),
+        normalizeMoneyNumber(addon.premium_excluding_tax_equivalent) ||
+        normalizeMoneyNumber(addon.premium_excluding_tax) ||
+        normalizeMoneyNumber(addon.addon_amount),
       premium_including_tax:
-        normalizeNumber(addon.premium_including_tax) ||
-        normalizeNumber(addon.premium_excluding_tax) +
-          buildTaxPayload(addon.taxes).reduce(
-            (sum, tax) => sum + tax.tax_amount,
-            0,
+        normalizeMoneyNumber(addon.premium_including_tax) ||
+        roundMoney(
+          toDecimal(normalizeMoneyNumber(addon.premium_excluding_tax)).plus(
+            sumDecimals(buildTaxPayload(addon.taxes).map((tax) => tax.tax_amount)),
           ),
+        ),
       taxes_charged: buildTaxPayload(addon.taxes),
     }));
 
@@ -1307,21 +1448,22 @@ export function buildMotorFleetQuotationPayload(
         : null,
       endorsement_reason: normalizeText(item.endorsement_reason),
       endorsement_premium_earned: item.endorsement_premium_earned
-        ? normalizeNumber(item.endorsement_premium_earned)
+        ? normalizeMoneyNumber(item.endorsement_premium_earned)
         : null,
       risks_covered: item.risks_covered.map((risk) => ({
         risk_code: risk.risk_code,
-        sum_insured: normalizeNumber(risk.sum_insured),
+        pricing_quote_id: extractPricingQuoteId(risk.rating_result_metadata),
+        sum_insured: normalizeMoneyNumber(risk.sum_insured),
         sum_insured_equivalent:
-          normalizeNumber(risk.sum_insured_equivalent) ||
-          normalizeNumber(risk.sum_insured),
-        premium_rate: normalizeNumber(risk.premium_rate),
-        premium_before_discount: normalizeNumber(risk.premium_before_discount),
-        premium_after_discount: normalizeNumber(risk.premium_after_discount),
-        premium_excluding_tax_equivalent: normalizeNumber(
+          normalizeMoneyNumber(risk.sum_insured_equivalent) ||
+          normalizeMoneyNumber(risk.sum_insured),
+        premium_rate: normalizeRateNumber(risk.premium_rate),
+        premium_before_discount: normalizeMoneyNumber(risk.premium_before_discount),
+        premium_after_discount: normalizeMoneyNumber(risk.premium_after_discount),
+        premium_excluding_tax_equivalent: normalizeMoneyNumber(
           risk.premium_excluding_tax_equivalent,
         ),
-        premium_including_tax: normalizeNumber(risk.premium_including_tax),
+        premium_including_tax: normalizeMoneyNumber(risk.premium_including_tax),
         discounts_offered: buildDiscountPayload(risk.discounts_offered),
         taxes_charged: buildTaxPayload(risk.taxes_charged),
       })),
@@ -1396,30 +1538,27 @@ export function buildMotorFleetQuotationPayload(
         exchange_rate:
           values.currency.trim().toUpperCase() === 'TZS'
             ? 1
-            : normalizePositiveNumber(values.exchange_rate),
-        total_premium_excluding_tax: fleetItems.reduce(
-          (sum, item) =>
-            sum +
-            item.risks_covered.reduce(
-              (riskSum, risk) =>
-                riskSum + risk.premium_excluding_tax_equivalent,
-              0,
+            : normalizeExchangeRateNumber(values.exchange_rate),
+        total_premium_excluding_tax: roundMoney(
+          sumDecimals(
+            fleetItems.flatMap((fleetItem) =>
+              fleetItem.risks_covered.map(
+                (risk) => risk.premium_excluding_tax_equivalent,
+              ),
             ),
-          0,
+          ),
         ),
-        total_premium_including_tax: fleetItems.reduce(
-          (sum, item) =>
-            sum +
-            item.risks_covered.reduce(
-              (riskSum, risk) => riskSum + risk.premium_including_tax,
-              0,
+        total_premium_including_tax: roundMoney(
+          sumDecimals(
+            fleetItems.flatMap((fleetItem) =>
+              fleetItem.risks_covered.map((risk) => risk.premium_including_tax),
             ),
-          0,
+          ),
         ),
         commision_paid:
-          normalizeNumber(values.commission_paid) ||
-          normalizeNumber(values.total_commission),
-        commision_rate: normalizeNumber(values.commission_rate),
+          normalizeMoneyNumber(values.commission_paid) ||
+          normalizeMoneyNumber(values.total_commission),
+        commision_rate: normalizeRateNumber(values.commission_rate),
         officer_name: normalizeText(values.officer_name) ?? '',
         officer_title: normalizeText(values.officer_title) ?? '',
         product_code: context.productCode,
@@ -1513,6 +1652,7 @@ function mapRiskRows(
     client_ref: createClientRef(),
     risk_id: '',
     risk_code: risk.risk_code,
+    factor_values: {},
     sum_insured: String(risk.sum_insured),
     sum_insured_equivalent: String(risk.sum_insured_equivalent),
     premium_rate: String(risk.premium_rate),
@@ -1529,6 +1669,31 @@ function mapRiskRows(
             discount_type: String(discount.discount_type),
             discount_rate: String(discount.discount_rate),
             discount_amount: String(discount.discount_amount),
+            request_reason_code: discount.request_reason_code ?? '',
+            request_comment: discount.request_comment ?? '',
+            effective_from: discount.effective_from ?? '',
+            effective_to: discount.effective_to ?? '',
+            requested_by: discount.requested_by ?? '',
+            requested_at: discount.requested_at ?? '',
+            max_permitted_rate:
+              discount.max_permitted_rate == null
+                ? ''
+                : String(discount.max_permitted_rate),
+            max_permitted_amount:
+              discount.max_permitted_amount == null
+                ? ''
+                : String(discount.max_permitted_amount),
+            approval_required: discount.approval_required ?? false,
+            approval_status: discount.approval_status ?? '',
+            approved_rate:
+              discount.approved_rate == null ? '' : String(discount.approved_rate),
+            approved_amount:
+              discount.approved_amount == null
+                ? ''
+                : String(discount.approved_amount),
+            approved_by: discount.approved_by ?? '',
+            approval_date: discount.approval_date ?? '',
+            rejection_reason: discount.rejection_reason ?? '',
           }))
         : [createEmptyDiscountRow()],
     taxes_charged:
@@ -1557,8 +1722,20 @@ function mapRiskRows(
     commission_amount: '',
     total_premium: String(risk.premium_including_tax),
     net_premium: String(risk.premium_including_tax),
-    rating_result_metadata: null,
+    rating_result_metadata: {
+      pricing_quote_id: risk.pricing_quote_id ?? null,
+    },
   }));
+}
+
+function extractPricingQuoteId(
+  metadata: QuotationRiskFormRow['rating_result_metadata'],
+): string | null {
+  const pricingQuoteId = readPricingQuoteMetadata(metadata)?.pricing_quote_id;
+
+  return typeof pricingQuoteId === 'string' && pricingQuoteId.trim()
+    ? pricingQuoteId.trim()
+    : null;
 }
 
 function mapAddons(
@@ -1780,6 +1957,8 @@ export function quotationRecordToFormValues(
             ? String(item.endorsement_premium_earned)
             : '',
         risks_covered: item.risks_covered.map((risk) => ({
+          client_ref: createClientRef('fleet-risk'),
+          risk_id: '',
           risk_code: risk.risk_code,
           sum_insured: String(risk.sum_insured),
           sum_insured_equivalent: String(risk.sum_insured_equivalent),
@@ -1796,6 +1975,33 @@ export function quotationRecordToFormValues(
                   discount_type: String(discount.discount_type),
                   discount_rate: String(discount.discount_rate),
                   discount_amount: String(discount.discount_amount),
+                  request_reason_code: discount.request_reason_code ?? '',
+                  request_comment: discount.request_comment ?? '',
+                  effective_from: discount.effective_from ?? '',
+                  effective_to: discount.effective_to ?? '',
+                  requested_by: discount.requested_by ?? '',
+                  requested_at: discount.requested_at ?? '',
+                  max_permitted_rate:
+                    discount.max_permitted_rate == null
+                      ? ''
+                      : String(discount.max_permitted_rate),
+                  max_permitted_amount:
+                    discount.max_permitted_amount == null
+                      ? ''
+                      : String(discount.max_permitted_amount),
+                  approval_required: discount.approval_required ?? false,
+                  approval_status: discount.approval_status ?? '',
+                  approved_rate:
+                    discount.approved_rate == null
+                      ? ''
+                      : String(discount.approved_rate),
+                  approved_amount:
+                    discount.approved_amount == null
+                      ? ''
+                      : String(discount.approved_amount),
+                  approved_by: discount.approved_by ?? '',
+                  approval_date: discount.approval_date ?? '',
+                  rejection_reason: discount.rejection_reason ?? '',
                 }))
               : [createEmptyDiscountRow()],
           taxes_charged:
@@ -1809,6 +2015,9 @@ export function quotationRecordToFormValues(
                   tax_amount: String(tax.tax_amount),
                 }))
               : [createEmptyTaxRow()],
+          rating_result_metadata: {
+            pricing_quote_id: risk.pricing_quote_id ?? null,
+          },
         })),
         subject_matters_covered: item.subject_matters_covered.map(
           (subject) => ({

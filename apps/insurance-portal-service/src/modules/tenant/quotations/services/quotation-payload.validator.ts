@@ -1,5 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
+  moneyEqual,
+  numbersEqual,
+  roundMoney,
+} from '@insurance-max/portal-shared/utils/pricing-calculation.util';
+import {
   CoverNoteAddonDto,
   CoverNoteDetailDto,
   CreateQuotationDto,
@@ -467,8 +472,8 @@ export class QuotationPayloadValidator {
     });
 
     return {
-      premiumExcludingTax: this.roundMoney(premiumExcludingTax),
-      premiumIncludingTax: this.roundMoney(premiumIncludingTax),
+      premiumExcludingTax: roundMoney(premiumExcludingTax),
+      premiumIncludingTax: roundMoney(premiumIncludingTax),
     };
   }
 
@@ -487,14 +492,14 @@ export class QuotationPayloadValidator {
       );
     }
 
-    const totalDiscount = this.roundMoney(
+    const totalDiscount = roundMoney(
       (risk.discounts_offered ?? []).reduce(
         (sum, discount) => sum + discount.discount_amount,
         0,
       ),
     );
 
-    const expectedAfterDiscount = this.roundMoney(
+    const expectedAfterDiscount = roundMoney(
       risk.premium_before_discount - totalDiscount,
     );
 
@@ -507,15 +512,80 @@ export class QuotationPayloadValidator {
     );
 
     risk.discounts_offered?.forEach((discount, index) => {
+      const discountPath = `${path}.discounts_offered[${index}]`;
+
       if (discount.discount_rate > this.maximumRate) {
         errors.push(
-          `${path}.discounts_offered[${index}].discount_rate must be a decimal rate between 0 and 1`,
+          `${discountPath}.discount_rate must be a decimal rate between 0 and 1`,
         );
       }
 
       if (discount.discount_amount > risk.premium_before_discount) {
         errors.push(
-          `${path}.discounts_offered[${index}].discount_amount cannot be greater than premium_before_discount`,
+          `${discountPath}.discount_amount cannot be greater than premium_before_discount`,
+        );
+      }
+
+      const hasDiscountRequest =
+        discount.discount_rate > 0 || discount.discount_amount > 0;
+
+      if (hasDiscountRequest && !discount.request_reason_code?.trim()) {
+        errors.push(`${discountPath}.request_reason_code is required`);
+      }
+
+      if (
+        discount.effective_from &&
+        discount.effective_to &&
+        discount.effective_to < discount.effective_from
+      ) {
+        errors.push(
+          `${discountPath}.effective_to must be on or after effective_from`,
+        );
+      }
+
+      if (
+        discount.max_permitted_rate !== undefined &&
+        discount.max_permitted_rate !== null &&
+        discount.discount_rate > discount.max_permitted_rate
+      ) {
+        errors.push(
+          `${discountPath}.discount_rate cannot exceed max_permitted_rate`,
+        );
+      }
+
+      if (
+        discount.max_permitted_amount !== undefined &&
+        discount.max_permitted_amount !== null &&
+        discount.discount_amount > discount.max_permitted_amount
+      ) {
+        errors.push(
+          `${discountPath}.discount_amount cannot exceed max_permitted_amount`,
+        );
+      }
+
+      if (discount.approval_required && !discount.approval_status) {
+        errors.push(
+          `${discountPath}.approval_status is required when approval_required is true`,
+        );
+      }
+
+      if (
+        discount.approval_status === 'APPROVED' &&
+        (!discount.approved_by ||
+          !discount.approval_date ||
+          (discount.approved_amount ?? 0) <= 0)
+      ) {
+        errors.push(
+          `${discountPath}.approved_by, approval_date, and approved_amount are required when approval_status is APPROVED`,
+        );
+      }
+
+      if (
+        discount.approval_status === 'REJECTED' &&
+        !discount.rejection_reason?.trim()
+      ) {
+        errors.push(
+          `${discountPath}.rejection_reason is required when approval_status is REJECTED`,
         );
       }
     });
@@ -527,7 +597,7 @@ export class QuotationPayloadValidator {
       errors,
     );
 
-    const expectedIncludingTax = this.roundMoney(
+    const expectedIncludingTax = roundMoney(
       risk.premium_excluding_tax_equivalent + totalTax,
     );
 
@@ -558,7 +628,7 @@ export class QuotationPayloadValidator {
       errors,
     );
 
-    const expectedIncludingTax = this.roundMoney(
+    const expectedIncludingTax = roundMoney(
       addon.premium_excluding_tax_equivalent + totalTax,
     );
 
@@ -641,7 +711,7 @@ export class QuotationPayloadValidator {
       totalTax += tax.tax_amount;
     });
 
-    return this.roundMoney(totalTax);
+    return roundMoney(totalTax);
   }
 
   private validateSubjectMatters(
@@ -1017,7 +1087,7 @@ export class QuotationPayloadValidator {
   ): void {
     if (!this.moneyEqual(expected, actual)) {
       errors.push(
-        `${path} is invalid. Expected ${this.roundMoney(expected)}, received ${this.roundMoney(actual)}. ${explanation}`,
+        `${path} is invalid. Expected ${roundMoney(expected)}, received ${roundMoney(actual)}. ${explanation}`,
       );
     }
   }
@@ -1039,10 +1109,7 @@ export class QuotationPayloadValidator {
   }
 
   private moneyEqual(first: number, second: number): boolean {
-    return (
-      Math.abs(this.roundMoney(first) - this.roundMoney(second)) <=
-      this.moneyTolerance
-    );
+    return moneyEqual(first, second, this.moneyTolerance);
   }
 
   private numbersEqual(
@@ -1050,10 +1117,6 @@ export class QuotationPayloadValidator {
     second: number,
     tolerance: number,
   ): boolean {
-    return Math.abs(first - second) <= tolerance;
-  }
-
-  private roundMoney(value: number): number {
-    return Math.round((value + Number.EPSILON) * 100) / 100;
+    return numbersEqual(first, second, tolerance);
   }
 }

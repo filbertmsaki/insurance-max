@@ -1,5 +1,6 @@
 import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 import type { CustomerFormValues } from '@/modules/tenant/customers/types';
+import type { PricingQuoteMetadata } from '@/modules/pricing';
 import type { SortOrder } from '@/types';
 
 export type QuotationType = 'MOTOR' | 'NON_MOTOR';
@@ -22,6 +23,11 @@ export type ApprovalStatus =
   | 'PENDING'
   | 'APPROVED'
   | 'CHANGES_REQUESTED'
+  | 'REJECTED'
+  | 'CANCELLED';
+export type PremiumOverrideStatus =
+  | 'PENDING'
+  | 'APPROVED'
   | 'REJECTED'
   | 'CANCELLED';
 export type PaymentStatus =
@@ -117,10 +123,31 @@ export interface QuotationDiscountPayload {
   discount_type: number;
   discount_rate: number;
   discount_amount: number;
+  request_reason_code?: string | null;
+  request_comment?: string | null;
+  effective_from?: string | null;
+  effective_to?: string | null;
+  requested_by?: string | null;
+  requested_at?: string | null;
+  max_permitted_rate?: number | null;
+  max_permitted_amount?: number | null;
+  approval_required?: boolean | null;
+  approval_status?:
+    | 'NOT_REQUIRED'
+    | 'PENDING'
+    | 'APPROVED'
+    | 'REJECTED'
+    | null;
+  approved_rate?: number | null;
+  approved_amount?: number | null;
+  approved_by?: string | null;
+  approval_date?: string | null;
+  rejection_reason?: string | null;
 }
 
 export interface QuotationRiskCoveredPayload {
   risk_code: string;
+  pricing_quote_id?: string | null;
   sum_insured: number;
   sum_insured_equivalent: number;
   premium_rate: number;
@@ -350,7 +377,25 @@ export interface QuotationPreviewDiscount {
   discount_amount: number | null;
 }
 
+export interface QuotationPreviewPremiumOverride {
+  id: string;
+  sequence_no: number | null;
+  original_calculated_premium: number | null;
+  proposed_premium: number | null;
+  difference_amount: number | null;
+  difference_percentage: number | null;
+  override_reason: string | null;
+  supporting_notes: string | null;
+  requested_by: QuotationPreviewRef;
+  requested_at: string | null;
+  approval_status: PremiumOverrideStatus;
+  approved_by: QuotationPreviewRef;
+  approved_at: string | null;
+  rejection_reason: string | null;
+}
+
 export interface QuotationPreviewRisk {
+  risk_id: string;
   risk_number: number | null;
   risk_code: string | null;
   risk_name: string | null;
@@ -362,6 +407,7 @@ export interface QuotationPreviewRisk {
   premium_excluding_tax_equivalent: number | null;
   premium_including_tax: number | null;
   discounts: QuotationPreviewDiscount[];
+  premium_overrides: QuotationPreviewPremiumOverride[];
   taxes: QuotationPreviewTax[];
 }
 
@@ -661,6 +707,16 @@ export interface TransitionQuotationStatusPayload {
   metadata?: Record<string, unknown>;
 }
 
+export interface RequestQuotationPremiumOverridePayload {
+  proposed_premium: number;
+  override_reason: string;
+  supporting_notes?: string;
+}
+
+export interface DecideQuotationPremiumOverridePayload {
+  rejection_reason?: string;
+}
+
 export interface QuotationListParams {
   page?: number;
   limit?: number;
@@ -677,6 +733,21 @@ export interface QuotationWizardRiskDiscountRow {
   discount_type: string;
   discount_rate: string;
   discount_amount: string;
+  request_reason_code: string;
+  request_comment: string;
+  effective_from: string;
+  effective_to: string;
+  requested_by: string;
+  requested_at: string;
+  max_permitted_rate: string;
+  max_permitted_amount: string;
+  approval_required: boolean;
+  approval_status: string;
+  approved_rate: string;
+  approved_amount: string;
+  approved_by: string;
+  approval_date: string;
+  rejection_reason: string;
 }
 
 export interface QuotationWizardRiskTaxRow {
@@ -688,10 +759,13 @@ export interface QuotationWizardRiskTaxRow {
   tax_amount: string;
 }
 
+export type QuotationRiskRatingMetadata = PricingQuoteMetadata;
+
 export interface QuotationRiskFormRow {
   client_ref: string;
   risk_id: string;
   risk_code: string;
+  factor_values: Record<string, string | number | boolean>;
   sum_insured: string;
   sum_insured_equivalent: string;
   premium_rate: string;
@@ -710,7 +784,7 @@ export interface QuotationRiskFormRow {
   commission_amount: string;
   total_premium: string;
   net_premium: string;
-  rating_result_metadata: unknown;
+  rating_result_metadata: QuotationRiskRatingMetadata | null;
 }
 
 export interface QuotationWizardAddonTaxRow {
@@ -774,6 +848,8 @@ export interface QuotationWizardFleetHeader {
 }
 
 export interface QuotationWizardFleetRiskRow {
+  client_ref: string;
+  risk_id: string;
   risk_code: string;
   sum_insured: string;
   sum_insured_equivalent: string;
@@ -784,6 +860,7 @@ export interface QuotationWizardFleetRiskRow {
   premium_including_tax: string;
   discounts_offered: QuotationWizardRiskDiscountRow[];
   taxes_charged: QuotationWizardRiskTaxRow[];
+  rating_result_metadata: QuotationRiskRatingMetadata | null;
 }
 
 export interface QuotationWizardFleetSubjectMatterRow {

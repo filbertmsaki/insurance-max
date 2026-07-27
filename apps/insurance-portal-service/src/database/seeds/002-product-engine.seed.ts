@@ -10,6 +10,7 @@ import { InsuranceProduct } from '../../modules/tenant/insurance-products/entiti
 import { InsuranceSubClass } from '../../modules/tenant/insurance-sub-classes/entities/insurance-sub-class.entity';
 import { InsuranceRisk } from '../../modules/tenant/insurance-risks/entities/insurance-risk.entity';
 import { RiskRatingRule } from '../../modules/tenant/risk-rating-rules/entities/risk-rating-rule.entity';
+import { roundRate } from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import { normalizeFactorCode, parseRateText } from './rate-text-parser';
 
 type CategorySeed = {
@@ -601,7 +602,9 @@ export default class ProductEngineSeeder implements Seeder {
     fallbackRateType: RateType,
   ): NormalizedRuleSeed {
     let rateType = fallbackRateType;
-    let percentageRate = this.toNumber(seed.percentage_rate ?? seed.rate_value);
+    let percentageRate = this.normalizeRateValue(
+      this.toNumber(seed.percentage_rate ?? seed.rate_value),
+    );
     let fixedAmount = this.toNumber(seed.fixed_amount);
     let perUnitAmount = this.toNumber(seed.per_unit_amount);
     let perUnitFactorCode = normalizeFactorCode(
@@ -684,5 +687,13 @@ export default class ProductEngineSeeder implements Seeder {
 
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private normalizeRateValue(value: number | null): number | null {
+    if (value === null) {
+      return null;
+    }
+
+    return value > 1 ? roundRate(value / 100) : roundRate(value);
   }
 }

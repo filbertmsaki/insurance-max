@@ -56,7 +56,7 @@ export class PremiumCalculationController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CalculateSingleRiskPremiumDto,
   ) {
-    return this.service.calculateSingleRisk(user.companyId!, dto);
+    return this.service.calculateSingleRisk(user.companyId!, dto, user.id);
   }
 
   @Post('multi')
@@ -71,7 +71,7 @@ export class PremiumCalculationController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CalculateMultiRiskPremiumDto,
   ) {
-    return this.service.calculateMultiRisk(user.companyId!, dto);
+    return this.service.calculateMultiRisk(user.companyId!, dto, user.id);
   }
 
   @Get('explain/:risk_id')
@@ -87,5 +87,18 @@ export class PremiumCalculationController {
     @Param('risk_id', new ParseUUIDPipe()) riskId: string,
   ) {
     return this.service.explainRisk(user.companyId!, riskId);
+  }
+
+  @Get('quotes/:pricingQuoteId')
+  @UseGuards(PermissionsGuard)
+  @Permissions('premium-calculation:calculate')
+  @ApiOperation({
+    summary: 'Fetch an immutable stored pricing quote snapshot',
+  })
+  async findStoredQuote(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('pricingQuoteId') pricingQuoteId: string,
+  ) {
+    return this.service.findStoredQuote(user.companyId!, pricingQuoteId);
   }
 }

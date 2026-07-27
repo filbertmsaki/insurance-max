@@ -113,7 +113,25 @@ export interface QuotationPreviewDiscount {
   discount_amount: number | null;
 }
 
+export interface QuotationPreviewPremiumOverride {
+  id: string;
+  sequence_no: number | null;
+  original_calculated_premium: number | null;
+  proposed_premium: number | null;
+  difference_amount: number | null;
+  difference_percentage: number | null;
+  override_reason: string | null;
+  supporting_notes: string | null;
+  requested_by: QuotationPreviewRef;
+  requested_at: string | null;
+  approval_status: string;
+  approved_by: QuotationPreviewRef;
+  approved_at: string | null;
+  rejection_reason: string | null;
+}
+
 export interface QuotationPreviewRisk {
+  risk_id: string;
   risk_number: number | null;
   risk_code: string | null;
   risk_name: string | null;
@@ -125,6 +143,7 @@ export interface QuotationPreviewRisk {
   premium_excluding_tax_equivalent: number | null;
   premium_including_tax: number | null;
   discounts: QuotationPreviewDiscount[];
+  premium_overrides: QuotationPreviewPremiumOverride[];
   taxes: QuotationPreviewTax[];
 }
 

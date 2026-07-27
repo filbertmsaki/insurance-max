@@ -50,16 +50,16 @@ export class CommissionTransaction {
   @Column({ type: 'varchar', length: 30 })
   calculation_base: string;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
   gross_premium: string;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
   net_premium: string;
 
-  @Column({ type: 'numeric', precision: 18, scale: 6, default: 0 })
+  @Column({ type: 'numeric', precision: 18, scale: 10, default: 0 })
   commission_rate: string;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
   commission_amount: string;
 
   @Column({ type: 'varchar', length: 20, default: 'PENDING' })

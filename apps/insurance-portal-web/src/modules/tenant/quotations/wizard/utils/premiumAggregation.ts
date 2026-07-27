@@ -1,3 +1,9 @@
+import {
+  applyRate,
+  roundMoney,
+  sumDecimals,
+  toDecimal,
+} from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import type { RiskPremiumResult } from '@/types/product-engine';
 import type { QuotationFormSchemaValues } from '../../schemas';
 
@@ -5,6 +11,8 @@ import type { QuotationFormSchemaValues } from '../../schemas';
 // QuotationRiskFormRow interface, which is what actually flows through the
 // wizard's react-hook-form state.
 type QuotationRiskFormRow = QuotationFormSchemaValues['risks'][number];
+type QuotationFleetRiskFormRow =
+  QuotationFormSchemaValues['fleet']['items'][number]['risks_covered'][number];
 
 export function toNumber(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === '') return 0;
@@ -17,11 +25,11 @@ export function computePremiumAfterDiscount(
   premiumBeforeDiscount: string | number,
   discounts: QuotationRiskFormRow['discounts_offered'],
 ) {
-  const totalDiscount = discounts.reduce(
-    (sum, discount) => sum + toNumber(discount.discount_amount),
-    0,
+  const totalDiscount = sumDecimals(
+    discounts.map((discount) => discount.discount_amount ?? 0),
   );
-  return Math.max(0, toNumber(premiumBeforeDiscount) - totalDiscount);
+  const result = toDecimal(premiumBeforeDiscount).minus(totalDiscount);
+  return roundMoney(result.isNegative() ? 0 : result);
 }
 
 /** Premium including tax = premium excluding tax equivalent, plus all tax line items. */
@@ -29,11 +37,11 @@ export function computePremiumIncludingTax(
   premiumExcludingTaxEquivalent: string | number,
   taxes: QuotationRiskFormRow['taxes_charged'],
 ) {
-  const totalTax = taxes.reduce(
-    (sum, tax) => sum + toNumber(tax.tax_amount),
-    0,
+  return roundMoney(
+    toDecimal(premiumExcludingTaxEquivalent).plus(
+      sumDecimals(taxes.map((tax) => tax.tax_amount ?? 0)),
+    ),
   );
-  return toNumber(premiumExcludingTaxEquivalent) + totalTax;
 }
 
 /**
@@ -72,9 +80,49 @@ export function applyRiskPremiumResult(
     premium_rate: String(result.percentage_rate ?? 0),
     premium_before_discount: String(result.final_premium ?? 0),
     rating_result_metadata: {
+      pricing_quote_id: result.pricing_quote_id ?? null,
+      pricing_status: result.pricing_status ?? null,
+      calculated_at: result.calculated_at ?? null,
+      expires_at: result.expires_at ?? null,
+      input_signature: result.input_signature ?? null,
+      quotation_type: result.quotation_type ?? null,
+      currency_code: result.currency_code ?? null,
       minimum_applied: result.minimum_applied,
       minimum_amount: result.minimum_amount,
+      discount_control: result.discount_control,
+      loading_control: result.loading_control,
       validation_errors: result.validation_errors,
+      validation_warnings: result.validation_warnings,
+    },
+  };
+}
+
+export function applyFleetRiskPremiumResult(
+  row: QuotationFleetRiskFormRow,
+  result: RiskPremiumResult,
+): QuotationFleetRiskFormRow {
+  const isZeroRate = result.percentage_rate === 0;
+
+  return {
+    ...row,
+    sum_insured: isZeroRate ? '0' : row.sum_insured,
+    sum_insured_equivalent: isZeroRate ? '0' : String(result.sum_insured ?? 0),
+    premium_rate: String(result.percentage_rate ?? 0),
+    premium_before_discount: String(result.final_premium ?? 0),
+    rating_result_metadata: {
+      pricing_quote_id: result.pricing_quote_id ?? null,
+      pricing_status: result.pricing_status ?? null,
+      calculated_at: result.calculated_at ?? null,
+      expires_at: result.expires_at ?? null,
+      input_signature: result.input_signature ?? null,
+      quotation_type: result.quotation_type ?? null,
+      currency_code: result.currency_code ?? null,
+      minimum_applied: result.minimum_applied,
+      minimum_amount: result.minimum_amount,
+      discount_control: result.discount_control,
+      loading_control: result.loading_control,
+      validation_errors: result.validation_errors,
+      validation_warnings: result.validation_warnings,
     },
   };
 }
@@ -94,10 +142,66 @@ function sumField(
   rows: QuotationRiskFormRow[],
   field: keyof QuotationRiskFormRow,
 ) {
-  return rows.reduce((total, row) => {
-    const value = Number(row[field]);
-    return total + (Number.isFinite(value) ? value : 0);
-  }, 0);
+  return roundMoney(
+    sumDecimals(
+      rows.map((row) => {
+        const value = Number(row[field]);
+        return Number.isFinite(value) ? value : 0;
+      }),
+    ),
+  );
+}
+
+export function recomputeFleetRiskRow(
+  row: QuotationFleetRiskFormRow,
+): QuotationFleetRiskFormRow {
+  const premiumBeforeDiscount = row.premium_before_discount;
+  const refreshedDiscounts = (row.discounts_offered ?? []).map((discount) => {
+    if (!discount.discount_rate) return discount;
+
+    return {
+      ...discount,
+      discount_amount: String(
+        roundMoney(
+          applyRate(
+            toNumber(premiumBeforeDiscount),
+            toNumber(discount.discount_rate),
+          ),
+        ),
+      ),
+    };
+  });
+
+  const premiumAfterDiscount = computePremiumAfterDiscount(
+    premiumBeforeDiscount,
+    refreshedDiscounts,
+  );
+  const premiumExcludingTaxEquivalent = premiumAfterDiscount;
+  const refreshedTaxes = (row.taxes_charged ?? []).map((tax) => {
+    const rate = toNumber(tax.tax_rate);
+    const taxAmount = tax.is_tax_exempted
+      ? 0
+      : roundMoney(applyRate(premiumExcludingTaxEquivalent, rate));
+
+    return {
+      ...tax,
+      tax_amount: String(taxAmount),
+    };
+  });
+
+  return {
+    ...row,
+    discounts_offered: refreshedDiscounts,
+    taxes_charged: refreshedTaxes,
+    premium_after_discount: String(premiumAfterDiscount),
+    premium_excluding_tax_equivalent: String(premiumExcludingTaxEquivalent),
+    premium_including_tax: String(
+      computePremiumIncludingTax(
+        premiumExcludingTaxEquivalent,
+        refreshedTaxes,
+      ),
+    ),
+  };
 }
 
 /** Rolls all risk rows up into the quotation-level totals shown in the summary sidebar. */
@@ -113,27 +217,24 @@ export function aggregateRiskTotals(
     ),
     total_discount: String(
       sumField(rows, 'discount_amount') ||
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            (row.discounts_offered ?? []).reduce(
-              (discountTotal, discount) =>
-                discountTotal + Number(discount.discount_amount || 0),
-              0,
+        roundMoney(
+          sumDecimals(
+            rows.flatMap((row) =>
+              (row.discounts_offered ?? []).map(
+                (discount) => discount.discount_amount || 0,
+              ),
             ),
-          0,
+          ),
         ),
     ),
     total_tax: String(
       sumField(rows, 'tax_amount') ||
-        rows.reduce(
-          (sum, row) =>
-            sum +
-            (row.taxes_charged ?? []).reduce(
-              (taxTotal, tax) => taxTotal + Number(tax.tax_amount || 0),
-              0,
+        roundMoney(
+          sumDecimals(
+            rows.flatMap((row) =>
+              (row.taxes_charged ?? []).map((tax) => tax.tax_amount || 0),
             ),
-          0,
+          ),
         ),
     ),
     total_charges: String(sumField(rows, 'charges_amount')),
@@ -146,4 +247,33 @@ export function aggregateRiskTotals(
       sumField(rows, 'net_premium') || sumField(rows, 'premium_including_tax'),
     ),
   };
+}
+
+export function aggregateFleetRiskTotals(
+  items: QuotationFormSchemaValues['fleet']['items'],
+): QuotationPremiumTotals {
+  const rows = items.flatMap((item) =>
+    item.risks_covered.map((risk) => ({
+      sum_insured: risk.sum_insured,
+      basic_premium: risk.premium_after_discount,
+      discount_amount: String(
+        sumDecimals(
+          risk.discounts_offered.map((discount) => discount.discount_amount || 0),
+        ),
+      ),
+      tax_amount: String(
+        sumDecimals(risk.taxes_charged.map((tax) => tax.tax_amount || 0)),
+      ),
+      charges_amount: '',
+      commission_amount: '',
+      total_premium: risk.premium_including_tax,
+      premium_after_discount: risk.premium_after_discount,
+      premium_excluding_tax_equivalent: risk.premium_excluding_tax_equivalent,
+      premium_including_tax: risk.premium_including_tax,
+      discounts_offered: risk.discounts_offered,
+      taxes_charged: risk.taxes_charged,
+    })),
+  ) as QuotationRiskFormRow[];
+
+  return aggregateRiskTotals(rows);
 }

@@ -1,4 +1,5 @@
 import { RateType } from '@insurance-max/portal-shared/enums/rate-type.enum';
+import { roundRate } from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 
 export interface ParsedRateText {
   rateType: RateType;
@@ -39,7 +40,7 @@ function extractPercentagePlusTpp(
   if (!match) {
     return null;
   }
-  return { percentageRate: Number(match[1]) };
+  return { percentageRate: roundRate(Number(match[1]) / 100) };
 }
 
 function extractPercentagePlusPerUnit(rateText: string): {
@@ -55,7 +56,7 @@ function extractPercentagePlusPerUnit(rateText: string): {
   }
 
   return {
-    percentageRate: Number(match[1]),
+    percentageRate: roundRate(Number(match[1]) / 100),
     perUnitAmount: parseAmount(match[2]),
     perUnitFactorCode: normalizeFactorCode(match[3]),
   };
@@ -73,7 +74,7 @@ function extractPercentagePlusFixed(rateText: string): {
   }
 
   return {
-    percentageRate: Number(match[1]),
+    percentageRate: roundRate(Number(match[1]) / 100),
     fixedAmount: parseAmount(match[2]),
   };
 }
@@ -101,7 +102,7 @@ function extractPercentageOnly(rateText: string): number | null {
     return null;
   }
 
-  return Number(match[1]);
+  return roundRate(Number(match[1]) / 100);
 }
 
 function extractFixedOnly(rateText: string): number | null {

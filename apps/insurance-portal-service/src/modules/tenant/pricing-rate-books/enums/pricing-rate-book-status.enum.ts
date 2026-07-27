@@ -1,0 +1,8 @@
+export enum PricingRateBookStatus {
+  DRAFT = 'DRAFT',
+  UNDER_REVIEW = 'UNDER_REVIEW',
+  APPROVED = 'APPROVED',
+  PUBLISHED = 'PUBLISHED',
+  RETIRED = 'RETIRED',
+  REJECTED = 'REJECTED',
+}

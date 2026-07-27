@@ -32,6 +32,10 @@ import {
   UpdateQuotationDto,
   SubmitQuotationDto,
 } from './dto/quotation-payload.dto';
+import {
+  DecideQuotationPremiumOverrideDto,
+  RequestQuotationPremiumOverrideDto,
+} from './dto/quotation-premium-override.dto';
 import { TransitionQuotationStatusDto } from './dto/transition-quotation-status.dto';
 import { QuotationsService } from './quotations.service';
 
@@ -144,7 +148,80 @@ export class QuotationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.quotationsService.getPreview(user.companyId!, id);
+    return this.quotationsService.getPreview(user.companyId!, id, user);
+  }
+
+  @Post(':id/risks/:riskId/premium-overrides')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PermissionsGuard)
+  @Permissions('pricing.override.request')
+  @ApiOperation({
+    summary: 'Request a manual premium override for a quotation risk',
+  })
+  @ApiBody({ type: RequestQuotationPremiumOverrideDto })
+  requestPremiumOverride(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('riskId', ParseUUIDPipe) riskId: string,
+    @Body() dto: RequestQuotationPremiumOverrideDto,
+  ) {
+    return this.quotationsService.requestPremiumOverride(
+      user.companyId!,
+      id,
+      riskId,
+      dto,
+      user,
+    );
+  }
+
+  @Post(':id/risks/:riskId/premium-overrides/:overrideId/approve')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PermissionsGuard)
+  @Permissions('pricing.override.approve')
+  @ApiOperation({
+    summary: 'Approve a manual premium override for a quotation risk',
+  })
+  @ApiBody({ type: DecideQuotationPremiumOverrideDto, required: false })
+  approvePremiumOverride(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('riskId', ParseUUIDPipe) riskId: string,
+    @Param('overrideId', ParseUUIDPipe) overrideId: string,
+    @Body() dto: DecideQuotationPremiumOverrideDto = {},
+  ) {
+    return this.quotationsService.approvePremiumOverride(
+      user.companyId!,
+      id,
+      riskId,
+      overrideId,
+      dto,
+      user,
+    );
+  }
+
+  @Post(':id/risks/:riskId/premium-overrides/:overrideId/reject')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PermissionsGuard)
+  @Permissions('pricing.override.reject')
+  @ApiOperation({
+    summary: 'Reject a manual premium override for a quotation risk',
+  })
+  @ApiBody({ type: DecideQuotationPremiumOverrideDto })
+  rejectPremiumOverride(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('riskId', ParseUUIDPipe) riskId: string,
+    @Param('overrideId', ParseUUIDPipe) overrideId: string,
+    @Body() dto: DecideQuotationPremiumOverrideDto,
+  ) {
+    return this.quotationsService.rejectPremiumOverride(
+      user.companyId!,
+      id,
+      riskId,
+      overrideId,
+      dto,
+      user,
+    );
   }
 
   @Put(':id')

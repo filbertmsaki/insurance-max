@@ -8,6 +8,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
+import {
+  normalizeMoneyForStorage,
+  normalizeRateForStorage,
+} from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import { InsuranceCategory } from '../insurance-categories/entities/insurance-category.entity';
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
 import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
@@ -17,6 +21,7 @@ import { CreateProductDistributionChannelDto } from './dto/create-product-distri
 import { CreateProductDocumentRequirementDto } from './dto/create-product-document-requirement.dto';
 import { CreateProductTaxRuleDto } from './dto/create-product-tax-rule.dto';
 import { ProductChannelType } from './enums/product-channel-type.enum';
+import { ProductChargeCategory } from './enums/product-charge-category.enum';
 import { ProductDistributionChannel } from './entities/product-distribution-channel.entity';
 import { ProductCommissionRule } from './entities/product-commission-rule.entity';
 import { ProductDocumentRequirement } from './entities/product-document-requirement.entity';
@@ -181,19 +186,19 @@ export class ProductDistributionService {
       commission_type: dto.commission_type,
       commission_rate:
         dto.commission_rate !== undefined && dto.commission_rate !== null
-          ? String(dto.commission_rate)
+          ? normalizeRateForStorage(dto.commission_rate)
           : null,
       commission_amount:
         dto.commission_amount !== undefined && dto.commission_amount !== null
-          ? String(dto.commission_amount)
+          ? normalizeMoneyForStorage(dto.commission_amount)
           : null,
       minimum_commission:
         dto.minimum_commission !== undefined && dto.minimum_commission !== null
-          ? String(dto.minimum_commission)
+          ? normalizeMoneyForStorage(dto.minimum_commission)
           : null,
       maximum_commission:
         dto.maximum_commission !== undefined && dto.maximum_commission !== null
-          ? String(dto.maximum_commission)
+          ? normalizeMoneyForStorage(dto.maximum_commission)
           : null,
       calculation_base: dto.calculation_base ?? undefined,
       effective_from: dto.effective_from,
@@ -266,14 +271,26 @@ export class ProductDistributionService {
       risk_id: dto.risk_id ?? null,
       tax_name: dto.tax_name.trim(),
       tax_code: dto.tax_code.trim().toUpperCase(),
+      charge_category: dto.charge_category ?? ProductChargeCategory.TAX,
       tax_type: dto.tax_type,
       tax_rate:
         dto.tax_rate !== undefined && dto.tax_rate !== null
-          ? String(dto.tax_rate)
+          ? normalizeRateForStorage(dto.tax_rate)
           : null,
       tax_amount:
         dto.tax_amount !== undefined && dto.tax_amount !== null
-          ? String(dto.tax_amount)
+          ? normalizeMoneyForStorage(dto.tax_amount)
+          : null,
+      is_taxable: dto.is_taxable ?? false,
+      minimum_charge_amount:
+        dto.minimum_charge_amount !== undefined &&
+        dto.minimum_charge_amount !== null
+          ? normalizeMoneyForStorage(dto.minimum_charge_amount)
+          : null,
+      maximum_charge_amount:
+        dto.maximum_charge_amount !== undefined &&
+        dto.maximum_charge_amount !== null
+          ? normalizeMoneyForStorage(dto.maximum_charge_amount)
           : null,
       calculation_base: dto.calculation_base ?? undefined,
       effective_from: dto.effective_from,

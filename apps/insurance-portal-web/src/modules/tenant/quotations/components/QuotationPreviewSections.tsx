@@ -12,6 +12,7 @@ import type {
   QuotationPreviewMotorDetails,
   QuotationPreviewPayment,
   QuotationPreviewPolicyholder,
+  QuotationPreviewPremiumOverride,
   QuotationPreviewRecord,
   QuotationPreviewRisk,
   QuotationPreviewSubjectMatter,
@@ -56,6 +57,21 @@ function formatNumber(value: number | null | undefined, digits = 2) {
 function labelFor(value: string | number | boolean | null | undefined) {
   if (value === null || value === undefined) return 'N/A';
   return String(value);
+}
+
+function premiumOverrideBadgeVariant(
+  status: QuotationPreviewPremiumOverride['approval_status'],
+): 'default' | 'secondary' | 'destructive' | 'outline' {
+  switch (status) {
+    case 'APPROVED':
+      return 'default';
+    case 'REJECTED':
+      return 'destructive';
+    case 'PENDING':
+      return 'secondary';
+    default:
+      return 'outline';
+  }
 }
 
 function SectionCard({
@@ -279,9 +295,11 @@ export function PolicyholderPreview({
 function RiskSection({
   title,
   risks,
+  renderRiskActions,
 }: {
   title: string;
   risks: QuotationPreviewRisk[];
+  renderRiskActions?: (risk: QuotationPreviewRisk) => ReactNode;
 }) {
   if (!risks.length) return <EmptyState text={`No ${title.toLowerCase()} found.`} />;
 
@@ -289,9 +307,21 @@ function RiskSection({
     <div className="space-y-4">
       {risks.map((risk, index) => (
         <SectionCard key={`${risk.risk_code ?? 'risk'}-${index}`} title={`${title} ${risk.risk_number ?? index + 1}`}>
-          <div className="mb-3 flex flex-wrap gap-2">
-            <Badge variant="secondary">{displayValue(risk.risk_code)}</Badge>
-            <Badge variant="outline">{displayValue(risk.risk_name)}</Badge>
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">{displayValue(risk.risk_code)}</Badge>
+              <Badge variant="outline">{displayValue(risk.risk_name)}</Badge>
+              {risk.premium_overrides[0] ? (
+                <Badge
+                  variant={premiumOverrideBadgeVariant(
+                    risk.premium_overrides[0].approval_status,
+                  )}
+                >
+                  Override {risk.premium_overrides[0].approval_status.toLowerCase()}
+                </Badge>
+              ) : null}
+            </div>
+            {renderRiskActions ? <div className="flex flex-wrap gap-2">{renderRiskActions(risk)}</div> : null}
           </div>
           <KeyValueGrid
             items={[
@@ -307,8 +337,84 @@ function RiskSection({
                 value: formatMoney(risk.premium_excluding_tax_equivalent),
               },
               { label: 'Premium Including Tax', value: formatMoney(risk.premium_including_tax) },
+              {
+                label: 'Latest Override Status',
+                value: risk.premium_overrides[0]?.approval_status ?? 'N/A',
+              },
             ]}
           />
+
+          <Separator className="my-4" />
+          <div>
+            <div className="mb-2 text-sm font-semibold text-slate-900">Premium Overrides</div>
+            {risk.premium_overrides.length ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Original</TableHead>
+                    <TableHead>Proposed</TableHead>
+                    <TableHead>Difference</TableHead>
+                    <TableHead>Requested By</TableHead>
+                    <TableHead>Requested At</TableHead>
+                    <TableHead>Decided By</TableHead>
+                    <TableHead>Decided At</TableHead>
+                    <TableHead>Reason</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {risk.premium_overrides.map((premiumOverride) => (
+                    <TableRow key={premiumOverride.id}>
+                      <TableCell>
+                        <Badge
+                          variant={premiumOverrideBadgeVariant(
+                            premiumOverride.approval_status,
+                          )}
+                        >
+                          {premiumOverride.approval_status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {formatMoney(premiumOverride.original_calculated_premium)}
+                      </TableCell>
+                      <TableCell>{formatMoney(premiumOverride.proposed_premium)}</TableCell>
+                      <TableCell>
+                        {formatMoney(premiumOverride.difference_amount)}
+                        {premiumOverride.difference_percentage !== null ? (
+                          <div className="text-xs text-slate-500">
+                            {formatNumber(premiumOverride.difference_percentage, 4)}%
+                          </div>
+                        ) : null}
+                      </TableCell>
+                      <TableCell>
+                        {displayValue(
+                          premiumOverride.requested_by.name ??
+                            premiumOverride.requested_by.code,
+                        )}
+                      </TableCell>
+                      <TableCell>{formatDateTime(premiumOverride.requested_at)}</TableCell>
+                      <TableCell>
+                        {displayValue(
+                          premiumOverride.approved_by.name ??
+                            premiumOverride.approved_by.code,
+                        )}
+                      </TableCell>
+                      <TableCell>{formatDateTime(premiumOverride.approved_at)}</TableCell>
+                      <TableCell>
+                        {displayValue(
+                          premiumOverride.rejection_reason ??
+                            premiumOverride.supporting_notes ??
+                            premiumOverride.override_reason,
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <EmptyState text="No premium overrides recorded." />
+            )}
+          </div>
 
           <Separator className="my-4" />
           <div className="grid gap-4 xl:grid-cols-2">
@@ -371,8 +477,20 @@ function RiskSection({
   );
 }
 
-export function RiskPreview({ risks }: { risks: QuotationPreviewRisk[] }) {
-  return <RiskSection title="Risk" risks={risks} />;
+export function RiskPreview({
+  risks,
+  renderRiskActions,
+}: {
+  risks: QuotationPreviewRisk[];
+  renderRiskActions?: (risk: QuotationPreviewRisk) => ReactNode;
+}) {
+  return (
+    <RiskSection
+      title="Risk"
+      risks={risks}
+      renderRiskActions={renderRiskActions}
+    />
+  );
 }
 
 export function SubjectMatterPreview({
@@ -566,8 +684,10 @@ export function FleetHeaderPreview({
 
 export function FleetVehicleList({
   vehicles,
+  renderRiskActions,
 }: {
   vehicles: QuotationPreviewFleetVehicle[];
+  renderRiskActions?: (risk: QuotationPreviewRisk) => ReactNode;
 }) {
   if (!vehicles.length) return <EmptyState text="No fleet vehicles available." />;
 
@@ -614,7 +734,10 @@ export function FleetVehicleList({
             </div>
           </summary>
           <div className="border-t border-slate-200 p-4">
-            <FleetVehiclePreview vehicle={vehicle} />
+            <FleetVehiclePreview
+              vehicle={vehicle}
+              renderRiskActions={renderRiskActions}
+            />
           </div>
         </details>
       ))}
@@ -624,8 +747,10 @@ export function FleetVehicleList({
 
 export function FleetVehiclePreview({
   vehicle,
+  renderRiskActions,
 }: {
   vehicle: QuotationPreviewFleetVehicle;
+  renderRiskActions?: (risk: QuotationPreviewRisk) => ReactNode;
 }) {
   return (
     <div className="space-y-6">
@@ -644,7 +769,11 @@ export function FleetVehiclePreview({
         />
       </SectionCard>
 
-      <RiskSection title="Vehicle Risk" risks={vehicle.risks} />
+      <RiskSection
+        title="Vehicle Risk"
+        risks={vehicle.risks}
+        renderRiskActions={renderRiskActions}
+      />
       <SectionCard title="Vehicle Subject Matters">
         {vehicle.subject_matters.length ? (
           <Table>

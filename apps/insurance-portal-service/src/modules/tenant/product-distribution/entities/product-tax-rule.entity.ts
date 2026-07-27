@@ -14,6 +14,7 @@ import { InsuranceCategory } from '../../insurance-categories/entities/insurance
 import { InsuranceProduct } from '../../insurance-products/entities/insurance-product.entity';
 import { InsuranceRisk } from '../../insurance-risks/entities/insurance-risk.entity';
 import { ProductCalculationBase } from '../enums/product-calculation-base.enum';
+import { ProductChargeCategory } from '../enums/product-charge-category.enum';
 import { ProductRuleStatus } from '../enums/product-rule-status.enum';
 import { ProductTaxType } from '../enums/product-tax-type.enum';
 
@@ -47,16 +48,33 @@ export class ProductTaxRule {
 
   @Column({
     type: 'enum',
+    enum: ProductChargeCategory,
+    enumName: 'product_charge_category_enum',
+    default: ProductChargeCategory.TAX,
+  })
+  charge_category: ProductChargeCategory;
+
+  @Column({
+    type: 'enum',
     enum: ProductTaxType,
     enumName: 'product_tax_type_enum',
   })
   tax_type: ProductTaxType;
 
-  @Column({ type: 'numeric', precision: 18, scale: 6, nullable: true })
+  @Column({ type: 'numeric', precision: 18, scale: 10, nullable: true })
   tax_rate: string | null;
 
-  @Column({ type: 'numeric', precision: 18, scale: 2, nullable: true })
+  @Column({ type: 'numeric', precision: 20, scale: 4, nullable: true })
   tax_amount: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  is_taxable: boolean;
+
+  @Column({ type: 'numeric', precision: 20, scale: 4, nullable: true })
+  minimum_charge_amount: string | null;
+
+  @Column({ type: 'numeric', precision: 20, scale: 4, nullable: true })
+  maximum_charge_amount: string | null;
 
   @Column({
     type: 'enum',

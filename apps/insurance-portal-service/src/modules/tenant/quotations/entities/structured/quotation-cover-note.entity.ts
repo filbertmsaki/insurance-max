@@ -49,23 +49,23 @@ export class QuotationCoverNote {
   @Column({
     type: 'numeric',
     precision: 18,
-    scale: 6,
+    scale: 10,
     default: 1,
   })
   exchange_rate: string;
 
   @Column({
     type: 'numeric',
-    precision: 18,
-    scale: 2,
+    precision: 20,
+    scale: 4,
     default: 0,
   })
   total_premium_excluding_tax: string;
 
   @Column({
     type: 'numeric',
-    precision: 18,
-    scale: 2,
+    precision: 20,
+    scale: 4,
     default: 0,
   })
   total_premium_including_tax: string;
@@ -76,8 +76,8 @@ export class QuotationCoverNote {
    */
   @Column({
     type: 'numeric',
-    precision: 18,
-    scale: 2,
+    precision: 20,
+    scale: 4,
     default: 0,
   })
   commission_paid: string;
@@ -85,7 +85,7 @@ export class QuotationCoverNote {
   @Column({
     type: 'numeric',
     precision: 18,
-    scale: 6,
+    scale: 10,
     default: 0,
   })
   commission_rate: string;

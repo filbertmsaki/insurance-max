@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
+import { normalizeRateForStorage } from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import { InsuranceCompanyPartner } from './entities/insurance-company-partner.entity';
 import { CreateInsurancePartnerDto } from './dto/create-insurance-partner.dto';
 import { PartnerType } from './enums/partner-type.enum';
@@ -98,7 +99,9 @@ export class InsurancePartnersService {
       intermediary_company_id: dto.intermediary_company_id,
       partner_type: dto.partner_type,
       commission_rate:
-        dto.commission_rate !== undefined ? String(dto.commission_rate) : null,
+        dto.commission_rate !== undefined
+          ? normalizeRateForStorage(dto.commission_rate)
+          : null,
       start_date: dto.start_date ? new Date(dto.start_date) : null,
       end_date: dto.end_date ? new Date(dto.end_date) : null,
       agreement_reference: dto.agreement_reference ?? null,

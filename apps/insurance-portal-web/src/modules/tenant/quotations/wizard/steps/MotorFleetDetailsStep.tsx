@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Copy,
   Pencil,
@@ -7,6 +8,7 @@ import {
   CheckCircle2,
   AlertTriangle,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   useFieldArray,
   type UseFieldArrayReturn,
@@ -28,11 +30,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { getApiErrorMessage } from '@/lib/api-error';
+import {
+  PricingStatusAlert,
+  readPricingQuoteMetadata,
+  usePricingCalculator,
+} from '@/modules/pricing';
 import type { CustomerRecord } from '@/modules/tenant/customers/types';
-import type { InsuranceRisk } from '@/types/product-engine';
-import type { QuotationFormSchemaValues } from '../../schemas';
+import { requiredFactorsApi } from '@/modules/tenant/product-engine/api/required-factors';
+import { peKeys } from '@/modules/tenant/product-engine/hooks/query-keys';
+import type {
+  InsuranceRisk,
+  MultiCalcFailure,
+  RiskRequiredFactor,
+} from '@/types/product-engine';
+import {
+  createEmptyRiskDiscountRow,
+  createEmptyRiskTaxRow,
+  type QuotationFormSchemaValues,
+} from '../../schemas';
 import { StepSection } from '../components/StepSection';
 import { WizardFormItem } from '../components/WizardFormItem';
+import {
+  applyFleetRiskPremiumResult,
+  recomputeFleetRiskRow,
+} from '../utils/premiumAggregation';
+import { resolveFleetFactorValues } from '../utils/riskFactorResolver';
 import {
   fromSelectValue,
   SELECT_NONE_VALUE,
@@ -92,12 +115,43 @@ function getVehicleIssues(
   return issues;
 }
 
+function buildFleetFailureMetadata(failure: MultiCalcFailure) {
+  return {
+    pricing_quote_id: null,
+    validation_errors:
+      failure.validation_errors.length > 0
+        ? failure.validation_errors
+        : [failure.message],
+    validation_warnings: failure.validation_warnings,
+  };
+}
+
+function resetFleetRiskPricing(
+  row: QuotationFormSchemaValues['fleet']['items'][number]['risks_covered'][number],
+) {
+  return {
+    ...row,
+    sum_insured_equivalent: '',
+    premium_rate: '',
+    premium_before_discount: '',
+    premium_after_discount: '',
+    premium_excluding_tax_equivalent: '',
+    premium_including_tax: '',
+    discounts_offered: [createEmptyRiskDiscountRow()],
+    taxes_charged: [createEmptyRiskTaxRow()],
+    rating_result_metadata: null,
+  };
+}
+
 function FleetVehicleEditor({
   form,
   riskOptions,
   customerName,
   index,
   step,
+  isCalculating,
+  calculationErrorMessage,
+  onCalculateVehicle,
   onStepChange,
   onClose,
 }: {
@@ -106,6 +160,9 @@ function FleetVehicleEditor({
   customerName: string;
   index: number;
   step: VehicleStep;
+  isCalculating: boolean;
+  calculationErrorMessage: string | null;
+  onCalculateVehicle: (index: number) => void;
   onStepChange: (step: VehicleStep) => void;
   onClose: () => void;
 }) {
@@ -265,40 +322,49 @@ function FleetVehicleEditor({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-slate-900">Vehicle Risks</p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  riskArray.append({
-                    risk_code: '',
-                    sum_insured: '',
-                    sum_insured_equivalent: '',
-                    premium_rate: '',
-                    premium_before_discount: '',
-                    premium_after_discount: '',
-                    premium_excluding_tax_equivalent: '',
-                    premium_including_tax: '',
-                    discounts_offered: [
-                      { discount_type: '1', discount_rate: '', discount_amount: '' },
-                    ],
-                    taxes_charged: [
-                      {
-                        tax_code: '',
-                        is_tax_exempted: false,
-                        tax_exemption_type: '',
-                        tax_exemption_reference: '',
-                        tax_rate: '',
-                        tax_amount: '',
-                      },
-                    ],
-                  })
-                }
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Risk
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onCalculateVehicle(index)}
+                  disabled={isCalculating}
+                >
+                  Calculate Vehicle Premiums
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    riskArray.append({
+                      client_ref: crypto.randomUUID(),
+                      risk_id: '',
+                      risk_code: '',
+                      sum_insured: '',
+                      sum_insured_equivalent: '',
+                      premium_rate: '',
+                      premium_before_discount: '',
+                      premium_after_discount: '',
+                      premium_excluding_tax_equivalent: '',
+                      premium_including_tax: '',
+                      discounts_offered: [createEmptyRiskDiscountRow()],
+                      taxes_charged: [createEmptyRiskTaxRow()],
+                      rating_result_metadata: null,
+                    })
+                  }
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Risk
+                </Button>
+              </div>
             </div>
+            {calculationErrorMessage ? (
+              <PricingStatusAlert
+                compact
+                errorMessage={calculationErrorMessage}
+              />
+            ) : null}
             {riskArray.fields.map((field, riskIndex) => {
               const discountRows =
                 form.watch(
@@ -308,6 +374,11 @@ function FleetVehicleEditor({
                 form.watch(
                   `fleet.items.${index}.risks_covered.${riskIndex}.taxes_charged` as const,
                 ) ?? [];
+              const ratingMetadata = readPricingQuoteMetadata(
+                form.watch(
+                  `fleet.items.${index}.risks_covered.${riskIndex}.rating_result_metadata` as const,
+                ),
+              );
 
               return (
                 <StepSection
@@ -336,9 +407,30 @@ function FleetVehicleEditor({
                             <FormLabel>Risk Code</FormLabel>
                             <Select
                               value={toSelectValue(field.value)}
-                              onValueChange={(value) =>
-                                field.onChange(fromSelectValue(value))
-                              }
+                              onValueChange={(value) => {
+                                const nextRiskCode = fromSelectValue(value);
+                                const selectedRisk =
+                                  riskOptions.find(
+                                    (risk) => risk.risk_code === nextRiskCode,
+                                  ) ?? null;
+                                field.onChange(nextRiskCode);
+                                form.setValue(
+                                  `fleet.items.${index}.risks_covered.${riskIndex}.risk_id`,
+                                  selectedRisk?.id ?? '',
+                                );
+                                form.setValue(
+                                  `fleet.items.${index}.risks_covered.${riskIndex}`,
+                                  {
+                                    ...resetFleetRiskPricing(
+                                      form.getValues(
+                                        `fleet.items.${index}.risks_covered.${riskIndex}`,
+                                      ),
+                                    ),
+                                    risk_code: nextRiskCode,
+                                    risk_id: selectedRisk?.id ?? '',
+                                  },
+                                );
+                              }}
                             >
                               <FormControl>
                                 <SelectTrigger>
@@ -377,7 +469,7 @@ function FleetVehicleEditor({
                           <WizardFormItem>
                             <FormLabel>Sum Insured Equivalent</FormLabel>
                             <FormControl>
-                              <Input type="number" min="0" {...field} />
+                              <Input type="number" min="0" readOnly {...field} />
                             </FormControl>
                           </WizardFormItem>
                         )}
@@ -389,7 +481,7 @@ function FleetVehicleEditor({
                           <WizardFormItem>
                             <FormLabel>Premium Rate</FormLabel>
                             <FormControl>
-                              <Input type="number" step="0.000001" {...field} />
+                              <Input type="number" step="0.000001" readOnly {...field} />
                             </FormControl>
                           </WizardFormItem>
                         )}
@@ -401,7 +493,7 @@ function FleetVehicleEditor({
                           <WizardFormItem>
                             <FormLabel>Premium Before Discount</FormLabel>
                             <FormControl>
-                              <Input type="number" step="0.01" {...field} />
+                              <Input type="number" step="0.01" readOnly {...field} />
                             </FormControl>
                           </WizardFormItem>
                         )}
@@ -413,7 +505,7 @@ function FleetVehicleEditor({
                           <WizardFormItem>
                             <FormLabel>Premium After Discount</FormLabel>
                             <FormControl>
-                              <Input type="number" step="0.01" {...field} />
+                              <Input type="number" step="0.01" readOnly {...field} />
                             </FormControl>
                           </WizardFormItem>
                         )}
@@ -425,7 +517,7 @@ function FleetVehicleEditor({
                           <WizardFormItem>
                             <FormLabel>Premium Excluding Tax Equivalent</FormLabel>
                             <FormControl>
-                              <Input type="number" step="0.01" {...field} />
+                              <Input type="number" step="0.01" readOnly {...field} />
                             </FormControl>
                           </WizardFormItem>
                         )}
@@ -437,12 +529,20 @@ function FleetVehicleEditor({
                           <WizardFormItem>
                             <FormLabel>Premium Including Tax</FormLabel>
                             <FormControl>
-                              <Input type="number" step="0.01" {...field} />
+                              <Input type="number" step="0.01" readOnly {...field} />
                             </FormControl>
                           </WizardFormItem>
                         )}
                       />
                     </div>
+
+                    <PricingStatusAlert
+                      compact
+                      isPending={isCalculating}
+                      minimumAmount={ratingMetadata?.minimum_amount}
+                      metadata={ratingMetadata}
+                      showQuoteMetadata={false}
+                    />
 
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
@@ -462,6 +562,21 @@ function FleetVehicleEditor({
                                   discount_type: '1',
                                   discount_rate: '',
                                   discount_amount: '',
+                                  request_reason_code: '',
+                                  request_comment: '',
+                                  effective_from: '',
+                                  effective_to: '',
+                                  requested_by: '',
+                                  requested_at: '',
+                                  max_permitted_rate: '',
+                                  max_permitted_amount: '',
+                                  approval_required: false,
+                                  approval_status: '',
+                                  approved_rate: '',
+                                  approved_amount: '',
+                                  approved_by: '',
+                                  approval_date: '',
+                                  rejection_reason: '',
                                 },
                               ],
                             )
@@ -474,7 +589,7 @@ function FleetVehicleEditor({
                       {discountRows.map((_, discountIndex) => (
                         <div
                           key={`${riskIndex}-discount-${discountIndex}`}
-                          className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-2"
+                          className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-3"
                         >
                           <FormField
                             control={form.control}
@@ -508,7 +623,19 @@ function FleetVehicleEditor({
                                 <WizardFormItem className="flex-1">
                                   <FormLabel>Amount</FormLabel>
                                   <FormControl>
-                                    <Input type="number" step="0.01" {...field} />
+                                    <Input type="number" step="0.01" readOnly {...field} />
+                                  </FormControl>
+                                </WizardFormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={`fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered.${discountIndex}.request_reason_code` as const}
+                              render={({ field }) => (
+                                <WizardFormItem className="flex-1">
+                                  <FormLabel>Reason Code</FormLabel>
+                                  <FormControl>
+                                    <Input {...field} placeholder="LOYALTY" />
                                   </FormControl>
                                 </WizardFormItem>
                               )}
@@ -527,6 +654,21 @@ function FleetVehicleEditor({
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
+                          <FormField
+                            control={form.control}
+                            name={`fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered.${discountIndex}.request_comment` as const}
+                            render={({ field }) => (
+                              <WizardFormItem className="md:col-span-3">
+                                <FormLabel>Comment</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    {...field}
+                                    placeholder="Why is this discount requested?"
+                                  />
+                                </FormControl>
+                              </WizardFormItem>
+                            )}
+                          />
                         </div>
                       ))}
                     </div>
@@ -585,7 +727,7 @@ function FleetVehicleEditor({
                               <WizardFormItem>
                                 <FormLabel>Rate</FormLabel>
                                 <FormControl>
-                                  <Input type="number" step="0.000001" {...field} />
+                                  <Input type="number" step="0.000001" readOnly {...field} />
                                 </FormControl>
                               </WizardFormItem>
                             )}
@@ -598,7 +740,7 @@ function FleetVehicleEditor({
                                 <WizardFormItem className="flex-1">
                                   <FormLabel>Amount</FormLabel>
                                   <FormControl>
-                                    <Input type="number" step="0.01" {...field} />
+                                    <Input type="number" step="0.01" readOnly {...field} />
                                   </FormControl>
                                 </WizardFormItem>
                               )}
@@ -1071,8 +1213,13 @@ export function MotorFleetDetailsStep({
   onDuplicateVehicle,
 }: Props) {
   const { fields } = fieldArray;
+  const queryClient = useQueryClient();
+  const { calculateMultiMutation } = usePricingCalculator();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [vehicleStep, setVehicleStep] = useState<VehicleStep>(0);
+  const [calculationErrorMessage, setCalculationErrorMessage] = useState<
+    string | null
+  >(null);
   const policyholderName = useMemo(() => {
     const customerId = form.watch('customer_id');
     const existingCustomer = customerOptions.find((customer) => customer.id === customerId);
@@ -1095,6 +1242,144 @@ export function MotorFleetDetailsStep({
     }
   }, [activeIndex, fields.length]);
 
+  async function calculateFleetPremiums(targetVehicleIndex?: number) {
+    const fleetItems = form.getValues('fleet.items');
+    const selectedVehicles =
+      targetVehicleIndex == null
+        ? fleetItems.map((item, index) => ({ item, index }))
+        : fleetItems[targetVehicleIndex]
+          ? [{ item: fleetItems[targetVehicleIndex], index: targetVehicleIndex }]
+          : [];
+
+    if (selectedVehicles.length === 0) {
+      toast.error('Add at least one fleet vehicle before calculating premiums.');
+      return;
+    }
+
+    const fleetRisks = selectedVehicles.flatMap(({ item, index: vehicleIndex }) =>
+      item.risks_covered.map((risk, riskIndex) => ({
+        vehicleIndex,
+        riskIndex,
+        row: risk,
+      })),
+    );
+    const unresolvedSelectionRows = fleetRisks.filter(
+      ({ row }) => row.risk_code.trim() && !row.risk_id.trim(),
+    );
+    unresolvedSelectionRows.forEach(({ vehicleIndex, riskIndex, row }) => {
+      form.setValue(
+        `fleet.items.${vehicleIndex}.risks_covered.${riskIndex}.rating_result_metadata`,
+        buildFleetFailureMetadata({
+          client_reference: row.client_ref,
+          risk_id: null,
+          status: 'FAILED',
+          message: 'Selected risk could not be resolved. Re-select the risk and try again.',
+          validation_errors: [
+            'Selected risk could not be resolved. Re-select the risk and try again.',
+          ],
+          validation_warnings: [],
+          details: null,
+        }),
+      );
+    });
+
+    const calculableRows = fleetRisks.filter(({ row }) => row.risk_id.trim());
+    if (calculableRows.length === 0) {
+      toast.error('Select at least one valid fleet risk before calculating premiums.');
+      return;
+    }
+
+    try {
+      setCalculationErrorMessage(null);
+      const uniqueRiskIds = [...new Set(calculableRows.map(({ row }) => row.risk_id.trim()))];
+      const requiredFactorsEntries = await Promise.all(
+        uniqueRiskIds.map(
+          async (riskId): Promise<[string, RiskRequiredFactor[]]> => [
+            riskId,
+            await queryClient.fetchQuery<RiskRequiredFactor[]>({
+              queryKey: peKeys.requiredFactors.byRisk(riskId),
+              queryFn: () => requiredFactorsApi.getByRisk(riskId),
+              staleTime: 30_000,
+            }),
+          ],
+        ),
+      );
+      const requiredFactorsByRisk = new Map(requiredFactorsEntries);
+      const request = {
+        effective_date: form.getValues('valid_from'),
+        quotation_type: 'MOTOR',
+        currency_code: form.getValues('currency')?.trim().toUpperCase() || 'TZS',
+        risks: calculableRows.map(({ vehicleIndex, riskIndex, row }) => {
+          const requiredFactors = requiredFactorsByRisk.get(row.risk_id.trim()) ?? [];
+          const item = form.getValues(`fleet.items.${vehicleIndex}`);
+
+          return {
+            client_reference: row.client_ref,
+            risk_id: row.risk_id.trim(),
+            sum_insured: Number(row.sum_insured) || 0,
+            factors: resolveFleetFactorValues(requiredFactors, item, riskIndex),
+          };
+        }),
+      };
+      const response = await calculateMultiMutation.mutateAsync(request);
+      const successByReference = new Map(
+        response.risks
+          .filter((risk) => !!risk.client_reference)
+          .map((risk) => [risk.client_reference as string, risk]),
+      );
+      const failureByReference = new Map(
+        response.failed_risks
+          .filter((risk) => !!risk.client_reference)
+          .map((risk) => [risk.client_reference as string, risk]),
+      );
+
+      calculableRows.forEach(({ vehicleIndex, riskIndex, row }) => {
+        const success = successByReference.get(row.client_ref);
+        if (success) {
+          const nextRow = recomputeFleetRiskRow(
+            applyFleetRiskPremiumResult(
+              form.getValues(
+                `fleet.items.${vehicleIndex}.risks_covered.${riskIndex}`,
+              ),
+              success,
+            ),
+          );
+          form.setValue(
+            `fleet.items.${vehicleIndex}.risks_covered.${riskIndex}`,
+            nextRow,
+          );
+          return;
+        }
+
+        const failure = failureByReference.get(row.client_ref);
+        if (failure) {
+          form.setValue(
+            `fleet.items.${vehicleIndex}.risks_covered.${riskIndex}.rating_result_metadata`,
+            buildFleetFailureMetadata(failure),
+          );
+        }
+      });
+
+      const scopedLabel =
+        targetVehicleIndex == null ? 'fleet risks' : 'vehicle risks';
+      if (response.failed_risk_count > 0) {
+        toast.warning(
+          `Calculated ${response.successful_risk_count} ${scopedLabel}; ${response.failed_risk_count} need attention.`,
+        );
+      } else {
+        toast.success(
+          `Calculated ${response.successful_risk_count} ${scopedLabel}.`,
+        );
+      }
+    } catch (error) {
+      const message = getApiErrorMessage(error);
+      setCalculationErrorMessage(
+        `Could not calculate fleet premiums: ${message}`,
+      );
+      toast.error(message);
+    }
+  }
+
   return (
     <>
       <StepSection
@@ -1102,17 +1387,27 @@ export function MotorFleetDetailsStep({
         description="Manage fleet entries first, then complete each vehicle through the nested editor."
         first
         action={
-          <Button
-            type="button"
-            onClick={() => {
-              onAddVehicle();
-              setActiveIndex(fields.length);
-              setVehicleStep(0);
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Vehicle
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => void calculateFleetPremiums()}
+              disabled={calculateMultiMutation.isPending || fields.length === 0}
+            >
+              Calculate Fleet Premiums
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                onAddVehicle();
+                setActiveIndex(fields.length);
+                setVehicleStep(0);
+              }}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Vehicle
+            </Button>
+          </div>
         }
         contentClassName="space-y-1"
       >
@@ -1134,6 +1429,10 @@ export function MotorFleetDetailsStep({
               (sum, risk) => sum + (Number(risk.premium_including_tax) || 0),
               0,
             );
+            const pricingIssues = item.risks_covered.reduce((sum, risk) => {
+              const metadata = readPricingQuoteMetadata(risk.rating_result_metadata);
+              return sum + ((metadata?.validation_errors?.length ?? 0) > 0 ? 1 : 0);
+            }, 0);
 
             return (
               <div
@@ -1163,6 +1462,13 @@ export function MotorFleetDetailsStep({
                     <>
                       <AlertTriangle className="h-4 w-4 text-amber-600" />
                       <span className="text-amber-700">{issues.length} issue(s)</span>
+                    </>
+                  ) : pricingIssues > 0 ? (
+                    <>
+                      <AlertTriangle className="h-4 w-4 text-red-600" />
+                      <span className="text-red-700">
+                        {pricingIssues} pricing issue(s)
+                      </span>
                     </>
                   ) : (
                     <>
@@ -1212,6 +1518,9 @@ export function MotorFleetDetailsStep({
           customerName={policyholderName}
           index={activeIndex}
           step={vehicleStep}
+          isCalculating={calculateMultiMutation.isPending}
+          calculationErrorMessage={calculationErrorMessage}
+          onCalculateVehicle={(vehicleIndex) => void calculateFleetPremiums(vehicleIndex)}
           onStepChange={setVehicleStep}
           onClose={() => setActiveIndex(null)}
         />
