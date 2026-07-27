@@ -233,7 +233,7 @@ const quotationRiskRowSchema = z.object({
         // discount type — a risk with no discount at all stays valid.
         if (row.discount_type?.trim() && !row.discount_rate?.trim()) {
           ctx.addIssue({
-            code: z.ZodIssueCode.custom,
+            code: 'custom',
             message: 'Discount rate is required once a discount type is selected.',
             path: ['discount_rate'],
           });
@@ -257,7 +257,7 @@ const quotationRiskRowSchema = z.object({
         // undetermined tax rate.
         if (row.tax_code?.trim() && !row.tax_rate?.trim()) {
           ctx.addIssue({
-            code: z.ZodIssueCode.custom,
+            code: 'custom',
             message: 'Tax rate is required once a tax code is selected.',
             path: ['tax_rate'],
           });
@@ -287,7 +287,7 @@ const addonTaxSchema = z
   .superRefine((row, ctx) => {
     if (row.tax_code?.trim() && !row.tax_rate?.trim()) {
       ctx.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'Tax rate is required once a tax code is selected.',
         path: ['tax_rate'],
       });
