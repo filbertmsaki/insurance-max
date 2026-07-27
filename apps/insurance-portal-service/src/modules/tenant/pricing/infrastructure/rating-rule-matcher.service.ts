@@ -259,23 +259,30 @@ export class RatingRuleMatcherService {
   ): boolean {
     if (conditions.length === 0) return true;
 
-    let result = this.evaluateSingleCondition(conditions[0], factorValues);
+    // AND binds tighter than OR, matching standard boolean precedence:
+    // split the flat condition chain into OR-separated groups, each group
+    // being one or more conditions joined by AND, then OR the groups
+    // together. Each condition's logical_operator describes how it joins
+    // the *next* condition in the chain.
+    const groups: boolean[][] = [
+      [this.evaluateSingleCondition(conditions[0], factorValues)],
+    ];
 
     for (let index = 1; index < conditions.length; index += 1) {
-      const previous = conditions[index - 1];
-      const current = this.evaluateSingleCondition(
+      const connector = conditions[index - 1].logical_operator;
+      const value = this.evaluateSingleCondition(
         conditions[index],
         factorValues,
       );
 
-      if (previous.logical_operator === LogicalOperator.AND) {
-        result = result && current;
+      if (connector === LogicalOperator.OR) {
+        groups.push([value]);
       } else {
-        result = result || current;
+        groups[groups.length - 1].push(value);
       }
     }
 
-    return result;
+    return groups.some((group) => group.every((value) => value));
   }
 
   private evaluateSingleCondition(

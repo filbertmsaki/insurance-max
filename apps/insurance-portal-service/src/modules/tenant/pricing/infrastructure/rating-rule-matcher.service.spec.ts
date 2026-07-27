@@ -1,6 +1,8 @@
 import { ConflictException } from '@nestjs/common';
 import { RatingRuleMatcherService } from './rating-rule-matcher.service';
 import { PricingRateBookStatus } from '../../pricing-rate-books/enums/pricing-rate-book-status.enum';
+import { ConditionOperator } from '@insurance-max/portal-shared/enums/condition-operator.enum';
+import { LogicalOperator } from '@insurance-max/portal-shared/enums/logical-operator.enum';
 
 const COMPANY_ID = 'company-1';
 const RISK_ID = 'risk-1';
@@ -151,5 +153,106 @@ describe('RatingRuleMatcherService — rate book currency scoping', () => {
     await expect(
       service.findActiveRules(COMPANY_ID, RISK_ID, '2026-06-01', 'TZS'),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+});
+
+describe('RatingRuleMatcherService — AND/OR condition precedence', () => {
+  it('evaluates "A AND B OR C AND D" using standard precedence, (A AND B) OR (C AND D), not a naive left-to-right fold', async () => {
+    // Factor values chosen so the two possible readings disagree:
+    //   A=true, B=true, C=false, D=false
+    //   Correct (AND binds tighter):  (A&&B) || (C&&D) = true || false = true  -> rule matches
+    //   Naive left-to-right fold:     ((A&&B) || C) && D = true && false = false -> rule would NOT match
+    const mixedConditionRule = rule({
+      id: 'rule-mixed',
+      rate_book_id: null,
+      conditions: [
+        {
+          factor_code: 'a',
+          operator: ConditionOperator.EQUALS,
+          value_from: 'YES',
+          logical_operator: LogicalOperator.AND,
+        },
+        {
+          factor_code: 'b',
+          operator: ConditionOperator.EQUALS,
+          value_from: 'YES',
+          logical_operator: LogicalOperator.OR,
+        },
+        {
+          factor_code: 'c',
+          operator: ConditionOperator.EQUALS,
+          value_from: 'YES',
+          logical_operator: LogicalOperator.AND,
+        },
+        {
+          factor_code: 'd',
+          operator: ConditionOperator.EQUALS,
+          value_from: 'YES',
+          logical_operator: LogicalOperator.AND,
+        },
+      ],
+    });
+
+    const { service } = createServiceFixture({
+      rateBooks: [],
+      rulesByRateBook: { LEGACY: [mixedConditionRule] },
+    });
+
+    const matched = await service.findFirstMatchingRule(
+      COMPANY_ID,
+      RISK_ID,
+      { a: 'YES', b: 'YES', c: 'NO', d: 'NO' },
+      '2026-06-01',
+    );
+
+    expect(matched?.id).toBe('rule-mixed');
+  });
+
+  it('does not match "A AND B OR C AND D" when both AND-groups are false under correct precedence', async () => {
+    const mixedConditionRule = rule({
+      id: 'rule-mixed',
+      rate_book_id: null,
+      conditions: [
+        {
+          factor_code: 'a',
+          operator: ConditionOperator.EQUALS,
+          value_from: 'YES',
+          logical_operator: LogicalOperator.AND,
+        },
+        {
+          factor_code: 'b',
+          operator: ConditionOperator.EQUALS,
+          value_from: 'YES',
+          logical_operator: LogicalOperator.OR,
+        },
+        {
+          factor_code: 'c',
+          operator: ConditionOperator.EQUALS,
+          value_from: 'YES',
+          logical_operator: LogicalOperator.AND,
+        },
+        {
+          factor_code: 'd',
+          operator: ConditionOperator.EQUALS,
+          value_from: 'YES',
+          logical_operator: LogicalOperator.AND,
+        },
+      ],
+    });
+
+    const { service } = createServiceFixture({
+      rateBooks: [],
+      rulesByRateBook: { LEGACY: [mixedConditionRule] },
+    });
+
+    // A=false, B=true, C=false, D=false -> (A&&B)||(C&&D) = false||false = false
+    const matched = await service.findFirstMatchingRule(
+      COMPANY_ID,
+      RISK_ID,
+      { a: 'NO', b: 'YES', c: 'NO', d: 'NO' },
+      '2026-06-01',
+    );
+
+    expect(matched).toBeNull();
   });
 });
