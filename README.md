@@ -95,3 +95,5 @@ npm run db:prepare:tiramis:e2e
 If you want a fuller narrative description, see `docs/project-overview.md`.
 
 Pricing-engine implementation notes are documented in `docs/pricing-engine.md`.
+
+Pricing request and response examples are documented in `docs/pricing-api-examples.md`.
