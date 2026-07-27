@@ -48,6 +48,7 @@ import {
 import type { PricingFactorValue } from '@/modules/pricing';
 import { StepSection } from './StepSection';
 import { WizardFormItem } from './WizardFormItem';
+import type { QuotationFactorContext } from '../utils/riskFactorResolver';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -55,6 +56,7 @@ interface Props {
   riskOptions: InsuranceRisk[];
   onRemove: (index: number) => void;
   canRemove: boolean;
+  factorContext?: QuotationFactorContext;
 }
 
 const DISCOUNT_TYPE_OPTIONS = [
@@ -78,6 +80,7 @@ export function RiskRow({
   riskOptions,
   onRemove,
   canRemove,
+  factorContext,
 }: Props) {
   const riskId = form.watch(`risks.${index}.risk_id` as const);
   const quotationType = form.watch('quotation_type');
@@ -92,7 +95,7 @@ export function RiskRow({
   }, [form, index, selectedRisk?.risk_code]);
 
   const { calculateMutation, requiredFactorsQuery, handleSumInsuredBlur } =
-    useRiskPremiumCalculation(form, index);
+    useRiskPremiumCalculation(form, index, factorContext);
 
   // Snapshot of the currently-selected risk's required factor codes, kept
   // fresh continuously (while riskId is unchanged) so that whenever a real

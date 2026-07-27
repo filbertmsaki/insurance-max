@@ -5,6 +5,11 @@ type FactorValue = string | number | boolean;
 type MotorDetails = QuotationFormSchemaValues['motor'];
 type FleetMotorDetails = QuotationFormSchemaValues['fleet']['items'][number]['motor_dtl'];
 
+export interface QuotationFactorContext {
+  salePointCode?: string;
+  policyHolderType?: number;
+}
+
 const NON_MOTOR_BASE_FACTOR_CODES = [
   'annual_turnover',
   'payroll',
@@ -118,6 +123,37 @@ function coerceFactorValue(
   return typeof raw === 'string' ? raw : stringValue;
 }
 
+function resolveQuotationFactorRawValue(
+  factorCode: string,
+  formValues: QuotationFormSchemaValues,
+  context?: QuotationFactorContext,
+): string | number | undefined {
+  switch (factorCode) {
+    case 'payment_mode':
+      return {
+        '1': 'Cash',
+        '2': 'Cheque',
+        '3': 'EFT',
+      }[formValues.payment_mode_tira];
+    case 'currency_code':
+      return formValues.currency.trim().toUpperCase();
+    case 'exchange_rate':
+      return formValues.currency.trim().toUpperCase() === 'TZS'
+        ? 1
+        : formValues.exchange_rate;
+    case 'sale_point_code':
+      return context?.salePointCode;
+    case 'officer_name':
+      return formValues.officer_name;
+    case 'officer_title':
+      return formValues.officer_title;
+    case 'policy_holder_type':
+      return context?.policyHolderType === 2 ? 'Corporate' : 'Individual';
+    default:
+      return undefined;
+  }
+}
+
 /**
  * Resolves the factor payload the calculation API expects for a given risk row,
  * generically across Motor/Marine/Fire/Engineering/GIT/Misc — the mapping table
@@ -129,6 +165,7 @@ export function resolveFactorValues(
   requiredFactors: RiskRequiredFactor[],
   formValues: QuotationFormSchemaValues,
   riskIndex: number,
+  context?: QuotationFactorContext,
 ): Record<string, FactorValue> {
   const isMotorFlow = formValues.quotation_type === 'MOTOR';
   const rowFactorValues = formValues.risks[riskIndex]?.factor_values ?? {};
@@ -136,9 +173,11 @@ export function resolveFactorValues(
 
   requiredFactors.forEach((requiredFactor) => {
     const code = requiredFactor.factor.code;
-    const raw = isMotorFlow
-      ? resolveMotorFactorRawValue(code, formValues.motor)
-      : rowFactorValues[code];
+    const raw =
+      resolveQuotationFactorRawValue(code, formValues, context) ??
+      (isMotorFlow
+        ? resolveMotorFactorRawValue(code, formValues.motor)
+        : rowFactorValues[code]);
 
     if (raw === undefined || raw === '') return;
     values[code] = coerceFactorValue(raw, requiredFactor.factor.data_type);
@@ -183,12 +222,16 @@ export function resolveFleetFactorValues(
   requiredFactors: RiskRequiredFactor[],
   item: QuotationFormSchemaValues['fleet']['items'][number],
   riskIndex: number,
+  formValues: QuotationFormSchemaValues,
+  context?: QuotationFactorContext,
 ): Record<string, FactorValue> {
   const values: Record<string, FactorValue> = {};
 
   requiredFactors.forEach((requiredFactor) => {
     const code = requiredFactor.factor.code;
-    const raw = resolveFleetMotorFactorRawValue(code, item.motor_dtl);
+    const raw =
+      resolveQuotationFactorRawValue(code, formValues, context) ??
+      resolveFleetMotorFactorRawValue(code, item.motor_dtl);
 
     if (raw === undefined || raw === '') return;
     values[code] = coerceFactorValue(raw, requiredFactor.factor.data_type);

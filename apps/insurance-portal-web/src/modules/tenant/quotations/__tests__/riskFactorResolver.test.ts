@@ -127,4 +127,38 @@ describe('resolveFactorValues', () => {
     expect(resolved.sum_insured).toBe(5000000);
     expect(resolved.declared_value).toBe(99000000);
   });
+
+  it('includes quotation-level values required by pricing', () => {
+    const values = createBaseValues();
+    values.quotation_type = 'MOTOR';
+    values.currency = 'USD';
+    values.exchange_rate = '2540.125';
+    values.officer_name = 'Jane Officer';
+    values.officer_title = 'Underwriter';
+
+    const resolved = resolveFactorValues(
+      [
+        requiredFactor('payment_mode'),
+        requiredFactor('currency_code', 'TEXT'),
+        requiredFactor('exchange_rate'),
+        requiredFactor('sale_point_code', 'TEXT'),
+        requiredFactor('officer_name', 'TEXT'),
+        requiredFactor('officer_title', 'TEXT'),
+        requiredFactor('policy_holder_type'),
+      ],
+      values,
+      0,
+      { salePointCode: 'SP-01', policyHolderType: 1 },
+    );
+
+    expect(resolved).toMatchObject({
+      payment_mode: 'Cash',
+      currency_code: 'USD',
+      exchange_rate: 2540.125,
+      sale_point_code: 'SP-01',
+      officer_name: 'Jane Officer',
+      officer_title: 'Underwriter',
+      policy_holder_type: 'Individual',
+    });
+  });
 });

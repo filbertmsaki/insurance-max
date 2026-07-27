@@ -6,7 +6,10 @@ import {
   usePricingRulePreview,
 } from '@/modules/pricing';
 import type { QuotationFormSchemaValues } from '../../schemas';
-import { resolveFactorValues } from '../utils/riskFactorResolver';
+import {
+  resolveFactorValues,
+  type QuotationFactorContext,
+} from '../utils/riskFactorResolver';
 import { applyRiskPremiumResult, toNumber } from '../utils/premiumAggregation';
 import { readPricingQuoteMetadata } from '@/modules/pricing';
 import { buildSingleRiskPricingSignature } from '../utils/pricingStaleness';
@@ -28,6 +31,7 @@ function path(
 export function useRiskPremiumCalculation(
   form: UseFormReturn<QuotationFormSchemaValues>,
   index: number,
+  factorContext?: QuotationFactorContext,
 ) {
   const riskId = useWatch({ control: form.control, name: path(index, 'risk_id') }) as string;
   const quotationType = useWatch({ control: form.control, name: 'quotation_type' });
@@ -102,13 +106,19 @@ export function useRiskPremiumCalculation(
       ],
     } as QuotationFormSchemaValues;
 
-    return resolveFactorValues(requiredFactors, pseudoFormValues, 0);
+    return resolveFactorValues(
+      requiredFactors,
+      { ...form.getValues(), ...pseudoFormValues },
+      0,
+      factorContext,
+    );
   }, [
     requiredFactors,
     quotationType,
     motor,
     committedSumInsured,
     factorValuesRow,
+    factorContext,
   ]);
   const factorValuesKey = JSON.stringify(factorValues);
   const currentPricingSignature = useMemo(
@@ -359,6 +369,29 @@ export function useRiskPremiumCalculation(
                 pricing_is_stale: false,
                 stale_reason: null,
               },
+            );
+          },
+          onError: () => {
+            if (!mountedRef.current || token !== requestTokenRef.current) {
+              return;
+            }
+
+            // The pricing_quote_id is invalidated on failure so a stale,
+            // possibly-no-longer-accurate quote can never be submitted —
+            // the last-known premium figures stay visible alongside the
+            // error banner (PricingStatusAlert), they just no longer carry
+            // a usable quote reference.
+            const existingMetadata = form.getValues(
+              path(index, 'rating_result_metadata'),
+            ) as Record<string, unknown> | null;
+            form.setValue(
+              path(index, 'rating_result_metadata'),
+              {
+                ...(existingMetadata ?? {}),
+                pricing_quote_id: null,
+                pricing_status: 'ERROR',
+                pricing_input_signature: currentPricingSignature,
+              } as never,
             );
           },
         },

@@ -14,6 +14,7 @@ import type { QuotationFormSchemaValues } from '../../schemas';
 import { RiskRow } from '../components/RiskRow';
 import { StepSection } from '../components/StepSection';
 import type { QuotationFlow } from '../../types';
+import type { QuotationFactorContext } from '../utils/riskFactorResolver';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -26,6 +27,7 @@ interface Props {
   >;
   onRemoveRisk: (index: number) => void;
   onAddRisk: () => void;
+  factorContext?: QuotationFactorContext;
 }
 
 export function RiskPremiumStep({
@@ -36,6 +38,7 @@ export function RiskPremiumStep({
   subjectMatterFieldArray,
   onRemoveRisk,
   onAddRisk,
+  factorContext,
 }: Props) {
   const { fields } = fieldArray;
   const showSubjectMatters = flow === 'NON_MOTOR' && subjectMatterFieldArray;
@@ -60,6 +63,7 @@ export function RiskPremiumStep({
             riskOptions={riskOptions}
             onRemove={onRemoveRisk}
             canRemove={fields.length > 1}
+            factorContext={factorContext}
           />
         ))}
       </StepSection>

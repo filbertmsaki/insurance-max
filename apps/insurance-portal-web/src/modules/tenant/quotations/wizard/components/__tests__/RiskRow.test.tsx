@@ -143,6 +143,13 @@ describe('RiskRow', () => {
     expect(screen.getByLabelText('Premium Including Tax')).toHaveAttribute(
       'readonly',
     );
+    // Discount amount and tax rate/amount are backend-calculated outputs —
+    // only discount_rate and tax_code (the actual user-controlled inputs)
+    // remain editable.
+    expect(screen.getByLabelText('Amount')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Tax Rate')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Tax Amount')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Rate')).not.toHaveAttribute('readonly');
   });
 
   it('shows per-risk pricing validation messages and discount request fields', () => {

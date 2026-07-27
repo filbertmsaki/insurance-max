@@ -56,7 +56,10 @@ import {
   recomputeFleetRiskRow,
 } from '../utils/premiumAggregation';
 import { buildFleetRiskPricingSignature } from '../utils/pricingStaleness';
-import { resolveFleetFactorValues } from '../utils/riskFactorResolver';
+import {
+  resolveFleetFactorValues,
+  type QuotationFactorContext,
+} from '../utils/riskFactorResolver';
 import {
   fromSelectValue,
   SELECT_NONE_VALUE,
@@ -71,6 +74,7 @@ interface Props {
   onAddVehicle: () => void;
   onRemoveVehicle: (index: number) => void;
   onDuplicateVehicle: (index: number) => void;
+  factorContext?: QuotationFactorContext;
 }
 
 type VehicleStep = 0 | 1 | 2 | 3 | 4;
@@ -1212,6 +1216,7 @@ export function MotorFleetDetailsStep({
   onAddVehicle,
   onRemoveVehicle,
   onDuplicateVehicle,
+  factorContext,
 }: Props) {
   const { fields } = fieldArray;
   const queryClient = useQueryClient();
@@ -1322,7 +1327,13 @@ export function MotorFleetDetailsStep({
             client_reference: row.client_ref,
             risk_id: row.risk_id.trim(),
             sum_insured: Number(row.sum_insured) || 0,
-            factors: resolveFleetFactorValues(requiredFactors, item, riskIndex),
+            factors: resolveFleetFactorValues(
+              requiredFactors,
+              item,
+              riskIndex,
+              form.getValues(),
+              factorContext,
+            ),
           };
         }),
       };

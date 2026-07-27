@@ -56,10 +56,10 @@ export function computePremiumIncludingTax(
  */
 function applyChargesToTaxRows(
   taxRows: QuotationRiskFormRow['taxes_charged'],
-  charges: RiskPremiumResult['charges'],
+  charges: RiskPremiumResult['charges'] | undefined,
 ): QuotationRiskFormRow['taxes_charged'] {
   const chargeByCode = new Map(
-    charges.map((charge) => [charge.charge_code, charge]),
+    (charges ?? []).map((charge) => [charge.charge_code, charge]),
   );
 
   return taxRows.map((row) => {

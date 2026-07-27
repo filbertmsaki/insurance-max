@@ -251,6 +251,7 @@ export function QuotationWizardPage() {
   const branchId = form.watch('branch_id');
   const customerId = form.watch('customer_id');
   const policyholderMode = form.watch('policyholder_mode');
+  const salePointId = form.watch('sale_point_id');
   const watchedRisks = useWatch({
     control: form.control,
     name: 'risks',
@@ -301,6 +302,15 @@ export function QuotationWizardPage() {
   const { data: vehicleOptions = [] } = useQuotationVehicles(
     policyholderMode === 'existing' ? customerId : undefined,
   );
+  const selectedCustomer = customerOptions.find((item) => item.id === customerId);
+  const selectedPolicyHolderType =
+    policyholderMode === 'existing' && selectedCustomer
+      ? selectedCustomer.policy_holder_type ??
+        (selectedCustomer.customer_type === 'CORPORATE' ? 2 : 1)
+      : form.watch('policyholder.customer_type') === 'CORPORATE'
+        ? 2
+        : 1;
+  const salePointCode = activeSalePoints.find((item) => item.id === salePointId)?.salePointCode;
   const createMutation = useCreateQuotation();
   const updateMutation = useUpdateQuotation(id);
   const [isSubmittingToTiramis, setIsSubmittingToTiramis] = useState(false);
@@ -1036,6 +1046,10 @@ export function QuotationWizardPage() {
                     subjectMatterFieldArray={nonMotorFieldArray}
                     onRemoveRisk={removeRisk}
                     onAddRisk={addRisk}
+                    factorContext={{
+                      salePointCode,
+                      policyHolderType: selectedPolicyHolderType,
+                    }}
                   />
                 )}
 
@@ -1059,6 +1073,10 @@ export function QuotationWizardPage() {
                     onAddVehicle={addFleetVehicle}
                     onRemoveVehicle={removeFleetVehicle}
                     onDuplicateVehicle={duplicateFleetVehicle}
+                    factorContext={{
+                      salePointCode,
+                      policyHolderType: selectedPolicyHolderType,
+                    }}
                   />
                 )}
 
