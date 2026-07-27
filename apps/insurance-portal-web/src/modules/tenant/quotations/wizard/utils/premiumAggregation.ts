@@ -44,6 +44,30 @@ export function computePremiumIncludingTax(
   );
 }
 
+export function recomputeRiskTaxTotals(
+  row: QuotationFormSchemaValues['risks'][number],
+): QuotationFormSchemaValues['risks'][number] {
+  const premiumExcludingTax =
+    toNumber(row.premium_excluding_tax_equivalent) ||
+    toNumber(row.premium_after_discount);
+  const taxes = row.taxes_charged.map((tax) => ({
+    ...tax,
+    tax_amount: String(
+      tax.is_tax_exempted
+        ? 0
+        : roundMoney(applyRate(premiumExcludingTax, toNumber(tax.tax_rate))),
+    ),
+  }));
+
+  return {
+    ...row,
+    taxes_charged: taxes,
+    premium_including_tax: String(
+      computePremiumIncludingTax(premiumExcludingTax, taxes),
+    ),
+  };
+}
+
 /**
  * Maps charge lines from a calculation result onto the risk's existing
  * taxes_charged rows, matched by tax_code — mirroring exactly what the

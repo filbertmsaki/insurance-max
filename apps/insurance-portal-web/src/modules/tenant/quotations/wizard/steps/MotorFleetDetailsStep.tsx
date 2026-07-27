@@ -65,6 +65,10 @@ import {
   SELECT_NONE_VALUE,
   toSelectValue,
 } from '../utils/selectValue';
+import {
+  TAX_CODE_OPTIONS,
+  getTaxRateForCode,
+} from '../utils/taxOptions';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -719,9 +723,48 @@ function FleetVehicleEditor({
                             render={({ field }) => (
                               <WizardFormItem>
                                 <FormLabel>Tax Code</FormLabel>
-                                <FormControl>
-                                  <Input {...field} />
-                                </FormControl>
+                                <Select
+                                  value={toSelectValue(field.value as string)}
+                                  onValueChange={(value) => {
+                                    const nextValue = fromSelectValue(value);
+                                    const currentRisk = form.getValues(
+                                      `fleet.items.${index}.risks_covered.${riskIndex}` as const,
+                                    );
+                                    const nextTaxes = currentRisk.taxes_charged.map(
+                                      (tax, rowIndex) =>
+                                        rowIndex === taxIndex
+                                          ? {
+                                              ...tax,
+                                              tax_code: nextValue,
+                                              tax_rate: getTaxRateForCode(nextValue),
+                                              tax_amount: '',
+                                            }
+                                          : tax,
+                                    );
+                                    const nextRisk = recomputeFleetRiskRow({
+                                      ...currentRisk,
+                                      taxes_charged: nextTaxes,
+                                    });
+                                    form.setValue(
+                                      `fleet.items.${index}.risks_covered.${riskIndex}` as const,
+                                      nextRisk,
+                                    );
+                                  }}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select tax code" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
+                                    {TAX_CODE_OPTIONS.map((option) => (
+                                      <SelectItem key={option.value} value={option.value}>
+                                        {option.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
                               </WizardFormItem>
                             )}
                           />

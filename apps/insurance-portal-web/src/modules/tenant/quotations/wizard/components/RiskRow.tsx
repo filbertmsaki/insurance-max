@@ -30,13 +30,17 @@ import {
   TAX_CODE_OPTIONS,
   TAX_EXEMPTION_OPTIONS,
   TAX_EXEMPTION_TYPE_OPTIONS,
+  getTaxRateForCode,
 } from '../utils/taxOptions';
 import {
   fromSelectValue,
   SELECT_NONE_VALUE,
   toSelectValue,
 } from '../utils/selectValue';
-import { toNumber } from '../utils/premiumAggregation';
+import {
+  recomputeRiskTaxTotals,
+  toNumber,
+} from '../utils/premiumAggregation';
 import { motorFieldNameForFactorCode } from '../utils/riskFactorResolver';
 import { useRiskPremiumCalculation } from '../hooks/useRiskPremiumCalculation';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -160,6 +164,30 @@ export function RiskRow({
     name: `risks.${index}.taxes_charged` as const,
   });
   const taxes = watchedTaxes ?? EMPTY_TAX_ROWS;
+  const previousTaxCodesRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    const previousCodes = previousTaxCodesRef.current;
+    const taxCodeChanged =
+      previousCodes.length === taxes.length &&
+      taxes.some((tax, taxIndex) => tax.tax_code !== previousCodes[taxIndex]);
+
+    if (taxCodeChanged) {
+      const nextTaxes = taxes.map((tax) => ({
+        ...tax,
+        tax_rate: getTaxRateForCode(tax.tax_code),
+        tax_amount: '',
+      }));
+      const nextRow = recomputeRiskTaxTotals({
+        ...form.getValues(`risks.${index}`),
+        taxes_charged: nextTaxes,
+      });
+      form.setValue(path(index, 'taxes_charged'), nextRow.taxes_charged);
+      form.setValue(path(index, 'premium_including_tax'), nextRow.premium_including_tax);
+    }
+
+    previousTaxCodesRef.current = taxes.map((tax) => tax.tax_code);
+  }, [form, index, taxes]);
   const premiumAfterDiscount = form.watch(
     `risks.${index}.premium_after_discount` as const,
   );
@@ -443,43 +471,6 @@ export function RiskRow({
             />
           </div>
         ) : null}
-
-        {false && (
-          <div className="space-y-1 rounded-lg border border-slate-100 bg-slate-50/60 p-3 text-xs text-slate-600">
-            {minimumAmount ? (
-              <p>Minimum premium: {toNumber(minimumAmount).toFixed(2)}</p>
-            ) : null}
-            {calculateMutation.isPending ? (
-              <p className="text-slate-500">Calculating premium…</p>
-            ) : null}
-            {calculateMutation.isError ? (
-              <p className="font-medium text-red-600">
-                Could not calculate premium:{' '}
-                {getApiErrorMessage(calculateMutation.error)}. The last known
-                premium values are shown below.
-              </p>
-            ) : null}
-            {ratingResultMetadata?.minimum_applied ? (
-              <p className="font-medium text-amber-700">
-                Minimum premium applied
-              </p>
-            ) : null}
-            {ratingResultMetadata?.validation_errors?.length ? (
-              <ul className="list-disc space-y-0.5 pl-4 text-red-600">
-                {(ratingResultMetadata?.validation_errors ?? []).map((message) => (
-                  <li key={message}>{message}</li>
-                ))}
-              </ul>
-            ) : null}
-            {ratingResultMetadata?.validation_warnings?.length ? (
-              <ul className="list-disc space-y-0.5 pl-4 text-amber-700">
-                {(ratingResultMetadata?.validation_warnings ?? []).map((message) => (
-                  <li key={message}>{message}</li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        )}
 
         <div className="space-y-1 border-t border-slate-100 pt-4">
           <div className="flex items-center justify-between gap-2">

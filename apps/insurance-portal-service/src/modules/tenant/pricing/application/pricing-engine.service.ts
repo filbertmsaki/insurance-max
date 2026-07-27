@@ -96,7 +96,6 @@ export class PricingEngineService {
     // above the limit is still computed and returned (not rejected) so the
     // frontend can show the user what would happen; actual enforcement
     // happens at quotation submission time.
-    const loadingType = this.resolveAdjustmentType(input.loading);
     const loadingRate = input.loading?.rate ?? null;
     const loadingAmount = this.computeAdjustmentAmount(
       breakdown.final_premium,

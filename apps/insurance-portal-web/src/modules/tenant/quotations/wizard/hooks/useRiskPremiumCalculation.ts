@@ -10,7 +10,7 @@ import {
   resolveFactorValues,
   type QuotationFactorContext,
 } from '../utils/riskFactorResolver';
-import { applyRiskPremiumResult, toNumber } from '../utils/premiumAggregation';
+import { applyRiskPremiumResult } from '../utils/premiumAggregation';
 import { readPricingQuoteMetadata } from '@/modules/pricing';
 import { buildSingleRiskPricingSignature } from '../utils/pricingStaleness';
 
