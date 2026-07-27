@@ -86,6 +86,8 @@ import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { PricingChargeService } from '../pricing/application/pricing-charge.service';
+import { ExchangeRateGovernanceService } from '../pricing/application/exchange-rate-governance.service';
+import type { ExchangeRateSnapshot } from '../pricing/domain/pricing.types';
 import { PricingQuote, PricingQuoteScope, PricingQuoteStatus } from '../pricing/entities/pricing-quote.entity';
 import { PricingRateBook } from '../pricing-rate-books/entities/pricing-rate-book.entity';
 import { PricingRateBookStatus } from '../pricing-rate-books/enums/pricing-rate-book-status.enum';
@@ -120,6 +122,40 @@ interface PricingAdjustmentControl {
   approval_threshold_amount: number | null;
   effective_from: string | null;
   effective_to: string | null;
+}
+
+interface AuthoritativePricingValidationOptions {
+  productId: string;
+  riskByCode: Map<string, PricingAuthorityRiskContext>;
+  quotationId?: string;
+  approvedOverridePremiums?: Map<string, ApprovedPremiumOverrideSnapshot>;
+}
+
+interface PricingValidationAuditContext {
+  userId?: string | null;
+  quotationId?: string | null;
+  quotationNo?: string | null;
+  reason: string;
+}
+
+type QuotationPricingStatus = 'CURRENT' | 'STALE' | 'EXPIRED' | 'MISSING';
+
+interface QuotationPricingIntegrationSummary {
+  pricing_status: QuotationPricingStatus;
+  is_stale: boolean;
+  current_pricing_quote_id: string | null;
+  pricing_quote_ids: string[];
+  last_calculated_at: string | null;
+  pricing_expires_at: string | null;
+  rate_book_version: string | null;
+  base_premium: number;
+  total_discounts: number;
+  total_loadings: number;
+  total_taxes: number;
+  final_payable_premium: number;
+  override_status: string;
+  approval_status: string;
+  stale_reasons: string[];
 }
 
 interface ResolvedHeader {
@@ -189,22 +225,31 @@ export class QuotationsService {
     private readonly quotationLifecycleService: QuotationLifecycleService,
     private readonly auditService: AuditService,
     private readonly pricingChargeService: PricingChargeService,
+    private readonly exchangeRateGovernanceService: ExchangeRateGovernanceService,
   ) {}
 
-  async create(companyId: string, payload: CreateQuotationDto, userId: string) {
+  async create(
+    companyId: string,
+    payload: CreateQuotationDto,
+    user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
+  ) {
     const preparedPayload = await this.preparePayloadWithGeneratedIdentifiers(
       companyId,
       payload,
     );
 
     const scope = await this.validateScope(companyId, preparedPayload);
-    await this.assertAuthoritativePricing(companyId, preparedPayload, {
+    const exchangeRateSnapshot = await this.resolveExchangeRateSnapshot(
+      companyId,
+      preparedPayload,
+      user,
+    );
+    await this.validateAuthoritativePricing(companyId, preparedPayload, {
       productId: scope.product.id,
       riskByCode: this.createPricingAuthorityRiskIndex(scope.riskByCode),
     });
-    this.payloadValidator.assertValid(preparedPayload);
     const lifecycleContext = {
-      changedBy: userId,
+      changedBy: user.id,
       changedByType: 'USER' as const,
       source: 'USER' as const,
       channel: preparedPayload.internal_quotation.channel_type,
@@ -218,7 +263,7 @@ export class QuotationsService {
           companyId,
           payload,
           scope.customerId,
-          userId,
+          user.id,
         );
 
         const quotationNo =
@@ -232,7 +277,7 @@ export class QuotationsService {
           companyId,
           quotationNo,
           preparedPayload,
-          userId,
+          user.id,
           customerId,
           null,
         );
@@ -243,7 +288,8 @@ export class QuotationsService {
           preparedPayload,
           scope.riskByCode,
           customerId,
-          userId,
+          user.id,
+          exchangeRateSnapshot,
         );
 
         return quotation.id;
@@ -255,7 +301,15 @@ export class QuotationsService {
         lifecycleContext,
       );
 
-      return this.findOne(companyId, quotationId);
+      const quotation = await this.findOne(companyId, quotationId);
+      await this.logDiscountAuditEntries(
+        companyId,
+        quotationId,
+        quotation.quotation_no,
+        preparedPayload,
+        user.id,
+      );
+      return quotation;
     } catch (error) {
       this.rethrowConstraintError(error);
     }
@@ -265,7 +319,7 @@ export class QuotationsService {
     companyId: string,
     id: string,
     payload: UpdateQuotationDto,
-    userId: string,
+    user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
   ) {
     const existing = await this.quotationsRepository.findOneAggregate(
       companyId,
@@ -281,14 +335,28 @@ export class QuotationsService {
     );
 
     const scope = await this.validateScope(companyId, preparedPayload);
-    await this.assertAuthoritativePricing(companyId, preparedPayload, {
-      productId: scope.product.id,
-      riskByCode: this.createPricingAuthorityRiskIndex(scope.riskByCode),
-      quotationId: existing.id,
-    });
-    this.payloadValidator.assertValid(preparedPayload);
+    const exchangeRateSnapshot = await this.resolveExchangeRateSnapshot(
+      companyId,
+      preparedPayload,
+      user,
+    );
+    await this.validateAuthoritativePricing(
+      companyId,
+      preparedPayload,
+      {
+        productId: scope.product.id,
+        riskByCode: this.createPricingAuthorityRiskIndex(scope.riskByCode),
+        quotationId: existing.id,
+      },
+      {
+        userId: user.id,
+        quotationId: existing.id,
+        quotationNo: existing.quotation_no,
+        reason: 'Quotation payload validation succeeded before replacement',
+      },
+    );
     const lifecycleContext = {
-      changedBy: userId,
+      changedBy: user.id,
       changedByType: 'USER' as const,
       source: 'USER' as const,
       channel: preparedPayload.internal_quotation.channel_type,
@@ -322,7 +390,7 @@ export class QuotationsService {
           companyId,
           preparedPayload,
           scope.customerId,
-          userId,
+          user.id,
         );
 
         await manager.getRepository(QuotationCoverNote).delete({
@@ -338,7 +406,7 @@ export class QuotationsService {
           companyId,
           lockedQuotation.quotation_no,
           preparedPayload,
-          userId,
+          user.id,
           customerId,
           lockedQuotation,
         );
@@ -349,7 +417,8 @@ export class QuotationsService {
           preparedPayload,
           scope.riskByCode,
           customerId,
-          userId,
+          user.id,
+          exchangeRateSnapshot,
         );
 
         if (previousStatus !== QuotationStatus.DRAFT) {
@@ -365,7 +434,15 @@ export class QuotationsService {
         );
       }
 
-      return this.findOne(companyId, id);
+      const quotation = await this.findOne(companyId, id);
+      await this.logDiscountAuditEntries(
+        companyId,
+        id,
+        quotation.quotation_no,
+        preparedPayload,
+        user.id,
+      );
+      return quotation;
     } catch (error) {
       this.rethrowConstraintError(error);
     }
@@ -387,7 +464,13 @@ export class QuotationsService {
       companyId,
       id,
     );
-    return this.payloadMapper.toResponse(quotation);
+    return {
+      ...this.payloadMapper.toResponse(quotation),
+      pricing_integration: await this.evaluateQuotationPricingIntegration(
+        companyId,
+        quotation,
+      ),
+    };
   }
 
   async getAuthoritativePayload(companyId: string, id: string) {
@@ -424,7 +507,7 @@ export class QuotationsService {
       this.findTiramisTrackingByEntry(companyId, quotation),
     ]);
 
-    return this.previewMapper.toResponse(
+    const response = this.previewMapper.toResponse(
       quotation,
       {
         invoice,
@@ -439,6 +522,14 @@ export class QuotationsService {
         includePremiumOverrides: this.canViewPremiumOverrides(user),
       },
     );
+
+    return {
+      ...response,
+      pricing_integration: await this.evaluateQuotationPricingIntegration(
+        companyId,
+        quotation,
+      ),
+    };
   }
 
   async requestPremiumOverride(
@@ -519,8 +610,15 @@ export class QuotationsService {
         riskId: risk.id,
         riskCode: risk.risk_code,
         premiumOverrideId: premiumOverride.id,
-        originalCalculatedPremium,
-        proposedPremium,
+        old_value: {
+          premium_before_discount: originalCalculatedPremium,
+        },
+        new_value: {
+          proposed_premium: proposedPremium,
+          difference_amount: roundMoney(proposedPremium - originalCalculatedPremium),
+        },
+        reason: dto.override_reason.trim(),
+        correlation_id: premiumOverride.id,
       },
     });
 
@@ -598,8 +696,14 @@ export class QuotationsService {
         riskId: risk.id,
         riskCode: risk.risk_code,
         premiumOverrideId: premiumOverride.id,
-        proposedPremium: Number(premiumOverride.proposed_premium),
-        note: dto.rejection_reason?.trim() || null,
+        old_value: {
+          premium_before_discount: Number(premiumOverride.original_calculated_premium),
+        },
+        new_value: {
+          proposed_premium: Number(premiumOverride.proposed_premium),
+        },
+        reason: dto.rejection_reason?.trim() || premiumOverride.override_reason,
+        correlation_id: premiumOverride.id,
       },
     });
 
@@ -671,7 +775,14 @@ export class QuotationsService {
         riskId: risk.id,
         riskCode: risk.risk_code,
         premiumOverrideId: premiumOverride.id,
-        rejectionReason,
+        old_value: {
+          proposed_premium: Number(premiumOverride.proposed_premium),
+        },
+        new_value: {
+          approval_status: QuotationPremiumOverrideStatus.REJECTED,
+        },
+        reason: rejectionReason,
+        correlation_id: premiumOverride.id,
       },
       status: 'failure',
     });
@@ -735,21 +846,17 @@ export class QuotationsService {
       );
     }
 
-    const payload = this.payloadMapper.toAuthoritativePayload(quotation);
-    await this.assertAuthoritativePricing(companyId, payload, {
-      productId: quotation.product_id,
-      riskByCode: this.createPersistedPricingAuthorityRiskIndex(quotation),
-      quotationId: quotation.id,
-      approvedOverridePremiums:
-        this.buildApprovedPremiumOverrideIndex(quotation),
-    });
-    this.payloadValidator.assertValid(payload);
-    const tiramisPayload = this.tiramisPayloadMapper.toTiramisPayload(payload);
-
-    const requestType = this.toTiramisRequestType(quotation.quotation_flow);
     const shouldReuseExistingSubmission =
       !!submitOptions.return_existing &&
       quotation.tira_status !== TiraStatus.NOT_SUBMITTED;
+    const requestType = this.toTiramisRequestType(quotation.quotation_flow);
+
+    const { tiramisPayload } = await this.prepareTrustedTiraSubmission(
+      companyId,
+      quotation,
+      submitOptions,
+      user.id,
+    );
 
     if (!shouldReuseExistingSubmission) {
       await this.quotationLifecycleService.startTiraSubmission(
@@ -919,14 +1026,23 @@ export class QuotationsService {
         id,
       );
       const payload = this.payloadMapper.toAuthoritativePayload(quotation);
-      await this.assertAuthoritativePricing(companyId, payload, {
-        productId: quotation.product_id,
-        riskByCode: this.createPersistedPricingAuthorityRiskIndex(quotation),
-        quotationId: quotation.id,
-        approvedOverridePremiums:
-          this.buildApprovedPremiumOverrideIndex(quotation),
-      });
-      this.payloadValidator.assertValid(payload);
+      await this.validateAuthoritativePricing(
+        companyId,
+        payload,
+        {
+          productId: quotation.product_id,
+          riskByCode: this.createPersistedPricingAuthorityRiskIndex(quotation),
+          quotationId: quotation.id,
+          approvedOverridePremiums:
+            this.buildApprovedPremiumOverrideIndex(quotation),
+        },
+        {
+          userId,
+          quotationId: quotation.id,
+          quotationNo: quotation.quotation_no,
+          reason: `Quotation pricing validated before status transition ${dto.action}`,
+        },
+      );
     }
 
     switch (dto.action) {
@@ -1311,15 +1427,182 @@ export class QuotationsService {
     };
   }
 
+  private async prepareTrustedTiraSubmission(
+    companyId: string,
+    quotation: Quotation,
+    submitOptions: SubmitQuotationDto,
+    userId: string,
+  ): Promise<{
+    payload: CreateQuotationDto;
+    tiramisPayload: Record<string, unknown>;
+  }> {
+    try {
+      this.assertTiraSubmissionReadiness(quotation, submitOptions);
+
+      if (quotation.requires_payment) {
+        await this.assertPaymentReady(quotation);
+      }
+
+      const payload = this.payloadMapper.toAuthoritativePayload(quotation);
+      await this.validateAuthoritativePricing(
+        companyId,
+        payload,
+        {
+          productId: quotation.product_id,
+          riskByCode: this.createPersistedPricingAuthorityRiskIndex(quotation),
+          quotationId: quotation.id,
+          approvedOverridePremiums:
+            this.buildApprovedPremiumOverrideIndex(quotation),
+        },
+        {
+          userId,
+          quotationId: quotation.id,
+          quotationNo: quotation.quotation_no,
+          reason: 'Quotation pricing validated before TIRAMIS submission',
+        },
+      );
+
+      await this.auditService.log({
+        userId,
+        companyId,
+        action: 'quotation.tira_submission.validated',
+        resource: 'quotation',
+        resourceId: quotation.id,
+        metadata: {
+          quotationNo: quotation.quotation_no,
+          requestType: this.toTiramisRequestType(quotation.quotation_flow),
+          pricingQuoteIds: this.collectQuotationPricingQuoteIds(quotation),
+          approvalStatus: quotation.approval_status,
+          paymentStatus: quotation.payment_status,
+          forceResubmit: !!submitOptions.force_resubmit,
+          returnExisting: !!submitOptions.return_existing,
+          old_value: null,
+          new_value: {
+            pricing_quote_ids: this.collectQuotationPricingQuoteIds(quotation),
+            approval_status: quotation.approval_status,
+            payment_status: quotation.payment_status,
+          },
+          reason: 'Quotation passed backend TIRAMIS submission validation',
+          correlation_id: quotation.id,
+        },
+      });
+
+      return {
+        payload,
+        tiramisPayload: this.tiramisPayloadMapper.toTiramisPayload(payload),
+      };
+    } catch (error) {
+      await this.auditService.log({
+        userId,
+        companyId,
+        action: 'quotation.tira_submission.validated',
+        resource: 'quotation',
+        resourceId: quotation.id,
+        status: 'failure',
+        metadata: {
+          quotationNo: quotation.quotation_no,
+          requestType: this.toTiramisRequestType(quotation.quotation_flow),
+          pricingQuoteIds: this.collectQuotationPricingQuoteIds(quotation),
+          approvalStatus: quotation.approval_status,
+          paymentStatus: quotation.payment_status,
+          forceResubmit: !!submitOptions.force_resubmit,
+          returnExisting: !!submitOptions.return_existing,
+          error: this.readErrorMessage(error),
+          old_value: null,
+          new_value: null,
+          reason: 'Quotation failed backend TIRAMIS submission validation',
+          correlation_id: quotation.id,
+        },
+      });
+      throw error;
+    }
+  }
+
+  private assertTiraSubmissionReadiness(
+    quotation: Quotation,
+    submitOptions: SubmitQuotationDto,
+  ): void {
+    const shouldReuseExistingSubmission =
+      !!submitOptions.return_existing &&
+      quotation.tira_status !== TiraStatus.NOT_SUBMITTED;
+
+    if (shouldReuseExistingSubmission) {
+      return;
+    }
+
+    const approvalSatisfied =
+      !quotation.requires_approval ||
+      quotation.approval_status === ApprovalStatus.APPROVED;
+    if (!approvalSatisfied) {
+      throw new ConflictException(
+        `Quotation approval is not complete. Current approval status is ${quotation.approval_status}.`,
+      );
+    }
+
+    const paymentSatisfied =
+      !quotation.requires_payment ||
+      quotation.payment_status === PaymentStatus.PAID;
+    if (!paymentSatisfied) {
+      throw new ConflictException(
+        `Quotation payment is not complete. Current payment status is ${quotation.payment_status}.`,
+      );
+    }
+
+    const readyForInitialSubmission =
+      quotation.status === QuotationStatus.READY_FOR_SUBMISSION &&
+      quotation.tira_status === TiraStatus.NOT_SUBMITTED;
+    const readyForRetry =
+      !!submitOptions.force_resubmit &&
+      quotation.status === QuotationStatus.FAILED &&
+      quotation.tira_status === TiraStatus.FAILED;
+
+    if (!readyForInitialSubmission && !readyForRetry) {
+      throw new ConflictException(
+        'Quotation is not ready for TIRAMIS submission',
+      );
+    }
+  }
+
+  private async validateAuthoritativePricing(
+    companyId: string,
+    payload: CreateQuotationDto,
+    options: AuthoritativePricingValidationOptions,
+    auditContext?: PricingValidationAuditContext,
+  ): Promise<void> {
+    const previousPayload = auditContext
+      ? this.cloneQuotationPayload(payload)
+      : null;
+
+    try {
+      await this.assertAuthoritativePricing(companyId, payload, options);
+      this.payloadValidator.assertValid(payload);
+    } catch (error) {
+      if (auditContext) {
+        await this.logPricingValidationFailure(
+          companyId,
+          previousPayload ?? payload,
+          payload,
+          auditContext,
+          error,
+        );
+      }
+      throw error;
+    }
+
+    if (auditContext && previousPayload) {
+      await this.logPricingValidationSuccess(
+        companyId,
+        previousPayload,
+        payload,
+        auditContext,
+      );
+    }
+  }
+
   private async assertAuthoritativePricing(
     companyId: string,
     payload: CreateQuotationDto,
-    options: {
-      productId: string;
-      riskByCode: Map<string, PricingAuthorityRiskContext>;
-      quotationId?: string;
-      approvedOverridePremiums?: Map<string, ApprovedPremiumOverrideSnapshot>;
-    },
+    options: AuthoritativePricingValidationOptions,
   ): Promise<void> {
     const pricingQuoteIds = Array.from(
       new Set(
@@ -1462,6 +1745,42 @@ export class QuotationsService {
           throw new BadRequestException(
             `Pricing quote ${pricingQuoteId} was calculated in currency ${quote.currency_code}, not ${normalizedCurrencyCode}`,
           );
+        }
+
+        const quoteExchangeRateSnapshot = this.readPricingExchangeRateSnapshot(
+          quote,
+        );
+        if (quoteExchangeRateSnapshot) {
+          if (
+            this.normalizeUppercase(
+              quoteExchangeRateSnapshot.quotation_currency_code,
+            ) !== normalizedCurrencyCode
+          ) {
+            throw new BadRequestException(
+              `Pricing quote ${pricingQuoteId} was calculated for currency ${quoteExchangeRateSnapshot.quotation_currency_code}, not ${normalizedCurrencyCode}`,
+            );
+          }
+
+          if (
+            !numbersEqual(
+              Number(quoteExchangeRateSnapshot.exchange_rate),
+              header.exchange_rate,
+            )
+          ) {
+            throw new BadRequestException(
+              `Pricing quote ${pricingQuoteId} was calculated with exchange rate ${quoteExchangeRateSnapshot.exchange_rate}, not ${header.exchange_rate}`,
+            );
+          }
+
+          if (
+            coverStartDate &&
+            quoteExchangeRateSnapshot.exchange_rate_date &&
+            quoteExchangeRateSnapshot.exchange_rate_date !== coverStartDate
+          ) {
+            throw new BadRequestException(
+              `Pricing quote ${pricingQuoteId} was calculated for exchange-rate date ${quoteExchangeRateSnapshot.exchange_rate_date}, not ${coverStartDate}`,
+            );
+          }
         }
 
         const quotedSumInsured = this.toStoredNumber(
@@ -1674,6 +1993,60 @@ export class QuotationsService {
       totalPremiumExcludingTax;
     payload.cover_note_dtl.total_premium_including_tax =
       totalPremiumIncludingTax;
+  }
+
+  private async resolveExchangeRateSnapshot(
+    companyId: string,
+    payload: CreateQuotationDto,
+    user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
+  ) {
+    const header = this.resolveHeader(payload);
+    return this.exchangeRateGovernanceService.resolveSnapshot(
+      companyId,
+      {
+        quotation_currency_code: header.currency_code,
+        exchange_rate: header.exchange_rate,
+        effective_date: header.cover_note_start_date,
+      },
+      user,
+    );
+  }
+
+  private readPricingExchangeRateSnapshot(
+    quote: PricingQuote,
+  ): {
+    quotation_currency_code: string;
+    exchange_rate: number;
+    exchange_rate_date: string;
+  } | null {
+    const candidate =
+      quote.result_payload['exchange_rate_snapshot'] ??
+      quote.context_payload?.['exchange_rate_snapshot'];
+
+    if (!candidate || typeof candidate !== 'object') {
+      return null;
+    }
+
+    const snapshot = candidate as Record<string, unknown>;
+    const quotationCurrencyCode =
+      typeof snapshot.quotation_currency_code === 'string'
+        ? snapshot.quotation_currency_code
+        : null;
+    const exchangeRate = this.toStoredNumber(snapshot.exchange_rate);
+    const exchangeRateDate =
+      typeof snapshot.exchange_rate_date === 'string'
+        ? snapshot.exchange_rate_date.slice(0, 10)
+        : null;
+
+    if (!quotationCurrencyCode || exchangeRate === null || !exchangeRateDate) {
+      return null;
+    }
+
+    return {
+      quotation_currency_code: quotationCurrencyCode,
+      exchange_rate: exchangeRate,
+      exchange_rate_date: exchangeRateDate,
+    };
   }
 
   private createPricingAuthorityRiskIndex(
@@ -1974,6 +2347,473 @@ export class QuotationsService {
         ),
       ) ?? false
     );
+  }
+
+  private async evaluateQuotationPricingIntegration(
+    companyId: string,
+    quotation: Quotation,
+  ): Promise<QuotationPricingIntegrationSummary> {
+    const payload = this.payloadMapper.toAuthoritativePayload(quotation);
+    const header = this.resolveHeader(payload);
+    const risks = this.resolveEntries(payload).flatMap((entry) => entry.risks_covered);
+    const pricingQuoteIds = [
+      ...new Set(
+        risks
+          .map((risk) => risk.pricing_quote_id?.trim())
+          .filter((value): value is string => !!value),
+      ),
+    ];
+    const pricingQuotes =
+      pricingQuoteIds.length > 0
+        ? await this.dataSource.getRepository(PricingQuote).find({
+            where: {
+              company_id: companyId,
+              pricing_quote_id: In(pricingQuoteIds),
+            },
+          })
+        : [];
+    const quotesById = new Map(
+      pricingQuotes.map((quote) => [quote.pricing_quote_id, quote]),
+    );
+
+    const staleReasons: string[] = [];
+    if (pricingQuoteIds.length === 0) {
+      staleReasons.push(
+        'One or more risks do not have a current pricing quote. Recalculate before continuing.',
+      );
+    }
+
+    const missingQuoteIds = pricingQuoteIds.filter((id) => !quotesById.has(id));
+    if (missingQuoteIds.length > 0) {
+      staleReasons.push(
+        `Pricing quote ${missingQuoteIds[0]} is no longer available for this quotation.`,
+      );
+    }
+
+    const now = new Date();
+    const expiredQuotes = pricingQuotes.filter(
+      (quote) => quote.expires_at.getTime() <= now.getTime(),
+    );
+    if (expiredQuotes.length > 0) {
+      staleReasons.push(
+        `Pricing quote ${expiredQuotes[0].pricing_quote_id} expired on ${expiredQuotes[0].expires_at.toISOString()}.`,
+      );
+    }
+
+    if (
+      pricingQuoteIds.length > 0 &&
+      missingQuoteIds.length === 0 &&
+      expiredQuotes.length === 0
+    ) {
+      try {
+        await this.assertAuthoritativePricing(
+          companyId,
+          this.cloneQuotationPayload(payload),
+          {
+            productId: quotation.product_id,
+            riskByCode: this.createPersistedPricingAuthorityRiskIndex(quotation),
+            quotationId: quotation.id,
+            approvedOverridePremiums:
+              this.buildApprovedPremiumOverrideIndex(quotation),
+          },
+        );
+      } catch (error) {
+        staleReasons.push(this.readErrorMessage(error));
+      }
+    }
+
+    const status: QuotationPricingStatus =
+      pricingQuoteIds.length === 0 || missingQuoteIds.length > 0
+        ? 'MISSING'
+        : expiredQuotes.length > 0
+          ? 'EXPIRED'
+          : staleReasons.length > 0
+            ? 'STALE'
+            : 'CURRENT';
+
+    const calculatedAtValues = pricingQuotes.map((quote) => quote.calculated_at.getTime());
+    const expiresAtValues = pricingQuotes.map((quote) => quote.expires_at.getTime());
+    const lastCalculatedAt =
+      calculatedAtValues.length > 0
+        ? new Date(Math.max(...calculatedAtValues)).toISOString()
+        : null;
+    const pricingExpiresAt =
+      expiresAtValues.length > 0
+        ? new Date(Math.min(...expiresAtValues)).toISOString()
+        : null;
+    const rateBookVersion = this.resolveQuotationRateBookVersion(pricingQuotes);
+
+    return {
+      pricing_status: status,
+      is_stale: status !== 'CURRENT',
+      current_pricing_quote_id:
+        pricingQuoteIds.length === 1 ? pricingQuoteIds[0] : null,
+      pricing_quote_ids: pricingQuoteIds,
+      last_calculated_at: lastCalculatedAt,
+      pricing_expires_at: pricingExpiresAt,
+      rate_book_version: rateBookVersion,
+      base_premium: roundMoney(
+        risks.reduce((sum, risk) => sum + risk.premium_before_discount, 0),
+      ),
+      total_discounts: roundMoney(
+        risks.reduce(
+          (sum, risk) =>
+            sum +
+            risk.discounts_offered.reduce(
+              (riskDiscountSum, discount) =>
+                riskDiscountSum + Number(discount.discount_amount ?? 0),
+              0,
+            ),
+          0,
+        ),
+      ),
+      total_loadings: 0,
+      total_taxes: roundMoney(
+        risks.reduce(
+          (sum, risk) =>
+            sum +
+            risk.taxes_charged.reduce(
+              (riskTaxSum, tax) => riskTaxSum + Number(tax.tax_amount ?? 0),
+              0,
+            ),
+          0,
+        ),
+      ),
+      final_payable_premium: roundMoney(header.total_premium_including_tax),
+      override_status: this.resolveQuotationOverrideStatus(quotation),
+      approval_status: quotation.approval_status,
+      stale_reasons: staleReasons,
+    };
+  }
+
+  private resolveQuotationRateBookVersion(pricingQuotes: PricingQuote[]): string | null {
+    const versions = [
+      ...new Set(
+        pricingQuotes
+          .map((quote) => quote.rate_book_version?.trim())
+          .filter((value): value is string => !!value),
+      ),
+    ];
+
+    if (versions.length === 0) {
+      return null;
+    }
+
+    return versions.length === 1 ? versions[0] : versions.join(', ');
+  }
+
+  private resolveQuotationOverrideStatus(quotation: Quotation): string {
+    const statuses = [
+      ...new Set(
+        (quotation.cover_note?.entries ?? []).flatMap((entry) =>
+          (entry.risks ?? []).flatMap((risk) =>
+            (risk.premium_overrides ?? []).map(
+              (override) => override.approval_status,
+            ),
+          ),
+        ),
+      ),
+    ];
+
+    if (statuses.length === 0) {
+      return 'NOT_REQUIRED';
+    }
+
+    return statuses.length === 1 ? statuses[0] : 'MIXED';
+  }
+
+  private collectQuotationPricingQuoteIds(quotation: Quotation): string[] {
+    return [
+      ...new Set(
+        (quotation.cover_note?.entries ?? []).flatMap((entry) =>
+          (entry.risks ?? [])
+            .map((risk) => risk.pricing_quote_id?.trim())
+            .filter((value): value is string => !!value),
+        ),
+      ),
+    ];
+  }
+
+  private cloneQuotationPayload(payload: CreateQuotationDto): CreateQuotationDto {
+    return JSON.parse(JSON.stringify(payload)) as CreateQuotationDto;
+  }
+
+  private readErrorMessage(error: unknown): string {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message;
+    }
+
+    return 'Pricing information is no longer current. Recalculate before continuing.';
+  }
+
+  private async logPricingValidationSuccess(
+    companyId: string,
+    previousPayload: CreateQuotationDto,
+    payload: CreateQuotationDto,
+    auditContext: PricingValidationAuditContext,
+  ) {
+    const previousRisks = this.indexPayloadRisks(previousPayload);
+
+    for (const risk of this.resolveEntries(payload).flatMap((entry) => entry.risks_covered)) {
+      const previousRisk = this.resolveIndexedRiskSnapshot(previousRisks, risk);
+      if (!previousRisk) {
+        continue;
+      }
+
+      const taxChanged =
+        !this.moneyEqual(
+          previousRisk.premium_including_tax,
+          risk.premium_including_tax,
+        ) ||
+        !this.moneyEqual(
+          previousRisk.premium_excluding_tax_equivalent,
+          risk.premium_excluding_tax_equivalent,
+        ) ||
+        JSON.stringify(previousRisk.taxes_charged ?? []) !==
+          JSON.stringify(risk.taxes_charged ?? []);
+
+      if (!taxChanged) {
+        continue;
+      }
+
+      await this.auditService.log({
+        userId: auditContext.userId ?? undefined,
+        companyId,
+        action: 'quotation.tax_recalculation',
+        resource: 'quotation',
+        resourceId: auditContext.quotationId ?? undefined,
+        metadata: {
+          quotationId: auditContext.quotationId ?? null,
+          quotationNo: auditContext.quotationNo ?? null,
+          riskId: null,
+          riskCode: risk.risk_code,
+          pricingQuoteId: risk.pricing_quote_id?.trim() ?? null,
+          old_value: {
+            premium_excluding_tax_equivalent:
+              previousRisk.premium_excluding_tax_equivalent,
+            premium_including_tax: previousRisk.premium_including_tax,
+            taxes_charged: previousRisk.taxes_charged ?? [],
+          },
+          new_value: {
+            premium_excluding_tax_equivalent:
+              risk.premium_excluding_tax_equivalent,
+            premium_including_tax: risk.premium_including_tax,
+            taxes_charged: risk.taxes_charged ?? [],
+          },
+          reason: auditContext.reason,
+          correlation_id:
+            auditContext.quotationId ??
+            risk.pricing_quote_id?.trim() ??
+            risk.risk_code,
+        },
+      });
+    }
+  }
+
+  private async logPricingValidationFailure(
+    companyId: string,
+    previousPayload: CreateQuotationDto,
+    payload: CreateQuotationDto,
+    auditContext: PricingValidationAuditContext,
+    error: unknown,
+  ) {
+    const reason = this.readErrorMessage(error);
+    const pricingQuoteIds = Array.from(
+      new Set([
+        ...this.collectPayloadPricingQuoteIds(previousPayload),
+        ...this.collectPayloadPricingQuoteIds(payload),
+      ]),
+    );
+    const firstRisk = this.resolveEntries(payload).flatMap((entry) => entry.risks_covered)[0];
+
+    if (reason.toLowerCase().includes('expired on')) {
+      await this.auditService.log({
+        userId: auditContext.userId ?? undefined,
+        companyId,
+        action: 'quotation.pricing_expired',
+        resource: 'quotation',
+        resourceId: auditContext.quotationId ?? undefined,
+        status: 'failure',
+        metadata: {
+          quotationId: auditContext.quotationId ?? null,
+          quotationNo: auditContext.quotationNo ?? null,
+          riskId: null,
+          riskCode: firstRisk?.risk_code ?? null,
+          pricingQuoteIds,
+          old_value: {
+            pricing_quote_ids: pricingQuoteIds,
+          },
+          new_value: null,
+          reason,
+          correlation_id:
+            auditContext.quotationId ?? pricingQuoteIds[0] ?? null,
+        },
+      });
+    }
+
+    await this.auditService.log({
+      userId: auditContext.userId ?? undefined,
+      companyId,
+      action: 'quotation.pricing_invalidation',
+      resource: 'quotation',
+      resourceId: auditContext.quotationId ?? undefined,
+      status: 'failure',
+      metadata: {
+        quotationId: auditContext.quotationId ?? null,
+        quotationNo: auditContext.quotationNo ?? null,
+        riskId: null,
+        riskCode: firstRisk?.risk_code ?? null,
+        pricingQuoteIds,
+        old_value: {
+          pricing_quote_ids: pricingQuoteIds,
+        },
+        new_value: null,
+        reason,
+        correlation_id: auditContext.quotationId ?? pricingQuoteIds[0] ?? null,
+      },
+    });
+
+    await this.auditService.log({
+      userId: auditContext.userId ?? undefined,
+      companyId,
+      action: 'quotation.pricing_recalculation.required',
+      resource: 'quotation',
+      resourceId: auditContext.quotationId ?? undefined,
+      status: 'failure',
+      metadata: {
+        quotationId: auditContext.quotationId ?? null,
+        quotationNo: auditContext.quotationNo ?? null,
+        riskId: null,
+        riskCode: firstRisk?.risk_code ?? null,
+        pricingQuoteIds,
+        old_value: null,
+        new_value: {
+          recalculation_required: true,
+        },
+        reason,
+        correlation_id: auditContext.quotationId ?? pricingQuoteIds[0] ?? null,
+      },
+    });
+  }
+
+  private async logDiscountAuditEntries(
+    companyId: string,
+    quotationId: string,
+    quotationNo: string,
+    payload: CreateQuotationDto,
+    userId: string,
+  ) {
+    for (const risk of this.resolveEntries(payload).flatMap((entry) => entry.risks_covered)) {
+      for (const [index, discount] of (risk.discounts_offered ?? []).entries()) {
+        const hasDiscount =
+          Number(discount.discount_rate ?? 0) > 0 ||
+          Number(discount.discount_amount ?? 0) > 0;
+        if (!hasDiscount) {
+          continue;
+        }
+
+        const correlationId =
+          `${quotationId}:${risk.pricing_quote_id?.trim() ?? risk.risk_code}:discount:${index + 1}`;
+        const requestReason =
+          discount.request_comment?.trim() ||
+          discount.request_reason_code?.trim() ||
+          'Quotation discount requested';
+
+        await this.auditService.log({
+          userId,
+          companyId,
+          action: 'quotation.discount.requested',
+          resource: 'quotation',
+          resourceId: quotationId,
+          metadata: {
+            quotationId,
+            quotationNo,
+            riskId: null,
+            riskCode: risk.risk_code,
+            pricingQuoteId: risk.pricing_quote_id?.trim() ?? null,
+            old_value: null,
+            new_value: {
+              discount_type: discount.discount_type,
+              discount_rate: discount.discount_rate,
+              discount_amount: discount.discount_amount,
+              approval_required: discount.approval_required ?? false,
+              approval_status: discount.approval_status ?? null,
+              max_permitted_rate: discount.max_permitted_rate ?? null,
+              max_permitted_amount: discount.max_permitted_amount ?? null,
+            },
+            reason: requestReason,
+            correlation_id: correlationId,
+          },
+        });
+
+        if (discount.approval_status === 'APPROVED') {
+          await this.auditService.log({
+            userId,
+            companyId,
+            action: 'quotation.discount.approved',
+            resource: 'quotation',
+            resourceId: quotationId,
+            metadata: {
+              quotationId,
+              quotationNo,
+              riskId: null,
+              riskCode: risk.risk_code,
+              pricingQuoteId: risk.pricing_quote_id?.trim() ?? null,
+              old_value: {
+                discount_rate: discount.discount_rate,
+                discount_amount: discount.discount_amount,
+              },
+              new_value: {
+                approved_rate: discount.approved_rate ?? discount.discount_rate,
+                approved_amount:
+                  discount.approved_amount ?? discount.discount_amount,
+                approval_status: discount.approval_status,
+              },
+              reason: requestReason,
+              correlation_id: correlationId,
+            },
+          });
+        }
+      }
+    }
+  }
+
+  private collectPayloadPricingQuoteIds(payload: CreateQuotationDto): string[] {
+    return [
+      ...new Set(
+        this.resolveEntries(payload)
+          .flatMap((entry) =>
+            entry.risks_covered.map((risk) => risk.pricing_quote_id?.trim()),
+          )
+          .filter((value): value is string => !!value),
+      ),
+    ];
+  }
+
+  private indexPayloadRisks(payload: CreateQuotationDto) {
+    const index = new Map<string, RiskCoveredDto>();
+
+    for (const risk of this.resolveEntries(payload).flatMap((entry) => entry.risks_covered)) {
+      const pricingQuoteId = risk.pricing_quote_id?.trim();
+      if (pricingQuoteId) {
+        index.set(`quote:${pricingQuoteId}`, risk);
+      }
+      index.set(`risk:${this.normalizeUppercase(risk.risk_code)}`, risk);
+    }
+
+    return index;
+  }
+
+  private resolveIndexedRiskSnapshot(
+    index: Map<string, RiskCoveredDto>,
+    risk: RiskCoveredDto,
+  ): RiskCoveredDto | undefined {
+    const pricingQuoteId = risk.pricing_quote_id?.trim();
+    if (pricingQuoteId && index.has(`quote:${pricingQuoteId}`)) {
+      return index.get(`quote:${pricingQuoteId}`);
+    }
+
+    return index.get(`risk:${this.normalizeUppercase(risk.risk_code)}`);
   }
 
   private assertPremiumOverrideWorkflowAllowed(quotation: Quotation): void {
@@ -2493,10 +3333,17 @@ export class QuotationsService {
     riskByCode: Map<string, InsuranceRisk>,
     customerId: string | null,
     userId: string,
+    exchangeRateSnapshot: ExchangeRateSnapshot | null,
   ): Promise<void> {
     const header = this.resolveHeader(payload);
     const fleetHeader = payload.cover_note_dtl.fleet_hdr;
     const coverNoteRepository = manager.getRepository(QuotationCoverNote);
+    const persistedExchangeRateSnapshot = exchangeRateSnapshot
+      ? (JSON.parse(JSON.stringify(exchangeRateSnapshot)) as Record<
+          string,
+          unknown
+        >)
+      : null;
 
     const coverNote = await coverNoteRepository.save(
       coverNoteRepository.create({
@@ -2510,6 +3357,7 @@ export class QuotationsService {
         payment_mode: header.payment_mode,
         currency_code: header.currency_code.trim().toUpperCase(),
         exchange_rate: this.numeric(header.exchange_rate, 6),
+        exchange_rate_snapshot: persistedExchangeRateSnapshot,
         total_premium_excluding_tax: this.numeric(
           header.total_premium_excluding_tax,
           2,

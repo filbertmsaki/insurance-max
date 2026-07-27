@@ -1,8 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import {
+  roundMoney,
+  roundRate,
+  sumDecimals,
+} from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import { In, Repository } from 'typeorm';
 import { IdentifierGeneratorService } from '../../../shared/identifiers/identifier-generator.service';
 import { InsuranceRisk } from '../../insurance-risks/entities/insurance-risk.entity';
+import { ExchangeRateGovernanceService } from './exchange-rate-governance.service';
 import {
   PricingQuote,
   PricingQuoteScope,
@@ -14,6 +21,12 @@ import type {
   MultiRiskPremiumResult,
   PersistedMultiRiskPremiumResult,
   PersistedRiskPremiumResult,
+  PricingBreakdownChargeLine,
+  PricingBreakdownItem,
+  PricingBreakdownMessage,
+  PricingBreakdownRateBookSummary,
+  PricingBreakdownStatus,
+  PricingPremiumBreakdown,
   PricingMultiRiskInput,
   PricingQuoteSnapshot,
   PricingSingleRiskInput,
@@ -29,6 +42,7 @@ export class PricingQuoteService {
     private readonly pricingEngineService: PricingEngineService,
     private readonly quotationRecalculationService: QuotationRecalculationService,
     private readonly identifierGeneratorService: IdentifierGeneratorService,
+    private readonly exchangeRateGovernanceService: ExchangeRateGovernanceService,
 
     @InjectRepository(PricingQuote)
     private readonly pricingQuoteRepository: Repository<PricingQuote>,
@@ -41,11 +55,26 @@ export class PricingQuoteService {
     companyId: string,
     input: PricingSingleRiskInput,
     calculatedBy: string | null,
+    user?: Pick<AuthenticatedUser, 'id' | 'permissions'> | null,
   ): Promise<PersistedRiskPremiumResult> {
-    const result = await this.pricingEngineService.calculateSingleRisk(
+    const exchangeRateSnapshot =
+      await this.exchangeRateGovernanceService.resolveSnapshot(
+        companyId,
+        {
+          quotation_currency_code: input.currency_code ?? null,
+          exchange_rate: input.exchange_rate ?? null,
+          effective_date: input.effective_date ?? null,
+        },
+        user,
+      );
+    const engineResult = await this.pricingEngineService.calculateSingleRisk(
       companyId,
       input,
     );
+    const result: RiskPremiumResult = {
+      ...engineResult,
+      exchange_rate_snapshot: exchangeRateSnapshot,
+    };
     const snapshot = await this.persistQuoteSnapshot(
       companyId,
       PricingQuoteScope.SINGLE_RISK,
@@ -56,11 +85,13 @@ export class PricingQuoteService {
         company_user_id: null,
         branch_id: null,
         department_id: null,
+        exchange_rate_snapshot: exchangeRateSnapshot,
       },
     );
+    const persistedResult = snapshot.result as RiskPremiumResult;
 
     return {
-      ...result,
+      ...persistedResult,
       pricing_quote_id: snapshot.pricing_quote_id,
       pricing_status: snapshot.pricing_status,
       calculated_at: snapshot.calculated_at,
@@ -75,11 +106,29 @@ export class PricingQuoteService {
     companyId: string,
     input: PricingMultiRiskInput,
     calculatedBy: string | null,
+    user?: Pick<AuthenticatedUser, 'id' | 'permissions'> | null,
   ): Promise<PersistedMultiRiskPremiumResult> {
-    const result = await this.pricingEngineService.calculateMultiRisk(
+    const exchangeRateSnapshot =
+      await this.exchangeRateGovernanceService.resolveSnapshot(
+        companyId,
+        {
+          quotation_currency_code: input.currency_code ?? null,
+          exchange_rate: input.exchange_rate ?? null,
+          effective_date: input.effective_date ?? null,
+        },
+        user,
+      );
+    const engineResult = await this.pricingEngineService.calculateMultiRisk(
       companyId,
       input,
     );
+    const result: MultiRiskPremiumResult = {
+      ...engineResult,
+      risks: engineResult.risks.map((risk) => ({
+        ...risk,
+        exchange_rate_snapshot: exchangeRateSnapshot,
+      })),
+    };
     const snapshot = await this.persistQuoteSnapshot(
       companyId,
       PricingQuoteScope.MULTI_RISK,
@@ -90,11 +139,13 @@ export class PricingQuoteService {
         company_user_id: input.company_user_id ?? null,
         branch_id: input.branch_id ?? null,
         department_id: input.department_id ?? null,
+        exchange_rate_snapshot: exchangeRateSnapshot,
       },
     );
+    const persistedResult = snapshot.result as MultiRiskPremiumResult;
 
     return {
-      ...result,
+      ...persistedResult,
       pricing_quote_id: snapshot.pricing_quote_id,
       pricing_status: snapshot.pricing_status,
       calculated_at: snapshot.calculated_at,
@@ -183,6 +234,11 @@ export class PricingQuoteService {
       (this.isSingleRiskInput(input)
         ? input.quotation_type
         : input.quotation_type) ?? null;
+    const enrichedResult = this.attachPremiumBreakdown(result, {
+      pricing_quote_id: pricingQuoteId,
+      currency_code: currencyCode,
+      expires_at: expiresAt.toISOString(),
+    });
 
     const persisted = this.pricingQuoteRepository.create({
       company_id: companyId,
@@ -208,9 +264,9 @@ export class PricingQuoteService {
       calculated_at: calculatedAt,
       input_signature: inputSignature,
       input_payload: this.toJsonObject(input),
-      factor_payload: this.resolveFactorPayload(input, result),
-      result_payload: this.toJsonObject(result),
-      warning_messages: this.collectWarnings(result),
+      factor_payload: this.resolveFactorPayload(input, enrichedResult),
+      result_payload: this.toJsonObject(enrichedResult),
+      warning_messages: this.collectWarnings(enrichedResult),
       context_payload: {
         ...(contextPayload ?? {}),
         risk_ids: riskIds,
@@ -231,7 +287,7 @@ export class PricingQuoteService {
       input_signature: inputSignature,
       quotation_type: quotationType,
       currency_code: currencyCode,
-      result,
+      result: enrichedResult,
     };
   }
 
@@ -361,5 +417,217 @@ export class PricingQuoteService {
 
   private toJsonObject(value: unknown): Record<string, unknown> {
     return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+  }
+
+  private attachPremiumBreakdown(
+    result: RiskPremiumResult | MultiRiskPremiumResult,
+    metadata: {
+      pricing_quote_id: string;
+      currency_code: string | null;
+      expires_at: string;
+    },
+  ): RiskPremiumResult | MultiRiskPremiumResult {
+    return {
+      ...result,
+      premium_breakdown: this.buildPremiumBreakdown(result, metadata),
+    };
+  }
+
+  private buildPremiumBreakdown(
+    result: RiskPremiumResult | MultiRiskPremiumResult,
+    metadata: {
+      pricing_quote_id: string;
+      currency_code: string | null;
+      expires_at: string;
+    },
+  ): PricingPremiumBreakdown {
+    const risks = this.isSingleRiskResult(result) ? [result] : result.risks;
+    const items = risks.map((risk) => this.buildBreakdownItem(risk));
+    const taxesTotal = roundMoney(
+      sumDecimals(items.flatMap((item) => item.taxes.map((charge) => charge.amount))),
+    );
+    const otherChargesTotal = roundMoney(
+      sumDecimals(
+        items.flatMap((item) => item.other_charges.map((charge) => charge.amount)),
+      ),
+    );
+    const payablePremium = this.isSingleRiskResult(result)
+      ? result.premium_including_charges ?? result.final_premium
+      : roundMoney(sumDecimals(items.map((item) => item.final_premium)));
+
+    return {
+      pricing_quote_id: metadata.pricing_quote_id,
+      status: this.resolveBreakdownStatus(result),
+      currency:
+        metadata.currency_code ??
+        risks[0]?.exchange_rate_snapshot?.quotation_currency_code ??
+        null,
+      rate_book: this.resolveBreakdownRateBook(risks),
+      items,
+      totals: {
+        base_premium: roundMoney(
+          sumDecimals(risks.map((risk) => risk.base_premium)),
+        ),
+        raw_premium: roundMoney(
+          sumDecimals(items.map((item) => item.raw_premium)),
+        ),
+        loadings: 0,
+        discounts: 0,
+        premium_after_discount: roundMoney(
+          sumDecimals(items.map((item) => item.premium_after_discount)),
+        ),
+        taxes: taxesTotal,
+        other_charges: otherChargesTotal,
+        payable_premium: payablePremium,
+      },
+      errors: this.collectBreakdownErrors(result),
+      warnings: this.collectBreakdownWarnings(result),
+      expires_at: metadata.expires_at,
+    };
+  }
+
+  private buildBreakdownItem(risk: RiskPremiumResult): PricingBreakdownItem {
+    const charges = risk.charges ?? [];
+    const taxes = charges
+      .filter((charge) => charge.charge_category === 'TAX')
+      .map((charge) => this.toBreakdownChargeLine(charge));
+    const otherCharges = charges
+      .filter((charge) => charge.charge_category !== 'TAX')
+      .map((charge) => this.toBreakdownChargeLine(charge));
+
+    return {
+      client_reference: risk.client_reference ?? null,
+      risk_id: risk.risk_id,
+      risk_code: risk.risk_code,
+      risk_name: risk.risk_name,
+      calculation_method: risk.rate_type,
+      sum_insured: risk.sum_insured,
+      rate: risk.percentage_rate,
+      display_rate_percent: roundRate(Number(risk.percentage_rate ?? 0) * 100),
+      raw_premium: risk.gross_premium,
+      minimum_premium: risk.minimum_amount,
+      minimum_applied: risk.minimum_applied,
+      loadings: [],
+      discounts: [],
+      premium_after_discount: risk.final_premium,
+      taxes,
+      other_charges: otherCharges,
+      final_premium: risk.premium_including_charges ?? risk.final_premium,
+      matched_rule: {
+        rule_id: risk.rule_id,
+        rule_name: risk.rule_name,
+        rule_version: risk.rule_version,
+      },
+    };
+  }
+
+  private toBreakdownChargeLine(
+    charge: RiskPremiumResult['charges'][number],
+  ): PricingBreakdownChargeLine {
+    return {
+      charge_code: charge.charge_code,
+      charge_name: charge.charge_name,
+      charge_category: charge.charge_category,
+      charge_scope: charge.charge_scope,
+      charge_type: charge.charge_type,
+      calculation_base: charge.calculation_base,
+      base_amount: charge.base_amount,
+      rate: charge.rate,
+      amount: charge.computed_amount,
+      is_taxable: charge.is_taxable,
+    };
+  }
+
+  private resolveBreakdownStatus(
+    result: RiskPremiumResult | MultiRiskPremiumResult,
+  ): PricingBreakdownStatus {
+    if (this.isSingleRiskResult(result)) {
+      return result.validation_errors.length > 0 ? 'INCOMPLETE' : 'CALCULATED';
+    }
+
+    if (result.failed_risk_count === 0) {
+      return 'CALCULATED';
+    }
+
+    if (result.successful_risk_count === 0) {
+      return 'INCOMPLETE';
+    }
+
+    return 'PARTIAL';
+  }
+
+  private resolveBreakdownRateBook(
+    risks: RiskPremiumResult[],
+  ): PricingBreakdownRateBookSummary {
+    return {
+      code: this.pickSingleValue(risks.map((risk) => risk.rate_book_code ?? null)),
+      version: this.pickSingleValue(
+        risks.map((risk) => risk.rate_book_version ?? null),
+      ),
+    };
+  }
+
+  private pickSingleValue(values: Array<string | null>): string | null {
+    const distinct = [...new Set(values.filter((value): value is string => !!value))];
+    return distinct.length === 1 ? distinct[0] : null;
+  }
+
+  private collectBreakdownErrors(
+    result: RiskPremiumResult | MultiRiskPremiumResult,
+  ): PricingBreakdownMessage[] {
+    if (this.isSingleRiskResult(result)) {
+      return result.validation_errors.map((message) => ({
+        client_reference: result.client_reference ?? null,
+        risk_id: result.risk_id,
+        risk_code: result.risk_code,
+        message,
+      }));
+    }
+
+    return result.failed_risks.flatMap((failure) => {
+      const messages =
+        failure.validation_errors.length > 0
+          ? failure.validation_errors
+          : [failure.message];
+
+      return messages.map((message) => ({
+        client_reference: failure.client_reference ?? null,
+        risk_id: failure.risk_id,
+        risk_code: null,
+        message,
+      }));
+    });
+  }
+
+  private collectBreakdownWarnings(
+    result: RiskPremiumResult | MultiRiskPremiumResult,
+  ): PricingBreakdownMessage[] {
+    if (this.isSingleRiskResult(result)) {
+      return result.validation_warnings.map((message) => ({
+        client_reference: result.client_reference ?? null,
+        risk_id: result.risk_id,
+        risk_code: result.risk_code,
+        message,
+      }));
+    }
+
+    return [
+      ...result.risks.flatMap((risk) =>
+        risk.validation_warnings.map((message) => ({
+          client_reference: risk.client_reference ?? null,
+          risk_id: risk.risk_id,
+          risk_code: risk.risk_code,
+          message,
+        })),
+      ),
+      ...result.failed_risks.flatMap((failure) =>
+        failure.validation_warnings.map((message) => ({
+          client_reference: failure.client_reference ?? null,
+          risk_id: failure.risk_id,
+          risk_code: null,
+          message,
+        })),
+      ),
+    ];
   }
 }

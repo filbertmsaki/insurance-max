@@ -282,6 +282,22 @@ function createServiceFixture(options: {
     pricingEngineService,
     new QuotationRecalculationService(),
     identifierGeneratorService as any,
+    {
+      resolveSnapshot: jest.fn().mockResolvedValue({
+        quotation_currency_code: 'TZS',
+        base_currency_code: 'TZS',
+        exchange_rate: 1,
+        exchange_rate_source: 'PARITY',
+        exchange_rate_date: '2026-07-27',
+        exchange_rate_precision: 10,
+        approval_required: false,
+        approval_granted: true,
+        approved_by_user_id: null,
+        approved_at: null,
+        conversion_direction: 'QUOTE_TO_BASE_MULTIPLY',
+        rounding_method: 'ROUND_HALF_UP',
+      }),
+    } as any,
     pricingQuoteRepository as any,
     pricingQuoteRiskRepository as any,
   );
@@ -673,6 +689,77 @@ describe('PremiumCalculationService', () => {
           factors: {},
         }),
       ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('pricing audit trail', () => {
+    it('logs requested, selected-rule, completed, and currency conversion pricing events', async () => {
+      const { service, auditService } = createServiceFixture({
+        risk: RISKS.comprehensive.risk,
+        rules: [RISKS.comprehensive.rule],
+      });
+
+      await service.calculateSingleRisk(COMPANY_ID, {
+        client_reference: 'VEHICLE-001',
+        risk_id: RISKS.comprehensive.risk.id,
+        sum_insured: 1000000,
+        factors: {},
+        currency_code: 'TZS',
+      });
+
+      const calls = (auditService.log as jest.Mock).mock.calls.map(
+        ([entry]) => entry,
+      );
+
+      expect(calls).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action: 'PRICING_CALCULATION_REQUESTED',
+            metadata: expect.objectContaining({
+              correlation_id: 'VEHICLE-001',
+              request_input: expect.objectContaining({
+                risk_id: RISKS.comprehensive.risk.id,
+                sum_insured: 1000000,
+              }),
+            }),
+          }),
+          expect.objectContaining({
+            action: 'PRICING_RULE_SELECTED',
+            metadata: expect.objectContaining({
+              correlation_id: 'PQ-2026-00000001',
+              new_value: expect.objectContaining({
+                rule_id: RISKS.comprehensive.rule.id,
+                rate_book_version: null,
+              }),
+            }),
+          }),
+          expect.objectContaining({
+            action: 'PRICING_CALCULATION_COMPLETED',
+            metadata: expect.objectContaining({
+              correlation_id: 'PQ-2026-00000001',
+              new_value: expect.objectContaining({
+                final_premium: 250000,
+                pricing_quote_id: 'PQ-2026-00000001',
+              }),
+            }),
+          }),
+          expect.objectContaining({
+            action: 'PRICING_CURRENCY_CONVERSION',
+            metadata: expect.objectContaining({
+              correlation_id: 'PQ-2026-00000001',
+              new_value: expect.objectContaining({
+                snapshots: [
+                  expect.objectContaining({
+                    quotation_currency_code: 'TZS',
+                    base_currency_code: 'TZS',
+                    exchange_rate: 1,
+                  }),
+                ],
+              }),
+            }),
+          }),
+        ]),
+      );
     });
   });
 

@@ -430,6 +430,110 @@ export interface ResolveAccessDto {
 // ─── Premium Calculator ───────────────────────────────────────────────────────
 
 export interface RiskPremiumResult {
+  premium_breakdown?: {
+    pricing_quote_id: string;
+    status: 'CALCULATED' | 'PARTIAL' | 'INCOMPLETE';
+    currency: string | null;
+    rate_book: {
+      code: string | null;
+      version: string | null;
+    };
+    items: Array<{
+      client_reference: string | null;
+      risk_id: string;
+      risk_code: string;
+      risk_name: string;
+      calculation_method: RateType;
+      sum_insured: number;
+      rate: number;
+      display_rate_percent: number;
+      raw_premium: number;
+      minimum_premium: number;
+      minimum_applied: boolean;
+      loadings: Array<{
+        code: string;
+        name: string;
+        amount: number;
+        rate: number | null;
+      }>;
+      discounts: Array<{
+        code: string;
+        name: string;
+        amount: number;
+        rate: number | null;
+      }>;
+      premium_after_discount: number;
+      taxes: Array<{
+        charge_code: string;
+        charge_name: string;
+        charge_category:
+          | 'TAX'
+          | 'LEVY'
+          | 'FEE'
+          | 'POLICY_FEE'
+          | 'STAMP_DUTY'
+          | 'ADMINISTRATION_FEE'
+          | 'PRODUCT_CHARGE'
+          | 'RISK_CHARGE';
+        charge_scope: 'COMPANY' | 'CATEGORY' | 'PRODUCT' | 'RISK';
+        charge_type: 'PERCENTAGE' | 'FIXED';
+        calculation_base: 'BASIC_PREMIUM' | 'NET_PREMIUM' | 'GROSS_PREMIUM';
+        base_amount: number;
+        rate: number | null;
+        amount: number;
+        is_taxable: boolean;
+      }>;
+      other_charges: Array<{
+        charge_code: string;
+        charge_name: string;
+        charge_category:
+          | 'TAX'
+          | 'LEVY'
+          | 'FEE'
+          | 'POLICY_FEE'
+          | 'STAMP_DUTY'
+          | 'ADMINISTRATION_FEE'
+          | 'PRODUCT_CHARGE'
+          | 'RISK_CHARGE';
+        charge_scope: 'COMPANY' | 'CATEGORY' | 'PRODUCT' | 'RISK';
+        charge_type: 'PERCENTAGE' | 'FIXED';
+        calculation_base: 'BASIC_PREMIUM' | 'NET_PREMIUM' | 'GROSS_PREMIUM';
+        base_amount: number;
+        rate: number | null;
+        amount: number;
+        is_taxable: boolean;
+      }>;
+      final_premium: number;
+      matched_rule: {
+        rule_id: string;
+        rule_name: string;
+        rule_version: number | null;
+      };
+    }>;
+    totals: {
+      base_premium: number;
+      raw_premium: number;
+      loadings: number;
+      discounts: number;
+      premium_after_discount: number;
+      taxes: number;
+      other_charges: number;
+      payable_premium: number;
+    };
+    errors: Array<{
+      client_reference: string | null;
+      risk_id: string | null;
+      risk_code: string | null;
+      message: string;
+    }>;
+    warnings: Array<{
+      client_reference: string | null;
+      risk_id: string | null;
+      risk_code: string | null;
+      message: string;
+    }>;
+    expires_at: string;
+  };
   client_reference?: string | null;
   risk_id: string;
   risk_code: string;
@@ -479,6 +583,20 @@ export interface RiskPremiumResult {
   taxable_charge_amount: number;
   non_taxable_charge_amount: number;
   premium_including_charges: number;
+  exchange_rate_snapshot?: {
+    quotation_currency_code: string;
+    base_currency_code: string;
+    exchange_rate: number;
+    exchange_rate_source: 'PARITY' | 'MANUAL';
+    exchange_rate_date: string;
+    exchange_rate_precision: number;
+    approval_required: boolean;
+    approval_granted: boolean;
+    approved_by_user_id: string | null;
+    approved_at: string | null;
+    conversion_direction: 'QUOTE_TO_BASE_MULTIPLY';
+    rounding_method: 'ROUND_HALF_UP';
+  } | null;
   discount_control: {
     max_rate: number | null;
     max_amount: number | null;
@@ -539,11 +657,15 @@ export interface SingleCalcRequest {
   sum_insured: number;
   factors: Record<string, string | number | boolean>;
   effective_date?: string;
+  currency_code?: string;
+  exchange_rate?: number;
 }
 
 export interface MultiCalcRequest {
   product_code?: string;
   effective_date?: string;
+  currency_code?: string;
+  exchange_rate?: number;
   risks: SingleCalcRequest[];
 }
 
@@ -553,6 +675,7 @@ export interface MultiCalcResponse {
   grand_total: number;
   successful_risk_count: number;
   failed_risk_count: number;
+  premium_breakdown?: RiskPremiumResult['premium_breakdown'];
 }
 
 export interface RiskRuleConditionSummary {

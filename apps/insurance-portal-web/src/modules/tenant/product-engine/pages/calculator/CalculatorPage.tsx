@@ -113,7 +113,11 @@ export function CalculatorPage() {
       });
       setSingleResult(result);
       setResults([]);
-      setGrandTotal(result.premium_including_charges ?? result.final_premium);
+      setGrandTotal(
+        result.premium_breakdown?.totals.payable_premium ??
+          result.premium_including_charges ??
+          result.final_premium,
+      );
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     }
@@ -129,7 +133,10 @@ export function CalculatorPage() {
         })),
       });
       setResults(response.risks);
-      setGrandTotal(response.grand_total);
+      setGrandTotal(
+        response.premium_breakdown?.totals.payable_premium ??
+          response.grand_total,
+      );
       setSingleResult(null);
     } catch (error) {
       toast.error(getApiErrorMessage(error));

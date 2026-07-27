@@ -13,6 +13,7 @@ export interface PricingSingleRiskInput {
   effective_date?: string;
   quotation_type?: string;
   currency_code?: string;
+  exchange_rate?: number;
 }
 
 export interface PricingMultiRiskInput {
@@ -24,6 +25,7 @@ export interface PricingMultiRiskInput {
   effective_date?: string;
   quotation_type?: string;
   currency_code?: string;
+  exchange_rate?: number;
 }
 
 export interface PricingQuoteMetadata {
@@ -100,6 +102,110 @@ export interface PricingChargeCalculationInput {
   gross_premium: number;
 }
 
+export type ExchangeRateSource = 'PARITY' | 'MANUAL';
+
+export interface ExchangeRateSnapshot {
+  quotation_currency_code: string;
+  base_currency_code: string;
+  exchange_rate: number;
+  exchange_rate_source: ExchangeRateSource;
+  exchange_rate_date: string;
+  exchange_rate_precision: number;
+  approval_required: boolean;
+  approval_granted: boolean;
+  approved_by_user_id: string | null;
+  approved_at: string | null;
+  conversion_direction: 'QUOTE_TO_BASE_MULTIPLY';
+  rounding_method: 'ROUND_HALF_UP';
+}
+
+export interface PricingBreakdownRateBookSummary {
+  code: string | null;
+  version: string | null;
+}
+
+export interface PricingBreakdownMatchedRuleSummary {
+  rule_id: string;
+  rule_name: string;
+  rule_version: number | null;
+}
+
+export interface PricingBreakdownAdjustmentLine {
+  code: string;
+  name: string;
+  amount: number;
+  rate: number | null;
+}
+
+export interface PricingBreakdownChargeLine {
+  charge_code: string;
+  charge_name: string;
+  charge_category: PricingChargeCategory;
+  charge_scope: PricingChargeScope;
+  charge_type: PricingChargeType;
+  calculation_base: PricingChargeBase;
+  base_amount: number;
+  rate: number | null;
+  amount: number;
+  is_taxable: boolean;
+}
+
+export interface PricingBreakdownItem {
+  client_reference: string | null;
+  risk_id: string;
+  risk_code: string;
+  risk_name: string;
+  calculation_method: RateType;
+  sum_insured: number;
+  rate: number;
+  display_rate_percent: number;
+  raw_premium: number;
+  minimum_premium: number;
+  minimum_applied: boolean;
+  loadings: PricingBreakdownAdjustmentLine[];
+  discounts: PricingBreakdownAdjustmentLine[];
+  premium_after_discount: number;
+  taxes: PricingBreakdownChargeLine[];
+  other_charges: PricingBreakdownChargeLine[];
+  final_premium: number;
+  matched_rule: PricingBreakdownMatchedRuleSummary;
+}
+
+export interface PricingBreakdownTotals {
+  base_premium: number;
+  raw_premium: number;
+  loadings: number;
+  discounts: number;
+  premium_after_discount: number;
+  taxes: number;
+  other_charges: number;
+  payable_premium: number;
+}
+
+export interface PricingBreakdownMessage {
+  client_reference: string | null;
+  risk_id: string | null;
+  risk_code: string | null;
+  message: string;
+}
+
+export type PricingBreakdownStatus =
+  | 'CALCULATED'
+  | 'PARTIAL'
+  | 'INCOMPLETE';
+
+export interface PricingPremiumBreakdown {
+  pricing_quote_id: string;
+  status: PricingBreakdownStatus;
+  currency: string | null;
+  rate_book: PricingBreakdownRateBookSummary;
+  items: PricingBreakdownItem[];
+  totals: PricingBreakdownTotals;
+  errors: PricingBreakdownMessage[];
+  warnings: PricingBreakdownMessage[];
+  expires_at: string;
+}
+
 export interface RiskPremiumResult {
   client_reference?: string | null;
   risk_id: string;
@@ -131,6 +237,8 @@ export interface RiskPremiumResult {
   taxable_charge_amount: number;
   non_taxable_charge_amount: number;
   premium_including_charges: number;
+  exchange_rate_snapshot?: ExchangeRateSnapshot | null;
+  premium_breakdown?: PricingPremiumBreakdown;
   factors: PricingFactorValues;
   validation_errors: string[];
   validation_warnings: string[];
@@ -152,6 +260,7 @@ export interface MultiRiskPremiumResult {
   grand_total: number;
   successful_risk_count: number;
   failed_risk_count: number;
+  premium_breakdown?: PricingPremiumBreakdown;
 }
 
 export type PersistedRiskPremiumResult = RiskPremiumResult &

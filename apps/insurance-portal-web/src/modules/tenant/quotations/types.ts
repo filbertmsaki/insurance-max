@@ -334,6 +334,25 @@ export interface QuotationDetailRecord extends QuotationPayload {
   submitted_at: string | null;
   created_at: string;
   updated_at: string;
+  pricing_integration?: QuotationPricingIntegration | null;
+}
+
+export interface QuotationPricingIntegration {
+  pricing_status: 'CURRENT' | 'STALE' | 'EXPIRED' | 'MISSING';
+  is_stale: boolean;
+  current_pricing_quote_id: string | null;
+  pricing_quote_ids: string[];
+  last_calculated_at: string | null;
+  pricing_expires_at: string | null;
+  rate_book_version: string | null;
+  base_premium: number;
+  total_discounts: number;
+  total_loadings: number;
+  total_taxes: number;
+  final_payable_premium: number;
+  override_status: string;
+  approval_status: string;
+  stale_reasons: string[];
 }
 
 export interface QuotationPreviewRef {
@@ -635,6 +654,7 @@ export interface QuotationPreviewRecord {
   payment: QuotationPreviewPayment | null;
   tiramis: QuotationPreviewTiramisSubmission | null;
   history: QuotationPreviewHistoryItem[];
+  pricing_integration?: QuotationPricingIntegration | null;
 }
 
 export interface QuotationRiskRecord {

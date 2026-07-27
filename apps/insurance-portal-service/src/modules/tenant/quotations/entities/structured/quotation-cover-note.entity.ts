@@ -54,6 +54,9 @@ export class QuotationCoverNote {
   })
   exchange_rate: string;
 
+  @Column({ type: 'jsonb', nullable: true })
+  exchange_rate_snapshot: Record<string, unknown> | null;
+
   @Column({
     type: 'numeric',
     precision: 20,

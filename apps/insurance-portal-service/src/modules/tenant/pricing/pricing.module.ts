@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
+import { Company } from '../../platform/companies/entities/company.entity';
 import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
 import { PricingRateBook } from '../pricing-rate-books/entities/pricing-rate-book.entity';
 import { ProductTaxRule } from '../product-distribution/entities/product-tax-rule.entity';
 import { RatingFactor } from '../rating-factors/entities/rating-factor.entity';
 import { RiskRequiredFactor } from '../risk-required-factors/entities/risk-required-factor.entity';
 import { PricingChargeService } from './application/pricing-charge.service';
+import { ExchangeRateGovernanceService } from './application/exchange-rate-governance.service';
 import { RiskRatingRule } from '../risk-rating-rules/entities/risk-rating-rule.entity';
 import { PricingEngineService } from './application/pricing-engine.service';
 import { PricingQuoteService } from './application/pricing-quote.service';
@@ -30,6 +32,7 @@ import { PerUnitPricingStrategy } from './infrastructure/strategies/per-unit-pri
       PricingQuote,
       PricingRateBook,
       ProductTaxRule,
+      Company,
       RatingFactor,
       RiskRequiredFactor,
       RiskRatingRule,
@@ -48,6 +51,7 @@ import { PerUnitPricingStrategy } from './infrastructure/strategies/per-unit-pri
     StructuredPricingCalculatorService,
     PremiumBreakdownService,
     PricingChargeService,
+    ExchangeRateGovernanceService,
     PricingEngineService,
     PricingQuoteService,
     QuotationRecalculationService,
@@ -59,6 +63,7 @@ import { PerUnitPricingStrategy } from './infrastructure/strategies/per-unit-pri
     StructuredPricingCalculatorService,
     PremiumBreakdownService,
     PricingChargeService,
+    ExchangeRateGovernanceService,
     PricingEngineService,
     PricingQuoteService,
     QuotationRecalculationService,

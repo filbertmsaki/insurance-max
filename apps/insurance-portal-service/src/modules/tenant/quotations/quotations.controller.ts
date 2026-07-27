@@ -62,7 +62,7 @@ export class QuotationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateQuotationDto,
   ) {
-    return this.quotationsService.create(user.companyId!, dto, user.id);
+    return this.quotationsService.create(user.companyId!, dto, user);
   }
 
   @Get()
@@ -241,7 +241,7 @@ export class QuotationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateQuotationDto,
   ) {
-    return this.quotationsService.replace(user.companyId!, id, dto, user.id);
+    return this.quotationsService.replace(user.companyId!, id, dto, user);
   }
 
   @Post(':id/submit')

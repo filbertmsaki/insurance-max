@@ -86,6 +86,15 @@ export class CalculateSingleRiskPremiumDto {
   @IsString()
   @MaxLength(10)
   currency_code?: string;
+
+  @ApiPropertyOptional({
+    example: 1,
+    description:
+      'Optional manual exchange rate for the quotation currency. Required for non-base currency pricing until an automatic source is configured.',
+  })
+  @IsOptional()
+  @IsNumber()
+  exchange_rate?: number;
 }
 
 export class CalculateMultiRiskPremiumDto {
@@ -144,4 +153,13 @@ export class CalculateMultiRiskPremiumDto {
   @IsString()
   @MaxLength(10)
   currency_code?: string;
+
+  @ApiPropertyOptional({
+    example: 1,
+    description:
+      'Optional manual exchange rate applied consistently across the batch.',
+  })
+  @IsOptional()
+  @IsNumber()
+  exchange_rate?: number;
 }

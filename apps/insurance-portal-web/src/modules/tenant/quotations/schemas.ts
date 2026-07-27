@@ -34,6 +34,10 @@ import {
   inclusiveDayCount,
   isBeforeToday,
 } from './wizard/utils/coverNoteDateRange';
+import {
+  buildFleetRiskPricingSignature,
+  buildSingleRiskPricingSignature,
+} from './wizard/utils/pricingStaleness';
 
 const optionalText = z.string().trim().optional().or(z.literal(''));
 
@@ -1219,10 +1223,26 @@ function buildDiscountPayload(
 
 function buildRiskPayload(
   risk: QuotationRiskFormRow,
+  values: QuotationFormSchemaValues,
 ): QuotationRiskCoveredPayload {
+  const currentPricingSignature = buildSingleRiskPricingSignature({
+    quotation_type: values.quotation_type,
+    product_id: values.product_id,
+    valid_from: values.valid_from,
+    valid_until: values.valid_until,
+    currency: values.currency,
+    exchange_rate: values.exchange_rate,
+    motor: values.motor,
+    addons: values.addons,
+    risk,
+  });
+
   return {
     risk_code: risk.risk_code,
-    pricing_quote_id: extractPricingQuoteId(risk.rating_result_metadata),
+    pricing_quote_id: extractPricingQuoteId(
+      risk.rating_result_metadata,
+      currentPricingSignature,
+    ),
     sum_insured: normalizeMoneyNumber(risk.sum_insured),
     sum_insured_equivalent:
       normalizeMoneyNumber(risk.sum_insured_equivalent) ||
@@ -1277,7 +1297,7 @@ function buildCommonDetail(
   salePointCode: string,
   productCode: string,
 ) {
-  const risks = values.risks.map(buildRiskPayload);
+  const risks = values.risks.map((risk) => buildRiskPayload(risk, values));
   return {
     prev_cover_note_reference_number: normalizeText(
       values.prev_cover_note_reference,
@@ -1450,23 +1470,44 @@ export function buildMotorFleetQuotationPayload(
       endorsement_premium_earned: item.endorsement_premium_earned
         ? normalizeMoneyNumber(item.endorsement_premium_earned)
         : null,
-      risks_covered: item.risks_covered.map((risk) => ({
-        risk_code: risk.risk_code,
-        pricing_quote_id: extractPricingQuoteId(risk.rating_result_metadata),
-        sum_insured: normalizeMoneyNumber(risk.sum_insured),
-        sum_insured_equivalent:
-          normalizeMoneyNumber(risk.sum_insured_equivalent) ||
-          normalizeMoneyNumber(risk.sum_insured),
-        premium_rate: normalizeRateNumber(risk.premium_rate),
-        premium_before_discount: normalizeMoneyNumber(risk.premium_before_discount),
-        premium_after_discount: normalizeMoneyNumber(risk.premium_after_discount),
-        premium_excluding_tax_equivalent: normalizeMoneyNumber(
-          risk.premium_excluding_tax_equivalent,
-        ),
-        premium_including_tax: normalizeMoneyNumber(risk.premium_including_tax),
-        discounts_offered: buildDiscountPayload(risk.discounts_offered),
-        taxes_charged: buildTaxPayload(risk.taxes_charged),
-      })),
+      risks_covered: item.risks_covered.map((risk) => {
+        const currentPricingSignature = buildFleetRiskPricingSignature({
+          quotation_type: values.quotation_type,
+          product_id: values.product_id,
+          valid_from: values.valid_from,
+          valid_until: values.valid_until,
+          currency: values.currency,
+          exchange_rate: values.exchange_rate,
+          fleet_header: values.fleet.header,
+          item,
+          risk,
+        });
+
+        return {
+          risk_code: risk.risk_code,
+          pricing_quote_id: extractPricingQuoteId(
+            risk.rating_result_metadata,
+            currentPricingSignature,
+          ),
+          sum_insured: normalizeMoneyNumber(risk.sum_insured),
+          sum_insured_equivalent:
+            normalizeMoneyNumber(risk.sum_insured_equivalent) ||
+            normalizeMoneyNumber(risk.sum_insured),
+          premium_rate: normalizeRateNumber(risk.premium_rate),
+          premium_before_discount: normalizeMoneyNumber(
+            risk.premium_before_discount,
+          ),
+          premium_after_discount: normalizeMoneyNumber(
+            risk.premium_after_discount,
+          ),
+          premium_excluding_tax_equivalent: normalizeMoneyNumber(
+            risk.premium_excluding_tax_equivalent,
+          ),
+          premium_including_tax: normalizeMoneyNumber(risk.premium_including_tax),
+          discounts_offered: buildDiscountPayload(risk.discounts_offered),
+          taxes_charged: buildTaxPayload(risk.taxes_charged),
+        };
+      }),
       subject_matters_covered: item.subject_matters_covered.map((subject) => ({
         subject_matter_reference: subject.subject_matter_reference,
         subject_matter_desc: subject.subject_matter_desc,
@@ -1730,8 +1771,26 @@ function mapRiskRows(
 
 function extractPricingQuoteId(
   metadata: QuotationRiskFormRow['rating_result_metadata'],
+  currentPricingSignature?: string,
 ): string | null {
-  const pricingQuoteId = readPricingQuoteMetadata(metadata)?.pricing_quote_id;
+  const pricingMetadata = readPricingQuoteMetadata(metadata);
+  if (!pricingMetadata) {
+    return null;
+  }
+
+  if (pricingMetadata.pricing_is_stale) {
+    return null;
+  }
+
+  if (
+    currentPricingSignature &&
+    pricingMetadata.pricing_input_signature &&
+    pricingMetadata.pricing_input_signature !== currentPricingSignature
+  ) {
+    return null;
+  }
+
+  const pricingQuoteId = pricingMetadata.pricing_quote_id;
 
   return typeof pricingQuoteId === 'string' && pricingQuoteId.trim()
     ? pricingQuoteId.trim()
@@ -2080,6 +2139,49 @@ export function quotationRecordToFormValues(
       })) ?? [createEmptyNonMotorItemRow()],
     };
   }
+
+  common.risks = common.risks.map((risk) => ({
+    ...risk,
+    rating_result_metadata: {
+      ...(risk.rating_result_metadata ?? {}),
+      pricing_input_signature: buildSingleRiskPricingSignature({
+        quotation_type: common.quotation_type,
+        product_id: common.product_id,
+        valid_from: common.valid_from,
+        valid_until: common.valid_until,
+        currency: common.currency,
+        exchange_rate: common.exchange_rate,
+        motor: common.motor,
+        addons: common.addons,
+        risk,
+      }),
+      pricing_is_stale: false,
+      stale_reason: null,
+    },
+  }));
+
+  common.fleet.items = common.fleet.items.map((item) => ({
+    ...item,
+    risks_covered: item.risks_covered.map((risk) => ({
+      ...risk,
+      rating_result_metadata: {
+        ...(risk.rating_result_metadata ?? {}),
+        pricing_input_signature: buildFleetRiskPricingSignature({
+          quotation_type: common.quotation_type,
+          product_id: common.product_id,
+          valid_from: common.valid_from,
+          valid_until: common.valid_until,
+          currency: common.currency,
+          exchange_rate: common.exchange_rate,
+          fleet_header: common.fleet.header,
+          item,
+          risk,
+        }),
+        pricing_is_stale: false,
+        stale_reason: null,
+      },
+    })),
+  }));
 
   return common;
 }

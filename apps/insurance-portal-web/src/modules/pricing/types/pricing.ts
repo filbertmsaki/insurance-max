@@ -29,12 +29,29 @@ export type PricingCalculationState =
 
 export interface PricingQuoteMetadata {
   pricing_quote_id?: string | null;
-  pricing_status?: 'CALCULATED' | null;
+  pricing_status?: 'CALCULATED' | 'STALE' | null;
   calculated_at?: string | null;
   expires_at?: string | null;
   input_signature?: string | null;
+  pricing_input_signature?: string | null;
+  pricing_is_stale?: boolean;
+  stale_reason?: string | null;
   quotation_type?: string | null;
   currency_code?: string | null;
+  exchange_rate_snapshot?: {
+    quotation_currency_code: string;
+    base_currency_code: string;
+    exchange_rate: number;
+    exchange_rate_source: 'PARITY' | 'MANUAL';
+    exchange_rate_date: string;
+    exchange_rate_precision: number;
+    approval_required: boolean;
+    approval_granted: boolean;
+    approved_by_user_id: string | null;
+    approved_at: string | null;
+    conversion_direction: 'QUOTE_TO_BASE_MULTIPLY';
+    rounding_method: 'ROUND_HALF_UP';
+  } | null;
   minimum_applied?: boolean;
   minimum_amount?: number;
   discount_control?: {

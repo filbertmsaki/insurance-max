@@ -50,6 +50,12 @@ export function isPricingQuoteExpired(
   return expiresAt <= now;
 }
 
+export function isPricingQuoteStale(
+  metadata: PricingQuoteMetadata | null | undefined,
+): boolean {
+  return metadata?.pricing_is_stale === true;
+}
+
 export function hasPricingValidationErrors(
   metadata: PricingQuoteMetadata | null | undefined,
 ): boolean {

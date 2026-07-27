@@ -21,14 +21,23 @@ import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-
 import { PricingChargeService } from '../pricing/application/pricing-charge.service';
 
 describe('QuotationsService', () => {
-  function createServiceFixture(overrides?: Partial<Record<string, unknown>>) {
+  function createServiceFixture(
+    overrides?: Partial<Record<string, unknown>> & {
+      pricingQuote?: Partial<Record<string, unknown>>;
+    },
+  ) {
     const authoritativePayload = createMotorSingleQuotationPayload();
+    const {
+      pricingQuote: pricingQuoteOverrides,
+      ...quotationOverrides
+    } = overrides ?? {};
     const pricingQuote = {
       pricing_quote_id:
         authoritativePayload.cover_note_dtl.risks_covered?.[0]
           ?.pricing_quote_id ?? 'PQ-2026-00000001',
       quote_scope: 'SINGLE_RISK',
       calculation_status: 'CALCULATED',
+      calculated_at: new Date('2026-07-27T08:00:00.000Z'),
       expires_at: new Date('2026-07-30T08:00:00.000Z'),
       product_id: 'product-1',
       risk_id: 'risk-1',
@@ -46,6 +55,8 @@ describe('QuotationsService', () => {
           authoritativePayload.cover_note_dtl.risks_covered?.[0]?.sum_insured,
       },
       rate_book_id: 'rate-book-1',
+      rate_book_version: '2026.1',
+      ...pricingQuoteOverrides,
     };
     const rateBook = {
       id: 'rate-book-1',
@@ -88,7 +99,7 @@ describe('QuotationsService', () => {
           },
         ],
       },
-      ...overrides,
+      ...quotationOverrides,
     } as any;
 
     const dataSource = {
@@ -197,6 +208,22 @@ describe('QuotationsService', () => {
         premium_including_charges: 118000,
       }),
     } as unknown as PricingChargeService;
+    const exchangeRateGovernanceService = {
+      resolveSnapshot: jest.fn().mockResolvedValue({
+        quotation_currency_code: 'TZS',
+        base_currency_code: 'TZS',
+        exchange_rate: 1,
+        exchange_rate_source: 'PARITY',
+        exchange_rate_date: '2026-07-13',
+        exchange_rate_precision: 10,
+        approval_required: false,
+        approval_granted: true,
+        approved_by_user_id: null,
+        approved_at: null,
+        conversion_direction: 'QUOTE_TO_BASE_MULTIPLY',
+        rounding_method: 'ROUND_HALF_UP',
+      }),
+    };
 
     const service = new QuotationsService(
       dataSource,
@@ -211,10 +238,12 @@ describe('QuotationsService', () => {
       quotationLifecycleService,
       auditService,
       pricingChargeService,
+      exchangeRateGovernanceService as any,
     );
 
     return {
       authoritativePayload,
+      auditService,
       quotation,
       payloadMapper,
       pricingChargeService,
@@ -300,6 +329,37 @@ describe('QuotationsService', () => {
         tiraRequestId: 'request-1',
       }),
     );
+
+    expect(fixture.auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'quotation.tira_submission.validated',
+        metadata: expect.objectContaining({
+          correlation_id: fixture.quotation.id,
+          reason: 'Quotation passed backend TIRAMIS submission validation',
+        }),
+      }),
+    );
+  });
+
+  it('exposes a current pricing integration summary on quotation detail responses', async () => {
+    const fixture = createServiceFixture();
+
+    const result = await fixture.service.findOne('company-1', fixture.quotation.id);
+
+    expect(result.pricing_integration).toEqual(
+      expect.objectContaining({
+        pricing_status: 'CURRENT',
+        is_stale: false,
+        current_pricing_quote_id: 'PQ-2026-00000001',
+        rate_book_version: '2026.1',
+        base_premium: 100000,
+        total_discounts: 5000,
+        total_taxes: 18000,
+        final_payable_premium: 123900,
+        override_status: 'NOT_REQUIRED',
+        approval_status: ApprovalStatus.NOT_REQUIRED,
+      }),
+    );
   });
 
   it('reuses the existing submission without re-triggering lifecycle transitions', async () => {
@@ -326,6 +386,104 @@ describe('QuotationsService', () => {
     expect(
       fixture.quotationLifecycleService.markTiraSubmitted,
     ).not.toHaveBeenCalled();
+  });
+
+  it('blocks TIRAMIS submission when approval is still pending', async () => {
+    const fixture = createServiceFixture({
+      requires_approval: true,
+      approval_status: ApprovalStatus.PENDING,
+      status: QuotationStatus.PENDING_REQUIREMENTS,
+    });
+
+    await expect(
+      fixture.service.submit('company-1', fixture.quotation.id, undefined, {
+        id: 'user-1',
+      } as any),
+    ).rejects.toThrow(
+      'Quotation approval is not complete. Current approval status is PENDING.',
+    );
+  });
+
+  it('logs pricing expiry, invalidation, and recalculation-required when a quote is expired', async () => {
+    const fixture = createServiceFixture({
+      pricingQuote: {
+        expires_at: new Date('2026-07-26T08:00:00.000Z'),
+      },
+    });
+
+    await expect(
+      fixture.service.submit('company-1', fixture.quotation.id, undefined, {
+        id: 'user-1',
+      } as any),
+    ).rejects.toThrow(
+      'Pricing quote PQ-2026-00000001 expired on 2026-07-26T08:00:00.000Z. Recalculate the premium and try again.',
+    );
+
+    const calls = (fixture.auditService.log as jest.Mock).mock.calls.map(
+      ([entry]) => entry,
+    );
+
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'quotation.pricing_expired',
+          status: 'failure',
+          metadata: expect.objectContaining({
+            correlation_id: fixture.quotation.id,
+          }),
+        }),
+        expect.objectContaining({
+          action: 'quotation.pricing_invalidation',
+          status: 'failure',
+          metadata: expect.objectContaining({
+            correlation_id: fixture.quotation.id,
+          }),
+        }),
+        expect.objectContaining({
+          action: 'quotation.pricing_recalculation.required',
+          status: 'failure',
+          metadata: expect.objectContaining({
+            new_value: {
+              recalculation_required: true,
+            },
+          }),
+        }),
+        expect.objectContaining({
+          action: 'quotation.tira_submission.validated',
+          status: 'failure',
+        }),
+      ]),
+    );
+  });
+
+  it('blocks TIRAMIS submission when payment is not settled in backend records', async () => {
+    const fixture = createServiceFixture({
+      requires_payment: true,
+      payment_status: PaymentStatus.PAID,
+      status: QuotationStatus.READY_FOR_SUBMISSION,
+      cover_note: {
+        payment_mode: 2,
+        entries: [
+          {
+            risks: [
+              {
+                risk_code: 'SP005001000001',
+                insurance_risk_id: 'risk-1',
+                pricing_quote_id: 'PQ-2026-00000001',
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    await expect(
+      fixture.service.submit('company-1', fixture.quotation.id, undefined, {
+        id: 'user-1',
+      } as any),
+    ).rejects.toThrow(
+      'Quotation payment is not settled. Only direct payment mode can be submitted without a settled invoice.',
+    );
   });
 
   it('requires a reason when rejecting a quotation', async () => {
@@ -364,5 +522,18 @@ describe('QuotationsService', () => {
       taxCode: 'VAT-MAINLAND',
       taxAmount: 18000,
     });
+
+    expect(fixture.auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'quotation.tax_recalculation',
+        metadata: expect.objectContaining({
+          quotationId: fixture.quotation.id,
+          riskCode: 'SP005001000001',
+          new_value: expect.objectContaining({
+            premium_including_tax: 118000,
+          }),
+        }),
+      }),
+    );
   });
 });

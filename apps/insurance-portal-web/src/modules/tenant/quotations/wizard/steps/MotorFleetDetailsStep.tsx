@@ -55,6 +55,7 @@ import {
   applyFleetRiskPremiumResult,
   recomputeFleetRiskRow,
 } from '../utils/premiumAggregation';
+import { buildFleetRiskPricingSignature } from '../utils/pricingStaleness';
 import { resolveFleetFactorValues } from '../utils/riskFactorResolver';
 import {
   fromSelectValue,
@@ -1309,6 +1310,10 @@ export function MotorFleetDetailsStep({
         effective_date: form.getValues('valid_from'),
         quotation_type: 'MOTOR',
         currency_code: form.getValues('currency')?.trim().toUpperCase() || 'TZS',
+        exchange_rate:
+          (form.getValues('currency')?.trim().toUpperCase() || 'TZS') === 'TZS'
+            ? 1
+            : Number(form.getValues('exchange_rate')) || 1,
         risks: calculableRows.map(({ vehicleIndex, riskIndex, row }) => {
           const requiredFactors = requiredFactorsByRisk.get(row.risk_id.trim()) ?? [];
           const item = form.getValues(`fleet.items.${vehicleIndex}`);
@@ -1344,9 +1349,31 @@ export function MotorFleetDetailsStep({
               success,
             ),
           );
+          const currentItem = form.getValues(`fleet.items.${vehicleIndex}`);
+          const pricingInputSignature = buildFleetRiskPricingSignature({
+            quotation_type: form.getValues('quotation_type'),
+            product_id: form.getValues('product_id'),
+            valid_from: form.getValues('valid_from'),
+            valid_until: form.getValues('valid_until'),
+            currency: form.getValues('currency'),
+            exchange_rate: form.getValues('exchange_rate'),
+            fleet_header: form.getValues('fleet.header'),
+            item: currentItem,
+            risk: nextRow,
+          });
           form.setValue(
             `fleet.items.${vehicleIndex}.risks_covered.${riskIndex}`,
-            nextRow,
+            {
+              ...nextRow,
+              rating_result_metadata: {
+                ...nextRow.rating_result_metadata,
+                pricing_status:
+                  nextRow.rating_result_metadata?.pricing_status ?? 'CALCULATED',
+                pricing_input_signature: pricingInputSignature,
+                pricing_is_stale: false,
+                stale_reason: null,
+              },
+            },
           );
           return;
         }

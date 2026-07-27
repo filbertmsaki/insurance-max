@@ -239,6 +239,45 @@ describe('quotation payload builders', () => {
     });
   });
 
+  it('omits stale pricing_quote_id when quote-sensitive inputs no longer match', () => {
+    const values = createBaseValues();
+    values.quotation_flow = 'MOTOR_SINGLE';
+    values.quotation_type = 'MOTOR';
+    values.risks[0].risk_id = 'risk-1';
+    values.risks[0].risk_code = 'OD';
+    values.risks[0].sum_insured = '1000000';
+    values.risks[0].sum_insured_equivalent = '1000000';
+    values.risks[0].premium_rate = '0.05';
+    values.risks[0].premium_before_discount = '50000';
+    values.risks[0].premium_after_discount = '50000';
+    values.risks[0].premium_excluding_tax_equivalent = '50000';
+    values.risks[0].premium_including_tax = '59000';
+    values.risks[0].rating_result_metadata = {
+      pricing_quote_id: 'PQ-2026-00000009',
+      pricing_input_signature: 'old-signature',
+      pricing_is_stale: false,
+    };
+    values.motor = {
+      ...createEmptyMotorDetails(),
+      motor_category_code: '1',
+      motor_type_code: '1',
+      registration_no: 'T123ABC',
+      chassis_no: 'CHS-001',
+      engine_no: 'ENG-001',
+      make: 'Toyota',
+      model: 'Hiace',
+      manufacture_year: '2022',
+      motor_usage_code: '2',
+    };
+
+    const payload = buildMotorSingleQuotationPayload(values, {
+      salePointCode: 'SP-01',
+      productCode: 'PROD-01',
+    });
+
+    expect(payload.cover_note_dtl.risks_covered?.[0].pricing_quote_id).toBeNull();
+  });
+
   it('validates duplicate fleet registrations', () => {
     const values = createBaseValues();
     values.quotation_flow = 'MOTOR_FLEET';

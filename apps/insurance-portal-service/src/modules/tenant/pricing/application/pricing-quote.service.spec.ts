@@ -4,6 +4,22 @@ const COMPANY_ID = 'company-1';
 
 describe('PricingQuoteService', () => {
   it('persists a single-risk pricing quote snapshot and returns quote metadata', async () => {
+    const exchangeRateGovernanceService = {
+      resolveSnapshot: jest.fn().mockResolvedValue({
+        quotation_currency_code: 'TZS',
+        base_currency_code: 'TZS',
+        exchange_rate: 1,
+        exchange_rate_source: 'PARITY',
+        exchange_rate_date: '2026-07-27',
+        exchange_rate_precision: 10,
+        approval_required: false,
+        approval_granted: true,
+        approved_by_user_id: null,
+        approved_at: null,
+        conversion_direction: 'QUOTE_TO_BASE_MULTIPLY',
+        rounding_method: 'ROUND_HALF_UP',
+      }),
+    };
     const pricingEngineService = {
       calculateSingleRisk: jest.fn().mockResolvedValue({
         risk_id: 'risk-1',
@@ -61,6 +77,7 @@ describe('PricingQuoteService', () => {
       pricingEngineService as any,
       quotationRecalculationService as any,
       identifierGeneratorService as any,
+      exchangeRateGovernanceService as any,
       pricingQuoteRepository as any,
       riskRepository as any,
     );
@@ -80,6 +97,20 @@ describe('PricingQuoteService', () => {
     expect(result.pricing_quote_id).toBe('PQ-2026-00000001');
     expect(result.pricing_status).toBe('CALCULATED');
     expect(result.input_signature).toBe('hash-123');
+    expect(result.premium_breakdown).toEqual(
+      expect.objectContaining({
+        pricing_quote_id: 'PQ-2026-00000001',
+        status: 'CALCULATED',
+        currency: 'TZS',
+        rate_book: {
+          code: 'MOTOR-STANDARD',
+          version: '2026.1',
+        },
+        totals: expect.objectContaining({
+          payable_premium: 250000,
+        }),
+      }),
+    );
     expect(pricingQuoteRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
         pricing_quote_id: 'PQ-2026-00000001',
@@ -97,6 +128,7 @@ describe('PricingQuoteService', () => {
       { calculateSingleRisk: jest.fn(), calculateMultiRisk: jest.fn() } as any,
       { createInputSignature: jest.fn() } as any,
       { generatePricingQuoteId: jest.fn() } as any,
+      { resolveSnapshot: jest.fn() } as any,
       {
         create: jest.fn(),
         save: jest.fn(),
@@ -140,6 +172,22 @@ describe('PricingQuoteService', () => {
   });
 
   it('persists a multi-risk pricing quote snapshot with successful and failed rows', async () => {
+    const exchangeRateGovernanceService = {
+      resolveSnapshot: jest.fn().mockResolvedValue({
+        quotation_currency_code: 'TZS',
+        base_currency_code: 'TZS',
+        exchange_rate: 1,
+        exchange_rate_source: 'PARITY',
+        exchange_rate_date: '2026-07-27',
+        exchange_rate_precision: 10,
+        approval_required: false,
+        approval_granted: true,
+        approved_by_user_id: null,
+        approved_at: null,
+        conversion_direction: 'QUOTE_TO_BASE_MULTIPLY',
+        rounding_method: 'ROUND_HALF_UP',
+      }),
+    };
     const pricingEngineService = {
       calculateMultiRisk: jest.fn().mockResolvedValue({
         risks: [
@@ -220,6 +268,7 @@ describe('PricingQuoteService', () => {
       pricingEngineService as any,
       quotationRecalculationService as any,
       identifierGeneratorService as any,
+      exchangeRateGovernanceService as any,
       pricingQuoteRepository as any,
       riskRepository as any,
     );
@@ -250,6 +299,23 @@ describe('PricingQuoteService', () => {
     expect(result.pricing_quote_id).toBe('PQ-2026-00000003');
     expect(result.successful_risk_count).toBe(1);
     expect(result.failed_risk_count).toBe(1);
+    expect(result.premium_breakdown).toEqual(
+      expect.objectContaining({
+        pricing_quote_id: 'PQ-2026-00000003',
+        status: 'PARTIAL',
+        currency: 'TZS',
+        totals: expect.objectContaining({
+          payable_premium: 250000,
+        }),
+        errors: [
+          expect.objectContaining({
+            client_reference: 'VEHICLE-002',
+            risk_id: 'risk-2',
+            message: 'Required factor "seat_capacity" is missing',
+          }),
+        ],
+      }),
+    );
     expect(pricingQuoteRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({
         pricing_quote_id: 'PQ-2026-00000003',

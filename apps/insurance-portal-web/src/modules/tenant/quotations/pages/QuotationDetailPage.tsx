@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -154,6 +155,8 @@ export function QuotationDetailPage() {
   const tiraStatus = preview?.overview.tira_status ?? null;
   const displayStatus = preview?.overview.display_status ?? null;
   const paymentMode = preview?.cover_note.payment_mode ?? null;
+  const pricingIntegration = preview?.pricing_integration ?? null;
+  const hasStalePricing = pricingIntegration?.is_stale ?? false;
   const requiresApproval = preview?.overview.requires_approval ?? false;
   const requiresPayment = preview?.overview.requires_payment ?? false;
   const submittedAt = preview?.overview.submitted_at ?? null;
@@ -463,6 +466,7 @@ export function QuotationDetailPage() {
       <Button
         variant="outline"
         size="sm"
+        disabled={hasStalePricing}
         onClick={() => navigate(underwritingPaths.quotationPayment(preview.overview.quotation_id))}
       >
         <CreditCard className="mr-1.5 h-3.5 w-3.5" />
@@ -504,7 +508,7 @@ export function QuotationDetailPage() {
         <Button
           variant="outline"
           size="sm"
-          disabled={transitionStatusMutation.isPending}
+          disabled={transitionStatusMutation.isPending || hasStalePricing}
           onClick={() => openStatusActionDialog('SUBMIT_FOR_APPROVAL')}
         >
           Submit for Approval
@@ -514,7 +518,7 @@ export function QuotationDetailPage() {
         <Button
           variant="outline"
           size="sm"
-          disabled={transitionStatusMutation.isPending}
+          disabled={transitionStatusMutation.isPending || hasStalePricing}
           onClick={() => openStatusActionDialog('APPROVE')}
         >
           <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
@@ -556,7 +560,7 @@ export function QuotationDetailPage() {
         <Button
           variant="outline"
           size="sm"
-          disabled={submitMutation.isPending}
+          disabled={submitMutation.isPending || hasStalePricing}
           onClick={() =>
             submitMutation.mutate(undefined, {
               onSuccess: () => {
@@ -615,6 +619,36 @@ export function QuotationDetailPage() {
         </div>
         {actionButtons}
       </div>
+
+      {pricingIntegration ? (
+        <Alert variant={pricingIntegration.is_stale ? 'destructive' : 'success'}>
+          <AlertTitle>
+            Pricing {pricingIntegration.pricing_status.toLowerCase()}
+          </AlertTitle>
+          <AlertDescription className="space-y-1">
+            <p>
+              Base premium {pricingIntegration.base_premium.toFixed(2)}. Discounts{' '}
+              {pricingIntegration.total_discounts.toFixed(2)}. Taxes{' '}
+              {pricingIntegration.total_taxes.toFixed(2)}. Payable premium{' '}
+              {pricingIntegration.final_payable_premium.toFixed(2)}.
+            </p>
+            {pricingIntegration.current_pricing_quote_id ? (
+              <p>
+                Pricing quote {pricingIntegration.current_pricing_quote_id}
+                {pricingIntegration.rate_book_version
+                  ? ` / Rate book ${pricingIntegration.rate_book_version}`
+                  : ''}
+                {pricingIntegration.pricing_expires_at
+                  ? ` / Expires ${new Date(pricingIntegration.pricing_expires_at).toLocaleString()}`
+                  : ''}
+              </p>
+            ) : null}
+            {pricingIntegration.stale_reasons.map((reason) => (
+              <p key={reason}>{reason}</p>
+            ))}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <Tabs defaultValue={tabs[0]} className="space-y-4">
         <TabsList className="h-auto flex-wrap gap-1">

@@ -17,7 +17,9 @@ import {
   computePremiumIncludingTax,
   toNumber,
 } from '../utils/premiumAggregation';
+import { readPricingQuoteMetadata } from '@/modules/pricing';
 import { getTaxRateForCode } from '../utils/taxOptions';
+import { buildSingleRiskPricingSignature } from '../utils/pricingStaleness';
 
 const CALCULATION_DEBOUNCE_MS = 400;
 
@@ -171,11 +173,37 @@ export function useRiskPremiumCalculation(
 ) {
   const riskId = useWatch({ control: form.control, name: path(index, 'risk_id') }) as string;
   const quotationType = useWatch({ control: form.control, name: 'quotation_type' });
+  const productId = useWatch({ control: form.control, name: 'product_id' });
+  const validFrom = useWatch({ control: form.control, name: 'valid_from' });
+  const validUntil = useWatch({ control: form.control, name: 'valid_until' });
+  const currency = useWatch({ control: form.control, name: 'currency' });
+  const exchangeRate = useWatch({ control: form.control, name: 'exchange_rate' });
+  const addons = useWatch({ control: form.control, name: 'addons' });
   const motor = useWatch({ control: form.control, name: 'motor' });
   const factorValuesRow = useWatch({
     control: form.control,
     name: path(index, 'factor_values'),
   }) as Record<string, string | number | boolean> | undefined;
+  const sumInsured = useWatch({
+    control: form.control,
+    name: path(index, 'sum_insured'),
+  }) as string | undefined;
+  const discounts = useWatch({
+    control: form.control,
+    name: path(index, 'discounts_offered'),
+  });
+  const taxes = useWatch({
+    control: form.control,
+    name: path(index, 'taxes_charged'),
+  });
+  const riskCode = useWatch({
+    control: form.control,
+    name: path(index, 'risk_code'),
+  }) as string | undefined;
+  const pricingMetadata = useWatch({
+    control: form.control,
+    name: path(index, 'rating_result_metadata'),
+  });
 
   // Sum insured only feeds a calculation once the user has finished editing
   // it (blur), not on every keystroke — see handleSumInsuredBlur below. The
@@ -225,6 +253,43 @@ export function useRiskPremiumCalculation(
     factorValuesRow,
   ]);
   const factorValuesKey = JSON.stringify(factorValues);
+  const currentPricingSignature = useMemo(
+    () =>
+      buildSingleRiskPricingSignature({
+        quotation_type: quotationType,
+        product_id: productId,
+        valid_from: validFrom,
+        valid_until: validUntil,
+        currency,
+        exchange_rate: exchangeRate,
+        motor,
+        addons,
+        risk: {
+          risk_id: riskId,
+          risk_code: riskCode,
+          sum_insured: sumInsured,
+          factor_values: factorValuesRow ?? {},
+          discounts_offered: discounts ?? [],
+          taxes_charged: taxes ?? [],
+        },
+      }),
+    [
+      addons,
+      currency,
+      discounts,
+      exchangeRate,
+      factorValuesRow,
+      motor,
+      productId,
+      quotationType,
+      riskCode,
+      riskId,
+      sumInsured,
+      taxes,
+      validFrom,
+      validUntil,
+    ],
+  );
 
   // Deselecting a risk clears its stale minimum immediately.
   useEffect(() => {
@@ -255,6 +320,31 @@ export function useRiskPremiumCalculation(
       form.setValue(path(index, 'minimum_amount'), minimumAmount);
     }
   }, [form, index, riskId, ruleListQuery.data]);
+
+  useEffect(() => {
+    const metadata = readPricingQuoteMetadata(pricingMetadata);
+    if (!metadata?.pricing_quote_id || !metadata.pricing_input_signature) {
+      return;
+    }
+
+    if (metadata.pricing_input_signature === currentPricingSignature) {
+      return;
+    }
+
+    if (metadata.pricing_is_stale && metadata.stale_reason) {
+      return;
+    }
+
+    form.setValue(path(index, 'rating_result_metadata'), {
+      ...metadata,
+      pricing_quote_id: null,
+      pricing_status: 'STALE',
+      pricing_is_stale: true,
+      stale_reason:
+        'Risk data changed after the last calculation. Recalculate premium before continuing.',
+      pricing_input_signature: currentPricingSignature,
+    });
+  }, [currentPricingSignature, form, index, pricingMetadata]);
 
   const { calculateSingleMutation: calculateMutation } = usePricingCalculator();
 
@@ -333,6 +423,17 @@ export function useRiskPremiumCalculation(
             Number(factorValues.sum_insured) ||
             0,
           factors: factorValues,
+          effective_date: form.getValues('valid_from') as string,
+          currency_code:
+            ((form.getValues('currency') as string) || 'TZS')
+              .trim()
+              .toUpperCase(),
+          exchange_rate:
+            (((form.getValues('currency') as string) || 'TZS')
+              .trim()
+              .toUpperCase() === 'TZS'
+              ? 1
+              : Number(form.getValues('exchange_rate') as string) || 1),
         },
         {
           onSuccess: (result) => {
@@ -355,7 +456,13 @@ export function useRiskPremiumCalculation(
             );
             form.setValue(
               path(index, 'rating_result_metadata'),
-              updatedRow.rating_result_metadata,
+              {
+                ...updatedRow.rating_result_metadata,
+                pricing_status: updatedRow.rating_result_metadata?.pricing_status ?? 'CALCULATED',
+                pricing_input_signature: currentPricingSignature,
+                pricing_is_stale: false,
+                stale_reason: null,
+              },
             );
             recomputeRiskRow(form, index);
           },
@@ -376,6 +483,7 @@ export function useRiskPremiumCalculation(
     quotationType,
     committedSumInsured,
     factorValuesKey,
+    currentPricingSignature,
   ]);
 
   return {

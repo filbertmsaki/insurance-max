@@ -1,7 +1,11 @@
 import { AlertTriangle, CheckCircle2, Clock3, LoaderCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { PricingQuoteMetadata } from '../types/pricing';
-import { formatPricingDate, isPricingQuoteExpired } from '../utilities/pricing';
+import {
+  formatPricingDate,
+  isPricingQuoteExpired,
+  isPricingQuoteStale,
+} from '../utilities/pricing';
 import { PricingErrorDisplay } from './PricingErrorDisplay';
 import { PricingWarningDisplay } from './PricingWarningDisplay';
 
@@ -23,6 +27,7 @@ export function PricingStatusAlert({
   compact = false,
 }: Props) {
   const expired = isPricingQuoteExpired(metadata);
+  const stale = isPricingQuoteStale(metadata);
   const hasValidationErrors = (metadata?.validation_errors?.length ?? 0) > 0;
   const hasValidationWarnings =
     (metadata?.validation_warnings?.length ?? 0) > 0;
@@ -51,8 +56,17 @@ export function PricingStatusAlert({
       lines.push(`Expires: ${formattedExpiry}`);
     }
   }
+  if (showQuoteMetadata && metadata?.exchange_rate_snapshot) {
+    const snapshot = metadata.exchange_rate_snapshot;
+    lines.push(
+      `Exchange: ${snapshot.quotation_currency_code} -> ${snapshot.base_currency_code} @ ${snapshot.exchange_rate}`,
+    );
+    lines.push(
+      `Rate date: ${snapshot.exchange_rate_date} (${snapshot.exchange_rate_source.toLowerCase()})`,
+    );
+  }
 
-  const variant = errorMessage || hasValidationErrors || expired
+  const variant = errorMessage || hasValidationErrors || expired || stale
     ? 'destructive'
     : hasValidationWarnings || metadata?.minimum_applied
       ? 'warning'
@@ -62,7 +76,7 @@ export function PricingStatusAlert({
     <Alert variant={variant} className={compact ? 'p-3 [&>svg]:top-3' : undefined}>
       {isPending ? (
         <LoaderCircle className="h-4 w-4 animate-spin" />
-      ) : errorMessage || hasValidationErrors || expired ? (
+      ) : errorMessage || hasValidationErrors || expired || stale ? (
         <AlertTriangle className="h-4 w-4" />
       ) : metadata ? (
         expired ? <Clock3 className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />
@@ -74,7 +88,9 @@ export function PricingStatusAlert({
           ? 'Pricing in progress'
           : expired
             ? 'Pricing has expired'
-            : errorMessage || hasValidationErrors
+            : stale
+              ? 'Pricing is stale'
+              : errorMessage || hasValidationErrors
               ? 'Pricing needs attention'
               : metadata?.minimum_applied
                 ? 'Minimum premium applied'
@@ -85,6 +101,12 @@ export function PricingStatusAlert({
         {errorMessage ? <p>{errorMessage}</p> : null}
         {expired ? (
           <p>The stored pricing quote has expired. Recalculate before continuing.</p>
+        ) : null}
+        {stale ? (
+          <p>
+            {metadata?.stale_reason ??
+              'Risk data changed after the last calculation. Recalculate before continuing.'}
+          </p>
         ) : null}
         {lines.length > 0 ? (
           <div className="space-y-0.5 text-xs text-current/90">

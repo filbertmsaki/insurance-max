@@ -16,6 +16,11 @@ import { QuotationFlow } from '../enums/quotation-flow.enum';
 
 @Injectable()
 export class QuotationTiramisPayloadMapper {
+  /**
+   * Maps only an already-validated authoritative backend quotation payload.
+   * Callers must perform pricing, approval, payment, and field validation
+   * before invoking this mapper.
+   */
   toTiramisPayload(payload: CreateQuotationDto): Record<string, unknown> {
     switch (payload.internal_quotation.quotation_flow) {
       case QuotationFlow.NON_MOTOR:
