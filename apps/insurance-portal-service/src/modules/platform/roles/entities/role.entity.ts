@@ -17,6 +17,14 @@ import { User } from '../../../tenant/users/entities/user.entity';
 
 @Entity('roles')
 @Index('IDX_role_company', ['company_id'])
+@Index('UQ_roles_global_name', ['name'], {
+  unique: true,
+  where: '"company_id" IS NULL',
+})
+@Index('UQ_roles_company_name', ['company_id', 'name'], {
+  unique: true,
+  where: '"company_id" IS NOT NULL',
+})
 export class Role {
   @PrimaryGeneratedColumn('uuid')
   id: string;

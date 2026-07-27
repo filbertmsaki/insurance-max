@@ -32,6 +32,10 @@ export interface CompanySettings {
 @Index('UQ_companies_identifier_prefix', ['identifier_prefix'], {
   unique: true,
 })
+@Index('UQ_companies_name', ['name'], {
+  unique: true,
+  where: '"deleted_at" IS NULL',
+})
 export class Company {
   @PrimaryGeneratedColumn('uuid')
   id: string;
