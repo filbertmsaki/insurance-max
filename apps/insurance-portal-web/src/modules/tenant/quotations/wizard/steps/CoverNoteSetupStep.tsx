@@ -17,8 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Branch } from '@/types';
-import type { TiramisSalePointRecord } from '@/modules/tenant/tiramis/types';
 import { useIntermediaryCompanyOptions } from '../../hooks';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { StepSection } from '../components/StepSection';
@@ -45,9 +43,6 @@ interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
   categoryOptions: OptionLike[];
   productOptions: OptionLike[];
-  branchOptions: Branch[];
-  salePointOptions: TiramisSalePointRecord[];
-  salePointRequired: boolean;
   isHydrating?: boolean;
   title?: string;
   showFlowSelector?: boolean;
@@ -86,9 +81,6 @@ export function CoverNoteSetupStep({
   form,
   categoryOptions,
   productOptions,
-  branchOptions,
-  salePointOptions,
-  salePointRequired,
   isHydrating = false,
   title = 'Step 1. Cover Note Setup',
   showFlowSelector = true,
@@ -103,8 +95,6 @@ export function CoverNoteSetupStep({
   const coverNoteType = form.watch('cover_note_type');
   const channelType = form.watch('channel_type');
   const productId = form.watch('product_id');
-  const branchId = form.watch('branch_id');
-  const salePointId = form.watch('sale_point_id');
   const requiresStandardCoverNoteFields = quotationFlow !== 'MOTOR_FLEET';
   const validFromDateOnly = dateOnlyPart(validFrom) || today;
   const minValidUntil =
@@ -116,50 +106,10 @@ export function CoverNoteSetupStep({
         )
       : validFromDateOnly;
   const intermediaryCompanyId = form.watch('intermediary_company_id');
-  const defaultSalePointId =
-    salePointOptions.find((salePoint) => salePoint.isDefault)?.id ??
-    salePointOptions[0]?.id ??
-    '';
   const intermediaryOptions = useIntermediaryCompanyOptions(
     channelType,
     productId,
   );
-
-  useEffect(() => {
-    if (isHydrating) {
-      return;
-    }
-
-    if (!branchId) {
-      if (salePointId) {
-        form.setValue('sale_point_id', '');
-      }
-      return;
-    }
-
-    if (!salePointOptions.length) {
-      if (salePointId) {
-        form.setValue('sale_point_id', '');
-      }
-      return;
-    }
-
-    const selectedSalePoint = salePointOptions.find(
-      (salePoint) => salePoint.id === salePointId,
-    );
-
-    if (!selectedSalePoint) {
-      form.setValue('sale_point_id', defaultSalePointId);
-      form.clearErrors('sale_point_id');
-    }
-  }, [
-    branchId,
-    defaultSalePointId,
-    form,
-    isHydrating,
-    salePointId,
-    salePointOptions,
-  ]);
 
   const [coverPeriodDays] = useState(
     () =>
@@ -249,85 +199,6 @@ export function CoverNoteSetupStep({
           />
         )}
 
-        <FormField
-          control={form.control}
-          name="branch_id"
-          render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Branch (required)</FormLabel>
-              <Select
-                value={field.value || 'none'}
-                onValueChange={(value) => {
-                  field.onChange(value === 'none' ? '' : value);
-                  form.setValue('department_id', '');
-                  form.setValue('sale_point_id', '');
-                }}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select branch" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {branchOptions.map((branch) => (
-                    <SelectItem key={branch.id} value={branch.id}>
-                      {branch.name} ({branch.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </WizardFormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="sale_point_id"
-          render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>TIRAMIS Sale Point (required)</FormLabel>
-              <Select
-                value={field.value || 'none'}
-                onValueChange={(value) =>
-                  field.onChange(value === 'none' ? '' : value)
-                }
-                disabled={salePointOptions.length === 0}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={
-                        salePointOptions.length === 0
-                          ? 'Select a branch first'
-                          : 'Select sale point'
-                      }
-                    />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {salePointOptions.map((salePoint) => (
-                    <SelectItem key={salePoint.id} value={salePoint.id}>
-                      {salePoint.salePointName ?? salePoint.salePointCode} (
-                      {salePoint.salePointCode})
-                      {salePoint.isDefault ? ' - default' : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-              {salePointRequired && salePointOptions.length > 1 && (
-                <p className="text-xs text-amber-600">
-                  This branch has more than one active sale point. The
-                  default is selected automatically, but you can change it
-                  here.
-                </p>
-              )}
-            </WizardFormItem>
-          )}
-        />
 
         {coverNoteType !== '1' && (
           <FormField
@@ -446,6 +317,8 @@ export function CoverNoteSetupStep({
           </>
         )}
 
+        {channelType !== 'DIRECT' && (
+          <>
         <FormField
           control={form.control}
           name="commission_paid"
@@ -471,6 +344,8 @@ export function CoverNoteSetupStep({
             </WizardFormItem>
           )}
         />
+          </>
+        )}
 
         <FormField
           control={form.control}
@@ -829,90 +704,6 @@ export function CoverNoteSetupStep({
       </StepSection>
 
       <StepSection
-        title="Branch & Sale Point"
-        contentClassName="grid gap-3 md:grid-cols-2"
-      >
-        <FormField
-          control={form.control}
-          name="branch_id"
-          render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Branch (required)</FormLabel>
-              <Select
-                value={field.value || 'none'}
-                onValueChange={(value) => {
-                  field.onChange(value === 'none' ? '' : value);
-                  form.setValue('department_id', '');
-                  form.setValue('sale_point_id', '');
-                }}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select branch" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {branchOptions.map((branch) => (
-                    <SelectItem key={branch.id} value={branch.id}>
-                      {branch.name} ({branch.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </WizardFormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="sale_point_id"
-          render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>TIRAMIS Sale Point (required)</FormLabel>
-              <Select
-                value={field.value || 'none'}
-                onValueChange={(value) =>
-                  field.onChange(value === 'none' ? '' : value)
-                }
-                disabled={salePointOptions.length === 0}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue
-                      placeholder={
-                        salePointOptions.length === 0
-                          ? 'Select a branch first'
-                          : 'Select sale point'
-                      }
-                    />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {salePointOptions.map((salePoint) => (
-                    <SelectItem key={salePoint.id} value={salePoint.id}>
-                      {salePoint.salePointName ?? salePoint.salePointCode} (
-                      {salePoint.salePointCode})
-                      {salePoint.isDefault ? ' - default' : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-              {salePointRequired && salePointOptions.length > 1 && (
-                <p className="text-xs text-amber-600">
-                  This branch has more than one active sale point. The default
-                  is selected automatically, but you can change it here.
-                </p>
-              )}
-            </WizardFormItem>
-          )}
-        />
-      </StepSection>
-
-      <StepSection
         title="TIRAMIS Cover Note Header"
         contentClassName="grid gap-3 md:grid-cols-1"
       >
@@ -1077,6 +868,8 @@ export function CoverNoteSetupStep({
           </>
         )}
 
+        {channelType !== 'DIRECT' && (
+          <>
         <FormField
           control={form.control}
           name="commission_paid"
@@ -1102,6 +895,8 @@ export function CoverNoteSetupStep({
             </WizardFormItem>
           )}
         />
+          </>
+        )}
 
         <FormField
           control={form.control}

@@ -95,7 +95,6 @@ export type ProductChannelType =
 export interface InternalQuotationPayload {
   insurer_company_id: string;
   intermediary_company_id: string | null;
-  branch_id: string | null;
   department_id: string | null;
   category_id: string;
   product_id: string;
@@ -222,7 +221,6 @@ export interface FleetHeaderPayload {
   fleet_type: number;
   fleet_size: number;
   comprehensive_insured: number;
-  sale_point_code: string;
   cover_note_start_date: string;
   cover_note_end_date: string;
   payment_mode: number;
@@ -317,7 +315,12 @@ export interface QuotationListItem {
   updated_at: string;
 }
 
-export interface QuotationDetailRecord extends QuotationPayload {
+export interface QuotationDetailRecord
+  extends Omit<QuotationPayload, 'internal_quotation' | 'cover_note_dtl'> {
+  internal_quotation: InternalQuotationPayload & { branch_id: string | null };
+  cover_note_dtl: CoverNoteDetailPayload & {
+    fleet_hdr?: FleetHeaderPayload & { sale_point_code?: string };
+  };
   id: string;
   quotation_no: string;
   customer_id?: string | null;

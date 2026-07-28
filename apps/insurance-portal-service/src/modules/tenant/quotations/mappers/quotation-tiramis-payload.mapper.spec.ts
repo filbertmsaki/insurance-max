@@ -15,10 +15,11 @@ describe('QuotationTiramisPayloadMapper', () => {
   it('maps a non-motor quotation payload to TIRAMIS camelCase fields', () => {
     const payload = createNonMotorQuotationPayload();
 
-    const result = mapper.toTiramisPayload(payload);
+    const result = mapper.toTiramisPayload(payload, { branchCode: 'BR208' });
 
     expect(result).toMatchObject({
       coverNoteType: 1,
+      branchCode: 'BR208',
       coverNoteNumber: 'AICL-NL-2026-000001',
       salePointCode: 'SP502',
       totalPremiumIncludingTax: 123900,

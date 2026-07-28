@@ -86,8 +86,17 @@ describe('QuotationsService', () => {
       submitted_at: null,
       submitted_by: null,
       branch_id: null,
+      branch: {
+        id: 'branch-1',
+        company_id: 'company-1',
+        code: 'BR207',
+        status: 'active',
+        deleted_at: null,
+      },
       company_id: 'company-1',
       cover_note: {
+        sale_point_code:
+          authoritativePayload.cover_note_dtl.sale_point_code ?? 'SP502',
         payment_mode: 1,
         entries: [
           {
@@ -347,6 +356,33 @@ describe('QuotationsService', () => {
           100000,
       }),
     };
+    const branchUserRepository = {
+      createQueryBuilder: jest.fn(() => ({
+        innerJoinAndSelect: jest.fn().mockReturnThis(),
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue({
+          branch: {
+            id: 'branch-1',
+            company_id: 'company-1',
+            code: 'BR207',
+            status: 'active',
+            deleted_at: null,
+          },
+        }),
+      })),
+    } as any;
+    const salePointRepository = {
+      find: jest.fn().mockResolvedValue([
+        {
+          companyId: 'company-1',
+          branchId: 'branch-1',
+          salePointCode: 'SP502',
+          isActive: true,
+        },
+      ]),
+    } as any;
 
     const service = new QuotationsService(
       dataSource,
@@ -363,6 +399,8 @@ describe('QuotationsService', () => {
       pricingChargeService,
       exchangeRateGovernanceService as any,
       pricingQuoteService as any,
+      branchUserRepository,
+      salePointRepository,
     );
 
     return {

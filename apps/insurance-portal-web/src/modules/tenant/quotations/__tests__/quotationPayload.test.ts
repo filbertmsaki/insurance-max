@@ -82,6 +82,18 @@ function createBaseValues(): QuotationFormSchemaValues {
 }
 
 describe('quotation payload builders', () => {
+  it('does not send branch or sales-point identifiers from the wizard', () => {
+    const payload = buildNonMotorQuotationPayload(createBaseValues(), {
+      salePointCode: 'SP-CLIENT-MUST-NOT-BE-AUTHORITATIVE',
+      productCode: 'PROD-NM',
+    });
+
+    expect(payload.internal_quotation).not.toHaveProperty('branch_id');
+    expect(payload.internal_quotation).not.toHaveProperty('branchId');
+    expect(payload.cover_note_dtl).not.toHaveProperty('sale_point_code');
+    expect(payload.cover_note_dtl).not.toHaveProperty('salesPointCode');
+  });
+
   it('builds MOTOR_SINGLE payload in backend snake_case shape', () => {
     const values = createBaseValues();
     values.quotation_flow = 'MOTOR_SINGLE';

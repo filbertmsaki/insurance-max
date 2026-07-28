@@ -15,8 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Branch } from '@/types';
-import type { TiramisSalePointRecord } from '@/modules/tenant/tiramis/types';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { CoverNoteSetupStep } from './CoverNoteSetupStep';
 import { StepSection } from '../components/StepSection';
@@ -36,9 +34,6 @@ interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
   categoryOptions: OptionLike[];
   productOptions: OptionLike[];
-  branchOptions: Branch[];
-  salePointOptions: TiramisSalePointRecord[];
-  salePointRequired: boolean;
   isHydrating?: boolean;
 }
 
@@ -51,9 +46,6 @@ export function FleetSetupStep({
   form,
   categoryOptions,
   productOptions,
-  branchOptions,
-  salePointOptions,
-  salePointRequired,
   isHydrating = false,
 }: Props) {
   const fleetItems = form.watch('fleet.items');
@@ -167,9 +159,6 @@ export function FleetSetupStep({
         form={form}
         categoryOptions={categoryOptions}
         productOptions={productOptions}
-        branchOptions={branchOptions}
-        salePointOptions={salePointOptions}
-        salePointRequired={salePointRequired}
         isHydrating={isHydrating}
         title="Common Cover Note Setup"
         showFlowSelector={false}

@@ -24,14 +24,12 @@ import {
 } from '../schemas';
 import {
   useCreateQuotation,
-  useQuotationBranches,
   useQuotationCategories,
   useQuotationCurrentCompanyId,
   useQuotationCustomers,
   useQuotationDetail,
   useQuotationProducts,
   useQuotationRisks,
-  useQuotationSalePoints,
   useQuotationVehicles,
   useUpdateQuotation,
 } from '../hooks';
@@ -73,7 +71,6 @@ const STEP_FIELDS: Partial<
   'cover-note': [
     'category_id',
     'product_id',
-    'branch_id',
     'channel_type',
     'intermediary_company_id',
     'valid_from',
@@ -92,12 +89,10 @@ const STEP_FIELDS: Partial<
     'officer_name',
     'officer_title',
     'payment_mode_tira',
-    'sale_point_id',
   ],
   'fleet-setup': [
     'category_id',
     'product_id',
-    'branch_id',
     'channel_type',
     'intermediary_company_id',
     'valid_from',
@@ -114,7 +109,6 @@ const STEP_FIELDS: Partial<
     'officer_name',
     'officer_title',
     'payment_mode_tira',
-    'sale_point_id',
     'fleet',
   ],
   policyholder: ['customer_id', 'policyholder'],
@@ -195,9 +189,16 @@ export function QuotationWizardPage() {
   const isEditMode = Boolean(id);
   const isEndorsementMode = Boolean(sourceId && !isEditMode);
   const usesPrefilledQuotation = isEditMode || isEndorsementMode;
-  const activeBranchId = useAuthStore((state) => state.user?.activeBranchId ?? '');
   const defaultSalePointCode = useAuthStore(
     (state) => state.user?.defaultSalePointCode ?? '',
+  );
+  const loggedInOfficerName = useAuthStore((state) =>
+    [state.profile?.first_name, state.profile?.last_name]
+      .filter(Boolean)
+      .join(' '),
+  );
+  const loggedInOfficerTitle = useAuthStore(
+    (state) => state.profile?.officer_title ?? '',
   );
   const companyId = useQuotationCurrentCompanyId();
   const {
@@ -252,10 +253,8 @@ export function QuotationWizardPage() {
   const quotationFlow = form.watch('quotation_flow');
   const categoryId = form.watch('category_id');
   const productId = form.watch('product_id');
-  const branchId = form.watch('branch_id');
   const customerId = form.watch('customer_id');
   const policyholderMode = form.watch('policyholder_mode');
-  const salePointId = form.watch('sale_point_id');
   const watchedRisks = useWatch({
     control: form.control,
     name: 'risks',
@@ -270,7 +269,6 @@ export function QuotationWizardPage() {
   const savedCategoryId =
     quotationContext?.internal_quotation.category_id ?? '';
   const savedProductId = quotationContext?.internal_quotation.product_id ?? '';
-  const savedBranchId = quotationContext?.internal_quotation.branch_id ?? '';
   const savedSalePointCode =
     quotationContext?.cover_note_dtl.sale_point_code ??
     quotationContext?.cover_note_dtl.fleet_hdr?.sale_point_code ??
@@ -292,12 +290,8 @@ export function QuotationWizardPage() {
     supports_fleet:
       quotationFlowForQueries === 'MOTOR_FLEET' ? true : undefined,
   });
-  const { data: branchOptions = [] } = useQuotationBranches();
   const { data: riskOptions = [] } = useQuotationRisks(
     productId || (usesPrefilledQuotation ? savedProductId || undefined : undefined),
-  );
-  const { data: activeSalePoints = [] } = useQuotationSalePoints(
-    branchId || (usesPrefilledQuotation ? savedBranchId || undefined : undefined),
   );
   const { data: vehicleOptions = [] } = useQuotationVehicles(
     policyholderMode === 'existing' ? customerId : undefined,
@@ -310,7 +304,9 @@ export function QuotationWizardPage() {
       : form.watch('policyholder.customer_type') === 'CORPORATE'
         ? 2
         : 1;
-  const salePointCode = activeSalePoints.find((item) => item.id === salePointId)?.salePointCode;
+  const salePointCode = usesPrefilledQuotation
+    ? savedSalePointCode
+    : defaultSalePointCode;
   const createMutation = useCreateQuotation();
   const updateMutation = useUpdateQuotation(id);
   const [isSubmittingToTiramis, setIsSubmittingToTiramis] = useState(false);
@@ -319,18 +315,11 @@ export function QuotationWizardPage() {
     () => getWizardStepsForFlow(quotationFlowForQueries),
     [quotationFlowForQueries],
   );
-  const salePointRequired = activeSalePoints.length > 1;
   const editOptionsReady =
     !usesPrefilledQuotation ||
     !quotationContext ||
     (categoryOptions.some((option) => option.id === savedCategoryId) &&
-      productOptions.some((option) => option.id === savedProductId) &&
-      branchOptions.some((option) => option.id === savedBranchId) &&
-      (savedSalePointCode
-        ? activeSalePoints.some(
-            (salePoint) => salePoint.salePointCode === savedSalePointCode,
-          )
-        : true));
+      productOptions.some((option) => option.id === savedProductId));
 
   useEffect(() => {
     if (companyId) {
@@ -343,34 +332,39 @@ export function QuotationWizardPage() {
     form.reset({
       ...DEFAULT_VALUES,
       insurer_company_id: companyId,
-      branch_id: activeBranchId,
+      officer_name: loggedInOfficerName,
+      officer_title: loggedInOfficerTitle,
     });
-  }, [activeBranchId, companyId, form, isEditMode, isEndorsementMode]);
+  }, [
+    companyId,
+    form,
+    isEditMode,
+    isEndorsementMode,
+    loggedInOfficerName,
+    loggedInOfficerTitle,
+  ]);
 
   useEffect(() => {
-    if (
-      usesPrefilledQuotation ||
-      !defaultSalePointCode ||
-      !activeSalePoints.length ||
-      form.getValues('sale_point_id')
-    ) {
-      return;
+    if (usesPrefilledQuotation) return;
+    if (loggedInOfficerName && !form.getValues('officer_name')) {
+      form.setValue('officer_name', loggedInOfficerName, {
+        shouldValidate: true,
+      });
     }
-
-    const defaultSalePoint = activeSalePoints.find(
-      (salePoint) => salePoint.salePointCode === defaultSalePointCode,
-    );
-    if (defaultSalePoint) {
-      form.setValue('sale_point_id', defaultSalePoint.id, {
+    if (loggedInOfficerTitle && !form.getValues('officer_title')) {
+      form.setValue('officer_title', loggedInOfficerTitle, {
         shouldValidate: true,
       });
     }
   }, [
-    activeSalePoints,
-    defaultSalePointCode,
     form,
+    loggedInOfficerName,
+    loggedInOfficerTitle,
     usesPrefilledQuotation,
   ]);
+
+  useEffect(() => {
+  }, [form, usesPrefilledQuotation]);
 
   useEffect(() => {
     if (
@@ -380,12 +374,6 @@ export function QuotationWizardPage() {
     ) {
       return;
     }
-
-    const matchedSalePoint = savedSalePointCode
-      ? activeSalePoints.find(
-          (salePoint) => salePoint.salePointCode === savedSalePointCode,
-        )
-      : undefined;
 
     form.reset({
       ...DEFAULT_VALUES,
@@ -414,21 +402,17 @@ export function QuotationWizardPage() {
         : quotationContext.cover_note_dtl.endorsement_premium_earned != null
           ? String(quotationContext.cover_note_dtl.endorsement_premium_earned)
           : '',
-      sale_point_id: matchedSalePoint?.id ?? '',
       insurer_company_id: quotationContext.internal_quotation.insurer_company_id,
     });
     hasHydratedEditRef.current = true;
     setIsEditHydrating(false);
   }, [
-    activeSalePoints,
-    branchOptions,
     categoryOptions,
     editOptionsReady,
     isEndorsementMode,
     quotationContext,
     form,
     productOptions,
-    savedBranchId,
     savedCategoryId,
     savedProductId,
     savedSalePointCode,
@@ -730,21 +714,20 @@ export function QuotationWizardPage() {
       }
 
       const values = form.getValues();
-      const salePoint = activeSalePoints.find(
-        (item) => item.id === values.sale_point_id,
-      );
       const product = productOptions.find(
         (item) => item.id === values.product_id,
       );
       const existingCustomer = customerOptions.find(
         (item) => item.id === values.customer_id,
       );
-      const salePointCode = salePoint?.salePointCode;
+      const salePointCode = usesPrefilledQuotation
+        ? savedSalePointCode
+        : defaultSalePointCode;
       const productCode =
         product?.tiramis_product_code || product?.product_code || product?.id;
 
       if (!salePointCode) {
-        toast.error('Select a valid sale point before saving this quotation.');
+        toast.error('Your active branch has no default sales point configured.');
         return;
       }
 
@@ -796,7 +779,6 @@ export function QuotationWizardPage() {
       }
     },
     [
-      activeSalePoints,
       createMutation,
       customerOptions,
       form,
@@ -804,6 +786,9 @@ export function QuotationWizardPage() {
       navigate,
       productOptions,
       updateMutation,
+      defaultSalePointCode,
+      savedSalePointCode,
+      usesPrefilledQuotation,
     ],
   );
 
@@ -994,9 +979,6 @@ export function QuotationWizardPage() {
                     form={form}
                     categoryOptions={categoryOptions}
                     productOptions={productOptions}
-                    branchOptions={branchOptions}
-                    salePointOptions={activeSalePoints}
-                    salePointRequired={salePointRequired}
                     isHydrating={isEditHydrating}
                     showFlowSelector={false}
                     isEndorsementMode={isEndorsementMode}
@@ -1014,9 +996,6 @@ export function QuotationWizardPage() {
                     form={form}
                     categoryOptions={categoryOptions}
                     productOptions={productOptions}
-                    branchOptions={branchOptions}
-                    salePointOptions={activeSalePoints}
-                    salePointRequired={salePointRequired}
                     isHydrating={isEditHydrating}
                   />
                 )}
@@ -1077,8 +1056,6 @@ export function QuotationWizardPage() {
                     customerOptions={customerOptions}
                     categoryOptions={categoryOptions}
                     productOptions={productOptions}
-                    branchOptions={branchOptions}
-                    salePointOptions={activeSalePoints}
                     riskOptions={riskOptions}
                     riskCount={riskFieldArray.fields.length}
                     onEditStep={setStepId}

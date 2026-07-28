@@ -465,9 +465,9 @@ const nonMotorItemSchema = z.object({
 const quotationFormObjectSchema = z.object({
   insurer_company_id: z.string().min(1, 'Company is required'),
   intermediary_company_id: optionalText,
-  branch_id: z.string().min(1, 'Branch is required'),
+  branch_id: optionalText,
   department_id: optionalText,
-  sale_point_id: z.string().min(1, 'Sale point is required'),
+  sale_point_id: optionalText,
   policyholder_mode: z.enum(['existing', 'new']),
   customer_id: optionalText,
   policyholder: customerFormObjectSchema,
@@ -1342,7 +1342,6 @@ function buildCommonDetail(
     prev_cover_note_reference_number: normalizeText(
       values.prev_cover_note_reference,
     ),
-    sale_point_code: salePointCode,
     cover_note_start_date: formatDateTime(values.valid_from, false),
     cover_note_end_date: formatDateTime(values.valid_until, true),
     cover_note_desc: normalizeText(values.cover_note_desc) ?? '',
@@ -1360,9 +1359,14 @@ function buildCommonDetail(
       normalizeMoneyNumber(values.total_premium) ||
       roundMoney(sumDecimals(risks.map((risk) => risk.premium_including_tax))),
     commision_paid:
-      normalizeMoneyNumber(values.commission_paid) ||
-      normalizeMoneyNumber(values.total_commission),
-    commision_rate: normalizeRateNumber(values.commission_rate),
+      values.channel_type === 'DIRECT'
+        ? 0
+        : normalizeMoneyNumber(values.commission_paid) ||
+          normalizeMoneyNumber(values.total_commission),
+    commision_rate:
+      values.channel_type === 'DIRECT'
+        ? 0
+        : normalizeRateNumber(values.commission_rate),
     officer_name: normalizeText(values.officer_name) ?? '',
     officer_title: normalizeText(values.officer_title) ?? '',
     product_code: productCode,
@@ -1402,7 +1406,6 @@ export function buildMotorSingleQuotationPayload(
     internal_quotation: {
       insurer_company_id: values.insurer_company_id,
       intermediary_company_id: normalizeText(values.intermediary_company_id),
-      branch_id: normalizeText(values.branch_id),
       department_id: normalizeText(values.department_id),
       category_id: values.category_id,
       product_id: values.product_id,
@@ -1590,7 +1593,6 @@ export function buildMotorFleetQuotationPayload(
     internal_quotation: {
       insurer_company_id: values.insurer_company_id,
       intermediary_company_id: normalizeText(values.intermediary_company_id),
-      branch_id: normalizeText(values.branch_id),
       department_id: normalizeText(values.department_id),
       category_id: values.category_id,
       product_id: values.product_id,
@@ -1611,7 +1613,6 @@ export function buildMotorFleetQuotationPayload(
         comprehensive_insured:
           normalizeNumber(values.fleet.header.comprehensive_insured) ||
           fleetItems.length,
-        sale_point_code: context.salePointCode,
         cover_note_start_date: formatDateTime(values.valid_from, false),
         cover_note_end_date: formatDateTime(values.valid_until, true),
         payment_mode: normalizePositiveNumber(values.payment_mode_tira),
@@ -1637,9 +1638,14 @@ export function buildMotorFleetQuotationPayload(
           ),
         ),
         commision_paid:
-          normalizeMoneyNumber(values.commission_paid) ||
-          normalizeMoneyNumber(values.total_commission),
-        commision_rate: normalizeRateNumber(values.commission_rate),
+          values.channel_type === 'DIRECT'
+            ? 0
+            : normalizeMoneyNumber(values.commission_paid) ||
+              normalizeMoneyNumber(values.total_commission),
+        commision_rate:
+          values.channel_type === 'DIRECT'
+            ? 0
+            : normalizeRateNumber(values.commission_rate),
         officer_name: normalizeText(values.officer_name) ?? '',
         officer_title: normalizeText(values.officer_title) ?? '',
         product_code: context.productCode,
@@ -1673,7 +1679,6 @@ export function buildNonMotorQuotationPayload(
     internal_quotation: {
       insurer_company_id: values.insurer_company_id,
       intermediary_company_id: normalizeText(values.intermediary_company_id),
-      branch_id: normalizeText(values.branch_id),
       department_id: normalizeText(values.department_id),
       category_id: values.category_id,
       product_id: values.product_id,

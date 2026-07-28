@@ -4,6 +4,7 @@ import { Company } from '../../platform/companies/entities/company.entity';
 import { TiramisModule } from '../../tiramis/tiramis.module';
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
 import { Branch } from '../branches/entities/branch.entity';
+import { BranchUser } from '../branches/entities/branch-user.entity';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
@@ -15,6 +16,7 @@ import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { User } from '../users/entities/user.entity';
+import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 import { Quotation } from './entities/quotation.entity';
 import { QuotationStatusHistory } from './entities/quotation-status-history.entity';
 import { QuotationCoverNoteEntry } from './entities/structured/quotation-cover-note-entry.entity';
@@ -68,6 +70,8 @@ import { PricingModule } from '../pricing/pricing.module';
       Company,
       Customer,
       Branch,
+      BranchUser,
+      TiramisSalePointEntity,
       Department,
       InsuranceCategory,
       InsuranceProduct,

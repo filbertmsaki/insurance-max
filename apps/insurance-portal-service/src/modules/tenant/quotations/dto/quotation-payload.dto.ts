@@ -29,9 +29,8 @@ export class InternalQuotationDto {
   @IsUUID()
   intermediary_company_id: string | null;
 
-  @IsOptional()
-  @IsUUID()
-  branch_id: string | null;
+  /** Resolved server-side from the authenticated user's active branch. */
+  declare branch_id: string | null;
 
   @IsOptional()
   @IsUUID()
@@ -581,10 +580,8 @@ export class CoverNoteDetailDto {
   @MaxLength(100)
   prev_cover_note_reference_number?: string | null;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(50)
-  sale_point_code?: string;
+  /** Resolved server-side from the active branch's default sale point. */
+  declare sale_point_code?: string;
 
   @IsOptional()
   @IsDateString()

@@ -21,14 +21,17 @@ export class QuotationTiramisPayloadMapper {
    * Callers must perform pricing, approval, payment, and field validation
    * before invoking this mapper.
    */
-  toTiramisPayload(payload: CreateQuotationDto): Record<string, unknown> {
+  toTiramisPayload(
+    payload: CreateQuotationDto,
+    context: { branchCode?: string | null } = {},
+  ): Record<string, unknown> {
     switch (payload.internal_quotation.quotation_flow) {
       case QuotationFlow.NON_MOTOR:
-        return this.mapNonMotorPayload(payload);
+        return this.mapNonMotorPayload(payload, context.branchCode);
       case QuotationFlow.MOTOR_SINGLE:
-        return this.mapMotorSinglePayload(payload);
+        return this.mapMotorSinglePayload(payload, context.branchCode);
       case QuotationFlow.MOTOR_FLEET:
-        return this.mapMotorFleetPayload(payload);
+        return this.mapMotorFleetPayload(payload, context.branchCode);
       default:
         return {};
     }
@@ -36,10 +39,12 @@ export class QuotationTiramisPayloadMapper {
 
   private mapNonMotorPayload(
     payload: CreateQuotationDto,
+    branchCode?: string | null,
   ): Record<string, unknown> {
     const detail = payload.cover_note_dtl;
 
     return {
+      ...(branchCode ? { branchCode } : {}),
       coverNoteType: payload.cover_note_hdr.cover_note_type,
       coverNoteNumber: detail.cover_note_number,
       prevCoverNoteReferenceNumber: detail.prev_cover_note_reference_number,
@@ -72,11 +77,12 @@ export class QuotationTiramisPayloadMapper {
 
   private mapMotorSinglePayload(
     payload: CreateQuotationDto,
+    branchCode?: string | null,
   ): Record<string, unknown> {
     const detail = payload.cover_note_dtl;
 
     return {
-      ...this.mapNonMotorPayload(payload),
+      ...this.mapNonMotorPayload(payload, branchCode),
       isFleet: false,
       motorDetail: this.mapMotorDetail(detail.motor_dtl!),
     };
@@ -84,11 +90,13 @@ export class QuotationTiramisPayloadMapper {
 
   private mapMotorFleetPayload(
     payload: CreateQuotationDto,
+    branchCode?: string | null,
   ): Record<string, unknown> {
     const header = payload.cover_note_dtl.fleet_hdr!;
     const items = payload.cover_note_dtl.fleet_dtls ?? [];
 
     return {
+      ...(branchCode ? { branchCode } : {}),
       coverNoteType: payload.cover_note_hdr.cover_note_type,
       coverNoteNumber: items[0]?.cover_note_number,
       prevCoverNoteReferenceNumber:

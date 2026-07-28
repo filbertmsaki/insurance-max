@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
   moneyEqual,
@@ -17,11 +18,13 @@ import {
   Brackets,
   In,
   QueryFailedError,
+  Repository,
 } from 'typeorm';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { TiramisRequestType } from '../../tiramis/enums/tiramis-request-type.enum';
 import { TiramisBusinessSubmitService } from '../../tiramis/services/tiramis-business-submit.service';
 import { Branch } from '../branches/entities/branch.entity';
+import { BranchUser } from '../branches/entities/branch-user.entity';
 import { CustomerKycStatus } from '../customers/enums/customer-kyc-status.enum';
 import { CustomerGender } from '../customers/enums/customer-gender.enum';
 import { CustomerPolicyHolderType } from '../customers/enums/customer-policy-holder-type.enum';
@@ -86,6 +89,7 @@ import { PortalTiraSubmissionEvent } from '../tiramis-integration/entities/porta
 import { AuditService } from '../../shared/audit/audit.service';
 import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/tiramis-submission-tracking.repository';
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
+import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { PricingChargeService } from '../pricing/application/pricing-charge.service';
 import { ExchangeRateGovernanceService } from '../pricing/application/exchange-rate-governance.service';
@@ -232,6 +236,10 @@ export class QuotationsService {
     private readonly pricingChargeService: PricingChargeService,
     private readonly exchangeRateGovernanceService: ExchangeRateGovernanceService,
     private readonly pricingQuoteService: PricingQuoteService,
+    @InjectRepository(BranchUser)
+    private readonly branchUserRepository: Repository<BranchUser>,
+    @InjectRepository(TiramisSalePointEntity)
+    private readonly salePointRepository: Repository<TiramisSalePointEntity>,
   ) {}
 
   async create(
@@ -239,9 +247,14 @@ export class QuotationsService {
     payload: CreateQuotationDto,
     user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
   ) {
-    const preparedPayload = await this.preparePayloadWithGeneratedIdentifiers(
+    const contextPayload = await this.resolveCreationContext(
       companyId,
       payload,
+      user.id,
+    );
+    const preparedPayload = await this.preparePayloadWithGeneratedIdentifiers(
+      companyId,
+      contextPayload,
     );
 
     const scope = await this.validateScope(companyId, preparedPayload);
@@ -341,9 +354,13 @@ export class QuotationsService {
     this.assertQuotationEditable(existing);
     this.assertNoPremiumOverrideHistory(existing);
 
+    const contextPayload = this.resolveExistingQuotationContext(
+      payload,
+      existing,
+    );
     const preparedPayload = await this.preparePayloadWithGeneratedIdentifiers(
       companyId,
-      payload,
+      contextPayload,
       existing,
     );
 
@@ -1449,6 +1466,45 @@ export class QuotationsService {
     };
   }
 
+  private async resolveStoredTiramisContext(
+    companyId: string,
+    quotation: Quotation,
+  ): Promise<{ branchCode: string; salePointCode: string }> {
+    const branch = quotation.branch;
+    const salePointCode = quotation.cover_note?.sale_point_code?.trim();
+    if (
+      !branch ||
+      branch.company_id !== companyId ||
+      branch.status !== 'active' ||
+      branch.deleted_at ||
+      !branch.code?.trim() ||
+      !salePointCode
+    ) {
+      throw new BadRequestException(
+        'The quotation branch or sales point code is not configured. Please update the branch configuration before submitting to TIRA.',
+      );
+    }
+
+    const matchingSalePoints = await this.salePointRepository.find({
+      where: {
+        companyId,
+        branchId: branch.id,
+        salePointCode,
+        isActive: true,
+      },
+    });
+    if (matchingSalePoints.length !== 1) {
+      throw new BadRequestException(
+        'The quotation branch or sales point code is not configured. Please update the branch configuration before submitting to TIRA.',
+      );
+    }
+
+    return {
+      branchCode: branch.code.trim().toUpperCase(),
+      salePointCode: matchingSalePoints[0].salePointCode.trim().toUpperCase(),
+    };
+  }
+
   private async prepareTrustedTiraSubmission(
     companyId: string,
     quotation: Quotation,
@@ -1465,6 +1521,10 @@ export class QuotationsService {
         await this.assertPaymentReady(quotation);
       }
 
+      const tiramisContext = await this.resolveStoredTiramisContext(
+        companyId,
+        quotation,
+      );
       const payload = this.payloadMapper.toAuthoritativePayload(quotation);
       await this.validateAuthoritativePricing(
         companyId,
@@ -1511,7 +1571,9 @@ export class QuotationsService {
 
       return {
         payload,
-        tiramisPayload: this.tiramisPayloadMapper.toTiramisPayload(payload),
+        tiramisPayload: this.tiramisPayloadMapper.toTiramisPayload(payload, {
+          branchCode: tiramisContext.branchCode,
+        }),
       };
     } catch (error) {
       await this.auditService.log({
@@ -3836,6 +3898,117 @@ export class QuotationsService {
         : PaymentStatus.NOT_REQUIRED,
       tira_status: quotation.tira_status,
       status: quotation.status,
+    };
+  }
+
+  private async resolveCreationContext(
+    companyId: string,
+    payload: CreateQuotationDto,
+    userId: string,
+  ): Promise<CreateQuotationDto> {
+    const assignment = await this.branchUserRepository
+      .createQueryBuilder('assignment')
+      .innerJoinAndSelect('assignment.branch', 'branch')
+      .innerJoin('assignment.company_user', 'companyUser')
+      .where('companyUser.user_id = :userId', { userId })
+      .andWhere('companyUser.company_id = :companyId', { companyId })
+      .andWhere('companyUser.status = :membershipStatus', {
+        membershipStatus: 'active',
+      })
+      .andWhere('assignment.is_active_branch = true')
+      .getOne();
+
+    const branch = assignment?.branch;
+    if (
+      !assignment ||
+      !branch ||
+      branch.company_id !== companyId ||
+      branch.status !== 'active' ||
+      branch.deleted_at
+    ) {
+      throw new BadRequestException(
+        'You do not have a valid active branch. Please select an active branch before creating a quotation.',
+      );
+    }
+
+    if (!branch.code?.trim()) {
+      throw new BadRequestException(
+        'The active branch does not have a valid branch code. Please update the branch configuration before creating a quotation.',
+      );
+    }
+
+    const defaultSalePoints = await this.salePointRepository.find({
+      where: {
+        companyId,
+        branchId: branch.id,
+        isDefault: true,
+        isActive: true,
+      },
+    });
+    if (defaultSalePoints.length !== 1) {
+      throw new BadRequestException(
+        'The active branch does not have a valid default sales point. Please configure it before creating a quotation.',
+      );
+    }
+
+    const salePoint = defaultSalePoints[0];
+    if (
+      salePoint.branchId !== branch.id ||
+      salePoint.companyId !== companyId ||
+      !salePoint.isActive ||
+      !salePoint.salePointCode?.trim()
+    ) {
+      throw new BadRequestException(
+        'The active branch does not have a valid default sales point. Please configure it before creating a quotation.',
+      );
+    }
+
+    return {
+      ...payload,
+      internal_quotation: {
+        ...payload.internal_quotation,
+        branch_id: branch.id,
+      },
+      cover_note_dtl: {
+        ...payload.cover_note_dtl,
+        sale_point_code: salePoint.salePointCode.trim().toUpperCase(),
+        fleet_hdr: payload.cover_note_dtl.fleet_hdr
+          ? {
+              ...payload.cover_note_dtl.fleet_hdr,
+              sale_point_code: salePoint.salePointCode.trim().toUpperCase(),
+            }
+          : undefined,
+      },
+    };
+  }
+
+  private resolveExistingQuotationContext(
+    payload: CreateQuotationDto,
+    existing: Quotation,
+  ): CreateQuotationDto {
+    const salePointCode = existing.cover_note?.sale_point_code;
+    if (!existing.branch_id || !salePointCode?.trim()) {
+      throw new BadRequestException(
+        'The quotation branch or sales point code is not configured. Please update the branch configuration before saving this quotation.',
+      );
+    }
+
+    return {
+      ...payload,
+      internal_quotation: {
+        ...payload.internal_quotation,
+        branch_id: existing.branch_id,
+      },
+      cover_note_dtl: {
+        ...payload.cover_note_dtl,
+        sale_point_code: salePointCode,
+        fleet_hdr: payload.cover_note_dtl.fleet_hdr
+          ? {
+              ...payload.cover_note_dtl.fleet_hdr,
+              sale_point_code: salePointCode,
+            }
+          : undefined,
+      },
     };
   }
 

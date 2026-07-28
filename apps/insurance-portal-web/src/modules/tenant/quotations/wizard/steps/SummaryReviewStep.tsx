@@ -23,18 +23,11 @@ interface OptionLike {
   tiramis_product_code?: string | null;
 }
 
-interface SalePointOptionLike {
-  id: string;
-  salePointCode?: string;
-}
-
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
   customerOptions: CustomerRecord[];
   categoryOptions: OptionLike[];
   productOptions: OptionLike[];
-  branchOptions: OptionLike[];
-  salePointOptions?: SalePointOptionLike[];
   riskOptions: InsuranceRisk[];
   riskCount: number;
   onEditStep: (stepId: QuotationWizardStepId) => void;
@@ -54,8 +47,6 @@ export function SummaryReviewStep({
   customerOptions,
   categoryOptions,
   productOptions,
-  branchOptions,
-  salePointOptions = [],
   riskOptions,
   riskCount,
   onEditStep,
@@ -63,9 +54,7 @@ export function SummaryReviewStep({
   const values = form.watch();
   const category = categoryOptions.find((item) => item.id === values.category_id);
   const product = productOptions.find((item) => item.id === values.product_id);
-  const branch = branchOptions.find((item) => item.id === values.branch_id);
   const existingCustomer = customerOptions.find((item) => item.id === values.customer_id);
-  const salePoint = salePointOptions.find((item) => item.id === values.sale_point_id);
   const currency = values.currency?.trim().toUpperCase();
   const exchangeRate =
     currency && currency !== 'TZS' ? Number(values.exchange_rate) || 1 : 1;
@@ -115,8 +104,6 @@ export function SummaryReviewStep({
         <p>Category: {category?.name ?? 'Not selected'}</p>
         <p>Product: {product?.product_name ?? 'Not selected'}</p>
         <p>Channel: {values.channel_type}</p>
-        <p>Branch: {branch?.name ?? '-'}</p>
-        <p>Sale point: {salePoint?.salePointCode ?? '-'}</p>
         <p>
           Currency: {values.currency}{' '}
           {currency !== 'TZS' ? `(rate: ${values.exchange_rate || '-'})` : ''}
@@ -274,7 +261,7 @@ export function SummaryReviewStep({
         <pre className="max-h-[36rem] overflow-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">
           {JSON.stringify(
             buildQuotationPayloadPreview(values, {
-              salePointCode: salePoint?.salePointCode ?? null,
+              salePointCode: null,
               productCode:
                 product?.tiramis_product_code || product?.product_code || null,
               productName: product?.product_name || null,
