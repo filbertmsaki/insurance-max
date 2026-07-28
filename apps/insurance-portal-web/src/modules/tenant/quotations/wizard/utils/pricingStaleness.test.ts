@@ -118,4 +118,59 @@ describe('pricing staleness signatures', () => {
 
     expect(base).not.toBe(withDiscount);
   });
+
+  it('ignores backend-computed discount and tax amounts when building pricing signatures', () => {
+    const first = buildSingleRiskPricingSignature({
+      quotation_type: 'MOTOR',
+      product_id: 'product-1',
+      valid_from: '2026-07-27',
+      valid_until: '2027-07-26',
+      currency: 'TZS',
+      exchange_rate: 1,
+      risk: {
+        risk_id: 'risk-1',
+        risk_code: 'MOTOR-COMP',
+        sum_insured: 1000000,
+        factor_values: { seating_capacity: 5 },
+        discounts_offered: [
+          { discount_type: '1', discount_rate: '0.10', discount_amount: '28000' },
+        ],
+        taxes_charged: [
+          {
+            tax_code: 'VAT-MAINLAND',
+            tax_rate: '0.18',
+            tax_amount: '45360',
+            is_tax_exempted: false,
+          },
+        ],
+      },
+    });
+    const second = buildSingleRiskPricingSignature({
+      quotation_type: 'MOTOR',
+      product_id: 'product-1',
+      valid_from: '2026-07-27',
+      valid_until: '2027-07-26',
+      currency: 'TZS',
+      exchange_rate: 1,
+      risk: {
+        risk_id: 'risk-1',
+        risk_code: 'MOTOR-COMP',
+        sum_insured: 1000000,
+        factor_values: { seating_capacity: 5 },
+        discounts_offered: [
+          { discount_type: '1', discount_rate: '0.10', discount_amount: '99999' },
+        ],
+        taxes_charged: [
+          {
+            tax_code: 'VAT-MAINLAND',
+            tax_rate: '0.18',
+            tax_amount: '1',
+            is_tax_exempted: false,
+          },
+        ],
+      },
+    });
+
+    expect(first).toBe(second);
+  });
 });

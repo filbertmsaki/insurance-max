@@ -160,8 +160,8 @@ function createEmptyTaxRow() {
 
 function createEmptyDiscountRow() {
   return {
-    discount_type: '1',
-    discount_rate: getDiscountRateForType('1'),
+    discount_type: '',
+    discount_rate: '',
     discount_amount: '',
     request_reason_code: '',
     request_comment: '',

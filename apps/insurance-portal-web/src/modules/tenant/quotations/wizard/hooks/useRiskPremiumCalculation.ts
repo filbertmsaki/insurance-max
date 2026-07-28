@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useWatch, type FieldPath, type UseFormReturn } from 'react-hook-form';
+import { apiClient } from '@/modules/shared/api/client';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
   usePricingCalculator,
   usePricingRequiredFactors,
@@ -15,6 +18,82 @@ import { readPricingQuoteMetadata } from '@/modules/pricing';
 import { buildSingleRiskPricingSignature } from '../utils/pricingStaleness';
 
 const CALCULATION_DEBOUNCE_MS = 400;
+
+interface ProductTaxRuleRecord {
+  id: string;
+  category_id: string | null;
+  product_id: string | null;
+  risk_id: string | null;
+  tax_code: string;
+  status: string;
+  effective_from: string;
+  effective_to: string;
+}
+
+function normalizeUppercase(value: string | null | undefined) {
+  return (value ?? '').trim().toUpperCase();
+}
+
+function resolveRequestedDiscountRate(
+  discounts:
+    | QuotationFormSchemaValues['risks'][number]['discounts_offered']
+    | undefined,
+) {
+  const firstRequestedDiscount = (discounts ?? []).find(
+    (discount) => Number(discount.discount_rate) > 0,
+  );
+  return Number(firstRequestedDiscount?.discount_rate ?? 0);
+}
+
+function resolveSelectedTaxCodes(
+  taxes:
+    | QuotationFormSchemaValues['risks'][number]['taxes_charged']
+    | undefined,
+) {
+  return Array.from(
+    new Set(
+      (taxes ?? [])
+        .filter((tax) => !tax.is_tax_exempted)
+        .map((tax) => normalizeUppercase(tax.tax_code))
+        .filter(Boolean),
+    ),
+  );
+}
+
+function resolveApplicableTaxRuleIds({
+  taxRules,
+  selectedTaxCodes,
+  categoryId,
+  productId,
+  riskId,
+  effectiveDate,
+}: {
+  taxRules: ProductTaxRuleRecord[];
+  selectedTaxCodes: string[];
+  categoryId: string | undefined;
+  productId: string | undefined;
+  riskId: string | undefined;
+  effectiveDate: string | undefined;
+}) {
+  if (selectedTaxCodes.length === 0) return [];
+
+  return taxRules
+    .filter((rule) => normalizeUppercase(rule.status) === 'ACTIVE')
+    .filter((rule) => selectedTaxCodes.includes(normalizeUppercase(rule.tax_code)))
+    .filter(
+      (rule) => !rule.category_id || rule.category_id === (categoryId || null),
+    )
+    .filter(
+      (rule) => !rule.product_id || rule.product_id === (productId || null),
+    )
+    .filter((rule) => !rule.risk_id || rule.risk_id === (riskId || null))
+    .filter(
+      (rule) =>
+        !effectiveDate ||
+        (rule.effective_from <= effectiveDate && rule.effective_to >= effectiveDate),
+    )
+    .map((rule) => rule.id);
+}
 
 function path(
   index: number,
@@ -34,6 +113,7 @@ export function useRiskPremiumCalculation(
   factorContext?: QuotationFactorContext,
 ) {
   const riskId = useWatch({ control: form.control, name: path(index, 'risk_id') }) as string;
+  const categoryId = useWatch({ control: form.control, name: 'category_id' }) as string;
   const quotationType = useWatch({ control: form.control, name: 'quotation_type' });
   const productId = useWatch({ control: form.control, name: 'product_id' });
   const validFrom = useWatch({ control: form.control, name: 'valid_from' });
@@ -66,6 +146,9 @@ export function useRiskPremiumCalculation(
     control: form.control,
     name: path(index, 'rating_result_metadata'),
   });
+  const companyId = useAuthStore(
+    (state) => state.company?.id ?? state.user?.companyId ?? '',
+  );
 
   // Sum insured only feeds a calculation once the user has finished editing
   // it (blur), not on every keystroke — see handleSumInsuredBlur below. The
@@ -93,6 +176,15 @@ export function useRiskPremiumCalculation(
   );
 
   const ruleListQuery = usePricingRulePreview(riskId || '');
+  const taxRulesQuery = useQuery({
+    queryKey: ['product-distribution', 'tax-rules', companyId || 'none'],
+    queryFn: () =>
+      apiClient
+        .get<ProductTaxRuleRecord[]>('/product-distribution/tax-rules')
+        .then((response) => response.data),
+    enabled: !!companyId,
+    staleTime: 60_000,
+  });
 
   const factorValues = useMemo(() => {
     const pseudoFormValues = {
@@ -121,6 +213,34 @@ export function useRiskPremiumCalculation(
     factorContext,
   ]);
   const factorValuesKey = JSON.stringify(factorValues);
+  const requestedDiscountRate = useMemo(
+    () => resolveRequestedDiscountRate(discounts),
+    [discounts],
+  );
+  const selectedTaxCodes = useMemo(
+    () => resolveSelectedTaxCodes(taxes),
+    [taxes],
+  );
+  const applicableTaxRuleIds = useMemo(
+    () =>
+      resolveApplicableTaxRuleIds({
+        taxRules: taxRulesQuery.data ?? [],
+        selectedTaxCodes,
+        categoryId,
+        productId,
+        riskId,
+        effectiveDate: validFrom,
+      }),
+    [
+      categoryId,
+      productId,
+      riskId,
+      selectedTaxCodes,
+      taxRulesQuery.data,
+      validFrom,
+    ],
+  );
+  const applicableTaxRuleIdsKey = JSON.stringify(applicableTaxRuleIds);
   const currentPricingSignature = useMemo(
     () =>
       buildSingleRiskPricingSignature({
@@ -284,6 +404,7 @@ export function useRiskPremiumCalculation(
       );
 
     if (!hasCommittedSumInsured && !hasNonMotorInputs) return undefined;
+    if (selectedTaxCodes.length > 0 && taxRulesQuery.isLoading) return undefined;
 
     // Sum insured only ever reaches here once committed on blur; still gate
     // on the risk's minimum here (rather than in the blur handler) so this
@@ -300,13 +421,6 @@ export function useRiskPremiumCalculation(
 
     timeoutRef.current = setTimeout(() => {
       const token = ++requestTokenRef.current;
-      const requestedDiscountRate = Number(
-        (
-          form.getValues(
-            path(index, 'discounts_offered.0.discount_rate'),
-          ) as string | undefined
-        ) || 0,
-      );
 
       calculateMutateRef.current(
         {
@@ -337,6 +451,8 @@ export function useRiskPremiumCalculation(
             requestedDiscountRate > 0
               ? { rate: requestedDiscountRate }
               : undefined,
+          tax_rule_ids:
+            applicableTaxRuleIds.length > 0 ? applicableTaxRuleIds : undefined,
         },
         {
           onSuccess: (result) => {
@@ -428,6 +544,10 @@ export function useRiskPremiumCalculation(
     quotationType,
     committedSumInsured,
     factorValuesKey,
+    requestedDiscountRate,
+    selectedTaxCodes.length,
+    taxRulesQuery.isLoading,
+    applicableTaxRuleIdsKey,
     currentPricingSignature,
   ]);
 

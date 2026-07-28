@@ -1,6 +1,12 @@
 import { act, renderHook } from '@testing-library/react';
+import {
+  QueryClient,
+  QueryClientProvider,
+} from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
 import {
   createEmptyAddonRow,
@@ -8,11 +14,21 @@ import {
   createEmptyMotorDetails,
   createEmptyNonMotorDetails,
   createEmptyRiskRow,
+  createEmptyRiskTaxRow,
   type QuotationFormSchemaValues,
 } from '../../../schemas';
 import { useRiskPremiumCalculation } from '../useRiskPremiumCalculation';
 
-const mutateMock = vi.fn();
+const { mutateMock, apiGetMock } = vi.hoisted(() => ({
+  mutateMock: vi.fn(),
+  apiGetMock: vi.fn(),
+}));
+
+vi.mock('@/modules/shared/api/client', () => ({
+  apiClient: {
+    get: apiGetMock,
+  },
+}));
 
 vi.mock('@/modules/pricing', () => ({
   usePricingCalculator: () => ({
@@ -28,6 +44,14 @@ vi.mock('@/modules/pricing', () => ({
   readPricingQuoteMetadata: (value: unknown) =>
     value as Record<string, unknown> | null,
 }));
+
+function createWrapper(queryClient: QueryClient) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  };
+}
 
 function buildFormValues(
   riskOverrides: Partial<QuotationFormSchemaValues['risks'][number]> = {},
@@ -97,28 +121,61 @@ function buildFormValues(
 function renderRiskPricingHook(
   riskOverrides: Partial<QuotationFormSchemaValues['risks'][number]> = {},
 ) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+  const wrapper = createWrapper(queryClient);
   const { result: formResult } = renderHook(() =>
     useForm<QuotationFormSchemaValues>({
       defaultValues: buildFormValues(riskOverrides),
     }),
+    { wrapper },
   );
   const form = formResult.current;
 
-  const hook = renderHook(() => useRiskPremiumCalculation(form, 0));
-  return { form, hook };
+  const hook = renderHook(() => useRiskPremiumCalculation(form, 0), {
+    wrapper,
+  });
+  return { form, hook, queryClient };
+}
+
+async function settleTaxRuleQuery() {
+  await act(async () => {
+    await Promise.resolve();
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
 }
 
 describe('useRiskPremiumCalculation', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     mutateMock.mockReset();
+    apiGetMock.mockReset();
+    apiGetMock.mockResolvedValue({ data: [] });
+    useAuthStore.setState({
+      company: {
+        id: 'company-1',
+        name: 'Test Company',
+        slug: 'test-company',
+      },
+    } as any);
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    useAuthStore.setState({
+      company: null,
+      user: null,
+    } as any);
   });
 
-  it('includes the requested discount rate in the calculation payload once sum insured is committed', () => {
+  it('includes the requested discount rate in the calculation payload once sum insured is committed', async () => {
     const { form, hook } = renderRiskPricingHook({
       discounts_offered: [
         {
@@ -144,6 +201,7 @@ describe('useRiskPremiumCalculation', () => {
       ],
     });
 
+    await settleTaxRuleQuery();
     act(() => {
       hook.result.current.handleSumInsuredBlur();
     });
@@ -160,9 +218,18 @@ describe('useRiskPremiumCalculation', () => {
     void form;
   });
 
-  it('omits the discount field entirely when no discount rate is requested', () => {
-    const { hook } = renderRiskPricingHook();
+  it('omits the discount field entirely when no discount rate is requested', async () => {
+    const { hook } = renderRiskPricingHook({
+      discounts_offered: [
+        {
+          ...createEmptyRiskRow().discounts_offered[0],
+          discount_type: '',
+          discount_rate: '',
+        },
+      ],
+    });
 
+    await settleTaxRuleQuery();
     act(() => {
       hook.result.current.handleSumInsuredBlur();
     });
@@ -174,9 +241,59 @@ describe('useRiskPremiumCalculation', () => {
     expect(mutateMock.mock.calls[0][0].discount).toBeUndefined();
   });
 
-  it('discards an earlier calculation response that resolves after a newer one (stale response guard)', () => {
+  it('includes selected tax rule ids in the calculation payload once tax rules resolve', async () => {
+    apiGetMock.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'tax-rule-vat',
+          status: 'ACTIVE',
+          tax_code: 'VAT-MAINLAND',
+          category_id: 'category-1',
+          product_id: 'product-1',
+          risk_id: 'risk-1',
+          effective_from: '2026-01-01',
+          effective_to: '2026-12-31',
+        },
+        {
+          id: 'tax-rule-withholding',
+          status: 'ACTIVE',
+          tax_code: 'WITHHOLDING',
+          category_id: 'category-1',
+          product_id: 'product-1',
+          risk_id: 'risk-1',
+          effective_from: '2026-01-01',
+          effective_to: '2026-12-31',
+        },
+      ],
+    });
+    const { hook } = renderRiskPricingHook({
+      taxes_charged: [
+        {
+          ...createEmptyRiskTaxRow(),
+          tax_code: 'WITHHOLDING',
+          tax_rate: '0.10',
+        },
+      ],
+    });
+
+    await settleTaxRuleQuery();
+    act(() => {
+      hook.result.current.handleSumInsuredBlur();
+    });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
+
+    expect(mutateMock).toHaveBeenCalledTimes(1);
+    expect(mutateMock.mock.calls[0][0].tax_rule_ids).toEqual([
+      'tax-rule-withholding',
+    ]);
+  });
+
+  it('discards an earlier calculation response that resolves after a newer one (stale response guard)', async () => {
     const { form, hook } = renderRiskPricingHook();
 
+    await settleTaxRuleQuery();
     act(() => {
       hook.result.current.handleSumInsuredBlur();
     });
@@ -229,9 +346,102 @@ describe('useRiskPremiumCalculation', () => {
     expect(form.getValues('risks.0.premium_rate')).toBe('0.999');
   });
 
-  it('applies legacy calculation payloads to premium fields without replacing them with zeroes', () => {
+  it('does not trigger a second pricing request when only computed discount and tax amounts change', async () => {
+    const { hook } = renderRiskPricingHook({
+      discounts_offered: [
+        {
+          ...createEmptyRiskRow().discounts_offered[0],
+          discount_type: '1',
+          discount_rate: '0.10',
+        },
+      ],
+      taxes_charged: [
+        {
+          ...createEmptyRiskTaxRow(),
+          tax_code: 'VAT-MAINLAND',
+          tax_rate: '0.18',
+        },
+      ],
+    });
+
+    await settleTaxRuleQuery();
+    act(() => {
+      hook.result.current.handleSumInsuredBlur();
+    });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
+
+    expect(mutateMock).toHaveBeenCalledTimes(1);
+    const callOptions = mutateMock.mock.calls[0][1];
+
+    act(() => {
+      callOptions.onSuccess({
+        risk_id: 'risk-1',
+        risk_code: 'MOTOR-COMP',
+        risk_name: 'Private Comprehensive',
+        sum_insured: 10000000,
+        sum_insured_equivalent: 10000000,
+        percentage_rate: 0.035,
+        premium_rate: 0.035,
+        premium_before_discount: 350000,
+        discount_amount: 35000,
+        premium_after_discount: 315000,
+        premium_excluding_tax_equivalent: 315000,
+        premium_including_tax: 371700,
+        charges: [
+          {
+            applied_rule_id: 'tax-rule-vat',
+            charge_code: 'VAT-MAINLAND',
+            charge_name: 'VAT',
+            charge_category: 'TAX',
+            charge_scope: 'RISK',
+            charge_type: 'PERCENTAGE',
+            calculation_base: 'NET_PREMIUM',
+            base_amount: 315000,
+            rate: 0.18,
+            fixed_amount: null,
+            minimum_charge_amount: null,
+            maximum_charge_amount: null,
+            computed_amount: 56700,
+            is_taxable: false,
+            effective_from: '2026-01-01',
+            effective_to: '2026-12-31',
+          },
+        ],
+        discount_control: {
+          max_rate: null,
+          max_amount: null,
+          approval_threshold_rate: null,
+          approval_threshold_amount: null,
+          effective_from: null,
+          effective_to: null,
+        },
+        loading_control: {
+          max_rate: null,
+          max_amount: null,
+          approval_threshold_rate: null,
+          approval_threshold_amount: null,
+          effective_from: null,
+          effective_to: null,
+        },
+        validation_errors: [],
+        validation_warnings: [],
+      } as any);
+    });
+
+    hook.rerender();
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
+
+    expect(mutateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies legacy calculation payloads to premium fields without replacing them with zeroes', async () => {
     const { form, hook } = renderRiskPricingHook();
 
+    await settleTaxRuleQuery();
     act(() => {
       hook.result.current.handleSumInsuredBlur();
     });

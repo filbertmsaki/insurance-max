@@ -62,6 +62,23 @@ export function toNumber(value: string | number | null | undefined) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function hasValue(value: string | number | null | undefined) {
+  return value !== null && value !== undefined && value !== '';
+}
+
+/** Discount amount = discount rate applied to Premium Before Discount. */
+export function computeDiscountAmount(
+  premiumBeforeDiscount: string | number,
+  discountRate: string | number,
+) {
+  return roundMoney(
+    applyRate(
+      toNumber(premiumBeforeDiscount),
+      toNumber(discountRate),
+    ),
+  );
+}
+
 /** Premium after discount = premium before discount, less all discount line items, floored at 0. */
 export function computePremiumAfterDiscount(
   premiumBeforeDiscount: string | number,
@@ -86,6 +103,21 @@ export function computePremiumIncludingTax(
   );
 }
 
+/** Tax amount = tax rate applied to Premium Excluding Tax Equivalent. */
+export function computeTaxAmount(
+  premiumExcludingTaxEquivalent: string | number,
+  taxRate: string | number,
+  isTaxExempted = false,
+) {
+  if (isTaxExempted) return 0;
+  return roundMoney(
+    applyRate(
+      toNumber(premiumExcludingTaxEquivalent),
+      toNumber(taxRate),
+    ),
+  );
+}
+
 /**
  * Maps charge lines from a calculation result onto the risk's existing
  * taxes_charged rows, matched by tax_code — mirroring exactly what the
@@ -106,7 +138,12 @@ function applyChargesToTaxRows(
 
   return taxRows.map((row) => {
     const charge = chargeByCode.get(row.tax_code);
-    if (!charge) return row;
+    if (!charge) {
+      return {
+        ...row,
+        tax_amount: '0',
+      };
+    }
 
     return {
       ...row,
@@ -186,6 +223,89 @@ export function applyRiskPremiumResult(
   };
 }
 
+export function recomputeRiskRow(
+  row: QuotationRiskFormRow,
+): QuotationRiskFormRow {
+  const hasPremiumBeforeDiscount = hasValue(row.premium_before_discount);
+  const refreshedDiscounts = (row.discounts_offered ?? []).map((discount) => {
+    if (
+      !hasPremiumBeforeDiscount ||
+      !discount.discount_type ||
+      !discount.discount_rate
+    ) {
+      return {
+        ...discount,
+        discount_amount: '',
+      };
+    }
+
+    return {
+      ...discount,
+      discount_amount: String(
+        computeDiscountAmount(
+          row.premium_before_discount,
+          discount.discount_rate,
+        ),
+      ),
+    };
+  });
+
+  if (!hasPremiumBeforeDiscount) {
+    const refreshedTaxes = (row.taxes_charged ?? []).map((tax) => ({
+      ...tax,
+      tax_amount: tax.is_tax_exempted ? '0' : '',
+    }));
+
+    return {
+      ...row,
+      discounts_offered: refreshedDiscounts,
+      taxes_charged: refreshedTaxes,
+      premium_after_discount: '',
+      premium_excluding_tax_equivalent: '',
+      premium_including_tax: '',
+    };
+  }
+
+  const premiumAfterDiscount = computePremiumAfterDiscount(
+    row.premium_before_discount,
+    refreshedDiscounts,
+  );
+  const premiumExcludingTaxEquivalent = premiumAfterDiscount;
+  const refreshedTaxes = (row.taxes_charged ?? []).map((tax) => {
+    if (!tax.tax_code || !tax.tax_rate) {
+      return {
+        ...tax,
+        tax_amount: tax.is_tax_exempted ? '0' : '',
+      };
+    }
+
+    return {
+      ...tax,
+      tax_amount: String(
+        computeTaxAmount(
+          premiumExcludingTaxEquivalent,
+          tax.tax_rate,
+          tax.is_tax_exempted,
+        ),
+      ),
+    };
+  });
+
+  return {
+    ...row,
+    discounts_offered: refreshedDiscounts,
+    taxes_charged: refreshedTaxes,
+    premium_after_discount: String(premiumAfterDiscount),
+    premium_excluding_tax_equivalent: String(premiumExcludingTaxEquivalent),
+    premium_including_tax: String(
+      computePremiumIncludingTax(
+        premiumExcludingTaxEquivalent,
+        refreshedTaxes,
+      ),
+    ),
+  };
+}
+
 export function applyFleetRiskPremiumResult(
   row: QuotationFleetRiskFormRow,
   result: RiskPremiumResult,
@@ -253,11 +373,9 @@ export function recomputeFleetRiskRow(
     return {
       ...discount,
       discount_amount: String(
-        roundMoney(
-          applyRate(
-            toNumber(premiumBeforeDiscount),
-            toNumber(discount.discount_rate),
-          ),
+        computeDiscountAmount(
+          premiumBeforeDiscount,
+          discount.discount_rate,
         ),
       ),
     };
@@ -269,14 +387,15 @@ export function recomputeFleetRiskRow(
   );
   const premiumExcludingTaxEquivalent = premiumAfterDiscount;
   const refreshedTaxes = (row.taxes_charged ?? []).map((tax) => {
-    const rate = toNumber(tax.tax_rate);
-    const taxAmount = tax.is_tax_exempted
-      ? 0
-      : roundMoney(applyRate(premiumExcludingTaxEquivalent, rate));
-
     return {
       ...tax,
-      tax_amount: String(taxAmount),
+      tax_amount: String(
+        computeTaxAmount(
+          premiumExcludingTaxEquivalent,
+          tax.tax_rate,
+          tax.is_tax_exempted,
+        ),
+      ),
     };
   });
 

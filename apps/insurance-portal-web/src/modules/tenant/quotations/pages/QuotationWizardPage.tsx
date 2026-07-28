@@ -41,7 +41,6 @@ import {
   QuotationStartModal,
   type QuotationStartSelection,
 } from '../wizard/QuotationStartModal';
-import { useQuotationWizardDraft } from '../wizard/useQuotationWizardDraft';
 import {
   getWizardStepsForFlow,
   type QuotationWizardStepId,
@@ -276,10 +275,6 @@ export function QuotationWizardPage() {
       ? quotationContext.internal_quotation.quotation_flow
       : quotationFlow;
 
-  const { loadDraft, saveDraft, clearDraft } = useQuotationWizardDraft(
-    isEditMode ? id ?? null : null,
-    isEndorsementMode && sourceId ? `endorsement:${sourceId}` : 'new',
-  );
   const businessLine =
     quotationFlowForQueries === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR';
   const { data: categoryOptions = [] } = useQuotationCategories(businessLine);
@@ -314,7 +309,6 @@ export function QuotationWizardPage() {
   const createMutation = useCreateQuotation();
   const updateMutation = useUpdateQuotation(id);
   const [isSubmittingToTiramis, setIsSubmittingToTiramis] = useState(false);
-  const [lastDraftSavedAt, setLastDraftSavedAt] = useState<Date | null>(null);
 
   const steps = useMemo(
     () => getWizardStepsForFlow(quotationFlowForQueries),
@@ -341,32 +335,11 @@ export function QuotationWizardPage() {
 
   useEffect(() => {
     if (isEditMode || isEndorsementMode || !companyId) return;
-    const draft = loadDraft();
-    if (draft) {
-      form.reset({
-        ...DEFAULT_VALUES,
-        ...draft,
-        insurer_company_id: companyId,
-      });
-      return;
-    }
     form.reset({
       ...DEFAULT_VALUES,
       insurer_company_id: companyId,
     });
-  }, [companyId, form, isEditMode, isEndorsementMode, loadDraft]);
-
-  useEffect(() => {
-    if (!isEndorsementMode || isEditMode || !companyId) return;
-    const draft = loadDraft();
-    if (draft) {
-      form.reset({
-        ...DEFAULT_VALUES,
-        ...draft,
-        insurer_company_id: companyId,
-      });
-    }
-  }, [companyId, form, isEditMode, isEndorsementMode, loadDraft]);
+  }, [companyId, form, isEditMode, isEndorsementMode]);
 
   useEffect(() => {
     if (
@@ -493,15 +466,6 @@ export function QuotationWizardPage() {
       form.clearErrors('fleet');
     }
   }, [form, quotationFlow]);
-
-  useEffect(() => {
-    const subscription = form.watch((values) => {
-      if (isEditMode) return;
-      saveDraft(values as Partial<QuotationFormSchemaValues>);
-      setLastDraftSavedAt(new Date());
-    });
-    return () => subscription.unsubscribe();
-  }, [form, isEditMode, saveDraft]);
 
   useEffect(() => {
     const totals =
@@ -768,9 +732,6 @@ export function QuotationWizardPage() {
           expectedUpdatedAt: isEditMode ? existingQuotation?.updated_at : undefined,
         });
 
-        clearDraft();
-        setLastDraftSavedAt(null);
-
         if (options?.submitAfterSave) {
           setIsSubmittingToTiramis(true);
           try {
@@ -805,7 +766,6 @@ export function QuotationWizardPage() {
     },
     [
       activeSalePoints,
-      clearDraft,
       createMutation,
       customerOptions,
       form,

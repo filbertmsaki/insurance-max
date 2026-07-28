@@ -15,6 +15,35 @@ function sortValue(value: unknown): unknown {
   return value;
 }
 
+function normalizeRiskDiscounts(discounts: unknown) {
+  if (!Array.isArray(discounts)) return discounts;
+
+  return discounts.map((discount) => {
+    if (!discount || typeof discount !== 'object') return discount;
+    const row = discount as Record<string, unknown>;
+    return {
+      discount_type: row.discount_type ?? '',
+      discount_rate: row.discount_rate ?? '',
+    };
+  });
+}
+
+function normalizeRiskTaxes(taxes: unknown) {
+  if (!Array.isArray(taxes)) return taxes;
+
+  return taxes.map((tax) => {
+    if (!tax || typeof tax !== 'object') return tax;
+    const row = tax as Record<string, unknown>;
+    return {
+      tax_code: row.tax_code ?? '',
+      tax_rate: row.tax_rate ?? '',
+      is_tax_exempted: row.is_tax_exempted ?? false,
+      tax_exemption_type: row.tax_exemption_type ?? '',
+      tax_exemption_reference: row.tax_exemption_reference ?? '',
+    };
+  });
+}
+
 export function buildQuotationPricingSignature(input: unknown): string {
   return JSON.stringify(sortValue(input));
 }
@@ -37,7 +66,14 @@ export function buildSingleRiskPricingSignature(input: {
     taxes_charged?: unknown;
   };
 }): string {
-  return buildQuotationPricingSignature(input);
+  return buildQuotationPricingSignature({
+    ...input,
+    risk: {
+      ...input.risk,
+      discounts_offered: normalizeRiskDiscounts(input.risk.discounts_offered),
+      taxes_charged: normalizeRiskTaxes(input.risk.taxes_charged),
+    },
+  });
 }
 
 export function buildFleetRiskPricingSignature(input: {
@@ -61,5 +97,12 @@ export function buildFleetRiskPricingSignature(input: {
     taxes_charged?: unknown;
   };
 }): string {
-  return buildQuotationPricingSignature(input);
+  return buildQuotationPricingSignature({
+    ...input,
+    risk: {
+      ...input.risk,
+      discounts_offered: normalizeRiskDiscounts(input.risk.discounts_offered),
+      taxes_charged: normalizeRiskTaxes(input.risk.taxes_charged),
+    },
+  });
 }

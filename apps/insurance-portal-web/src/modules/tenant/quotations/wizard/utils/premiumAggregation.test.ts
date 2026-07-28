@@ -10,8 +10,11 @@ import {
   aggregateRiskTotals,
   applyFleetRiskPremiumResult,
   applyRiskPremiumResult,
+  computeDiscountAmount,
   computePremiumAfterDiscount,
   computePremiumIncludingTax,
+  computeTaxAmount,
+  recomputeRiskRow,
   recomputeFleetRiskRow,
 } from './premiumAggregation';
 
@@ -202,6 +205,92 @@ describe('premiumAggregation', () => {
     expect(pricedRow.premium_after_discount).toBe('1750000');
     expect(pricedRow.premium_excluding_tax_equivalent).toBe('1750000');
     expect(pricedRow.premium_including_tax).toBe('1750000');
+  });
+
+  it('clears stale tax amounts when the recalculation result no longer returns a charge for that tax code', () => {
+    const row = createEmptyRiskRow();
+    row.risk_id = 'risk-1';
+    row.risk_code = 'MOTOR-COMP';
+    row.sum_insured = '10000000';
+    row.taxes_charged = [
+      {
+        ...createEmptyRiskTaxRow(),
+        tax_code: 'WITHHOLDING',
+        tax_rate: '0.10',
+        tax_amount: '35000',
+      },
+    ];
+
+    const pricedRow = applyRiskPremiumResult(
+      row,
+      {
+        risk_id: 'risk-1',
+        risk_code: 'MOTOR-COMP',
+        risk_name: 'Private Comprehensive',
+        sum_insured: 10000000,
+        percentage_rate: 0.035,
+        premium_rate: 0.035,
+        premium_before_discount: 350000,
+        premium_after_discount: 350000,
+        premium_excluding_tax_equivalent: 350000,
+        premium_including_tax: 350000,
+        premium_including_charges: 350000,
+        charges: [],
+        discount_control: {
+          max_rate: null,
+          max_amount: null,
+          approval_threshold_rate: null,
+          approval_threshold_amount: null,
+          effective_from: null,
+          effective_to: null,
+        },
+        loading_control: {
+          max_rate: null,
+          max_amount: null,
+          approval_threshold_rate: null,
+          approval_threshold_amount: null,
+          effective_from: null,
+          effective_to: null,
+        },
+        validation_errors: [],
+        validation_warnings: [],
+      } as any,
+    );
+
+    expect(pricedRow.taxes_charged[0].tax_amount).toBe('0');
+  });
+
+  it('calculates discount from premium before discount and tax from premium excluding tax equivalent', () => {
+    expect(computeDiscountAmount('280000', '0.10')).toBe(28000);
+    expect(computeTaxAmount('252000', '0.18')).toBe(45360);
+    expect(computeTaxAmount('252000', '0.18', true)).toBe(0);
+  });
+
+  it('recomputes a single risk row discount and tax amounts from the visible premium fields', () => {
+    const row = createEmptyRiskRow();
+    row.premium_before_discount = '280000';
+    row.discounts_offered = [
+      {
+        ...createEmptyRiskDiscountRow(),
+        discount_type: '1',
+        discount_rate: '0.10',
+      },
+    ];
+    row.taxes_charged = [
+      {
+        ...createEmptyRiskTaxRow(),
+        tax_code: 'VAT-MAINLAND',
+        tax_rate: '0.18',
+      },
+    ];
+
+    const recomputed = recomputeRiskRow(row);
+
+    expect(recomputed.discounts_offered[0].discount_amount).toBe('28000');
+    expect(recomputed.premium_after_discount).toBe('252000');
+    expect(recomputed.premium_excluding_tax_equivalent).toBe('252000');
+    expect(recomputed.taxes_charged[0].tax_amount).toBe('45360');
+    expect(recomputed.premium_including_tax).toBe('297360');
   });
 
   it('recomputes fleet discounts and taxes from the calculated premium', () => {

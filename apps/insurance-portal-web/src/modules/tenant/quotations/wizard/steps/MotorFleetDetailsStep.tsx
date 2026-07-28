@@ -67,7 +67,6 @@ import {
 } from '../utils/selectValue';
 import {
   TAX_CODE_OPTIONS,
-  getDiscountRateForType,
   getTaxRateForCode,
 } from '../utils/taxOptions';
 
@@ -569,8 +568,7 @@ function FleetVehicleEditor({
                               [
                                 ...discountRows,
                                 {
-                                  discount_type: '1',
-                                  discount_rate: getDiscountRateForType('1'),
+                                  ...createEmptyRiskDiscountRow(),
                                   discount_amount: '',
                                   request_reason_code: '',
                                   request_comment: '',

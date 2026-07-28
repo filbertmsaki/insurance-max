@@ -39,7 +39,7 @@ import {
   SELECT_NONE_VALUE,
   toSelectValue,
 } from '../utils/selectValue';
-import { toNumber } from '../utils/premiumAggregation';
+import { recomputeRiskRow, toNumber } from '../utils/premiumAggregation';
 import { motorFieldNameForFactorCode } from '../utils/riskFactorResolver';
 import { useRiskPremiumCalculation } from '../hooks/useRiskPremiumCalculation';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -163,6 +163,9 @@ export function RiskRow({
   const premiumAfterDiscount = form.watch(
     `risks.${index}.premium_after_discount` as const,
   );
+  const premiumBeforeDiscount = form.watch(
+    `risks.${index}.premium_before_discount` as const,
+  );
   const premiumExcludingTaxEquivalent = form.watch(
     `risks.${index}.premium_excluding_tax_equivalent` as const,
   );
@@ -201,6 +204,50 @@ export function RiskRow({
   const sumInsuredEquivalentValue =
     toNumber(sumInsuredEquivalent) ||
     toNumber(form.watch(`risks.${index}.sum_insured` as const));
+
+  useEffect(() => {
+    const currentRow = form.getValues(`risks.${index}` as const);
+    const recomputedRow = recomputeRiskRow(currentRow);
+
+    const currentDiscounts = JSON.stringify(currentRow.discounts_offered ?? []);
+    const nextDiscounts = JSON.stringify(recomputedRow.discounts_offered ?? []);
+    const currentTaxes = JSON.stringify(currentRow.taxes_charged ?? []);
+    const nextTaxes = JSON.stringify(recomputedRow.taxes_charged ?? []);
+
+    if (currentDiscounts !== nextDiscounts) {
+      form.setValue(path(index, 'discounts_offered'), recomputedRow.discounts_offered);
+    }
+    if (currentTaxes !== nextTaxes) {
+      form.setValue(path(index, 'taxes_charged'), recomputedRow.taxes_charged);
+    }
+    if (currentRow.premium_after_discount !== recomputedRow.premium_after_discount) {
+      form.setValue(
+        path(index, 'premium_after_discount'),
+        recomputedRow.premium_after_discount,
+      );
+    }
+    if (
+      currentRow.premium_excluding_tax_equivalent !==
+      recomputedRow.premium_excluding_tax_equivalent
+    ) {
+      form.setValue(
+        path(index, 'premium_excluding_tax_equivalent'),
+        recomputedRow.premium_excluding_tax_equivalent,
+      );
+    }
+    if (currentRow.premium_including_tax !== recomputedRow.premium_including_tax) {
+      form.setValue(
+        path(index, 'premium_including_tax'),
+        recomputedRow.premium_including_tax,
+      );
+    }
+  }, [
+    discounts,
+    form,
+    index,
+    premiumBeforeDiscount,
+    taxes,
+  ]);
 
   return (
     <StepSection
