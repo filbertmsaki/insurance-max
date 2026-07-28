@@ -307,6 +307,13 @@ export function QuotationWizardPage() {
   const salePointCode = usesPrefilledQuotation
     ? savedSalePointCode
     : defaultSalePointCode;
+  const quotationFactorContext = useMemo(
+    () => ({
+      salePointCode,
+      policyHolderType: selectedPolicyHolderType,
+    }),
+    [salePointCode, selectedPolicyHolderType],
+  );
   const createMutation = useCreateQuotation();
   const updateMutation = useUpdateQuotation(id);
   const [isSubmittingToTiramis, setIsSubmittingToTiramis] = useState(false);
@@ -1016,10 +1023,7 @@ export function QuotationWizardPage() {
                     subjectMatterFieldArray={nonMotorFieldArray}
                     onRemoveRisk={removeRisk}
                     onAddRisk={addRisk}
-                    factorContext={{
-                      salePointCode,
-                      policyHolderType: selectedPolicyHolderType,
-                    }}
+                    factorContext={quotationFactorContext}
                   />
                 )}
 
@@ -1043,10 +1047,7 @@ export function QuotationWizardPage() {
                     onAddVehicle={addFleetVehicle}
                     onRemoveVehicle={removeFleetVehicle}
                     onDuplicateVehicle={duplicateFleetVehicle}
-                    factorContext={{
-                      salePointCode,
-                      policyHolderType: selectedPolicyHolderType,
-                    }}
+                    factorContext={quotationFactorContext}
                   />
                 )}
 

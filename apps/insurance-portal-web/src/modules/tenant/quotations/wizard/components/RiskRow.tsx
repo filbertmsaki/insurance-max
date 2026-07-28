@@ -82,7 +82,10 @@ export function RiskRow({
   canRemove,
   factorContext,
 }: Props) {
-  const riskId = form.watch(`risks.${index}.risk_id` as const);
+  const riskId = useWatch({
+    control: form.control,
+    name: `risks.${index}.risk_id` as const,
+  });
   const quotationType = form.watch('quotation_type');
   const selectedRisk = riskOptions.find((risk) => risk.id === riskId) ?? null;
   const discountFieldArray =
@@ -91,7 +94,10 @@ export function RiskRow({
     form.getValues(`risks.${index}.taxes_charged` as const) ?? [];
 
   useEffect(() => {
-    form.setValue(path(index, 'risk_code'), selectedRisk?.risk_code ?? '');
+    const nextRiskCode = selectedRisk?.risk_code ?? '';
+    if (form.getValues(path(index, 'risk_code')) !== nextRiskCode) {
+      form.setValue(path(index, 'risk_code'), nextRiskCode);
+    }
   }, [form, index, selectedRisk?.risk_code]);
 
   const { calculateMutation, requiredFactorsQuery, handleSumInsuredBlur } =
@@ -160,6 +166,8 @@ export function RiskRow({
     name: `risks.${index}.taxes_charged` as const,
   });
   const taxes = watchedTaxes ?? EMPTY_TAX_ROWS;
+  const discountsKey = JSON.stringify(discounts);
+  const taxesKey = JSON.stringify(taxes);
   const premiumAfterDiscount = form.watch(
     `risks.${index}.premium_after_discount` as const,
   );
@@ -242,11 +250,11 @@ export function RiskRow({
       );
     }
   }, [
-    discounts,
+    discountsKey,
     form,
     index,
     premiumBeforeDiscount,
-    taxes,
+    taxesKey,
   ]);
 
   return (

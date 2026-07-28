@@ -102,6 +102,16 @@ function path(
   return `risks.${index}.${name}` as FieldPath<QuotationFormSchemaValues>;
 }
 
+function setValueIfChanged(
+  form: UseFormReturn<QuotationFormSchemaValues>,
+  fieldPath: FieldPath<QuotationFormSchemaValues>,
+  nextValue: unknown,
+) {
+  const currentValue = form.getValues(fieldPath);
+  if (JSON.stringify(currentValue) === JSON.stringify(nextValue)) return;
+  form.setValue(fieldPath, nextValue as never);
+}
+
 /**
  * Drives premium calculation for a single risk row, generically across any
  * risk (Motor, Marine, Fire, Engineering, GIT, Misc) — required factors and
@@ -340,7 +350,7 @@ export function useRiskPremiumCalculation(
       return;
     }
 
-    form.setValue(path(index, 'rating_result_metadata'), {
+    setValueIfChanged(form, path(index, 'rating_result_metadata'), {
       ...metadata,
       pricing_quote_id: null,
       pricing_status: 'STALE',
@@ -450,37 +460,45 @@ export function useRiskPremiumCalculation(
             const currentRow = form.getValues(`risks.${index}`);
             const updatedRow = applyRiskPremiumResult(currentRow, result);
 
-            form.setValue(path(index, 'sum_insured'), updatedRow.sum_insured);
-            form.setValue(
+            setValueIfChanged(form, path(index, 'sum_insured'), updatedRow.sum_insured);
+            setValueIfChanged(
+              form,
               path(index, 'sum_insured_equivalent'),
               updatedRow.sum_insured_equivalent,
             );
-            form.setValue(path(index, 'premium_rate'), updatedRow.premium_rate);
-            form.setValue(
+            setValueIfChanged(form, path(index, 'premium_rate'), updatedRow.premium_rate);
+            setValueIfChanged(
+              form,
               path(index, 'premium_before_discount'),
               updatedRow.premium_before_discount,
             );
-            form.setValue(
+            setValueIfChanged(
+              form,
               path(index, 'discounts_offered'),
               updatedRow.discounts_offered,
             );
-            form.setValue(
+            setValueIfChanged(
+              form,
               path(index, 'premium_after_discount'),
               updatedRow.premium_after_discount,
             );
-            form.setValue(
+            setValueIfChanged(
+              form,
               path(index, 'premium_excluding_tax_equivalent'),
               updatedRow.premium_excluding_tax_equivalent,
             );
-            form.setValue(
+            setValueIfChanged(
+              form,
               path(index, 'taxes_charged'),
               updatedRow.taxes_charged,
             );
-            form.setValue(
+            setValueIfChanged(
+              form,
               path(index, 'premium_including_tax'),
               updatedRow.premium_including_tax,
             );
-            form.setValue(
+            setValueIfChanged(
+              form,
               path(index, 'rating_result_metadata'),
               {
                 ...updatedRow.rating_result_metadata,
@@ -504,7 +522,8 @@ export function useRiskPremiumCalculation(
             const existingMetadata = form.getValues(
               path(index, 'rating_result_metadata'),
             ) as Record<string, unknown> | null;
-            form.setValue(
+            setValueIfChanged(
+              form,
               path(index, 'rating_result_metadata'),
               {
                 ...(existingMetadata ?? {}),
