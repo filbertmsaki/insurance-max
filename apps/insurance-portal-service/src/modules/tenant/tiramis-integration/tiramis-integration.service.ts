@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -22,6 +23,8 @@ import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-
 import { FilterPortalTiraSubmissionDto } from './dto/filter-portal-tira-submission.dto';
 import { TiramisNotificationEventDto } from './dto/tiramis-notification-event.dto';
 import { SubmitPortalTiraDto } from './dto/submit-portal-tira.dto';
+import { CreateSalePointDto } from './dto/create-sale-point.dto';
+import { UpdateSalePointDto } from './dto/update-sale-point.dto';
 import { PortalTiraSubmissionEvent } from './entities/portal-tira-submission-event.entity';
 import { PortalTiraSubmission } from './entities/portal-tira-submission.entity';
 import { PortalTiraSubmissionStatus } from './enums/portal-tira-submission-status.enum';
@@ -649,6 +652,80 @@ export class TiramisIntegrationService {
       isDefault: salePoint.isDefault,
       isActive: salePoint.isActive,
     }));
+  }
+
+  async findBranchSalePoints(companyId: string, branchId: string) {
+    await this.assertBranchBelongsToCompany(companyId, branchId);
+    return this.salePointRepository.find({
+      where: { companyId, branchId },
+      order: { isDefault: 'DESC', isActive: 'DESC', salePointName: 'ASC' },
+    });
+  }
+
+  async createSalePoint(companyId: string, branchId: string, dto: CreateSalePointDto) {
+    await this.assertBranchBelongsToCompany(companyId, branchId);
+    const code = dto.sale_point_code.trim().toUpperCase();
+    const existing = await this.salePointRepository.findOne({ where: { companyId, salePointCode: code } });
+    if (existing) throw new ConflictException('Sale point code already exists in this company');
+    if (dto.is_default) await this.salePointRepository.update({ companyId, branchId }, { isDefault: false });
+    return this.salePointRepository.save(this.salePointRepository.create({
+      companyId,
+      branchId,
+      salePointCode: code,
+      salePointName: dto.sale_point_name.trim(),
+      isDefault: dto.is_default ?? false,
+      isActive: true,
+      branchCode: null,
+      branchName: null,
+      metadata: null,
+    }));
+  }
+
+  async updateSalePoint(companyId: string, branchId: string, id: string, dto: UpdateSalePointDto) {
+    const salePoint = await this.salePointRepository.findOne({ where: { id, companyId, branchId } });
+    if (!salePoint) throw new NotFoundException('Sale point not found');
+    if (dto.sale_point_code !== undefined) {
+      const code = dto.sale_point_code.trim().toUpperCase();
+      const duplicate = await this.salePointRepository.findOne({ where: { companyId, salePointCode: code } });
+      if (duplicate && duplicate.id !== id) throw new ConflictException('Sale point code already exists in this company');
+      salePoint.salePointCode = code;
+    }
+    if (dto.sale_point_name !== undefined) salePoint.salePointName = dto.sale_point_name.trim();
+    if (dto.is_default === true) {
+      await this.salePointRepository.update({ companyId, branchId }, { isDefault: false });
+      salePoint.isDefault = true;
+    } else if (dto.is_default === false) {
+      salePoint.isDefault = false;
+    }
+    return this.salePointRepository.save(salePoint);
+  }
+
+  async setSalePointStatus(companyId: string, branchId: string, id: string, isActive: boolean) {
+    const salePoint = await this.salePointRepository.findOne({ where: { id, companyId, branchId } });
+    if (!salePoint) throw new NotFoundException('Sale point not found');
+    if (!isActive && salePoint.isDefault) salePoint.isDefault = false;
+    salePoint.isActive = isActive;
+    return this.salePointRepository.save(salePoint);
+  }
+
+  async setDefaultSalePoint(companyId: string, branchId: string, id: string) {
+    const salePoint = await this.salePointRepository.findOne({ where: { id, companyId, branchId } });
+    if (!salePoint) throw new NotFoundException('Sale point not found');
+    if (!salePoint.isActive) throw new BadRequestException('Only an active sale point can be default');
+    await this.salePointRepository.manager.transaction(async (manager) => {
+      const repo = manager.getRepository(TiramisSalePointEntity);
+      await repo.update({ companyId, branchId }, { isDefault: false });
+      await repo.update(id, { isDefault: true });
+    });
+    return this.salePointRepository.findOneByOrFail({ id });
+  }
+
+  async deleteSalePoint(companyId: string, branchId: string, id: string) {
+    const salePoint = await this.salePointRepository.findOne({ where: { id, companyId, branchId } });
+    if (!salePoint) throw new NotFoundException('Sale point not found');
+    if (salePoint.isDefault) throw new ConflictException('Set another sale point as default before deleting this sale point');
+    await this.salePointRepository.delete(id);
+    return { message: 'Sale point deleted successfully' };
   }
 
   async findOne(companyId: string, id: string) {

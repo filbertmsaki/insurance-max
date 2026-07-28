@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
+import { DataSource, In, QueryFailedError, Repository } from 'typeorm';
 import {
   PaginationDto,
   SortDirection,
@@ -27,6 +27,7 @@ import { BranchFeature } from './entities/branch-feature.entity';
 import { BranchUser } from './entities/branch-user.entity';
 import { Branch } from './entities/branch.entity';
 import { CompanyFeature } from './entities/company-feature.entity';
+import { AuditService } from '../../shared/audit/audit.service';
 
 @Injectable()
 export class BranchesService {
@@ -48,6 +49,9 @@ export class BranchesService {
 
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+
+    private readonly dataSource: DataSource,
+    private readonly auditService: AuditService,
   ) {}
 
   private isDuplicateEntryError(error: unknown): boolean {
@@ -238,35 +242,113 @@ export class BranchesService {
     branchId: string,
     dto: AssignBranchUserDto,
   ): Promise<BranchUser> {
-    await this.requireBranch(companyId, branchId);
+    const result = await this.assignUsersToBranch(
+      companyId,
+      branchId,
+      dto,
+      undefined,
+    );
+    return result.assignments[0];
+  }
 
-    const membership = await this.companyUserRepository.findOne({
-      where: {
-        id: dto.company_user_id,
-        company_id: companyId,
-        status: 'active',
-      },
+  async assignUsersToBranch(
+    companyId: string,
+    branchId: string,
+    dto: AssignBranchUserDto,
+    actorId?: string,
+  ) {
+    const companyUserIds = dto.company_user_ids?.length
+      ? dto.company_user_ids
+      : [dto.company_user_id];
+    const makeActive = dto.make_active ?? dto.is_primary ?? false;
+
+    return this.dataSource.transaction(async (manager) => {
+      const branchRepo = manager.getRepository(Branch);
+      const branchUserRepo = manager.getRepository(BranchUser);
+      const membershipRepo = manager.getRepository(CompanyUser);
+      const branch = await branchRepo.findOne({
+        where: { id: branchId, company_id: companyId, status: 'active' },
+      });
+      if (!branch) throw new NotFoundException('Active branch not found');
+
+      const memberships = await membershipRepo.find({
+        where: { id: In(companyUserIds), company_id: companyId, status: 'active' },
+      });
+      if (memberships.length !== companyUserIds.length) {
+        throw new NotFoundException(
+          'One or more users do not belong to this company',
+        );
+      }
+
+      const assignments: BranchUser[] = [];
+      for (const membership of memberships) {
+        const existing = await branchUserRepo.findOne({
+          where: { branch_id: branchId, company_user_id: membership.id },
+        });
+        if (existing) {
+          throw new ConflictException('User is already assigned to this branch');
+        }
+
+        const hasActive = await branchUserRepo.findOne({
+          where: { company_user_id: membership.id, is_active_branch: true },
+        });
+        const shouldActivate = makeActive || !hasActive;
+        if (shouldActivate) {
+          await branchUserRepo.update(
+            { company_user_id: membership.id },
+            { is_active_branch: false },
+          );
+        }
+
+        const assignment = branchUserRepo.create({
+          branch_id: branchId,
+          company_user_id: membership.id,
+          is_primary: shouldActivate,
+          is_active_branch: shouldActivate,
+          assigned_by: actorId ?? null,
+          activated_at: shouldActivate ? new Date() : null,
+          activated_by: shouldActivate ? actorId ?? null : null,
+        });
+        assignments.push(await branchUserRepo.save(assignment));
+      }
+      return { branch, assignments };
     });
-    if (!membership) {
-      throw new NotFoundException(
-        'Company user not found or does not belong to this company',
+  }
+
+  async getEligibleBranchUsers(
+    companyId: string,
+    branchId: string,
+    search?: string,
+  ) {
+    await this.requireBranch(companyId, branchId);
+    const qb = this.companyUserRepository
+      .createQueryBuilder('membership')
+      .innerJoinAndSelect('membership.user', 'user')
+      .where('membership.company_id = :companyId', { companyId })
+      .andWhere('membership.status = :status', { status: 'active' })
+      .andWhere(
+        `NOT EXISTS (SELECT 1 FROM branch_users bu WHERE bu.company_user_id = membership.id AND bu.branch_id = :branchId)`,
+        { branchId },
+      )
+      .orderBy('user.first_name', 'ASC');
+    if (search?.trim()) {
+      qb.andWhere(
+        '(user.first_name ILIKE :search OR user.last_name ILIKE :search OR user.email ILIKE :search OR user.user_no ILIKE :search)',
+        { search: `%${search.trim()}%` },
       );
     }
-
-    const existing = await this.branchUserRepository.findOne({
-      where: { branch_id: branchId, company_user_id: dto.company_user_id },
-    });
-    if (existing) {
-      throw new ConflictException('User is already assigned to this branch');
-    }
-
-    const branchUser = this.branchUserRepository.create({
-      branch_id: branchId,
-      company_user_id: dto.company_user_id,
-      is_primary: dto.is_primary ?? false,
-    });
-
-    return this.branchUserRepository.save(branchUser);
+    const memberships = await qb.getMany();
+    return memberships.map((membership) => ({
+      company_user_id: membership.id,
+      user: {
+        id: membership.user.id,
+        user_no: membership.user.user_no,
+        first_name: membership.user.first_name,
+        last_name: membership.user.last_name,
+        email: membership.user.email,
+        officer_title: membership.user.officer_title,
+      },
+    }));
   }
 
   async removeUserFromBranch(
@@ -274,17 +356,99 @@ export class BranchesService {
     branchId: string,
     companyUserId: string,
   ): Promise<{ message: string }> {
-    await this.requireBranch(companyId, branchId);
+    return this.removeUsersFromBranch(companyId, branchId, [companyUserId]);
+  }
 
-    const branchUser = await this.branchUserRepository.findOne({
-      where: { branch_id: branchId, company_user_id: companyUserId },
+  async removeUsersFromBranch(
+    companyId: string,
+    branchId: string,
+    companyUserIds: string[],
+    replacementBranchId?: string,
+    actorId?: string,
+  ): Promise<{ message: string }> {
+    return this.dataSource.transaction(async (manager) => {
+      const branchUserRepo = manager.getRepository(BranchUser);
+      const branchRepo = manager.getRepository(Branch);
+      const branch = await branchRepo.findOne({ where: { id: branchId, company_id: companyId } });
+      if (!branch) throw new NotFoundException('Branch not found');
+
+      for (const companyUserId of companyUserIds) {
+        const assignment = await branchUserRepo.findOne({
+          where: { branch_id: branchId, company_user_id: companyUserId },
+        });
+        if (!assignment) throw new NotFoundException('User is not assigned to this branch');
+
+        const otherAssignments = await branchUserRepo.find({
+          where: { company_user_id: companyUserId },
+          relations: { branch: true },
+        });
+        if (assignment.is_active_branch) {
+          const others = otherAssignments.filter((item) => item.id !== assignment.id);
+          if (!others.length) {
+            throw new ConflictException('Cannot remove the user’s only active branch assignment');
+          }
+          const replacement = replacementBranchId
+            ? others.find((item) => item.branch_id === replacementBranchId)
+            : undefined;
+          if (!replacement) {
+            throw new ConflictException('Select another assigned branch before removing the active branch');
+          }
+          await branchUserRepo.update(
+            { company_user_id: companyUserId },
+            { is_active_branch: false },
+          );
+          await branchUserRepo.update(replacement.id, {
+            is_active_branch: true,
+            is_primary: true,
+            activated_at: new Date(),
+            activated_by: actorId ?? null,
+          });
+        }
+        await branchUserRepo.delete(assignment.id);
+      }
+      return { message: 'User branch assignment(s) removed successfully' };
     });
-    if (!branchUser) {
-      throw new NotFoundException('User is not assigned to this branch');
-    }
+  }
 
-    await this.branchUserRepository.delete(branchUser.id);
-    return { message: 'User removed from branch successfully' };
+  async setUserActiveBranch(
+    companyId: string,
+    companyUserId: string,
+    branchId: string,
+    actorId?: string,
+  ) {
+    const result = await this.dataSource.transaction(async (manager) => {
+      const branchUserRepo = manager.getRepository(BranchUser);
+      const membershipRepo = manager.getRepository(CompanyUser);
+      const membership = await membershipRepo.findOne({
+        where: { id: companyUserId, company_id: companyId, status: 'active' },
+      });
+      if (!membership) throw new NotFoundException('Company user not found');
+      const assignment = await branchUserRepo.findOne({
+        where: { company_user_id: companyUserId, branch_id: branchId },
+        relations: { branch: true },
+      });
+      if (!assignment || assignment.branch.company_id !== companyId || assignment.branch.status !== 'active') {
+        throw new ForbiddenException('User is not assigned to this active branch');
+      }
+      await branchUserRepo.update(
+        { company_user_id: companyUserId },
+        { is_active_branch: false },
+      );
+      assignment.is_active_branch = true;
+      assignment.is_primary = true;
+      assignment.activated_at = new Date();
+      assignment.activated_by = actorId ?? null;
+      return branchUserRepo.save(assignment);
+    });
+    await this.auditService.log({
+      userId: actorId,
+      companyId,
+      action: 'branch.active_changed',
+      resource: 'branch_user',
+      resourceId: result.id,
+      metadata: { companyUserId, branchId },
+    });
+    return result;
   }
 
   async getBranchUsers(companyId: string, branchId: string) {
@@ -304,6 +468,7 @@ export class BranchesService {
       id: assignment.id,
       company_user_id: assignment.company_user_id,
       is_primary: assignment.is_primary,
+      is_active_branch: assignment.is_active_branch,
       assigned_at: assignment.created_at,
       user: {
         id: assignment.company_user.user.id,
@@ -313,6 +478,7 @@ export class BranchesService {
         email: assignment.company_user.user.email,
         phone: assignment.company_user.user.phone,
         status: assignment.company_user.user.status,
+        officer_title: assignment.company_user.user.officer_title,
       },
     }));
   }
@@ -336,6 +502,7 @@ export class BranchesService {
       .map((a) => ({
         id: a.id,
         is_primary: a.is_primary,
+        is_active_branch: a.is_active_branch,
         branch: this.mapBranchSummary(a.branch),
       }));
   }

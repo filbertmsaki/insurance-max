@@ -29,6 +29,18 @@ export class BranchUser {
   @Column({ default: false })
   is_primary: boolean;
 
+  @Column({ default: false })
+  is_active_branch: boolean;
+
+  @Column({ type: 'uuid', nullable: true })
+  assigned_by: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  activated_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  activated_by: string | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 

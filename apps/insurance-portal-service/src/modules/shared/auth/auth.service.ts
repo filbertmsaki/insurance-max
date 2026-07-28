@@ -65,6 +65,7 @@ type AccessTokenPayload = {
   defaultSalePointId?: string | null;
   defaultSalePointCode?: string | null;
   defaultSalePointName?: string | null;
+  assignedBranchIds?: string[];
   roles: string[];
   permissions: string[];
   type: 'access';
@@ -749,6 +750,13 @@ export class AuthService {
 
     if (!company) throw new NotFoundException('Company not found');
 
+    const defaultBranch = await this.companiesService.getDefaultActiveBranch(
+      company.id,
+    );
+    if (!defaultBranch) {
+      throw new NotFoundException('Company has no active branch');
+    }
+
     const creationResult = await this.usersService.createForCompany(
       company.id,
       {
@@ -757,6 +765,8 @@ export class AuthService {
         phone: registerDto.phone,
         email: registerDto.email,
         password: registerDto.password,
+        officer_title: 'Underwriter',
+        branch_id: defaultBranch.id,
       },
     );
 
@@ -1104,6 +1114,7 @@ export class AuthService {
         defaultSalePointId: companyContext.defaultSalePointId,
         defaultSalePointCode: companyContext.defaultSalePointCode,
         defaultSalePointName: companyContext.defaultSalePointName,
+        assignedBranchIds: companyContext.assignedBranchIds,
         roles: companyContext.roles,
         permissions: companyContext.permissions,
         type: 'access',

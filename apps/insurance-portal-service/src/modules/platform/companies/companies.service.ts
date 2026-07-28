@@ -28,6 +28,7 @@ import {
 } from './interfaces/company-membership-context.interface';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { BranchUser } from '../../tenant/branches/entities/branch-user.entity';
+import { Branch } from '../../tenant/branches/entities/branch.entity';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 
 @Injectable()
@@ -56,6 +57,9 @@ export class CompaniesService {
 
     @InjectRepository(BranchUser)
     private readonly branchUserRepository: Repository<BranchUser>,
+
+    @InjectRepository(Branch)
+    private readonly branchRepository: Repository<Branch>,
 
     @InjectRepository(TiramisSalePointEntity)
     private readonly salePointRepository: Repository<TiramisSalePointEntity>,
@@ -617,22 +621,94 @@ export class CompaniesService {
     };
   }
 
+  async assertBranchBelongsToCompany(
+    companyId: string,
+    branchId: string,
+  ): Promise<Branch> {
+    const branch = await this.branchRepository.findOne({
+      where: { id: branchId, company_id: companyId, status: 'active' },
+    });
+    if (!branch) {
+      throw new NotFoundException('Active branch not found for this company');
+    }
+    return branch;
+  }
+
+  async getDefaultActiveBranch(companyId: string): Promise<Branch | null> {
+    return this.branchRepository.findOne({
+      where: { company_id: companyId, status: 'active' },
+      order: { created_at: 'ASC' },
+    });
+  }
+
+  async assignCompanyUserToBranch(
+    companyId: string,
+    companyUserId: string,
+    branchId: string,
+    isPrimary = true,
+  ): Promise<BranchUser> {
+    await this.assertBranchBelongsToCompany(companyId, branchId);
+
+    const membership = await this.companyUserRepository.findOne({
+      where: { id: companyUserId, company_id: companyId, status: 'active' },
+    });
+    if (!membership) {
+      throw new NotFoundException('Active company user not found');
+    }
+
+    if (isPrimary) {
+      await this.branchUserRepository.update(
+        { company_user_id: companyUserId },
+        { is_primary: false, is_active_branch: false },
+      );
+    }
+
+    let assignment = await this.branchUserRepository.findOne({
+      where: { branch_id: branchId, company_user_id: companyUserId },
+    });
+    if (!assignment) {
+      assignment = this.branchUserRepository.create({
+        branch_id: branchId,
+        company_user_id: companyUserId,
+        is_primary: isPrimary,
+        is_active_branch: isPrimary,
+        assigned_by: null,
+        activated_at: isPrimary ? new Date() : null,
+        activated_by: null,
+      });
+    } else if (isPrimary && (!assignment.is_primary || !assignment.is_active_branch)) {
+      assignment.is_primary = true;
+      assignment.is_active_branch = true;
+      assignment.activated_at = new Date();
+    }
+    return this.branchUserRepository.save(assignment);
+  }
+
   private async getActiveBranchContext(
     companyUserId: string,
     companyId: string,
-  ): Promise<Pick<CompanyMembershipContext, 'activeBranchId' | 'activeBranchCode' | 'activeBranchName' | 'defaultSalePointId' | 'defaultSalePointCode' | 'defaultSalePointName'>> {
-    const assignment = await this.branchUserRepository.findOne({
+  ): Promise<Pick<CompanyMembershipContext, 'activeBranchId' | 'activeBranchCode' | 'activeBranchName' | 'defaultSalePointId' | 'defaultSalePointCode' | 'defaultSalePointName' | 'assignedBranchIds'>> {
+    const assignments = await this.branchUserRepository.find({
       where: {
         company_user_id: companyUserId,
         branch: {
           company_id: companyId,
-          status: 'active',
         },
       },
       relations: { branch: true },
-      order: { is_primary: 'DESC', created_at: 'ASC' },
+      order: { created_at: 'ASC' },
     });
 
+    const assignedBranchIds = assignments
+      .filter((assignment) => assignment.branch?.status === 'active' && !assignment.branch.deleted_at)
+      .map((assignment) => assignment.branch.id);
+    const assignment = assignments.find(
+      (item) => item.is_active_branch && item.branch?.status === 'active' && !item.branch.deleted_at,
+    ) ??
+      assignments.find(
+        (item) => item.is_primary && item.branch?.status === 'active' && !item.branch.deleted_at,
+      ) ??
+      assignments.find((item) => item.branch?.status === 'active' && !item.branch.deleted_at);
     const branch = assignment?.branch;
     if (!branch) {
       return {
@@ -642,6 +718,7 @@ export class CompaniesService {
         defaultSalePointId: null,
         defaultSalePointCode: null,
         defaultSalePointName: null,
+        assignedBranchIds,
       };
     }
 
@@ -661,6 +738,7 @@ export class CompaniesService {
       defaultSalePointId: salePoint?.id ?? null,
       defaultSalePointCode: salePoint?.salePointCode ?? null,
       defaultSalePointName: salePoint?.salePointName ?? null,
+      assignedBranchIds,
     };
   }
 
@@ -1112,6 +1190,7 @@ export class CompaniesService {
         email: membership.user.email,
         status: membership.user.status,
         user_type: membership.user.user_type,
+        officer_title: membership.user.officer_title,
         is_email_verified: membership.user.is_email_verified,
         is_two_factor_enabled: membership.user.is_two_factor_enabled,
         last_login_at: membership.user.last_login_at,

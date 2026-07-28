@@ -1,10 +1,12 @@
 import {
   Body,
+  Delete,
   Controller,
   Get,
   Param,
   ParseUUIDPipe,
   Post,
+  Patch,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -19,6 +21,8 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 
 import { FilterPortalTiraSubmissionDto } from './dto/filter-portal-tira-submission.dto';
 import { SubmitPortalTiraDto } from './dto/submit-portal-tira.dto';
+import { CreateSalePointDto } from './dto/create-sale-point.dto';
+import { UpdateSalePointDto } from './dto/update-sale-point.dto';
 import { TiramisIntegrationService } from './tiramis-integration.service';
 
 @ApiTags('tiramis-submissions')
@@ -72,6 +76,71 @@ export class TiramisIntegrationController {
       user.companyId!,
       branchId,
     );
+  }
+
+  @Get('sale-points/branch/:branchId')
+  @UseGuards(PermissionsGuard)
+  @Permissions('branches:read')
+  findBranchSalePoints(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('branchId', ParseUUIDPipe) branchId: string,
+  ) {
+    return this.tiramisIntegrationService.findBranchSalePoints(user.companyId!, branchId);
+  }
+
+  @Post('sale-points/branch/:branchId')
+  @UseGuards(PermissionsGuard)
+  @Permissions('branches:manage-access')
+  createSalePoint(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('branchId', ParseUUIDPipe) branchId: string,
+    @Body() dto: CreateSalePointDto,
+  ) {
+    return this.tiramisIntegrationService.createSalePoint(user.companyId!, branchId, dto);
+  }
+
+  @Patch('sale-points/:id')
+  @UseGuards(PermissionsGuard)
+  @Permissions('branches:manage-access')
+  updateSalePoint(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateSalePointDto & { branch_id: string },
+  ) {
+    return this.tiramisIntegrationService.updateSalePoint(user.companyId!, dto.branch_id, id, dto);
+  }
+
+  @Patch('sale-points/:id/status')
+  @UseGuards(PermissionsGuard)
+  @Permissions('branches:manage-access')
+  setSalePointStatus(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { branch_id: string; is_active: boolean },
+  ) {
+    return this.tiramisIntegrationService.setSalePointStatus(user.companyId!, body.branch_id, id, body.is_active);
+  }
+
+  @Patch('sale-points/:id/default')
+  @UseGuards(PermissionsGuard)
+  @Permissions('branches:manage-access')
+  setDefaultSalePoint(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('branch_id') branchId: string,
+  ) {
+    return this.tiramisIntegrationService.setDefaultSalePoint(user.companyId!, branchId, id);
+  }
+
+  @Delete('sale-points/:id')
+  @UseGuards(PermissionsGuard)
+  @Permissions('branches:manage-access')
+  deleteSalePoint(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('branch_id') branchId: string,
+  ) {
+    return this.tiramisIntegrationService.deleteSalePoint(user.companyId!, branchId, id);
   }
 
   @Get('request/:requestId')

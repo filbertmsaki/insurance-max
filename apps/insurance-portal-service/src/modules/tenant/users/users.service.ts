@@ -71,7 +71,13 @@ export class UsersService {
     companyId: string,
     createUserDto: CreateUserDto,
   ): Promise<UserProfileDto | { message: string; user: UserProfileDto }> {
-    const { roles, password, ...userData } = createUserDto;
+    const { roles, password, branch_id, officer_title, ...userData } =
+      createUserDto;
+
+    await this.companiesService.assertBranchBelongsToCompany(
+      companyId,
+      branch_id,
+    );
     const existingByEmail = await this.userRepository.findOne({
       where: { email: userData.email },
     });
@@ -111,9 +117,19 @@ export class UsersService {
       if (currentMembership)
         throw new ConflictException('User already belongs to this company');
 
-      await this.companiesService.addUserToCompany(existingUser.id, companyId, {
-        roleIds,
-      });
+      const membership = await this.companiesService.addUserToCompany(
+        existingUser.id,
+        companyId,
+        { roleIds },
+      );
+      existingUser.officer_title = officer_title || existingUser.officer_title;
+      await this.userRepository.save(existingUser);
+      await this.companiesService.assignCompanyUserToBranch(
+        companyId,
+        membership.membershipId,
+        branch_id,
+        true,
+      );
 
       return {
         message: 'Existing user added to company successfully',
@@ -128,13 +144,24 @@ export class UsersService {
       user_no: userData.user_no ?? (await this.generateUserNo()),
       status: userData.status ?? 'active',
       user_type: userData.user_type ?? 'COMPANY_USER',
+      officer_title: officer_title || 'Underwriter',
       is_email_verified: true,
     });
 
     const savedUser = await this.userRepository.save(user);
-    await this.companiesService.addUserToCompany(savedUser.id, companyId, {
+    const membership = await this.companiesService.addUserToCompany(
+      savedUser.id,
+      companyId,
+      {
       roleIds,
-    });
+      },
+    );
+    await this.companiesService.assignCompanyUserToBranch(
+      companyId,
+      membership.membershipId,
+      branch_id,
+      true,
+    );
 
     return this.findProfileInCompany(savedUser.id, companyId);
   }
@@ -239,6 +266,7 @@ export class UsersService {
         email: user.email,
         status: user.status,
         user_type: user.user_type,
+        officer_title: user.officer_title,
         is_email_verified: user.is_email_verified,
         is_two_factor_enabled: user.is_two_factor_enabled,
         last_login_at: user.last_login_at,
@@ -266,6 +294,7 @@ export class UsersService {
       email: user.email,
       status: user.status,
       user_type: user.user_type,
+      officer_title: user.officer_title,
       is_email_verified: user.is_email_verified,
       is_two_factor_enabled: user.is_two_factor_enabled,
       last_login_at: user.last_login_at,
@@ -302,6 +331,7 @@ export class UsersService {
       email: user.email,
       status: user.status,
       user_type: user.user_type,
+      officer_title: user.officer_title,
       is_email_verified: user.is_email_verified,
       is_two_factor_enabled: user.is_two_factor_enabled,
       last_login_at: user.last_login_at,
@@ -337,6 +367,7 @@ export class UsersService {
       email: user.email,
       status: user.status,
       user_type: user.user_type,
+      officer_title: user.officer_title,
       is_email_verified: user.is_email_verified,
       is_phone_verified: user.is_phone_verified,
       is_two_factor_enabled: user.is_two_factor_enabled,
@@ -373,10 +404,12 @@ export class UsersService {
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
     const user = await this.findOrFail(id);
-    const { roles, ...safeUpdate } = updateUserDto as UpdateUserDto & {
+    const { roles, branch_id, ...safeUpdate } = updateUserDto as UpdateUserDto & {
       roles?: unknown;
+      branch_id?: unknown;
     };
     void roles;
+    void branch_id;
     Object.assign(user, safeUpdate);
     return this.userRepository.save(user);
   }

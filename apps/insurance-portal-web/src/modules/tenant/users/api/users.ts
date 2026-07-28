@@ -16,6 +16,8 @@ export interface CreateUserDto {
   user_no?: string;
   status?: string;
   user_type?: UserType;
+  officer_title: string;
+  branch_id: string;
   /** Array of role UUIDs to assign on creation */
   roles?: string[];
 }
@@ -27,6 +29,7 @@ export interface UpdateUserDto {
   email?: string;
   status?: string;
   user_type?: UserType;
+  officer_title?: string;
 }
 
 export const usersApi = {

@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsPhoneNumber,
   IsString,
+  IsUUID,
   MinLength,
 } from 'class-validator';
 import { Role } from '../../../platform/roles/entities/role.entity';
@@ -44,6 +45,14 @@ export class CreateUserDto {
   @IsEnum(UserType)
   @IsOptional()
   user_type?: UserType;
+
+  @IsString()
+  @IsNotEmpty()
+  officer_title: string;
+
+  @IsUUID()
+  @IsNotEmpty()
+  branch_id: string;
 
   @IsArray()
   @IsOptional()

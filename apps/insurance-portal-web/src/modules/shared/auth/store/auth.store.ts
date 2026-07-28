@@ -35,6 +35,7 @@ function decodeJwt(token: string): AuthUser | null {
         decoded.defaultSalePointCode ?? decoded.default_sale_point_code ?? null,
       defaultSalePointName:
         decoded.defaultSalePointName ?? decoded.default_sale_point_name ?? null,
+      assignedBranchIds: decoded.assignedBranchIds ?? decoded.assigned_branch_ids ?? [],
       roles: decoded.roles ?? [],
       permissions: decoded.permissions ?? [],
     };
@@ -86,6 +87,7 @@ interface AuthState {
   ) => void;
   setTempToken: (token: string) => void;
   setProfile: (profile: UserProfile | null) => void;
+  setActiveBranch: (branch: { id: string; code?: string | null; name?: string | null }) => void;
   logout: () => void;
   hasPermission: (permission: string) => boolean;
   hasRole: (role: string) => boolean;
@@ -148,6 +150,18 @@ export const useAuthStore = create<AuthState>()(
             ? (toCompany(profile.current_company) ?? state.company)
             : null,
           companies: profile?.companies ?? (profile ? state.companies : []),
+        })),
+
+      setActiveBranch: (branch) =>
+        set((state) => ({
+          user: state.user
+            ? {
+                ...state.user,
+                activeBranchId: branch.id,
+                activeBranchCode: branch.code ?? null,
+                activeBranchName: branch.name ?? null,
+              }
+            : state.user,
         })),
 
       logout: () =>

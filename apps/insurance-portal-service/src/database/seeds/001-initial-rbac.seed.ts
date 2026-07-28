@@ -6,6 +6,7 @@ import { Company } from '../../modules/platform/companies/entities/company.entit
 import { CompanyUser } from '../../modules/platform/companies/entities/company-user.entity';
 import { CompanyUserRole } from '../../modules/platform/companies/entities/company-user-role.entity';
 import { Branch } from '../../modules/tenant/branches/entities/branch.entity';
+import { BranchUser } from '../../modules/tenant/branches/entities/branch-user.entity';
 import { Permission } from '../../modules/platform/permissions/entities/permission.entity';
 import { Role } from '../../modules/platform/roles/entities/role.entity';
 import { User } from '../../modules/tenant/users/entities/user.entity';
@@ -36,6 +37,7 @@ type SeedUserConfig = {
   password: string;
   userNo: string;
   userType: 'OWNER' | 'COMPANY_USER';
+  officerTitle: string;
 };
 
 type SeedBranchConfig = {
@@ -1504,6 +1506,7 @@ export default class InitialRbacSeeder implements Seeder {
       const companyUserRepo = manager.getRepository(CompanyUser);
       const companyUserRoleRepo = manager.getRepository(CompanyUserRole);
       const branchRepo = manager.getRepository(Branch);
+      const branchUserRepo = manager.getRepository(BranchUser);
 
       const ownerConfig: SeedUserConfig = {
         firstName: process.env.INITIAL_OWNER_FIRST_NAME ?? 'Filbert',
@@ -1513,6 +1516,7 @@ export default class InitialRbacSeeder implements Seeder {
         password: process.env.INITIAL_OWNER_PASSWORD ?? 'Owner123!',
         userNo: process.env.INITIAL_OWNER_USER_NO ?? 'OWNER-00001',
         userType: 'OWNER',
+        officerTitle: 'Owner',
       };
 
       const companyName =
@@ -1527,6 +1531,7 @@ export default class InitialRbacSeeder implements Seeder {
         password: process.env.INITIAL_COMPANY_ADMIN_PASSWORD ?? 'Admin123!',
         userNo: process.env.INITIAL_COMPANY_ADMIN_USER_NO ?? 'ADMIN-00001',
         userType: 'COMPANY_USER',
+        officerTitle: 'Underwriter',
       };
 
       if (
@@ -1608,6 +1613,12 @@ export default class InitialRbacSeeder implements Seeder {
         branchRepo,
         defaultCompany.id,
         defaultBranchSeeds,
+      );
+      await this.ensureBranchAssignments(
+        branchRepo,
+        branchUserRepo,
+        defaultCompany.id,
+        savedAdmin.id,
       );
 
       await queryRunner.commitTransaction();
@@ -1802,6 +1813,7 @@ export default class InitialRbacSeeder implements Seeder {
         password: await hashPassword(config.password),
         status: 'active',
         user_type: config.userType,
+        officer_title: config.officerTitle,
         is_email_verified: true,
         roles: [ownerRole],
       });
@@ -1810,6 +1822,7 @@ export default class InitialRbacSeeder implements Seeder {
       user.last_name = config.lastName;
       user.status = 'active';
       user.user_type = 'OWNER';
+      user.officer_title = config.officerTitle;
       user.is_email_verified = true;
       user.roles = this.mergeRole(user.roles, ownerRole);
     }
@@ -1840,6 +1853,7 @@ export default class InitialRbacSeeder implements Seeder {
         password: await hashPassword(config.password),
         status: 'active',
         user_type: config.userType,
+        officer_title: config.officerTitle,
         is_email_verified: true,
       });
     } else {
@@ -1847,6 +1861,7 @@ export default class InitialRbacSeeder implements Seeder {
       user.last_name = config.lastName;
       user.status = 'active';
       user.user_type = 'COMPANY_USER';
+      user.officer_title = config.officerTitle;
       user.is_email_verified = true;
     }
 
@@ -2048,6 +2063,64 @@ export default class InitialRbacSeeder implements Seeder {
       }
 
       await branchRepo.save(branch);
+    }
+  }
+
+  private async ensureBranchAssignments(
+    branchRepo: Repository<Branch>,
+    branchUserRepo: Repository<BranchUser>,
+    companyId: string,
+    userId: string,
+  ): Promise<void> {
+    const companyUserRepo = branchUserRepo.manager.getRepository(CompanyUser);
+    const membership = await companyUserRepo.findOne({
+      where: { company_id: companyId, user_id: userId, status: 'active' },
+    });
+    if (!membership) return;
+
+    const branches = await branchRepo.find({
+      where: { company_id: companyId, status: 'active' },
+      order: { created_at: 'ASC' },
+    });
+    if (branches.length === 0) return;
+
+    const activeBranch = branches[0];
+    const now = new Date();
+
+    // Seed the administrator with access to every default branch while keeping
+    // the first branch as the single active branch for the company user.
+    await branchUserRepo.update(
+      { company_user_id: membership.id },
+      { is_active_branch: false, is_primary: false },
+    );
+
+    for (const branch of branches) {
+      let assignment = await branchUserRepo.findOne({
+        where: { branch_id: branch.id, company_user_id: membership.id },
+      });
+
+      const isActiveBranch = branch.id === activeBranch.id;
+      if (!assignment) {
+        assignment = branchUserRepo.create({
+          branch_id: branch.id,
+          company_user_id: membership.id,
+          is_primary: isActiveBranch,
+          is_active_branch: isActiveBranch,
+          assigned_by: userId,
+          activated_at: isActiveBranch ? now : null,
+          activated_by: isActiveBranch ? userId : null,
+        });
+      } else {
+        assignment.is_primary = isActiveBranch;
+        assignment.is_active_branch = isActiveBranch;
+        assignment.assigned_by = assignment.assigned_by ?? userId;
+        if (isActiveBranch) {
+          assignment.activated_at = assignment.activated_at ?? now;
+          assignment.activated_by = assignment.activated_by ?? userId;
+        }
+      }
+
+      await branchUserRepo.save(assignment);
     }
   }
 

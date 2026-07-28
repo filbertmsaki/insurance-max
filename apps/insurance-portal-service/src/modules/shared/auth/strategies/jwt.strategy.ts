@@ -29,6 +29,7 @@ type JwtAccessPayload = {
   defaultSalePointId?: string | null;
   defaultSalePointCode?: string | null;
   defaultSalePointName?: string | null;
+  assignedBranchIds?: string[];
   sessionId?: string;
   type?: string;
 };
@@ -140,6 +141,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         defaultSalePointId: companyContext.defaultSalePointId ?? null,
         defaultSalePointCode: companyContext.defaultSalePointCode ?? null,
         defaultSalePointName: companyContext.defaultSalePointName ?? null,
+        assignedBranchIds: companyContext.assignedBranchIds ?? [],
         roles: companyContext.roles,
         permissions: companyContext.permissions,
       };

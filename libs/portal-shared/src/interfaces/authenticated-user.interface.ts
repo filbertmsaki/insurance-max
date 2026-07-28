@@ -38,6 +38,7 @@ export interface AuthenticatedUser {
   defaultSalePointId?: string | null;
   defaultSalePointCode?: string | null;
   defaultSalePointName?: string | null;
+  assignedBranchIds?: string[];
   roles: string[];
   permissions: string[];
 }

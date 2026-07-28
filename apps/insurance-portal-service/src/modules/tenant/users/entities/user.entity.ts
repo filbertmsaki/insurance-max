@@ -58,6 +58,9 @@ export class User {
   @Column({ type: 'varchar', length: 20, default: UserType.CUSTOMER })
   user_type: string;
 
+  @Column({ type: 'varchar', length: 120, default: 'Underwriter' })
+  officer_title: string;
+
   @Column({ default: false })
   is_email_verified: boolean;
 

@@ -16,7 +16,11 @@ import {
   RotateCcw,
   CheckCircle2,
   XCircle,
+  Plus,
+  Star,
+  Users,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -57,6 +61,8 @@ import {
 } from '@/modules/tenant/branches/hooks'
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
 import type { Branch, EffectiveBranchFeature } from '@/types'
+import { tiramisApi } from '@/modules/tenant/tiramis/api'
+import type { TiramisSalePointRecord } from '@/modules/tenant/tiramis/types'
 import {
   branchesApi,
   type BranchUserAssignment,
@@ -473,35 +479,69 @@ function BranchFeaturesTab({ branchId }: { branchId: string }) {
 
 function BranchUsersTab({ branchId }: { branchId: string }) {
   const queryClient = useQueryClient()
-  const [companyUserId, setCompanyUserId] = useState('')
-  const [isPrimary, setIsPrimary] = useState(false)
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([])
+  const [search, setSearch] = useState('')
+  const [removeTarget, setRemoveTarget] = useState<BranchUserAssignment | null>(null)
+  const [replacementBranchId, setReplacementBranchId] = useState('')
+  const canManage = useAuthStore((state) => state.hasPermission('branches:manage-access'))
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['branch-users', branchId],
     queryFn: () => branchesApi.getBranchUsers(branchId),
   })
+  const { data: eligibleUsers = [] } = useQuery({
+    queryKey: ['eligible-branch-users', branchId, search],
+    queryFn: () => branchesApi.getEligibleBranchUsers(branchId, search),
+    enabled: canManage,
+  })
+  const { data: removalBranches = [] } = useQuery({
+    queryKey: ['user-branches-for-removal', removeTarget?.company_user_id],
+    queryFn: () => branchesApi.getUserBranches(removeTarget!.company_user_id),
+    enabled: !!removeTarget?.is_active_branch,
+  })
 
   const assignMutation = useMutation({
     mutationFn: () =>
       branchesApi.assignBranchUser(branchId, {
-        company_user_id: companyUserId,
-        is_primary: isPrimary,
+        company_user_id: selectedUsers[0] ?? '',
+        company_user_ids: selectedUsers,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branch-users', branchId] })
-      setCompanyUserId('')
-      setIsPrimary(false)
+      queryClient.invalidateQueries({ queryKey: ['eligible-branch-users', branchId] })
+      setSelectedUsers([])
+      toast.success('Users assigned to branch')
     },
+    onError: (error: any) => toast.error(error?.response?.data?.message ?? 'Unable to assign users'),
   })
 
   const removeMutation = useMutation({
-    mutationFn: (membershipId: string) => branchesApi.removeBranchUser(branchId, membershipId),
+    mutationFn: () => branchesApi.removeBranchUsers(
+      branchId,
+      [removeTarget?.company_user_id ?? ''],
+      replacementBranchId || undefined,
+    ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branch-users', branchId] })
+      setRemoveTarget(null)
+      setReplacementBranchId('')
+      toast.success('User removed from branch')
     },
+    onError: (error: any) => toast.error(error?.response?.data?.message ?? 'Unable to remove user'),
+  })
+
+  const activeAssignment = users.find((item) => item.is_active_branch)
+  const activeMutation = useMutation({
+    mutationFn: (companyUserId: string) => branchesApi.setUserActiveBranch(companyUserId, branchId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['branch-users', branchId] })
+      toast.success('Active branch updated')
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message ?? 'Unable to set active branch'),
   })
 
   return (
+    <>
     <Card className="mt-4">
       <CardHeader className="pb-2">
         <CardTitle className="text-base">Branch Users</CardTitle>
@@ -532,9 +572,9 @@ function BranchUsersTab({ branchId }: { branchId: string }) {
                     <Badge variant="secondary" className="text-xs">
                       {assignment.user.status}
                     </Badge>
-                    {assignment.is_primary && (
+                    {assignment.is_active_branch && (
                       <Badge variant="outline" className="text-xs">
-                        Primary
+                        Active branch
                       </Badge>
                     )}
                   </div>
@@ -542,10 +582,18 @@ function BranchUsersTab({ branchId }: { branchId: string }) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => removeMutation.mutate(assignment.company_user_id)}
+                  onClick={() => setRemoveTarget(assignment)}
                   disabled={removeMutation.isPending}
                 >
                   Remove
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={!canManage || assignment.is_active_branch || activeMutation.isPending}
+                  onClick={() => activeMutation.mutate(assignment.company_user_id)}
+                >
+                  {assignment.is_active_branch ? 'Active' : 'Set active'}
                 </Button>
               </div>
             ))}
@@ -555,28 +603,113 @@ function BranchUsersTab({ branchId }: { branchId: string }) {
         <Separator />
 
         <div className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-            <Input
-              placeholder="Company membership UUID"
-              value={companyUserId}
-              onChange={(e) => setCompanyUserId(e.target.value)}
-            />
-            <Button
-              onClick={() => assignMutation.mutate()}
-              disabled={!companyUserId.trim() || assignMutation.isPending}
-            >
-              Assign User
-            </Button>
+          <Input placeholder="Search company users" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-slate-200 p-2">
+            {eligibleUsers.map((item) => (
+              <label key={item.company_user_id} className="flex items-center gap-2 rounded px-2 py-2 hover:bg-slate-50">
+                <input
+                  type="checkbox"
+                  checked={selectedUsers.includes(item.company_user_id)}
+                  onChange={(event) => setSelectedUsers((current) => event.target.checked
+                    ? [...current, item.company_user_id]
+                    : current.filter((id) => id !== item.company_user_id))}
+                />
+                <span className="text-sm">{item.user.first_name} {item.user.last_name}</span>
+                <span className="text-xs text-slate-500">{item.user.officer_title ?? item.user.email}</span>
+              </label>
+            ))}
+            {!eligibleUsers.length && <p className="p-3 text-center text-xs text-slate-400">No eligible users</p>}
           </div>
-          <div className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3">
-            <div>
-              <p className="text-sm font-medium text-slate-900">Set as primary branch user</p>
-              <p className="text-xs text-slate-500">Marks this assignment as the primary branch.</p>
-            </div>
-            <Switch checked={isPrimary} onCheckedChange={setIsPrimary} />
-          </div>
+          <Button onClick={() => assignMutation.mutate()} disabled={!selectedUsers.length || assignMutation.isPending || !canManage}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" /> Assign selected users
+          </Button>
         </div>
       </CardContent>
+    </Card>
+    <Dialog
+      open={!!removeTarget}
+      onOpenChange={(open) => !open && setRemoveTarget(null)}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Remove user from branch</DialogTitle>
+          <DialogDescription>
+            This removes only the branch assignment. The user account, company membership, roles, permissions, and other branch assignments remain unchanged.
+          </DialogDescription>
+        </DialogHeader>
+        {removeTarget?.is_active_branch && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Replacement active branch</p>
+            <select
+              value={replacementBranchId}
+              onChange={(event) => setReplacementBranchId(event.target.value)}
+              className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
+            >
+              <option value="">Select an assigned branch</option>
+              {removalBranches
+                .filter((item) => item.branch.id !== branchId)
+                .map((item) => <option key={item.branch.id} value={item.branch.id}>{item.branch.name} ({item.branch.code})</option>)}
+            </select>
+            <p className="text-xs text-slate-500">The active assignment cannot be removed without selecting its replacement.</p>
+          </div>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setRemoveTarget(null)}>Cancel</Button>
+          <Button
+            variant="destructive"
+            disabled={removeMutation.isPending || (removeTarget?.is_active_branch === true && !replacementBranchId)}
+            onClick={() => removeMutation.mutate()}
+          >
+            {removeMutation.isPending ? 'Removing…' : 'Remove assignment'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
+  )
+}
+
+function BranchSalesPointsTab({ branchId }: { branchId: string }) {
+  const queryClient = useQueryClient()
+  const canManage = useAuthStore((state) => state.hasPermission('branches:manage-access'))
+  const [editing, setEditing] = useState<TiramisSalePointRecord | null>(null)
+  const [open, setOpen] = useState(false)
+  const [code, setCode] = useState('')
+  const [name, setName] = useState('')
+  const [isDefault, setIsDefault] = useState(false)
+  const { data: points = [], isLoading } = useQuery({
+    queryKey: ['branch-sale-points', branchId],
+    queryFn: () => tiramisApi.getBranchSalePoints(branchId),
+  })
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['branch-sale-points', branchId] })
+  const saveMutation = useMutation({
+    mutationFn: () => editing
+      ? tiramisApi.updateSalePoint(editing.id, branchId, { sale_point_code: code, sale_point_name: name, is_default: isDefault })
+      : tiramisApi.createBranchSalePoint(branchId, { sale_point_code: code, sale_point_name: name, is_default: isDefault }),
+    onSuccess: () => { refresh(); setOpen(false); toast.success(editing ? 'Sales point updated' : 'Sales point created') },
+    onError: (error: any) => toast.error(error?.response?.data?.message ?? 'Unable to save sales point'),
+  })
+  const openForm = (point?: TiramisSalePointRecord) => {
+    setEditing(point ?? null); setCode(point?.salePointCode ?? ''); setName(point?.salePointName ?? ''); setIsDefault(point?.isDefault ?? false); setOpen(true)
+  }
+  const action = (fn: () => Promise<unknown>, message: string) => {
+    void fn().then(() => { refresh(); toast.success(message) }).catch((error: any) => toast.error(error?.response?.data?.message ?? 'Operation failed'))
+  }
+  return (
+    <Card className="mt-4">
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <div><CardTitle className="text-base">Sales Points</CardTitle><CardDescription>Sales points configured for this branch.</CardDescription></div>
+        {canManage && <Button size="sm" onClick={() => openForm()}><Plus className="mr-1.5 h-3.5 w-3.5" /> Add sales point</Button>}
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading ? <Skeleton className="h-32 w-full" /> : points.length === 0 ? <p className="py-8 text-center text-sm text-slate-400">No sales points configured</p> : points.map((point) => (
+          <div key={point.id} className="flex flex-col gap-3 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div><p className="font-medium">{point.salePointName ?? point.salePointCode}</p><p className="text-xs text-slate-500">{point.salePointCode}</p><div className="mt-2 flex gap-2"><StatusBadge status={point.isActive ? 'active' : 'inactive'} />{point.isDefault && <Badge variant="outline"><Star className="mr-1 h-3 w-3" /> Default</Badge>}</div></div>
+            {canManage && <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => openForm(point)}>Edit</Button>{!point.isDefault && point.isActive && <Button variant="outline" size="sm" onClick={() => action(() => tiramisApi.setDefaultSalePoint(point.id, branchId), 'Default sales point updated')}>Set default</Button>}<Button variant="outline" size="sm" onClick={() => action(() => tiramisApi.setSalePointStatus(point.id, branchId, !point.isActive), point.isActive ? 'Sales point deactivated' : 'Sales point activated')}>{point.isActive ? 'Deactivate' : 'Activate'}</Button>{!point.isDefault && <Button variant="destructive" size="sm" onClick={() => action(() => tiramisApi.deleteSalePoint(point.id, branchId), 'Sales point deleted')}>Delete</Button>}</div>}
+          </div>
+        ))}
+      </CardContent>
+      <Dialog open={open} onOpenChange={setOpen}><DialogContent><DialogHeader><DialogTitle>{editing ? 'Edit sales point' : 'Add sales point'}</DialogTitle></DialogHeader><div className="space-y-3"><Input placeholder="Sales point code" value={code} onChange={(e) => setCode(e.target.value)} /><Input placeholder="Sales point name" value={name} onChange={(e) => setName(e.target.value)} /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} /> Set as default</label></div><DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button onClick={() => saveMutation.mutate()} disabled={!code.trim() || !name.trim() || saveMutation.isPending}>Save</Button></DialogFooter></DialogContent></Dialog>
     </Card>
   )
 }
@@ -682,8 +815,12 @@ export function BranchDetailPage() {
             Profile
           </TabsTrigger>
           <TabsTrigger value="users">
-            <Tag className="mr-1.5 h-3.5 w-3.5" />
+            <Users className="mr-1.5 h-3.5 w-3.5" />
             Users
+          </TabsTrigger>
+          <TabsTrigger value="sales-points">
+            <Tag className="mr-1.5 h-3.5 w-3.5" />
+            Sales Points
           </TabsTrigger>
           <TabsTrigger value="location">
             <MapPin className="mr-1.5 h-3.5 w-3.5" />
@@ -800,6 +937,9 @@ export function BranchDetailPage() {
 
         <TabsContent value="users">
           <BranchUsersTab branchId={branch.id} />
+        </TabsContent>
+        <TabsContent value="sales-points">
+          <BranchSalesPointsTab branchId={branch.id} />
         </TabsContent>
       </Tabs>
 

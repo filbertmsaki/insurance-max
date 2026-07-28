@@ -35,6 +35,7 @@ export interface User {
   email: string;
   status: UserStatus;
   user_type: UserType;
+  officer_title: string;
   is_email_verified: boolean;
   is_phone_verified: boolean;
   is_two_factor_enabled: boolean;
@@ -58,6 +59,7 @@ export interface UserProfile {
   email: string;
   status: UserStatus;
   user_type: UserType;
+  officer_title: string;
   is_email_verified: boolean;
   is_two_factor_enabled: boolean;
   last_login_at: string | null;
@@ -124,6 +126,7 @@ export interface AuthUser {
   defaultSalePointId?: string | null;
   defaultSalePointCode?: string | null;
   defaultSalePointName?: string | null;
+  assignedBranchIds?: string[];
   roles: string[];
   permissions: string[];
 }

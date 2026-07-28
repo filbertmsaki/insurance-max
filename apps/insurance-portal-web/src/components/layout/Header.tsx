@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { LogOut, User, KeyRound, Menu, Bell, ChevronRight, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { CompanySwitcher } from './CompanySwitcher'
 import { authApi } from '@/modules/shared/auth/api/auth'
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
+import { branchesApi } from '@/modules/tenant/branches/api/branches'
 
 // ─── Route → breadcrumb mapping ───────────────────────────────────────────────
 
@@ -70,6 +71,24 @@ interface HeaderProps {
 export function Header({ onMobileMenuToggle, onOpenCommand }: HeaderProps) {
   const navigate = useNavigate()
   const { user, profile, refreshToken, logout } = useAuthStore()
+  const setActiveBranch = useAuthStore((state) => state.setActiveBranch)
+  const queryClient = useQueryClient()
+  const { data: branches = [] } = useQuery({
+    queryKey: ['active-branch-options', user?.companyId],
+    queryFn: branchesApi.getAllBranches,
+    enabled: !!user?.companyId && (user.assignedBranchIds?.length ?? 0) > 0,
+    staleTime: 30_000,
+  })
+  const activeBranchMutation = useMutation({
+    mutationFn: (branchId: string) => branchesApi.setMyActiveBranch(branchId),
+    onSuccess: (_result, branchId) => {
+      const branch = branches.find((item) => item.id === branchId)
+      if (branch) setActiveBranch(branch)
+      queryClient.invalidateQueries()
+      toast.success('Active branch changed')
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message ?? 'Unable to change active branch'),
+  })
   const crumbs = useBreadcrumb()
 
   const logoutMutation = useMutation({
@@ -150,6 +169,19 @@ export function Header({ onMobileMenuToggle, onOpenCommand }: HeaderProps) {
           <Search className="h-4 w-4" />
         </Button>
         <CompanySwitcher />
+        {(user?.assignedBranchIds?.length ?? 0) > 0 && (
+          <select
+            aria-label="Active branch"
+            value={user?.activeBranchId ?? ''}
+            onChange={(event) => activeBranchMutation.mutate(event.target.value)}
+            disabled={activeBranchMutation.isPending}
+            className="hidden md:block h-8 max-w-44 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700"
+          >
+            {branches
+              .filter((branch) => user?.assignedBranchIds?.includes(branch.id) && branch.status === 'active')
+              .map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+          </select>
+        )}
 
         {/* Notification bell (placeholder) */}
         <Button variant="ghost" size="icon" className="h-9 w-9 relative text-slate-500 hover:text-slate-900">

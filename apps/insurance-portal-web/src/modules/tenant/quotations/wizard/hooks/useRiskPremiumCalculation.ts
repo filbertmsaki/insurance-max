@@ -133,11 +133,11 @@ export function useRiskPremiumCalculation(
   const discounts = useWatch({
     control: form.control,
     name: path(index, 'discounts_offered'),
-  });
+  }) as QuotationFormSchemaValues['risks'][number]['discounts_offered'] | undefined;
   const taxes = useWatch({
     control: form.control,
     name: path(index, 'taxes_charged'),
-  });
+  }) as QuotationFormSchemaValues['risks'][number]['taxes_charged'] | undefined;
   const riskCode = useWatch({
     control: form.control,
     name: path(index, 'risk_code'),
@@ -214,11 +214,11 @@ export function useRiskPremiumCalculation(
   ]);
   const factorValuesKey = JSON.stringify(factorValues);
   const requestedDiscountRate = useMemo(
-    () => resolveRequestedDiscountRate(discounts),
+    () => resolveRequestedDiscountRate(discounts ?? undefined),
     [discounts],
   );
   const selectedTaxCodes = useMemo(
-    () => resolveSelectedTaxCodes(taxes),
+    () => resolveSelectedTaxCodes(taxes ?? undefined),
     [taxes],
   );
   const applicableTaxRuleIds = useMemo(

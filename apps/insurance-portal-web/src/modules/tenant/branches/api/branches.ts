@@ -39,12 +39,15 @@ export interface UpdateBranchStatusDto {
 export interface AssignBranchUserDto {
   company_user_id: string;
   is_primary?: boolean;
+  make_active?: boolean;
+  company_user_ids?: string[];
 }
 
 export interface BranchUserAssignment {
   id: string;
   company_user_id: string;
   is_primary: boolean;
+  is_active_branch: boolean;
   assigned_at: string;
   user: {
     id: string;
@@ -54,7 +57,27 @@ export interface BranchUserAssignment {
     email: string;
     phone: string;
     status: string;
+    officer_title?: string;
   };
+}
+
+export interface EligibleBranchUser {
+  company_user_id: string;
+  user: {
+    id: string;
+    user_no: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    officer_title?: string;
+  };
+}
+
+export interface UserBranchAssignment {
+  id: string;
+  is_primary: boolean;
+  is_active_branch: boolean;
+  branch: Branch;
 }
 
 // ─── API ──────────────────────────────────────────────────────────────────────
@@ -101,6 +124,12 @@ export const branchesApi = {
     apiClient
       .get<BranchUserAssignment[]>(`/branches/${branchId}/users`)
       .then((r) => r.data),
+  getEligibleBranchUsers: (branchId: string, search?: string) =>
+    apiClient
+      .get<EligibleBranchUser[]>(`/branches/${branchId}/eligible-users`, { params: search ? { search } : undefined })
+      .then((r) => r.data),
+  getUserBranches: (companyUserId: string) =>
+    apiClient.get<UserBranchAssignment[]>(`/company-features/${companyUserId}/branches`).then((r) => r.data),
 
   /** POST /branches/:id/users — assign a company user to branch */
   assignBranchUser: (branchId: string, data: AssignBranchUserDto) =>
@@ -111,6 +140,14 @@ export const branchesApi = {
     apiClient
       .delete(`/branches/${branchId}/users/${companyUserId}`)
       .then((r) => r.data),
+  removeBranchUsers: (branchId: string, company_user_ids: string[], replacement_branch_id?: string) =>
+    apiClient
+      .delete(`/branches/${branchId}/users`, { data: { company_user_ids, replacement_branch_id } })
+      .then((r) => r.data),
+  setUserActiveBranch: (companyUserId: string, branch_id: string) =>
+    apiClient.patch(`/branches/users/${companyUserId}/active-branch`, { branch_id }).then((r) => r.data),
+  setMyActiveBranch: (branch_id: string) =>
+    apiClient.patch('/branches/me/active-branch', { branch_id }).then((r) => r.data),
 
   /** GET /branches/:id/features — effective features (company defaults merged with branch overrides) */
   getBranchFeatures: (branchId: string) =>

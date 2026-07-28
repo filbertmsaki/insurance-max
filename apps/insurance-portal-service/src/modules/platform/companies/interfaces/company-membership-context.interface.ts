@@ -15,6 +15,7 @@ export interface CompanySummary {
   defaultSalePointId?: string | null;
   defaultSalePointCode?: string | null;
   defaultSalePointName?: string | null;
+  assignedBranchIds?: string[];
 }
 
 export interface CompanyMembershipContext extends CompanySummary {

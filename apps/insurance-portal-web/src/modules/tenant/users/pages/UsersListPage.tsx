@@ -58,6 +58,7 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { rolesApi } from '@/modules/platform/roles/api/roles'
+import { branchesApi } from '@/modules/tenant/branches/api/branches'
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
 import { useRbacGuard } from '@/modules/shared/auth/hooks/useRbacGuard'
 import { mapApiErrorsToForm } from '@/lib/api-error'
@@ -86,6 +87,8 @@ const createUserSchema = z.object({
   password: z.string().min(6, 'Min 6 characters'),
   user_no: z.string().optional(),
   user_type: z.enum(USER_TYPE_VALUES).optional(),
+  officer_title: z.string().min(1, 'Required'),
+  branch_id: z.string().uuid('Branch is required'),
 })
 
 const editUserSchema = z.object({
@@ -141,6 +144,8 @@ const CREATE_FIELD_MAP: Partial<Record<string, keyof CreateUserForm & string>> =
   phone: 'phone',
   password: 'password',
   user_no: 'user_no',
+  officer_title: 'officer_title',
+  branch_id: 'branch_id',
 }
 
 const EDIT_FIELD_MAP: Partial<Record<string, keyof EditUserForm & string>> = {
@@ -198,11 +203,16 @@ export function UsersListPage() {
     queryFn: rolesApi.getRoles,
     enabled: !!assignRoleUser,
   })
+  const { data: branchOptions = [] } = useQuery({
+    queryKey: ['branches', 'user-assignment-options'],
+    queryFn: branchesApi.getAllBranches,
+    staleTime: 30_000,
+  })
 
   // ── Forms ────────────────────────────────────────────────────────────────
   const createForm = useForm<CreateUserForm>({
     resolver: zodResolver(createUserSchema),
-    defaultValues: { first_name: '', last_name: '', email: '', phone: '', password: '', user_no: '', user_type: undefined },
+    defaultValues: { first_name: '', last_name: '', email: '', phone: '', password: '', user_no: '', user_type: undefined, officer_title: 'Underwriter', branch_id: '' },
   })
 
   const editForm = useForm<EditUserForm>({
@@ -302,6 +312,13 @@ export function UsersListPage() {
         <Badge variant="outline" className="text-xs font-normal">
           {row.user_type?.replace(/_/g, ' ') ?? '—'}
         </Badge>
+      ),
+    },
+    {
+      key: 'officer_title',
+      header: 'Officer title',
+      cell: (row) => (
+        <span className="text-sm text-slate-600">{row.officer_title || '—'}</span>
       ),
     },
     {
@@ -611,6 +628,45 @@ export function UsersListPage() {
                             {t.label}
                           </SelectItem>
                         ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={createForm.control}
+                name="officer_title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Officer title</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Underwriter" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={createForm.control}
+                name="branch_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Assigned branch</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select branch" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {branchOptions
+                          .filter((branch) => branch.status === 'active')
+                          .map((branch) => (
+                            <SelectItem key={branch.id} value={branch.id}>
+                              {branch.name} ({branch.code})
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />

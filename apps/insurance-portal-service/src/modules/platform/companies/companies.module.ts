@@ -26,6 +26,7 @@ import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-poin
       Permission,
       Branch,
       BranchUser,
+      Branch,
       TiramisSalePointEntity,
     ]),
   ],

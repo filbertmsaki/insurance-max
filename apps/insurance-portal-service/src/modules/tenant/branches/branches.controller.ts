@@ -26,6 +26,7 @@ import {
   UpdateBranchStatusDto,
 } from './dto/update-branch.dto';
 import { AssignBranchUserDto } from './dto/assign-branch-user.dto';
+import { RemoveBranchUsersDto } from './dto/remove-branch-users.dto';
 import {
   SetBranchFeatureDto,
   UpsertCompanyFeatureDto,
@@ -122,6 +123,21 @@ export class BranchesController {
     return this.branchesService.getBranchUsers(user.companyId!, branchId);
   }
 
+  @Get(':branchId/eligible-users')
+  @UseGuards(PermissionsGuard)
+  @Permissions('branches:read')
+  async getEligibleUsers(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('branchId', ParseUUIDPipe) branchId: string,
+    @Query('search') search?: string,
+  ) {
+    return this.branchesService.getEligibleBranchUsers(
+      user.companyId!,
+      branchId,
+      search,
+    );
+  }
+
   @Post(':branchId/users')
   @UseGuards(PermissionsGuard)
   @Permissions('branches:manage-access')
@@ -131,10 +147,28 @@ export class BranchesController {
     @Param('branchId', ParseUUIDPipe) branchId: string,
     @Body() dto: AssignBranchUserDto,
   ) {
-    return this.branchesService.assignUserToBranch(
+    return this.branchesService.assignUsersToBranch(
       user.companyId!,
       branchId,
       dto,
+      user.id,
+    );
+  }
+
+  @Delete(':branchId/users')
+  @UseGuards(PermissionsGuard)
+  @Permissions('branches:manage-access')
+  async removeUsers(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('branchId', ParseUUIDPipe) branchId: string,
+    @Body() dto: RemoveBranchUsersDto,
+  ) {
+    return this.branchesService.removeUsersFromBranch(
+      user.companyId!,
+      branchId,
+      dto.company_user_ids,
+      dto.replacement_branch_id,
+      user.id,
     );
   }
 
@@ -151,6 +185,40 @@ export class BranchesController {
       user.companyId!,
       branchId,
       companyUserId,
+    );
+  }
+
+  @Patch('users/:companyUserId/active-branch')
+  @UseGuards(PermissionsGuard)
+  @Permissions('branches:manage-access')
+  async setUserActiveBranch(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('companyUserId', ParseUUIDPipe) companyUserId: string,
+    @Body('branch_id', ParseUUIDPipe) branchId: string,
+  ) {
+    return this.branchesService.setUserActiveBranch(
+      user.companyId!,
+      companyUserId,
+      branchId,
+      user.id,
+    );
+  }
+
+  @Patch('me/active-branch')
+  @UseGuards(PermissionsGuard)
+  @Permissions('branches:read')
+  async setMyActiveBranch(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body('branch_id', ParseUUIDPipe) branchId: string,
+  ) {
+    if (!user.companyMembershipId) {
+      throw new Error('Company membership is required');
+    }
+    return this.branchesService.setUserActiveBranch(
+      user.companyId!,
+      user.companyMembershipId,
+      branchId,
+      user.id,
     );
   }
 

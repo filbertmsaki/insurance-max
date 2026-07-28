@@ -7,6 +7,7 @@ export class UserProfileDto {
   email: string;
   status: string;
   user_type: string;
+  officer_title: string;
   is_email_verified: boolean;
   is_two_factor_enabled: boolean;
   last_login_at: Date | null;
