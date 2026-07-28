@@ -59,6 +59,12 @@ type AccessTokenPayload = {
   companyName?: string;
   companyType?: string;
   membershipId?: string;
+  activeBranchId?: string | null;
+  activeBranchCode?: string | null;
+  activeBranchName?: string | null;
+  defaultSalePointId?: string | null;
+  defaultSalePointCode?: string | null;
+  defaultSalePointName?: string | null;
   roles: string[];
   permissions: string[];
   type: 'access';
@@ -1092,6 +1098,12 @@ export class AuthService {
         companyName: companyContext.companyName,
         companyType: companyContext.companyType,
         membershipId: companyContext.membershipId,
+        activeBranchId: companyContext.activeBranchId,
+        activeBranchCode: companyContext.activeBranchCode,
+        activeBranchName: companyContext.activeBranchName,
+        defaultSalePointId: companyContext.defaultSalePointId,
+        defaultSalePointCode: companyContext.defaultSalePointCode,
+        defaultSalePointName: companyContext.defaultSalePointName,
         roles: companyContext.roles,
         permissions: companyContext.permissions,
         type: 'access',
@@ -1136,6 +1148,20 @@ export class AuthService {
         company_type: companyContext.companyType,
       },
       companies,
+      active_branch: companyContext.activeBranchId
+        ? {
+            id: companyContext.activeBranchId,
+            code: companyContext.activeBranchCode,
+            name: companyContext.activeBranchName,
+          }
+        : null,
+      default_sale_point: companyContext.defaultSalePointId
+        ? {
+            id: companyContext.defaultSalePointId,
+            code: companyContext.defaultSalePointCode,
+            name: companyContext.defaultSalePointName,
+          }
+        : null,
       user: {
         id: user.id,
         email: user.email,

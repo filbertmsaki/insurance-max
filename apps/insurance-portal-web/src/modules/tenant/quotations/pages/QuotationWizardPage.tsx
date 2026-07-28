@@ -57,6 +57,7 @@ import { MotorDetailsStep } from '../wizard/steps/MotorDetailsStep';
 import { MotorFleetDetailsStep } from '../wizard/steps/MotorFleetDetailsStep';
 import { SummaryReviewStep } from '../wizard/steps/SummaryReviewStep';
 import { FleetSetupStep } from '../wizard/steps/FleetSetupStep';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 
 const EDITABLE_STATUSES = new Set([
   'DRAFT',
@@ -194,6 +195,10 @@ export function QuotationWizardPage() {
   const isEditMode = Boolean(id);
   const isEndorsementMode = Boolean(sourceId && !isEditMode);
   const usesPrefilledQuotation = isEditMode || isEndorsementMode;
+  const activeBranchId = useAuthStore((state) => state.user?.activeBranchId ?? '');
+  const defaultSalePointCode = useAuthStore(
+    (state) => state.user?.defaultSalePointCode ?? '',
+  );
   const companyId = useQuotationCurrentCompanyId();
   const {
     data: existingQuotation,
@@ -338,8 +343,34 @@ export function QuotationWizardPage() {
     form.reset({
       ...DEFAULT_VALUES,
       insurer_company_id: companyId,
+      branch_id: activeBranchId,
     });
-  }, [companyId, form, isEditMode, isEndorsementMode]);
+  }, [activeBranchId, companyId, form, isEditMode, isEndorsementMode]);
+
+  useEffect(() => {
+    if (
+      usesPrefilledQuotation ||
+      !defaultSalePointCode ||
+      !activeSalePoints.length ||
+      form.getValues('sale_point_id')
+    ) {
+      return;
+    }
+
+    const defaultSalePoint = activeSalePoints.find(
+      (salePoint) => salePoint.salePointCode === defaultSalePointCode,
+    );
+    if (defaultSalePoint) {
+      form.setValue('sale_point_id', defaultSalePoint.id, {
+        shouldValidate: true,
+      });
+    }
+  }, [
+    activeSalePoints,
+    defaultSalePointCode,
+    form,
+    usesPrefilledQuotation,
+  ]);
 
   useEffect(() => {
     if (

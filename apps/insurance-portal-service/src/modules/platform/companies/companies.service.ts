@@ -27,6 +27,8 @@ import {
   CompanySummary,
 } from './interfaces/company-membership-context.interface';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
+import { BranchUser } from '../../tenant/branches/entities/branch-user.entity';
+import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 
 @Injectable()
 export class CompaniesService {
@@ -51,6 +53,12 @@ export class CompaniesService {
 
     @InjectRepository(Permission)
     private readonly permissionRepository: Repository<Permission>,
+
+    @InjectRepository(BranchUser)
+    private readonly branchUserRepository: Repository<BranchUser>,
+
+    @InjectRepository(TiramisSalePointEntity)
+    private readonly salePointRepository: Repository<TiramisSalePointEntity>,
 
     private readonly identifierGeneratorService: IdentifierGeneratorService,
   ) {}
@@ -597,9 +605,62 @@ export class CompaniesService {
       throw new NotFoundException('Active company membership not found');
     }
 
+    const branchContext = await this.getActiveBranchContext(
+      membership.id,
+      membership.company_id,
+    );
+
     return {
       ...this.mapMembershipSummary(membership),
       status: membership.status,
+      ...branchContext,
+    };
+  }
+
+  private async getActiveBranchContext(
+    companyUserId: string,
+    companyId: string,
+  ): Promise<Pick<CompanyMembershipContext, 'activeBranchId' | 'activeBranchCode' | 'activeBranchName' | 'defaultSalePointId' | 'defaultSalePointCode' | 'defaultSalePointName'>> {
+    const assignment = await this.branchUserRepository.findOne({
+      where: {
+        company_user_id: companyUserId,
+        branch: {
+          company_id: companyId,
+          status: 'active',
+        },
+      },
+      relations: { branch: true },
+      order: { is_primary: 'DESC', created_at: 'ASC' },
+    });
+
+    const branch = assignment?.branch;
+    if (!branch) {
+      return {
+        activeBranchId: null,
+        activeBranchCode: null,
+        activeBranchName: null,
+        defaultSalePointId: null,
+        defaultSalePointCode: null,
+        defaultSalePointName: null,
+      };
+    }
+
+    const salePoint = await this.salePointRepository.findOne({
+      where: {
+        companyId,
+        branchId: branch.id,
+        isActive: true,
+      },
+      order: { isDefault: 'DESC', createdAt: 'ASC' },
+    });
+
+    return {
+      activeBranchId: branch.id,
+      activeBranchCode: branch.code,
+      activeBranchName: branch.name,
+      defaultSalePointId: salePoint?.id ?? null,
+      defaultSalePointCode: salePoint?.salePointCode ?? null,
+      defaultSalePointName: salePoint?.salePointName ?? null,
     };
   }
 

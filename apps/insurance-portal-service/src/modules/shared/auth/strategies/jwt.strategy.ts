@@ -23,6 +23,12 @@ type JwtAccessPayload = {
   companyType?: string;
   roles?: string[];
   permissions?: string[];
+  activeBranchId?: string | null;
+  activeBranchCode?: string | null;
+  activeBranchName?: string | null;
+  defaultSalePointId?: string | null;
+  defaultSalePointCode?: string | null;
+  defaultSalePointName?: string | null;
   sessionId?: string;
   type?: string;
 };
@@ -128,6 +134,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         companySlug: companyContext.companySlug,
         companyType: companyContext.companyType,
         companyMembershipId: companyContext.membershipId,
+        activeBranchId: companyContext.activeBranchId ?? null,
+        activeBranchCode: companyContext.activeBranchCode ?? null,
+        activeBranchName: companyContext.activeBranchName ?? null,
+        defaultSalePointId: companyContext.defaultSalePointId ?? null,
+        defaultSalePointCode: companyContext.defaultSalePointCode ?? null,
+        defaultSalePointName: companyContext.defaultSalePointName ?? null,
         roles: companyContext.roles,
         permissions: companyContext.permissions,
       };

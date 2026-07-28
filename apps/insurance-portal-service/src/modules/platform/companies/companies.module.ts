@@ -10,6 +10,9 @@ import { CompanyUserRole } from './entities/company-user-role.entity';
 import { CompaniesService } from './companies.service';
 import { CompaniesController } from './companies.controller';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
+import { Branch } from '../../tenant/branches/entities/branch.entity';
+import { BranchUser } from '../../tenant/branches/entities/branch-user.entity';
+import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
 
 @Module({
   imports: [
@@ -21,6 +24,9 @@ import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-
       User,
       Role,
       Permission,
+      Branch,
+      BranchUser,
+      TiramisSalePointEntity,
     ]),
   ],
   controllers: [CompaniesController],

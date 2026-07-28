@@ -118,6 +118,12 @@ export interface AuthUser {
   companyName?: string;
   companySlug?: string;
   companyMembershipId?: string;
+  activeBranchId?: string | null;
+  activeBranchCode?: string | null;
+  activeBranchName?: string | null;
+  defaultSalePointId?: string | null;
+  defaultSalePointCode?: string | null;
+  defaultSalePointName?: string | null;
   roles: string[];
   permissions: string[];
 }
