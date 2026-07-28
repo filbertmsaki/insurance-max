@@ -23,6 +23,7 @@ export default class TiramisCompanySetupSeeder implements Seeder {
         await requireColumns(queryRunner, 'companies', [
           'name',
           'slug',
+          'identifier_prefix',
           'status',
           'company_type',
           'tira_company_code',
@@ -122,15 +123,17 @@ export default class TiramisCompanySetupSeeder implements Seeder {
       `
         UPDATE companies
         SET
-          tira_company_code = $1,
-          tira_insurer_company_code = $2,
-          tira_client_code = $3,
-          tira_system_code = $4,
-          tira_system_name = $5,
+          identifier_prefix = COALESCE(identifier_prefix, $1),
+          tira_company_code = $2,
+          tira_insurer_company_code = $3,
+          tira_client_code = $4,
+          tira_system_code = $5,
+          tira_system_name = $6,
           updated_at = now()
-        WHERE id = ANY($6::uuid[])
+        WHERE id = ANY($7::uuid[])
       `,
       [
+        ALLIANCE_TENANT.identifierPrefix,
         ALLIANCE_TENANT.companyCode,
         ALLIANCE_TENANT.insurerCompanyCode,
         ALLIANCE_TENANT.clientCode,
@@ -149,6 +152,7 @@ export default class TiramisCompanySetupSeeder implements Seeder {
         INSERT INTO companies (
           name,
           slug,
+          identifier_prefix,
           status,
           company_type,
           tira_company_code,
@@ -165,22 +169,27 @@ export default class TiramisCompanySetupSeeder implements Seeder {
         VALUES (
           $1,
           $2,
-          'active',
           $3,
+          'active',
           $4,
           $5,
           $6,
           $7,
           $8,
-          $9::jsonb,
+          $9,
           $10::jsonb,
           $11::jsonb,
+          $12::jsonb,
           now(),
           now()
         )
         ON CONFLICT (slug)
         DO UPDATE SET
           status = 'active',
+          identifier_prefix = COALESCE(
+            companies.identifier_prefix,
+            EXCLUDED.identifier_prefix
+          ),
           company_type = COALESCE(companies.company_type, EXCLUDED.company_type),
           tira_company_code = COALESCE(
             companies.tira_company_code,
@@ -216,6 +225,7 @@ export default class TiramisCompanySetupSeeder implements Seeder {
       [
         ALLIANCE_TENANT.companyName,
         ALLIANCE_TENANT.slug,
+        ALLIANCE_TENANT.identifierPrefix,
         ALLIANCE_TENANT.companyType,
         ALLIANCE_TENANT.companyCode,
         ALLIANCE_TENANT.insurerCompanyCode,

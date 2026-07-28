@@ -1858,6 +1858,10 @@ export default class InitialRbacSeeder implements Seeder {
     companyName: string,
   ): Promise<Company> {
     const normalizedCompanyName = companyName.trim();
+    const identifierPrefix =
+      normalizedCompanyName === ALLIANCE_TENANT.companyName
+        ? ALLIANCE_TENANT.identifierPrefix
+        : this.deriveIdentifierPrefix(normalizedCompanyName);
     let company = await companyRepo.findOne({
       where: { name: normalizedCompanyName },
     });
@@ -1870,6 +1874,7 @@ export default class InitialRbacSeeder implements Seeder {
       company = companyRepo.create({
         name: normalizedCompanyName,
         slug: uniqueSlug,
+        identifier_prefix: identifierPrefix,
         status: 'active',
         company_type: CompanyType.INSURANCE_COMPANY,
         metadata: {
@@ -1879,6 +1884,7 @@ export default class InitialRbacSeeder implements Seeder {
       });
     } else {
       company.name = normalizedCompanyName;
+      company.identifier_prefix ??= identifierPrefix;
       company.status = 'active';
       company.company_type ??= CompanyType.INSURANCE_COMPANY;
       company.metadata = {
@@ -1889,6 +1895,19 @@ export default class InitialRbacSeeder implements Seeder {
     }
 
     return companyRepo.save(company);
+  }
+
+  private deriveIdentifierPrefix(companyName: string): string | null {
+    const prefix = companyName
+      .trim()
+      .split(/\s+/)
+      .map((word) => word.replace(/[^A-Za-z0-9]/g, ''))
+      .filter(Boolean)
+      .map((word) => word[0].toUpperCase())
+      .join('')
+      .replace(/[^A-Z0-9]/g, '');
+
+    return prefix || null;
   }
 
   private slugifyCompanyName(value: string): string {

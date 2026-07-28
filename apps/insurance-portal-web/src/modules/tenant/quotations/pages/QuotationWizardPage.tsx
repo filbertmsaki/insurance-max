@@ -12,7 +12,6 @@ import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { getSubmissionDetailId } from '@/modules/tenant/tiramis/utils';
 import {
-  buildQuotationPayload,
   createEmptyFleetDetails,
   createEmptyFleetItemRow,
   createEmptyMotorDetails,
@@ -187,30 +186,6 @@ function findFirstErrorMessage(node: unknown): string | null {
     if (found) return found;
   }
   return null;
-}
-
-function collectMissingPricingQuoteLabels(
-  payload: ReturnType<typeof buildQuotationPayload>,
-) {
-  const missing: string[] = [];
-
-  (payload.cover_note_dtl.risks_covered ?? []).forEach((risk, index) => {
-    if (risk.pricing_quote_id?.trim()) return;
-    missing.push(risk.risk_code || `Risk #${index + 1}`);
-  });
-
-  (payload.cover_note_dtl.fleet_dtls ?? []).forEach((item, itemIndex) => {
-    item.risks_covered.forEach((risk, riskIndex) => {
-      if (risk.pricing_quote_id?.trim()) return;
-      missing.push(
-        `Fleet entry ${item.fleet_entry || itemIndex + 1} - ${
-          risk.risk_code || `Risk #${riskIndex + 1}`
-        }`,
-      );
-    });
-  });
-
-  return missing;
 }
 
 export function QuotationWizardPage() {
@@ -744,26 +719,6 @@ export function QuotationWizardPage() {
 
       if (!productCode) {
         toast.error('Select a valid product before saving this quotation.');
-        return;
-      }
-
-      const payload = buildQuotationPayload(values, {
-        salePointCode,
-        productCode,
-        existingCustomer: existingCustomer ?? null,
-      });
-      const missingPricingQuoteLabels =
-        collectMissingPricingQuoteLabels(payload);
-
-      if (missingPricingQuoteLabels.length > 0) {
-        const preview = missingPricingQuoteLabels.slice(0, 2).join(', ');
-        const suffix =
-          missingPricingQuoteLabels.length > 2
-            ? ` and ${missingPricingQuoteLabels.length - 2} more`
-            : '';
-        toast.error(
-          `Calculate or recalculate premium before saving. Missing current pricing quote for ${preview}${suffix}.`,
-        );
         return;
       }
 

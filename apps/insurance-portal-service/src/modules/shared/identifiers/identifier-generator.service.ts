@@ -69,13 +69,7 @@ export class IdentifierGeneratorService {
     manager?: EntityManager,
   ): Promise<string> {
     const company = await this.resolveCompany(companyId, manager);
-    const prefix = company.identifier_prefix;
-
-    if (!prefix) {
-      throw new BadRequestException(
-        'The company identifier prefix has not been configured.',
-      );
-    }
+    const prefix = await this.ensureCompanyIdentifierPrefix(company, manager);
 
     const today = this.formatDate(
       new Date(),
@@ -141,13 +135,7 @@ export class IdentifierGeneratorService {
     manager?: EntityManager,
   ): Promise<string> {
     const company = await this.resolveCompany(companyId, manager);
-    const prefix = company.identifier_prefix;
-
-    if (!prefix) {
-      throw new BadRequestException(
-        'The company identifier prefix has not been configured.',
-      );
-    }
+    const prefix = await this.ensureCompanyIdentifierPrefix(company, manager);
 
     const today = this.formatDate(new Date(), IDENTIFIER_DATE_FORMATS.request);
     return this.generateFormattedIdentifier({
@@ -352,6 +340,66 @@ export class IdentifierGeneratorService {
     }
 
     return company;
+  }
+
+  private async ensureCompanyIdentifierPrefix(
+    company: Company,
+    manager?: EntityManager,
+  ): Promise<string> {
+    const currentPrefix = company.identifier_prefix?.trim().toUpperCase();
+    if (currentPrefix) {
+      if (currentPrefix !== company.identifier_prefix) {
+        await this.getCompanyRepository(manager).update(
+          { id: company.id },
+          { identifier_prefix: currentPrefix },
+        );
+      }
+      return currentPrefix;
+    }
+
+    const repository = this.getCompanyRepository(manager);
+    const existingCompany = await repository.findOne({
+      where: { id: company.id },
+      select: { id: true, identifier_prefix: true },
+    });
+    const existingPrefix = existingCompany?.identifier_prefix?.trim().toUpperCase();
+    if (existingPrefix) {
+      return existingPrefix;
+    }
+
+    const generatedPrefix = await this.generateCompanyIdentifierPrefix(
+      company.name,
+      manager,
+    );
+
+    const updateResult = await repository
+      .createQueryBuilder()
+      .update(Company)
+      .set({
+        identifier_prefix: generatedPrefix,
+      })
+      .where('id = :id', { id: company.id })
+      .andWhere('identifier_prefix IS NULL')
+      .execute();
+
+    if (updateResult.affected && updateResult.affected > 0) {
+      return generatedPrefix;
+    }
+
+    const refreshedCompany = await repository.findOne({
+      where: { id: company.id },
+      select: { id: true, identifier_prefix: true },
+    });
+    const refreshedPrefix = refreshedCompany?.identifier_prefix
+      ?.trim()
+      .toUpperCase();
+    if (refreshedPrefix) {
+      return refreshedPrefix;
+    }
+
+    throw new BadRequestException(
+      'The company identifier prefix has not been configured.',
+    );
   }
 
   private resolveCompanyCode(company: Company): string {

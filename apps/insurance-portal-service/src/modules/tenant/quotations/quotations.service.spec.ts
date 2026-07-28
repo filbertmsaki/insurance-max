@@ -147,6 +147,7 @@ describe('QuotationsService', () => {
     };
 
     const transactionManager = {
+      query: jest.fn().mockResolvedValue(undefined),
       getRepository: jest.fn().mockImplementation((entity: unknown) => {
         if (
           typeof entity === 'function' &&
@@ -273,7 +274,11 @@ describe('QuotationsService', () => {
     } as unknown as QuotationLifecycleService;
 
     const tiramisTrackingRepository = {} as TiramisSubmissionTrackingRepository;
-    const identifierGeneratorService = {} as IdentifierGeneratorService;
+    const identifierGeneratorService = {
+      generateQuotationNumber: jest
+        .fn()
+        .mockResolvedValue('QTN-MTR-2026-000001'),
+    } as unknown as IdentifierGeneratorService;
     const auditService = {
       log: jest.fn().mockResolvedValue(undefined),
     } as unknown as AuditService;
@@ -321,6 +326,27 @@ describe('QuotationsService', () => {
         rounding_method: 'ROUND_HALF_UP',
       }),
     };
+    const pricingQuoteService = {
+      calculateSingleRiskQuote: jest.fn().mockResolvedValue({
+        pricing_quote_id: pricingQuote.pricing_quote_id,
+        sum_insured:
+          pricingQuote.result_payload.sum_insured ??
+          authoritativePayload.cover_note_dtl.risks_covered?.[0]?.sum_insured ??
+          5000000,
+        sum_insured_equivalent:
+          authoritativePayload.cover_note_dtl.risks_covered?.[0]
+            ?.sum_insured_equivalent ?? 5000000,
+        premium_rate:
+          pricingQuote.result_payload.percentage_rate ??
+          authoritativePayload.cover_note_dtl.risks_covered?.[0]?.premium_rate ??
+          0.02,
+        premium_before_discount:
+          Number(pricingQuote.final_premium) ||
+          authoritativePayload.cover_note_dtl.risks_covered?.[0]
+            ?.premium_before_discount ||
+          100000,
+      }),
+    };
 
     const service = new QuotationsService(
       dataSource,
@@ -336,6 +362,7 @@ describe('QuotationsService', () => {
       auditService,
       pricingChargeService,
       exchangeRateGovernanceService as any,
+      pricingQuoteService as any,
     );
 
     return {
@@ -347,6 +374,7 @@ describe('QuotationsService', () => {
       payloadMapper,
       previewMapper,
       pricingChargeService,
+      pricingQuoteService,
       quotationLifecycleService,
       quotationEntryRiskRepositoryMock,
       quotationRepositoryMock,
@@ -581,6 +609,11 @@ describe('QuotationsService', () => {
   });
 
   describe('authoritative pricing validation on create (real validateAuthoritativePricing, not mocked)', () => {
+    const pricingUser = {
+      id: 'user-1',
+      permissions: ['pricing.request_discount'],
+    } as any;
+
     function stubNonPricingConcerns(fixture: ReturnType<typeof createServiceFixture>) {
       const payload = createMotorSingleQuotationPayload();
       jest
@@ -593,6 +626,20 @@ describe('QuotationsService', () => {
       jest
         .spyOn(fixture.service as any, 'resolveExchangeRateSnapshot')
         .mockResolvedValue(null);
+      jest
+        .spyOn(fixture.service as any, 'resolveOrCreateCustomerId')
+        .mockResolvedValue('customer-1');
+      jest.spyOn(fixture.service as any, 'persistRoot').mockResolvedValue({
+        id: 'quotation-1',
+        quotation_no: 'QTN-MTR-2026-000001',
+      });
+      jest
+        .spyOn(fixture.service as any, 'persistAggregate')
+        .mockResolvedValue(undefined);
+      jest.spyOn(fixture.service, 'findOne').mockResolvedValue({
+        id: 'quotation-1',
+        quotation_no: 'QTN-MTR-2026-000001',
+      } as any);
       return payload;
     }
 
@@ -603,15 +650,16 @@ describe('QuotationsService', () => {
       stubNonPricingConcerns(fixture);
 
       await expect(
-        fixture.service.create('company-1', createMotorSingleQuotationPayload(), {
-          id: 'user-1',
-          permissions: [],
-        } as any),
+        fixture.service.create(
+          'company-1',
+          createMotorSingleQuotationPayload(),
+          pricingUser,
+        ),
       ).rejects.toThrow('expired');
       expect(fixture.dataSource.transaction).not.toHaveBeenCalled();
     });
 
-    it('rejects when the submitted sum insured no longer matches the pricing quote snapshot (tampered/changed sum insured)', async () => {
+    it('recalculates fresh pricing when the submitted sum insured no longer matches the old quote snapshot', async () => {
       const fixture = createServiceFixture({
         pricingQuote: {
           result_payload: { sum_insured: 20000000, percentage_rate: 0.01 },
@@ -620,27 +668,51 @@ describe('QuotationsService', () => {
       stubNonPricingConcerns(fixture);
 
       await expect(
-        fixture.service.create('company-1', createMotorSingleQuotationPayload(), {
-          id: 'user-1',
-          permissions: [],
-        } as any),
-      ).rejects.toThrow('no longer matches the current sum insured');
-      expect(fixture.dataSource.transaction).not.toHaveBeenCalled();
+        fixture.service.create(
+          'company-1',
+          createMotorSingleQuotationPayload(),
+          pricingUser,
+        ),
+      ).resolves.toBeDefined();
+      expect(
+        fixture.pricingQuoteService.calculateSingleRiskQuote,
+      ).toHaveBeenCalled();
     });
 
-    it('rejects a manipulated premium that no longer matches the pricing quote snapshot', async () => {
+    it('recalculates fresh pricing when the submitted premium no longer matches the old quote snapshot', async () => {
       const fixture = createServiceFixture({
         pricingQuote: { final_premium: '999999999' },
       });
       stubNonPricingConcerns(fixture);
 
       await expect(
-        fixture.service.create('company-1', createMotorSingleQuotationPayload(), {
-          id: 'user-1',
-          permissions: [],
-        } as any),
-      ).rejects.toThrow('no longer matches the premium amount');
-      expect(fixture.dataSource.transaction).not.toHaveBeenCalled();
+        fixture.service.create(
+          'company-1',
+          createMotorSingleQuotationPayload(),
+          pricingUser,
+        ),
+      ).resolves.toBeDefined();
+      expect(
+        fixture.pricingQuoteService.calculateSingleRiskQuote,
+      ).toHaveBeenCalled();
+    });
+
+    it('recalculates motor pricing on save even when the submitted pricing quote is missing', async () => {
+      const fixture = createServiceFixture();
+      const payload = stubNonPricingConcerns(fixture);
+      payload.cover_note_dtl.risks_covered[0].pricing_quote_id = null;
+      payload.cover_note_dtl.risks_covered[0].premium_before_discount = 0;
+      payload.cover_note_dtl.risks_covered[0].premium_after_discount = 0;
+      payload.cover_note_dtl.risks_covered[0].premium_excluding_tax_equivalent = 0;
+      payload.cover_note_dtl.risks_covered[0].premium_including_tax = 0;
+
+      await expect(
+        fixture.service.create('company-1', payload, pricingUser),
+      ).resolves.toBeDefined();
+      expect(
+        fixture.pricingQuoteService.calculateSingleRiskQuote,
+      ).toHaveBeenCalled();
+      expect(fixture.dataSource.transaction).toHaveBeenCalled();
     });
 
     it('rejects a pricing quote that cannot be found for the current company (cross-company access)', async () => {
@@ -652,10 +724,11 @@ describe('QuotationsService', () => {
       fixture.quotationRepositoryMock.find.mockResolvedValueOnce([]);
 
       await expect(
-        fixture.service.create('company-1', createMotorSingleQuotationPayload(), {
-          id: 'user-1',
-          permissions: [],
-        } as any),
+        fixture.service.create(
+          'company-1',
+          createMotorSingleQuotationPayload(),
+          pricingUser,
+        ),
       ).rejects.toThrow('was not found for the current company');
       expect(fixture.dataSource.transaction).not.toHaveBeenCalled();
     });
@@ -668,10 +741,11 @@ describe('QuotationsService', () => {
       ]);
 
       await expect(
-        fixture.service.create('company-1', createMotorSingleQuotationPayload(), {
-          id: 'user-1',
-          permissions: [],
-        } as any),
+        fixture.service.create(
+          'company-1',
+          createMotorSingleQuotationPayload(),
+          pricingUser,
+        ),
       ).rejects.toThrow('already attached to another quotation');
       expect(fixture.dataSource.transaction).not.toHaveBeenCalled();
     });

@@ -88,6 +88,7 @@ import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { PricingChargeService } from '../pricing/application/pricing-charge.service';
 import { ExchangeRateGovernanceService } from '../pricing/application/exchange-rate-governance.service';
+import { PricingQuoteService } from '../pricing/application/pricing-quote.service';
 import type { ExchangeRateSnapshot } from '../pricing/domain/pricing.types';
 import { PricingQuote, PricingQuoteScope, PricingQuoteStatus } from '../pricing/entities/pricing-quote.entity';
 import { PricingRateBook } from '../pricing-rate-books/entities/pricing-rate-book.entity';
@@ -229,6 +230,7 @@ export class QuotationsService {
     private readonly auditService: AuditService,
     private readonly pricingChargeService: PricingChargeService,
     private readonly exchangeRateGovernanceService: ExchangeRateGovernanceService,
+    private readonly pricingQuoteService: PricingQuoteService,
   ) {}
 
   async create(
@@ -242,6 +244,12 @@ export class QuotationsService {
     );
 
     const scope = await this.validateScope(companyId, preparedPayload);
+    await this.refreshPricingBeforeSave(
+      companyId,
+      preparedPayload,
+      scope,
+      user,
+    );
     const exchangeRateSnapshot = await this.resolveExchangeRateSnapshot(
       companyId,
       preparedPayload,
@@ -339,6 +347,12 @@ export class QuotationsService {
     );
 
     const scope = await this.validateScope(companyId, preparedPayload);
+    await this.refreshPricingBeforeSave(
+      companyId,
+      preparedPayload,
+      scope,
+      user,
+    );
     const exchangeRateSnapshot = await this.resolveExchangeRateSnapshot(
       companyId,
       preparedPayload,
@@ -1568,6 +1582,262 @@ export class QuotationsService {
         'Quotation is not ready for TIRAMIS submission',
       );
     }
+  }
+
+  private async refreshPricingBeforeSave(
+    companyId: string,
+    payload: CreateQuotationDto,
+    scope: ScopeValidationResult,
+    user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
+  ): Promise<void> {
+    if (payload.internal_quotation.quotation_type !== QuotationType.MOTOR) {
+      return;
+    }
+
+    const header = this.resolveHeader(payload);
+    const effectiveDate = this.extractDateOnly(header.cover_note_start_date) ?? undefined;
+
+    if (payload.internal_quotation.quotation_flow === QuotationFlow.MOTOR_SINGLE) {
+      const motorDetail = payload.cover_note_dtl.motor_dtl;
+      if (!motorDetail) {
+        return;
+      }
+
+      for (const [index, risk] of (
+        payload.cover_note_dtl.risks_covered ?? []
+      ).entries()) {
+        const configuredRisk = scope.riskByCode.get(
+          this.normalizeUppercase(risk.risk_code),
+        );
+        if (!configuredRisk) {
+          continue;
+        }
+
+        const result = await this.pricingQuoteService.calculateSingleRiskQuote(
+          companyId,
+          {
+            client_reference: this.buildSaveRecalculationReference(
+              payload,
+              risk,
+              index,
+            ),
+            risk_id: configuredRisk.id,
+            sum_insured: roundMoney(risk.sum_insured),
+            factors: this.buildMotorPricingFactors(
+              header,
+              payload.cover_note_dtl.policy_holders?.[0] ?? null,
+              motorDetail,
+              risk.sum_insured,
+            ),
+            effective_date: effectiveDate,
+            quotation_type: payload.internal_quotation.quotation_type,
+            currency_code: header.currency_code,
+            exchange_rate: header.exchange_rate,
+          },
+          user.id,
+          user,
+        );
+
+        this.applyFreshPricingToRisk(risk, result);
+      }
+
+      return;
+    }
+
+    if (payload.internal_quotation.quotation_flow !== QuotationFlow.MOTOR_FLEET) {
+      return;
+    }
+
+    for (const [entryIndex, entry] of (payload.cover_note_dtl.fleet_dtls ?? []).entries()) {
+      for (const [riskIndex, risk] of entry.risks_covered.entries()) {
+        const configuredRisk = scope.riskByCode.get(
+          this.normalizeUppercase(risk.risk_code),
+        );
+        if (!configuredRisk) {
+          continue;
+        }
+
+        const result = await this.pricingQuoteService.calculateSingleRiskQuote(
+          companyId,
+          {
+            client_reference: this.buildSaveRecalculationReference(
+              payload,
+              risk,
+              entryIndex * 100 + riskIndex,
+            ),
+            risk_id: configuredRisk.id,
+            sum_insured: roundMoney(risk.sum_insured),
+            factors: this.buildMotorPricingFactors(
+              header,
+              payload.cover_note_dtl.policy_holders?.[0] ?? null,
+              entry.motor_dtl,
+              risk.sum_insured,
+            ),
+            effective_date: effectiveDate,
+            quotation_type: payload.internal_quotation.quotation_type,
+            currency_code: header.currency_code,
+            exchange_rate: header.exchange_rate,
+          },
+          user.id,
+          user,
+        );
+
+        this.applyFreshPricingToRisk(risk, result);
+      }
+    }
+  }
+
+  private buildSaveRecalculationReference(
+    payload: CreateQuotationDto,
+    risk: RiskCoveredDto,
+    index: number,
+  ): string {
+    return [
+      'quotation-save',
+      payload.internal_quotation.quotation_flow,
+      risk.risk_code.trim().toUpperCase(),
+      String(index + 1),
+      Date.now().toString(36),
+    ].join(':');
+  }
+
+  private buildMotorPricingFactors(
+    header: ResolvedHeader,
+    policyHolder: PolicyHolderDto | null,
+    motorDetail: MotorDetailDto,
+    sumInsured: number,
+  ): Record<string, string | number | boolean> {
+    return {
+      sum_insured: roundMoney(sumInsured),
+      payment_mode: this.resolvePaymentModeFactorValue(header.payment_mode),
+      currency_code: header.currency_code.trim().toUpperCase(),
+      exchange_rate: header.exchange_rate,
+      sale_point_code: header.sale_point_code.trim().toUpperCase(),
+      officer_name: header.officer_name,
+      officer_title: header.officer_title,
+      policy_holder_type:
+        policyHolder?.policy_holder_type === 2 ? 'Corporate' : 'Individual',
+      year_of_manufacture: motorDetail.year_of_manufacture,
+      seat_capacity: motorDetail.sitting_capacity,
+      vehicle_weight_kg: motorDetail.gross_weight,
+      cargo_weight_ton: motorDetail.gross_weight,
+      motor_usage: this.resolveMotorUsageFactorValue(motorDetail.motor_usage),
+      motor_category: String(motorDetail.motor_category),
+      motor_type: String(motorDetail.motor_type),
+      registration_number: motorDetail.registration_number,
+      chassis_number: motorDetail.chassis_number,
+      make: motorDetail.make.trim(),
+      model: motorDetail.model.trim(),
+      body_type: motorDetail.body_type.trim(),
+      engine_number: motorDetail.engine_number.trim(),
+      engine_capacity: motorDetail.engine_capacity,
+      fuel_used: motorDetail.fuel_used.trim(),
+      owner_name: motorDetail.owner_name.trim(),
+      owner_category: String(motorDetail.owner_category),
+    };
+  }
+
+  private resolvePaymentModeFactorValue(paymentMode: number): string {
+    switch (paymentMode) {
+      case 2:
+        return 'Cheque';
+      case 3:
+        return 'EFT';
+      case 1:
+      default:
+        return 'Cash';
+    }
+  }
+
+  private resolveMotorUsageFactorValue(motorUsage: number): string {
+    return motorUsage === 2 ? 'COMMERCIAL' : 'PRIVATE';
+  }
+
+  private applyFreshPricingToRisk(
+    risk: RiskCoveredDto,
+    result: {
+      pricing_quote_id: string;
+      sum_insured?: number;
+      sum_insured_equivalent?: number | null;
+      premium_rate?: number | null;
+      percentage_rate?: number | null;
+      premium_before_discount?: number | null;
+      base_premium?: number | null;
+      gross_premium?: number | null;
+      raw_premium?: number | null;
+      final_premium?: number | null;
+      premium_after_discount?: number | null;
+      premium_excluding_tax_equivalent?: number | null;
+      premium_including_tax?: number | null;
+    },
+  ): void {
+    const premiumBeforeDiscount = roundMoney(
+      this.firstNumber(
+        result.premium_before_discount,
+        result.gross_premium,
+        result.base_premium,
+        result.raw_premium,
+        result.final_premium,
+        0,
+      ) ?? 0,
+    );
+    const recalculatedDiscounts = (risk.discounts_offered ?? []).map((discount) => ({
+      ...discount,
+      discount_amount:
+        discount.discount_rate > 0
+          ? roundMoney(premiumBeforeDiscount * discount.discount_rate)
+          : roundMoney(discount.discount_amount),
+    }));
+    const totalDiscountAmount = roundMoney(
+      recalculatedDiscounts.reduce(
+        (sum, discount) => sum + roundMoney(discount.discount_amount),
+        0,
+      ),
+    );
+    const premiumAfterDiscount = roundMoney(
+      Math.max(0, premiumBeforeDiscount - totalDiscountAmount),
+    );
+    const recalculatedTaxes = (risk.taxes_charged ?? []).map((tax) => ({
+      ...tax,
+      tax_amount:
+        tax.is_tax_exempted === 'Y'
+          ? 0
+          : roundMoney(premiumAfterDiscount * tax.tax_rate),
+    }));
+    const totalTaxAmount = roundMoney(
+      recalculatedTaxes.reduce((sum, tax) => sum + roundMoney(tax.tax_amount), 0),
+    );
+
+    risk.pricing_quote_id = result.pricing_quote_id;
+    risk.sum_insured = roundMoney(result.sum_insured ?? risk.sum_insured);
+    risk.sum_insured_equivalent = roundMoney(
+      this.firstNumber(
+        result.sum_insured_equivalent,
+        result.sum_insured,
+        risk.sum_insured,
+      ) ?? risk.sum_insured,
+    );
+    risk.premium_rate = this.firstNumber(
+      result.premium_rate,
+      result.percentage_rate,
+      risk.premium_rate,
+    ) ?? risk.premium_rate;
+    risk.premium_before_discount = premiumBeforeDiscount;
+    risk.discounts_offered = recalculatedDiscounts;
+    risk.premium_after_discount = premiumAfterDiscount;
+    risk.premium_excluding_tax_equivalent = premiumAfterDiscount;
+    risk.taxes_charged = recalculatedTaxes;
+    risk.premium_including_tax = roundMoney(premiumAfterDiscount + totalTaxAmount);
+  }
+
+  private firstNumber(...values: Array<number | null | undefined>): number | null {
+    for (const value of values) {
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+      }
+    }
+
+    return null;
   }
 
   private async validateAuthoritativePricing(
