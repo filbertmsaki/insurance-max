@@ -26,6 +26,9 @@ interface ComboboxProps {
   emptyText?: string;
   className?: string;
   disabled?: boolean;
+  id?: string;
+  'aria-describedby'?: string;
+  'aria-invalid'?: boolean;
 }
 
 export function Combobox({
@@ -37,6 +40,9 @@ export function Combobox({
   emptyText = 'No results found.',
   className,
   disabled,
+  id,
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const selected = options.find((option) => option.value === value);
@@ -48,6 +54,9 @@ export function Combobox({
           type="button"
           variant="outline"
           role="combobox"
+          id={id}
+          aria-describedby={ariaDescribedBy}
+          aria-invalid={ariaInvalid}
           aria-expanded={open}
           disabled={disabled}
           className={cn(

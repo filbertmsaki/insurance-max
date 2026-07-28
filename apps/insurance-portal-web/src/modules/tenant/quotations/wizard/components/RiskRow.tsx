@@ -228,22 +228,29 @@ export function RiskRow({
     if (currentTaxes !== nextTaxes) {
       form.setValue(path(index, 'taxes_charged'), recomputedRow.taxes_charged);
     }
-    if (currentRow.premium_after_discount !== recomputedRow.premium_after_discount) {
+    // Money fields are compared numerically, not as raw strings: the backend's
+    // calculation result and this frontend recompute format the same amount
+    // differently (e.g. "100000.0000" vs "100000"), which previously made this
+    // effect believe the value had "changed" on every run and re-set it
+    // forever, alternating with the backend's own format each pass (an
+    // infinite update loop — see incident where creating a motor quotation
+    // crashed the wizard right after entering Sum Insured).
+    if (toNumber(currentRow.premium_after_discount) !== toNumber(recomputedRow.premium_after_discount)) {
       form.setValue(
         path(index, 'premium_after_discount'),
         recomputedRow.premium_after_discount,
       );
     }
     if (
-      currentRow.premium_excluding_tax_equivalent !==
-      recomputedRow.premium_excluding_tax_equivalent
+      toNumber(currentRow.premium_excluding_tax_equivalent) !==
+      toNumber(recomputedRow.premium_excluding_tax_equivalent)
     ) {
       form.setValue(
         path(index, 'premium_excluding_tax_equivalent'),
         recomputedRow.premium_excluding_tax_equivalent,
       );
     }
-    if (currentRow.premium_including_tax !== recomputedRow.premium_including_tax) {
+    if (toNumber(currentRow.premium_including_tax) !== toNumber(recomputedRow.premium_including_tax)) {
       form.setValue(
         path(index, 'premium_including_tax'),
         recomputedRow.premium_including_tax,

@@ -307,9 +307,9 @@ export function QuotationStartModal({
           </div>
 
           <div>
-            <Label className="mb-2 block">{FIELD_LABELS.category_id}</Label>
+            <Label htmlFor="quotation-start-category" className="mb-2 block">{FIELD_LABELS.category_id}</Label>
             <Select value={categoryId} onValueChange={handleCategoryChange}>
-              <SelectTrigger>
+              <SelectTrigger id="quotation-start-category">
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
@@ -326,9 +326,9 @@ export function QuotationStartModal({
           </div>
 
           <div>
-            <Label className="mb-2 block">{FIELD_LABELS.product_id}</Label>
+            <Label htmlFor="quotation-start-product" className="mb-2 block">{FIELD_LABELS.product_id}</Label>
             <Select value={productId} onValueChange={setProductId}>
-              <SelectTrigger>
+              <SelectTrigger id="quotation-start-product">
                 <SelectValue placeholder="Select product" />
               </SelectTrigger>
               <SelectContent>
@@ -345,14 +345,14 @@ export function QuotationStartModal({
           </div>
 
           <div>
-            <Label className="mb-2 block">{FIELD_LABELS.channel_type}</Label>
+            <Label htmlFor="quotation-start-channel" className="mb-2 block">{FIELD_LABELS.channel_type}</Label>
             <Select
               value={channelType}
               onValueChange={(value) =>
                 setChannelType(value as (typeof CHANNEL_TYPES)[number])
               }
             >
-              <SelectTrigger>
+              <SelectTrigger id="quotation-start-channel">
                 <SelectValue placeholder="Select channel" />
               </SelectTrigger>
               <SelectContent>
@@ -370,8 +370,9 @@ export function QuotationStartModal({
 
           {requiresTranCompany && (
             <div>
-              <Label className="mb-2 block">{tranCompanyLabel}</Label>
+              <Label htmlFor="quotation-start-tran-company" className="mb-2 block">{tranCompanyLabel}</Label>
               <select
+                id="quotation-start-tran-company"
                 className="flex h-10 w-full cursor-pointer rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
                 value={effectiveTranCompanyId}
                 onChange={(event) => setTranCompanyId(event.target.value)}
@@ -397,9 +398,9 @@ export function QuotationStartModal({
           )}
 
           <div>
-            <Label className="mb-2 block">{FIELD_LABELS.currency}</Label>
+            <Label htmlFor="quotation-start-currency" className="mb-2 block">{FIELD_LABELS.currency}</Label>
             <Select value={currency} onValueChange={setCurrency}>
-              <SelectTrigger>
+              <SelectTrigger id="quotation-start-currency">
                 <SelectValue placeholder="Select currency" />
               </SelectTrigger>
               <SelectContent>
@@ -416,14 +417,14 @@ export function QuotationStartModal({
           </div>
 
           <div>
-            <Label className="mb-2 block">{FIELD_LABELS.cover_note_type}</Label>
+            <Label htmlFor="quotation-start-cover-note-type" className="mb-2 block">{FIELD_LABELS.cover_note_type}</Label>
             <Select
               value={coverNoteType}
               onValueChange={(value) =>
                 setCoverNoteType(value as '1' | '2' | '3')
               }
             >
-              <SelectTrigger>
+              <SelectTrigger id="quotation-start-cover-note-type">
                 <SelectValue placeholder="Select cover note type" />
               </SelectTrigger>
               <SelectContent>
@@ -441,14 +442,14 @@ export function QuotationStartModal({
 
           {requiresDateRange && (
             <div>
-              <Label className="mb-2 block">{FIELD_LABELS.date_range}</Label>
+              <Label htmlFor="quotation-start-date-range" className="mb-2 block">{FIELD_LABELS.date_range}</Label>
               <Select
                 value={dateRangeDays}
                 onValueChange={(value) =>
                   handleDateRangeChange(value as CoverNoteDateRangeValue)
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id="quotation-start-date-range">
                   <SelectValue placeholder="Select date range" />
                 </SelectTrigger>
                 <SelectContent>

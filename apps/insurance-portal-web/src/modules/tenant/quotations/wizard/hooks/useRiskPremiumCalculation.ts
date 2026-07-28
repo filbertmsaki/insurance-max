@@ -13,7 +13,7 @@ import {
   resolveFactorValues,
   type QuotationFactorContext,
 } from '../utils/riskFactorResolver';
-import { applyRiskPremiumResult } from '../utils/premiumAggregation';
+import { applyRiskPremiumResult, toNumber } from '../utils/premiumAggregation';
 import { readPricingQuoteMetadata } from '@/modules/pricing';
 import { buildSingleRiskPricingSignature } from '../utils/pricingStaleness';
 
@@ -301,6 +301,20 @@ export function useRiskPremiumCalculation(
   useEffect(() => {
     if (!riskId) return;
 
+    // This is only a *preview* for before the user has entered a sum
+    // insured (per the comment above). Once a sum insured is committed, the
+    // real calculation (below) owns these fields. The previous guard here
+    // was `pricing_quote_id` truthy, but this backend doesn't return a
+    // pricing_quote_id for every risk/product — so for those, the guard
+    // never engaged, and this effect kept re-asserting the rule's flat
+    // minimum onto premium_including_tax etc. while the real calculation
+    // (and RiskRow's own tax recompute) kept correcting it back to the
+    // actual, tax-inclusive figure — an infinite tug-of-war between two
+    // effects that disagreed on the value (not merely a formatting
+    // mismatch), which crashed the wizard with "Maximum update depth
+    // exceeded" right after entering Sum Insured.
+    if (committedSumInsured) return;
+
     const rules = ruleListQuery.data?.data ?? [];
     const activeRules = rules.filter((rule) => rule.is_active);
     if (activeRules.length === 0) return;
@@ -317,7 +331,7 @@ export function useRiskPremiumCalculation(
     const currentMinimumAmount = form.getValues(
       path(index, 'minimum_amount'),
     ) as string;
-    if (currentMinimumAmount !== minimumAmount) {
+    if (toNumber(currentMinimumAmount) !== toNumber(minimumAmount)) {
       form.setValue(path(index, 'minimum_amount'), minimumAmount);
     }
 
@@ -330,11 +344,11 @@ export function useRiskPremiumCalculation(
     ] as const;
     previewFields.forEach(([fieldName, value]) => {
       const fieldPath = path(index, fieldName);
-      if (form.getValues(fieldPath) !== value) {
+      if (toNumber(form.getValues(fieldPath) as string) !== toNumber(value)) {
         form.setValue(fieldPath, value);
       }
     });
-  }, [form, index, riskId, ruleListQuery.data]);
+  }, [form, index, riskId, ruleListQuery.data, committedSumInsured]);
 
   useEffect(() => {
     const metadata = readPricingQuoteMetadata(pricingMetadata);

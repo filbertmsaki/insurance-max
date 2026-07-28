@@ -498,29 +498,36 @@ export function QuotationWizardPage() {
         : aggregateRiskTotals(
             (watchedRisks ?? []) as QuotationFormSchemaValues['risks'],
           );
+    // Compared numerically, not as raw strings: aggregateRiskTotals()/
+    // aggregateFleetRiskTotals() format amounts differently than whatever
+    // already sits in these top-level fields (e.g. "100000.0000" vs
+    // "100000"), so a strict string compare here treated an unchanged total
+    // as "changed" on every render and re-set it forever, which crashed the
+    // wizard with "Maximum update depth exceeded" right after computing a
+    // risk's premium (see also the matching fix in RiskRow.tsx).
     const current = form.getValues();
-    if (current.sum_insured !== totals.sum_insured) {
+    if (Number(current.sum_insured) !== Number(totals.sum_insured)) {
       form.setValue('sum_insured', totals.sum_insured);
     }
-    if (current.basic_premium !== totals.basic_premium) {
+    if (Number(current.basic_premium) !== Number(totals.basic_premium)) {
       form.setValue('basic_premium', totals.basic_premium);
     }
-    if (current.total_discount !== totals.total_discount) {
+    if (Number(current.total_discount) !== Number(totals.total_discount)) {
       form.setValue('total_discount', totals.total_discount);
     }
-    if (current.total_tax !== totals.total_tax) {
+    if (Number(current.total_tax) !== Number(totals.total_tax)) {
       form.setValue('total_tax', totals.total_tax);
     }
-    if (current.total_charges !== totals.total_charges) {
+    if (Number(current.total_charges) !== Number(totals.total_charges)) {
       form.setValue('total_charges', totals.total_charges);
     }
-    if (current.total_commission !== totals.total_commission) {
+    if (Number(current.total_commission) !== Number(totals.total_commission)) {
       form.setValue('total_commission', totals.total_commission);
     }
-    if (current.total_premium !== totals.total_premium) {
+    if (Number(current.total_premium) !== Number(totals.total_premium)) {
       form.setValue('total_premium', totals.total_premium);
     }
-    if (current.net_premium !== totals.net_premium) {
+    if (Number(current.net_premium) !== Number(totals.net_premium)) {
       form.setValue('net_premium', totals.net_premium);
     }
   }, [form, quotationFlow, watchedFleetItems, watchedRisks]);
