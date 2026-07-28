@@ -995,6 +995,50 @@ describe('QuotationsService', () => {
     );
   });
 
+  it('preserves manually selected risk taxes when no backend charge rule is returned', async () => {
+    const fixture = createServiceFixture();
+    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].taxes_charged = [
+      {
+        tax_code: 'VAT-MAINLAND',
+        is_tax_exempted: 'N',
+        tax_exemption_type: null,
+        tax_exemption_reference: null,
+        tax_rate: 0.18,
+        tax_amount: 1,
+      },
+    ];
+    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_after_discount =
+      100000;
+    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_excluding_tax_equivalent =
+      100000;
+    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_including_tax =
+      100001;
+    (
+      fixture.pricingChargeService.calculateCharges as jest.Mock
+    ).mockResolvedValueOnce({
+      charges: [],
+      total_charge_amount: 0,
+      taxable_charge_amount: 0,
+      non_taxable_charge_amount: 0,
+      premium_including_charges: 100000,
+    });
+
+    await fixture.service.submit('company-1', fixture.quotation.id, undefined, {
+      id: 'user-1',
+    } as any);
+
+    expect(
+      (
+        fixture.tiramisBusinessSubmitService
+          .submitAnyBusinessRecord as jest.Mock
+      ).mock.calls[0][0].payload.risks[0].taxes[0],
+    ).toMatchObject({
+      taxCode: 'VAT-MAINLAND',
+      taxRate: 0.18,
+      taxAmount: 18000,
+    });
+  });
+
   it('prevents a requester from approving their own premium override', async () => {
     const fixture = createServiceFixture();
     fixture.quotation.cover_note.entries[0].risks[0].premium_overrides = [

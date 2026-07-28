@@ -41,6 +41,7 @@ import {
   PolicyHolderDto,
   RiskCoveredDto,
   SubjectMatterCoveredDto,
+  TaxChargedDto,
   SubmitQuotationDto,
   UpdateQuotationDto,
 } from './dto/quotation-payload.dto';
@@ -2192,15 +2193,20 @@ export class QuotationsService {
     context.risk.premium_after_discount = premiumExcludingTaxEquivalent;
     context.risk.premium_excluding_tax_equivalent =
       premiumExcludingTaxEquivalent;
-    context.risk.taxes_charged = chargeSummary.charges.map((charge) => {
+    const matchedChargeCodes = new Set<string>();
+    const authoritativeTaxes: TaxChargedDto[] = chargeSummary.charges.map(
+      (charge): TaxChargedDto => {
+      const normalizedChargeCode = this.normalizeUppercase(charge.charge_code);
+      matchedChargeCodes.add(normalizedChargeCode);
       const existingTax = exemptionsByCode.get(
-        this.normalizeUppercase(charge.charge_code),
+        normalizedChargeCode,
       );
       const isTaxExempted = existingTax?.is_tax_exempted === 'Y' ? 'Y' : 'N';
 
       return {
         tax_code: charge.charge_code,
-        is_tax_exempted: isTaxExempted,
+        is_tax_exempted:
+          isTaxExempted === 'Y' ? ('Y' as const) : ('N' as const),
         tax_exemption_type:
           isTaxExempted === 'Y'
             ? existingTax?.tax_exemption_type?.trim() ?? null
@@ -2213,6 +2219,23 @@ export class QuotationsService {
         tax_amount: isTaxExempted === 'Y' ? 0 : charge.computed_amount,
       };
     });
+    const preservedTaxes: TaxChargedDto[] = Array.from(exemptionsByCode.entries())
+      .filter(([code]) => !matchedChargeCodes.has(code))
+      .map(([, tax]): TaxChargedDto => ({
+        tax_code: tax.tax_code,
+        is_tax_exempted:
+          tax.is_tax_exempted === 'Y' ? ('Y' as const) : ('N' as const),
+        tax_exemption_type:
+          tax.is_tax_exempted === 'Y' ? tax.tax_exemption_type : null,
+        tax_exemption_reference:
+          tax.is_tax_exempted === 'Y' ? tax.tax_exemption_reference : null,
+        tax_rate: tax.tax_rate,
+        tax_amount:
+          tax.is_tax_exempted === 'Y'
+            ? 0
+            : roundMoney(premiumExcludingTaxEquivalent * tax.tax_rate),
+      }));
+    context.risk.taxes_charged = [...authoritativeTaxes, ...preservedTaxes];
     context.risk.premium_including_tax = roundMoney(
       premiumExcludingTaxEquivalent +
         context.risk.taxes_charged.reduce(
