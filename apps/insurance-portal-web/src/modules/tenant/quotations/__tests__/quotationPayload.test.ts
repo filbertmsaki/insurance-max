@@ -12,6 +12,7 @@ import {
   quotationFormSchema,
   type QuotationFormSchemaValues,
 } from '../schemas';
+import { buildSingleRiskPricingSignature } from '../wizard/utils/pricingStaleness';
 
 function createBaseValues(): QuotationFormSchemaValues {
   return {
@@ -276,6 +277,78 @@ describe('quotation payload builders', () => {
     });
 
     expect(payload.cover_note_dtl.risks_covered?.[0].pricing_quote_id).toBeNull();
+  });
+
+  it('keeps pricing_quote_id when calculated fields change but the pricing inputs still match', () => {
+    const values = createBaseValues();
+    values.quotation_flow = 'MOTOR_SINGLE';
+    values.quotation_type = 'MOTOR';
+    values.risks[0].risk_id = 'risk-1';
+    values.risks[0].risk_code = 'SP014001000002';
+    values.risks[0].sum_insured = '50000000';
+    values.risks[0].sum_insured_equivalent = '50000000';
+    values.risks[0].premium_rate = '0.035';
+    values.risks[0].premium_before_discount = '1750000';
+    values.risks[0].premium_after_discount = '1575000';
+    values.risks[0].premium_excluding_tax_equivalent = '1575000';
+    values.risks[0].premium_including_tax = '2016000';
+    values.risks[0].discounts_offered[0] = {
+      ...values.risks[0].discounts_offered[0],
+      discount_type: '1',
+      discount_rate: '0.10',
+      discount_amount: '175000',
+    };
+    values.risks[0].taxes_charged[0] = {
+      ...values.risks[0].taxes_charged[0],
+      tax_code: 'VAT-MAINLAND',
+      tax_rate: '0.18',
+      tax_amount: '283500',
+    };
+    values.motor = {
+      ...createEmptyMotorDetails(),
+      motor_category_code: '1',
+      motor_type_code: '1',
+      registration_no: 'T123ABC',
+      chassis_no: 'CHS-001',
+      engine_no: 'ENG-001',
+      make: 'Toyota',
+      model: 'Hiace',
+      manufacture_year: '2022',
+      motor_usage_code: '2',
+    };
+
+    values.risks[0].rating_result_metadata = {
+      pricing_quote_id: 'PQ-2026-00000012',
+      pricing_input_signature: buildSingleRiskPricingSignature({
+        quotation_type: values.quotation_type,
+        product_id: values.product_id,
+        valid_from: values.valid_from,
+        valid_until: values.valid_until,
+        currency: values.currency,
+        exchange_rate: values.exchange_rate,
+        motor: values.motor,
+        addons: values.addons,
+        risk: {
+          risk_id: values.risks[0].risk_id,
+          risk_code: values.risks[0].risk_code,
+          sum_insured: values.risks[0].sum_insured,
+          factor_values: values.risks[0].factor_values,
+          discounts_offered: values.risks[0].discounts_offered,
+          taxes_charged: values.risks[0].taxes_charged,
+        },
+      }),
+      pricing_is_stale: false,
+      calculated_at: '2026-07-28T05:14:50.278Z',
+    };
+
+    const payload = buildMotorSingleQuotationPayload(values, {
+      salePointCode: 'SP-01',
+      productCode: 'PROD-01',
+    });
+
+    expect(payload.cover_note_dtl.risks_covered?.[0].pricing_quote_id).toBe(
+      'PQ-2026-00000012',
+    );
   });
 
   it('validates duplicate fleet registrations', () => {

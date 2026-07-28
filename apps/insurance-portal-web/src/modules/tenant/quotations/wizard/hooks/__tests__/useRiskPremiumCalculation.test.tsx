@@ -19,9 +19,10 @@ import {
 } from '../../../schemas';
 import { useRiskPremiumCalculation } from '../useRiskPremiumCalculation';
 
-const { mutateMock, apiGetMock } = vi.hoisted(() => ({
+const { mutateMock, apiGetMock, rulePreviewDataMock } = vi.hoisted(() => ({
   mutateMock: vi.fn(),
   apiGetMock: vi.fn(),
+  rulePreviewDataMock: vi.fn(),
 }));
 
 vi.mock('@/modules/shared/api/client', () => ({
@@ -40,7 +41,7 @@ vi.mock('@/modules/pricing', () => ({
     },
   }),
   usePricingRequiredFactors: () => ({ data: [], isLoading: false }),
-  usePricingRulePreview: () => ({ data: { data: [] } }),
+  usePricingRulePreview: () => ({ data: { data: rulePreviewDataMock() } }),
   readPricingQuoteMetadata: (value: unknown) =>
     value as Record<string, unknown> | null,
 }));
@@ -157,7 +158,9 @@ describe('useRiskPremiumCalculation', () => {
     vi.useFakeTimers();
     mutateMock.mockReset();
     apiGetMock.mockReset();
+    rulePreviewDataMock.mockReset();
     apiGetMock.mockResolvedValue({ data: [] });
+    rulePreviewDataMock.mockReturnValue([]);
     useAuthStore.setState({
       company: {
         id: 'company-1',
@@ -288,6 +291,36 @@ describe('useRiskPremiumCalculation', () => {
     expect(mutateMock.mock.calls[0][0].tax_rule_ids).toEqual([
       'tax-rule-withholding',
     ]);
+  });
+
+  it('still requests authoritative pricing when the preview minimum premium is higher than the sum insured', async () => {
+    rulePreviewDataMock.mockReturnValue([
+      {
+        is_active: true,
+        priority: 1,
+        minimum_amount: 250000,
+        percentage_rate: 0.035,
+      },
+    ]);
+
+    const { form, hook } = renderRiskPricingHook({
+      sum_insured: '50000',
+    });
+
+    await settleTaxRuleQuery();
+    act(() => {
+      hook.result.current.handleSumInsuredBlur();
+    });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
+
+    expect(form.getValues('risks.0.minimum_amount')).toBe('250000');
+    expect(mutateMock).toHaveBeenCalledTimes(1);
+    expect(mutateMock.mock.calls[0][0]).toMatchObject({
+      risk_id: 'risk-1',
+      sum_insured: 50000,
+    });
   });
 
   it('discards an earlier calculation response that resolves after a newer one (stale response guard)', async () => {

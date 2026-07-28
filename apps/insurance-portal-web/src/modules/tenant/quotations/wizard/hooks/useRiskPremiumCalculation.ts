@@ -406,19 +406,6 @@ export function useRiskPremiumCalculation(
     if (!hasCommittedSumInsured && !hasNonMotorInputs) return undefined;
     if (selectedTaxCodes.length > 0 && taxRulesQuery.isLoading) return undefined;
 
-    // Sum insured only ever reaches here once committed on blur; still gate
-    // on the risk's minimum here (rather than in the blur handler) so this
-    // is the single source of truth regardless of how committedSumInsured
-    // got its value (blur, or a future re-trigger from a factor change).
-    const minimumAmount =
-      Number(form.getValues(path(index, 'minimum_amount')) as string) || 0;
-    if (
-      hasCommittedSumInsured &&
-      Number(committedSumInsured) <= minimumAmount
-    ) {
-      return undefined;
-    }
-
     timeoutRef.current = setTimeout(() => {
       const token = ++requestTokenRef.current;
 

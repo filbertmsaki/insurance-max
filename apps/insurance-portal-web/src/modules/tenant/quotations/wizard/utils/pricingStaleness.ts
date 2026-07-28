@@ -67,9 +67,19 @@ export function buildSingleRiskPricingSignature(input: {
   };
 }): string {
   return buildQuotationPricingSignature({
-    ...input,
+    quotation_type: input.quotation_type,
+    product_id: input.product_id,
+    valid_from: input.valid_from,
+    valid_until: input.valid_until,
+    currency: input.currency,
+    exchange_rate: input.exchange_rate,
+    motor: input.motor,
+    addons: input.addons,
     risk: {
-      ...input.risk,
+      risk_id: input.risk.risk_id,
+      risk_code: input.risk.risk_code,
+      sum_insured: input.risk.sum_insured,
+      factor_values: input.risk.factor_values,
       discounts_offered: normalizeRiskDiscounts(input.risk.discounts_offered),
       taxes_charged: normalizeRiskTaxes(input.risk.taxes_charged),
     },
@@ -98,9 +108,22 @@ export function buildFleetRiskPricingSignature(input: {
   };
 }): string {
   return buildQuotationPricingSignature({
-    ...input,
+    quotation_type: input.quotation_type,
+    product_id: input.product_id,
+    valid_from: input.valid_from,
+    valid_until: input.valid_until,
+    currency: input.currency,
+    exchange_rate: input.exchange_rate,
+    fleet_header: input.fleet_header,
+    item: {
+      cover_note_addons: input.item.cover_note_addons,
+      subject_matters_covered: input.item.subject_matters_covered,
+      motor_dtl: input.item.motor_dtl,
+    },
     risk: {
-      ...input.risk,
+      risk_id: input.risk.risk_id,
+      risk_code: input.risk.risk_code,
+      sum_insured: input.risk.sum_insured,
       discounts_offered: normalizeRiskDiscounts(input.risk.discounts_offered),
       taxes_charged: normalizeRiskTaxes(input.risk.taxes_charged),
     },
