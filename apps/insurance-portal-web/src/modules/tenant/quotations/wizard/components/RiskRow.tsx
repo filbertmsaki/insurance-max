@@ -27,9 +27,12 @@ import {
   type QuotationFormSchemaValues,
 } from '../../schemas';
 import {
+  DISCOUNT_TYPE_OPTIONS,
   TAX_CODE_OPTIONS,
   TAX_EXEMPTION_OPTIONS,
   TAX_EXEMPTION_TYPE_OPTIONS,
+  getDiscountRateForType,
+  getTaxRateForCode,
 } from '../utils/taxOptions';
 import {
   fromSelectValue,
@@ -59,9 +62,6 @@ interface Props {
   factorContext?: QuotationFactorContext;
 }
 
-const DISCOUNT_TYPE_OPTIONS = [
-  { value: '1', label: '1. Fleet discount' },
-] as const;
 const EMPTY_TAX_ROWS: QuotationFormSchemaValues['risks'][number]['taxes_charged'] =
   [];
 const EMPTY_DISCOUNT_ROWS: QuotationFormSchemaValues['risks'][number]['discounts_offered'] =
@@ -495,6 +495,11 @@ export function RiskRow({
                                 path(index, `discounts_offered.${discountIndex}.discount_amount`),
                                 '',
                               );
+                            } else {
+                              form.setValue(
+                                path(index, `discounts_offered.${discountIndex}.discount_rate`),
+                                getDiscountRateForType(nextValue),
+                              );
                             }
                             // discount_amount is never computed here — the
                             // reactive calculation hook watches
@@ -669,7 +674,7 @@ export function RiskRow({
                             // values for the newly selected code.
                             form.setValue(
                               path(index, `taxes_charged.${taxIndex}.tax_rate`),
-                              '',
+                              getTaxRateForCode(nextValue),
                             );
                             form.setValue(
                               path(index, `taxes_charged.${taxIndex}.tax_amount`),

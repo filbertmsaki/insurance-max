@@ -5,8 +5,21 @@ import {
   createEmptyRiskTaxRow,
   quotationRiskRowSchema,
 } from '../schemas';
+import {
+  getDiscountRateForType,
+  getTaxRateForCode,
+} from '../wizard/utils/taxOptions';
 
 describe('quotationRiskRowSchema — required rate validation', () => {
+  it('defaults standard discount and tax rates as decimal fractions', () => {
+    expect(createEmptyRiskDiscountRow().discount_type).toBe('1');
+    expect(createEmptyRiskDiscountRow().discount_rate).toBe('0.10');
+    expect(createEmptyRiskTaxRow().tax_code).toBe('VAT-MAINLAND');
+    expect(createEmptyRiskTaxRow().tax_rate).toBe('0.18');
+    expect(getDiscountRateForType('1')).toBe('0.10');
+    expect(getTaxRateForCode('WITHHOLDING')).toBe('0.10');
+  });
+
   it('rejects a discount row that has a discount_type but no discount_rate', () => {
     const row = {
       ...createEmptyRiskRow(),

@@ -35,6 +35,10 @@ import {
   isBeforeToday,
 } from './wizard/utils/coverNoteDateRange';
 import {
+  getDiscountRateForType,
+  getTaxRateForCode,
+} from './wizard/utils/taxOptions';
+import {
   buildFleetRiskPricingSignature,
   buildSingleRiskPricingSignature,
 } from './wizard/utils/pricingStaleness';
@@ -149,10 +153,7 @@ function createEmptyTaxRow() {
     is_tax_exempted: false,
     tax_exemption_type: '',
     tax_exemption_reference: '',
-    // tax_rate/tax_amount are never guessed on the frontend — the backend
-    // pricing engine is the sole authority and populates both on the next
-    // calculation result.
-    tax_rate: '',
+    tax_rate: getTaxRateForCode('VAT-MAINLAND'),
     tax_amount: '',
   };
 }
@@ -160,7 +161,7 @@ function createEmptyTaxRow() {
 function createEmptyDiscountRow() {
   return {
     discount_type: '1',
-    discount_rate: '',
+    discount_rate: getDiscountRateForType('1'),
     discount_amount: '',
     request_reason_code: '',
     request_comment: '',
