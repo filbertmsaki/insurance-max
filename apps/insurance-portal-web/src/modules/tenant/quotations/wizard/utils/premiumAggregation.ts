@@ -14,6 +14,48 @@ type QuotationRiskFormRow = QuotationFormSchemaValues['risks'][number];
 type QuotationFleetRiskFormRow =
   QuotationFormSchemaValues['fleet']['items'][number]['risks_covered'][number];
 
+function resolvePremiumBeforeDiscount(result: RiskPremiumResult) {
+  return (
+    result.premium_before_discount ??
+    result.gross_premium ??
+    result.base_premium ??
+    result.raw_premium ??
+    result.premium_breakdown?.items?.[0]?.raw_premium ??
+    result.premium_breakdown?.totals?.raw_premium ??
+    result.final_premium ??
+    0
+  );
+}
+
+function resolvePremiumAfterDiscount(result: RiskPremiumResult) {
+  return (
+    result.premium_after_discount ??
+    result.final_premium ??
+    result.premium_breakdown?.items?.[0]?.premium_after_discount ??
+    result.premium_breakdown?.totals?.premium_after_discount ??
+    0
+  );
+}
+
+function resolvePremiumExcludingTaxEquivalent(result: RiskPremiumResult) {
+  return (
+    result.premium_excluding_tax_equivalent ??
+    result.premium_excluding_tax ??
+    resolvePremiumAfterDiscount(result)
+  );
+}
+
+function resolvePremiumIncludingTax(result: RiskPremiumResult) {
+  return (
+    result.premium_including_tax ??
+    result.premium_including_tax_equivalent ??
+    result.final_payable_premium ??
+    result.premium_including_charges ??
+    result.premium_breakdown?.totals?.payable_premium ??
+    resolvePremiumExcludingTaxEquivalent(result)
+  );
+}
+
 export function toNumber(value: string | number | null | undefined) {
   if (value === null || value === undefined || value === '') return 0;
   const parsed = typeof value === 'number' ? value : Number(value);
@@ -90,6 +132,11 @@ export function applyRiskPremiumResult(
   result: RiskPremiumResult,
 ): QuotationRiskFormRow {
   const isZeroRate = result.percentage_rate === 0;
+  const premiumBeforeDiscount = resolvePremiumBeforeDiscount(result);
+  const premiumAfterDiscount = resolvePremiumAfterDiscount(result);
+  const premiumExcludingTaxEquivalent =
+    resolvePremiumExcludingTaxEquivalent(result);
+  const premiumIncludingTax = resolvePremiumIncludingTax(result);
 
   const discounts =
     row.discounts_offered.length > 0
@@ -112,14 +159,12 @@ export function applyRiskPremiumResult(
       ? '0'
       : String(result.sum_insured_equivalent ?? result.sum_insured ?? 0),
     premium_rate: String(result.premium_rate ?? result.percentage_rate ?? 0),
-    premium_before_discount: String(result.premium_before_discount ?? 0),
+    premium_before_discount: String(premiumBeforeDiscount),
     discounts_offered: discounts,
-    premium_after_discount: String(result.premium_after_discount ?? 0),
-    premium_excluding_tax_equivalent: String(
-      result.premium_excluding_tax_equivalent ?? 0,
-    ),
+    premium_after_discount: String(premiumAfterDiscount),
+    premium_excluding_tax_equivalent: String(premiumExcludingTaxEquivalent),
     taxes_charged: taxes,
-    premium_including_tax: String(result.premium_including_tax ?? 0),
+    premium_including_tax: String(premiumIncludingTax),
     rating_result_metadata: {
       pricing_quote_id: result.pricing_quote_id ?? null,
       pricing_status: result.pricing_status ?? null,
@@ -146,13 +191,14 @@ export function applyFleetRiskPremiumResult(
   result: RiskPremiumResult,
 ): QuotationFleetRiskFormRow {
   const isZeroRate = result.percentage_rate === 0;
+  const premiumBeforeDiscount = resolvePremiumBeforeDiscount(result);
 
   return {
     ...row,
     sum_insured: isZeroRate ? '0' : row.sum_insured,
     sum_insured_equivalent: isZeroRate ? '0' : String(result.sum_insured ?? 0),
     premium_rate: String(result.percentage_rate ?? 0),
-    premium_before_discount: String(result.final_premium ?? 0),
+    premium_before_discount: String(premiumBeforeDiscount),
     rating_result_metadata: {
       pricing_quote_id: result.pricing_quote_id ?? null,
       pricing_status: result.pricing_status ?? null,

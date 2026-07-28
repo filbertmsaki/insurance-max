@@ -143,6 +143,67 @@ describe('premiumAggregation', () => {
     ]);
   });
 
+  it('maps legacy pricing responses into wizard premium fields without zeroing them out', () => {
+    const row = createEmptyRiskRow();
+    row.risk_id = 'risk-1';
+    row.risk_code = 'SP014001000001';
+    row.sum_insured = '50000000';
+
+    const pricedRow = applyRiskPremiumResult(
+      row,
+      {
+        risk_id: 'risk-1',
+        risk_code: 'SP014001000001',
+        risk_name: 'Motor Comprehensive',
+        sum_insured: 50000000,
+        base_premium: 1750000,
+        gross_premium: 1750000,
+        final_premium: 1750000,
+        percentage_rate: 0.035,
+        charges: [],
+        premium_including_charges: 1750000,
+        minimum_amount: 250000,
+        minimum_applied: false,
+        premium_breakdown: {
+          items: [
+            {
+              premium_after_discount: 1750000,
+              raw_premium: 1750000,
+            },
+          ],
+          totals: {
+            raw_premium: 1750000,
+            premium_after_discount: 1750000,
+            payable_premium: 1750000,
+          },
+        },
+        discount_control: {
+          max_rate: null,
+          max_amount: null,
+          approval_threshold_rate: null,
+          approval_threshold_amount: null,
+          effective_from: null,
+          effective_to: null,
+        },
+        loading_control: {
+          max_rate: null,
+          max_amount: null,
+          approval_threshold_rate: null,
+          approval_threshold_amount: null,
+          effective_from: null,
+          effective_to: null,
+        },
+        validation_errors: [],
+        validation_warnings: [],
+      } as any,
+    );
+
+    expect(pricedRow.premium_before_discount).toBe('1750000');
+    expect(pricedRow.premium_after_discount).toBe('1750000');
+    expect(pricedRow.premium_excluding_tax_equivalent).toBe('1750000');
+    expect(pricedRow.premium_including_tax).toBe('1750000');
+  });
+
   it('recomputes fleet discounts and taxes from the calculated premium', () => {
     const fleet = createEmptyFleetDetails();
     const baseRisk = fleet.items[0].risks_covered[0];

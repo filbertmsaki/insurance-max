@@ -228,4 +228,71 @@ describe('useRiskPremiumCalculation', () => {
     // The stale (#1) result must NOT have overwritten the newer (#2) one.
     expect(form.getValues('risks.0.premium_rate')).toBe('0.999');
   });
+
+  it('applies legacy calculation payloads to premium fields without replacing them with zeroes', () => {
+    const { form, hook } = renderRiskPricingHook();
+
+    act(() => {
+      hook.result.current.handleSumInsuredBlur();
+    });
+    act(() => {
+      vi.advanceTimersByTime(450);
+    });
+
+    expect(mutateMock).toHaveBeenCalledTimes(1);
+    const callOptions = mutateMock.mock.calls[0][1];
+
+    act(() => {
+      callOptions.onSuccess({
+        risk_id: 'risk-1',
+        risk_code: 'SP014001000001',
+        risk_name: 'Motor Comprehensive',
+        sum_insured: 50000000,
+        base_premium: 1750000,
+        gross_premium: 1750000,
+        final_premium: 1750000,
+        percentage_rate: 0.035,
+        charges: [],
+        premium_including_charges: 1750000,
+        premium_breakdown: {
+          items: [
+            {
+              premium_after_discount: 1750000,
+              raw_premium: 1750000,
+            },
+          ],
+          totals: {
+            raw_premium: 1750000,
+            premium_after_discount: 1750000,
+            payable_premium: 1750000,
+          },
+        },
+        discount_control: {
+          max_rate: null,
+          max_amount: null,
+          approval_threshold_rate: null,
+          approval_threshold_amount: null,
+          effective_from: null,
+          effective_to: null,
+        },
+        loading_control: {
+          max_rate: null,
+          max_amount: null,
+          approval_threshold_rate: null,
+          approval_threshold_amount: null,
+          effective_from: null,
+          effective_to: null,
+        },
+        validation_errors: [],
+        validation_warnings: [],
+      } as any);
+    });
+
+    expect(form.getValues('risks.0.premium_before_discount')).toBe('1750000');
+    expect(form.getValues('risks.0.premium_after_discount')).toBe('1750000');
+    expect(form.getValues('risks.0.premium_excluding_tax_equivalent')).toBe(
+      '1750000',
+    );
+    expect(form.getValues('risks.0.premium_including_tax')).toBe('1750000');
+  });
 });
