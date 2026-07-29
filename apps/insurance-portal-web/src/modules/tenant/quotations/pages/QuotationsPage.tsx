@@ -16,8 +16,36 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { QuotationStatusBadge } from '../components/QuotationStatusBadge';
+import { TiraStatusBadge } from '../components/TiraStatusBadge';
 import { useDeleteQuotation, useQuotationsList } from '../hooks';
 import type { QuotationListItem } from '../types';
+
+function formatCoverDate(value: string | null | undefined) {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function formatPremiumAmount(amount: number, currencyCode: string) {
+  const formattedAmount = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number.isFinite(amount) ? amount : 0);
+  return `${currencyCode} ${formattedAmount}`;
+}
+
+function TruncatedText({ value }: { value: string }) {
+  return (
+    <span className="block max-w-55 truncate" title={value}>
+      {value}
+    </span>
+  );
+}
 
 export function QuotationsPage() {
   const navigate = useNavigate();
@@ -45,41 +73,88 @@ export function QuotationsPage() {
   const columns: Column<QuotationListItem>[] = [
     {
       key: 'quotation_no',
-      header: 'Quotation No.',
-      cell: (row) => row.quotation_no,
+      header: 'Quotation Number',
+      cell: (row) => (
+        <span className="font-medium text-slate-900">{row.quotation_no}</span>
+      ),
+    },
+    {
+      key: 'customer_name',
+      header: 'Customer Name',
+      cell: (row) =>
+        row.customer_name ? (
+          <TruncatedText value={row.customer_name} />
+        ) : (
+          '—'
+        ),
+    },
+    {
+      key: 'vehicle',
+      header: 'Vehicle Reg. / Chassis No.',
+      hideOnMobile: true,
+      cell: (row) =>
+        row.vehicle_registration_number || row.vehicle_chassis_number || '—',
+    },
+    {
+      key: 'cover_note_start_date',
+      header: 'Cover Start Date',
+      hideOnMobile: true,
+      cell: (row) => formatCoverDate(row.cover_note_start_date),
+    },
+    {
+      key: 'cover_note_end_date',
+      header: 'Cover End Date',
+      hideOnMobile: true,
+      cell: (row) => formatCoverDate(row.cover_note_end_date),
+    },
+    {
+      key: 'product_name',
+      header: 'Product Name',
+      hideOnMobile: true,
+      cell: (row) => <TruncatedText value={row.product_name || row.product_code} />,
+    },
+    {
+      key: 'premium',
+      header: 'Premium Amount',
+      className: 'text-right',
+      cell: (row) => (
+        <span className="tabular-nums">
+          {formatPremiumAmount(
+            row.total_premium_including_tax,
+            row.currency_code,
+          )}
+        </span>
+      ),
+    },
+    {
+      key: 'quotation_status',
+      header: 'Quotation Status',
+      hideOnMobile: true,
+      cell: (row) => <QuotationStatusBadge status={row.quotation_status} />,
+    },
+    {
+      key: 'tira_status',
+      header: 'TIRA Status',
+      hideOnMobile: true,
+      cell: (row) => <TiraStatusBadge status={row.tira_status} />,
     },
     {
       key: 'quotation_flow',
       header: 'Flow',
+      defaultVisible: false,
       cell: (row) => row.quotation_flow,
     },
     {
-      key: 'product_code',
-      header: 'Product Code',
-      cell: (row) => row.product_code,
-    },
-    {
-      key: 'period',
+      key: 'display_status',
+      header: 'Overall Status',
       defaultVisible: false,
-      header: 'Cover Period',
-      cell: (row) =>
-        `${new Date(row.cover_note_start_date).toLocaleDateString()} - ${new Date(row.cover_note_end_date).toLocaleDateString()}`,
-    },
-    {
-      key: 'status',
-      header: 'Status',
       cell: (row) => <QuotationStatusBadge status={row.display_status} />,
-    },
-    {
-      key: 'premium',
-      header: 'Premium',
-      cell: (row) =>
-        `${row.currency_code} ${row.total_premium_including_tax.toLocaleString()}`,
     },
     {
       key: 'actions',
       header: '',
-      className: 'w-12',
+      className:
+        'w-12 sticky right-0 bg-white shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.15)]',
       cell: (row) => (
         <div className="flex justify-end">
           <ActionMenu
@@ -202,6 +277,7 @@ export function QuotationsPage() {
         totalPages={data?.pagination.totalPages ?? 1}
         onPageChange={setPage}
         onLimitChange={setLimit}
+        tableClassName="whitespace-nowrap"
       />
 
       <ConfirmDialog

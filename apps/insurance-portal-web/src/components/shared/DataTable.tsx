@@ -37,6 +37,7 @@ interface DataTableProps<T> {
   error?: ReactNode
   onRetry?: () => void
   showColumnVisibility?: boolean
+  tableClassName?: string
 }
 
 function SortIcon({ column, sortBy, sortOrder }: { column: string; sortBy?: string; sortOrder?: SortOrder }) {
@@ -44,7 +45,7 @@ function SortIcon({ column, sortBy, sortOrder }: { column: string; sortBy?: stri
   return sortOrder === 'ASC' ? <ArrowUp className="ml-1 h-3 w-3 text-blue-600" /> : <ArrowDown className="ml-1 h-3 w-3 text-blue-600" />
 }
 
-export function DataTable<T>({ columns, data, loading, page, limit, total, totalPages, onPageChange, onLimitChange, sortBy, sortOrder, onSortChange, rowKey, emptyMessage = 'No records found', caption, error, onRetry, showColumnVisibility = true }: DataTableProps<T>) {
+export function DataTable<T>({ columns, data, loading, page, limit, total, totalPages, onPageChange, onLimitChange, sortBy, sortOrder, onSortChange, rowKey, emptyMessage = 'No records found', caption, error, onRetry, showColumnVisibility = true, tableClassName }: DataTableProps<T>) {
   const [hiddenColumns, setHiddenColumns] = useState<Record<string, boolean>>({})
   const visibleColumns = useMemo(() => columns.filter((column) => column.key === 'actions' || column.defaultVisible !== false && hiddenColumns[column.key] !== false), [columns, hiddenColumns])
   const from = total === 0 ? 0 : (page - 1) * limit + 1
@@ -61,7 +62,7 @@ export function DataTable<T>({ columns, data, loading, page, limit, total, total
       {showColumnVisibility && <div className="flex justify-end"><ColumnVisibilityMenu columns={columns} visible={Object.fromEntries(columns.map((column) => [column.key, visibleColumns.some((item) => item.key === column.key)]))} onChange={(key, value) => setHiddenColumns((current) => ({ ...current, [key]: value }))} /></div>}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <Table>
+          <Table className={tableClassName}>
             {caption && <caption className="sr-only">{caption}</caption>}
             <TableHeader><TableRow className="bg-slate-50 hover:bg-slate-50">{visibleColumns.map((col) => <TableHead key={col.key} className={cn(col.className, col.hideOnMobile && 'hidden md:table-cell')}>{col.sortable && onSortChange ? <button type="button" aria-label={'Sort by ' + col.header} onClick={() => handleSort(col.key)} className={cn('flex items-center text-left font-medium hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500', sortBy === col.key ? 'text-slate-900' : 'text-slate-500')}>{col.header}<SortIcon column={col.key} sortBy={sortBy} sortOrder={sortOrder} /></button> : col.header}</TableHead>)}</TableRow></TableHeader>
             <TableBody>

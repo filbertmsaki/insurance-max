@@ -491,7 +491,10 @@ export class QuotationsService {
 
     return {
       items: result.items.map((quotation) =>
-        this.payloadMapper.toListItem(quotation),
+        this.payloadMapper.toListItem(
+          quotation,
+          result.extrasByQuotationId.get(quotation.id),
+        ),
       ),
       meta: result.meta,
     };

@@ -3,6 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
 import { FilterQuotationDto } from '../dto/filter-quotation.dto';
 import { Quotation } from '../entities/quotation.entity';
+import { QuotationMotorDetail } from '../entities/structured/quotation-motor-detail.entity';
+import { QuotationPolicyHolder } from '../entities/structured/quotation-policy-holder.entity';
+import type { QuotationListItemExtra } from '../mappers/quotation-payload.mapper';
 
 export interface QuotationPaginationMeta {
   page: number;
@@ -16,6 +19,7 @@ export interface QuotationPaginationMeta {
 export interface PaginatedQuotations {
   items: Quotation[];
   meta: QuotationPaginationMeta;
+  extrasByQuotationId: Map<string, QuotationListItemExtra>;
 }
 
 @Injectable()
@@ -109,6 +113,7 @@ export class QuotationsRepository {
     const queryBuilder = this.quotationRepository
       .createQueryBuilder('quotation')
       .leftJoinAndSelect('quotation.cover_note', 'coverNote')
+      .leftJoinAndSelect('quotation.product', 'product')
       .where('quotation.company_id = :companyId', { companyId })
       .andWhere('quotation.deleted_at IS NULL');
 
@@ -243,7 +248,79 @@ export class QuotationsRepository {
         has_previous_page: page > 1,
         has_next_page: page < totalPages,
       },
+      extrasByQuotationId: await this.loadListExtras(items.map((item) => item.id)),
     };
+  }
+
+  /**
+   * Customer name and vehicle identifiers each live on a to-many child table
+   * (a quotation can have multiple policyholder/motor-detail rows in theory,
+   * even though in practice there's exactly one for the whole quotation/
+   * fleet). Fetching these via leftJoinAndSelect on the paginated list query
+   * would multiply root rows against the SQL LIMIT/OFFSET, corrupting
+   * pagination — so they're batch-loaded separately for just this page's
+   * quotation ids and merged in afterwards.
+   */
+  private async loadListExtras(
+    quotationIds: string[],
+  ): Promise<Map<string, QuotationListItemExtra>> {
+    const extras = new Map<string, QuotationListItemExtra>();
+    if (quotationIds.length === 0) {
+      return extras;
+    }
+
+    for (const id of quotationIds) {
+      extras.set(id, {
+        customerName: null,
+        vehicleRegistrationNumber: null,
+        vehicleChassisNumber: null,
+      });
+    }
+
+    const policyHolders = await this.quotationRepository.manager
+      .getRepository(QuotationPolicyHolder)
+      .createQueryBuilder('holder')
+      .select([
+        'holder.quotation_id',
+        'holder.policy_holder_name',
+        'holder.sequence_no',
+      ])
+      .where('holder.quotation_id IN (:...quotationIds)', { quotationIds })
+      .orderBy('holder.sequence_no', 'ASC')
+      .getMany();
+
+    for (const holder of policyHolders) {
+      const extra = extras.get(holder.quotation_id);
+      if (extra && extra.customerName === null) {
+        extra.customerName = holder.policy_holder_name;
+      }
+    }
+
+    const vehicleRows = await this.quotationRepository.manager
+      .createQueryBuilder()
+      .select('coverNote.quotation_id', 'quotation_id')
+      .addSelect('motor.registration_number', 'registration_number')
+      .addSelect('motor.chassis_number', 'chassis_number')
+      .from(QuotationMotorDetail, 'motor')
+      .innerJoin('motor.entry', 'entry')
+      .innerJoin('entry.cover_note', 'coverNote')
+      .where('coverNote.quotation_id IN (:...quotationIds)', { quotationIds })
+      .orderBy('entry.entry_number', 'ASC')
+      .getRawMany<{
+        quotation_id: string;
+        registration_number: string | null;
+        chassis_number: string | null;
+      }>();
+
+    for (const row of vehicleRows) {
+      const extra = extras.get(row.quotation_id);
+      if (extra && extra.vehicleRegistrationNumber === null && extra.vehicleChassisNumber === null) {
+        extra.vehicleRegistrationNumber = row.registration_number || null;
+        extra.vehicleChassisNumber = row.chassis_number || null;
+      }
+    }
+
+    return extras;
   }
 
   async exists(companyId: string, id: string): Promise<boolean> {

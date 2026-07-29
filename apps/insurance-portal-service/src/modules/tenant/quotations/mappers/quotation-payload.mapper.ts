@@ -46,6 +46,10 @@ export interface QuotationListItemResponse {
   fleet_id: string | null;
   currency_code: string;
   product_code: string;
+  product_name: string | null;
+  customer_name: string | null;
+  vehicle_registration_number: string | null;
+  vehicle_chassis_number: string | null;
   cover_note_start_date: string;
   cover_note_end_date: string;
   total_premium_excluding_tax: number;
@@ -53,6 +57,12 @@ export interface QuotationListItemResponse {
   submitted_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface QuotationListItemExtra {
+  customerName: string | null;
+  vehicleRegistrationNumber: string | null;
+  vehicleChassisNumber: string | null;
 }
 
 export type QuotationDetailResponse = {
@@ -106,7 +116,10 @@ export class QuotationPayloadMapper {
     };
   }
 
-  toListItem(quotation: Quotation): QuotationListItemResponse {
+  toListItem(
+    quotation: Quotation,
+    extra?: QuotationListItemExtra,
+  ): QuotationListItemResponse {
     const coverNote = this.requireCoverNote(quotation);
     const display = this.quotationDisplayStatusResolver.resolve(quotation);
 
@@ -129,6 +142,10 @@ export class QuotationPayloadMapper {
       fleet_id: coverNote.fleet_id,
       currency_code: coverNote.currency_code,
       product_code: coverNote.product_code,
+      product_name: quotation.product?.product_name ?? null,
+      customer_name: extra?.customerName ?? null,
+      vehicle_registration_number: extra?.vehicleRegistrationNumber ?? null,
+      vehicle_chassis_number: extra?.vehicleChassisNumber ?? null,
       cover_note_start_date: formatTiramisDateTime(
         coverNote.cover_note_start_date,
       ),

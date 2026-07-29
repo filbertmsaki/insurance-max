@@ -306,6 +306,10 @@ export interface QuotationListItem {
   fleet_id: string | null;
   currency_code: string;
   product_code: string;
+  product_name: string | null;
+  customer_name: string | null;
+  vehicle_registration_number: string | null;
+  vehicle_chassis_number: string | null;
   cover_note_start_date: string;
   cover_note_end_date: string;
   total_premium_excluding_tax: number;
