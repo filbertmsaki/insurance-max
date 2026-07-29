@@ -39,7 +39,11 @@ import {
   SELECT_NONE_VALUE,
   toSelectValue,
 } from '../utils/selectValue';
-import { recomputeRiskRow, toNumber } from '../utils/premiumAggregation';
+import {
+  isEqualNormalizingNumbers,
+  recomputeRiskRow,
+  toNumber,
+} from '../utils/premiumAggregation';
 import { motorFieldNameForFactorCode } from '../utils/riskFactorResolver';
 import { useRiskPremiumCalculation } from '../hooks/useRiskPremiumCalculation';
 import { getApiErrorMessage } from '@/lib/api-error';
@@ -217,15 +221,20 @@ export function RiskRow({
     const currentRow = form.getValues(`risks.${index}` as const);
     const recomputedRow = recomputeRiskRow(currentRow);
 
-    const currentDiscounts = JSON.stringify(currentRow.discounts_offered ?? []);
-    const nextDiscounts = JSON.stringify(recomputedRow.discounts_offered ?? []);
-    const currentTaxes = JSON.stringify(currentRow.taxes_charged ?? []);
-    const nextTaxes = JSON.stringify(recomputedRow.taxes_charged ?? []);
-
-    if (currentDiscounts !== nextDiscounts) {
+    if (
+      !isEqualNormalizingNumbers(
+        currentRow.discounts_offered ?? [],
+        recomputedRow.discounts_offered ?? [],
+      )
+    ) {
       form.setValue(path(index, 'discounts_offered'), recomputedRow.discounts_offered);
     }
-    if (currentTaxes !== nextTaxes) {
+    if (
+      !isEqualNormalizingNumbers(
+        currentRow.taxes_charged ?? [],
+        recomputedRow.taxes_charged ?? [],
+      )
+    ) {
       form.setValue(path(index, 'taxes_charged'), recomputedRow.taxes_charged);
     }
     // Money fields are compared numerically, not as raw strings: the backend's

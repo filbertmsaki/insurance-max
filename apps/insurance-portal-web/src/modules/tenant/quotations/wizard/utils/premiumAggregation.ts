@@ -66,6 +66,49 @@ function hasValue(value: string | number | null | undefined) {
   return value !== null && value !== undefined && value !== '';
 }
 
+function isNumericLike(value: unknown): value is string | number {
+  return (
+    (typeof value === 'string' || typeof value === 'number') &&
+    value !== '' &&
+    Number.isFinite(Number(value))
+  );
+}
+
+/**
+ * Structural equality that treats differently-formatted numeric strings as
+ * equal (e.g. "100000.0000" vs "100000") — a plain JSON.stringify comparison
+ * on a row containing backend-computed amounts flags those as "changed" on
+ * every pass, which previously drove an infinite setValue -> re-render ->
+ * setValue loop (see premium_after_discount etc. fix history). Used anywhere
+ * a computed row/array is compared against form state before deciding
+ * whether to write it back.
+ */
+export function isEqualNormalizingNumbers(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (isNumericLike(a) && isNumericLike(b)) return Number(a) === Number(b);
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return (
+      a.length === b.length &&
+      a.every((item, index) => isEqualNormalizingNumbers(item, b[index]))
+    );
+  }
+  if (a && b && typeof a === 'object' && typeof b === 'object') {
+    const aRecord = a as Record<string, unknown>;
+    const bRecord = b as Record<string, unknown>;
+    const aKeys = Object.keys(aRecord);
+    const bKeys = Object.keys(bRecord);
+    return (
+      aKeys.length === bKeys.length &&
+      aKeys.every(
+        (key) =>
+          key in bRecord &&
+          isEqualNormalizingNumbers(aRecord[key], bRecord[key]),
+      )
+    );
+  }
+  return false;
+}
+
 /** Discount amount = discount rate applied to Premium Before Discount. */
 export function computeDiscountAmount(
   premiumBeforeDiscount: string | number,

@@ -13,7 +13,11 @@ import {
   resolveFactorValues,
   type QuotationFactorContext,
 } from '../utils/riskFactorResolver';
-import { applyRiskPremiumResult, toNumber } from '../utils/premiumAggregation';
+import {
+  applyRiskPremiumResult,
+  isEqualNormalizingNumbers,
+  toNumber,
+} from '../utils/premiumAggregation';
 import { readPricingQuoteMetadata } from '@/modules/pricing';
 import { buildSingleRiskPricingSignature } from '../utils/pricingStaleness';
 
@@ -108,7 +112,7 @@ function setValueIfChanged(
   nextValue: unknown,
 ) {
   const currentValue = form.getValues(fieldPath);
-  if (JSON.stringify(currentValue) === JSON.stringify(nextValue)) return;
+  if (isEqualNormalizingNumbers(currentValue, nextValue)) return;
   form.setValue(fieldPath, nextValue as never);
 }
 
