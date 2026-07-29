@@ -522,8 +522,8 @@ describe('PricingQuoteService', () => {
           pricing_quote_id: 'PQ-2026-00000088',
           calculation_status: 'CALCULATED',
           quote_scope: 'SINGLE_RISK',
-          calculated_at: new Date('2026-07-27T09:00:00.000Z'),
-          expires_at: new Date('2026-07-28T09:00:00.000Z'),
+          calculated_at: new Date(Date.now() - 60 * 60 * 1000),
+          expires_at: new Date(Date.now() + 23 * 60 * 60 * 1000),
           input_signature: JSON.stringify({
             risk_id: 'risk-1',
             sum_insured: 1000000,
