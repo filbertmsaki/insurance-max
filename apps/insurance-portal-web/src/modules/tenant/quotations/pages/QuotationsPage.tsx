@@ -15,21 +15,9 @@ import { ActionMenu } from '@/components/shared/ActionMenu';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
-import { QuotationStatusBadge } from '../components/QuotationStatusBadge';
-import { TiraStatusBadge } from '../components/TiraStatusBadge';
 import { useDeleteQuotation, useQuotationsList } from '../hooks';
 import type { QuotationListItem } from '../types';
-
-function formatCoverDate(value: string | null | undefined) {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  });
-}
+import { formatCoverPeriod } from '../utils/coverPeriod';
 
 function formatPremiumAmount(amount: number, currencyCode: string) {
   const formattedAmount = new Intl.NumberFormat('en-US', {
@@ -59,6 +47,8 @@ export function QuotationsPage() {
     quotationType,
     quotationFlow,
     productId,
+    sortBy,
+    sortOrder,
     setSearch,
     setStatus,
     setQuotationType,
@@ -66,6 +56,7 @@ export function QuotationsPage() {
     setProductId,
     setPage,
     setLimit,
+    setSort,
   } = useQuotationsList();
   const deleteMutation = useDeleteQuotation();
   const [deleteItem, setDeleteItem] = useState<QuotationListItem | null>(null);
@@ -74,6 +65,7 @@ export function QuotationsPage() {
     {
       key: 'quotation_no',
       header: 'Quotation Number',
+      sortable: true,
       cell: (row) => (
         <span className="font-medium text-slate-900">{row.quotation_no}</span>
       ),
@@ -81,41 +73,45 @@ export function QuotationsPage() {
     {
       key: 'customer_name',
       header: 'Customer Name',
+      sortable: true,
       cell: (row) =>
         row.customer_name ? (
           <TruncatedText value={row.customer_name} />
         ) : (
-          '—'
+          'N/A'
         ),
     },
     {
-      key: 'vehicle',
-      header: 'Vehicle Reg. / Chassis No.',
+      key: 'vehicle_registration_number',
+      header: 'Reg No.',
+      sortable: true,
       hideOnMobile: true,
-      cell: (row) =>
-        row.vehicle_registration_number || row.vehicle_chassis_number || '—',
+      cell: (row) => row.vehicle_registration_number || 'N/A',
     },
     {
       key: 'cover_note_start_date',
-      header: 'Cover Start Date',
-      hideOnMobile: true,
-      cell: (row) => formatCoverDate(row.cover_note_start_date),
-    },
-    {
-      key: 'cover_note_end_date',
-      header: 'Cover End Date',
-      hideOnMobile: true,
-      cell: (row) => formatCoverDate(row.cover_note_end_date),
+      header: 'Cover Period',
+      sortable: true,
+      cell: (row) => (
+        <span className="block max-w-48 whitespace-normal break-words md:max-w-none md:whitespace-nowrap">
+          {formatCoverPeriod(
+            row.cover_note_start_date,
+            row.cover_note_end_date,
+          )}
+        </span>
+      ),
     },
     {
       key: 'product_name',
       header: 'Product Name',
+      sortable: true,
       hideOnMobile: true,
       cell: (row) => <TruncatedText value={row.product_name || row.product_code} />,
     },
     {
-      key: 'premium',
+      key: 'total_premium_including_tax',
       header: 'Premium Amount',
+      sortable: true,
       className: 'text-right',
       cell: (row) => (
         <span className="tabular-nums">
@@ -127,32 +123,8 @@ export function QuotationsPage() {
       ),
     },
     {
-      key: 'quotation_status',
-      header: 'Quotation Status',
-      hideOnMobile: true,
-      cell: (row) => <QuotationStatusBadge status={row.quotation_status} />,
-    },
-    {
-      key: 'tira_status',
-      header: 'TIRA Status',
-      hideOnMobile: true,
-      cell: (row) => <TiraStatusBadge status={row.tira_status} />,
-    },
-    {
-      key: 'quotation_flow',
-      header: 'Flow',
-      defaultVisible: false,
-      cell: (row) => row.quotation_flow,
-    },
-    {
-      key: 'display_status',
-      header: 'Overall Status',
-      defaultVisible: false,
-      cell: (row) => <QuotationStatusBadge status={row.display_status} />,
-    },
-    {
       key: 'actions',
-      header: '',
+      header: 'Actions',
       className:
         'w-12 sticky right-0 bg-white shadow-[-4px_0_6px_-4px_rgba(0,0,0,0.15)]',
       cell: (row) => (
@@ -277,6 +249,9 @@ export function QuotationsPage() {
         totalPages={data?.pagination.totalPages ?? 1}
         onPageChange={setPage}
         onLimitChange={setLimit}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        onSortChange={(key, order) => setSort(key, order)}
         tableClassName="whitespace-nowrap"
       />
 

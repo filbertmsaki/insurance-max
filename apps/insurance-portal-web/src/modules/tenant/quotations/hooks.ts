@@ -1,9 +1,10 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { apiClient } from '@/modules/shared/api/client';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import type { SortOrder } from '@/types';
 import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { branchesApi } from '@/modules/tenant/branches/api/branches';
 import { customersApi } from '@/modules/tenant/customers/api';
@@ -53,6 +54,8 @@ export function useQuotationsList() {
   const quotationType = params.get('quotation_type') ?? 'all';
   const quotationFlow = params.get('quotation_flow') ?? 'all';
   const productId = params.get('product_id') ?? 'all';
+  const [sortBy, setSortBy] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('DESC');
 
   const queryParams = useMemo<QuotationListParams>(
     () => ({
@@ -72,8 +75,10 @@ export function useQuotationsList() {
           ? undefined
           : (quotationFlow as QuotationListParams['quotation_flow']),
       product_id: productId === 'all' ? undefined : productId,
+      sortBy,
+      sortOrder,
     }),
-    [limit, page, productId, quotationFlow, quotationType, search, status],
+    [limit, page, productId, quotationFlow, quotationType, search, sortBy, sortOrder, status],
   );
 
   const { data, isLoading, error } = useQuery({
@@ -106,6 +111,8 @@ export function useQuotationsList() {
     quotationType,
     quotationFlow,
     productId,
+    sortBy,
+    sortOrder,
     setSearch: (value: string) => setParam('search', value),
     setStatus: (value: string) =>
       setParam('status', value === 'all' ? null : value),
@@ -128,6 +135,16 @@ export function useQuotationsList() {
         next.set('page', '1');
         return next;
       }),
+    setSort: (key: string, order: SortOrder) =>
+      (() => {
+        setSortBy(key);
+        setSortOrder(order);
+        setParams((previous) => {
+          const next = new URLSearchParams(previous);
+          next.set('page', '1');
+          return next;
+        });
+      })(),
   };
 }
 

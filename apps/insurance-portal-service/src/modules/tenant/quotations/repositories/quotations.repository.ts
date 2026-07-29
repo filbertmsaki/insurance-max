@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, Repository } from 'typeorm';
+import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
 import { FilterQuotationDto } from '../dto/filter-quotation.dto';
 import { Quotation } from '../entities/quotation.entity';
 import { QuotationMotorDetail } from '../entities/structured/quotation-motor-detail.entity';
@@ -229,8 +230,39 @@ export class QuotationsRepository {
       );
     }
 
+    const sortFields: Record<string, string> = {
+      quotation_no: 'quotation.quotation_no',
+      customer_name: 'sortPolicyHolder.policy_holder_name',
+      vehicle_registration_number: 'sortMotor.registration_number',
+      cover_note_start_date: 'coverNote.cover_note_start_date',
+      product_name: 'product.product_name',
+      total_premium_including_tax: 'coverNote.total_premium_including_tax',
+      created_at: 'quotation.created_at',
+    };
+    const sortField = sortFields[query.sortBy ?? 'created_at'] ?? sortFields.created_at;
+    const sortOrder = query.sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
+
+    if (query.sortBy === 'customer_name' || query.sortBy === 'vehicle_registration_number') {
+      queryBuilder
+        .leftJoin(
+          'quotation_policy_holders',
+          'sortPolicyHolder',
+          'sortPolicyHolder.quotation_id = quotation.id AND sortPolicyHolder.sequence_no = 1',
+        )
+        .leftJoin(
+          'quotation_cover_note_entries',
+          'sortEntry',
+          'sortEntry.cover_note_id = coverNote.id AND sortEntry.entry_number = 1',
+        )
+        .leftJoin(
+          'quotation_motor_details',
+          'sortMotor',
+          'sortMotor.entry_id = sortEntry.id',
+        );
+    }
+
     queryBuilder
-      .orderBy('quotation.created_at', 'DESC')
+      .orderBy(sortField, sortOrder)
       .addOrderBy('quotation.id', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
