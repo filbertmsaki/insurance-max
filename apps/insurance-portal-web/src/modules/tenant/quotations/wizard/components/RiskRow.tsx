@@ -374,7 +374,6 @@ export function RiskRow({
                 <FormControl>
                   <Input
                     type="number"
-                    readOnly
                     {...field}
                     value={field.value as string}
                   />
@@ -393,7 +392,6 @@ export function RiskRow({
                   <Input
                     type="number"
                     step="0.000001"
-                    readOnly
                     {...field}
                     value={field.value as string}
                   />
@@ -412,7 +410,6 @@ export function RiskRow({
                   <Input
                     type="number"
                     step="0.01"
-                    readOnly
                     {...field}
                     value={field.value as string}
                   />
@@ -431,7 +428,6 @@ export function RiskRow({
                   <Input
                     type="number"
                     step="0.01"
-                    readOnly
                     {...field}
                     value={field.value as string}
                   />
@@ -450,7 +446,6 @@ export function RiskRow({
                   <Input
                     type="number"
                     step="0.01"
-                    readOnly
                     {...field}
                     value={field.value as string}
                   />
@@ -469,7 +464,6 @@ export function RiskRow({
                   <Input
                     type="number"
                     step="0.01"
-                    readOnly
                     {...field}
                     value={field.value as string}
                   />
@@ -572,10 +566,10 @@ export function RiskRow({
                                 getDiscountRateForType(nextValue),
                               );
                             }
-                            // discount_amount is never computed here — the
-                            // reactive calculation hook watches
-                            // discounts_offered and requests a fresh,
-                            // backend-computed discount_amount automatically.
+                            // discount_amount is not computed here — with
+                            // automatic calculation currently disabled
+                            // (AUTO_CALCULATION_DISABLED), it's left for
+                            // manual entry below rather than guessed.
                           }}
                         >
                           <FormControl>
@@ -630,7 +624,6 @@ export function RiskRow({
                           <Input
                             type="number"
                             step="0.01"
-                            readOnly
                             {...field}
                             value={field.value as string}
                           />
@@ -739,10 +732,10 @@ export function RiskRow({
                           onValueChange={(value) => {
                             const nextValue = fromSelectValue(value);
                             field.onChange(nextValue);
-                            // tax_rate/tax_amount are never guessed here —
-                            // clearing them lets the reactive calculation
-                            // hook populate the real, backend-computed
-                            // values for the newly selected code.
+                            // tax_rate is prefilled from the tax code's
+                            // known default; tax_amount is left blank for
+                            // manual entry — automatic calculation is
+                            // currently disabled (AUTO_CALCULATION_DISABLED).
                             form.setValue(
                               path(index, `taxes_charged.${taxIndex}.tax_rate`),
                               getTaxRateForCode(nextValue),
@@ -798,7 +791,6 @@ export function RiskRow({
                           <Input
                             type="number"
                             step="0.000001"
-                            readOnly
                             {...field}
                             value={field.value as string}
                           />
@@ -817,7 +809,6 @@ export function RiskRow({
                           <Input
                             type="number"
                             step="0.01"
-                            readOnly
                             {...field}
                             value={field.value as string}
                           />

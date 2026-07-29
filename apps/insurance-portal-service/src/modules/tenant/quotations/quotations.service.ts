@@ -205,6 +205,7 @@ interface PostgreSqlDriverError {
   code?: string;
   constraint?: string;
   detail?: string;
+  table?: string;
 }
 
 const DIRECT_PAYMENT_MODE = 1;
@@ -5173,9 +5174,49 @@ export class QuotationsService {
           );
         }
 
-        if (constraint.includes('registration_number')) {
+        if (constraint.includes('motor_vehicles_company_registration_no')) {
           throw new ConflictException(
-            'The supplied registration number already exists',
+            'The supplied vehicle registration number already exists',
+          );
+        }
+
+        if (constraint.includes('cover_note_entry_number')) {
+          throw new ConflictException(
+            'A fleet entry with this entry number already exists on this cover note',
+          );
+        }
+
+        // Inline customer creation (resolveOrCreateCustomerId) can collide on
+        // any of the customer's "identity" fields, which are each unique per
+        // company — surface which one so the user knows to search for the
+        // existing customer instead of re-entering it as new.
+        const customerFieldMessages: Array<[string, string]> = [
+          ['customers_company_phone', 'phone number'],
+          ['customers_company_email', 'email address'],
+          ['customers_company_id_number', 'ID number'],
+          ['customers_company_nida_no', 'NIDA number'],
+          ['customers_company_voter_no', 'voter number'],
+          ['customers_company_passport_no', 'passport number'],
+          ['customers_company_driving_license_no', 'driving license number'],
+          ['customers_company_zanid_no', 'ZanID number'],
+          ['customers_company_tin', 'TIN'],
+          ['customers_company_registration_no', 'registration number'],
+        ];
+        const matchedCustomerField = customerFieldMessages.find(([needle]) =>
+          constraint.includes(needle),
+        );
+        if (matchedCustomerField) {
+          throw new ConflictException(
+            `A customer with this ${matchedCustomerField[1]} already exists`,
+          );
+        }
+
+        // Duplicate sequence_no within a risk/entry/addon's line items —
+        // typically a payload-building bug (e.g. two discount rows sharing
+        // the same sequence number) rather than a real data conflict.
+        if (constraint.includes('_sequence')) {
+          throw new ConflictException(
+            'Duplicate line-item sequence detected while saving the quotation. Refresh the quotation and try again.',
           );
         }
 

@@ -124,31 +124,36 @@ function TestHarness() {
 }
 
 describe('RiskRow', () => {
-  it('renders calculated premium fields as read-only inputs', () => {
+  it('renders premium, discount and tax fields as manually editable', () => {
+    // Automatic calculation is temporarily disabled
+    // (AUTO_CALCULATION_DISABLED in useRiskPremiumCalculation.ts), so nothing
+    // fills these fields anymore — they must be editable so the wizard is
+    // still usable in the meantime.
     render(<TestHarness />);
 
-    expect(screen.getByLabelText('Sum Insured Equivalent')).toHaveAttribute(
-      'readonly',
-    );
-    expect(screen.getByLabelText('Premium Rate')).toHaveAttribute('readonly');
-    expect(screen.getByLabelText('Premium Before Discount')).toHaveAttribute(
-      'readonly',
-    );
-    expect(screen.getByLabelText('Premium After Discount')).toHaveAttribute(
+    expect(
+      screen.getByLabelText('Sum Insured Equivalent'),
+    ).not.toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Premium Rate')).not.toHaveAttribute(
       'readonly',
     );
     expect(
+      screen.getByLabelText('Premium Before Discount'),
+    ).not.toHaveAttribute('readonly');
+    expect(
+      screen.getByLabelText('Premium After Discount'),
+    ).not.toHaveAttribute('readonly');
+    expect(
       screen.getByLabelText('Premium Excluding Tax Equivalent'),
-    ).toHaveAttribute('readonly');
-    expect(screen.getByLabelText('Premium Including Tax')).toHaveAttribute(
+    ).not.toHaveAttribute('readonly');
+    expect(
+      screen.getByLabelText('Premium Including Tax'),
+    ).not.toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Amount')).not.toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Tax Rate')).not.toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Tax Amount')).not.toHaveAttribute(
       'readonly',
     );
-    // Discount amount and tax rate/amount are backend-calculated outputs —
-    // only discount_rate and tax_code (the actual user-controlled inputs)
-    // remain editable.
-    expect(screen.getByLabelText('Amount')).toHaveAttribute('readonly');
-    expect(screen.getByLabelText('Tax Rate')).toHaveAttribute('readonly');
-    expect(screen.getByLabelText('Tax Amount')).toHaveAttribute('readonly');
     expect(screen.getByLabelText('Rate')).not.toHaveAttribute('readonly');
   });
 

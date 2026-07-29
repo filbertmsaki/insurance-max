@@ -23,6 +23,12 @@ import { buildSingleRiskPricingSignature } from '../utils/pricingStaleness';
 
 const CALCULATION_DEBOUNCE_MS = 400;
 
+// Automatic premium calculation (both the pre-Sum-Insured minimum preview and
+// the real debounced backend call) is temporarily disabled while the
+// calculation flow is reworked. Flip back to false to restore it — the
+// effects below are left intact, just short-circuited.
+const AUTO_CALCULATION_DISABLED = true;
+
 interface ProductTaxRuleRecord {
   id: string;
   category_id: string | null;
@@ -303,6 +309,7 @@ export function useRiskPremiumCalculation(
   // insured is entered or any calculation call fires — surface the minimum
   // premium from the highest-priority (lowest priority number) active rule.
   useEffect(() => {
+    if (AUTO_CALCULATION_DISABLED) return;
     if (!riskId) return;
 
     // This is only a *preview* for before the user has entered a sum
@@ -418,6 +425,7 @@ export function useRiskPremiumCalculation(
   );
 
   useEffect(() => {
+    if (AUTO_CALCULATION_DISABLED) return undefined;
     if (!riskId) return undefined;
 
     const hasCommittedSumInsured = committedSumInsured !== '';

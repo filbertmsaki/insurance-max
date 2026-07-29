@@ -178,6 +178,10 @@ describe('useRiskPremiumCalculation', () => {
     } as any);
   });
 
+  // Automatic calculation (both effects in useRiskPremiumCalculation.ts) is
+  // temporarily disabled via AUTO_CALCULATION_DISABLED — these tests cover
+  // that now-inert behavior and are skipped until it's turned back on.
+  describe.skip('automatic calculation (disabled)', () => {
   it('includes the requested discount rate in the calculation payload once sum insured is committed', async () => {
     const { form, hook } = renderRiskPricingHook({
       discounts_offered: [
@@ -537,5 +541,6 @@ describe('useRiskPremiumCalculation', () => {
       '1750000',
     );
     expect(form.getValues('risks.0.premium_including_tax')).toBe('1750000');
+  });
   });
 });
