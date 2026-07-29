@@ -3791,6 +3791,31 @@ export class QuotationsService {
         ? CustomerType.INDIVIDUAL
         : CustomerType.CORPORATE;
     const customerRepository = manager.getRepository(Customer);
+
+    // The policyholder may already exist as a customer (e.g. re-entered on a
+    // new quotation instead of being selected via customer_id) — id_number
+    // and phone are each unique per company, so blindly creating would hit
+    // that constraint. Reusing the match here is what the unique index
+    // already enforces; this just does it without a 500/409 round-trip.
+    const normalizedIdNumber = holder.policy_holder_id_number
+      .trim()
+      .toUpperCase();
+    const normalizedPhone = holder.policy_holder_phone_number.trim();
+
+    const existingByIdNumber = await customerRepository.findOne({
+      where: { company_id: companyId, id_number: normalizedIdNumber },
+    });
+    if (existingByIdNumber) {
+      return existingByIdNumber.id;
+    }
+
+    const existingByPhone = await customerRepository.findOne({
+      where: { company_id: companyId, phone: normalizedPhone },
+    });
+    if (existingByPhone) {
+      return existingByPhone.id;
+    }
+
     const customerNo = await this.generateCustomerNo(manager, companyId);
     const nameParts = holder.policy_holder_name
       .trim()

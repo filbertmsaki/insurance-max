@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { useForm } from 'react-hook-form';
 import { describe, expect, it, vi } from 'vitest';
 import { Form } from '@/components/ui/form';
@@ -170,5 +170,31 @@ describe('RiskRow', () => {
     expect(
       screen.getByPlaceholderText('Why is this discount requested?'),
     ).toBeInTheDocument();
+  });
+
+  it('only recomputes dependent premium fields once Premium Before Discount is blurred', () => {
+    render(<TestHarness />);
+
+    const premiumBeforeDiscountInput = screen.getByLabelText(
+      'Premium Before Discount',
+    ) as HTMLInputElement;
+    const premiumAfterDiscountInput = screen.getByLabelText(
+      'Premium After Discount',
+    ) as HTMLInputElement;
+
+    // The mount-time recompute already normalized this to match Premium
+    // Before Discount (35000), since the fixture's default discount row has
+    // no discount_type/discount_rate set.
+    expect(Number(premiumAfterDiscountInput.value)).toBe(35000);
+
+    // Typing alone must not trigger a recompute yet.
+    fireEvent.change(premiumBeforeDiscountInput, {
+      target: { value: '100000' },
+    });
+    expect(Number(premiumAfterDiscountInput.value)).toBe(35000);
+
+    // Leaving the field commits the value and recomputes dependents.
+    fireEvent.blur(premiumBeforeDiscountInput);
+    expect(Number(premiumAfterDiscountInput.value)).toBe(100000);
   });
 });

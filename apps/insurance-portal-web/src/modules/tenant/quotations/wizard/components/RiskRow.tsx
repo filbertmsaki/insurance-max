@@ -1,5 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   useWatch,
   type FieldPath,
@@ -107,6 +107,20 @@ export function RiskRow({
   const { calculateMutation, requiredFactorsQuery, handleSumInsuredBlur } =
     useRiskPremiumCalculation(form, index, factorContext);
 
+  // Premium Before Discount is manually entered (automatic calculation is
+  // disabled) — it only feeds the discount/tax recompute below once the user
+  // leaves the field (blur), not on every keystroke, mirroring how Sum
+  // Insured is committed via handleSumInsuredBlur above.
+  const [committedPremiumBeforeDiscount, setCommittedPremiumBeforeDiscount] =
+    useState<string>(
+      () => (form.getValues(path(index, 'premium_before_discount')) as string) ?? '',
+    );
+  const handlePremiumBeforeDiscountBlur = useCallback(() => {
+    setCommittedPremiumBeforeDiscount(
+      (form.getValues(path(index, 'premium_before_discount')) as string) ?? '',
+    );
+  }, [form, index]);
+
   // Snapshot of the currently-selected risk's required factor codes, kept
   // fresh continuously (while riskId is unchanged) so that whenever a real
   // switch happens, this ref still holds the OUTGOING risk's codes — the
@@ -135,6 +149,7 @@ export function RiskRow({
     form.setValue(path(index, 'sum_insured_equivalent'), '');
     form.setValue(path(index, 'premium_rate'), '');
     form.setValue(path(index, 'premium_before_discount'), '');
+    setCommittedPremiumBeforeDiscount('');
     form.setValue(path(index, 'premium_after_discount'), '');
     form.setValue(path(index, 'premium_excluding_tax_equivalent'), '');
     form.setValue(path(index, 'premium_including_tax'), '');
@@ -174,9 +189,6 @@ export function RiskRow({
   const taxesKey = JSON.stringify(taxes);
   const premiumAfterDiscount = form.watch(
     `risks.${index}.premium_after_discount` as const,
-  );
-  const premiumBeforeDiscount = form.watch(
-    `risks.${index}.premium_before_discount` as const,
   );
   const premiumExcludingTaxEquivalent = form.watch(
     `risks.${index}.premium_excluding_tax_equivalent` as const,
@@ -266,10 +278,10 @@ export function RiskRow({
       );
     }
   }, [
+    committedPremiumBeforeDiscount,
     discountsKey,
     form,
     index,
-    premiumBeforeDiscount,
     taxesKey,
   ]);
 
@@ -412,6 +424,10 @@ export function RiskRow({
                     step="0.01"
                     {...field}
                     value={field.value as string}
+                    onBlur={() => {
+                      field.onBlur();
+                      handlePremiumBeforeDiscountBlur();
+                    }}
                   />
                 </FormControl>
                 <FormMessage />
