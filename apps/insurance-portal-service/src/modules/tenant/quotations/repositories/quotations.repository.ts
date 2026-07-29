@@ -232,6 +232,8 @@ export class QuotationsRepository {
 
     const sortFields: Record<string, string> = {
       quotation_no: 'quotation.quotation_no',
+      quotation_status: 'quotation.status',
+      tira_status: 'quotation.tira_status',
       customer_name: 'sortPolicyHolder.policy_holder_name',
       vehicle_registration_number: 'sortMotor.registration_number',
       cover_note_start_date: 'coverNote.cover_note_start_date',

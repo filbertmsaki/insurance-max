@@ -15,6 +15,8 @@ import { ActionMenu } from '@/components/shared/ActionMenu';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import { QuotationStatusBadge } from '../components/QuotationStatusBadge';
+import { TiraStatusBadge } from '../components/TiraStatusBadge';
 import { useDeleteQuotation, useQuotationsList } from '../hooks';
 import type { QuotationListItem } from '../types';
 import { formatCoverPeriod } from '../utils/coverPeriod';
@@ -121,6 +123,20 @@ export function QuotationsPage() {
           )}
         </span>
       ),
+    },
+    {
+      key: 'quotation_status',
+      header: 'Quotation Status',
+      sortable: true,
+      hideOnMobile: true,
+      cell: (row) => <QuotationStatusBadge status={row.quotation_status} />,
+    },
+    {
+      key: 'tira_status',
+      header: 'TIRA Status',
+      sortable: true,
+      hideOnMobile: true,
+      cell: (row) => <TiraStatusBadge status={row.tira_status} />,
     },
     {
       key: 'actions',

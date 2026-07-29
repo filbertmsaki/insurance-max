@@ -12,7 +12,9 @@ export const IDENTIFIER_CONSTANTS = {
 } as const;
 
 export const IDENTIFIER_SEQUENCE_LENGTHS = {
-  quotation: 6,
+  // Minimum width — padStart only pads UP to this, so day 1000+ naturally
+  // renders as "1000"/"1001" rather than truncating or wrapping.
+  quotation: 3,
   coverNote: 4,
   request: 6,
 } as const;

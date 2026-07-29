@@ -135,16 +135,15 @@ export function useQuotationsList() {
         next.set('page', '1');
         return next;
       }),
-    setSort: (key: string, order: SortOrder) =>
-      (() => {
-        setSortBy(key);
-        setSortOrder(order);
-        setParams((previous) => {
-          const next = new URLSearchParams(previous);
-          next.set('page', '1');
-          return next;
-        });
-      })(),
+    setSort: (key: string, order: SortOrder) => {
+      setSortBy(key);
+      setSortOrder(order);
+      setParams((previous) => {
+        const next = new URLSearchParams(previous);
+        next.set('page', '1');
+        return next;
+      });
+    },
   };
 }
 

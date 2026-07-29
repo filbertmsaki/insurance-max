@@ -203,10 +203,14 @@ export class IdentifierGeneratorService {
       });
 
       const suffix = String(sequence).padStart(params.sequenceLength, '0');
-      const identifier =
-        params.identifierType === IdentifierType.COVER_NOTE
-          ? `${params.prefix}-${params.readableConstant}-${sequenceDate}-${sequenceTimeBucket}-${suffix}`
-          : `${params.prefix}-${params.readableConstant}-${sequenceDate}-${suffix}`;
+      const identifier = this.assembleIdentifier({
+        identifierType: params.identifierType,
+        prefix: params.prefix,
+        readableConstant: params.readableConstant,
+        sequenceDate,
+        sequenceTimeBucket,
+        suffix,
+      });
 
       try {
         await this.insertGeneratedIdentifier({
@@ -230,6 +234,37 @@ export class IdentifierGeneratorService {
     throw new ConflictException(
       `Unable to generate a unique ${params.identifierType.toLowerCase().replace(/_/g, ' ')}. Please try again.`,
     );
+  }
+
+  /**
+   * Quotation numbers use a short, compact business reference
+   * ({prefix}{yyMMdd}{seq}, e.g. "AICL260729001") with no separators or
+   * readable-constant segment — distinct from the dashed
+   * {prefix}-{constant}-{date}-{seq} shape every other identifier type
+   * still uses. Existing quotation numbers generated before this format
+   * (the dashed "AICL-QTN-260729-000005" style) are untouched by this —
+   * it only governs newly generated values.
+   */
+  private assembleIdentifier(params: {
+    identifierType: IdentifierType;
+    prefix: string;
+    readableConstant: string;
+    sequenceDate: string;
+    sequenceTimeBucket: string;
+    suffix: string;
+  }): string {
+    const { identifierType, prefix, readableConstant, sequenceDate, sequenceTimeBucket, suffix } =
+      params;
+
+    if (identifierType === IdentifierType.QUOTATION) {
+      return `${prefix}${sequenceDate}${suffix}`;
+    }
+
+    if (identifierType === IdentifierType.COVER_NOTE) {
+      return `${prefix}-${readableConstant}-${sequenceDate}-${sequenceTimeBucket}-${suffix}`;
+    }
+
+    return `${prefix}-${readableConstant}-${sequenceDate}-${suffix}`;
   }
 
   private async incrementSequence(params: {
