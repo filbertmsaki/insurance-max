@@ -17,6 +17,7 @@ interface ConfirmDialogProps {
   confirmLabel?: string
   onConfirm: () => void
   loading?: boolean
+  variant?: 'destructive' | 'default'
 }
 
 export function ConfirmDialog({
@@ -27,6 +28,7 @@ export function ConfirmDialog({
   confirmLabel = 'Confirm',
   onConfirm,
   loading,
+  variant = 'destructive',
 }: ConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -40,7 +42,11 @@ export function ConfirmDialog({
           <AlertDialogAction
             onClick={onConfirm}
             disabled={loading}
-            className="bg-red-600 hover:bg-red-700"
+            className={
+              variant === 'destructive'
+                ? 'bg-red-600 hover:bg-red-700'
+                : undefined
+            }
           >
             {loading ? 'Processing...' : confirmLabel}
           </AlertDialogAction>

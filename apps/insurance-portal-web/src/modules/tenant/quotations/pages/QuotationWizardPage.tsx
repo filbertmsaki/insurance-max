@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePageFooter } from '@/components/layout/PageFooterSlot';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
@@ -317,6 +318,7 @@ export function QuotationWizardPage() {
   const createMutation = useCreateQuotation();
   const updateMutation = useUpdateQuotation(id);
   const [isSubmittingToTiramis, setIsSubmittingToTiramis] = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
 
   const steps = useMemo(
     () => getWizardStepsForFlow(quotationFlowForQueries),
@@ -844,7 +846,7 @@ export function QuotationWizardPage() {
             {isLastStep ? (
               <Button
                 type="button"
-                onClick={() => { if (window.confirm('Review complete? This will save the quotation and submit it to TIRAMIS.')) void persistQuotation({ submitAfterSave: true }); }}
+                onClick={() => setShowSubmitConfirm(true)}
                 disabled={isSaving || !companyId}
               >
                 {isSaving ? 'Submitting...' : 'Save & Submit to TIRAMIS'}
@@ -940,6 +942,19 @@ export function QuotationWizardPage() {
           setChangeSetupInitial(null);
         }}
         onClose={() => setChangeSetupInitial(null)}
+      />
+      <ConfirmDialog
+        open={showSubmitConfirm}
+        onOpenChange={setShowSubmitConfirm}
+        title="Submit quotation to TIRAMIS?"
+        description="Review complete? This will save the quotation and submit it to TIRAMIS."
+        confirmLabel="Submit"
+        variant="default"
+        loading={isSaving}
+        onConfirm={() => {
+          setShowSubmitConfirm(false);
+          void persistQuotation({ submitAfterSave: true });
+        }}
       />
       <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-6">
         {!isEditMode && !isEndorsementMode && isFirstStep ? (

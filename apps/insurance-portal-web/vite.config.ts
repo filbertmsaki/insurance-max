@@ -27,6 +27,14 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       globals: true,
       setupFiles: ['./src/test/setup.ts'],
+      // Node 22+ ships a native `localStorage` global that is `undefined`
+      // unless a backing file is provided, which otherwise shadows jsdom's
+      // own window.localStorage and breaks anything using the bare
+      // `localStorage` global (e.g. zustand's `persist` middleware).
+      pool: 'forks',
+      execArgv: [
+        `--localstorage-file=${path.resolve(__dirname, 'node_modules/.vitest-localstorage')}`,
+      ],
     },
   };
 });
