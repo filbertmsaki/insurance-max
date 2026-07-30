@@ -100,6 +100,6 @@ export default new DataSource(
       TiramisVerificationRequestEntity,
       TiramisVerificationResponseEntity,
     ],
-    migrations: ['apps/tiramis/src/database/migrations/*.{ts,js}'],
+    migrations: [join(__dirname, 'migrations', '*.{ts,js}')],
   }),
 );

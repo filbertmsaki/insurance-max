@@ -14,7 +14,7 @@
     "start:dev": "nest start tiramis --watch",
     "start:dev:insurance-portal-service": "nest start insurance-portal-service --watch",
     "start:debug": "nest start tiramis --debug --watch",
-    "start:prod": "node dist/apps/tiramis/main",
+    "start:prod": "node dist/apps/tiramis/apps/tiramis/src/main",
     "start:prod:insurance-portal-service": "node dist/apps/insurance-portal-service/apps/insurance-portal-service/src/main",
     "lint": "eslint \"{apps,libs}/**/*.ts\" --fix",
     "test": "jest",
