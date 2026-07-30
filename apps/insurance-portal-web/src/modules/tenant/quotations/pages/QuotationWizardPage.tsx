@@ -5,13 +5,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePageFooter } from '@/components/layout/PageFooterSlot';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
-import { getApiErrorMessage } from '@/lib/api-error';
-import { getSubmissionDetailId } from '@/modules/tenant/tiramis/utils';
 import {
   createEmptyFleetDetails,
   createEmptyFleetItemRow,
@@ -24,17 +21,19 @@ import {
   type QuotationFormSchemaValues,
 } from '../schemas';
 import {
-  useCreateQuotation,
+  useCreateQuotationDraft,
+  useDeleteQuotationDraft,
+  useFinalizeQuotation,
   useQuotationCategories,
   useQuotationCurrentCompanyId,
   useQuotationCustomers,
   useQuotationDetail,
+  useQuotationEditDetail,
   useQuotationProducts,
   useQuotationRisks,
   useQuotationVehicles,
-  useUpdateQuotation,
+  useUpdateQuotationDraft,
 } from '../hooks';
-import { quotationsApi } from '../api';
 import { QuotationJourneyProgress } from '../wizard/QuotationJourneyProgress';
 import {
   QuotationStartModal,
@@ -189,6 +188,7 @@ export function QuotationWizardPage() {
   const { id, sourceId } = useParams<{ id?: string; sourceId?: string }>();
   const isEditMode = Boolean(id);
   const isEndorsementMode = Boolean(sourceId && !isEditMode);
+  const [draftId, setDraftId] = useState<string | null>(id ?? null);
   const usesPrefilledQuotation = isEditMode || isEndorsementMode;
   const defaultSalePointCode = useAuthStore(
     (state) => state.user?.defaultSalePointCode ?? '',
@@ -206,7 +206,7 @@ export function QuotationWizardPage() {
     data: existingQuotation,
     isLoading: loadingQuotation,
     error,
-  } = useQuotationDetail(id);
+  } = useQuotationEditDetail(id);
   const {
     data: sourceQuotation,
     isLoading: loadingSourceQuotation,
@@ -224,6 +224,8 @@ export function QuotationWizardPage() {
   const [startGateComplete, setStartGateComplete] = useState(
     usesPrefilledQuotation,
   );
+  const activeDraftId = id ?? draftId;
+  const hasPersistedDraft = Boolean(activeDraftId);
 
   const quotationSchema = useMemo(
     () => createQuotationFormSchema({ enforceFreshCoverPeriod: !usesPrefilledQuotation }),
@@ -315,10 +317,10 @@ export function QuotationWizardPage() {
     }),
     [salePointCode, selectedPolicyHolderType],
   );
-  const createMutation = useCreateQuotation();
-  const updateMutation = useUpdateQuotation(id);
-  const [isSubmittingToTiramis, setIsSubmittingToTiramis] = useState(false);
-  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const createDraftMutation = useCreateQuotationDraft();
+  const updateDraftMutation = useUpdateQuotationDraft();
+  const finalizeMutation = useFinalizeQuotation();
+  const deleteDraftMutation = useDeleteQuotationDraft();
 
   const steps = useMemo(
     () => getWizardStepsForFlow(quotationFlowForQueries),
@@ -329,6 +331,10 @@ export function QuotationWizardPage() {
     !quotationContext ||
     (categoryOptions.some((option) => option.id === savedCategoryId) &&
       productOptions.some((option) => option.id === savedProductId));
+
+  useEffect(() => {
+    setDraftId(id ?? null);
+  }, [id]);
 
   useEffect(() => {
     if (companyId) {
@@ -384,9 +390,16 @@ export function QuotationWizardPage() {
       return;
     }
 
+    const draftSnapshot =
+      quotationContext.draft_payload &&
+      typeof quotationContext.draft_payload === 'object'
+        ? (quotationContext.draft_payload as Partial<QuotationFormSchemaValues>)
+        : null;
+
     form.reset({
       ...DEFAULT_VALUES,
       ...quotationRecordToFormValues(quotationContext),
+      ...(draftSnapshot ?? {}),
       status: isEndorsementMode ? 'DRAFT' : quotationContext.status,
       cover_note_type: isEndorsementMode
         ? '3'
@@ -413,6 +426,12 @@ export function QuotationWizardPage() {
           : '',
       insurer_company_id: quotationContext.internal_quotation.insurer_company_id,
     });
+    if (
+      quotationContext.current_wizard_step &&
+      steps.some((step) => step.id === quotationContext.current_wizard_step)
+    ) {
+      setStepId(quotationContext.current_wizard_step as QuotationWizardStepId);
+    }
     hasHydratedEditRef.current = true;
     setIsEditHydrating(false);
   }, [
@@ -425,6 +444,7 @@ export function QuotationWizardPage() {
     savedCategoryId,
     savedProductId,
     savedSalePointCode,
+    steps,
   ]);
 
   useEffect(() => {
@@ -718,100 +738,134 @@ export function QuotationWizardPage() {
     });
   }
 
-  const persistQuotation = useCallback(
-    async (options?: { submitAfterSave?: boolean }) => {
-      const valid = await form.trigger(undefined, { shouldFocus: true });
-      if (!valid) {
-        toast.error(
-          findFirstErrorMessage(form.formState.errors) ??
-            'Please complete the required quotation fields.',
-        );
-        return;
-      }
-
+  const saveDraftSnapshot = useCallback(
+    async (currentWizardStep?: QuotationWizardStepId) => {
       const values = form.getValues();
-      const product = productOptions.find(
-        (item) => item.id === values.product_id,
-      );
-      const existingCustomer = customerOptions.find(
-        (item) => item.id === values.customer_id,
-      );
-      const salePointCode = usesPrefilledQuotation
-        ? savedSalePointCode
-        : defaultSalePointCode;
-      const productCode =
-        product?.tiramis_product_code || product?.product_code || product?.id;
 
-      if (!salePointCode) {
-        toast.error('Your active branch has no default sales point configured.');
-        return;
-      }
-
-      if (!productCode) {
-        toast.error('Select a valid product before saving this quotation.');
-        return;
-      }
-
-      const mutation = isEditMode ? updateMutation : createMutation;
       try {
-        const quotation = await mutation.mutateAsync({
-          values,
-          salePointCode,
-          productCode,
-          existingCustomer,
-          expectedUpdatedAt: isEditMode ? existingQuotation?.updated_at : undefined,
-        });
+        const quotation = hasPersistedDraft
+          ? await updateDraftMutation.mutateAsync({
+              id: activeDraftId!,
+              values,
+              currentWizardStep,
+              expectedUpdatedAt: existingQuotation?.updated_at,
+            })
+          : await createDraftMutation.mutateAsync({
+              values,
+              currentWizardStep,
+            });
 
-        if (options?.submitAfterSave) {
-          setIsSubmittingToTiramis(true);
-          try {
-            const submission = await quotationsApi.submit(quotation.id);
-            toast.success('Quotation submitted to TIRAMIS');
-            const submissionDetailId = getSubmissionDetailId(
-              submission.submission,
-            );
-            if (submissionDetailId) {
-              navigate(underwritingPaths.submissionDetail(submissionDetailId));
-              return;
-            }
+        setDraftId(quotation.id);
 
-            toast.error(
-              'Quotation was submitted, but the submission detail link was missing.',
-            );
-            navigate(underwritingPaths.quotationDetail(quotation.id));
-            return;
-          } catch (submitError) {
-            toast.error(getApiErrorMessage(submitError));
-            navigate(underwritingPaths.quotationDetail(quotation.id));
-            return;
-          } finally {
-            setIsSubmittingToTiramis(false);
-          }
+        if (!id) {
+          navigate(underwritingPaths.quotationWizardEdit(quotation.id), {
+            replace: true,
+          });
         }
 
-        navigate(underwritingPaths.quotationDetail(quotation.id));
+        return quotation;
       } catch {
-        // Mutation hooks already surface the error toast.
+        return null;
       }
     },
     [
-      createMutation,
-      customerOptions,
+      activeDraftId,
+      createDraftMutation,
+      existingQuotation?.updated_at,
       form,
-      isEditMode,
+      hasPersistedDraft,
+      id,
       navigate,
-      productOptions,
-      updateMutation,
-      defaultSalePointCode,
-      savedSalePointCode,
-      usesPrefilledQuotation,
+      updateDraftMutation,
     ],
   );
 
+  const completeQuotation = useCallback(async () => {
+    const valid = await form.trigger(undefined, { shouldFocus: true });
+    if (!valid) {
+      toast.error(
+        findFirstErrorMessage(form.formState.errors) ??
+          'Please complete the required quotation fields.',
+      );
+      return;
+    }
+
+    const values = form.getValues();
+    const product = productOptions.find((item) => item.id === values.product_id);
+    const existingCustomer = customerOptions.find(
+      (item) => item.id === values.customer_id,
+    );
+    const salePointCode = usesPrefilledQuotation
+      ? savedSalePointCode
+      : defaultSalePointCode;
+    const productCode =
+      product?.tiramis_product_code || product?.product_code || product?.id;
+
+    if (!salePointCode) {
+      toast.error('Your active branch has no default sales point configured.');
+      return;
+    }
+
+    if (!productCode) {
+      toast.error('Select a valid product before completing this quotation.');
+      return;
+    }
+
+    let quotationId = activeDraftId;
+
+    if (!quotationId) {
+      const draft = await saveDraftSnapshot(stepId);
+      if (!draft) {
+        return;
+      }
+      quotationId = draft.id;
+    }
+
+    try {
+      const quotation = await finalizeMutation.mutateAsync({
+        id: quotationId,
+        values,
+        salePointCode,
+        productCode,
+        existingCustomer,
+        expectedUpdatedAt: existingQuotation?.updated_at,
+      });
+
+      navigate(underwritingPaths.quotationDetail(quotation.id));
+    } catch {
+      // Mutation hooks already surface the error toast.
+    }
+  }, [
+    activeDraftId,
+    customerOptions,
+    defaultSalePointCode,
+    existingQuotation?.updated_at,
+    finalizeMutation,
+    form,
+    navigate,
+    productOptions,
+    saveDraftSnapshot,
+    savedSalePointCode,
+    stepId,
+    usesPrefilledQuotation,
+  ]);
+
+  const deleteDraft = useCallback(() => {
+    if (!activeDraftId) {
+      navigate(underwritingPaths.quotations);
+      return;
+    }
+
+    deleteDraftMutation.mutate(activeDraftId, {
+      onSuccess: () => navigate(underwritingPaths.quotations),
+    });
+  }, [activeDraftId, deleteDraftMutation, navigate]);
+
   const isSaving =
-    createMutation.isPending ||
-    updateMutation.isPending ||
-    isSubmittingToTiramis;
+    createDraftMutation.isPending ||
+    updateDraftMutation.isPending ||
+    finalizeMutation.isPending ||
+    deleteDraftMutation.isPending;
   const isFirstStep = steps[0]?.id === stepId;
   const isLastStep = steps[steps.length - 1]?.id === stepId;
   const errorSteps = steps
@@ -837,8 +891,16 @@ export function QuotationWizardPage() {
           <div className="flex gap-2">
             <Button
               type="button"
+              variant="destructive"
+              onClick={deleteDraft}
+              disabled={isSaving}
+            >
+              Delete Draft
+            </Button>
+            <Button
+              type="button"
               variant="outline"
-              onClick={() => void persistQuotation()}
+              onClick={() => void saveDraftSnapshot(stepId)}
               disabled={isSaving || !companyId}
             >
               {isSaving ? 'Saving...' : 'Save Draft'}
@@ -846,10 +908,10 @@ export function QuotationWizardPage() {
             {isLastStep ? (
               <Button
                 type="button"
-                onClick={() => setShowSubmitConfirm(true)}
+                onClick={() => void completeQuotation()}
                 disabled={isSaving || !companyId}
               >
-                {isSaving ? 'Submitting...' : 'Save & Submit to TIRAMIS'}
+                {isSaving ? 'Completing...' : 'Complete Quotation'}
               </Button>
             ) : (
               <Button type="button" onClick={goNext}>
@@ -861,13 +923,16 @@ export function QuotationWizardPage() {
       ) : null,
     [
       companyId,
+      completeQuotation,
+      deleteDraft,
       goBack,
       goNext,
       isFirstStep,
       isLastStep,
       isSaving,
       loadingQuotation,
-      persistQuotation,
+      saveDraftSnapshot,
+      stepId,
     ],
   );
 
@@ -942,19 +1007,6 @@ export function QuotationWizardPage() {
           setChangeSetupInitial(null);
         }}
         onClose={() => setChangeSetupInitial(null)}
-      />
-      <ConfirmDialog
-        open={showSubmitConfirm}
-        onOpenChange={setShowSubmitConfirm}
-        title="Submit quotation to TIRAMIS?"
-        description="Review complete? This will save the quotation and submit it to TIRAMIS."
-        confirmLabel="Submit"
-        variant="default"
-        loading={isSaving}
-        onConfirm={() => {
-          setShowSubmitConfirm(false);
-          void persistQuotation({ submitAfterSave: true });
-        }}
       />
       <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-6">
         {!isEditMode && !isEndorsementMode && isFirstStep ? (

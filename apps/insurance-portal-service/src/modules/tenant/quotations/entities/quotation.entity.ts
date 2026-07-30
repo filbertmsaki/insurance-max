@@ -219,6 +219,15 @@ export class Quotation {
   @Column({ type: 'text', nullable: true })
   rejection_reason: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  cancellation_reason: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  current_wizard_step: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  draft_payload: Record<string, unknown> | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

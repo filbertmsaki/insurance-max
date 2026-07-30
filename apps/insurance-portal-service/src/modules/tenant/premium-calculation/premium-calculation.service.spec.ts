@@ -208,8 +208,19 @@ function createServiceFixture(options: {
   configuredFactors?: Record<string, unknown>[];
   taxRules?: Record<string, unknown>[];
 }) {
+  const riskWithMotorProduct = options.risk
+    ? {
+        ...options.risk,
+        product: {
+          product_code: 'SP014001000000',
+          ...((options.risk as Record<string, unknown>).product as
+            | Record<string, unknown>
+            | undefined),
+        },
+      }
+    : null;
   const riskRepository = {
-    findOne: jest.fn().mockResolvedValue(options.risk),
+    findOne: jest.fn().mockResolvedValue(riskWithMotorProduct),
   };
   const requiredFactorRepository = {
     find: jest.fn().mockResolvedValue(options.requiredFactors ?? []),
@@ -221,7 +232,7 @@ function createServiceFixture(options: {
     find: jest.fn().mockResolvedValue(options.rules),
   };
   const matcherRiskRepository = {
-    findOne: jest.fn().mockResolvedValue(options.risk),
+    findOne: jest.fn().mockResolvedValue(riskWithMotorProduct),
   };
   const rateBookRepository = {
     find: jest.fn().mockResolvedValue([]),
@@ -235,7 +246,11 @@ function createServiceFixture(options: {
   const pricingQuoteRiskRepository = {
     find: jest
       .fn()
-      .mockResolvedValue(options.risk ? [{ ...options.risk, product_id: 'product-1' }] : []),
+      .mockResolvedValue(
+        riskWithMotorProduct
+          ? [{ ...riskWithMotorProduct, product_id: 'product-1' }]
+          : [],
+      ),
   };
   const identifierGeneratorService = {
     generatePricingQuoteId: jest.fn().mockResolvedValue({
@@ -690,6 +705,22 @@ describe('PremiumCalculationService', () => {
 
       expect(result.percentage_rate).toBe(0);
       expect(result.gross_premium).toBe(100000);
+      expect(result.final_premium).toBe(100000);
+    });
+
+    it('allows fixed-rate risks to calculate when sum insured is omitted', async () => {
+      const { service } = createServiceFixture({
+        risk: RISKS.tpo.risk,
+        rules: [RISKS.tpo.rule],
+      });
+
+      const result = await service.calculateSingleRisk(COMPANY_ID, {
+        risk_id: RISKS.tpo.risk.id,
+        factors: {},
+      });
+
+      expect(result.sum_insured).toBe(0);
+      expect(result.percentage_rate).toBe(0);
       expect(result.final_premium).toBe(100000);
     });
 

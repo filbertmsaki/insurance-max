@@ -28,6 +28,11 @@ import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { FilterQuotationDto } from './dto/filter-quotation.dto';
 import {
+  CancelQuotationDto,
+  SaveQuotationDraftDto,
+  UpdateQuotationDraftDto,
+} from './dto/quotation-draft.dto';
+import {
   CreateQuotationDto,
   UpdateQuotationDto,
   SubmitQuotationDto,
@@ -45,6 +50,25 @@ import { QuotationsService } from './quotations.service';
 @UseGuards(AuthGuard('jwt'), TenantGuard)
 export class QuotationsController {
   constructor(private readonly quotationsService: QuotationsService) {}
+
+  @Post('drafts')
+  @UseGuards(PermissionsGuard)
+  @Permissions('quotations:create')
+  @ApiOperation({
+    summary: 'Create a quotation draft',
+    description:
+      'Saves an incomplete wizard snapshot without full pricing validation, approval, payment, or TIRAMIS submission.',
+  })
+  @ApiBody({ type: SaveQuotationDraftDto })
+  @ApiCreatedResponse({
+    description: 'Quotation draft created successfully',
+  })
+  createDraft(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SaveQuotationDraftDto,
+  ) {
+    return this.quotationsService.createDraft(user.companyId!, dto, user.id);
+  }
 
   @Post()
   @UseGuards(PermissionsGuard)
@@ -130,7 +154,27 @@ export class QuotationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.quotationsService.findOne(user.companyId!, id, user);
+    return this.quotationsService.findOneForEdit(user.companyId!, id, user);
+  }
+
+  @Put(':id/draft')
+  @UseGuards(PermissionsGuard)
+  @Permissions('quotations:update')
+  @ApiOperation({
+    summary: 'Update a quotation draft',
+    description:
+      'Saves the current wizard snapshot and keeps the quotation in DRAFT status.',
+  })
+  @ApiBody({ type: UpdateQuotationDraftDto })
+  @ApiOkResponse({
+    description: 'Quotation draft updated successfully',
+  })
+  updateDraft(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateQuotationDraftDto,
+  ) {
+    return this.quotationsService.updateDraft(user.companyId!, id, dto, user.id);
   }
 
   @Get(':id/preview')
@@ -244,6 +288,65 @@ export class QuotationsController {
     return this.quotationsService.replace(user.companyId!, id, dto, user);
   }
 
+  @Post(':id/finalize')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PermissionsGuard)
+  @Permissions('quotations:update')
+  @ApiOperation({
+    summary: 'Complete a quotation',
+    description:
+      'Performs full validation, refreshes authoritative pricing, saves the final quotation snapshot, and determines approval and payment requirements.',
+  })
+  @ApiBody({ type: UpdateQuotationDto })
+  @ApiOkResponse({
+    description: 'Quotation finalized successfully',
+  })
+  finalize(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateQuotationDto,
+  ) {
+    return this.quotationsService.finalize(user.companyId!, id, dto, user);
+  }
+
+  @Post(':id/submit-for-approval')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PermissionsGuard)
+  @Permissions('quotations:update')
+  @ApiOperation({
+    summary: 'Submit a completed quotation for approval',
+  })
+  @ApiOkResponse({
+    description: 'Quotation submitted for approval successfully',
+  })
+  submitForApproval(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.quotationsService.submitForApprovalAction(
+      user.companyId!,
+      id,
+      user.id,
+    );
+  }
+
+  @Post(':id/request-payment')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PermissionsGuard)
+  @Permissions('quotations:update')
+  @ApiOperation({
+    summary: 'Create a quotation payment request',
+  })
+  @ApiOkResponse({
+    description: 'Quotation payment request created successfully',
+  })
+  requestPayment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.quotationsService.requestPayment(user.companyId!, id, user.id);
+  }
+
   @Post(':id/submit')
   @HttpCode(HttpStatus.OK)
   @UseGuards(PermissionsGuard)
@@ -266,6 +369,51 @@ export class QuotationsController {
     @Body() dto: SubmitQuotationDto = {},
   ) {
     return this.quotationsService.submit(user.companyId!, id, dto, user);
+  }
+
+  @Post(':id/retry-tira')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PermissionsGuard)
+  @Permissions('quotations:submit')
+  @ApiOperation({
+    summary: 'Retry a failed TIRAMIS submission',
+  })
+  @ApiOkResponse({
+    description: 'Quotation resubmitted to TIRAMIS successfully',
+  })
+  retryTira(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.quotationsService.retryTiraSubmission(
+      user.companyId!,
+      id,
+      user,
+    );
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PermissionsGuard)
+  @Permissions('quotations:update')
+  @ApiOperation({
+    summary: 'Cancel a quotation',
+  })
+  @ApiBody({ type: CancelQuotationDto })
+  @ApiOkResponse({
+    description: 'Quotation cancelled successfully',
+  })
+  cancel(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CancelQuotationDto,
+  ) {
+    return this.quotationsService.cancelQuotationAction(
+      user.companyId!,
+      id,
+      dto.cancellation_reason,
+      user.id,
+    );
   }
 
   @Post(':id/status')
@@ -311,6 +459,26 @@ export class QuotationsController {
 
     return {
       message: 'Quotation deleted successfully',
+    };
+  }
+
+  @Delete(':id/draft')
+  @UseGuards(PermissionsGuard)
+  @Permissions('quotations:delete')
+  @ApiOperation({
+    summary: 'Delete an unsubmitted quotation draft',
+  })
+  @ApiOkResponse({
+    description: 'Quotation draft deleted successfully',
+  })
+  async removeDraft(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.quotationsService.removeDraft(user.companyId!, id);
+
+    return {
+      message: 'Quotation draft deleted successfully',
     };
   }
 }

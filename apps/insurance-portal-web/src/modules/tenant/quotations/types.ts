@@ -341,7 +341,26 @@ export interface QuotationDetailRecord
   submitted_at: string | null;
   created_at: string;
   updated_at: string;
+  current_wizard_step?: string | null;
+  draft_payload?: Record<string, unknown> | null;
+  cancellation_reason?: string | null;
   pricing_integration?: QuotationPricingIntegration | null;
+}
+
+export interface QuotationDraftRecordPayload {
+  insurer_company_id?: string | null;
+  intermediary_company_id?: string | null;
+  department_id?: string | null;
+  customer_id?: string | null;
+  sub_class_id?: string | null;
+  category_id: string;
+  product_id: string;
+  quotation_type: QuotationType;
+  quotation_flow: QuotationFlow;
+  channel_type: ProductChannelType;
+  is_fleet: boolean;
+  current_wizard_step?: string | null;
+  draft_payload: Record<string, unknown>;
 }
 
 export interface QuotationPricingIntegration {

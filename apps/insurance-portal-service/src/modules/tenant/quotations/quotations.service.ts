@@ -38,6 +38,10 @@ import { InsuranceProduct } from '../insurance-products/entities/insurance-produ
 import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
 import {
+  SaveQuotationDraftDto,
+  UpdateQuotationDraftDto,
+} from './dto/quotation-draft.dto';
+import {
   CoverNoteAddonDto,
   CreateQuotationDto,
   MotorDetailDto,
@@ -342,6 +346,72 @@ export class QuotationsService {
     }
   }
 
+  async createDraft(
+    companyId: string,
+    dto: SaveQuotationDraftDto,
+    userId: string,
+  ) {
+    try {
+      const quotationId = await this.dataSource.transaction(async (manager) => {
+        const quotationNo =
+          await this.identifierGeneratorService.generateQuotationNumber(
+            companyId,
+            manager,
+          );
+        const { branchId, salePointCode } = await this.resolveDraftBranchContext(
+          companyId,
+          userId,
+        );
+        const productCode = await this.resolveDraftProductCode(
+          manager,
+          dto.product_id,
+        );
+        const quotation = await manager.getRepository(Quotation).save(
+          manager.getRepository(Quotation).create({
+            company_id: companyId,
+            insurer_company_id: dto.insurer_company_id ?? companyId,
+            intermediary_company_id: dto.intermediary_company_id ?? null,
+            branch_id: branchId,
+            department_id: dto.department_id ?? null,
+            created_by: userId,
+            updated_by: userId,
+            customer_id: dto.customer_id ?? null,
+            category_id: dto.category_id,
+            product_id: dto.product_id,
+            sub_class_id: dto.sub_class_id ?? null,
+            quotation_no: quotationNo,
+            quotation_type: dto.quotation_type,
+            quotation_flow: dto.quotation_flow,
+            is_fleet: dto.is_fleet,
+            channel_type: dto.channel_type,
+            status: QuotationStatus.DRAFT,
+            requires_approval: false,
+            requires_payment: false,
+            approval_status: ApprovalStatus.NOT_REQUIRED,
+            payment_status: PaymentStatus.NOT_REQUIRED,
+            tira_status: TiraStatus.NOT_SUBMITTED,
+            current_wizard_step: dto.current_wizard_step ?? null,
+            draft_payload: this.cloneDraftPayload(dto.draft_payload),
+          }),
+        );
+
+        await this.upsertDraftPlaceholderAggregate(
+          manager,
+          quotation,
+          dto,
+          salePointCode,
+          productCode,
+        );
+
+        return quotation.id;
+      });
+
+      return this.findOneForEdit(companyId, quotationId);
+    } catch (error) {
+      this.rethrowConstraintError(error);
+    }
+  }
+
   async replace(
     companyId: string,
     id: string,
@@ -486,6 +556,197 @@ export class QuotationsService {
     }
   }
 
+  async updateDraft(
+    companyId: string,
+    id: string,
+    dto: UpdateQuotationDraftDto,
+    userId: string,
+  ) {
+    const existing = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
+    this.assertDraftWritable(existing);
+
+    if (
+      dto.expected_updated_at &&
+      existing.updated_at.toISOString() !== dto.expected_updated_at
+    ) {
+      throw new ConflictException(
+        'This quotation draft was updated by another user. Reload the latest version before saving your changes.',
+      );
+    }
+
+    try {
+      await this.dataSource.transaction(async (manager) => {
+        const quotation = await this.lockQuotationForUpdate(manager, companyId, id);
+        this.assertDraftWritable(quotation);
+
+        const salePointCode =
+          quotation.cover_note?.sale_point_code?.trim() ||
+          (await this.resolveDraftBranchContext(companyId, userId)).salePointCode;
+        const productCode = await this.resolveDraftProductCode(
+          manager,
+          dto.product_id,
+        );
+
+        Object.assign(quotation, {
+          insurer_company_id: dto.insurer_company_id ?? quotation.company_id,
+          intermediary_company_id: dto.intermediary_company_id ?? null,
+          department_id: dto.department_id ?? null,
+          customer_id: dto.customer_id ?? null,
+          category_id: dto.category_id,
+          product_id: dto.product_id,
+          sub_class_id: dto.sub_class_id ?? null,
+          quotation_type: dto.quotation_type,
+          quotation_flow: dto.quotation_flow,
+          is_fleet: dto.is_fleet,
+          channel_type: dto.channel_type,
+          updated_by: userId,
+          status: QuotationStatus.DRAFT,
+          requires_approval: false,
+          requires_payment: false,
+          approval_status: ApprovalStatus.NOT_REQUIRED,
+          payment_status: PaymentStatus.NOT_REQUIRED,
+          tira_status: TiraStatus.NOT_SUBMITTED,
+          current_wizard_step: dto.current_wizard_step ?? null,
+          draft_payload: this.cloneDraftPayload(dto.draft_payload),
+        });
+        await manager.getRepository(Quotation).save(quotation);
+
+        await this.upsertDraftPlaceholderAggregate(
+          manager,
+          quotation,
+          dto,
+          salePointCode,
+          productCode,
+        );
+      });
+
+      return this.findOneForEdit(companyId, id);
+    } catch (error) {
+      this.rethrowConstraintError(error);
+    }
+  }
+
+  async finalize(
+    companyId: string,
+    id: string,
+    payload: UpdateQuotationDto,
+    user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
+  ) {
+    const existing = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
+    this.assertDraftWritable(existing);
+
+    const quotation = await this.replace(companyId, id, payload, user);
+    await this.quotationLifecycleService.evaluateRequirements(companyId, id, {
+      changedBy: user.id,
+      changedByType: 'USER',
+      source: 'USER',
+      channel: payload.internal_quotation.channel_type,
+      reason: 'Quotation finalized from draft',
+    });
+
+    await this.dataSource.getRepository(Quotation).update(
+      { id, company_id: companyId },
+      {
+        current_wizard_step: null,
+        draft_payload: null,
+      },
+    );
+
+    return this.findOne(companyId, quotation.id, user);
+  }
+
+  async submitForApprovalAction(
+    companyId: string,
+    id: string,
+    userId: string,
+  ) {
+    await this.quotationLifecycleService.submitForApproval(companyId, id, {
+      changedBy: userId,
+      changedByType: 'USER',
+      source: 'USER',
+      reason: 'Quotation submitted for approval',
+    });
+
+    return this.findOne(companyId, id);
+  }
+
+  async requestPayment(companyId: string, id: string, userId: string) {
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
+    this.assertPaymentRequestAllowed(quotation);
+
+    const latestInvoice = await this.findLatestInvoice(companyId, id);
+    const invoice =
+      latestInvoice &&
+      !['VOID', 'CANCELLED'].includes(String(latestInvoice.status).toUpperCase())
+        ? latestInvoice
+        : await this.createQuotationPaymentInvoice(companyId, quotation, userId);
+
+    await this.quotationLifecycleService.markPaymentRequested(companyId, id, {
+      changedBy: userId,
+      changedByType: 'USER',
+      source: 'USER',
+      reason: `Invoice ${invoice.invoice_no} generated for quotation payment`,
+      requestId: invoice.id,
+    });
+
+    return this.findOne(companyId, id);
+  }
+
+  async retryTiraSubmission(
+    companyId: string,
+    id: string,
+    user: AuthenticatedUser,
+  ) {
+    return this.submit(
+      companyId,
+      id,
+      {
+        force_resubmit: true,
+      },
+      user,
+    );
+  }
+
+  async cancelQuotationAction(
+    companyId: string,
+    id: string,
+    cancellationReason: string,
+    userId: string,
+  ) {
+    const trimmedReason = cancellationReason.trim();
+    if (!trimmedReason) {
+      throw new BadRequestException(
+        'A cancellation reason is required to cancel a quotation',
+      );
+    }
+
+    await this.dataSource.getRepository(Quotation).update(
+      { id, company_id: companyId },
+      {
+        cancellation_reason: trimmedReason,
+        updated_by: userId,
+      },
+    );
+
+    await this.quotationLifecycleService.cancelQuotation(companyId, id, {
+      changedBy: userId,
+      changedByType: 'USER',
+      source: 'USER',
+      reason: trimmedReason,
+    });
+
+    return this.findOne(companyId, id);
+  }
+
   async findAll(companyId: string, query: FilterQuotationDto) {
     const result = await this.quotationsRepository.findAll(companyId, query);
 
@@ -511,10 +772,21 @@ export class QuotationsService {
     );
     return {
       ...this.payloadMapper.toResponse(quotation),
+      current_wizard_step: quotation.current_wizard_step ?? null,
+      draft_payload: quotation.draft_payload ?? null,
+      cancellation_reason: quotation.cancellation_reason ?? null,
       pricing_integration: this.canViewPricingBreakdown(user)
         ? await this.evaluateQuotationPricingIntegration(companyId, quotation)
         : null,
     };
+  }
+
+  async findOneForEdit(
+    companyId: string,
+    id: string,
+    user?: Pick<AuthenticatedUser, 'permissions'> | null,
+  ) {
+    return this.findOne(companyId, id, user);
   }
 
   async getAuthoritativePayload(companyId: string, id: string) {
@@ -837,18 +1109,15 @@ export class QuotationsService {
   }
 
   async remove(companyId: string, id: string): Promise<void> {
+    return this.removeDraft(companyId, id);
+  }
+
+  async removeDraft(companyId: string, id: string): Promise<void> {
     const quotation = await this.quotationsRepository.findOneAggregate(
       companyId,
       id,
     );
-
-    if (quotation.submitted_at) {
-      throw new ConflictException('A submitted quotation cannot be deleted');
-    }
-
-    if (quotation.status !== QuotationStatus.DRAFT) {
-      throw new ConflictException('Only draft quotations can be deleted');
-    }
+    await this.assertDraftDeletionAllowed(companyId, quotation);
 
     const result = await this.dataSource.getRepository(Quotation).softDelete({
       id,
@@ -1203,6 +1472,708 @@ export class QuotationsService {
     return this.findOne(companyId, id);
   }
 
+  private assertDraftWritable(quotation: Quotation): void {
+    if (quotation.status !== QuotationStatus.DRAFT) {
+      throw new ConflictException('Only draft quotations can be updated');
+    }
+
+    if (quotation.tira_status !== TiraStatus.NOT_SUBMITTED) {
+      throw new ConflictException(
+        'Only unsubmitted draft quotations can be updated',
+      );
+    }
+  }
+
+  private async resolveDraftBranchContext(companyId: string, userId: string) {
+    const assignment = await this.branchUserRepository
+      .createQueryBuilder('assignment')
+      .innerJoinAndSelect('assignment.branch', 'branch')
+      .innerJoin('assignment.company_user', 'companyUser')
+      .where('companyUser.user_id = :userId', { userId })
+      .andWhere('companyUser.company_id = :companyId', { companyId })
+      .andWhere('companyUser.status = :membershipStatus', {
+        membershipStatus: 'active',
+      })
+      .andWhere('assignment.is_active_branch = true')
+      .getOne();
+
+    const branch = assignment?.branch;
+    if (
+      !assignment ||
+      !branch ||
+      branch.company_id !== companyId ||
+      branch.status !== 'active' ||
+      branch.deleted_at
+    ) {
+      throw new BadRequestException(
+        'You do not have a valid active branch. Please select an active branch before saving a quotation draft.',
+      );
+    }
+
+    const defaultSalePoints = await this.salePointRepository.find({
+      where: {
+        companyId,
+        branchId: branch.id,
+        isDefault: true,
+        isActive: true,
+      },
+    });
+    if (defaultSalePoints.length !== 1) {
+      throw new BadRequestException(
+        'The active branch does not have a valid default sales point. Please configure it before saving a quotation draft.',
+      );
+    }
+
+    return {
+      branchId: branch.id,
+      salePointCode: defaultSalePoints[0].salePointCode.trim().toUpperCase(),
+    };
+  }
+
+  private async resolveDraftProductCode(
+    manager: EntityManager,
+    productId: string,
+  ): Promise<string> {
+    const product = await manager.getRepository(InsuranceProduct).findOne({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Selected product was not found');
+    }
+
+    return (
+      product.tiramis_product_code?.trim() ||
+      product.product_code?.trim() ||
+      product.id
+    );
+  }
+
+  private cloneDraftPayload(
+    payload: Record<string, unknown> | null | undefined,
+  ): Record<string, unknown> {
+    return JSON.parse(JSON.stringify(payload ?? {})) as Record<string, unknown>;
+  }
+
+  private async upsertDraftPlaceholderAggregate(
+    manager: EntityManager,
+    quotation: Quotation,
+    draft: SaveQuotationDraftDto | UpdateQuotationDraftDto,
+    salePointCode: string,
+    productCode: string,
+  ) {
+    const payload = this.cloneDraftPayload(draft.draft_payload);
+    const coverNoteRepository = manager.getRepository(QuotationCoverNote);
+    const entryRepository = manager.getRepository(QuotationCoverNoteEntry);
+    const motorRepository = manager.getRepository(QuotationMotorDetail);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const validFrom = this.draftDateTime(payload, 'valid_from', today, false);
+    const validUntil = this.draftDateTime(payload, 'valid_until', today, true);
+    const fleet = this.draftObject(payload, 'fleet');
+    const fleetItems = this.draftArray(fleet, 'items');
+    const firstFleetItem =
+      fleetItems.length > 0 ? fleetItems[0] : ({} as Record<string, unknown>);
+
+    const coverNote = await coverNoteRepository.save(
+      coverNoteRepository.create({
+        ...(await coverNoteRepository.findOne({
+          where: { quotation_id: quotation.id },
+        })),
+        quotation_id: quotation.id,
+        cover_note_type: this.draftInteger(payload, 'cover_note_type', 1),
+        sale_point_code: salePointCode,
+        cover_note_start_date: parseTiramisDateTime(validFrom),
+        cover_note_end_date: parseTiramisDateTime(validUntil),
+        payment_mode: this.draftInteger(
+          payload,
+          'payment_mode_tira',
+          DIRECT_PAYMENT_MODE,
+        ),
+        currency_code: this.draftString(payload, 'currency', 'TZS')
+          .trim()
+          .toUpperCase(),
+        exchange_rate: this.numeric(
+          this.draftNumber(payload, 'exchange_rate', 1),
+          6,
+        ),
+        exchange_rate_snapshot: null,
+        total_premium_excluding_tax: this.numeric(
+          this.draftNumber(payload, 'basic_premium', 0),
+          2,
+        ),
+        total_premium_including_tax: this.numeric(
+          this.draftNumber(payload, 'total_premium', 0),
+          2,
+        ),
+        commission_paid: this.numeric(
+          this.draftNumber(payload, 'commission_paid', 0),
+          2,
+        ),
+        commission_rate: this.numeric(
+          this.draftNumber(payload, 'commission_rate', 0),
+          6,
+        ),
+        officer_name: this.draftString(
+          payload,
+          'officer_name',
+          'Draft quotation',
+        ),
+        officer_title: this.draftString(payload, 'officer_title', 'Draft'),
+        product_code: productCode,
+        fleet_id:
+          draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+            ? this.draftString(fleet, 'fleet_id', quotation.quotation_no)
+            : null,
+        fleet_type:
+          draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+            ? this.draftInteger(fleet, 'fleet_type', 1)
+            : null,
+        fleet_size:
+          draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+            ? Math.max(
+                this.draftInteger(fleet, 'declared_total_vehicles', 0),
+                fleetItems.length,
+              )
+            : null,
+        comprehensive_insured:
+          draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+            ? this.draftInteger(fleet, 'comprehensive_insured_count', 0)
+            : null,
+      }),
+    );
+
+    const entryType =
+      draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+        ? QuotationEntryType.FLEET_ITEM
+        : QuotationEntryType.STANDARD;
+    const coverNoteNumber =
+      draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+        ? this.draftString(
+            firstFleetItem,
+            'cover_note_number',
+            `${quotation.quotation_no}-1`,
+          )
+        : this.draftString(payload, 'cover_note_number', quotation.quotation_no);
+    const endorsementType =
+      draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+        ? this.draftNullableInteger(firstFleetItem, 'endorsement_type')
+        : this.draftNullableInteger(payload, 'endorsement_type');
+    const endorsementReason =
+      draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+        ? this.draftNullableString(firstFleetItem, 'endorsement_reason')
+        : this.draftNullableString(payload, 'endorsement_reason');
+    const endorsementPremiumEarned =
+      endorsementType === null
+        ? null
+        : this.numeric(
+            draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+              ? this.draftNumber(firstFleetItem, 'endorsement_premium_earned', 0)
+              : this.draftNumber(payload, 'endorsement_premium_earned', 0),
+            2,
+          );
+    const entry = await entryRepository.save(
+      entryRepository.create({
+        ...(await entryRepository.findOne({
+          where: {
+            cover_note_id: coverNote.id,
+            entry_number: 1,
+          },
+        })),
+        cover_note_id: coverNote.id,
+        entry_type: entryType,
+        entry_number: 1,
+        fleet_entry:
+          draft.quotation_flow === QuotationFlow.MOTOR_FLEET ? 1 : null,
+        cover_note_number: coverNoteNumber,
+        prev_cover_note_reference_number:
+          draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+            ? this.draftNullableString(
+                firstFleetItem,
+                'prev_cover_note_reference_number',
+              )
+            : this.draftNullableString(payload, 'prev_cover_note_reference'),
+        cover_note_desc:
+          draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+            ? this.draftString(firstFleetItem, 'cover_note_desc', 'Draft vehicle')
+            : this.draftString(payload, 'cover_note_desc', 'Draft quotation'),
+        operative_clause:
+          draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+            ? this.draftString(firstFleetItem, 'operative_clause', 'Draft')
+            : this.draftString(payload, 'operative_clause', 'Draft'),
+        endorsement_type: endorsementType,
+        endorsement_reason: endorsementReason,
+        endorsement_premium_earned: endorsementPremiumEarned,
+      }),
+    );
+
+    if (
+      draft.quotation_flow === QuotationFlow.MOTOR_SINGLE ||
+      draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+    ) {
+      const motorSource =
+        draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+          ? this.draftObject(firstFleetItem, 'motor_dtl') ?? firstFleetItem
+          : this.draftObject(payload, 'motor');
+      const tareWeight = roundMoney(
+        Math.max(this.draftNumber(motorSource, 'tare_weight', 0), 0),
+      );
+      const grossWeight = roundMoney(
+        Math.max(this.draftNumber(motorSource, 'gross_weight', tareWeight), tareWeight),
+      );
+
+      await motorRepository.save(
+        motorRepository.create({
+          ...(await motorRepository.findOne({
+            where: {
+              entry_id: entry.id,
+            },
+          })),
+          entry_id: entry.id,
+          motor_category: Math.max(
+            this.draftInteger(
+              motorSource,
+              draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+                ? 'motor_category'
+                : 'motor_category_code',
+              1,
+            ),
+            1,
+          ),
+          motor_type: Math.max(
+            this.draftInteger(
+              motorSource,
+              draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+                ? 'motor_type'
+                : 'motor_type_code',
+              1,
+            ),
+            1,
+          ),
+          registration_number:
+            draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+              ? this.draftString(
+                  motorSource,
+                  'registration_number',
+                  'DRAFT-REG',
+                )
+              : this.draftString(motorSource, 'registration_no', 'DRAFT-REG'),
+          chassis_number:
+            draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+              ? this.draftString(motorSource, 'chassis_number', 'DRAFT-CHASSIS')
+              : this.draftString(motorSource, 'chassis_no', 'DRAFT-CHASSIS'),
+          make: this.draftString(motorSource, 'make', 'Draft'),
+          model: this.draftString(motorSource, 'model', 'Draft'),
+          model_number:
+            draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+              ? this.draftNullableString(motorSource, 'model_number')
+              : this.draftNullableString(motorSource, 'model_no'),
+          body_type: this.draftString(motorSource, 'body_type', 'Draft'),
+          color: this.draftString(motorSource, 'color', 'Draft'),
+          engine_number:
+            draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+              ? this.draftString(motorSource, 'engine_number', 'DRAFT-ENGINE')
+              : this.draftString(motorSource, 'engine_no', 'DRAFT-ENGINE'),
+          engine_capacity:
+            draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+              ? this.draftString(motorSource, 'engine_capacity', '0')
+              : this.draftString(motorSource, 'cubic_capacity', '0'),
+          fuel_used:
+            draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+              ? this.draftString(motorSource, 'fuel_used', 'UNKNOWN')
+              : this.draftString(motorSource, 'fuel_type', 'UNKNOWN'),
+          number_of_axles: Math.max(
+            this.draftInteger(motorSource, 'number_of_axles', 1),
+            1,
+          ),
+          axle_distance: this.numeric(
+            this.draftNumber(motorSource, 'axle_distance', 0),
+            2,
+          ),
+          sitting_capacity: Math.max(
+            draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+              ? this.draftInteger(motorSource, 'sitting_capacity', 1)
+              : this.draftInteger(motorSource, 'seating_capacity', 1),
+            1,
+          ),
+          year_of_manufacture: Math.min(
+            Math.max(
+              this.draftInteger(
+                motorSource,
+                draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+                  ? 'year_of_manufacture'
+                  : 'manufacture_year',
+                2000,
+              ),
+              1886,
+            ),
+            2100,
+          ),
+          tare_weight: this.numeric(tareWeight, 2),
+          gross_weight: this.numeric(grossWeight, 2),
+          motor_usage: Math.max(
+            this.draftInteger(
+              motorSource,
+              draft.quotation_flow === QuotationFlow.MOTOR_FLEET
+                ? 'motor_usage'
+                : 'motor_usage_code',
+              1,
+            ),
+            1,
+          ),
+          owner_name: this.draftString(motorSource, 'owner_name', 'Draft owner'),
+          owner_category: Math.max(
+            this.draftInteger(
+              motorSource,
+              'owner_category',
+              1,
+            ),
+            1,
+          ),
+          owner_address: this.draftString(
+            motorSource,
+            'owner_address',
+            'Draft address',
+          ),
+        }),
+      );
+    } else {
+      await motorRepository.delete({
+        entry_id: entry.id,
+      });
+    }
+  }
+
+  private draftObject(
+    payload: Record<string, unknown> | null | undefined,
+    key: string,
+  ): Record<string, unknown> | null {
+    const value = payload?.[key];
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  }
+
+  private draftArray(
+    payload: Record<string, unknown> | null | undefined,
+    key: string,
+  ): Record<string, unknown>[] {
+    const value = payload?.[key];
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value.filter(
+      (item): item is Record<string, unknown> =>
+        !!item && typeof item === 'object' && !Array.isArray(item),
+    );
+  }
+
+  private draftString(
+    payload: Record<string, unknown> | null | undefined,
+    key: string,
+    fallback = '',
+  ): string {
+    const value = payload?.[key];
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed || fallback;
+    }
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(value);
+    }
+
+    return fallback;
+  }
+
+  private draftNullableString(
+    payload: Record<string, unknown> | null | undefined,
+    key: string,
+  ): string | null {
+    const value = this.draftString(payload, key, '');
+    return value ? value : null;
+  }
+
+  private draftNumber(
+    payload: Record<string, unknown> | null | undefined,
+    key: string,
+    fallback = 0,
+  ): number {
+    const value = payload?.[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      const normalized = Number(value);
+      if (Number.isFinite(normalized)) {
+        return normalized;
+      }
+    }
+
+    return fallback;
+  }
+
+  private draftInteger(
+    payload: Record<string, unknown> | null | undefined,
+    key: string,
+    fallback = 0,
+  ): number {
+    return Math.trunc(this.draftNumber(payload, key, fallback));
+  }
+
+  private draftNullableInteger(
+    payload: Record<string, unknown> | null | undefined,
+    key: string,
+  ): number | null {
+    const value = this.draftNullableString(payload, key);
+    if (value === null) {
+      return null;
+    }
+
+    const normalized = Number(value);
+    return Number.isFinite(normalized) ? Math.trunc(normalized) : null;
+  }
+
+  private draftDateTime(
+    payload: Record<string, unknown> | null | undefined,
+    key: string,
+    fallbackDate: string,
+    endOfDay: boolean,
+  ): string {
+    const value = this.draftString(payload, key, fallbackDate);
+    if (value.includes('T')) {
+      return value;
+    }
+
+    return `${value}T${endOfDay ? '23:59:59' : '00:00:00'}`;
+  }
+
+  private assertPaymentRequestAllowed(quotation: Quotation): void {
+    if (quotation.status === QuotationStatus.DRAFT) {
+      throw new ConflictException(
+        'Complete the quotation before requesting payment',
+      );
+    }
+
+    if (!quotation.requires_payment) {
+      throw new ConflictException(
+        'Payment is not required for this quotation',
+      );
+    }
+
+    if (
+      quotation.requires_approval &&
+      quotation.approval_status !== ApprovalStatus.APPROVED
+    ) {
+      throw new ConflictException(
+        `Approval must be completed before requesting payment. Current approval status is ${quotation.approval_status}.`,
+      );
+    }
+
+    if (
+      ![
+        PaymentStatus.NOT_INITIATED,
+        PaymentStatus.FAILED,
+        PaymentStatus.EXPIRED,
+      ].includes(quotation.payment_status)
+    ) {
+      throw new ConflictException(
+        `Payment cannot be requested from ${quotation.payment_status}.`,
+      );
+    }
+
+    if (!quotation.customer_id) {
+      throw new ConflictException(
+        'A linked customer is required before requesting payment',
+      );
+    }
+  }
+
+  private async createQuotationPaymentInvoice(
+    companyId: string,
+    quotation: Quotation,
+    userId: string,
+  ): Promise<Invoice> {
+    const invoiceRepository = this.dataSource.getRepository(Invoice);
+    const invoiceNo = await this.nextInvoiceNumber(companyId);
+    const currency =
+      quotation.cover_note?.currency_code?.trim().toUpperCase() ?? 'TZS';
+    const grossAmount = Number(
+      quotation.cover_note?.total_premium_excluding_tax ?? 0,
+    );
+    const totalAmount = Number(
+      quotation.cover_note?.total_premium_including_tax ?? grossAmount,
+    );
+    const taxAmount = roundMoney(totalAmount - grossAmount);
+    const customerId = quotation.customer_id;
+
+    if (!customerId) {
+      throw new ConflictException(
+        'A linked customer is required before requesting payment',
+      );
+    }
+
+    const invoice = invoiceRepository.create({
+      company_id: companyId,
+      insurer_company_id: quotation.insurer_company_id,
+      intermediary_company_id: quotation.intermediary_company_id ?? null,
+      customer_id: customerId,
+      quotation_id: quotation.id,
+      invoice_no: invoiceNo,
+      invoice_type: 'POLICY',
+      currency,
+      gross_amount: this.numeric(grossAmount, 2),
+      discount_amount: this.numeric(0, 2),
+      tax_amount: this.numeric(taxAmount, 2),
+      charges_amount: this.numeric(0, 2),
+      total_amount: this.numeric(totalAmount, 2),
+      paid_amount: this.numeric(0, 2),
+      balance_amount: this.numeric(totalAmount, 2),
+      status: 'ISSUED',
+      created_by: userId,
+      updated_by: userId,
+    });
+
+    return invoiceRepository.save(invoice);
+  }
+
+  private async nextInvoiceNumber(companyId: string): Promise<string> {
+    const repository = this.dataSource.getRepository(Invoice);
+    const prefix = `INV-${new Date().getFullYear()}-`;
+    const last = await repository
+      .createQueryBuilder('invoice')
+      .where('invoice.company_id = :companyId', { companyId })
+      .andWhere('invoice.invoice_no LIKE :prefix', {
+        prefix: `${prefix}%`,
+      })
+      .orderBy('invoice.invoice_no', 'DESC')
+      .limit(1)
+      .getOne();
+
+    const current = last?.invoice_no ?? '';
+    const next = current ? Number(current.substring(prefix.length)) + 1 : 1;
+    return `${prefix}${String(next).padStart(5, '0')}`;
+  }
+
+  private async assertDraftDeletionAllowed(
+    companyId: string,
+    quotation: Quotation,
+  ): Promise<void> {
+    if (quotation.submitted_at) {
+      throw new ConflictException('A submitted quotation cannot be deleted');
+    }
+
+    if (quotation.status !== QuotationStatus.DRAFT) {
+      throw new ConflictException('Only draft quotations can be deleted');
+    }
+
+    if (quotation.tira_status !== TiraStatus.NOT_SUBMITTED) {
+      throw new ConflictException(
+        'Only quotations that were never submitted to TIRA can be deleted',
+      );
+    }
+
+    if (
+      ![
+        ApprovalStatus.NOT_REQUIRED,
+        ApprovalStatus.NOT_SUBMITTED,
+      ].includes(quotation.approval_status)
+    ) {
+      throw new ConflictException(
+        'Drafts with approval history cannot be deleted',
+      );
+    }
+
+    if (
+      ![
+        PaymentStatus.NOT_REQUIRED,
+        PaymentStatus.NOT_INITIATED,
+      ].includes(quotation.payment_status)
+    ) {
+      throw new ConflictException(
+        'Drafts with payment activity cannot be deleted',
+      );
+    }
+
+    if (
+      quotation.approval_submitted_at ||
+      quotation.approval_decided_at ||
+      quotation.payment_requested_at ||
+      quotation.payment_completed_at ||
+      quotation.tira_request_id ||
+      quotation.tira_response_id
+    ) {
+      throw new ConflictException(
+        'Draft quotations with approval, payment, or TIRA history cannot be deleted',
+      );
+    }
+
+    if (quotation.status_history.length > 0) {
+      throw new ConflictException(
+        'Draft quotations with audit history cannot be deleted',
+      );
+    }
+
+    const [invoiceCount, receiptCount, paymentTransactionCount, portalCount, trackingCount] =
+      await Promise.all([
+        this.dataSource.getRepository(Invoice).count({
+          where: {
+            company_id: companyId,
+            quotation_id: quotation.id,
+          },
+        }),
+        this.dataSource
+          .getRepository(Receipt)
+          .createQueryBuilder('receipt')
+          .innerJoin('receipt.invoice', 'invoice')
+          .where('receipt.company_id = :companyId', { companyId })
+          .andWhere('invoice.quotation_id = :quotationId', {
+            quotationId: quotation.id,
+          })
+          .andWhere('receipt.deleted_at IS NULL')
+          .getCount(),
+        this.dataSource
+          .getRepository(PaymentTransaction)
+          .createQueryBuilder('paymentTransaction')
+          .innerJoin('paymentTransaction.invoice', 'invoice')
+          .where('paymentTransaction.company_id = :companyId', { companyId })
+          .andWhere('invoice.quotation_id = :quotationId', {
+            quotationId: quotation.id,
+          })
+          .andWhere('paymentTransaction.deleted_at IS NULL')
+          .getCount(),
+        this.dataSource.getRepository(PortalTiraSubmission).count({
+          where: {
+            company_id: companyId,
+            quotation_id: quotation.id,
+          },
+        }),
+        this.dataSource
+          .getRepository(TiramisSubmissionTrackingEntity)
+          .createQueryBuilder('tracking')
+          .where('tracking.sourceCompanyId = :companyId', { companyId })
+          .andWhere('tracking.quotationId = :quotationId', {
+            quotationId: quotation.id,
+          })
+          .andWhere('tracking.deletedAt IS NULL')
+          .getCount(),
+      ]);
+
+    if (
+      invoiceCount > 0 ||
+      receiptCount > 0 ||
+      paymentTransactionCount > 0 ||
+      portalCount > 0 ||
+      trackingCount > 0
+    ) {
+      throw new ConflictException(
+        'Draft quotations with approval, payment, TIRA, or financial history cannot be deleted',
+      );
+    }
+  }
+
   private async validateScope(
     companyId: string,
     payload: CreateQuotationDto,
@@ -1420,6 +2391,11 @@ export class QuotationsService {
               product_id: internal.product_id,
               risk_code: In(requestedRiskCodes),
               is_active: true,
+            },
+            relations: {
+              required_factors: {
+                factor: true,
+              },
             },
           })
         : [];
@@ -1679,6 +2655,10 @@ export class QuotationsService {
         if (!configuredRisk) {
           continue;
         }
+        const includeSumInsured = this.shouldIncludeSumInsuredForPricing(
+          configuredRisk,
+          risk.sum_insured,
+        );
 
         const result = await this.pricingQuoteService.calculateSingleRiskQuote(
           companyId,
@@ -1689,12 +2669,15 @@ export class QuotationsService {
               index,
             ),
             risk_id: configuredRisk.id,
-            sum_insured: roundMoney(risk.sum_insured),
+            sum_insured: includeSumInsured
+              ? roundMoney(risk.sum_insured)
+              : undefined,
             factors: this.buildMotorPricingFactors(
               header,
               payload.cover_note_dtl.policy_holders?.[0] ?? null,
               motorDetail,
               risk.sum_insured,
+              includeSumInsured,
             ),
             effective_date: effectiveDate,
             quotation_type: payload.internal_quotation.quotation_type,
@@ -1723,6 +2706,10 @@ export class QuotationsService {
         if (!configuredRisk) {
           continue;
         }
+        const includeSumInsured = this.shouldIncludeSumInsuredForPricing(
+          configuredRisk,
+          risk.sum_insured,
+        );
 
         const result = await this.pricingQuoteService.calculateSingleRiskQuote(
           companyId,
@@ -1733,12 +2720,15 @@ export class QuotationsService {
               entryIndex * 100 + riskIndex,
             ),
             risk_id: configuredRisk.id,
-            sum_insured: roundMoney(risk.sum_insured),
+            sum_insured: includeSumInsured
+              ? roundMoney(risk.sum_insured)
+              : undefined,
             factors: this.buildMotorPricingFactors(
               header,
               payload.cover_note_dtl.policy_holders?.[0] ?? null,
               entry.motor_dtl,
               risk.sum_insured,
+              includeSumInsured,
             ),
             effective_date: effectiveDate,
             quotation_type: payload.internal_quotation.quotation_type,
@@ -1773,9 +2763,9 @@ export class QuotationsService {
     policyHolder: PolicyHolderDto | null,
     motorDetail: MotorDetailDto,
     sumInsured: number,
+    includeSumInsured: boolean,
   ): Record<string, string | number | boolean> {
-    return {
-      sum_insured: roundMoney(sumInsured),
+    const factors: Record<string, string | number | boolean> = {
       payment_mode: this.resolvePaymentModeFactorValue(header.payment_mode),
       currency_code: header.currency_code.trim().toUpperCase(),
       exchange_rate: header.exchange_rate,
@@ -1802,6 +2792,28 @@ export class QuotationsService {
       owner_name: motorDetail.owner_name.trim(),
       owner_category: String(motorDetail.owner_category),
     };
+
+    if (includeSumInsured) {
+      factors.sum_insured = roundMoney(sumInsured);
+    }
+
+    return factors;
+  }
+
+  private shouldIncludeSumInsuredForPricing(
+    risk: InsuranceRisk,
+    sumInsured: number,
+  ): boolean {
+    if (roundMoney(sumInsured) > 0) {
+      return true;
+    }
+
+    return (risk.required_factors ?? []).some(
+      (requiredFactor) =>
+        requiredFactor?.is_required === true &&
+        typeof requiredFactor.factor?.code === 'string' &&
+        requiredFactor.factor.code.trim().toLowerCase() === 'sum_insured',
+    );
   }
 
   private resolvePaymentModeFactorValue(paymentMode: number): string {

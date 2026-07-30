@@ -21,10 +21,11 @@ import { departmentsApi } from '@/modules/tenant/departments/api/departments';
 import { getApiErrorMessage } from '@/lib/api-error';
 import type { InsuranceBusinessLine } from '@/types/product-engine';
 import { quotationsApi } from './api';
-import { buildQuotationPayload } from './schemas';
+import { buildQuotationDraftPayload, buildQuotationPayload } from './schemas';
 import type { QuotationFormSchemaValues } from './schemas';
 import type {
   DecideQuotationPremiumOverridePayload,
+  QuotationDraftRecordPayload,
   QuotationDetailRecord,
   QuotationListParams,
   QuotationPreviewRecord,
@@ -34,13 +35,17 @@ import type {
   QuotationStatusTransitionAction,
   TransitionQuotationStatusPayload,
 } from './types';
-import type { QuotationUpdatePayload } from './api';
+import type {
+  QuotationDraftUpdatePayload,
+  QuotationUpdatePayload,
+} from './api';
 
 const quotationKeys = {
   all: ['quotations'] as const,
   list: (params: QuotationListParams) =>
     ['quotations', 'list', params] as const,
   detail: (id: string) => ['quotations', 'detail', id] as const,
+  editDetail: (id: string) => ['quotations', 'edit-detail', id] as const,
   preview: (id: string) => ['quotations', 'preview', id] as const,
   payload: (id: string) => ['quotations', 'payload', id] as const,
 };
@@ -156,6 +161,15 @@ export function useQuotationDetail(id?: string) {
   });
 }
 
+export function useQuotationEditDetail(id?: string) {
+  return useQuery({
+    queryKey: id ? quotationKeys.editDetail(id) : quotationKeys.editDetail(''),
+    queryFn: () => quotationsApi.getForEdit(id!),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+}
+
 export function useQuotationPreview(id?: string) {
   return useQuery({
     queryKey: id ? quotationKeys.preview(id) : quotationKeys.preview(''),
@@ -258,6 +272,115 @@ export function useDeleteQuotation() {
   });
 }
 
+export function useCreateQuotationDraft() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      values,
+      currentWizardStep,
+    }: {
+      values: QuotationFormSchemaValues;
+      currentWizardStep?: string | null;
+    }) =>
+      quotationsApi.createDraft(
+        buildQuotationDraftPayload(
+          values,
+          currentWizardStep,
+        ) satisfies QuotationDraftRecordPayload,
+      ),
+    onSuccess: (quotation) => {
+      queryClient.invalidateQueries({ queryKey: quotationKeys.all });
+      queryClient.setQueryData(quotationKeys.detail(quotation.id), quotation);
+      queryClient.setQueryData(quotationKeys.editDetail(quotation.id), quotation);
+      toast.success('Quotation draft saved');
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error)),
+  });
+}
+
+export function useUpdateQuotationDraft() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      values,
+      currentWizardStep,
+      expectedUpdatedAt,
+    }: {
+      id: string;
+      values: QuotationFormSchemaValues;
+      currentWizardStep?: string | null;
+      expectedUpdatedAt?: string;
+    }) =>
+      quotationsApi.updateDraft(id, {
+        ...buildQuotationDraftPayload(values, currentWizardStep),
+        expected_updated_at: expectedUpdatedAt,
+      } satisfies QuotationDraftUpdatePayload),
+    onSuccess: (quotation) => {
+      queryClient.invalidateQueries({ queryKey: quotationKeys.all });
+      queryClient.setQueryData(quotationKeys.detail(quotation.id), quotation);
+      queryClient.setQueryData(quotationKeys.editDetail(quotation.id), quotation);
+      toast.success('Quotation draft updated');
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error)),
+  });
+}
+
+export function useDeleteQuotationDraft() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => quotationsApi.deleteDraft(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: quotationKeys.all });
+      toast.success('Quotation draft deleted');
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error)),
+  });
+}
+
+export function useFinalizeQuotation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      values,
+      salePointCode,
+      productCode,
+      existingCustomer,
+      expectedUpdatedAt,
+    }: {
+      id: string;
+      values: QuotationFormSchemaValues;
+      salePointCode: string;
+      productCode: string;
+      existingCustomer?: Parameters<
+        typeof buildQuotationPayload
+      >[1]['existingCustomer'];
+      expectedUpdatedAt?: string;
+    }) =>
+      quotationsApi.finalize(id, {
+        ...buildQuotationPayload(values, {
+          salePointCode,
+          productCode,
+          existingCustomer: existingCustomer ?? null,
+        }),
+        expected_updated_at: expectedUpdatedAt,
+      } satisfies QuotationUpdatePayload),
+    onSuccess: (quotation) => {
+      queryClient.invalidateQueries({ queryKey: quotationKeys.all });
+      queryClient.setQueryData(quotationKeys.detail(quotation.id), quotation);
+      queryClient.setQueryData(quotationKeys.editDetail(quotation.id), quotation);
+      queryClient.invalidateQueries({ queryKey: quotationKeys.preview(quotation.id) });
+      toast.success('Quotation completed');
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error)),
+  });
+}
+
 export function useSubmitQuotation(id?: string) {
   const queryClient = useQueryClient();
 
@@ -272,6 +395,80 @@ export function useSubmitQuotation(id?: string) {
         queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
       }
       toast.success('Quotation submitted to TIRAMIS');
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error)),
+  });
+}
+
+export function useSubmitQuotationForApproval(id?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => quotationsApi.submitForApproval(id!),
+    onSuccess: (quotation) => {
+      queryClient.invalidateQueries({ queryKey: quotationKeys.all });
+      if (id) {
+        queryClient.setQueryData(quotationKeys.detail(id), quotation);
+        queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
+        queryClient.invalidateQueries({ queryKey: quotationKeys.preview(id) });
+      }
+      toast.success('Quotation submitted for approval');
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error)),
+  });
+}
+
+export function useRequestQuotationPayment(id?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => quotationsApi.requestPayment(id!),
+    onSuccess: (quotation) => {
+      queryClient.invalidateQueries({ queryKey: quotationKeys.all });
+      if (id) {
+        queryClient.setQueryData(quotationKeys.detail(id), quotation);
+        queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
+        queryClient.invalidateQueries({ queryKey: quotationKeys.preview(id) });
+      }
+      toast.success('Payment request created');
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error)),
+  });
+}
+
+export function useRetryQuotationTira(id?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => quotationsApi.retryTira(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: quotationKeys.all });
+      if (id) {
+        queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
+        queryClient.invalidateQueries({ queryKey: quotationKeys.preview(id) });
+      }
+      toast.success('TIRAMIS submission retried');
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error)),
+  });
+}
+
+export function useCancelQuotation(id?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (cancellationReason: string) =>
+      quotationsApi.cancel(id!, {
+        cancellation_reason: cancellationReason,
+      }),
+    onSuccess: (quotation) => {
+      queryClient.invalidateQueries({ queryKey: quotationKeys.all });
+      if (id) {
+        queryClient.setQueryData(quotationKeys.detail(id), quotation);
+        queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
+        queryClient.invalidateQueries({ queryKey: quotationKeys.preview(id) });
+      }
+      toast.success('Quotation cancelled');
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });

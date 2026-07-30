@@ -20,6 +20,7 @@ import { readPricingQuoteMetadata } from '@/modules/pricing';
 import type {
   QuotationDetailRecord,
   QuotationDiscountPayload,
+  QuotationDraftRecordPayload,
   QuotationFormValues,
   QuotationPayload,
   QuotationPolicyHolderPayload,
@@ -1714,6 +1715,27 @@ export function buildQuotationPayload(
     default:
       return buildNonMotorQuotationPayload(values, context);
   }
+}
+
+export function buildQuotationDraftPayload(
+  values: QuotationFormSchemaValues,
+  currentWizardStep?: string | null,
+): QuotationDraftRecordPayload {
+  return {
+    insurer_company_id: values.insurer_company_id || null,
+    intermediary_company_id: values.intermediary_company_id || null,
+    department_id: values.department_id || null,
+    customer_id: values.customer_id || null,
+    sub_class_id: values.sub_class_id || null,
+    category_id: values.category_id,
+    product_id: values.product_id,
+    quotation_type: values.quotation_type,
+    quotation_flow: values.quotation_flow,
+    channel_type: values.channel_type,
+    is_fleet: values.is_fleet,
+    current_wizard_step: currentWizardStep ?? null,
+    draft_payload: values as unknown as Record<string, unknown>,
+  };
 }
 
 function mapPolicyHolderToForm(

@@ -512,7 +512,7 @@ export function useRiskPremiumCalculation(
       return undefined;
     }
     if (
-      !requiresSumInsured &&
+      requiresSumInsured &&
       (!Number.isFinite(requestedSumInsured) ||
         (requestedSumInsured ?? 0) <= 0)
     ) {
@@ -526,7 +526,12 @@ export function useRiskPremiumCalculation(
       calculateMutateRef.current(
         {
           risk_id: riskId,
-          sum_insured: requestedSumInsured,
+          sum_insured: requiresSumInsured
+            ? requestedSumInsured
+            : Number.isFinite(requestedSumInsured) &&
+                (requestedSumInsured ?? 0) > 0
+              ? requestedSumInsured
+              : undefined,
           factors: factorValues,
           effective_date: form.getValues('valid_from') as string,
           currency_code:

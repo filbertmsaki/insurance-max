@@ -36,20 +36,23 @@ export class RatingFactorValidatorService {
       normalized[key.trim().toLowerCase()] = value;
     }
 
-    const sumInsured = Number(
-      input.sum_insured ??
-        normalized.sum_insured ??
-        normalized.sum_insured_amount ??
-        0,
-    );
+    const rawSumInsured =
+      input.sum_insured ?? normalized.sum_insured ?? normalized.sum_insured_amount;
+    if (
+      rawSumInsured !== undefined &&
+      rawSumInsured !== null &&
+      !(typeof rawSumInsured === 'string' && rawSumInsured.trim() === '')
+    ) {
+      const sumInsured = Number(rawSumInsured);
+      if (!Number.isFinite(sumInsured) || sumInsured < 0) {
+        throw new BadRequestException(
+          'sum_insured must be a valid non-negative number',
+        );
+      }
 
-    if (!Number.isFinite(sumInsured) || sumInsured < 0) {
-      throw new BadRequestException(
-        'sum_insured must be a valid non-negative number',
-      );
+      normalized.sum_insured = sumInsured;
     }
 
-    normalized.sum_insured = sumInsured;
     return normalized;
   }
 

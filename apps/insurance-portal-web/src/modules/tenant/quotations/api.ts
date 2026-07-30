@@ -5,6 +5,7 @@ import {
 } from '@/modules/shared/api/pagination';
 import type {
   DecideQuotationPremiumOverridePayload,
+  QuotationDraftRecordPayload,
   QuotationDetailRecord,
   QuotationListItem,
   QuotationListParams,
@@ -16,6 +17,10 @@ import type {
 } from './types';
 
 export type QuotationUpdatePayload = QuotationPayload & {
+  expected_updated_at?: string;
+};
+
+export type QuotationDraftUpdatePayload = QuotationDraftRecordPayload & {
   expected_updated_at?: string;
 };
 
@@ -62,6 +67,10 @@ export const quotationsApi = {
     apiClient
       .get<QuotationDetailRecord>(`/tenant/quotations/${id}`)
       .then((response) => response.data),
+  getForEdit: (id: string) =>
+    apiClient
+      .get<QuotationDetailRecord>(`/tenant/quotations/${id}/edit`)
+      .then((response) => response.data),
   getPreview: (id: string) =>
     apiClient
       .get<QuotationPreviewRecord>(`/tenant/quotations/${id}/preview`)
@@ -74,9 +83,29 @@ export const quotationsApi = {
     apiClient
       .post<QuotationDetailRecord>('/tenant/quotations', data)
       .then((response) => response.data),
+  createDraft: (data: QuotationDraftRecordPayload) =>
+    apiClient
+      .post<QuotationDetailRecord>('/tenant/quotations/drafts', data)
+      .then((response) => response.data),
   update: (id: string, data: QuotationUpdatePayload) =>
     apiClient
       .put<QuotationDetailRecord>(`/tenant/quotations/${id}`, data)
+      .then((response) => response.data),
+  updateDraft: (id: string, data: QuotationDraftUpdatePayload) =>
+    apiClient
+      .put<QuotationDetailRecord>(`/tenant/quotations/${id}/draft`, data)
+      .then((response) => response.data),
+  finalize: (id: string, data: QuotationUpdatePayload) =>
+    apiClient
+      .post<QuotationDetailRecord>(`/tenant/quotations/${id}/finalize`, data)
+      .then((response) => response.data),
+  submitForApproval: (id: string) =>
+    apiClient
+      .post<QuotationDetailRecord>(`/tenant/quotations/${id}/submit-for-approval`)
+      .then((response) => response.data),
+  requestPayment: (id: string) =>
+    apiClient
+      .post<QuotationDetailRecord>(`/tenant/quotations/${id}/request-payment`)
       .then((response) => response.data),
   submit: (
     id: string,
@@ -84,6 +113,14 @@ export const quotationsApi = {
   ) =>
     apiClient
       .post<QuotationSubmitResponse>(`/tenant/quotations/${id}/submit`, data)
+      .then((response) => response.data),
+  retryTira: (id: string) =>
+    apiClient
+      .post<QuotationSubmitResponse>(`/tenant/quotations/${id}/retry-tira`)
+      .then((response) => response.data),
+  cancel: (id: string, data: { cancellation_reason: string }) =>
+    apiClient
+      .post<QuotationDetailRecord>(`/tenant/quotations/${id}/cancel`, data)
       .then((response) => response.data),
   transitionStatus: (id: string, data: TransitionQuotationStatusPayload) =>
     apiClient
@@ -127,5 +164,9 @@ export const quotationsApi = {
   delete: (id: string) =>
     apiClient
       .delete(`/tenant/quotations/${id}`)
+      .then((response) => response.data),
+  deleteDraft: (id: string) =>
+    apiClient
+      .delete(`/tenant/quotations/${id}/draft`)
       .then((response) => response.data),
 };

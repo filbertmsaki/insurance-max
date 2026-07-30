@@ -203,6 +203,9 @@ export function resolveFactorValues(
   const isMotorFlow = formValues.quotation_type === 'MOTOR';
   const rowFactorValues = formValues.risks[riskIndex]?.factor_values ?? {};
   const values: Record<string, FactorValue> = {};
+  const requiresSumInsured = requiredFactors.some(
+    (requiredFactor) => requiredFactor.factor.code === 'sum_insured',
+  );
 
   requiredFactors.forEach((requiredFactor) => {
     const code = requiredFactor.factor.code;
@@ -217,10 +220,13 @@ export function resolveFactorValues(
     values[code] = coerceFactorValue(raw, requiredFactor.factor.data_type);
   });
 
-  values.sum_insured = resolveEffectiveSumInsured(
+  const resolvedSumInsured = resolveEffectiveSumInsured(
     formValues.risks[riskIndex]?.sum_insured,
     rowFactorValues,
   );
+  if (requiresSumInsured || resolvedSumInsured > 0) {
+    values.sum_insured = resolvedSumInsured;
+  }
 
   return values;
 }
@@ -260,6 +266,9 @@ export function resolveFleetFactorValues(
   context?: QuotationFactorContext,
 ): Record<string, FactorValue> {
   const values: Record<string, FactorValue> = {};
+  const requiresSumInsured = requiredFactors.some(
+    (requiredFactor) => requiredFactor.factor.code === 'sum_insured',
+  );
 
   requiredFactors.forEach((requiredFactor) => {
     const code = requiredFactor.factor.code;
@@ -271,7 +280,11 @@ export function resolveFleetFactorValues(
     values[code] = coerceFactorValue(raw, requiredFactor.factor.data_type);
   });
 
-  values.sum_insured = Number(item.risks_covered[riskIndex]?.sum_insured) || 0;
+  const resolvedSumInsured =
+    Number(item.risks_covered[riskIndex]?.sum_insured) || 0;
+  if (requiresSumInsured || resolvedSumInsured > 0) {
+    values.sum_insured = resolvedSumInsured;
+  }
 
   return values;
 }

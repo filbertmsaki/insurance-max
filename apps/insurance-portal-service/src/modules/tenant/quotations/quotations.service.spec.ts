@@ -42,7 +42,7 @@ describe('QuotationsService', () => {
       quote_scope: 'SINGLE_RISK',
       calculation_status: 'CALCULATED',
       calculated_at: new Date('2026-07-27T08:00:00.000Z'),
-      expires_at: new Date('2026-07-30T08:00:00.000Z'),
+      expires_at: new Date('2026-08-30T08:00:00.000Z'),
       product_id: 'product-1',
       risk_id: 'risk-1',
       quotation_type: authoritativePayload.internal_quotation.quotation_type,
@@ -751,6 +751,37 @@ describe('QuotationsService', () => {
         fixture.pricingQuoteService.calculateSingleRiskQuote,
       ).toHaveBeenCalled();
       expect(fixture.dataSource.transaction).toHaveBeenCalled();
+    });
+
+    it('omits zero sum insured when a risk does not require it during save recalculation', async () => {
+      const fixture = createServiceFixture();
+      const payload = stubNonPricingConcerns(fixture);
+      payload.cover_note_dtl.risks_covered[0].sum_insured = 0;
+      payload.cover_note_dtl.risks_covered[0].sum_insured_equivalent = 0;
+      jest.spyOn(fixture.service as any, 'validateScope').mockResolvedValue({
+        product: { id: 'product-1' },
+        riskByCode: new Map([
+          ['SP005001000001', { id: 'risk-1', required_factors: [] }],
+        ]),
+      });
+
+      await expect(
+        fixture.service.create('company-1', payload, pricingUser),
+      ).resolves.toBeDefined();
+
+      expect(
+        fixture.pricingQuoteService.calculateSingleRiskQuote,
+      ).toHaveBeenCalledWith(
+        'company-1',
+        expect.objectContaining({
+          sum_insured: undefined,
+          factors: expect.not.objectContaining({
+            sum_insured: expect.anything(),
+          }),
+        }),
+        pricingUser.id,
+        pricingUser,
+      );
     });
 
     it('rejects a pricing quote that cannot be found for the current company (cross-company access)', async () => {
