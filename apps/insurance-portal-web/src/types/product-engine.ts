@@ -10,11 +10,15 @@ export type RateType =
 
 export type FactorDataType =
   | 'NUMBER'
+  | 'DECIMAL'
+  | 'INTEGER'
   | 'TEXT'
   | 'DATE'
   | 'BOOLEAN'
   | 'SELECT'
   | 'MULTI_SELECT';
+
+export type FactorUnit = 'CURRENCY' | 'SEAT' | 'TONNE' | 'YEAR';
 
 export type ConditionOperator =
   | 'EQUALS'
@@ -210,6 +214,7 @@ export interface RatingFactor {
   code: string;
   name: string;
   data_type: FactorDataType;
+  unit: FactorUnit | null;
   options: string[] | null;
   default_value: string | null;
   is_required: boolean;
@@ -221,6 +226,7 @@ export interface CreateFactorDto {
   code: string;
   name: string;
   data_type: FactorDataType;
+  unit?: FactorUnit | null;
   options?: string[];
   default_value?: string;
   is_required?: boolean;
@@ -231,6 +237,7 @@ export interface UpdateFactorDto {
   code?: string;
   name?: string;
   data_type?: FactorDataType;
+  unit?: FactorUnit | null;
   options?: string[] | null;
   default_value?: string | null;
   is_required?: boolean;
@@ -254,6 +261,17 @@ export interface RiskRequiredFactor {
   factor: RatingFactor;
   is_required: boolean;
   sort_order: number;
+}
+
+export interface RiskRatingRequirements {
+  risk_id: string;
+  risk_code: string;
+  risk_name: string;
+  product_id: string;
+  product_code: string | null;
+  product_name: string | null;
+  pricing_available: boolean;
+  required_factors: RiskRequiredFactor[];
 }
 
 export interface CreateRequiredFactorDto {
@@ -686,7 +704,7 @@ export interface PricingAdjustmentRequest {
 export interface SingleCalcRequest {
   client_reference?: string;
   risk_id: string;
-  sum_insured: number;
+  sum_insured?: number;
   factors: Record<string, string | number | boolean>;
   effective_date?: string;
   currency_code?: string;

@@ -3,6 +3,7 @@ import type {
   MultiCalcRequest,
   MultiCalcResponse,
   RiskPremiumResult,
+  RiskRatingRequirements,
   RiskRequiredFactor,
   RiskRuleExplanation,
   SingleCalcRequest,
@@ -17,6 +18,7 @@ export type PricingSingleRiskResult = RiskPremiumResult;
 export type PricingMultiRiskResult = MultiCalcResponse;
 export type PricingMultiRiskFailure = MultiCalcFailure;
 export type PricingRequiredFactor = RiskRequiredFactor;
+export type PricingRatingRequirements = RiskRatingRequirements;
 export type PricingRuleExplanation = RiskRuleExplanation;
 
 export type PricingCalculationState =

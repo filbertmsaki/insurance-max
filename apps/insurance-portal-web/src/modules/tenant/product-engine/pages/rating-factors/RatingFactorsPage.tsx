@@ -28,16 +28,28 @@ import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
 import {
   useFactorList, useCreateFactor, useUpdateFactor, useDeleteFactor,
 } from '@/modules/tenant/product-engine/hooks'
-import type { RatingFactor, FactorDataType } from '@/types/product-engine'
+import type { RatingFactor, FactorDataType, FactorUnit } from '@/types/product-engine'
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
-const DATA_TYPES: FactorDataType[] = ['NUMBER', 'TEXT', 'DATE', 'BOOLEAN', 'SELECT', 'MULTI_SELECT']
+const DATA_TYPES: FactorDataType[] = ['NUMBER', 'DECIMAL', 'INTEGER', 'TEXT', 'DATE', 'BOOLEAN', 'SELECT', 'MULTI_SELECT']
+const UNIT_OPTIONS: FactorUnit[] = ['CURRENCY', 'SEAT', 'TONNE', 'YEAR']
+const NO_UNIT_VALUE = '__NONE__'
 
 const schema = z.object({
   code: z.string().min(1).max(50).toLowerCase().regex(/^[a-z0-9_]+$/, 'lowercase letters, digits, underscores only'),
   name: z.string().min(1).max(120),
-  data_type: z.enum(['NUMBER', 'TEXT', 'DATE', 'BOOLEAN', 'SELECT', 'MULTI_SELECT']),
+  data_type: z.enum([
+    'NUMBER',
+    'DECIMAL',
+    'INTEGER',
+    'TEXT',
+    'DATE',
+    'BOOLEAN',
+    'SELECT',
+    'MULTI_SELECT',
+  ]),
+  unit: z.union([z.literal(''), z.enum(['CURRENCY', 'SEAT', 'TONNE', 'YEAR'])]).optional(),
   options: z.array(z.string()).optional(),
   default_value: z.string().optional(),
   is_required: z.boolean(),
@@ -104,6 +116,8 @@ function TagInput({
 function DataTypeBadge({ type }: { type: FactorDataType }) {
   const colors: Record<FactorDataType, string> = {
     NUMBER: 'bg-blue-50 text-blue-700 border-blue-200',
+    DECIMAL: 'bg-cyan-50 text-cyan-700 border-cyan-200',
+    INTEGER: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     TEXT: 'bg-slate-50 text-slate-700 border-slate-200',
     DATE: 'bg-purple-50 text-purple-700 border-purple-200',
     BOOLEAN: 'bg-yellow-50 text-yellow-700 border-yellow-200',
@@ -142,7 +156,7 @@ export function RatingFactorsPage() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { code: '', name: '', data_type: 'NUMBER', options: [], default_value: '', is_required: false, is_active: true },
+    defaultValues: { code: '', name: '', data_type: 'DECIMAL', unit: '', options: [], default_value: '', is_required: false, is_active: true },
   })
 
   const watchedDataType = form.watch('data_type')
@@ -154,7 +168,7 @@ export function RatingFactorsPage() {
 
   function openCreate() {
     setEditItem(null)
-    form.reset({ code: '', name: '', data_type: 'NUMBER', options: [], default_value: '', is_required: false, is_active: true })
+    form.reset({ code: '', name: '', data_type: 'DECIMAL', unit: '', options: [], default_value: '', is_required: false, is_active: true })
     setDialogOpen(true)
   }
 
@@ -164,6 +178,7 @@ export function RatingFactorsPage() {
       code: item.code,
       name: item.name,
       data_type: item.data_type,
+      unit: item.unit ?? '',
       options: item.options ?? [],
       default_value: item.default_value ?? '',
       is_required: item.is_required,
@@ -175,6 +190,7 @@ export function RatingFactorsPage() {
   function onSubmit(values: FormValues) {
     const payload = {
       ...values,
+      unit: values.unit || undefined,
       options: showOptions ? (values.options ?? []) : undefined,
       default_value: values.default_value || undefined,
     }
@@ -353,6 +369,28 @@ export function RatingFactorsPage() {
                         </FormControl>
                         <SelectContent>
                           {DATA_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="unit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Unit</FormLabel>
+                      <Select
+                        value={field.value || NO_UNIT_VALUE}
+                        onValueChange={(value) => field.onChange(value === NO_UNIT_VALUE ? '' : value)}
+                      >
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Optional unit" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={NO_UNIT_VALUE}>None</SelectItem>
+                          {UNIT_OPTIONS.map((unit) => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
                         </SelectContent>
                       </Select>
                       <FormMessage />

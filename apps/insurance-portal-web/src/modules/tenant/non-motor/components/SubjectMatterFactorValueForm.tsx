@@ -112,14 +112,14 @@ export function SubjectMatterFactorValueForm({ subjectMatterId, factors, isPendi
               </FormItem>
             )}
           />
-        ) : dataType === 'NUMBER' ? (
+        ) : dataType === 'NUMBER' || dataType === 'DECIMAL' || dataType === 'INTEGER' ? (
           <FormField
             control={form.control}
             name="value_number"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Value</FormLabel>
-                <FormControl><Input type="number" step="any" {...field} value={field.value == null ? '' : String(field.value)} /></FormControl>
+                <FormControl><Input type="number" step={dataType === 'INTEGER' ? '1' : 'any'} {...field} value={field.value == null ? '' : String(field.value)} /></FormControl>
                 <FormMessage />
               </FormItem>
             )}

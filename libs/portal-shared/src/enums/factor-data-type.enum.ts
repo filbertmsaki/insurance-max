@@ -1,6 +1,8 @@
 export enum FactorDataType {
   TEXT = 'TEXT',
   NUMBER = 'NUMBER',
+  DECIMAL = 'DECIMAL',
+  INTEGER = 'INTEGER',
   DATE = 'DATE',
   BOOLEAN = 'BOOLEAN',
   SELECT = 'SELECT',

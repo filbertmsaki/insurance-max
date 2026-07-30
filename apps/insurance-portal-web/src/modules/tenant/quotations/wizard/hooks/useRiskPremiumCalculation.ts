@@ -27,7 +27,7 @@ const CALCULATION_DEBOUNCE_MS = 400;
 // the real debounced backend call) is temporarily disabled while the
 // calculation flow is reworked. Flip back to false to restore it — the
 // effects below are left intact, just short-circuited.
-const AUTO_CALCULATION_DISABLED = true;
+const AUTO_CALCULATION_DISABLED = false;
 
 interface ProductTaxRuleRecord {
   id: string;
@@ -429,8 +429,7 @@ export function useRiskPremiumCalculation(
     if (!riskId) return undefined;
 
     const hasCommittedSumInsured = committedSumInsured !== '';
-    const hasNonMotorInputs =
-      quotationType === 'NON_MOTOR' &&
+    const hasFactorInputs =
       Object.entries(factorValues).some(
         ([code, value]) =>
           code !== 'sum_insured' &&
@@ -438,20 +437,30 @@ export function useRiskPremiumCalculation(
           value !== null &&
           value !== undefined,
       );
+    const canCalculateWithoutInputs = requiredFactors.length === 0;
 
-    if (!hasCommittedSumInsured && !hasNonMotorInputs) return undefined;
+    if (!hasCommittedSumInsured && !hasFactorInputs && !canCalculateWithoutInputs) {
+      return undefined;
+    }
     if (selectedTaxCodes.length > 0 && taxRulesQuery.isLoading) return undefined;
 
     timeoutRef.current = setTimeout(() => {
       const token = ++requestTokenRef.current;
+      const explicitSumInsured = Number(
+        form.getValues(path(index, 'sum_insured')) as string,
+      );
+      const factorSumInsured = Number(factorValues.sum_insured);
+      const requestedSumInsured =
+        explicitSumInsured > 0
+          ? explicitSumInsured
+          : factorSumInsured > 0
+            ? factorSumInsured
+            : undefined;
 
       calculateMutateRef.current(
         {
           risk_id: riskId,
-          sum_insured:
-            Number(form.getValues(path(index, 'sum_insured')) as string) ||
-            Number(factorValues.sum_insured) ||
-            0,
+          sum_insured: requestedSumInsured,
           factors: factorValues,
           effective_date: form.getValues('valid_from') as string,
           currency_code:

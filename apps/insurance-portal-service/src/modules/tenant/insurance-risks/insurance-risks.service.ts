@@ -9,6 +9,8 @@ import { QueryFailedError, Repository } from 'typeorm';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
+import { RiskRequiredFactor } from '../risk-required-factors/entities/risk-required-factor.entity';
+import { isMotorProductCode } from '../pricing/domain/motor-rating.config';
 import { CreateInsuranceRiskDto } from './dto/create-insurance-risk.dto';
 import { FilterInsuranceRiskDto } from './dto/filter-insurance-risk.dto';
 import { UpdateInsuranceRiskDto } from './dto/update-insurance-risk.dto';
@@ -26,6 +28,9 @@ export class InsuranceRisksService {
 
     @InjectRepository(InsuranceSubClass)
     private readonly subClassRepository: Repository<InsuranceSubClass>,
+
+    @InjectRepository(RiskRequiredFactor)
+    private readonly requiredFactorRepository: Repository<RiskRequiredFactor>,
 
     private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
   ) {}
@@ -47,6 +52,34 @@ export class InsuranceRisksService {
     });
     if (!risk) throw new NotFoundException('Insurance risk not found');
     return risk;
+  }
+
+  async getRatingRequirements(companyId: string, riskId: string) {
+    const risk = await this.riskRepository.findOne({
+      where: { id: riskId, company_id: companyId, is_active: true },
+      relations: { product: true },
+    });
+    if (!risk) throw new NotFoundException('Insurance risk not found');
+
+    const requiredFactors = await this.requiredFactorRepository.find({
+      where: {
+        company_id: companyId,
+        risk_id: riskId,
+      },
+      relations: { factor: true },
+      order: { sort_order: 'ASC', created_at: 'ASC' },
+    });
+
+    return {
+      risk_id: risk.id,
+      risk_code: risk.risk_code,
+      risk_name: risk.risk_name,
+      product_id: risk.product_id,
+      product_code: risk.product?.product_code ?? null,
+      product_name: risk.product?.product_name ?? null,
+      pricing_available: isMotorProductCode(risk.product?.product_code ?? null),
+      required_factors: requiredFactors.filter((item) => item.factor?.is_active),
+    };
   }
 
   // ─── CRUD ─────────────────────────────────────────────────────────────────────

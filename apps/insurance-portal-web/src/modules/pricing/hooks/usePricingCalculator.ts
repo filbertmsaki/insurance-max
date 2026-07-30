@@ -1,5 +1,4 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useRequiredFactorsByRisk } from '@/modules/tenant/product-engine/hooks/useRequiredFactors';
 import { useRuleList } from '@/modules/tenant/product-engine/hooks/useRatingRules';
 import { pricingApi } from '../api/pricing';
 
@@ -18,8 +17,23 @@ export function usePricingCalculator() {
   };
 }
 
+export function usePricingRatingRequirements(riskId?: string) {
+  return useQuery({
+    queryKey: ['pricing', 'rating-requirements', riskId ?? 'none'],
+    queryFn: () => pricingApi.getRatingRequirements(riskId!),
+    enabled: !!riskId,
+    staleTime: 30_000,
+  });
+}
+
 export function usePricingRequiredFactors(riskId: string) {
-  return useRequiredFactorsByRisk(riskId);
+  return useQuery({
+    queryKey: ['pricing', 'rating-requirements', riskId || 'none'],
+    queryFn: () => pricingApi.getRatingRequirements(riskId),
+    select: (data) => data.required_factors,
+    enabled: !!riskId,
+    staleTime: 30_000,
+  });
 }
 
 export function usePricingRulePreview(riskId: string) {

@@ -46,6 +46,7 @@ export class PricingEngineService {
       companyId,
       input.risk_id,
     );
+    this.pricingValidationService.assertPricingConfigurationAvailable(risk);
 
     const factorValues =
       this.ratingFactorValidatorService.normalizeInputFactors(input);
@@ -54,12 +55,18 @@ export class PricingEngineService {
         companyId,
         input.risk_id,
         factorValues,
+        input.effective_date ?? null,
       );
     if (!validationResult.calculation_allowed) {
       throw new BadRequestException(
         this.buildValidationFailurePayload(validationResult),
       );
     }
+    this.pricingValidationService.assertMotorRiskSelectionMatches(
+      risk,
+      validationResult.normalized_factor_values,
+      input.effective_date ?? null,
+    );
 
     const matchingRule = await this.ratingRuleMatcherService.findFirstMatchingRule(
       companyId,
@@ -187,7 +194,7 @@ export class PricingEngineService {
       premium_rate_percent: displayPercentageFromRate(
         breakdown.percentage_rate ?? 0,
       ),
-      raw_premium: breakdown.base_premium,
+      raw_premium: breakdown.raw_premium,
       sum_insured_equivalent: sumInsured,
       minimum_premium: breakdown.minimum_amount,
       minimum_premium_applied: breakdown.minimum_applied,

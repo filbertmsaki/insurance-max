@@ -79,6 +79,7 @@ function requiredFactor(
       code,
       name: code,
       data_type: dataType,
+      unit: null,
       options: null,
       default_value: null,
       is_required: true,

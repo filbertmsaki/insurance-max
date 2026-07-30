@@ -1,14 +1,14 @@
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
 import { Company } from '../../modules/platform/companies/entities/company.entity';
 import { InsuranceRisk } from '../../modules/tenant/insurance-risks/entities/insurance-risk.entity';
+import {
+  deriveMotorRequiredFactorCodes,
+  isMotorProductCode,
+} from '../../modules/tenant/pricing/domain/motor-rating.config';
 import { RatingFactor } from '../../modules/tenant/rating-factors/entities/rating-factor.entity';
+import { RiskRatingRule } from '../../modules/tenant/risk-rating-rules/entities/risk-rating-rule.entity';
 import { RiskRequiredFactor } from '../../modules/tenant/risk-required-factors/entities/risk-required-factor.entity';
-
-type FactorRequirement = {
-  code: string;
-  isRequired: boolean;
-};
 
 export default class RiskFactorLinkSeeder implements Seeder {
   public async run(
@@ -26,12 +26,14 @@ export default class RiskFactorLinkSeeder implements Seeder {
       const companyRepo = manager.getRepository(Company);
       const riskRepo = manager.getRepository(InsuranceRisk);
       const factorRepo = manager.getRepository(RatingFactor);
+      const ruleRepo = manager.getRepository(RiskRatingRule);
       const requiredFactorRepo = manager.getRepository(RiskRequiredFactor);
       const company = await this.getTargetCompany(companyRepo);
       const linkedCount = await this.linkFactorsForCompany(
         company.id,
         riskRepo,
         factorRepo,
+        ruleRepo,
         requiredFactorRepo,
       );
 
@@ -73,14 +75,18 @@ export default class RiskFactorLinkSeeder implements Seeder {
     companyId: string,
     riskRepo: Repository<InsuranceRisk>,
     factorRepo: Repository<RatingFactor>,
+    ruleRepo: Repository<RiskRatingRule>,
     requiredFactorRepo: Repository<RiskRequiredFactor>,
   ): Promise<number> {
     const risks = await riskRepo.find({
       where: { company_id: companyId, is_active: true },
       relations: { product: true },
     });
+    const motorRisks = risks.filter((risk) =>
+      isMotorProductCode(risk.product?.product_code ?? null),
+    );
 
-    if (risks.length === 0) {
+    if (motorRisks.length === 0) {
       return 0;
     }
 
@@ -90,32 +96,64 @@ export default class RiskFactorLinkSeeder implements Seeder {
     const factorIdByCode = new Map(
       factors.map((factor) => [factor.code.trim().toLowerCase(), factor.id]),
     );
+    const motorRiskIds = motorRisks.map((risk) => risk.id);
+    const rules = await ruleRepo.find({
+      where: {
+        company_id: companyId,
+        risk_id: In(motorRiskIds),
+      },
+    });
+    const rulesByRiskId = new Map<string, RiskRatingRule[]>();
+    for (const rule of rules) {
+      const entries = rulesByRiskId.get(rule.risk_id) ?? [];
+      entries.push(rule);
+      rulesByRiskId.set(rule.risk_id, entries);
+    }
 
     const existingLinks = await requiredFactorRepo.find({
-      where: { company_id: companyId },
+      where: {
+        company_id: companyId,
+        risk_id: In(motorRiskIds),
+      },
     });
-    const existingKeys = new Set(
-      existingLinks.map((link) => `${link.risk_id}::${link.factor_id}`),
+    const existingByKey = new Map(
+      existingLinks.map((link) => [`${link.risk_id}::${link.factor_id}`, link]),
     );
 
-    let created = 0;
+    let changes = 0;
+    const desiredKeys = new Set<string>();
 
-    for (const risk of risks) {
-      const requirements = this.resolveFactorRequirementsForRisk(
-        risk.risk_name,
-        risk.product?.product_name ?? '',
+    for (const risk of motorRisks) {
+      const preferredRule = this.resolvePreferredRule(
+        rulesByRiskId.get(risk.id) ?? [],
       );
+      if (!preferredRule) {
+        continue;
+      }
 
-      let sortOrder = 0;
+      const requiredCodes = deriveMotorRequiredFactorCodes({
+        riskName: risk.risk_name,
+        rateType: preferredRule.rate_type,
+        perUnitFactorCode: preferredRule.per_unit_factor_code,
+      });
 
-      for (const requirement of requirements) {
-        const factorId = factorIdByCode.get(requirement.code);
+      for (const [sortOrder, code] of requiredCodes.entries()) {
+        const factorId = factorIdByCode.get(code);
         if (!factorId) {
           continue;
         }
 
         const linkKey = `${risk.id}::${factorId}`;
-        if (existingKeys.has(linkKey)) {
+        desiredKeys.add(linkKey);
+
+        const existing = existingByKey.get(linkKey);
+        if (existing) {
+          if (!existing.is_required || existing.sort_order !== sortOrder) {
+            existing.is_required = true;
+            existing.sort_order = sortOrder;
+            await requiredFactorRepo.save(existing);
+            changes += 1;
+          }
           continue;
         }
 
@@ -124,85 +162,40 @@ export default class RiskFactorLinkSeeder implements Seeder {
             company_id: companyId,
             risk_id: risk.id,
             factor_id: factorId,
-            is_required: requirement.isRequired,
+            is_required: true,
             sort_order: sortOrder,
           }),
         );
-
-        existingKeys.add(linkKey);
-        created += 1;
-        sortOrder += 1;
+        changes += 1;
       }
     }
 
-    return created;
-  }
-
-  private resolveFactorRequirementsForRisk(
-    riskName: string,
-    productName: string,
-  ): FactorRequirement[] {
-    const text = `${riskName} ${productName}`.toLowerCase();
-    const requirements: FactorRequirement[] = [
-      { code: 'sum_insured', isRequired: true },
-      { code: 'payment_mode', isRequired: true },
-      { code: 'currency_code', isRequired: true },
-      { code: 'exchange_rate', isRequired: true },
-      { code: 'sale_point_code', isRequired: true },
-      { code: 'officer_name', isRequired: true },
-      { code: 'officer_title', isRequired: true },
-      { code: 'policy_holder_type', isRequired: true },
-      { code: 'policy_holder_id_type', isRequired: false },
-      { code: 'region_code', isRequired: false },
-      { code: 'district_code', isRequired: false },
-      { code: 'tax_code', isRequired: false },
-      { code: 'is_tax_exempted', isRequired: false },
-    ];
-
-    const isMotor =
-      /(motor|vehicle|motorcycle|trailer|bus|passenger|commercial)/i.test(text);
-    const isCargoOrMarine =
-      /(marine|cargo|container|haulier|transport|git|icc)/i.test(text);
-
-    if (isMotor) {
-      requirements.push({ code: 'motor_category', isRequired: true });
-      requirements.push({ code: 'motor_type', isRequired: true });
-      requirements.push({ code: 'registration_number', isRequired: true });
-      requirements.push({ code: 'chassis_number', isRequired: true });
-      requirements.push({ code: 'make', isRequired: true });
-      requirements.push({ code: 'model', isRequired: true });
-      requirements.push({ code: 'body_type', isRequired: false });
-      requirements.push({ code: 'engine_number', isRequired: false });
-      requirements.push({ code: 'engine_capacity', isRequired: false });
-      requirements.push({ code: 'fuel_used', isRequired: false });
-      requirements.push({ code: 'year_of_manufacture', isRequired: true });
-      requirements.push({ code: 'motor_usage', isRequired: false });
-      requirements.push({ code: 'owner_name', isRequired: false });
-      requirements.push({ code: 'owner_category', isRequired: false });
-      requirements.push({ code: 'seat_capacity', isRequired: false });
-      requirements.push({ code: 'vehicle_weight_kg', isRequired: false });
-      requirements.push({ code: 'claim_record', isRequired: false });
-      requirements.push({ code: 'cover_type', isRequired: false });
-    }
-
-    if (isCargoOrMarine) {
-      requirements.push({ code: 'cargo_weight_ton', isRequired: true });
-    }
-
-    const unique = new Map<string, FactorRequirement>();
-    for (const requirement of requirements) {
-      const existing = unique.get(requirement.code);
-      if (!existing) {
-        unique.set(requirement.code, requirement);
+    for (const link of existingLinks) {
+      const linkKey = `${link.risk_id}::${link.factor_id}`;
+      if (desiredKeys.has(linkKey)) {
         continue;
       }
 
-      unique.set(requirement.code, {
-        code: requirement.code,
-        isRequired: existing.isRequired || requirement.isRequired,
-      });
+      await requiredFactorRepo.delete(link.id);
+      changes += 1;
     }
 
-    return Array.from(unique.values());
+    return changes;
+  }
+
+  private resolvePreferredRule(
+    rules: RiskRatingRule[],
+  ): RiskRatingRule | null {
+    const preferred = [...rules].sort((left, right) => {
+      const leftScore =
+        (left.is_active ? 4 : 0) + (left.rate_book_id ? 2 : 0) - left.priority;
+      const rightScore =
+        (right.is_active ? 4 : 0) +
+        (right.rate_book_id ? 2 : 0) -
+        right.priority;
+      return rightScore - leftScore;
+    })[0];
+
+    return preferred ?? null;
   }
 }

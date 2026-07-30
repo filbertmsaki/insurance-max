@@ -26,10 +26,12 @@ function FactorInput({
 
   switch (factor.data_type) {
     case 'NUMBER':
+    case 'DECIMAL':
+    case 'INTEGER':
       return (
         <Input
           type="number"
-          step="any"
+          step={factor.data_type === 'INTEGER' ? '1' : 'any'}
           value={String(value ?? '')}
           onChange={(event) =>
             onChange(

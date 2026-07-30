@@ -34,9 +34,9 @@ export class PremiumBreakdownService {
       Number(perUnitFactorCode ? (factorValues[perUnitFactorCode] ?? 0) : 0),
     );
 
-    const basePremium = applyRate(sumInsured, percentageRate);
+    const percentageAmount = applyRate(sumInsured, percentageRate);
     const perUnitPremium = perUnitValue.mul(perUnitAmount);
-    const grossPremium =
+    const rawPremium =
       this.structuredPricingCalculatorService.calculateGrossPremium(
         rule.rate_type,
         {
@@ -45,21 +45,23 @@ export class PremiumBreakdownService {
           fixedAmount,
           perUnitAmount,
           perUnitValue,
-          basePremium,
+          basePremium: percentageAmount,
           perUnitPremium,
         },
         rule.formula,
       );
 
-    let finalPremium = grossPremium;
+    let basePremium = rawPremium;
     let minimumApplied = false;
-    if (minimumAmount.gt(0) && finalPremium.lt(minimumAmount)) {
-      finalPremium = minimumAmount;
+    if (minimumAmount.gt(0) && basePremium.lt(minimumAmount)) {
+      basePremium = minimumAmount;
       minimumApplied = true;
     }
 
     return {
       percentage_rate: roundRate(percentageRate),
+      percentage_amount: roundMoney(percentageAmount),
+      raw_premium: roundMoney(rawPremium),
       base_premium: roundMoney(basePremium),
       per_unit_factor_code: perUnitFactorCode,
       per_unit_value: roundMoney(perUnitValue),
@@ -67,8 +69,8 @@ export class PremiumBreakdownService {
       per_unit_premium: roundMoney(perUnitPremium),
       fixed_amount: roundMoney(fixedAmount),
       minimum_amount: roundMoney(minimumAmount),
-      gross_premium: roundMoney(grossPremium),
-      final_premium: roundMoney(finalPremium),
+      gross_premium: roundMoney(rawPremium),
+      final_premium: roundMoney(basePremium),
       minimum_applied: minimumApplied,
     };
   }

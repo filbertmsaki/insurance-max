@@ -54,6 +54,20 @@ export class InsuranceRisksController {
     return this.service.create(user.companyId!, dto, user.id);
   }
 
+  @Get(':riskId/rating-requirements')
+  @UseGuards(PermissionsGuard)
+  @Permissions('insurance-risks:read')
+  @ApiOperation({
+    summary:
+      'Get pricing rating requirements for a risk, including currently required factors',
+  })
+  async getRatingRequirements(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('riskId', ParseUUIDPipe) riskId: string,
+  ) {
+    return this.service.getRatingRequirements(user.companyId!, riskId);
+  }
+
   @Get(':riskId')
   @UseGuards(PermissionsGuard)
   @Permissions('insurance-risks:read')

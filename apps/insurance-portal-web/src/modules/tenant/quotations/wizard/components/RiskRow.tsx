@@ -130,6 +130,16 @@ export function RiskRow({
     () => (requiredFactorsQuery.data ?? []).map((factor) => factor.factor.code),
     [requiredFactorsQuery.data],
   );
+  const requiresSumInsured =
+    quotationType !== 'MOTOR' ||
+    !riskId ||
+    currentFactorCodes.includes('sum_insured');
+
+  useEffect(() => {
+    if (requiresSumInsured) return;
+    if ((form.getValues(path(index, 'sum_insured')) as string) === '') return;
+    form.setValue(path(index, 'sum_insured'), '');
+  }, [form, index, requiresSumInsured]);
   const previousFactorCodesRef = useRef<string[]>([]);
   useEffect(() => {
     previousFactorCodesRef.current = currentFactorCodes;
@@ -355,28 +365,34 @@ export function RiskRow({
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <FormField
-            control={form.control}
-            name={path(index, 'sum_insured')}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Sum Insured</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    min="0"
-                    {...field}
-                    value={field.value as string}
-                    onBlur={() => {
-                      field.onBlur();
-                      handleSumInsuredBlur();
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
+          {requiresSumInsured ? (
+            <FormField
+              control={form.control}
+              name={path(index, 'sum_insured')}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Sum Insured</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      {...field}
+                      value={field.value as string}
+                      onBlur={() => {
+                        field.onBlur();
+                        handleSumInsuredBlur();
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </WizardFormItem>
+              )}
+            />
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-3 text-sm text-slate-600">
+              Sum insured is not required for the selected Motor risk.
+            </div>
+          )}
           <FormField
             control={form.control}
             name={path(index, 'sum_insured_equivalent')}
@@ -503,12 +519,12 @@ export function RiskRow({
           metadata={pricingMetadata}
         />
 
-        {quotationType === 'NON_MOTOR' ? (
+        {riskId ? (
           <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
             <div>
               <p className="text-sm font-medium text-slate-900">Rating Factors</p>
               <p className="text-xs text-slate-500">
-                These factors are sent to the backend pricing engine for non-motor calculations.
+                These values are sent to the backend pricing engine for the selected risk.
               </p>
             </div>
             <RatingFactorFields

@@ -281,7 +281,13 @@ export class RiskRatingRuleConfigurationValidatorService {
     factor: RatingFactor,
     operator: ConditionOperator,
   ) {
-    if (factor.data_type !== FactorDataType.NUMBER) {
+    if (
+      ![
+        FactorDataType.NUMBER,
+        FactorDataType.DECIMAL,
+        FactorDataType.INTEGER,
+      ].includes(factor.data_type)
+    ) {
       throw new BadRequestException(
         `${operator} conditions require NUMBER rating factors`,
       );

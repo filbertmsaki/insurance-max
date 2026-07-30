@@ -9,6 +9,7 @@ import {
   MaxLength,
 } from 'class-validator';
 import { FactorDataType } from '@insurance-max/portal-shared/enums/factor-data-type.enum';
+import { FactorUnit } from '@insurance-max/portal-shared/enums/factor-unit.enum';
 
 export class CreateRatingFactorDto {
   @ApiProperty({
@@ -26,9 +27,18 @@ export class CreateRatingFactorDto {
   @MaxLength(150)
   name: string;
 
-  @ApiProperty({ enum: FactorDataType, example: FactorDataType.NUMBER })
+  @ApiProperty({ enum: FactorDataType, example: FactorDataType.DECIMAL })
   @IsEnum(FactorDataType)
   data_type: FactorDataType;
+
+  @ApiPropertyOptional({
+    enum: FactorUnit,
+    example: FactorUnit.CURRENCY,
+    description: 'Optional unit for numeric pricing factors',
+  })
+  @IsOptional()
+  @IsEnum(FactorUnit)
+  unit?: FactorUnit | null;
 
   @ApiPropertyOptional({
     type: [String],

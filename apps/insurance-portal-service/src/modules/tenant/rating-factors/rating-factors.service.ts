@@ -61,6 +61,7 @@ export class RatingFactorsService {
       code: dto.code.trim().toLowerCase(),
       name: dto.name.trim(),
       data_type: dto.data_type,
+      unit: dto.unit ?? null,
       options: dto.options ?? null,
       default_value: dto.default_value ?? null,
       is_required: dto.is_required ?? false,
@@ -162,6 +163,7 @@ export class RatingFactorsService {
     if (dto.code !== undefined) factor.code = dto.code.trim().toLowerCase();
     if (dto.name !== undefined) factor.name = dto.name.trim();
     if (dto.data_type !== undefined) factor.data_type = dto.data_type;
+    if (dto.unit !== undefined) factor.unit = dto.unit ?? null;
     if (dto.options !== undefined) factor.options = dto.options ?? null;
     if (dto.default_value !== undefined)
       factor.default_value = dto.default_value ?? null;

@@ -14,7 +14,7 @@ export type PricingAdjustmentType = 'PERCENTAGE' | 'FIXED' | 'NONE';
 export interface PricingSingleRiskInput {
   client_reference?: string;
   risk_id: string;
-  sum_insured: number;
+  sum_insured?: number;
   factors: PricingFactorValues;
   factor_values?: PricingFactorValues;
   effective_date?: string;
@@ -341,6 +341,8 @@ export interface RiskRuleExplanation {
 
 export interface RuleCalculationBreakdown {
   percentage_rate: number;
+  percentage_amount: number;
+  raw_premium: number;
   base_premium: number;
   per_unit_factor_code: string | null;
   per_unit_value: number;

@@ -2,6 +2,7 @@ import { apiClient } from '@/modules/shared/api/client';
 import type {
   PricingMultiRiskRequest,
   PricingMultiRiskResult,
+  PricingRatingRequirements,
   PricingRuleExplanation,
   PricingSingleRiskRequest,
   PricingSingleRiskResult,
@@ -21,5 +22,12 @@ export const pricingApi = {
   explainRisk: (riskId: string) =>
     apiClient
       .get<PricingRuleExplanation>(`/premium-calculation/explain/${riskId}`)
+      .then((response) => response.data),
+
+  getRatingRequirements: (riskId: string) =>
+    apiClient
+      .get<PricingRatingRequirements>(
+        `/insurance-risks/${riskId}/rating-requirements`,
+      )
       .then((response) => response.data),
 };

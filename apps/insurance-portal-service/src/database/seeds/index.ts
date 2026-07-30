@@ -9,6 +9,7 @@ import TiramisCompanySetupSeeder from './005-tiramis-company-setup.seed';
 import TiramisBusinessRecordsSeeder from './006-tiramis-business-records.seed';
 import TiramisLookupsSeeder from './007-tiramis-lookups.seed';
 import AllianceCustomerVehiclesSeeder from './008-alliance-customer-vehicles.seed';
+import MotorPricingSeeder from './009-motor-pricing.seed';
 
 const productionSeeders = [
   PlatformIdpSeeder,
@@ -18,6 +19,7 @@ const productionSeeders = [
   ProductEngineSeeder,
   RatingFactorsSeeder,
   RiskFactorLinkSeeder,
+  MotorPricingSeeder,
   AllianceCustomerVehiclesSeeder,
 ];
 

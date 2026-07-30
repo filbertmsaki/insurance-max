@@ -11,6 +11,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { FactorDataType } from '@insurance-max/portal-shared/enums/factor-data-type.enum';
+import { FactorUnit } from '@insurance-max/portal-shared/enums/factor-unit.enum';
 import { Company } from '../../../platform/companies/entities/company.entity';
 
 @Entity('rating_factors')
@@ -37,6 +38,13 @@ export class RatingFactor {
     default: FactorDataType.NUMBER,
   })
   data_type: FactorDataType;
+
+  @Column({
+    type: 'varchar',
+    enum: FactorUnit,
+    nullable: true,
+  })
+  unit: FactorUnit | null;
 
   @Column({
     type: 'simple-json',

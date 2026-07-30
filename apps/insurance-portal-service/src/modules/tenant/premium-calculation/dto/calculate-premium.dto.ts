@@ -53,13 +53,14 @@ export class CalculateSingleRiskPremiumDto {
   @IsNotEmpty()
   risk_id: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 10000000,
     description:
-      'Sum insured used for percentage calculations. This is preferred over embedding sum_insured inside factors.',
+      'Sum insured used for percentage calculations. Required only for risks whose pricing model depends on it.',
   })
+  @IsOptional()
   @IsNumber()
-  sum_insured: number;
+  sum_insured?: number;
 
   @ApiProperty({
     type: Object,

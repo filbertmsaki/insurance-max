@@ -41,6 +41,7 @@ const MOTOR_USAGE_CODE_TO_FACTOR_VALUE: Record<string, string> = {
 const MOTOR_FACTOR_FIELD_MAP: Partial<Record<string, keyof MotorDetails>> = {
   year_of_manufacture: 'manufacture_year',
   seat_capacity: 'seating_capacity',
+  gross_weight_tons: 'tonnage',
   vehicle_weight_kg: 'gross_weight',
   cargo_weight_ton: 'tonnage',
   motor_usage: 'motor_usage_code',
@@ -63,6 +64,7 @@ const FLEET_MOTOR_FACTOR_FIELD_MAP: Partial<
 > = {
   year_of_manufacture: 'year_of_manufacture',
   seat_capacity: 'sitting_capacity',
+  gross_weight_tons: 'gross_weight',
   vehicle_weight_kg: 'gross_weight',
   cargo_weight_ton: 'gross_weight',
   motor_usage: 'motor_usage',
@@ -84,6 +86,14 @@ function resolveMotorFactorRawValue(
   factorCode: string,
   motor: MotorDetails,
 ): string | undefined {
+  if (factorCode === 'gross_weight_tons') {
+    const tonnage = normalizeWeightToTons(motor.tonnage, false);
+    if (tonnage !== undefined) {
+      return tonnage;
+    }
+
+    return normalizeWeightToTons(motor.gross_weight, true);
+  }
   if (factorCode === 'motor_usage') {
     return MOTOR_USAGE_CODE_TO_FACTOR_VALUE[motor.motor_usage_code];
   }
@@ -95,8 +105,31 @@ function resolveFleetMotorFactorRawValue(
   factorCode: string,
   motor: FleetMotorDetails,
 ): string | undefined {
+  if (factorCode === 'gross_weight_tons') {
+    return normalizeWeightToTons(motor.gross_weight, true);
+  }
   const field = FLEET_MOTOR_FACTOR_FIELD_MAP[factorCode];
   return field ? motor[field] : undefined;
+}
+
+function normalizeWeightToTons(
+  raw: string | undefined,
+  assumeKilograms: boolean,
+): string | undefined {
+  if (!raw?.trim()) {
+    return undefined;
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return undefined;
+  }
+
+  if (assumeKilograms) {
+    return String(parsed / 1000);
+  }
+
+  return String(parsed);
 }
 
 /** The `motor.*` field a given rating factor code reads from, if any. */
@@ -112,7 +145,7 @@ function coerceFactorValue(
 ): FactorValue {
   const stringValue = String(raw);
 
-  if (dataType === 'NUMBER') {
+  if (dataType === 'NUMBER' || dataType === 'DECIMAL' || dataType === 'INTEGER') {
     const parsed = Number(raw);
     return Number.isFinite(parsed) ? parsed : raw;
   }
@@ -175,9 +208,10 @@ export function resolveFactorValues(
     const code = requiredFactor.factor.code;
     const raw =
       resolveQuotationFactorRawValue(code, formValues, context) ??
+      rowFactorValues[code] ??
       (isMotorFlow
         ? resolveMotorFactorRawValue(code, formValues.motor)
-        : rowFactorValues[code]);
+        : undefined);
 
     if (raw === undefined || raw === '') return;
     values[code] = coerceFactorValue(raw, requiredFactor.factor.data_type);
