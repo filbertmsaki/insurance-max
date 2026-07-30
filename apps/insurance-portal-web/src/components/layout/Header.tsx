@@ -30,7 +30,6 @@ const ROUTE_LABELS: [string, string[]][] = [
   ['/companies', ['Company Management', 'Companies']],
   ['/branches', ['Company Management', 'Branches']],
   ['/departments', ['Company Management', 'Departments']],
-  ['/customers', ['Company Management', 'Customers']],
   ['/company-features', ['Company Management', 'Company Features']],
   ['/my-company', ['Company Management', 'My Company']],
   ['/devices', ['Security', 'Devices']],
@@ -51,6 +50,7 @@ const ROUTE_LABELS: [string, string[]][] = [
   ['/underwriting/submissions', ['Underwriting', 'Submission Tracking']],
   ['/underwriting/motor/vehicles', ['Underwriting', 'Motor Vehicles']],
   ['/underwriting/motor/fleets', ['Underwriting', 'Motor Fleets']],
+  ['/underwriting/customers', ['Underwriting', 'Customers']],
 ]
 
 function useBreadcrumb(): string[] {

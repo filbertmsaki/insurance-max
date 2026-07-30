@@ -554,7 +554,7 @@ export class QuotationPreviewMapper {
       ),
       next_retry_time: tracking?.nextRetryAt?.toISOString() ?? null,
       acknowledgement_id: this.text(
-        acknowledgementEvent?.response_id ?? submission?.tiramis_response_id,
+        submission?.tiramis_request_id ?? tracking?.tiramisRequestId,
       ),
       acknowledgement_status_code: this.text(
         submission?.status_code ?? tracking?.acknowledgementStatusCode,

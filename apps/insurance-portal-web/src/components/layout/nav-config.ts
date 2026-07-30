@@ -111,13 +111,6 @@ export const NAV_NODES: NavNode[] = [
       },
       {
         kind: 'link',
-        label: 'Customers',
-        to: '/customers',
-        icon: Users,
-        permission: 'customers:read',
-      },
-      {
-        kind: 'link',
         label: 'Company Features',
         to: '/company-features',
         icon: Zap,
@@ -264,6 +257,13 @@ export const NAV_NODES: NavNode[] = [
         to: '/underwriting/motor/fleets',
         icon: Truck,
         permission: 'motor:read',
+      },
+      {
+        kind: 'link',
+        label: 'Customers',
+        to: '/underwriting/customers',
+        icon: Users,
+        permission: 'customers:read',
       },
     ],
   },

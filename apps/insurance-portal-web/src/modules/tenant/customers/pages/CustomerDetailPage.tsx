@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { CustomerStatusBadge } from '../components/CustomerStatusBadge';
 import { useCustomer, useDeleteCustomer, useRestoreCustomer, getCustomerDisplayName } from '../hooks';
 
@@ -41,7 +42,7 @@ export function CustomerDetailPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Customer not found</p>
-        <Button variant="link" onClick={() => navigate('/customers')}>
+        <Button variant="link" onClick={() => navigate(underwritingPaths.customers)}>
           Back to Customers
         </Button>
       </div>
@@ -54,7 +55,7 @@ export function CustomerDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/customers')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(underwritingPaths.customers)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="h-11 w-11 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -71,7 +72,7 @@ export function CustomerDetailPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => navigate(`/customers/${customer.id}/edit`)}>
+          <Button variant="outline" size="sm" onClick={() => navigate(underwritingPaths.customerEdit(customer.id))}>
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             Edit
           </Button>
@@ -181,7 +182,7 @@ export function CustomerDetailPage() {
         confirmLabel="Delete Customer"
         loading={deleteMutation.isPending}
         onConfirm={() =>
-          deleteMutation.mutate(customer.id, { onSuccess: () => navigate('/customers') })
+          deleteMutation.mutate(customer.id, { onSuccess: () => navigate(underwritingPaths.customers) })
         }
       />
 

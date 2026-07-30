@@ -4,7 +4,6 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
@@ -425,36 +424,6 @@ export function QuotationDetailPage() {
         </div>
         {actionButtons}
       </div>
-
-      {pricingIntegration ? (
-        <Alert variant={pricingIntegration.is_stale ? 'destructive' : 'success'}>
-          <AlertTitle>
-            Pricing {pricingIntegration.pricing_status.toLowerCase()}
-          </AlertTitle>
-          <AlertDescription className="space-y-1">
-            <p>
-              Base premium {pricingIntegration.base_premium.toFixed(2)}. Discounts{' '}
-              {pricingIntegration.total_discounts.toFixed(2)}. Taxes{' '}
-              {pricingIntegration.total_taxes.toFixed(2)}. Payable premium{' '}
-              {pricingIntegration.final_payable_premium.toFixed(2)}.
-            </p>
-            {pricingIntegration.current_pricing_quote_id ? (
-              <p>
-                Pricing quote {pricingIntegration.current_pricing_quote_id}
-                {pricingIntegration.rate_book_version
-                  ? ` / Rate book ${pricingIntegration.rate_book_version}`
-                  : ''}
-                {pricingIntegration.pricing_expires_at
-                  ? ` / Expires ${new Date(pricingIntegration.pricing_expires_at).toLocaleString()}`
-                  : ''}
-              </p>
-            ) : null}
-            {pricingIntegration.stale_reasons.map((reason) => (
-              <p key={reason}>{reason}</p>
-            ))}
-          </AlertDescription>
-        </Alert>
-      ) : null}
 
       <Tabs defaultValue={tabs[0]} className="space-y-4">
         <TabsList className="h-auto flex-wrap gap-1">

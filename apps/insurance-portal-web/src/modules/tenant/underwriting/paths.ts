@@ -22,4 +22,8 @@ export const underwritingPaths = {
   motorFleetCreate: '/underwriting/motor/fleets/new',
   motorFleetDetail: (id: string) => `/underwriting/motor/fleets/${id}`,
   motorFleetEdit: (id: string) => `/underwriting/motor/fleets/${id}/edit`,
+  customers: '/underwriting/customers',
+  customerCreate: '/underwriting/customers/new',
+  customerDetail: (id: string) => `/underwriting/customers/${id}`,
+  customerEdit: (id: string) => `/underwriting/customers/${id}/edit`,
 } as const;

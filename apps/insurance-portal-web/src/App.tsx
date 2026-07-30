@@ -137,17 +137,6 @@ export default function App() {
               <Route path="/departments/:id" element={<DepartmentDetailPage />} />
             </Route>
 
-            <Route element={<ProtectedRoute requiredPermission="customers:read" />}>
-              <Route path="/customers" element={<CustomersPage />} />
-              <Route path="/customers/:id" element={<CustomerDetailPage />} />
-            </Route>
-            <Route element={<ProtectedRoute requiredPermission="customers:create" />}>
-              <Route path="/customers/new" element={<CustomerCreatePage />} />
-            </Route>
-            <Route element={<ProtectedRoute requiredPermission="customers:update" />}>
-              <Route path="/customers/:id/edit" element={<CustomerEditPage />} />
-            </Route>
-
             <Route element={<ProtectedRoute requiredPermission="roles:read" />}>
               <Route path="/roles" element={<RolesPage />} />
             </Route>
@@ -194,6 +183,17 @@ export default function App() {
             <Route element={<ProtectedRoute requiredPermission="tiramis-submissions:read" />}>
               <Route path={underwritingPaths.submissions} element={<TiramisSubmissionsPage />} />
               <Route path={underwritingPaths.submissionDetail(':id')} element={<TiramisSubmissionDetailPage />} />
+            </Route>
+
+            <Route element={<ProtectedRoute requiredPermission="customers:read" />}>
+              <Route path={underwritingPaths.customers} element={<CustomersPage />} />
+              <Route path={underwritingPaths.customerDetail(':id')} element={<CustomerDetailPage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="customers:create" />}>
+              <Route path={underwritingPaths.customerCreate} element={<CustomerCreatePage />} />
+            </Route>
+            <Route element={<ProtectedRoute requiredPermission="customers:update" />}>
+              <Route path={underwritingPaths.customerEdit(':id')} element={<CustomerEditPage />} />
             </Route>
 
             {/* Product Engine */}
@@ -297,6 +297,10 @@ export default function App() {
         <Route path="/non-motor/subject-matters/:id" element={<Navigate to="/dashboard" replace />} />
         <Route path="/tiramis/submissions" element={<Navigate to={underwritingPaths.submissions} replace />} />
         <Route path="/tiramis/submissions/:id" element={<Navigate to={underwritingPaths.submissions} replace />} />
+        <Route path="/customers" element={<Navigate to={underwritingPaths.customers} replace />} />
+        <Route path="/customers/new" element={<Navigate to={underwritingPaths.customerCreate} replace />} />
+        <Route path="/customers/:id" element={<Navigate to={underwritingPaths.customers} replace />} />
+        <Route path="/customers/:id/edit" element={<Navigate to={underwritingPaths.customers} replace />} />
 
         {/* Default redirects */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />

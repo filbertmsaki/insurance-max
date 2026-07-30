@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { DataTable, type Column } from '@/components/shared/DataTable';
 import { TiramisStatusBadge } from '../components/TiramisStatusBadge';
-import { formatDateTime, prettyJson } from '../utils';
+import { formatDateTime } from '../utils';
 import { useLocalTrackingDetail, useLocalTrackingList, useRetryLocalTracking, useRetryOneLocalTracking, useSyncOneLocalTracking } from '../hooks';
 import type { TiramisTrackingRecord } from '../types';
 
@@ -66,27 +66,15 @@ export function TiramisTrackingPage() {
           <CardTitle className="text-base">Tracking Detail</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {!selectedId && <p className="text-sm text-slate-500">Select a tracking row to inspect request and response payloads.</p>}
+          {!selectedId && <p className="text-sm text-slate-500">Select a tracking row to inspect its details.</p>}
           {selectedId && detail.isLoading && <p className="text-sm text-slate-500">Loading detail...</p>}
           {detail.data && (
-            <>
-              <div className="grid gap-2 text-sm md:grid-cols-2">
-                <div><span className="text-slate-500">Status: </span><TiramisStatusBadge status={detail.data.status} /></div>
-                <div><span className="text-slate-500">Request ID: </span>{detail.data.tiramisRequestId ?? ' - '}</div>
-                <div><span className="text-slate-500">Business Ref: </span>{detail.data.businessReference ?? ' - '}</div>
-                <div><span className="text-slate-500">Retryable: </span>{detail.data.isRetryable ? 'Yes' : 'No'}</div>
-              </div>
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div>
-                  <p className="mb-2 text-sm font-medium text-slate-700">Request Payload</p>
-                  <pre className="overflow-auto rounded-lg bg-slate-50 p-4 text-xs">{prettyJson(detail.data.requestPayload ?? detail.data.requestPayloadSnapshot)}</pre>
-                </div>
-                <div>
-                  <p className="mb-2 text-sm font-medium text-slate-700">TIRAMIS Response</p>
-                  <pre className="overflow-auto rounded-lg bg-slate-50 p-4 text-xs">{prettyJson(detail.data.tiramisResponsePayload ?? detail.data.responsePayloadSnapshot ?? detail.data.finalResponsePayload)}</pre>
-                </div>
-              </div>
-            </>
+            <div className="grid gap-2 text-sm md:grid-cols-2">
+              <div><span className="text-slate-500">Status: </span><TiramisStatusBadge status={detail.data.status} /></div>
+              <div><span className="text-slate-500">Request ID: </span>{detail.data.tiramisRequestId ?? ' - '}</div>
+              <div><span className="text-slate-500">Business Ref: </span>{detail.data.businessReference ?? ' - '}</div>
+              <div><span className="text-slate-500">Retryable: </span>{detail.data.isRetryable ? 'Yes' : 'No'}</div>
+            </div>
           )}
         </CardContent>
       </Card>

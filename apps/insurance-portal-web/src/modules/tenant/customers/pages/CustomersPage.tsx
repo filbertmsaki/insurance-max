@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import {
   useCustomersList,
   useDeleteCustomer,
@@ -63,7 +64,7 @@ export function CustomersPage() {
         description="Manage your company customer database"
         action={
           canCreate ? (
-            <Button onClick={() => navigate('/customers/new')}>
+            <Button onClick={() => navigate(underwritingPaths.customerCreate)}>
               <Plus className="mr-2 h-4 w-4" />
               Create Customer
             </Button>
@@ -146,7 +147,7 @@ export function CustomersPage() {
         canEdit={canUpdate}
         canDelete={canDelete}
         canRestore={canUpdate}
-        onEdit={(customer) => navigate(`/customers/${customer.id}/edit`)}
+        onEdit={(customer) => navigate(underwritingPaths.customerEdit(customer.id))}
         onDelete={(customer) => setDeleteItem(customer)}
         onRestore={(customer) => setRestoreItem(customer)}
       />
