@@ -19,10 +19,16 @@ import {
 } from '../../../schemas';
 import { useRiskPremiumCalculation } from '../useRiskPremiumCalculation';
 
-const { mutateMock, apiGetMock, rulePreviewDataMock } = vi.hoisted(() => ({
+const {
+  mutateMock,
+  apiGetMock,
+  rulePreviewDataMock,
+  requiredFactorsDataMock,
+} = vi.hoisted(() => ({
   mutateMock: vi.fn(),
   apiGetMock: vi.fn(),
   rulePreviewDataMock: vi.fn(),
+  requiredFactorsDataMock: vi.fn(),
 }));
 
 vi.mock('@/modules/shared/api/client', () => ({
@@ -40,7 +46,10 @@ vi.mock('@/modules/pricing', () => ({
       error: null,
     },
   }),
-  usePricingRequiredFactors: () => ({ data: [], isLoading: false }),
+  usePricingRequiredFactors: () => ({
+    data: requiredFactorsDataMock(),
+    isLoading: false,
+  }),
   usePricingRulePreview: () => ({ data: { data: rulePreviewDataMock() } }),
   readPricingQuoteMetadata: (value: unknown) =>
     value as Record<string, unknown> | null,
@@ -159,8 +168,10 @@ describe('useRiskPremiumCalculation', () => {
     mutateMock.mockReset();
     apiGetMock.mockReset();
     rulePreviewDataMock.mockReset();
+    requiredFactorsDataMock.mockReset();
     apiGetMock.mockResolvedValue({ data: [] });
     rulePreviewDataMock.mockReturnValue([]);
+    requiredFactorsDataMock.mockReturnValue([]);
     useAuthStore.setState({
       company: {
         id: 'company-1',
@@ -176,6 +187,41 @@ describe('useRiskPremiumCalculation', () => {
       company: null,
       user: null,
     } as any);
+  });
+
+  it('prefills zero sum insured and keeps pricing in preview mode for risks that do not require it', async () => {
+    rulePreviewDataMock.mockReturnValue([
+      {
+        is_active: true,
+        priority: 1,
+        minimum_amount: 100000,
+        percentage_rate: 0.015,
+      },
+    ]);
+    requiredFactorsDataMock.mockReturnValue([
+      {
+        factor: {
+          code: 'seat_capacity',
+          name: 'Seat Capacity',
+          data_type: 'INTEGER',
+        },
+      },
+    ]);
+
+    const { form } = renderRiskPricingHook({
+      sum_insured: '',
+      factor_values: {
+        seat_capacity: 14,
+      },
+    });
+
+    await settleTaxRuleQuery();
+
+    expect(form.getValues('risks.0.sum_insured')).toBe('0');
+    expect(form.getValues('risks.0.sum_insured_equivalent')).toBe('0');
+    expect(form.getValues('risks.0.premium_rate')).toBe('0.015');
+    expect(form.getValues('risks.0.minimum_amount')).toBe('100000');
+    expect(mutateMock).not.toHaveBeenCalled();
   });
 
   // Automatic calculation (both effects in useRiskPremiumCalculation.ts) is

@@ -233,12 +233,12 @@ function resolveEffectiveSumInsured(
     explicitSumInsured === '' || explicitSumInsured == null
       ? NaN
       : Number(explicitSumInsured);
-  if (Number.isFinite(explicitNumber) && explicitNumber > 0) {
+  if (Number.isFinite(explicitNumber) && explicitNumber >= 0) {
     return explicitNumber;
   }
 
   const factorSumInsured = Number(factorValues.sum_insured);
-  if (Number.isFinite(factorSumInsured) && factorSumInsured > 0) {
+  if (Number.isFinite(factorSumInsured) && factorSumInsured >= 0) {
     return factorSumInsured;
   }
 

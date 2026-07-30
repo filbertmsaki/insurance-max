@@ -207,6 +207,35 @@ describe('premiumAggregation', () => {
     expect(pricedRow.premium_including_tax).toBe('1750000');
   });
 
+  it('keeps sum insured equivalent aligned to a zero-valued sum insured', () => {
+    const row = createEmptyRiskRow();
+    row.risk_id = 'risk-1';
+    row.risk_code = 'SP014004000001';
+    row.sum_insured = '0';
+    row.sum_insured_equivalent = '5000000';
+
+    const pricedRow = applyRiskPremiumResult(
+      row,
+      {
+        risk_id: 'risk-1',
+        risk_code: 'SP014004000001',
+        risk_name: 'Passenger Carrying TPO',
+        sum_insured: 0,
+        percentage_rate: 0,
+        premium_before_discount: 120000,
+        premium_after_discount: 120000,
+        premium_excluding_tax_equivalent: 120000,
+        premium_including_tax: 120000,
+        charges: [],
+        validation_errors: [],
+        validation_warnings: [],
+      } as any,
+    );
+
+    expect(pricedRow.sum_insured).toBe('0');
+    expect(pricedRow.sum_insured_equivalent).toBe('0');
+  });
+
   it('clears stale tax amounts when the recalculation result no longer returns a charge for that tax code', () => {
     const row = createEmptyRiskRow();
     row.risk_id = 'risk-1';

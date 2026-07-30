@@ -211,12 +211,14 @@ export function applyRiskPremiumResult(
   row: QuotationRiskFormRow,
   result: RiskPremiumResult,
 ): QuotationRiskFormRow {
-  const isZeroRate = result.percentage_rate === 0;
   const premiumBeforeDiscount = resolvePremiumBeforeDiscount(result);
   const premiumAfterDiscount = resolvePremiumAfterDiscount(result);
   const premiumExcludingTaxEquivalent =
     resolvePremiumExcludingTaxEquivalent(result);
   const premiumIncludingTax = resolvePremiumIncludingTax(result);
+  const resolvedSumInsured =
+    result.sum_insured ??
+    (hasValue(row.sum_insured) ? Number(row.sum_insured) : 0);
 
   const discounts =
     row.discounts_offered.length > 0
@@ -234,10 +236,8 @@ export function applyRiskPremiumResult(
 
   return {
     ...row,
-    sum_insured: isZeroRate ? '0' : row.sum_insured,
-    sum_insured_equivalent: isZeroRate
-      ? '0'
-      : String(result.sum_insured_equivalent ?? result.sum_insured ?? 0),
+    sum_insured: String(resolvedSumInsured),
+    sum_insured_equivalent: String(resolvedSumInsured),
     premium_rate: String(result.premium_rate ?? result.percentage_rate ?? 0),
     premium_before_discount: String(premiumBeforeDiscount),
     discounts_offered: discounts,
@@ -353,13 +353,15 @@ export function applyFleetRiskPremiumResult(
   row: QuotationFleetRiskFormRow,
   result: RiskPremiumResult,
 ): QuotationFleetRiskFormRow {
-  const isZeroRate = result.percentage_rate === 0;
   const premiumBeforeDiscount = resolvePremiumBeforeDiscount(result);
+  const resolvedSumInsured =
+    result.sum_insured ??
+    (hasValue(row.sum_insured) ? Number(row.sum_insured) : 0);
 
   return {
     ...row,
-    sum_insured: isZeroRate ? '0' : row.sum_insured,
-    sum_insured_equivalent: isZeroRate ? '0' : String(result.sum_insured ?? 0),
+    sum_insured: String(resolvedSumInsured),
+    sum_insured_equivalent: String(resolvedSumInsured),
     premium_rate: String(result.percentage_rate ?? 0),
     premium_before_discount: String(premiumBeforeDiscount),
     rating_result_metadata: {

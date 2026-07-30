@@ -129,6 +129,23 @@ describe('resolveFactorValues', () => {
     expect(resolved.declared_value).toBe(99000000);
   });
 
+  it('preserves an explicit zero sum insured instead of falling back to another factor', () => {
+    const values = createBaseValues();
+    values.risks[0].sum_insured = '0';
+    values.risks[0].factor_values = {
+      declared_value: 99000000,
+    };
+
+    const resolved = resolveFactorValues(
+      [requiredFactor('declared_value')],
+      values,
+      0,
+    );
+
+    expect(resolved.sum_insured).toBe(0);
+    expect(resolved.declared_value).toBe(99000000);
+  });
+
   it('includes quotation-level values required by pricing', () => {
     const values = createBaseValues();
     values.quotation_type = 'MOTOR';

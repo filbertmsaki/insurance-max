@@ -16,6 +16,7 @@ import {
 import {
   applyRiskPremiumResult,
   isEqualNormalizingNumbers,
+  recomputeRiskRow,
   toNumber,
 } from '../utils/premiumAggregation';
 import { readPricingQuoteMetadata } from '@/modules/pricing';
@@ -187,12 +188,20 @@ export function useRiskPremiumCalculation(
     });
   }, [form, index]);
   const committedSumInsured =
-    committedEntry.riskId === riskId ? committedEntry.sumInsured : '';
+    committedEntry.riskId === riskId &&
+    committedEntry.sumInsured === ((sumInsured ?? '') as string)
+      ? committedEntry.sumInsured
+      : '';
 
   const requiredFactorsQuery = usePricingRequiredFactors(riskId ?? '');
   const requiredFactors = useMemo(
     () => requiredFactorsQuery.data ?? [],
     [requiredFactorsQuery.data],
+  );
+  const requiresSumInsured = useMemo(
+    () =>
+      requiredFactors.some((requiredFactor) => requiredFactor.factor.code === 'sum_insured'),
+    [requiredFactors],
   );
 
   const ruleListQuery = usePricingRulePreview(riskId || '');
@@ -305,6 +314,21 @@ export function useRiskPremiumCalculation(
     form.setValue(path(index, 'minimum_amount'), '');
   }, [form, index, riskId]);
 
+  // Risks that do not require Sum Insured should still keep the field
+  // populated with an explicit zero so the wizard stays consistent and the
+  // pricing payload never falls back to an accidental empty value.
+  useEffect(() => {
+    if (!riskId || requiresSumInsured) return;
+
+    const currentSumInsured = form.getValues(path(index, 'sum_insured')) as
+      | string
+      | undefined;
+    if ((currentSumInsured ?? '') !== '') return;
+
+    form.setValue(path(index, 'sum_insured'), '0');
+    form.setValue(path(index, 'sum_insured_equivalent'), '0');
+  }, [form, index, riskId, requiresSumInsured]);
+
   // The moment the rule list for the selected risk resolves — before sum
   // insured is entered or any calculation call fires — surface the minimum
   // premium from the highest-priority (lowest priority number) active rule.
@@ -346,17 +370,30 @@ export function useRiskPremiumCalculation(
       form.setValue(path(index, 'minimum_amount'), minimumAmount);
     }
 
+    const currentRow = form.getValues(`risks.${index}` as const);
+    const previewRow = recomputeRiskRow({
+      ...currentRow,
+      premium_rate: minimumRate,
+      premium_before_discount: minimumAmount,
+    });
+
     const previewFields = [
       ['premium_rate', minimumRate],
       ['premium_before_discount', minimumAmount],
-      ['premium_after_discount', minimumAmount],
-      ['premium_excluding_tax_equivalent', minimumAmount],
-      ['premium_including_tax', minimumAmount],
+      ['discounts_offered', previewRow.discounts_offered],
+      ['premium_after_discount', previewRow.premium_after_discount],
+      [
+        'premium_excluding_tax_equivalent',
+        previewRow.premium_excluding_tax_equivalent,
+      ],
+      ['taxes_charged', previewRow.taxes_charged],
+      ['premium_including_tax', previewRow.premium_including_tax],
     ] as const;
     previewFields.forEach(([fieldName, value]) => {
       const fieldPath = path(index, fieldName);
-      if (toNumber(form.getValues(fieldPath) as string) !== toNumber(value)) {
-        form.setValue(fieldPath, value);
+      const currentValue = form.getValues(fieldPath);
+      if (!isEqualNormalizingNumbers(currentValue, value)) {
+        form.setValue(fieldPath, value as never);
       }
     });
   }, [form, index, riskId, ruleListQuery.data, committedSumInsured]);
@@ -423,11 +460,43 @@ export function useRiskPremiumCalculation(
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
+  const previousRiskIdRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    const previousRiskId = previousRiskIdRef.current;
+    previousRiskIdRef.current = riskId;
+
+    if (!previousRiskId || previousRiskId === riskId) return;
+
+    requestTokenRef.current += 1;
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    setCommittedEntry({
+      riskId: '',
+      sumInsured: '',
+    });
+  }, [riskId]);
 
   useEffect(() => {
     if (AUTO_CALCULATION_DISABLED) return undefined;
     if (!riskId) return undefined;
 
+    const explicitSumInsured =
+      sumInsured === '' || sumInsured == null ? NaN : Number(sumInsured);
+    const factorSumInsuredRaw = factorValues.sum_insured;
+    const factorSumInsured =
+      factorSumInsuredRaw === '' ||
+      factorSumInsuredRaw === null ||
+      factorSumInsuredRaw === undefined
+        ? NaN
+        : Number(factorSumInsuredRaw);
+    const requestedSumInsured =
+      Number.isFinite(explicitSumInsured)
+        ? explicitSumInsured
+        : Number.isFinite(factorSumInsured)
+          ? factorSumInsured
+          : undefined;
     const hasCommittedSumInsured = committedSumInsured !== '';
     const hasFactorInputs =
       Object.entries(factorValues).some(
@@ -442,20 +511,17 @@ export function useRiskPremiumCalculation(
     if (!hasCommittedSumInsured && !hasFactorInputs && !canCalculateWithoutInputs) {
       return undefined;
     }
+    if (
+      !requiresSumInsured &&
+      (!Number.isFinite(requestedSumInsured) ||
+        (requestedSumInsured ?? 0) <= 0)
+    ) {
+      return undefined;
+    }
     if (selectedTaxCodes.length > 0 && taxRulesQuery.isLoading) return undefined;
 
     timeoutRef.current = setTimeout(() => {
       const token = ++requestTokenRef.current;
-      const explicitSumInsured = Number(
-        form.getValues(path(index, 'sum_insured')) as string,
-      );
-      const factorSumInsured = Number(factorValues.sum_insured);
-      const requestedSumInsured =
-        explicitSumInsured > 0
-          ? explicitSumInsured
-          : factorSumInsured > 0
-            ? factorSumInsured
-            : undefined;
 
       calculateMutateRef.current(
         {
@@ -584,7 +650,9 @@ export function useRiskPremiumCalculation(
     riskId,
     quotationType,
     committedSumInsured,
+    sumInsured,
     factorValuesKey,
+    requiresSumInsured,
     requestedDiscountRate,
     selectedTaxCodes.length,
     taxRulesQuery.isLoading,

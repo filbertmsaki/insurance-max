@@ -1284,9 +1284,7 @@ function buildRiskPayload(
       currentPricingSignature,
     ),
     sum_insured: normalizeMoneyNumber(risk.sum_insured),
-    sum_insured_equivalent:
-      normalizeMoneyNumber(risk.sum_insured_equivalent) ||
-      normalizeMoneyNumber(risk.sum_insured),
+    sum_insured_equivalent: normalizeMoneyNumber(risk.sum_insured),
     premium_rate: normalizeRateNumber(risk.premium_rate || risk.rate),
     premium_before_discount: normalizeMoneyNumber(risk.premium_before_discount),
     premium_after_discount:
@@ -1533,9 +1531,7 @@ export function buildMotorFleetQuotationPayload(
             currentPricingSignature,
           ),
           sum_insured: normalizeMoneyNumber(risk.sum_insured),
-          sum_insured_equivalent:
-            normalizeMoneyNumber(risk.sum_insured_equivalent) ||
-            normalizeMoneyNumber(risk.sum_insured),
+          sum_insured_equivalent: normalizeMoneyNumber(risk.sum_insured),
           premium_rate: normalizeRateNumber(risk.premium_rate),
           premium_before_discount: normalizeMoneyNumber(
             risk.premium_before_discount,

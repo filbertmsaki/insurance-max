@@ -466,7 +466,18 @@ function FleetVehicleEditor({
                           <WizardFormItem>
                             <FormLabel>Sum Insured</FormLabel>
                             <FormControl>
-                              <Input type="number" min="0" {...field} />
+                              <Input
+                                type="number"
+                                min="0"
+                                {...field}
+                                onChange={(event) => {
+                                  field.onChange(event);
+                                  form.setValue(
+                                    `fleet.items.${index}.risks_covered.${riskIndex}.sum_insured_equivalent` as const,
+                                    event.target.value,
+                                  );
+                                }}
+                              />
                             </FormControl>
                           </WizardFormItem>
                         )}

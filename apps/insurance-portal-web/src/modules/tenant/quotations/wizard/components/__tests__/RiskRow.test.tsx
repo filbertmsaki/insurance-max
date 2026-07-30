@@ -131,9 +131,10 @@ describe('RiskRow', () => {
     // still usable in the meantime.
     render(<TestHarness />);
 
-    expect(
-      screen.getByLabelText('Sum Insured Equivalent'),
-    ).not.toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Sum Insured')).not.toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Sum Insured Equivalent')).toHaveAttribute(
+      'readonly',
+    );
     expect(screen.getByLabelText('Premium Rate')).not.toHaveAttribute(
       'readonly',
     );
@@ -157,15 +158,36 @@ describe('RiskRow', () => {
     expect(screen.getByLabelText('Rate')).not.toHaveAttribute('readonly');
   });
 
-  it('shows per-risk pricing validation messages and discount request fields', () => {
+  it('mirrors sum insured into sum insured equivalent and does not show the optional-risk notice', () => {
     render(<TestHarness />);
 
-    expect(screen.getByText('Pricing needs attention')).toBeInTheDocument();
-    expect(screen.getByText('Sum insured is required')).toBeInTheDocument();
+    const sumInsuredInput = screen.getByLabelText(
+      'Sum Insured',
+    ) as HTMLInputElement;
+    const sumInsuredEquivalentInput = screen.getByLabelText(
+      'Sum Insured Equivalent',
+    ) as HTMLInputElement;
+
+    fireEvent.change(sumInsuredInput, {
+      target: { value: '0' },
+    });
+
+    expect(sumInsuredEquivalentInput.value).toBe('0');
     expect(
-      screen.getByText('Referral to underwriting required'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Pricing quote: PQ-2026-00000051')).toBeInTheDocument();
+      screen.queryByText(
+        'Sum insured is not required for the selected Motor risk.',
+      ),
+    ).not.toBeInTheDocument();
+  });
+
+  it('hides the pricing status card and still shows discount request fields', () => {
+    render(<TestHarness />);
+
+    expect(screen.queryByText('Pricing needs attention')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pricing available')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Pricing quote: PQ-2026-00000051'),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText('Reason Code')).toBeInTheDocument();
     expect(
       screen.getByPlaceholderText('Why is this discount requested?'),

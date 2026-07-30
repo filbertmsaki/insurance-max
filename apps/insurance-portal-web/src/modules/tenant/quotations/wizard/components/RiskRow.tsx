@@ -46,13 +46,6 @@ import {
 } from '../utils/premiumAggregation';
 import { motorFieldNameForFactorCode } from '../utils/riskFactorResolver';
 import { useRiskPremiumCalculation } from '../hooks/useRiskPremiumCalculation';
-import { getApiErrorMessage } from '@/lib/api-error';
-import {
-  PricingStatusAlert,
-  RatingFactorFields,
-  readPricingQuoteMetadata,
-} from '@/modules/pricing';
-import type { PricingFactorValue } from '@/modules/pricing';
 import { StepSection } from './StepSection';
 import { WizardFormItem } from './WizardFormItem';
 import type { QuotationFactorContext } from '../utils/riskFactorResolver';
@@ -90,7 +83,6 @@ export function RiskRow({
     control: form.control,
     name: `risks.${index}.risk_id` as const,
   });
-  const quotationType = form.watch('quotation_type');
   const selectedRisk = riskOptions.find((risk) => risk.id === riskId) ?? null;
   const discountFieldArray =
     form.getValues(`risks.${index}.discounts_offered` as const) ?? [];
@@ -104,7 +96,7 @@ export function RiskRow({
     }
   }, [form, index, selectedRisk?.risk_code]);
 
-  const { calculateMutation, requiredFactorsQuery, handleSumInsuredBlur } =
+  const { requiredFactorsQuery, handleSumInsuredBlur } =
     useRiskPremiumCalculation(form, index, factorContext);
 
   // Premium Before Discount is manually entered (automatic calculation is
@@ -130,16 +122,6 @@ export function RiskRow({
     () => (requiredFactorsQuery.data ?? []).map((factor) => factor.factor.code),
     [requiredFactorsQuery.data],
   );
-  const requiresSumInsured =
-    quotationType !== 'MOTOR' ||
-    !riskId ||
-    currentFactorCodes.includes('sum_insured');
-
-  useEffect(() => {
-    if (requiresSumInsured) return;
-    if ((form.getValues(path(index, 'sum_insured')) as string) === '') return;
-    form.setValue(path(index, 'sum_insured'), '');
-  }, [form, index, requiresSumInsured]);
   const previousFactorCodesRef = useRef<string[]>([]);
   useEffect(() => {
     previousFactorCodesRef.current = currentFactorCodes;
@@ -206,24 +188,10 @@ export function RiskRow({
   const premiumIncludingTax = form.watch(
     `risks.${index}.premium_including_tax` as const,
   );
+  const sumInsuredValue = form.watch(`risks.${index}.sum_insured` as const);
   const sumInsuredEquivalent = form.watch(
     `risks.${index}.sum_insured_equivalent` as const,
   );
-  const minimumAmount = form.watch(`risks.${index}.minimum_amount` as const);
-  const ratingResultMetadata = form.watch(
-    `risks.${index}.rating_result_metadata` as const,
-  ) as {
-    minimum_applied?: boolean;
-    minimum_amount?: number;
-    validation_errors?: string[];
-    validation_warnings?: string[];
-  } | null;
-  const pricingMetadata = readPricingQuoteMetadata(ratingResultMetadata);
-  const factorValues =
-    (form.watch(path(index, 'factor_values')) as
-      | Record<string, PricingFactorValue>
-      | undefined) ?? {};
-
   const totalDiscount = discounts.reduce(
     (sum, row) => sum + toNumber(row.discount_amount),
     0,
@@ -236,8 +204,15 @@ export function RiskRow({
   const premiumIncludingTaxValue =
     toNumber(premiumIncludingTax) || premiumAfterDiscountValue + totalTax;
   const sumInsuredEquivalentValue =
-    toNumber(sumInsuredEquivalent) ||
-    toNumber(form.watch(`risks.${index}.sum_insured` as const));
+    sumInsuredEquivalent === ''
+      ? toNumber(sumInsuredValue)
+      : toNumber(sumInsuredEquivalent);
+
+  useEffect(() => {
+    const nextEquivalent = (sumInsuredValue ?? '') as string;
+    if ((sumInsuredEquivalent ?? '') === nextEquivalent) return;
+    form.setValue(path(index, 'sum_insured_equivalent'), nextEquivalent);
+  }, [form, index, sumInsuredEquivalent, sumInsuredValue]);
 
   useEffect(() => {
     const currentRow = form.getValues(`risks.${index}` as const);
@@ -365,34 +340,39 @@ export function RiskRow({
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          {requiresSumInsured ? (
-            <FormField
-              control={form.control}
-              name={path(index, 'sum_insured')}
-              render={({ field }) => (
-                <WizardFormItem>
-                  <FormLabel>Sum Insured</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="0"
-                      {...field}
-                      value={field.value as string}
-                      onBlur={() => {
-                        field.onBlur();
-                        handleSumInsuredBlur();
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </WizardFormItem>
-              )}
-            />
-          ) : (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-3 text-sm text-slate-600">
-              Sum insured is not required for the selected Motor risk.
-            </div>
-          )}
+          <FormField
+            control={form.control}
+            name={path(index, 'sum_insured')}
+            render={({ field }) => (
+              <WizardFormItem>
+                <FormLabel>Sum Insured</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    min="0"
+                    {...field}
+                    value={field.value as string}
+                    onChange={(event) => {
+                      field.onChange(event);
+                      form.setValue(
+                        path(index, 'sum_insured_equivalent'),
+                        event.target.value,
+                      );
+                    }}
+                    onBlur={() => {
+                      field.onBlur();
+                      form.setValue(
+                        path(index, 'sum_insured_equivalent'),
+                        (form.getValues(path(index, 'sum_insured')) as string) ?? '',
+                      );
+                      handleSumInsuredBlur();
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </WizardFormItem>
+            )}
+          />
           <FormField
             control={form.control}
             name={path(index, 'sum_insured_equivalent')}
@@ -402,6 +382,8 @@ export function RiskRow({
                 <FormControl>
                   <Input
                     type="number"
+                    min="0"
+                    readOnly
                     {...field}
                     value={field.value as string}
                   />
@@ -505,41 +487,6 @@ export function RiskRow({
             )}
           />
         </div>
-
-        <PricingStatusAlert
-          minimumAmount={minimumAmount}
-          isPending={calculateMutation.isPending}
-          errorMessage={
-            calculateMutation.isError
-              ? `Could not calculate premium: ${getApiErrorMessage(
-                  calculateMutation.error,
-                )}. The last known premium values are shown below.`
-              : null
-          }
-          metadata={pricingMetadata}
-        />
-
-        {riskId ? (
-          <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-            <div>
-              <p className="text-sm font-medium text-slate-900">Rating Factors</p>
-              <p className="text-xs text-slate-500">
-                These values are sent to the backend pricing engine for the selected risk.
-              </p>
-            </div>
-            <RatingFactorFields
-              requiredFactors={requiredFactorsQuery.data ?? []}
-              isLoading={requiredFactorsQuery.isLoading}
-              values={factorValues}
-              onChange={(code, value) =>
-                form.setValue(path(index, 'factor_values'), {
-                  ...factorValues,
-                  [code]: value,
-                })
-              }
-            />
-          </div>
-        ) : null}
 
         <div className="space-y-1 border-t border-slate-100 pt-4">
           <div className="flex items-center justify-between gap-2">
