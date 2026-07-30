@@ -27,6 +27,16 @@ describe('QuotationPayloadValidator', () => {
     expect(() => validator.assertValid(payload)).not.toThrow();
   });
 
+  it('defaults cover note type to new when it is omitted', () => {
+    const payload = createValidNonMotorPayload();
+
+    delete (payload.cover_note_hdr as Partial<typeof payload.cover_note_hdr>)
+      .cover_note_type;
+
+    expect(() => validator.assertValid(payload)).not.toThrow();
+    expect(payload.cover_note_hdr.cover_note_type).toBe(1);
+  });
+
   it('rejects a NON_MOTOR payload containing motor details', () => {
     const payload = createValidNonMotorPayload();
 

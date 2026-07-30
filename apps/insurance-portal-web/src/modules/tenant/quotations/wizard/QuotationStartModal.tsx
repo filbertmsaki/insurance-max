@@ -22,10 +22,7 @@ import {
   useQuotationCategories,
   useQuotationProducts,
 } from '../hooks';
-import {
-  CHANNEL_TYPES,
-  COVER_NOTE_TYPES,
-} from './steps/CoverNoteSetupStep';
+import { CHANNEL_TYPES } from './steps/CoverNoteSetupStep';
 import {
   COVER_NOTE_DATE_RANGE_OPTIONS,
   computeCoverNoteDateRange,
@@ -94,7 +91,6 @@ const FIELD_LABELS = {
   product_id: 'Product',
   channel_type: 'Insurance Channel',
   currency: 'Currency',
-  cover_note_type: 'Cover Note Type',
   date_range: 'Date Range',
 } as const;
 
@@ -113,9 +109,6 @@ export function QuotationStartModal({
     (typeof CHANNEL_TYPES)[number] | ''
   >('');
   const [currency, setCurrency] = useState('');
-  const [coverNoteType, setCoverNoteType] = useState<
-    '1' | '2' | '3' | ''
-  >('');
   const [tranCompanyId, setTranCompanyId] = useState('');
   const [dateRangeDays, setDateRangeDays] = useState<
     CoverNoteDateRangeValue | ''
@@ -161,7 +154,6 @@ export function QuotationStartModal({
       setProductId(initialSelection.product_id);
       setChannelType(initialSelection.channel_type);
       setCurrency(initialSelection.currency);
-      setCoverNoteType(initialSelection.cover_note_type);
       setTranCompanyId(initialSelection.intermediary_company_id ?? '');
       setValidFrom(initialSelection.valid_from ?? '');
       setValidUntil(initialSelection.valid_until ?? '');
@@ -175,7 +167,6 @@ export function QuotationStartModal({
       setProductId('');
       setChannelType('');
       setCurrency('');
-      setCoverNoteType('');
       setTranCompanyId('');
       setDateRangeDays('');
       setValidFrom('');
@@ -227,7 +218,6 @@ export function QuotationStartModal({
   if (!productId) errors.product_id = `${FIELD_LABELS.product_id} is required`;
   if (!channelType) errors.channel_type = `${FIELD_LABELS.channel_type} is required`;
   if (!currency) errors.currency = `${FIELD_LABELS.currency} is required`;
-  if (!coverNoteType) errors.cover_note_type = `${FIELD_LABELS.cover_note_type} is required`;
   if (requiresTranCompany && !effectiveTranCompanyId) {
     errors.intermediary_company_id = `${tranCompanyLabel} is required`;
   }
@@ -238,7 +228,7 @@ export function QuotationStartModal({
 
   const handleProceed = () => {
     setTouched(true);
-    if (!isValid || !quotationFlow || !channelType || !coverNoteType) return;
+    if (!isValid || !quotationFlow || !channelType) return;
 
     const flowOption = QUOTATION_FLOW_OPTIONS.find(
       (option) => option.quotation_flow === quotationFlow,
@@ -253,7 +243,7 @@ export function QuotationStartModal({
       product_id: productId,
       channel_type: channelType,
       currency,
-      cover_note_type: coverNoteType,
+      cover_note_type: '1',
       intermediary_company_id: effectiveTranCompanyId,
       ...(requiresDateRange
         ? {
@@ -413,30 +403,6 @@ export function QuotationStartModal({
             </Select>
             {touched && errors.currency && (
               <p className="mt-1 text-sm text-red-600">{errors.currency}</p>
-            )}
-          </div>
-
-          <div>
-            <Label htmlFor="quotation-start-cover-note-type" className="mb-2 block">{FIELD_LABELS.cover_note_type}</Label>
-            <Select
-              value={coverNoteType}
-              onValueChange={(value) =>
-                setCoverNoteType(value as '1' | '2' | '3')
-              }
-            >
-              <SelectTrigger id="quotation-start-cover-note-type">
-                <SelectValue placeholder="Select cover note type" />
-              </SelectTrigger>
-              <SelectContent>
-                {COVER_NOTE_TYPES.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {touched && errors.cover_note_type && (
-              <p className="mt-1 text-sm text-red-600">{errors.cover_note_type}</p>
             )}
           </div>
 

@@ -94,6 +94,14 @@ export class QuotationPayloadValidator {
       errors.push('cover_note_dtl is required');
     }
 
+    if (
+      payload.cover_note_hdr &&
+      (payload.cover_note_hdr.cover_note_type === undefined ||
+        payload.cover_note_hdr.cover_note_type === null)
+    ) {
+      payload.cover_note_hdr.cover_note_type = 1;
+    }
+
     if (payload.cover_note_hdr && payload.cover_note_hdr.cover_note_type <= 0) {
       errors.push('cover_note_hdr.cover_note_type must be greater than zero');
     }

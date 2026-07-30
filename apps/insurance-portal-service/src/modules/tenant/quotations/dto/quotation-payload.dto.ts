@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
@@ -60,9 +60,17 @@ export class InternalQuotationDto {
 }
 
 export class CoverNoteHeaderDto {
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') {
+      return 1;
+    }
+
+    return typeof value === 'number' ? value : Number(value);
+  })
   @IsInt()
   @Min(1)
-  cover_note_type: number;
+  cover_note_type: number = 1;
 }
 
 export class TaxChargedDto {

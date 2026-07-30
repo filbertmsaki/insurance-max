@@ -10,7 +10,6 @@ import type { InsuranceRisk } from '@/types/product-engine';
 import { computeAddonAmounts } from '../utils/addonCalculations';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import type { QuotationWizardStepId } from '../types';
-import { buildQuotationPayloadPreview } from '../utils/quotationPayloadPreview';
 import { formatCoverDateLabel } from '../utils/coverNoteDateRange';
 import { StepSection } from '../components/StepSection';
 
@@ -253,25 +252,6 @@ export function SummaryReviewStep({
           </StepSection>
         </>
       ) : null}
-
-      <StepSection title="Prepared Submission Payload">
-        <p className="mb-3 text-sm text-slate-500">
-          This preview follows the flow-specific payload shape that will be submitted to TIRAMIS.
-        </p>
-        <pre className="max-h-[36rem] overflow-auto rounded-lg bg-slate-950 p-4 text-xs text-slate-100">
-          {JSON.stringify(
-            buildQuotationPayloadPreview(values, {
-              salePointCode: null,
-              productCode:
-                product?.tiramis_product_code || product?.product_code || null,
-              productName: product?.product_name || null,
-              existingCustomer,
-            }),
-            null,
-            2,
-          )}
-        </pre>
-      </StepSection>
     </>
   );
 }
