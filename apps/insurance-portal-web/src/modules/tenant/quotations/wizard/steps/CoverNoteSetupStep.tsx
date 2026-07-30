@@ -32,6 +32,7 @@ import {
   formatLocalDateTime,
   inclusiveDayCount,
 } from '../utils/coverNoteDateRange';
+import { useCoverNoteAutoText } from '../hooks/useCoverNoteAutoText';
 
 interface OptionLike {
   id: string;
@@ -110,6 +111,26 @@ export function CoverNoteSetupStep({
     channelType,
     productId,
   );
+  const validUntil = form.watch('valid_until');
+
+  const selectedProduct = productOptions.find(
+    (option) => option.id === productId,
+  );
+  const selectedProductName =
+    selectedProduct?.product_name ?? selectedProduct?.name ?? '';
+
+  const {
+    generatedCoverNoteDesc,
+    generatedOperativeClause,
+    resetCoverNoteDescToDefault,
+    resetOperativeClauseToDefault,
+  } = useCoverNoteAutoText({
+    form,
+    productName: selectedProductName,
+    validFrom,
+    validUntil,
+    isHydrating,
+  });
 
   const [coverPeriodDays] = useState(
     () =>
@@ -223,11 +244,22 @@ export function CoverNoteSetupStep({
           name="cover_note_desc"
           render={({ field }) => (
             <WizardFormItem className="md:col-span-2">
-              <FormLabel>
-                {requiresStandardCoverNoteFields
-                  ? 'Cover Note Description (required)'
-                  : 'Cover Note Description'}
-              </FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel>
+                  {requiresStandardCoverNoteFields
+                    ? 'Cover Note Description (required)'
+                    : 'Cover Note Description'}
+                </FormLabel>
+                {generatedCoverNoteDesc !== null && (
+                  <button
+                    type="button"
+                    onClick={resetCoverNoteDescToDefault}
+                    className="text-xs text-slate-500 underline hover:text-slate-700"
+                  >
+                    Reset to default
+                  </button>
+                )}
+              </div>
               <FormControl>
                 <Textarea {...field} rows={3} />
               </FormControl>
@@ -241,11 +273,22 @@ export function CoverNoteSetupStep({
           name="operative_clause"
           render={({ field }) => (
             <WizardFormItem className="md:col-span-2">
-              <FormLabel>
-                {requiresStandardCoverNoteFields
-                  ? 'Operative Clause (required)'
-                  : 'Operative Clause'}
-              </FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel>
+                  {requiresStandardCoverNoteFields
+                    ? 'Operative Clause (required)'
+                    : 'Operative Clause'}
+                </FormLabel>
+                {generatedOperativeClause !== null && (
+                  <button
+                    type="button"
+                    onClick={resetOperativeClauseToDefault}
+                    className="text-xs text-slate-500 underline hover:text-slate-700"
+                  >
+                    Reset to default
+                  </button>
+                )}
+              </div>
               <FormControl>
                 <Textarea {...field} rows={3} />
               </FormControl>
@@ -774,11 +817,22 @@ export function CoverNoteSetupStep({
           name="cover_note_desc"
           render={({ field }) => (
             <WizardFormItem className="md:col-span-2">
-              <FormLabel>
-                {requiresStandardCoverNoteFields
-                  ? 'Cover Note Description (required)'
-                  : 'Cover Note Description'}
-              </FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel>
+                  {requiresStandardCoverNoteFields
+                    ? 'Cover Note Description (required)'
+                    : 'Cover Note Description'}
+                </FormLabel>
+                {generatedCoverNoteDesc !== null && (
+                  <button
+                    type="button"
+                    onClick={resetCoverNoteDescToDefault}
+                    className="text-xs text-slate-500 underline hover:text-slate-700"
+                  >
+                    Reset to default
+                  </button>
+                )}
+              </div>
               <FormControl>
                 <Textarea {...field} rows={3} />
               </FormControl>
@@ -792,11 +846,22 @@ export function CoverNoteSetupStep({
           name="operative_clause"
           render={({ field }) => (
             <WizardFormItem className="md:col-span-2">
-              <FormLabel>
-                {requiresStandardCoverNoteFields
-                  ? 'Operative Clause (required)'
-                  : 'Operative Clause'}
-              </FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel>
+                  {requiresStandardCoverNoteFields
+                    ? 'Operative Clause (required)'
+                    : 'Operative Clause'}
+                </FormLabel>
+                {generatedOperativeClause !== null && (
+                  <button
+                    type="button"
+                    onClick={resetOperativeClauseToDefault}
+                    className="text-xs text-slate-500 underline hover:text-slate-700"
+                  >
+                    Reset to default
+                  </button>
+                )}
+              </div>
               <FormControl>
                 <Textarea {...field} rows={3} />
               </FormControl>
