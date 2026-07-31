@@ -2,7 +2,8 @@ name: TIRAMIS CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - 'apps/tiramis/**'
       - 'libs/**'
@@ -14,8 +15,11 @@ on:
       - 'eslint.config.mjs'
       - 'deploy/tiramis/**'
       - '.github/workflows/tiramis-ci.yml'
+      - '.github/workflows/tiramis-deploy-production.yml'
+
   pull_request:
-    branches: [main]
+    branches:
+      - main
     paths:
       - 'apps/tiramis/**'
       - 'libs/**'
@@ -27,6 +31,8 @@ on:
       - 'eslint.config.mjs'
       - 'deploy/tiramis/**'
       - '.github/workflows/tiramis-ci.yml'
+      - '.github/workflows/tiramis-deploy-production.yml'
+
   workflow_dispatch:
 
 permissions:
@@ -40,11 +46,13 @@ jobs:
   validate-and-package:
     name: Validate and package TIRAMIS
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -52,17 +60,32 @@ jobs:
           node-version: '22'
           cache: npm
 
-      - name: Validate lock file
+      - name: Validate required files
         shell: bash
         run: |
           set -Eeuo pipefail
-          test -f package-lock.json || {
-            echo 'package-lock.json is required because CI and deployment use npm ci.'
-            exit 1
-          }
+
+          required_files=(
+            package.json
+            package-lock.json
+            nest-cli.json
+            tsconfig.json
+            deploy/tiramis/deploy.sh
+            deploy/tiramis/ecosystem.config.js
+          )
+
+          for file in "${required_files[@]}"; do
+            test -f "$file" || {
+              echo "Required file is missing: $file"
+              exit 1
+            }
+          done
+
+          bash -n deploy/tiramis/deploy.sh
+          node --check deploy/tiramis/ecosystem.config.js
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
       - name: Lint
         run: npm run lint -- --max-warnings=0
@@ -77,6 +100,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+
           test -f dist/apps/tiramis/apps/tiramis/src/main.js
           test -f dist/apps/tiramis/apps/tiramis/src/database/data-source.js
 
@@ -85,22 +109,41 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+
           RELEASE_DIR="$RUNNER_TEMP/tiramis-release"
+
           rm -rf "$RELEASE_DIR"
-          mkdir -p "$RELEASE_DIR"
+          mkdir -p "$RELEASE_DIR/deploy/tiramis"
 
           cp -a dist "$RELEASE_DIR/dist"
           cp package.json package-lock.json "$RELEASE_DIR/"
-          cp -a deploy/tiramis "$RELEASE_DIR/deploy"
+          cp deploy/tiramis/deploy.sh \
+            "$RELEASE_DIR/deploy/tiramis/deploy.sh"
+          cp deploy/tiramis/ecosystem.config.js \
+            "$RELEASE_DIR/deploy/tiramis/ecosystem.config.js"
 
-          printf '%s\n' "$GITHUB_SHA" > "$RELEASE_DIR/REVISION"
-          printf '%s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" > "$RELEASE_DIR/BUILT_AT"
+          chmod 750 "$RELEASE_DIR/deploy/tiramis/deploy.sh"
+
+          printf '%s\n' "$GITHUB_SHA" \
+            > "$RELEASE_DIR/REVISION"
+
+          printf '%s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            > "$RELEASE_DIR/BUILT_AT"
+
+          tar -C "$RELEASE_DIR" \
+            -czf "$RUNNER_TEMP/tiramis-release.tar.gz" .
+
+          sha256sum "$RUNNER_TEMP/tiramis-release.tar.gz" \
+            > "$RUNNER_TEMP/tiramis-release.tar.gz.sha256"
 
       - name: Upload production artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: tiramis-release-${{ github.sha }}
-          path: ${{ runner.temp }}/tiramis-release
+          path: |
+            ${{ runner.temp }}/tiramis-release.tar.gz
+            ${{ runner.temp }}/tiramis-release.tar.gz.sha256
           if-no-files-found: error
           retention-days: 14
+          compression-level: 0

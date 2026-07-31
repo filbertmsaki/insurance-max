@@ -2,13 +2,17 @@ name: Deploy TIRAMIS Production
 
 on:
   workflow_run:
-    workflows: ['TIRAMIS CI']
-    types: [completed]
-    branches: [main]
+    workflows:
+      - TIRAMIS CI
+    types:
+      - completed
+    branches:
+      - main
+
   workflow_dispatch:
     inputs:
       run_id:
-        description: 'Successful TIRAMIS CI workflow run ID to deploy'
+        description: Successful TIRAMIS CI workflow run ID to deploy
         required: true
         type: string
 
@@ -23,35 +27,101 @@ concurrency:
 jobs:
   deploy:
     name: Deploy TIRAMIS to production
+
     if: >-
       ${{
-        (github.event_name == 'workflow_run' &&
-         github.event.workflow_run.conclusion == 'success' &&
-         github.event.workflow_run.event == 'push') ||
+        (
+          github.event_name == 'workflow_run' &&
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.event == 'push'
+        ) ||
         github.event_name == 'workflow_dispatch'
       }}
-    runs-on: [self-hosted, linux, x64, tiramis-prod]
+
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - tiramis-prod
+
     environment: production
-    timeout-minutes: 20
+    timeout-minutes: 30
+
+    env:
+      BASE_DIR: /opt/apps/tiramis
+      APP_NAME: tiramis
+      INTERNAL_HEALTH_URL: http://127.0.0.1:9090/health
+      PUBLIC_HEALTH_URL: https://ussdvd.alliance.co.tz/tiramis-api/health
 
     steps:
-      - name: Resolve CI run and release ID
+      - name: Resolve and validate CI run
         id: release
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
+          WORKFLOW_RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_RUN_ID: ${{ inputs.run_id }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           set -Eeuo pipefail
 
-          if [[ "${{ github.event_name }}" == 'workflow_run' ]]; then
-            RUN_ID='${{ github.event.workflow_run.id }}'
-            SHA='${{ github.event.workflow_run.head_sha }}'
+          if [[ "$EVENT_NAME" == 'workflow_run' ]]; then
+            RUN_ID="$WORKFLOW_RUN_ID"
+            SHA="$WORKFLOW_RUN_SHA"
           else
-            RUN_ID='${{ inputs.run_id }}'
-            SHA="$(curl -fsSL \
+            RUN_ID="$INPUT_RUN_ID"
+
+            RUN_JSON="$(curl -fsSL \
               -H 'Accept: application/vnd.github+json' \
-              -H 'Authorization: Bearer ${{ github.token }}' \
+              -H "Authorization: Bearer $GH_TOKEN" \
               -H 'X-GitHub-Api-Version: 2022-11-28' \
-              'https://api.github.com/repos/${{ github.repository }}/actions/runs/'"$RUN_ID" \
-              | python3 -c 'import json,sys; print(json.load(sys.stdin)["head_sha"])')"
+              "https://api.github.com/repos/$REPOSITORY/actions/runs/$RUN_ID")"
+
+            export RUN_JSON
+
+            readarray -t RUN_VALUES < <(
+              python3 - <<'PY'
+          import json
+          import os
+
+          run = json.loads(os.environ['RUN_JSON'])
+
+          print(run.get('head_sha', ''))
+          print(run.get('head_branch', ''))
+          print(run.get('conclusion', ''))
+          print(run.get('event', ''))
+          print(run.get('name', ''))
+          PY
+            )
+
+            SHA="${RUN_VALUES[0]}"
+            BRANCH="${RUN_VALUES[1]}"
+            CONCLUSION="${RUN_VALUES[2]}"
+            RUN_EVENT="${RUN_VALUES[3]}"
+            WORKFLOW_NAME="${RUN_VALUES[4]}"
+
+            [[ "$BRANCH" == 'main' ]] || {
+              echo "Refusing deployment: branch is '$BRANCH', not 'main'."
+              exit 1
+            }
+
+            [[ "$CONCLUSION" == 'success' ]] || {
+              echo "Refusing deployment: conclusion is '$CONCLUSION'."
+              exit 1
+            }
+
+            [[ "$WORKFLOW_NAME" == 'TIRAMIS CI' ]] || {
+              echo "Refusing deployment: run belongs to '$WORKFLOW_NAME'."
+              exit 1
+            }
+
+            [[ "$RUN_EVENT" == 'push' || \
+               "$RUN_EVENT" == 'workflow_dispatch' ]] || {
+              echo "Refusing deployment: unsupported event '$RUN_EVENT'."
+              exit 1
+            }
           fi
 
           test -n "$RUN_ID"
@@ -61,42 +131,130 @@ jobs:
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "release_id=$SHA" >> "$GITHUB_OUTPUT"
 
+          echo "Selected CI run: $RUN_ID"
+          echo "Selected commit: $SHA"
+
       - name: Download exact CI artifact
         uses: actions/download-artifact@v4
         with:
           name: tiramis-release-${{ steps.release.outputs.sha }}
-          path: ${{ runner.temp }}/tiramis-release
+          path: ${{ runner.temp }}/tiramis-artifact
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
           run-id: ${{ steps.release.outputs.run_id }}
 
-      - name: Validate artifact
+      - name: Validate and extract artifact
         shell: bash
+        env:
+          EXPECTED_SHA: ${{ steps.release.outputs.sha }}
         run: |
           set -Eeuo pipefail
-          RELEASE="$RUNNER_TEMP/tiramis-release"
-          test -f "$RELEASE/package.json"
-          test -f "$RELEASE/package-lock.json"
-          test -f "$RELEASE/REVISION"
-          test -f "$RELEASE/dist/apps/tiramis/apps/tiramis/src/main.js"
-          test "$(cat "$RELEASE/REVISION")" = '${{ steps.release.outputs.sha }}'
 
-      - name: Install release and deploy
+          ARTIFACT_DIR="$RUNNER_TEMP/tiramis-artifact"
+          ARCHIVE="$ARTIFACT_DIR/tiramis-release.tar.gz"
+          CHECKSUM="$ARTIFACT_DIR/tiramis-release.tar.gz.sha256"
+          EXTRACT_DIR="$RUNNER_TEMP/tiramis-release"
+
+          test -f "$ARCHIVE"
+          test -f "$CHECKSUM"
+
+          cd "$ARTIFACT_DIR"
+          sha256sum --check tiramis-release.tar.gz.sha256
+
+          rm -rf "$EXTRACT_DIR"
+          mkdir -p "$EXTRACT_DIR"
+
+          tar -xzf "$ARCHIVE" -C "$EXTRACT_DIR"
+
+          test -f "$EXTRACT_DIR/package.json"
+          test -f "$EXTRACT_DIR/package-lock.json"
+          test -f "$EXTRACT_DIR/REVISION"
+
+          test -f \
+            "$EXTRACT_DIR/deploy/tiramis/deploy.sh"
+
+          test -f \
+            "$EXTRACT_DIR/deploy/tiramis/ecosystem.config.js"
+
+          test -f \
+            "$EXTRACT_DIR/dist/apps/tiramis/apps/tiramis/src/main.js"
+
+          test -f \
+            "$EXTRACT_DIR/dist/apps/tiramis/apps/tiramis/src/database/data-source.js"
+
+          [[ "$(cat "$EXTRACT_DIR/REVISION")" == "$EXPECTED_SHA" ]] || {
+            echo 'Artifact revision does not match the requested commit.'
+            exit 1
+          }
+
+          bash -n \
+            "$EXTRACT_DIR/deploy/tiramis/deploy.sh"
+
+          node --check \
+            "$EXTRACT_DIR/deploy/tiramis/ecosystem.config.js"
+
+      - name: Prepare deployment directories
         shell: bash
         run: |
           set -Eeuo pipefail
-          RELEASE_ID='${{ steps.release.outputs.release_id }}'
-          BASE_DIR='/opt/apps/tiramis'
+
+          mkdir -p \
+            "$BASE_DIR/releases" \
+            "$BASE_DIR/shared" \
+            "$BASE_DIR/certificates" \
+            /var/log/pm2
+
+          test -w "$BASE_DIR/releases"
+          test -w "$BASE_DIR/shared"
+          test -w /var/log/pm2
+
+      - name: Install deployment configuration
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          RELEASE="$RUNNER_TEMP/tiramis-release"
+
+          install -m 750 \
+            "$RELEASE/deploy/tiramis/deploy.sh" \
+            "$BASE_DIR/shared/deploy.sh"
+
+          install -m 640 \
+            "$RELEASE/deploy/tiramis/ecosystem.config.js" \
+            "$BASE_DIR/shared/ecosystem.config.js"
+
+          test -f "$BASE_DIR/shared/.env" || {
+            echo "Missing environment file: $BASE_DIR/shared/.env"
+            exit 1
+          }
+
+      - name: Install release files
+        shell: bash
+        env:
+          RELEASE_ID: ${{ steps.release.outputs.release_id }}
+        run: |
+          set -Eeuo pipefail
+
+          SOURCE="$RUNNER_TEMP/tiramis-release"
           RELEASE_DIR="$BASE_DIR/releases/$RELEASE_ID"
 
-          test -x "$BASE_DIR/shared/deploy.sh"
-          test -f "$BASE_DIR/shared/.env"
-          test -f "$BASE_DIR/shared/ecosystem.config.js"
-
-          mkdir -p "$BASE_DIR/releases"
           rm -rf "$RELEASE_DIR"
           mkdir -p "$RELEASE_DIR"
-          cp -a "$RUNNER_TEMP/tiramis-release/." "$RELEASE_DIR/"
+
+          cp -a "$SOURCE/." "$RELEASE_DIR/"
+
+          test -f "$RELEASE_DIR/REVISION"
+
+          test "$(cat "$RELEASE_DIR/REVISION")" = "$RELEASE_ID"
+
+      - name: Deploy release
+        shell: bash
+        env:
+          RELEASE_ID: ${{ steps.release.outputs.release_id }}
+          HEALTH_URL: ${{ env.INTERNAL_HEALTH_URL }}
+          KEEP_RELEASES: '5'
+        run: |
+          set -Eeuo pipefail
 
           "$BASE_DIR/shared/deploy.sh" "$RELEASE_ID"
 
@@ -104,30 +262,39 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          for attempt in {1..30}; do
-            code="$(curl -sS -o /dev/null -w '%{http_code}' \
-              --connect-timeout 2 --max-time 5 \
-              http://127.0.0.1:9090/health || true)"
-            if [[ "$code" == '200' ]]; then
-              echo 'Internal health check passed.'
-              exit 0
-            fi
-            echo "Attempt $attempt/30 returned HTTP $code"
-            sleep 2
-          done
-          pm2 logs tiramis --lines 120 --nostream || true
-          exit 1
+
+          code="$(curl -sS \
+            -o /dev/null \
+            -w '%{http_code}' \
+            --connect-timeout 3 \
+            --max-time 10 \
+            "$INTERNAL_HEALTH_URL" || true)"
+
+          [[ "$code" == '200' ]] || {
+            echo "Internal health check failed with HTTP $code"
+
+            pm2 logs "$APP_NAME" \
+              --lines 120 \
+              --nostream || true
+
+            exit 1
+          }
 
       - name: Verify Apache reverse proxy
         shell: bash
         run: |
           set -Eeuo pipefail
-          code="$(curl -ksS -o /dev/null -w '%{http_code}' \
-            --connect-timeout 5 --max-time 15 \
+
+          code="$(curl -ksS \
+            -o /dev/null \
+            -w '%{http_code}' \
+            --connect-timeout 5 \
+            --max-time 15 \
             --resolve ussdvd.alliance.co.tz:443:127.0.0.1 \
-            https://ussdvd.alliance.co.tz/tiramis-api/health || true)"
-          test "$code" = '200' || {
-            echo "Apache proxy health check failed with HTTP $code"
+            "$PUBLIC_HEALTH_URL" || true)"
+
+          [[ "$code" == '200' ]] || {
+            echo "Apache reverse-proxy health check failed with HTTP $code"
             exit 1
           }
 
@@ -139,7 +306,19 @@ jobs:
             echo '## TIRAMIS production deployment'
             echo
             echo '- Commit: `${{ steps.release.outputs.sha }}`'
+            echo '- CI run: `${{ steps.release.outputs.run_id }}`'
             echo '- Runner: `${{ runner.name }}`'
+            echo "- Server: \`$(hostname)\`"
             echo '- Internal: `http://127.0.0.1:9090/health`'
             echo '- Public: `https://ussdvd.alliance.co.tz/tiramis-api/health`'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Show diagnostic logs after failure
+        if: failure()
+        shell: bash
+        run: |
+          pm2 status || true
+
+          pm2 logs "$APP_NAME" \
+            --lines 150 \
+            --nostream || true
