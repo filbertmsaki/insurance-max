@@ -53,7 +53,6 @@ on_error() {
 
   show_logs
   rollback
-
   exit "$status"
 }
 
