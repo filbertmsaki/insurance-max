@@ -200,10 +200,7 @@ export interface PricingBreakdownMessage {
   message: string;
 }
 
-export type PricingBreakdownStatus =
-  | 'CALCULATED'
-  | 'PARTIAL'
-  | 'INCOMPLETE';
+export type PricingBreakdownStatus = 'CALCULATED' | 'PARTIAL' | 'INCOMPLETE';
 
 export interface PricingPremiumBreakdown {
   pricing_quote_id: string;

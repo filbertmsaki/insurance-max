@@ -19,7 +19,10 @@ function createServiceFixture(options?: {
   const conditionRepository = {
     find: jest.fn().mockResolvedValue(options?.persistedConditions ?? []),
   };
-  const factorResult = Object.prototype.hasOwnProperty.call(options ?? {}, 'factor')
+  const factorResult = Object.prototype.hasOwnProperty.call(
+    options ?? {},
+    'factor',
+  )
     ? options?.factor
     : {
         id: 'factor-1',

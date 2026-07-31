@@ -35,8 +35,8 @@ export function getDiscountRateForType(
   discountType: string | null | undefined,
 ) {
   return (
-    DISCOUNT_TYPE_OPTIONS.find((option) => option.value === discountType)?.rate ??
-    ''
+    DISCOUNT_TYPE_OPTIONS.find((option) => option.value === discountType)
+      ?.rate ?? ''
   );
 }
 

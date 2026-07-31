@@ -6,7 +6,10 @@ import { RatingFactorsService } from './rating-factors.service';
 import { RatingFactor } from './entities/rating-factor.entity';
 
 @Module({
-  imports: [PricingRuntimeCacheModule, TypeOrmModule.forFeature([RatingFactor])],
+  imports: [
+    PricingRuntimeCacheModule,
+    TypeOrmModule.forFeature([RatingFactor]),
+  ],
   controllers: [RatingFactorsController],
   providers: [RatingFactorsService],
   exports: [RatingFactorsService, TypeOrmModule],

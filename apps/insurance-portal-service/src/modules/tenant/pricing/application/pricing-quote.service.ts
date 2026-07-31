@@ -102,15 +102,11 @@ export class PricingQuoteService {
           runtimeConfigurationSignature,
         );
         if (reusable) {
-          return this.mapPersistedQuote(
-            reusable,
-          ) as PersistedRiskPremiumResult;
+          return this.mapPersistedQuote(reusable) as PersistedRiskPremiumResult;
         }
 
-        const engineResult = await this.pricingEngineService.calculateSingleRisk(
-          companyId,
-          input,
-        );
+        const engineResult =
+          await this.pricingEngineService.calculateSingleRisk(companyId, input);
         const result: RiskPremiumResult = this.applyExchangeRateEquivalents({
           ...engineResult,
           exchange_rate_snapshot: exchangeRateSnapshot,
@@ -346,8 +342,7 @@ export class PricingQuoteService {
       matched_rule_id: singleResult?.rule_id ?? null,
       matched_rule_version: singleResult?.rule_version ?? null,
       base_premium: this.resolveBasePremium(result),
-      minimum_premium_adjustment:
-        this.resolveMinimumPremiumAdjustment(result),
+      minimum_premium_adjustment: this.resolveMinimumPremiumAdjustment(result),
       gross_premium: this.resolveGrossPremium(result),
       final_premium: this.resolveFinalPremium(result),
       expires_at: expiresAt,
@@ -385,7 +380,9 @@ export class PricingQuoteService {
   private async runCoalescedCalculation<
     T extends PersistedRiskPremiumResult | PersistedMultiRiskPremiumResult,
   >(key: string, loader: () => Promise<T>): Promise<T> {
-    const existing = this.inFlightCalculations.get(key) as Promise<T> | undefined;
+    const existing = this.inFlightCalculations.get(key) as
+      | Promise<T>
+      | undefined;
     if (existing) {
       return existing;
     }
@@ -444,7 +441,7 @@ export class PricingQuoteService {
           return false;
         }
 
-        const context = candidate.context_payload as Record<string, unknown> | null;
+        const context = candidate.context_payload;
         return (
           context?.exchange_rate_signature === exchangeRateSignature &&
           context?.runtime_configuration_signature ===
@@ -545,7 +542,9 @@ export class PricingQuoteService {
     return null;
   }
 
-  private resolveBasePremium(result: RiskPremiumResult | MultiRiskPremiumResult) {
+  private resolveBasePremium(
+    result: RiskPremiumResult | MultiRiskPremiumResult,
+  ) {
     if (this.isSingleRiskResult(result)) {
       return result.base_premium;
     }
@@ -641,15 +640,19 @@ export class PricingQuoteService {
     const risks = this.isSingleRiskResult(result) ? [result] : result.risks;
     const items = risks.map((risk) => this.buildBreakdownItem(risk));
     const taxesTotal = roundMoney(
-      sumDecimals(items.flatMap((item) => item.taxes.map((charge) => charge.amount))),
+      sumDecimals(
+        items.flatMap((item) => item.taxes.map((charge) => charge.amount)),
+      ),
     );
     const otherChargesTotal = roundMoney(
       sumDecimals(
-        items.flatMap((item) => item.other_charges.map((charge) => charge.amount)),
+        items.flatMap((item) =>
+          item.other_charges.map((charge) => charge.amount),
+        ),
       ),
     );
     const payablePremium = this.isSingleRiskResult(result)
-      ? result.premium_including_charges ?? result.final_premium
+      ? (result.premium_including_charges ?? result.final_premium)
       : roundMoney(sumDecimals(items.map((item) => item.final_premium)));
 
     return {
@@ -757,7 +760,9 @@ export class PricingQuoteService {
     risks: RiskPremiumResult[],
   ): PricingBreakdownRateBookSummary {
     return {
-      code: this.pickSingleValue(risks.map((risk) => risk.rate_book_code ?? null)),
+      code: this.pickSingleValue(
+        risks.map((risk) => risk.rate_book_code ?? null),
+      ),
       version: this.pickSingleValue(
         risks.map((risk) => risk.rate_book_version ?? null),
       ),
@@ -765,7 +770,9 @@ export class PricingQuoteService {
   }
 
   private pickSingleValue(values: Array<string | null>): string | null {
-    const distinct = [...new Set(values.filter((value): value is string => !!value))];
+    const distinct = [
+      ...new Set(values.filter((value): value is string => !!value)),
+    ];
     return distinct.length === 1 ? distinct[0] : null;
   }
 

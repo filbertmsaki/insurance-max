@@ -29,12 +29,10 @@ export class QuotationRecalculationService {
     }
 
     if (value && typeof value === 'object') {
-      return Object.keys(value as Record<string, unknown>)
+      return Object.keys(value)
         .sort()
         .reduce<Record<string, unknown>>((result, key) => {
-          result[key] = this.sortValue(
-            (value as Record<string, unknown>)[key],
-          );
+          result[key] = this.sortValue((value as Record<string, unknown>)[key]);
           return result;
         }, {});
     }

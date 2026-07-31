@@ -24,7 +24,11 @@ describe('quotationRiskRowSchema — required rate validation', () => {
     const row = {
       ...createEmptyRiskRow(),
       discounts_offered: [
-        { ...createEmptyRiskDiscountRow(), discount_type: '1', discount_rate: '' },
+        {
+          ...createEmptyRiskDiscountRow(),
+          discount_type: '1',
+          discount_rate: '',
+        },
       ],
     };
 
@@ -45,7 +49,11 @@ describe('quotationRiskRowSchema — required rate validation', () => {
     const row = {
       ...createEmptyRiskRow(),
       discounts_offered: [
-        { ...createEmptyRiskDiscountRow(), discount_type: '', discount_rate: '' },
+        {
+          ...createEmptyRiskDiscountRow(),
+          discount_type: '',
+          discount_rate: '',
+        },
       ],
     };
 
@@ -56,7 +64,11 @@ describe('quotationRiskRowSchema — required rate validation', () => {
     const row = {
       ...createEmptyRiskRow(),
       discounts_offered: [
-        { ...createEmptyRiskDiscountRow(), discount_type: '1', discount_rate: '0.05' },
+        {
+          ...createEmptyRiskDiscountRow(),
+          discount_type: '1',
+          discount_rate: '0.05',
+        },
       ],
     };
 
@@ -88,7 +100,11 @@ describe('quotationRiskRowSchema — required rate validation', () => {
     const row = {
       ...createEmptyRiskRow(),
       taxes_charged: [
-        { ...createEmptyRiskTaxRow(), tax_code: 'VAT-MAINLAND', tax_rate: '0.18' },
+        {
+          ...createEmptyRiskTaxRow(),
+          tax_code: 'VAT-MAINLAND',
+          tax_rate: '0.18',
+        },
       ],
     };
 

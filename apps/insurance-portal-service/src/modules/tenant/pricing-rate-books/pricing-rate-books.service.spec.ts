@@ -191,9 +191,10 @@ describe('PricingRateBooksService', () => {
 
     const ruleRepoMock = {
       create: jest.fn().mockImplementation((value) => value),
-      save: jest
-        .fn()
-        .mockImplementation(async (value) => ({ id: 'cloned-rule-1', ...value })),
+      save: jest.fn().mockImplementation(async (value) => ({
+        id: 'cloned-rule-1',
+        ...value,
+      })),
     };
     const conditionRepoMock = {
       create: jest.fn().mockImplementation((value) => value),
@@ -205,7 +206,7 @@ describe('PricingRateBooksService', () => {
         .mockResolvedValue({ id: 'draft-1', rules: [{ id: 'cloned-rule-1' }] }),
     };
 
-    (rateBookRepository.manager.transaction as jest.Mock).mockImplementation(
+    rateBookRepository.manager.transaction.mockImplementation(
       async (callback) =>
         callback({
           getRepository: jest

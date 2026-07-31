@@ -99,10 +99,7 @@ describe('IdentifierGeneratorService', () => {
     const { service, manager } = createFixture({ sequenceValues: [1, 2, 3] });
 
     const first = await service.generateQuotationNumber('company-1', manager);
-    const second = await service.generateQuotationNumber(
-      'company-1',
-      manager,
-    );
+    const second = await service.generateQuotationNumber('company-1', manager);
     const third = await service.generateQuotationNumber('company-1', manager);
 
     expect(first).toBe('AICL260729001');

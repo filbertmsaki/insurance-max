@@ -72,7 +72,9 @@ export class RiskRequiredFactorsService {
 
     try {
       const saved = await this.requiredFactorRepository.save(rf);
-      await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+      await this.pricingRuntimeCacheService.invalidateProductConfiguration(
+        companyId,
+      );
       return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
@@ -116,7 +118,9 @@ export class RiskRequiredFactorsService {
     rf.updated_by = userId;
 
     const saved = await this.requiredFactorRepository.save(rf);
-    await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+    await this.pricingRuntimeCacheService.invalidateProductConfiguration(
+      companyId,
+    );
     return saved;
   }
 
@@ -126,6 +130,8 @@ export class RiskRequiredFactorsService {
     });
     if (!rf) throw new NotFoundException('Risk required factor not found');
     await this.requiredFactorRepository.delete(rf.id);
-    await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+    await this.pricingRuntimeCacheService.invalidateProductConfiguration(
+      companyId,
+    );
   }
 }

@@ -38,10 +38,20 @@ export class AddActiveBranchState1790000000001 implements MigrationInterface {
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX "public"."UQ_branch_users_one_active_branch"`);
-    await queryRunner.query(`ALTER TABLE "branch_users" DROP COLUMN "activated_by"`);
-    await queryRunner.query(`ALTER TABLE "branch_users" DROP COLUMN "activated_at"`);
-    await queryRunner.query(`ALTER TABLE "branch_users" DROP COLUMN "assigned_by"`);
-    await queryRunner.query(`ALTER TABLE "branch_users" DROP COLUMN "is_active_branch"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."UQ_branch_users_one_active_branch"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "branch_users" DROP COLUMN "activated_by"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "branch_users" DROP COLUMN "activated_at"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "branch_users" DROP COLUMN "assigned_by"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "branch_users" DROP COLUMN "is_active_branch"`,
+    );
   }
 }

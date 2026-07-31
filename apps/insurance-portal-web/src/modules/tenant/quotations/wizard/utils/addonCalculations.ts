@@ -75,7 +75,8 @@ export function sumEnabledAddonsTotal(
       addons
         .filter((addon) => addon.enabled)
         .map(
-          (addon) => computeAddonAmounts(addon, exchangeRate).premiumIncludingTax,
+          (addon) =>
+            computeAddonAmounts(addon, exchangeRate).premiumIncludingTax,
         ),
     ),
   );

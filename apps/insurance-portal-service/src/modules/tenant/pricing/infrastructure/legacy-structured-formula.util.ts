@@ -1,8 +1,5 @@
 export interface LegacyStructuredFormulaMatch {
-  kind:
-    | 'PERCENTAGE_PLUS_PER_UNIT'
-    | 'PER_UNIT'
-    | 'PERCENTAGE_PLUS_FIXED';
+  kind: 'PERCENTAGE_PLUS_PER_UNIT' | 'PER_UNIT' | 'PERCENTAGE_PLUS_FIXED';
   percentageRateText?: string;
   fixedAmountText?: string;
   perUnitAmountText?: string;

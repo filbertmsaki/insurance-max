@@ -55,7 +55,9 @@ export class PricingRateBooksController {
   @Post('clone')
   @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rate_books')
-  @ApiOperation({ summary: 'Clone an existing pricing rate book into a new draft version' })
+  @ApiOperation({
+    summary: 'Clone an existing pricing rate book into a new draft version',
+  })
   async clone(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: ClonePricingRateBookDto,
@@ -66,7 +68,9 @@ export class PricingRateBooksController {
   @Get(':rateBookId')
   @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rate_books')
-  @ApiOperation({ summary: 'Get a pricing rate book with rules and conditions' })
+  @ApiOperation({
+    summary: 'Get a pricing rate book with rules and conditions',
+  })
   async findOne(
     @CurrentUser() user: AuthenticatedUser,
     @Param('rateBookId', ParseUUIDPipe) rateBookId: string,

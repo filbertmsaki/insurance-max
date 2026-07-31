@@ -99,7 +99,11 @@ import { PricingChargeService } from '../pricing/application/pricing-charge.serv
 import { ExchangeRateGovernanceService } from '../pricing/application/exchange-rate-governance.service';
 import { PricingQuoteService } from '../pricing/application/pricing-quote.service';
 import type { ExchangeRateSnapshot } from '../pricing/domain/pricing.types';
-import { PricingQuote, PricingQuoteScope, PricingQuoteStatus } from '../pricing/entities/pricing-quote.entity';
+import {
+  PricingQuote,
+  PricingQuoteScope,
+  PricingQuoteStatus,
+} from '../pricing/entities/pricing-quote.entity';
 import { PricingRateBook } from '../pricing-rate-books/entities/pricing-rate-book.entity';
 import { PricingRateBookStatus } from '../pricing-rate-books/enums/pricing-rate-book-status.enum';
 import {
@@ -358,10 +362,8 @@ export class QuotationsService {
             companyId,
             manager,
           );
-        const { branchId, salePointCode } = await this.resolveDraftBranchContext(
-          companyId,
-          userId,
-        );
+        const { branchId, salePointCode } =
+          await this.resolveDraftBranchContext(companyId, userId);
         const productCode = await this.resolveDraftProductCode(
           manager,
           dto.product_id,
@@ -447,11 +449,11 @@ export class QuotationsService {
       preparedPayload,
       user,
     );
-      await this.validateAuthoritativePricing(
-        companyId,
-        preparedPayload,
-        {
-          productId: scope.product.id,
+    await this.validateAuthoritativePricing(
+      companyId,
+      preparedPayload,
+      {
+        productId: scope.product.id,
         riskByCode: this.createPricingAuthorityRiskIndex(scope.riskByCode),
         quotationId: existing.id,
       },
@@ -459,11 +461,11 @@ export class QuotationsService {
         userId: user.id,
         quotationId: existing.id,
         quotationNo: existing.quotation_no,
-          reason: 'Quotation payload validation succeeded before replacement',
-        },
-      );
-      this.assertDiscountPermissions(preparedPayload, user, existing);
-      const lifecycleContext = {
+        reason: 'Quotation payload validation succeeded before replacement',
+      },
+    );
+    this.assertDiscountPermissions(preparedPayload, user, existing);
+    const lifecycleContext = {
       changedBy: user.id,
       changedByType: 'USER' as const,
       source: 'USER' as const,
@@ -579,12 +581,17 @@ export class QuotationsService {
 
     try {
       await this.dataSource.transaction(async (manager) => {
-        const quotation = await this.lockQuotationForUpdate(manager, companyId, id);
+        const quotation = await this.lockQuotationForUpdate(
+          manager,
+          companyId,
+          id,
+        );
         this.assertDraftWritable(quotation);
 
         const salePointCode =
           quotation.cover_note?.sale_point_code?.trim() ||
-          (await this.resolveDraftBranchContext(companyId, userId)).salePointCode;
+          (await this.resolveDraftBranchContext(companyId, userId))
+            .salePointCode;
         const productCode = await this.resolveDraftProductCode(
           manager,
           dto.product_id,
@@ -661,11 +668,7 @@ export class QuotationsService {
     return this.findOne(companyId, quotation.id, user);
   }
 
-  async submitForApprovalAction(
-    companyId: string,
-    id: string,
-    userId: string,
-  ) {
+  async submitForApprovalAction(companyId: string, id: string, userId: string) {
     await this.quotationLifecycleService.submitForApproval(companyId, id, {
       changedBy: userId,
       changedByType: 'USER',
@@ -686,9 +689,15 @@ export class QuotationsService {
     const latestInvoice = await this.findLatestInvoice(companyId, id);
     const invoice =
       latestInvoice &&
-      !['VOID', 'CANCELLED'].includes(String(latestInvoice.status).toUpperCase())
+      !['VOID', 'CANCELLED'].includes(
+        String(latestInvoice.status).toUpperCase(),
+      )
         ? latestInvoice
-        : await this.createQuotationPaymentInvoice(companyId, quotation, userId);
+        : await this.createQuotationPaymentInvoice(
+            companyId,
+            quotation,
+            userId,
+          );
 
     await this.quotationLifecycleService.markPaymentRequested(companyId, id, {
       changedBy: userId,
@@ -823,28 +832,28 @@ export class QuotationsService {
       this.findTiramisTrackingByEntry(companyId, quotation),
     ]);
 
-      const response = this.previewMapper.toResponse(
-        quotation,
-        {
-          invoice,
-          receipt,
-          paymentTransaction,
-          portalSubmission,
-          portalSubmissionEvents: portalSubmission?.events ?? [],
-          tiramisTracking,
-          tiramisTrackingByEntry,
-        },
-        {
-          includePremiumOverrides: this.canViewPricingAudit(user),
-        },
-      );
+    const response = this.previewMapper.toResponse(
+      quotation,
+      {
+        invoice,
+        receipt,
+        paymentTransaction,
+        portalSubmission,
+        portalSubmissionEvents: portalSubmission?.events ?? [],
+        tiramisTracking,
+        tiramisTrackingByEntry,
+      },
+      {
+        includePremiumOverrides: this.canViewPricingAudit(user),
+      },
+    );
 
-      return {
-        ...response,
-        pricing_integration: this.canViewPricingBreakdown(user)
-          ? await this.evaluateQuotationPricingIntegration(companyId, quotation)
-          : null,
-      };
+    return {
+      ...response,
+      pricing_integration: this.canViewPricingBreakdown(user)
+        ? await this.evaluateQuotationPricingIntegration(companyId, quotation)
+        : null,
+    };
   }
 
   async requestPremiumOverride(
@@ -872,46 +881,48 @@ export class QuotationsService {
       proposedPremium,
     );
 
-    const premiumOverride = await this.dataSource.transaction(async (manager) => {
-      await this.lockQuotationForUpdate(manager, companyId, quotationId);
-      const repository = manager.getRepository(QuotationRiskPremiumOverride);
+    const premiumOverride = await this.dataSource.transaction(
+      async (manager) => {
+        await this.lockQuotationForUpdate(manager, companyId, quotationId);
+        const repository = manager.getRepository(QuotationRiskPremiumOverride);
 
-      const savedPremiumOverride = await repository.save(
-        repository.create({
-          risk_id: risk.id,
-          sequence_no: (risk.premium_overrides?.length ?? 0) + 1,
-          original_calculated_premium: this.numeric(
-            originalCalculatedPremium,
-            2,
-          ),
-          proposed_premium: this.numeric(proposedPremium, 2),
-          difference_amount: this.numeric(
-            roundMoney(proposedPremium - originalCalculatedPremium),
-            2,
-          ),
-          difference_percentage:
-            originalCalculatedPremium > 0
-              ? this.numeric(
-                  ((proposedPremium - originalCalculatedPremium) /
-                    originalCalculatedPremium) *
-                    100,
-                  6,
-                )
-              : null,
-          override_reason: dto.override_reason.trim(),
-          supporting_notes: dto.supporting_notes?.trim() || null,
-          requested_by: user.id,
-          requested_at: new Date(),
-          approval_status: QuotationPremiumOverrideStatus.PENDING,
-        }),
-      );
+        const savedPremiumOverride = await repository.save(
+          repository.create({
+            risk_id: risk.id,
+            sequence_no: (risk.premium_overrides?.length ?? 0) + 1,
+            original_calculated_premium: this.numeric(
+              originalCalculatedPremium,
+              2,
+            ),
+            proposed_premium: this.numeric(proposedPremium, 2),
+            difference_amount: this.numeric(
+              roundMoney(proposedPremium - originalCalculatedPremium),
+              2,
+            ),
+            difference_percentage:
+              originalCalculatedPremium > 0
+                ? this.numeric(
+                    ((proposedPremium - originalCalculatedPremium) /
+                      originalCalculatedPremium) *
+                      100,
+                    6,
+                  )
+                : null,
+            override_reason: dto.override_reason.trim(),
+            supporting_notes: dto.supporting_notes?.trim() || null,
+            requested_by: user.id,
+            requested_at: new Date(),
+            approval_status: QuotationPremiumOverrideStatus.PENDING,
+          }),
+        );
 
-      await manager.getRepository(Quotation).update(quotation.id, {
-        updated_by: user.id,
-      });
+        await manager.getRepository(Quotation).update(quotation.id, {
+          updated_by: user.id,
+        });
 
-      return savedPremiumOverride;
-    });
+        return savedPremiumOverride;
+      },
+    );
 
     await this.auditService.log({
       userId: user.id,
@@ -930,7 +941,9 @@ export class QuotationsService {
         },
         new_value: {
           proposed_premium: proposedPremium,
-          difference_amount: roundMoney(proposedPremium - originalCalculatedPremium),
+          difference_amount: roundMoney(
+            proposedPremium - originalCalculatedPremium,
+          ),
         },
         reason: dto.override_reason.trim(),
         correlation_id: premiumOverride.id,
@@ -968,7 +981,10 @@ export class QuotationsService {
       );
     }
 
-    if (premiumOverride.requested_by && premiumOverride.requested_by === user.id) {
+    if (
+      premiumOverride.requested_by &&
+      premiumOverride.requested_by === user.id
+    ) {
       throw new ConflictException(
         'You cannot approve your own premium override request',
       );
@@ -1012,7 +1028,9 @@ export class QuotationsService {
         riskCode: risk.risk_code,
         premiumOverrideId: premiumOverride.id,
         old_value: {
-          premium_before_discount: Number(premiumOverride.original_calculated_premium),
+          premium_before_discount: Number(
+            premiumOverride.original_calculated_premium,
+          ),
         },
         new_value: {
           proposed_premium: Number(premiumOverride.proposed_premium),
@@ -1654,7 +1672,11 @@ export class QuotationsService {
             'cover_note_number',
             `${quotation.quotation_no}-1`,
           )
-        : this.draftString(payload, 'cover_note_number', quotation.quotation_no);
+        : this.draftString(
+            payload,
+            'cover_note_number',
+            quotation.quotation_no,
+          );
     const endorsementType =
       draft.quotation_flow === QuotationFlow.MOTOR_FLEET
         ? this.draftNullableInteger(firstFleetItem, 'endorsement_type')
@@ -1668,7 +1690,11 @@ export class QuotationsService {
         ? null
         : this.numeric(
             draft.quotation_flow === QuotationFlow.MOTOR_FLEET
-              ? this.draftNumber(firstFleetItem, 'endorsement_premium_earned', 0)
+              ? this.draftNumber(
+                  firstFleetItem,
+                  'endorsement_premium_earned',
+                  0,
+                )
               : this.draftNumber(payload, 'endorsement_premium_earned', 0),
             2,
           );
@@ -1695,7 +1721,11 @@ export class QuotationsService {
             : this.draftNullableString(payload, 'prev_cover_note_reference'),
         cover_note_desc:
           draft.quotation_flow === QuotationFlow.MOTOR_FLEET
-            ? this.draftString(firstFleetItem, 'cover_note_desc', 'Draft vehicle')
+            ? this.draftString(
+                firstFleetItem,
+                'cover_note_desc',
+                'Draft vehicle',
+              )
             : this.draftString(payload, 'cover_note_desc', 'Draft quotation'),
         operative_clause:
           draft.quotation_flow === QuotationFlow.MOTOR_FLEET
@@ -1713,13 +1743,16 @@ export class QuotationsService {
     ) {
       const motorSource =
         draft.quotation_flow === QuotationFlow.MOTOR_FLEET
-          ? this.draftObject(firstFleetItem, 'motor_dtl') ?? firstFleetItem
+          ? (this.draftObject(firstFleetItem, 'motor_dtl') ?? firstFleetItem)
           : this.draftObject(payload, 'motor');
       const tareWeight = roundMoney(
         Math.max(this.draftNumber(motorSource, 'tare_weight', 0), 0),
       );
       const grossWeight = roundMoney(
-        Math.max(this.draftNumber(motorSource, 'gross_weight', tareWeight), tareWeight),
+        Math.max(
+          this.draftNumber(motorSource, 'gross_weight', tareWeight),
+          tareWeight,
+        ),
       );
 
       await motorRepository.save(
@@ -1821,13 +1854,13 @@ export class QuotationsService {
             ),
             1,
           ),
-          owner_name: this.draftString(motorSource, 'owner_name', 'Draft owner'),
+          owner_name: this.draftString(
+            motorSource,
+            'owner_name',
+            'Draft owner',
+          ),
           owner_category: Math.max(
-            this.draftInteger(
-              motorSource,
-              'owner_category',
-              1,
-            ),
+            this.draftInteger(motorSource, 'owner_category', 1),
             1,
           ),
           owner_address: this.draftString(
@@ -1958,9 +1991,7 @@ export class QuotationsService {
     }
 
     if (!quotation.requires_payment) {
-      throw new ConflictException(
-        'Payment is not required for this quotation',
-      );
+      throw new ConflictException('Payment is not required for this quotation');
     }
 
     if (
@@ -2076,10 +2107,9 @@ export class QuotationsService {
     }
 
     if (
-      ![
-        ApprovalStatus.NOT_REQUIRED,
-        ApprovalStatus.NOT_SUBMITTED,
-      ].includes(quotation.approval_status)
+      ![ApprovalStatus.NOT_REQUIRED, ApprovalStatus.NOT_SUBMITTED].includes(
+        quotation.approval_status,
+      )
     ) {
       throw new ConflictException(
         'Drafts with approval history cannot be deleted',
@@ -2087,10 +2117,9 @@ export class QuotationsService {
     }
 
     if (
-      ![
-        PaymentStatus.NOT_REQUIRED,
-        PaymentStatus.NOT_INITIATED,
-      ].includes(quotation.payment_status)
+      ![PaymentStatus.NOT_REQUIRED, PaymentStatus.NOT_INITIATED].includes(
+        quotation.payment_status,
+      )
     ) {
       throw new ConflictException(
         'Drafts with payment activity cannot be deleted',
@@ -2116,50 +2145,55 @@ export class QuotationsService {
       );
     }
 
-    const [invoiceCount, receiptCount, paymentTransactionCount, portalCount, trackingCount] =
-      await Promise.all([
-        this.dataSource.getRepository(Invoice).count({
-          where: {
-            company_id: companyId,
-            quotation_id: quotation.id,
-          },
-        }),
-        this.dataSource
-          .getRepository(Receipt)
-          .createQueryBuilder('receipt')
-          .innerJoin('receipt.invoice', 'invoice')
-          .where('receipt.company_id = :companyId', { companyId })
-          .andWhere('invoice.quotation_id = :quotationId', {
-            quotationId: quotation.id,
-          })
-          .andWhere('receipt.deleted_at IS NULL')
-          .getCount(),
-        this.dataSource
-          .getRepository(PaymentTransaction)
-          .createQueryBuilder('paymentTransaction')
-          .innerJoin('paymentTransaction.invoice', 'invoice')
-          .where('paymentTransaction.company_id = :companyId', { companyId })
-          .andWhere('invoice.quotation_id = :quotationId', {
-            quotationId: quotation.id,
-          })
-          .andWhere('paymentTransaction.deleted_at IS NULL')
-          .getCount(),
-        this.dataSource.getRepository(PortalTiraSubmission).count({
-          where: {
-            company_id: companyId,
-            quotation_id: quotation.id,
-          },
-        }),
-        this.dataSource
-          .getRepository(TiramisSubmissionTrackingEntity)
-          .createQueryBuilder('tracking')
-          .where('tracking.sourceCompanyId = :companyId', { companyId })
-          .andWhere('tracking.quotationId = :quotationId', {
-            quotationId: quotation.id,
-          })
-          .andWhere('tracking.deletedAt IS NULL')
-          .getCount(),
-      ]);
+    const [
+      invoiceCount,
+      receiptCount,
+      paymentTransactionCount,
+      portalCount,
+      trackingCount,
+    ] = await Promise.all([
+      this.dataSource.getRepository(Invoice).count({
+        where: {
+          company_id: companyId,
+          quotation_id: quotation.id,
+        },
+      }),
+      this.dataSource
+        .getRepository(Receipt)
+        .createQueryBuilder('receipt')
+        .innerJoin('receipt.invoice', 'invoice')
+        .where('receipt.company_id = :companyId', { companyId })
+        .andWhere('invoice.quotation_id = :quotationId', {
+          quotationId: quotation.id,
+        })
+        .andWhere('receipt.deleted_at IS NULL')
+        .getCount(),
+      this.dataSource
+        .getRepository(PaymentTransaction)
+        .createQueryBuilder('paymentTransaction')
+        .innerJoin('paymentTransaction.invoice', 'invoice')
+        .where('paymentTransaction.company_id = :companyId', { companyId })
+        .andWhere('invoice.quotation_id = :quotationId', {
+          quotationId: quotation.id,
+        })
+        .andWhere('paymentTransaction.deleted_at IS NULL')
+        .getCount(),
+      this.dataSource.getRepository(PortalTiraSubmission).count({
+        where: {
+          company_id: companyId,
+          quotation_id: quotation.id,
+        },
+      }),
+      this.dataSource
+        .getRepository(TiramisSubmissionTrackingEntity)
+        .createQueryBuilder('tracking')
+        .where('tracking.sourceCompanyId = :companyId', { companyId })
+        .andWhere('tracking.quotationId = :quotationId', {
+          quotationId: quotation.id,
+        })
+        .andWhere('tracking.deletedAt IS NULL')
+        .getCount(),
+    ]);
 
     if (
       invoiceCount > 0 ||
@@ -2638,9 +2672,12 @@ export class QuotationsService {
     }
 
     const header = this.resolveHeader(payload);
-    const effectiveDate = this.extractDateOnly(header.cover_note_start_date) ?? undefined;
+    const effectiveDate =
+      this.extractDateOnly(header.cover_note_start_date) ?? undefined;
 
-    if (payload.internal_quotation.quotation_flow === QuotationFlow.MOTOR_SINGLE) {
+    if (
+      payload.internal_quotation.quotation_flow === QuotationFlow.MOTOR_SINGLE
+    ) {
       const motorDetail = payload.cover_note_dtl.motor_dtl;
       if (!motorDetail) {
         return;
@@ -2694,11 +2731,15 @@ export class QuotationsService {
       return;
     }
 
-    if (payload.internal_quotation.quotation_flow !== QuotationFlow.MOTOR_FLEET) {
+    if (
+      payload.internal_quotation.quotation_flow !== QuotationFlow.MOTOR_FLEET
+    ) {
       return;
     }
 
-    for (const [entryIndex, entry] of (payload.cover_note_dtl.fleet_dtls ?? []).entries()) {
+    for (const [entryIndex, entry] of (
+      payload.cover_note_dtl.fleet_dtls ?? []
+    ).entries()) {
       for (const [riskIndex, risk] of entry.risks_covered.entries()) {
         const configuredRisk = scope.riskByCode.get(
           this.normalizeUppercase(risk.risk_code),
@@ -2860,13 +2901,15 @@ export class QuotationsService {
         0,
       ) ?? 0,
     );
-    const recalculatedDiscounts = (risk.discounts_offered ?? []).map((discount) => ({
-      ...discount,
-      discount_amount:
-        discount.discount_rate > 0
-          ? roundMoney(premiumBeforeDiscount * discount.discount_rate)
-          : roundMoney(discount.discount_amount),
-    }));
+    const recalculatedDiscounts = (risk.discounts_offered ?? []).map(
+      (discount) => ({
+        ...discount,
+        discount_amount:
+          discount.discount_rate > 0
+            ? roundMoney(premiumBeforeDiscount * discount.discount_rate)
+            : roundMoney(discount.discount_amount),
+      }),
+    );
     const totalDiscountAmount = roundMoney(
       recalculatedDiscounts.reduce(
         (sum, discount) => sum + roundMoney(discount.discount_amount),
@@ -2884,7 +2927,10 @@ export class QuotationsService {
           : roundMoney(premiumAfterDiscount * tax.tax_rate),
     }));
     const totalTaxAmount = roundMoney(
-      recalculatedTaxes.reduce((sum, tax) => sum + roundMoney(tax.tax_amount), 0),
+      recalculatedTaxes.reduce(
+        (sum, tax) => sum + roundMoney(tax.tax_amount),
+        0,
+      ),
     );
 
     risk.pricing_quote_id = result.pricing_quote_id;
@@ -2896,20 +2942,25 @@ export class QuotationsService {
         risk.sum_insured,
       ) ?? risk.sum_insured,
     );
-    risk.premium_rate = this.firstNumber(
-      result.premium_rate,
-      result.percentage_rate,
-      risk.premium_rate,
-    ) ?? risk.premium_rate;
+    risk.premium_rate =
+      this.firstNumber(
+        result.premium_rate,
+        result.percentage_rate,
+        risk.premium_rate,
+      ) ?? risk.premium_rate;
     risk.premium_before_discount = premiumBeforeDiscount;
     risk.discounts_offered = recalculatedDiscounts;
     risk.premium_after_discount = premiumAfterDiscount;
     risk.premium_excluding_tax_equivalent = premiumAfterDiscount;
     risk.taxes_charged = recalculatedTaxes;
-    risk.premium_including_tax = roundMoney(premiumAfterDiscount + totalTaxAmount);
+    risk.premium_including_tax = roundMoney(
+      premiumAfterDiscount + totalTaxAmount,
+    );
   }
 
-  private firstNumber(...values: Array<number | null | undefined>): number | null {
+  private firstNumber(
+    ...values: Array<number | null | undefined>
+  ): number | null {
     for (const value of values) {
       if (typeof value === 'number' && Number.isFinite(value)) {
         return value;
@@ -3024,7 +3075,9 @@ export class QuotationsService {
             },
           })
         : [];
-    const rateBookById = new Map(rateBooks.map((rateBook) => [rateBook.id, rateBook]));
+    const rateBookById = new Map(
+      rateBooks.map((rateBook) => [rateBook.id, rateBook]),
+    );
     const header = this.resolveHeader(payload);
     const normalizedCurrencyCode = header.currency_code.trim().toUpperCase();
     const normalizedQuotationType = payload.internal_quotation.quotation_type;
@@ -3079,7 +3132,11 @@ export class QuotationsService {
           );
         }
 
-        if (quote.risk_id && configuredRisk.riskId && quote.risk_id !== configuredRisk.riskId) {
+        if (
+          quote.risk_id &&
+          configuredRisk.riskId &&
+          quote.risk_id !== configuredRisk.riskId
+        ) {
           throw new BadRequestException(
             `Pricing quote ${pricingQuoteId} does not belong to risk ${risk.risk_code}`,
           );
@@ -3096,16 +3153,16 @@ export class QuotationsService {
 
         if (
           quote.currency_code &&
-          this.normalizeUppercase(quote.currency_code) !== normalizedCurrencyCode
+          this.normalizeUppercase(quote.currency_code) !==
+            normalizedCurrencyCode
         ) {
           throw new BadRequestException(
             `Pricing quote ${pricingQuoteId} was calculated in currency ${quote.currency_code}, not ${normalizedCurrencyCode}`,
           );
         }
 
-        const quoteExchangeRateSnapshot = this.readPricingExchangeRateSnapshot(
-          quote,
-        );
+        const quoteExchangeRateSnapshot =
+          this.readPricingExchangeRateSnapshot(quote);
         if (quoteExchangeRateSnapshot) {
           if (
             this.normalizeUppercase(
@@ -3140,7 +3197,8 @@ export class QuotationsService {
         }
 
         const quotedSumInsured = this.toStoredNumber(
-          quote.result_payload['sum_insured'] ?? quote.input_payload['sum_insured'],
+          quote.result_payload['sum_insured'] ??
+            quote.input_payload['sum_insured'],
         );
         if (
           quotedSumInsured !== null &&
@@ -3163,7 +3221,12 @@ export class QuotationsService {
           );
         }
 
-        if (!this.moneyEqual(Number(quote.final_premium), risk.premium_before_discount)) {
+        if (
+          !this.moneyEqual(
+            Number(quote.final_premium),
+            risk.premium_before_discount,
+          )
+        ) {
           const approvedOverride =
             options.approvedOverridePremiums?.get(pricingQuoteId) ??
             options.approvedOverridePremiums?.get(normalizedRiskCode);
@@ -3274,45 +3337,50 @@ export class QuotationsService {
     const matchedChargeCodes = new Set<string>();
     const authoritativeTaxes: TaxChargedDto[] = chargeSummary.charges.map(
       (charge): TaxChargedDto => {
-      const normalizedChargeCode = this.normalizeUppercase(charge.charge_code);
-      matchedChargeCodes.add(normalizedChargeCode);
-      const existingTax = exemptionsByCode.get(
-        normalizedChargeCode,
-      );
-      const isTaxExempted = existingTax?.is_tax_exempted === 'Y' ? 'Y' : 'N';
+        const normalizedChargeCode = this.normalizeUppercase(
+          charge.charge_code,
+        );
+        matchedChargeCodes.add(normalizedChargeCode);
+        const existingTax = exemptionsByCode.get(normalizedChargeCode);
+        const isTaxExempted = existingTax?.is_tax_exempted === 'Y' ? 'Y' : 'N';
 
-      return {
-        tax_code: charge.charge_code,
-        is_tax_exempted:
-          isTaxExempted === 'Y' ? ('Y' as const) : ('N' as const),
-        tax_exemption_type:
-          isTaxExempted === 'Y'
-            ? existingTax?.tax_exemption_type?.trim() ?? null
-            : null,
-        tax_exemption_reference:
-          isTaxExempted === 'Y'
-            ? existingTax?.tax_exemption_reference?.trim() ?? null
-            : null,
-        tax_rate: charge.rate ?? 0,
-        tax_amount: isTaxExempted === 'Y' ? 0 : charge.computed_amount,
-      };
-    });
-    const preservedTaxes: TaxChargedDto[] = Array.from(exemptionsByCode.entries())
+        return {
+          tax_code: charge.charge_code,
+          is_tax_exempted:
+            isTaxExempted === 'Y' ? ('Y' as const) : ('N' as const),
+          tax_exemption_type:
+            isTaxExempted === 'Y'
+              ? (existingTax?.tax_exemption_type?.trim() ?? null)
+              : null,
+          tax_exemption_reference:
+            isTaxExempted === 'Y'
+              ? (existingTax?.tax_exemption_reference?.trim() ?? null)
+              : null,
+          tax_rate: charge.rate ?? 0,
+          tax_amount: isTaxExempted === 'Y' ? 0 : charge.computed_amount,
+        };
+      },
+    );
+    const preservedTaxes: TaxChargedDto[] = Array.from(
+      exemptionsByCode.entries(),
+    )
       .filter(([code]) => !matchedChargeCodes.has(code))
-      .map(([, tax]): TaxChargedDto => ({
-        tax_code: tax.tax_code,
-        is_tax_exempted:
-          tax.is_tax_exempted === 'Y' ? ('Y' as const) : ('N' as const),
-        tax_exemption_type:
-          tax.is_tax_exempted === 'Y' ? tax.tax_exemption_type : null,
-        tax_exemption_reference:
-          tax.is_tax_exempted === 'Y' ? tax.tax_exemption_reference : null,
-        tax_rate: tax.tax_rate,
-        tax_amount:
-          tax.is_tax_exempted === 'Y'
-            ? 0
-            : roundMoney(premiumExcludingTaxEquivalent * tax.tax_rate),
-      }));
+      .map(
+        ([, tax]): TaxChargedDto => ({
+          tax_code: tax.tax_code,
+          is_tax_exempted:
+            tax.is_tax_exempted === 'Y' ? ('Y' as const) : ('N' as const),
+          tax_exemption_type:
+            tax.is_tax_exempted === 'Y' ? tax.tax_exemption_type : null,
+          tax_exemption_reference:
+            tax.is_tax_exempted === 'Y' ? tax.tax_exemption_reference : null,
+          tax_rate: tax.tax_rate,
+          tax_amount:
+            tax.is_tax_exempted === 'Y'
+              ? 0
+              : roundMoney(premiumExcludingTaxEquivalent * tax.tax_rate),
+        }),
+      );
     context.risk.taxes_charged = [...authoritativeTaxes, ...preservedTaxes];
     context.risk.premium_including_tax = roundMoney(
       premiumExcludingTaxEquivalent +
@@ -3357,7 +3425,9 @@ export class QuotationsService {
       ),
     );
 
-    if (payload.internal_quotation.quotation_flow === QuotationFlow.MOTOR_FLEET) {
+    if (
+      payload.internal_quotation.quotation_flow === QuotationFlow.MOTOR_FLEET
+    ) {
       if (payload.cover_note_dtl.fleet_hdr) {
         payload.cover_note_dtl.fleet_hdr.total_premium_excluding_tax =
           totalPremiumExcludingTax;
@@ -3390,9 +3460,7 @@ export class QuotationsService {
     );
   }
 
-  private readPricingExchangeRateSnapshot(
-    quote: PricingQuote,
-  ): {
+  private readPricingExchangeRateSnapshot(quote: PricingQuote): {
     quotation_currency_code: string;
     exchange_rate: number;
     exchange_rate_date: string;
@@ -3457,7 +3525,10 @@ export class QuotationsService {
   private buildApprovedPremiumOverrideIndex(
     quotation: Quotation,
   ): Map<string, ApprovedPremiumOverrideSnapshot> {
-    const approvedOverrides = new Map<string, ApprovedPremiumOverrideSnapshot>();
+    const approvedOverrides = new Map<
+      string,
+      ApprovedPremiumOverrideSnapshot
+    >();
 
     for (const entry of quotation.cover_note?.entries ?? []) {
       for (const risk of entry.risks ?? []) {
@@ -3471,7 +3542,9 @@ export class QuotationsService {
         const snapshot = {
           pricing_quote_id: risk.pricing_quote_id ?? null,
           risk_code: this.normalizeUppercase(risk.risk_code),
-          proposed_premium: roundMoney(Number(approvedOverride.proposed_premium)),
+          proposed_premium: roundMoney(
+            Number(approvedOverride.proposed_premium),
+          ),
         };
 
         if (snapshot.pricing_quote_id) {
@@ -3667,7 +3740,8 @@ export class QuotationsService {
     );
 
     risk.discounts_offered.forEach((discount) => {
-      const hasRequest = discount.discount_rate > 0 || discount.discount_amount > 0;
+      const hasRequest =
+        discount.discount_rate > 0 || discount.discount_amount > 0;
       discount.max_permitted_rate = control.max_rate;
       discount.max_permitted_amount = control.max_amount;
       discount.approval_required = hasRequest ? approvalRequired : false;
@@ -3676,10 +3750,9 @@ export class QuotationsService {
         return;
       }
 
-      discount.approval_status =
-        discount.approval_required
-          ? discount.approval_status ?? 'PENDING'
-          : 'NOT_REQUIRED';
+      discount.approval_status = discount.approval_required
+        ? (discount.approval_status ?? 'PENDING')
+        : 'NOT_REQUIRED';
     });
   }
 
@@ -3747,7 +3820,8 @@ export class QuotationsService {
     user: Pick<AuthenticatedUser, 'permissions'>,
     currentQuotation?: Quotation | null,
   ): void {
-    const existingDiscounts = this.indexPersistedDiscountSnapshots(currentQuotation);
+    const existingDiscounts =
+      this.indexPersistedDiscountSnapshots(currentQuotation);
     const canRequestDiscount =
       this.hasPermission(user, PRICING_REQUEST_DISCOUNT_PERMISSION) ||
       this.hasPermission(user, PRICING_APPROVE_DISCOUNT_PERMISSION);
@@ -3756,10 +3830,17 @@ export class QuotationsService {
       PRICING_APPROVE_DISCOUNT_PERMISSION,
     );
 
-    for (const risk of this.resolveEntries(payload).flatMap((entry) => entry.risks_covered)) {
-      const riskKey = this.discountRiskKey(risk.pricing_quote_id, risk.risk_code);
+    for (const risk of this.resolveEntries(payload).flatMap(
+      (entry) => entry.risks_covered,
+    )) {
+      const riskKey = this.discountRiskKey(
+        risk.pricing_quote_id,
+        risk.risk_code,
+      );
 
-      for (const [index, discount] of (risk.discounts_offered ?? []).entries()) {
+      for (const [index, discount] of (
+        risk.discounts_offered ?? []
+      ).entries()) {
         const snapshotKey = `${riskKey}:${index + 1}`;
         const previous = existingDiscounts.get(snapshotKey);
         const normalizedStatus = this.normalizeAdjustmentApprovalStatus(
@@ -3776,7 +3857,11 @@ export class QuotationsService {
           normalizedStatus,
         );
 
-        if (requestChanged && (hasRequest || hadRequest) && !canRequestDiscount) {
+        if (
+          requestChanged &&
+          (hasRequest || hadRequest) &&
+          !canRequestDiscount
+        ) {
           throw new ForbiddenException(
             'You do not have permission to request quotation discounts',
           );
@@ -3791,9 +3876,7 @@ export class QuotationsService {
     }
   }
 
-  private indexPersistedDiscountSnapshots(
-    quotation?: Quotation | null,
-  ): Map<
+  private indexPersistedDiscountSnapshots(quotation?: Quotation | null): Map<
     string,
     {
       discount_rate: number;
@@ -3830,7 +3913,10 @@ export class QuotationsService {
 
     for (const entry of quotation?.cover_note?.entries ?? []) {
       for (const risk of entry.risks ?? []) {
-        const riskKey = this.discountRiskKey(risk.pricing_quote_id, risk.risk_code);
+        const riskKey = this.discountRiskKey(
+          risk.pricing_quote_id,
+          risk.risk_code,
+        );
 
         for (const discount of risk.discounts ?? []) {
           index.set(`${riskKey}:${discount.sequence_no ?? 1}`, {
@@ -3841,8 +3927,9 @@ export class QuotationsService {
             effective_from: this.extractDateOnly(discount.effective_from),
             effective_to: this.extractDateOnly(discount.effective_to),
             approval_status:
-              this.normalizeAdjustmentApprovalStatus(discount.approval_status) ??
-              null,
+              this.normalizeAdjustmentApprovalStatus(
+                discount.approval_status,
+              ) ?? null,
             approved_rate: this.toStoredNumber(discount.approved_rate),
             approved_amount: this.toStoredNumber(discount.approved_amount),
             approved_by: discount.approved_by?.trim() ?? null,
@@ -3904,7 +3991,10 @@ export class QuotationsService {
     }
 
     return (
-      !this.ratesEqual(previous.discount_rate, Number(discount.discount_rate ?? 0)) ||
+      !this.ratesEqual(
+        previous.discount_rate,
+        Number(discount.discount_rate ?? 0),
+      ) ||
       !this.moneyEqual(
         previous.discount_amount,
         Number(discount.discount_amount ?? 0),
@@ -3912,7 +4002,8 @@ export class QuotationsService {
       previous.request_reason_code !==
         (discount.request_reason_code?.trim() ?? null) ||
       previous.request_comment !== (discount.request_comment?.trim() ?? null) ||
-      previous.effective_from !== this.extractDateOnly(discount.effective_from) ||
+      previous.effective_from !==
+        this.extractDateOnly(discount.effective_from) ||
       previous.effective_to !== this.extractDateOnly(discount.effective_to)
     );
   }
@@ -4006,7 +4097,9 @@ export class QuotationsService {
   ): Promise<QuotationPricingIntegrationSummary> {
     const payload = this.payloadMapper.toAuthoritativePayload(quotation);
     const header = this.resolveHeader(payload);
-    const risks = this.resolveEntries(payload).flatMap((entry) => entry.risks_covered);
+    const risks = this.resolveEntries(payload).flatMap(
+      (entry) => entry.risks_covered,
+    );
     const pricingQuoteIds = [
       ...new Set(
         risks
@@ -4062,7 +4155,8 @@ export class QuotationsService {
           this.cloneQuotationPayload(payload),
           {
             productId: quotation.product_id,
-            riskByCode: this.createPersistedPricingAuthorityRiskIndex(quotation),
+            riskByCode:
+              this.createPersistedPricingAuthorityRiskIndex(quotation),
             quotationId: quotation.id,
             approvedOverridePremiums:
               this.buildApprovedPremiumOverrideIndex(quotation),
@@ -4082,8 +4176,12 @@ export class QuotationsService {
             ? 'STALE'
             : 'CURRENT';
 
-    const calculatedAtValues = pricingQuotes.map((quote) => quote.calculated_at.getTime());
-    const expiresAtValues = pricingQuotes.map((quote) => quote.expires_at.getTime());
+    const calculatedAtValues = pricingQuotes.map((quote) =>
+      quote.calculated_at.getTime(),
+    );
+    const expiresAtValues = pricingQuotes.map((quote) =>
+      quote.expires_at.getTime(),
+    );
     const lastCalculatedAt =
       calculatedAtValues.length > 0
         ? new Date(Math.max(...calculatedAtValues)).toISOString()
@@ -4137,7 +4235,9 @@ export class QuotationsService {
     };
   }
 
-  private resolveQuotationRateBookVersion(pricingQuotes: PricingQuote[]): string | null {
+  private resolveQuotationRateBookVersion(
+    pricingQuotes: PricingQuote[],
+  ): string | null {
     const versions = [
       ...new Set(
         pricingQuotes
@@ -4185,7 +4285,9 @@ export class QuotationsService {
     ];
   }
 
-  private cloneQuotationPayload(payload: CreateQuotationDto): CreateQuotationDto {
+  private cloneQuotationPayload(
+    payload: CreateQuotationDto,
+  ): CreateQuotationDto {
     return JSON.parse(JSON.stringify(payload)) as CreateQuotationDto;
   }
 
@@ -4205,7 +4307,9 @@ export class QuotationsService {
   ) {
     const previousRisks = this.indexPayloadRisks(previousPayload);
 
-    for (const risk of this.resolveEntries(payload).flatMap((entry) => entry.risks_covered)) {
+    for (const risk of this.resolveEntries(payload).flatMap(
+      (entry) => entry.risks_covered,
+    )) {
       const previousRisk = this.resolveIndexedRiskSnapshot(previousRisks, risk);
       if (!previousRisk) {
         continue;
@@ -4275,7 +4379,9 @@ export class QuotationsService {
         ...this.collectPayloadPricingQuoteIds(payload),
       ]),
     );
-    const firstRisk = this.resolveEntries(payload).flatMap((entry) => entry.risks_covered)[0];
+    const firstRisk = this.resolveEntries(payload).flatMap(
+      (entry) => entry.risks_covered,
+    )[0];
 
     if (reason.toLowerCase().includes('expired on')) {
       await this.auditService.log({
@@ -4354,8 +4460,12 @@ export class QuotationsService {
     payload: CreateQuotationDto,
     userId: string,
   ) {
-    for (const risk of this.resolveEntries(payload).flatMap((entry) => entry.risks_covered)) {
-      for (const [index, discount] of (risk.discounts_offered ?? []).entries()) {
+    for (const risk of this.resolveEntries(payload).flatMap(
+      (entry) => entry.risks_covered,
+    )) {
+      for (const [index, discount] of (
+        risk.discounts_offered ?? []
+      ).entries()) {
         const hasDiscount =
           Number(discount.discount_rate ?? 0) > 0 ||
           Number(discount.discount_amount ?? 0) > 0;
@@ -4363,8 +4473,7 @@ export class QuotationsService {
           continue;
         }
 
-        const correlationId =
-          `${quotationId}:${risk.pricing_quote_id?.trim() ?? risk.risk_code}:discount:${index + 1}`;
+        const correlationId = `${quotationId}:${risk.pricing_quote_id?.trim() ?? risk.risk_code}:discount:${index + 1}`;
         const requestReason =
           discount.request_comment?.trim() ||
           discount.request_reason_code?.trim() ||
@@ -4444,7 +4553,9 @@ export class QuotationsService {
   private indexPayloadRisks(payload: CreateQuotationDto) {
     const index = new Map<string, RiskCoveredDto>();
 
-    for (const risk of this.resolveEntries(payload).flatMap((entry) => entry.risks_covered)) {
+    for (const risk of this.resolveEntries(payload).flatMap(
+      (entry) => entry.risks_covered,
+    )) {
       const pricingQuoteId = risk.pricing_quote_id?.trim();
       if (pricingQuoteId) {
         index.set(`quote:${pricingQuoteId}`, risk);
@@ -4468,7 +4579,10 @@ export class QuotationsService {
   }
 
   private assertPremiumOverrideWorkflowAllowed(quotation: Quotation): void {
-    if (quotation.submitted_at || quotation.tira_status !== TiraStatus.NOT_SUBMITTED) {
+    if (
+      quotation.submitted_at ||
+      quotation.tira_status !== TiraStatus.NOT_SUBMITTED
+    ) {
       throw new ConflictException(
         'Premium overrides are only available before TIRAMIS submission begins',
       );
@@ -4482,11 +4596,12 @@ export class QuotationsService {
   }
 
   private assertNoPremiumOverrideHistory(quotation: Quotation): void {
-    const hasPremiumOverrideHistory = (quotation.cover_note?.entries ?? []).some(
-      (entry) =>
-        (entry.risks ?? []).some(
-          (risk) => (risk.premium_overrides?.length ?? 0) > 0,
-        ),
+    const hasPremiumOverrideHistory = (
+      quotation.cover_note?.entries ?? []
+    ).some((entry) =>
+      (entry.risks ?? []).some(
+        (risk) => (risk.premium_overrides?.length ?? 0) > 0,
+      ),
     );
 
     if (hasPremiumOverrideHistory) {
@@ -4579,12 +4694,14 @@ export class QuotationsService {
       );
     }
 
-    const pricingQuote = await this.dataSource.getRepository(PricingQuote).findOne({
-      where: {
-        company_id: companyId,
-        pricing_quote_id: pricingQuoteId,
-      },
-    });
+    const pricingQuote = await this.dataSource
+      .getRepository(PricingQuote)
+      .findOne({
+        where: {
+          company_id: companyId,
+          pricing_quote_id: pricingQuoteId,
+        },
+      });
 
     if (!pricingQuote) {
       throw new BadRequestException(
@@ -4652,10 +4769,7 @@ export class QuotationsService {
       {
         premium_before_discount: this.numeric(premiumBeforeDiscount, 2),
         premium_after_discount: this.numeric(premiumAfterDiscount, 2),
-        premium_excluding_tax_equivalent: this.numeric(
-          premiumAfterDiscount,
-          2,
-        ),
+        premium_excluding_tax_equivalent: this.numeric(premiumAfterDiscount, 2),
         premium_including_tax: this.numeric(
           premiumAfterDiscount + totalTaxAmount,
           2,
@@ -4670,9 +4784,14 @@ export class QuotationsService {
           discount_amount: this.numeric(discount.discount_amount, 2),
         },
       );
-      const currentDiscount = risk.discounts?.find((item) => item.id === discount.id);
+      const currentDiscount = risk.discounts?.find(
+        (item) => item.id === discount.id,
+      );
       if (currentDiscount) {
-        currentDiscount.discount_amount = this.numeric(discount.discount_amount, 2);
+        currentDiscount.discount_amount = this.numeric(
+          discount.discount_amount,
+          2,
+        );
       }
     }
 
@@ -4717,8 +4836,7 @@ export class QuotationsService {
             0,
           ) +
           (entry.addons ?? []).reduce(
-            (addonSum, addon) =>
-              addonSum + Number(addon.premium_excluding_tax),
+            (addonSum, addon) => addonSum + Number(addon.premium_excluding_tax),
             0,
           ),
         0,
@@ -4734,8 +4852,7 @@ export class QuotationsService {
             0,
           ) +
           (entry.addons ?? []).reduce(
-            (addonSum, addon) =>
-              addonSum + Number(addon.premium_including_tax),
+            (addonSum, addon) => addonSum + Number(addon.premium_including_tax),
             0,
           ),
         0,

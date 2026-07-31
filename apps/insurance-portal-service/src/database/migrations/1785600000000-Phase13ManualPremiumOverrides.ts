@@ -44,9 +44,7 @@ const APPROVER_ROLES = [
   'REINSURANCE_ADMIN',
 ] as const;
 
-export class Phase13ManualPremiumOverrides1785600000000
-  implements MigrationInterface
-{
+export class Phase13ManualPremiumOverrides1785600000000 implements MigrationInterface {
   name = 'Phase13ManualPremiumOverrides1785600000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -84,11 +82,15 @@ export class Phase13ManualPremiumOverrides1785600000000
       CREATE UNIQUE INDEX IF NOT EXISTS "UQ_qrpo_risk_sequence"
       ON "quotation_risk_premium_overrides" ("risk_id", "sequence_no")
     `);
-    await queryRunner.query(`
+    await queryRunner
+      .query(
+        `
       ALTER TABLE "quotation_risk_premium_overrides"
       ADD CONSTRAINT "CHK_qrpo_status"
       CHECK ("approval_status" IN ('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'))
-    `).catch(() => undefined);
+    `,
+      )
+      .catch(() => undefined);
 
     for (const permission of PERMISSIONS) {
       await queryRunner.query(
@@ -170,9 +172,7 @@ export class Phase13ManualPremiumOverrides1785600000000
       )
     `);
 
-    await queryRunner.query(
-      `DROP INDEX IF EXISTS "UQ_qrpo_risk_sequence"`,
-    );
+    await queryRunner.query(`DROP INDEX IF EXISTS "UQ_qrpo_risk_sequence"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_qrpo_risk_id"`);
     await queryRunner.query(
       `DROP TABLE IF EXISTS "quotation_risk_premium_overrides"`,

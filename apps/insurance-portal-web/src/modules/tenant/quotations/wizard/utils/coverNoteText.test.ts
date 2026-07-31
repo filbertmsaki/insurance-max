@@ -40,9 +40,9 @@ describe('buildDefaultCoverNoteDescription', () => {
   });
 
   it('generates a partial description without dates when cover dates are incomplete', () => {
-    expect(
-      buildDefaultCoverNoteDescription('Motor Private', '', ''),
-    ).toBe('Cover note for Motor Private.');
+    expect(buildDefaultCoverNoteDescription('Motor Private', '', '')).toBe(
+      'Cover note for Motor Private.',
+    );
     expect(
       buildDefaultCoverNoteDescription('Motor Private', '2026-07-30', null),
     ).toBe('Cover note for Motor Private.');
@@ -64,7 +64,9 @@ describe('buildDefaultCoverNoteDescription', () => {
 
 describe('buildDefaultOperativeClause', () => {
   it('returns null when no product is selected', () => {
-    expect(buildDefaultOperativeClause('', '2026-07-30', '2027-07-29')).toBeNull();
+    expect(
+      buildDefaultOperativeClause('', '2026-07-30', '2027-07-29'),
+    ).toBeNull();
   });
 
   it('generates the full clause with product and cover period', () => {

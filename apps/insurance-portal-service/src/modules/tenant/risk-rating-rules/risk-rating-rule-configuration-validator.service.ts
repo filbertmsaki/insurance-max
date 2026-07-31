@@ -14,7 +14,12 @@ import { RiskRatingRule } from './entities/risk-rating-rule.entity';
 
 type ActiveRuleDraft = Pick<
   RiskRatingRule,
-  'id' | 'risk_id' | 'rule_name' | 'priority' | 'is_active' | 'per_unit_factor_code'
+  | 'id'
+  | 'risk_id'
+  | 'rule_name'
+  | 'priority'
+  | 'is_active'
+  | 'per_unit_factor_code'
 >;
 
 type ActiveRuleSnapshot = Pick<
@@ -89,7 +94,10 @@ export class RiskRatingRuleConfigurationValidatorService {
       return;
     }
 
-    const currentConditions = await this.findConditionsForRule(companyId, rule.id);
+    const currentConditions = await this.findConditionsForRule(
+      companyId,
+      rule.id,
+    );
     await this.assertDeterministicActiveRuleSet(companyId, rule.risk_id, {
       id: rule.id,
       risk_id: rule.risk_id,
@@ -117,7 +125,10 @@ export class RiskRatingRuleConfigurationValidatorService {
       return;
     }
 
-    const currentConditions = await this.findConditionsForRule(companyId, rule.id);
+    const currentConditions = await this.findConditionsForRule(
+      companyId,
+      rule.id,
+    );
     await this.assertDeterministicActiveRuleSet(companyId, rule.risk_id, {
       id: rule.id,
       risk_id: rule.risk_id,
@@ -141,7 +152,10 @@ export class RiskRatingRuleConfigurationValidatorService {
       return;
     }
 
-    const currentConditions = await this.findConditionsForRule(companyId, rule.id);
+    const currentConditions = await this.findConditionsForRule(
+      companyId,
+      rule.id,
+    );
     await this.assertDeterministicActiveRuleSet(companyId, rule.risk_id, {
       id: rule.id,
       risk_id: rule.risk_id,
@@ -362,7 +376,9 @@ export class RiskRatingRuleConfigurationValidatorService {
       conditions: rule.conditions ?? [],
     }));
 
-    const existingIndex = snapshots.findIndex((rule) => rule.id === override.id);
+    const existingIndex = snapshots.findIndex(
+      (rule) => rule.id === override.id,
+    );
     if (existingIndex >= 0) {
       snapshots[existingIndex] = override;
     } else {
@@ -402,7 +418,9 @@ export class RiskRatingRuleConfigurationValidatorService {
     });
 
     for (const [priority, group] of rulesByPriority.entries()) {
-      const fallbackInGroup = group.find((rule) => rule.conditions.length === 0);
+      const fallbackInGroup = group.find(
+        (rule) => rule.conditions.length === 0,
+      );
       if (fallbackInGroup && group.length > 1) {
         throw new ConflictException(
           `Fallback rule "${fallbackInGroup.rule_name}" overlaps with other active priority ${priority} rules`,
@@ -410,7 +428,9 @@ export class RiskRatingRuleConfigurationValidatorService {
       }
 
       const signatures = new Map<string, ActiveRuleSnapshot>();
-      for (const rule of group.filter((candidate) => candidate.conditions.length > 0)) {
+      for (const rule of group.filter(
+        (candidate) => candidate.conditions.length > 0,
+      )) {
         const signature = this.serializeConditions(rule.conditions);
         const existing = signatures.get(signature);
         if (existing) {
@@ -426,7 +446,11 @@ export class RiskRatingRuleConfigurationValidatorService {
   private serializeConditions(
     conditions: Pick<
       RiskRuleCondition,
-      'factor_code' | 'operator' | 'value_from' | 'value_to' | 'logical_operator'
+      | 'factor_code'
+      | 'operator'
+      | 'value_from'
+      | 'value_to'
+      | 'logical_operator'
     >[],
   ) {
     return [...conditions]

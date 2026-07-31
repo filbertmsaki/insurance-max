@@ -676,7 +676,10 @@ export class CompaniesService {
         activated_at: isPrimary ? new Date() : null,
         activated_by: null,
       });
-    } else if (isPrimary && (!assignment.is_primary || !assignment.is_active_branch)) {
+    } else if (
+      isPrimary &&
+      (!assignment.is_primary || !assignment.is_active_branch)
+    ) {
       assignment.is_primary = true;
       assignment.is_active_branch = true;
       assignment.activated_at = new Date();
@@ -687,7 +690,18 @@ export class CompaniesService {
   private async getActiveBranchContext(
     companyUserId: string,
     companyId: string,
-  ): Promise<Pick<CompanyMembershipContext, 'activeBranchId' | 'activeBranchCode' | 'activeBranchName' | 'defaultSalePointId' | 'defaultSalePointCode' | 'defaultSalePointName' | 'assignedBranchIds'>> {
+  ): Promise<
+    Pick<
+      CompanyMembershipContext,
+      | 'activeBranchId'
+      | 'activeBranchCode'
+      | 'activeBranchName'
+      | 'defaultSalePointId'
+      | 'defaultSalePointCode'
+      | 'defaultSalePointName'
+      | 'assignedBranchIds'
+    >
+  > {
     const assignments = await this.branchUserRepository.find({
       where: {
         company_user_id: companyUserId,
@@ -700,15 +714,28 @@ export class CompaniesService {
     });
 
     const assignedBranchIds = assignments
-      .filter((assignment) => assignment.branch?.status === 'active' && !assignment.branch.deleted_at)
+      .filter(
+        (assignment) =>
+          assignment.branch?.status === 'active' &&
+          !assignment.branch.deleted_at,
+      )
       .map((assignment) => assignment.branch.id);
-    const assignment = assignments.find(
-      (item) => item.is_active_branch && item.branch?.status === 'active' && !item.branch.deleted_at,
-    ) ??
+    const assignment =
       assignments.find(
-        (item) => item.is_primary && item.branch?.status === 'active' && !item.branch.deleted_at,
+        (item) =>
+          item.is_active_branch &&
+          item.branch?.status === 'active' &&
+          !item.branch.deleted_at,
       ) ??
-      assignments.find((item) => item.branch?.status === 'active' && !item.branch.deleted_at);
+      assignments.find(
+        (item) =>
+          item.is_primary &&
+          item.branch?.status === 'active' &&
+          !item.branch.deleted_at,
+      ) ??
+      assignments.find(
+        (item) => item.branch?.status === 'active' && !item.branch.deleted_at,
+      );
     const branch = assignment?.branch;
     if (!branch) {
       return {

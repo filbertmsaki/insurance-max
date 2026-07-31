@@ -42,7 +42,7 @@ jobs:
       - self-hosted
       - linux
       - x64
-      - tiramis-prod
+      - tiramis-self-hosted-runner
 
     environment: production
     timeout-minutes: 30

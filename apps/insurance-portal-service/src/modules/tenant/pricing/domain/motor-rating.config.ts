@@ -69,9 +69,13 @@ export const APPROVED_MOTOR_FACTORS: ApprovedMotorFactorDefinition[] = [
   },
 ];
 
-export function isMotorProductCode(productCode: string | null | undefined): boolean {
+export function isMotorProductCode(
+  productCode: string | null | undefined,
+): boolean {
   return MOTOR_PRODUCT_CODES.includes(
-    (productCode ?? '').trim().toUpperCase() as (typeof MOTOR_PRODUCT_CODES)[number],
+    (productCode ?? '')
+      .trim()
+      .toUpperCase() as (typeof MOTOR_PRODUCT_CODES)[number],
   );
 }
 
@@ -152,7 +156,9 @@ export function deriveMotorSelectionConstraint(
     };
   }
   if (
-    normalizedRiskName.includes('in excess of 5 tonnes but less than 10 tonnes') ||
+    normalizedRiskName.includes(
+      'in excess of 5 tonnes but less than 10 tonnes',
+    ) ||
     normalizedRiskName.includes('in excess of 5 tonnes but less in 10 tonnes')
   ) {
     return {
@@ -196,4 +202,3 @@ export function deriveMotorSelectionConstraint(
 
   return null;
 }
-

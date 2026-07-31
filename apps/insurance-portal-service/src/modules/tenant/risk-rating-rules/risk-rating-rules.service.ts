@@ -40,7 +40,9 @@ export class RiskRatingRulesService {
     private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
   ) {}
 
-  private normalizePercentageRate(value: number | null | undefined): number | null {
+  private normalizePercentageRate(
+    value: number | null | undefined,
+  ): number | null {
     if (value === null || value === undefined) {
       return null;
     }
@@ -54,7 +56,9 @@ export class RiskRatingRulesService {
     }
   }
 
-  private normalizeMoneyAmount(value: number | null | undefined): number | null {
+  private normalizeMoneyAmount(
+    value: number | null | undefined,
+  ): number | null {
     if (value === null || value === undefined) {
       return null;
     }
@@ -66,7 +70,9 @@ export class RiskRatingRulesService {
     return roundMoney(value);
   }
 
-  private normalizePerUnitAmount(value: number | null | undefined): number | null {
+  private normalizePerUnitAmount(
+    value: number | null | undefined,
+  ): number | null {
     if (value === null || value === undefined) {
       return null;
     }
@@ -377,7 +383,9 @@ export class RiskRatingRulesService {
 
     try {
       const saved = await this.ruleRepository.save(rule);
-      await this.pricingRuntimeCacheService.invalidateRateConfiguration(companyId);
+      await this.pricingRuntimeCacheService.invalidateRateConfiguration(
+        companyId,
+      );
       return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
@@ -532,7 +540,9 @@ export class RiskRatingRulesService {
 
     try {
       const saved = await this.ruleRepository.save(rule);
-      await this.pricingRuntimeCacheService.invalidateRateConfiguration(companyId);
+      await this.pricingRuntimeCacheService.invalidateRateConfiguration(
+        companyId,
+      );
       return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
@@ -552,6 +562,8 @@ export class RiskRatingRulesService {
       rule.risk.product_id,
     );
     await this.ruleRepository.softDelete(rule.id);
-    await this.pricingRuntimeCacheService.invalidateRateConfiguration(companyId);
+    await this.pricingRuntimeCacheService.invalidateRateConfiguration(
+      companyId,
+    );
   }
 }

@@ -176,7 +176,9 @@ export class PremiumCalculationService {
           action: 'PRICING_RULE_SELECTED',
           old_value: null,
           new_value: {
-            rules: result.risks.map((risk) => this.buildRuleSelectionMetadata(risk)),
+            rules: result.risks.map((risk) =>
+              this.buildRuleSelectionMetadata(risk),
+            ),
           },
           reason: 'Pricing rules selected for premium calculation',
           correlation_id: result.pricing_quote_id,
@@ -303,8 +305,9 @@ export class PremiumCalculationService {
       .filter(
         (
           snapshot,
-        ): snapshot is NonNullable<RiskPremiumResult['exchange_rate_snapshot']> =>
-          !!snapshot,
+        ): snapshot is NonNullable<
+          RiskPremiumResult['exchange_rate_snapshot']
+        > => !!snapshot,
       );
     if (snapshots.length === 0) {
       return;
@@ -336,7 +339,7 @@ export class PremiumCalculationService {
         scope,
         quotation_id: null,
         quotation_no: null,
-        risk_id: scope === 'SINGLE_RISK' ? risks[0]?.risk_id ?? null : null,
+        risk_id: scope === 'SINGLE_RISK' ? (risks[0]?.risk_id ?? null) : null,
         action: 'PRICING_CURRENCY_CONVERSION',
         old_value: null,
         new_value: {

@@ -115,10 +115,7 @@ export function computeDiscountAmount(
   discountRate: string | number,
 ) {
   return roundMoney(
-    applyRate(
-      toNumber(premiumBeforeDiscount),
-      toNumber(discountRate),
-    ),
+    applyRate(toNumber(premiumBeforeDiscount), toNumber(discountRate)),
   );
 }
 
@@ -154,10 +151,7 @@ export function computeTaxAmount(
 ) {
   if (isTaxExempted) return 0;
   return roundMoney(
-    applyRate(
-      toNumber(premiumExcludingTaxEquivalent),
-      toNumber(taxRate),
-    ),
+    applyRate(toNumber(premiumExcludingTaxEquivalent), toNumber(taxRate)),
   );
 }
 
@@ -341,10 +335,7 @@ export function recomputeRiskRow(
     premium_after_discount: String(premiumAfterDiscount),
     premium_excluding_tax_equivalent: String(premiumExcludingTaxEquivalent),
     premium_including_tax: String(
-      computePremiumIncludingTax(
-        premiumExcludingTaxEquivalent,
-        refreshedTaxes,
-      ),
+      computePremiumIncludingTax(premiumExcludingTaxEquivalent, refreshedTaxes),
     ),
   };
 }
@@ -418,10 +409,7 @@ export function recomputeFleetRiskRow(
     return {
       ...discount,
       discount_amount: String(
-        computeDiscountAmount(
-          premiumBeforeDiscount,
-          discount.discount_rate,
-        ),
+        computeDiscountAmount(premiumBeforeDiscount, discount.discount_rate),
       ),
     };
   });
@@ -451,10 +439,7 @@ export function recomputeFleetRiskRow(
     premium_after_discount: String(premiumAfterDiscount),
     premium_excluding_tax_equivalent: String(premiumExcludingTaxEquivalent),
     premium_including_tax: String(
-      computePremiumIncludingTax(
-        premiumExcludingTaxEquivalent,
-        refreshedTaxes,
-      ),
+      computePremiumIncludingTax(premiumExcludingTaxEquivalent, refreshedTaxes),
     ),
   };
 }
@@ -513,7 +498,9 @@ export function aggregateFleetRiskTotals(
       basic_premium: risk.premium_after_discount,
       discount_amount: String(
         sumDecimals(
-          risk.discounts_offered.map((discount) => discount.discount_amount || 0),
+          risk.discounts_offered.map(
+            (discount) => discount.discount_amount || 0,
+          ),
         ),
       ),
       tax_amount: String(

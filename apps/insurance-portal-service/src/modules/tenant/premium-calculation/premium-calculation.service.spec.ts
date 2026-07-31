@@ -213,9 +213,7 @@ function createServiceFixture(options: {
         ...options.risk,
         product: {
           product_code: 'SP014001000000',
-          ...((options.risk as Record<string, unknown>).product as
-            | Record<string, unknown>
-            | undefined),
+          ...(options.risk.product as Record<string, unknown> | undefined),
         },
       }
     : null;
@@ -861,16 +859,14 @@ describe('PremiumCalculationService', () => {
         await service.calculateSingleRisk(COMPANY_ID, {
           risk_id: RISKS.comprehensive.risk.id,
           sum_insured: 1000000,
-          factors: { vehicle_value: 'not-a-number' as any },
+          factors: { vehicle_value: 'not-a-number' },
         });
       } catch (error) {
         expect(error).toBeInstanceOf(BadRequestException);
         expect((error as BadRequestException).getResponse()).toMatchObject({
           status: 'INCOMPLETE',
           calculation_allowed: false,
-          validation_errors: [
-            expect.stringContaining('vehicle_value'),
-          ],
+          validation_errors: [expect.stringContaining('vehicle_value')],
           errors: [
             expect.objectContaining({
               field: 'vehicle_value',
@@ -951,9 +947,7 @@ describe('PremiumCalculationService', () => {
         currency_code: 'TZS',
       });
 
-      const calls = (auditService.log as jest.Mock).mock.calls.map(
-        ([entry]) => entry,
-      );
+      const calls = auditService.log.mock.calls.map(([entry]) => entry);
 
       expect(calls).toEqual(
         expect.arrayContaining([

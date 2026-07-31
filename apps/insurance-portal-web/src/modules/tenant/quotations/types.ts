@@ -131,12 +131,7 @@ export interface QuotationDiscountPayload {
   max_permitted_rate?: number | null;
   max_permitted_amount?: number | null;
   approval_required?: boolean | null;
-  approval_status?:
-    | 'NOT_REQUIRED'
-    | 'PENDING'
-    | 'APPROVED'
-    | 'REJECTED'
-    | null;
+  approval_status?: 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   approved_rate?: number | null;
   approved_amount?: number | null;
   approved_by?: string | null;
@@ -319,8 +314,10 @@ export interface QuotationListItem {
   updated_at: string;
 }
 
-export interface QuotationDetailRecord
-  extends Omit<QuotationPayload, 'internal_quotation' | 'cover_note_dtl'> {
+export interface QuotationDetailRecord extends Omit<
+  QuotationPayload,
+  'internal_quotation' | 'cover_note_dtl'
+> {
   internal_quotation: InternalQuotationPayload & { branch_id: string | null };
   cover_note_dtl: CoverNoteDetailPayload & {
     fleet_hdr?: FleetHeaderPayload & { sale_point_code?: string };

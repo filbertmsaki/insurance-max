@@ -156,12 +156,7 @@ export class DiscountOfferedDto {
 
   @IsOptional()
   @IsIn(['NOT_REQUIRED', 'PENDING', 'APPROVED', 'REJECTED'])
-  approval_status?:
-    | 'NOT_REQUIRED'
-    | 'PENDING'
-    | 'APPROVED'
-    | 'REJECTED'
-    | null;
+  approval_status?: 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED' | null;
 
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 6 })

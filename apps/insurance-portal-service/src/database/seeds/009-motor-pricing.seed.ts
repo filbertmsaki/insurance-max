@@ -237,7 +237,9 @@ export default class MotorPricingSeeder implements Seeder {
       },
     });
     const activeRateBookIds = new Set(
-      Array.from(rateBooksByProductCode.values()).map((rateBook) => rateBook.id),
+      Array.from(rateBooksByProductCode.values()).map(
+        (rateBook) => rateBook.id,
+      ),
     );
     for (const rateBook of otherMotorRateBooks) {
       if (activeRateBookIds.has(rateBook.id)) {

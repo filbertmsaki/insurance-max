@@ -660,8 +660,7 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'pricing.request_override',
     displayName: 'Request pricing overrides',
-    description:
-      'Allow requesting manual premium overrides on quotation risks',
+    description: 'Allow requesting manual premium overrides on quotation risks',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -805,8 +804,7 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'pricing.override.request',
     displayName: 'Request manual premium overrides',
-    description:
-      'Allow requesting manual premium overrides on quotation risks',
+    description: 'Allow requesting manual premium overrides on quotation risks',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -1446,9 +1444,12 @@ function withPricingPermissionAliases(permissionNames: string[]): string[] {
   }
 
   if (
-    ['risk-rating-rules:read', 'risk-rating-rules:create', 'risk-rating-rules:update', 'risk-rating-rules:delete'].some(
-      (permission) => expanded.has(permission),
-    )
+    [
+      'risk-rating-rules:read',
+      'risk-rating-rules:create',
+      'risk-rating-rules:update',
+      'risk-rating-rules:delete',
+    ].some((permission) => expanded.has(permission))
   ) {
     expanded.add('pricing.manage_rules');
     expanded.add('pricing.manage_rate_books');

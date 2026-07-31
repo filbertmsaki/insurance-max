@@ -153,7 +153,7 @@ export class UsersService {
       savedUser.id,
       companyId,
       {
-      roleIds,
+        roleIds,
       },
     );
     await this.companiesService.assignCompanyUserToBranch(
@@ -404,10 +404,11 @@ export class UsersService {
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
     const user = await this.findOrFail(id);
-    const { roles, branch_id, ...safeUpdate } = updateUserDto as UpdateUserDto & {
-      roles?: unknown;
-      branch_id?: unknown;
-    };
+    const { roles, branch_id, ...safeUpdate } =
+      updateUserDto as UpdateUserDto & {
+        roles?: unknown;
+        branch_id?: unknown;
+      };
     void roles;
     void branch_id;
     Object.assign(user, safeUpdate);

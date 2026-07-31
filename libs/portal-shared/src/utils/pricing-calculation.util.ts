@@ -65,7 +65,10 @@ export function roundTax(value: DecimalLike): number {
 }
 
 export function roundRate(value: DecimalLike): number {
-  return roundDecimal(value, PRICING_ROUNDING_POLICY.percentageScale).toNumber();
+  return roundDecimal(
+    value,
+    PRICING_ROUNDING_POLICY.percentageScale,
+  ).toNumber();
 }
 
 export function roundExchangeRate(value: DecimalLike): number {
@@ -76,24 +79,21 @@ export function roundExchangeRate(value: DecimalLike): number {
 }
 
 export function normalizeMoneyForStorage(value: DecimalLike): string {
-  return roundDecimal(
-    value,
+  return roundDecimal(value, PRICING_ROUNDING_POLICY.moneyStorageScale).toFixed(
     PRICING_ROUNDING_POLICY.moneyStorageScale,
-  ).toFixed(PRICING_ROUNDING_POLICY.moneyStorageScale);
+  );
 }
 
 export function normalizeRateForStorage(value: DecimalLike): string {
-  return roundDecimal(
-    value,
+  return roundDecimal(value, PRICING_ROUNDING_POLICY.percentageScale).toFixed(
     PRICING_ROUNDING_POLICY.percentageScale,
-  ).toFixed(PRICING_ROUNDING_POLICY.percentageScale);
+  );
 }
 
 export function normalizeExchangeRateForStorage(value: DecimalLike): string {
-  return roundDecimal(
-    value,
+  return roundDecimal(value, PRICING_ROUNDING_POLICY.exchangeRateScale).toFixed(
     PRICING_ROUNDING_POLICY.exchangeRateScale,
-  ).toFixed(PRICING_ROUNDING_POLICY.exchangeRateScale);
+  );
 }
 
 export function applyRate(amount: DecimalLike, rate: DecimalLike): Decimal {

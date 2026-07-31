@@ -136,10 +136,12 @@ describe('premiumAggregation', () => {
       result.premium_breakdown.totals.payable_premium,
     );
     expect(
-      pricedRow.rating_result_metadata?.discount_control?.approval_threshold_rate,
+      pricedRow.rating_result_metadata?.discount_control
+        ?.approval_threshold_rate,
     ).toBe(0.05);
     expect(
-      pricedRow.rating_result_metadata?.loading_control?.approval_threshold_amount,
+      pricedRow.rating_result_metadata?.loading_control
+        ?.approval_threshold_amount,
     ).toBe(15000);
     expect(pricedRow.rating_result_metadata?.validation_warnings).toEqual([
       'Referral to underwriting required',
@@ -152,54 +154,51 @@ describe('premiumAggregation', () => {
     row.risk_code = 'SP014001000001';
     row.sum_insured = '50000000';
 
-    const pricedRow = applyRiskPremiumResult(
-      row,
-      {
-        risk_id: 'risk-1',
-        risk_code: 'SP014001000001',
-        risk_name: 'Motor Comprehensive',
-        sum_insured: 50000000,
-        base_premium: 1750000,
-        gross_premium: 1750000,
-        final_premium: 1750000,
-        percentage_rate: 0.035,
-        charges: [],
-        premium_including_charges: 1750000,
-        minimum_amount: 250000,
-        minimum_applied: false,
-        premium_breakdown: {
-          items: [
-            {
-              premium_after_discount: 1750000,
-              raw_premium: 1750000,
-            },
-          ],
-          totals: {
-            raw_premium: 1750000,
+    const pricedRow = applyRiskPremiumResult(row, {
+      risk_id: 'risk-1',
+      risk_code: 'SP014001000001',
+      risk_name: 'Motor Comprehensive',
+      sum_insured: 50000000,
+      base_premium: 1750000,
+      gross_premium: 1750000,
+      final_premium: 1750000,
+      percentage_rate: 0.035,
+      charges: [],
+      premium_including_charges: 1750000,
+      minimum_amount: 250000,
+      minimum_applied: false,
+      premium_breakdown: {
+        items: [
+          {
             premium_after_discount: 1750000,
-            payable_premium: 1750000,
+            raw_premium: 1750000,
           },
+        ],
+        totals: {
+          raw_premium: 1750000,
+          premium_after_discount: 1750000,
+          payable_premium: 1750000,
         },
-        discount_control: {
-          max_rate: null,
-          max_amount: null,
-          approval_threshold_rate: null,
-          approval_threshold_amount: null,
-          effective_from: null,
-          effective_to: null,
-        },
-        loading_control: {
-          max_rate: null,
-          max_amount: null,
-          approval_threshold_rate: null,
-          approval_threshold_amount: null,
-          effective_from: null,
-          effective_to: null,
-        },
-        validation_errors: [],
-        validation_warnings: [],
-      } as any,
-    );
+      },
+      discount_control: {
+        max_rate: null,
+        max_amount: null,
+        approval_threshold_rate: null,
+        approval_threshold_amount: null,
+        effective_from: null,
+        effective_to: null,
+      },
+      loading_control: {
+        max_rate: null,
+        max_amount: null,
+        approval_threshold_rate: null,
+        approval_threshold_amount: null,
+        effective_from: null,
+        effective_to: null,
+      },
+      validation_errors: [],
+      validation_warnings: [],
+    } as any);
 
     expect(pricedRow.premium_before_discount).toBe('1750000');
     expect(pricedRow.premium_after_discount).toBe('1750000');
@@ -214,23 +213,20 @@ describe('premiumAggregation', () => {
     row.sum_insured = '0';
     row.sum_insured_equivalent = '5000000';
 
-    const pricedRow = applyRiskPremiumResult(
-      row,
-      {
-        risk_id: 'risk-1',
-        risk_code: 'SP014004000001',
-        risk_name: 'Passenger Carrying TPO',
-        sum_insured: 0,
-        percentage_rate: 0,
-        premium_before_discount: 120000,
-        premium_after_discount: 120000,
-        premium_excluding_tax_equivalent: 120000,
-        premium_including_tax: 120000,
-        charges: [],
-        validation_errors: [],
-        validation_warnings: [],
-      } as any,
-    );
+    const pricedRow = applyRiskPremiumResult(row, {
+      risk_id: 'risk-1',
+      risk_code: 'SP014004000001',
+      risk_name: 'Passenger Carrying TPO',
+      sum_insured: 0,
+      percentage_rate: 0,
+      premium_before_discount: 120000,
+      premium_after_discount: 120000,
+      premium_excluding_tax_equivalent: 120000,
+      premium_including_tax: 120000,
+      charges: [],
+      validation_errors: [],
+      validation_warnings: [],
+    } as any);
 
     expect(pricedRow.sum_insured).toBe('0');
     expect(pricedRow.sum_insured_equivalent).toBe('0');
@@ -250,41 +246,38 @@ describe('premiumAggregation', () => {
       },
     ];
 
-    const pricedRow = applyRiskPremiumResult(
-      row,
-      {
-        risk_id: 'risk-1',
-        risk_code: 'MOTOR-COMP',
-        risk_name: 'Private Comprehensive',
-        sum_insured: 10000000,
-        percentage_rate: 0.035,
-        premium_rate: 0.035,
-        premium_before_discount: 350000,
-        premium_after_discount: 350000,
-        premium_excluding_tax_equivalent: 350000,
-        premium_including_tax: 350000,
-        premium_including_charges: 350000,
-        charges: [],
-        discount_control: {
-          max_rate: null,
-          max_amount: null,
-          approval_threshold_rate: null,
-          approval_threshold_amount: null,
-          effective_from: null,
-          effective_to: null,
-        },
-        loading_control: {
-          max_rate: null,
-          max_amount: null,
-          approval_threshold_rate: null,
-          approval_threshold_amount: null,
-          effective_from: null,
-          effective_to: null,
-        },
-        validation_errors: [],
-        validation_warnings: [],
-      } as any,
-    );
+    const pricedRow = applyRiskPremiumResult(row, {
+      risk_id: 'risk-1',
+      risk_code: 'MOTOR-COMP',
+      risk_name: 'Private Comprehensive',
+      sum_insured: 10000000,
+      percentage_rate: 0.035,
+      premium_rate: 0.035,
+      premium_before_discount: 350000,
+      premium_after_discount: 350000,
+      premium_excluding_tax_equivalent: 350000,
+      premium_including_tax: 350000,
+      premium_including_charges: 350000,
+      charges: [],
+      discount_control: {
+        max_rate: null,
+        max_amount: null,
+        approval_threshold_rate: null,
+        approval_threshold_amount: null,
+        effective_from: null,
+        effective_to: null,
+      },
+      loading_control: {
+        max_rate: null,
+        max_amount: null,
+        approval_threshold_rate: null,
+        approval_threshold_amount: null,
+        effective_from: null,
+        effective_to: null,
+      },
+      validation_errors: [],
+      validation_warnings: [],
+    } as any);
 
     expect(pricedRow.taxes_charged[0].tax_amount).toBe('0');
   });

@@ -6,9 +6,7 @@ interface LegacyRateColumn {
   description: string;
 }
 
-export class Phase22MigrationAndBackwardCompatibility1788800000000
-  implements MigrationInterface
-{
+export class Phase22MigrationAndBackwardCompatibility1788800000000 implements MigrationInterface {
   name = 'Phase22MigrationAndBackwardCompatibility1788800000000';
 
   private readonly phaseCode = 'PHASE_22';
@@ -108,12 +106,8 @@ export class Phase22MigrationAndBackwardCompatibility1788800000000
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `DROP VIEW IF EXISTS "${this.reviewView}"`,
-    );
-    await queryRunner.query(
-      `DROP TABLE IF EXISTS "${this.reviewTable}"`,
-    );
+    await queryRunner.query(`DROP VIEW IF EXISTS "${this.reviewView}"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "${this.reviewTable}"`);
   }
 
   private async createReviewInfrastructure(

@@ -4,7 +4,7 @@ function sortValue(value: unknown): unknown {
   }
 
   if (value && typeof value === 'object') {
-    return Object.keys(value as Record<string, unknown>)
+    return Object.keys(value)
       .sort()
       .reduce<Record<string, unknown>>((result, key) => {
         result[key] = sortValue((value as Record<string, unknown>)[key]);

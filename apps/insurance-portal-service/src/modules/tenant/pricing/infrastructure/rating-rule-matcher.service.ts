@@ -222,7 +222,9 @@ export class RatingRuleMatcherService {
         ),
         per_unit_factor_code:
           rule.per_unit_factor_code ??
-          this.normalizePerUnitFactorCode(formulaMatch.perUnitFactorLabel ?? ''),
+          this.normalizePerUnitFactorCode(
+            formulaMatch.perUnitFactorLabel ?? '',
+          ),
       };
     }
 
@@ -235,7 +237,9 @@ export class RatingRuleMatcherService {
         ),
         per_unit_factor_code:
           rule.per_unit_factor_code ??
-          this.normalizePerUnitFactorCode(formulaMatch.perUnitFactorLabel ?? ''),
+          this.normalizePerUnitFactorCode(
+            formulaMatch.perUnitFactorLabel ?? '',
+          ),
       };
     }
 

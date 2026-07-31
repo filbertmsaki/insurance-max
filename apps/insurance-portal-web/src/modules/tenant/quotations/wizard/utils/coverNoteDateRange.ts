@@ -27,7 +27,10 @@ export function addLocalDays(date: Date, days: number): Date {
   return result;
 }
 
-export function computeCoverNoteDateRange(days: number, from: Date = new Date()) {
+export function computeCoverNoteDateRange(
+  days: number,
+  from: Date = new Date(),
+) {
   const validFrom = formatLocalDateTime(from);
   const validUntil = formatLocalDateTime(addLocalDays(from, days - 1));
   return { validFrom, validUntil };
@@ -44,7 +47,8 @@ export function todayLocalDatePart(): string {
 /** Parses a "YYYY-MM-DD[THH:mm:ss]" string as a local Date (safe for both date-only and full datetime values). */
 function parseLocal(value: string): Date {
   const datePart = dateOnlyPart(value);
-  const timePart = value.length > 10 ? value.slice(11, 19) || '00:00:00' : '00:00:00';
+  const timePart =
+    value.length > 10 ? value.slice(11, 19) || '00:00:00' : '00:00:00';
   return new Date(`${datePart}T${timePart}`);
 }
 
@@ -85,14 +89,18 @@ export function matchPresetDays(
 ): CoverNoteDateRangeValue | '' {
   const totalDays = inclusiveDayCount(validFrom, validUntil);
   if (totalDays === null) return '';
-  const match = COVER_NOTE_DATE_RANGE_OPTIONS.find((option) => option.days === totalDays);
+  const match = COVER_NOTE_DATE_RANGE_OPTIONS.find(
+    (option) => option.days === totalDays,
+  );
   return match?.value ?? '';
 }
 
 export function formatCoverDateLabel(value?: string): string {
   if (!value) return 'Not set';
 
-  const parsed = value.includes('T') ? new Date(value) : new Date(`${value}T00:00:00`);
+  const parsed = value.includes('T')
+    ? new Date(value)
+    : new Date(`${value}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) {
     return value;
   }

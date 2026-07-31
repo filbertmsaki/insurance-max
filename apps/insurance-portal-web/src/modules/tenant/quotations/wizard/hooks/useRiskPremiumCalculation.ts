@@ -90,7 +90,9 @@ function resolveApplicableTaxRuleIds({
 
   return taxRules
     .filter((rule) => normalizeUppercase(rule.status) === 'ACTIVE')
-    .filter((rule) => selectedTaxCodes.includes(normalizeUppercase(rule.tax_code)))
+    .filter((rule) =>
+      selectedTaxCodes.includes(normalizeUppercase(rule.tax_code)),
+    )
     .filter(
       (rule) => !rule.category_id || rule.category_id === (categoryId || null),
     )
@@ -101,7 +103,8 @@ function resolveApplicableTaxRuleIds({
     .filter(
       (rule) =>
         !effectiveDate ||
-        (rule.effective_from <= effectiveDate && rule.effective_to >= effectiveDate),
+        (rule.effective_from <= effectiveDate &&
+          rule.effective_to >= effectiveDate),
     )
     .map((rule) => rule.id);
 }
@@ -120,7 +123,7 @@ function setValueIfChanged(
 ) {
   const currentValue = form.getValues(fieldPath);
   if (isEqualNormalizingNumbers(currentValue, nextValue)) return;
-  form.setValue(fieldPath, nextValue as never);
+  form.setValue(fieldPath, nextValue);
 }
 
 /**
@@ -133,14 +136,26 @@ export function useRiskPremiumCalculation(
   index: number,
   factorContext?: QuotationFactorContext,
 ) {
-  const riskId = useWatch({ control: form.control, name: path(index, 'risk_id') }) as string;
-  const categoryId = useWatch({ control: form.control, name: 'category_id' }) as string;
-  const quotationType = useWatch({ control: form.control, name: 'quotation_type' });
+  const riskId = useWatch({
+    control: form.control,
+    name: path(index, 'risk_id'),
+  }) as string;
+  const categoryId = useWatch({
+    control: form.control,
+    name: 'category_id',
+  }) as string;
+  const quotationType = useWatch({
+    control: form.control,
+    name: 'quotation_type',
+  });
   const productId = useWatch({ control: form.control, name: 'product_id' });
   const validFrom = useWatch({ control: form.control, name: 'valid_from' });
   const validUntil = useWatch({ control: form.control, name: 'valid_until' });
   const currency = useWatch({ control: form.control, name: 'currency' });
-  const exchangeRate = useWatch({ control: form.control, name: 'exchange_rate' });
+  const exchangeRate = useWatch({
+    control: form.control,
+    name: 'exchange_rate',
+  });
   const addons = useWatch({ control: form.control, name: 'addons' });
   const motor = useWatch({ control: form.control, name: 'motor' });
   const factorValuesRow = useWatch({
@@ -154,7 +169,9 @@ export function useRiskPremiumCalculation(
   const discounts = useWatch({
     control: form.control,
     name: path(index, 'discounts_offered'),
-  }) as QuotationFormSchemaValues['risks'][number]['discounts_offered'] | undefined;
+  }) as
+    | QuotationFormSchemaValues['risks'][number]['discounts_offered']
+    | undefined;
   const taxes = useWatch({
     control: form.control,
     name: path(index, 'taxes_charged'),
@@ -189,7 +206,7 @@ export function useRiskPremiumCalculation(
   }, [form, index]);
   const committedSumInsured =
     committedEntry.riskId === riskId &&
-    committedEntry.sumInsured === ((sumInsured ?? '') as string)
+    committedEntry.sumInsured === (sumInsured ?? '')
       ? committedEntry.sumInsured
       : '';
 
@@ -200,7 +217,9 @@ export function useRiskPremiumCalculation(
   );
   const requiresSumInsured = useMemo(
     () =>
-      requiredFactors.some((requiredFactor) => requiredFactor.factor.code === 'sum_insured'),
+      requiredFactors.some(
+        (requiredFactor) => requiredFactor.factor.code === 'sum_insured',
+      ),
     [requiredFactors],
   );
 
@@ -393,7 +412,7 @@ export function useRiskPremiumCalculation(
       const fieldPath = path(index, fieldName);
       const currentValue = form.getValues(fieldPath);
       if (!isEqualNormalizingNumbers(currentValue, value)) {
-        form.setValue(fieldPath, value as never);
+        form.setValue(fieldPath, value);
       }
     });
   }, [form, index, riskId, ruleListQuery.data, committedSumInsured]);
@@ -491,34 +510,36 @@ export function useRiskPremiumCalculation(
       factorSumInsuredRaw === undefined
         ? NaN
         : Number(factorSumInsuredRaw);
-    const requestedSumInsured =
-      Number.isFinite(explicitSumInsured)
-        ? explicitSumInsured
-        : Number.isFinite(factorSumInsured)
-          ? factorSumInsured
-          : undefined;
+    const requestedSumInsured = Number.isFinite(explicitSumInsured)
+      ? explicitSumInsured
+      : Number.isFinite(factorSumInsured)
+        ? factorSumInsured
+        : undefined;
     const hasCommittedSumInsured = committedSumInsured !== '';
-    const hasFactorInputs =
-      Object.entries(factorValues).some(
-        ([code, value]) =>
-          code !== 'sum_insured' &&
-          value !== '' &&
-          value !== null &&
-          value !== undefined,
-      );
+    const hasFactorInputs = Object.entries(factorValues).some(
+      ([code, value]) =>
+        code !== 'sum_insured' &&
+        value !== '' &&
+        value !== null &&
+        value !== undefined,
+    );
     const canCalculateWithoutInputs = requiredFactors.length === 0;
 
-    if (!hasCommittedSumInsured && !hasFactorInputs && !canCalculateWithoutInputs) {
+    if (
+      !hasCommittedSumInsured &&
+      !hasFactorInputs &&
+      !canCalculateWithoutInputs
+    ) {
       return undefined;
     }
     if (
       requiresSumInsured &&
-      (!Number.isFinite(requestedSumInsured) ||
-        (requestedSumInsured ?? 0) <= 0)
+      (!Number.isFinite(requestedSumInsured) || (requestedSumInsured ?? 0) <= 0)
     ) {
       return undefined;
     }
-    if (selectedTaxCodes.length > 0 && taxRulesQuery.isLoading) return undefined;
+    if (selectedTaxCodes.length > 0 && taxRulesQuery.isLoading)
+      return undefined;
 
     timeoutRef.current = setTimeout(() => {
       const token = ++requestTokenRef.current;
@@ -534,16 +555,15 @@ export function useRiskPremiumCalculation(
               : undefined,
           factors: factorValues,
           effective_date: form.getValues('valid_from') as string,
-          currency_code:
-            ((form.getValues('currency') as string) || 'TZS')
-              .trim()
-              .toUpperCase(),
+          currency_code: ((form.getValues('currency') as string) || 'TZS')
+            .trim()
+            .toUpperCase(),
           exchange_rate:
-            (((form.getValues('currency') as string) || 'TZS')
+            ((form.getValues('currency') as string) || 'TZS')
               .trim()
               .toUpperCase() === 'TZS'
               ? 1
-              : Number(form.getValues('exchange_rate') as string) || 1),
+              : Number(form.getValues('exchange_rate') as string) || 1,
           // Only a requested discount RATE is sent — the backend computes
           // discount_amount from it; the frontend never sends a
           // pre-calculated amount as a trusted value. Loading and
@@ -566,13 +586,21 @@ export function useRiskPremiumCalculation(
             const currentRow = form.getValues(`risks.${index}`);
             const updatedRow = applyRiskPremiumResult(currentRow, result);
 
-            setValueIfChanged(form, path(index, 'sum_insured'), updatedRow.sum_insured);
+            setValueIfChanged(
+              form,
+              path(index, 'sum_insured'),
+              updatedRow.sum_insured,
+            );
             setValueIfChanged(
               form,
               path(index, 'sum_insured_equivalent'),
               updatedRow.sum_insured_equivalent,
             );
-            setValueIfChanged(form, path(index, 'premium_rate'), updatedRow.premium_rate);
+            setValueIfChanged(
+              form,
+              path(index, 'premium_rate'),
+              updatedRow.premium_rate,
+            );
             setValueIfChanged(
               form,
               path(index, 'premium_before_discount'),
@@ -603,17 +631,15 @@ export function useRiskPremiumCalculation(
               path(index, 'premium_including_tax'),
               updatedRow.premium_including_tax,
             );
-            setValueIfChanged(
-              form,
-              path(index, 'rating_result_metadata'),
-              {
-                ...updatedRow.rating_result_metadata,
-                pricing_status: updatedRow.rating_result_metadata?.pricing_status ?? 'CALCULATED',
-                pricing_input_signature: currentPricingSignature,
-                pricing_is_stale: false,
-                stale_reason: null,
-              },
-            );
+            setValueIfChanged(form, path(index, 'rating_result_metadata'), {
+              ...updatedRow.rating_result_metadata,
+              pricing_status:
+                updatedRow.rating_result_metadata?.pricing_status ??
+                'CALCULATED',
+              pricing_input_signature: currentPricingSignature,
+              pricing_is_stale: false,
+              stale_reason: null,
+            });
           },
           onError: () => {
             if (!mountedRef.current || token !== requestTokenRef.current) {
@@ -628,16 +654,12 @@ export function useRiskPremiumCalculation(
             const existingMetadata = form.getValues(
               path(index, 'rating_result_metadata'),
             ) as Record<string, unknown> | null;
-            setValueIfChanged(
-              form,
-              path(index, 'rating_result_metadata'),
-              {
-                ...(existingMetadata ?? {}),
-                pricing_quote_id: null,
-                pricing_status: 'ERROR',
-                pricing_input_signature: currentPricingSignature,
-              } as never,
-            );
+            setValueIfChanged(form, path(index, 'rating_result_metadata'), {
+              ...(existingMetadata ?? {}),
+              pricing_quote_id: null,
+              pricing_status: 'ERROR',
+              pricing_input_signature: currentPricingSignature,
+            });
           },
         },
       );
@@ -648,7 +670,6 @@ export function useRiskPremiumCalculation(
     };
     // factorValues is intentionally tracked via its stable JSON key so the
     // debounce doesn't restart on every render from a new object identity.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     form,
     index,

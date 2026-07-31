@@ -6,9 +6,7 @@ import type {
 } from '../../domain/pricing-calculator.types';
 
 @Injectable()
-export class PercentagePlusPerUnitPricingStrategy
-  implements PricingCalculatorStrategy
-{
+export class PercentagePlusPerUnitPricingStrategy implements PricingCalculatorStrategy {
   readonly rateType = RateType.PERCENTAGE_PLUS_PER_UNIT;
 
   calculate(context: PricingCalculationContext) {

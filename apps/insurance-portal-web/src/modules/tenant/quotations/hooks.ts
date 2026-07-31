@@ -83,7 +83,17 @@ export function useQuotationsList() {
       sortBy,
       sortOrder,
     }),
-    [limit, page, productId, quotationFlow, quotationType, search, sortBy, sortOrder, status],
+    [
+      limit,
+      page,
+      productId,
+      quotationFlow,
+      quotationType,
+      search,
+      sortBy,
+      sortOrder,
+      status,
+    ],
   );
 
   const { data, isLoading, error } = useQuery({
@@ -292,7 +302,10 @@ export function useCreateQuotationDraft() {
     onSuccess: (quotation) => {
       queryClient.invalidateQueries({ queryKey: quotationKeys.all });
       queryClient.setQueryData(quotationKeys.detail(quotation.id), quotation);
-      queryClient.setQueryData(quotationKeys.editDetail(quotation.id), quotation);
+      queryClient.setQueryData(
+        quotationKeys.editDetail(quotation.id),
+        quotation,
+      );
       toast.success('Quotation draft saved');
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
@@ -321,7 +334,10 @@ export function useUpdateQuotationDraft() {
     onSuccess: (quotation) => {
       queryClient.invalidateQueries({ queryKey: quotationKeys.all });
       queryClient.setQueryData(quotationKeys.detail(quotation.id), quotation);
-      queryClient.setQueryData(quotationKeys.editDetail(quotation.id), quotation);
+      queryClient.setQueryData(
+        quotationKeys.editDetail(quotation.id),
+        quotation,
+      );
       toast.success('Quotation draft updated');
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
@@ -373,8 +389,13 @@ export function useFinalizeQuotation() {
     onSuccess: (quotation) => {
       queryClient.invalidateQueries({ queryKey: quotationKeys.all });
       queryClient.setQueryData(quotationKeys.detail(quotation.id), quotation);
-      queryClient.setQueryData(quotationKeys.editDetail(quotation.id), quotation);
-      queryClient.invalidateQueries({ queryKey: quotationKeys.preview(quotation.id) });
+      queryClient.setQueryData(
+        quotationKeys.editDetail(quotation.id),
+        quotation,
+      );
+      queryClient.invalidateQueries({
+        queryKey: quotationKeys.preview(quotation.id),
+      });
       toast.success('Quotation completed');
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
@@ -580,8 +601,7 @@ export function useRejectQuotationPremiumOverride(id?: string) {
       riskId: string;
       overrideId: string;
       payload: DecideQuotationPremiumOverridePayload;
-    }) =>
-      quotationsApi.rejectPremiumOverride(id!, riskId, overrideId, payload),
+    }) => quotationsApi.rejectPremiumOverride(id!, riskId, overrideId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: quotationKeys.all });
       if (id) {
@@ -750,7 +770,8 @@ export function useIntermediaryCompanyOptions(
   channelType: QuotationChannelType | '',
   productId?: string,
 ): IntermediaryCompanyOption[] {
-  const { data: distributionChannels = [] } = useQuotationDistributionChannels();
+  const { data: distributionChannels = [] } =
+    useQuotationDistributionChannels();
 
   return useMemo(() => {
     if (!channelType || channelType === 'DIRECT' || !productId) return [];
@@ -774,7 +795,9 @@ export function useIntermediaryCompanyOptions(
       }
     });
 
-    return [...uniqueCompanies.values()].sort((a, b) => a.name.localeCompare(b.name));
+    return [...uniqueCompanies.values()].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
   }, [channelType, distributionChannels, productId]);
 }
 

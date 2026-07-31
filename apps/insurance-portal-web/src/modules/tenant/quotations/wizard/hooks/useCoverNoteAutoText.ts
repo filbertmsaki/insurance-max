@@ -57,7 +57,6 @@ export function useCoverNoteAutoText({
       }
       coverNoteDescGeneratedRef.current = generatedCoverNoteDesc;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [generatedCoverNoteDesc, isHydrating]);
 
   useEffect(() => {
@@ -76,7 +75,6 @@ export function useCoverNoteAutoText({
       }
       operativeClauseGeneratedRef.current = generatedOperativeClause;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [generatedOperativeClause, isHydrating]);
 
   const resetCoverNoteDescToDefault = () => {

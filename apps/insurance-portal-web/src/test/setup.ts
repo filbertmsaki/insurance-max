@@ -15,5 +15,5 @@ class ResizeObserverMock {
 }
 
 if (!globalThis.ResizeObserver) {
-  globalThis.ResizeObserver = ResizeObserverMock as typeof ResizeObserver;
+  globalThis.ResizeObserver = ResizeObserverMock;
 }

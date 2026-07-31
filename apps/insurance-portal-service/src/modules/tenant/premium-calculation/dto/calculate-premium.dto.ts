@@ -124,7 +124,7 @@ export class CalculateSingleRiskPremiumDto {
   @ApiPropertyOptional({
     type: PricingAdjustmentRequestDto,
     description:
-      'Requested discount. Computed as a live preview against the matched rule\'s discount limits — an over-limit request is still calculated and flagged, not rejected, here; approval is enforced at quotation submission.',
+      "Requested discount. Computed as a live preview against the matched rule's discount limits — an over-limit request is still calculated and flagged, not rejected, here; approval is enforced at quotation submission.",
   })
   @IsOptional()
   @IsObject()

@@ -16,10 +16,10 @@ export class PricingRuntimeCacheService {
   ): Promise<string> {
     const uniqueFamilies = [...new Set(families)].sort();
     const versions = await Promise.all(
-      uniqueFamilies.map(async (family) => [
-        family,
-        await this.readVersion(companyId, family),
-      ] as const),
+      uniqueFamilies.map(
+        async (family) =>
+          [family, await this.readVersion(companyId, family)] as const,
+      ),
     );
 
     return versions

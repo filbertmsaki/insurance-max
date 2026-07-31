@@ -174,7 +174,12 @@ export class QuotationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateQuotationDraftDto,
   ) {
-    return this.quotationsService.updateDraft(user.companyId!, id, dto, user.id);
+    return this.quotationsService.updateDraft(
+      user.companyId!,
+      id,
+      dto,
+      user.id,
+    );
   }
 
   @Get(':id/preview')

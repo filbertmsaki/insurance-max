@@ -85,7 +85,10 @@ export class TiramisIntegrationController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('branchId', ParseUUIDPipe) branchId: string,
   ) {
-    return this.tiramisIntegrationService.findBranchSalePoints(user.companyId!, branchId);
+    return this.tiramisIntegrationService.findBranchSalePoints(
+      user.companyId!,
+      branchId,
+    );
   }
 
   @Post('sale-points/branch/:branchId')
@@ -96,7 +99,11 @@ export class TiramisIntegrationController {
     @Param('branchId', ParseUUIDPipe) branchId: string,
     @Body() dto: CreateSalePointDto,
   ) {
-    return this.tiramisIntegrationService.createSalePoint(user.companyId!, branchId, dto);
+    return this.tiramisIntegrationService.createSalePoint(
+      user.companyId!,
+      branchId,
+      dto,
+    );
   }
 
   @Patch('sale-points/:id')
@@ -107,7 +114,12 @@ export class TiramisIntegrationController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateSalePointDto & { branch_id: string },
   ) {
-    return this.tiramisIntegrationService.updateSalePoint(user.companyId!, dto.branch_id, id, dto);
+    return this.tiramisIntegrationService.updateSalePoint(
+      user.companyId!,
+      dto.branch_id,
+      id,
+      dto,
+    );
   }
 
   @Patch('sale-points/:id/status')
@@ -118,7 +130,12 @@ export class TiramisIntegrationController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { branch_id: string; is_active: boolean },
   ) {
-    return this.tiramisIntegrationService.setSalePointStatus(user.companyId!, body.branch_id, id, body.is_active);
+    return this.tiramisIntegrationService.setSalePointStatus(
+      user.companyId!,
+      body.branch_id,
+      id,
+      body.is_active,
+    );
   }
 
   @Patch('sale-points/:id/default')
@@ -129,7 +146,11 @@ export class TiramisIntegrationController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body('branch_id') branchId: string,
   ) {
-    return this.tiramisIntegrationService.setDefaultSalePoint(user.companyId!, branchId, id);
+    return this.tiramisIntegrationService.setDefaultSalePoint(
+      user.companyId!,
+      branchId,
+      id,
+    );
   }
 
   @Delete('sale-points/:id')
@@ -140,7 +161,11 @@ export class TiramisIntegrationController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body('branch_id') branchId: string,
   ) {
-    return this.tiramisIntegrationService.deleteSalePoint(user.companyId!, branchId, id);
+    return this.tiramisIntegrationService.deleteSalePoint(
+      user.companyId!,
+      branchId,
+      id,
+    );
   }
 
   @Get('request/:requestId')

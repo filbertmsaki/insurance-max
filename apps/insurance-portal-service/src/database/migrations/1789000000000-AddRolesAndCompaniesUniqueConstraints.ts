@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddRolesAndCompaniesUniqueConstraints1789000000000
-  implements MigrationInterface
-{
+export class AddRolesAndCompaniesUniqueConstraints1789000000000 implements MigrationInterface {
   name = 'AddRolesAndCompaniesUniqueConstraints1789000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

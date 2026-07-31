@@ -72,7 +72,9 @@ export class RatingFactorsService {
 
     try {
       const saved = await this.factorRepository.save(factor);
-      await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+      await this.pricingRuntimeCacheService.invalidateProductConfiguration(
+        companyId,
+      );
       return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
@@ -173,7 +175,9 @@ export class RatingFactorsService {
 
     try {
       const saved = await this.factorRepository.save(factor);
-      await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+      await this.pricingRuntimeCacheService.invalidateProductConfiguration(
+        companyId,
+      );
       return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
@@ -188,6 +192,8 @@ export class RatingFactorsService {
   async remove(companyId: string, id: string): Promise<void> {
     const factor = await this.requireFactor(companyId, id);
     await this.factorRepository.softDelete(factor.id);
-    await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+    await this.pricingRuntimeCacheService.invalidateProductConfiguration(
+      companyId,
+    );
   }
 }

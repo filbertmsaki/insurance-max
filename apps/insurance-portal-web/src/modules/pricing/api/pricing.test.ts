@@ -26,7 +26,7 @@ describe('pricingApi', () => {
       factors: { vehicle_type: 'PRIVATE' },
     };
 
-    const result = await pricingApi.calculateSingle(payload as any);
+    const result = await pricingApi.calculateSingle(payload);
 
     expect(post).toHaveBeenCalledWith('/premium-calculation/single', payload);
     expect(result).toEqual({ pricing_quote_id: 'PQ-2026-00000100' });
@@ -50,7 +50,7 @@ describe('pricingApi', () => {
       ],
     };
 
-    const result = await pricingApi.calculateMulti(payload as any);
+    const result = await pricingApi.calculateMulti(payload);
 
     expect(post).toHaveBeenCalledWith('/premium-calculation/multi', payload);
     expect(result).toEqual({ pricing_quote_id: 'PQ-2026-00000101', risks: [] });

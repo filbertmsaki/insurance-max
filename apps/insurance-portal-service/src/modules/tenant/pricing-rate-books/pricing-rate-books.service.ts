@@ -380,7 +380,9 @@ export class PricingRateBooksService {
     rateBook.published_at = new Date();
     rateBook.updated_by = userId;
     const published = await this.rateBookRepository.save(rateBook);
-    await this.pricingRuntimeCacheService.invalidateRateConfiguration(companyId);
+    await this.pricingRuntimeCacheService.invalidateRateConfiguration(
+      companyId,
+    );
     return published;
   }
 
@@ -396,7 +398,9 @@ export class PricingRateBooksService {
     rateBook.status = PricingRateBookStatus.RETIRED;
     rateBook.updated_by = userId;
     const retired = await this.rateBookRepository.save(rateBook);
-    await this.pricingRuntimeCacheService.invalidateRateConfiguration(companyId);
+    await this.pricingRuntimeCacheService.invalidateRateConfiguration(
+      companyId,
+    );
     return retired;
   }
 
@@ -406,7 +410,10 @@ export class PricingRateBooksService {
     await this.rateBookRepository.softDelete(rateBook.id);
   }
 
-  async requireRateBook(companyId: string, id: string): Promise<PricingRateBook> {
+  async requireRateBook(
+    companyId: string,
+    id: string,
+  ): Promise<PricingRateBook> {
     const rateBook = await this.rateBookRepository.findOne({
       where: { id, company_id: companyId },
     });
@@ -443,7 +450,9 @@ export class PricingRateBooksService {
       );
     }
     if (!product.is_active) {
-      throw new ConflictException('Cannot create a rate book for an inactive product');
+      throw new ConflictException(
+        'Cannot create a rate book for an inactive product',
+      );
     }
   }
 

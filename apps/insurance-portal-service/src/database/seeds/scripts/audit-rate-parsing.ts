@@ -136,7 +136,8 @@ function main() {
         rule_name: f.rule_name,
         source_rate_text: f.source_rate_text,
         current_rate_type: f.current_rate_type,
-        suggested_rate_type: f.suggested_rate_type ?? '(none — review manually)',
+        suggested_rate_type:
+          f.suggested_rate_type ?? '(none — review manually)',
       })),
     );
   }

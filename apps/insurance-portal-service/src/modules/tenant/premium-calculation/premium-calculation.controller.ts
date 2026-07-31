@@ -56,7 +56,12 @@ export class PremiumCalculationController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CalculateSingleRiskPremiumDto,
   ) {
-    return this.service.calculateSingleRisk(user.companyId!, dto, user.id, user);
+    return this.service.calculateSingleRisk(
+      user.companyId!,
+      dto,
+      user.id,
+      user,
+    );
   }
 
   @Post('multi')

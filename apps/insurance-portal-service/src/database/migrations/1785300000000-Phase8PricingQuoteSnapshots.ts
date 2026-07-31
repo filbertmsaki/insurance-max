@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class Phase8PricingQuoteSnapshots1785300000000
-  implements MigrationInterface
-{
+export class Phase8PricingQuoteSnapshots1785300000000 implements MigrationInterface {
   name = 'Phase8PricingQuoteSnapshots1785300000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsBoolean, IsNotEmpty, IsOptional, IsUUID } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsNotEmpty,
+  IsOptional,
+  IsUUID,
+} from 'class-validator';
 
 export class AssignBranchUserDto {
   @ApiProperty({
@@ -17,7 +23,9 @@ export class AssignBranchUserDto {
   @IsBoolean()
   is_primary?: boolean;
 
-  @ApiPropertyOptional({ description: 'Make this branch the user active branch' })
+  @ApiPropertyOptional({
+    description: 'Make this branch the user active branch',
+  })
   @IsOptional()
   @IsBoolean()
   make_active?: boolean;

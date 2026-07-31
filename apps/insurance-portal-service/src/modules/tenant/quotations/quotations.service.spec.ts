@@ -31,10 +31,8 @@ describe('QuotationsService', () => {
     },
   ) {
     const authoritativePayload = createMotorSingleQuotationPayload();
-    const {
-      pricingQuote: pricingQuoteOverrides,
-      ...quotationOverrides
-    } = overrides ?? {};
+    const { pricingQuote: pricingQuoteOverrides, ...quotationOverrides } =
+      overrides ?? {};
     const pricingQuote = {
       pricing_quote_id:
         authoritativePayload.cover_note_dtl.risks_covered?.[0]
@@ -227,9 +225,11 @@ describe('QuotationsService', () => {
         };
       }),
       query: jest.fn().mockResolvedValue([]),
-      transaction: jest.fn().mockImplementation(async (callback) =>
-        callback(transactionManager as any),
-      ),
+      transaction: jest
+        .fn()
+        .mockImplementation(async (callback) =>
+          callback(transactionManager as any),
+        ),
     } as unknown as DataSource;
 
     const quotationsRepository = {
@@ -245,7 +245,8 @@ describe('QuotationsService', () => {
     const previewMapper = {
       toResponse: jest.fn().mockReturnValue({
         overview: {
-          quotation_flow: authoritativePayload.internal_quotation.quotation_flow,
+          quotation_flow:
+            authoritativePayload.internal_quotation.quotation_flow,
         },
       }),
     } as unknown as QuotationPreviewMapper;
@@ -347,7 +348,8 @@ describe('QuotationsService', () => {
             ?.sum_insured_equivalent ?? 5000000,
         premium_rate:
           pricingQuote.result_payload.percentage_rate ??
-          authoritativePayload.cover_note_dtl.risks_covered?.[0]?.premium_rate ??
+          authoritativePayload.cover_note_dtl.risks_covered?.[0]
+            ?.premium_rate ??
           0.02,
         premium_before_discount:
           Number(pricingQuote.final_premium) ||
@@ -520,7 +522,7 @@ describe('QuotationsService', () => {
       fixture.quotation.id,
       {
         permissions: ['pricing.view_breakdown'],
-      } as any,
+      },
     );
 
     expect(result.pricing_integration).toEqual(
@@ -547,7 +549,7 @@ describe('QuotationsService', () => {
       fixture.quotation.id,
       {
         permissions: [],
-      } as any,
+      },
     );
 
     expect(result.pricing_integration).toBeNull();
@@ -579,7 +581,7 @@ describe('QuotationsService', () => {
       fixture.quotation.id,
       {
         permissions: ['pricing.view_audit', 'pricing.view_breakdown'],
-      } as any,
+      },
     );
 
     expect(fixture.previewMapper.toResponse).toHaveBeenLastCalledWith(
@@ -600,7 +602,7 @@ describe('QuotationsService', () => {
       fixture.quotation.id,
       {
         permissions: [],
-      } as any,
+      },
     );
 
     expect(fixture.previewMapper.toResponse).toHaveBeenLastCalledWith(
@@ -642,7 +644,9 @@ describe('QuotationsService', () => {
         id: 'user-1',
         permissions: [],
       } as any),
-    ).rejects.toThrow('You do not have permission to request quotation discounts');
+    ).rejects.toThrow(
+      'You do not have permission to request quotation discounts',
+    );
     expect(fixture.dataSource.transaction).not.toHaveBeenCalled();
   });
 
@@ -652,7 +656,9 @@ describe('QuotationsService', () => {
       permissions: ['pricing.request_discount'],
     } as any;
 
-    function stubNonPricingConcerns(fixture: ReturnType<typeof createServiceFixture>) {
+    function stubNonPricingConcerns(
+      fixture: ReturnType<typeof createServiceFixture>,
+    ) {
       const payload = createMotorSingleQuotationPayload();
       jest
         .spyOn(fixture.service as any, 'preparePayloadWithGeneratedIdentifiers')
@@ -806,7 +812,10 @@ describe('QuotationsService', () => {
       const fixture = createServiceFixture();
       stubNonPricingConcerns(fixture);
       (fixture.dataSource.query as jest.Mock).mockResolvedValueOnce([
-        { pricing_quote_id: 'PQ-2026-00000001', quotation_id: 'other-quotation' },
+        {
+          pricing_quote_id: 'PQ-2026-00000001',
+          quotation_id: 'other-quotation',
+        },
       ]);
 
       await expect(
@@ -823,7 +832,8 @@ describe('QuotationsService', () => {
   it('allows unchanged approved discounts to remain on replacement without approval permission changes', () => {
     const fixture = createServiceFixture();
     const payload = createMotorSingleQuotationPayload();
-    const discount = payload.cover_note_dtl.risks_covered?.[0]?.discounts_offered?.[0];
+    const discount =
+      payload.cover_note_dtl.risks_covered?.[0]?.discounts_offered?.[0];
 
     if (!discount) {
       throw new Error('Expected fixture payload to include a discount');
@@ -868,7 +878,8 @@ describe('QuotationsService', () => {
   it('blocks discount approval decisions when the caller lacks approval permission', () => {
     const fixture = createServiceFixture();
     const payload = createMotorSingleQuotationPayload();
-    const discount = payload.cover_note_dtl.risks_covered?.[0]?.discounts_offered?.[0];
+    const discount =
+      payload.cover_note_dtl.risks_covered?.[0]?.discounts_offered?.[0];
 
     if (!discount) {
       throw new Error('Expected fixture payload to include a discount');
@@ -1030,10 +1041,8 @@ describe('QuotationsService', () => {
 
   it('normalizes quotation taxes from backend charge rules before submission', async () => {
     const fixture = createServiceFixture();
-    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].taxes_charged[0].tax_amount =
-      1;
-    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_including_tax =
-      100001;
+    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].taxes_charged[0].tax_amount = 1;
+    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_including_tax = 100001;
 
     await fixture.service.submit('company-1', fixture.quotation.id, undefined, {
       id: 'user-1',
@@ -1066,22 +1075,20 @@ describe('QuotationsService', () => {
 
   it('preserves manually selected risk taxes when no backend charge rule is returned', async () => {
     const fixture = createServiceFixture();
-    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].taxes_charged = [
-      {
-        tax_code: 'VAT-MAINLAND',
-        is_tax_exempted: 'N',
-        tax_exemption_type: null,
-        tax_exemption_reference: null,
-        tax_rate: 0.18,
-        tax_amount: 1,
-      },
-    ];
-    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_after_discount =
-      100000;
-    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_excluding_tax_equivalent =
-      100000;
-    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_including_tax =
-      100001;
+    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].taxes_charged =
+      [
+        {
+          tax_code: 'VAT-MAINLAND',
+          is_tax_exempted: 'N',
+          tax_exemption_type: null,
+          tax_exemption_reference: null,
+          tax_rate: 0.18,
+          tax_amount: 1,
+        },
+      ];
+    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_after_discount = 100000;
+    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_excluding_tax_equivalent = 100000;
+    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_including_tax = 100001;
     (
       fixture.pricingChargeService.calculateCharges as jest.Mock
     ).mockResolvedValueOnce({
@@ -1189,7 +1196,9 @@ describe('QuotationsService', () => {
         approved_by: 'approver-2',
       }),
     );
-    expect(fixture.quotationEntryRiskRepositoryMock.update).toHaveBeenCalledWith(
+    expect(
+      fixture.quotationEntryRiskRepositoryMock.update,
+    ).toHaveBeenCalledWith(
       { id: 'quotation-risk-1' },
       expect.objectContaining({
         premium_before_discount: '80000.00',

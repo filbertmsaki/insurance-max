@@ -618,7 +618,8 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
           );
 
           const customerId = customerRows[0]?.id as string | undefined;
-          if (!customerId) throw new Error(`Could not seed ${customer.customerNo}`);
+          if (!customerId)
+            throw new Error(`Could not seed ${customer.customerNo}`);
 
           for (const vehicle of customer.vehicles) {
             await queryRunner.query(

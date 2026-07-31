@@ -37,7 +37,9 @@ export class RatingFactorValidatorService {
     }
 
     const rawSumInsured =
-      input.sum_insured ?? normalized.sum_insured ?? normalized.sum_insured_amount;
+      input.sum_insured ??
+      normalized.sum_insured ??
+      normalized.sum_insured_amount;
     if (
       rawSumInsured !== undefined &&
       rawSumInsured !== null &&
@@ -74,7 +76,7 @@ export class RatingFactorValidatorService {
     );
 
     const factorCodes = Object.keys(factorValues).filter(
-      (code) => code !== 'sum_insured_amount',
+      (code) => code !== 'sum_insured' && code !== 'sum_insured_amount',
     );
     const configuredFactors =
       factorCodes.length > 0

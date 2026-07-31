@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { RateType } from '@insurance-max/portal-shared/enums/rate-type.enum';
 import {
   applyRate,
   roundMoney,
@@ -51,12 +52,20 @@ export class PremiumBreakdownService {
         rule.formula,
       );
 
-    let basePremium = rawPremium;
-    let minimumApplied = false;
-    if (minimumAmount.gt(0) && basePremium.lt(minimumAmount)) {
-      basePremium = minimumAmount;
-      minimumApplied = true;
-    }
+    // `base_premium` reports the rate's primary component. Additive charges
+    // (fixed/per-unit) are included in gross/final premium but do not replace
+    // the percentage component in the response contract.
+    const basePremium =
+      rule.rate_type === RateType.PERCENTAGE ||
+      rule.rate_type === RateType.PERCENTAGE_PLUS_FIXED ||
+      rule.rate_type === RateType.PERCENTAGE_PLUS_PER_UNIT
+        ? percentageAmount
+        : rawPremium;
+    const finalPremium =
+      minimumAmount.gt(0) && rawPremium.lt(minimumAmount)
+        ? minimumAmount
+        : rawPremium;
+    const minimumApplied = finalPremium.gt(rawPremium);
 
     return {
       percentage_rate: roundRate(percentageRate),
@@ -70,7 +79,7 @@ export class PremiumBreakdownService {
       fixed_amount: roundMoney(fixedAmount),
       minimum_amount: roundMoney(minimumAmount),
       gross_premium: roundMoney(rawPremium),
-      final_premium: roundMoney(basePremium),
+      final_premium: roundMoney(finalPremium),
       minimum_applied: minimumApplied,
     };
   }

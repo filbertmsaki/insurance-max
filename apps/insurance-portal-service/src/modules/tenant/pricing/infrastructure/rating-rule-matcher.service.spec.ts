@@ -52,9 +52,11 @@ function createServiceFixture(options: {
   rulesByRateBook: Record<string, Record<string, unknown>[]>;
 }) {
   const riskRepository = {
-    findOne: jest
-      .fn()
-      .mockResolvedValue({ id: RISK_ID, company_id: COMPANY_ID, product_id: PRODUCT_ID }),
+    findOne: jest.fn().mockResolvedValue({
+      id: RISK_ID,
+      company_id: COMPANY_ID,
+      product_id: PRODUCT_ID,
+    }),
   };
   const rateBookRepository = {
     find: jest.fn().mockResolvedValue(options.rateBooks),
@@ -82,8 +84,16 @@ function createServiceFixture(options: {
 
 describe('RatingRuleMatcherService — rate book currency scoping', () => {
   it('resolves the TZS rate book when two currency-specific published books overlap for the same product/date', async () => {
-    const tzsBook = rateBook({ id: 'book-tzs', currency_code: 'TZS', version: '2026.1' });
-    const usdBook = rateBook({ id: 'book-usd', currency_code: 'USD', version: '2026.1-usd' });
+    const tzsBook = rateBook({
+      id: 'book-tzs',
+      currency_code: 'TZS',
+      version: '2026.1',
+    });
+    const usdBook = rateBook({
+      id: 'book-usd',
+      currency_code: 'USD',
+      version: '2026.1-usd',
+    });
 
     const { service } = createServiceFixture({
       rateBooks: [tzsBook, usdBook],
@@ -105,8 +115,16 @@ describe('RatingRuleMatcherService — rate book currency scoping', () => {
   });
 
   it('resolves the USD rate book when queried with USD, from the same overlapping pair', async () => {
-    const tzsBook = rateBook({ id: 'book-tzs', currency_code: 'TZS', version: '2026.1' });
-    const usdBook = rateBook({ id: 'book-usd', currency_code: 'USD', version: '2026.1-usd' });
+    const tzsBook = rateBook({
+      id: 'book-tzs',
+      currency_code: 'TZS',
+      version: '2026.1',
+    });
+    const usdBook = rateBook({
+      id: 'book-usd',
+      currency_code: 'USD',
+      version: '2026.1-usd',
+    });
 
     const { service } = createServiceFixture({
       rateBooks: [tzsBook, usdBook],
@@ -128,8 +146,16 @@ describe('RatingRuleMatcherService — rate book currency scoping', () => {
   });
 
   it('still throws MULTIPLE_EFFECTIVE_RATE_BOOKS when two books for the SAME currency genuinely overlap', async () => {
-    const bookA = rateBook({ id: 'book-a', currency_code: 'TZS', version: '2026.1' });
-    const bookB = rateBook({ id: 'book-b', currency_code: 'TZS', version: '2026.2' });
+    const bookA = rateBook({
+      id: 'book-a',
+      currency_code: 'TZS',
+      version: '2026.1',
+    });
+    const bookB = rateBook({
+      id: 'book-b',
+      currency_code: 'TZS',
+      version: '2026.2',
+    });
 
     const { service } = createServiceFixture({
       rateBooks: [bookA, bookB],
@@ -142,8 +168,16 @@ describe('RatingRuleMatcherService — rate book currency scoping', () => {
   });
 
   it('still throws MULTIPLE_EFFECTIVE_RATE_BOOKS when a currency-agnostic book overlaps a currency-specific one', async () => {
-    const genericBook = rateBook({ id: 'book-generic', currency_code: null, version: '2026.1' });
-    const tzsBook = rateBook({ id: 'book-tzs', currency_code: 'TZS', version: '2026.2' });
+    const genericBook = rateBook({
+      id: 'book-generic',
+      currency_code: null,
+      version: '2026.1',
+    });
+    const tzsBook = rateBook({
+      id: 'book-tzs',
+      currency_code: 'TZS',
+      version: '2026.2',
+    });
 
     const { service } = createServiceFixture({
       rateBooks: [genericBook, tzsBook],

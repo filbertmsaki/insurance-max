@@ -183,9 +183,7 @@ export default class RiskFactorLinkSeeder implements Seeder {
     return changes;
   }
 
-  private resolvePreferredRule(
-    rules: RiskRatingRule[],
-  ): RiskRatingRule | null {
+  private resolvePreferredRule(rules: RiskRatingRule[]): RiskRatingRule | null {
     const preferred = [...rules].sort((left, right) => {
       const leftScore =
         (left.is_active ? 4 : 0) + (left.rate_book_id ? 2 : 0) - left.priority;

@@ -561,12 +561,11 @@ describe('PricingQuoteService', () => {
             validation_warnings: [],
           },
           context_payload: {
-            exchange_rate_signature:
-              JSON.stringify({
-                quotation_currency_code: 'TZS',
-                base_currency_code: 'TZS',
-                exchange_rate: 1,
-              }),
+            exchange_rate_signature: JSON.stringify({
+              quotation_currency_code: 'TZS',
+              base_currency_code: 'TZS',
+              exchange_rate: 1,
+            }),
             runtime_configuration_signature: 'product:0|rate:0|tax:0',
           },
         },

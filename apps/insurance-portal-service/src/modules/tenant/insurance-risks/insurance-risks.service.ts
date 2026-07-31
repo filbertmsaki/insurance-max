@@ -78,7 +78,9 @@ export class InsuranceRisksService {
       product_code: risk.product?.product_code ?? null,
       product_name: risk.product?.product_name ?? null,
       pricing_available: isMotorProductCode(risk.product?.product_code ?? null),
-      required_factors: requiredFactors.filter((item) => item.factor?.is_active),
+      required_factors: requiredFactors.filter(
+        (item) => item.factor?.is_active,
+      ),
     };
   }
 
@@ -127,7 +129,9 @@ export class InsuranceRisksService {
 
     try {
       const saved = await this.riskRepository.save(risk);
-      await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+      await this.pricingRuntimeCacheService.invalidateProductConfiguration(
+        companyId,
+      );
       return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
@@ -253,7 +257,9 @@ export class InsuranceRisksService {
 
     try {
       const saved = await this.riskRepository.save(risk);
-      await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+      await this.pricingRuntimeCacheService.invalidateProductConfiguration(
+        companyId,
+      );
       return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
@@ -268,6 +274,8 @@ export class InsuranceRisksService {
   async remove(companyId: string, id: string): Promise<void> {
     const risk = await this.requireRisk(companyId, id);
     await this.riskRepository.softDelete(risk.id);
-    await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+    await this.pricingRuntimeCacheService.invalidateProductConfiguration(
+      companyId,
+    );
   }
 }

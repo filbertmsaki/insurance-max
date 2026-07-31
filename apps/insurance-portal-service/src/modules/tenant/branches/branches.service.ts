@@ -272,7 +272,11 @@ export class BranchesService {
       if (!branch) throw new NotFoundException('Active branch not found');
 
       const memberships = await membershipRepo.find({
-        where: { id: In(companyUserIds), company_id: companyId, status: 'active' },
+        where: {
+          id: In(companyUserIds),
+          company_id: companyId,
+          status: 'active',
+        },
       });
       if (memberships.length !== companyUserIds.length) {
         throw new NotFoundException(
@@ -286,7 +290,9 @@ export class BranchesService {
           where: { branch_id: branchId, company_user_id: membership.id },
         });
         if (existing) {
-          throw new ConflictException('User is already assigned to this branch');
+          throw new ConflictException(
+            'User is already assigned to this branch',
+          );
         }
 
         const hasActive = await branchUserRepo.findOne({
@@ -307,7 +313,7 @@ export class BranchesService {
           is_active_branch: shouldActivate,
           assigned_by: actorId ?? null,
           activated_at: shouldActivate ? new Date() : null,
-          activated_by: shouldActivate ? actorId ?? null : null,
+          activated_by: shouldActivate ? (actorId ?? null) : null,
         });
         assignments.push(await branchUserRepo.save(assignment));
       }
@@ -369,29 +375,38 @@ export class BranchesService {
     return this.dataSource.transaction(async (manager) => {
       const branchUserRepo = manager.getRepository(BranchUser);
       const branchRepo = manager.getRepository(Branch);
-      const branch = await branchRepo.findOne({ where: { id: branchId, company_id: companyId } });
+      const branch = await branchRepo.findOne({
+        where: { id: branchId, company_id: companyId },
+      });
       if (!branch) throw new NotFoundException('Branch not found');
 
       for (const companyUserId of companyUserIds) {
         const assignment = await branchUserRepo.findOne({
           where: { branch_id: branchId, company_user_id: companyUserId },
         });
-        if (!assignment) throw new NotFoundException('User is not assigned to this branch');
+        if (!assignment)
+          throw new NotFoundException('User is not assigned to this branch');
 
         const otherAssignments = await branchUserRepo.find({
           where: { company_user_id: companyUserId },
           relations: { branch: true },
         });
         if (assignment.is_active_branch) {
-          const others = otherAssignments.filter((item) => item.id !== assignment.id);
+          const others = otherAssignments.filter(
+            (item) => item.id !== assignment.id,
+          );
           if (!others.length) {
-            throw new ConflictException('Cannot remove the user’s only active branch assignment');
+            throw new ConflictException(
+              'Cannot remove the user’s only active branch assignment',
+            );
           }
           const replacement = replacementBranchId
             ? others.find((item) => item.branch_id === replacementBranchId)
             : undefined;
           if (!replacement) {
-            throw new ConflictException('Select another assigned branch before removing the active branch');
+            throw new ConflictException(
+              'Select another assigned branch before removing the active branch',
+            );
           }
           await branchUserRepo.update(
             { company_user_id: companyUserId },
@@ -427,8 +442,14 @@ export class BranchesService {
         where: { company_user_id: companyUserId, branch_id: branchId },
         relations: { branch: true },
       });
-      if (!assignment || assignment.branch.company_id !== companyId || assignment.branch.status !== 'active') {
-        throw new ForbiddenException('User is not assigned to this active branch');
+      if (
+        !assignment ||
+        assignment.branch.company_id !== companyId ||
+        assignment.branch.status !== 'active'
+      ) {
+        throw new ForbiddenException(
+          'User is not assigned to this active branch',
+        );
       }
       await branchUserRepo.update(
         { company_user_id: companyUserId },

@@ -90,7 +90,13 @@ export class QuotationPreviewMapper {
     const addons = isFleet ? [] : this.mapAddons(entries[0]?.addons ?? []);
     const motorDetails = this.mapMotorDetail(entries[0]?.motor_detail ?? null);
     const fleet = isFleet
-      ? this.buildFleetPreview(quotation, coverNote, entries, relations, options)
+      ? this.buildFleetPreview(
+          quotation,
+          coverNote,
+          entries,
+          relations,
+          options,
+        )
       : null;
 
     const payment = this.buildPaymentPreview(quotation, relations);

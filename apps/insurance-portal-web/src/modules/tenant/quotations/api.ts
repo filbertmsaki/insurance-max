@@ -101,7 +101,9 @@ export const quotationsApi = {
       .then((response) => response.data),
   submitForApproval: (id: string) =>
     apiClient
-      .post<QuotationDetailRecord>(`/tenant/quotations/${id}/submit-for-approval`)
+      .post<QuotationDetailRecord>(
+        `/tenant/quotations/${id}/submit-for-approval`,
+      )
       .then((response) => response.data),
   requestPayment: (id: string) =>
     apiClient
@@ -132,7 +134,10 @@ export const quotationsApi = {
     data: RequestQuotationPremiumOverridePayload,
   ) =>
     apiClient
-      .post<{ id: string; approval_status: string }>(
+      .post<{
+        id: string;
+        approval_status: string;
+      }>(
         `/tenant/quotations/${quotationId}/risks/${riskId}/premium-overrides`,
         data,
       )
@@ -144,7 +149,10 @@ export const quotationsApi = {
     data: DecideQuotationPremiumOverridePayload = {},
   ) =>
     apiClient
-      .post<{ id: string; approval_status: string }>(
+      .post<{
+        id: string;
+        approval_status: string;
+      }>(
         `/tenant/quotations/${quotationId}/risks/${riskId}/premium-overrides/${overrideId}/approve`,
         data,
       )
@@ -156,7 +164,10 @@ export const quotationsApi = {
     data: DecideQuotationPremiumOverridePayload,
   ) =>
     apiClient
-      .post<{ id: string; approval_status: string }>(
+      .post<{
+        id: string;
+        approval_status: string;
+      }>(
         `/tenant/quotations/${quotationId}/risks/${riskId}/premium-overrides/${overrideId}/reject`,
         data,
       )

@@ -10,6 +10,8 @@ export class SalePointDefaultConstraint1790000000002 implements MigrationInterfa
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX "public"."UQ_tiramis_sale_points_one_default_per_branch"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."UQ_tiramis_sale_points_one_default_per_branch"`,
+    );
   }
 }

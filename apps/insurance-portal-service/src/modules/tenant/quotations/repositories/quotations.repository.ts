@@ -241,10 +241,14 @@ export class QuotationsRepository {
       total_premium_including_tax: 'coverNote.total_premium_including_tax',
       created_at: 'quotation.created_at',
     };
-    const sortField = sortFields[query.sortBy ?? 'created_at'] ?? sortFields.created_at;
+    const sortField =
+      sortFields[query.sortBy ?? 'created_at'] ?? sortFields.created_at;
     const sortOrder = query.sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
 
-    if (query.sortBy === 'customer_name' || query.sortBy === 'vehicle_registration_number') {
+    if (
+      query.sortBy === 'customer_name' ||
+      query.sortBy === 'vehicle_registration_number'
+    ) {
       queryBuilder
         .leftJoin(
           'quotation_policy_holders',
@@ -282,7 +286,9 @@ export class QuotationsRepository {
         has_previous_page: page > 1,
         has_next_page: page < totalPages,
       },
-      extrasByQuotationId: await this.loadListExtras(items.map((item) => item.id)),
+      extrasByQuotationId: await this.loadListExtras(
+        items.map((item) => item.id),
+      ),
     };
   }
 
@@ -348,7 +354,11 @@ export class QuotationsRepository {
 
     for (const row of vehicleRows) {
       const extra = extras.get(row.quotation_id);
-      if (extra && extra.vehicleRegistrationNumber === null && extra.vehicleChassisNumber === null) {
+      if (
+        extra &&
+        extra.vehicleRegistrationNumber === null &&
+        extra.vehicleChassisNumber === null
+      ) {
         extra.vehicleRegistrationNumber = row.registration_number || null;
         extra.vehicleChassisNumber = row.chassis_number || null;
       }

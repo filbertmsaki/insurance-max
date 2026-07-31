@@ -253,8 +253,14 @@ export class IdentifierGeneratorService {
     sequenceTimeBucket: string;
     suffix: string;
   }): string {
-    const { identifierType, prefix, readableConstant, sequenceDate, sequenceTimeBucket, suffix } =
-      params;
+    const {
+      identifierType,
+      prefix,
+      readableConstant,
+      sequenceDate,
+      sequenceTimeBucket,
+      suffix,
+    } = params;
 
     if (identifierType === IdentifierType.QUOTATION) {
       return `${prefix}${sequenceDate}${suffix}`;
@@ -397,7 +403,9 @@ export class IdentifierGeneratorService {
       where: { id: company.id },
       select: { id: true, identifier_prefix: true },
     });
-    const existingPrefix = existingCompany?.identifier_prefix?.trim().toUpperCase();
+    const existingPrefix = existingCompany?.identifier_prefix
+      ?.trim()
+      .toUpperCase();
     if (existingPrefix) {
       return existingPrefix;
     }

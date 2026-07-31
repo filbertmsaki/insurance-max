@@ -1,4 +1,7 @@
-import type { PricingFactorValues, PricingQuoteMetadata } from '../types/pricing';
+import type {
+  PricingFactorValues,
+  PricingQuoteMetadata,
+} from '../types/pricing';
 
 export function resolvePricingSumInsured(factors: PricingFactorValues): number {
   const raw = factors.sum_insured ?? factors.sum_insured_amount ?? 0;
@@ -14,7 +17,9 @@ export function formatPricingMoney(value: number): string {
   });
 }
 
-export function formatPricingDate(value: string | null | undefined): string | null {
+export function formatPricingDate(
+  value: string | null | undefined,
+): string | null {
   if (!value) {
     return null;
   }

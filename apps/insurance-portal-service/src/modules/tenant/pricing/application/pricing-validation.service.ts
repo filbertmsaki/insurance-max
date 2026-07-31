@@ -86,15 +86,21 @@ export class PricingValidationService {
           calculation_allowed: false,
           code: 'GROSS_WEIGHT_REQUIRED',
           message: `Selected risk ${risk.risk_code} requires gross_weight_tons`,
-          validation_errors: ['gross_weight_tons is required for the selected risk'],
+          validation_errors: [
+            'gross_weight_tons is required for the selected risk',
+          ],
         });
       }
 
       const isValid =
-        (constraint.minExclusive === undefined || weight > constraint.minExclusive) &&
-        (constraint.minInclusive === undefined || weight >= constraint.minInclusive) &&
-        (constraint.maxExclusive === undefined || weight < constraint.maxExclusive) &&
-        (constraint.maxInclusive === undefined || weight <= constraint.maxInclusive);
+        (constraint.minExclusive === undefined ||
+          weight > constraint.minExclusive) &&
+        (constraint.minInclusive === undefined ||
+          weight >= constraint.minInclusive) &&
+        (constraint.maxExclusive === undefined ||
+          weight < constraint.maxExclusive) &&
+        (constraint.maxInclusive === undefined ||
+          weight <= constraint.maxInclusive);
 
       if (!isValid) {
         throw new BadRequestException({
@@ -117,21 +123,28 @@ export class PricingValidationService {
     }
 
     const manufactureYear = Number(factorValues.year_of_manufacture);
-    if (!Number.isFinite(manufactureYear) || !Number.isInteger(manufactureYear)) {
+    if (
+      !Number.isFinite(manufactureYear) ||
+      !Number.isInteger(manufactureYear)
+    ) {
       throw new BadRequestException({
         status: 'INCOMPLETE',
         calculation_allowed: false,
         code: 'YEAR_OF_MANUFACTURE_REQUIRED',
         message: `Selected risk ${risk.risk_code} requires year_of_manufacture`,
-        validation_errors: ['year_of_manufacture is required for the selected risk'],
+        validation_errors: [
+          'year_of_manufacture is required for the selected risk',
+        ],
       });
     }
 
     const coverYear = this.resolveCoverYear(effectiveDate);
     const vehicleAge = coverYear - manufactureYear;
     const isValid =
-      (constraint.minInclusive === undefined || vehicleAge >= constraint.minInclusive) &&
-      (constraint.maxExclusive === undefined || vehicleAge < constraint.maxExclusive);
+      (constraint.minInclusive === undefined ||
+        vehicleAge >= constraint.minInclusive) &&
+      (constraint.maxExclusive === undefined ||
+        vehicleAge < constraint.maxExclusive);
 
     if (!isValid) {
       throw new BadRequestException({

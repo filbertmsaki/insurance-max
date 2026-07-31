@@ -288,7 +288,9 @@ describe('quotation payload builders', () => {
       productCode: 'PROD-01',
     });
 
-    expect(payload.cover_note_dtl.risks_covered?.[0].pricing_quote_id).toBeNull();
+    expect(
+      payload.cover_note_dtl.risks_covered?.[0].pricing_quote_id,
+    ).toBeNull();
   });
 
   it('keeps pricing_quote_id when calculated fields change but the pricing inputs still match', () => {

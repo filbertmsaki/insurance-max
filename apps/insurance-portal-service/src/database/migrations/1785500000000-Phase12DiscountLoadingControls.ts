@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class Phase12DiscountLoadingControls1785500000000
-  implements MigrationInterface
-{
+export class Phase12DiscountLoadingControls1785500000000 implements MigrationInterface {
   name = 'Phase12DiscountLoadingControls1785500000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -39,39 +37,57 @@ export class Phase12DiscountLoadingControls1785500000000
       ADD COLUMN IF NOT EXISTS "rejection_reason" varchar(500)
     `);
 
-    await queryRunner.query(`
+    await queryRunner
+      .query(
+        `
       ALTER TABLE "risk_rating_rules"
       ADD CONSTRAINT "CHK_rrr_discount_rate_limits"
       CHECK (
         "max_discount_rate" IS NULL OR
         ("max_discount_rate" >= 0 AND "max_discount_rate" <= 1)
       )
-    `).catch(() => undefined);
-    await queryRunner.query(`
+    `,
+      )
+      .catch(() => undefined);
+    await queryRunner
+      .query(
+        `
       ALTER TABLE "risk_rating_rules"
       ADD CONSTRAINT "CHK_rrr_discount_approval_rate_limits"
       CHECK (
         "discount_approval_threshold_rate" IS NULL OR
         ("discount_approval_threshold_rate" >= 0 AND "discount_approval_threshold_rate" <= 1)
       )
-    `).catch(() => undefined);
-    await queryRunner.query(`
+    `,
+      )
+      .catch(() => undefined);
+    await queryRunner
+      .query(
+        `
       ALTER TABLE "risk_rating_rules"
       ADD CONSTRAINT "CHK_rrr_loading_rate_limits"
       CHECK (
         "max_loading_rate" IS NULL OR
         ("max_loading_rate" >= 0 AND "max_loading_rate" <= 1)
       )
-    `).catch(() => undefined);
-    await queryRunner.query(`
+    `,
+      )
+      .catch(() => undefined);
+    await queryRunner
+      .query(
+        `
       ALTER TABLE "risk_rating_rules"
       ADD CONSTRAINT "CHK_rrr_loading_approval_rate_limits"
       CHECK (
         "loading_approval_threshold_rate" IS NULL OR
         ("loading_approval_threshold_rate" >= 0 AND "loading_approval_threshold_rate" <= 1)
       )
-    `).catch(() => undefined);
-    await queryRunner.query(`
+    `,
+      )
+      .catch(() => undefined);
+    await queryRunner
+      .query(
+        `
       ALTER TABLE "risk_rating_rules"
       ADD CONSTRAINT "CHK_rrr_adjustment_effective_window"
       CHECK (
@@ -79,12 +95,18 @@ export class Phase12DiscountLoadingControls1785500000000
         "adjustment_effective_to" IS NULL OR
         "adjustment_effective_to" >= "adjustment_effective_from"
       )
-    `).catch(() => undefined);
-    await queryRunner.query(`
+    `,
+      )
+      .catch(() => undefined);
+    await queryRunner
+      .query(
+        `
       ALTER TABLE "quotation_risk_discounts"
       ADD CONSTRAINT "CHK_qrd_approval_status"
       CHECK ("approval_status" IN ('NOT_REQUIRED', 'PENDING', 'APPROVED', 'REJECTED'))
-    `).catch(() => undefined);
+    `,
+      )
+      .catch(() => undefined);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

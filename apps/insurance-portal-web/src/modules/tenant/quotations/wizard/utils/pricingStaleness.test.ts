@@ -101,7 +101,9 @@ describe('pricing staleness signatures', () => {
         fleet_id: 'FLEET-001',
       },
       item: {
-        cover_note_addons: [{ addon_code: 'WINDSCREEN', premium_including_tax: '15000' }],
+        cover_note_addons: [
+          { addon_code: 'WINDSCREEN', premium_including_tax: '15000' },
+        ],
         subject_matters_covered: [],
         motor_dtl: {
           registration_number: 'T123ABC',
@@ -133,7 +135,11 @@ describe('pricing staleness signatures', () => {
         sum_insured: 1000000,
         factor_values: { seating_capacity: 5 },
         discounts_offered: [
-          { discount_type: '1', discount_rate: '0.10', discount_amount: '28000' },
+          {
+            discount_type: '1',
+            discount_rate: '0.10',
+            discount_amount: '28000',
+          },
         ],
         taxes_charged: [
           {
@@ -158,7 +164,11 @@ describe('pricing staleness signatures', () => {
         sum_insured: 1000000,
         factor_values: { seating_capacity: 5 },
         discounts_offered: [
-          { discount_type: '1', discount_rate: '0.10', discount_amount: '99999' },
+          {
+            discount_type: '1',
+            discount_rate: '0.10',
+            discount_amount: '99999',
+          },
         ],
         taxes_charged: [
           {

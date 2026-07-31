@@ -101,7 +101,9 @@ export class InsuranceProductsService {
 
     try {
       const saved = await this.productRepository.save(product);
-      await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+      await this.pricingRuntimeCacheService.invalidateProductConfiguration(
+        companyId,
+      );
       return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
@@ -269,7 +271,9 @@ export class InsuranceProductsService {
 
     try {
       const saved = await this.productRepository.save(product);
-      await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+      await this.pricingRuntimeCacheService.invalidateProductConfiguration(
+        companyId,
+      );
       return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
@@ -284,6 +288,8 @@ export class InsuranceProductsService {
   async remove(companyId: string, id: string): Promise<void> {
     const product = await this.requireProduct(companyId, id);
     await this.productRepository.softDelete(product.id);
-    await this.pricingRuntimeCacheService.invalidateProductConfiguration(companyId);
+    await this.pricingRuntimeCacheService.invalidateProductConfiguration(
+      companyId,
+    );
   }
 }

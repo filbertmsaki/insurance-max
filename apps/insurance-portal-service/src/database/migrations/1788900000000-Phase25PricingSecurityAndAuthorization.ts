@@ -46,8 +46,7 @@ const PERMISSIONS = [
   {
     name: 'pricing.request_override',
     displayName: 'Request pricing overrides',
-    description:
-      'Allow requesting manual premium overrides on quotation risks',
+    description: 'Allow requesting manual premium overrides on quotation risks',
   },
   {
     name: 'pricing.approve_override',
@@ -116,9 +115,7 @@ const ROLE_PERMISSION_MAPPINGS = [
   },
 ] as const;
 
-export class Phase25PricingSecurityAndAuthorization1788900000000
-  implements MigrationInterface
-{
+export class Phase25PricingSecurityAndAuthorization1788900000000 implements MigrationInterface {
   name = 'Phase25PricingSecurityAndAuthorization1788900000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -33,6 +33,8 @@ export class Phase16ChargeRules1788600000000 implements MigrationInterface {
       DROP COLUMN "is_taxable",
       DROP COLUMN "charge_category"
     `);
-    await queryRunner.query(`DROP TYPE "public"."product_charge_category_enum"`);
+    await queryRunner.query(
+      `DROP TYPE "public"."product_charge_category_enum"`,
+    );
   }
 }

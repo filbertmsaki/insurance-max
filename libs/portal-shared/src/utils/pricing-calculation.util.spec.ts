@@ -50,7 +50,7 @@ describe('pricing-calculation.util', () => {
       expect(roundMoney('10.004')).toBe(10.0);
     });
 
-    it('rounds a value exactly at half a minor unit up (ROUND_HALF_UP, not banker\'s rounding)', () => {
+    it("rounds a value exactly at half a minor unit up (ROUND_HALF_UP, not banker's rounding)", () => {
       expect(roundMoney('10.005')).toBe(10.01);
       expect(roundMoney('10.015')).toBe(10.02);
       expect(roundMoney('2.5')).not.toBe(2); // would be 2 under round-half-to-even

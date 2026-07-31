@@ -55,7 +55,9 @@ function parseDateParts(value: string): DateParts | null {
   });
 }
 
-export function formatCoverDate(value: string | null | undefined): string | null {
+export function formatCoverDate(
+  value: string | null | undefined,
+): string | null {
   if (!value?.trim()) return null;
 
   const parts = parseDateParts(value);

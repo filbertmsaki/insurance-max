@@ -3,7 +3,8 @@ import type { QuotationFormSchemaValues } from '../../schemas';
 
 type FactorValue = string | number | boolean;
 type MotorDetails = QuotationFormSchemaValues['motor'];
-type FleetMotorDetails = QuotationFormSchemaValues['fleet']['items'][number]['motor_dtl'];
+type FleetMotorDetails =
+  QuotationFormSchemaValues['fleet']['items'][number]['motor_dtl'];
 
 export interface QuotationFactorContext {
   salePointCode?: string;
@@ -145,7 +146,11 @@ function coerceFactorValue(
 ): FactorValue {
   const stringValue = String(raw);
 
-  if (dataType === 'NUMBER' || dataType === 'DECIMAL' || dataType === 'INTEGER') {
+  if (
+    dataType === 'NUMBER' ||
+    dataType === 'DECIMAL' ||
+    dataType === 'INTEGER'
+  ) {
     const parsed = Number(raw);
     return Number.isFinite(parsed) ? parsed : raw;
   }

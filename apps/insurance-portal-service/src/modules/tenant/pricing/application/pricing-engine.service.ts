@@ -68,13 +68,14 @@ export class PricingEngineService {
       input.effective_date ?? null,
     );
 
-    const matchingRule = await this.ratingRuleMatcherService.findFirstMatchingRule(
-      companyId,
-      input.risk_id,
-      validationResult.normalized_factor_values,
-      input.effective_date ?? null,
-      input.currency_code ?? null,
-    );
+    const matchingRule =
+      await this.ratingRuleMatcherService.findFirstMatchingRule(
+        companyId,
+        input.risk_id,
+        validationResult.normalized_factor_values,
+        input.effective_date ?? null,
+        input.currency_code ?? null,
+      );
 
     if (!matchingRule) {
       throw new NotFoundException(
@@ -243,13 +244,14 @@ export class PricingEngineService {
       }),
     );
     const results = settled
-      .filter((entry): entry is { ok: true; result: RiskPremiumResult } => entry.ok)
+      .filter(
+        (entry): entry is { ok: true; result: RiskPremiumResult } => entry.ok,
+      )
       .map((entry) => entry.result);
     const failedRisks = settled
       .filter(
-        (
-          entry,
-        ): entry is { ok: false; failure: MultiRiskPremiumFailure } => !entry.ok,
+        (entry): entry is { ok: false; failure: MultiRiskPremiumFailure } =>
+          !entry.ok,
       )
       .map((entry) => entry.failure);
 
@@ -257,9 +259,7 @@ export class PricingEngineService {
       risks: results,
       failed_risks: failedRisks,
       grand_total: roundMoney(
-        sumDecimals(
-          results.map((result) => result.premium_including_charges),
-        ),
+        sumDecimals(results.map((result) => result.premium_including_charges)),
       ),
       successful_risk_count: results.length,
       failed_risk_count: failedRisks.length,
@@ -334,8 +334,7 @@ export class PricingEngineService {
       return {
         max_rate: rule.max_discount_rate ?? null,
         max_amount: rule.max_discount_amount ?? null,
-        approval_threshold_rate:
-          rule.discount_approval_threshold_rate ?? null,
+        approval_threshold_rate: rule.discount_approval_threshold_rate ?? null,
         approval_threshold_amount:
           rule.discount_approval_threshold_amount ?? null,
         effective_from: rule.adjustment_effective_from ?? null,
@@ -347,8 +346,7 @@ export class PricingEngineService {
       max_rate: rule.max_loading_rate ?? null,
       max_amount: rule.max_loading_amount ?? null,
       approval_threshold_rate: rule.loading_approval_threshold_rate ?? null,
-      approval_threshold_amount:
-        rule.loading_approval_threshold_amount ?? null,
+      approval_threshold_amount: rule.loading_approval_threshold_amount ?? null,
       effective_from: rule.adjustment_effective_from ?? null,
       effective_to: rule.adjustment_effective_to ?? null,
     };
@@ -418,10 +416,7 @@ export class PricingEngineService {
     error: unknown,
   ): MultiRiskPremiumFailure {
     const details = this.toFailureDetails(error);
-    const response =
-      details && typeof details === 'object'
-        ? (details as Record<string, unknown>)
-        : null;
+    const response = details && typeof details === 'object' ? details : null;
     const validationErrors = this.extractValidationMessages(
       response?.validation_errors,
       response?.errors,
@@ -431,8 +426,7 @@ export class PricingEngineService {
       response?.warnings,
     );
     const message = this.resolveFailureMessage(error, response);
-    const status =
-      response?.status === 'INCOMPLETE' ? 'INCOMPLETE' : 'FAILED';
+    const status = response?.status === 'INCOMPLETE' ? 'INCOMPLETE' : 'FAILED';
 
     return {
       client_reference: input.client_reference ?? null,

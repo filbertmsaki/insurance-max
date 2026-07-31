@@ -26,16 +26,20 @@ function decodeJwt(token: string): AuthUser | null {
       companyName: decoded.companyName ?? decoded.company_name,
       companySlug: decoded.companySlug ?? decoded.company_slug,
       companyMembershipId: decoded.membershipId ?? decoded.companyMembershipId,
-      activeBranchId: decoded.activeBranchId ?? decoded.active_branch_id ?? null,
-      activeBranchCode: decoded.activeBranchCode ?? decoded.active_branch_code ?? null,
-      activeBranchName: decoded.activeBranchName ?? decoded.active_branch_name ?? null,
+      activeBranchId:
+        decoded.activeBranchId ?? decoded.active_branch_id ?? null,
+      activeBranchCode:
+        decoded.activeBranchCode ?? decoded.active_branch_code ?? null,
+      activeBranchName:
+        decoded.activeBranchName ?? decoded.active_branch_name ?? null,
       defaultSalePointId:
         decoded.defaultSalePointId ?? decoded.default_sale_point_id ?? null,
       defaultSalePointCode:
         decoded.defaultSalePointCode ?? decoded.default_sale_point_code ?? null,
       defaultSalePointName:
         decoded.defaultSalePointName ?? decoded.default_sale_point_name ?? null,
-      assignedBranchIds: decoded.assignedBranchIds ?? decoded.assigned_branch_ids ?? [],
+      assignedBranchIds:
+        decoded.assignedBranchIds ?? decoded.assigned_branch_ids ?? [],
       roles: decoded.roles ?? [],
       permissions: decoded.permissions ?? [],
     };
@@ -87,7 +91,11 @@ interface AuthState {
   ) => void;
   setTempToken: (token: string) => void;
   setProfile: (profile: UserProfile | null) => void;
-  setActiveBranch: (branch: { id: string; code?: string | null; name?: string | null }) => void;
+  setActiveBranch: (branch: {
+    id: string;
+    code?: string | null;
+    name?: string | null;
+  }) => void;
   logout: () => void;
   hasPermission: (permission: string) => boolean;
   hasRole: (role: string) => boolean;

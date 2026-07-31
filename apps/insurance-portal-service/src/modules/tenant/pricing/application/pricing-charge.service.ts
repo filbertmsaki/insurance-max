@@ -58,8 +58,7 @@ export class PricingChargeService {
     );
     const taxableChargeAmount = roundMoney(
       charges.reduce(
-        (sum, charge) =>
-          sum + (charge.is_taxable ? charge.computed_amount : 0),
+        (sum, charge) => sum + (charge.is_taxable ? charge.computed_amount : 0),
         0,
       ),
     );
@@ -109,7 +108,7 @@ export class PricingChargeService {
     const rawAmount =
       rule.tax_type === ProductTaxType.PERCENTAGE
         ? baseAmount * (rate ?? 0)
-        : fixedAmount ?? 0;
+        : (fixedAmount ?? 0);
     const minimumChargeAmount =
       rule.minimum_charge_amount !== null
         ? Number(rule.minimum_charge_amount)
@@ -120,16 +119,10 @@ export class PricingChargeService {
         : null;
 
     let computedAmount = roundMoney(rawAmount);
-    if (
-      minimumChargeAmount !== null &&
-      computedAmount < minimumChargeAmount
-    ) {
+    if (minimumChargeAmount !== null && computedAmount < minimumChargeAmount) {
       computedAmount = roundMoney(minimumChargeAmount);
     }
-    if (
-      maximumChargeAmount !== null &&
-      computedAmount > maximumChargeAmount
-    ) {
+    if (maximumChargeAmount !== null && computedAmount > maximumChargeAmount) {
       computedAmount = roundMoney(maximumChargeAmount);
     }
 
@@ -137,12 +130,10 @@ export class PricingChargeService {
       applied_rule_id: rule.id,
       charge_code: rule.tax_code,
       charge_name: rule.tax_name,
-      charge_category:
-        rule.charge_category as PricingChargeBreakdown['charge_category'],
+      charge_category: rule.charge_category,
       charge_scope: this.resolveScope(rule),
-      charge_type: rule.tax_type as PricingChargeBreakdown['charge_type'],
-      calculation_base:
-        rule.calculation_base as PricingChargeBreakdown['calculation_base'],
+      charge_type: rule.tax_type,
+      calculation_base: rule.calculation_base,
       base_amount: roundMoney(baseAmount),
       rate,
       fixed_amount: fixedAmount,

@@ -126,10 +126,16 @@ export const branchesApi = {
       .then((r) => r.data),
   getEligibleBranchUsers: (branchId: string, search?: string) =>
     apiClient
-      .get<EligibleBranchUser[]>(`/branches/${branchId}/eligible-users`, { params: search ? { search } : undefined })
+      .get<
+        EligibleBranchUser[]
+      >(`/branches/${branchId}/eligible-users`, { params: search ? { search } : undefined })
       .then((r) => r.data),
   getUserBranches: (companyUserId: string) =>
-    apiClient.get<UserBranchAssignment[]>(`/company-features/${companyUserId}/branches`).then((r) => r.data),
+    apiClient
+      .get<
+        UserBranchAssignment[]
+      >(`/company-features/${companyUserId}/branches`)
+      .then((r) => r.data),
 
   /** POST /branches/:id/users — assign a company user to branch */
   assignBranchUser: (branchId: string, data: AssignBranchUserDto) =>
@@ -140,14 +146,24 @@ export const branchesApi = {
     apiClient
       .delete(`/branches/${branchId}/users/${companyUserId}`)
       .then((r) => r.data),
-  removeBranchUsers: (branchId: string, company_user_ids: string[], replacement_branch_id?: string) =>
+  removeBranchUsers: (
+    branchId: string,
+    company_user_ids: string[],
+    replacement_branch_id?: string,
+  ) =>
     apiClient
-      .delete(`/branches/${branchId}/users`, { data: { company_user_ids, replacement_branch_id } })
+      .delete(`/branches/${branchId}/users`, {
+        data: { company_user_ids, replacement_branch_id },
+      })
       .then((r) => r.data),
   setUserActiveBranch: (companyUserId: string, branch_id: string) =>
-    apiClient.patch(`/branches/users/${companyUserId}/active-branch`, { branch_id }).then((r) => r.data),
+    apiClient
+      .patch(`/branches/users/${companyUserId}/active-branch`, { branch_id })
+      .then((r) => r.data),
   setMyActiveBranch: (branch_id: string) =>
-    apiClient.patch('/branches/me/active-branch', { branch_id }).then((r) => r.data),
+    apiClient
+      .patch('/branches/me/active-branch', { branch_id })
+      .then((r) => r.data),
 
   /** GET /branches/:id/features — effective features (company defaults merged with branch overrides) */
   getBranchFeatures: (branchId: string) =>

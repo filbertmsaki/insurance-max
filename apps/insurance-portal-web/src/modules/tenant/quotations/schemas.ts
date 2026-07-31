@@ -236,7 +236,8 @@ export const quotationRiskRowSchema = z.object({
         if (row.discount_type?.trim() && !row.discount_rate?.trim()) {
           ctx.addIssue({
             code: 'custom',
-            message: 'Discount rate is required once a discount type is selected.',
+            message:
+              'Discount rate is required once a discount type is selected.',
             path: ['discount_rate'],
           });
         }
@@ -342,7 +343,9 @@ const fleetRiskSchema = z.object({
   client_ref: z
     .string()
     .optional()
-    .transform((value) => (value?.trim() ? value : createClientRef('fleet-risk'))),
+    .transform((value) =>
+      value?.trim() ? value : createClientRef('fleet-risk'),
+    ),
   risk_id: optionalText,
   risk_code: optionalText,
   sum_insured: optionalText,
@@ -883,7 +886,7 @@ export const quotationFormSchema: z.ZodType<QuotationFormValues> =
         validateNonMotor(values, ctx);
         break;
     }
-  }) as unknown as z.ZodType<QuotationFormValues>;
+  });
 
 export type QuotationFormSchemaValues = QuotationFormValues;
 
@@ -1323,7 +1326,9 @@ function buildAddonPayload(
         normalizeMoneyNumber(addon.premium_including_tax) ||
         roundMoney(
           toDecimal(normalizeMoneyNumber(addon.premium_excluding_tax)).plus(
-            sumDecimals(buildTaxPayload(addon.taxes).map((tax) => tax.tax_amount)),
+            sumDecimals(
+              buildTaxPayload(addon.taxes).map((tax) => tax.tax_amount),
+            ),
           ),
         ),
       taxes_charged: buildTaxPayload(addon.taxes),
@@ -1492,7 +1497,9 @@ export function buildMotorFleetQuotationPayload(
         normalizeMoneyNumber(addon.premium_including_tax) ||
         roundMoney(
           toDecimal(normalizeMoneyNumber(addon.premium_excluding_tax)).plus(
-            sumDecimals(buildTaxPayload(addon.taxes).map((tax) => tax.tax_amount)),
+            sumDecimals(
+              buildTaxPayload(addon.taxes).map((tax) => tax.tax_amount),
+            ),
           ),
         ),
       taxes_charged: buildTaxPayload(addon.taxes),
@@ -1543,7 +1550,9 @@ export function buildMotorFleetQuotationPayload(
           premium_excluding_tax_equivalent: normalizeMoneyNumber(
             risk.premium_excluding_tax_equivalent,
           ),
-          premium_including_tax: normalizeMoneyNumber(risk.premium_including_tax),
+          premium_including_tax: normalizeMoneyNumber(
+            risk.premium_including_tax,
+          ),
           discounts_offered: buildDiscountPayload(risk.discounts_offered),
           taxes_charged: buildTaxPayload(risk.taxes_charged),
         };
@@ -1790,7 +1799,9 @@ function mapRiskRows(
             approval_required: discount.approval_required ?? false,
             approval_status: discount.approval_status ?? '',
             approved_rate:
-              discount.approved_rate == null ? '' : String(discount.approved_rate),
+              discount.approved_rate == null
+                ? ''
+                : String(discount.approved_rate),
             approved_amount:
               discount.approved_amount == null
                 ? ''

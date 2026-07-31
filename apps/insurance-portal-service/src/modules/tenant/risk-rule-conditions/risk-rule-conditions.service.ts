@@ -74,7 +74,9 @@ export class RiskRuleConditionsService {
 
     try {
       const saved = await this.conditionRepository.save(condition);
-      await this.pricingRuntimeCacheService.invalidateRateConfiguration(companyId);
+      await this.pricingRuntimeCacheService.invalidateRateConfiguration(
+        companyId,
+      );
       return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
@@ -143,7 +145,9 @@ export class RiskRuleConditionsService {
 
     try {
       const saved = await this.conditionRepository.save(condition);
-      await this.pricingRuntimeCacheService.invalidateRateConfiguration(companyId);
+      await this.pricingRuntimeCacheService.invalidateRateConfiguration(
+        companyId,
+      );
       return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
@@ -171,7 +175,9 @@ export class RiskRuleConditionsService {
       condition.id,
     );
     await this.conditionRepository.delete(condition.id);
-    await this.pricingRuntimeCacheService.invalidateRateConfiguration(companyId);
+    await this.pricingRuntimeCacheService.invalidateRateConfiguration(
+      companyId,
+    );
   }
 
   private assertParentRuleEditable(rule: RiskRatingRule) {
