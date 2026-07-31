@@ -47,6 +47,7 @@ import { TiramisVerificationRequestEntity } from './modules/verifications/entiti
 import { TiramisVerificationResponseEntity } from './modules/verifications/entities/tiramis-verification-response.entity';
 import { TiramisModule } from './modules/tiramis.module';
 import { AppController } from './app.controller';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -105,6 +106,7 @@ import { AppController } from './app.controller';
     }),
     TiramisModule,
     TiramisInternalModule,
+    HealthModule,
   ],
   controllers: [AppController],
 })

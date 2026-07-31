@@ -11,11 +11,13 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
-  const appHost = configService.get<string>('app.host') || '0.0.0.0';
-  const appPort = configService.get<number>('app.port') || 3001;
+  const appHost = configService.get<string>('app.host') || '127.0.0.1';
+  const appPort = configService.get<number>('app.port') || 9090;
   const globalPrefix = configService.get<string>('app.globalPrefix') || '';
   const browserHost =
-    appHost === '0.0.0.0' || appHost === '::' ? 'localhost' : appHost;
+    appHost === '0.0.0.0' || appHost === '127.0.0.1' || appHost === '::'
+      ? 'localhost'
+      : appHost;
   const appBaseUrl = `http://${browserHost}:${appPort}`;
   const apiBaseUrl = globalPrefix
     ? `${appBaseUrl}/${globalPrefix}`
