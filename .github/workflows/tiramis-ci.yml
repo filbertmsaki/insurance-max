@@ -111,18 +111,29 @@ jobs:
           set -Eeuo pipefail
 
           RELEASE_DIR="$RUNNER_TEMP/tiramis-release"
+          ARCHIVE="$RUNNER_TEMP/tiramis-release.tar.gz"
+          CHECKSUM="$RUNNER_TEMP/tiramis-release.tar.gz.sha256"
+
+          echo "Preparing release directory"
 
           rm -rf "$RELEASE_DIR"
+          rm -f "$ARCHIVE" "$CHECKSUM"
+
           mkdir -p "$RELEASE_DIR/deploy/tiramis"
+
+          echo "Copying build output"
 
           cp -a dist "$RELEASE_DIR/dist"
           cp package.json package-lock.json "$RELEASE_DIR/"
+
           cp deploy/tiramis/deploy.sh \
             "$RELEASE_DIR/deploy/tiramis/deploy.sh"
+
           cp deploy/tiramis/ecosystem.config.js \
             "$RELEASE_DIR/deploy/tiramis/ecosystem.config.js"
 
-          chmod 750 "$RELEASE_DIR/deploy/tiramis/deploy.sh"
+          chmod 750 \
+            "$RELEASE_DIR/deploy/tiramis/deploy.sh"
 
           printf '%s\n' "$GITHUB_SHA" \
             > "$RELEASE_DIR/REVISION"
@@ -130,11 +141,37 @@ jobs:
           printf '%s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             > "$RELEASE_DIR/BUILT_AT"
 
-          tar -C "$RELEASE_DIR" \
-            -czf "$RUNNER_TEMP/tiramis-release.tar.gz" .
+          echo "Creating archive"
 
-          sha256sum "$RUNNER_TEMP/tiramis-release.tar.gz" \
-            > "$RUNNER_TEMP/tiramis-release.tar.gz.sha256"
+          tar -C "$RELEASE_DIR" \
+            -czf "$ARCHIVE" .
+
+          test -f "$ARCHIVE"
+
+          echo "Creating portable checksum"
+
+          (
+            cd "$RUNNER_TEMP"
+
+            sha256sum tiramis-release.tar.gz \
+              > tiramis-release.tar.gz.sha256
+          )
+
+          test -f "$CHECKSUM"
+
+          echo "Validating generated checksum"
+
+          (
+            cd "$RUNNER_TEMP"
+            sha256sum --check tiramis-release.tar.gz.sha256
+          )
+
+          echo "Release artifact created successfully"
+
+          ls -lh "$ARCHIVE" "$CHECKSUM"
+
+          echo "Checksum content:"
+          cat "$CHECKSUM"
 
       - name: Upload production artifact
         if: github.event_name != 'pull_request'
