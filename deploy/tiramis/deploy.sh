@@ -1,34 +1,75 @@
 #!/usr/bin/env bash
-# Copy this once to /opt/apps/tiramis/shared/deploy.sh on the server (chmod +x).
-# Invoked by the GitHub Actions workflow after it rsyncs a release into
-# /opt/apps/tiramis/releases/<release-id>/.
-set -euo pipefail
+set -Eeuo pipefail
 
 RELEASE_ID="${1:?usage: deploy.sh <release-id>}"
-BASE_DIR="/opt/apps/tiramis"
+BASE_DIR="${BASE_DIR:-/opt/apps/tiramis}"
 RELEASE_DIR="$BASE_DIR/releases/$RELEASE_ID"
 SHARED_DIR="$BASE_DIR/shared"
-KEEP_RELEASES=5
+CURRENT_LINK="$BASE_DIR/current"
+KEEP_RELEASES="${KEEP_RELEASES:-5}"
+HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:9090/health}"
+PREVIOUS_RELEASE="$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
+
+log() { printf '[%s] %s\n' "$(date '+%F %T')" "$*"; }
+
+rollback() {
+  if [[ -n "$PREVIOUS_RELEASE" && -d "$PREVIOUS_RELEASE" ]]; then
+    log "Rolling back current symlink to $PREVIOUS_RELEASE"
+    ln -sfn "$PREVIOUS_RELEASE" "$CURRENT_LINK"
+    pm2 reload tiramis --update-env || true
+    pm2 save || true
+  fi
+}
+
+trap 'status=$?; log "Deployment failed with status $status"; rollback; exit $status' ERR
+
+for required in "$RELEASE_DIR/package.json" "$RELEASE_DIR/package-lock.json" \
+  "$RELEASE_DIR/dist/apps/tiramis/apps/tiramis/src/main.js" \
+  "$SHARED_DIR/.env" "$SHARED_DIR/ecosystem.config.js"; do
+  [[ -e "$required" ]] || { log "Missing required file: $required"; exit 1; }
+done
 
 cd "$RELEASE_DIR"
-
-# Persistent config lives in shared/, symlinked into every release so the
-# app's process.cwd()-relative "apps/tiramis/.env" lookup keeps resolving.
 mkdir -p apps/tiramis
 ln -sfn "$SHARED_DIR/.env" apps/tiramis/.env
 
-# Materialize node_modules here from package.json/package-lock.json only —
-# no other app's source or dev tooling ever reaches this box.
-npm ci --omit=dev
+log 'Installing production dependencies'
+npm ci --omit=dev --no-audit --no-fund
 
-node ./node_modules/typeorm/cli.js \
+log 'Running TIRAMIS database migrations'
+NODE_ENV=production node ./node_modules/typeorm/cli.js \
   -d dist/apps/tiramis/apps/tiramis/src/database/data-source.js \
   migration:run
 
-ln -sfn "$RELEASE_DIR" "$BASE_DIR/current"
+log 'Switching current release'
+ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
 
-pm2 reload tiramis --update-env || pm2 start "$SHARED_DIR/ecosystem.config.js"
+log 'Starting or reloading PM2'
+pm2 startOrReload "$SHARED_DIR/ecosystem.config.js" --only tiramis --update-env
 pm2 save
 
-cd "$BASE_DIR/releases"
-ls -1dt */ | tail -n +$((KEEP_RELEASES + 1)) | xargs -r rm -rf
+log 'Waiting for health endpoint'
+for attempt in {1..30}; do
+  code="$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 2 --max-time 5 "$HEALTH_URL" || true)"
+  if [[ "$code" == '200' ]]; then
+    log 'Health check passed'
+    break
+  fi
+  if [[ "$attempt" == '30' ]]; then
+    log "Health check failed with HTTP $code"
+    pm2 logs tiramis --lines 120 --nostream || true
+    exit 1
+  fi
+  sleep 2
+done
+
+log "Keeping the newest $KEEP_RELEASES releases"
+find "$BASE_DIR/releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' \
+  | sort -nr \
+  | awk -v keep="$KEEP_RELEASES" 'NR > keep { sub(/^[^ ]+ /, ""); print }' \
+  | while IFS= read -r old_release; do
+      [[ "$(readlink -f "$CURRENT_LINK")" == "$old_release" ]] || rm -rf "$old_release"
+    done
+
+trap - ERR
+log "Deployment completed: $RELEASE_ID"

@@ -1,0 +1,106 @@
+name: TIRAMIS CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/tiramis/**'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'nest-cli.json'
+      - 'tsconfig.json'
+      - 'tsconfig.build.json'
+      - 'eslint.config.mjs'
+      - 'deploy/tiramis/**'
+      - '.github/workflows/tiramis-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/tiramis/**'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'nest-cli.json'
+      - 'tsconfig.json'
+      - 'tsconfig.build.json'
+      - 'eslint.config.mjs'
+      - 'deploy/tiramis/**'
+      - '.github/workflows/tiramis-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tiramis-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-package:
+    name: Validate and package TIRAMIS
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Validate lock file
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -f package-lock.json || {
+            echo 'package-lock.json is required because CI and deployment use npm ci.'
+            exit 1
+          }
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint -- --max-warnings=0
+
+      - name: Run unit tests
+        run: npm test -- --runInBand --passWithNoTests
+
+      - name: Build TIRAMIS
+        run: npm run build
+
+      - name: Validate build output
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -f dist/apps/tiramis/apps/tiramis/src/main.js
+          test -f dist/apps/tiramis/apps/tiramis/src/database/data-source.js
+
+      - name: Build production release artifact
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          RELEASE_DIR="$RUNNER_TEMP/tiramis-release"
+          rm -rf "$RELEASE_DIR"
+          mkdir -p "$RELEASE_DIR"
+
+          cp -a dist "$RELEASE_DIR/dist"
+          cp package.json package-lock.json "$RELEASE_DIR/"
+          cp -a deploy/tiramis "$RELEASE_DIR/deploy"
+
+          printf '%s\n' "$GITHUB_SHA" > "$RELEASE_DIR/REVISION"
+          printf '%s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" > "$RELEASE_DIR/BUILT_AT"
+
+      - name: Upload production artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiramis-release-${{ github.sha }}
+          path: ${{ runner.temp }}/tiramis-release
+          if-no-files-found: error
+          retention-days: 14

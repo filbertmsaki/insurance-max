@@ -1,5 +1,3 @@
-// Copy this once to /opt/apps/tiramis/shared/ecosystem.config.js on the server.
-// deploy.sh reads it from there; it is not part of any release artifact.
 module.exports = {
   apps: [
     {
@@ -8,10 +6,19 @@ module.exports = {
       cwd: '/opt/apps/tiramis/current',
       instances: 1,
       exec_mode: 'fork',
-      env: { NODE_ENV: 'production' },
-      max_memory_restart: '500M',
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '750M',
+      kill_timeout: 15000,
+      listen_timeout: 15000,
+      restart_delay: 3000,
+      env: {
+        NODE_ENV: 'production',
+        APP_ENV: 'production',
+      },
       out_file: '/var/log/pm2/tiramis-out.log',
       error_file: '/var/log/pm2/tiramis-error.log',
+      merge_logs: true,
       time: true,
     },
   ],

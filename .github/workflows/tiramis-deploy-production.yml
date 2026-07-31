@@ -1,0 +1,145 @@
+name: Deploy TIRAMIS Production
+
+on:
+  workflow_run:
+    workflows: ['TIRAMIS CI']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Successful TIRAMIS CI workflow run ID to deploy'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: tiramis-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy TIRAMIS to production
+    if: >-
+      ${{
+        (github.event_name == 'workflow_run' &&
+         github.event.workflow_run.conclusion == 'success' &&
+         github.event.workflow_run.event == 'push') ||
+        github.event_name == 'workflow_dispatch'
+      }}
+    runs-on: [self-hosted, linux, x64, tiramis-prod]
+    environment: production
+    timeout-minutes: 20
+
+    steps:
+      - name: Resolve CI run and release ID
+        id: release
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          if [[ "${{ github.event_name }}" == 'workflow_run' ]]; then
+            RUN_ID='${{ github.event.workflow_run.id }}'
+            SHA='${{ github.event.workflow_run.head_sha }}'
+          else
+            RUN_ID='${{ inputs.run_id }}'
+            SHA="$(curl -fsSL \
+              -H 'Accept: application/vnd.github+json' \
+              -H 'Authorization: Bearer ${{ github.token }}' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              'https://api.github.com/repos/${{ github.repository }}/actions/runs/'"$RUN_ID" \
+              | python3 -c 'import json,sys; print(json.load(sys.stdin)["head_sha"])')"
+          fi
+
+          test -n "$RUN_ID"
+          test -n "$SHA"
+
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "release_id=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Download exact CI artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tiramis-release-${{ steps.release.outputs.sha }}
+          path: ${{ runner.temp }}/tiramis-release
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.release.outputs.run_id }}
+
+      - name: Validate artifact
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          RELEASE="$RUNNER_TEMP/tiramis-release"
+          test -f "$RELEASE/package.json"
+          test -f "$RELEASE/package-lock.json"
+          test -f "$RELEASE/REVISION"
+          test -f "$RELEASE/dist/apps/tiramis/apps/tiramis/src/main.js"
+          test "$(cat "$RELEASE/REVISION")" = '${{ steps.release.outputs.sha }}'
+
+      - name: Install release and deploy
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          RELEASE_ID='${{ steps.release.outputs.release_id }}'
+          BASE_DIR='/opt/apps/tiramis'
+          RELEASE_DIR="$BASE_DIR/releases/$RELEASE_ID"
+
+          test -x "$BASE_DIR/shared/deploy.sh"
+          test -f "$BASE_DIR/shared/.env"
+          test -f "$BASE_DIR/shared/ecosystem.config.js"
+
+          mkdir -p "$BASE_DIR/releases"
+          rm -rf "$RELEASE_DIR"
+          mkdir -p "$RELEASE_DIR"
+          cp -a "$RUNNER_TEMP/tiramis-release/." "$RELEASE_DIR/"
+
+          "$BASE_DIR/shared/deploy.sh" "$RELEASE_ID"
+
+      - name: Verify internal health
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          for attempt in {1..30}; do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' \
+              --connect-timeout 2 --max-time 5 \
+              http://127.0.0.1:9090/health || true)"
+            if [[ "$code" == '200' ]]; then
+              echo 'Internal health check passed.'
+              exit 0
+            fi
+            echo "Attempt $attempt/30 returned HTTP $code"
+            sleep 2
+          done
+          pm2 logs tiramis --lines 120 --nostream || true
+          exit 1
+
+      - name: Verify Apache reverse proxy
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          code="$(curl -ksS -o /dev/null -w '%{http_code}' \
+            --connect-timeout 5 --max-time 15 \
+            --resolve ussdvd.alliance.co.tz:443:127.0.0.1 \
+            https://ussdvd.alliance.co.tz/tiramis-api/health || true)"
+          test "$code" = '200' || {
+            echo "Apache proxy health check failed with HTTP $code"
+            exit 1
+          }
+
+      - name: Deployment summary
+        if: success()
+        shell: bash
+        run: |
+          {
+            echo '## TIRAMIS production deployment'
+            echo
+            echo '- Commit: `${{ steps.release.outputs.sha }}`'
+            echo '- Runner: `${{ runner.name }}`'
+            echo '- Internal: `http://127.0.0.1:9090/health`'
+            echo '- Public: `https://ussdvd.alliance.co.tz/tiramis-api/health`'
+          } >> "$GITHUB_STEP_SUMMARY"
