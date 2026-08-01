@@ -71,9 +71,10 @@ export class TiramisSignatureService {
   }
 
   private normalizeXmlForSignature(xml: string): string {
-    return this.removeXmlDeclaration(String(xml || ''))
-      .replace(/>\s+</g, '><')
-      .trim();
+    // TIRA signs the exact business XML content, as shown in the PHP
+    // reference implementation. Do not compact whitespace between elements;
+    // changing those bytes changes the signature.
+    return this.removeXmlDeclaration(String(xml || '')).trim();
   }
 
   private loadPrivateKeyFromPfx(
