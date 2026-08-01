@@ -31,13 +31,9 @@ type ConfigurationSeed = {
   signatureAlgorithm: string;
 };
 
-const certificateRootPath = join(
-  'apps',
-  'tiramis',
-  'src',
-  'assets',
-  'certificaties',
-);
+const certificateRootPath =
+  environment.TIRAMIS_CERTIFICATE_BASE_DIR?.trim() ||
+  join('apps', 'tiramis', 'src', 'assets', 'certificaties');
 
 function getClientPrivateCertificatePath(environment: EnvironmentName): string {
   return join(certificateRootPath, environment, 'clientprivate.pfx');

@@ -26,6 +26,7 @@
     "migration:run:tiramis": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d apps/tiramis/src/database/data-source.ts migration:run",
     "migration:revert:tiramis": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d apps/tiramis/src/database/data-source.ts migration:revert",
     "seed:tiramis:config": "node -r ts-node/register -r tsconfig-paths/register apps/tiramis/src/database/seeders/seed-tiramis-config.ts",
+    "seed:tiramis:config:production": "node dist/apps/tiramis/apps/tiramis/src/database/seeders/seed-tiramis-config.js",
     "db:prepare:tiramis:e2e": "node -r ts-node/register -r tsconfig-paths/register scripts/prepare-tiramis-e2e.js",
     "pretest:tiramis:e2e": "npm run db:prepare:tiramis:e2e",
     "test:tiramis:e2e": "node scripts/tiramis-e2e-test.js",
