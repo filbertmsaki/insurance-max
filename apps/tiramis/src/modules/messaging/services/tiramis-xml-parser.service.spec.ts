@@ -29,4 +29,16 @@ describe('TiramisXmlParserService cover note verification responses', () => {
     );
     expect(message.signature).toBe('RESPONSE_SIGNATURE');
   });
+
+  it('extracts the exact business XML before MsgSignature', () => {
+    const parser = new TiramisXmlParserService();
+    const contentXml =
+      '<MotorVerificationRes><VerificationHdr><ResponseStatusCode>TIRA001</ResponseStatusCode></VerificationHdr><VerificationDtl><MotorRegistrationNumber>T665csf</MotorRegistrationNumber></VerificationDtl></MotorVerificationRes>';
+
+    const message = parser.parseTiraMessage(
+      `<TiraMsg>${contentXml}<MsgSignature>RESPONSE_SIGNATURE</MsgSignature></TiraMsg>`,
+    );
+
+    expect(message.contentXml).toBe(contentXml);
+  });
 });

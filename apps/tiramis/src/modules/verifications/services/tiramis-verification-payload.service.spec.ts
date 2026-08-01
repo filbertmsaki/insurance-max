@@ -111,3 +111,20 @@ describe('TiramisVerificationPayloadService motor verification', () => {
     );
   });
 });
+
+describe('TiramisXmlBuilderService signed content', () => {
+  it('places the exact signed content inside TiraMsg without reserialization', () => {
+    const xmlBuilder = new TiramisXmlBuilderService();
+    const contentXml =
+      '<MotorVerificationReq><VerificationDtl><MotorCategory>1</MotorCategory><MotorRegistrationNumber>T665csf</MotorRegistrationNumber><MotorChassisNumber></MotorChassisNumber></VerificationDtl></MotorVerificationReq>';
+
+    const signedXml = xmlBuilder.buildSignedTiraMessageFromContent({
+      contentXml,
+      signature: 'SIGNATURE',
+    });
+
+    expect(signedXml).toBe(
+      `<TiraMsg>${contentXml}<MsgSignature>SIGNATURE</MsgSignature></TiraMsg>`,
+    );
+  });
+});

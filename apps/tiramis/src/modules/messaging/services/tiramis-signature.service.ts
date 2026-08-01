@@ -1,5 +1,11 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { createSign, createVerify } from 'crypto';
+import {
+  constants,
+  createPrivateKey,
+  createPublicKey,
+  sign,
+  verify,
+} from 'crypto';
 import * as forge from 'node-forge';
 import { readFileSync } from 'fs';
 import { extname } from 'path';
@@ -22,16 +28,23 @@ export class TiramisSignatureService {
         params.privateKeyPfxPassword,
       );
 
-      const signer = createSign('RSA-SHA1');
-      signer.update(contentXml);
-      signer.end();
+      const signature = sign('sha1', Buffer.from(contentXml, 'utf8'), {
+        key: createPrivateKey(privateKeyPem),
+        padding: constants.RSA_PKCS1_PADDING,
+      });
+      const encodedSignature = signature.toString('base64');
 
-      return signer.sign(
-        {
-          key: privateKeyPem,
-        },
-        'base64',
+      this.logger.debug(
+        JSON.stringify({
+          event: 'tira.signature.created',
+          algorithm: 'RSA-SHA1',
+          padding: 'RSA_PKCS1_PADDING',
+          unsignedXml: contentXml,
+          signature: encodedSignature,
+        }),
       );
+
+      return encodedSignature;
     } catch (error: any) {
       this.logger.error(
         `Failed to sign TIRAMIS XML content: ${error?.message || 'Unknown error'}`,
@@ -56,12 +69,31 @@ export class TiramisSignatureService {
         params.publicCertificatePfxPassword,
       );
 
-      const verifier = createVerify('RSA-SHA1');
-      verifier.update(contentXml);
-      verifier.end();
+      const result = verify(
+        'sha1',
+        Buffer.from(contentXml, 'utf8'),
+        {
+          key: createPublicKey(publicCertificatePem),
+          padding: constants.RSA_PKCS1_PADDING,
+        },
+        Buffer.from(params.signature, 'base64'),
+      );
 
-      return verifier.verify(publicCertificatePem, params.signature, 'base64');
-    } catch {
+      this.logger.debug(
+        JSON.stringify({
+          event: 'tira.response.signature.verified',
+          algorithm: 'RSA-SHA1',
+          padding: 'RSA_PKCS1_PADDING',
+          verified: result,
+          signedXml: contentXml,
+        }),
+      );
+
+      return result;
+    } catch (error: any) {
+      this.logger.warn(
+        `TIRA response signature verification failed: ${error?.message || 'unknown error'}`,
+      );
       return false;
     }
   }
@@ -71,10 +103,9 @@ export class TiramisSignatureService {
   }
 
   private normalizeXmlForSignature(xml: string): string {
-    // TIRA signs the exact business XML content, as shown in the PHP
-    // reference implementation. Do not compact whitespace between elements;
-    // changing those bytes changes the signature.
-    return this.removeXmlDeclaration(String(xml || '')).trim();
+    // The caller must provide the exact compact business XML. Do not trim,
+    // reserialize, normalize, or otherwise change the signed bytes.
+    return String(xml || '');
   }
 
   private loadPrivateKeyFromPfx(
@@ -114,7 +145,16 @@ export class TiramisSignatureService {
       );
     }
 
-    return forge.pki.privateKeyToPem(keyBag.key);
+    const privateKeyPem = forge.pki.privateKeyToPem(keyBag.key);
+    this.logger.debug(
+      JSON.stringify({
+        event: 'tira.private.certificate.loaded',
+        certificatePath: resolvedPrivateKeyPfxPath,
+        hasPrivateKey: true,
+      }),
+    );
+
+    return privateKeyPem;
   }
 
   private loadPublicCertificateFromPfx(
@@ -152,7 +192,18 @@ export class TiramisSignatureService {
       );
     }
 
-    return forge.pki.certificateToPem(certificateBag.cert);
+    const publicCertificatePem = forge.pki.certificateToPem(
+      certificateBag.cert,
+    );
+    this.logger.debug(
+      JSON.stringify({
+        event: 'tira.public.certificate.loaded',
+        certificatePath: resolvedPublicCertificatePfxPath,
+        hasCertificate: true,
+      }),
+    );
+
+    return publicCertificatePem;
   }
 
   private loadPublicCertificate(

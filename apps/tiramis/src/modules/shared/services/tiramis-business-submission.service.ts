@@ -43,9 +43,8 @@ export class TiramisBusinessSubmissionService {
       privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
     });
 
-    const requestXml = this.xmlBuilder.buildSignedTiraMessage({
-      rootName: params.rootElement,
-      payload: params.payload,
+    const requestXml = this.xmlBuilder.buildSignedTiraMessageFromContent({
+      contentXml,
       signature,
     });
 
@@ -185,9 +184,8 @@ export class TiramisBusinessSubmissionService {
     return {
       contentXml,
       signature,
-      tiraMessageXml: this.xmlBuilder.buildSignedTiraMessage({
-        rootName: params.rootElement,
-        payload: params.payload,
+      tiraMessageXml: this.xmlBuilder.buildSignedTiraMessageFromContent({
+        contentXml,
         signature,
       }),
     };

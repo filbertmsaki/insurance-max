@@ -8,7 +8,7 @@ export class TiramisXmlBuilderService {
   private readonly builder = new XMLBuilder({
     ignoreAttributes: false,
     suppressEmptyNode: false,
-    format: true,
+    format: false,
     processEntities: true,
   });
 
@@ -49,15 +49,28 @@ export class TiramisXmlBuilderService {
     signature: string;
     includeXmlDeclaration?: boolean;
   }): string {
-    const message = this.buildTiraMessage({
-      rootName: params.rootName,
-      payload: params.payload,
-      signature: params.signature,
-    });
+    const contentXml = this.buildCompactContentXml(
+      params.rootName,
+      params.payload,
+    );
 
-    return params.includeXmlDeclaration
-      ? `<?xml version="1.0" encoding="UTF-8"?>\n${message}`
-      : message;
+    return this.buildSignedTiraMessageFromContent({
+      contentXml,
+      signature: params.signature,
+      includeXmlDeclaration: params.includeXmlDeclaration,
+    });
+  }
+
+  buildSignedTiraMessageFromContent(params: {
+    contentXml: string;
+    signature: string;
+    includeXmlDeclaration?: boolean;
+  }): string {
+    const declaration = params.includeXmlDeclaration
+      ? '<?xml version="1.0" encoding="UTF-8"?>\n'
+      : '';
+
+    return `${declaration}<TiraMsg>${params.contentXml}<MsgSignature>${params.signature}</MsgSignature></TiraMsg>`;
   }
 
   buildAcknowledgementMessage(params: {

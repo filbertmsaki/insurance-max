@@ -214,11 +214,9 @@ export class TiramisVerificationService {
       privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
     });
 
-    const requestXml = this.xmlBuilder.buildSignedTiraMessage({
-      rootName: params.rootElement,
-      payload,
+    const requestXml = this.xmlBuilder.buildSignedTiraMessageFromContent({
+      contentXml,
       signature,
-      includeXmlDeclaration: true,
     });
 
     const attempt = await this.submissionService.createAttempt({
@@ -337,9 +335,20 @@ export class TiramisVerificationService {
       (content as any).ResponseStatusDesc ||
       null;
 
-    const isSuccess = statusCode
+    const responseSignatureValid =
+      !!parsedMessage.signature &&
+      !!parsedMessage.contentXml &&
+      this.signatureService.verifyXmlContent({
+        contentXml: parsedMessage.contentXml,
+        signature: parsedMessage.signature,
+        publicCertificatePfxPath: pfxPaths.tiraPublicCertificatePath!,
+        publicCertificatePfxPassword: pfxPaths.tiraPublicCertificatePassword,
+      });
+
+    const isBusinessSuccess = statusCode
       ? await this.tiramisConfigService.isSuccessResponse(statusCode)
       : false;
+    const isSuccess = responseSignatureValid && isBusinessSuccess;
 
     const responseEntity = this.verificationRepository.createResponse({
       verificationRequestId: savedRequest.id,

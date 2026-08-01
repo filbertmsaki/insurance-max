@@ -497,11 +497,11 @@ export class TiramisCallbackService {
       privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
     });
 
-    const acknowledgementXml = this.xmlBuilder.buildSignedTiraMessage({
-      rootName: params.finalResponse.responseAckRoot,
-      payload: acknowledgementPayload,
-      signature,
-    });
+    const acknowledgementXml =
+      this.xmlBuilder.buildSignedTiraMessageFromContent({
+        contentXml,
+        signature,
+      });
 
     return {
       acknowledgementId: acknowledgementPayload.AcknowledgementId,

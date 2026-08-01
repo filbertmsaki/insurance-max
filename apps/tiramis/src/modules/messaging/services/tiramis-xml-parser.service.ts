@@ -445,11 +445,27 @@ export class TiramisXmlParserService {
 
     const wrapperMatch = text.match(/<TiraMsg[^>]*>([\s\S]*)<\/TiraMsg>/i);
     const innerXml = wrapperMatch ? wrapperMatch[1] : text;
+    const signatureMatch =
+      /<MsgSignature[^>]*>[\s\S]*?<\/MsgSignature>/i.exec(innerXml) ||
+      /<Signature[^>]*>[\s\S]*?<\/Signature>/i.exec(innerXml);
+    const unsignedPart = signatureMatch
+      ? innerXml.slice(0, signatureMatch.index)
+      : innerXml;
+    const rootMatch = /<([A-Za-z0-9_:-]+)(?:\s[^>]*)?>/.exec(unsignedPart);
 
-    return innerXml
-      .replace(/<MsgSignature[^>]*>[\s\S]*?<\/MsgSignature>/i, '')
-      .replace(/<Signature[^>]*>[\s\S]*?<\/Signature>/i, '')
-      .trim();
+    if (!rootMatch || rootMatch.index === undefined) {
+      return unsignedPart.trim();
+    }
+
+    const rootName = rootMatch[1];
+    const rootStart = rootMatch.index;
+    const rootEnd = unsignedPart.lastIndexOf(`</${rootName}>`);
+
+    if (rootEnd < rootStart) {
+      return unsignedPart.slice(rootStart).trim();
+    }
+
+    return unsignedPart.slice(rootStart, rootEnd + rootName.length + 3);
   }
 
   private unescapeXml(value: string): string {

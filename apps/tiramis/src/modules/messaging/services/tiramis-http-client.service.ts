@@ -15,6 +15,16 @@ export class TiramisHttpClientService {
 
   async postXml(request: TiramisHttpRequest): Promise<TiramisHttpResponse> {
     try {
+      this.logger.debug(
+        JSON.stringify({
+          event: 'tira.request.sent',
+          url: request.url,
+          contentType: request.headers['Content-Type'],
+          clientCode: request.headers.ClientCode,
+          xml: request.xml,
+        }),
+      );
+
       const response = await firstValueFrom(
         this.httpService.post(request.url, request.xml, {
           headers: request.headers,
@@ -24,7 +34,7 @@ export class TiramisHttpClientService {
         }),
       );
 
-      return {
+      const result = {
         statusCode: response.status,
         statusText: response.statusText,
         rawXml:
@@ -33,6 +43,17 @@ export class TiramisHttpClientService {
             : JSON.stringify(response.data),
         headers: response.headers,
       };
+
+      this.logger.debug(
+        JSON.stringify({
+          event: 'tira.response.received',
+          statusCode: result.statusCode,
+          statusText: result.statusText,
+          rawXml: result.rawXml,
+        }),
+      );
+
+      return result;
     } catch (error: any) {
       this.logger.error(
         `TIRAMIS HTTP request failed: ${error.message}`,

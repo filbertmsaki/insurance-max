@@ -215,9 +215,8 @@ export class TiramisCoverNoteService {
         privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
       });
 
-      tiraMessageXml = this.xmlBuilder.buildSignedTiraMessage({
-        rootName: this.rootElement,
-        payload,
+      tiraMessageXml = this.xmlBuilder.buildSignedTiraMessageFromContent({
+        contentXml,
         signature,
       });
     } else {
@@ -300,9 +299,8 @@ export class TiramisCoverNoteService {
       privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
     });
 
-    const requestXml = this.xmlBuilder.buildSignedTiraMessage({
-      rootName: this.rootElement,
-      payload,
+    const requestXml = this.xmlBuilder.buildSignedTiraMessageFromContent({
+      contentXml,
       signature,
     });
 
