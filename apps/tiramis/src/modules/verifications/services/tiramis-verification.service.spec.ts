@@ -3,6 +3,71 @@ import { BadRequestException } from '@nestjs/common';
 import { MotorCategory } from '../constants/tiramis-verification.constants';
 import { TiramisVerificationService } from './tiramis-verification.service';
 
+describe('TiramisVerificationService cover note validation', () => {
+  const service = new (TiramisVerificationService as any)(
+    ...new Array(10).fill(undefined),
+  ) as TiramisVerificationService;
+
+  const normalize = (value: any) =>
+    (service as any).normalizeCoverNoteVerificationDto(value);
+
+  it.each([
+    { coverNoteReferenceNumber: '4242424' },
+    { stickerNumber: '1313-1414-124124' },
+    { motorRegistrationNumber: 'T233SQA' },
+    { motorChassisNumber: '4353646' },
+    {
+      coverNoteReferenceNumber: '4242424',
+      stickerNumber: '1313-1414-124124',
+      motorRegistrationNumber: 'T233SQA',
+      motorChassisNumber: '4353646',
+    },
+  ])('accepts supported field set %#', (dto) => {
+    expect(normalize(dto)).toMatchObject(dto);
+  });
+
+  it('trims all supplied values', () => {
+    expect(
+      normalize({
+        coverNoteReferenceNumber: ' 4242424 ',
+        stickerNumber: ' 1313-1414-124124 ',
+        motorRegistrationNumber: ' T233SQA ',
+        motorChassisNumber: ' 4353646 ',
+      }),
+    ).toEqual({
+      coverNoteReferenceNumber: '4242424',
+      stickerNumber: '1313-1414-124124',
+      motorRegistrationNumber: 'T233SQA',
+      motorChassisNumber: '4353646',
+    });
+  });
+
+  it('rejects missing and whitespace-only values', () => {
+    expect(() => normalize({})).toThrow(
+      'At least one Cover Note verification value must be provided',
+    );
+    expect(() =>
+      normalize({
+        coverNoteReferenceNumber: ' ',
+        stickerNumber: '\t',
+        motorRegistrationNumber: '  ',
+        motorChassisNumber: '\n',
+      }),
+    ).toThrow('At least one Cover Note verification value must be provided');
+  });
+
+  it.each([
+    'coverNoteReferenceNumber',
+    'stickerNumber',
+    'motorRegistrationNumber',
+    'motorChassisNumber',
+  ])('rejects %s longer than 50 characters', (field) => {
+    expect(() => normalize({ [field]: 'x'.repeat(51) })).toThrow(
+      `${field} must not exceed 50 characters`,
+    );
+  });
+});
+
 describe('TiramisVerificationService motor validation', () => {
   const service = new (TiramisVerificationService as any)(
     ...new Array(10).fill(undefined),

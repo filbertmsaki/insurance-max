@@ -15,6 +15,8 @@ export class TiramisVerificationPayloadService {
     dto: CoverNoteVerificationDto & TiramisResolvedRequestDtoFields,
     requestId: string,
   ): Record<string, any> {
+    // TIRA permits any supported verification criterion. Preserve the
+    // contract order while omitting values that were not supplied.
     const verificationDtl: Record<string, any> = {};
 
     if (dto.coverNoteReferenceNumber) {

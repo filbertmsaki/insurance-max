@@ -5,16 +5,24 @@ import { MotorCategory } from '../constants/tiramis-verification.constants';
 export class BaseVerificationDto {}
 
 export class CoverNoteVerificationDto extends BaseVerificationDto {
-  @ApiPropertyOptional({ nullable: true, example: 'TIRA-CN-000001' })
+  @ApiPropertyOptional({
+    nullable: true,
+    maxLength: 50,
+    example: 'TIRA-CN-000001',
+  })
   coverNoteReferenceNumber?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, example: 'STK000001' })
+  @ApiPropertyOptional({ nullable: true, maxLength: 50, example: 'STK000001' })
   stickerNumber?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, example: 'T123ABC' })
+  @ApiPropertyOptional({ nullable: true, maxLength: 50, example: 'T123ABC' })
   motorRegistrationNumber?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, example: 'MOCKCHASSIS123456' })
+  @ApiPropertyOptional({
+    nullable: true,
+    maxLength: 50,
+    example: 'MOCKCHASSIS123456',
+  })
   motorChassisNumber?: string | null;
 }
 

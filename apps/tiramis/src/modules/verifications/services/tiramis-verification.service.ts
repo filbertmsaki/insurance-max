@@ -46,27 +46,18 @@ export class TiramisVerificationService {
   ) {}
 
   verifyCoverNote(dto: CoverNoteVerificationDto) {
-    if (
-      !dto.coverNoteReferenceNumber &&
-      !dto.stickerNumber &&
-      !dto.motorRegistrationNumber &&
-      !dto.motorChassisNumber
-    ) {
-      throw new BadRequestException(
-        'At least one search value is required for cover note verification',
-      );
-    }
+    const normalizedDto = this.normalizeCoverNoteVerificationDto(dto);
 
     return this.resolveAndSubmit({
-      dto,
+      dto: normalizedDto,
       verificationType: TIRAMIS_VERIFICATION_TYPE.COVER_NOTE,
       serviceType: TIRAMIS_VERIFICATION_SERVICE_TYPE.COVER_NOTE_VERIFICATION,
       rootElement: TIRAMIS_VERIFICATION_ROOT_ELEMENT.COVER_NOTE,
       businessReference:
-        dto.coverNoteReferenceNumber ||
-        dto.stickerNumber ||
-        dto.motorRegistrationNumber ||
-        dto.motorChassisNumber ||
+        normalizedDto.coverNoteReferenceNumber ||
+        normalizedDto.stickerNumber ||
+        normalizedDto.motorRegistrationNumber ||
+        normalizedDto.motorChassisNumber ||
         'COVER_NOTE_VERIFICATION',
       buildPayload: (resolvedDto, requestId) =>
         this.payloadService.buildCoverNoteVerification(resolvedDto, requestId),
@@ -330,16 +321,19 @@ export class TiramisVerificationService {
 
     const parsedMessage = this.xmlParser.parseTiraMessage(httpResponse.rawXml);
     const content = parsedMessage.content || {};
-    const verificationHdr = (content as any).VerificationHdr || content;
+    const responseHeader =
+      params.rootElement === TIRAMIS_VERIFICATION_ROOT_ELEMENT.COVER_NOTE
+        ? (content as any).CoverNoteHdr || content
+        : (content as any).VerificationHdr || content;
 
-    const responseId = verificationHdr.ResponseId || null;
+    const responseId = responseHeader.ResponseId || null;
     const statusCode =
-      verificationHdr.ResponseStatusCode ||
+      responseHeader.ResponseStatusCode ||
       (content as any).ResponseStatusCode ||
       null;
 
     const statusDesc =
-      verificationHdr.ResponseStatusDesc ||
+      responseHeader.ResponseStatusDesc ||
       (content as any).ResponseStatusDesc ||
       null;
 
@@ -422,6 +416,66 @@ export class TiramisVerificationService {
       motorRegistrationNumber: registrationNumber,
       motorChassisNumber: chassisNumber,
     };
+  }
+
+  private normalizeCoverNoteVerificationDto(
+    dto: CoverNoteVerificationDto,
+  ): CoverNoteVerificationDto {
+    const normalizedDto: CoverNoteVerificationDto = {
+      ...dto,
+      coverNoteReferenceNumber: this.normalizeCoverNoteField(
+        dto?.coverNoteReferenceNumber,
+        'coverNoteReferenceNumber',
+      ),
+      stickerNumber: this.normalizeCoverNoteField(
+        dto?.stickerNumber,
+        'stickerNumber',
+      ),
+      motorRegistrationNumber: this.normalizeCoverNoteField(
+        dto?.motorRegistrationNumber,
+        'motorRegistrationNumber',
+      ),
+      motorChassisNumber: this.normalizeCoverNoteField(
+        dto?.motorChassisNumber,
+        'motorChassisNumber',
+      ),
+    };
+
+    if (
+      !normalizedDto.coverNoteReferenceNumber &&
+      !normalizedDto.stickerNumber &&
+      !normalizedDto.motorRegistrationNumber &&
+      !normalizedDto.motorChassisNumber
+    ) {
+      throw new BadRequestException(
+        'At least one Cover Note verification value must be provided',
+      );
+    }
+
+    return normalizedDto;
+  }
+
+  private normalizeCoverNoteField(
+    value: string | null | undefined,
+    fieldName: string,
+  ): string | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (typeof value !== 'string') {
+      throw new BadRequestException(`${fieldName} must be a string`);
+    }
+
+    const normalized = value.trim();
+
+    if (normalized.length > 50) {
+      throw new BadRequestException(
+        `${fieldName} must not exceed 50 characters`,
+      );
+    }
+
+    return normalized || null;
   }
 
   private normalizeMotorField(
