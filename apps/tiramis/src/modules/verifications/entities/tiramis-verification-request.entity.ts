@@ -48,6 +48,11 @@ export class TiramisVerificationRequestEntity extends BaseEntity {
   @Column({ name: 'system_code', length: 50 })
   systemCode!: string;
 
+  // Nullable preserves historical non-motor and pre-migration records.
+  // New motor verification requests are validated before persistence.
+  @Column({ name: 'motor_category', type: 'int', nullable: true })
+  motorCategory?: number | null;
+
   @Column({
     name: 'cover_note_reference_number',
     type: 'varchar',

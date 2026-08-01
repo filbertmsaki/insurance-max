@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+import { MotorCategory } from '../constants/tiramis-verification.constants';
+
 export class BaseVerificationDto {}
 
 export class CoverNoteVerificationDto extends BaseVerificationDto {
@@ -27,10 +29,22 @@ export class CompanyVerificationDto extends BaseVerificationDto {
 }
 
 export class MotorVerificationDto extends BaseVerificationDto {
-  @ApiPropertyOptional({ nullable: true, example: 'T123ABC' })
+  @ApiProperty({
+    enum: MotorCategory,
+    enumName: 'MotorCategory',
+    example: MotorCategory.MOTOR_VEHICLE,
+    description: '1 = Motor vehicle, 2 = Motorcycle',
+  })
+  motorCategory!: MotorCategory;
+
+  @ApiPropertyOptional({ nullable: true, maxLength: 50, example: 'T123ABC' })
   motorRegistrationNumber?: string | null;
 
-  @ApiPropertyOptional({ nullable: true, example: 'MOCKCHASSIS123456' })
+  @ApiPropertyOptional({
+    nullable: true,
+    maxLength: 50,
+    example: 'MOCKCHASSIS123456',
+  })
   motorChassisNumber?: string | null;
 }
 

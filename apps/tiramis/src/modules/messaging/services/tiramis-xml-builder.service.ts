@@ -47,12 +47,17 @@ export class TiramisXmlBuilderService {
     rootName: string;
     payload: Record<string, any>;
     signature: string;
+    includeXmlDeclaration?: boolean;
   }): string {
-    return this.buildTiraMessage({
+    const message = this.buildTiraMessage({
       rootName: params.rootName,
       payload: params.payload,
       signature: params.signature,
     });
+
+    return params.includeXmlDeclaration
+      ? `<?xml version="1.0" encoding="UTF-8"?>\n${message}`
+      : message;
   }
 
   buildAcknowledgementMessage(params: {

@@ -70,6 +70,7 @@ export class TiramisVerificationPayloadService {
     return {
       VerificationHdr: this.buildHeader(dto, requestId),
       VerificationDtl: {
+        MotorCategory: dto.motorCategory,
         RegistrationNumber: dto.motorRegistrationNumber || '',
         ChassisNumber: dto.motorChassisNumber || '',
       },

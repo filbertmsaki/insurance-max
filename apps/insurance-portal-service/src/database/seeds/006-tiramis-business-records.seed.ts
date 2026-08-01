@@ -136,6 +136,7 @@ export default class TiramisBusinessRecordsSeeder implements Seeder {
       requestType: 'MOTOR_VERIFICATION',
       businessReference: 'T123ABC',
       payload: {
+        motorCategory: 1,
         motorRegistrationNumber: 'T123ABC',
         motorChassisNumber: 'CHS123456',
       },

@@ -1073,24 +1073,28 @@ export class TiramisBusinessPayloadBuilderService {
 
   private buildMotorVerificationPayload(record: any, context: BuilderContext) {
     const common = this.buildCommonPayload(context);
+    const motorRegistrationNumber = this.value(
+      record,
+      'registration_no',
+      'registrationNumber',
+      'motorRegistrationNumber',
+    );
+    const motorChassisNumber = this.value(
+      record,
+      'chassis_no',
+      'chassisNumber',
+      'motorChassisNumber',
+    );
 
     return this.cleanObject({
       ...common,
-      motorRegistrationNumber: this.required(
-        'motorRegistrationNumber',
-        this.value(
-          record,
-          'registration_no',
-          'registrationNumber',
-          'motorRegistrationNumber',
-        ),
+      motorCategory: this.requiredMotorCategory(
+        this.value(record, 'motor_category', 'motorCategory'),
       ),
-      motorChassisNumber: this.value(
-        record,
-        'chassis_no',
-        'chassisNumber',
-        'motorChassisNumber',
+      motorRegistrationNumber: this.trimOptionalMotorField(
+        motorRegistrationNumber,
       ),
+      motorChassisNumber: this.trimOptionalMotorField(motorChassisNumber),
       engineNumber: this.value(record, 'engine_no', 'engineNumber'),
       make: this.value(record, 'make'),
       model: this.value(record, 'model'),
@@ -1568,6 +1572,27 @@ export class TiramisBusinessPayloadBuilderService {
     }
 
     return defaultValue;
+  }
+
+  private requiredMotorCategory(value: any): number {
+    const category = Number(value);
+
+    if (!Number.isInteger(category) || ![1, 2].includes(category)) {
+      throw new BadRequestException(
+        'Cannot build TIRAMIS payload. motorCategory must be 1 or 2',
+      );
+    }
+
+    return category;
+  }
+
+  private trimOptionalMotorField(value: any): string | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    const normalized = String(value).trim();
+    return normalized || null;
   }
 
   private moneyOrDefault(value: any, defaultValue: string): string {

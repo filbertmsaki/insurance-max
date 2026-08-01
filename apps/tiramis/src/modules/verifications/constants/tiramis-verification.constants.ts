@@ -6,6 +6,19 @@ export const TIRAMIS_VERIFICATION_TYPE = {
   DETAILS: 'DETAILS',
 } as const;
 
+export enum MotorCategory {
+  MOTOR_VEHICLE = 1,
+  MOTORCYCLE = 2,
+}
+
+export function isMotorCategory(value: unknown): value is MotorCategory {
+  return (
+    typeof value === 'number' &&
+    (value === MotorCategory.MOTOR_VEHICLE ||
+      value === MotorCategory.MOTORCYCLE)
+  );
+}
+
 export const TIRAMIS_VERIFICATION_SERVICE_TYPE = {
   COVER_NOTE_VERIFICATION: 'COVER_NOTE_VERIFICATION',
   NIN_VERIFICATION: 'NIN_VERIFICATION',

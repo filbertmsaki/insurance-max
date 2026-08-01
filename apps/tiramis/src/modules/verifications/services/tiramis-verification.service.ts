@@ -19,6 +19,7 @@ import {
   TIRAMIS_VERIFICATION_SERVICE_TYPE,
   TIRAMIS_VERIFICATION_STATUS,
   TIRAMIS_VERIFICATION_TYPE,
+  isMotorCategory,
 } from '../constants/tiramis-verification.constants';
 import {
   CompanyVerificationDto,
@@ -107,20 +108,16 @@ export class TiramisVerificationService {
   }
 
   verifyMotor(dto: MotorVerificationDto) {
-    if (!dto.motorRegistrationNumber && !dto.motorChassisNumber) {
-      throw new BadRequestException(
-        'RegistrationNumber or ChassisNumber is required',
-      );
-    }
+    const normalizedDto = this.normalizeMotorVerificationDto(dto);
 
     return this.resolveAndSubmit({
-      dto,
+      dto: normalizedDto,
       verificationType: TIRAMIS_VERIFICATION_TYPE.MOTOR,
       serviceType: TIRAMIS_VERIFICATION_SERVICE_TYPE.MOTOR_VERIFICATION,
       rootElement: TIRAMIS_VERIFICATION_ROOT_ELEMENT.MOTOR,
       businessReference:
-        dto.motorRegistrationNumber ||
-        dto.motorChassisNumber ||
+        normalizedDto.motorRegistrationNumber ||
+        normalizedDto.motorChassisNumber ||
         'MOTOR_VERIFICATION',
       buildPayload: (resolvedDto, requestId) =>
         this.payloadService.buildMotorVerification(resolvedDto, requestId),
@@ -230,6 +227,7 @@ export class TiramisVerificationService {
       rootName: params.rootElement,
       payload,
       signature,
+      includeXmlDeclaration: true,
     });
 
     const attempt = await this.submissionService.createAttempt({
@@ -251,6 +249,7 @@ export class TiramisVerificationService {
       stickerNumber: params.dto.stickerNumber || null,
       motorRegistrationNumber: params.dto.motorRegistrationNumber || null,
       motorChassisNumber: params.dto.motorChassisNumber || null,
+      motorCategory: params.dto.motorCategory,
       nin: params.dto.nin || null,
       incorporationCertificateNumber:
         params.dto.incorporationCertificateNumber || null,
@@ -278,11 +277,56 @@ export class TiramisVerificationService {
     savedRequest.status = TIRAMIS_VERIFICATION_STATUS.SENT;
     await this.verificationRepository.saveRequest(savedRequest);
 
-    const httpResponse = await this.httpClient.postXml({
-      url: endpoint,
-      xml: requestXml,
-      headers,
-    });
+    let httpResponse;
+
+    try {
+      httpResponse = await this.httpClient.postXml({
+        url: endpoint,
+        xml: requestXml,
+        headers,
+      });
+    } catch (error: any) {
+      const failedAttempt = await this.submissionService.markFailed({
+        requestId,
+        errorMessage: error?.message || 'Failed to communicate with TIRAMIS',
+        rawPayload: error?.response?.data || null,
+        isRetryable: true,
+      });
+
+      savedRequest.status = TIRAMIS_VERIFICATION_STATUS.FAILED;
+      await this.verificationRepository.saveRequest(savedRequest);
+
+      return {
+        request: savedRequest,
+        response: null,
+        transaction,
+        attempt: failedAttempt,
+        tiraHttpResponse: null,
+      };
+    }
+
+    if (httpResponse.statusCode < 200 || httpResponse.statusCode >= 300) {
+      const failedAttempt = await this.submissionService.markFailed({
+        requestId,
+        errorMessage: `TIRAMIS HTTP error: ${httpResponse.statusCode}`,
+        rawPayload: httpResponse.rawXml,
+        isRetryable: true,
+      });
+
+      savedRequest.status = TIRAMIS_VERIFICATION_STATUS.FAILED;
+      await this.verificationRepository.saveRequest(savedRequest);
+
+      return {
+        request: savedRequest,
+        response: null,
+        transaction,
+        attempt: failedAttempt,
+        tiraHttpResponse: {
+          statusCode: httpResponse.statusCode,
+          statusText: httpResponse.statusText,
+        },
+      };
+    }
 
     const parsedMessage = this.xmlParser.parseTiraMessage(httpResponse.rawXml);
     const content = parsedMessage.content || {};
@@ -324,25 +368,82 @@ export class TiramisVerificationService {
 
     await this.verificationRepository.saveRequest(savedRequest);
 
-    await this.submissionService.markFinalResponseReceived({
-      requestId,
-      responseId: responseId || undefined,
-      statusCode: statusCode || 'UNKNOWN',
-      statusDesc: statusDesc || undefined,
-      rawXml: httpResponse.rawXml,
-      responseSignature: parsedMessage.signature || undefined,
-      isSuccess,
-    });
+    const finalAttempt = await this.submissionService.markFinalResponseReceived(
+      {
+        requestId,
+        responseId: responseId || undefined,
+        statusCode: statusCode || 'UNKNOWN',
+        statusDesc: statusDesc || undefined,
+        rawXml: httpResponse.rawXml,
+        responseSignature: parsedMessage.signature || undefined,
+        isSuccess,
+      },
+    );
 
     return {
       request: savedRequest,
       response: savedResponse,
       transaction,
-      attempt,
+      attempt: finalAttempt,
       tiraHttpResponse: {
         statusCode: httpResponse.statusCode,
         statusText: httpResponse.statusText,
       },
     };
+  }
+
+  private normalizeMotorVerificationDto(
+    dto: MotorVerificationDto,
+  ): MotorVerificationDto {
+    if (!isMotorCategory(dto?.motorCategory)) {
+      throw new BadRequestException(
+        'motorCategory must be either 1 for Motor vehicle or 2 for Motorcycle',
+      );
+    }
+
+    const registrationNumber = this.normalizeMotorField(
+      dto.motorRegistrationNumber,
+      'motorRegistrationNumber',
+    );
+    const chassisNumber = this.normalizeMotorField(
+      dto.motorChassisNumber,
+      'motorChassisNumber',
+    );
+
+    if (!registrationNumber && !chassisNumber) {
+      throw new BadRequestException(
+        'Either motorRegistrationNumber or motorChassisNumber must be provided',
+      );
+    }
+
+    return {
+      ...dto,
+      motorCategory: dto.motorCategory,
+      motorRegistrationNumber: registrationNumber,
+      motorChassisNumber: chassisNumber,
+    };
+  }
+
+  private normalizeMotorField(
+    value: string | null | undefined,
+    fieldName: string,
+  ): string | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (typeof value !== 'string') {
+      throw new BadRequestException(`${fieldName} must be a string`);
+    }
+
+    const normalized = value.trim();
+
+    if (normalized.length > 50) {
+      throw new BadRequestException(
+        `${fieldName} must not exceed 50 characters`,
+      );
+    }
+
+    return normalized || null;
   }
 }
