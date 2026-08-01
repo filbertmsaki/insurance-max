@@ -170,7 +170,8 @@ const BUSINESS_VALIDATION_RULES = {
   },
 
   MotorVerificationReq: {
-    required: [...COMMON_SYNC_HEADER_FIELDS, 'RegistrationNumber'],
+    required: [...COMMON_SYNC_HEADER_FIELDS],
+    anyOf: [['MotorRegistrationNumber'], ['MotorChassisNumber']],
   },
 
   NINVerificationReq: {

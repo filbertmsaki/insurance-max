@@ -45,7 +45,10 @@ function extractBusinessReference(root, xml) {
     case 'CoverNoteVerificationReq':
       return getTag(xml, 'CoverNoteReferenceNumber');
     case 'MotorVerificationReq':
-      return getTag(xml, 'RegistrationNumber');
+      return (
+        getTag(xml, 'MotorRegistrationNumber') ||
+        getTag(xml, 'MotorChassisNumber')
+      );
     default:
       return (
         getTag(xml, 'PolicyNumber') ||

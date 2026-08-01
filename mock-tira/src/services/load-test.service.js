@@ -108,7 +108,7 @@ function buildSampleContentXml(params = {}) {
         `<CoverNoteNumber>MCN-${fields.requestId}</CoverNoteNumber>`,
         `<FleetId>FLT-${fields.requestId}</FleetId>`,
         '<FleetSize>1</FleetSize>',
-        `<RegistrationNumber>T${String(Date.now()).slice(-6)}ABC</RegistrationNumber>`,
+        `<MotorRegistrationNumber>T${String(Date.now()).slice(-6)}ABC</MotorRegistrationNumber>`,
         `<ChassisNumber>CH-${fields.requestId}</ChassisNumber>`,
         '</MotorCoverNoteRefReq>',
       ].join('');
@@ -311,7 +311,7 @@ function buildSampleContentXml(params = {}) {
         `<RequestId>${fields.requestId}</RequestId>`,
         `<CompanyCode>${fields.companyCode}</CompanyCode>`,
         `<SystemCode>${fields.systemCode}</SystemCode>`,
-        `<RegistrationNumber>T${String(Date.now()).slice(-6)}ABC</RegistrationNumber>`,
+        `<MotorRegistrationNumber>T${String(Date.now()).slice(-6)}ABC</MotorRegistrationNumber>`,
         '</MotorVerificationReq>',
       ].join('');
 

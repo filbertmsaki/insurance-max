@@ -73,8 +73,8 @@ export class TiramisVerificationPayloadService {
       VerificationHdr: this.buildHeader(dto, requestId),
       VerificationDtl: {
         MotorCategory: dto.motorCategory,
-        RegistrationNumber: dto.motorRegistrationNumber || '',
-        ChassisNumber: dto.motorChassisNumber || '',
+        MotorRegistrationNumber: dto.motorRegistrationNumber || '',
+        MotorChassisNumber: dto.motorChassisNumber || '',
       },
     };
   }
@@ -86,8 +86,8 @@ export class TiramisVerificationPayloadService {
     return {
       VerificationHdr: this.buildHeader(dto, requestId),
       VerificationDtl: {
-        RegistrationNumber: dto.motorRegistrationNumber || '',
-        ChassisNumber: dto.motorChassisNumber || '',
+        MotorRegistrationNumber: dto.motorRegistrationNumber || '',
+        MotorChassisNumber: dto.motorChassisNumber || '',
         CoverNoteReferenceNumber: dto.coverNoteReferenceNumber || '',
         StickerNumber: dto.stickerNumber || '',
       },

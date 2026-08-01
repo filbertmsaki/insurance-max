@@ -86,13 +86,15 @@ describe('TiramisVerificationPayloadService motor verification', () => {
     const xml = xmlBuilder.buildContentXml('MotorVerificationReq', payload);
 
     expect(xml).toContain('<MotorCategory>1</MotorCategory>');
-    expect(xml).toContain('<RegistrationNumber>t665csf</RegistrationNumber>');
-    expect(xml).toContain('<ChassisNumber></ChassisNumber>');
-    expect(xml.indexOf('<MotorCategory>')).toBeLessThan(
-      xml.indexOf('<RegistrationNumber>'),
+    expect(xml).toContain(
+      '<MotorRegistrationNumber>t665csf</MotorRegistrationNumber>',
     );
-    expect(xml.indexOf('<RegistrationNumber>')).toBeLessThan(
-      xml.indexOf('<ChassisNumber>'),
+    expect(xml).toContain('<MotorChassisNumber></MotorChassisNumber>');
+    expect(xml.indexOf('<MotorCategory>')).toBeLessThan(
+      xml.indexOf('<MotorRegistrationNumber>'),
+    );
+    expect(xml.indexOf('<MotorRegistrationNumber>')).toBeLessThan(
+      xml.indexOf('<MotorChassisNumber>'),
     );
 
     const signedXml = xmlBuilder.buildSignedTiraMessage({

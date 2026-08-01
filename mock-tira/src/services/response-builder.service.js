@@ -348,10 +348,15 @@ function buildSyncExtraFields(root, originalXml, responseData = {}) {
   }
 
   if (root === 'MotorVerificationReq') {
-    const registrationNumber = getTag(originalXml, 'RegistrationNumber');
+    const registrationNumber = getTag(
+      originalXml,
+      'MotorRegistrationNumber',
+    );
+    const chassisNumber = getTag(originalXml, 'MotorChassisNumber');
 
     return [
-      `<RegistrationNumber>${escapeXml(registrationNumber || '')}</RegistrationNumber>`,
+      `<MotorRegistrationNumber>${escapeXml(registrationNumber || '')}</MotorRegistrationNumber>`,
+      `<MotorChassisNumber>${escapeXml(chassisNumber || '')}</MotorChassisNumber>`,
       `<VerificationStatus>${escapeXml(verificationStatus)}</VerificationStatus>`,
       `<VerificationMessage>${escapeXml(verificationMessage)}</VerificationMessage>`,
     ].join('');
