@@ -25,6 +25,7 @@ import databaseConfig from './config/database.config';
 import { insurancePortalEnvValidationSchema } from './config/env.validation';
 import jwtConfig from './config/jwt.config';
 import transportConfig from './config/transport.config';
+import tiramisClientConfig from './config/tiramis-client.config';
 import { InsurancePortalServiceModule } from './modules/insurance-portal-service.module';
 import { TiramisModule } from './modules/tiramis/tiramis.module';
 
@@ -44,6 +45,7 @@ import { TiramisModule } from './modules/tiramis/tiramis.module';
         databaseConfig,
         jwtConfig,
         transportConfig,
+        tiramisClientConfig,
       ],
     }),
     EventEmitterModule.forRoot(),

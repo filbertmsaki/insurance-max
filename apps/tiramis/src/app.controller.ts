@@ -10,8 +10,8 @@ export class AppController {
     return {
       success: true,
       status: 'UP',
-      service: this.configService.get<string>('app.name') || 'tiramis',
-      port: this.configService.get<number>('app.port') || 9091,
+      service: this.configService.getOrThrow<string>('app.name'),
+      port: this.configService.getOrThrow<number>('app.port'),
       time: new Date().toISOString(),
     };
   }

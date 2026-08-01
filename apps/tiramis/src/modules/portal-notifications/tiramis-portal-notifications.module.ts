@@ -1,18 +1,23 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 
 import { TiramisPortalNotificationService } from './services/tiramis-portal-notification.service';
 
 @Module({
   imports: [
-    ClientsModule.register([
+    ClientsModule.registerAsync([
       {
         name: 'INSURANCE_PORTAL_SERVICE_CLIENT',
-        transport: Transport.TCP,
-        options: {
-          host: process.env.INSURANCE_PORTAL_TCP_HOST || '127.0.0.1',
-          port: Number(process.env.INSURANCE_PORTAL_TCP_PORT || 4002),
-        },
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        useFactory: (config: ConfigService) => ({
+          transport: Transport.TCP,
+          options: {
+            host: config.getOrThrow<string>('tiramisService.portalHost'),
+            port: config.getOrThrow<number>('tiramisService.portalPort'),
+          },
+        }),
       },
     ]),
   ],

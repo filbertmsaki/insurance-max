@@ -50,10 +50,17 @@ jobs:
     env:
       BASE_DIR: /opt/apps/tiramis
       APP_NAME: tiramis
-      INTERNAL_HEALTH_URL: http://127.0.0.1:9090/api/health
-      PUBLIC_HEALTH_URL: https://ussdvd.alliance.co.tz/tiramis-api/api/health
+      INTERNAL_HEALTH_URL: ${{ vars.INTERNAL_HEALTH_URL }}
+      PUBLIC_HEALTH_URL: ${{ vars.PUBLIC_HEALTH_URL }}
 
     steps:
+      - name: Validate deployment URLs
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ -n "$INTERNAL_HEALTH_URL" ]] || { echo 'Missing GitHub environment variable INTERNAL_HEALTH_URL'; exit 1; }
+          [[ -n "$PUBLIC_HEALTH_URL" ]] || { echo 'Missing GitHub environment variable PUBLIC_HEALTH_URL'; exit 1; }
+
       - name: Resolve and validate CI run
         id: release
         shell: bash
@@ -309,8 +316,8 @@ jobs:
             echo '- CI run: `${{ steps.release.outputs.run_id }}`'
             echo '- Runner: `${{ runner.name }}`'
             echo "- Server: \`$(hostname)\`"
-            echo '- Internal: `http://127.0.0.1:9090/api/health`'
-            echo '- Public: `https://ussdvd.alliance.co.tz/tiramis-api/api/health`'
+            echo "- Internal: \`$INTERNAL_HEALTH_URL\`"
+            echo "- Public: \`$PUBLIC_HEALTH_URL\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Show diagnostic logs after failure

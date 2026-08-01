@@ -8,17 +8,18 @@ import { SeederOptions } from 'typeorm-extension';
 
 import {
   createDataSourceOptions,
+  environment,
   readDatabaseEnv,
 } from '@insurance-max/shared-config';
 
-const environment =
-  process.env.NODE_ENV || process.env.APP_ENV || 'development';
+const environmentName =
+  environment.NODE_ENV || environment.APP_ENV || 'development';
 const envPaths = [
   join(
     process.cwd(),
     'apps',
     'insurance-portal-service',
-    `.env.${environment}`,
+    `.env.${environmentName}`,
   ),
   join(process.cwd(), 'apps', 'insurance-portal-service', '.env'),
 ];

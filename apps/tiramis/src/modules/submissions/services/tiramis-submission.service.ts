@@ -1,3 +1,4 @@
+import { environment } from '@insurance-max/shared-config';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DeepPartial } from 'typeorm';
 
@@ -172,7 +173,7 @@ export class TiramisSubmissionService {
       attempt.status = TIRAMIS_ATTEMPT_STATUS.ACK_SUCCESS;
 
       const callbackTimeoutMinutes = Number(
-        process.env.TIRAMIS_FINAL_CALLBACK_TIMEOUT_MINUTES || 30,
+        environment.TIRAMIS_FINAL_CALLBACK_TIMEOUT_MINUTES || 30,
       );
 
       attempt.finalCallbackDeadlineAt = new Date(
@@ -297,7 +298,7 @@ export class TiramisSubmissionService {
 
     if (params.isRetryable) {
       attempt.maxRetries = Number(
-        process.env.TIRAMIS_RETRY_MAX_ATTEMPTS || attempt.maxRetries || 5,
+        environment.TIRAMIS_RETRY_MAX_ATTEMPTS || attempt.maxRetries || 5,
       );
 
       attempt.nextRetryAt =
@@ -773,11 +774,11 @@ export class TiramisSubmissionService {
 
   private calculateNextRetryAt(currentRetryCount: number): Date {
     const baseDelaySeconds = Number(
-      process.env.TIRAMIS_RETRY_BASE_DELAY_SECONDS || 60,
+      environment.TIRAMIS_RETRY_BASE_DELAY_SECONDS || 60,
     );
 
     const maxDelaySeconds = Number(
-      process.env.TIRAMIS_RETRY_MAX_DELAY_SECONDS || 900,
+      environment.TIRAMIS_RETRY_MAX_DELAY_SECONDS || 900,
     );
 
     const delaySeconds = Math.min(

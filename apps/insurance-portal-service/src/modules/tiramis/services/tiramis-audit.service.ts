@@ -1,3 +1,4 @@
+import { environment } from '@insurance-max/shared-config';
 import { Injectable, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 
@@ -38,7 +39,7 @@ export class TiramisAuditService {
     durationMs?: number | null;
     authContext?: any;
   }) {
-    if (process.env.TIRAMIS_AUDIT_ENABLED === 'false') {
+    if (environment.TIRAMIS_AUDIT_ENABLED === 'false') {
       return null;
     }
 
@@ -288,7 +289,7 @@ export class TiramisAuditService {
   }
 
   private shouldStorePayloadSnapshot(): boolean {
-    return process.env.TIRAMIS_AUDIT_STORE_PAYLOAD_SNAPSHOT === 'true';
+    return environment.TIRAMIS_AUDIT_STORE_PAYLOAD_SNAPSHOT === 'true';
   }
 
   private sanitizeMetadata(metadata?: Record<string, any> | null): any {
@@ -297,7 +298,7 @@ export class TiramisAuditService {
     }
 
     const maxSize = Number(
-      process.env.TIRAMIS_AUDIT_MAX_METADATA_SIZE || 20000,
+      environment.TIRAMIS_AUDIT_MAX_METADATA_SIZE || 20000,
     );
     let clone: any;
 

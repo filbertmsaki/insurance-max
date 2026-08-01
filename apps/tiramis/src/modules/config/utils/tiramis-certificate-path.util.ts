@@ -1,10 +1,11 @@
 import { existsSync } from 'fs';
 import { isAbsolute, normalize, resolve } from 'path';
+import { environment } from '@insurance-max/shared-config';
 
 const projectRoot = process.cwd();
 
 function candidateCertificatePaths(certificatePath: string): string[] {
-  const baseDir = process.env.TIRAMIS_CERTIFICATE_BASE_DIR?.trim();
+  const baseDir = environment.TIRAMIS_CERTIFICATE_BASE_DIR?.trim();
 
   return [
     ...(baseDir ? [resolve(baseDir, certificatePath)] : []),

@@ -1,3 +1,4 @@
+import { environment } from '@insurance-max/shared-config';
 import { Injectable, Logger } from '@nestjs/common';
 import * as crypto from 'crypto';
 
@@ -135,7 +136,7 @@ export class TiramisNotificationService {
     tracking: any;
     metadata?: Record<string, any> | null;
   }) {
-    if (process.env.TIRAMIS_NOTIFICATION_NOTIFY_FINAL_SUCCESS !== 'true') {
+    if (environment.TIRAMIS_NOTIFICATION_NOTIFY_FINAL_SUCCESS !== 'true') {
       return null;
     }
 
@@ -207,7 +208,7 @@ export class TiramisNotificationService {
     metadata?: Record<string, any> | null;
   }) {
     if (
-      process.env.TIRAMIS_NOTIFICATION_NOTIFY_BUSINESS_SYNC_SUCCESS !== 'true'
+      environment.TIRAMIS_NOTIFICATION_NOTIFY_BUSINESS_SYNC_SUCCESS !== 'true'
     ) {
       return null;
     }
@@ -402,14 +403,14 @@ export class TiramisNotificationService {
     status?: string | null;
     metadata?: Record<string, any> | null;
   }) {
-    if (process.env.TIRAMIS_NOTIFICATION_ENABLED === 'false') {
+    if (environment.TIRAMIS_NOTIFICATION_ENABLED === 'false') {
       return null;
     }
 
     try {
       const dedupeKey = this.buildDedupeKey(params);
       const dedupeMinutes = Number(
-        process.env.TIRAMIS_NOTIFICATION_DEDUPE_MINUTES || 30,
+        environment.TIRAMIS_NOTIFICATION_DEDUPE_MINUTES || 30,
       );
 
       const existing =
@@ -464,7 +465,7 @@ export class TiramisNotificationService {
   }
 
   private async sendWebhookIfEnabled(notification: any) {
-    if (process.env.TIRAMIS_NOTIFICATION_WEBHOOK_ENABLED !== 'true') {
+    if (environment.TIRAMIS_NOTIFICATION_WEBHOOK_ENABLED !== 'true') {
       await this.notificationRepository.markDeliverySkipped(
         notification.id,
         'Webhook disabled',
@@ -472,7 +473,7 @@ export class TiramisNotificationService {
       return;
     }
 
-    const webhookUrl = process.env.TIRAMIS_NOTIFICATION_WEBHOOK_URL;
+    const webhookUrl = environment.TIRAMIS_NOTIFICATION_WEBHOOK_URL;
 
     if (!webhookUrl) {
       await this.notificationRepository.markDeliverySkipped(
@@ -487,9 +488,9 @@ export class TiramisNotificationService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(process.env.TIRAMIS_NOTIFICATION_WEBHOOK_TOKEN
+          ...(environment.TIRAMIS_NOTIFICATION_WEBHOOK_TOKEN
             ? {
-                Authorization: `Bearer ${process.env.TIRAMIS_NOTIFICATION_WEBHOOK_TOKEN}`,
+                Authorization: `Bearer ${environment.TIRAMIS_NOTIFICATION_WEBHOOK_TOKEN}`,
               }
             : {}),
         },
@@ -592,7 +593,7 @@ export class TiramisNotificationService {
     }
 
     const maxSize = Number(
-      process.env.TIRAMIS_NOTIFICATION_MAX_METADATA_SIZE || 20000,
+      environment.TIRAMIS_NOTIFICATION_MAX_METADATA_SIZE || 20000,
     );
 
     let clone: any;

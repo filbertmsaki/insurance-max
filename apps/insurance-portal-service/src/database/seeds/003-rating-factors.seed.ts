@@ -1,3 +1,4 @@
+import { environment } from '@insurance-max/shared-config';
 import { DataSource, Repository } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
 import { Company } from '../../modules/platform/companies/entities/company.entity';
@@ -46,7 +47,7 @@ export default class RatingFactorsSeeder implements Seeder {
   private async getTargetCompany(
     companyRepo: Repository<Company>,
   ): Promise<Company> {
-    const targetCompanyCode = process.env.SEED_TARGET_COMPANY_CODE ?? 'ICC110';
+    const targetCompanyCode = environment.SEED_TARGET_COMPANY_CODE ?? 'ICC110';
 
     const company = await companyRepo.findOne({
       where: {

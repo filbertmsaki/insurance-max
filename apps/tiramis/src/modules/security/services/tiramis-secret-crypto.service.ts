@@ -1,4 +1,5 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   createCipheriv,
   createDecipheriv,
@@ -9,6 +10,8 @@ import {
 @Injectable()
 export class TiramisSecretCryptoService {
   private readonly prefix = 'enc:v1';
+
+  constructor(private readonly configService: ConfigService) {}
 
   encrypt(plainText?: string | null): string | null {
     if (!plainText) {
@@ -98,7 +101,9 @@ export class TiramisSecretCryptoService {
   }
 
   private getEncryptionKey(): Buffer {
-    const rawKey = process.env.TIRAMIS_SECRET_ENCRYPTION_KEY;
+    const rawKey = this.configService.get<string>(
+      'TIRAMIS_SECRET_ENCRYPTION_KEY',
+    );
 
     if (!rawKey) {
       throw new InternalServerErrorException(

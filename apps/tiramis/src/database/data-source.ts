@@ -7,6 +7,7 @@ import { DataSource } from 'typeorm';
 
 import {
   createDataSourceOptions,
+  environment,
   readDatabaseEnv,
 } from '@insurance-max/shared-config';
 
@@ -41,10 +42,10 @@ import { TiramisTransactionEntity } from '../modules/submissions/entities/tirami
 import { TiramisVerificationRequestEntity } from '../modules/verifications/entities/tiramis-verification-request.entity';
 import { TiramisVerificationResponseEntity } from '../modules/verifications/entities/tiramis-verification-response.entity';
 
-const environment =
-  process.env.NODE_ENV || process.env.APP_ENV || 'development';
+const environmentName =
+  environment.NODE_ENV || environment.APP_ENV || 'development';
 const envPaths = [
-  join(process.cwd(), 'apps', 'tiramis', `.env.${environment}`),
+  join(process.cwd(), 'apps', 'tiramis', `.env.${environmentName}`),
   join(process.cwd(), 'apps', 'tiramis', '.env'),
 ];
 

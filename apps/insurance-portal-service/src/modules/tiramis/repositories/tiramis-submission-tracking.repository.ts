@@ -1,3 +1,4 @@
+import { environment } from '@insurance-max/shared-config';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { SelectQueryBuilder, In, IsNull, Repository } from 'typeorm';
@@ -498,7 +499,7 @@ export class TiramisSubmissionTrackingRepository {
     const maxRetryAttempts =
       tracking.maxRetryAttempts ||
       params.maxRetryAttempts ||
-      Number(process.env.TIRAMIS_RETRY_MAX_ATTEMPTS || 3);
+      Number(environment.TIRAMIS_RETRY_MAX_ATTEMPTS || 3);
 
     if (retryAttempts >= maxRetryAttempts) {
       return this.markRetryExhausted(id, {
@@ -510,7 +511,7 @@ export class TiramisSubmissionTrackingRepository {
       retryAttempts,
       baseDelaySeconds:
         params.baseDelaySeconds ||
-        Number(process.env.TIRAMIS_RETRY_BASE_DELAY_SECONDS || 60),
+        Number(environment.TIRAMIS_RETRY_BASE_DELAY_SECONDS || 60),
     });
 
     await this.repository.update(
@@ -539,7 +540,7 @@ export class TiramisSubmissionTrackingRepository {
 
   async findRetryCandidates(params?: { limit?: number }) {
     const limit = Math.min(Math.max(Number(params?.limit || 25), 1), 100);
-    const lockMinutes = Number(process.env.TIRAMIS_RETRY_LOCK_MINUTES || 5);
+    const lockMinutes = Number(environment.TIRAMIS_RETRY_LOCK_MINUTES || 5);
 
     return this.repository
       .createQueryBuilder('tracking')
@@ -565,7 +566,7 @@ export class TiramisSubmissionTrackingRepository {
   }
 
   async acquireRetryLock(id: string, lockId: string) {
-    const lockMinutes = Number(process.env.TIRAMIS_RETRY_LOCK_MINUTES || 5);
+    const lockMinutes = Number(environment.TIRAMIS_RETRY_LOCK_MINUTES || 5);
 
     const result = await this.repository
       .createQueryBuilder()
@@ -606,7 +607,7 @@ export class TiramisSubmissionTrackingRepository {
     const retryAttempts = (tracking.retryAttempts || 0) + 1;
     const maxRetryAttempts =
       tracking.maxRetryAttempts ||
-      Number(process.env.TIRAMIS_RETRY_MAX_ATTEMPTS || 3);
+      Number(environment.TIRAMIS_RETRY_MAX_ATTEMPTS || 3);
 
     if (retryAttempts >= maxRetryAttempts) {
       await this.repository.update(
@@ -625,7 +626,7 @@ export class TiramisSubmissionTrackingRepository {
       retryAttempts,
       baseDelaySeconds:
         params.baseDelaySeconds ||
-        Number(process.env.TIRAMIS_RETRY_BASE_DELAY_SECONDS || 60),
+        Number(environment.TIRAMIS_RETRY_BASE_DELAY_SECONDS || 60),
     });
 
     await this.repository.update(
@@ -791,7 +792,7 @@ export class TiramisSubmissionTrackingRepository {
         error,
         maxRetryAttempts:
           options?.maxRetryAttempts ||
-          Number(process.env.TIRAMIS_RETRY_MAX_ATTEMPTS || 3),
+          Number(environment.TIRAMIS_RETRY_MAX_ATTEMPTS || 3),
       });
     }
 
@@ -1006,7 +1007,7 @@ export class TiramisSubmissionTrackingRepository {
   private calculateNextRetryAt(retryAttempts: number) {
     const delayMinutes = Math.min(
       Math.pow(2, retryAttempts),
-      Number(process.env.TIRAMIS_RETRY_MAX_DELAY_MINUTES || 30),
+      Number(environment.TIRAMIS_RETRY_MAX_DELAY_MINUTES || 30),
     );
 
     return new Date(Date.now() + delayMinutes * 60 * 1000);

@@ -1,7 +1,7 @@
 import { registerAs } from '@nestjs/config';
 
 export default registerAs('cors', () => {
-  const origins = process.env.CORS_ORIGIN || '*';
+  const origins = process.env.CORS_ALLOWED_ORIGINS || '*';
   const frontendUrl = process.env.APP_FRONTEND_URL?.trim();
 
   const normalizeOrigins = (value: string) =>

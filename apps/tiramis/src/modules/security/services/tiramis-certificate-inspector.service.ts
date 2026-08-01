@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as forge from 'node-forge';
 import { existsSync, readFileSync } from 'fs';
 import { extname } from 'path';
@@ -20,6 +21,8 @@ export interface TiramisCertificateInspectionResult {
 
 @Injectable()
 export class TiramisCertificateInspectorService {
+  constructor(private readonly configService: ConfigService) {}
+
   inspectCertificate(params: {
     certificatePath?: string | null;
     password?: string | null;
@@ -46,7 +49,9 @@ export class TiramisCertificateInspectorService {
     );
 
     const warningDays = Number(
-      process.env.TIRAMIS_CERTIFICATE_EXPIRY_WARNING_DAYS || 30,
+      this.configService.get<number>(
+        'TIRAMIS_CERTIFICATE_EXPIRY_WARNING_DAYS',
+      ) ?? 30,
     );
 
     return {

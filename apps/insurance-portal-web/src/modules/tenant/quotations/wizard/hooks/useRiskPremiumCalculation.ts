@@ -143,7 +143,7 @@ export function useRiskPremiumCalculation(
   const categoryId = useWatch({
     control: form.control,
     name: 'category_id',
-  }) as string;
+  });
   const quotationType = useWatch({
     control: form.control,
     name: 'quotation_type',
@@ -554,16 +554,14 @@ export function useRiskPremiumCalculation(
               ? requestedSumInsured
               : undefined,
           factors: factorValues,
-          effective_date: form.getValues('valid_from') as string,
-          currency_code: ((form.getValues('currency') as string) || 'TZS')
+          effective_date: form.getValues('valid_from'),
+          currency_code: (form.getValues('currency') || 'TZS')
             .trim()
             .toUpperCase(),
           exchange_rate:
-            ((form.getValues('currency') as string) || 'TZS')
-              .trim()
-              .toUpperCase() === 'TZS'
+            (form.getValues('currency') || 'TZS').trim().toUpperCase() === 'TZS'
               ? 1
-              : Number(form.getValues('exchange_rate') as string) || 1,
+              : Number(form.getValues('exchange_rate')) || 1,
           // Only a requested discount RATE is sent — the backend computes
           // discount_amount from it; the frontend never sends a
           // pre-calculated amount as a trusted value. Loading and

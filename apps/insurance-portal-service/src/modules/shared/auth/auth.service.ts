@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { buildUrl } from '@insurance-max/shared-config';
 import { JwtService } from '@nestjs/jwt';
 import { randomUUID } from 'crypto';
 import type { StringValue } from 'ms';
@@ -1311,10 +1312,21 @@ export class AuthService {
   }
 
   private buildFrontendAuthUrl(path: string): string {
-    const base =
-      this.configService.get<string>('APP_FRONTEND_URL') ??
-      this.configService.getOrThrow<string>('APP_URL');
-    return `${base.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`;
+    return buildUrl(
+      this.getOptionalConfig('app.frontendUrl') ??
+        this.getOptionalConfig('APP_FRONTEND_URL') ??
+        this.getOptionalConfig('app.appUrl') ??
+        this.configService.getOrThrow<string>('APP_URL'),
+      path,
+    );
+  }
+
+  private getOptionalConfig(key: string): string | undefined {
+    try {
+      return this.configService.get<string>(key);
+    } catch {
+      return undefined;
+    }
   }
 
   private isFeatureEnabled(key: string, defaultValue: boolean): boolean {

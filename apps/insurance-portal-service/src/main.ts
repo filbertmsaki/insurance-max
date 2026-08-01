@@ -12,6 +12,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 
 import { HttpExceptionFilter } from '@insurance-max/portal-shared';
+import { buildUrl } from '@insurance-max/shared-config';
 
 import { AppModule } from './app.module';
 
@@ -27,9 +28,8 @@ async function bootstrap() {
   const globalPrefix = configService.get<string>('app.globalPrefix') || 'api';
   const version = configService.get<string>('app.version') || 'v1';
   const versionLabel = version.replace(/^v/i, '') || '1';
-  const browserHost = host === '0.0.0.0' || host === '::' ? 'localhost' : host;
-  const appBaseUrl =
-    configService.get<string>('app.appUrl') || `http://${browserHost}:${port}`;
+  const appBaseUrl = configService.getOrThrow<string>('app.appUrl');
+  const apiBaseUrl = configService.getOrThrow<string>('app.apiBaseUrl');
   const corsEnabled = configService.get<boolean>('cors.enabled') ?? true;
   const rawCorsOrigin =
     configService.get<string | string[]>('cors.origin') ||
@@ -108,11 +108,12 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Insurance Portal Service API')
+    .setTitle(configService.getOrThrow<string>('app.name'))
     .setDescription(
       'Insurance portal microservice for identity, access, products, and rating operations.',
     )
     .setVersion(version)
+    .addServer(apiBaseUrl)
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
@@ -185,7 +186,9 @@ async function bootstrap() {
   await app.listen(port, host);
 
   logger.log(`Insurance portal service running at: ${appBaseUrl}`);
-  logger.log(`Swagger docs available at: ${appBaseUrl}/api-documentation`);
+  logger.log(
+    `Swagger docs available at: ${buildUrl(appBaseUrl, 'api-documentation')}`,
+  );
 }
 
 void bootstrap();

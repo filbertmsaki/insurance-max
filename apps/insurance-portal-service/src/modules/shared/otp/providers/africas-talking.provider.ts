@@ -18,8 +18,14 @@ export class AfricasTalkingProvider implements SmsProvider {
   async send(message: SmsMessage): Promise<void> {
     const isLive = this.username !== 'sandbox';
     const baseUrl = isLive
-      ? 'https://api.africastalking.com'
-      : 'https://api.sandbox.africastalking.com';
+      ? this.configService.get<string>(
+          'AT_LIVE_ENDPOINT',
+          'https://api.africastalking.com',
+        )
+      : this.configService.get<string>(
+          'AT_SANDBOX_ENDPOINT',
+          'https://api.sandbox.africastalking.com',
+        );
 
     const params = new URLSearchParams({
       username: this.username,

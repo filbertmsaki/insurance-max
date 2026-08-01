@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ClientProxy } from '@nestjs/microservices';
 import { catchError, firstValueFrom, of, timeout } from 'rxjs';
 
@@ -11,10 +12,16 @@ export class TiramisPortalNotificationService {
   constructor(
     @Inject('INSURANCE_PORTAL_SERVICE_CLIENT')
     private readonly portalClient: ClientProxy,
+    private readonly configService: ConfigService,
   ) {}
 
   async publish(event: TiramisPortalNotificationEventDto): Promise<void> {
-    if (process.env.TIRAMIS_PORTAL_NOTIFY_ENABLED === 'false') {
+    if (
+      !this.configService.get<boolean>(
+        'tiramisService.portalNotifyEnabled',
+        true,
+      )
+    ) {
       return;
     }
 

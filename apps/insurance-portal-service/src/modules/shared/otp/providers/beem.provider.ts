@@ -8,6 +8,7 @@ export class BeemProvider implements SmsProvider {
   private readonly apiKey: string;
   private readonly secretKey: string;
   private readonly senderName: string;
+  private readonly endpoint: string;
 
   constructor(private readonly configService: ConfigService) {
     this.apiKey = configService.get<string>('BEEM_API_KEY', '');
@@ -15,6 +16,10 @@ export class BeemProvider implements SmsProvider {
     this.senderName = configService.get<string>(
       'BEEM_SENDER_NAME',
       'INSURANCE',
+    );
+    this.endpoint = configService.get<string>(
+      'BEEM_ENDPOINT',
+      'https://apisms.beem.africa/v1/send',
     );
   }
 
@@ -31,7 +36,7 @@ export class BeemProvider implements SmsProvider {
       recipients: [{ recipient_id: 1, dest_addr: message.to }],
     });
 
-    const response = await fetch('https://apisms.beem.africa/v1/send', {
+    const response = await fetch(this.endpoint, {
       method: 'POST',
       headers: {
         Authorization: `Basic ${credentials}`,

@@ -1,3 +1,4 @@
+import { environment } from '@insurance-max/shared-config';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
@@ -25,7 +26,7 @@ export class TiramisRetryService {
     private readonly notificationService: TiramisNotificationService,
   ) {}
 
-  @Cron(process.env.TIRAMIS_RETRY_CRON || '*/3 * * * *')
+  @Cron(environment.TIRAMIS_RETRY_CRON || '*/3 * * * *')
   async handleCron() {
     return this.retryPendingSubmissions({
       automatic: true,
@@ -36,7 +37,7 @@ export class TiramisRetryService {
     automatic?: boolean;
     limit?: number;
   }) {
-    if (process.env.TIRAMIS_RETRY_ENABLED === 'false') {
+    if (environment.TIRAMIS_RETRY_ENABLED === 'false') {
       return {
         skipped: true,
         reason: 'TIRAMIS_RETRY_ENABLED=false',
@@ -54,7 +55,7 @@ export class TiramisRetryService {
 
     try {
       const limit = Number(
-        options?.limit || process.env.TIRAMIS_RETRY_LIMIT || 25,
+        options?.limit || environment.TIRAMIS_RETRY_LIMIT || 25,
       );
 
       const candidates = await this.trackingRepository.findRetryCandidates({
@@ -133,7 +134,7 @@ export class TiramisRetryService {
       record.id,
       {
         error: new Error(reason || 'Manual retry scheduled'),
-        maxRetryAttempts: Number(process.env.TIRAMIS_RETRY_MAX_ATTEMPTS || 3),
+        maxRetryAttempts: Number(environment.TIRAMIS_RETRY_MAX_ATTEMPTS || 3),
       },
     );
 

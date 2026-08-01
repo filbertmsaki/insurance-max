@@ -9,7 +9,7 @@ SHARED_DIR="$BASE_DIR/shared"
 CURRENT_LINK="$BASE_DIR/current"
 
 KEEP_RELEASES="${KEEP_RELEASES:-5}"
-HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:9090/health}"
+HEALTH_URL="${HEALTH_URL:?Set HEALTH_URL to the deployed service health URL}"
 PM2_APP_NAME="${PM2_APP_NAME:-tiramis}"
 
 DEPLOY_LOCK_FILE="${DEPLOY_LOCK_FILE:-$BASE_DIR/shared/deploy.lock}"

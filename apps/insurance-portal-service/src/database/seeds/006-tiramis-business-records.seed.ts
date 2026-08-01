@@ -1,3 +1,4 @@
+import { environment } from '@insurance-max/shared-config';
 import { DataSource } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
 
@@ -11,7 +12,7 @@ async function findCompanyId(dataSource: DataSource) {
       ORDER BY created_at ASC
       LIMIT 1
     `,
-    [process.env.SEED_TARGET_COMPANY_CODE ?? 'ICC110'],
+    [environment.SEED_TARGET_COMPANY_CODE ?? 'ICC110'],
   );
 
   return rows[0]?.id || null;
@@ -84,7 +85,7 @@ export default class TiramisBusinessRecordsSeeder implements Seeder {
     dataSource: DataSource,
     _factoryManager: SeederFactoryManager,
   ): Promise<void> {
-    if (process.env.ENABLE_DEMO_SEED !== 'true') {
+    if (environment.ENABLE_DEMO_SEED !== 'true') {
       console.log(
         '[tiramis-business-records-seed] Skipped. ENABLE_DEMO_SEED is not true.',
       );

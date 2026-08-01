@@ -447,11 +447,11 @@ async function main() {
   );
 
   const nonMotorPayload = createNonMotorQuotationPayload() as Record<string, any>;
+  delete nonMotorPayload.internal_quotation.branch_id;
+  delete nonMotorPayload.cover_note_dtl.sale_point_code;
   nonMotorPayload.internal_quotation.insurer_company_id = session.companyId;
-  nonMotorPayload.internal_quotation.branch_id = branchContext.branch.id;
   nonMotorPayload.internal_quotation.category_id = nonMotorCategory.id;
   nonMotorPayload.internal_quotation.product_id = nonMotorProduct.id;
-  nonMotorPayload.cover_note_dtl.sale_point_code = branchContext.salePointCode;
   nonMotorPayload.cover_note_dtl.cover_note_start_date = coverWindow.startDateTime;
   nonMotorPayload.cover_note_dtl.cover_note_end_date = coverWindow.endDateTime;
   nonMotorPayload.cover_note_dtl.cover_note_number =
@@ -467,11 +467,11 @@ async function main() {
   normalizeStandardCoverNote(nonMotorPayload.cover_note_dtl);
 
   const motorPayload = createMotorSingleQuotationPayload() as Record<string, any>;
+  delete motorPayload.internal_quotation.branch_id;
+  delete motorPayload.cover_note_dtl.sale_point_code;
   motorPayload.internal_quotation.insurer_company_id = session.companyId;
-  motorPayload.internal_quotation.branch_id = branchContext.branch.id;
   motorPayload.internal_quotation.category_id = motorCategory.id;
   motorPayload.internal_quotation.product_id = motorProduct.id;
-  motorPayload.cover_note_dtl.sale_point_code = branchContext.salePointCode;
   motorPayload.cover_note_dtl.cover_note_start_date = coverWindow.startDateTime;
   motorPayload.cover_note_dtl.cover_note_end_date = coverWindow.endDateTime;
   motorPayload.cover_note_dtl.cover_note_number =
@@ -492,12 +492,11 @@ async function main() {
   normalizeStandardCoverNote(motorPayload.cover_note_dtl);
 
   const fleetPayload = createMotorFleetQuotationPayload() as Record<string, any>;
+  delete fleetPayload.internal_quotation.branch_id;
+  delete fleetPayload.cover_note_dtl.fleet_hdr.sale_point_code;
   fleetPayload.internal_quotation.insurer_company_id = session.companyId;
-  fleetPayload.internal_quotation.branch_id = branchContext.branch.id;
   fleetPayload.internal_quotation.category_id = motorCategory.id;
   fleetPayload.internal_quotation.product_id = fleetProduct.id;
-  fleetPayload.cover_note_dtl.fleet_hdr.sale_point_code =
-    branchContext.salePointCode;
   fleetPayload.cover_note_dtl.fleet_hdr.cover_note_start_date =
     coverWindow.startDateTime;
   fleetPayload.cover_note_dtl.fleet_hdr.cover_note_end_date =

@@ -4,3 +4,5 @@ export * from './factories/database-config.factory';
 export * from './factories/typeorm-options.factory';
 export * from './loaders';
 export * from './types/service-database-config.interface';
+export * from './utils/url.util';
+export * from './environment';

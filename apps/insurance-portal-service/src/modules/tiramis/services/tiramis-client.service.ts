@@ -1,3 +1,4 @@
+import { environment } from '@insurance-max/shared-config';
 import {
   BadRequestException,
   ConflictException,
@@ -394,7 +395,7 @@ export class TiramisClientService {
             {
               error,
               maxRetryAttempts: Number(
-                process.env.TIRAMIS_RETRY_MAX_ATTEMPTS || 3,
+                environment.TIRAMIS_RETRY_MAX_ATTEMPTS || 3,
               ),
             },
           );
@@ -612,7 +613,7 @@ export class TiramisClientService {
     try {
       return await firstValueFrom(
         this.tiramisClient.send(pattern, payload).pipe(
-          timeout(Number(process.env.TIRAMIS_TCP_TIMEOUT_MS || 60000)),
+          timeout(Number(environment.TIRAMIS_TCP_TIMEOUT_MS || 60000)),
           catchError((error) => {
             throw error;
           }),

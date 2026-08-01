@@ -1,3 +1,4 @@
+import { environment } from '@insurance-max/shared-config';
 import { DataSource, IsNull, Repository } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
@@ -1510,27 +1511,27 @@ export default class InitialRbacSeeder implements Seeder {
       const branchUserRepo = manager.getRepository(BranchUser);
 
       const ownerConfig: SeedUserConfig = {
-        firstName: process.env.INITIAL_OWNER_FIRST_NAME ?? 'Filbert',
-        lastName: process.env.INITIAL_OWNER_LAST_NAME ?? 'Msaki',
-        email: process.env.INITIAL_OWNER_EMAIL ?? 'filbert@alliance.co.tz',
-        phone: process.env.INITIAL_OWNER_PHONE ?? '+255700000001',
-        password: process.env.INITIAL_OWNER_PASSWORD ?? 'Owner123!',
-        userNo: process.env.INITIAL_OWNER_USER_NO ?? 'OWNER-00001',
+        firstName: environment.INITIAL_OWNER_FIRST_NAME ?? 'Filbert',
+        lastName: environment.INITIAL_OWNER_LAST_NAME ?? 'Msaki',
+        email: environment.INITIAL_OWNER_EMAIL ?? 'filbert@alliance.co.tz',
+        phone: environment.INITIAL_OWNER_PHONE ?? '+255700000001',
+        password: environment.INITIAL_OWNER_PASSWORD ?? 'Owner123!',
+        userNo: environment.INITIAL_OWNER_USER_NO ?? 'OWNER-00001',
         userType: 'OWNER',
         officerTitle: 'Owner',
       };
 
       const companyName =
-        process.env.DEFAULT_COMPANY_NAME ?? ALLIANCE_TENANT.companyName;
+        environment.DEFAULT_COMPANY_NAME ?? ALLIANCE_TENANT.companyName;
 
       const adminConfig: SeedUserConfig = {
-        firstName: process.env.INITIAL_COMPANY_ADMIN_FIRST_NAME ?? 'Inocent',
-        lastName: process.env.INITIAL_COMPANY_ADMIN_LAST_NAME ?? 'Nuruva',
+        firstName: environment.INITIAL_COMPANY_ADMIN_FIRST_NAME ?? 'Inocent',
+        lastName: environment.INITIAL_COMPANY_ADMIN_LAST_NAME ?? 'Nuruva',
         email:
-          process.env.INITIAL_COMPANY_ADMIN_EMAIL ?? 'inocent@alliance.co.tz',
-        phone: process.env.INITIAL_COMPANY_ADMIN_PHONE ?? '+255700000002',
-        password: process.env.INITIAL_COMPANY_ADMIN_PASSWORD ?? 'Admin123!',
-        userNo: process.env.INITIAL_COMPANY_ADMIN_USER_NO ?? 'ADMIN-00001',
+          environment.INITIAL_COMPANY_ADMIN_EMAIL ?? 'inocent@alliance.co.tz',
+        phone: environment.INITIAL_COMPANY_ADMIN_PHONE ?? '+255700000002',
+        password: environment.INITIAL_COMPANY_ADMIN_PASSWORD ?? 'Admin123!',
+        userNo: environment.INITIAL_COMPANY_ADMIN_USER_NO ?? 'ADMIN-00001',
         userType: 'COMPANY_USER',
         officerTitle: 'Underwriter',
       };

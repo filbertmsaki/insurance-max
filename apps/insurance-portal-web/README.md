@@ -19,10 +19,10 @@ npm install
 
 ## Environment setup
 
-Copy `.env-example` to `.env` and update values as needed.
+Copy `.env.example` to `.env` and update values as needed.
 
 ```bash
-cp .env-example .env
+cp .env.example .env
 ```
 
 ### Important env values
@@ -73,7 +73,7 @@ npm run preview
 
 - If the app does not start on port `9092`, verify `vite.config.ts` contains `server.port: 9092`.
 - If API calls fail, verify `.env` contains the correct `VITE_API_BASE_URL` and the backend is running on `http://localhost:9090`.
-- For CORS issues, ensure the backend `CORS_ORIGIN` includes `http://localhost:9092`.
+- For CORS issues, ensure the backend `CORS_ALLOWED_ORIGINS` includes `http://localhost:9092`.
 
 You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 

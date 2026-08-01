@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -58,12 +59,23 @@ export class TiramisConfigService {
     private readonly responseCodeRepository: Repository<TiramisResponseCodeEntity>,
     private readonly secretCrypto: TiramisSecretCryptoService,
     private readonly certificateInspector: TiramisCertificateInspectorService,
+    private readonly configService: ConfigService,
   ) {}
 
-  resolveRuntimeEnvironment(
-    appEnv = process.env.APP_ENV || process.env.NODE_ENV || 'development',
-  ) {
-    return appEnv === 'production' ? 'live' : 'test';
+  resolveRuntimeEnvironment(appEnv?: string) {
+    const configuredTarget =
+      this.configService.get<string>('TIRAMIS_TARGET_ENV');
+
+    if (configuredTarget === 'test' || configuredTarget === 'live') {
+      return configuredTarget;
+    }
+
+    const environment =
+      appEnv ??
+      this.configService.get<string>('app.env') ??
+      this.configService.get<string>('APP_ENV') ??
+      'development';
+    return environment === 'production' ? 'live' : 'test';
   }
 
   async getActiveRuntimeConfiguration(): Promise<TiramisClientConfigurationEntity> {

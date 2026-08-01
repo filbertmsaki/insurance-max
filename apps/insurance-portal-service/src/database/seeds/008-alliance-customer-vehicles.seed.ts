@@ -1,3 +1,4 @@
+import { environment } from '@insurance-max/shared-config';
 import { DataSource } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
 import { ALLIANCE_TENANT } from './data/alliance.seed-data';
@@ -470,7 +471,7 @@ export default class AllianceCustomerVehiclesSeeder implements Seeder {
     dataSource: DataSource,
     _factoryManager: SeederFactoryManager,
   ): Promise<void> {
-    if (process.env.ENABLE_DEMO_SEED !== 'true') {
+    if (environment.ENABLE_DEMO_SEED !== 'true') {
       console.log(
         '[alliance-customer-vehicles-seed] Skipped. ENABLE_DEMO_SEED is not true.',
       );

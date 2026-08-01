@@ -1,3 +1,4 @@
+import { environment } from '@insurance-max/shared-config';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { DataSource, Repository } from 'typeorm';
@@ -198,7 +199,7 @@ export default class ProductEngineSeeder implements Seeder {
   private async getTargetCompany(
     companyRepo: Repository<Company>,
   ): Promise<Company> {
-    const targetCompanyCode = process.env.SEED_TARGET_COMPANY_CODE ?? 'ICC110';
+    const targetCompanyCode = environment.SEED_TARGET_COMPANY_CODE ?? 'ICC110';
 
     const company = await companyRepo.findOne({
       where: {

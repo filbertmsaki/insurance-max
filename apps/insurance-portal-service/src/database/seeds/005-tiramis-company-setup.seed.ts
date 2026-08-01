@@ -1,3 +1,4 @@
+import { environment } from '@insurance-max/shared-config';
 import { DataSource, QueryRunner } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
 import {
@@ -108,7 +109,7 @@ export default class TiramisCompanySetupSeeder implements Seeder {
 
     if (
       wrongRows.length > 0 &&
-      process.env.SEED_ALLOW_REFERENCE_CORRECTION !== 'true'
+      environment.SEED_ALLOW_REFERENCE_CORRECTION !== 'true'
     ) {
       throw new Error(
         `[TiramisCompanySetupSeeder] Existing Alliance company has wrong TIRA code. Expected ${ALLIANCE_TENANT.companyCode}. Set SEED_ALLOW_REFERENCE_CORRECTION=true only after backup/review.`,

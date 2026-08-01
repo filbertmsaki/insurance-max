@@ -23,8 +23,6 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         APP_ENV: 'production',
-        APP_HOST: '127.0.0.1',
-        APP_PORT: '9090',
       },
 
       out_file: '/var/log/pm2/tiramis-out.log',

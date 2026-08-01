@@ -1,3 +1,4 @@
+import { environment } from '@insurance-max/shared-config';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 
@@ -24,7 +25,7 @@ export class TiramisStatusSyncService {
     private readonly notificationService: TiramisNotificationService,
   ) {}
 
-  @Cron(process.env.TIRAMIS_STATUS_SYNC_CRON || '*/2 * * * *')
+  @Cron(environment.TIRAMIS_STATUS_SYNC_CRON || '*/2 * * * *')
   async handleCron() {
     return this.syncPendingFinalStatuses({
       automatic: true,
@@ -35,7 +36,7 @@ export class TiramisStatusSyncService {
     automatic?: boolean;
     limit?: number;
   }) {
-    if (process.env.TIRAMIS_STATUS_SYNC_ENABLED === 'false') {
+    if (environment.TIRAMIS_STATUS_SYNC_ENABLED === 'false') {
       return {
         skipped: true,
         reason: 'TIRAMIS_STATUS_SYNC_ENABLED=false',
@@ -55,11 +56,11 @@ export class TiramisStatusSyncService {
 
     try {
       const limit = Number(
-        options?.limit || process.env.TIRAMIS_STATUS_SYNC_LIMIT || 50,
+        options?.limit || environment.TIRAMIS_STATUS_SYNC_LIMIT || 50,
       );
 
       const callbackOverdueMinutes = Number(
-        process.env.TIRAMIS_CALLBACK_OVERDUE_MINUTES || 10,
+        environment.TIRAMIS_CALLBACK_OVERDUE_MINUTES || 10,
       );
 
       const records = await this.trackingRepository.findStatusSyncCandidates({
@@ -160,7 +161,7 @@ export class TiramisStatusSyncService {
     const item = await this.syncTrackingRecord(record, {
       automatic: false,
       callbackOverdueMinutes: Number(
-        process.env.TIRAMIS_CALLBACK_OVERDUE_MINUTES || 10,
+        environment.TIRAMIS_CALLBACK_OVERDUE_MINUTES || 10,
       ),
     });
 
@@ -212,7 +213,7 @@ export class TiramisStatusSyncService {
       requestId: record.tiramisRequestId || undefined,
       businessReference: record.businessReference || undefined,
       includePayload:
-        process.env.TIRAMIS_STATUS_SYNC_INCLUDE_PAYLOAD !== 'false',
+        environment.TIRAMIS_STATUS_SYNC_INCLUDE_PAYLOAD !== 'false',
     });
 
     let updated = await this.trackingRepository.markFinalFromTiramisStatus(

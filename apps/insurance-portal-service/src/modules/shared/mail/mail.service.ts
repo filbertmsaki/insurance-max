@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MailerService } from '@nestjs-modules/mailer';
+import { buildUrl } from '@insurance-max/shared-config';
 
 @Injectable()
 export class MailService {
@@ -110,10 +111,10 @@ export class MailService {
           name: name || 'User',
           appName: this.configService.get<string>('app.name') ?? 'Your App',
           year: new Date().getFullYear(),
-          loginUrl: `${
-            this.configService.get<string>('app.frontendUrl') ??
-            'http://localhost:5173'
-          }/login`,
+          loginUrl: buildUrl(
+            this.configService.getOrThrow<string>('app.frontendUrl'),
+            'login',
+          ),
           supportEmail:
             this.configService.get<string>('app.supportEmail') ??
             'support@yourdomain.com',

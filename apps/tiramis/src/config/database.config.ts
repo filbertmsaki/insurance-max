@@ -5,7 +5,7 @@ export default createDatabaseConfigFactory('tiramisDatabase', 'DB', {
   host: 'localhost',
   port: 5432,
   username: 'postgres',
-  password: 'password',
+  password: '',
   database: 'alliance_db',
   synchronize: false,
   logging: true,

@@ -1,3 +1,4 @@
+import { environment } from '@insurance-max/shared-config';
 import { DataSource, QueryRunner } from 'typeorm';
 
 export async function withSeedTransaction<T>(
@@ -57,7 +58,7 @@ export async function requireColumns(
 }
 
 export function mustEnv(name: string): string {
-  const value = process.env[name];
+  const value = environment[name];
 
   if (!value?.trim()) {
     throw new Error(

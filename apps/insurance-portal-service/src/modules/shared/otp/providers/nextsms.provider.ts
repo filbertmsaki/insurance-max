@@ -8,11 +8,16 @@ export class NextSmsProvider implements SmsProvider {
   private readonly username: string;
   private readonly password: string;
   private readonly senderId: string;
+  private readonly endpoint: string;
 
   constructor(private readonly configService: ConfigService) {
     this.username = configService.get<string>('NEXTSMS_USERNAME', '');
     this.password = configService.get<string>('NEXTSMS_PASSWORD', '');
     this.senderId = configService.get<string>('NEXTSMS_SENDER_ID', 'INFO');
+    this.endpoint = configService.get<string>(
+      'NEXTSMS_ENDPOINT',
+      'https://messaging.nextsms.co.tz/api/sms/v1/text/single',
+    );
   }
 
   async send(message: SmsMessage): Promise<void> {
@@ -26,18 +31,15 @@ export class NextSmsProvider implements SmsProvider {
       text: message.body,
     });
 
-    const response = await fetch(
-      'https://messaging.nextsms.co.tz/api/sms/v1/text/single',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${credentials}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body,
+    const response = await fetch(this.endpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
-    );
+      body,
+    });
 
     if (!response.ok) {
       const errorText = await response.text();

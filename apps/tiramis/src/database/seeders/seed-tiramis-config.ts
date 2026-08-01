@@ -2,6 +2,8 @@ import 'reflect-metadata';
 
 import { createCipheriv, randomBytes } from 'crypto';
 import { join } from 'path';
+import { buildUrl } from '@insurance-max/shared-config';
+import { environment } from '@insurance-max/shared-config';
 
 import dataSource from '../data-source';
 
@@ -46,7 +48,7 @@ function getTiraPublicCertificatePath(environment: EnvironmentName): string {
 }
 
 function mustEnv(name: string): string {
-  const value = process.env[name];
+  const value = environment[name];
 
   if (!value?.trim()) {
     throw new Error(
@@ -58,9 +60,12 @@ function mustEnv(name: string): string {
 }
 
 function optionalEnv(name: string, fallback: string): string {
-  const value = process.env[name];
+  const value = environment[name];
   return value?.trim() ? value.trim() : fallback;
 }
+
+const appUrl = mustEnv('APP_URL');
+const globalPrefix = mustEnv('APP_GLOBAL_PREFIX');
 
 function encryptSecret(plainText: string): string {
   if (!plainText) {
@@ -111,8 +116,14 @@ const configurations: ConfigurationSeed[] = [
     insurerCompanyCode: 'ICC110',
     salePointCode: 'SP500',
     tranCompanyCode: 'ICC110',
-    baseUrl: optionalEnv('TIRAMIS_TEST_BASE_URL', 'http://localhost:5050'),
-    callbackBaseUrl: mustEnv('TIRAMIS_TEST_CALLBACK_BASE_URL'),
+    baseUrl: mustEnv('TIRAMIS_TEST_BASE_URL'),
+    callbackBaseUrl: buildUrl(
+      appUrl,
+      globalPrefix,
+      'tiramis',
+      'callbacks',
+      'test',
+    ),
     clientPrivateCertificatePath: getClientPrivateCertificatePath('test'),
     tiraPublicCertificatePath: getTiraPublicCertificatePath('test'),
     signatureAlgorithm: 'sha1WithRSAEncryption',
@@ -131,7 +142,13 @@ const configurations: ConfigurationSeed[] = [
     salePointCode: 'SP500',
     tranCompanyCode: 'ICC110',
     baseUrl: mustEnv('TIRAMIS_LIVE_BASE_URL'),
-    callbackBaseUrl: mustEnv('TIRAMIS_LIVE_CALLBACK_BASE_URL'),
+    callbackBaseUrl: buildUrl(
+      appUrl,
+      globalPrefix,
+      'tiramis',
+      'callbacks',
+      'live',
+    ),
     clientPrivateCertificatePath: getClientPrivateCertificatePath('live'),
     tiraPublicCertificatePath: getTiraPublicCertificatePath('live'),
     signatureAlgorithm: 'sha1WithRSAEncryption',

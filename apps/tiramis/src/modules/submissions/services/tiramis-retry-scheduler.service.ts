@@ -1,3 +1,4 @@
+import { environment } from '@insurance-max/shared-config';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
@@ -31,7 +32,7 @@ export class TiramisRetrySchedulerService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   async run() {
-    if (process.env.TIRAMIS_RETRY_ENABLED === 'false') {
+    if (environment.TIRAMIS_RETRY_ENABLED === 'false') {
       return;
     }
 
@@ -55,7 +56,7 @@ export class TiramisRetrySchedulerService {
   }
 
   private async retryFailedDeliveries() {
-    const limit = Number(process.env.TIRAMIS_RETRY_BATCH_SIZE || 20);
+    const limit = Number(environment.TIRAMIS_RETRY_BATCH_SIZE || 20);
 
     const attempts = await this.attemptRepository.findRetryableDueAttempts({
       now: new Date(),
@@ -178,7 +179,7 @@ export class TiramisRetrySchedulerService {
         attempt.status = TIRAMIS_ATTEMPT_STATUS.ACK_SUCCESS;
 
         const callbackTimeoutMinutes = Number(
-          process.env.TIRAMIS_FINAL_CALLBACK_TIMEOUT_MINUTES || 30,
+          environment.TIRAMIS_FINAL_CALLBACK_TIMEOUT_MINUTES || 30,
         );
 
         attempt.finalCallbackDeadlineAt = new Date(
@@ -291,7 +292,7 @@ export class TiramisRetrySchedulerService {
   }
 
   private async detectMissingFinalCallbacks() {
-    const limit = Number(process.env.TIRAMIS_RETRY_BATCH_SIZE || 20);
+    const limit = Number(environment.TIRAMIS_RETRY_BATCH_SIZE || 20);
 
     const attempts =
       await this.attemptRepository.findFinalCallbackOverdueAttempts({
@@ -353,11 +354,11 @@ export class TiramisRetrySchedulerService {
 
   private calculateNextRetryAt(currentRetryCount: number): Date {
     const baseDelaySeconds = Number(
-      process.env.TIRAMIS_RETRY_BASE_DELAY_SECONDS || 60,
+      environment.TIRAMIS_RETRY_BASE_DELAY_SECONDS || 60,
     );
 
     const maxDelaySeconds = Number(
-      process.env.TIRAMIS_RETRY_MAX_DELAY_SECONDS || 900,
+      environment.TIRAMIS_RETRY_MAX_DELAY_SECONDS || 900,
     );
 
     const delaySeconds = Math.min(

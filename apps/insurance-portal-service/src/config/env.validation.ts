@@ -1,17 +1,34 @@
 import * as Joi from 'joi';
 
 export const insurancePortalEnvValidationSchema = Joi.object({
-  APP_NAME: Joi.string().default('Insurance Portal Service'),
+  APP_NAME: Joi.string().trim().min(1).default('Insurance Portal Service'),
   APP_ENV: Joi.string()
-    .valid('development', 'production', 'staging', 'test')
+    .valid('local', 'development', 'test', 'uat', 'staging', 'production')
     .default('development'),
-  APP_HOST: Joi.string().default('0.0.0.0'),
-  APP_PORT: Joi.number().default(9090),
-  APP_GLOBAL_PREFIX: Joi.string().default('api'),
-  APP_VERSION: Joi.string().default('v1'),
-  APP_TIMEZONE: Joi.string().default('Africa/Dar_es_Salaam'),
-  APP_URL: Joi.string().uri().default('http://localhost:9090'),
-  APP_FRONTEND_URL: Joi.string().uri().default('http://localhost:9092'),
+  APP_HOST: Joi.string().trim().min(1).default('0.0.0.0'),
+  APP_PORT: Joi.number().integer().min(1).max(65535).default(9090),
+  APP_GLOBAL_PREFIX: Joi.string()
+    .trim()
+    .pattern(/^[^/]+(?:\/[^/]+)*$/)
+    .default('api'),
+  APP_VERSION: Joi.string().trim().default('v1'),
+  APP_TIMEZONE: Joi.string()
+    .trim()
+    .custom((value, helpers) => {
+      try {
+        new Intl.DateTimeFormat('en-US', { timeZone: value }).format();
+        return value;
+      } catch {
+        return helpers.error('any.invalid');
+      }
+    })
+    .default('Africa/Dar_es_Salaam'),
+  APP_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:9090'),
+  APP_FRONTEND_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:3001'),
   SUPPORT_EMAIL: Joi.string().email().default('support@insurance-idp.tz'),
 
   DB_TYPE: Joi.string()
@@ -35,9 +52,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   CACHE_MAX: Joi.number().default(1000),
 
   CORS_ENABLED: Joi.boolean().default(true),
-  CORS_ORIGIN: Joi.string().default(
-    'http://localhost:3000,http://localhost:4200,http://localhost:5173,http://localhost:9092',
-  ),
+  CORS_ALLOWED_ORIGINS: Joi.string().default('http://localhost:3001'),
   CORS_METHODS: Joi.string().default('GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS'),
   CORS_CREDENTIALS: Joi.boolean().default(true),
 
@@ -68,10 +83,30 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   REDIS_KEY_PREFIX: Joi.string().default('insurance-portal:'),
   REDIS_RETRY_ATTEMPTS: Joi.number().default(5),
   REDIS_RETRY_DELAY: Joi.number().default(3000),
+  REDIS_OTP_TTL: Joi.number().default(300),
+  REDIS_SESSION_TTL: Joi.number().default(86400),
 
-  JWT_ACCESS_SECRET: Joi.string().default('default-access-secret'),
-  JWT_REFRESH_SECRET: Joi.string().default('default-refresh-secret'),
-  JWT_RESET_SECRET: Joi.string().default('default-reset-secret'),
+  JWT_ACCESS_SECRET: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().min(32).required(),
+    otherwise: Joi.string()
+      .min(32)
+      .default('local-only-change-me-access-secret-32'),
+  }),
+  JWT_REFRESH_SECRET: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().min(32).required(),
+    otherwise: Joi.string()
+      .min(32)
+      .default('local-only-change-me-refresh-secret-32'),
+  }),
+  JWT_RESET_SECRET: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().min(32).required(),
+    otherwise: Joi.string()
+      .min(32)
+      .default('local-only-change-me-reset-secret-32'),
+  }),
   JWT_ACCESS_EXPIRATION: Joi.string().default('15m'),
   JWT_REFRESH_EXPIRATION: Joi.string().default('7d'),
   JWT_ISSUER: Joi.string().default('insurance-idp.tz'),
@@ -85,17 +120,30 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   OTP_EXPIRY_SECONDS: Joi.number().default(300),
   OTP_MAX_ATTEMPTS: Joi.number().default(3),
   SMS_PROVIDER: Joi.string().default('beem'),
+  NEXTSMS_USERNAME: Joi.string().allow('').default(''),
+  NEXTSMS_PASSWORD: Joi.string().allow('').default(''),
+  NEXTSMS_SENDER_ID: Joi.string().default('INFO'),
+  NEXTSMS_ENDPOINT: Joi.string()
+    .uri()
+    .default('https://messaging.nextsms.co.tz/api/sms/v1/text/single'),
+  BEEM_ENDPOINT: Joi.string()
+    .uri()
+    .default('https://apisms.beem.africa/v1/send'),
+  AT_LIVE_ENDPOINT: Joi.string()
+    .uri()
+    .default('https://api.africastalking.com'),
+  AT_SANDBOX_ENDPOINT: Joi.string()
+    .uri()
+    .default('https://api.sandbox.africastalking.com'),
 
   THROTTLER_TTL: Joi.number().default(60000),
   THROTTLER_LIMIT: Joi.number().default(100),
 
-  TCP_HOST: Joi.string().default('0.0.0.0'),
-  TCP_PORT: Joi.number().default(4002),
+  PORTAL_TCP_HOST: Joi.string().default('0.0.0.0'),
+  PORTAL_TCP_PORT: Joi.number().default(4002),
 
   TIRAMIS_SERVICE_HOST: Joi.string().default('127.0.0.1'),
   TIRAMIS_SERVICE_TCP_PORT: Joi.number().default(4001),
-  TIRAMIS_TCP_HOST: Joi.string().default('127.0.0.1'),
-  TIRAMIS_TCP_PORT: Joi.number().default(4001),
   TIRAMIS_TCP_TIMEOUT_MS: Joi.number().default(60000),
   TIRAMIS_STATUS_SYNC_ENABLED: Joi.boolean().default(true),
   TIRAMIS_STATUS_SYNC_CRON: Joi.string().default('*/2 * * * *'),
@@ -122,7 +170,4 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   TIRAMIS_NOTIFICATION_NOTIFY_FINAL_SUCCESS: Joi.boolean().default(false),
   TIRAMIS_NOTIFICATION_NOTIFY_BUSINESS_SYNC_SUCCESS:
     Joi.boolean().default(false),
-  TIRAMIS_DASHBOARD_DEFAULT_DAYS: Joi.number().default(30),
-  TIRAMIS_DASHBOARD_RECENT_LIMIT: Joi.number().default(20),
-  TIRAMIS_DASHBOARD_OVERDUE_MINUTES: Joi.number().default(10),
 });

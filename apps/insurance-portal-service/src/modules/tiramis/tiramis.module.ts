@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
@@ -43,21 +44,18 @@ import { TiramisStatusSyncService } from './services/tiramis-status-sync.service
       TiramisCompanyConfigurationEntity,
       TiramisSalePointEntity,
     ]),
-    ClientsModule.register([
+    ClientsModule.registerAsync([
       {
         name: TIRAMIS_CLIENT,
-        transport: Transport.TCP,
-        options: {
-          host:
-            process.env.TIRAMIS_SERVICE_HOST ||
-            process.env.TIRAMIS_TCP_HOST ||
-            '127.0.0.1',
-          port: Number(
-            process.env.TIRAMIS_SERVICE_TCP_PORT ||
-              process.env.TIRAMIS_TCP_PORT ||
-              4001,
-          ),
-        },
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        useFactory: (config: ConfigService) => ({
+          transport: Transport.TCP,
+          options: {
+            host: config.getOrThrow<string>('tiramisClient.host'),
+            port: config.getOrThrow<number>('tiramisClient.port'),
+          },
+        }),
       },
     ]),
   ],

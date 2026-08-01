@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { buildUrl } from '@insurance-max/shared-config';
 
 import { AppModule } from './app.module';
 
@@ -11,20 +12,14 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
-  const appHost = configService.get<string>('app.host') || '127.0.0.1';
-  const appPort = configService.get<number>('app.port') || 9090;
-  const globalPrefix = configService.get<string>('app.globalPrefix') || '';
-  const browserHost =
-    appHost === '0.0.0.0' || appHost === '127.0.0.1' || appHost === '::'
-      ? 'localhost'
-      : appHost;
-  const appBaseUrl = `http://${browserHost}:${appPort}`;
-  const apiBaseUrl = globalPrefix
-    ? `${appBaseUrl}/${globalPrefix}`
-    : appBaseUrl;
-  const docsUrl = globalPrefix
-    ? `${appBaseUrl}/${globalPrefix}/docs`
-    : `${appBaseUrl}/docs`;
+  const appHost = configService.getOrThrow<string>('app.host');
+  const appPort = configService.getOrThrow<number>('app.port');
+  const globalPrefix = configService.getOrThrow<string>('app.globalPrefix');
+  const appBaseUrl = configService.getOrThrow<string>('tiramisService.url');
+  const apiBaseUrl = configService.getOrThrow<string>(
+    'tiramisService.apiBaseUrl',
+  );
+  const docsUrl = buildUrl(appBaseUrl, globalPrefix, 'docs');
 
   app.use(
     bodyParser.text({
@@ -38,10 +33,10 @@ async function bootstrap() {
   }
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Tiramis API')
+    .setTitle(configService.getOrThrow<string>('app.name'))
     .setDescription('Tiramis service API documentation')
     .setVersion(configService.get<string>('app.version') || 'v1')
-    .addServer(appBaseUrl)
+    .addServer(apiBaseUrl)
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, swaggerDocument, {
@@ -51,8 +46,8 @@ async function bootstrap() {
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.TCP,
     options: {
-      host: configService.get<string>('transport.host') || '0.0.0.0',
-      port: configService.get<number>('transport.port') || 4001,
+      host: configService.getOrThrow<string>('transport.host'),
+      port: configService.getOrThrow<number>('transport.port'),
     },
   });
 

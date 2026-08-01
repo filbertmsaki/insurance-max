@@ -1,3 +1,4 @@
+import { environment } from '@insurance-max/shared-config';
 import { DataSource } from 'typeorm';
 import { runSeeders } from 'typeorm-extension';
 import PlatformIdpSeeder from './000-platform-idp.seed';
@@ -25,7 +26,7 @@ const productionSeeders = [
 
 export async function runAllSeeders(dataSource: DataSource): Promise<void> {
   const seeds =
-    process.env.ENABLE_DEMO_SEED === 'true'
+    environment.ENABLE_DEMO_SEED === 'true'
       ? [...productionSeeders, TiramisBusinessRecordsSeeder]
       : productionSeeders;
 
