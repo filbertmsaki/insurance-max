@@ -36,7 +36,9 @@ async function bootstrap() {
     .setTitle(configService.getOrThrow<string>('app.name'))
     .setDescription('Tiramis service API documentation')
     .setVersion(configService.get<string>('app.version') || 'v1')
-    .addServer(apiBaseUrl)
+    // The generated paths already contain the global prefix. Keep the server
+    // URL at the origin so Swagger does not produce /api/api/... URLs.
+    .addServer(appBaseUrl)
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, swaggerDocument, {
