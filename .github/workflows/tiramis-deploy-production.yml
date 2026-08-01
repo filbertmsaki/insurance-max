@@ -50,8 +50,9 @@ jobs:
     env:
       BASE_DIR: /opt/apps/tiramis
       APP_NAME: tiramis
-      INTERNAL_HEALTH_URL: ${{ vars.INTERNAL_HEALTH_URL }}
-      PUBLIC_HEALTH_URL: ${{ vars.PUBLIC_HEALTH_URL }}
+      # GitHub Environment variables can override these defaults when hosts change.
+      INTERNAL_HEALTH_URL: ${{ vars.INTERNAL_HEALTH_URL || 'http://127.0.0.1:9090/api/health' }}
+      PUBLIC_HEALTH_URL: ${{ vars.PUBLIC_HEALTH_URL || 'https://ussdvd.alliance.co.tz/tiramis-api/api/health' }}
 
     steps:
       - name: Validate deployment URLs

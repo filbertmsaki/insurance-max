@@ -65,8 +65,9 @@ or production credentials. Real `.env` files remain ignored by Git.
    production.
 4. Set all production database, JWT, SMTP, TIRAMIS, payment, and messaging
    secrets. Production startup rejects missing JWT secrets.
-5. Set GitHub production variables `INTERNAL_HEALTH_URL` and
-   `PUBLIC_HEALTH_URL` before running the TIRAMIS deployment workflow.
+5. GitHub production variables `INTERNAL_HEALTH_URL` and
+   `PUBLIC_HEALTH_URL` may override the workflow defaults when deployment
+   hosts change.
 6. Set `HEALTH_URL` when invoking `deploy/tiramis/deploy.sh`.
 7. Existing database callback URLs are not rewritten. Run a controlled data
    migration only if the deployment intentionally changes those stored URLs.
