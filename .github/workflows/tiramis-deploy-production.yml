@@ -50,8 +50,8 @@ jobs:
     env:
       BASE_DIR: /opt/apps/tiramis
       APP_NAME: tiramis
-      INTERNAL_HEALTH_URL: http://127.0.0.1:9090/health
-      PUBLIC_HEALTH_URL: https://ussdvd.alliance.co.tz/tiramis-api/health
+      INTERNAL_HEALTH_URL: http://127.0.0.1:9090/api/v1/health
+      PUBLIC_HEALTH_URL: https://ussdvd.alliance.co.tz/tiramis-api/api/v1/health
 
     steps:
       - name: Resolve and validate CI run
@@ -309,8 +309,8 @@ jobs:
             echo '- CI run: `${{ steps.release.outputs.run_id }}`'
             echo '- Runner: `${{ runner.name }}`'
             echo "- Server: \`$(hostname)\`"
-            echo '- Internal: `http://127.0.0.1:9090/health`'
-            echo '- Public: `https://ussdvd.alliance.co.tz/tiramis-api/health`'
+            echo '- Internal: `http://127.0.0.1:9090/api/v1/health`'
+            echo '- Public: `https://ussdvd.alliance.co.tz/tiramis-api/api/v1/health`'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Show diagnostic logs after failure
