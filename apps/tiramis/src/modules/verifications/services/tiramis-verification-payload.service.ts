@@ -48,7 +48,7 @@ export class TiramisVerificationPayloadService {
     return {
       VerificationHdr: this.buildHeader(dto, requestId),
       VerificationDtl: {
-        NIN: dto.nin,
+        NationalIdentificationNumber: dto.nin,
       },
     };
   }
