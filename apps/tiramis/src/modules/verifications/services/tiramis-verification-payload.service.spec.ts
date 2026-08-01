@@ -45,7 +45,7 @@ describe('TiramisVerificationPayloadService cover note verification', () => {
     );
   });
 
-  it('omits optional fields that were not supplied and escapes values', () => {
+  it('emits empty elements for missing fields and escapes values', () => {
     const payloadService = new TiramisVerificationPayloadService();
     const xmlBuilder = new TiramisXmlBuilderService();
     const payload = payloadService.buildCoverNoteVerification(
@@ -62,9 +62,11 @@ describe('TiramisVerificationPayloadService cover note verification', () => {
     expect(xml).toContain(
       '<MotorRegistrationNumber>T&amp;233SQA</MotorRegistrationNumber>',
     );
-    expect(xml).not.toContain('<CoverNoteReferenceNumber>');
-    expect(xml).not.toContain('<StickerNumber>');
-    expect(xml).not.toContain('<MotorChassisNumber>');
+    expect(xml).toContain(
+      '<CoverNoteReferenceNumber></CoverNoteReferenceNumber>',
+    );
+    expect(xml).toContain('<StickerNumber></StickerNumber>');
+    expect(xml).toContain('<MotorChassisNumber></MotorChassisNumber>');
   });
 });
 
