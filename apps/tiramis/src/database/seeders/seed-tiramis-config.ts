@@ -102,7 +102,7 @@ const configurations: ConfigurationSeed[] = [
   {
     environment: 'test',
     companyCode: 'ICC110',
-    systemCode: 'LSYS_ALLIANCE_001',
+    systemCode: 'LSYS_ALLIANCE_003',
     clientCode: 'ICC110',
     clientKey: mustEnv('ALLIANCE_TIRA_CLIENT_KEY_TEST'),
     clientPrivateCertificatePassword: mustEnv(
@@ -127,7 +127,7 @@ const configurations: ConfigurationSeed[] = [
   {
     environment: 'live',
     companyCode: 'ICC110',
-    systemCode: 'LSYS_ALLIANCE_001',
+    systemCode: 'LSYS_ALLIANCE_003',
     clientCode: 'ICC110',
     clientKey: mustEnv('ALLIANCE_TIRA_CLIENT_KEY_LIVE'),
     clientPrivateCertificatePassword: mustEnv(
