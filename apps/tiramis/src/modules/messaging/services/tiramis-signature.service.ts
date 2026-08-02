@@ -3,6 +3,7 @@ import {
   constants,
   createPrivateKey,
   createPublicKey,
+  createHash,
   sign,
   verify,
 } from 'crypto';
@@ -39,6 +40,7 @@ export class TiramisSignatureService {
           event: 'tira.signature.created',
           algorithm: 'RSA-SHA1',
           padding: 'RSA_PKCS1_PADDING',
+          clientPublicKeyFingerprint: this.publicKeyFingerprint(privateKeyPem),
           unsignedXml: contentXml,
           signature: encodedSignature,
         }),
@@ -106,6 +108,15 @@ export class TiramisSignatureService {
     // The caller must provide the exact compact business XML. Do not trim,
     // reserialize, normalize, or otherwise change the signed bytes.
     return String(xml || '');
+  }
+
+  private publicKeyFingerprint(privateKeyPem: string): string {
+    const publicKeyDer = createPublicKey(privateKeyPem).export({
+      type: 'spki',
+      format: 'der',
+    });
+
+    return createHash('sha256').update(publicKeyDer).digest('hex');
   }
 
   private loadPrivateKeyFromPfx(
