@@ -139,12 +139,10 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   THROTTLER_TTL: Joi.number().default(60000),
   THROTTLER_LIMIT: Joi.number().default(100),
 
-  PORTAL_TCP_HOST: Joi.string().default('0.0.0.0'),
-  PORTAL_TCP_PORT: Joi.number().default(4002),
-
-  TIRAMIS_SERVICE_HOST: Joi.string().default('127.0.0.1'),
-  TIRAMIS_SERVICE_TCP_PORT: Joi.number().default(4001),
-  TIRAMIS_TCP_TIMEOUT_MS: Joi.number().default(60000),
+  TIRAMIS_SERVICE_BASE_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://127.0.0.1:9091'),
+  TIRAMIS_HTTP_TIMEOUT_MS: Joi.number().default(60000),
   TIRAMIS_STATUS_SYNC_ENABLED: Joi.boolean().default(true),
   TIRAMIS_STATUS_SYNC_CRON: Joi.string().default('*/2 * * * *'),
   TIRAMIS_STATUS_SYNC_LIMIT: Joi.number().default(50),

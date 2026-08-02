@@ -1,14 +1,13 @@
 import { environment } from '@insurance-max/shared-config';
+import { HttpService } from '@nestjs/axios';
 import {
   BadRequestException,
   ConflictException,
-  Inject,
   Injectable,
   Logger,
   RequestTimeoutException,
 } from '@nestjs/common';
-import { ClientProxy } from '@nestjs/microservices';
-import { catchError, firstValueFrom, timeout } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 
 import { SubmitTiramisDto } from '../dto/submit-tiramis.dto';
 import { TiramisStatusQueryDto } from '../dto/tiramis-status-query.dto';
@@ -39,8 +38,7 @@ export class TiramisClientService {
   private readonly submitPatternMap = TIRAMIS_SUBMIT_PATTERN_BY_REQUEST_TYPE;
 
   constructor(
-    @Inject(TIRAMIS_CLIENT)
-    private readonly tiramisClient: ClientProxy,
+    private readonly httpService: HttpService,
     private readonly trackingRepository: TiramisSubmissionTrackingRepository,
     private readonly businessRecordSyncService: TiramisBusinessRecordSyncService,
     private readonly auditService: TiramisAuditService,
@@ -611,14 +609,34 @@ export class TiramisClientService {
 
   private async send(pattern: string, payload: Record<string, any>) {
     try {
-      return await firstValueFrom(
-        this.tiramisClient.send(pattern, payload).pipe(
-          timeout(Number(environment.TIRAMIS_TCP_TIMEOUT_MS || 60000)),
-          catchError((error) => {
-            throw error;
-          }),
-        ),
+      const baseUrl = String(
+        environment.TIRAMIS_SERVICE_BASE_URL || '',
+      ).replace(/\/+$/, '');
+      const route = this.httpRouteForPattern(pattern);
+      const isQuery =
+        pattern === TIRAMIS_MESSAGE_PATTERNS.STATUS ||
+        pattern === TIRAMIS_MESSAGE_PATTERNS.TRACE;
+      const response = await firstValueFrom(
+        this.httpService.request({
+          method: isQuery ? 'GET' : 'POST',
+          url: `${baseUrl}${route.path}`,
+          params: isQuery ? payload : undefined,
+          data: isQuery ? undefined : this.httpPayload(pattern, payload),
+          timeout: Number(environment.TIRAMIS_HTTP_TIMEOUT_MS || 60000),
+          validateStatus: () => true,
+          headers: { Accept: 'application/json' },
+        }),
       );
+
+      if (response.status < 200 || response.status >= 300) {
+        const error: any = new Error(
+          `TIRAMIS HTTP request failed with status ${response.status}`,
+        );
+        error.response = { data: response.data, status: response.status };
+        throw error;
+      }
+
+      return response.data;
     } catch (error: any) {
       if (error?.name === 'TimeoutError') {
         throw new RequestTimeoutException(
@@ -650,6 +668,61 @@ export class TiramisClientService {
             : (response ?? null),
       });
     }
+  }
+
+  private httpPayload(pattern: string, command: Record<string, any>) {
+    const payload = command.payload || command;
+
+    if (pattern === TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR_FLEET) {
+      return { ...payload, isFleet: true };
+    }
+
+    return payload;
+  }
+
+  private httpRouteForPattern(pattern: string): { path: string } {
+    const routes: Record<string, string> = {
+      [TIRAMIS_MESSAGE_PATTERNS.HEALTH]: '/api/health',
+      [TIRAMIS_MESSAGE_PATTERNS.STATUS]: '/api/tiramis/submissions/status',
+      [TIRAMIS_MESSAGE_PATTERNS.TRACE]: '/api/tiramis/submissions/trace',
+      [TIRAMIS_MESSAGE_PATTERNS.SUBMIT_NON_MOTOR]:
+        '/api/tiramis/non-motor/cover-notes/submit',
+      [TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR]: '/api/tiramis/motor/submit',
+      [TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR_FLEET]:
+        '/api/tiramis/motor/submit',
+      [TIRAMIS_MESSAGE_PATTERNS.SUBMIT_REINSURANCE]:
+        '/api/tiramis/reinsurance/submit',
+      [TIRAMIS_MESSAGE_PATTERNS.SUBMIT_POLICY]: '/api/tiramis/policies/submit',
+      [TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_NOTIFICATION]:
+        '/api/tiramis/claims/notification/submit',
+      [TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_INTIMATION]:
+        '/api/tiramis/claims/intimation/submit',
+      [TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_ASSESSMENT]:
+        '/api/tiramis/claims/assessment/submit',
+      [TIRAMIS_MESSAGE_PATTERNS.SUBMIT_DISCHARGE_VOUCHER]:
+        '/api/tiramis/claims/discharge-voucher/submit',
+      [TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_PAYMENT]:
+        '/api/tiramis/claims/payment/submit',
+      [TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_REJECTION]:
+        '/api/tiramis/claims/rejection/submit',
+      [TIRAMIS_MESSAGE_PATTERNS.SUBMIT_COVER_NOTE_VERIFICATION]:
+        '/api/tiramis/verifications/cover-note',
+      [TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR_VERIFICATION]:
+        '/api/tiramis/verifications/motor',
+      [TIRAMIS_MESSAGE_PATTERNS.SUBMIT_NIN_VERIFICATION]:
+        '/api/tiramis/verifications/nin',
+      [TIRAMIS_MESSAGE_PATTERNS.SUBMIT_COMPANY_VERIFICATION]:
+        '/api/tiramis/verifications/company',
+    };
+
+    const path = routes[pattern];
+    if (!path) {
+      throw new BadRequestException(
+        `Unsupported TIRAMIS HTTP route: ${pattern}`,
+      );
+    }
+
+    return { path };
   }
 
   private assertStatusQuery(query: TiramisStatusQueryDto) {

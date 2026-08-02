@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ClientsModule, Transport } from '@nestjs/microservices';
+import { HttpModule } from '@nestjs/axios';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { Branch } from '../branches/entities/branch.entity';
@@ -16,7 +15,6 @@ import { TiramisClientService } from './tiramis-client.service';
 import { PortalTiraSubmissionEvent } from './entities/portal-tira-submission-event.entity';
 import { PortalTiraSubmission } from './entities/portal-tira-submission.entity';
 import { TiramisIntegrationController } from './tiramis-integration.controller';
-import { TiramisIntegrationListener } from './tiramis-integration.listener';
 import { TiramisIntegrationService } from './tiramis-integration.service';
 
 @Module({
@@ -33,22 +31,9 @@ import { TiramisIntegrationService } from './tiramis-integration.service';
       Branch,
       TiramisSalePointEntity,
     ]),
-    ClientsModule.registerAsync([
-      {
-        name: 'TIRAMIS_SERVICE_CLIENT',
-        imports: [ConfigModule],
-        inject: [ConfigService],
-        useFactory: (config: ConfigService) => ({
-          transport: Transport.TCP,
-          options: {
-            host: config.getOrThrow<string>('tiramisClient.host'),
-            port: config.getOrThrow<number>('tiramisClient.port'),
-          },
-        }),
-      },
-    ]),
+    HttpModule,
   ],
-  controllers: [TiramisIntegrationController, TiramisIntegrationListener],
+  controllers: [TiramisIntegrationController],
   providers: [
     TiramisIntegrationService,
     TiramisClientService,

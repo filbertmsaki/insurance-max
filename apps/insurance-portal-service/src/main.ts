@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
@@ -174,15 +173,6 @@ async function bootstrap() {
     swaggerOptions: { persistAuthorization: true },
   });
 
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.TCP,
-    options: {
-      host: configService.get<string>('transport.host') || '0.0.0.0',
-      port: configService.get<number>('transport.port') || 4002,
-    },
-  });
-
-  await app.startAllMicroservices();
   await app.listen(port, host);
 
   logger.log(`Insurance portal service running at: ${appBaseUrl}`);

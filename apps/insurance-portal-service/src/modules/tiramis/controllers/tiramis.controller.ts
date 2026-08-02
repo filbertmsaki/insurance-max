@@ -91,7 +91,7 @@ export class TiramisController {
   }
 
   @ApiOperation({
-    summary: 'Check TCP connection from portal to tiramis-service',
+    summary: 'Check HTTP connection from portal to tiramis-service',
   })
   @RequireTiramisPermissions(TiramisPermissions.VIEW_TRACKING)
   @Get('service-health')
