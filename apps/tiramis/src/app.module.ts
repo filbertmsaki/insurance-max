@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -48,6 +49,7 @@ import { TiramisVerificationResponseEntity } from './modules/verifications/entit
 import { TiramisModule } from './modules/tiramis.module';
 import { AppController } from './app.controller';
 import { HealthModule } from './health/health.module';
+import { TiramisResponseInterceptor } from './common/interceptors/tiramis-response.interceptor';
 
 @Module({
   imports: [
@@ -109,5 +111,11 @@ import { HealthModule } from './health/health.module';
     HealthModule,
   ],
   controllers: [AppController],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: TiramisResponseInterceptor,
+    },
+  ],
 })
 export class AppModule {}

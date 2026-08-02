@@ -355,6 +355,7 @@ export class TiramisVerificationService {
     );
 
     return {
+      signatureVerified: responseSignatureValid,
       request: savedRequest,
       response: savedResponse,
       transaction,
