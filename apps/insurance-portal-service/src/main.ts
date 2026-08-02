@@ -28,7 +28,6 @@ async function bootstrap() {
   const version = configService.get<string>('app.version') || 'v1';
   const versionLabel = version.replace(/^v/i, '') || '1';
   const appBaseUrl = configService.getOrThrow<string>('app.appUrl');
-  const apiBaseUrl = configService.getOrThrow<string>('app.apiBaseUrl');
   const corsEnabled = configService.get<boolean>('cors.enabled') ?? true;
   const rawCorsOrigin =
     configService.get<string | string[]>('cors.origin') ||
@@ -112,7 +111,9 @@ async function bootstrap() {
       'Insurance portal microservice for identity, access, products, and rating operations.',
     )
     .setVersion(version)
-    .addServer(apiBaseUrl)
+    // Swagger paths already include the global prefix and URI version.
+    // Keep the server URL at the origin to avoid generating /api/api/... URLs.
+    .addServer(appBaseUrl)
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' })
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
