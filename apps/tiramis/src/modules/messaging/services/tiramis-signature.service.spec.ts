@@ -3,15 +3,17 @@ import { generateKeyPairSync } from 'crypto';
 import { TiramisSignatureService } from './tiramis-signature.service';
 
 describe('TiramisSignatureService', () => {
-  it('preserves XML whitespace when preparing content for signing', () => {
+  it('preserves internal XML whitespace and trims only outer whitespace', () => {
     const service = new TiramisSignatureService();
     const content =
       '<MotorVerificationReq>\n  <A>1</A>\n</MotorVerificationReq>';
 
-    expect((service as any).normalizeXmlForSignature(content)).toBe(content);
+    expect((service as any).normalizeXmlForSignature(`  ${content}  `)).toBe(
+      content,
+    );
   });
 
-  it('does not remove declarations or alter signed content', () => {
+  it('does not remove an XML declaration because PHP signs the supplied content', () => {
     const service = new TiramisSignatureService();
     const content =
       '<?xml version="1.0" encoding="UTF-8"?>\n<MotorVerificationReq>\n  <A>1</A>\n</MotorVerificationReq>';
@@ -45,7 +47,10 @@ describe('TiramisSignatureService', () => {
     ).toBe(true);
     expect(
       service.verifyXmlContent({
-        contentXml: `${contentXml} `,
+        contentXml: contentXml.replace(
+          '<MotorCategory>1</MotorCategory>',
+          '<MotorCategory>1</MotorCategory> ',
+        ),
         signature,
         publicCertificatePfxPath: 'unused.pfx',
       }),

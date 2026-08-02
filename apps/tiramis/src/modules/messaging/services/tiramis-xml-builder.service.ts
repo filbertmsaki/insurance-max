@@ -70,7 +70,11 @@ export class TiramisXmlBuilderService {
       ? '<?xml version="1.0" encoding="UTF-8"?>\n'
       : '';
 
-    return `${declaration}<TiraMsg>${params.contentXml}<MsgSignature>${params.signature}</MsgSignature></TiraMsg>`;
+    // PHP uses trim($content) before signing and sends that same content.
+    const contentXml = String(params.contentXml || '').trim();
+    const signature = String(params.signature || '').trim();
+
+    return `${declaration}<TiraMsg>${contentXml}<MsgSignature>${signature}</MsgSignature></TiraMsg>`;
   }
 
   buildAcknowledgementMessage(params: {

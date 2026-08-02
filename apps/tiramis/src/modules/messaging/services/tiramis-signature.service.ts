@@ -105,9 +105,9 @@ export class TiramisSignatureService {
   }
 
   private normalizeXmlForSignature(xml: string): string {
-    // The caller must provide the exact compact business XML. Do not trim,
-    // reserialize, normalize, or otherwise change the signed bytes.
-    return String(xml || '');
+    // Match the working PHP implementation: trim only the outer whitespace,
+    // then sign these exact bytes. Internal XML whitespace is preserved.
+    return String(xml || '').trim();
   }
 
   private publicKeyFingerprint(privateKeyPem: string): string {
