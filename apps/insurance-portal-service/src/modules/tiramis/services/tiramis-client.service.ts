@@ -685,7 +685,6 @@ export class TiramisClientService {
       case TiramisRequestType.MOTOR_VERIFICATION:
       case TiramisRequestType.NIN_VERIFICATION:
       case TiramisRequestType.COMPANY_VERIFICATION:
-      case TiramisRequestType.DETAILS_VERIFICATION:
         return 'verifications';
 
       default:

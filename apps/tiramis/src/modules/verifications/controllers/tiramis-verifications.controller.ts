@@ -4,7 +4,6 @@ import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   CompanyVerificationDto,
   CoverNoteVerificationDto,
-  DetailsVerificationDto,
   MotorVerificationDto,
   NinVerificationDto,
 } from '../dto/create-verification.dto';
@@ -44,13 +43,6 @@ export class TiramisVerificationsController {
   @Post('motor')
   verifyMotor(@Body() dto: MotorVerificationDto) {
     return this.tiramisVerificationService.verifyMotor(dto);
-  }
-
-  @ApiOperation({ summary: 'Verify combined motor and cover note details' })
-  @ApiBody({ type: DetailsVerificationDto })
-  @Post('details')
-  verifyDetails(@Body() dto: DetailsVerificationDto) {
-    return this.tiramisVerificationService.verifyDetails(dto);
   }
 
   @Get('request/:requestId')

@@ -158,16 +158,6 @@ const CANONICAL_SERVICE_ENDPOINTS = [
       '/dispatch/api/company/verification/request',
     ],
   }),
-  createEndpoint({
-    serviceType: 'DETAILS_VERIFICATION',
-    endpointUrl: '/dispatch/api/details/verification/v1/request',
-    requestRoots: ['DetailsVerificationReq'],
-    mode: 'sync',
-    aliases: [
-      '/ecovernote/api/details/verification/v1/request',
-      '/dispatch/api/details/verification/request',
-    ],
-  }),
 ];
 
 function flattenEndpointsWithAliases() {
@@ -215,7 +205,6 @@ const LEGACY_MOCK_ENDPOINT = {
     'MotorVerificationReq',
     'NINVerificationReq',
     'CompanyVerificationReq',
-    'DetailsVerificationReq',
   ],
   mode: 'mixed',
   aliases: [],

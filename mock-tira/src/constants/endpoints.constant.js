@@ -31,7 +31,6 @@ const SYNC_RESPONSE_ROOTS = {
   NINVerificationReq: 'NINVerificationRes',
   CompanyVerificationReq: 'CompanyVerificationRes',
   MotorVerificationReq: 'MotorVerificationRes',
-  DetailsVerificationReq: 'DetailsVerificationRes',
 };
 
 const SEEDED_SERVICE_ENDPOINTS = [

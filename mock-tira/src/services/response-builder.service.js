@@ -393,24 +393,6 @@ function buildSyncExtraFields(root, originalXml, responseData = {}) {
     ].join('');
   }
 
-  if (root === 'DetailsVerificationReq') {
-    const nin = getTag(originalXml, 'NIN');
-    const tin = getTag(originalXml, 'TIN');
-    const registrationNumber = getTag(originalXml, 'RegistrationNumber');
-    const coverNoteReferenceNumber = getTag(originalXml, 'CoverNoteReferenceNumber');
-    const policyNumber = getTag(originalXml, 'PolicyNumber');
-
-    return [
-      `<NIN>${escapeXml(nin || '')}</NIN>`,
-      `<TIN>${escapeXml(tin || '')}</TIN>`,
-      `<RegistrationNumber>${escapeXml(registrationNumber || '')}</RegistrationNumber>`,
-      `<CoverNoteReferenceNumber>${escapeXml(coverNoteReferenceNumber || '')}</CoverNoteReferenceNumber>`,
-      `<PolicyNumber>${escapeXml(policyNumber || '')}</PolicyNumber>`,
-      `<VerificationStatus>${escapeXml(verificationStatus)}</VerificationStatus>`,
-      `<VerificationMessage>${escapeXml(verificationMessage)}</VerificationMessage>`,
-    ].join('');
-  }
-
   return '';
 }
 

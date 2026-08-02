@@ -24,7 +24,6 @@ import {
 import {
   CompanyVerificationDto,
   CoverNoteVerificationDto,
-  DetailsVerificationDto,
   MotorVerificationDto,
   NinVerificationDto,
 } from '../dto/create-verification.dto';
@@ -112,34 +111,6 @@ export class TiramisVerificationService {
         'MOTOR_VERIFICATION',
       buildPayload: (resolvedDto, requestId) =>
         this.payloadService.buildMotorVerification(resolvedDto, requestId),
-    });
-  }
-
-  verifyDetails(dto: DetailsVerificationDto) {
-    if (
-      !dto.motorRegistrationNumber &&
-      !dto.motorChassisNumber &&
-      !dto.coverNoteReferenceNumber &&
-      !dto.stickerNumber
-    ) {
-      throw new BadRequestException(
-        'At least one detail verification search value is required',
-      );
-    }
-
-    return this.resolveAndSubmit({
-      dto,
-      verificationType: TIRAMIS_VERIFICATION_TYPE.DETAILS,
-      serviceType: TIRAMIS_VERIFICATION_SERVICE_TYPE.DETAILS_VERIFICATION,
-      rootElement: TIRAMIS_VERIFICATION_ROOT_ELEMENT.DETAILS,
-      businessReference:
-        dto.motorRegistrationNumber ||
-        dto.motorChassisNumber ||
-        dto.coverNoteReferenceNumber ||
-        dto.stickerNumber ||
-        'DETAILS_VERIFICATION',
-      buildPayload: (resolvedDto, requestId) =>
-        this.payloadService.buildDetailsVerification(resolvedDto, requestId),
     });
   }
 

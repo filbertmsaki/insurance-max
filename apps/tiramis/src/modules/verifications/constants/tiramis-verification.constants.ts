@@ -3,7 +3,6 @@ export const TIRAMIS_VERIFICATION_TYPE = {
   NIN: 'NIN',
   COMPANY: 'COMPANY',
   MOTOR: 'MOTOR',
-  DETAILS: 'DETAILS',
 } as const;
 
 export enum MotorCategory {
@@ -24,7 +23,6 @@ export const TIRAMIS_VERIFICATION_SERVICE_TYPE = {
   NIN_VERIFICATION: 'NIN_VERIFICATION',
   COMPANY_VERIFICATION: 'COMPANY_VERIFICATION',
   MOTOR_VERIFICATION: 'MOTOR_VERIFICATION',
-  DETAILS_VERIFICATION: 'DETAILS_VERIFICATION',
 } as const;
 
 export const TIRAMIS_VERIFICATION_ROOT_ELEMENT = {
@@ -32,7 +30,6 @@ export const TIRAMIS_VERIFICATION_ROOT_ELEMENT = {
   NIN: 'NINVerificationReq',
   COMPANY: 'CompanyVerificationReq',
   MOTOR: 'MotorVerificationReq',
-  DETAILS: 'DetailsVerificationReq',
 } as const;
 
 export const TIRAMIS_VERIFICATION_STATUS = {

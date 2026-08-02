@@ -24,7 +24,6 @@ const PATTERNS = {
   SUBMIT_MOTOR_VERIFICATION: 'tiramis.verification.motor.submit',
   SUBMIT_NIN_VERIFICATION: 'tiramis.verification.nin.submit',
   SUBMIT_COMPANY_VERIFICATION: 'tiramis.verification.company.submit',
-  SUBMIT_DETAILS_VERIFICATION: 'tiramis.verification.details.submit',
 };
 
 @Controller()
@@ -96,16 +95,6 @@ export class TiramisTcpGatewayController {
       command,
       async () =>
         this.verificationService.verifyCompany(command.payload as any),
-    );
-  }
-
-  @MessagePattern(PATTERNS.SUBMIT_DETAILS_VERIFICATION)
-  async submitDetailsVerification(@Payload() command: TiramisPortalCommand) {
-    return this.handleSubmit(
-      PATTERNS.SUBMIT_DETAILS_VERIFICATION,
-      command,
-      async () =>
-        this.verificationService.verifyDetails(command.payload as any),
     );
   }
 

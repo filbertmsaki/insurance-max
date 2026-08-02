@@ -19,7 +19,6 @@ export const TIRAMIS_MESSAGE_PATTERNS = {
   SUBMIT_MOTOR_VERIFICATION: 'tiramis.verification.motor.submit',
   SUBMIT_NIN_VERIFICATION: 'tiramis.verification.nin.submit',
   SUBMIT_COMPANY_VERIFICATION: 'tiramis.verification.company.submit',
-  SUBMIT_DETAILS_VERIFICATION: 'tiramis.verification.details.submit',
 } as const;
 
 export const TIRAMIS_SUBMIT_PATTERN_BY_REQUEST_TYPE: Record<
@@ -51,6 +50,4 @@ export const TIRAMIS_SUBMIT_PATTERN_BY_REQUEST_TYPE: Record<
     TIRAMIS_MESSAGE_PATTERNS.SUBMIT_NIN_VERIFICATION,
   [TiramisRequestType.COMPANY_VERIFICATION]:
     TIRAMIS_MESSAGE_PATTERNS.SUBMIT_COMPANY_VERIFICATION,
-  [TiramisRequestType.DETAILS_VERIFICATION]:
-    TIRAMIS_MESSAGE_PATTERNS.SUBMIT_DETAILS_VERIFICATION,
 };

@@ -212,10 +212,6 @@ const endpointSeeds = [
     serviceType: 'COMPANY_VERIFICATION',
     endpointUrl: '/dispatch/api/company/verification/v1/request',
   },
-  {
-    serviceType: 'DETAILS_VERIFICATION',
-    endpointUrl: '/dispatch/api/details/verification/v1/request',
-  },
 ];
 
 type ResponseCodeSeed = {
@@ -595,6 +591,11 @@ async function seedClientConfigurations(activeDataSource = dataSource) {
     const savedConfiguration =
       await configurationRepository.save(configuration);
 
+    await endpointRepository.delete({
+      clientConfigurationId: savedConfiguration.id,
+      serviceType: 'DETAILS_VERIFICATION',
+    });
+
     for (const endpointSeed of endpointSeeds) {
       let endpoint = await endpointRepository.findOne({
         where: {
@@ -661,7 +662,7 @@ export async function runTiramisConfigSeed(
       'Seeded Tiramis client configurations, service endpoints, and response codes.',
     );
     console.log(
-      'Note: NIN_VERIFICATION, COMPANY_VERIFICATION, and DETAILS_VERIFICATION endpoints are now seeded alongside the other supported verification endpoints.',
+      'Note: NIN_VERIFICATION and COMPANY_VERIFICATION endpoints are now seeded alongside the other supported verification endpoints.',
     );
   } finally {
     if (shouldManageConnection && activeDataSource.isInitialized) {

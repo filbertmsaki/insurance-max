@@ -533,24 +533,6 @@ export class TiramisBusinessController {
     });
   }
 
-  @ApiOperation({ summary: 'Submit details verification to TIRAMIS' })
-  @ApiBody({ type: SubmitBusinessRecordToTiramisDto })
-  @Post('verifications/details/submit')
-  submitDetailsVerification(
-    @Body() dto: SubmitBusinessRecordToTiramisDto = {},
-    @Req() req: any,
-  ) {
-    return this.tiramisBusinessSubmitService.submitVerification({
-      requestType: TiramisRequestType.DETAILS_VERIFICATION,
-      sourceRecordId: dto.sourceRecordId,
-      payload: dto?.payload || null,
-      businessReference: dto?.businessReference,
-      forceResubmit: dto?.forceResubmit,
-      returnExisting: dto?.returnExisting,
-      authContext: this.getAuthContext(req),
-    });
-  }
-
   private parseRequestType(value: string): TiramisRequestType {
     const normalized = String(value || '')
       .trim()

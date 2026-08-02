@@ -91,10 +91,6 @@ const SYNC_RESPONSE_ROOTS = {
     serviceType: 'COMPANY_VERIFICATION',
   },
 
-  DetailsVerificationReq: {
-    responseRoot: 'DetailsVerificationRes',
-    serviceType: 'DETAILS_VERIFICATION',
-  },
 };
 
 function isAsyncRoot(root) {

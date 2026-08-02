@@ -13,8 +13,7 @@ export type TiramisPortalRequestType =
   | 'COVER_NOTE_VERIFICATION'
   | 'MOTOR_VERIFICATION'
   | 'NIN_VERIFICATION'
-  | 'COMPANY_VERIFICATION'
-  | 'DETAILS_VERIFICATION';
+  | 'COMPANY_VERIFICATION';
 
 export interface SubmitTiramisCommandDto {
   sourceService?: string;

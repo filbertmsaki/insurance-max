@@ -55,17 +55,3 @@ export class MotorVerificationDto extends BaseVerificationDto {
   })
   motorChassisNumber?: string | null;
 }
-
-export class DetailsVerificationDto extends BaseVerificationDto {
-  @ApiPropertyOptional({ nullable: true, example: 'T123ABC' })
-  motorRegistrationNumber?: string | null;
-
-  @ApiPropertyOptional({ nullable: true, example: 'MOCKCHASSIS123456' })
-  motorChassisNumber?: string | null;
-
-  @ApiPropertyOptional({ nullable: true, example: 'TIRA-CN-000001' })
-  coverNoteReferenceNumber?: string | null;
-
-  @ApiPropertyOptional({ nullable: true, example: 'STK000001' })
-  stickerNumber?: string | null;
-}

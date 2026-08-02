@@ -73,10 +73,7 @@ export const TIRAMIS_BUSINESS_RECORD_TABLE_MAP: TiramisBusinessRecordTableMappin
     {
       sourceModule: 'verifications',
       sourceModules: ['verifications', 'verification', 'tiramis-verifications'],
-      requestTypes: [
-        TiramisRequestType.COVER_NOTE_VERIFICATION,
-        TiramisRequestType.DETAILS_VERIFICATION,
-      ],
+      requestTypes: [TiramisRequestType.COVER_NOTE_VERIFICATION],
       tableName: 'tiramis_business_records',
       idColumn: 'id',
       description: 'General verification staging records using stored payload.',

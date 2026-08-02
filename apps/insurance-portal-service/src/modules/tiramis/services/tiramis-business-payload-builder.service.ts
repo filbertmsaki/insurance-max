@@ -186,15 +186,6 @@ export class TiramisBusinessPayloadBuilderService {
           source: 'auto_company_verification_builder',
         };
 
-      case TiramisRequestType.DETAILS_VERIFICATION:
-        return {
-          payload: this.buildDetailsVerificationPayload(
-            record,
-            resolvedContext,
-          ),
-          source: 'auto_details_verification_builder',
-        };
-
       default:
         return {
           payload: this.buildFallbackPayload(
@@ -1139,40 +1130,6 @@ export class TiramisBusinessPayloadBuilderService {
         'incorporationCertificateNumber',
       ),
       customerNumber: this.value(record, 'customer_no', 'customerNo'),
-    });
-  }
-
-  private buildDetailsVerificationPayload(
-    record: any,
-    context: BuilderContext,
-  ) {
-    const common = this.buildCommonPayload(context);
-
-    return this.cleanObject({
-      ...common,
-      coverNoteReferenceNumber: this.value(
-        record,
-        'cover_note_reference_number',
-        'coverNoteReferenceNumber',
-      ),
-      stickerNumber: this.value(record, 'sticker_no', 'stickerNumber'),
-      motorRegistrationNumber: this.value(
-        record,
-        'registration_no',
-        'registrationNumber',
-        'motorRegistrationNumber',
-      ),
-      motorChassisNumber: this.value(
-        record,
-        'chassis_no',
-        'chassisNumber',
-        'motorChassisNumber',
-      ),
-      nin: this.value(record, 'nida_no', 'nidaNo', 'nin', 'NIN', 'id_number'),
-      tin: this.value(record, 'tin', 'TIN'),
-      policyNumber: this.value(record, 'policy_no', 'policyNumber'),
-      customerName: this.buildCustomerName(record),
-      companyName: this.value(record, 'company_name', 'companyName', 'name'),
     });
   }
 

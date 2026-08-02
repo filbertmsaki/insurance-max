@@ -337,20 +337,6 @@ function buildSampleContentXml(params = {}) {
         '</CompanyVerificationReq>',
       ].join('');
 
-    case 'DetailsVerificationReq':
-      return [
-        '<DetailsVerificationReq>',
-        `<RequestId>${fields.requestId}</RequestId>`,
-        `<CompanyCode>${fields.companyCode}</CompanyCode>`,
-        `<SystemCode>${fields.systemCode}</SystemCode>`,
-        '<NIN>19900101123456789001</NIN>',
-        '<TIN>123456789</TIN>',
-        '<RegistrationNumber>T123ABC</RegistrationNumber>',
-        `<CoverNoteReferenceNumber>CNREF-${fields.requestId}</CoverNoteReferenceNumber>`,
-        `<PolicyNumber>POL-${fields.requestId}</PolicyNumber>`,
-        '</DetailsVerificationReq>',
-      ].join('');
-
     default:
       throw new Error(`Unsupported load test root: ${root}`);
   }

@@ -3,7 +3,6 @@ import { Injectable } from '@nestjs/common';
 import type {
   CompanyVerificationDto,
   CoverNoteVerificationDto,
-  DetailsVerificationDto,
   MotorVerificationDto,
   NinVerificationDto,
 } from '../dto/create-verification.dto';
@@ -64,21 +63,6 @@ export class TiramisVerificationPayloadService {
         MotorCategory: dto.motorCategory,
         MotorRegistrationNumber: dto.motorRegistrationNumber || '',
         MotorChassisNumber: dto.motorChassisNumber || '',
-      },
-    };
-  }
-
-  buildDetailsVerification(
-    dto: DetailsVerificationDto & TiramisResolvedRequestDtoFields,
-    requestId: string,
-  ): Record<string, any> {
-    return {
-      VerificationHdr: this.buildHeader(dto, requestId),
-      VerificationDtl: {
-        MotorRegistrationNumber: dto.motorRegistrationNumber || '',
-        MotorChassisNumber: dto.motorChassisNumber || '',
-        CoverNoteReferenceNumber: dto.coverNoteReferenceNumber || '',
-        StickerNumber: dto.stickerNumber || '',
       },
     };
   }

@@ -367,8 +367,7 @@ export class TiramisBusinessSubmitService {
       | TiramisRequestType.COVER_NOTE_VERIFICATION
       | TiramisRequestType.MOTOR_VERIFICATION
       | TiramisRequestType.NIN_VERIFICATION
-      | TiramisRequestType.COMPANY_VERIFICATION
-      | TiramisRequestType.DETAILS_VERIFICATION;
+      | TiramisRequestType.COMPANY_VERIFICATION;
     sourceRecordId?: string | null;
     payload?: Record<string, any> | null;
     businessReference?: string | null;
@@ -723,23 +722,6 @@ export class TiramisBusinessSubmitService {
           payload.tin ||
           payload.TIN ||
           payload.companyName ||
-          null
-        );
-
-      case TiramisRequestType.DETAILS_VERIFICATION:
-        return (
-          payload.coverNoteReferenceNumber ||
-          payload.stickerNumber ||
-          payload.motorRegistrationNumber ||
-          payload.registration_no ||
-          payload.registrationNumber ||
-          payload.motorChassisNumber ||
-          payload.chassisNumber ||
-          payload.nin ||
-          payload.NIN ||
-          payload.tin ||
-          payload.TIN ||
-          payload.policyNumber ||
           null
         );
 

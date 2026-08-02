@@ -183,17 +183,6 @@ const BUSINESS_VALIDATION_RULES = {
     anyOf: [['TIN'], ['RegistrationNumber'], ['CompanyCode']],
   },
 
-  DetailsVerificationReq: {
-    required: [...COMMON_SYNC_HEADER_FIELDS],
-    anyOf: [
-      ['NIN'],
-      ['TIN'],
-      ['RegistrationNumber'],
-      ['CoverNoteReferenceNumber'],
-      ['PolicyNumber'],
-      ['RegistrationNumber'],
-    ],
-  },
 };
 
 const DATE_TIME_FIELDS = [
