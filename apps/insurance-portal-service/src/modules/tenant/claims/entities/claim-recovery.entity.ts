@@ -6,10 +6,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import {
-  ClaimRecoveryStatus,
-  ClaimRecoveryType,
-} from '../enums/claim.enums';
+import { ClaimRecoveryStatus, ClaimRecoveryType } from '../enums/claim.enums';
 
 @Entity('claim_recoveries')
 export class ClaimRecovery {

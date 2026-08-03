@@ -104,4 +104,17 @@ export class DashboardController {
   ) {
     return this.dashboardService.getTasks(user, query);
   }
+
+  @Get('reinsurance')
+  @UseGuards(PermissionsGuard)
+  @Permissions(DashboardPermissions.REINSURANCE)
+  @ApiOperation({
+    summary: 'Get reinsurance dashboard information',
+  })
+  getReinsurance(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: DashboardQueryDto,
+  ) {
+    return this.dashboardService.getReinsurance(user, query);
+  }
 }

@@ -26,6 +26,11 @@ import { PaymentStatus } from '../quotations/enums/payment-status.enum';
 import { QuotationStatus } from '../quotations/enums/quotation-status.enum';
 import { TiraStatus } from '../quotations/enums/tira-status.enum';
 import { Quotation } from '../quotations/entities/quotation.entity';
+import { PolicyCession } from '../reinsurance/entities/policy-cession.entity';
+import { ReinsuranceClaimRecovery } from '../reinsurance/entities/reinsurance-claim-recovery.entity';
+import { ReinsuranceDeclaration } from '../reinsurance/entities/reinsurance-declaration.entity';
+import { ReinsuranceSettlement } from '../reinsurance/entities/reinsurance-settlement.entity';
+import { ReinsuranceTreaty } from '../reinsurance/entities/reinsurance-treaty.entity';
 import { DashboardCacheService } from './dashboard-cache.service';
 import { DashboardGroupBy, DashboardQueryDto } from './dto/dashboard-query.dto';
 import { DashboardPermissions } from './dashboard.permissions';
@@ -80,6 +85,21 @@ export class DashboardService {
     @InjectRepository(TiramisSubmissionTrackingEntity)
     private readonly tiramisTrackingRepository: Repository<TiramisSubmissionTrackingEntity>,
 
+    @InjectRepository(ReinsuranceTreaty)
+    private readonly reinsuranceTreatyRepository: Repository<ReinsuranceTreaty>,
+
+    @InjectRepository(PolicyCession)
+    private readonly policyCessionRepository: Repository<PolicyCession>,
+
+    @InjectRepository(ReinsuranceDeclaration)
+    private readonly reinsuranceDeclarationRepository: Repository<ReinsuranceDeclaration>,
+
+    @InjectRepository(ReinsuranceClaimRecovery)
+    private readonly reinsuranceRecoveryRepository: Repository<ReinsuranceClaimRecovery>,
+
+    @InjectRepository(ReinsuranceSettlement)
+    private readonly reinsuranceSettlementRepository: Repository<ReinsuranceSettlement>,
+
     private readonly dataAccessScopeService: DataAccessScopeService,
     private readonly dashboardCacheService: DashboardCacheService,
     private readonly configService: ConfigService,
@@ -107,8 +127,8 @@ export class DashboardService {
       commissions: has(DashboardPermissions.COMMISSIONS),
       tiramis: has(DashboardPermissions.TIRAMIS),
       tasks: has(DashboardPermissions.TASKS),
-      claims: false,
-      reinsurance: false,
+      claims: has(DashboardPermissions.CLAIMS),
+      reinsurance: has(DashboardPermissions.REINSURANCE),
       endorsements: false,
       renewals: false,
       subscriptions: false,
@@ -264,6 +284,23 @@ export class DashboardService {
         return {
           context: this.buildContext(scope, query, period),
           ...(await this.buildTasks(scope, query, period)),
+          generated_at: new Date().toISOString(),
+        };
+      },
+    );
+  }
+
+  async getReinsurance(user: AuthenticatedUser, query: DashboardQueryDto) {
+    return this.dashboardCacheService.getOrSet(
+      'reinsurance',
+      user,
+      query,
+      async () => {
+        const { scope, period } = this.resolveContext(user, query);
+
+        return {
+          context: this.buildContext(scope, query, period),
+          ...(await this.buildReinsurance(user, query, period)),
           generated_at: new Date().toISOString(),
         };
       },
@@ -1006,6 +1043,271 @@ export class DashboardService {
     };
   }
 
+  private async buildReinsurance(
+    user: AuthenticatedUser,
+    query: DashboardQueryDto,
+    period: DashboardPeriod,
+  ) {
+    const scope = this.dataAccessScopeService.resolve(user);
+
+    const treatyMetricsQuery = this.reinsuranceTreatyRepository
+      .createQueryBuilder('treaty')
+      .select('COUNT(DISTINCT treaty.id)', 'total')
+      .addSelect(
+        `COUNT(DISTINCT treaty.id) FILTER (WHERE treaty.status = 'ACTIVE')`,
+        'active',
+      )
+      .addSelect(
+        `COUNT(DISTINCT treaty.id) FILTER (WHERE treaty.status = 'SUBMITTED')`,
+        'submitted',
+      )
+      .addSelect(
+        `COUNT(DISTINCT treaty.id) FILTER (WHERE treaty.status = 'SUSPENDED')`,
+        'suspended',
+      )
+      .andWhere('treaty.deleted_at IS NULL')
+      .andWhere(
+        `${this.localizedTimestamp('treaty.created_at')} BETWEEN :from AND :to`,
+        {
+          from: period.from,
+          to: period.to,
+        },
+      );
+
+    this.dataAccessScopeService.applyTreatyReadScope(
+      treatyMetricsQuery,
+      'treaty',
+      scope,
+    );
+
+    const cessionMetricsQuery = this.policyCessionRepository
+      .createQueryBuilder('cession')
+      .select('COUNT(DISTINCT cession.id)', 'total')
+      .addSelect(
+        `COUNT(DISTINCT cession.id) FILTER (WHERE cession.status = 'ACTIVE')`,
+        'active',
+      )
+      .addSelect(
+        `COUNT(DISTINCT cession.id) FILTER (WHERE cession.status = 'DECLARED')`,
+        'declared',
+      )
+      .addSelect(
+        `COUNT(DISTINCT cession.id) FILTER (WHERE cession.status = 'SUBMITTED')`,
+        'submitted',
+      )
+      .andWhere('cession.deleted_at IS NULL')
+      .andWhere(
+        `${this.localizedTimestamp('cession.created_at')} BETWEEN :from AND :to`,
+        {
+          from: period.from,
+          to: period.to,
+        },
+      );
+
+    this.dataAccessScopeService.applyReinsuranceCessionReadScope(
+      cessionMetricsQuery,
+      'cession',
+      scope,
+    );
+
+    const declarationMetricsQuery = this.reinsuranceDeclarationRepository
+      .createQueryBuilder('declaration')
+      .select('COUNT(DISTINCT declaration.id)', 'total')
+      .addSelect(
+        `COUNT(DISTINCT declaration.id) FILTER (WHERE declaration.status = 'READY')`,
+        'ready',
+      )
+      .addSelect(
+        `COUNT(DISTINCT declaration.id) FILTER (WHERE declaration.status = 'SUBMITTED')`,
+        'submitted',
+      )
+      .addSelect(
+        `COUNT(DISTINCT declaration.id) FILTER (WHERE declaration.status = 'ACCEPTED')`,
+        'accepted',
+      )
+      .addSelect(
+        `COUNT(DISTINCT declaration.id) FILTER (WHERE declaration.status = 'FAILED')`,
+        'failed',
+      )
+      .where('declaration.company_id = :companyId', {
+        companyId: scope.companyId,
+      })
+      .andWhere('declaration.deleted_at IS NULL')
+      .andWhere(
+        `${this.localizedTimestamp('declaration.created_at')} BETWEEN :from AND :to`,
+        {
+          from: period.from,
+          to: period.to,
+        },
+      );
+
+    if (!scope.canViewAllBranches && scope.allowedBranchIds.length) {
+      declarationMetricsQuery.andWhere(
+        '(declaration.branch_id IS NULL OR declaration.branch_id IN (:...branchIds))',
+        {
+          branchIds: scope.allowedBranchIds,
+        },
+      );
+    }
+
+    const recoveryMetricsQuery = this.reinsuranceRecoveryRepository
+      .createQueryBuilder('recovery')
+      .select('COUNT(DISTINCT recovery.id)', 'total')
+      .addSelect(
+        `COUNT(DISTINCT recovery.id) FILTER (WHERE recovery.status IN ('EXPECTED', 'CALCULATED', 'SUBMITTED'))`,
+        'open',
+      )
+      .addSelect('COALESCE(SUM(recovery.expected_recovery), 0)', 'expected')
+      .addSelect('COALESCE(SUM(recovery.received_recovery), 0)', 'received')
+      .addSelect(
+        'COALESCE(SUM(recovery.outstanding_recovery), 0)',
+        'outstanding',
+      )
+      .where(
+        new Brackets((visibility) => {
+          visibility
+            .where('recovery.company_id = :companyId', {
+              companyId: scope.companyId,
+            })
+            .orWhere('recovery.participant_company_id = :companyId', {
+              companyId: scope.companyId,
+            });
+        }),
+      )
+      .andWhere('recovery.deleted_at IS NULL')
+      .andWhere(
+        `${this.localizedTimestamp('recovery.created_at')} BETWEEN :from AND :to`,
+        {
+          from: period.from,
+          to: period.to,
+        },
+      );
+
+    if (!scope.canViewAllBranches && scope.allowedBranchIds.length) {
+      recoveryMetricsQuery.andWhere(
+        '(recovery.branch_id IS NULL OR recovery.branch_id IN (:...branchIds))',
+        {
+          branchIds: scope.allowedBranchIds,
+        },
+      );
+    }
+
+    const settlementMetricsQuery = this.reinsuranceSettlementRepository
+      .createQueryBuilder('settlement')
+      .select('COUNT(DISTINCT settlement.id)', 'total')
+      .addSelect(
+        `COUNT(DISTINCT settlement.id) FILTER (WHERE settlement.status IN ('APPROVED', 'PROCESSING', 'PARTIALLY_PAID'))`,
+        'in_flight',
+      )
+      .addSelect('COALESCE(SUM(settlement.net_amount), 0)', 'net')
+      .addSelect('COALESCE(SUM(settlement.paid_amount), 0)', 'paid')
+      .addSelect('COALESCE(SUM(settlement.balance_amount), 0)', 'balance')
+      .where(
+        new Brackets((visibility) => {
+          visibility
+            .where('settlement.company_id = :companyId', {
+              companyId: scope.companyId,
+            })
+            .orWhere('settlement.counterparty_company_id = :companyId', {
+              companyId: scope.companyId,
+            });
+        }),
+      )
+      .andWhere('settlement.deleted_at IS NULL')
+      .andWhere(
+        `${this.localizedTimestamp('settlement.created_at')} BETWEEN :from AND :to`,
+        {
+          from: period.from,
+          to: period.to,
+        },
+      );
+
+    if (!scope.canViewAllBranches && scope.allowedBranchIds.length) {
+      settlementMetricsQuery.andWhere(
+        '(settlement.branch_id IS NULL OR settlement.branch_id IN (:...branchIds))',
+        {
+          branchIds: scope.allowedBranchIds,
+        },
+      );
+    }
+
+    const declarationTrend = await this.reinsuranceDeclarationRepository
+      .createQueryBuilder('declaration')
+      .select(
+        this.dateBucketExpression('declaration.created_at', period.groupBy),
+        'period',
+      )
+      .addSelect('declaration.status', 'status')
+      .addSelect('COUNT(DISTINCT declaration.id)', 'count')
+      .where('declaration.company_id = :companyId', {
+        companyId: scope.companyId,
+      })
+      .andWhere('declaration.deleted_at IS NULL')
+      .andWhere(
+        `${this.localizedTimestamp('declaration.created_at')} BETWEEN :from AND :to`,
+        {
+          from: period.from,
+          to: period.to,
+        },
+      )
+      .groupBy('period')
+      .addGroupBy('declaration.status')
+      .orderBy('period', 'ASC')
+      .addOrderBy('declaration.status', 'ASC')
+      .getRawMany<{ period: string; status: string; count: string }>();
+
+    const [
+      treatyMetrics,
+      cessionMetrics,
+      declarationMetrics,
+      recoveryMetrics,
+      settlementMetrics,
+    ] = await Promise.all([
+      treatyMetricsQuery.getRawOne<Record<string, string>>(),
+      cessionMetricsQuery.getRawOne<Record<string, string>>(),
+      declarationMetricsQuery.getRawOne<Record<string, string>>(),
+      recoveryMetricsQuery.getRawOne<Record<string, string>>(),
+      settlementMetricsQuery.getRawOne<Record<string, string>>(),
+    ]);
+
+    return {
+      kpis: {
+        treaties_total: this.toNumber(treatyMetrics?.total),
+        treaties_active: this.toNumber(treatyMetrics?.active),
+        cessions_total: this.toNumber(cessionMetrics?.total),
+        cessions_active: this.toNumber(cessionMetrics?.active),
+        cessions_declared: this.toNumber(cessionMetrics?.declared),
+        declarations_ready: this.toNumber(declarationMetrics?.ready),
+        declarations_submitted: this.toNumber(declarationMetrics?.submitted),
+        declarations_accepted: this.toNumber(declarationMetrics?.accepted),
+        recoveries_open: this.toNumber(recoveryMetrics?.open),
+        recoveries_expected_amount: this.toAmountString(
+          recoveryMetrics?.expected,
+        ),
+        recoveries_received_amount: this.toAmountString(
+          recoveryMetrics?.received,
+        ),
+        recoveries_outstanding_amount: this.toAmountString(
+          recoveryMetrics?.outstanding,
+        ),
+        settlements_total: this.toNumber(settlementMetrics?.total),
+        settlements_in_flight: this.toNumber(settlementMetrics?.in_flight),
+        settlements_net_amount: this.toAmountString(settlementMetrics?.net),
+        settlements_paid_amount: this.toAmountString(settlementMetrics?.paid),
+        settlements_balance_amount: this.toAmountString(
+          settlementMetrics?.balance,
+        ),
+      },
+      charts: {
+        declaration_trend: declarationTrend.map((row) => ({
+          period: row.period,
+          status: row.status,
+          count: this.toNumber(row.count),
+        })),
+      },
+    };
+  }
+
   private resolveContext(user: AuthenticatedUser, query: DashboardQueryDto) {
     const scope = this.dataAccessScopeService.resolve(user);
     this.dataAccessScopeService.assertRequestedBranchAllowed(
@@ -1720,9 +2022,8 @@ export class DashboardService {
           companyType === CompanyType.REINSURANCE_COMPANY
             ? 'Treaties'
             : 'Reinsurance',
-        path: null,
-        enabled: false,
-        coming_soon: true,
+        path: '/tenant/dashboard/reinsurance',
+        enabled: sections.reinsurance,
       },
     ];
   }

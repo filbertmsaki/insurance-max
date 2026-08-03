@@ -21,6 +21,7 @@ import { PricingRateBooksModule } from './pricing-rate-books/pricing-rate-books.
 import { ProductAccessModule } from './product-access/product-access.module';
 import { ProductDistributionModule } from './product-distribution/product-distribution.module';
 import { QuotationsModule } from './quotations/quotations.module';
+import { ReinsuranceModule } from './reinsurance/reinsurance.module';
 import { RatingFactorsModule } from './rating-factors/rating-factors.module';
 import { RiskRatingRulesModule } from './risk-rating-rules/risk-rating-rules.module';
 import { RiskRequiredFactorsModule } from './risk-required-factors/risk-required-factors.module';
@@ -50,6 +51,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
     PoliciesModule,
     PricingModule,
     PricingRateBooksModule,
+    ReinsuranceModule,
     BillingCommissionModule,
     RatingFactorsModule,
     RiskRequiredFactorsModule,
@@ -81,6 +83,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
     PoliciesModule,
     PricingModule,
     PricingRateBooksModule,
+    ReinsuranceModule,
     BillingCommissionModule,
     RatingFactorsModule,
     RiskRequiredFactorsModule,

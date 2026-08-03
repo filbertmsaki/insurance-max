@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 import { resolveTiramisBusinessRecordMapping } from '../constants/tiramis-business-record-map.constant';
 import { TiramisAuditAction } from '../enums/tiramis-audit-action.enum';
 import { TiramisSubmissionTrackingEntity } from '../entities/tiramis-submission-tracking.entity';
+import { TiramisRequestType } from '../enums/tiramis-request-type.enum';
 import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum';
 import { TiramisSubmissionTrackingRepository } from '../repositories/tiramis-submission-tracking.repository';
 import { TiramisAuditService } from './tiramis-audit.service';
@@ -108,6 +109,13 @@ export class TiramisBusinessRecordSyncService {
       const setClauses = filteredEntries.map(
         ([column], index) => `${this.quoteIdentifier(column)} = $${index + 1}`,
       );
+      const { whereClause, parameters: matchParameters } =
+        this.buildSyncMatchCondition(
+          mapping.tableName,
+          mapping.idColumn,
+          tracking,
+          filteredEntries.length + 1,
+        );
 
       const sql = `
         UPDATE ${tableName}
@@ -115,15 +123,17 @@ export class TiramisBusinessRecordSyncService {
           ${setClauses.join(',\n          ')},
           tiramis_last_synced_at = now(),
           updated_at = now()
-        WHERE ${idColumn} = $${filteredEntries.length + 1}
+        WHERE ${whereClause}
       `;
 
       await this.dataSource.query(sql, [
         ...filteredEntries.map(([, value]) => value),
-        tracking.sourceRecordId,
+        ...matchParameters,
       ]);
 
       await this.trackingRepository.markBusinessRecordSynced(tracking.id);
+
+      await this.syncReinsuranceOutcomeIfNeeded(tracking);
 
       await this.auditService.logFromTracking({
         action: TiramisAuditAction.BUSINESS_RECORD_SYNC_SUCCESS,
@@ -197,6 +207,61 @@ export class TiramisBusinessRecordSyncService {
     return `"${identifier}"`;
   }
 
+  private buildSyncMatchCondition(
+    tableName: string,
+    idColumn: string,
+    tracking: TiramisSubmissionTrackingEntity,
+    startIndex: number,
+  ): {
+    whereClause: string;
+    parameters: any[];
+  } {
+    if (tableName !== 'tiramis_business_records') {
+      return {
+        whereClause: `${this.quoteIdentifier(idColumn)} = $${startIndex}`,
+        parameters: [tracking.sourceRecordId],
+      };
+    }
+
+    const sourceModuleColumn = this.quoteIdentifier('source_module');
+    const requestTypeColumn = this.quoteIdentifier('request_type');
+    const businessReferenceColumn = this.quoteIdentifier('business_reference');
+    const parameters: any[] = [
+      tracking.sourceModule,
+      tracking.requestType,
+      tracking.sourceRecordId,
+    ];
+
+    const baseCondition = [
+      `${sourceModuleColumn} = $${startIndex}`,
+      `${requestTypeColumn} = $${startIndex + 1}`,
+    ];
+
+    if (this.isUuid(tracking.sourceRecordId)) {
+      return {
+        whereClause: [
+          ...baseCondition,
+          `(${this.quoteIdentifier(idColumn)} = $${startIndex + 2} OR ${businessReferenceColumn} = $${startIndex + 2})`,
+        ].join(' AND '),
+        parameters,
+      };
+    }
+
+    return {
+      whereClause: [
+        ...baseCondition,
+        `${businessReferenceColumn} = $${startIndex + 2}`,
+      ].join(' AND '),
+      parameters,
+    };
+  }
+
+  private isUuid(value?: string | null): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      String(value || ''),
+    );
+  }
+
   isFinalStatus(status: string) {
     return [
       TiramisSubmissionStatus.FINAL_SUCCESS,
@@ -206,5 +271,56 @@ export class TiramisBusinessRecordSyncService {
       TiramisSubmissionStatus.RETRY_EXHAUSTED,
       TiramisSubmissionStatus.CALLBACK_OVERDUE,
     ].includes(status as TiramisSubmissionStatus);
+  }
+
+  private async syncReinsuranceOutcomeIfNeeded(
+    tracking: TiramisSubmissionTrackingEntity,
+  ) {
+    if (
+      tracking.requestType !== TiramisRequestType.REINSURANCE ||
+      !tracking.sourceRecordId
+    ) {
+      return;
+    }
+
+    const declarationStatus =
+      tracking.status === TiramisSubmissionStatus.FINAL_SUCCESS
+        ? 'ACCEPTED'
+        : [
+              TiramisSubmissionStatus.FINAL_FAILED,
+              TiramisSubmissionStatus.FAILED,
+              TiramisSubmissionStatus.ACK_FAILED,
+              TiramisSubmissionStatus.RETRY_EXHAUSTED,
+            ].includes(tracking.status)
+          ? 'FAILED'
+          : null;
+
+    if (!declarationStatus) {
+      return;
+    }
+
+    await this.dataSource.query(
+      `
+        UPDATE reinsurance_declarations
+        SET status = $2, updated_at = now()
+        WHERE id = $1
+      `,
+      [tracking.sourceRecordId, declarationStatus],
+    );
+
+    if (declarationStatus === 'ACCEPTED') {
+      await this.dataSource.query(
+        `
+          UPDATE policy_cessions
+          SET status = 'DECLARED', updated_at = now()
+          WHERE id = (
+            SELECT cession_id
+            FROM reinsurance_declarations
+            WHERE id = $1
+          )
+        `,
+        [tracking.sourceRecordId],
+      );
+    }
   }
 }

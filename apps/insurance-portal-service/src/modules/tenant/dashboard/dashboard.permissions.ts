@@ -6,6 +6,8 @@ export const DashboardPermissions = {
   COMMISSIONS: 'dashboard:commissions',
   TIRAMIS: 'dashboard:tiramis',
   TASKS: 'dashboard:tasks',
+  CLAIMS: 'dashboard:claims',
+  REINSURANCE: 'dashboard:reinsurance',
   EXPORT: 'dashboard:export',
 } as const;
 

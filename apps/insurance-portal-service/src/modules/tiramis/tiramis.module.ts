@@ -46,6 +46,7 @@ import { MotorVehicle } from '../tenant/motor/entities/motor-vehicle.entity';
 import { NonMotorPolicyDetail } from '../tenant/non-motor/entities/non-motor-policy-detail.entity';
 import { Policy } from '../tenant/policies/entities/policy.entity';
 import { Quotation } from '../tenant/quotations/entities/quotation.entity';
+import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsurance-declaration.entity';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { Quotation } from '../tenant/quotations/entities/quotation.entity';
       MotorFleet,
       MotorPolicyDetail,
       NonMotorPolicyDetail,
+      ReinsuranceDeclaration,
     ]),
     HttpModule,
   ],

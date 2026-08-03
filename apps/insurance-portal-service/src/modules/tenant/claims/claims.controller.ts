@@ -29,12 +29,12 @@ import {
   CreateClaimPaymentDto,
   CreateClaimReserveDto,
   CreateDischargeVoucherDto,
+  CreateServiceAssignmentDto,
   MarkClaimPaymentPaidDto,
   RejectClaimDto,
   RespondToDischargeDto,
   VerifyClaimDocumentDto,
 } from './dto/claim-workflow.dto';
-import { CreateServiceAssignmentDto } from './dto/claim-workflow.dto';
 
 @Controller('tenant/claims')
 @UseGuards(AuthGuard('jwt'), TenantGuard)

@@ -35,7 +35,9 @@ export class ClaimSlaService {
         companyId: params.claim.company_id,
       })
       .andWhere('rule.effective_from <= CURRENT_DATE')
-      .andWhere('(rule.effective_to IS NULL OR rule.effective_to >= CURRENT_DATE)')
+      .andWhere(
+        '(rule.effective_to IS NULL OR rule.effective_to >= CURRENT_DATE)',
+      )
       .orderBy('CASE WHEN rule.company_id IS NULL THEN 2 ELSE 1 END', 'ASC')
       .addOrderBy('rule.effective_from', 'DESC')
       .getOne();

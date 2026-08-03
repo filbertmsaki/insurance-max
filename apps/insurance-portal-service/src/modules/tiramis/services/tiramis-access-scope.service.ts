@@ -21,6 +21,7 @@ import { MotorVehicle } from '../../tenant/motor/entities/motor-vehicle.entity';
 import { NonMotorPolicyDetail } from '../../tenant/non-motor/entities/non-motor-policy-detail.entity';
 import { Policy } from '../../tenant/policies/entities/policy.entity';
 import { Quotation } from '../../tenant/quotations/entities/quotation.entity';
+import { ReinsuranceDeclaration } from '../../tenant/reinsurance/entities/reinsurance-declaration.entity';
 import {
   TiramisPermission,
   TiramisPermissions,
@@ -80,6 +81,9 @@ export class TiramisAccessScopeService {
 
     @InjectRepository(NonMotorPolicyDetail)
     private readonly nonMotorPolicyDetailRepository: Repository<NonMotorPolicyDetail>,
+
+    @InjectRepository(ReinsuranceDeclaration)
+    private readonly reinsuranceDeclarationRepository: Repository<ReinsuranceDeclaration>,
 
     @InjectRepository(TiramisBusinessRecordEntity)
     private readonly businessRecordRepository: Repository<TiramisBusinessRecordEntity>,
@@ -255,7 +259,35 @@ export class TiramisAccessScopeService {
       };
     }
 
-    if (['policies', 'policy', 'reinsurance'].includes(sourceModule)) {
+    if (params.requestType === TiramisRequestType.REINSURANCE) {
+      const declaration = await this.reinsuranceDeclarationRepository.findOne({
+        where: { id: sourceRecordId },
+        select: {
+          id: true,
+          company_id: true,
+          branch_id: true,
+          policy_id: true,
+          cession_id: true,
+        },
+      });
+
+      if (!declaration) {
+        throw new ForbiddenException('Reinsurance declaration was not found');
+      }
+
+      this.assertCanAccessCompany(params.scope, declaration.company_id);
+      this.assertCanAccessBranch(params.scope, declaration.branch_id);
+
+      return {
+        businessCompanyId: declaration.company_id,
+        businessBranchId: declaration.branch_id,
+        sourceModule: 'reinsurance',
+        sourceRecordId: declaration.id,
+        requestType: params.requestType,
+      };
+    }
+
+    if (['policies', 'policy'].includes(sourceModule)) {
       const policy = await this.policyRepository.findOne({
         where: { id: sourceRecordId },
         select: {
@@ -628,7 +660,9 @@ export class TiramisAccessScopeService {
         });
 
         if (!record) {
-          throw new ForbiddenException('Claim intimation source record was not found');
+          throw new ForbiddenException(
+            'Claim intimation source record was not found',
+          );
         }
 
         return {
@@ -650,7 +684,9 @@ export class TiramisAccessScopeService {
         });
 
         if (!record) {
-          throw new ForbiddenException('Claim assessment source record was not found');
+          throw new ForbiddenException(
+            'Claim assessment source record was not found',
+          );
         }
 
         return {
@@ -696,7 +732,9 @@ export class TiramisAccessScopeService {
         });
 
         if (!record) {
-          throw new ForbiddenException('Claim payment source record was not found');
+          throw new ForbiddenException(
+            'Claim payment source record was not found',
+          );
         }
 
         return {
@@ -718,7 +756,9 @@ export class TiramisAccessScopeService {
         });
 
         if (!record) {
-          throw new ForbiddenException('Claim rejection source record was not found');
+          throw new ForbiddenException(
+            'Claim rejection source record was not found',
+          );
         }
 
         return {

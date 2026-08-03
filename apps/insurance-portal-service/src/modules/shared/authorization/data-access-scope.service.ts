@@ -337,12 +337,8 @@ export class DataAccessScopeService {
 
         if (scope.canViewIntermediaryPortfolio) {
           participation
-            .orWhere(
-              `${alias}.intermediary_company_id = :claimScopeCompanyId`,
-            )
-            .orWhere(
-              `${alias}.reported_by_company_id = :claimScopeCompanyId`,
-            );
+            .orWhere(`${alias}.intermediary_company_id = :claimScopeCompanyId`)
+            .orWhere(`${alias}.reported_by_company_id = :claimScopeCompanyId`);
         }
       }),
     );
@@ -421,6 +417,105 @@ export class DataAccessScopeService {
 
     if (scope.ownRecordsOnly) {
       queryBuilder.andWhere(`${alias}.assigned_user_id = :claimWriteUserId`);
+    }
+  }
+
+  applyTreatyReadScope<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    alias: string,
+    scope: TenantDataScope,
+  ): void {
+    queryBuilder
+      .setParameters({
+        reScopeCompanyId: scope.companyId,
+        reScopeBranchIds: scope.allowedBranchIds,
+      })
+      .andWhere(
+        new Brackets((access) => {
+          access.where(`${alias}.company_id = :reScopeCompanyId`).orWhere(`
+              EXISTS (
+                SELECT 1
+                FROM reinsurance_treaty_participants scoped_participant
+                WHERE scoped_participant.treaty_id = ${alias}.id
+                  AND scoped_participant.participant_company_id = :reScopeCompanyId
+                  AND scoped_participant.deleted_at IS NULL
+              )
+            `);
+        }),
+      );
+
+    if (!scope.canViewAllBranches) {
+      if (!scope.allowedBranchIds.length) {
+        queryBuilder.andWhere(
+          `(${alias}.branch_id IS NULL OR ${alias}.created_by = :scopeUserId)`,
+          { scopeUserId: scope.userId },
+        );
+      } else {
+        queryBuilder.andWhere(
+          new Brackets((branchScope) => {
+            branchScope
+              .where(`${alias}.branch_id IS NULL`)
+              .orWhere(`${alias}.branch_id IN (:...reScopeBranchIds)`).orWhere(`
+                EXISTS (
+                  SELECT 1
+                  FROM reinsurance_treaty_participants scoped_participant_branch
+                  WHERE scoped_participant_branch.treaty_id = ${alias}.id
+                    AND scoped_participant_branch.participant_company_id = :reScopeCompanyId
+                    AND scoped_participant_branch.deleted_at IS NULL
+                )
+              `);
+          }),
+        );
+      }
+    }
+  }
+
+  applyReinsuranceCessionReadScope<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    alias: string,
+    scope: TenantDataScope,
+  ): void {
+    queryBuilder
+      .setParameters({
+        reCessionCompanyId: scope.companyId,
+        reCessionBranchIds: scope.allowedBranchIds,
+        reCessionUserId: scope.userId,
+      })
+      .andWhere(
+        new Brackets((access) => {
+          access.where(`${alias}.company_id = :reCessionCompanyId`).orWhere(`
+              EXISTS (
+                SELECT 1
+                FROM policy_cession_participants scoped_participant
+                WHERE scoped_participant.cession_id = ${alias}.id
+                  AND scoped_participant.participant_company_id = :reCessionCompanyId
+              )
+            `);
+        }),
+      );
+
+    if (!scope.canViewAllBranches) {
+      if (!scope.allowedBranchIds.length) {
+        queryBuilder.andWhere(
+          `(${alias}.branch_id IS NULL OR ${alias}.created_by = :reCessionUserId)`,
+        );
+      } else {
+        queryBuilder.andWhere(
+          new Brackets((branchScope) => {
+            branchScope
+              .where(`${alias}.branch_id IS NULL`)
+              .orWhere(`${alias}.branch_id IN (:...reCessionBranchIds)`)
+              .orWhere(`
+                EXISTS (
+                  SELECT 1
+                  FROM policy_cession_participants scoped_participant_branch
+                  WHERE scoped_participant_branch.cession_id = ${alias}.id
+                    AND scoped_participant_branch.participant_company_id = :reCessionCompanyId
+                )
+              `);
+          }),
+        );
+      }
     }
   }
 

@@ -61,6 +61,13 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .min(31)
     .max(1095)
     .default(366),
+  REINSURANCE_DEFAULT_CATEGORY: Joi.number().integer().min(1).default(1),
+  REINSURANCE_DEFAULT_BROKERAGE_RATE: Joi.number().min(0).default(0),
+  REINSURANCE_DEFAULT_COMMISSION_RATE: Joi.number().min(0).default(0),
+  REINSURANCE_RECOVERY_MIN_CONFIDENCE_PCT: Joi.number()
+    .min(0)
+    .max(100)
+    .default(0),
 
   CORS_ENABLED: Joi.boolean().default(true),
   CORS_ALLOWED_ORIGINS: Joi.string().default('http://localhost:3001'),

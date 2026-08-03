@@ -6,10 +6,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import {
-  ComplaintPriority,
-  ComplaintStatus,
-} from '../enums/claim.enums';
+import { ComplaintPriority, ComplaintStatus } from '../enums/claim.enums';
 
 @Entity('complaints')
 export class Complaint {

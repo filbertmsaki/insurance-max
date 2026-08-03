@@ -22,12 +22,11 @@ export const TIRAMIS_BUSINESS_RECORD_TABLE_MAP: TiramisBusinessRecordTableMappin
     },
     {
       sourceModule: 'reinsurance',
-      sourceModules: ['reinsurance', 'reinsurances', 'policies'],
+      sourceModules: ['reinsurance', 'reinsurances', 'declarations'],
       requestTypes: [TiramisRequestType.REINSURANCE],
-      tableName: 'policies',
+      tableName: 'reinsurance_declarations',
       idColumn: 'id',
-      description:
-        'Reinsurance currently uses policies table until dedicated reinsurance module is added.',
+      description: 'Reinsurance declaration records submitted to TIRAMIS.',
     },
     {
       sourceModule: 'cover-notes',

@@ -40,9 +40,15 @@ const config = {
   mockTiraBaseUrl: process.env.MOCK_TIRA_BASE_URL || 'http://localhost:5050',
   token: process.env.E2E_AUTH_TOKEN,
   authEmail:
-    process.env.E2E_AUTH_EMAIL || process.env.INITIAL_OWNER_EMAIL || 'filbert@alliance.co.tz',
+    process.env.E2E_AUTH_EMAIL ||
+    process.env.INITIAL_COMPANY_ADMIN_EMAIL ||
+    process.env.INITIAL_OWNER_EMAIL ||
+    'inocent@alliance.co.tz',
   authPassword:
-    process.env.E2E_AUTH_PASSWORD || process.env.INITIAL_OWNER_PASSWORD || 'Owner123!',
+    process.env.E2E_AUTH_PASSWORD ||
+    process.env.INITIAL_COMPANY_ADMIN_PASSWORD ||
+    process.env.INITIAL_OWNER_PASSWORD ||
+    'Admin123!',
   requestType: process.env.E2E_REQUEST_TYPE || 'NIN_VERIFICATION',
   sourceModule: process.env.E2E_SOURCE_MODULE || 'verifications',
   sourceRecordId:

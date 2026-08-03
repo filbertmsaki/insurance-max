@@ -18,6 +18,7 @@ import { PolicyRisk } from '../policies/entities/policy-risk.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { WorkItemsService } from '../work-items/work-items.service';
 import { CreateClaimDto } from './dto/create-claim.dto';
+import { FindClaimsQueryDto } from './dto/find-claims-query.dto';
 import {
   AddClaimDocumentDto,
   AssignClaimDto,
@@ -28,7 +29,6 @@ import {
   CreateClaimReserveDto,
   CreateDischargeVoucherDto,
   CreateServiceAssignmentDto,
-  FindClaimsQueryDto,
   MarkClaimPaymentPaidDto,
   RejectClaimDto,
   RespondToDischargeDto,
@@ -39,6 +39,7 @@ import {
   ClaimDischargeStatus,
   ClaimDocumentStatus,
   ClaimLiabilityStatus,
+  ClaimPriority,
   ClaimPaymentStatus,
   ClaimReserveStatus,
   ClaimServiceAssignmentStatus,
@@ -218,7 +219,7 @@ export class ClaimsService {
         recovery_expected: '0.00',
         recovery_received: '0.00',
         status: ClaimStatus.NOTIFIED,
-        priority: dto.priority ?? 'MEDIUM',
+        priority: dto.priority ?? ClaimPriority.MEDIUM,
         liability_status: ClaimLiabilityStatus.PENDING,
         fraud_indicator: false,
         litigation_indicator: false,
@@ -226,7 +227,9 @@ export class ClaimsService {
         tiramis_status: 'NOT_SUBMITTED',
       });
 
-      const savedClaim = await manager.getRepository(InsuranceClaim).save(claim);
+      const savedClaim = await manager
+        .getRepository(InsuranceClaim)
+        .save(claim);
 
       let primaryCount = 0;
 
@@ -756,7 +759,9 @@ export class ClaimsService {
       title: `Complete ${assignment.service_type} for ${claim.claim_no}`,
       priority: claim.priority,
       assignedUserId: assignment.assigned_user_id ?? undefined,
-      assignedRole: assignment.assigned_user_id ? undefined : 'SERVICE_PROVIDER',
+      assignedRole: assignment.assigned_user_id
+        ? undefined
+        : 'SERVICE_PROVIDER',
       dueAt: assignment.due_at ?? undefined,
       dedupeKey: `claim-assignment:${assignment.id}`,
       createdBy: user.id,
@@ -788,7 +793,8 @@ export class ClaimsService {
       claim_id: claim.id,
       service_assignment_id: dto.service_assignment_id ?? null,
       claim_assessment_number: assessmentNo,
-      claim_intimation_number: latestIntimation?.claim_intimation_number ?? null,
+      claim_intimation_number:
+        latestIntimation?.claim_intimation_number ?? null,
       claim_reference_number: claim.claim_reference_number,
       cover_note_reference_number: claim.cover_note_reference_number,
       assessment_received_date: new Date(dto.assessment_received_date),
@@ -848,9 +854,7 @@ export class ClaimsService {
       }
 
       if (assessment.created_by === user.id) {
-        throw new ConflictException(
-          'The assessment creator cannot approve it',
-        );
+        throw new ConflictException('The assessment creator cannot approve it');
       }
 
       const claim = await manager
@@ -1105,7 +1109,10 @@ export class ClaimsService {
     }
 
     const amount = MoneyUtil.fromMinor(MoneyUtil.toMinor(dto.paid_amount));
-    const remaining = MoneyUtil.subtract(claim.approved_amount, claim.paid_amount);
+    const remaining = MoneyUtil.subtract(
+      claim.approved_amount,
+      claim.paid_amount,
+    );
 
     if (MoneyUtil.compare(amount, remaining) > 0) {
       throw new BadRequestException(
@@ -1133,7 +1140,8 @@ export class ClaimsService {
       discharge_voucher_id: dto.discharge_voucher_id ?? null,
       claim_payment_number: paymentNo,
       claim_reference_number: claim.claim_reference_number,
-      claim_intimation_number: latestIntimation?.claim_intimation_number ?? null,
+      claim_intimation_number:
+        latestIntimation?.claim_intimation_number ?? null,
       cover_note_reference_number: claim.cover_note_reference_number,
       payment_date: null,
       paid_amount: amount,
@@ -1174,7 +1182,9 @@ export class ClaimsService {
     const payment = await this.getPaymentForWrite(user, paymentId);
 
     if (payment.status !== ClaimPaymentStatus.DRAFT) {
-      throw new ConflictException('Only a draft claim payment can be submitted');
+      throw new ConflictException(
+        'Only a draft claim payment can be submitted',
+      );
     }
 
     payment.status = ClaimPaymentStatus.SUBMITTED;
@@ -1239,7 +1249,10 @@ export class ClaimsService {
         .where('claim.id = :claimId', { claimId: payment.claim_id })
         .getOneOrFail();
 
-      const newPaidAmount = MoneyUtil.add(claim.paid_amount, payment.paid_amount);
+      const newPaidAmount = MoneyUtil.add(
+        claim.paid_amount,
+        payment.paid_amount,
+      );
 
       if (MoneyUtil.compare(newPaidAmount, claim.approved_amount) > 0) {
         throw new BadRequestException(
@@ -1248,7 +1261,9 @@ export class ClaimsService {
       }
 
       payment.status = ClaimPaymentStatus.PAID;
-      payment.payment_date = dto.payment_date ? new Date(dto.payment_date) : new Date();
+      payment.payment_date = dto.payment_date
+        ? new Date(dto.payment_date)
+        : new Date();
       payment.payment_method = dto.payment_method.trim();
       payment.payment_reference = dto.payment_reference.trim();
       payment.paid_by = user.id;
@@ -1290,7 +1305,11 @@ export class ClaimsService {
       );
     }
 
-    if ([ClaimStatus.PAID, ClaimStatus.CLOSED, ClaimStatus.CANCELLED].includes(claim.status)) {
+    if (
+      [ClaimStatus.PAID, ClaimStatus.CLOSED, ClaimStatus.CANCELLED].includes(
+        claim.status,
+      )
+    ) {
       throw new ConflictException(
         `Claim cannot be rejected from ${claim.status} status`,
       );
@@ -1370,10 +1389,7 @@ export class ClaimsService {
     return claim;
   }
 
-  async submitNotificationToTiramis(
-    user: AuthenticatedUser,
-    claimId: string,
-  ) {
+  async submitNotificationToTiramis(user: AuthenticatedUser, claimId: string) {
     const claim = await this.getClaimForWrite(user, claimId);
 
     return this.tiramisSubmitService.submitClaimNotification({
@@ -1429,10 +1445,7 @@ export class ClaimsService {
     });
   }
 
-  async submitPaymentToTiramis(
-    user: AuthenticatedUser,
-    paymentId: string,
-  ) {
+  async submitPaymentToTiramis(user: AuthenticatedUser, paymentId: string) {
     const payment = await this.getPaymentForWrite(user, paymentId);
 
     if (payment.status !== ClaimPaymentStatus.PAID) {
@@ -1538,10 +1551,7 @@ export class ClaimsService {
     return assessment;
   }
 
-  private async getPaymentForWrite(
-    user: AuthenticatedUser,
-    paymentId: string,
-  ) {
+  private async getPaymentForWrite(user: AuthenticatedUser, paymentId: string) {
     const payment = await this.paymentRepository.findOne({
       where: {
         id: paymentId,
@@ -1618,7 +1628,13 @@ export class ClaimsService {
     userId: string,
   ) {
     return this.dataSource.transaction((manager) =>
-      this.transitionClaimWithManager(manager, claim, nextStatus, reason, userId),
+      this.transitionClaimWithManager(
+        manager,
+        claim,
+        nextStatus,
+        reason,
+        userId,
+      ),
     );
   }
 
