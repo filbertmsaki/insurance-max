@@ -1648,9 +1648,12 @@ export default class InitialRbacSeeder implements Seeder {
         adminConfig,
       );
 
-      await this.ensureUserPermissions(userRepo, savedAdmin, [
-        ...TIRAMIS_ADMIN_PERMISSION_NAMES,
-      ], permissionsByName);
+      await this.ensureUserPermissions(
+        userRepo,
+        savedAdmin,
+        [...TIRAMIS_ADMIN_PERMISSION_NAMES],
+        permissionsByName,
+      );
 
       const membership = await this.ensureCompanyMembership(
         companyUserRepo,

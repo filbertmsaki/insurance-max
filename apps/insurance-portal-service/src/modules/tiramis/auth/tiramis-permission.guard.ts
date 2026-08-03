@@ -43,7 +43,10 @@ export class TiramisPermissionGuard implements CanActivate {
     if (
       requiredPermissions.includes(TiramisPermissions.VIEW_TRACKING) &&
       userPermissions.some((permission) =>
-        ['verifications:motor:submit', 'verifications:cover-note:submit'].includes(permission),
+        [
+          'verifications:motor:submit',
+          'verifications:cover-note:submit',
+        ].includes(permission),
       )
     ) {
       userPermissions.push(TiramisPermissions.VIEW_TRACKING);

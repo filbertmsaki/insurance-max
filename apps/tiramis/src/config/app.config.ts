@@ -12,7 +12,10 @@ export default registerAs('tiramisService', () => ({
   ),
   testBaseUrl: normalizeBaseUrl(process.env.TIRAMIS_TEST_BASE_URL as string),
   liveBaseUrl: normalizeBaseUrl(process.env.TIRAMIS_LIVE_BASE_URL as string),
-  portalHost: process.env.INSURANCE_PORTAL_TCP_HOST as string,
-  portalPort: Number(process.env.INSURANCE_PORTAL_TCP_PORT),
   portalNotifyEnabled: process.env.TIRAMIS_PORTAL_NOTIFY_ENABLED !== 'false',
+  portalWebhookUrl: process.env.INSURANCE_PORTAL_WEBHOOK_URL?.trim() || '',
+  portalWebhookToken: process.env.INSURANCE_PORTAL_WEBHOOK_TOKEN?.trim() || '',
+  portalWebhookTimeoutMs: Number(
+    process.env.INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS || 5000,
+  ),
 }));

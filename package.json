@@ -21,7 +21,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "stest:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./apps/tiramis/test/jest-e2e.json",
+    "test:e2e": "npm run test:tiramis:e2e",
     "migration:generate:tiramis": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d apps/tiramis/src/database/data-source.ts migration:generate apps/tiramis/src/database/migrations/AutoMigration",
     "migration:run:tiramis": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d apps/tiramis/src/database/data-source.ts migration:run",
     "migration:revert:tiramis": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d apps/tiramis/src/database/data-source.ts migration:revert",

@@ -1,7 +1,7 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ClientProxy } from '@nestjs/microservices';
-import { catchError, firstValueFrom, of, timeout } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 
 import { TiramisPortalNotificationEventDto } from '../dto/tiramis-portal-notification-event.dto';
 
@@ -10,8 +10,7 @@ export class TiramisPortalNotificationService {
   private readonly logger = new Logger(TiramisPortalNotificationService.name);
 
   constructor(
-    @Inject('INSURANCE_PORTAL_SERVICE_CLIENT')
-    private readonly portalClient: ClientProxy,
+    private readonly httpService: HttpService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -25,21 +24,42 @@ export class TiramisPortalNotificationService {
       return;
     }
 
-    try {
-      await firstValueFrom(
-        this.portalClient.emit('tiramis.submission.status.updated', event).pipe(
-          timeout(5000),
-          catchError((error) => {
-            this.logger.warn(
-              `Failed to notify insurance portal for requestId ${event.requestId}: ${
-                error?.message || 'Unknown error'
-              }`,
-            );
+    const webhookUrl =
+      this.configService.get<string>('tiramisService.portalWebhookUrl') || '';
 
-            return of(null);
-          }),
-        ),
+    if (!webhookUrl) {
+      this.logger.warn(
+        `Portal notification skipped for requestId ${event.requestId}: INSURANCE_PORTAL_WEBHOOK_URL is not configured`,
       );
+      return;
+    }
+
+    const webhookToken =
+      this.configService.get<string>('tiramisService.portalWebhookToken') || '';
+    const timeoutMs =
+      this.configService.get<number>('tiramisService.portalWebhookTimeoutMs') ||
+      5000;
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(webhookUrl, event, {
+          timeout: timeoutMs,
+          validateStatus: () => true,
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            ...(webhookToken
+              ? { 'x-tiramis-webhook-token': webhookToken }
+              : {}),
+          },
+        }),
+      );
+
+      if (response.status < 200 || response.status >= 300) {
+        this.logger.warn(
+          `Failed to notify insurance portal for requestId ${event.requestId}: HTTP ${response.status}`,
+        );
+      }
     } catch (error: any) {
       this.logger.warn(
         `Portal notification publish failed for requestId ${event.requestId}: ${

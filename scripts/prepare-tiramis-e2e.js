@@ -1,6 +1,8 @@
 require('ts-node/register');
 require('tsconfig-paths/register');
 
+process.env.NODE_ENV = process.env.NODE_ENV || 'e2e';
+
 const portalDataSource = require('../apps/insurance-portal-service/src/database/data-source')
   .default;
 const { runAllSeeders } = require('../apps/insurance-portal-service/src/database/seeds');

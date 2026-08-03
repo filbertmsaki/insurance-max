@@ -29,6 +29,7 @@ import {
 function FieldError({ message }: { message?: string }) {
   return message ? <p className="text-xs text-red-600">{message}</p> : null;
 }
+
 function formatLabel(value: string) {
   return value
     .replace(/([a-z])([A-Z])/g, '$1 $2')
@@ -38,11 +39,11 @@ function formatLabel(value: string) {
 
 function DetailValue({ value }: { value: unknown }) {
   if (value === null || value === undefined || value === '') {
-    return <span className="text-slate-400">—</span>;
+    return <span className="text-slate-400">-</span>;
   }
 
   if (Array.isArray(value)) {
-    if (value.length === 0) return <span className="text-slate-400">—</span>;
+    if (value.length === 0) return <span className="text-slate-400">-</span>;
     return (
       <div className="space-y-3">
         {value.map((item, index) => (
@@ -77,12 +78,55 @@ function DetailValue({ value }: { value: unknown }) {
   return <span>{String(value)}</span>;
 }
 
+function getErrorMessage(error: unknown) {
+  if (typeof error === 'object' && error !== null) {
+    const response = (error as { response?: { data?: { message?: unknown } } })
+      .response;
+    if (typeof response?.data?.message === 'string') {
+      return response.data.message;
+    }
+
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string') {
+      return message;
+    }
+  }
+
+  return 'Verification failed. Please retry.';
+}
+
 function Result({ result }: { result: VerificationResult }) {
   const response = result.verifiedRecordDetails as {
     responseHeader?: Record<string, unknown> | null;
     details?: Record<string, unknown> | null;
   } | null;
   const details = response?.details ?? null;
+  const responseId =
+    typeof response?.responseHeader?.ResponseId === 'string'
+      ? response.responseHeader.ResponseId
+      : null;
+  const summaryItems: Array<{
+    label: string;
+    value: string | null | undefined;
+  }> = [
+    {
+      label: 'Type',
+      value: result.verificationType === 'MOTOR' ? 'Motor' : 'Cover Note',
+    },
+    { label: 'Request ID', value: result.requestId },
+    { label: 'Response ID', value: responseId },
+    { label: 'Registration', value: result.registrationNumber },
+    { label: 'Cover note', value: result.coverNoteReferenceNumber },
+    { label: 'Response code', value: result.responseCode },
+    { label: 'Response message', value: result.responseMessage },
+    {
+      label: 'Date and time',
+      value: result.respondedAt
+        ? new Date(result.respondedAt).toLocaleString()
+        : null,
+    },
+  ];
+
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
@@ -91,28 +135,11 @@ function Result({ result }: { result: VerificationResult }) {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            [
-              'Type',
-              result.verificationType === 'MOTOR' ? 'Motor' : 'Cover Note',
-            ],
-            ['Request ID', result.requestId],
-            ['Response ID', response?.responseHeader?.ResponseId],
-            ['Registration', result.registrationNumber],
-            ['Cover note', result.coverNoteReferenceNumber],
-            ['Response code', result.responseCode],
-            ['Response message', result.responseMessage],
-            [
-              'Date and time',
-              result.respondedAt
-                ? new Date(result.respondedAt).toLocaleString()
-                : null,
-            ],
-          ].map(([label, value]) => (
+          {summaryItems.map(({ label, value }) => (
             <div key={label} className="rounded-lg border border-slate-100 p-3">
               <p className="text-xs text-slate-500">{label}</p>
               <p className="mt-1 break-words text-sm font-medium text-slate-800">
-                {value || '—'}
+                {value || '-'}
               </p>
             </div>
           ))}
@@ -121,33 +148,6 @@ function Result({ result }: { result: VerificationResult }) {
           <div>
             <p className="mb-2 text-sm font-medium">Verified record details</p>
             <DetailValue value={details} />
-            {/*
-              The full response is rendered recursively above so nested TIRAMIS
-              sections remain readable on smaller screens.
-            */}
-            {/* <table className="w-full text-sm">
-                <tbody>
-                  {Object.entries(details).map(([key, value]) => (
-                    <tr
-                      key={key}
-                      className="border-b border-slate-100 last:border-0"
-                    >
-                      <th className="w-1/3 bg-slate-50 px-4 py-2 text-left font-medium text-slate-600">
-                        {formatLabel(key)}
-                      </th>
-                      <td className="px-4 py-2 text-slate-800">
-                        {value !== null && typeof value === 'object' ? (
-                          <pre className="whitespace-pre-wrap text-xs">
-                            {JSON.stringify(value, null, 2)}
-                          </pre>
-                        ) : (
-                          String(value ?? '—')
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table> */}
           </div>
         ) : (
           <EmptyState
@@ -191,7 +191,34 @@ export function VerificationsPage() {
       motorChassisNumber: '',
     },
   });
+  const coverNoteFields: Array<{
+    name: keyof CoverNoteVerificationForm;
+    label: string;
+    placeholder: string;
+  }> = [
+    {
+      name: 'coverNoteReferenceNumber',
+      label: 'Cover note reference number',
+      placeholder: 'TIRA-CN-000001',
+    },
+    {
+      name: 'stickerNumber',
+      label: 'Sticker number',
+      placeholder: 'STK000001',
+    },
+    {
+      name: 'motorRegistrationNumber',
+      label: 'Motor registration number',
+      placeholder: 'T123ABC',
+    },
+    {
+      name: 'motorChassisNumber',
+      label: 'Motor chassis number',
+      placeholder: 'Chassis number',
+    },
+  ];
   const pending = motor.formState.isSubmitting || cover.formState.isSubmitting;
+
   async function submitMotor(values: MotorVerificationForm) {
     setError(null);
     setResult(null);
@@ -203,14 +230,11 @@ export function VerificationsPage() {
           motorChassisNumber: values.motorChassisNumber || undefined,
         }),
       );
-    } catch (e: any) {
-      setError(
-        e?.response?.data?.message ||
-          e?.message ||
-          'Verification failed. Please retry.',
-      );
+    } catch (error: unknown) {
+      setError(getErrorMessage(error));
     }
   }
+
   async function submitCover(values: CoverNoteVerificationForm) {
     setError(null);
     setResult(null);
@@ -218,18 +242,18 @@ export function VerificationsPage() {
       setResult(
         await verificationsApi.coverNote(
           Object.fromEntries(
-            Object.entries(values).map(([k, v]) => [k, v || undefined]),
+            Object.entries(values).map(([key, value]) => [
+              key,
+              value || undefined,
+            ]),
           ),
         ),
       );
-    } catch (e: any) {
-      setError(
-        e?.response?.data?.message ||
-          e?.message ||
-          'Verification failed. Please retry.',
-      );
+    } catch (error: unknown) {
+      setError(getErrorMessage(error));
     }
   }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -262,8 +286,8 @@ export function VerificationsPage() {
                   <Label>Motor category</Label>
                   <Select
                     value={motor.watch('motorCategory')}
-                    onValueChange={(v) =>
-                      motor.setValue('motorCategory', v as '1' | '2')
+                    onValueChange={(value) =>
+                      motor.setValue('motorCategory', value as '1' | '2')
                     }
                   >
                     <SelectTrigger>
@@ -307,7 +331,7 @@ export function VerificationsPage() {
                     ) : (
                       <SearchCheck className="mr-2 h-4 w-4" />
                     )}
-                    {pending ? 'Verifying…' : 'Verify motor'}
+                    {pending ? 'Verifying...' : 'Verify motor'}
                   </Button>
                 </div>
               </form>
@@ -324,39 +348,11 @@ export function VerificationsPage() {
                 className="grid gap-4 md:grid-cols-2"
                 onSubmit={cover.handleSubmit(submitCover)}
               >
-                {[
-                  [
-                    'coverNoteReferenceNumber',
-                    'Cover note reference number',
-                    'TIRA-CN-000001',
-                  ],
-                  ['stickerNumber', 'Sticker number', 'STK000001'],
-                  [
-                    'motorRegistrationNumber',
-                    'Motor registration number',
-                    'T123ABC',
-                  ],
-                  [
-                    'motorChassisNumber',
-                    'Motor chassis number',
-                    'Chassis number',
-                  ],
-                ].map(([name, label, placeholder]) => (
+                {coverNoteFields.map(({ name, label, placeholder }) => (
                   <div key={name}>
                     <Label>{label}</Label>
-                    <Input
-                      placeholder={placeholder}
-                      {...cover.register(
-                        name as keyof CoverNoteVerificationForm,
-                      )}
-                    />
-                    <FieldError
-                      message={
-                        cover.formState.errors[
-                          name as keyof CoverNoteVerificationForm
-                        ]?.message
-                      }
-                    />
+                    <Input placeholder={placeholder} {...cover.register(name)} />
+                    <FieldError message={cover.formState.errors[name]?.message} />
                   </div>
                 ))}
                 <div className="flex items-end">
@@ -366,7 +362,7 @@ export function VerificationsPage() {
                     ) : (
                       <SearchCheck className="mr-2 h-4 w-4" />
                     )}
-                    {pending ? 'Verifying…' : 'Verify cover note'}
+                    {pending ? 'Verifying...' : 'Verify cover note'}
                   </Button>
                 </div>
               </form>

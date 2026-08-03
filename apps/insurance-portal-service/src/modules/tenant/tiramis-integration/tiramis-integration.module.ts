@@ -15,6 +15,7 @@ import { TiramisClientService } from './tiramis-client.service';
 import { PortalTiraSubmissionEvent } from './entities/portal-tira-submission-event.entity';
 import { PortalTiraSubmission } from './entities/portal-tira-submission.entity';
 import { TiramisIntegrationController } from './tiramis-integration.controller';
+import { TiramisIntegrationWebhookController } from './tiramis-integration-webhook.controller';
 import { TiramisIntegrationService } from './tiramis-integration.service';
 
 @Module({
@@ -33,7 +34,10 @@ import { TiramisIntegrationService } from './tiramis-integration.service';
     ]),
     HttpModule,
   ],
-  controllers: [TiramisIntegrationController],
+  controllers: [
+    TiramisIntegrationController,
+    TiramisIntegrationWebhookController,
+  ],
   providers: [
     TiramisIntegrationService,
     TiramisClientService,

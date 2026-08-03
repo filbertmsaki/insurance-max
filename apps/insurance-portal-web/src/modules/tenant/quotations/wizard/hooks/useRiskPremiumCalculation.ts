@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useWatch, type FieldPath, type UseFormReturn } from 'react-hook-form';
+import {
+  useWatch,
+  type FieldPath,
+  type FieldPathValue,
+  type UseFormReturn,
+} from 'react-hook-form';
 import { apiClient } from '@/modules/shared/api/client';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
@@ -116,10 +121,10 @@ function path(
   return `risks.${index}.${name}` as FieldPath<QuotationFormSchemaValues>;
 }
 
-function setValueIfChanged(
+function setValueIfChanged<TFieldPath extends FieldPath<QuotationFormSchemaValues>>(
   form: UseFormReturn<QuotationFormSchemaValues>,
-  fieldPath: FieldPath<QuotationFormSchemaValues>,
-  nextValue: unknown,
+  fieldPath: TFieldPath,
+  nextValue: FieldPathValue<QuotationFormSchemaValues, TFieldPath>,
 ) {
   const currentValue = form.getValues(fieldPath);
   if (isEqualNormalizingNumbers(currentValue, nextValue)) return;
@@ -629,7 +634,9 @@ export function useRiskPremiumCalculation(
               path(index, 'premium_including_tax'),
               updatedRow.premium_including_tax,
             );
-            setValueIfChanged(form, path(index, 'rating_result_metadata'), {
+            const nextRatingMetadata: NonNullable<
+              QuotationFormSchemaValues['risks'][number]['rating_result_metadata']
+            > = {
               ...updatedRow.rating_result_metadata,
               pricing_status:
                 updatedRow.rating_result_metadata?.pricing_status ??
@@ -637,7 +644,12 @@ export function useRiskPremiumCalculation(
               pricing_input_signature: currentPricingSignature,
               pricing_is_stale: false,
               stale_reason: null,
-            });
+            };
+            setValueIfChanged(
+              form,
+              path(index, 'rating_result_metadata'),
+              nextRatingMetadata,
+            );
           },
           onError: () => {
             if (!mountedRef.current || token !== requestTokenRef.current) {
@@ -652,12 +664,21 @@ export function useRiskPremiumCalculation(
             const existingMetadata = form.getValues(
               path(index, 'rating_result_metadata'),
             ) as Record<string, unknown> | null;
-            setValueIfChanged(form, path(index, 'rating_result_metadata'), {
+            const nextRatingMetadata: NonNullable<
+              QuotationFormSchemaValues['risks'][number]['rating_result_metadata']
+            > = {
               ...(existingMetadata ?? {}),
               pricing_quote_id: null,
-              pricing_status: 'ERROR',
+              pricing_status: 'STALE',
               pricing_input_signature: currentPricingSignature,
-            });
+              pricing_is_stale: true,
+              stale_reason: 'Pricing recalculation failed',
+            };
+            setValueIfChanged(
+              form,
+              path(index, 'rating_result_metadata'),
+              nextRatingMetadata,
+            );
           },
         },
       );

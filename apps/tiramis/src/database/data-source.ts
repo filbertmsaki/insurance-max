@@ -45,8 +45,8 @@ import { TiramisVerificationResponseEntity } from '../modules/verifications/enti
 const environmentName =
   environment.NODE_ENV || environment.APP_ENV || 'development';
 const envPaths = [
-  join(process.cwd(), 'apps', 'tiramis', `.env.${environmentName}`),
   join(process.cwd(), 'apps', 'tiramis', '.env'),
+  join(process.cwd(), 'apps', 'tiramis', `.env.${environmentName}`),
 ];
 
 for (const envPath of envPaths) {

@@ -229,7 +229,11 @@ export function resolveFactorValues(
     formValues.risks[riskIndex]?.sum_insured,
     rowFactorValues,
   );
-  if (requiresSumInsured || resolvedSumInsured > 0) {
+  if (
+    requiresSumInsured ||
+    hasExplicitSumInsured(formValues.risks[riskIndex]?.sum_insured) ||
+    resolvedSumInsured > 0
+  ) {
     values.sum_insured = resolvedSumInsured;
   }
 
@@ -263,6 +267,17 @@ function resolveEffectiveSumInsured(
   return 0;
 }
 
+function hasExplicitSumInsured(
+  value: string | number | null | undefined,
+): boolean {
+  if (value === '' || value == null) {
+    return false;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0;
+}
+
 export function resolveFleetFactorValues(
   requiredFactors: RiskRequiredFactor[],
   item: QuotationFormSchemaValues['fleet']['items'][number],
@@ -285,9 +300,15 @@ export function resolveFleetFactorValues(
     values[code] = coerceFactorValue(raw, requiredFactor.factor.data_type);
   });
 
-  const resolvedSumInsured =
-    Number(item.risks_covered[riskIndex]?.sum_insured) || 0;
-  if (requiresSumInsured || resolvedSumInsured > 0) {
+  const explicitSumInsured = item.risks_covered[riskIndex]?.sum_insured;
+  const resolvedSumInsured = hasExplicitSumInsured(explicitSumInsured)
+    ? Number(explicitSumInsured)
+    : 0;
+  if (
+    requiresSumInsured ||
+    hasExplicitSumInsured(explicitSumInsured) ||
+    resolvedSumInsured > 0
+  ) {
     values.sum_insured = resolvedSumInsured;
   }
 

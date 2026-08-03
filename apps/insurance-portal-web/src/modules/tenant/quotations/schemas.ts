@@ -29,6 +29,7 @@ import type {
   QuotationTaxPayload,
   QuotationWizardAddonRow,
   QuotationWizardFleetItemRow,
+  QuotationWizardFleetRiskRow,
   QuotationWizardNonMotorItemRow,
 } from './types';
 import {
@@ -44,7 +45,12 @@ import {
   buildSingleRiskPricingSignature,
 } from './wizard/utils/pricingStaleness';
 
-const optionalText = z.string().trim().optional().or(z.literal(''));
+const optionalText = z
+  .string()
+  .trim()
+  .optional()
+  .or(z.literal(''))
+  .transform((value) => value ?? '');
 
 function createClientRef(prefix = 'risk') {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -275,7 +281,9 @@ export const quotationRiskRowSchema = z.object({
   commission_amount: optionalText,
   total_premium: optionalText,
   net_premium: optionalText,
-  rating_result_metadata: z.unknown().nullable(),
+  rating_result_metadata: z.custom<QuotationRiskFormRow['rating_result_metadata']>(
+    (value) => value === null || value === undefined || typeof value === 'object',
+  ),
 });
 
 const addonTaxSchema = z
@@ -378,6 +386,9 @@ const fleetRiskSchema = z.object({
     }),
   ),
   taxes_charged: z.array(addonTaxSchema),
+  rating_result_metadata: z.custom<
+    QuotationWizardFleetRiskRow['rating_result_metadata']
+  >((value) => value === null || value === undefined || typeof value === 'object'),
 });
 
 const fleetItemSchema = z.object({

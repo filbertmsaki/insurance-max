@@ -143,6 +143,11 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .uri({ scheme: ['http', 'https'] })
     .default('http://127.0.0.1:9091'),
   TIRAMIS_HTTP_TIMEOUT_MS: Joi.number().default(60000),
+  TIRAMIS_PORTAL_WEBHOOK_TOKEN: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().min(16).required(),
+    otherwise: Joi.string().min(16).default('local-only-tiramis-webhook-token'),
+  }),
   TIRAMIS_STATUS_SYNC_ENABLED: Joi.boolean().default(true),
   TIRAMIS_STATUS_SYNC_CRON: Joi.string().default('*/2 * * * *'),
   TIRAMIS_STATUS_SYNC_LIMIT: Joi.number().default(50),

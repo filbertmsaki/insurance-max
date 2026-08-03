@@ -63,11 +63,14 @@ export const tiramisEnvValidationSchema = Joi.object({
 
   TIRAMIS_TCP_HOST: Joi.string().default('0.0.0.0'),
   TIRAMIS_TCP_PORT: Joi.number().default(4001),
-  INSURANCE_PORTAL_TCP_HOST: Joi.string().default('127.0.0.1'),
-  INSURANCE_PORTAL_TCP_PORT: Joi.number()
-    .integer()
-    .min(1)
-    .max(65535)
-    .default(4002),
   TIRAMIS_PORTAL_NOTIFY_ENABLED: Joi.boolean().default(true),
+  INSURANCE_PORTAL_WEBHOOK_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:9090/api/v1/webhooks/tiramis/notifications'),
+  INSURANCE_PORTAL_WEBHOOK_TOKEN: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().min(16).required(),
+    otherwise: Joi.string().min(16).default('local-only-tiramis-webhook-token'),
+  }),
+  INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS: Joi.number().default(5000),
 });

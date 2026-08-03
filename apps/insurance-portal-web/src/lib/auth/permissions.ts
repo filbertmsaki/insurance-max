@@ -40,7 +40,10 @@ export function canAccessRoute(
     return false;
   }
 
-  if (options?.anyPermission?.length && !options.anyPermission.some((permission) => hasPermission(user, permission))) {
+  if (
+    options?.anyPermission?.length &&
+    !options.anyPermission.some((permission) => hasPermission(user, permission))
+  ) {
     return false;
   }
 

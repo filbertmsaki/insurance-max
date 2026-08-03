@@ -9,7 +9,69 @@ import {
   type CustomerRecord,
 } from './types';
 
-const optionalText = z.string().trim().max(255).optional().or(z.literal(''));
+const optionalText = z
+  .string()
+  .trim()
+  .max(255)
+  .optional()
+  .or(z.literal(''))
+  .transform((value) => value ?? '');
+const optionalTextWithMax = (max: number, message?: string) =>
+  z
+    .string()
+    .trim()
+    .max(max, message)
+    .optional()
+    .or(z.literal(''))
+    .transform((value) => value ?? '');
+const optionalEmail = z
+  .string()
+  .trim()
+  .email('Invalid email')
+  .optional()
+  .or(z.literal(''))
+  .transform((value) => value ?? '');
+const optionalCountryCode = z
+  .string()
+  .trim()
+  .length(3, 'Country code must be 3 letters')
+  .optional()
+  .or(z.literal(''))
+  .transform((value) => value ?? '');
+const optionalGender = z
+  .enum(['M', 'F'])
+  .optional()
+  .or(z.literal(''))
+  .transform((value) => value ?? '');
+const optionalIdType = z
+  .union([
+    z.literal(1),
+    z.literal(2),
+    z.literal(3),
+    z.literal(4),
+    z.literal(5),
+    z.literal(6),
+    z.literal(7),
+  ])
+  .optional()
+  .or(z.literal(''))
+  .transform((value) => value ?? '');
+const optionalDocumentType = z
+  .union([
+    z.literal('NIDA'),
+    z.literal('VOTER_ID'),
+    z.literal('PASSPORT'),
+    z.literal('DRIVING_LICENSE'),
+    z.literal('ZANID'),
+    z.literal('TIN_CERTIFICATE'),
+    z.literal('VRN_CERTIFICATE'),
+    z.literal('BUSINESS_REGISTRATION'),
+    z.literal('INCORPORATION_CERTIFICATE'),
+    z.literal('OTHER'),
+  ])
+  .optional()
+  .or(z.literal(''))
+  .transform((value) => value ?? '');
 
 /**
  * The customer field shape without the customer_type-conditional refinement.
@@ -20,32 +82,29 @@ const optionalText = z.string().trim().max(255).optional().or(z.literal(''));
  */
 export const customerFormObjectSchema = z.object({
   customer_type: z.enum(['INDIVIDUAL', 'CORPORATE']),
-  customer_no: z.string().optional().or(z.literal('')),
-  full_name: z.string().trim().max(150).optional().or(z.literal('')),
-  first_name: z.string().trim().max(50).optional().or(z.literal('')),
-  middle_name: z.string().trim().max(50).optional().or(z.literal('')),
-  last_name: z.string().trim().max(50).optional().or(z.literal('')),
-  gender: z.enum(['M', 'F']).optional().or(z.literal('')),
-  date_of_birth: z.string().optional().or(z.literal('')),
+  customer_no: z
+    .string()
+    .optional()
+    .or(z.literal(''))
+    .transform((value) => value ?? ''),
+  full_name: optionalTextWithMax(150),
+  first_name: optionalTextWithMax(50),
+  middle_name: optionalTextWithMax(50),
+  last_name: optionalTextWithMax(50),
+  gender: optionalGender,
+  date_of_birth: z
+    .string()
+    .optional()
+    .or(z.literal(''))
+    .transform((value) => value ?? ''),
   nationality: optionalText,
-  company_name: z.string().trim().max(150).optional().or(z.literal('')),
+  company_name: optionalTextWithMax(150),
   registration_no: optionalText,
   incorporation_certificate_no: optionalText,
   tin: optionalText,
   vrn: optionalText,
-  id_type: z
-    .union([
-      z.literal(1),
-      z.literal(2),
-      z.literal(3),
-      z.literal(4),
-      z.literal(5),
-      z.literal(6),
-      z.literal(7),
-    ])
-    .optional()
-    .or(z.literal('')),
-  id_number: z.string().trim().max(50).optional().or(z.literal('')),
+  id_type: optionalIdType,
+  id_number: optionalTextWithMax(50),
   nida_no: optionalText,
   voter_no: optionalText,
   passport_no: optionalText,
@@ -54,44 +113,20 @@ export const customerFormObjectSchema = z.object({
   phone: z.string().trim().max(30),
   alternate_phone: optionalText,
   fax: optionalText,
-  email: z.string().trim().email('Invalid email').optional().or(z.literal('')),
+  email: optionalEmail,
   country: optionalText,
-  country_code: z
-    .string()
-    .trim()
-    .length(3, 'Country code must be 3 letters')
-    .optional()
-    .or(z.literal('')),
-  region: z.string().trim().max(50).optional().or(z.literal('')),
-  district: z.string().trim().max(50).optional().or(z.literal('')),
+  country_code: optionalCountryCode,
+  region: optionalTextWithMax(50),
+  district: optionalTextWithMax(50),
   ward: optionalText,
   street: optionalText,
   postal_address: optionalText,
   contact_name: optionalText,
   contact_role: optionalText,
   contact_phone: optionalText,
-  contact_email: z
-    .string()
-    .trim()
-    .email('Invalid email')
-    .optional()
-    .or(z.literal('')),
+  contact_email: optionalEmail,
   kyc_status: z.enum(['PENDING', 'VERIFIED', 'REJECTED']),
-  document_type: z
-    .union([
-      z.literal('NIDA'),
-      z.literal('VOTER_ID'),
-      z.literal('PASSPORT'),
-      z.literal('DRIVING_LICENSE'),
-      z.literal('ZANID'),
-      z.literal('TIN_CERTIFICATE'),
-      z.literal('VRN_CERTIFICATE'),
-      z.literal('BUSINESS_REGISTRATION'),
-      z.literal('INCORPORATION_CERTIFICATE'),
-      z.literal('OTHER'),
-    ])
-    .optional()
-    .or(z.literal('')),
+  document_type: optionalDocumentType,
   document_no: optionalText,
   document_file_name: optionalText,
   document_file_url: optionalText,

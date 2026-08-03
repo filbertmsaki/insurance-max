@@ -15,13 +15,13 @@ import {
 const environmentName =
   environment.NODE_ENV || environment.APP_ENV || 'development';
 const envPaths = [
+  join(process.cwd(), 'apps', 'insurance-portal-service', '.env'),
   join(
     process.cwd(),
     'apps',
     'insurance-portal-service',
     `.env.${environmentName}`,
   ),
-  join(process.cwd(), 'apps', 'insurance-portal-service', '.env'),
 ];
 
 for (const envPath of envPaths) {
