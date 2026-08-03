@@ -61,6 +61,31 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .min(31)
     .max(1095)
     .default(366),
+  SAAS_BILLING_ENABLED: Joi.boolean().default(true),
+  SAAS_BILLING_CYCLE_CRON: Joi.string().default('0 30 1 * * *'),
+  SAAS_INVOICE_DUE_DAYS: Joi.number().integer().min(1).default(14),
+  SAAS_PAST_DUE_GRACE_DAYS: Joi.number().integer().min(0).default(7),
+  SAAS_USAGE_AGGREGATION_CRON: Joi.string().default('0 15 1 * * *'),
+  REGULATORY_CALENDAR_ENABLED: Joi.boolean().default(true),
+  REGULATORY_CALENDAR_GENERATION_CRON: Joi.string().default('0 10 0 * * *'),
+  REGULATORY_MONITOR_CRON: Joi.string().default('0 15 0 * * *'),
+  REGULATORY_WARNING_DAYS: Joi.number().integer().min(1).default(7),
+  REGULATORY_DEFAULT_TIMEZONE: Joi.string().default('Africa/Dar_es_Salaam'),
+  PREMIUM_LEVY_DEFAULT_RATE: Joi.number().min(0).max(100).default(1.5),
+  PREMIUM_LEVY_AUTO_CALCULATE: Joi.boolean().default(false),
+  PREMIUM_LEVY_REQUIRE_ADJUSTMENT_EVIDENCE: Joi.boolean().default(true),
+  REPORTS_ENABLED: Joi.boolean().default(true),
+  REPORTS_SCHEDULER_CRON: Joi.string().default('0 * * * * *'),
+  REPORTS_WORKER_CRON: Joi.string().default('15 * * * * *'),
+  REPORTS_MAX_RETRIES: Joi.number().integer().min(0).max(10).default(3),
+  REPORTS_ARTIFACT_RETENTION_DAYS: Joi.number().integer().min(1).default(30),
+  REPORTS_REQUIRE_MAIL_VERIFICATION: Joi.boolean().default(true),
+  REPORTS_MAIL_VERIFICATION_VALID_HOURS: Joi.number()
+    .integer()
+    .min(1)
+    .default(24),
+  REPORTS_MAX_ROWS: Joi.number().integer().min(1).default(200000),
+  REPORTS_DEFAULT_TIMEZONE: Joi.string().default('Africa/Dar_es_Salaam'),
   REINSURANCE_DEFAULT_CATEGORY: Joi.number().integer().min(1).default(1),
   REINSURANCE_DEFAULT_BROKERAGE_RATE: Joi.number().min(0).default(0),
   REINSURANCE_DEFAULT_COMMISSION_RATE: Joi.number().min(0).default(0),

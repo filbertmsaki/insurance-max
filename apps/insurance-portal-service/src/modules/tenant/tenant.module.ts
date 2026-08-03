@@ -22,7 +22,9 @@ import { ProductAccessModule } from './product-access/product-access.module';
 import { ProductDistributionModule } from './product-distribution/product-distribution.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { ReinsuranceModule } from './reinsurance/reinsurance.module';
+import { RegulatoryComplianceModule } from './regulatory-compliance/regulatory-compliance.module';
 import { RatingFactorsModule } from './rating-factors/rating-factors.module';
+import { ReportingModule } from './reporting/reporting.module';
 import { RiskRatingRulesModule } from './risk-rating-rules/risk-rating-rules.module';
 import { RiskRequiredFactorsModule } from './risk-required-factors/risk-required-factors.module';
 import { RiskRuleConditionsModule } from './risk-rule-conditions/risk-rule-conditions.module';
@@ -52,6 +54,8 @@ import { WorkItemsModule } from './work-items/work-items.module';
     PricingModule,
     PricingRateBooksModule,
     ReinsuranceModule,
+    RegulatoryComplianceModule,
+    ReportingModule,
     BillingCommissionModule,
     RatingFactorsModule,
     RiskRequiredFactorsModule,
@@ -84,6 +88,8 @@ import { WorkItemsModule } from './work-items/work-items.module';
     PricingModule,
     PricingRateBooksModule,
     ReinsuranceModule,
+    RegulatoryComplianceModule,
+    ReportingModule,
     BillingCommissionModule,
     RatingFactorsModule,
     RiskRequiredFactorsModule,

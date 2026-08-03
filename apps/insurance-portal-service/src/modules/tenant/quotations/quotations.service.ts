@@ -157,7 +157,7 @@ interface PricingValidationAuditContext {
 
 type QuotationPricingStatus = 'CURRENT' | 'STALE' | 'EXPIRED' | 'MISSING';
 
-interface QuotationPricingIntegrationSummary {
+export interface QuotationPricingIntegrationSummary {
   pricing_status: QuotationPricingStatus;
   is_stale: boolean;
   current_pricing_quote_id: string | null;

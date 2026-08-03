@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MailerService } from '@nestjs-modules/mailer';
+import { ISendMailOptions } from '@nestjs-modules/mailer/dist/interfaces/send-mail-options.interface';
 import { buildUrl } from '@insurance-max/shared-config';
 
 @Injectable()
@@ -22,6 +23,10 @@ export class MailService {
         year: new Date().getFullYear(),
       },
     });
+  }
+
+  async sendMail(options: ISendMailOptions): Promise<void> {
+    await this.mailerService.sendMail(options);
   }
 
   async sendPasswordChangedSuccessEmail(to: string, name: string) {
