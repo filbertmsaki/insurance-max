@@ -14,8 +14,7 @@ export class BusinessReferenceService {
     manager?: EntityManager;
   }): Promise<string> {
     const manager = params.manager ?? this.dataSource.manager;
-    const periodKey =
-      params.periodKey ?? String(new Date().getFullYear());
+    const periodKey = params.periodKey ?? String(new Date().getFullYear());
 
     const rows = await manager.query(
       `

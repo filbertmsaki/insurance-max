@@ -320,6 +320,110 @@ export class DataAccessScopeService {
     }
   }
 
+  applyClaimReadScope<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    alias: string,
+    scope: TenantDataScope,
+  ): void {
+    queryBuilder.setParameters({
+      claimScopeCompanyId: scope.companyId,
+      claimScopeUserId: scope.userId,
+      claimScopeBranchIds: scope.allowedBranchIds,
+    });
+
+    queryBuilder.andWhere(
+      new Brackets((participation) => {
+        participation.where(`${alias}.company_id = :claimScopeCompanyId`);
+
+        if (scope.canViewIntermediaryPortfolio) {
+          participation
+            .orWhere(
+              `${alias}.intermediary_company_id = :claimScopeCompanyId`,
+            )
+            .orWhere(
+              `${alias}.reported_by_company_id = :claimScopeCompanyId`,
+            );
+        }
+      }),
+    );
+
+    if (!scope.canViewAllBranches) {
+      if (!scope.allowedBranchIds.length) {
+        queryBuilder.andWhere(
+          `(
+            ${alias}.assigned_user_id = :claimScopeUserId
+            OR ${alias}.reported_by_user_id = :claimScopeUserId
+            OR ${alias}.created_by = :claimScopeUserId
+          )`,
+        );
+      } else {
+        queryBuilder.andWhere(
+          new Brackets((branchScope) => {
+            branchScope
+              .where(
+                `(
+                  ${alias}.company_id = :claimScopeCompanyId
+                  AND ${alias}.branch_id IN (:...claimScopeBranchIds)
+                )`,
+              )
+              .orWhere(
+                `(
+                  (
+                    ${alias}.intermediary_company_id = :claimScopeCompanyId
+                    OR ${alias}.reported_by_company_id = :claimScopeCompanyId
+                  )
+                  AND ${alias}.reported_branch_id IN (:...claimScopeBranchIds)
+                )`,
+              )
+              .orWhere(`${alias}.assigned_user_id = :claimScopeUserId`)
+              .orWhere(`${alias}.reported_by_user_id = :claimScopeUserId`);
+          }),
+        );
+      }
+    }
+
+    if (scope.ownRecordsOnly) {
+      queryBuilder.andWhere(
+        `(
+          ${alias}.assigned_user_id = :claimScopeUserId
+          OR ${alias}.reported_by_user_id = :claimScopeUserId
+          OR ${alias}.created_by = :claimScopeUserId
+        )`,
+      );
+    }
+  }
+
+  applyClaimWriteScope<T extends ObjectLiteral>(
+    queryBuilder: SelectQueryBuilder<T>,
+    alias: string,
+    scope: TenantDataScope,
+  ): void {
+    queryBuilder
+      .andWhere(`${alias}.company_id = :claimWriteCompanyId`)
+      .setParameters({
+        claimWriteCompanyId: scope.companyId,
+        claimWriteUserId: scope.userId,
+        claimWriteBranchIds: scope.allowedBranchIds,
+      });
+
+    if (!scope.canViewAllBranches) {
+      if (!scope.allowedBranchIds.length) {
+        queryBuilder.andWhere(`${alias}.assigned_user_id = :claimWriteUserId`);
+      } else {
+        queryBuilder.andWhere(
+          `(
+            ${alias}.branch_id IN (:...claimWriteBranchIds)
+            OR ${alias}.assigned_user_id = :claimWriteUserId
+          )`,
+        );
+      }
+    }
+
+    if (scope.ownRecordsOnly) {
+      queryBuilder.andWhere(`${alias}.assigned_user_id = :claimWriteUserId`);
+    }
+  }
+
   private buildOwnedRecordCondition(
     alias: string,
     scope: TenantDataScope,

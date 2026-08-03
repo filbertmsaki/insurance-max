@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class DashboardMvpIndexes1793500000000
-  implements MigrationInterface
-{
+export class DashboardMvpIndexes1793500000000 implements MigrationInterface {
   name = 'DashboardMvpIndexes1793500000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -14,13 +12,13 @@ export class DashboardMvpIndexes1793500000000
 
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS "IDX_quotations_dashboard_insurer_created"
-      ON "quotations" ("insurer_company_id", "status", "created_at")
+      ON "quotations" ("insurer_company_id", "quotation_status", "created_at")
       WHERE "deleted_at" IS NULL
     `);
 
     await queryRunner.query(`
       CREATE INDEX IF NOT EXISTS "IDX_quotations_dashboard_intermediary_created"
-      ON "quotations" ("intermediary_company_id", "status", "created_at")
+      ON "quotations" ("intermediary_company_id", "quotation_status", "created_at")
       WHERE "intermediary_company_id" IS NOT NULL
         AND "deleted_at" IS NULL
     `);

@@ -18,9 +18,7 @@ import { NotificationsService } from './notifications.service';
 @Controller('tenant/notifications')
 @UseGuards(AuthGuard('jwt'), TenantGuard)
 export class NotificationsController {
-  constructor(
-    private readonly notificationsService: NotificationsService,
-  ) {}
+  constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get()
   @UseGuards(PermissionsGuard)

@@ -34,6 +34,12 @@ import { TiramisNotificationService } from './services/tiramis-notification.serv
 import { TiramisRetryService } from './services/tiramis-retry.service';
 import { TiramisStatusSyncService } from './services/tiramis-status-sync.service';
 import { Customer } from '../tenant/customers/entities/customer.entity';
+import { ClaimAssessment } from '../tenant/claims/entities/claim-assessment.entity';
+import { ClaimDischargeVoucher } from '../tenant/claims/entities/claim-discharge-voucher.entity';
+import { InsuranceClaim } from '../tenant/claims/entities/claim.entity';
+import { ClaimIntimation } from '../tenant/claims/entities/claim-intimation.entity';
+import { ClaimPayment } from '../tenant/claims/entities/claim-payment.entity';
+import { ClaimRejection } from '../tenant/claims/entities/claim-rejection.entity';
 import { MotorFleet } from '../tenant/motor/entities/motor-fleet.entity';
 import { MotorPolicyDetail } from '../tenant/motor/entities/motor-policy-detail.entity';
 import { MotorVehicle } from '../tenant/motor/entities/motor-vehicle.entity';
@@ -53,6 +59,12 @@ import { Quotation } from '../tenant/quotations/entities/quotation.entity';
       Quotation,
       Policy,
       Customer,
+      InsuranceClaim,
+      ClaimIntimation,
+      ClaimAssessment,
+      ClaimDischargeVoucher,
+      ClaimPayment,
+      ClaimRejection,
       MotorVehicle,
       MotorFleet,
       MotorPolicyDetail,

@@ -253,8 +253,7 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'dashboard:tiramis',
     displayName: 'View TIRAMIS dashboard',
-    description:
-      'Allow viewing company-scoped TIRAMIS statistics and failures',
+    description: 'Allow viewing company-scoped TIRAMIS statistics and failures',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {

@@ -8,6 +8,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { DataScopePermissions } from '../../shared/authorization/data-scope.constants';
+import { ClaimAssessment } from '../../tenant/claims/entities/claim-assessment.entity';
+import { ClaimDischargeVoucher } from '../../tenant/claims/entities/claim-discharge-voucher.entity';
+import { InsuranceClaim } from '../../tenant/claims/entities/claim.entity';
+import { ClaimIntimation } from '../../tenant/claims/entities/claim-intimation.entity';
+import { ClaimPayment } from '../../tenant/claims/entities/claim-payment.entity';
+import { ClaimRejection } from '../../tenant/claims/entities/claim-rejection.entity';
 import { Customer } from '../../tenant/customers/entities/customer.entity';
 import { MotorFleet } from '../../tenant/motor/entities/motor-fleet.entity';
 import { MotorPolicyDetail } from '../../tenant/motor/entities/motor-policy-detail.entity';
@@ -19,6 +25,7 @@ import {
   TiramisPermission,
   TiramisPermissions,
 } from '../auth/tiramis-permissions.constant';
+import { TiramisRequestType } from '../enums/tiramis-request-type.enum';
 import { TiramisBusinessRecordEntity } from '../entities/tiramis-business-record.entity';
 
 export interface TiramisAccessScope {
@@ -43,6 +50,24 @@ export class TiramisAccessScopeService {
 
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
+
+    @InjectRepository(InsuranceClaim)
+    private readonly claimRepository: Repository<InsuranceClaim>,
+
+    @InjectRepository(ClaimIntimation)
+    private readonly claimIntimationRepository: Repository<ClaimIntimation>,
+
+    @InjectRepository(ClaimAssessment)
+    private readonly claimAssessmentRepository: Repository<ClaimAssessment>,
+
+    @InjectRepository(ClaimDischargeVoucher)
+    private readonly dischargeRepository: Repository<ClaimDischargeVoucher>,
+
+    @InjectRepository(ClaimPayment)
+    private readonly claimPaymentRepository: Repository<ClaimPayment>,
+
+    @InjectRepository(ClaimRejection)
+    private readonly claimRejectionRepository: Repository<ClaimRejection>,
 
     @InjectRepository(MotorVehicle)
     private readonly motorVehicleRepository: Repository<MotorVehicle>,
@@ -412,30 +437,58 @@ export class TiramisAccessScopeService {
 
     if (
       [
-        'claims',
-        'claim-records',
-        'tiramis-claims',
-        'verifications',
-        'verification',
-        'tiramis-verifications',
-      ].includes(sourceModule)
+        TiramisRequestType.CLAIM_NOTIFICATION,
+        TiramisRequestType.CLAIM_INTIMATION,
+        TiramisRequestType.CLAIM_ASSESSMENT,
+        TiramisRequestType.DISCHARGE_VOUCHER,
+        TiramisRequestType.CLAIM_PAYMENT,
+        TiramisRequestType.CLAIM_REJECTION,
+      ].includes(params.requestType as TiramisRequestType)
     ) {
-      const record = await this.businessRecordRepository.findOne({
-        where: {
-          id: sourceRecordId,
-        },
+      const claimAccess = await this.resolveClaimBusinessAccess({
+        requestType: params.requestType as TiramisRequestType,
+        sourceRecordId,
       });
 
-      if (!record) {
-        throw new ForbiddenException('TIRAMIS business record was not found');
-      }
-
-      this.assertCanAccessCompany(params.scope, record.companyId);
-      this.assertCanAccessBranch(params.scope, record.branchId);
+      this.assertCanAccessCompany(params.scope, claimAccess.companyId);
+      this.assertCanAccessBranch(params.scope, claimAccess.branchId);
 
       return {
-        businessCompanyId: record.companyId,
-        businessBranchId: record.branchId,
+        businessCompanyId: claimAccess.companyId,
+        businessBranchId: claimAccess.branchId,
+        sourceModule: 'claims',
+        sourceRecordId,
+        requestType: params.requestType,
+      };
+    }
+
+    if (
+      ['verifications', 'verification', 'tiramis-verifications'].includes(
+        sourceModule,
+      )
+    ) {
+      const record = await this.findVerificationBusinessRecord(
+        sourceModule,
+        params.requestType,
+        sourceRecordId,
+      );
+
+      if (record) {
+        this.assertCanAccessCompany(params.scope, record.companyId);
+        this.assertCanAccessBranch(params.scope, record.branchId);
+
+        return {
+          businessCompanyId: record.companyId,
+          businessBranchId: record.branchId,
+          sourceModule,
+          sourceRecordId,
+          requestType: params.requestType,
+        };
+      }
+
+      return {
+        businessCompanyId: params.scope.companyId,
+        businessBranchId: params.scope.activeBranchId,
         sourceModule,
         sourceRecordId,
         requestType: params.requestType,
@@ -479,5 +532,206 @@ export class TiramisAccessScopeService {
           .map((permission) => String(permission).trim()),
       ),
     );
+  }
+
+  private async findVerificationBusinessRecord(
+    sourceModule: string,
+    requestType: string,
+    sourceRecordId: string,
+  ) {
+    const normalizedSourceModules = [sourceModule];
+
+    if (sourceModule === 'verification') {
+      normalizedSourceModules.push('verifications');
+    }
+
+    if (sourceModule === 'verifications') {
+      normalizedSourceModules.push('verification');
+    }
+
+    const query = this.businessRecordRepository
+      .createQueryBuilder('record')
+      .where('record.requestType = :requestType', { requestType })
+      .andWhere('record.sourceModule IN (:...sourceModules)', {
+        sourceModules: normalizedSourceModules,
+      })
+      .andWhere('record.deletedAt IS NULL')
+      .orderBy('record.createdAt', 'DESC');
+
+    if (this.isUuid(sourceRecordId)) {
+      query.andWhere(
+        '(record.id = :recordId OR record.businessReference = :sourceRecordId OR CAST(record.payload AS text) ILIKE :payloadNeedle)',
+        {
+          recordId: sourceRecordId,
+          sourceRecordId,
+          payloadNeedle: `%${sourceRecordId}%`,
+        },
+      );
+    } else {
+      query.andWhere(
+        '(record.businessReference = :sourceRecordId OR CAST(record.payload AS text) ILIKE :payloadNeedle)',
+        {
+          sourceRecordId,
+          payloadNeedle: `%${sourceRecordId}%`,
+        },
+      );
+    }
+
+    return query.getOne();
+  }
+
+  private isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    );
+  }
+
+  private async resolveClaimBusinessAccess(params: {
+    requestType: TiramisRequestType;
+    sourceRecordId: string;
+  }): Promise<{
+    companyId: string;
+    branchId: string | null;
+    claimId: string;
+  }> {
+    switch (params.requestType) {
+      case TiramisRequestType.CLAIM_NOTIFICATION: {
+        const claim = await this.claimRepository.findOne({
+          where: { id: params.sourceRecordId },
+          select: {
+            id: true,
+            company_id: true,
+            branch_id: true,
+          },
+        });
+
+        if (!claim) {
+          throw new ForbiddenException('Claim source record was not found');
+        }
+
+        return {
+          companyId: claim.company_id,
+          branchId: claim.branch_id,
+          claimId: claim.id,
+        };
+      }
+
+      case TiramisRequestType.CLAIM_INTIMATION: {
+        const record = await this.claimIntimationRepository.findOne({
+          where: { id: params.sourceRecordId },
+          select: {
+            id: true,
+            company_id: true,
+            branch_id: true,
+            claim_id: true,
+          },
+        });
+
+        if (!record) {
+          throw new ForbiddenException('Claim intimation source record was not found');
+        }
+
+        return {
+          companyId: record.company_id,
+          branchId: record.branch_id,
+          claimId: record.claim_id,
+        };
+      }
+
+      case TiramisRequestType.CLAIM_ASSESSMENT: {
+        const record = await this.claimAssessmentRepository.findOne({
+          where: { id: params.sourceRecordId },
+          select: {
+            id: true,
+            company_id: true,
+            branch_id: true,
+            claim_id: true,
+          },
+        });
+
+        if (!record) {
+          throw new ForbiddenException('Claim assessment source record was not found');
+        }
+
+        return {
+          companyId: record.company_id,
+          branchId: record.branch_id,
+          claimId: record.claim_id,
+        };
+      }
+
+      case TiramisRequestType.DISCHARGE_VOUCHER: {
+        const record = await this.dischargeRepository.findOne({
+          where: { id: params.sourceRecordId },
+          select: {
+            id: true,
+            company_id: true,
+            branch_id: true,
+            claim_id: true,
+          },
+        });
+
+        if (!record) {
+          throw new ForbiddenException(
+            'Claim discharge voucher source record was not found',
+          );
+        }
+
+        return {
+          companyId: record.company_id,
+          branchId: record.branch_id,
+          claimId: record.claim_id,
+        };
+      }
+
+      case TiramisRequestType.CLAIM_PAYMENT: {
+        const record = await this.claimPaymentRepository.findOne({
+          where: { id: params.sourceRecordId },
+          select: {
+            id: true,
+            company_id: true,
+            branch_id: true,
+            claim_id: true,
+          },
+        });
+
+        if (!record) {
+          throw new ForbiddenException('Claim payment source record was not found');
+        }
+
+        return {
+          companyId: record.company_id,
+          branchId: record.branch_id,
+          claimId: record.claim_id,
+        };
+      }
+
+      case TiramisRequestType.CLAIM_REJECTION: {
+        const record = await this.claimRejectionRepository.findOne({
+          where: { id: params.sourceRecordId },
+          select: {
+            id: true,
+            company_id: true,
+            branch_id: true,
+            claim_id: true,
+          },
+        });
+
+        if (!record) {
+          throw new ForbiddenException('Claim rejection source record was not found');
+        }
+
+        return {
+          companyId: record.company_id,
+          branchId: record.branch_id,
+          claimId: record.claim_id,
+        };
+      }
+
+      default:
+        throw new ForbiddenException(
+          `Unsupported claim request type: ${params.requestType}`,
+        );
+    }
   }
 }

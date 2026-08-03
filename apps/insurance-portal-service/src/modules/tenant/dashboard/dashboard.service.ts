@@ -1,7 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
@@ -30,10 +27,7 @@ import { QuotationStatus } from '../quotations/enums/quotation-status.enum';
 import { TiraStatus } from '../quotations/enums/tira-status.enum';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { DashboardCacheService } from './dashboard-cache.service';
-import {
-  DashboardGroupBy,
-  DashboardQueryDto,
-} from './dto/dashboard-query.dto';
+import { DashboardGroupBy, DashboardQueryDto } from './dto/dashboard-query.dto';
 import { DashboardPermissions } from './dashboard.permissions';
 
 interface DashboardPeriod {
@@ -84,8 +78,7 @@ export class DashboardService {
     private readonly commissionRepository: Repository<CommissionTransaction>,
 
     @InjectRepository(TiramisSubmissionTrackingEntity)
-    private readonly tiramisTrackingRepository:
-      Repository<TiramisSubmissionTrackingEntity>,
+    private readonly tiramisTrackingRepository: Repository<TiramisSubmissionTrackingEntity>,
 
     private readonly dataAccessScopeService: DataAccessScopeService,
     private readonly dashboardCacheService: DashboardCacheService,
@@ -93,17 +86,11 @@ export class DashboardService {
   ) {
     this.timezone =
       this.configService.get<string>('app.timezone') ??
-      this.configService.get<string>(
-        'APP_TIMEZONE',
-        'Africa/Dar_es_Salaam',
-      ) ??
+      this.configService.get<string>('APP_TIMEZONE', 'Africa/Dar_es_Salaam') ??
       'Africa/Dar_es_Salaam';
 
     this.maximumRangeDays = Number(
-      this.configService.get<string>(
-        'DASHBOARD_MAX_RANGE_DAYS',
-        '366',
-      ),
+      this.configService.get<string>('DASHBOARD_MAX_RANGE_DAYS', '366'),
     );
   }
 
@@ -144,10 +131,8 @@ export class DashboardService {
         allowed_branch_ids: scope.allowedBranchIds,
         can_view_all_branches: scope.canViewAllBranches,
         own_records_only: scope.ownRecordsOnly,
-        can_view_carrier_portfolio:
-          scope.canViewCarrierPortfolio,
-        can_view_intermediary_portfolio:
-          scope.canViewIntermediaryPortfolio,
+        can_view_carrier_portfolio: scope.canViewCarrierPortfolio,
+        can_view_intermediary_portfolio: scope.canViewIntermediaryPortfolio,
       },
       sections,
       navigation: this.buildNavigation(
@@ -157,31 +142,22 @@ export class DashboardService {
     };
   }
 
-  async getOverview(
-    user: AuthenticatedUser,
-    query: DashboardQueryDto,
-  ) {
+  async getOverview(user: AuthenticatedUser, query: DashboardQueryDto) {
     return this.dashboardCacheService.getOrSet(
       'overview',
       user,
       query,
       async () => {
         const { scope, period } = this.resolveContext(user, query);
-        const [
-          sales,
-          policies,
-          customers,
-          finance,
-          tiramis,
-          tasks,
-        ] = await Promise.all([
-          this.buildSales(scope, user, query, period),
-          this.buildPolicies(scope, query, period),
-          this.buildCustomers(scope, query, period),
-          this.buildFinance(scope, user, query, period),
-          this.buildTiramis(scope, query, period),
-          this.buildTasks(scope, query, period),
-        ]);
+        const [sales, policies, customers, finance, tiramis, tasks] =
+          await Promise.all([
+            this.buildSales(scope, user, query, period),
+            this.buildPolicies(scope, query, period),
+            this.buildCustomers(scope, query, period),
+            this.buildFinance(scope, user, query, period),
+            this.buildTiramis(scope, query, period),
+            this.buildTasks(scope, query, period),
+          ]);
 
         return {
           context: this.buildContext(scope, query, period),
@@ -196,13 +172,10 @@ export class DashboardService {
           },
           charts: {
             quotation_trend: sales.charts.trend,
-            quotation_statuses:
-              sales.charts.status_breakdown,
+            quotation_statuses: sales.charts.status_breakdown,
             policy_trend: policies.charts.trend,
-            policy_statuses:
-              policies.charts.status_breakdown,
-            tiramis_statuses:
-              tiramis.charts.status_breakdown,
+            policy_statuses: policies.charts.status_breakdown,
+            tiramis_statuses: tiramis.charts.status_breakdown,
           },
           work_queues: tasks.queues,
           alerts: tasks.alerts,
@@ -212,10 +185,7 @@ export class DashboardService {
     );
   }
 
-  async getSales(
-    user: AuthenticatedUser,
-    query: DashboardQueryDto,
-  ) {
+  async getSales(user: AuthenticatedUser, query: DashboardQueryDto) {
     return this.dashboardCacheService.getOrSet(
       'sales',
       user,
@@ -232,10 +202,7 @@ export class DashboardService {
     );
   }
 
-  async getPolicies(
-    user: AuthenticatedUser,
-    query: DashboardQueryDto,
-  ) {
+  async getPolicies(user: AuthenticatedUser, query: DashboardQueryDto) {
     return this.dashboardCacheService.getOrSet(
       'policies',
       user,
@@ -252,10 +219,7 @@ export class DashboardService {
     );
   }
 
-  async getFinance(
-    user: AuthenticatedUser,
-    query: DashboardQueryDto,
-  ) {
+  async getFinance(user: AuthenticatedUser, query: DashboardQueryDto) {
     return this.dashboardCacheService.getOrSet(
       'finance',
       user,
@@ -272,10 +236,7 @@ export class DashboardService {
     );
   }
 
-  async getTiramis(
-    user: AuthenticatedUser,
-    query: DashboardQueryDto,
-  ) {
+  async getTiramis(user: AuthenticatedUser, query: DashboardQueryDto) {
     return this.dashboardCacheService.getOrSet(
       'tiramis',
       user,
@@ -292,10 +253,7 @@ export class DashboardService {
     );
   }
 
-  async getTasks(
-    user: AuthenticatedUser,
-    query: DashboardQueryDto,
-  ) {
+  async getTasks(user: AuthenticatedUser, query: DashboardQueryDto) {
     return this.dashboardCacheService.getOrSet(
       'tasks',
       user,
@@ -318,11 +276,7 @@ export class DashboardService {
     query: DashboardQueryDto,
     period: DashboardPeriod,
   ) {
-    const metrics = await this.createQuotationQuery(
-      scope,
-      query,
-      period,
-    )
+    const metrics = await this.createQuotationQuery(scope, query, period)
       .select('COUNT(DISTINCT quotation.id)', 'total')
       .addSelect(
         `COUNT(DISTINCT quotation.id) FILTER (
@@ -370,13 +324,9 @@ export class DashboardService {
           PaymentStatus.PROCESSING,
           PaymentStatus.PARTIALLY_PAID,
         ],
-        readyForSubmission:
-          QuotationStatus.READY_FOR_SUBMISSION,
+        readyForSubmission: QuotationStatus.READY_FOR_SUBMISSION,
         notSubmitted: TiraStatus.NOT_SUBMITTED,
-        failedTiraStatuses: [
-          TiraStatus.FAILED,
-          TiraStatus.REJECTED,
-        ],
+        failedTiraStatuses: [TiraStatus.FAILED, TiraStatus.REJECTED],
         failedStatus: QuotationStatus.FAILED,
         ineligibleStatuses: [
           QuotationStatus.DRAFT,
@@ -394,11 +344,7 @@ export class DashboardService {
         eligible_for_conversion: string;
       }>();
 
-    const converted = await this.createQuotationQuery(
-      scope,
-      query,
-      period,
-    )
+    const converted = await this.createQuotationQuery(scope, query, period)
       .innerJoin(
         Policy,
         'convertedPolicy',
@@ -415,10 +361,7 @@ export class DashboardService {
       query,
       period,
     )
-      .select(
-        `COALESCE(coverNote.currency_code, 'UNKNOWN')`,
-        'currency',
-      )
+      .select(`COALESCE(coverNote.currency_code, 'UNKNOWN')`, 'currency')
       .addSelect(
         `COALESCE(SUM(coverNote.total_premium_including_tax), 0)`,
         'amount',
@@ -427,22 +370,12 @@ export class DashboardService {
       .orderBy('currency', 'ASC')
       .getRawMany<MoneyByCurrency>();
 
-    const trend = await this.createQuotationQuery(
-      scope,
-      query,
-      period,
-    )
+    const trend = await this.createQuotationQuery(scope, query, period)
       .select(
-        this.dateBucketExpression(
-          'quotation.created_at',
-          period.groupBy,
-        ),
+        this.dateBucketExpression('quotation.created_at', period.groupBy),
         'period',
       )
-      .addSelect(
-        `COALESCE(coverNote.currency_code, 'UNKNOWN')`,
-        'currency',
-      )
+      .addSelect(`COALESCE(coverNote.currency_code, 'UNKNOWN')`, 'currency')
       .addSelect('COUNT(DISTINCT quotation.id)', 'count')
       .addSelect(
         `COALESCE(SUM(coverNote.total_premium_including_tax), 0)`,
@@ -465,42 +398,25 @@ export class DashboardService {
       .orderBy('quotation.status', 'ASC')
       .getRawMany<CountByLabel>();
 
-    const eligible = this.toNumber(
-      metrics?.eligible_for_conversion,
-    );
+    const eligible = this.toNumber(metrics?.eligible_for_conversion);
     const convertedCount = this.toNumber(converted?.count);
 
     return {
       kpis: {
         total_quotations: this.toNumber(metrics?.total),
-        completed_quotations: this.toNumber(
-          metrics?.completed,
-        ),
-        pending_approval: this.toNumber(
-          metrics?.pending_approval,
-        ),
-        awaiting_payment: this.toNumber(
-          metrics?.awaiting_payment,
-        ),
-        ready_for_tiramis: this.toNumber(
-          metrics?.ready_for_tiramis,
-        ),
-        failed_tiramis: this.toNumber(
-          metrics?.failed_tiramis,
-        ),
+        completed_quotations: this.toNumber(metrics?.completed),
+        pending_approval: this.toNumber(metrics?.pending_approval),
+        awaiting_payment: this.toNumber(metrics?.awaiting_payment),
+        ready_for_tiramis: this.toNumber(metrics?.ready_for_tiramis),
+        failed_tiramis: this.toNumber(metrics?.failed_tiramis),
         eligible_for_conversion: eligible,
         converted_quotations: convertedCount,
         conversion_rate: this.roundPercentage(
-          eligible > 0
-            ? (convertedCount / eligible) * 100
-            : 0,
+          eligible > 0 ? (convertedCount / eligible) * 100 : 0,
         ),
-        quoted_premium: this.normalizeMoneyRows(
-          premiumByCurrency,
-        ),
+        quoted_premium: this.normalizeMoneyRows(premiumByCurrency),
         can_view_partner_portfolio:
-          scope.canViewCarrierPortfolio ||
-          scope.canViewIntermediaryPortfolio,
+          scope.canViewCarrierPortfolio || scope.canViewIntermediaryPortfolio,
         company_type: user.companyType,
       },
       charts: {
@@ -510,8 +426,7 @@ export class DashboardService {
           quotation_count: this.toNumber(row.count),
           quoted_premium: this.toAmountString(row.amount),
         })),
-        status_breakdown:
-          this.normalizeCountBreakdown(statusBreakdown),
+        status_breakdown: this.normalizeCountBreakdown(statusBreakdown),
       },
     };
   }
@@ -524,11 +439,7 @@ export class DashboardService {
     const today = this.todayInTimeZone();
     const expiryBoundary = this.addDays(today, 30);
 
-    const metrics = await this.createPolicyQuery(
-      scope,
-      query,
-      period,
-    )
+    const metrics = await this.createPolicyQuery(scope, query, period)
       .select('COUNT(DISTINCT policy.id)', 'total')
       .addSelect(
         `COUNT(DISTINCT policy.id) FILTER (
@@ -570,49 +481,28 @@ export class DashboardService {
         pending_tiramis: string;
       }>();
 
-    const premiumByCurrency = await this.createPolicyQuery(
-      scope,
-      query,
-      period,
-    )
-      .select('COALESCE(policy.currency, \'UNKNOWN\')', 'currency')
-      .addSelect(
-        'COALESCE(SUM(policy.total_premium), 0)',
-        'amount',
-      )
-      .groupBy('COALESCE(policy.currency, \'UNKNOWN\')')
+    const premiumByCurrency = await this.createPolicyQuery(scope, query, period)
+      .select("COALESCE(policy.currency, 'UNKNOWN')", 'currency')
+      .addSelect('COALESCE(SUM(policy.total_premium), 0)', 'amount')
+      .groupBy("COALESCE(policy.currency, 'UNKNOWN')")
       .orderBy('currency', 'ASC')
       .getRawMany<MoneyByCurrency>();
 
-    const trend = await this.createPolicyQuery(
-      scope,
-      query,
-      period,
-    )
+    const trend = await this.createPolicyQuery(scope, query, period)
       .select(
-        this.dateBucketExpression(
-          'policy.created_at',
-          period.groupBy,
-        ),
+        this.dateBucketExpression('policy.created_at', period.groupBy),
         'period',
       )
-      .addSelect('COALESCE(policy.currency, \'UNKNOWN\')', 'currency')
+      .addSelect("COALESCE(policy.currency, 'UNKNOWN')", 'currency')
       .addSelect('COUNT(DISTINCT policy.id)', 'count')
-      .addSelect(
-        'COALESCE(SUM(policy.total_premium), 0)',
-        'amount',
-      )
+      .addSelect('COALESCE(SUM(policy.total_premium), 0)', 'amount')
       .groupBy('period')
-      .addGroupBy('COALESCE(policy.currency, \'UNKNOWN\')')
+      .addGroupBy("COALESCE(policy.currency, 'UNKNOWN')")
       .orderBy('period', 'ASC')
       .addOrderBy('currency', 'ASC')
       .getRawMany<PeriodMoneyRow>();
 
-    const statusBreakdown = await this.createPolicyQuery(
-      scope,
-      query,
-      period,
-    )
+    const statusBreakdown = await this.createPolicyQuery(scope, query, period)
       .select('policy.policy_status', 'label')
       .addSelect('COUNT(DISTINCT policy.id)', 'count')
       .groupBy('policy.policy_status')
@@ -624,15 +514,9 @@ export class DashboardService {
         total_policies: this.toNumber(metrics?.total),
         active_policies: this.toNumber(metrics?.active),
         expired_policies: this.toNumber(metrics?.expired),
-        expiring_within_30_days: this.toNumber(
-          metrics?.expiring_soon,
-        ),
-        pending_tiramis_sync: this.toNumber(
-          metrics?.pending_tiramis,
-        ),
-        total_premium: this.normalizeMoneyRows(
-          premiumByCurrency,
-        ),
+        expiring_within_30_days: this.toNumber(metrics?.expiring_soon),
+        pending_tiramis_sync: this.toNumber(metrics?.pending_tiramis),
+        total_premium: this.normalizeMoneyRows(premiumByCurrency),
       },
       charts: {
         trend: trend.map((row) => ({
@@ -641,8 +525,7 @@ export class DashboardService {
           policy_count: this.toNumber(row.count),
           total_premium: this.toAmountString(row.amount),
         })),
-        status_breakdown:
-          this.normalizeCountBreakdown(statusBreakdown),
+        status_breakdown: this.normalizeCountBreakdown(statusBreakdown),
       },
     };
   }
@@ -652,11 +535,7 @@ export class DashboardService {
     query: DashboardQueryDto,
     period: DashboardPeriod,
   ) {
-    const metrics = await this.createCustomerQuery(
-      scope,
-      query,
-      period,
-    )
+    const metrics = await this.createCustomerQuery(scope, query, period)
       .select('COUNT(DISTINCT customer.id)', 'total')
       .addSelect(
         `COUNT(DISTINCT customer.id) FILTER (
@@ -680,11 +559,7 @@ export class DashboardService {
         pending_kyc: string;
       }>();
 
-    const typeBreakdown = await this.createCustomerQuery(
-      scope,
-      query,
-      period,
-    )
+    const typeBreakdown = await this.createCustomerQuery(scope, query, period)
       .select('customer.customer_type', 'label')
       .addSelect('COUNT(DISTINCT customer.id)', 'count')
       .groupBy('customer.customer_type')
@@ -698,8 +573,7 @@ export class DashboardService {
         pending_kyc: this.toNumber(metrics?.pending_kyc),
       },
       charts: {
-        customer_types:
-          this.normalizeCountBreakdown(typeBreakdown),
+        customer_types: this.normalizeCountBreakdown(typeBreakdown),
       },
     };
   }
@@ -712,11 +586,7 @@ export class DashboardService {
   ) {
     const today = this.todayInTimeZone();
 
-    const invoiceMetrics = await this.createInvoiceQuery(
-      scope,
-      query,
-      period,
-    )
+    const invoiceMetrics = await this.createInvoiceQuery(scope, query, period)
       .select('COUNT(DISTINCT invoice.id)', 'total')
       .addSelect(
         `COUNT(DISTINCT invoice.id) FILTER (
@@ -739,20 +609,10 @@ export class DashboardService {
         overdue: string;
       }>();
 
-    const invoiceTotals = await this.createInvoiceQuery(
-      scope,
-      query,
-      period,
-    )
+    const invoiceTotals = await this.createInvoiceQuery(scope, query, period)
       .select('invoice.currency', 'currency')
-      .addSelect(
-        'COALESCE(SUM(invoice.total_amount), 0)',
-        'total_amount',
-      )
-      .addSelect(
-        'COALESCE(SUM(invoice.balance_amount), 0)',
-        'balance_amount',
-      )
+      .addSelect('COALESCE(SUM(invoice.total_amount), 0)', 'total_amount')
+      .addSelect('COALESCE(SUM(invoice.balance_amount), 0)', 'balance_amount')
       .groupBy('invoice.currency')
       .orderBy('invoice.currency', 'ASC')
       .getRawMany<{
@@ -761,70 +621,39 @@ export class DashboardService {
         balance_amount: string;
       }>();
 
-    const invoiceTrend = await this.createInvoiceQuery(
-      scope,
-      query,
-      period,
-    )
+    const invoiceTrend = await this.createInvoiceQuery(scope, query, period)
       .select(
-        this.dateBucketExpression(
-          'invoice.created_at',
-          period.groupBy,
-        ),
+        this.dateBucketExpression('invoice.created_at', period.groupBy),
         'period',
       )
       .addSelect('invoice.currency', 'currency')
       .addSelect('COUNT(DISTINCT invoice.id)', 'count')
-      .addSelect(
-        'COALESCE(SUM(invoice.total_amount), 0)',
-        'amount',
-      )
+      .addSelect('COALESCE(SUM(invoice.total_amount), 0)', 'amount')
       .groupBy('period')
       .addGroupBy('invoice.currency')
       .orderBy('period', 'ASC')
       .addOrderBy('invoice.currency', 'ASC')
       .getRawMany<PeriodMoneyRow>();
 
-    const receiptMetrics = await this.createReceiptQuery(
-      scope,
-      query,
-      period,
-    )
+    const receiptMetrics = await this.createReceiptQuery(scope, query, period)
       .select('COUNT(DISTINCT receipt.id)', 'total')
       .getRawOne<{ total: string }>();
 
-    const receiptTotals = await this.createReceiptQuery(
-      scope,
-      query,
-      period,
-    )
+    const receiptTotals = await this.createReceiptQuery(scope, query, period)
       .select('receipt.currency', 'currency')
-      .addSelect(
-        'COALESCE(SUM(receipt.amount), 0)',
-        'amount',
-      )
+      .addSelect('COALESCE(SUM(receipt.amount), 0)', 'amount')
       .groupBy('receipt.currency')
       .orderBy('receipt.currency', 'ASC')
       .getRawMany<MoneyByCurrency>();
 
-    const receiptTrend = await this.createReceiptQuery(
-      scope,
-      query,
-      period,
-    )
+    const receiptTrend = await this.createReceiptQuery(scope, query, period)
       .select(
-        this.dateBucketExpression(
-          'receipt.created_at',
-          period.groupBy,
-        ),
+        this.dateBucketExpression('receipt.created_at', period.groupBy),
         'period',
       )
       .addSelect('receipt.currency', 'currency')
       .addSelect('COUNT(DISTINCT receipt.id)', 'count')
-      .addSelect(
-        'COALESCE(SUM(receipt.amount), 0)',
-        'amount',
-      )
+      .addSelect('COALESCE(SUM(receipt.amount), 0)', 'amount')
       .groupBy('period')
       .addGroupBy('receipt.currency')
       .orderBy('period', 'ASC')
@@ -835,9 +664,7 @@ export class DashboardService {
       kpis: {
         total_invoices: this.toNumber(invoiceMetrics?.total),
         open_invoices: this.toNumber(invoiceMetrics?.open),
-        overdue_invoices: this.toNumber(
-          invoiceMetrics?.overdue,
-        ),
+        overdue_invoices: this.toNumber(invoiceMetrics?.overdue),
         total_receipts: this.toNumber(receiptMetrics?.total),
         invoiced_amount: invoiceTotals.map((row) => ({
           currency: row.currency,
@@ -864,10 +691,7 @@ export class DashboardService {
           collected_amount: this.toAmountString(row.amount),
         })),
       },
-      commissions: this.hasPermission(
-        user,
-        DashboardPermissions.COMMISSIONS,
-      )
+      commissions: this.hasPermission(user, DashboardPermissions.COMMISSIONS)
         ? await this.buildCommissions(scope, query, period)
         : null,
     };
@@ -878,15 +702,8 @@ export class DashboardService {
     query: DashboardQueryDto,
     period: DashboardPeriod,
   ) {
-    const metrics = await this.createCommissionQuery(
-      scope,
-      query,
-      period,
-    )
-      .select(
-        'COUNT(DISTINCT commission.id)',
-        'total',
-      )
+    const metrics = await this.createCommissionQuery(scope, query, period)
+      .select('COUNT(DISTINCT commission.id)', 'total')
       .addSelect(
         `COUNT(DISTINCT commission.id) FILTER (
           WHERE UPPER(commission.status) = 'PAID'
@@ -905,32 +722,18 @@ export class DashboardService {
         pending: string;
       }>();
 
-    const amountRows = await this.createCommissionQuery(
-      scope,
-      query,
-      period,
-    )
-      .select('COALESCE(policy.currency, \'UNKNOWN\')', 'currency')
-      .addSelect(
-        'COALESCE(SUM(commission.commission_amount), 0)',
-        'amount',
-      )
-      .groupBy('COALESCE(policy.currency, \'UNKNOWN\')')
+    const amountRows = await this.createCommissionQuery(scope, query, period)
+      .select("COALESCE(policy.currency, 'UNKNOWN')", 'currency')
+      .addSelect('COALESCE(SUM(commission.commission_amount), 0)', 'amount')
+      .groupBy("COALESCE(policy.currency, 'UNKNOWN')")
       .orderBy('currency', 'ASC')
       .getRawMany<MoneyByCurrency>();
 
-    const paidRows = await this.createCommissionQuery(
-      scope,
-      query,
-      period,
-    )
+    const paidRows = await this.createCommissionQuery(scope, query, period)
       .andWhere(`UPPER(commission.status) = 'PAID'`)
-      .select('COALESCE(policy.currency, \'UNKNOWN\')', 'currency')
-      .addSelect(
-        'COALESCE(SUM(commission.commission_amount), 0)',
-        'amount',
-      )
-      .groupBy('COALESCE(policy.currency, \'UNKNOWN\')')
+      .select("COALESCE(policy.currency, 'UNKNOWN')", 'currency')
+      .addSelect('COALESCE(SUM(commission.commission_amount), 0)', 'amount')
+      .groupBy("COALESCE(policy.currency, 'UNKNOWN')")
       .orderBy('currency', 'ASC')
       .getRawMany<MoneyByCurrency>();
 
@@ -940,17 +743,11 @@ export class DashboardService {
       period,
     )
       .select('commission.status', 'status')
-      .addSelect('COALESCE(policy.currency, \'UNKNOWN\')', 'currency')
-      .addSelect(
-        'COUNT(DISTINCT commission.id)',
-        'count',
-      )
-      .addSelect(
-        'COALESCE(SUM(commission.commission_amount), 0)',
-        'amount',
-      )
+      .addSelect("COALESCE(policy.currency, 'UNKNOWN')", 'currency')
+      .addSelect('COUNT(DISTINCT commission.id)', 'count')
+      .addSelect('COALESCE(SUM(commission.commission_amount), 0)', 'amount')
       .groupBy('commission.status')
-      .addGroupBy('COALESCE(policy.currency, \'UNKNOWN\')')
+      .addGroupBy("COALESCE(policy.currency, 'UNKNOWN')")
       .orderBy('commission.status', 'ASC')
       .addOrderBy('currency', 'ASC')
       .getRawMany<{
@@ -963,9 +760,7 @@ export class DashboardService {
     return {
       kpis: {
         total_transactions: this.toNumber(metrics?.total),
-        pending_transactions: this.toNumber(
-          metrics?.pending,
-        ),
+        pending_transactions: this.toNumber(metrics?.pending),
         paid_transactions: this.toNumber(metrics?.paid),
         accrued_amount: this.normalizeMoneyRows(amountRows),
         paid_amount: this.normalizeMoneyRows(paidRows),
@@ -986,11 +781,7 @@ export class DashboardService {
     query: DashboardQueryDto,
     period: DashboardPeriod,
   ) {
-    const metrics = await this.createTiramisQuery(
-      scope,
-      query,
-      period,
-    )
+    const metrics = await this.createTiramisQuery(scope, query, period)
       .select('COUNT(DISTINCT tracking.id)', 'total')
       .addSelect(
         `COUNT(DISTINCT tracking.id) FILTER (
@@ -1017,9 +808,7 @@ export class DashboardService {
         'retryable',
       )
       .setParameters({
-        successStatuses: [
-          TiramisSubmissionStatus.FINAL_SUCCESS,
-        ],
+        successStatuses: [TiramisSubmissionStatus.FINAL_SUCCESS],
         pendingStatuses: [
           TiramisSubmissionStatus.DRAFT,
           TiramisSubmissionStatus.PENDING,
@@ -1048,44 +837,27 @@ export class DashboardService {
         retryable: string;
       }>();
 
-    const statusBreakdown = await this.createTiramisQuery(
-      scope,
-      query,
-      period,
-    )
+    const statusBreakdown = await this.createTiramisQuery(scope, query, period)
       .select('tracking.status', 'label')
       .addSelect('COUNT(DISTINCT tracking.id)', 'count')
       .groupBy('tracking.status')
       .orderBy('tracking.status', 'ASC')
       .getRawMany<CountByLabel>();
 
-    const recentFailures = await this.createTiramisQuery(
-      scope,
-      query,
-      period,
-    )
-      .andWhere(
-        'tracking.status IN (:...failureStatuses)',
-        {
-          failureStatuses: [
-            TiramisSubmissionStatus.ACK_FAILED,
-            TiramisSubmissionStatus.FINAL_FAILED,
-            TiramisSubmissionStatus.RETRY_EXHAUSTED,
-            TiramisSubmissionStatus.CALLBACK_OVERDUE,
-            TiramisSubmissionStatus.FAILED,
-          ],
-        },
-      )
+    const recentFailures = await this.createTiramisQuery(scope, query, period)
+      .andWhere('tracking.status IN (:...failureStatuses)', {
+        failureStatuses: [
+          TiramisSubmissionStatus.ACK_FAILED,
+          TiramisSubmissionStatus.FINAL_FAILED,
+          TiramisSubmissionStatus.RETRY_EXHAUSTED,
+          TiramisSubmissionStatus.CALLBACK_OVERDUE,
+          TiramisSubmissionStatus.FAILED,
+        ],
+      })
       .select('tracking.id', 'tracking_id')
-      .addSelect(
-        'tracking.business_reference',
-        'business_reference',
-      )
+      .addSelect('tracking.business_reference', 'business_reference')
       .addSelect('tracking.status', 'status')
-      .addSelect(
-        'tracking.last_error_message',
-        'last_error_message',
-      )
+      .addSelect('tracking.last_error_message', 'last_error_message')
       .addSelect('tracking.created_at', 'created_at')
       .orderBy('tracking.created_at', 'DESC')
       .limit(query.limit ?? 10)
@@ -1100,22 +872,13 @@ export class DashboardService {
     return {
       kpis: {
         total_submissions: this.toNumber(metrics?.total),
-        successful_submissions: this.toNumber(
-          metrics?.success,
-        ),
-        pending_submissions: this.toNumber(
-          metrics?.pending,
-        ),
-        failed_submissions: this.toNumber(
-          metrics?.failed,
-        ),
-        retryable_submissions: this.toNumber(
-          metrics?.retryable,
-        ),
+        successful_submissions: this.toNumber(metrics?.success),
+        pending_submissions: this.toNumber(metrics?.pending),
+        failed_submissions: this.toNumber(metrics?.failed),
+        retryable_submissions: this.toNumber(metrics?.retryable),
       },
       charts: {
-        status_breakdown:
-          this.normalizeCountBreakdown(statusBreakdown),
+        status_breakdown: this.normalizeCountBreakdown(statusBreakdown),
       },
       recent_failures: recentFailures,
     };
@@ -1138,52 +901,40 @@ export class DashboardService {
       expiringPolicies,
     ] = await Promise.all([
       this.createQuotationQuery(scope, query, period)
-        .andWhere(
-          'quotation.approval_status = :pendingApproval',
-          { pendingApproval: ApprovalStatus.PENDING },
-        )
+        .andWhere('quotation.approval_status = :pendingApproval', {
+          pendingApproval: ApprovalStatus.PENDING,
+        })
         .select('COUNT(DISTINCT quotation.id)', 'count')
         .getRawOne<{ count: string }>(),
       this.createQuotationQuery(scope, query, period)
-        .andWhere(
-          'quotation.payment_status IN (:...paymentStatuses)',
-          {
-            paymentStatuses: [
-              PaymentStatus.REQUESTED,
-              PaymentStatus.PROCESSING,
-              PaymentStatus.PARTIALLY_PAID,
-            ],
-          },
-        )
+        .andWhere('quotation.payment_status IN (:...paymentStatuses)', {
+          paymentStatuses: [
+            PaymentStatus.REQUESTED,
+            PaymentStatus.PROCESSING,
+            PaymentStatus.PARTIALLY_PAID,
+          ],
+        })
         .select('COUNT(DISTINCT quotation.id)', 'count')
         .getRawOne<{ count: string }>(),
       this.createQuotationQuery(scope, query, period)
-        .andWhere(
-          'quotation.status = :readyStatus',
-          {
-            readyStatus:
-              QuotationStatus.READY_FOR_SUBMISSION,
-          },
-        )
-        .andWhere(
-          'quotation.tira_status = :notSubmitted',
-          { notSubmitted: TiraStatus.NOT_SUBMITTED },
-        )
+        .andWhere('quotation.status = :readyStatus', {
+          readyStatus: QuotationStatus.READY_FOR_SUBMISSION,
+        })
+        .andWhere('quotation.tira_status = :notSubmitted', {
+          notSubmitted: TiraStatus.NOT_SUBMITTED,
+        })
         .select('COUNT(DISTINCT quotation.id)', 'count')
         .getRawOne<{ count: string }>(),
       this.createTiramisQuery(scope, query, period)
-        .andWhere(
-          'tracking.status IN (:...failureStatuses)',
-          {
-            failureStatuses: [
-              TiramisSubmissionStatus.ACK_FAILED,
-              TiramisSubmissionStatus.FINAL_FAILED,
-              TiramisSubmissionStatus.RETRY_EXHAUSTED,
-              TiramisSubmissionStatus.CALLBACK_OVERDUE,
-              TiramisSubmissionStatus.FAILED,
-            ],
-          },
-        )
+        .andWhere('tracking.status IN (:...failureStatuses)', {
+          failureStatuses: [
+            TiramisSubmissionStatus.ACK_FAILED,
+            TiramisSubmissionStatus.FINAL_FAILED,
+            TiramisSubmissionStatus.RETRY_EXHAUSTED,
+            TiramisSubmissionStatus.CALLBACK_OVERDUE,
+            TiramisSubmissionStatus.FAILED,
+          ],
+        })
         .select('COUNT(DISTINCT tracking.id)', 'count')
         .getRawOne<{ count: string }>(),
       this.createInvoiceQuery(scope, query, period)
@@ -1193,16 +944,11 @@ export class DashboardService {
         .select('COUNT(DISTINCT invoice.id)', 'count')
         .getRawOne<{ count: string }>(),
       this.createPolicyQuery(scope, query, period)
-        .andWhere(
-          'policy.end_date BETWEEN :today AND :expiryBoundary',
-          {
-            today,
-            expiryBoundary,
-          },
-        )
-        .andWhere(
-          `policy.policy_status NOT IN ('CANCELLED', 'EXPIRED')`,
-        )
+        .andWhere('policy.end_date BETWEEN :today AND :expiryBoundary', {
+          today,
+          expiryBoundary,
+        })
+        .andWhere(`policy.policy_status NOT IN ('CANCELLED', 'EXPIRED')`)
         .select('COUNT(DISTINCT policy.id)', 'count')
         .getRawOne<{ count: string }>(),
     ]);
@@ -1221,30 +967,22 @@ export class DashboardService {
       {
         key: 'tiramis_ready',
         label: 'Ready for TIRAMIS',
-        count: this.toNumber(
-          readyForTiramis?.count,
-        ),
+        count: this.toNumber(readyForTiramis?.count),
       },
       {
         key: 'tiramis_failed',
         label: 'TIRAMIS failures',
-        count: this.toNumber(
-          tiramisFailures?.count,
-        ),
+        count: this.toNumber(tiramisFailures?.count),
       },
       {
         key: 'overdue_invoices',
         label: 'Overdue invoices',
-        count: this.toNumber(
-          overdueInvoices?.count,
-        ),
+        count: this.toNumber(overdueInvoices?.count),
       },
       {
         key: 'policy_expiry',
         label: 'Policies expiring in 30 days',
-        count: this.toNumber(
-          expiringPolicies?.count,
-        ),
+        count: this.toNumber(expiringPolicies?.count),
       },
     ];
 
@@ -1253,8 +991,7 @@ export class DashboardService {
       .map((queue) => ({
         code: queue.key,
         severity:
-          queue.key === 'tiramis_failed' ||
-          queue.key === 'overdue_invoices'
+          queue.key === 'tiramis_failed' || queue.key === 'overdue_invoices'
             ? 'high'
             : 'medium',
         message: `${queue.count} ${queue.label.toLowerCase()}`,
@@ -1264,18 +1001,12 @@ export class DashboardService {
       queues,
       alerts,
       totals: {
-        open_items: queues.reduce(
-          (sum, queue) => sum + queue.count,
-          0,
-        ),
+        open_items: queues.reduce((sum, queue) => sum + queue.count, 0),
       },
     };
   }
 
-  private resolveContext(
-    user: AuthenticatedUser,
-    query: DashboardQueryDto,
-  ) {
+  private resolveContext(user: AuthenticatedUser, query: DashboardQueryDto) {
     const scope = this.dataAccessScopeService.resolve(user);
     this.dataAccessScopeService.assertRequestedBranchAllowed(
       scope,
@@ -1288,9 +1019,7 @@ export class DashboardService {
     };
   }
 
-  private resolvePeriod(
-    query: DashboardQueryDto,
-  ): DashboardPeriod {
+  private resolvePeriod(query: DashboardQueryDto): DashboardPeriod {
     const today = this.todayInTimeZone();
     const to = query.to ?? today;
     const from = query.from ?? `${to.slice(0, 7)}-01`;
@@ -1305,10 +1034,7 @@ export class DashboardService {
     }
 
     const rangeDays =
-      Math.floor(
-        (toDate.getTime() - fromDate.getTime()) /
-          86_400_000,
-      ) + 1;
+      Math.floor((toDate.getTime() - fromDate.getTime()) / 86_400_000) + 1;
 
     if (rangeDays > this.maximumRangeDays) {
       throw new BadRequestException(
@@ -1339,38 +1065,30 @@ export class DashboardService {
       scope,
     );
 
-    this.applyCreatedAtPeriod(
-      queryBuilder,
-      'quotation.created_at',
-      period,
-    );
+    this.applyCreatedAtPeriod(queryBuilder, 'quotation.created_at', period);
 
     if (query.branch_id) {
-      queryBuilder.andWhere(
-        'quotation.branch_id = :branchId',
-        { branchId: query.branch_id },
-      );
+      queryBuilder.andWhere('quotation.branch_id = :branchId', {
+        branchId: query.branch_id,
+      });
     }
 
     if (query.product_id) {
-      queryBuilder.andWhere(
-        'quotation.product_id = :productId',
-        { productId: query.product_id },
-      );
+      queryBuilder.andWhere('quotation.product_id = :productId', {
+        productId: query.product_id,
+      });
     }
 
     if (query.channel_type) {
-      queryBuilder.andWhere(
-        'quotation.channel_type = :channelType',
-        { channelType: query.channel_type },
-      );
+      queryBuilder.andWhere('quotation.channel_type = :channelType', {
+        channelType: query.channel_type,
+      });
     }
 
     if (query.currency) {
-      queryBuilder.andWhere(
-        'coverNote.currency_code = :currency',
-        { currency: query.currency },
-      );
+      queryBuilder.andWhere('coverNote.currency_code = :currency', {
+        currency: query.currency,
+      });
     }
 
     return queryBuilder;
@@ -1391,38 +1109,30 @@ export class DashboardService {
       scope,
     );
 
-    this.applyCreatedAtPeriod(
-      queryBuilder,
-      'policy.created_at',
-      period,
-    );
+    this.applyCreatedAtPeriod(queryBuilder, 'policy.created_at', period);
 
     if (query.branch_id) {
-      queryBuilder.andWhere(
-        'policy.branch_id = :branchId',
-        { branchId: query.branch_id },
-      );
+      queryBuilder.andWhere('policy.branch_id = :branchId', {
+        branchId: query.branch_id,
+      });
     }
 
     if (query.product_id) {
-      queryBuilder.andWhere(
-        'policy.product_id = :productId',
-        { productId: query.product_id },
-      );
+      queryBuilder.andWhere('policy.product_id = :productId', {
+        productId: query.product_id,
+      });
     }
 
     if (query.channel_type) {
-      queryBuilder.andWhere(
-        'policy.channel_type = :channelType',
-        { channelType: query.channel_type },
-      );
+      queryBuilder.andWhere('policy.channel_type = :channelType', {
+        channelType: query.channel_type,
+      });
     }
 
     if (query.currency) {
-      queryBuilder.andWhere(
-        'policy.currency = :currency',
-        { currency: query.currency },
-      );
+      queryBuilder.andWhere('policy.currency = :currency', {
+        currency: query.currency,
+      });
     }
 
     return queryBuilder;
@@ -1443,21 +1153,12 @@ export class DashboardService {
       scope,
     );
 
-    this.applyCreatedAtPeriod(
-      queryBuilder,
-      'customer.created_at',
-      period,
-    );
+    this.applyCreatedAtPeriod(queryBuilder, 'customer.created_at', period);
 
-    if (
-      query.branch_id ||
-      query.product_id ||
-      query.channel_type
-    ) {
+    if (query.branch_id || query.product_id || query.channel_type) {
       queryBuilder.andWhere(
         new Brackets((filterQuery) => {
-          filterQuery
-            .where(`
+          filterQuery.where(`
               EXISTS (
                 SELECT 1
                 FROM quotations customer_quotation
@@ -1480,8 +1181,7 @@ export class DashboardService {
                       : ''
                   }
               )
-            `)
-            .orWhere(`
+            `).orWhere(`
               EXISTS (
                 SELECT 1
                 FROM policies customer_policy
@@ -1535,11 +1235,7 @@ export class DashboardService {
         scopeBranchIds: scope.allowedBranchIds,
       });
 
-    this.applyCreatedAtPeriod(
-      queryBuilder,
-      'invoice.created_at',
-      period,
-    );
+    this.applyCreatedAtPeriod(queryBuilder, 'invoice.created_at', period);
     this.applyFinancialRecordScope(
       queryBuilder,
       'invoice',
@@ -1565,19 +1261,16 @@ export class DashboardService {
         new Brackets((channelQuery) => {
           channelQuery
             .where('policy.channel_type = :channelType')
-            .orWhere(
-              'quotation.channel_type = :channelType',
-            );
+            .orWhere('quotation.channel_type = :channelType');
         }),
         { channelType: query.channel_type },
       );
     }
 
     if (query.currency) {
-      queryBuilder.andWhere(
-        'invoice.currency = :currency',
-        { currency: query.currency },
-      );
+      queryBuilder.andWhere('invoice.currency = :currency', {
+        currency: query.currency,
+      });
     }
 
     return queryBuilder;
@@ -1601,16 +1294,8 @@ export class DashboardService {
         scopeBranchIds: scope.allowedBranchIds,
       });
 
-    this.applyCreatedAtPeriod(
-      queryBuilder,
-      'receipt.created_at',
-      period,
-    );
-    this.applyReceiptScope(
-      queryBuilder,
-      scope,
-      query.branch_id,
-    );
+    this.applyCreatedAtPeriod(queryBuilder, 'receipt.created_at', period);
+    this.applyReceiptScope(queryBuilder, scope, query.branch_id);
 
     if (query.product_id) {
       queryBuilder.andWhere(
@@ -1628,19 +1313,16 @@ export class DashboardService {
         new Brackets((channelQuery) => {
           channelQuery
             .where('policy.channel_type = :channelType')
-            .orWhere(
-              'quotation.channel_type = :channelType',
-            );
+            .orWhere('quotation.channel_type = :channelType');
         }),
         { channelType: query.channel_type },
       );
     }
 
     if (query.currency) {
-      queryBuilder.andWhere(
-        'receipt.currency = :currency',
-        { currency: query.currency },
-      );
+      queryBuilder.andWhere('receipt.currency = :currency', {
+        currency: query.currency,
+      });
     }
 
     return queryBuilder;
@@ -1663,52 +1345,38 @@ export class DashboardService {
         scopeBranchIds: scope.allowedBranchIds,
       });
 
-    this.applyCreatedAtPeriod(
-      queryBuilder,
-      'commission.created_at',
-      period,
-    );
+    this.applyCreatedAtPeriod(queryBuilder, 'commission.created_at', period);
 
     if (scope.ownRecordsOnly) {
-      queryBuilder.andWhere(
-        'policy.created_by = :scopeUserId',
-      );
+      queryBuilder.andWhere('policy.created_by = :scopeUserId');
     } else if (query.branch_id) {
-      queryBuilder.andWhere(
-        'policy.branch_id = :branchId',
-        { branchId: query.branch_id },
-      );
+      queryBuilder.andWhere('policy.branch_id = :branchId', {
+        branchId: query.branch_id,
+      });
     } else if (!scope.canViewAllBranches) {
       if (scope.allowedBranchIds.length) {
-        queryBuilder.andWhere(
-          'policy.branch_id IN (:...scopeBranchIds)',
-        );
+        queryBuilder.andWhere('policy.branch_id IN (:...scopeBranchIds)');
       } else {
-        queryBuilder.andWhere(
-          'policy.created_by = :scopeUserId',
-        );
+        queryBuilder.andWhere('policy.created_by = :scopeUserId');
       }
     }
 
     if (query.product_id) {
-      queryBuilder.andWhere(
-        'policy.product_id = :productId',
-        { productId: query.product_id },
-      );
+      queryBuilder.andWhere('policy.product_id = :productId', {
+        productId: query.product_id,
+      });
     }
 
     if (query.channel_type) {
-      queryBuilder.andWhere(
-        'policy.channel_type = :channelType',
-        { channelType: query.channel_type },
-      );
+      queryBuilder.andWhere('policy.channel_type = :channelType', {
+        channelType: query.channel_type,
+      });
     }
 
     if (query.currency) {
-      queryBuilder.andWhere(
-        'policy.currency = :currency',
-        { currency: query.currency },
-      );
+      queryBuilder.andWhere('policy.currency = :currency', {
+        currency: query.currency,
+      });
     }
 
     return queryBuilder;
@@ -1732,16 +1400,8 @@ export class DashboardService {
         channelType: query.channel_type,
       });
 
-    this.applyCreatedAtPeriod(
-      queryBuilder,
-      'tracking.created_at',
-      period,
-    );
-    this.applyTiramisScope(
-      queryBuilder,
-      scope,
-      query.branch_id,
-    );
+    this.applyCreatedAtPeriod(queryBuilder, 'tracking.created_at', period);
+    this.applyTiramisScope(queryBuilder, scope, query.branch_id);
     this.applyTiramisBusinessFilters(queryBuilder, query);
 
     return queryBuilder;
@@ -1770,9 +1430,7 @@ export class DashboardService {
     requestedBranchId?: string,
   ) {
     if (scope.ownRecordsOnly) {
-      queryBuilder.andWhere(
-        `${recordAlias}.created_by = :scopeUserId`,
-      );
+      queryBuilder.andWhere(`${recordAlias}.created_by = :scopeUserId`);
       return;
     }
 
@@ -1780,12 +1438,8 @@ export class DashboardService {
       queryBuilder.andWhere(
         new Brackets((branchQuery) => {
           branchQuery
-            .where(
-              `${policyAlias}.branch_id = :requestedBranchId`,
-            )
-            .orWhere(
-              `${quotationAlias}.branch_id = :requestedBranchId`,
-            );
+            .where(`${policyAlias}.branch_id = :requestedBranchId`)
+            .orWhere(`${quotationAlias}.branch_id = :requestedBranchId`);
         }),
       );
       return;
@@ -1796,24 +1450,16 @@ export class DashboardService {
     }
 
     if (!scope.allowedBranchIds.length) {
-      queryBuilder.andWhere(
-        `${recordAlias}.created_by = :scopeUserId`,
-      );
+      queryBuilder.andWhere(`${recordAlias}.created_by = :scopeUserId`);
       return;
     }
 
     queryBuilder.andWhere(
       new Brackets((scopeQuery) => {
         scopeQuery
-          .where(
-            `${recordAlias}.created_by = :scopeUserId`,
-          )
-          .orWhere(
-            `${policyAlias}.branch_id IN (:...scopeBranchIds)`,
-          )
-          .orWhere(
-            `${quotationAlias}.branch_id IN (:...scopeBranchIds)`,
-          );
+          .where(`${recordAlias}.created_by = :scopeUserId`)
+          .orWhere(`${policyAlias}.branch_id IN (:...scopeBranchIds)`)
+          .orWhere(`${quotationAlias}.branch_id IN (:...scopeBranchIds)`);
       }),
     );
   }
@@ -1839,9 +1485,7 @@ export class DashboardService {
         new Brackets((branchQuery) => {
           branchQuery
             .where('policy.branch_id = :requestedBranchId')
-            .orWhere(
-              'quotation.branch_id = :requestedBranchId',
-            );
+            .orWhere('quotation.branch_id = :requestedBranchId');
         }),
       );
       return;
@@ -1868,9 +1512,7 @@ export class DashboardService {
           .where('receipt.received_by = :scopeUserId')
           .orWhere('invoice.created_by = :scopeUserId')
           .orWhere('policy.branch_id IN (:...scopeBranchIds)')
-          .orWhere(
-            'quotation.branch_id IN (:...scopeBranchIds)',
-          );
+          .orWhere('quotation.branch_id IN (:...scopeBranchIds)');
       }),
     );
   }
@@ -1881,18 +1523,14 @@ export class DashboardService {
     requestedBranchId?: string,
   ) {
     if (scope.ownRecordsOnly) {
-      queryBuilder.andWhere(
-        'tracking.source_user_id = :scopeUserId',
-      );
+      queryBuilder.andWhere('tracking.source_user_id = :scopeUserId');
       return;
     }
 
     if (requestedBranchId) {
       queryBuilder.andWhere(
         new Brackets((branchQuery) => {
-          branchQuery
-            .where('tracking.source_user_id = :scopeUserId')
-            .orWhere(`
+          branchQuery.where('tracking.source_user_id = :scopeUserId').orWhere(`
               EXISTS (
                 SELECT 1
                 FROM quotations scoped_quotation
@@ -1901,8 +1539,7 @@ export class DashboardService {
                   AND scoped_quotation.branch_id = :requestedBranchId
                   AND scoped_quotation.deleted_at IS NULL
               )
-            `)
-            .orWhere(`
+            `).orWhere(`
               EXISTS (
                 SELECT 1
                 FROM policies scoped_policy
@@ -1922,17 +1559,13 @@ export class DashboardService {
     }
 
     if (!scope.allowedBranchIds.length) {
-      queryBuilder.andWhere(
-        'tracking.source_user_id = :scopeUserId',
-      );
+      queryBuilder.andWhere('tracking.source_user_id = :scopeUserId');
       return;
     }
 
     queryBuilder.andWhere(
       new Brackets((scopeQuery) => {
-        scopeQuery
-          .where('tracking.source_user_id = :scopeUserId')
-          .orWhere(`
+        scopeQuery.where('tracking.source_user_id = :scopeUserId').orWhere(`
             EXISTS (
               SELECT 1
               FROM quotations scoped_quotation
@@ -1941,8 +1574,7 @@ export class DashboardService {
                 AND scoped_quotation.branch_id IN (:...scopeBranchIds)
                 AND scoped_quotation.deleted_at IS NULL
             )
-          `)
-          .orWhere(`
+          `).orWhere(`
             EXISTS (
               SELECT 1
               FROM policies scoped_policy
@@ -1966,8 +1598,7 @@ export class DashboardService {
 
     queryBuilder.andWhere(
       new Brackets((businessQuery) => {
-        businessQuery
-          .where(`
+        businessQuery.where(`
             EXISTS (
               SELECT 1
               FROM quotations scoped_quotation
@@ -1984,8 +1615,7 @@ export class DashboardService {
                     : ''
                 }
             )
-          `)
-          .orWhere(`
+          `).orWhere(`
             EXISTS (
               SELECT 1
               FROM policies scoped_policy
@@ -2097,17 +1727,11 @@ export class DashboardService {
     ];
   }
 
-  private hasPermission(
-    user: AuthenticatedUser,
-    permission: string,
-  ) {
+  private hasPermission(user: AuthenticatedUser, permission: string) {
     return (user.permissions ?? []).includes(permission);
   }
 
-  private dateBucketExpression(
-    column: string,
-    groupBy: DashboardGroupBy,
-  ) {
+  private dateBucketExpression(column: string, groupBy: DashboardGroupBy) {
     const localizedColumn = this.localizedTimestamp(column);
 
     switch (groupBy) {
@@ -2142,9 +1766,7 @@ export class DashboardService {
       day: '2-digit',
     }).formatToParts(date);
 
-    const lookup = new Map(
-      parts.map((part) => [part.type, part.value]),
-    );
+    const lookup = new Map(parts.map((part) => [part.type, part.value]));
 
     return `${lookup.get('year')}-${lookup.get('month')}-${lookup.get('day')}`;
   }
@@ -2153,9 +1775,7 @@ export class DashboardService {
     const parsed = new Date(`${value}T00:00:00.000Z`);
 
     if (Number.isNaN(parsed.getTime())) {
-      throw new BadRequestException(
-        `Invalid ISO date: ${value}`,
-      );
+      throw new BadRequestException(`Invalid ISO date: ${value}`);
     }
 
     return parsed;
@@ -2181,18 +1801,12 @@ export class DashboardService {
     }));
   }
 
-  private toAmountString(
-    value: string | number | null | undefined,
-  ) {
+  private toAmountString(value: string | number | null | undefined) {
     const number = Number(value ?? 0);
-    return Number.isFinite(number)
-      ? number.toFixed(2)
-      : '0.00';
+    return Number.isFinite(number) ? number.toFixed(2) : '0.00';
   }
 
-  private toNumber(
-    value: string | number | null | undefined,
-  ) {
+  private toNumber(value: string | number | null | undefined) {
     const number = Number(value ?? 0);
     return Number.isFinite(number) ? number : 0;
   }

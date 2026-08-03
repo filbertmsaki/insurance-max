@@ -44,10 +44,7 @@ import { FinanceOperationsController } from './finance-operations.controller';
       CommissionPaymentItem,
     ]),
   ],
-  controllers: [
-    BillingCommissionController,
-    FinanceOperationsController,
-  ],
+  controllers: [BillingCommissionController, FinanceOperationsController],
   providers: [BillingCommissionService, FinanceLifecycleService],
   exports: [BillingCommissionService, FinanceLifecycleService],
 })

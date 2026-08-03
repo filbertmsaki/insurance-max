@@ -74,14 +74,11 @@ export class NotificationsService {
         new Brackets((branchScope) => {
           branchScope
             .where('notification.branch_id IS NULL')
-            .orWhere(
-              'notification.branch_id IN (:...branchIds)',
-              {
-                branchIds: scope.allowedBranchIds.length
-                  ? scope.allowedBranchIds
-                  : ['00000000-0000-0000-0000-000000000000'],
-              },
-            );
+            .orWhere('notification.branch_id IN (:...branchIds)', {
+              branchIds: scope.allowedBranchIds.length
+                ? scope.allowedBranchIds
+                : ['00000000-0000-0000-0000-000000000000'],
+            });
         }),
       );
     }

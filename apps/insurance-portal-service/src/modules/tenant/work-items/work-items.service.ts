@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { Brackets, Repository } from 'typeorm';
@@ -108,10 +105,7 @@ export class WorkItemsService {
     return queryBuilder.getMany();
   }
 
-  async complete(
-    user: AuthenticatedUser,
-    id: string,
-  ): Promise<WorkItem> {
+  async complete(user: AuthenticatedUser, id: string): Promise<WorkItem> {
     const item = await this.workItemRepository.findOne({
       where: {
         id,

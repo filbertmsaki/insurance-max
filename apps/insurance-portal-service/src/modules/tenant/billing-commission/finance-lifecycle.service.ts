@@ -7,11 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import {
-  DataSource,
-  EntityManager,
-  Repository,
-} from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 
 import { AuditService } from '../../shared/audit/audit.service';
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
@@ -56,11 +52,9 @@ export class FinanceLifecycleService {
     @InjectRepository(CommissionTransaction)
     private readonly commissionRepository: Repository<CommissionTransaction>,
     @InjectRepository(CommissionPayment)
-    private readonly commissionPaymentRepository:
-      Repository<CommissionPayment>,
+    private readonly commissionPaymentRepository: Repository<CommissionPayment>,
     @InjectRepository(CommissionPaymentItem)
-    private readonly commissionPaymentItemRepository:
-      Repository<CommissionPaymentItem>,
+    private readonly commissionPaymentItemRepository: Repository<CommissionPaymentItem>,
     private readonly dataAccessScopeService: DataAccessScopeService,
     private readonly referenceService: BusinessReferenceService,
     private readonly auditService: AuditService,
@@ -72,16 +66,10 @@ export class FinanceLifecycleService {
     dto: IssueInvoiceDto,
   ): Promise<Invoice> {
     const result = await this.dataSource.transaction(async (manager) => {
-      const invoice = await this.getInvoiceForUpdate(
-        manager,
-        user,
-        invoiceId,
-      );
+      const invoice = await this.getInvoiceForUpdate(manager, user, invoiceId);
 
       if (invoice.status !== InvoiceLifecycleStatus.DRAFT) {
-        throw new ConflictException(
-          'Only a draft invoice can be issued',
-        );
+        throw new ConflictException('Only a draft invoice can be issued');
       }
 
       if (MoneyUtil.compare(invoice.total_amount, '0.00') <= 0) {
@@ -117,16 +105,10 @@ export class FinanceLifecycleService {
     dto: VoidInvoiceDto,
   ): Promise<Invoice> {
     const result = await this.dataSource.transaction(async (manager) => {
-      const invoice = await this.getInvoiceForUpdate(
-        manager,
-        user,
-        invoiceId,
-      );
+      const invoice = await this.getInvoiceForUpdate(manager, user, invoiceId);
 
       if (invoice.status === InvoiceLifecycleStatus.PAID) {
-        throw new ConflictException(
-          'Paid invoices cannot be voided',
-        );
+        throw new ConflictException('Paid invoices cannot be voided');
       }
 
       const activeAllocationCount = await manager
@@ -184,16 +166,10 @@ export class FinanceLifecycleService {
     dto: PostReceiptDto,
   ): Promise<Receipt> {
     const result = await this.dataSource.transaction(async (manager) => {
-      const receipt = await this.getReceiptForUpdate(
-        manager,
-        user,
-        receiptId,
-      );
+      const receipt = await this.getReceiptForUpdate(manager, user, receiptId);
 
       if (receipt.status !== ReceiptLifecycleStatus.RECEIVED) {
-        throw new ConflictException(
-          'Only received receipts can be posted',
-        );
+        throw new ConflictException('Only received receipts can be posted');
       }
 
       receipt.status = ReceiptLifecycleStatus.POSTED;
@@ -223,11 +199,7 @@ export class FinanceLifecycleService {
     dto: AllocateReceiptDto,
   ): Promise<ReceiptAllocation> {
     const result = await this.dataSource.transaction(async (manager) => {
-      const receipt = await this.getReceiptForUpdate(
-        manager,
-        user,
-        receiptId,
-      );
+      const receipt = await this.getReceiptForUpdate(manager, user, receiptId);
       const invoice = await this.getInvoiceForUpdate(
         manager,
         user,
@@ -238,9 +210,7 @@ export class FinanceLifecycleService {
         ![
           ReceiptLifecycleStatus.POSTED,
           ReceiptLifecycleStatus.PARTIALLY_ALLOCATED,
-        ].includes(
-          receipt.status as ReceiptLifecycleStatus,
-        )
+        ].includes(receipt.status as ReceiptLifecycleStatus)
       ) {
         throw new ConflictException(
           'Receipts must be posted before allocation',
@@ -278,9 +248,7 @@ export class FinanceLifecycleService {
         );
       }
 
-      if (
-        MoneyUtil.compare(amount, receipt.unallocated_amount) > 0
-      ) {
+      if (MoneyUtil.compare(amount, receipt.unallocated_amount) > 0) {
         throw new BadRequestException(
           'Allocation cannot exceed receipt unallocated amount',
         );
@@ -309,19 +277,17 @@ export class FinanceLifecycleService {
         );
       }
 
-      const allocation = await manager
-        .getRepository(ReceiptAllocation)
-        .save(
-          manager.getRepository(ReceiptAllocation).create({
-            company_id: user.companyId!,
-            receipt_id: receipt.id,
-            invoice_id: invoice.id,
-            amount,
-            currency: receipt.currency,
-            status: ReceiptAllocationStatus.ACTIVE,
-            allocated_by: user.id,
-          }),
-        );
+      const allocation = await manager.getRepository(ReceiptAllocation).save(
+        manager.getRepository(ReceiptAllocation).create({
+          company_id: user.companyId!,
+          receipt_id: receipt.id,
+          invoice_id: invoice.id,
+          amount,
+          currency: receipt.currency,
+          status: ReceiptAllocationStatus.ACTIVE,
+          allocated_by: user.id,
+        }),
+      );
 
       await this.recalculateInvoiceFromAllocations(
         manager,
@@ -373,9 +339,7 @@ export class FinanceLifecycleService {
       }
 
       if (allocation.status !== ReceiptAllocationStatus.ACTIVE) {
-        throw new ConflictException(
-          'Only active allocations can be reversed',
-        );
+        throw new ConflictException('Only active allocations can be reversed');
       }
 
       const receipt = await this.getReceiptForUpdate(
@@ -383,11 +347,7 @@ export class FinanceLifecycleService {
         user,
         allocation.receipt_id,
       );
-      await this.getInvoiceForUpdate(
-        manager,
-        user,
-        allocation.invoice_id,
-      );
+      await this.getInvoiceForUpdate(manager, user, allocation.invoice_id);
 
       allocation.status = ReceiptAllocationStatus.REVERSED;
       allocation.reversed_by = user.id;
@@ -440,11 +400,7 @@ export class FinanceLifecycleService {
     dto: ReverseFinancialRecordDto,
   ): Promise<Receipt> {
     const result = await this.dataSource.transaction(async (manager) => {
-      const receipt = await this.getReceiptForUpdate(
-        manager,
-        user,
-        receiptId,
-      );
+      const receipt = await this.getReceiptForUpdate(manager, user, receiptId);
 
       const activeAllocationCount = await manager
         .getRepository(ReceiptAllocation)
@@ -463,9 +419,7 @@ export class FinanceLifecycleService {
       }
 
       if (receipt.status === ReceiptLifecycleStatus.REVERSED) {
-        throw new ConflictException(
-          'Receipt is already reversed',
-        );
+        throw new ConflictException('Receipt is already reversed');
       }
 
       receipt.status = ReceiptLifecycleStatus.REVERSED;
@@ -506,15 +460,13 @@ export class FinanceLifecycleService {
     paymentId: string,
   ): Promise<CommissionPayment> {
     const result = await this.dataSource.transaction(async (manager) => {
-      const payment = await manager
-        .getRepository(CommissionPayment)
-        .findOne({
-          where: {
-            id: paymentId,
-            company_id: user.companyId!,
-          },
-          relations: { items: true },
-        });
+      const payment = await manager.getRepository(CommissionPayment).findOne({
+        where: {
+          id: paymentId,
+          company_id: user.companyId!,
+        },
+        relations: { items: true },
+      });
 
       if (!payment) {
         throw new NotFoundException('Commission payment not found');
@@ -524,11 +476,9 @@ export class FinanceLifecycleService {
         return payment;
       }
 
-      const items = await manager
-        .getRepository(CommissionPaymentItem)
-        .find({
-          where: { commission_payment_id: payment.id },
-        });
+      const items = await manager.getRepository(CommissionPaymentItem).find({
+        where: { commission_payment_id: payment.id },
+      });
 
       for (const item of items) {
         const transaction = await manager
@@ -541,17 +491,10 @@ export class FinanceLifecycleService {
           });
 
         if (!transaction) {
-          throw new NotFoundException(
-            'Commission transaction not found',
-          );
+          throw new NotFoundException('Commission transaction not found');
         }
 
-        if (
-          MoneyUtil.compare(
-            item.amount,
-            transaction.balance_amount,
-          ) > 0
-        ) {
+        if (MoneyUtil.compare(item.amount, transaction.balance_amount) > 0) {
           throw new BadRequestException(
             'Commission payment cannot exceed commission balance',
           );
@@ -571,9 +514,7 @@ export class FinanceLifecycleService {
             ? 'PAID'
             : 'PARTIALLY_PAID';
 
-        await manager
-          .getRepository(CommissionTransaction)
-          .save(transaction);
+        await manager.getRepository(CommissionTransaction).save(transaction);
       }
 
       payment.status = 'PAID';
@@ -670,9 +611,7 @@ export class FinanceLifecycleService {
       return;
     }
 
-    throw new ForbiddenException(
-      'You are not allowed to access this record',
-    );
+    throw new ForbiddenException('You are not allowed to access this record');
   }
 
   private async recalculateInvoiceFromAllocations(
@@ -716,9 +655,7 @@ export class FinanceLifecycleService {
     ) {
       if (MoneyUtil.compare(invoice.paid_amount, '0.00') === 0) {
         invoice.status = InvoiceLifecycleStatus.ISSUED;
-      } else if (
-        MoneyUtil.compare(invoice.balance_amount, '0.00') === 0
-      ) {
+      } else if (MoneyUtil.compare(invoice.balance_amount, '0.00') === 0) {
         invoice.status = InvoiceLifecycleStatus.PAID;
       } else {
         invoice.status = InvoiceLifecycleStatus.PARTIALLY_PAID;
@@ -763,13 +700,9 @@ export class FinanceLifecycleService {
       allocatedAmount,
     );
 
-    if (
-      MoneyUtil.compare(receipt.unallocated_amount, receipt.amount) === 0
-    ) {
+    if (MoneyUtil.compare(receipt.unallocated_amount, receipt.amount) === 0) {
       receipt.status = ReceiptLifecycleStatus.POSTED;
-    } else if (
-      MoneyUtil.compare(receipt.unallocated_amount, '0.00') === 0
-    ) {
+    } else if (MoneyUtil.compare(receipt.unallocated_amount, '0.00') === 0) {
       receipt.status = ReceiptLifecycleStatus.ALLOCATED;
     } else {
       receipt.status = ReceiptLifecycleStatus.PARTIALLY_ALLOCATED;

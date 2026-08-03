@@ -8,11 +8,7 @@ import {
 } from 'typeorm';
 
 @Entity('work_items')
-@Index('IDX_work_items_company_status', [
-  'company_id',
-  'status',
-  'due_at',
-])
+@Index('IDX_work_items_company_status', ['company_id', 'status', 'due_at'])
 export class WorkItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;

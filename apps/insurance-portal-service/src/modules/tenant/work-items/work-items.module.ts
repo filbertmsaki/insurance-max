@@ -9,9 +9,7 @@ import { WorkItemsController } from './work-items.controller';
 import { WorkItemsService } from './work-items.service';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([WorkItem, TenantNotification]),
-  ],
+  imports: [TypeOrmModule.forFeature([WorkItem, TenantNotification])],
   controllers: [WorkItemsController, NotificationsController],
   providers: [WorkItemsService, NotificationsService],
   exports: [WorkItemsService, NotificationsService],

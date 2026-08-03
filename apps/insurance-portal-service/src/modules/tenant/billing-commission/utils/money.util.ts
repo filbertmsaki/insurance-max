@@ -11,17 +11,14 @@ export class MoneyUtil {
     const normalized = String(value).trim();
 
     if (!/^-?\d+(\.\d{1,2})?$/.test(normalized)) {
-      throw new BadRequestException(
-        `Invalid monetary value: ${normalized}`,
-      );
+      throw new BadRequestException(`Invalid monetary value: ${normalized}`);
     }
 
     const negative = normalized.startsWith('-');
     const unsigned = negative ? normalized.substring(1) : normalized;
     const [whole, decimal = ''] = unsigned.split('.');
 
-    const minor =
-      BigInt(whole) * 100n + BigInt(decimal.padEnd(2, '0'));
+    const minor = BigInt(whole) * 100n + BigInt(decimal.padEnd(2, '0'));
 
     return negative ? -minor : minor;
   }
@@ -37,10 +34,7 @@ export class MoneyUtil {
 
   static add(...values: MoneyValue[]): string {
     return this.fromMinor(
-      values.reduce(
-        (total, value) => total + this.toMinor(value),
-        0n,
-      ),
+      values.reduce((total, value) => total + this.toMinor(value), 0n),
     );
   }
 
@@ -70,8 +64,6 @@ export class MoneyUtil {
       return '0.00';
     }
 
-    return this.fromMinor(
-      (amountMinor * numeratorMinor) / denominatorMinor,
-    );
+    return this.fromMinor((amountMinor * numeratorMinor) / denominatorMinor);
   }
 }

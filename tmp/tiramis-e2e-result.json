@@ -3,6 +3,7 @@
     "portalBaseUrl": "http://localhost:9090",
     "tiramisServiceBaseUrl": "http://localhost:9091/api",
     "mockTiraBaseUrl": "http://localhost:5050",
+    "token": "eyJhbG...TZQQ",
     "authEmail": "filbert@alliance.co.tz",
     "authPassword": "Owner123!",
     "requestType": "NIN_VERIFICATION",
@@ -14,241 +15,671 @@
   },
   "summary": {
     "total": 33,
-    "passed": 0,
-    "failed": 17,
-    "errors": 16
+    "passed": 27,
+    "failed": 6,
+    "errors": 0
   },
   "results": [
     {
       "name": "portal-login",
-      "status": "ERROR",
-      "at": "2026-08-03T06:07:49.790Z",
-      "data": null,
-      "error": "fetch failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:34.945Z",
+      "data": {
+        "statusCode": 201,
+        "ok": true,
+        "data": {
+          "scope": "platform",
+          "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxOTY2NmE5MC0yYTg0LTQyZjEtOTQ4MS1hNjYxYzAwN2Y0NDQiLCJlbWFpbCI6ImZpbGJlcnRAYWxsaWFuY2UuY28udHoiLCJzY29wZSI6InBsYXRmb3JtIiwidXNlclR5cGUiOiJPV05FUiIsInJvbGVzIjpbIk9XTkVSIl0sInBlcm1pc3Npb25zIjpbInBlcm1pc3Npb25zOmNyZWF0ZSIsImNyZWF0ZV9jb21wYW55IiwiZGVsZXRlX2NvbXBhbnkiLCJwZXJtaXNzaW9uczp1cGRhdGUiLCJ2aWV3X2NvbXBhbmllcyIsInRpcmFtaXMtc3VibWlzc2lvbnM6cmVhZCIsImNvbXBhbmllczpkZWxldGUiLCJjb21wYW5pZXM6dXBkYXRlIiwidXBkYXRlX2NvbXBhbnkiLCJwZXJtaXNzaW9uczpkZWxldGUiLCJyb2xlczpkZWxldGUiLCJyb2xlczp1cGRhdGUiLCJyb2xlczpyZWFkIiwicm9sZXM6Y3JlYXRlIiwiY3JlYXRlX2NvbXBhbnlfYWRtaW4iLCJjb21wYW5pZXM6Y3JlYXRlIiwidGlyYW1pcy5hZG1pbiIsInBlcm1pc3Npb25zOnJlYWQiLCJjb21wYW5pZXM6cmVhZCJdLCJ0eXBlIjoiYWNjZXNzIiwiaXNzIjoiaW5zdXJhbmNlLWlkcC50eiIsImF1ZCI6Imluc3VyYW5jZS1wbGF0Zm9ybSIsInNlc3Npb25JZCI6IjAxNmE4MDFiLWE0N2QtNDFmOS1hNzczLTgyMjZiODYwMTZkNCIsImp0aSI6IjYxNTVmMDE2LWVkZTctNGMwOC1iMmYyLTJmZDA4ZjIzZjNkNSIsImlhdCI6MTc4NTc1MTc3NCwiZXhwIjoxNzg1NzUyNjc0fQ.1-9Us7Hj_-eC7bsvvWBT1UuszR5TRrUBjDdd5yzTZQQ",
+          "access_expires_at": 1785752674000,
+          "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxOTY2NmE5MC0yYTg0LTQyZjEtOTQ4MS1hNjYxYzAwN2Y0NDQiLCJzY29wZSI6InBsYXRmb3JtIiwidXNlclR5cGUiOiJPV05FUiIsInNlc3Npb25JZCI6IjAxNmE4MDFiLWE0N2QtNDFmOS1hNzczLTgyMjZiODYwMTZkNCIsInR5cGUiOiJyZWZyZXNoIiwianRpIjoiMTY4YjYxMmYtYTBiZi00MDBhLTkxM2QtNjQ2YmEzM2EyNzllIiwiaWF0IjoxNzg1NzUxNzc0LCJleHAiOjE3ODYzNTY1NzR9.sZqnrllI2NuO1u9N0O8EcB3Y5IKQ6kNckFbLCXrmwOw",
+          "refresh_expires_at": 1786356574000,
+          "user": {
+            "id": "19666a90-2a84-42f1-9481-a661c007f444",
+            "email": "filbert@alliance.co.tz",
+            "first_name": "Filbert",
+            "last_name": "Msaki",
+            "user_type": "OWNER",
+            "roles": [
+              "OWNER"
+            ],
+            "permissions": [
+              "permissions:create",
+              "create_company",
+              "delete_company",
+              "permissions:update",
+              "view_companies",
+              "tiramis-submissions:read",
+              "companies:delete",
+              "companies:update",
+              "update_company",
+              "permissions:delete",
+              "roles:delete",
+              "roles:update",
+              "roles:read",
+              "roles:create",
+              "create_company_admin",
+              "companies:create",
+              "tiramis.admin",
+              "permissions:read",
+              "companies:read"
+            ],
+            "isTwoFactorEnabled": false
+          }
+        }
+      },
+      "error": null
     },
     {
       "name": "Login request works",
-      "status": "FAIL",
-      "at": "2026-08-03T06:07:49.790Z",
-      "data": null,
-      "error": "Login request works failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:34.947Z",
+      "data": {
+        "scope": "platform",
+        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxOTY2NmE5MC0yYTg0LTQyZjEtOTQ4MS1hNjYxYzAwN2Y0NDQiLCJlbWFpbCI6ImZpbGJlcnRAYWxsaWFuY2UuY28udHoiLCJzY29wZSI6InBsYXRmb3JtIiwidXNlclR5cGUiOiJPV05FUiIsInJvbGVzIjpbIk9XTkVSIl0sInBlcm1pc3Npb25zIjpbInBlcm1pc3Npb25zOmNyZWF0ZSIsImNyZWF0ZV9jb21wYW55IiwiZGVsZXRlX2NvbXBhbnkiLCJwZXJtaXNzaW9uczp1cGRhdGUiLCJ2aWV3X2NvbXBhbmllcyIsInRpcmFtaXMtc3VibWlzc2lvbnM6cmVhZCIsImNvbXBhbmllczpkZWxldGUiLCJjb21wYW5pZXM6dXBkYXRlIiwidXBkYXRlX2NvbXBhbnkiLCJwZXJtaXNzaW9uczpkZWxldGUiLCJyb2xlczpkZWxldGUiLCJyb2xlczp1cGRhdGUiLCJyb2xlczpyZWFkIiwicm9sZXM6Y3JlYXRlIiwiY3JlYXRlX2NvbXBhbnlfYWRtaW4iLCJjb21wYW5pZXM6Y3JlYXRlIiwidGlyYW1pcy5hZG1pbiIsInBlcm1pc3Npb25zOnJlYWQiLCJjb21wYW5pZXM6cmVhZCJdLCJ0eXBlIjoiYWNjZXNzIiwiaXNzIjoiaW5zdXJhbmNlLWlkcC50eiIsImF1ZCI6Imluc3VyYW5jZS1wbGF0Zm9ybSIsInNlc3Npb25JZCI6IjAxNmE4MDFiLWE0N2QtNDFmOS1hNzczLTgyMjZiODYwMTZkNCIsImp0aSI6IjYxNTVmMDE2LWVkZTctNGMwOC1iMmYyLTJmZDA4ZjIzZjNkNSIsImlhdCI6MTc4NTc1MTc3NCwiZXhwIjoxNzg1NzUyNjc0fQ.1-9Us7Hj_-eC7bsvvWBT1UuszR5TRrUBjDdd5yzTZQQ",
+        "access_expires_at": 1785752674000,
+        "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxOTY2NmE5MC0yYTg0LTQyZjEtOTQ4MS1hNjYxYzAwN2Y0NDQiLCJzY29wZSI6InBsYXRmb3JtIiwidXNlclR5cGUiOiJPV05FUiIsInNlc3Npb25JZCI6IjAxNmE4MDFiLWE0N2QtNDFmOS1hNzczLTgyMjZiODYwMTZkNCIsInR5cGUiOiJyZWZyZXNoIiwianRpIjoiMTY4YjYxMmYtYTBiZi00MDBhLTkxM2QtNjQ2YmEzM2EyNzllIiwiaWF0IjoxNzg1NzUxNzc0LCJleHAiOjE3ODYzNTY1NzR9.sZqnrllI2NuO1u9N0O8EcB3Y5IKQ6kNckFbLCXrmwOw",
+        "refresh_expires_at": 1786356574000,
+        "user": {
+          "id": "19666a90-2a84-42f1-9481-a661c007f444",
+          "email": "filbert@alliance.co.tz",
+          "first_name": "Filbert",
+          "last_name": "Msaki",
+          "user_type": "OWNER",
+          "roles": [
+            "OWNER"
+          ],
+          "permissions": [
+            "permissions:create",
+            "create_company",
+            "delete_company",
+            "permissions:update",
+            "view_companies",
+            "tiramis-submissions:read",
+            "companies:delete",
+            "companies:update",
+            "update_company",
+            "permissions:delete",
+            "roles:delete",
+            "roles:update",
+            "roles:read",
+            "roles:create",
+            "create_company_admin",
+            "companies:create",
+            "tiramis.admin",
+            "permissions:read",
+            "companies:read"
+          ],
+          "isTwoFactorEnabled": false
+        }
+      },
+      "error": null
     },
     {
       "name": "Login returned access token",
-      "status": "FAIL",
-      "at": "2026-08-03T06:07:49.790Z",
-      "data": null,
-      "error": "Login returned access token failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:34.947Z",
+      "data": {
+        "scope": "platform",
+        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxOTY2NmE5MC0yYTg0LTQyZjEtOTQ4MS1hNjYxYzAwN2Y0NDQiLCJlbWFpbCI6ImZpbGJlcnRAYWxsaWFuY2UuY28udHoiLCJzY29wZSI6InBsYXRmb3JtIiwidXNlclR5cGUiOiJPV05FUiIsInJvbGVzIjpbIk9XTkVSIl0sInBlcm1pc3Npb25zIjpbInBlcm1pc3Npb25zOmNyZWF0ZSIsImNyZWF0ZV9jb21wYW55IiwiZGVsZXRlX2NvbXBhbnkiLCJwZXJtaXNzaW9uczp1cGRhdGUiLCJ2aWV3X2NvbXBhbmllcyIsInRpcmFtaXMtc3VibWlzc2lvbnM6cmVhZCIsImNvbXBhbmllczpkZWxldGUiLCJjb21wYW5pZXM6dXBkYXRlIiwidXBkYXRlX2NvbXBhbnkiLCJwZXJtaXNzaW9uczpkZWxldGUiLCJyb2xlczpkZWxldGUiLCJyb2xlczp1cGRhdGUiLCJyb2xlczpyZWFkIiwicm9sZXM6Y3JlYXRlIiwiY3JlYXRlX2NvbXBhbnlfYWRtaW4iLCJjb21wYW5pZXM6Y3JlYXRlIiwidGlyYW1pcy5hZG1pbiIsInBlcm1pc3Npb25zOnJlYWQiLCJjb21wYW5pZXM6cmVhZCJdLCJ0eXBlIjoiYWNjZXNzIiwiaXNzIjoiaW5zdXJhbmNlLWlkcC50eiIsImF1ZCI6Imluc3VyYW5jZS1wbGF0Zm9ybSIsInNlc3Npb25JZCI6IjAxNmE4MDFiLWE0N2QtNDFmOS1hNzczLTgyMjZiODYwMTZkNCIsImp0aSI6IjYxNTVmMDE2LWVkZTctNGMwOC1iMmYyLTJmZDA4ZjIzZjNkNSIsImlhdCI6MTc4NTc1MTc3NCwiZXhwIjoxNzg1NzUyNjc0fQ.1-9Us7Hj_-eC7bsvvWBT1UuszR5TRrUBjDdd5yzTZQQ",
+        "access_expires_at": 1785752674000,
+        "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxOTY2NmE5MC0yYTg0LTQyZjEtOTQ4MS1hNjYxYzAwN2Y0NDQiLCJzY29wZSI6InBsYXRmb3JtIiwidXNlclR5cGUiOiJPV05FUiIsInNlc3Npb25JZCI6IjAxNmE4MDFiLWE0N2QtNDFmOS1hNzczLTgyMjZiODYwMTZkNCIsInR5cGUiOiJyZWZyZXNoIiwianRpIjoiMTY4YjYxMmYtYTBiZi00MDBhLTkxM2QtNjQ2YmEzM2EyNzllIiwiaWF0IjoxNzg1NzUxNzc0LCJleHAiOjE3ODYzNTY1NzR9.sZqnrllI2NuO1u9N0O8EcB3Y5IKQ6kNckFbLCXrmwOw",
+        "refresh_expires_at": 1786356574000,
+        "user": {
+          "id": "19666a90-2a84-42f1-9481-a661c007f444",
+          "email": "filbert@alliance.co.tz",
+          "first_name": "Filbert",
+          "last_name": "Msaki",
+          "user_type": "OWNER",
+          "roles": [
+            "OWNER"
+          ],
+          "permissions": [
+            "permissions:create",
+            "create_company",
+            "delete_company",
+            "permissions:update",
+            "view_companies",
+            "tiramis-submissions:read",
+            "companies:delete",
+            "companies:update",
+            "update_company",
+            "permissions:delete",
+            "roles:delete",
+            "roles:update",
+            "roles:read",
+            "roles:create",
+            "create_company_admin",
+            "companies:create",
+            "tiramis.admin",
+            "permissions:read",
+            "companies:read"
+          ],
+          "isTwoFactorEnabled": false
+        }
+      },
+      "error": null
     },
     {
       "name": "portal-service-health",
-      "status": "ERROR",
-      "at": "2026-08-03T06:07:49.792Z",
-      "data": null,
-      "error": "fetch failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.006Z",
+      "data": {
+        "statusCode": 200,
+        "ok": true,
+        "data": {
+          "success": true,
+          "status": "UP",
+          "service": "Alliance Platform",
+          "port": 9091,
+          "time": "2026-08-03T10:09:34.997Z"
+        }
+      },
+      "error": null
     },
     {
       "name": "Portal can reach tiramis-service",
-      "status": "FAIL",
-      "at": "2026-08-03T06:07:49.792Z",
-      "data": null,
-      "error": "Portal can reach tiramis-service failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.006Z",
+      "data": {
+        "success": true,
+        "status": "UP",
+        "service": "Alliance Platform",
+        "port": 9091,
+        "time": "2026-08-03T10:09:34.997Z"
+      },
+      "error": null
     },
     {
       "name": "portal-dashboard",
-      "status": "ERROR",
-      "at": "2026-08-03T06:07:49.794Z",
-      "data": null,
-      "error": "fetch failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.058Z",
+      "data": {
+        "statusCode": 200,
+        "ok": true,
+        "data": {
+          "success": true,
+          "items": [],
+          "meta": {
+            "page": 1,
+            "limit": 5,
+            "total": 0,
+            "totalPages": 0,
+            "hasNextPage": false,
+            "hasPreviousPage": false
+          },
+          "recentNotifications": []
+        }
+      },
+      "error": null
     },
     {
       "name": "Dashboard endpoint works",
-      "status": "FAIL",
-      "at": "2026-08-03T06:07:49.794Z",
-      "data": null,
-      "error": "Dashboard endpoint works failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.058Z",
+      "data": {
+        "success": true,
+        "items": [],
+        "meta": {
+          "page": 1,
+          "limit": 5,
+          "total": 0,
+          "totalPages": 0,
+          "hasNextPage": false,
+          "hasPreviousPage": false
+        },
+        "recentNotifications": []
+      },
+      "error": null
     },
     {
       "name": "portal-business-health",
-      "status": "ERROR",
-      "at": "2026-08-03T06:07:49.795Z",
-      "data": null,
-      "error": "fetch failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.080Z",
+      "data": {
+        "statusCode": 200,
+        "ok": true,
+        "data": {
+          "success": true,
+          "healthy": true,
+          "summary": {
+            "page": 1,
+            "limit": 20,
+            "total": 0,
+            "totalPages": 0,
+            "hasNextPage": false,
+            "hasPreviousPage": false
+          }
+        }
+      },
+      "error": null
     },
     {
       "name": "Business health endpoint works",
-      "status": "FAIL",
-      "at": "2026-08-03T06:07:49.795Z",
-      "data": null,
-      "error": "Business health endpoint works failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.080Z",
+      "data": {
+        "success": true,
+        "healthy": true,
+        "summary": {
+          "page": 1,
+          "limit": 20,
+          "total": 0,
+          "totalPages": 0,
+          "hasNextPage": false,
+          "hasPreviousPage": false
+        }
+      },
+      "error": null
     },
     {
       "name": "portal-schema-status",
-      "status": "ERROR",
-      "at": "2026-08-03T06:07:49.799Z",
-      "data": null,
-      "error": "fetch failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.119Z",
+      "data": {
+        "statusCode": 200,
+        "ok": true,
+        "data": {
+          "success": true,
+          "tables": {
+            "tiramis_submission_tracking": true,
+            "tiramis_business_records": true,
+            "tiramis_notifications": true,
+            "tiramis_audit_logs": true
+          },
+          "allPresent": true
+        }
+      },
+      "error": null
     },
     {
       "name": "Schema status endpoint works",
-      "status": "FAIL",
-      "at": "2026-08-03T06:07:49.799Z",
-      "data": null,
-      "error": "Schema status endpoint works failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.119Z",
+      "data": {
+        "success": true,
+        "tables": {
+          "tiramis_submission_tracking": true,
+          "tiramis_business_records": true,
+          "tiramis_notifications": true,
+          "tiramis_audit_logs": true
+        },
+        "allPresent": true
+      },
+      "error": null
     },
     {
       "name": "validate-business-payload",
-      "status": "ERROR",
-      "at": "2026-08-03T06:07:49.802Z",
-      "data": null,
-      "error": "fetch failed"
+      "status": "FAIL",
+      "at": "2026-08-03T10:09:35.177Z",
+      "data": {
+        "statusCode": 500,
+        "ok": false,
+        "data": {
+          "statusCode": 500,
+          "error": "Internal Server Error",
+          "message": "Internal server error",
+          "timestamp": "2026-08-03T10:09:35.177Z",
+          "path": "/api/v1/tiramis/business/validate"
+        }
+      },
+      "error": null
     },
     {
       "name": "Validation passed",
       "status": "FAIL",
-      "at": "2026-08-03T06:07:49.802Z",
-      "data": null,
+      "at": "2026-08-03T10:09:35.177Z",
+      "data": {
+        "statusCode": 500,
+        "error": "Internal Server Error",
+        "message": "Internal server error",
+        "timestamp": "2026-08-03T10:09:35.177Z",
+        "path": "/api/v1/tiramis/business/validate"
+      },
       "error": "Validation passed failed"
     },
     {
       "name": "submit-business-record",
-      "status": "ERROR",
-      "at": "2026-08-03T06:07:49.804Z",
-      "data": null,
-      "error": "fetch failed"
+      "status": "FAIL",
+      "at": "2026-08-03T10:09:35.205Z",
+      "data": {
+        "statusCode": 500,
+        "ok": false,
+        "data": {
+          "statusCode": 500,
+          "error": "Internal Server Error",
+          "message": "Internal server error",
+          "timestamp": "2026-08-03T10:09:35.204Z",
+          "path": "/api/v1/tiramis/business/submit"
+        }
+      },
+      "error": null
     },
     {
       "name": "Submit request accepted",
       "status": "FAIL",
-      "at": "2026-08-03T06:07:49.804Z",
-      "data": null,
+      "at": "2026-08-03T10:09:35.205Z",
+      "data": {
+        "statusCode": 500,
+        "error": "Internal Server Error",
+        "message": "Internal server error",
+        "timestamp": "2026-08-03T10:09:35.204Z",
+        "path": "/api/v1/tiramis/business/submit"
+      },
       "error": "Submit request accepted failed"
     },
     {
       "name": "duplicate-submit-with-return-existing",
-      "status": "ERROR",
-      "at": "2026-08-03T06:07:49.805Z",
-      "data": null,
-      "error": "fetch failed"
+      "status": "FAIL",
+      "at": "2026-08-03T10:09:35.229Z",
+      "data": {
+        "statusCode": 500,
+        "ok": false,
+        "data": {
+          "statusCode": 500,
+          "error": "Internal Server Error",
+          "message": "Internal server error",
+          "timestamp": "2026-08-03T10:09:35.229Z",
+          "path": "/api/v1/tiramis/business/submit"
+        }
+      },
+      "error": null
     },
     {
       "name": "Duplicate request returns existing or succeeds safely",
       "status": "FAIL",
-      "at": "2026-08-03T06:07:49.805Z",
-      "data": null,
+      "at": "2026-08-03T10:09:35.229Z",
+      "data": {
+        "statusCode": 500,
+        "error": "Internal Server Error",
+        "message": "Internal server error",
+        "timestamp": "2026-08-03T10:09:35.229Z",
+        "path": "/api/v1/tiramis/business/submit"
+      },
       "error": "Duplicate request returns existing or succeeds safely failed"
     },
     {
       "name": "duplicate-check",
-      "status": "ERROR",
-      "at": "2026-08-03T06:07:49.807Z",
-      "data": null,
-      "error": "fetch failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.268Z",
+      "data": {
+        "statusCode": 200,
+        "ok": true,
+        "data": {
+          "success": true,
+          "duplicateFound": false,
+          "requestType": "NIN_VERIFICATION",
+          "sourceModule": "verifications",
+          "sourceRecordId": "19900101123456789001",
+          "businessReference": "19900101123456789001",
+          "businessFingerprint": "00236d8761efa7d08284580451b7cfa7753ebc64fd30e90580579d46bd09b685",
+          "duplicate": null
+        }
+      },
+      "error": null
     },
     {
       "name": "Duplicate check endpoint works",
-      "status": "FAIL",
-      "at": "2026-08-03T06:07:49.807Z",
-      "data": null,
-      "error": "Duplicate check endpoint works failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.268Z",
+      "data": {
+        "success": true,
+        "duplicateFound": false,
+        "requestType": "NIN_VERIFICATION",
+        "sourceModule": "verifications",
+        "sourceRecordId": "19900101123456789001",
+        "businessReference": "19900101123456789001",
+        "businessFingerprint": "00236d8761efa7d08284580451b7cfa7753ebc64fd30e90580579d46bd09b685",
+        "duplicate": null
+      },
+      "error": null
     },
     {
       "name": "sync-business-record",
-      "status": "ERROR",
-      "at": "2026-08-03T06:07:49.808Z",
-      "data": null,
-      "error": "fetch failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.299Z",
+      "data": {
+        "statusCode": 201,
+        "ok": true,
+        "data": {
+          "found": false,
+          "message": "No TIRAMIS tracking record found for this business record",
+          "sourceModule": "verifications",
+          "sourceRecordId": "19900101123456789001",
+          "requestType": "NIN_VERIFICATION"
+        }
+      },
+      "error": null
     },
     {
       "name": "Manual business sync endpoint works",
-      "status": "FAIL",
-      "at": "2026-08-03T06:07:49.808Z",
-      "data": null,
-      "error": "Manual business sync endpoint works failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.299Z",
+      "data": {
+        "found": false,
+        "message": "No TIRAMIS tracking record found for this business record",
+        "sourceModule": "verifications",
+        "sourceRecordId": "19900101123456789001",
+        "requestType": "NIN_VERIFICATION"
+      },
+      "error": null
     },
     {
       "name": "business-status",
-      "status": "ERROR",
-      "at": "2026-08-03T06:07:49.809Z",
-      "data": null,
-      "error": "fetch failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.322Z",
+      "data": {
+        "statusCode": 200,
+        "ok": true,
+        "data": {
+          "found": false,
+          "sourceModule": "verifications",
+          "sourceRecordId": "19900101123456789001",
+          "requestType": "NIN_VERIFICATION",
+          "latest": null,
+          "history": []
+        }
+      },
+      "error": null
     },
     {
       "name": "Business status endpoint works",
-      "status": "FAIL",
-      "at": "2026-08-03T06:07:49.809Z",
-      "data": null,
-      "error": "Business status endpoint works failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.322Z",
+      "data": {
+        "found": false,
+        "sourceModule": "verifications",
+        "sourceRecordId": "19900101123456789001",
+        "requestType": "NIN_VERIFICATION",
+        "latest": null,
+        "history": []
+      },
+      "error": null
     },
     {
       "name": "admin-dashboard",
-      "status": "ERROR",
-      "at": "2026-08-03T06:07:49.810Z",
-      "data": null,
-      "error": "fetch failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.366Z",
+      "data": {
+        "statusCode": 200,
+        "ok": true,
+        "data": {
+          "success": true,
+          "items": [],
+          "meta": {
+            "page": 1,
+            "limit": 5,
+            "total": 0,
+            "totalPages": 0,
+            "hasNextPage": false,
+            "hasPreviousPage": false
+          },
+          "recentNotifications": []
+        }
+      },
+      "error": null
     },
     {
       "name": "Admin dashboard works",
-      "status": "FAIL",
-      "at": "2026-08-03T06:07:49.810Z",
-      "data": null,
-      "error": "Admin dashboard works failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.366Z",
+      "data": {
+        "success": true,
+        "items": [],
+        "meta": {
+          "page": 1,
+          "limit": 5,
+          "total": 0,
+          "totalPages": 0,
+          "hasNextPage": false,
+          "hasPreviousPage": false
+        },
+        "recentNotifications": []
+      },
+      "error": null
     },
     {
       "name": "admin-health",
-      "status": "ERROR",
-      "at": "2026-08-03T06:07:49.811Z",
-      "data": null,
-      "error": "fetch failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.385Z",
+      "data": {
+        "statusCode": 200,
+        "ok": true,
+        "data": {
+          "success": true,
+          "healthy": true,
+          "summary": {
+            "page": 1,
+            "limit": 20,
+            "total": 0,
+            "totalPages": 0,
+            "hasNextPage": false,
+            "hasPreviousPage": false
+          }
+        }
+      },
+      "error": null
     },
     {
       "name": "Admin health works",
-      "status": "FAIL",
-      "at": "2026-08-03T06:07:49.811Z",
-      "data": null,
-      "error": "Admin health works failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.385Z",
+      "data": {
+        "success": true,
+        "healthy": true,
+        "summary": {
+          "page": 1,
+          "limit": 20,
+          "total": 0,
+          "totalPages": 0,
+          "hasNextPage": false,
+          "hasPreviousPage": false
+        }
+      },
+      "error": null
     },
     {
       "name": "admin-notifications-summary",
-      "status": "ERROR",
-      "at": "2026-08-03T06:07:49.812Z",
-      "data": null,
-      "error": "fetch failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.399Z",
+      "data": {
+        "statusCode": 200,
+        "ok": true,
+        "data": {
+          "total": 0,
+          "unread": 0,
+          "critical": 0,
+          "error": 0,
+          "warning": 0,
+          "info": 0,
+          "bySeverity": {},
+          "byType": {}
+        }
+      },
+      "error": null
     },
     {
       "name": "Notification summary works",
-      "status": "FAIL",
-      "at": "2026-08-03T06:07:49.812Z",
-      "data": null,
-      "error": "Notification summary works failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.399Z",
+      "data": {
+        "total": 0,
+        "unread": 0,
+        "critical": 0,
+        "error": 0,
+        "warning": 0,
+        "info": 0,
+        "bySeverity": {},
+        "byType": {}
+      },
+      "error": null
     },
     {
       "name": "admin-audit-logs",
-      "status": "ERROR",
-      "at": "2026-08-03T06:07:49.815Z",
-      "data": null,
-      "error": "fetch failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.426Z",
+      "data": {
+        "statusCode": 200,
+        "ok": true,
+        "data": {
+          "data": [],
+          "meta": {
+            "page": 1,
+            "limit": 5,
+            "total": 0,
+            "totalPages": 0
+          }
+        }
+      },
+      "error": null
     },
     {
       "name": "Audit logs endpoint works",
-      "status": "FAIL",
-      "at": "2026-08-03T06:07:49.815Z",
-      "data": null,
-      "error": "Audit logs endpoint works failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.426Z",
+      "data": {
+        "data": [],
+        "meta": {
+          "page": 1,
+          "limit": 5,
+          "total": 0,
+          "totalPages": 0
+        }
+      },
+      "error": null
     },
     {
       "name": "admin-retry-pending",
-      "status": "ERROR",
-      "at": "2026-08-03T06:07:49.817Z",
-      "data": null,
-      "error": "fetch failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.449Z",
+      "data": {
+        "statusCode": 201,
+        "ok": true,
+        "data": {
+          "scanned": 0,
+          "retried": 0,
+          "success": 0,
+          "failed": 0,
+          "exhausted": 0,
+          "skipped": 0,
+          "items": []
+        }
+      },
+      "error": null
     },
     {
       "name": "Retry pending endpoint works",
-      "status": "FAIL",
-      "at": "2026-08-03T06:07:49.817Z",
-      "data": null,
-      "error": "Retry pending endpoint works failed"
+      "status": "PASS",
+      "at": "2026-08-03T10:09:35.449Z",
+      "data": {
+        "scanned": 0,
+        "retried": 0,
+        "success": 0,
+        "failed": 0,
+        "exhausted": 0,
+        "skipped": 0,
+        "items": []
+      },
+      "error": null
     }
   ]
 }

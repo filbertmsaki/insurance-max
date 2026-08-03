@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { BillingCommissionModule } from './billing-commission/billing-commission.module';
 import { BranchesModule } from './branches/branches.module';
 import { CategoryAccessModule } from './category-access/category-access.module';
+import { ClaimsModule } from './claims/claims.module';
 import { CustomersModule } from './customers/customers.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DepartmentsModule } from './departments/departments.module';
@@ -33,6 +34,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
   imports: [
     UsersModule,
     CustomersModule,
+    ClaimsModule,
     DashboardModule,
     BranchesModule,
     DepartmentsModule,
@@ -63,6 +65,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
   exports: [
     UsersModule,
     CustomersModule,
+    ClaimsModule,
     DashboardModule,
     BranchesModule,
     DepartmentsModule,

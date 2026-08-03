@@ -557,9 +557,7 @@ export class BillingCommissionService {
   ): Promise<Invoice> {
     const invoice = await this.ensureInvoice(companyId, id);
     if (invoice.status !== InvoiceLifecycleStatus.DRAFT) {
-      throw new ConflictException(
-        'Issued invoices cannot be directly edited',
-      );
+      throw new ConflictException('Issued invoices cannot be directly edited');
     }
     const merged = { ...invoice, ...dto } as CreateInvoiceDto;
     const customerId = await this.validateInvoiceScope(companyId, merged);
@@ -663,25 +661,25 @@ export class BillingCommissionService {
         'receipt_no',
         `RCT-${new Date().getFullYear()}-`,
       );
-        const receipt = receiptRepo.create({
-          company_id: companyId,
-          customer_id: dto.customer_id,
-          invoice_id: invoice?.id ?? null,
-          receipt_no: receiptNo,
-          payment_method: dto.payment_method,
-          amount: this.normalizeMoney(dto.amount),
-          currency: dto.currency?.trim().toUpperCase() ?? 'TZS',
-          unallocated_amount: '0.00',
-          payment_reference: this.normalizeText(dto.payment_reference),
-          received_by: dto.received_by ?? userId,
-          received_at: dto.received_at ? new Date(dto.received_at) : new Date(),
-          status: ReceiptLifecycleStatus.RECEIVED,
-        });
-        const saved = await receiptRepo.save(receipt);
-        if (invoice?.id) {
-          await this.recalculateInvoiceBalance(manager, companyId, invoice.id);
-        }
-        return manager.getRepository(Receipt).findOneOrFail({
+      const receipt = receiptRepo.create({
+        company_id: companyId,
+        customer_id: dto.customer_id,
+        invoice_id: invoice?.id ?? null,
+        receipt_no: receiptNo,
+        payment_method: dto.payment_method,
+        amount: this.normalizeMoney(dto.amount),
+        currency: dto.currency?.trim().toUpperCase() ?? 'TZS',
+        unallocated_amount: '0.00',
+        payment_reference: this.normalizeText(dto.payment_reference),
+        received_by: dto.received_by ?? userId,
+        received_at: dto.received_at ? new Date(dto.received_at) : new Date(),
+        status: ReceiptLifecycleStatus.RECEIVED,
+      });
+      const saved = await receiptRepo.save(receipt);
+      if (invoice?.id) {
+        await this.recalculateInvoiceBalance(manager, companyId, invoice.id);
+      }
+      return manager.getRepository(Receipt).findOneOrFail({
         where: { id: saved.id, company_id: companyId },
         relations: {
           company: true,
@@ -742,9 +740,7 @@ export class BillingCommissionService {
   ): Promise<Receipt> {
     const receipt = await this.ensureReceipt(companyId, id);
     if (receipt.status !== ReceiptLifecycleStatus.RECEIVED) {
-      throw new ConflictException(
-        'Posted receipts cannot be directly edited',
-      );
+      throw new ConflictException('Posted receipts cannot be directly edited');
     }
     const previousInvoiceId = receipt.invoice_id;
     if (dto.customer_id !== undefined) {
@@ -1106,7 +1102,8 @@ export class BillingCommissionService {
     if (dto.commission_amount !== undefined)
       commission.commission_amount = this.normalizeMoney(dto.commission_amount);
     commission.balance_amount = this.normalizeMoney(
-      Number(commission.commission_amount) - Number(commission.paid_amount ?? 0),
+      Number(commission.commission_amount) -
+        Number(commission.paid_amount ?? 0),
     );
     if (dto.status !== undefined)
       commission.status = dto.status.trim().toUpperCase();

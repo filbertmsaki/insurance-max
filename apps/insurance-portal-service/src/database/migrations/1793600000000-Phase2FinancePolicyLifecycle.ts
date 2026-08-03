@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class Phase2FinancePolicyLifecycle1793600000000
-  implements MigrationInterface
-{
+export class Phase2FinancePolicyLifecycle1793600000000 implements MigrationInterface {
   name = 'Phase2FinancePolicyLifecycle1793600000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {
@@ -193,50 +191,132 @@ export class Phase2FinancePolicyLifecycle1793600000000
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_tenant_notification_user"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_tenant_notification_user"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "tenant_notifications"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_work_items_company_status"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_work_items_company_status"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "work_items"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "financial_reversals"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_receipt_allocations_invoice"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "UQ_receipt_allocations_active_pair"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_receipt_allocations_invoice"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "UQ_receipt_allocations_active_pair"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "receipt_allocations"`);
-    await queryRunner.query(`ALTER TABLE "policies" DROP COLUMN IF EXISTS "renewed_to_policy_id"`);
-    await queryRunner.query(`ALTER TABLE "policies" DROP COLUMN IF EXISTS "renewed_from_policy_id"`);
-    await queryRunner.query(`ALTER TABLE "policies" DROP COLUMN IF EXISTS "current_version_no"`);
-    await queryRunner.query(`ALTER TABLE "commission_payments" DROP COLUMN IF EXISTS "rejection_reason"`);
-    await queryRunner.query(`ALTER TABLE "commission_payments" DROP COLUMN IF EXISTS "rejected_at"`);
-    await queryRunner.query(`ALTER TABLE "commission_payments" DROP COLUMN IF EXISTS "rejected_by"`);
-    await queryRunner.query(`ALTER TABLE "commission_payments" DROP COLUMN IF EXISTS "submitted_at"`);
-    await queryRunner.query(`ALTER TABLE "commission_payments" DROP COLUMN IF EXISTS "submitted_by"`);
-    await queryRunner.query(`ALTER TABLE "commission_payments" DROP COLUMN IF EXISTS "sale_point_id"`);
-    await queryRunner.query(`ALTER TABLE "commission_payments" DROP COLUMN IF EXISTS "branch_id"`);
-    await queryRunner.query(`ALTER TABLE "commission_transactions" DROP COLUMN IF EXISTS "balance_amount"`);
-    await queryRunner.query(`ALTER TABLE "commission_transactions" DROP COLUMN IF EXISTS "paid_amount"`);
-    await queryRunner.query(`ALTER TABLE "commission_transactions" DROP COLUMN IF EXISTS "approved_at"`);
-    await queryRunner.query(`ALTER TABLE "commission_transactions" DROP COLUMN IF EXISTS "approved_by"`);
-    await queryRunner.query(`ALTER TABLE "payment_transactions" DROP COLUMN IF EXISTS "reversal_reason"`);
-    await queryRunner.query(`ALTER TABLE "payment_transactions" DROP COLUMN IF EXISTS "reversed_at"`);
-    await queryRunner.query(`ALTER TABLE "payment_transactions" DROP COLUMN IF EXISTS "reversed_by"`);
-    await queryRunner.query(`ALTER TABLE "payment_transactions" DROP COLUMN IF EXISTS "bank_statement_line_id"`);
-    await queryRunner.query(`ALTER TABLE "payment_transactions" DROP COLUMN IF EXISTS "reconciled_at"`);
-    await queryRunner.query(`ALTER TABLE "payment_transactions" DROP COLUMN IF EXISTS "reconciled_by"`);
-    await queryRunner.query(`ALTER TABLE "payment_transactions" DROP COLUMN IF EXISTS "reconciliation_status"`);
-    await queryRunner.query(`ALTER TABLE "receipts" DROP COLUMN IF EXISTS "reversal_reason"`);
-    await queryRunner.query(`ALTER TABLE "receipts" DROP COLUMN IF EXISTS "reversed_at"`);
-    await queryRunner.query(`ALTER TABLE "receipts" DROP COLUMN IF EXISTS "reversed_by"`);
-    await queryRunner.query(`ALTER TABLE "receipts" DROP COLUMN IF EXISTS "posted_at"`);
-    await queryRunner.query(`ALTER TABLE "receipts" DROP COLUMN IF EXISTS "posted_by"`);
-    await queryRunner.query(`ALTER TABLE "receipts" DROP COLUMN IF EXISTS "unallocated_amount"`);
-    await queryRunner.query(`ALTER TABLE "receipts" DROP COLUMN IF EXISTS "sale_point_id"`);
-    await queryRunner.query(`ALTER TABLE "receipts" DROP COLUMN IF EXISTS "branch_id"`);
-    await queryRunner.query(`ALTER TABLE "invoices" DROP COLUMN IF EXISTS "void_reason"`);
-    await queryRunner.query(`ALTER TABLE "invoices" DROP COLUMN IF EXISTS "voided_at"`);
-    await queryRunner.query(`ALTER TABLE "invoices" DROP COLUMN IF EXISTS "voided_by"`);
-    await queryRunner.query(`ALTER TABLE "invoices" DROP COLUMN IF EXISTS "posted_at"`);
-    await queryRunner.query(`ALTER TABLE "invoices" DROP COLUMN IF EXISTS "posted_by"`);
-    await queryRunner.query(`ALTER TABLE "invoices" DROP COLUMN IF EXISTS "sale_point_id"`);
-    await queryRunner.query(`ALTER TABLE "invoices" DROP COLUMN IF EXISTS "branch_id"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "business_document_sequences"`);
+    await queryRunner.query(
+      `ALTER TABLE "policies" DROP COLUMN IF EXISTS "renewed_to_policy_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "policies" DROP COLUMN IF EXISTS "renewed_from_policy_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "policies" DROP COLUMN IF EXISTS "current_version_no"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "commission_payments" DROP COLUMN IF EXISTS "rejection_reason"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "commission_payments" DROP COLUMN IF EXISTS "rejected_at"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "commission_payments" DROP COLUMN IF EXISTS "rejected_by"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "commission_payments" DROP COLUMN IF EXISTS "submitted_at"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "commission_payments" DROP COLUMN IF EXISTS "submitted_by"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "commission_payments" DROP COLUMN IF EXISTS "sale_point_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "commission_payments" DROP COLUMN IF EXISTS "branch_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "commission_transactions" DROP COLUMN IF EXISTS "balance_amount"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "commission_transactions" DROP COLUMN IF EXISTS "paid_amount"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "commission_transactions" DROP COLUMN IF EXISTS "approved_at"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "commission_transactions" DROP COLUMN IF EXISTS "approved_by"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "payment_transactions" DROP COLUMN IF EXISTS "reversal_reason"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "payment_transactions" DROP COLUMN IF EXISTS "reversed_at"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "payment_transactions" DROP COLUMN IF EXISTS "reversed_by"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "payment_transactions" DROP COLUMN IF EXISTS "bank_statement_line_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "payment_transactions" DROP COLUMN IF EXISTS "reconciled_at"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "payment_transactions" DROP COLUMN IF EXISTS "reconciled_by"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "payment_transactions" DROP COLUMN IF EXISTS "reconciliation_status"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "receipts" DROP COLUMN IF EXISTS "reversal_reason"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "receipts" DROP COLUMN IF EXISTS "reversed_at"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "receipts" DROP COLUMN IF EXISTS "reversed_by"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "receipts" DROP COLUMN IF EXISTS "posted_at"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "receipts" DROP COLUMN IF EXISTS "posted_by"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "receipts" DROP COLUMN IF EXISTS "unallocated_amount"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "receipts" DROP COLUMN IF EXISTS "sale_point_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "receipts" DROP COLUMN IF EXISTS "branch_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "invoices" DROP COLUMN IF EXISTS "void_reason"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "invoices" DROP COLUMN IF EXISTS "voided_at"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "invoices" DROP COLUMN IF EXISTS "voided_by"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "invoices" DROP COLUMN IF EXISTS "posted_at"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "invoices" DROP COLUMN IF EXISTS "posted_by"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "invoices" DROP COLUMN IF EXISTS "sale_point_id"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "invoices" DROP COLUMN IF EXISTS "branch_id"`,
+    );
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "business_document_sequences"`,
+    );
   }
 }

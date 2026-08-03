@@ -15,11 +15,7 @@ import { Invoice } from './invoice.entity';
 import { Receipt } from './receipt.entity';
 
 @Entity('receipt_allocations')
-@Index('IDX_receipt_allocation_invoice', [
-  'company_id',
-  'invoice_id',
-  'status',
-])
+@Index('IDX_receipt_allocation_invoice', ['company_id', 'invoice_id', 'status'])
 export class ReceiptAllocation {
   @PrimaryGeneratedColumn('uuid')
   id: string;

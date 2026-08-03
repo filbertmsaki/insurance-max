@@ -82,11 +82,7 @@ export class FinanceOperationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ReverseFinancialRecordDto,
   ) {
-    return this.financeLifecycleService.reverseAllocation(
-      user,
-      id,
-      dto,
-    );
+    return this.financeLifecycleService.reverseAllocation(user, id, dto);
   }
 
   @Post('receipts/:id/reverse')
@@ -107,9 +103,6 @@ export class FinanceOperationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.financeLifecycleService.markCommissionPaymentPaid(
-      user,
-      id,
-    );
+    return this.financeLifecycleService.markCommissionPaymentPaid(user, id);
   }
 }

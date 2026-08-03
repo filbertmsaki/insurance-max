@@ -1,7 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { Repository } from 'typeorm';
 
@@ -63,9 +60,7 @@ describe('DashboardService', () => {
 
     dashboardCacheService = {
       getOrSet: jest.fn(
-        async <
-          T,
-        >(
+        async <T>(
           _section: string,
           _user: AuthenticatedUser,
           _query: unknown,

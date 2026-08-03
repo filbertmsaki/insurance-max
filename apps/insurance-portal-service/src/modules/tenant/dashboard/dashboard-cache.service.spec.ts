@@ -44,10 +44,7 @@ describe('DashboardCacheService', () => {
       }),
     } as unknown as ConfigService;
 
-    service = new DashboardCacheService(
-      redisService,
-      configService,
-    );
+    service = new DashboardCacheService(redisService, configService);
   });
 
   it('uses distinct cache keys for different scope and permissions', async () => {
@@ -57,12 +54,9 @@ describe('DashboardCacheService', () => {
       limit: 10,
     };
 
-    await service.getOrSet(
-      'overview',
-      baseUser,
-      query,
-      async () => ({ ok: true }),
-    );
+    await service.getOrSet('overview', baseUser, query, async () => ({
+      ok: true,
+    }));
 
     await service.getOrSet(
       'overview',
