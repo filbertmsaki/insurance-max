@@ -11,6 +11,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Company } from '../../../platform/companies/entities/company.entity';
+import { Branch } from '../../branches/entities/branch.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Policy } from '../../policies/entities/policy.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
@@ -56,6 +57,12 @@ export class Invoice {
   @Column({ type: 'uuid', nullable: true })
   renewal_id: string | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  branch_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  sale_point_id: string | null;
+
   @Column({ type: 'varchar', length: 50 })
   invoice_no: string;
 
@@ -98,6 +105,21 @@ export class Invoice {
   @Column({ type: 'uuid', nullable: true })
   updated_by: string | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  posted_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  posted_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  voided_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  voided_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  void_reason: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
@@ -123,6 +145,10 @@ export class Invoice {
   @JoinColumn({ name: 'customer_id' })
   customer: Customer;
 
+  @ManyToOne(() => Branch, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'branch_id' })
+  branch: Branch | null;
+
   @ManyToOne(() => Quotation, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'quotation_id' })
   quotation: Quotation | null;
@@ -138,6 +164,14 @@ export class Invoice {
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'updated_by' })
   updater: User | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'posted_by' })
+  poster: User | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'voided_by' })
+  voider: User | null;
 
   @OneToMany(() => InvoiceItem, (item) => item.invoice)
   items: InvoiceItem[];

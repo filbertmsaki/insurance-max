@@ -1,0 +1,8 @@
+export enum PolicyLifecycleStatus {
+  DRAFT = 'DRAFT',
+  SUBMITTED = 'SUBMITTED',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  APPLIED = 'APPLIED',
+  CANCELLED = 'CANCELLED',
+}

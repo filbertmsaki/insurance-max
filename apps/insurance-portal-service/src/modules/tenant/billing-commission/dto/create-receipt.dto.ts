@@ -10,8 +10,9 @@ export class CreateReceiptDto {
   @IsUUID()
   customer_id: string;
 
+  @IsOptional()
   @IsUUID()
-  invoice_id: string;
+  invoice_id?: string | null;
 
   @IsString()
   @MaxLength(50)

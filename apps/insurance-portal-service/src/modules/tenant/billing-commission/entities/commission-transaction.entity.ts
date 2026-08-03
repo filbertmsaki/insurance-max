@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { ProductCommissionRule } from '../../product-distribution/entities/product-commission-rule.entity';
+import { User } from '../../users/entities/user.entity';
 import { Invoice } from './invoice.entity';
 import { Receipt } from './receipt.entity';
 import { Policy } from '../../policies/entities/policy.entity';
@@ -71,6 +72,18 @@ export class CommissionTransaction {
   @Column({ type: 'timestamptz', nullable: true })
   paid_at: Date | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  approved_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  approved_at: Date | null;
+
+  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  paid_amount: string;
+
+  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  balance_amount: string;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
@@ -110,4 +123,8 @@ export class CommissionTransaction {
   @ManyToOne(() => Policy, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'policy_id' })
   policy: Policy;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'approved_by' })
+  approver: User | null;
 }

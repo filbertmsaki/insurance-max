@@ -10,6 +10,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Company } from '../../../platform/companies/entities/company.entity';
+import { Branch } from '../../branches/entities/branch.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { User } from '../../users/entities/user.entity';
 import { Invoice } from './invoice.entity';
@@ -34,6 +35,12 @@ export class Receipt {
   @Column({ type: 'uuid', nullable: true })
   invoice_id: string | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  branch_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  sale_point_id: string | null;
+
   @Column({ type: 'varchar', length: 50 })
   receipt_no: string;
 
@@ -46,6 +53,9 @@ export class Receipt {
   @Column({ type: 'varchar', length: 10, default: 'TZS' })
   currency: string;
 
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  unallocated_amount: string;
+
   @Column({ type: 'varchar', length: 100, nullable: true })
   payment_reference: string | null;
 
@@ -57,6 +67,21 @@ export class Receipt {
 
   @Column({ type: 'varchar', length: 20, default: 'RECEIVED' })
   status: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  posted_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  posted_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  reversed_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  reversed_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  reversal_reason: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
@@ -75,6 +100,10 @@ export class Receipt {
   @JoinColumn({ name: 'customer_id' })
   customer: Customer;
 
+  @ManyToOne(() => Branch, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'branch_id' })
+  branch: Branch | null;
+
   @ManyToOne(() => Invoice, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'invoice_id' })
   invoice: Invoice;
@@ -82,4 +111,12 @@ export class Receipt {
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'received_by' })
   receiver: User | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'posted_by' })
+  poster: User | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'reversed_by' })
+  reverser: User | null;
 }

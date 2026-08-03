@@ -154,6 +154,15 @@ export class Policy {
   @Column({ type: 'uuid', nullable: true })
   tiramis_submission_tracking_id: string | null;
 
+  @Column({ type: 'int', default: 1 })
+  current_version_no: number;
+
+  @Column({ type: 'uuid', nullable: true })
+  renewed_from_policy_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  renewed_to_policy_id: string | null;
+
   @Column({ type: 'varchar', length: 50, nullable: true })
   tiramis_status: string | null;
 

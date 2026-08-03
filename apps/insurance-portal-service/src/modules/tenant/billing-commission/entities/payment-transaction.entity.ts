@@ -54,6 +54,27 @@ export class PaymentTransaction {
   @Column({ type: 'jsonb', nullable: true })
   response_payload: Record<string, unknown> | null;
 
+  @Column({ type: 'varchar', length: 20, default: 'UNMATCHED' })
+  reconciliation_status: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  reconciled_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  reconciled_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  bank_statement_line_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  reversed_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  reversed_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  reversal_reason: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

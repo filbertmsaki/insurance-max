@@ -11,6 +11,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Company } from '../../../platform/companies/entities/company.entity';
+import { Branch } from '../../branches/entities/branch.entity';
 import { User } from '../../users/entities/user.entity';
 import { CommissionPaymentItem } from './commission-payment-item.entity';
 
@@ -32,6 +33,12 @@ export class CommissionPayment {
 
   @Column({ type: 'uuid' })
   intermediary_company_id: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  branch_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  sale_point_id: string | null;
 
   @Column({ type: 'varchar', length: 50 })
   payment_no: string;
@@ -63,6 +70,21 @@ export class CommissionPayment {
   @Column({ type: 'timestamptz', nullable: true })
   paid_at: Date | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  submitted_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  submitted_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  rejected_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  rejected_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  rejection_reason: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
@@ -80,6 +102,10 @@ export class CommissionPayment {
   @JoinColumn({ name: 'intermediary_company_id' })
   intermediary_company: Company;
 
+  @ManyToOne(() => Branch, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'branch_id' })
+  branch: Branch | null;
+
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'approved_by' })
   approver: User | null;
@@ -87,6 +113,14 @@ export class CommissionPayment {
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'paid_by' })
   payer: User | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'submitted_by' })
+  submitter: User | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'rejected_by' })
+  rejector: User | null;
 
   @OneToMany(() => CommissionPaymentItem, (item) => item.commission_payment)
   items: CommissionPaymentItem[];

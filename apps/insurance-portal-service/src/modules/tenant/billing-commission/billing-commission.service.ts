@@ -34,7 +34,13 @@ import { CommissionTransaction } from './entities/commission-transaction.entity'
 import { Invoice } from './entities/invoice.entity';
 import { InvoiceItem } from './entities/invoice-item.entity';
 import { PaymentTransaction } from './entities/payment-transaction.entity';
+import { ReceiptAllocation } from './entities/receipt-allocation.entity';
 import { Receipt } from './entities/receipt.entity';
+import {
+  InvoiceLifecycleStatus,
+  ReceiptAllocationStatus,
+  ReceiptLifecycleStatus,
+} from './enums/finance-status.enums';
 
 type NumericLike = number | string | null | undefined;
 
@@ -245,14 +251,16 @@ export class BillingCommissionService {
     companyId: string,
     invoiceId: string,
   ): Promise<void> {
-    const receiptRepo = manager.getRepository(Receipt);
+    const allocationRepo = manager.getRepository(ReceiptAllocation);
     const invoiceRepo = manager.getRepository(Invoice);
-    const aggregate = await receiptRepo
-      .createQueryBuilder('receipt')
-      .select('COALESCE(SUM(receipt.amount), 0)', 'total')
-      .where('receipt.company_id = :companyId', { companyId })
-      .andWhere('receipt.invoice_id = :invoiceId', { invoiceId })
-      .andWhere('receipt.deleted_at IS NULL')
+    const aggregate = await allocationRepo
+      .createQueryBuilder('allocation')
+      .select('COALESCE(SUM(allocation.amount), 0)', 'total')
+      .where('allocation.company_id = :companyId', { companyId })
+      .andWhere('allocation.invoice_id = :invoiceId', { invoiceId })
+      .andWhere('allocation.status = :status', {
+        status: ReceiptAllocationStatus.ACTIVE,
+      })
       .getRawOne();
 
     const paidAmount = this.normalizeMoney(aggregate?.total ?? 0);
@@ -266,6 +274,15 @@ export class BillingCommissionService {
     invoice.balance_amount = this.normalizeMoney(
       Number(invoice.total_amount) - Number(paidAmount),
     );
+    if (invoice.status !== InvoiceLifecycleStatus.DRAFT) {
+      if (Number(invoice.paid_amount) <= 0) {
+        invoice.status = InvoiceLifecycleStatus.ISSUED;
+      } else if (Number(invoice.balance_amount) <= 0) {
+        invoice.status = InvoiceLifecycleStatus.PAID;
+      } else {
+        invoice.status = InvoiceLifecycleStatus.PARTIALLY_PAID;
+      }
+    }
     await invoiceRepo.save(invoice);
   }
 
@@ -458,12 +475,9 @@ export class BillingCommissionService {
           tax_amount: this.normalizeMoney(dto.tax_amount),
           charges_amount: this.normalizeMoney(dto.charges_amount),
           total_amount: this.normalizeMoney(totalAmount),
-          paid_amount: this.normalizeMoney(dto.paid_amount),
-          balance_amount: this.normalizeMoney(
-            dto.balance_amount ??
-              Number(totalAmount) - Number(dto.paid_amount ?? 0),
-          ),
-          status: dto.status?.trim().toUpperCase() ?? 'DRAFT',
+          paid_amount: '0.00',
+          balance_amount: this.normalizeMoney(totalAmount),
+          status: InvoiceLifecycleStatus.DRAFT,
           due_date: this.normalizeDateOnly(dto.due_date),
           created_by: userId,
           updated_by: userId,
@@ -542,6 +556,11 @@ export class BillingCommissionService {
     userId: string,
   ): Promise<Invoice> {
     const invoice = await this.ensureInvoice(companyId, id);
+    if (invoice.status !== InvoiceLifecycleStatus.DRAFT) {
+      throw new ConflictException(
+        'Issued invoices cannot be directly edited',
+      );
+    }
     const merged = { ...invoice, ...dto } as CreateInvoiceDto;
     const customerId = await this.validateInvoiceScope(companyId, merged);
 
@@ -576,14 +595,11 @@ export class BillingCommissionService {
         invoice.charges_amount = this.normalizeMoney(dto.charges_amount);
       if (dto.total_amount !== undefined)
         invoice.total_amount = this.normalizeMoney(dto.total_amount);
-      if (dto.paid_amount !== undefined)
-        invoice.paid_amount = this.normalizeMoney(dto.paid_amount);
-      if (dto.balance_amount !== undefined)
-        invoice.balance_amount = this.normalizeMoney(dto.balance_amount);
-      if (dto.status !== undefined)
-        invoice.status = dto.status.trim().toUpperCase();
       if (dto.due_date !== undefined)
         invoice.due_date = this.normalizeDateOnly(dto.due_date);
+      invoice.paid_amount = '0.00';
+      invoice.balance_amount = invoice.total_amount;
+      invoice.status = InvoiceLifecycleStatus.DRAFT;
       invoice.updated_by = userId;
       const saved = await invoiceRepo.save(invoice);
       if (dto.items) {
@@ -608,6 +624,11 @@ export class BillingCommissionService {
 
   async deleteInvoice(companyId: string, id: string): Promise<void> {
     const invoice = await this.ensureInvoice(companyId, id);
+    if (invoice.status !== InvoiceLifecycleStatus.DRAFT) {
+      throw new ConflictException(
+        'Issued invoices must be voided instead of deleted',
+      );
+    }
     await this.dataSource.transaction(async (manager) => {
       await manager
         .getRepository(InvoiceItem)
@@ -631,7 +652,9 @@ export class BillingCommissionService {
       { id: dto.customer_id, company_id: companyId },
       'Customer not found for company',
     );
-    const invoice = await this.ensureInvoice(companyId, dto.invoice_id);
+    const invoice = dto.invoice_id
+      ? await this.ensureInvoice(companyId, dto.invoice_id)
+      : null;
     return this.dataSource.transaction(async (manager) => {
       const receiptRepo = manager.getRepository(Receipt);
       const receiptNo = await this.nextSequence(
@@ -640,22 +663,25 @@ export class BillingCommissionService {
         'receipt_no',
         `RCT-${new Date().getFullYear()}-`,
       );
-      const receipt = receiptRepo.create({
-        company_id: companyId,
-        customer_id: dto.customer_id,
-        invoice_id: invoice.id,
-        receipt_no: receiptNo,
-        payment_method: dto.payment_method,
-        amount: this.normalizeMoney(dto.amount),
-        currency: dto.currency?.trim().toUpperCase() ?? 'TZS',
-        payment_reference: this.normalizeText(dto.payment_reference),
-        received_by: dto.received_by ?? userId,
-        received_at: dto.received_at ? new Date(dto.received_at) : new Date(),
-        status: dto.status?.trim().toUpperCase() ?? 'RECEIVED',
-      });
-      const saved = await receiptRepo.save(receipt);
-      await this.recalculateInvoiceBalance(manager, companyId, invoice.id);
-      return manager.getRepository(Receipt).findOneOrFail({
+        const receipt = receiptRepo.create({
+          company_id: companyId,
+          customer_id: dto.customer_id,
+          invoice_id: invoice?.id ?? null,
+          receipt_no: receiptNo,
+          payment_method: dto.payment_method,
+          amount: this.normalizeMoney(dto.amount),
+          currency: dto.currency?.trim().toUpperCase() ?? 'TZS',
+          unallocated_amount: '0.00',
+          payment_reference: this.normalizeText(dto.payment_reference),
+          received_by: dto.received_by ?? userId,
+          received_at: dto.received_at ? new Date(dto.received_at) : new Date(),
+          status: ReceiptLifecycleStatus.RECEIVED,
+        });
+        const saved = await receiptRepo.save(receipt);
+        if (invoice?.id) {
+          await this.recalculateInvoiceBalance(manager, companyId, invoice.id);
+        }
+        return manager.getRepository(Receipt).findOneOrFail({
         where: { id: saved.id, company_id: companyId },
         relations: {
           company: true,
@@ -715,6 +741,11 @@ export class BillingCommissionService {
     userId: string,
   ): Promise<Receipt> {
     const receipt = await this.ensureReceipt(companyId, id);
+    if (receipt.status !== ReceiptLifecycleStatus.RECEIVED) {
+      throw new ConflictException(
+        'Posted receipts cannot be directly edited',
+      );
+    }
     const previousInvoiceId = receipt.invoice_id;
     if (dto.customer_id !== undefined) {
       await this.ensureExists(
@@ -724,7 +755,9 @@ export class BillingCommissionService {
       );
     }
     if (dto.invoice_id !== undefined) {
-      await this.ensureInvoice(companyId, dto.invoice_id);
+      if (dto.invoice_id) {
+        await this.ensureInvoice(companyId, dto.invoice_id);
+      }
     }
     return this.dataSource.transaction(async (manager) => {
       const receiptRepo = manager.getRepository(Receipt);
@@ -779,6 +812,11 @@ export class BillingCommissionService {
 
   async deleteReceipt(companyId: string, id: string): Promise<void> {
     const receipt = await this.ensureReceipt(companyId, id);
+    if (receipt.status !== ReceiptLifecycleStatus.RECEIVED) {
+      throw new ConflictException(
+        'Posted receipts must be reversed instead of deleted',
+      );
+    }
     await this.dataSource.transaction(async (manager) => {
       await manager.getRepository(Receipt).softDelete(receipt.id);
       if (receipt.invoice_id) {
@@ -951,6 +989,8 @@ export class BillingCommissionService {
         net_premium: this.normalizeMoney(dto.net_premium),
         commission_rate: this.normalizeRate(dto.commission_rate),
         commission_amount: this.normalizeMoney(dto.commission_amount),
+        paid_amount: '0.0000',
+        balance_amount: this.normalizeMoney(dto.commission_amount),
         status: dto.status?.trim().toUpperCase() ?? 'PENDING',
         earned_at: dto.earned_at ? new Date(dto.earned_at) : null,
         paid_at: dto.paid_at ? new Date(dto.paid_at) : null,
@@ -1065,6 +1105,9 @@ export class BillingCommissionService {
       commission.commission_rate = this.normalizeRate(dto.commission_rate);
     if (dto.commission_amount !== undefined)
       commission.commission_amount = this.normalizeMoney(dto.commission_amount);
+    commission.balance_amount = this.normalizeMoney(
+      Number(commission.commission_amount) - Number(commission.paid_amount ?? 0),
+    );
     if (dto.status !== undefined)
       commission.status = dto.status.trim().toUpperCase();
     if (dto.earned_at !== undefined)

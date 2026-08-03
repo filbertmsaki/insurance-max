@@ -76,6 +76,42 @@ const DASHBOARD_VIEWER_PERMISSION_NAMES = [
   'dashboard:policies',
 ];
 
+const PHASE2_ADMIN_PERMISSION_NAMES = [
+  'billing:invoice-issue',
+  'billing:invoice-void',
+  'billing:receipt-post',
+  'billing:receipt-allocate',
+  'billing:receipt-reverse',
+  'billing:reconciliation-manage',
+  'billing:closing-create',
+  'billing:closing-submit',
+  'billing:closing-approve',
+  'billing:remittance-create',
+  'billing:remittance-submit',
+  'billing:remittance-approve',
+  'billing:remittance-pay',
+  'commissions:settle',
+  'commissions:approve',
+  'commissions:pay',
+  'policies:endorsement-create',
+  'policies:endorsement-approve',
+  'policies:endorsement-apply',
+  'policies:cancellation-create',
+  'policies:cancellation-approve',
+  'policies:cancellation-apply',
+  'policies:renewal-create',
+  'policies:renewal-approve',
+  'policies:renewal-apply',
+  'work-items:read',
+  'work-items:manage',
+  'notifications:read',
+];
+
+const PHASE2_GENERAL_USER_PERMISSION_NAMES = [
+  'work-items:read',
+  'notifications:read',
+];
+
 const defaultBranchSeeds: SeedBranchConfig[] = ALLIANCE_BRANCHES.map(
   (branch) => ({
     name: branch.branchName,
@@ -1069,6 +1105,84 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'billing:invoice-issue',
+    displayName: 'Issue invoices',
+    description: 'Allow issuing draft invoices',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'billing:invoice-void',
+    displayName: 'Void invoices',
+    description: 'Allow voiding issued invoices',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'billing:receipt-post',
+    displayName: 'Post receipts',
+    description: 'Allow posting received receipts',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'billing:receipt-allocate',
+    displayName: 'Allocate receipts',
+    description: 'Allow allocating receipts to invoices',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'billing:receipt-reverse',
+    displayName: 'Reverse receipts',
+    description: 'Allow reversing posted receipts and allocations',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'billing:reconciliation-manage',
+    displayName: 'Manage reconciliation',
+    description: 'Allow managing reconciliation activities',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'billing:closing-create',
+    displayName: 'Create sales-point closings',
+    description: 'Allow creating sales-point closing records',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'billing:closing-submit',
+    displayName: 'Submit sales-point closings',
+    description: 'Allow submitting sales-point closings for approval',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'billing:closing-approve',
+    displayName: 'Approve sales-point closings',
+    description: 'Allow approving sales-point closings',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'billing:remittance-create',
+    displayName: 'Create premium remittances',
+    description: 'Allow creating premium remittance records',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'billing:remittance-submit',
+    displayName: 'Submit premium remittances',
+    description: 'Allow submitting premium remittances',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'billing:remittance-approve',
+    displayName: 'Approve premium remittances',
+    description: 'Allow approving premium remittances',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'billing:remittance-pay',
+    displayName: 'Pay premium remittances',
+    description: 'Allow marking premium remittances as paid',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'commissions:read',
     displayName: 'Read commission records',
     description:
@@ -1091,6 +1205,96 @@ const permissionSeeds: PermissionSeed[] = [
     name: 'commissions:delete',
     displayName: 'Delete commission records',
     description: 'Allow deleting commission transactions and payments',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'commissions:settle',
+    displayName: 'Settle commissions',
+    description: 'Allow settling commission balances',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'commissions:approve',
+    displayName: 'Approve commissions',
+    description: 'Allow approving commission settlements and payments',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'commissions:pay',
+    displayName: 'Pay commissions',
+    description: 'Allow marking commission payments as paid',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'policies:endorsement-create',
+    displayName: 'Create policy endorsements',
+    description: 'Allow creating policy endorsement requests',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'policies:endorsement-approve',
+    displayName: 'Approve policy endorsements',
+    description: 'Allow approving policy endorsement requests',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'policies:endorsement-apply',
+    displayName: 'Apply policy endorsements',
+    description: 'Allow applying approved policy endorsements',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'policies:cancellation-create',
+    displayName: 'Create policy cancellations',
+    description: 'Allow creating policy cancellation requests',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'policies:cancellation-approve',
+    displayName: 'Approve policy cancellations',
+    description: 'Allow approving policy cancellation requests',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'policies:cancellation-apply',
+    displayName: 'Apply policy cancellations',
+    description: 'Allow applying approved policy cancellations',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'policies:renewal-create',
+    displayName: 'Create policy renewals',
+    description: 'Allow creating policy renewal requests',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'policies:renewal-approve',
+    displayName: 'Approve policy renewals',
+    description: 'Allow approving policy renewal requests',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'policies:renewal-apply',
+    displayName: 'Apply policy renewals',
+    description: 'Allow applying approved policy renewals',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'work-items:read',
+    displayName: 'Read work items',
+    description: 'Allow viewing work items assigned to the user or role',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'work-items:manage',
+    displayName: 'Manage work items',
+    description: 'Allow completing and managing work items',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'notifications:read',
+    displayName: 'Read notifications',
+    description: 'Allow viewing tenant notifications',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
 ];
@@ -1146,6 +1350,7 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
+      ...PHASE2_ADMIN_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
@@ -1273,6 +1478,7 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
+      ...PHASE2_ADMIN_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
@@ -1386,6 +1592,7 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
+      ...PHASE2_ADMIN_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
@@ -1439,6 +1646,7 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
+      ...PHASE2_ADMIN_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
@@ -1489,6 +1697,7 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
+      ...PHASE2_ADMIN_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
@@ -1528,6 +1737,7 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
+      ...PHASE2_ADMIN_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
@@ -1568,6 +1778,7 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
+      ...PHASE2_ADMIN_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
@@ -1596,6 +1807,7 @@ const roleSeeds: RoleSeed[] = [
     permissionNames: [
       'view_company_data',
       ...DASHBOARD_GENERAL_USER_PERMISSION_NAMES,
+      ...PHASE2_GENERAL_USER_PERMISSION_NAMES,
     ],
   },
   {
@@ -1604,7 +1816,11 @@ const roleSeeds: RoleSeed[] = [
     description:
       'Compatibility role mirroring the default read-only company user access',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
-    permissionNames: ['view_company_data', ...DASHBOARD_VIEWER_PERMISSION_NAMES],
+    permissionNames: [
+      'view_company_data',
+      ...DASHBOARD_VIEWER_PERMISSION_NAMES,
+      ...PHASE2_GENERAL_USER_PERMISSION_NAMES,
+    ],
   },
 ];
 
