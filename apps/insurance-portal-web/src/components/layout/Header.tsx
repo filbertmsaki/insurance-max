@@ -1,11 +1,19 @@
-import { useLocation, useNavigate } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { LogOut, User, KeyRound, Menu, Bell, ChevronRight, Search } from 'lucide-react'
-import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Separator } from '@/components/ui/separator'
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  LogOut,
+  User,
+  KeyRound,
+  Menu,
+  Bell,
+  ChevronRight,
+  Search,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,12 +21,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Badge } from '@/components/ui/badge'
-import { CompanySwitcher } from './CompanySwitcher'
-import { authApi } from '@/modules/shared/auth/api/auth'
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
-import { branchesApi } from '@/modules/tenant/branches/api/branches'
+} from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
+import { CompanySwitcher } from './CompanySwitcher';
+import { authApi } from '@/modules/shared/auth/api/auth';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { branchesApi } from '@/modules/tenant/branches/api/branches';
 
 // ─── Route → breadcrumb mapping ───────────────────────────────────────────────
 
@@ -47,72 +55,75 @@ const ROUTE_LABELS: [string, string[]][] = [
   ['/product-engine/calculator', ['Product Engine', 'Calculator']],
   ['/underwriting/quotations', ['Underwriting', 'Quotations']],
   ['/underwriting/policies', ['Underwriting', 'Policies']],
-  ['/underwriting/submissions', ['Underwriting', 'Submission Tracking']],
+  ['/tiramis/submissions', ['TIRAMIS', 'Submissions']],
   ['/underwriting/motor/vehicles', ['Underwriting', 'Motor Vehicles']],
   ['/underwriting/motor/fleets', ['Underwriting', 'Motor Fleets']],
   ['/underwriting/customers', ['Underwriting', 'Customers']],
-]
+];
 
 function useBreadcrumb(): string[] {
-  const { pathname } = useLocation()
+  const { pathname } = useLocation();
   for (const [prefix, crumbs] of ROUTE_LABELS) {
-    if (pathname === prefix || pathname.startsWith(prefix + '/')) return crumbs
+    if (pathname === prefix || pathname.startsWith(prefix + '/')) return crumbs;
   }
-  return ['Dashboard']
+  return ['Dashboard'];
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface HeaderProps {
-  onMobileMenuToggle: () => void
-  onOpenCommand: () => void
+  onMobileMenuToggle: () => void;
+  onOpenCommand: () => void;
 }
 
 export function Header({ onMobileMenuToggle, onOpenCommand }: HeaderProps) {
-  const navigate = useNavigate()
-  const { user, profile, refreshToken, logout } = useAuthStore()
-  const setActiveBranch = useAuthStore((state) => state.setActiveBranch)
-  const queryClient = useQueryClient()
+  const navigate = useNavigate();
+  const { user, profile, refreshToken, logout } = useAuthStore();
+  const setActiveBranch = useAuthStore((state) => state.setActiveBranch);
+  const queryClient = useQueryClient();
   const { data: branches = [] } = useQuery({
     queryKey: ['active-branch-options', user?.companyId],
     queryFn: branchesApi.getAllBranches,
     enabled: !!user?.companyId && (user.assignedBranchIds?.length ?? 0) > 0,
     staleTime: 30_000,
-  })
+  });
   const activeBranchMutation = useMutation({
     mutationFn: (branchId: string) => branchesApi.setMyActiveBranch(branchId),
     onSuccess: (_result, branchId) => {
-      const branch = branches.find((item) => item.id === branchId)
-      if (branch) setActiveBranch(branch)
-      queryClient.invalidateQueries()
-      toast.success('Active branch changed')
+      const branch = branches.find((item) => item.id === branchId);
+      if (branch) setActiveBranch(branch);
+      queryClient.invalidateQueries();
+      toast.success('Active branch changed');
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message ?? 'Unable to change active branch'),
-  })
-  const crumbs = useBreadcrumb()
+    onError: (error: any) =>
+      toast.error(
+        error?.response?.data?.message ?? 'Unable to change active branch',
+      ),
+  });
+  const crumbs = useBreadcrumb();
 
   const logoutMutation = useMutation({
     mutationFn: () => authApi.logout(refreshToken ?? ''),
     onSettled: () => {
-      logout()
-      navigate('/login')
-      toast.success('Signed out successfully')
+      logout();
+      navigate('/login');
+      toast.success('Signed out successfully');
     },
-  })
+  });
 
   const displayName =
     profile?.first_name && profile?.last_name
       ? `${profile.first_name} ${profile.last_name}`
-      : user?.email ?? ''
+      : (user?.email ?? '');
 
   const initials = profile?.first_name
     ? `${profile.first_name[0]}${profile.last_name?.[0] ?? ''}`.toUpperCase()
-    : (user?.email?.[0] ?? '?').toUpperCase()
+    : (user?.email?.[0] ?? '?').toUpperCase();
 
   const userTypeBadgeColor =
     user?.userType === 'OWNER' || user?.userType === 'SUPER_ADMIN'
       ? 'bg-purple-100 text-purple-700'
-      : 'bg-blue-100 text-blue-700'
+      : 'bg-blue-100 text-blue-700';
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 shrink-0 z-10">
@@ -131,7 +142,9 @@ export function Header({ onMobileMenuToggle, onOpenCommand }: HeaderProps) {
         <nav className="flex items-center gap-1.5 text-sm min-w-0">
           {crumbs.map((crumb, i) => (
             <span key={crumb} className="flex items-center gap-1.5 min-w-0">
-              {i > 0 && <ChevronRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />}
+              {i > 0 && (
+                <ChevronRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+              )}
               <span
                 className={cn(
                   'truncate',
@@ -173,18 +186,32 @@ export function Header({ onMobileMenuToggle, onOpenCommand }: HeaderProps) {
           <select
             aria-label="Active branch"
             value={user?.activeBranchId ?? ''}
-            onChange={(event) => activeBranchMutation.mutate(event.target.value)}
+            onChange={(event) =>
+              activeBranchMutation.mutate(event.target.value)
+            }
             disabled={activeBranchMutation.isPending}
             className="hidden md:block h-8 max-w-44 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700"
           >
             {branches
-              .filter((branch) => user?.assignedBranchIds?.includes(branch.id) && branch.status === 'active')
-              .map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+              .filter(
+                (branch) =>
+                  user?.assignedBranchIds?.includes(branch.id) &&
+                  branch.status === 'active',
+              )
+              .map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
           </select>
         )}
 
         {/* Notification bell (placeholder) */}
-        <Button variant="ghost" size="icon" className="h-9 w-9 relative text-slate-500 hover:text-slate-900">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 relative text-slate-500 hover:text-slate-900"
+        >
           <Bell className="h-4.5 w-4.5" />
           <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-blue-500" />
         </Button>
@@ -223,14 +250,21 @@ export function Header({ onMobileMenuToggle, onOpenCommand }: HeaderProps) {
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col min-w-0">
-                  <span className="text-sm font-semibold text-slate-900 truncate">{displayName}</span>
-                  <span className="text-xs text-slate-500 truncate">{user?.email}</span>
+                  <span className="text-sm font-semibold text-slate-900 truncate">
+                    {displayName}
+                  </span>
+                  <span className="text-xs text-slate-500 truncate">
+                    {user?.email}
+                  </span>
                 </div>
               </div>
               <div className="mt-2">
                 <Badge
                   variant="outline"
-                  className={cn('text-[10px] font-medium px-1.5 py-0.5', userTypeBadgeColor)}
+                  className={cn(
+                    'text-[10px] font-medium px-1.5 py-0.5',
+                    userTypeBadgeColor,
+                  )}
                 >
                   {user?.userType?.replace(/_/g, ' ')}
                 </Badge>
@@ -243,7 +277,9 @@ export function Header({ onMobileMenuToggle, onOpenCommand }: HeaderProps) {
               <User className="mr-2 h-4 w-4" />
               My Profile
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate('/settings/profile?tab=password')}>
+            <DropdownMenuItem
+              onClick={() => navigate('/settings/profile?tab=password')}
+            >
               <KeyRound className="mr-2 h-4 w-4" />
               Change Password
             </DropdownMenuItem>
@@ -262,6 +298,5 @@ export function Header({ onMobileMenuToggle, onOpenCommand }: HeaderProps) {
         </DropdownMenu>
       </div>
     </header>
-  )
+  );
 }
-

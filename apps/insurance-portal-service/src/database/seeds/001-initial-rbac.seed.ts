@@ -317,6 +317,18 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'tiramis.config.view',
+    displayName: 'View TIRAMIS configuration',
+    description: 'Allows viewing TIRAMIS integration configuration',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'tiramis.config.manage',
+    displayName: 'Manage TIRAMIS configuration',
+    description: 'Allows managing TIRAMIS integration configuration',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'tiramis.admin',
     displayName: 'TIRAMIS Admin',
     description: 'Full TIRAMIS administration permission',
@@ -993,6 +1005,9 @@ const TIRAMIS_ADMIN_PERMISSION_NAMES = [
   'tiramis.sync',
   'tiramis.audit.view',
   'tiramis.notification.view',
+  'tiramis.config.view',
+  'tiramis.config.manage',
+  'tiramis.admin',
 ];
 
 const roleSeeds: RoleSeed[] = [

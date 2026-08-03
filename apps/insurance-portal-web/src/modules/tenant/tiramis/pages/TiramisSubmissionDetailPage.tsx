@@ -11,7 +11,6 @@ import {
   useTenantSubmissionByRequestId,
   useTenantSubmissionDetail,
 } from '../hooks';
-import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { formatDateTime, getSubmissionDetailId } from '../utils';
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
@@ -33,15 +32,13 @@ export function TiramisSubmissionDetailPage() {
   const requestIdLookup =
     trackingDetail.data?.finalResponseReceivedAt ||
     trackingDetail.data?.finalResponseId
-      ? trackingDetail.data?.tiramisRequestId ?? undefined
+      ? (trackingDetail.data?.tiramisRequestId ?? undefined)
       : undefined;
-  const tenantDetailByRequestId = useTenantSubmissionByRequestId(
-    requestIdLookup,
-  );
+  const tenantDetailByRequestId =
+    useTenantSubmissionByRequestId(requestIdLookup);
   const submitMutation = useSubmitTenantTiramisSubmission();
 
-  const tenantSubmission =
-    tenantDetail.data ?? tenantDetailByRequestId.data;
+  const tenantSubmission = tenantDetail.data ?? tenantDetailByRequestId.data;
   const trackingSubmission = trackingDetail.data;
   const isLoading =
     !tenantSubmission &&
@@ -56,10 +53,7 @@ export function TiramisSubmissionDetailPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Submission not found</p>
-        <Button
-          variant="link"
-          onClick={() => navigate(underwritingPaths.submissions)}
-        >
+        <Button variant="link" onClick={() => navigate('/tiramis/submissions')}>
           Back to submissions
         </Button>
       </div>
@@ -74,7 +68,7 @@ export function TiramisSubmissionDetailPage() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate(underwritingPaths.submissions)}
+              onClick={() => navigate('/tiramis/submissions')}
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -84,7 +78,9 @@ export function TiramisSubmissionDetailPage() {
                 tenantSubmission.business_reference ||
                 tenantSubmission.id
               }
-              description={tenantSubmission.request_type || 'TIRAMIS submission'}
+              description={
+                tenantSubmission.request_type || 'TIRAMIS submission'
+              }
             />
           </div>
           {tenantSubmission.status !== 'COMPLETED' && (
@@ -98,7 +94,8 @@ export function TiramisSubmissionDetailPage() {
                         (tenantSubmission.request_type as any) || 'NON_MOTOR',
                       policy_id: tenantSubmission.policy_id ?? undefined,
                       quotation_id: tenantSubmission.quotation_id ?? undefined,
-                      source_module: tenantSubmission.source_module ?? undefined,
+                      source_module:
+                        tenantSubmission.source_module ?? undefined,
                       source_record_id:
                         tenantSubmission.source_record_id ?? undefined,
                       business_reference:
@@ -113,9 +110,7 @@ export function TiramisSubmissionDetailPage() {
                         );
                         if (submissionDetailId) {
                           navigate(
-                            underwritingPaths.submissionDetail(
-                              submissionDetailId,
-                            ),
+                            `/tiramis/submissions/${submissionDetailId}`,
                           );
                         }
                       },
@@ -141,7 +136,10 @@ export function TiramisSubmissionDetailPage() {
                 label="Status"
                 value={<TiramisStatusBadge status={tenantSubmission.status} />}
               />
-              <Row label="Request ID" value={tenantSubmission.tiramis_request_id} />
+              <Row
+                label="Request ID"
+                value={tenantSubmission.tiramis_request_id}
+              />
               <Row
                 label="Transaction ID"
                 value={tenantSubmission.tiramis_transaction_id}
@@ -150,12 +148,19 @@ export function TiramisSubmissionDetailPage() {
                 label="Business Reference"
                 value={tenantSubmission.business_reference}
               />
-              <Row label="Source Module" value={tenantSubmission.source_module} />
-              <Row label="Source Record" value={tenantSubmission.source_record_id} />
+              <Row
+                label="Source Module"
+                value={tenantSubmission.source_module}
+              />
+              <Row
+                label="Source Record"
+                value={tenantSubmission.source_record_id}
+              />
               <Row
                 label="Policy"
                 value={
-                  tenantSubmission.policy?.policy_no ?? tenantSubmission.policy_id
+                  tenantSubmission.policy?.policy_no ??
+                  tenantSubmission.policy_id
                 }
               />
               <Row
@@ -187,13 +192,19 @@ export function TiramisSubmissionDetailPage() {
             </CardHeader>
             <CardContent className="divide-y">
               {(tenantSubmission.events ?? []).map((event) => (
-                <div key={event.id} className="space-y-2 py-4 first:pt-0 last:pb-0">
+                <div
+                  key={event.id}
+                  className="space-y-2 py-4 first:pt-0 last:pb-0"
+                >
                   <Row label="Event" value={event.event_type} />
                   <Row label="Request ID" value={event.request_id} />
                   <Row label="Response ID" value={event.response_id} />
                   <Row label="Status" value={event.status_code} />
                   <Row label="Description" value={event.status_description} />
-                  <Row label="Created" value={formatDateTime(event.created_at)} />
+                  <Row
+                    label="Created"
+                    value={formatDateTime(event.created_at)}
+                  />
                 </div>
               ))}
               {(tenantSubmission.events ?? []).length === 0 && (
@@ -212,7 +223,7 @@ export function TiramisSubmissionDetailPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate(underwritingPaths.submissions)}
+          onClick={() => navigate('/tiramis/submissions')}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -235,7 +246,10 @@ export function TiramisSubmissionDetailPage() {
             label="Status"
             value={<TiramisStatusBadge status={trackingSubmission!.status} />}
           />
-          <Row label="Request ID" value={trackingSubmission!.tiramisRequestId} />
+          <Row
+            label="Request ID"
+            value={trackingSubmission!.tiramisRequestId}
+          />
           <Row
             label="Transaction ID"
             value={trackingSubmission!.tiramisTransactionId}
@@ -245,19 +259,64 @@ export function TiramisSubmissionDetailPage() {
             value={trackingSubmission!.businessReference}
           />
           <Row label="Source Module" value={trackingSubmission!.sourceModule} />
-          <Row label="Source Record" value={trackingSubmission!.sourceRecordId} />
-          <Row label="Quotation" value={trackingSubmission!.quotation?.quotation_no ?? trackingSubmission!.quotationId} />
-          <Row label="Policy" value={trackingSubmission!.policy?.policy_no ?? trackingSubmission!.policyId} />
-          <Row label="Submitted At" value={formatDateTime(trackingSubmission!.submittedAt)} />
-          <Row label="Acknowledged At" value={formatDateTime(trackingSubmission!.acknowledgedAt)} />
-          <Row label="Final Response At" value={formatDateTime(trackingSubmission!.finalResponseReceivedAt)} />
-          <Row label="Last Synced At" value={formatDateTime(trackingSubmission!.lastSyncedAt)} />
-          <Row label="ACK Code" value={trackingSubmission!.acknowledgementStatusCode} />
-          <Row label="ACK Description" value={trackingSubmission!.acknowledgementStatusDesc} />
-          <Row label="Final Response Code" value={trackingSubmission!.finalResponseStatusCode} />
-          <Row label="Final Response Description" value={trackingSubmission!.finalResponseStatusDesc} />
-          <Row label="Retryable" value={trackingSubmission!.isRetryable ? 'Yes' : 'No'} />
-          <Row label="Last Error" value={trackingSubmission!.lastErrorMessage} />
+          <Row
+            label="Source Record"
+            value={trackingSubmission!.sourceRecordId}
+          />
+          <Row
+            label="Quotation"
+            value={
+              trackingSubmission!.quotation?.quotation_no ??
+              trackingSubmission!.quotationId
+            }
+          />
+          <Row
+            label="Policy"
+            value={
+              trackingSubmission!.policy?.policy_no ??
+              trackingSubmission!.policyId
+            }
+          />
+          <Row
+            label="Submitted At"
+            value={formatDateTime(trackingSubmission!.submittedAt)}
+          />
+          <Row
+            label="Acknowledged At"
+            value={formatDateTime(trackingSubmission!.acknowledgedAt)}
+          />
+          <Row
+            label="Final Response At"
+            value={formatDateTime(trackingSubmission!.finalResponseReceivedAt)}
+          />
+          <Row
+            label="Last Synced At"
+            value={formatDateTime(trackingSubmission!.lastSyncedAt)}
+          />
+          <Row
+            label="ACK Code"
+            value={trackingSubmission!.acknowledgementStatusCode}
+          />
+          <Row
+            label="ACK Description"
+            value={trackingSubmission!.acknowledgementStatusDesc}
+          />
+          <Row
+            label="Final Response Code"
+            value={trackingSubmission!.finalResponseStatusCode}
+          />
+          <Row
+            label="Final Response Description"
+            value={trackingSubmission!.finalResponseStatusDesc}
+          />
+          <Row
+            label="Retryable"
+            value={trackingSubmission!.isRetryable ? 'Yes' : 'No'}
+          />
+          <Row
+            label="Last Error"
+            value={trackingSubmission!.lastErrorMessage}
+          />
         </CardContent>
       </Card>
     </div>
