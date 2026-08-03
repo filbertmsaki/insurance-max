@@ -25,6 +25,7 @@ import { RiskRequiredFactorsModule } from './risk-required-factors/risk-required
 import { RiskRuleConditionsModule } from './risk-rule-conditions/risk-rule-conditions.module';
 import { TiramisIntegrationModule } from './tiramis-integration/tiramis-integration.module';
 import { UsersModule } from './users/users.module';
+import { VerificationsModule } from './verifications/verifications.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { UsersModule } from './users/users.module';
     ProductAccessModule,
     PremiumCalculationModule,
     TiramisIntegrationModule,
+    VerificationsModule,
   ],
   exports: [
     UsersModule,
@@ -80,6 +82,7 @@ import { UsersModule } from './users/users.module';
     ProductAccessModule,
     PremiumCalculationModule,
     TiramisIntegrationModule,
+    VerificationsModule,
   ],
 })
 export class TenantModule {}

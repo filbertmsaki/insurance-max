@@ -26,6 +26,7 @@ export function canAccessRoute(
   user: AuthUser | null | undefined,
   options?: {
     requiredPermission?: string;
+    anyPermission?: string[];
     requiredRole?: string;
     anyRole?: string[];
   },
@@ -36,6 +37,10 @@ export function canAccessRoute(
     options?.requiredPermission &&
     !hasPermission(user, options.requiredPermission)
   ) {
+    return false;
+  }
+
+  if (options?.anyPermission?.length && !options.anyPermission.some((permission) => hasPermission(user, permission))) {
     return false;
   }
 

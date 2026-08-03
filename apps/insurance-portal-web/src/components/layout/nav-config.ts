@@ -28,6 +28,7 @@ import {
   HeartPulse,
   TriangleAlert,
   RefreshCcw,
+  SearchCheck,
 } from 'lucide-react';
 
 export interface NavLeaf {
@@ -36,6 +37,7 @@ export interface NavLeaf {
   to: string;
   icon: ComponentType<{ className?: string }>;
   permission?: string;
+  anyPermission?: string[];
   anyRole?: string[];
 }
 
@@ -239,13 +241,6 @@ export const NAV_NODES: NavNode[] = [
       },
       {
         kind: 'link',
-        label: 'Submission Tracking',
-        to: '/underwriting/submissions',
-        icon: Radar,
-        permission: 'tiramis-submissions:read',
-      },
-      {
-        kind: 'link',
         label: 'Motor Vehicles',
         to: '/underwriting/motor/vehicles',
         icon: CarFront,
@@ -340,7 +335,11 @@ export const NAV_NODES: NavNode[] = [
         label: 'Tracking',
         to: '/tiramis/tracking',
         icon: FileText,
-        permission: 'tiramis.tracking.view',
+        anyPermission: [
+          'tiramis.tracking.view',
+          'verifications:motor:submit',
+          'verifications:cover-note:submit',
+        ],
       },
       {
         kind: 'link',
@@ -355,6 +354,16 @@ export const NAV_NODES: NavNode[] = [
         to: '/tiramis/retryable',
         icon: RefreshCcw,
         permission: 'tiramis.monitoring.view',
+      },
+      {
+        kind: 'link',
+        label: 'Verifications',
+        to: '/verifications',
+        icon: SearchCheck,
+        anyPermission: [
+          'verifications:motor:submit',
+          'verifications:cover-note:submit',
+        ],
       },
     ],
   },

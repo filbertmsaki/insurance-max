@@ -15,6 +15,7 @@ function useNavFilter() {
   function isLeafVisible(leaf: NavLeaf): boolean {
     return canAccessRoute(user, {
       requiredPermission: leaf.permission,
+      anyPermission: leaf.anyPermission,
       anyRole: leaf.anyRole,
     })
   }

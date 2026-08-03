@@ -262,6 +262,24 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'tiramis.validate',
+    displayName: 'Validate TIRAMIS records',
+    description: 'Allows validation of TIRAMIS business records',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'verifications:motor:submit',
+    displayName: 'Submit motor verifications',
+    description: 'Allows motor registration and chassis verification requests',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'verifications:cover-note:submit',
+    displayName: 'Submit cover note verifications',
+    description: 'Allows cover note verification requests',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'tiramis.tracking.view',
     displayName: 'View TIRAMIS Tracking',
     description:
@@ -284,6 +302,18 @@ const permissionSeeds: PermissionSeed[] = [
     name: 'tiramis.sync',
     displayName: 'Sync TIRAMIS Status',
     description: 'Allows user to sync final responses and business records',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'tiramis.audit.view',
+    displayName: 'View TIRAMIS audit logs',
+    description: 'Allows viewing TIRAMIS audit history and correlation details',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'tiramis.notification.view',
+    displayName: 'View TIRAMIS notifications',
+    description: 'Allows viewing and managing TIRAMIS notifications',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -954,10 +984,15 @@ const permissionSeeds: PermissionSeed[] = [
 
 const TIRAMIS_ADMIN_PERMISSION_NAMES = [
   'tiramis.submit',
+  'tiramis.validate',
+  'verifications:motor:submit',
+  'verifications:cover-note:submit',
   'tiramis.tracking.view',
   'tiramis.monitoring.view',
   'tiramis.retry',
   'tiramis.sync',
+  'tiramis.audit.view',
+  'tiramis.notification.view',
 ];
 
 const roleSeeds: RoleSeed[] = [
@@ -1194,8 +1229,7 @@ const roleSeeds: RoleSeed[] = [
       'pricing.override.view',
       'tiramis-submissions:read',
       'tiramis-submissions:create',
-      'tiramis.submit',
-      'tiramis.tracking.view',
+      ...TIRAMIS_ADMIN_PERMISSION_NAMES,
       'motor:read',
       'motor:create',
       'motor:update',
@@ -1599,6 +1633,10 @@ export default class InitialRbacSeeder implements Seeder {
         adminConfig,
       );
 
+      await this.ensureUserPermissions(userRepo, savedAdmin, [
+        ...TIRAMIS_ADMIN_PERMISSION_NAMES,
+      ], permissionsByName);
+
       const membership = await this.ensureCompanyMembership(
         companyUserRepo,
         defaultCompany.id,
@@ -1868,6 +1906,35 @@ export default class InitialRbacSeeder implements Seeder {
     }
 
     return userRepo.save(user);
+  }
+
+  private async ensureUserPermissions(
+    userRepo: Repository<User>,
+    user: User,
+    permissionNames: string[],
+    permissionsByName: Map<string, Permission>,
+  ) {
+    const persistedUser = await userRepo.findOne({
+      where: { id: user.id },
+      relations: { permissions: true },
+    });
+
+    if (!persistedUser) return;
+
+    const permissions = new Map(
+      (persistedUser.permissions ?? []).map((permission) => [
+        permission.name,
+        permission,
+      ]),
+    );
+
+    for (const permissionName of permissionNames) {
+      const permission = permissionsByName.get(permissionName);
+      if (permission) permissions.set(permissionName, permission);
+    }
+
+    persistedUser.permissions = Array.from(permissions.values());
+    await userRepo.save(persistedUser);
   }
 
   private async ensureCompany(

@@ -40,6 +40,14 @@ export class TiramisPermissionGuard implements CanActivate {
     }
 
     const userPermissions = this.extractUserPermissions(user);
+    if (
+      requiredPermissions.includes(TiramisPermissions.VIEW_TRACKING) &&
+      userPermissions.some((permission) =>
+        ['verifications:motor:submit', 'verifications:cover-note:submit'].includes(permission),
+      )
+    ) {
+      userPermissions.push(TiramisPermissions.VIEW_TRACKING);
+    }
     const hasPermission = requiredPermissions.some(
       (permission) =>
         userPermissions.includes(permission) ||

@@ -614,6 +614,7 @@ export class TiramisClientService {
       ).replace(/\/+$/, '');
       const route = this.httpRouteForPattern(pattern);
       const isQuery =
+        pattern === TIRAMIS_MESSAGE_PATTERNS.HEALTH ||
         pattern === TIRAMIS_MESSAGE_PATTERNS.STATUS ||
         pattern === TIRAMIS_MESSAGE_PATTERNS.TRACE;
       const response = await firstValueFrom(

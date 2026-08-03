@@ -221,6 +221,10 @@ export interface TiramisDashboardSummary {
 export interface TiramisHealthResponse {
   success?: boolean;
   healthy?: boolean;
+  status?: string;
+  service?: string;
+  port?: number;
+  time?: string;
   summary?: Record<string, unknown>;
 }
 
