@@ -37,7 +37,7 @@ export class CustomersController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateCustomerDto,
   ) {
-    return this.customersService.create(user.companyId!, dto, user.id);
+    return this.customersService.createForUser(user, dto);
   }
 
   @Get()
@@ -48,7 +48,7 @@ export class CustomersController {
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: FilterCustomerDto,
   ) {
-    return this.customersService.findAll(user.companyId!, query);
+    return this.customersService.findAllForUser(user, query);
   }
 
   @Get(':id')
@@ -59,7 +59,7 @@ export class CustomersController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.customersService.findOne(user.companyId!, id);
+    return this.customersService.findOneForUser(user, id);
   }
 
   @Patch(':id')
@@ -71,7 +71,7 @@ export class CustomersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCustomerDto,
   ) {
-    return this.customersService.update(user.companyId!, id, dto, user.id);
+    return this.customersService.updateForUser(user, id, dto);
   }
 
   @Delete(':id')
@@ -82,7 +82,7 @@ export class CustomersController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.customersService.remove(user.companyId!, id);
+    await this.customersService.removeForUser(user, id);
     return { message: 'Customer deleted successfully' };
   }
 
@@ -94,6 +94,6 @@ export class CustomersController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.customersService.restore(user.companyId!, id);
+    return this.customersService.restoreForUser(user, id);
   }
 }

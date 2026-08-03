@@ -90,6 +90,8 @@ import { Receipt } from '../billing-commission/entities/receipt.entity';
 import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
 import { PortalTiraSubmission } from '../tiramis-integration/entities/portal-tira-submission.entity';
 import { PortalTiraSubmissionEvent } from '../tiramis-integration/entities/portal-tira-submission-event.entity';
+import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
+import type { TenantDataScope } from '../../shared/authorization/interfaces/tenant-data-scope.interface';
 import { AuditService } from '../../shared/audit/audit.service';
 import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/tiramis-submission-tracking.repository';
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
@@ -233,6 +235,7 @@ export class QuotationsService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly quotationsRepository: QuotationsRepository,
+    private readonly dataAccessScopeService: DataAccessScopeService,
     private readonly payloadMapper: QuotationPayloadMapper,
     private readonly previewMapper: QuotationPreviewMapper,
     private readonly tiramisPayloadMapper: QuotationTiramisPayloadMapper,
@@ -250,6 +253,32 @@ export class QuotationsService {
     @InjectRepository(TiramisSalePointEntity)
     private readonly salePointRepository: Repository<TiramisSalePointEntity>,
   ) {}
+
+  private resolveUserScope(user: AuthenticatedUser): TenantDataScope {
+    return this.dataAccessScopeService.resolve(user);
+  }
+
+  private async assertUserCanReadQuotation(
+    user: AuthenticatedUser,
+    quotationId: string,
+  ): Promise<TenantDataScope> {
+    const scope = this.resolveUserScope(user);
+
+    await this.quotationsRepository.assertReadable(scope, quotationId);
+
+    return scope;
+  }
+
+  private async assertUserCanWriteQuotation(
+    user: AuthenticatedUser,
+    quotationId: string,
+  ): Promise<TenantDataScope> {
+    const scope = this.resolveUserScope(user);
+
+    await this.quotationsRepository.assertWritable(scope, quotationId);
+
+    return scope;
+  }
 
   async create(
     companyId: string,
@@ -420,6 +449,8 @@ export class QuotationsService {
     payload: UpdateQuotationDto,
     user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
   ) {
+    await this.assertUserCanWriteQuotation(user as AuthenticatedUser, id);
+
     const existing = await this.quotationsRepository.findOneAggregate(
       companyId,
       id,
@@ -562,8 +593,11 @@ export class QuotationsService {
     companyId: string,
     id: string,
     dto: UpdateQuotationDraftDto,
-    userId: string,
+    user: AuthenticatedUser,
   ) {
+    await this.assertUserCanWriteQuotation(user, id);
+
+    const userId = user.id;
     const existing = await this.quotationsRepository.findOneAggregate(
       companyId,
       id,
@@ -642,6 +676,8 @@ export class QuotationsService {
     payload: UpdateQuotationDto,
     user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
   ) {
+    await this.assertUserCanWriteQuotation(user as AuthenticatedUser, id);
+
     const existing = await this.quotationsRepository.findOneAggregate(
       companyId,
       id,
@@ -668,18 +704,26 @@ export class QuotationsService {
     return this.findOne(companyId, quotation.id, user);
   }
 
-  async submitForApprovalAction(companyId: string, id: string, userId: string) {
+  async submitForApprovalAction(
+    companyId: string,
+    id: string,
+    user: AuthenticatedUser,
+  ) {
+    await this.assertUserCanWriteQuotation(user, id);
+
     await this.quotationLifecycleService.submitForApproval(companyId, id, {
-      changedBy: userId,
+      changedBy: user.id,
       changedByType: 'USER',
       source: 'USER',
       reason: 'Quotation submitted for approval',
     });
 
-    return this.findOne(companyId, id);
+    return this.findOneForUser(user, id);
   }
 
-  async requestPayment(companyId: string, id: string, userId: string) {
+  async requestPayment(companyId: string, id: string, user: AuthenticatedUser) {
+    await this.assertUserCanWriteQuotation(user, id);
+
     const quotation = await this.quotationsRepository.findOneAggregate(
       companyId,
       id,
@@ -696,18 +740,18 @@ export class QuotationsService {
         : await this.createQuotationPaymentInvoice(
             companyId,
             quotation,
-            userId,
+            user.id,
           );
 
     await this.quotationLifecycleService.markPaymentRequested(companyId, id, {
-      changedBy: userId,
+      changedBy: user.id,
       changedByType: 'USER',
       source: 'USER',
       reason: `Invoice ${invoice.invoice_no} generated for quotation payment`,
       requestId: invoice.id,
     });
 
-    return this.findOne(companyId, id);
+    return this.findOneForUser(user, id);
   }
 
   async retryTiraSubmission(
@@ -715,6 +759,8 @@ export class QuotationsService {
     id: string,
     user: AuthenticatedUser,
   ) {
+    await this.assertUserCanWriteQuotation(user, id);
+
     return this.submit(
       companyId,
       id,
@@ -729,8 +775,10 @@ export class QuotationsService {
     companyId: string,
     id: string,
     cancellationReason: string,
-    userId: string,
+    user: AuthenticatedUser,
   ) {
+    await this.assertUserCanWriteQuotation(user, id);
+
     const trimmedReason = cancellationReason.trim();
     if (!trimmedReason) {
       throw new BadRequestException(
@@ -742,22 +790,41 @@ export class QuotationsService {
       { id, company_id: companyId },
       {
         cancellation_reason: trimmedReason,
-        updated_by: userId,
+        updated_by: user.id,
       },
     );
 
     await this.quotationLifecycleService.cancelQuotation(companyId, id, {
-      changedBy: userId,
+      changedBy: user.id,
       changedByType: 'USER',
       source: 'USER',
       reason: trimmedReason,
     });
 
-    return this.findOne(companyId, id);
+    return this.findOneForUser(user, id);
   }
 
   async findAll(companyId: string, query: FilterQuotationDto) {
     const result = await this.quotationsRepository.findAll(companyId, query);
+
+    return {
+      items: result.items.map((quotation) =>
+        this.payloadMapper.toListItem(
+          quotation,
+          result.extrasByQuotationId.get(quotation.id),
+        ),
+      ),
+      meta: result.meta,
+    };
+  }
+
+  async findAllForUser(user: AuthenticatedUser, query: FilterQuotationDto) {
+    const scope = this.resolveUserScope(user);
+
+    const result = await this.quotationsRepository.findAllForScope(
+      scope,
+      query,
+    );
 
     return {
       items: result.items.map((quotation) =>
@@ -790,6 +857,27 @@ export class QuotationsService {
     };
   }
 
+  async findOneForUser(user: AuthenticatedUser, id: string) {
+    const scope = this.resolveUserScope(user);
+    const quotation = await this.quotationsRepository.findOneAggregateForScope(
+      scope,
+      id,
+    );
+
+    return {
+      ...this.payloadMapper.toResponse(quotation),
+      current_wizard_step: quotation.current_wizard_step ?? null,
+      draft_payload: quotation.draft_payload ?? null,
+      cancellation_reason: quotation.cancellation_reason ?? null,
+      pricing_integration: this.canViewPricingBreakdown(user)
+        ? await this.evaluateQuotationPricingIntegration(
+            quotation.company_id,
+            quotation,
+          )
+        : null,
+    };
+  }
+
   async findOneForEdit(
     companyId: string,
     id: string,
@@ -798,11 +886,27 @@ export class QuotationsService {
     return this.findOne(companyId, id, user);
   }
 
+  async findOneForEditForUser(user: AuthenticatedUser, id: string) {
+    await this.assertUserCanWriteQuotation(user, id);
+
+    return this.findOneForUser(user, id);
+  }
+
   async getAuthoritativePayload(companyId: string, id: string) {
     const quotation = await this.quotationsRepository.findOneAggregate(
       companyId,
       id,
     );
+    return this.payloadMapper.toAuthoritativePayload(quotation);
+  }
+
+  async getAuthoritativePayloadForUser(user: AuthenticatedUser, id: string) {
+    const scope = this.resolveUserScope(user);
+    const quotation = await this.quotationsRepository.findOneAggregateForScope(
+      scope,
+      id,
+    );
+
     return this.payloadMapper.toAuthoritativePayload(quotation);
   }
 
@@ -856,6 +960,68 @@ export class QuotationsService {
     };
   }
 
+  async getPreviewForUser(user: AuthenticatedUser, id: string) {
+    const scope = this.resolveUserScope(user);
+    const quotation = await this.quotationsRepository.findOneAggregateForScope(
+      scope,
+      id,
+    );
+
+    /*
+     * Do not automatically expose another company's invoices,
+     * receipts or payment transactions through partner access.
+     */
+    const isRecordOwner = quotation.company_id === scope.companyId;
+
+    const [
+      invoice,
+      receipt,
+      paymentTransaction,
+      portalSubmission,
+      tiramisTracking,
+      tiramisTrackingByEntry,
+    ] = await Promise.all([
+      isRecordOwner
+        ? this.findLatestInvoice(quotation.company_id, quotation.id)
+        : Promise.resolve(null),
+      isRecordOwner
+        ? this.findLatestReceipt(quotation.company_id, quotation.id)
+        : Promise.resolve(null),
+      isRecordOwner
+        ? this.findLatestPaymentTransaction(quotation.company_id, quotation.id)
+        : Promise.resolve(null),
+      this.findLatestPortalSubmission(quotation.company_id, quotation.id),
+      this.findLatestTiramisTracking(quotation.company_id, quotation),
+      this.findTiramisTrackingByEntry(quotation.company_id, quotation),
+    ]);
+
+    const response = this.previewMapper.toResponse(
+      quotation,
+      {
+        invoice,
+        receipt,
+        paymentTransaction,
+        portalSubmission,
+        portalSubmissionEvents: portalSubmission?.events ?? [],
+        tiramisTracking,
+        tiramisTrackingByEntry,
+      },
+      {
+        includePremiumOverrides: this.canViewPricingAudit(user),
+      },
+    );
+
+    return {
+      ...response,
+      pricing_integration: this.canViewPricingBreakdown(user)
+        ? await this.evaluateQuotationPricingIntegration(
+            quotation.company_id,
+            quotation,
+          )
+        : null,
+    };
+  }
+
   async requestPremiumOverride(
     companyId: string,
     quotationId: string,
@@ -863,6 +1029,8 @@ export class QuotationsService {
     dto: RequestQuotationPremiumOverrideDto,
     user: AuthenticatedUser,
   ) {
+    await this.assertUserCanWriteQuotation(user, quotationId);
+
     const quotation = await this.quotationsRepository.findOneAggregate(
       companyId,
       quotationId,
@@ -964,6 +1132,8 @@ export class QuotationsService {
     dto: DecideQuotationPremiumOverrideDto,
     user: AuthenticatedUser,
   ) {
+    await this.assertUserCanWriteQuotation(user, quotationId);
+
     const quotation = await this.quotationsRepository.findOneAggregate(
       companyId,
       quotationId,
@@ -1054,6 +1224,8 @@ export class QuotationsService {
     dto: DecideQuotationPremiumOverrideDto,
     user: AuthenticatedUser,
   ) {
+    await this.assertUserCanWriteQuotation(user, quotationId);
+
     const rejectionReason = dto.rejection_reason?.trim();
     if (!rejectionReason) {
       throw new BadRequestException(
@@ -1147,12 +1319,34 @@ export class QuotationsService {
     }
   }
 
+  async removeDraftForUser(user: AuthenticatedUser, id: string): Promise<void> {
+    await this.assertUserCanWriteQuotation(user, id);
+
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      user.companyId!,
+      id,
+    );
+
+    await this.assertDraftDeletionAllowed(user.companyId!, quotation);
+
+    const result = await this.dataSource.getRepository(Quotation).softDelete({
+      id,
+      company_id: user.companyId!,
+    });
+
+    if (!result.affected) {
+      throw new NotFoundException('Quotation not found');
+    }
+  }
+
   async submit(
     companyId: string,
     id: string,
     dto: SubmitQuotationDto | undefined,
     user: AuthenticatedUser,
   ) {
+    await this.assertUserCanWriteQuotation(user, id);
+
     const submitOptions = dto ?? {};
 
     const quotation = await this.quotationsRepository.findOneAggregate(
@@ -1321,8 +1515,11 @@ export class QuotationsService {
     companyId: string,
     id: string,
     dto: TransitionQuotationStatusDto,
-    userId: string,
+    user: AuthenticatedUser,
   ) {
+    await this.assertUserCanWriteQuotation(user, id);
+
+    const userId = user.id;
     const context = {
       changedBy: userId,
       changedByType: 'USER',
@@ -1487,7 +1684,7 @@ export class QuotationsService {
         );
     }
 
-    return this.findOne(companyId, id);
+    return this.findOneForUser(user, id);
   }
 
   private assertDraftWritable(quotation: Quotation): void {

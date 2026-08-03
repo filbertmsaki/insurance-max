@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { AuthorizationModule } from './authorization/authorization.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
 import { DevicesModule } from './devices/devices.module';
@@ -10,6 +11,7 @@ import { SessionsModule } from './sessions/sessions.module';
 
 @Module({
   imports: [
+    AuthorizationModule,
     RedisModule,
     AuditModule,
     AuthModule,
@@ -19,6 +21,7 @@ import { SessionsModule } from './sessions/sessions.module';
     DevicesModule,
   ],
   exports: [
+    AuthorizationModule,
     RedisModule,
     AuditModule,
     AuthModule,

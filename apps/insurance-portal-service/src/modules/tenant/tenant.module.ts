@@ -4,6 +4,7 @@ import { BillingCommissionModule } from './billing-commission/billing-commission
 import { BranchesModule } from './branches/branches.module';
 import { CategoryAccessModule } from './category-access/category-access.module';
 import { CustomersModule } from './customers/customers.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { InsuranceCategoriesModule } from './insurance-categories/insurance-categories.module';
 import { InsurancePartnersModule } from './insurance-partners/insurance-partners.module';
@@ -31,6 +32,7 @@ import { VerificationsModule } from './verifications/verifications.module';
   imports: [
     UsersModule,
     CustomersModule,
+    DashboardModule,
     BranchesModule,
     DepartmentsModule,
     InsuranceCategoriesModule,
@@ -59,6 +61,7 @@ import { VerificationsModule } from './verifications/verifications.module';
   exports: [
     UsersModule,
     CustomersModule,
+    DashboardModule,
     BranchesModule,
     DepartmentsModule,
     InsuranceCategoriesModule,

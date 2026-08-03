@@ -281,8 +281,11 @@ export const quotationRiskRowSchema = z.object({
   commission_amount: optionalText,
   total_premium: optionalText,
   net_premium: optionalText,
-  rating_result_metadata: z.custom<QuotationRiskFormRow['rating_result_metadata']>(
-    (value) => value === null || value === undefined || typeof value === 'object',
+  rating_result_metadata: z.custom<
+    QuotationRiskFormRow['rating_result_metadata']
+  >(
+    (value) =>
+      value === null || value === undefined || typeof value === 'object',
   ),
 });
 
@@ -388,7 +391,10 @@ const fleetRiskSchema = z.object({
   taxes_charged: z.array(addonTaxSchema),
   rating_result_metadata: z.custom<
     QuotationWizardFleetRiskRow['rating_result_metadata']
-  >((value) => value === null || value === undefined || typeof value === 'object'),
+  >(
+    (value) =>
+      value === null || value === undefined || typeof value === 'object',
+  ),
 });
 
 const fleetItemSchema = z.object({

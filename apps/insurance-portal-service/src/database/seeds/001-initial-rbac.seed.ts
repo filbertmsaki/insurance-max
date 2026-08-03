@@ -52,6 +52,30 @@ const GLOBAL_AND_DEFAULT_COMPANY_SCOPES: SeedScope[] = [
   'default_company',
 ];
 
+const DASHBOARD_ADMIN_PERMISSION_NAMES = [
+  'dashboard:overview',
+  'dashboard:sales',
+  'dashboard:policies',
+  'dashboard:finance',
+  'dashboard:commissions',
+  'dashboard:tiramis',
+  'dashboard:tasks',
+  'dashboard:export',
+];
+
+const DASHBOARD_GENERAL_USER_PERMISSION_NAMES = [
+  'dashboard:overview',
+  'dashboard:sales',
+  'dashboard:policies',
+  'dashboard:tasks',
+];
+
+const DASHBOARD_VIEWER_PERMISSION_NAMES = [
+  'dashboard:overview',
+  'dashboard:sales',
+  'dashboard:policies',
+];
+
 const defaultBranchSeeds: SeedBranchConfig[] = ALLIANCE_BRANCHES.map(
   (branch) => ({
     name: branch.branchName,
@@ -130,6 +154,83 @@ const permissionSeeds: PermissionSeed[] = [
     name: 'update_company_data',
     displayName: 'Update company data',
     description: 'Allow updating company-owned data',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'data-scope:company-all',
+    displayName: 'Access all company records',
+    description:
+      'Allow access to all branches and records belonging to the active company',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'data-scope:assigned-branches',
+    displayName: 'Access assigned branches',
+    description:
+      'Allow access to records belonging to all branches assigned to the user',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'data-scope:own-records',
+    displayName: 'Access own records',
+    description:
+      'Restrict operational data to records created or assigned to the user',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'data-scope:partner-portfolio',
+    displayName: 'Access partner portfolio',
+    description:
+      'Allow authorized insurers and intermediaries to read business where they participate as insurer or intermediary',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'dashboard:overview',
+    displayName: 'View dashboard overview',
+    description: 'Allow viewing the active company dashboard overview',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'dashboard:sales',
+    displayName: 'View sales dashboard',
+    description: 'Allow viewing quotation and sales statistics',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'dashboard:policies',
+    displayName: 'View policy dashboard',
+    description: 'Allow viewing policy and cover-note statistics',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'dashboard:finance',
+    displayName: 'View finance dashboard',
+    description: 'Allow viewing premium, invoice and receipt statistics',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'dashboard:commissions',
+    displayName: 'View commission dashboard',
+    description: 'Allow viewing commission accrual and payment statistics',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'dashboard:tiramis',
+    displayName: 'View TIRAMIS dashboard',
+    description:
+      'Allow viewing company-scoped TIRAMIS statistics and failures',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'dashboard:tasks',
+    displayName: 'View dashboard work queues',
+    description: 'Allow viewing dashboard work queues, alerts and action items',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'dashboard:export',
+    displayName: 'Export dashboard reports',
+    description: 'Allow exporting dashboard and management reports',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -1044,11 +1145,14 @@ const roleSeeds: RoleSeed[] = [
     description: 'Administrator with full access limited to their own company',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
+      ...DASHBOARD_ADMIN_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
       'update_company_user',
       'delete_company_user',
+      'data-scope:company-all',
+      'data-scope:partner-portfolio',
       'view_company_data',
       'update_company_data',
       'users:read',
@@ -1168,11 +1272,14 @@ const roleSeeds: RoleSeed[] = [
     description: 'Administrator for an Insurance Company tenant',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
+      ...DASHBOARD_ADMIN_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
       'update_company_user',
       'delete_company_user',
+      'data-scope:company-all',
+      'data-scope:partner-portfolio',
       'view_company_data',
       'update_company_data',
       'users:read',
@@ -1278,10 +1385,12 @@ const roleSeeds: RoleSeed[] = [
     description: 'Administrator for a Reinsurance Company tenant',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
+      ...DASHBOARD_ADMIN_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
       'update_company_user',
+      'data-scope:company-all',
       'view_company_data',
       'update_company_data',
       'users:read',
@@ -1329,10 +1438,13 @@ const roleSeeds: RoleSeed[] = [
     description: 'Administrator for a Broker company tenant',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
+      ...DASHBOARD_ADMIN_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
       'update_company_user',
+      'data-scope:company-all',
+      'data-scope:partner-portfolio',
       'view_company_data',
       'update_company_data',
       'users:read',
@@ -1376,10 +1488,13 @@ const roleSeeds: RoleSeed[] = [
     description: 'Administrator for an Agency company tenant',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
+      ...DASHBOARD_ADMIN_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
       'update_company_user',
+      'data-scope:company-all',
+      'data-scope:partner-portfolio',
       'view_company_data',
       'update_company_data',
       'users:read',
@@ -1412,10 +1527,13 @@ const roleSeeds: RoleSeed[] = [
     description: 'Administrator for a Bancassurance company tenant',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
+      ...DASHBOARD_ADMIN_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
       'update_company_user',
+      'data-scope:company-all',
+      'data-scope:partner-portfolio',
       'view_company_data',
       'update_company_data',
       'users:read',
@@ -1449,10 +1567,12 @@ const roleSeeds: RoleSeed[] = [
     description: 'Administrator for a Service Provider company tenant',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
+      ...DASHBOARD_ADMIN_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
       'update_company_user',
+      'data-scope:company-all',
       'view_company_data',
       'update_company_data',
       'users:read',
@@ -1473,7 +1593,10 @@ const roleSeeds: RoleSeed[] = [
     displayName: 'Company User',
     description: 'Regular company user with read-only company access',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
-    permissionNames: ['view_company_data'],
+    permissionNames: [
+      'view_company_data',
+      ...DASHBOARD_GENERAL_USER_PERMISSION_NAMES,
+    ],
   },
   {
     name: 'VIEWER',
@@ -1481,7 +1604,7 @@ const roleSeeds: RoleSeed[] = [
     description:
       'Compatibility role mirroring the default read-only company user access',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
-    permissionNames: ['view_company_data'],
+    permissionNames: ['view_company_data', ...DASHBOARD_VIEWER_PERMISSION_NAMES],
   },
 ];
 

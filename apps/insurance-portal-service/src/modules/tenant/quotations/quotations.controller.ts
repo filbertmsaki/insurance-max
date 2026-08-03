@@ -102,7 +102,7 @@ export class QuotationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: FilterQuotationDto,
   ) {
-    return this.quotationsService.findAll(user.companyId!, query);
+    return this.quotationsService.findAllForUser(user, query);
   }
 
   @Get(':id/payload')
@@ -120,7 +120,7 @@ export class QuotationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.quotationsService.getAuthoritativePayload(user.companyId!, id);
+    return this.quotationsService.getAuthoritativePayloadForUser(user, id);
   }
 
   @Get(':id')
@@ -136,7 +136,7 @@ export class QuotationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.quotationsService.findOne(user.companyId!, id, user);
+    return this.quotationsService.findOneForUser(user, id);
   }
 
   @Get(':id/edit')
@@ -154,7 +154,7 @@ export class QuotationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.quotationsService.findOneForEdit(user.companyId!, id, user);
+    return this.quotationsService.findOneForEditForUser(user, id);
   }
 
   @Put(':id/draft')
@@ -174,12 +174,7 @@ export class QuotationsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateQuotationDraftDto,
   ) {
-    return this.quotationsService.updateDraft(
-      user.companyId!,
-      id,
-      dto,
-      user.id,
-    );
+    return this.quotationsService.updateDraft(user.companyId!, id, dto, user);
   }
 
   @Get(':id/preview')
@@ -197,7 +192,7 @@ export class QuotationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.quotationsService.getPreview(user.companyId!, id, user);
+    return this.quotationsService.getPreviewForUser(user, id);
   }
 
   @Post(':id/risks/:riskId/premium-overrides')
@@ -331,7 +326,7 @@ export class QuotationsController {
     return this.quotationsService.submitForApprovalAction(
       user.companyId!,
       id,
-      user.id,
+      user,
     );
   }
 
@@ -349,7 +344,7 @@ export class QuotationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.quotationsService.requestPayment(user.companyId!, id, user.id);
+    return this.quotationsService.requestPayment(user.companyId!, id, user);
   }
 
   @Post(':id/submit')
@@ -417,7 +412,7 @@ export class QuotationsController {
       user.companyId!,
       id,
       dto.cancellation_reason,
-      user.id,
+      user,
     );
   }
 
@@ -443,7 +438,7 @@ export class QuotationsController {
       user.companyId!,
       id,
       dto,
-      user.id,
+      user,
     );
   }
 
@@ -460,7 +455,7 @@ export class QuotationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.quotationsService.remove(user.companyId!, id);
+    await this.quotationsService.removeDraftForUser(user, id);
 
     return {
       message: 'Quotation deleted successfully',
@@ -480,7 +475,7 @@ export class QuotationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.quotationsService.removeDraft(user.companyId!, id);
+    await this.quotationsService.removeDraftForUser(user, id);
 
     return {
       message: 'Quotation draft deleted successfully',

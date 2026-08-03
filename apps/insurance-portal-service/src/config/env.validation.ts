@@ -50,6 +50,17 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   CACHE_STORE: Joi.string().valid('memory', 'redis').default('memory'),
   CACHE_TTL: Joi.number().default(60),
   CACHE_MAX: Joi.number().default(1000),
+  DASHBOARD_CACHE_ENABLED: Joi.boolean().default(true),
+  DASHBOARD_CACHE_TTL_SECONDS: Joi.number()
+    .integer()
+    .min(5)
+    .max(3600)
+    .default(60),
+  DASHBOARD_MAX_RANGE_DAYS: Joi.number()
+    .integer()
+    .min(31)
+    .max(1095)
+    .default(366),
 
   CORS_ENABLED: Joi.boolean().default(true),
   CORS_ALLOWED_ORIGINS: Joi.string().default('http://localhost:3001'),

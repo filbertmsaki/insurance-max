@@ -5,8 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { Brackets, QueryFailedError, Repository } from 'typeorm';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
+import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { FilterCustomerDto } from './dto/filter-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
@@ -24,6 +26,7 @@ export class CustomersService {
   constructor(
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
+    private readonly dataAccessScopeService: DataAccessScopeService,
   ) {}
 
   private isDuplicateEntryError(error: unknown): boolean {
@@ -498,6 +501,47 @@ export class CustomersService {
     return `CUST-${year}-`;
   }
 
+  private async findScopedCustomer(
+    user: AuthenticatedUser,
+    id: string,
+    writeAccess = false,
+    withDeleted = false,
+  ): Promise<Customer> {
+    const scope = this.dataAccessScopeService.resolve(user);
+
+    const queryBuilder = this.customerRepository
+      .createQueryBuilder('customer')
+      .where('customer.id = :id', { id });
+
+    if (withDeleted) {
+      queryBuilder.withDeleted();
+    } else {
+      queryBuilder.andWhere('customer.deleted_at IS NULL');
+    }
+
+    if (writeAccess) {
+      this.dataAccessScopeService.applyCustomerWriteScope(
+        queryBuilder,
+        'customer',
+        scope,
+      );
+    } else {
+      this.dataAccessScopeService.applyCustomerReadScope(
+        queryBuilder,
+        'customer',
+        scope,
+      );
+    }
+
+    const customer = await queryBuilder.getOne();
+
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    return customer;
+  }
+
   async create(
     companyId: string,
     dto: CreateCustomerDto,
@@ -597,6 +641,15 @@ export class CustomersService {
     }
   }
 
+  async createForUser(
+    user: AuthenticatedUser,
+    dto: CreateCustomerDto,
+  ): Promise<Customer> {
+    this.dataAccessScopeService.resolve(user);
+
+    return this.create(user.companyId!, dto, user.id);
+  }
+
   async findAll(companyId: string, query: FilterCustomerDto) {
     const {
       page = 1,
@@ -659,12 +712,108 @@ export class CustomersService {
     };
   }
 
+  async findAllForUser(user: AuthenticatedUser, query: FilterCustomerDto) {
+    const scope = this.dataAccessScopeService.resolve(user);
+
+    const {
+      page = 1,
+      limit = 20,
+      sortBy = 'created_at',
+      sortOrder = SortDirection.DESC,
+      search,
+      customer_type,
+      status,
+      kyc_status,
+    } = query;
+
+    const allowedSortFields = [
+      'customer_no',
+      'first_name',
+      'last_name',
+      'company_name',
+      'status',
+      'created_at',
+      'updated_at',
+    ];
+    const safeSortBy = allowedSortFields.includes(sortBy)
+      ? sortBy
+      : 'created_at';
+    const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
+
+    const queryBuilder = this.customerRepository
+      .createQueryBuilder('customer')
+      .where('customer.deleted_at IS NULL')
+      .orderBy(`customer.${safeSortBy}`, direction);
+
+    this.dataAccessScopeService.applyCustomerReadScope(
+      queryBuilder,
+      'customer',
+      scope,
+    );
+
+    if (search?.trim()) {
+      const term = `%${search.trim()}%`;
+
+      queryBuilder.andWhere(
+        `(
+          customer.customer_no ILIKE :term
+          OR customer.first_name ILIKE :term
+          OR customer.last_name ILIKE :term
+          OR customer.company_name ILIKE :term
+          OR customer.phone ILIKE :term
+          OR customer.email ILIKE :term
+          OR customer.id_number ILIKE :term
+        )`,
+        { term },
+      );
+    }
+
+    if (customer_type) {
+      queryBuilder.andWhere('customer.customer_type = :customerType', {
+        customerType: customer_type,
+      });
+    }
+
+    if (status) {
+      queryBuilder.andWhere('customer.status = :status', { status });
+    }
+
+    if (kyc_status) {
+      queryBuilder.andWhere('customer.kyc_status = :kycStatus', {
+        kycStatus: kyc_status,
+      });
+    }
+
+    const skip = (page - 1) * limit;
+    const [items, total] = await queryBuilder
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
+
+    return {
+      data: items,
+      meta: {
+        totalItems: total,
+        itemCount: items.length,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        hasNextPage: page * limit < total,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
   async findOne(companyId: string, id: string): Promise<Customer> {
     const customer = await this.customerRepository.findOne({
       where: { id, company_id: companyId },
     });
     if (!customer) throw new NotFoundException('Customer not found');
     return customer;
+  }
+
+  async findOneForUser(user: AuthenticatedUser, id: string): Promise<Customer> {
+    return this.findScopedCustomer(user, id, false);
   }
 
   async update(
@@ -710,9 +859,25 @@ export class CustomersService {
     }
   }
 
+  async updateForUser(
+    user: AuthenticatedUser,
+    id: string,
+    dto: UpdateCustomerDto,
+  ): Promise<Customer> {
+    await this.findScopedCustomer(user, id, true);
+
+    return this.update(user.companyId!, id, dto, user.id);
+  }
+
   async remove(companyId: string, id: string): Promise<void> {
     const customer = await this.findOne(companyId, id);
     await this.customerRepository.softDelete(customer.id);
+  }
+
+  async removeForUser(user: AuthenticatedUser, id: string): Promise<void> {
+    await this.findScopedCustomer(user, id, true);
+
+    await this.customerRepository.softDelete(id);
   }
 
   async restore(companyId: string, id: string): Promise<Customer> {
@@ -723,6 +888,12 @@ export class CustomersService {
     if (!customer) throw new NotFoundException('Customer not found');
     await this.customerRepository.restore(customer.id);
     return this.findOne(companyId, id);
+  }
+
+  async restoreForUser(user: AuthenticatedUser, id: string): Promise<Customer> {
+    await this.findScopedCustomer(user, id, true, true);
+
+    return this.restore(user.companyId!, id);
   }
 
   async generatePolicyHolderPayload(companyId: string, id: string) {

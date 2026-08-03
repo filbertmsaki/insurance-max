@@ -19,6 +19,7 @@ import { QuotationPayloadValidator } from './services/quotation-payload.validato
 import { QuotationsService } from './quotations.service';
 import { createMotorSingleQuotationPayload } from './testing/quotation-payload.fixture';
 import { AuditService } from '../../shared/audit/audit.service';
+import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import { TiramisBusinessSubmitService } from '../../tiramis/services/tiramis-business-submit.service';
 import { TiramisSubmissionTrackingRepository } from '../../tiramis/repositories/tiramis-submission-tracking.repository';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
@@ -234,12 +235,45 @@ describe('QuotationsService', () => {
 
     const quotationsRepository = {
       findOneAggregate: jest.fn().mockResolvedValue(quotation),
+      findOneAggregateForScope: jest.fn().mockResolvedValue(quotation),
+      assertReadable: jest.fn().mockResolvedValue(undefined),
+      assertWritable: jest.fn().mockResolvedValue(undefined),
+      findAllForScope: jest.fn().mockResolvedValue({
+        items: [quotation],
+        meta: {
+          page: 1,
+          limit: 20,
+          total: 1,
+          total_pages: 1,
+          has_previous_page: false,
+          has_next_page: false,
+        },
+        extrasByQuotationId: new Map(),
+      }),
     } as unknown as QuotationsRepository;
+    const dataAccessScopeService = {
+      resolve: jest.fn().mockReturnValue({
+        userId: 'user-1',
+        companyId: 'company-1',
+        companyType: 'INSURANCE_COMPANY',
+        companyMembershipId: 'membership-1',
+        activeBranchId: 'branch-1',
+        assignedBranchIds: ['branch-1'],
+        allowedBranchIds: ['branch-1'],
+        canViewAllBranches: true,
+        canViewAssignedBranches: false,
+        ownRecordsOnly: false,
+        canViewCarrierPortfolio: false,
+        canViewIntermediaryPortfolio: false,
+        permissions: [],
+      }),
+    } as unknown as DataAccessScopeService;
 
     const payloadMapper = {
       toAuthoritativePayload: jest.fn().mockReturnValue(authoritativePayload),
       businessReference: jest.fn().mockReturnValue('AICL-MTR-2026-000001'),
       toResponse: jest.fn().mockImplementation((value: any) => value),
+      toListItem: jest.fn().mockImplementation((value: any) => value),
     } as unknown as QuotationPayloadMapper;
 
     const previewMapper = {
@@ -389,6 +423,7 @@ describe('QuotationsService', () => {
     const service = new QuotationsService(
       dataSource,
       quotationsRepository,
+      dataAccessScopeService,
       payloadMapper,
       previewMapper,
       new QuotationTiramisPayloadMapper(),
@@ -1034,7 +1069,9 @@ describe('QuotationsService', () => {
         {
           action: QuotationStatusTransitionAction.REJECT_APPROVAL,
         },
-        'user-1',
+        {
+          id: 'user-1',
+        } as any,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });

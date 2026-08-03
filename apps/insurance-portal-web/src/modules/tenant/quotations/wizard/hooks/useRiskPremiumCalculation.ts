@@ -121,7 +121,9 @@ function path(
   return `risks.${index}.${name}` as FieldPath<QuotationFormSchemaValues>;
 }
 
-function setValueIfChanged<TFieldPath extends FieldPath<QuotationFormSchemaValues>>(
+function setValueIfChanged<
+  TFieldPath extends FieldPath<QuotationFormSchemaValues>,
+>(
   form: UseFormReturn<QuotationFormSchemaValues>,
   fieldPath: TFieldPath,
   nextValue: FieldPathValue<QuotationFormSchemaValues, TFieldPath>,

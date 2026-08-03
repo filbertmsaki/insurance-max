@@ -222,6 +222,7 @@ export class TiramisController {
       userId: req?.user?.id || req?.user?.sub || null,
       sub: req?.user?.sub || null,
       email: req?.user?.email || null,
+      scope: req?.user?.scope || null,
       userType: req?.user?.user_type || req?.user?.userType || null,
       companyId:
         req?.user?.companyId ||
@@ -233,6 +234,25 @@ export class TiramisController {
         req?.user?.activeCompanyId ||
         req?.user?.companyId ||
         null,
+      branchId:
+        req?.user?.branchId ||
+        req?.user?.active_branch_id ||
+        req?.user?.activeBranchId ||
+        null,
+      activeBranchId:
+        req?.user?.active_branch_id ||
+        req?.user?.activeBranchId ||
+        req?.user?.branchId ||
+        null,
+      assignedBranchIds:
+        req?.user?.assignedBranchIds || req?.user?.assigned_branch_ids || [],
+      permissionCodes:
+        req?.user?.permission_codes ||
+        req?.user?.permissionCodes ||
+        req?.user?.permissions ||
+        [],
+      roleCodes:
+        req?.user?.role_codes || req?.user?.roleCodes || req?.user?.roles || [],
       correlationId:
         req?.headers?.['x-correlation-id'] ||
         req?.headers?.['x-request-id'] ||

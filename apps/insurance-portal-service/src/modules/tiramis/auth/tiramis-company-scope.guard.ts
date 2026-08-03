@@ -1,4 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 
 import { TiramisAccessScopeService } from '../services/tiramis-access-scope.service';
 
@@ -13,40 +18,18 @@ export class TiramisCompanyScopeGuard implements CanActivate {
     const user = request.user;
 
     if (!user) {
-      return true;
+      throw new UnauthorizedException('Authentication is required');
     }
 
-    const scope = this.tiramisAccessScopeService.resolveScope({
-      userId: user.id || user.sub || null,
-      sub: user.sub || null,
-      email: user.email || null,
-      userType: user.user_type || user.userType || null,
-      companyId:
-        user.companyId ||
-        user.active_company_id ||
-        user.activeCompanyId ||
-        null,
-      activeCompanyId:
-        user.active_company_id ||
-        user.activeCompanyId ||
-        user.companyId ||
-        null,
-      branchId:
-        user.branchId || user.active_branch_id || user.activeBranchId || null,
-      permissionCodes:
-        user.permission_codes || user.permissionCodes || user.permissions || [],
-      roleCodes: user.role_codes || user.roleCodes || user.roles || [],
-      canAccessAllCompanies: user.canAccessAllCompanies || false,
-      isPlatformAdmin: user.isPlatformAdmin || false,
-    });
+    const scope = this.tiramisAccessScopeService.resolveScope(user);
 
     const requestedCompanyId =
-      request.query?.companyId ||
-      request.query?.sourceCompanyId ||
-      request.body?.companyId ||
-      request.body?.sourceCompanyId ||
-      request.params?.companyId ||
-      request.params?.sourceCompanyId ||
+      request.query?.companyId ??
+      request.query?.sourceCompanyId ??
+      request.body?.companyId ??
+      request.body?.sourceCompanyId ??
+      request.params?.companyId ??
+      request.params?.sourceCompanyId ??
       null;
 
     if (requestedCompanyId) {
@@ -55,6 +38,26 @@ export class TiramisCompanyScopeGuard implements CanActivate {
         requestedCompanyId,
       );
     }
+
+    const requestedBranchId =
+      request.query?.branchId ??
+      request.query?.sourceBranchId ??
+      request.body?.branchId ??
+      request.body?.sourceBranchId ??
+      request.params?.branchId ??
+      null;
+
+    if (requestedBranchId) {
+      this.tiramisAccessScopeService.assertCanAccessBranch(
+        scope,
+        requestedBranchId,
+      );
+    }
+
+    /*
+     * Make the trusted scope available to downstream handlers.
+     */
+    request.tiramisScope = scope;
 
     return true;
   }

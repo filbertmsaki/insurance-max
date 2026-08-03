@@ -35,7 +35,7 @@ export class TiramisPermissionGuard implements CanActivate {
       throw new UnauthorizedException('Authentication is required');
     }
 
-    if (this.isSuperAdmin(user)) {
+    if (this.isPlatformSuperAdmin(user)) {
       return true;
     }
 
@@ -67,13 +67,13 @@ export class TiramisPermissionGuard implements CanActivate {
     return true;
   }
 
-  private isSuperAdmin(user: any): boolean {
-    const roles = this.extractUserRoles(user);
+  private isPlatformSuperAdmin(user: any): boolean {
+    const userType = String(
+      user.userType ?? user.user_type ?? '',
+    ).toUpperCase();
 
-    return roles.some((role) =>
-      ['super_admin', 'platform_admin', 'admin'].includes(
-        String(role).toLowerCase(),
-      ),
+    return (
+      user.scope === 'platform' && ['OWNER', 'SUPER_ADMIN'].includes(userType)
     );
   }
 
@@ -91,25 +91,6 @@ export class TiramisPermissionGuard implements CanActivate {
         }
 
         return item?.code || item?.name || item?.permission_code || null;
-      })
-      .filter(Boolean)
-      .map((item) => String(item).trim());
-  }
-
-  private extractUserRoles(user: any): string[] {
-    const values = [
-      ...(Array.isArray(user.role_codes) ? user.role_codes : []),
-      ...(Array.isArray(user.roleCodes) ? user.roleCodes : []),
-      ...(Array.isArray(user.roles) ? user.roles : []),
-    ];
-
-    return values
-      .map((item) => {
-        if (typeof item === 'string') {
-          return item;
-        }
-
-        return item?.code || item?.name || item?.role_code || null;
       })
       .filter(Boolean)
       .map((item) => String(item).trim());

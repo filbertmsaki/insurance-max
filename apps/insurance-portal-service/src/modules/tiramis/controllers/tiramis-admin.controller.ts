@@ -382,6 +382,7 @@ export class TiramisAdminController {
       userId: req?.user?.id || req?.user?.sub || null,
       sub: req?.user?.sub || null,
       email: req?.user?.email || null,
+      scope: req?.user?.scope || null,
       userType: req?.user?.user_type || req?.user?.userType || null,
       companyId:
         req?.user?.companyId ||
@@ -403,6 +404,8 @@ export class TiramisAdminController {
         req?.user?.activeBranchId ||
         req?.user?.branchId ||
         null,
+      assignedBranchIds:
+        req?.user?.assignedBranchIds || req?.user?.assigned_branch_ids || [],
       permissionCodes:
         req?.user?.permission_codes ||
         req?.user?.permissionCodes ||

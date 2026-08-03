@@ -34,7 +34,7 @@ export class PoliciesController {
   @Permissions('policies:create')
   @ApiOperation({ summary: 'Create a policy' })
   create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreatePolicyDto) {
-    return this.policiesService.create(user.companyId!, dto, user.id);
+    return this.policiesService.createForUser(user, dto);
   }
 
   @Get()
@@ -45,7 +45,7 @@ export class PoliciesController {
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: FilterPolicyDto,
   ) {
-    return this.policiesService.findAll(user.companyId!, query);
+    return this.policiesService.findAllForUser(user, query);
   }
 
   @Get(':id')
@@ -56,7 +56,7 @@ export class PoliciesController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.policiesService.findOne(user.companyId!, id);
+    return this.policiesService.findOneForUser(user, id);
   }
 
   @Patch(':id')
@@ -68,7 +68,7 @@ export class PoliciesController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdatePolicyDto,
   ) {
-    return this.policiesService.update(user.companyId!, id, dto, user.id);
+    return this.policiesService.updateForUser(user, id, dto);
   }
 
   @Delete(':id')
@@ -79,8 +79,7 @@ export class PoliciesController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    await this.policiesService.remove(user.companyId!, id);
-    return { message: 'Policy deleted successfully' };
+    return this.policiesService.removeForUser(user, id);
   }
 
   @Patch(':id/restore')
@@ -91,7 +90,7 @@ export class PoliciesController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.policiesService.restore(user.companyId!, id);
+    return this.policiesService.restoreForUser(user, id);
   }
 
   @Get(':id/risks')
@@ -102,7 +101,7 @@ export class PoliciesController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.policiesService.listRisks(user.companyId!, id);
+    return this.policiesService.listRisksForUser(user, id);
   }
 
   @Get(':id/breakdowns')
@@ -113,7 +112,7 @@ export class PoliciesController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.policiesService.listBreakdowns(user.companyId!, id);
+    return this.policiesService.listBreakdownsForUser(user, id);
   }
 
   @Get(':id/history')
@@ -124,6 +123,6 @@ export class PoliciesController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.policiesService.listHistory(user.companyId!, id);
+    return this.policiesService.listHistoryForUser(user, id);
   }
 }

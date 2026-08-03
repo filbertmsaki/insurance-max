@@ -145,7 +145,7 @@ export const customerFormSchema = customerFormObjectSchema.superRefine(
     const today = new Date().toISOString().slice(0, 10);
     const idField = getCustomerIdFieldName(
       values.customer_type,
-      values.id_type as CustomerIdType | '',
+      values.id_type,
     );
     const idSpecificValue = idField
       ? text((values as unknown as Record<string, string | undefined>)[idField])

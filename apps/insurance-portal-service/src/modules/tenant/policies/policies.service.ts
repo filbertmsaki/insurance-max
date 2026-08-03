@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
   DataSource,
   ObjectLiteral,
@@ -12,6 +13,7 @@ import {
   Repository,
 } from 'typeorm';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
+import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import { Branch } from '../branches/entities/branch.entity';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { Customer } from '../customers/entities/customer.entity';
@@ -102,6 +104,7 @@ export class PoliciesService {
 
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly dataAccessScopeService: DataAccessScopeService,
     private readonly quotationLifecycleService: QuotationLifecycleService,
   ) {}
 
@@ -253,6 +256,60 @@ export class PoliciesService {
       },
     });
     if (!policy) throw new NotFoundException('Policy not found');
+    return policy;
+  }
+
+  private async findScopedPolicyEntity(
+    user: AuthenticatedUser,
+    id: string,
+    writeAccess = false,
+    withDeleted = false,
+  ): Promise<Policy> {
+    const scope = this.dataAccessScopeService.resolve(user);
+
+    const queryBuilder = this.policyRepository
+      .createQueryBuilder('policy')
+      .leftJoinAndSelect('policy.company', 'company')
+      .leftJoinAndSelect('policy.insurer_company', 'insurerCompany')
+      .leftJoinAndSelect('policy.intermediary_company', 'intermediaryCompany')
+      .leftJoinAndSelect('policy.branch', 'branch')
+      .leftJoinAndSelect('policy.department', 'department')
+      .leftJoinAndSelect('policy.creator', 'creator')
+      .leftJoinAndSelect('policy.customer', 'customer')
+      .leftJoinAndSelect('policy.category', 'category')
+      .leftJoinAndSelect('policy.product', 'product')
+      .leftJoinAndSelect('policy.sub_class', 'subClass')
+      .leftJoinAndSelect('policy.risks', 'risks')
+      .leftJoinAndSelect('policy.premium_breakdowns', 'premiumBreakdowns')
+      .leftJoinAndSelect('policy.status_history', 'statusHistory')
+      .where('policy.id = :id', { id });
+
+    if (withDeleted) {
+      queryBuilder.withDeleted();
+    } else {
+      queryBuilder.andWhere('policy.deleted_at IS NULL');
+    }
+
+    if (writeAccess) {
+      this.dataAccessScopeService.applyOwnedRecordWriteScope(
+        queryBuilder,
+        'policy',
+        scope,
+      );
+    } else {
+      this.dataAccessScopeService.applyPolicyReadScope(
+        queryBuilder,
+        'policy',
+        scope,
+      );
+    }
+
+    const policy = await queryBuilder.getOne();
+
+    if (!policy) {
+      throw new NotFoundException('Policy not found');
+    }
+
     return policy;
   }
 
@@ -539,6 +596,37 @@ export class PoliciesService {
     });
   }
 
+  async createForUser(
+    user: AuthenticatedUser,
+    dto: CreatePolicyDto,
+  ): Promise<Policy> {
+    const scope = this.dataAccessScopeService.resolve(user);
+
+    if (dto.branch_id) {
+      this.dataAccessScopeService.assertRequestedBranchAllowed(
+        scope,
+        dto.branch_id,
+      );
+    }
+
+    const branchId = dto.branch_id ?? user.activeBranchId ?? null;
+
+    if (!scope.canViewAllBranches && !branchId) {
+      throw new BadRequestException(
+        'An active branch is required to create a policy',
+      );
+    }
+
+    return this.create(
+      user.companyId!,
+      {
+        ...dto,
+        branch_id: branchId,
+      },
+      user.id,
+    );
+  }
+
   async findAll(companyId: string, query: FilterPolicyDto) {
     const {
       page = 1,
@@ -599,8 +687,98 @@ export class PoliciesService {
     };
   }
 
+  async findAllForUser(user: AuthenticatedUser, query: FilterPolicyDto) {
+    const scope = this.dataAccessScopeService.resolve(user);
+    const {
+      page = 1,
+      limit = 20,
+      sortBy = 'created_at',
+      sortOrder = SortDirection.DESC,
+      search,
+      policy_status,
+      customer_id,
+    } = query;
+
+    const allowedSortFields = [
+      'policy_no',
+      'policy_status',
+      'issue_date',
+      'start_date',
+      'end_date',
+      'created_at',
+      'updated_at',
+    ];
+
+    const safeSortBy = allowedSortFields.includes(sortBy)
+      ? sortBy
+      : 'created_at';
+    const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
+
+    const queryBuilder = this.policyRepository
+      .createQueryBuilder('policy')
+      .leftJoinAndSelect('policy.customer', 'customer')
+      .leftJoinAndSelect('policy.product', 'product')
+      .leftJoinAndSelect('policy.category', 'category')
+      .where('policy.deleted_at IS NULL')
+      .orderBy(`policy.${safeSortBy}`, direction);
+
+    this.dataAccessScopeService.applyPolicyReadScope(
+      queryBuilder,
+      'policy',
+      scope,
+    );
+
+    if (search?.trim()) {
+      const term = `%${search.trim()}%`;
+
+      queryBuilder.andWhere(
+        `(
+          policy.policy_no ILIKE :term
+          OR policy.cover_note_no ILIKE :term
+          OR policy.external_policy_no ILIKE :term
+        )`,
+        { term },
+      );
+    }
+
+    if (policy_status) {
+      queryBuilder.andWhere('policy.policy_status = :policyStatus', {
+        policyStatus: policy_status,
+      });
+    }
+
+    if (customer_id) {
+      queryBuilder.andWhere('policy.customer_id = :customerId', {
+        customerId: customer_id,
+      });
+    }
+
+    const skip = (page - 1) * limit;
+    const [items, total] = await queryBuilder
+      .skip(skip)
+      .take(limit)
+      .getManyAndCount();
+
+    return {
+      data: items,
+      meta: {
+        totalItems: total,
+        itemCount: items.length,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+        currentPage: page,
+        hasNextPage: page * limit < total,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
   async findOne(companyId: string, id: string): Promise<Policy> {
     return this.ensurePolicyOwnership(companyId, id);
+  }
+
+  async findOneForUser(user: AuthenticatedUser, id: string): Promise<Policy> {
+    return this.findScopedPolicyEntity(user, id, false);
   }
 
   async update(
@@ -734,6 +912,16 @@ export class PoliciesService {
     });
   }
 
+  async updateForUser(
+    user: AuthenticatedUser,
+    id: string,
+    dto: UpdatePolicyDto,
+  ): Promise<Policy> {
+    await this.findScopedPolicyEntity(user, id, true);
+
+    return this.update(user.companyId!, id, dto, user.id);
+  }
+
   async remove(companyId: string, id: string): Promise<void> {
     const policy = await this.ensurePolicyOwnership(companyId, id);
     await this.dataSource.transaction(async (manager) => {
@@ -748,6 +936,18 @@ export class PoliciesService {
         .softDelete({ policy_id: policy.id });
       await manager.getRepository(Policy).softDelete(policy.id);
     });
+  }
+
+  async removeForUser(
+    user: AuthenticatedUser,
+    id: string,
+  ): Promise<{ message: string }> {
+    await this.findScopedPolicyEntity(user, id, true);
+    await this.remove(user.companyId!, id);
+
+    return {
+      message: 'Policy deleted successfully',
+    };
   }
 
   async restore(companyId: string, id: string): Promise<Policy> {
@@ -771,6 +971,12 @@ export class PoliciesService {
     return this.ensurePolicyOwnership(companyId, id);
   }
 
+  async restoreForUser(user: AuthenticatedUser, id: string): Promise<Policy> {
+    await this.findScopedPolicyEntity(user, id, true, true);
+
+    return this.restore(user.companyId!, id);
+  }
+
   async listRisks(companyId: string, policyId?: string) {
     const qb = this.policyRiskRepository
       .createQueryBuilder('risk')
@@ -779,6 +985,12 @@ export class PoliciesService {
       .where('policy.company_id = :companyId', { companyId });
     if (policyId) qb.andWhere('risk.policy_id = :policyId', { policyId });
     return qb.orderBy('risk.created_at', 'DESC').getMany();
+  }
+
+  async listRisksForUser(user: AuthenticatedUser, policyId: string) {
+    await this.findScopedPolicyEntity(user, policyId, false);
+
+    return this.listRisks(user.companyId!, policyId);
   }
 
   async listBreakdowns(companyId: string, policyId?: string) {
@@ -790,6 +1002,12 @@ export class PoliciesService {
     return qb.orderBy('item.calculation_order', 'ASC').getMany();
   }
 
+  async listBreakdownsForUser(user: AuthenticatedUser, policyId: string) {
+    await this.findScopedPolicyEntity(user, policyId, false);
+
+    return this.listBreakdowns(user.companyId!, policyId);
+  }
+
   async listHistory(companyId: string, policyId?: string) {
     const qb = this.historyRepository
       .createQueryBuilder('history')
@@ -798,5 +1016,11 @@ export class PoliciesService {
       .where('policy.company_id = :companyId', { companyId });
     if (policyId) qb.andWhere('history.policy_id = :policyId', { policyId });
     return qb.orderBy('history.created_at', 'DESC').getMany();
+  }
+
+  async listHistoryForUser(user: AuthenticatedUser, policyId: string) {
+    await this.findScopedPolicyEntity(user, policyId, false);
+
+    return this.listHistory(user.companyId!, policyId);
   }
 }

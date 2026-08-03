@@ -422,11 +422,11 @@ export class TiramisBusinessSubmitService {
       });
 
     const sourceCompanyId = accessCheck.businessCompanyId;
-
     const sourceBranchId =
-      params.authContext?.branchId ||
-      params.authContext?.activeBranchId ||
-      params.authContext?.active_branch_id ||
+      accessCheck.businessBranchId ??
+      params.authContext?.branchId ??
+      params.authContext?.activeBranchId ??
+      params.authContext?.active_branch_id ??
       null;
 
     const builtPayload = await this.payloadBuilderService.buildPayload({
@@ -507,11 +507,11 @@ export class TiramisBusinessSubmitService {
       });
 
     const sourceCompanyId = accessCheck.businessCompanyId;
-
     const sourceBranchId =
-      params.authContext?.branchId ||
-      params.authContext?.activeBranchId ||
-      params.authContext?.active_branch_id ||
+      accessCheck.businessBranchId ??
+      params.authContext?.branchId ??
+      params.authContext?.activeBranchId ??
+      params.authContext?.active_branch_id ??
       null;
 
     const builtPayload = await this.payloadBuilderService.buildPayload({
@@ -546,11 +546,7 @@ export class TiramisBusinessSubmitService {
         requestType: params.requestType,
         payload: builtPayload.payload,
         sourceCompanyId,
-        sourceBranchId:
-          params.authContext?.branchId ||
-          params.authContext?.activeBranchId ||
-          params.authContext?.active_branch_id ||
-          null,
+        sourceBranchId,
         sourceModule: params.sourceModule,
         sourceRecordId: params.sourceRecordId,
       });

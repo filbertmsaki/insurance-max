@@ -33,6 +33,13 @@ import { TiramisMonitoringService } from './services/tiramis-monitoring.service'
 import { TiramisNotificationService } from './services/tiramis-notification.service';
 import { TiramisRetryService } from './services/tiramis-retry.service';
 import { TiramisStatusSyncService } from './services/tiramis-status-sync.service';
+import { Customer } from '../tenant/customers/entities/customer.entity';
+import { MotorFleet } from '../tenant/motor/entities/motor-fleet.entity';
+import { MotorPolicyDetail } from '../tenant/motor/entities/motor-policy-detail.entity';
+import { MotorVehicle } from '../tenant/motor/entities/motor-vehicle.entity';
+import { NonMotorPolicyDetail } from '../tenant/non-motor/entities/non-motor-policy-detail.entity';
+import { Policy } from '../tenant/policies/entities/policy.entity';
+import { Quotation } from '../tenant/quotations/entities/quotation.entity';
 
 @Module({
   imports: [
@@ -43,6 +50,13 @@ import { TiramisStatusSyncService } from './services/tiramis-status-sync.service
       TiramisBusinessRecordEntity,
       TiramisCompanyConfigurationEntity,
       TiramisSalePointEntity,
+      Quotation,
+      Policy,
+      Customer,
+      MotorVehicle,
+      MotorFleet,
+      MotorPolicyDetail,
+      NonMotorPolicyDetail,
     ]),
     HttpModule,
   ],

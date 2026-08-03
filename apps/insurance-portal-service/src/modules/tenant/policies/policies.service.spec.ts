@@ -8,6 +8,7 @@ import { PolicyRisk } from './entities/policy-risk.entity';
 import { PolicyPremiumBreakdown } from './entities/policy-premium-breakdown.entity';
 import { PolicyStatusHistory } from './entities/policy-status-history.entity';
 import { Company } from '../../platform/companies/entities/company.entity';
+import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import { Customer } from '../customers/entities/customer.entity';
 import { Branch } from '../branches/entities/branch.entity';
 import { Department } from '../departments/entities/department.entity';
@@ -170,6 +171,15 @@ describe('PoliciesService - quotation lifecycle conversion', () => {
           useValue: mockRepo(),
         },
         { provide: getRepositoryToken(User), useValue: mockRepo() },
+        {
+          provide: DataAccessScopeService,
+          useValue: {
+            resolve: jest.fn(),
+            assertRequestedBranchAllowed: jest.fn(),
+            applyOwnedRecordWriteScope: jest.fn(),
+            applyPolicyReadScope: jest.fn(),
+          },
+        },
         {
           provide: QuotationLifecycleService,
           useValue: quotationLifecycleService,

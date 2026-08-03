@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, Repository } from 'typeorm';
+import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
+import { DataAccessScopeService } from '../../../shared/authorization/data-access-scope.service';
+import type { TenantDataScope } from '../../../shared/authorization/interfaces/tenant-data-scope.interface';
 import { FilterQuotationDto } from '../dto/filter-quotation.dto';
 import { Quotation } from '../entities/quotation.entity';
 import { QuotationMotorDetail } from '../entities/structured/quotation-motor-detail.entity';
@@ -28,13 +30,263 @@ export class QuotationsRepository {
   constructor(
     @InjectRepository(Quotation)
     private readonly quotationRepository: Repository<Quotation>,
+    private readonly dataAccessScopeService: DataAccessScopeService,
   ) {}
+
+  async assertReadable(scope: TenantDataScope, id: string): Promise<void> {
+    const queryBuilder = this.quotationRepository
+      .createQueryBuilder('quotation')
+      .select('quotation.id')
+      .where('quotation.id = :id', { id })
+      .andWhere('quotation.deleted_at IS NULL');
+
+    this.dataAccessScopeService.applyQuotationReadScope(
+      queryBuilder,
+      'quotation',
+      scope,
+    );
+
+    const quotation = await queryBuilder.getOne();
+
+    if (!quotation) {
+      throw new NotFoundException('Quotation not found');
+    }
+  }
+
+  async assertWritable(scope: TenantDataScope, id: string): Promise<void> {
+    const queryBuilder = this.quotationRepository
+      .createQueryBuilder('quotation')
+      .select('quotation.id')
+      .where('quotation.id = :id', { id })
+      .andWhere('quotation.deleted_at IS NULL');
+
+    this.dataAccessScopeService.applyOwnedRecordWriteScope(
+      queryBuilder,
+      'quotation',
+      scope,
+    );
+
+    const quotation = await queryBuilder.getOne();
+
+    if (!quotation) {
+      throw new NotFoundException('Quotation not found');
+    }
+  }
 
   /**
    * Load the complete quotation aggregate.
    */
   async findOneAggregate(companyId: string, id: string): Promise<Quotation> {
-    const quotation = await this.quotationRepository
+    const quotation = await this.buildAggregateQuery()
+      .where('quotation.id = :id', { id })
+      .andWhere('quotation.company_id = :companyId', { companyId })
+      .andWhere('quotation.deleted_at IS NULL')
+      .getOne();
+
+    if (!quotation) {
+      throw new NotFoundException('Quotation not found');
+    }
+
+    if (!quotation.cover_note) {
+      throw new NotFoundException(
+        'Quotation cover-note information was not found',
+      );
+    }
+
+    return quotation;
+  }
+
+  async findOneAggregateForScope(
+    scope: TenantDataScope,
+    id: string,
+  ): Promise<Quotation> {
+    const queryBuilder = this.buildAggregateQuery()
+      .where('quotation.id = :id', { id })
+      .andWhere('quotation.deleted_at IS NULL');
+
+    this.dataAccessScopeService.applyQuotationReadScope(
+      queryBuilder,
+      'quotation',
+      scope,
+    );
+
+    const quotation = await queryBuilder.getOne();
+
+    if (!quotation) {
+      throw new NotFoundException('Quotation not found');
+    }
+
+    if (!quotation.cover_note) {
+      throw new NotFoundException(
+        'Quotation cover-note information was not found',
+      );
+    }
+
+    return quotation;
+  }
+
+  /**
+   * Load only the root and cover-note header for the list screen.
+   */
+  async findAll(
+    companyId: string,
+    query: FilterQuotationDto,
+  ): Promise<PaginatedQuotations> {
+    const page = this.normalizePage(query.page);
+    const limit = this.normalizeLimit(query.limit);
+
+    const queryBuilder = this.quotationRepository
+      .createQueryBuilder('quotation')
+      .leftJoinAndSelect('quotation.cover_note', 'coverNote')
+      .leftJoinAndSelect('quotation.product', 'product')
+      .where('quotation.company_id = :companyId', { companyId })
+      .andWhere('quotation.deleted_at IS NULL');
+    this.applyListFilters(queryBuilder, query, page, limit);
+
+    const [items, total] = await queryBuilder.getManyAndCount();
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+
+    return {
+      items,
+      meta: {
+        page,
+        limit,
+        total,
+        total_pages: totalPages,
+        has_previous_page: page > 1,
+        has_next_page: page < totalPages,
+      },
+      extrasByQuotationId: await this.loadListExtras(
+        items.map((item) => item.id),
+      ),
+    };
+  }
+
+  async findAllForScope(
+    scope: TenantDataScope,
+    query: FilterQuotationDto,
+  ): Promise<PaginatedQuotations> {
+    const page = this.normalizePage(query.page);
+    const limit = this.normalizeLimit(query.limit);
+
+    const queryBuilder = this.quotationRepository
+      .createQueryBuilder('quotation')
+      .leftJoinAndSelect('quotation.cover_note', 'coverNote')
+      .leftJoinAndSelect('quotation.product', 'product')
+      .where('quotation.deleted_at IS NULL');
+
+    this.dataAccessScopeService.applyQuotationReadScope(
+      queryBuilder,
+      'quotation',
+      scope,
+    );
+    this.applyListFilters(queryBuilder, query, page, limit);
+
+    const [items, total] = await queryBuilder.getManyAndCount();
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+
+    return {
+      items,
+      meta: {
+        page,
+        limit,
+        total,
+        total_pages: totalPages,
+        has_previous_page: page > 1,
+        has_next_page: page < totalPages,
+      },
+      extrasByQuotationId: await this.loadListExtras(
+        items.map((item) => item.id),
+      ),
+    };
+  }
+
+  /**
+   * Customer name and vehicle identifiers each live on a to-many child table
+   * (a quotation can have multiple policyholder/motor-detail rows in theory,
+   * even though in practice there's exactly one for the whole quotation/
+   * fleet). Fetching these via leftJoinAndSelect on the paginated list query
+   * would multiply root rows against the SQL LIMIT/OFFSET, corrupting
+   * pagination — so they're batch-loaded separately for just this page's
+   * quotation ids and merged in afterwards.
+   */
+  private async loadListExtras(
+    quotationIds: string[],
+  ): Promise<Map<string, QuotationListItemExtra>> {
+    const extras = new Map<string, QuotationListItemExtra>();
+    if (quotationIds.length === 0) {
+      return extras;
+    }
+
+    for (const id of quotationIds) {
+      extras.set(id, {
+        customerName: null,
+        vehicleRegistrationNumber: null,
+        vehicleChassisNumber: null,
+      });
+    }
+
+    const policyHolders = await this.quotationRepository.manager
+      .getRepository(QuotationPolicyHolder)
+      .createQueryBuilder('holder')
+      .select([
+        'holder.quotation_id',
+        'holder.policy_holder_name',
+        'holder.sequence_no',
+      ])
+      .where('holder.quotation_id IN (:...quotationIds)', { quotationIds })
+      .orderBy('holder.sequence_no', 'ASC')
+      .getMany();
+
+    for (const holder of policyHolders) {
+      const extra = extras.get(holder.quotation_id);
+      if (extra && extra.customerName === null) {
+        extra.customerName = holder.policy_holder_name;
+      }
+    }
+
+    const vehicleRows = await this.quotationRepository.manager
+      .createQueryBuilder()
+      .select('coverNote.quotation_id', 'quotation_id')
+      .addSelect('motor.registration_number', 'registration_number')
+      .addSelect('motor.chassis_number', 'chassis_number')
+      .from(QuotationMotorDetail, 'motor')
+      .innerJoin('motor.entry', 'entry')
+      .innerJoin('entry.cover_note', 'coverNote')
+      .where('coverNote.quotation_id IN (:...quotationIds)', { quotationIds })
+      .orderBy('entry.entry_number', 'ASC')
+      .getRawMany<{
+        quotation_id: string;
+        registration_number: string | null;
+        chassis_number: string | null;
+      }>();
+
+    for (const row of vehicleRows) {
+      const extra = extras.get(row.quotation_id);
+      if (
+        extra &&
+        extra.vehicleRegistrationNumber === null &&
+        extra.vehicleChassisNumber === null
+      ) {
+        extra.vehicleRegistrationNumber = row.registration_number || null;
+        extra.vehicleChassisNumber = row.chassis_number || null;
+      }
+    }
+
+    return extras;
+  }
+
+  async exists(companyId: string, id: string): Promise<boolean> {
+    return this.quotationRepository.exists({
+      where: {
+        id,
+        company_id: companyId,
+      },
+    });
+  }
+
+  private buildAggregateQuery() {
+    return this.quotationRepository
       .createQueryBuilder('quotation')
       .leftJoinAndSelect('quotation.company', 'company')
       .leftJoinAndSelect('quotation.insurer_company', 'insurerCompany')
@@ -73,9 +325,6 @@ export class QuotationsRepository {
       .leftJoinAndSelect('quotation.policy_holders', 'policyHolder')
       .leftJoinAndSelect('quotation.status_history', 'statusHistory')
       .leftJoinAndSelect('statusHistory.changer', 'statusChanger')
-      .where('quotation.id = :id', { id })
-      .andWhere('quotation.company_id = :companyId', { companyId })
-      .andWhere('quotation.deleted_at IS NULL')
       .orderBy('entry.entry_number', 'ASC')
       .addOrderBy('risk.sequence_no', 'ASC')
       .addOrderBy('riskDiscount.sequence_no', 'ASC')
@@ -85,39 +334,15 @@ export class QuotationsRepository {
       .addOrderBy('addon.sequence_no', 'ASC')
       .addOrderBy('addonTax.sequence_no', 'ASC')
       .addOrderBy('policyHolder.sequence_no', 'ASC')
-      .addOrderBy('statusHistory.created_at', 'ASC')
-      .getOne();
-
-    if (!quotation) {
-      throw new NotFoundException('Quotation not found');
-    }
-
-    if (!quotation.cover_note) {
-      throw new NotFoundException(
-        'Quotation cover-note information was not found',
-      );
-    }
-
-    return quotation;
+      .addOrderBy('statusHistory.created_at', 'ASC');
   }
 
-  /**
-   * Load only the root and cover-note header for the list screen.
-   */
-  async findAll(
-    companyId: string,
+  private applyListFilters(
+    queryBuilder: SelectQueryBuilder<Quotation>,
     query: FilterQuotationDto,
-  ): Promise<PaginatedQuotations> {
-    const page = this.normalizePage(query.page);
-    const limit = this.normalizeLimit(query.limit);
-
-    const queryBuilder = this.quotationRepository
-      .createQueryBuilder('quotation')
-      .leftJoinAndSelect('quotation.cover_note', 'coverNote')
-      .leftJoinAndSelect('quotation.product', 'product')
-      .where('quotation.company_id = :companyId', { companyId })
-      .andWhere('quotation.deleted_at IS NULL');
-
+    page: number,
+    limit: number,
+  ): void {
     if (query.status) {
       queryBuilder.andWhere('quotation.status = :status', {
         status: query.status,
@@ -272,108 +497,6 @@ export class QuotationsRepository {
       .addOrderBy('quotation.id', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
-
-    const [items, total] = await queryBuilder.getManyAndCount();
-    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
-
-    return {
-      items,
-      meta: {
-        page,
-        limit,
-        total,
-        total_pages: totalPages,
-        has_previous_page: page > 1,
-        has_next_page: page < totalPages,
-      },
-      extrasByQuotationId: await this.loadListExtras(
-        items.map((item) => item.id),
-      ),
-    };
-  }
-
-  /**
-   * Customer name and vehicle identifiers each live on a to-many child table
-   * (a quotation can have multiple policyholder/motor-detail rows in theory,
-   * even though in practice there's exactly one for the whole quotation/
-   * fleet). Fetching these via leftJoinAndSelect on the paginated list query
-   * would multiply root rows against the SQL LIMIT/OFFSET, corrupting
-   * pagination — so they're batch-loaded separately for just this page's
-   * quotation ids and merged in afterwards.
-   */
-  private async loadListExtras(
-    quotationIds: string[],
-  ): Promise<Map<string, QuotationListItemExtra>> {
-    const extras = new Map<string, QuotationListItemExtra>();
-    if (quotationIds.length === 0) {
-      return extras;
-    }
-
-    for (const id of quotationIds) {
-      extras.set(id, {
-        customerName: null,
-        vehicleRegistrationNumber: null,
-        vehicleChassisNumber: null,
-      });
-    }
-
-    const policyHolders = await this.quotationRepository.manager
-      .getRepository(QuotationPolicyHolder)
-      .createQueryBuilder('holder')
-      .select([
-        'holder.quotation_id',
-        'holder.policy_holder_name',
-        'holder.sequence_no',
-      ])
-      .where('holder.quotation_id IN (:...quotationIds)', { quotationIds })
-      .orderBy('holder.sequence_no', 'ASC')
-      .getMany();
-
-    for (const holder of policyHolders) {
-      const extra = extras.get(holder.quotation_id);
-      if (extra && extra.customerName === null) {
-        extra.customerName = holder.policy_holder_name;
-      }
-    }
-
-    const vehicleRows = await this.quotationRepository.manager
-      .createQueryBuilder()
-      .select('coverNote.quotation_id', 'quotation_id')
-      .addSelect('motor.registration_number', 'registration_number')
-      .addSelect('motor.chassis_number', 'chassis_number')
-      .from(QuotationMotorDetail, 'motor')
-      .innerJoin('motor.entry', 'entry')
-      .innerJoin('entry.cover_note', 'coverNote')
-      .where('coverNote.quotation_id IN (:...quotationIds)', { quotationIds })
-      .orderBy('entry.entry_number', 'ASC')
-      .getRawMany<{
-        quotation_id: string;
-        registration_number: string | null;
-        chassis_number: string | null;
-      }>();
-
-    for (const row of vehicleRows) {
-      const extra = extras.get(row.quotation_id);
-      if (
-        extra &&
-        extra.vehicleRegistrationNumber === null &&
-        extra.vehicleChassisNumber === null
-      ) {
-        extra.vehicleRegistrationNumber = row.registration_number || null;
-        extra.vehicleChassisNumber = row.chassis_number || null;
-      }
-    }
-
-    return extras;
-  }
-
-  async exists(companyId: string, id: string): Promise<boolean> {
-    return this.quotationRepository.exists({
-      where: {
-        id,
-        company_id: companyId,
-      },
-    });
   }
 
   private normalizePage(value: unknown): number {
