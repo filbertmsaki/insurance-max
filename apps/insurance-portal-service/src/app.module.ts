@@ -25,6 +25,7 @@ import databaseConfig from './config/database.config';
 import { insurancePortalEnvValidationSchema } from './config/env.validation';
 import jwtConfig from './config/jwt.config';
 import tiramisClientConfig from './config/tiramis-client.config';
+import { HealthModule } from './health/health.module';
 import { InsurancePortalServiceModule } from './modules/insurance-portal-service.module';
 import { TiramisModule } from './modules/tiramis/tiramis.module';
 
@@ -73,6 +74,7 @@ import { TiramisModule } from './modules/tiramis/tiramis.module';
     }),
     InsurancePortalServiceModule,
     TiramisModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [

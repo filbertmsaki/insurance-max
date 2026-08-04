@@ -7,11 +7,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import {
   ServiceDatabaseConfig,
   SharedConfigModule,
-  appConfig,
   createTypeOrmOptions,
   loggerConfig,
 } from '@insurance-max/shared-config';
 
+import applicationConfig from './config/application.config';
 import tiramisAppConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import { tiramisEnvValidationSchema } from './config/env.validation';
@@ -58,7 +58,7 @@ import { TiramisResponseInterceptor } from './common/interceptors/tiramis-respon
       appName: 'tiramis',
       validationSchema: tiramisEnvValidationSchema,
       load: [
-        appConfig,
+        applicationConfig,
         loggerConfig,
         tiramisAppConfig,
         transportConfig,

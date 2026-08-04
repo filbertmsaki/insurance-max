@@ -5,14 +5,13 @@ import { ConfigService } from '@nestjs/config';
 export class AppController {
   constructor(private readonly configService: ConfigService) {}
 
-  @Get('health')
-  healthCheck() {
+  @Get()
+  serviceInformation() {
     return {
-      success: true,
+      service: this.configService.get<string>('app.name') || 'TIRAMIS Service',
       status: 'UP',
-      service: this.configService.getOrThrow<string>('app.name'),
-      port: this.configService.getOrThrow<number>('app.port'),
-      time: new Date().toISOString(),
+      documentation: '/api/docs',
+      health: '/api/health',
     };
   }
 }

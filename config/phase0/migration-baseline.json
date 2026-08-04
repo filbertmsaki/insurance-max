@@ -1,0 +1,14 @@
+{
+  "allowedDuplicateTimestamps": {
+    "apps/insurance-portal-service/src/database/migrations": {
+      "1783000000011": [
+        "1783000000011-AddFinalCallbackOverdueToPortalTiraSubmissionStatus.ts",
+        "1783000000011-PortalTiramisSubmissionTracking.ts"
+      ],
+      "1783000000018": [
+        "1783000000018-PortalTiramisAuditLogs.ts",
+        "1783000000018-TiramisTrackingViewToAdminRoles.ts"
+      ]
+    }
+  }
+}

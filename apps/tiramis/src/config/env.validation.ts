@@ -6,7 +6,7 @@ export const tiramisEnvValidationSchema = Joi.object({
     .valid('local', 'development', 'test', 'uat', 'staging', 'production')
     .default('development'),
   APP_HOST: Joi.string().trim().min(1).default('0.0.0.0'),
-  APP_PORT: Joi.number().integer().min(1).max(65535).default(3001),
+  APP_PORT: Joi.number().integer().min(1).max(65535).default(9091),
   APP_GLOBAL_PREFIX: Joi.string()
     .trim()
     .pattern(/^[^/]+(?:\/[^/]+)*$/)

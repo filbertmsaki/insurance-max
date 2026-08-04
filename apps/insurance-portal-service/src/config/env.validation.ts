@@ -28,7 +28,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .default('http://localhost:9090'),
   APP_FRONTEND_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
-    .default('http://localhost:3001'),
+    .default('http://localhost:9092'),
   SUPPORT_EMAIL: Joi.string().email().default('support@insurance-idp.tz'),
 
   DB_TYPE: Joi.string()
@@ -110,7 +110,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .default(0),
 
   CORS_ENABLED: Joi.boolean().default(true),
-  CORS_ALLOWED_ORIGINS: Joi.string().default('http://localhost:3001'),
+  CORS_ALLOWED_ORIGINS: Joi.string().default('http://localhost:9092'),
   CORS_METHODS: Joi.string().default('GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS'),
   CORS_CREDENTIALS: Joi.boolean().default(true),
 

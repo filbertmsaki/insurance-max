@@ -20,6 +20,8 @@ async function bootstrap() {
     logger: ['error', 'warn', 'log', 'debug'],
   });
 
+  app.enableShutdownHooks();
+
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
   const host = configService.get<string>('app.host') || '0.0.0.0';

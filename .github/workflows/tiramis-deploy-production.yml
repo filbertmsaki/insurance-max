@@ -142,6 +142,44 @@ jobs:
           echo "Selected CI run: $RUN_ID"
           echo "Selected commit: $SHA"
 
+      - name: Verify repository-wide Phase 0 validation
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          set -Eeuo pipefail
+
+          # Deployment must not rely on the TIRAMIS-only CI run alone; it also
+          # requires a successful "Insurance Max Phase 0" run (which validates
+          # the Portal Backend and frontend together with TIRAMIS) for the
+          # same commit.
+          RUNS_JSON="$(curl -fsSL \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/$REPOSITORY/actions/workflows/insurance-max-phase0.yml/runs?head_sha=$SHA&branch=main&status=success")"
+
+          export RUNS_JSON
+
+          MATCH_COUNT="$(
+            python3 - <<'PY'
+          import json
+          import os
+
+          data = json.loads(os.environ['RUNS_JSON'])
+          print(data.get('total_count', 0))
+          PY
+          )"
+
+          [[ "$MATCH_COUNT" -gt 0 ]] || {
+            echo "Refusing deployment: no successful 'Insurance Max Phase 0' run found for commit $SHA."
+            exit 1
+          }
+
+          echo "Repository-wide Phase 0 validation confirmed for commit $SHA."
+
       - name: Download exact CI artifact
         uses: actions/download-artifact@v4
         with:

@@ -244,4 +244,44 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       return null;
     }
   }
+
+  async healthCheck(): Promise<{
+    available: boolean;
+    mode: 'redis' | 'memory';
+    latencyMs: number;
+    message?: string;
+  }> {
+    const startedAt = Date.now();
+
+    if (!this.client) {
+      return {
+        available: false,
+        mode: 'memory',
+        latencyMs: Date.now() - startedAt,
+        message: 'Redis is unavailable; in-memory fallback is active.',
+      };
+    }
+
+    try {
+      const result = await this.client.ping();
+
+      return {
+        available: result === 'PONG',
+        mode: 'redis',
+        latencyMs: Date.now() - startedAt,
+      };
+    } catch (error) {
+      return {
+        available: false,
+        mode: 'memory',
+        latencyMs: Date.now() - startedAt,
+        message:
+          error instanceof Error ? error.message : 'Redis health check failed.',
+      };
+    }
+  }
+
+  isUsingFallback(): boolean {
+    return this.client === null;
+  }
 }
