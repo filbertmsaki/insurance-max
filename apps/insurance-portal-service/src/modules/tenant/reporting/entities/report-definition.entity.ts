@@ -34,10 +34,10 @@ export class ReportDefinition {
   @Column({ default: true })
   enabled: boolean;
 
-  @Column({ length: 100, nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   feature_code!: string | null;
 
-  @Column({ length: 100, nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   usage_metric_code!: string | null;
 
   @Column({ type: 'int', nullable: true })

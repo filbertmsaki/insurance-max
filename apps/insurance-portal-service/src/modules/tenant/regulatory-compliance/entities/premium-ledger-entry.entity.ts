@@ -62,7 +62,7 @@ export class PremiumLedgerEntry {
   @Column({ type: 'numeric', precision: 20, scale: 2, default: 0 })
   brokerage_amount: string;
 
-  @Column({ length: 80, nullable: true })
+  @Column({ type: 'varchar', length: 80, nullable: true })
   source_type!: string | null;
 
   @Column({ type: 'uuid', nullable: true })

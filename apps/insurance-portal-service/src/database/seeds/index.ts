@@ -11,6 +11,7 @@ import TiramisBusinessRecordsSeeder from './006-tiramis-business-records.seed';
 import TiramisLookupsSeeder from './007-tiramis-lookups.seed';
 import AllianceCustomerVehiclesSeeder from './008-alliance-customer-vehicles.seed';
 import MotorPricingSeeder from './009-motor-pricing.seed';
+import AnalyticsDefinitionsSeeder from './010-analytics.seed';
 
 const productionSeeders = [
   PlatformIdpSeeder,
@@ -22,6 +23,7 @@ const productionSeeders = [
   RiskFactorLinkSeeder,
   MotorPricingSeeder,
   AllianceCustomerVehiclesSeeder,
+  AnalyticsDefinitionsSeeder,
 ];
 
 export async function runAllSeeders(dataSource: DataSource): Promise<void> {

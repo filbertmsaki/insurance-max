@@ -63,7 +63,7 @@ export class PremiumLevyReturn {
   @Column({ type: 'timestamptz', nullable: true })
   statement_due_at!: Date | null;
 
-  @Column({ length: 80, nullable: true })
+  @Column({ type: 'varchar', length: 80, nullable: true })
   control_number!: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })

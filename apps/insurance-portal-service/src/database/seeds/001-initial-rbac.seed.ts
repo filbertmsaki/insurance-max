@@ -78,6 +78,23 @@ const DASHBOARD_VIEWER_PERMISSION_NAMES = [
   'dashboard:policies',
 ];
 
+const ANALYTICS_ADMIN_PERMISSION_NAMES = [
+  'analytics:read',
+  'analytics:executive-dashboard',
+  'analytics:scorecard-read',
+  'analytics:scorecard-generate',
+  'analytics:scorecard-publish',
+  'analytics:kpi-configure',
+  'analytics:anomaly-read',
+  'analytics:anomaly-configure',
+  'analytics:forecast-read',
+  'analytics:forecast-run',
+  'analytics:forecast-configure',
+  'analytics:benchmark-read',
+  'analytics:export',
+  'analytics:admin',
+];
+
 const PHASE2_ADMIN_PERMISSION_NAMES = [
   'billing:invoice-issue',
   'billing:invoice-void',
@@ -584,6 +601,90 @@ const permissionSeeds: PermissionSeed[] = [
     name: 'dashboard:export',
     displayName: 'Export dashboard reports',
     description: 'Allow exporting dashboard and management reports',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'analytics:read',
+    displayName: 'Read analytics data',
+    description: 'Allow reading KPI, scorecard, anomaly, forecast and benchmark analytics data',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'analytics:executive-dashboard',
+    displayName: 'View analytics executive dashboard',
+    description: 'Allow viewing executive analytics dashboards and summaries',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'analytics:scorecard-read',
+    displayName: 'Read scorecard templates',
+    description: 'Allow listing and viewing analytics scorecard templates',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'analytics:scorecard-generate',
+    displayName: 'Generate scorecards',
+    description: 'Allow generating analytics scorecards for selected templates and periods',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'analytics:scorecard-publish',
+    displayName: 'Publish scorecards',
+    description: 'Allow publishing generated analytics scorecard snapshots',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'analytics:kpi-configure',
+    displayName: 'Configure KPIs',
+    description: 'Allow managing analytics KPI definitions and configurations',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'analytics:anomaly-read',
+    displayName: 'Read anomaly findings',
+    description: 'Allow reading analytics anomaly findings',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'analytics:anomaly-configure',
+    displayName: 'Configure anomaly detection',
+    description: 'Allow creating, updating and running anomaly detection rules',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'analytics:forecast-read',
+    displayName: 'Read forecasts',
+    description: 'Allow reading analytics forecast definitions and results',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'analytics:forecast-run',
+    displayName: 'Run forecasts',
+    description: 'Allow running analytics forecast definitions',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'analytics:forecast-configure',
+    displayName: 'Configure forecasts',
+    description: 'Allow managing analytics forecast definitions',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'analytics:benchmark-read',
+    displayName: 'Read benchmarks',
+    description: 'Allow reading benchmark snapshot data',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'analytics:export',
+    displayName: 'Export analytics data',
+    description: 'Allow exporting analytics reports and scorecards',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'analytics:admin',
+    displayName: 'Manage analytics',
+    description: 'Allow full analytics administration and configuration',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   ...REINSURANCE_PERMISSION_SEEDS,
@@ -1855,6 +1956,7 @@ const roleSeeds: RoleSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: [
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
+      ...ANALYTICS_ADMIN_PERMISSION_NAMES,
       ...PHASE2_ADMIN_PERMISSION_NAMES,
       ...CLAIMS_ADMIN_PERMISSION_NAMES,
       ...REINSURANCE_ADMIN_PERMISSION_NAMES,

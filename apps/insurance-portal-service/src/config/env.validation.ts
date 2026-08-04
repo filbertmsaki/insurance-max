@@ -129,6 +129,10 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   REDIS_OTP_TTL: Joi.number().default(300),
   REDIS_SESSION_TTL: Joi.number().default(86400),
 
+  ANALYTICS_ENABLED: Joi.boolean().default(true),
+  ANALYTICS_PROJECTION_BATCH_SIZE: Joi.number().integer().min(1).default(100),
+  ANALYTICS_PROJECTION_MAX_ATTEMPTS: Joi.number().integer().min(1).default(8),
+
   JWT_ACCESS_SECRET: Joi.when('APP_ENV', {
     is: 'production',
     then: Joi.string().min(32).required(),

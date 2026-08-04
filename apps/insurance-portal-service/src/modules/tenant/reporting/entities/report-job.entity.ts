@@ -55,7 +55,7 @@ export class ReportJob {
   @Column({ type: 'timestamptz', nullable: true })
   claimed_at!: Date | null;
 
-  @Column({ length: 80, nullable: true })
+  @Column({ type: 'varchar', length: 80, nullable: true })
   claimed_by!: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })

@@ -9,6 +9,7 @@ import { MailModule } from './mail/mail.module';
 import { OtpModule } from './otp/otp.module';
 import { RedisModule } from './redis/redis.module';
 import { SessionsModule } from './sessions/sessions.module';
+import { AnalyticsCoreModule } from './analytics/analytics-core.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { SessionsModule } from './sessions/sessions.module';
     OtpModule,
     SessionsModule,
     DevicesModule,
+    AnalyticsCoreModule,
   ],
   providers: [BusinessReferenceService],
   exports: [
@@ -32,6 +34,7 @@ import { SessionsModule } from './sessions/sessions.module';
     SessionsModule,
     DevicesModule,
     BusinessReferenceService,
+    AnalyticsCoreModule,
   ],
 })
 export class SharedModule {}

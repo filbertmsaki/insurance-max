@@ -23,10 +23,10 @@ export class CompanyRegulatoryProfile {
   @Column({ length: 120, default: 'TIRA' })
   regulator_name: string;
 
-  @Column({ length: 40, nullable: true })
+  @Column({ type: 'varchar', length: 40, nullable: true })
   regulator_code!: string | null;
 
-  @Column({ length: 60, default: 'Africa/Dar_es_Salaam' })
+  @Column({ type: 'varchar', length: 60, default: 'Africa/Dar_es_Salaam' })
   timezone: string;
 
   @Column({

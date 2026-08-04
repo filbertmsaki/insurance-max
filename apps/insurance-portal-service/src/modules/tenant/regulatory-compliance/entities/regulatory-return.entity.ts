@@ -57,7 +57,7 @@ export class RegulatoryReturn {
   @Column({ type: 'timestamptz', nullable: true })
   submitted_at!: Date | null;
 
-  @Column({ length: 120, nullable: true })
+  @Column({ type: 'varchar', length: 120, nullable: true })
   submission_reference!: string | null;
 
   @Column({ type: 'jsonb', nullable: true })

@@ -22,6 +22,7 @@ import { ProductAccessModule } from './product-access/product-access.module';
 import { ProductDistributionModule } from './product-distribution/product-distribution.module';
 import { QuotationsModule } from './quotations/quotations.module';
 import { ReinsuranceModule } from './reinsurance/reinsurance.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { RegulatoryComplianceModule } from './regulatory-compliance/regulatory-compliance.module';
 import { RatingFactorsModule } from './rating-factors/rating-factors.module';
 import { ReportingModule } from './reporting/reporting.module';
@@ -57,6 +58,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
     RegulatoryComplianceModule,
     ReportingModule,
     BillingCommissionModule,
+    AnalyticsModule,
     RatingFactorsModule,
     RiskRequiredFactorsModule,
     RiskRatingRulesModule,

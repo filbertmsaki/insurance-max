@@ -25,7 +25,7 @@ export class PlatformUsageEvent {
   @Column({ length: 180 })
   idempotency_key: string;
 
-  @Column({ length: 80, nullable: true })
+  @Column({ type: 'varchar', length: 80, nullable: true })
   resource_type!: string | null;
 
   @Column({ type: 'uuid', nullable: true })

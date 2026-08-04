@@ -1,0 +1,176 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { AnalyticsController } from './analytics.controller';
+import { KpiService } from './services/kpi.service';
+import { ScorecardService } from './services/scorecard.service';
+import { AnomalyService } from './services/anomaly.service';
+import { ForecastService } from './services/forecast.service';
+import { BenchmarkService } from './services/benchmark.service';
+import { AnalyticsPermissions } from './analytics.permissions';
+
+describe('AnalyticsController', () => {
+  let controller: AnalyticsController;
+  let kpiService: Partial<Record<keyof KpiService, jest.Mock>>;
+  let scorecardService: Partial<Record<keyof ScorecardService, jest.Mock>>;
+  let anomalyService: Partial<Record<keyof AnomalyService, jest.Mock>>;
+  let forecastService: Partial<Record<keyof ForecastService, jest.Mock>>;
+  let benchmarkService: Partial<Record<keyof BenchmarkService, jest.Mock>>;
+
+  const mockUser = {
+    id: 'user-id',
+    companyId: 'company-id',
+  } as any;
+
+  beforeEach(async () => {
+    kpiService = {
+      listDefinitions: jest.fn().mockResolvedValue([{ code: 'POLICY_COUNT' }]),
+      calculateKpi: jest.fn().mockResolvedValue({ value: '10' }),
+    } as any;
+
+    scorecardService = {
+      listTemplates: jest.fn().mockResolvedValue([{ id: 'template-id' }]),
+      generateScorecard: jest.fn().mockResolvedValue({ id: 'snapshot-id' }),
+      publishScorecard: jest.fn().mockResolvedValue({ id: 'snapshot-id', status: 'PUBLISHED' }),
+    } as any;
+
+    anomalyService = {
+      listFindings: jest.fn().mockResolvedValue([{ id: 'finding-id' }]),
+      runDetection: jest.fn().mockResolvedValue({ id: 'finding-id' }),
+    } as any;
+
+    forecastService = {
+      listDefinitions: jest.fn().mockResolvedValue([{ id: 'forecast-id' }]),
+      runForecast: jest.fn().mockResolvedValue({ run: { id: 'run-id' } }),
+    } as any;
+
+    benchmarkService = {
+      listSnapshots: jest.fn().mockResolvedValue([{ id: 'benchmark-id' }]),
+    } as any;
+
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [AnalyticsController],
+      providers: [
+        { provide: KpiService, useValue: kpiService },
+        { provide: ScorecardService, useValue: scorecardService },
+        { provide: AnomalyService, useValue: anomalyService },
+        { provide: ForecastService, useValue: forecastService },
+        { provide: BenchmarkService, useValue: benchmarkService },
+      ],
+    }).compile();
+
+    controller = module.get<AnalyticsController>(AnalyticsController);
+  });
+
+  it('lists KPI definitions', async () => {
+    const result = await controller.getKpis(mockUser);
+
+    expect(result).toEqual([{ code: 'POLICY_COUNT' }]);
+    expect(kpiService.listDefinitions).toHaveBeenCalledWith('company-id');
+  });
+
+  it('calculates a KPI for a code', async () => {
+    const result = await controller.calculateKpi(mockUser, 'POLICY_COUNT', {
+      from: '2026-01-01',
+      to: '2026-01-31',
+      branchId: 'branch-id',
+    });
+
+    expect(result).toEqual({ value: '10' });
+    expect(kpiService.calculateKpi).toHaveBeenCalledWith(mockUser, 'POLICY_COUNT', {
+      from: '2026-01-01',
+      to: '2026-01-31',
+      branchId: 'branch-id',
+    });
+  });
+
+  it('lists scorecard templates', async () => {
+    const result = await controller.getScorecardTemplates(mockUser);
+
+    expect(result).toEqual([{ id: 'template-id' }]);
+    expect(scorecardService.listTemplates).toHaveBeenCalledWith('company-id');
+  });
+
+  it('generates a scorecard snapshot', async () => {
+    const dto = {
+      templateId: 'template-id',
+      periodStart: '2026-01-01',
+      periodEnd: '2026-01-31',
+      branchId: 'branch-id',
+    };
+
+    const result = await controller.generateScorecard(mockUser, dto);
+
+    expect(result).toEqual({ id: 'snapshot-id' });
+    expect(scorecardService.generateScorecard).toHaveBeenCalledWith(mockUser, dto);
+  });
+
+  it('publishes a scorecard snapshot', async () => {
+    const result = await controller.publishScorecard(mockUser, { snapshotId: 'snapshot-id' });
+
+    expect(result).toEqual({ id: 'snapshot-id', status: 'PUBLISHED' });
+    expect(scorecardService.publishScorecard).toHaveBeenCalledWith(mockUser, 'snapshot-id');
+  });
+
+  it('lists anomaly findings', async () => {
+    const query = { branchId: 'branch-id', from: '2026-01-01', to: '2026-01-31' };
+    const result = await controller.listAnomalies(mockUser, query);
+
+    expect(result).toEqual([{ id: 'finding-id' }]);
+    expect(anomalyService.listFindings).toHaveBeenCalledWith('company-id', query);
+  });
+
+  it('runs anomaly detection', async () => {
+    const dto = {
+      ruleId: 'rule-id',
+      branchId: 'branch-id',
+      from: '2026-01-01',
+      to: '2026-01-31',
+    };
+
+    const result = await controller.runAnomalyDetection(mockUser, dto);
+
+    expect(result).toEqual({ id: 'finding-id' });
+    expect(anomalyService.runDetection).toHaveBeenCalledWith(
+      { companyId: 'company-id', id: 'user-id' },
+      dto,
+    );
+  });
+
+  it('lists forecast definitions', async () => {
+    const result = await controller.listForecasts(mockUser);
+
+    expect(result).toEqual([{ id: 'forecast-id' }]);
+    expect(forecastService.listDefinitions).toHaveBeenCalledWith('company-id');
+  });
+
+  it('runs a forecast definition', async () => {
+    const dto = {
+      definitionId: 'def-1',
+      trainingPeriodStart: '2026-01-01',
+      trainingPeriodEnd: '2026-01-31',
+      forecastPeriodStart: '2026-02-01',
+      forecastPeriodEnd: '2026-02-07',
+    };
+
+    const result = await controller.runForecast(mockUser, dto);
+
+    expect(result).toEqual({ run: { id: 'run-id' } });
+    expect(forecastService.runForecast).toHaveBeenCalledWith(
+      { companyId: 'company-id', id: 'user-id' },
+      dto,
+    );
+  });
+
+  it('lists benchmark snapshots', async () => {
+    const query = { metricCode: 'METRIC_1', cohortKey: 'cohort-a', from: '2026-01-01', to: '2026-01-31' };
+    const result = await controller.getBenchmarks(query);
+
+    expect(result).toEqual([{ id: 'benchmark-id' }]);
+    expect(benchmarkService.listSnapshots).toHaveBeenCalledWith(query);
+  });
+
+  it('requires company context for analytics', () => {
+    expect(() => controller.getKpis({ id: 'user-id' } as any)).toThrow(
+      'Company context is required for analytics',
+    );
+  });
+});

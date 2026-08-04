@@ -39,4 +39,29 @@ describe('insurance portal environment validation', () => {
     });
     expect(result.error?.details[0]?.path.join('.')).toBe('JWT_ACCESS_SECRET');
   });
+
+  it('accepts analytics-related environment settings', () => {
+    const result = insurancePortalEnvValidationSchema.validate({
+      ...valid,
+      ANALYTICS_ENABLED: false,
+      ANALYTICS_PROJECTION_BATCH_SIZE: 50,
+      ANALYTICS_PROJECTION_MAX_ATTEMPTS: 5,
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.value.ANALYTICS_ENABLED).toBe(false);
+    expect(result.value.ANALYTICS_PROJECTION_BATCH_SIZE).toBe(50);
+    expect(result.value.ANALYTICS_PROJECTION_MAX_ATTEMPTS).toBe(5);
+  });
+
+  it.each([
+    ['ANALYTICS_PROJECTION_BATCH_SIZE', 0],
+    ['ANALYTICS_PROJECTION_MAX_ATTEMPTS', 0],
+  ])('rejects invalid analytics value for %s', (key, value) => {
+    const result = insurancePortalEnvValidationSchema.validate({
+      ...valid,
+      [key]: value,
+    });
+    expect(result.error).toBeDefined();
+  });
 });

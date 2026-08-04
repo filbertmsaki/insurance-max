@@ -37,7 +37,7 @@ export class ReportArtifact {
   @Column({ type: 'bigint', default: 0 })
   size_bytes: string;
 
-  @Column({ length: 120, nullable: true })
+  @Column({ type: 'varchar', length: 120, nullable: true })
   checksum!: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })

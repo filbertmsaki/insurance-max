@@ -16,16 +16,16 @@ export class RegulatoryReturnAttachment {
   @Column({ type: 'uuid' })
   company_id: string;
 
-  @Column({ length: 160 })
+  @Column({ type: 'varchar', length: 160 })
   file_name: string;
 
-  @Column({ length: 120, nullable: true })
+  @Column({ type: 'varchar', length: 120, nullable: true })
   evidence_type!: string | null;
 
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   storage_path!: string | null;
 
-  @Column({ length: 120, nullable: true })
+  @Column({ type: 'varchar', length: 120, nullable: true })
   mime_type!: string | null;
 
   @Column({ type: 'uuid', nullable: true })

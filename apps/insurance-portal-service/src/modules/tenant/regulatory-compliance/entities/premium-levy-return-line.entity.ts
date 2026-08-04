@@ -25,7 +25,7 @@ export class PremiumLevyReturnLine {
   @Column({ type: 'numeric', precision: 20, scale: 2, default: 0 })
   amount: string;
 
-  @Column({ length: 160, nullable: true })
+  @Column({ type: 'varchar', length: 160, nullable: true })
   evidence_reference!: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
