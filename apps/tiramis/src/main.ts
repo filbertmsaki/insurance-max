@@ -1,16 +1,34 @@
 import * as bodyParser from 'body-parser';
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { buildUrl } from '@insurance-max/shared-config';
+import { bindRequestContext } from '@insurance-max/shared-kernel';
 
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
+  bindRequestContext(app);
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+      stopAtFirstError: false,
+
+      transformOptions: { enableImplicitConversion: true },
+
+      validationError: {
+        target: false,
+        value: false,
+      },
+    }),
+  );
 
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');

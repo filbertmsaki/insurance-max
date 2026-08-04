@@ -20,6 +20,7 @@ import { Permissions } from '@insurance-max/portal-shared/decorators/permissions
 import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
 import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { RawResponse } from '@insurance-max/shared-kernel';
 
 import {
   InviteCustomerPortalDto,
@@ -59,11 +60,7 @@ export class PortalAdminController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: InviteCustomerPortalDto,
   ) {
-    return this.accountsService.inviteCustomer(
-      user.companyId!,
-      user.id,
-      dto,
-    );
+    return this.accountsService.inviteCustomer(user.companyId!, user.id, dto);
   }
 
   @Post('invitations/intermediary')
@@ -136,16 +133,15 @@ export class PortalAdminController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.requestsService.findCompanyRequestDetail(
-      user.companyId!,
-      id,
-    );
+    return this.requestsService.findCompanyRequestDetail(user.companyId!, id);
   }
 
   @Post('requests/:id/assign')
   @UseGuards(PermissionsGuard)
   @Permissions(PortalPermissions.REQUEST_ASSIGN)
-  @ApiOperation({ summary: 'Assign a portal service request to a company user' })
+  @ApiOperation({
+    summary: 'Assign a portal service request to a company user',
+  })
   assign(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -208,6 +204,7 @@ export class PortalAdminController {
   }
 
   @Get('attachments/:id/download')
+  @RawResponse()
   @UseGuards(PermissionsGuard)
   @Permissions(PortalPermissions.REQUEST_READ)
   @ApiOperation({ summary: 'Download a portal request attachment (staff)' })

@@ -8,6 +8,8 @@ import {
   Logger,
 } from '@nestjs/common';
 
+import { RawResponse } from '@insurance-max/shared-kernel';
+
 import { TiramisCallbackService } from '../services/tiramis-callback.service';
 
 @Controller('tiramis/callbacks')
@@ -21,6 +23,7 @@ export class TiramisCallbackController {
   @Post(':environment')
   @HttpCode(200)
   @Header('Content-Type', 'application/xml')
+  @RawResponse()
   async handleCallback(
     @Param('environment') environment: string,
     @Body() rawXml: string,

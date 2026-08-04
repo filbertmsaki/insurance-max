@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { HttpModule } from '@nestjs/axios';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { TiramisHttpModule } from '../../integrations/tiramis/tiramis-http.module';
 import { TiramisCompanyScopeGuard } from './auth/tiramis-company-scope.guard';
 import { TiramisPermissionGuard } from './auth/tiramis-permission.guard';
 import { TiramisAdminController } from './controllers/tiramis-admin.controller';
@@ -72,7 +72,7 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
       NonMotorPolicyDetail,
       ReinsuranceDeclaration,
     ]),
-    HttpModule,
+    TiramisHttpModule,
   ],
   controllers: [
     TiramisController,

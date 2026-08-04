@@ -1,33 +1,40 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { ShieldCheck } from 'lucide-react'
-import OtpInput from 'react-otp-input'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { authApi } from '@/modules/shared/auth/api/auth'
-import { getApiErrorMessage } from '@/lib/api-error'
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useMutation } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { ShieldCheck } from 'lucide-react';
+import OtpInput from 'react-otp-input';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { authApi } from '@/modules/shared/auth/api/auth';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { APP_NAME } from '@/modules/shared/config';
 
 export function TwoFactorPage() {
-  const navigate = useNavigate()
-  const { tempToken, setSession } = useAuthStore()
-  const [code, setCode] = useState('')
-  const [backupCode, setBackupCode] = useState('')
-  const [useBackup, setUseBackup] = useState(false)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [hydrated, setHydrated] = useState(useAuthStore.persist.hasHydrated())
+  const navigate = useNavigate();
+  const { tempToken, setSession } = useAuthStore();
+  const [code, setCode] = useState('');
+  const [backupCode, setBackupCode] = useState('');
+  const [useBackup, setUseBackup] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(useAuthStore.persist.hasHydrated());
 
   useEffect(() => {
     const unsubscribe = useAuthStore.persist.onFinishHydration(() => {
-      setHydrated(true)
-    })
+      setHydrated(true);
+    });
 
-    return unsubscribe
-  }, [])
+    return unsubscribe;
+  }, []);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -36,23 +43,23 @@ export function TwoFactorPage() {
         token: useBackup ? backupCode : code,
       }),
     onSuccess: (tokens) => {
-      setSession(tokens)
-      setErrorMessage(null)
-      toast.success('Welcome back!')
-      navigate('/dashboard')
+      setSession(tokens);
+      setErrorMessage(null);
+      toast.success('Welcome back!');
+      navigate('/dashboard');
     },
     onError: (error) => {
-      setErrorMessage(getApiErrorMessage(error))
+      setErrorMessage(getApiErrorMessage(error));
     },
-  })
+  });
 
   if (!hydrated) {
-    return null
+    return null;
   }
 
   if (!tempToken) {
-    navigate('/login')
-    return null
+    navigate('/login');
+    return null;
   }
 
   return (
@@ -60,7 +67,7 @@ export function TwoFactorPage() {
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center gap-2 mb-8">
           <ShieldCheck className="h-9 w-9 text-blue-600" />
-          <span className="text-2xl font-bold text-slate-900">{import.meta.env.VITE_APP_NAME}</span>
+          <span className="text-2xl font-bold text-slate-900">{APP_NAME}</span>
         </div>
 
         <Card>
@@ -119,14 +126,21 @@ export function TwoFactorPage() {
 
             <button
               type="button"
-              onClick={() => { setUseBackup((v) => !v); setCode(''); setBackupCode(''); setErrorMessage(null) }}
+              onClick={() => {
+                setUseBackup((v) => !v);
+                setCode('');
+                setBackupCode('');
+                setErrorMessage(null);
+              }}
               className="w-full text-sm text-blue-600 hover:underline"
             >
-              {useBackup ? 'Use authenticator code instead' : 'Use a backup code instead'}
+              {useBackup
+                ? 'Use authenticator code instead'
+                : 'Use a backup code instead'}
             </button>
           </CardContent>
         </Card>
       </div>
     </div>
-  )
+  );
 }

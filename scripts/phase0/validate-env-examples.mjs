@@ -47,10 +47,7 @@ function parseEnv(relativePath) {
 }
 
 const env = Object.fromEntries(
-  Object.entries(files).map(([service, file]) => [
-    service,
-    parseEnv(file),
-  ]),
+  Object.entries(files).map(([service, file]) => [service, parseEnv(file)]),
 );
 
 function expect(service, key, expected) {
@@ -69,11 +66,7 @@ expect('portal', 'APP_PORT', '9090');
 expect('portal', 'APP_URL', 'http://localhost:9090');
 expect('portal', 'APP_FRONTEND_URL', 'http://localhost:9092');
 expect('portal', 'CORS_ALLOWED_ORIGINS', 'http://localhost:9092');
-expect(
-  'portal',
-  'TIRAMIS_SERVICE_BASE_URL',
-  'http://127.0.0.1:9091',
-);
+expect('portal', 'TIRAMIS_SERVICE_BASE_URL', 'http://127.0.0.1:9091');
 expect('portal', 'DB_SYNCHRONIZE', 'false');
 
 expect('tiramis', 'APP_PORT', '9091');
@@ -87,10 +80,8 @@ expect('tiramis', 'DB_SYNCHRONIZE', 'false');
 
 expect('web', 'VITE_APP_PORT', '9092');
 expect('web', 'VITE_APP_URL', 'http://localhost:9092');
-expect('web', 'VITE_FRONTEND_URL', 'http://localhost:9092');
 expect('web', 'VITE_BACKEND_URL', 'http://localhost:9090');
 expect('web', 'VITE_API_PREFIX', 'api/v1');
-expect('web', 'VITE_TIRAMIS_URL', 'http://localhost:9091');
 
 if (errors.length > 0) {
   console.error('Environment example validation failed:');

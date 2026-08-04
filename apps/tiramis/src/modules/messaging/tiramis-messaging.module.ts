@@ -1,5 +1,6 @@
 import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 import { TiramisHttpClientService } from './services/tiramis-http-client.service';
 import { TiramisSignatureService } from './services/tiramis-signature.service';
@@ -8,17 +9,30 @@ import { TiramisXmlParserService } from './services/tiramis-xml-parser.service';
 
 @Module({
   imports: [
-    HttpModule.register({
-      timeout: 60000,
-      maxRedirects: 0,
+    HttpModule.registerAsync({
+      inject: [ConfigService],
+
+      useFactory: (configService: ConfigService) => ({
+        timeout: configService.getOrThrow<number>(
+          'tiramisService.requestTimeoutMs',
+        ),
+
+        maxRedirects: 0,
+
+        headers: {
+          Accept: 'application/xml,text/xml',
+        },
+      }),
     }),
   ],
+
   providers: [
     TiramisXmlBuilderService,
     TiramisXmlParserService,
     TiramisSignatureService,
     TiramisHttpClientService,
   ],
+
   exports: [
     TiramisXmlBuilderService,
     TiramisXmlParserService,

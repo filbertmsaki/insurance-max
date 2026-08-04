@@ -1,43 +1,56 @@
-import { useState, useEffect } from 'react'
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { ChevronRight, ShieldCheck, X, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
-import { canAccessRoute } from '@/lib/auth/permissions'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { NAV_NODES, type NavLeaf, type NavGroup } from './nav-config'
+import { useState, useEffect } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import {
+  ChevronRight,
+  ShieldCheck,
+  X,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { APP_NAME } from '@/modules/shared/config';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { canAccessRoute } from '@/lib/auth/permissions';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { NAV_NODES, type NavLeaf, type NavGroup } from './nav-config';
 
 // ─── Visibility helpers ───────────────────────────────────────────────────────
 
 function useNavFilter() {
-  const { user } = useAuthStore()
+  const { user } = useAuthStore();
 
   function isLeafVisible(leaf: NavLeaf): boolean {
     return canAccessRoute(user, {
       requiredPermission: leaf.permission,
       anyPermission: leaf.anyPermission,
       anyRole: leaf.anyRole,
-    })
+    });
   }
 
   function visibleChildren(group: NavGroup): NavLeaf[] {
-    return group.children.filter(isLeafVisible)
+    return group.children.filter(isLeafVisible);
   }
 
-  return { isLeafVisible, visibleChildren }
+  return { isLeafVisible, visibleChildren };
 }
 
 // ─── NavLink item ─────────────────────────────────────────────────────────────
 
 interface LeafItemProps {
-  leaf: NavLeaf
-  collapsed: boolean
-  indented?: boolean
+  leaf: NavLeaf;
+  collapsed: boolean;
+  indented?: boolean;
 }
 
 function LeafItem({ leaf, collapsed, indented = false }: LeafItemProps) {
-  const { pathname } = useLocation()
-  const isActive = pathname === leaf.to || (leaf.to !== '/dashboard' && pathname.startsWith(leaf.to + '/'))
+  const { pathname } = useLocation();
+  const isActive =
+    pathname === leaf.to ||
+    (leaf.to !== '/dashboard' && pathname.startsWith(leaf.to + '/'));
 
   const linkClass = cn(
     'flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 outline-none',
@@ -47,16 +60,18 @@ function LeafItem({ leaf, collapsed, indented = false }: LeafItemProps) {
     isActive
       ? 'bg-blue-600 text-white shadow-sm shadow-blue-900/30'
       : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100',
-  )
+  );
 
   const inner = (
     <NavLink to={leaf.to} className={linkClass} end={leaf.to === '/dashboard'}>
-      <leaf.icon className={cn('shrink-0', indented ? 'h-3.5 w-3.5' : 'h-4 w-4')} />
+      <leaf.icon
+        className={cn('shrink-0', indented ? 'h-3.5 w-3.5' : 'h-4 w-4')}
+      />
       {!collapsed && <span className="truncate">{leaf.label}</span>}
     </NavLink>
-  )
+  );
 
-  if (!collapsed) return inner
+  if (!collapsed) return inner;
 
   return (
     <Tooltip>
@@ -65,46 +80,48 @@ function LeafItem({ leaf, collapsed, indented = false }: LeafItemProps) {
         {leaf.label}
       </TooltipContent>
     </Tooltip>
-  )
+  );
 }
 
 // ─── Group item ───────────────────────────────────────────────────────────────
 
 interface GroupItemProps {
-  group: NavGroup
-  collapsed: boolean
-  onExpandSidebar?: () => void
+  group: NavGroup;
+  collapsed: boolean;
+  onExpandSidebar?: () => void;
 }
 
 function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
-  const { pathname } = useLocation()
-  const navigate = useNavigate()
-  const { visibleChildren } = useNavFilter()
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const { visibleChildren } = useNavFilter();
 
-  const children = visibleChildren(group)
+  const children = visibleChildren(group);
   const hasActive = children.some(
-    (c) => pathname === c.to || (c.to !== '/dashboard' && pathname.startsWith(c.to + '/')),
-  )
+    (c) =>
+      pathname === c.to ||
+      (c.to !== '/dashboard' && pathname.startsWith(c.to + '/')),
+  );
 
-  const [isOpen, setIsOpen] = useState(hasActive)
+  const [isOpen, setIsOpen] = useState(hasActive);
 
   // Re-sync open state when route changes (e.g. navigating from collapsed mode)
   useEffect(() => {
-    if (hasActive) setIsOpen(true)
-  }, [hasActive])
+    if (hasActive) setIsOpen(true);
+  }, [hasActive]);
 
-  if (children.length === 0) return null
+  if (children.length === 0) return null;
 
   // ── Collapsed mode: icon button → navigate to first child ──────────────────
   if (collapsed) {
     const handleClick = () => {
       if (onExpandSidebar) {
-        onExpandSidebar()
-        setIsOpen(true)
+        onExpandSidebar();
+        setIsOpen(true);
       } else {
-        navigate(children[0].to)
+        navigate(children[0].to);
       }
-    }
+    };
 
     return (
       <Tooltip>
@@ -125,7 +142,7 @@ function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
           {group.label}
         </TooltipContent>
       </Tooltip>
-    )
+    );
   }
 
   // ── Expanded mode: collapsible group ──────────────────────────────────────
@@ -169,16 +186,16 @@ function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 interface SidebarProps {
-  collapsed?: boolean
-  onToggleCollapse?: () => void
-  onClose?: () => void
-  mobile?: boolean
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+  onClose?: () => void;
+  mobile?: boolean;
 }
 
 export function Sidebar({
@@ -187,11 +204,11 @@ export function Sidebar({
   onClose,
   mobile = false,
 }: SidebarProps) {
-  const { isLeafVisible, visibleChildren } = useNavFilter()
+  const { isLeafVisible, visibleChildren } = useNavFilter();
 
   function isNodeVisible(node: (typeof NAV_NODES)[number]): boolean {
-    if (node.kind === 'link') return isLeafVisible(node)
-    return visibleChildren(node).length > 0
+    if (node.kind === 'link') return isLeafVisible(node);
+    return visibleChildren(node).length > 0;
   }
 
   return (
@@ -215,7 +232,7 @@ export function Sidebar({
 
         {(!collapsed || mobile) && (
           <span className="font-semibold text-white text-sm truncate flex-1">
-            {import.meta.env.VITE_APP_NAME ?? 'Insurance Portal'}
+            {APP_NAME}
           </span>
         )}
 
@@ -245,7 +262,11 @@ export function Sidebar({
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5 scrollbar-thin">
         {NAV_NODES.filter(isNodeVisible).map((node) =>
           node.kind === 'link' ? (
-            <LeafItem key={node.to} leaf={node} collapsed={collapsed && !mobile} />
+            <LeafItem
+              key={node.to}
+              leaf={node}
+              collapsed={collapsed && !mobile}
+            />
           ) : (
             <GroupItem
               key={node.label}
@@ -277,5 +298,5 @@ export function Sidebar({
         </div>
       )}
     </aside>
-  )
+  );
 }

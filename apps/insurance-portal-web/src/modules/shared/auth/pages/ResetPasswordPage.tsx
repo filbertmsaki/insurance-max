@@ -1,17 +1,31 @@
-import { useState } from 'react'
-import { useNavigate, useSearchParams, Link } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { useMutation } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { ShieldCheck } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { authApi } from '@/modules/shared/auth/api/auth'
+import { useState } from 'react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useMutation } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { ShieldCheck } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { authApi } from '@/modules/shared/auth/api/auth';
+import { APP_NAME } from '@/modules/shared/config';
 
 const schema = z
   .object({
@@ -21,25 +35,26 @@ const schema = z
   .refine((d) => d.new_password === d.confirm_password, {
     message: 'Passwords do not match',
     path: ['confirm_password'],
-  })
+  });
 
-type FormData = z.infer<typeof schema>
+type FormData = z.infer<typeof schema>;
 
 export function ResetPasswordPage() {
-  const navigate = useNavigate()
-  const [params] = useSearchParams()
-  const token = params.get('token') ?? ''
-  const [showPw, setShowPw] = useState(false)
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const token = params.get('token') ?? '';
+  const [showPw, setShowPw] = useState(false);
 
-  const form = useForm<FormData>({ resolver: zodResolver(schema) })
+  const form = useForm<FormData>({ resolver: zodResolver(schema) });
 
   const mutation = useMutation({
-    mutationFn: (d: FormData) => authApi.resetPassword({ token, new_password: d.new_password }),
+    mutationFn: (d: FormData) =>
+      authApi.resetPassword({ token, new_password: d.new_password }),
     onSuccess: () => {
-      toast.success('Password reset successfully')
-      navigate('/login')
+      toast.success('Password reset successfully');
+      navigate('/login');
     },
-  })
+  });
 
   if (!token) {
     return (
@@ -53,7 +68,7 @@ export function ResetPasswordPage() {
           </AlertDescription>
         </Alert>
       </div>
-    )
+    );
   }
 
   return (
@@ -61,16 +76,21 @@ export function ResetPasswordPage() {
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center gap-2 mb-8">
           <ShieldCheck className="h-9 w-9 text-blue-600" />
-          <span className="text-2xl font-bold text-slate-900">{import.meta.env.VITE_APP_NAME}</span>
+          <span className="text-2xl font-bold text-slate-900">{APP_NAME}</span>
         </div>
         <Card>
           <CardHeader>
             <CardTitle>Set new password</CardTitle>
-            <CardDescription>Choose a strong password for your account</CardDescription>
+            <CardDescription>
+              Choose a strong password for your account
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
+              <form
+                onSubmit={form.handleSubmit((d) => mutation.mutate(d))}
+                className="space-y-4"
+              >
                 <FormField
                   control={form.control}
                   name="new_password"
@@ -114,7 +134,11 @@ export function ResetPasswordPage() {
                   />
                   Show passwords
                 </label>
-                <Button type="submit" className="w-full" disabled={mutation.isPending}>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={mutation.isPending}
+                >
                   {mutation.isPending ? 'Resetting...' : 'Reset password'}
                 </Button>
               </form>
@@ -123,5 +147,5 @@ export function ResetPasswordPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

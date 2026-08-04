@@ -3,6 +3,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 
+import {
+  HTTP_HEADERS,
+  RequestContextService,
+} from '@insurance-max/shared-kernel';
+
 import { TiramisPortalNotificationEventDto } from '../dto/tiramis-portal-notification-event.dto';
 
 @Injectable()
@@ -12,6 +17,7 @@ export class TiramisPortalNotificationService {
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    private readonly requestContextService: RequestContextService,
   ) {}
 
   async publish(event: TiramisPortalNotificationEventDto): Promise<void> {
@@ -40,6 +46,16 @@ export class TiramisPortalNotificationService {
       this.configService.get<number>('tiramisService.portalWebhookTimeoutMs') ||
       5000;
 
+    const requestId =
+      this.requestContextService.getRequestId() || event.requestId;
+
+    const correlationId =
+      this.requestContextService.getCorrelationId() || requestId;
+
+    const sourceService = this.configService.getOrThrow<string>(
+      'tiramisService.sourceService',
+    );
+
     try {
       const response = await firstValueFrom(
         this.httpService.post(webhookUrl, event, {
@@ -48,6 +64,11 @@ export class TiramisPortalNotificationService {
           headers: {
             'Content-Type': 'application/json',
             Accept: 'application/json',
+
+            [HTTP_HEADERS.REQUEST_ID]: requestId,
+            [HTTP_HEADERS.CORRELATION_ID]: correlationId,
+            [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
+
             ...(webhookToken
               ? { 'x-tiramis-webhook-token': webhookToken }
               : {}),

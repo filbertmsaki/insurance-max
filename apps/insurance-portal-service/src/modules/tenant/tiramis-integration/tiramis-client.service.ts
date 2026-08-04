@@ -5,8 +5,14 @@ import {
   Logger,
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-import { environment } from '@insurance-max/shared-config';
+import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
+
+import { unwrapApiResponse } from '@insurance-max/contracts';
+import {
+  HTTP_HEADERS,
+  RequestContextService,
+} from '@insurance-max/shared-kernel';
 
 import { SubmitPortalTiraDto } from './dto/submit-portal-tira.dto';
 
@@ -14,7 +20,11 @@ import { SubmitPortalTiraDto } from './dto/submit-portal-tira.dto';
 export class TiramisClientService {
   private readonly logger = new Logger(TiramisClientService.name);
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(
+    private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
+    private readonly requestContextService: RequestContextService,
+  ) {}
 
   async submit(params: {
     companyId: string;
@@ -82,36 +92,63 @@ export class TiramisClientService {
     });
   }
 
-  private async request(pattern: string, command: Record<string, any>) {
-    const baseUrl = String(environment.TIRAMIS_SERVICE_BASE_URL || '').replace(
-      /\/+$/,
-      '',
-    );
+  private async request(pattern: string, command: Record<string, unknown>) {
     const route = this.resolveHttpRoute(pattern);
+
     const isQuery =
       pattern === 'tiramis.submission.status' ||
       pattern === 'tiramis.submission.trace';
+
+    const requestId = this.requestContextService.getRequestId();
+
+    const correlationId =
+      this.requestContextService.getCorrelationId() || requestId;
+
+    const sourceService = this.configService.getOrThrow<string>(
+      'tiramisClient.sourceService',
+    );
+
     const response = await firstValueFrom(
       this.httpService.request({
         method: isQuery ? 'GET' : 'POST',
-        url: `${baseUrl}${route}`,
+
+        url: route,
+
         params: isQuery ? command : undefined,
+
         data: isQuery ? undefined : command.payload,
-        timeout: Number(environment.TIRAMIS_HTTP_TIMEOUT_MS || 60000),
+
         validateStatus: () => true,
-        headers: { Accept: 'application/json' },
+
+        headers: {
+          Accept: 'application/json',
+
+          [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
+
+          ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
+
+          ...(correlationId
+            ? { [HTTP_HEADERS.CORRELATION_ID]: correlationId }
+            : {}),
+        },
       }),
     );
 
     if (response.status < 200 || response.status >= 300) {
-      const error: any = new Error(
+      const error = new Error(
         `TIRAMIS HTTP request failed with status ${response.status}`,
-      );
+      ) as Error & {
+        response?: {
+          data: unknown;
+          status: number;
+        };
+      };
+
       error.response = { data: response.data, status: response.status };
       throw error;
     }
 
-    return response.data;
+    return unwrapApiResponse(response.data);
   }
 
   private resolveHttpRoute(pattern: string): string {

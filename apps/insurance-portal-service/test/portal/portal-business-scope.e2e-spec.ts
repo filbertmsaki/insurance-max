@@ -9,7 +9,6 @@ import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { randomUUID } from 'crypto';
 
-import { HttpExceptionFilter } from '@insurance-max/portal-shared';
 import { hashPassword } from '@insurance-max/portal-shared/utils/hash.util';
 
 import { AppModule } from '../../src/app.module';
@@ -135,7 +134,12 @@ describe('Portal business scope (real database)', () => {
       );
     }
 
-    return response.body.access_token ?? response.body.accessToken;
+    return (
+      response.body.data?.access_token ??
+      response.body.data?.accessToken ??
+      response.body.access_token ??
+      response.body.accessToken
+    );
   }
 
   beforeAll(async () => {
@@ -157,8 +161,6 @@ describe('Portal business scope (real database)', () => {
         transformOptions: { enableImplicitConversion: true },
       }),
     );
-    app.useGlobalFilters(new HttpExceptionFilter());
-
     await app.init();
 
     dataSource = app.get(DataSource);
@@ -191,7 +193,11 @@ describe('Portal business scope (real database)', () => {
       VALUES ($1, $2, 'INDIVIDUAL', 'Alice', 'Customer', $3, 'TZA', 'Dar es Salaam', 'Ilala', 'ACTIVE')
       RETURNING id
       `,
-      [insurerCompanyId, `CUST-TEST-A-${suffix}`, `+25571${suffix.slice(0, 7)}1`],
+      [
+        insurerCompanyId,
+        `CUST-TEST-A-${suffix}`,
+        `+25571${suffix.slice(0, 7)}1`,
+      ],
     );
     customerAId = customerA[0].id;
 
@@ -204,7 +210,11 @@ describe('Portal business scope (real database)', () => {
       VALUES ($1, $2, 'INDIVIDUAL', 'Bob', 'Customer', $3, 'TZA', 'Dar es Salaam', 'Ilala', 'ACTIVE')
       RETURNING id
       `,
-      [insurerCompanyId, `CUST-TEST-B-${suffix}`, `+25571${suffix.slice(0, 7)}2`],
+      [
+        insurerCompanyId,
+        `CUST-TEST-B-${suffix}`,
+        `+25571${suffix.slice(0, 7)}2`,
+      ],
     );
     customerBId = customerB[0].id;
 
@@ -385,7 +395,15 @@ describe('Portal business scope (real database)', () => {
       VALUES ($1, $1, $2, $3, $4, $5, 'DIRECT', 'ACTIVE', $6, $7, $6)
       RETURNING id
       `,
-      [insurerCompanyId, customerAId, categoryId, productId, `POL-TEST-A-${suffix}`, today, nextYear],
+      [
+        insurerCompanyId,
+        customerAId,
+        categoryId,
+        productId,
+        `POL-TEST-A-${suffix}`,
+        today,
+        nextYear,
+      ],
     );
     customerAPolicyId = policyA[0].id;
 
@@ -398,7 +416,15 @@ describe('Portal business scope (real database)', () => {
       VALUES ($1, $1, $2, $3, $4, $5, 'DIRECT', 'ACTIVE', $6, $7, $6)
       RETURNING id
       `,
-      [insurerCompanyId, customerBId, categoryId, productId, `POL-TEST-B-${suffix}`, today, nextYear],
+      [
+        insurerCompanyId,
+        customerBId,
+        categoryId,
+        productId,
+        `POL-TEST-B-${suffix}`,
+        today,
+        nextYear,
+      ],
     );
     customerBPolicyId = policyB[0].id;
 
@@ -412,7 +438,13 @@ describe('Portal business scope (real database)', () => {
       VALUES ($1, $1, $2, $3, $4, $5, 'MOTOR', 'MOTOR_SINGLE', 'BROKER')
       RETURNING id
       `,
-      [insurerCompanyId, brokerACompanyId, categoryId, productId, `QUO-TEST-A-${suffix}`],
+      [
+        insurerCompanyId,
+        brokerACompanyId,
+        categoryId,
+        productId,
+        `QUO-TEST-A-${suffix}`,
+      ],
     );
     brokerAQuotationId = quotationA[0].id;
 
@@ -425,7 +457,13 @@ describe('Portal business scope (real database)', () => {
       VALUES ($1, $1, $2, $3, $4, $5, 'MOTOR', 'MOTOR_SINGLE', 'BROKER')
       RETURNING id
       `,
-      [insurerCompanyId, brokerBCompanyId, categoryId, productId, `QUO-TEST-B-${suffix}`],
+      [
+        insurerCompanyId,
+        brokerBCompanyId,
+        categoryId,
+        productId,
+        `QUO-TEST-B-${suffix}`,
+      ],
     );
     brokerBQuotationId = quotationB[0].id;
 

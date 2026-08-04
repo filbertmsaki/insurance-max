@@ -1,4 +1,3 @@
-import { environment } from '@insurance-max/shared-config';
 import { HttpService } from '@nestjs/axios';
 import {
   BadRequestException,
@@ -7,7 +6,14 @@ import {
   Logger,
   RequestTimeoutException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
+
+import { unwrapApiResponse } from '@insurance-max/contracts';
+import {
+  HTTP_HEADERS,
+  RequestContextService,
+} from '@insurance-max/shared-kernel';
 
 import { SubmitTiramisDto } from '../dto/submit-tiramis.dto';
 import { TiramisStatusQueryDto } from '../dto/tiramis-status-query.dto';
@@ -39,6 +45,8 @@ export class TiramisClientService {
 
   constructor(
     private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
+    private readonly requestContextService: RequestContextService,
     private readonly trackingRepository: TiramisSubmissionTrackingRepository,
     private readonly businessRecordSyncService: TiramisBusinessRecordSyncService,
     private readonly auditService: TiramisAuditService,
@@ -393,7 +401,7 @@ export class TiramisClientService {
             {
               error,
               maxRetryAttempts: Number(
-                environment.TIRAMIS_RETRY_MAX_ATTEMPTS || 3,
+                this.configService.get('TIRAMIS_RETRY_MAX_ATTEMPTS') || 3,
               ),
             },
           );
@@ -607,66 +615,106 @@ export class TiramisClientService {
     };
   }
 
-  private async send(pattern: string, payload: Record<string, any>) {
+  private async send(pattern: string, payload: Record<string, unknown>) {
     try {
-      const baseUrl = String(
-        environment.TIRAMIS_SERVICE_BASE_URL || '',
-      ).replace(/\/+$/, '');
       const route = this.httpRouteForPattern(pattern);
+
       const isQuery =
         pattern === TIRAMIS_MESSAGE_PATTERNS.HEALTH ||
         pattern === TIRAMIS_MESSAGE_PATTERNS.STATUS ||
         pattern === TIRAMIS_MESSAGE_PATTERNS.TRACE;
+
+      const requestId = this.requestContextService.getRequestId();
+
+      const correlationId =
+        this.requestContextService.getCorrelationId() || requestId;
+
+      const sourceService = this.configService.getOrThrow<string>(
+        'tiramisClient.sourceService',
+      );
+
       const response = await firstValueFrom(
         this.httpService.request({
           method: isQuery ? 'GET' : 'POST',
-          url: `${baseUrl}${route.path}`,
+
+          url: route.path,
+
           params: isQuery ? payload : undefined,
+
           data: isQuery ? undefined : this.httpPayload(pattern, payload),
-          timeout: Number(environment.TIRAMIS_HTTP_TIMEOUT_MS || 60000),
+
           validateStatus: () => true,
-          headers: { Accept: 'application/json' },
+
+          headers: {
+            Accept: 'application/json',
+
+            [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
+
+            ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
+
+            ...(correlationId
+              ? { [HTTP_HEADERS.CORRELATION_ID]: correlationId }
+              : {}),
+          },
         }),
       );
 
       if (response.status < 200 || response.status >= 300) {
-        const error: any = new Error(
+        const error = new Error(
           `TIRAMIS HTTP request failed with status ${response.status}`,
-        );
+        ) as Error & {
+          response?: {
+            data: unknown;
+            status: number;
+          };
+        };
+
         error.response = { data: response.data, status: response.status };
         throw error;
       }
 
-      return response.data;
-    } catch (error: any) {
-      if (error?.name === 'TimeoutError') {
-        throw new RequestTimeoutException(
-          'TIRAMIS service request timeout. Please check tiramis-service connection.',
-        );
+      return unwrapApiResponse(response.data);
+    } catch (error: unknown) {
+      const requestError = error as {
+        code?: string;
+        name?: string;
+        message?: string;
+        response?: {
+          data?: unknown;
+          status?: number;
+        };
+      };
+
+      if (
+        requestError.code === 'ECONNABORTED' ||
+        requestError.name === 'TimeoutError'
+      ) {
+        throw new RequestTimeoutException({
+          code: 'TIRAMIS_SERVICE_TIMEOUT',
+
+          message:
+            'The TIRAMIS service did not respond within the configured timeout.',
+        });
       }
 
-      const response = this.extractTiramisErrorResponse(error);
+      const response = this.extractTiramisErrorResponse(requestError);
       const validationErrors = this.extractValidationErrors(response);
+
       const message =
-        response?.message ||
-        error?.message ||
-        response?.error?.message ||
-        'Failed to communicate with tiramis-service';
+        this.extractTiramisErrorMessage(response) ||
+        requestError.message ||
+        'Failed to communicate with the TIRAMIS service';
 
       throw new BadRequestException({
+        code: 'TIRAMIS_SERVICE_REQUEST_FAILED',
+
         message,
-        ...(validationErrors.length > 0
-          ? { validation_errors: validationErrors }
-          : {}),
-        details:
-          response && typeof response === 'object'
-            ? {
-                ...response,
-                ...(validationErrors.length > 0
-                  ? { validation_errors: validationErrors }
-                  : {}),
-              }
-            : (response ?? null),
+
+        errors: validationErrors.map((validationMessage) => ({
+          message: validationMessage,
+        })),
+
+        details: response && typeof response === 'object' ? response : null,
       });
     }
   }
@@ -807,14 +855,44 @@ export class TiramisClientService {
     ].includes(status as TiramisSubmissionStatus);
   }
 
-  private extractTiramisErrorResponse(error: any): any {
+  private extractTiramisErrorResponse(error: unknown): unknown {
+    if (!error || typeof error !== 'object') {
+      return null;
+    }
+
+    const candidate = error as {
+      response?: {
+        data?: unknown;
+      };
+      error?: unknown;
+      details?: unknown;
+    };
+
     return (
-      error?.response ||
-      error?.error?.response ||
-      error?.error ||
-      error?.details ||
-      null
+      candidate.response?.data ?? candidate.error ?? candidate.details ?? null
     );
+  }
+
+  private extractTiramisErrorMessage(response: unknown): string | null {
+    if (!response || typeof response !== 'object') {
+      return null;
+    }
+
+    const record = response as Record<string, unknown>;
+
+    if (typeof record.message === 'string') {
+      return record.message;
+    }
+
+    if (record.error && typeof record.error === 'object') {
+      const error = record.error as Record<string, unknown>;
+
+      if (typeof error.message === 'string') {
+        return error.message;
+      }
+    }
+
+    return null;
   }
 
   private extractValidationErrors(response: any): string[] {

@@ -29,6 +29,7 @@ import { memoryStorage } from 'multer';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { RawResponse } from '@insurance-max/shared-kernel';
 
 import { CurrentPortalAccount } from '../decorators/current-portal-account.decorator';
 import { PortalActors } from '../decorators/portal-actors.decorator';
@@ -212,7 +213,10 @@ export class PortalCommonController {
   }
 
   @Get('attachments/:id/download')
-  @ApiOperation({ summary: 'Download an attachment owned by the portal account' })
+  @RawResponse()
+  @ApiOperation({
+    summary: 'Download an attachment owned by the portal account',
+  })
   async download(
     @CurrentPortalAccount() account: PortalAccount,
     @Param('id', ParseUUIDPipe) id: string,

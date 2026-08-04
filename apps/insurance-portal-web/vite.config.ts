@@ -21,6 +21,11 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, './src'),
 
+        '@insurance-max/contracts': path.resolve(
+          __dirname,
+          '../../libs/contracts/src',
+        ),
+
         '@insurance-max/portal-shared': path.resolve(
           __dirname,
           '../../libs/portal-shared/src',

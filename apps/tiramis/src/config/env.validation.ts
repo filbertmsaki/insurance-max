@@ -73,4 +73,12 @@ export const tiramisEnvValidationSchema = Joi.object({
     otherwise: Joi.string().min(16).default('local-only-tiramis-webhook-token'),
   }),
   INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS: Joi.number().default(5000),
+
+  TIRAMIS_SOURCE_SERVICE: Joi.string().trim().min(1).default('tiramis-service'),
+  TIRAMIS_HTTP_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .max(300000)
+    .default(60000),
+  TIRAMIS_LOG_PAYLOADS: Joi.boolean().default(false),
 });

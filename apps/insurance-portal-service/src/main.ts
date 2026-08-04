@@ -10,8 +10,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 
-import { HttpExceptionFilter } from '@insurance-max/portal-shared';
 import { buildUrl } from '@insurance-max/shared-config';
+import { bindRequestContext } from '@insurance-max/shared-kernel';
 
 import { AppModule } from './app.module';
 
@@ -21,6 +21,7 @@ async function bootstrap() {
   });
 
   app.enableShutdownHooks();
+  bindRequestContext(app);
 
   const configService = app.get(ConfigService);
   const logger = new Logger('Bootstrap');
@@ -84,6 +85,14 @@ async function bootstrap() {
         'Authorization',
         'X-Api-Key',
         'X-Tenant-Id',
+        'X-Request-Id',
+        'X-Correlation-Id',
+        'X-Idempotency-Key',
+      ],
+      exposedHeaders: [
+        'X-Request-Id',
+        'X-Correlation-Id',
+        'Content-Disposition',
       ],
     });
   }
@@ -102,10 +111,16 @@ async function bootstrap() {
       whitelist: true,
       transform: true,
       forbidNonWhitelisted: true,
+      stopAtFirstError: false,
+
       transformOptions: { enableImplicitConversion: true },
+
+      validationError: {
+        target: false,
+        value: false,
+      },
     }),
   );
-  app.useGlobalFilters(new HttpExceptionFilter());
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle(configService.getOrThrow<string>('app.name'))

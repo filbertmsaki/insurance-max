@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { HttpModule } from '@nestjs/axios';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { TiramisHttpModule } from '../../../integrations/tiramis/tiramis-http.module';
 import { Branch } from '../branches/entities/branch.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { PolicyStatusHistory } from '../policies/entities/policy-status-history.entity';
@@ -32,7 +32,7 @@ import { TiramisIntegrationService } from './tiramis-integration.service';
       Branch,
       TiramisSalePointEntity,
     ]),
-    HttpModule,
+    TiramisHttpModule,
   ],
   controllers: [
     TiramisIntegrationController,

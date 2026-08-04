@@ -30,13 +30,18 @@ type LegacyPageResponse<T> = {
 function normalizeLegacyPage<T>(
   response: LegacyPageResponse<T>,
 ): PaginatedResponse<T> {
+  const page = response.meta.page;
+  const totalPages = response.meta.totalPages ?? response.meta.pages ?? 1;
+
   return {
     data: response.items,
     pagination: {
-      page: response.meta.page,
+      page,
       limit: response.meta.limit,
       total: response.meta.total,
-      totalPages: response.meta.totalPages ?? response.meta.pages ?? 1,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1,
     },
   };
 }
@@ -129,6 +134,12 @@ export const tiramisApi = {
         limit: response.data.meta.itemsPerPage,
         total: response.data.meta.totalItems,
         totalPages: response.data.meta.totalPages,
+        hasNextPage:
+          response.data.meta.hasNextPage ??
+          response.data.meta.currentPage < response.data.meta.totalPages,
+        hasPreviousPage:
+          response.data.meta.hasPreviousPage ??
+          response.data.meta.currentPage > 1,
       },
     };
   },

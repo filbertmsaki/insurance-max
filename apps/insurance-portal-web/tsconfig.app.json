@@ -25,7 +25,11 @@
     /* Path aliases */
     "paths": {
       "@/*": ["./src/*"],
+
+      "@insurance-max/contracts": ["../../libs/contracts/src/index.ts"],
+
       "@insurance-max/portal-shared": ["../../libs/portal-shared/src/index.ts"],
+
       "@insurance-max/portal-shared/*": ["../../libs/portal-shared/src/*"]
     }
   },

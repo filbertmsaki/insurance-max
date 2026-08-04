@@ -1,32 +1,3 @@
-import {
-  CallHandler,
-  ExecutionContext,
-  Injectable,
-  NestInterceptor,
-} from '@nestjs/common';
-import { Observable, map } from 'rxjs';
+export { ApiResponseInterceptor as TransformInterceptor } from '@insurance-max/shared-kernel';
 
-export interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  timestamp: string;
-}
-
-@Injectable()
-export class TransformInterceptor<T> implements NestInterceptor<
-  T,
-  ApiResponse<T>
-> {
-  intercept(
-    _context: ExecutionContext,
-    next: CallHandler,
-  ): Observable<ApiResponse<T>> {
-    return next.handle().pipe(
-      map((data: T) => ({
-        success: true,
-        data,
-        timestamp: new Date().toISOString(),
-      })),
-    );
-  }
-}
+export type { ApiSuccessResponse as ApiResponse } from '@insurance-max/contracts';

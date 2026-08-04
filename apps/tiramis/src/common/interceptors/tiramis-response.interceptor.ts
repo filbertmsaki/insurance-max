@@ -7,6 +7,8 @@ import {
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
+import { isApiSuccessResponse } from '@insurance-max/contracts';
+
 type TiraSubmissionResult = {
   request?: Record<string, any> | null;
   response?: Record<string, any> | null;
@@ -22,9 +24,18 @@ export class TiramisResponseInterceptor implements NestInterceptor {
     _context: ExecutionContext,
     next: CallHandler,
   ): Observable<unknown> {
-    return next
-      .handle()
-      .pipe(map((value: unknown) => this.formatSubmissionResponse(value)));
+    return next.handle().pipe(
+      map((value: unknown) => {
+        if (isApiSuccessResponse(value)) {
+          return {
+            ...value,
+            data: this.formatSubmissionResponse(value.data),
+          };
+        }
+
+        return this.formatSubmissionResponse(value);
+      }),
+    );
   }
 
   private formatSubmissionResponse(value: unknown): unknown {

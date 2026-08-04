@@ -1,19 +1,35 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { useMutation } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { ShieldCheck, CheckCircle2, Eye, EyeOff } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { authApi } from '@/modules/shared/auth/api/auth'
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useMutation } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { ShieldCheck, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { authApi } from '@/modules/shared/auth/api/auth';
+import { APP_NAME } from '@/modules/shared/config';
 
-const tanzanianPhone = z.string().regex(/^(\+255|255|0)[67]\d{8}$/, 'Invalid Tanzanian phone number')
+const tanzanianPhone = z
+  .string()
+  .regex(/^(\+255|255|0)[67]\d{8}$/, 'Invalid Tanzanian phone number');
 
 const strongPassword = z
   .string()
@@ -21,7 +37,7 @@ const strongPassword = z
   .regex(/[A-Z]/, 'Must contain uppercase letter')
   .regex(/[a-z]/, 'Must contain lowercase letter')
   .regex(/[0-9]/, 'Must contain a number')
-  .regex(/[^A-Za-z0-9]/, 'Must contain a special character')
+  .regex(/[^A-Za-z0-9]/, 'Must contain a special character');
 
 const registerSchema = z.object({
   first_name: z.string().min(1, 'First name is required'),
@@ -32,9 +48,9 @@ const registerSchema = z.object({
   company_slug: z
     .string()
     .regex(/^[a-z0-9-]+$/, 'Lowercase letters, numbers and hyphens only'),
-})
+});
 
-type RegisterForm = z.infer<typeof registerSchema>
+type RegisterForm = z.infer<typeof registerSchema>;
 
 function PasswordStrength({ password }: { password: string }) {
   const checks = [
@@ -43,11 +59,17 @@ function PasswordStrength({ password }: { password: string }) {
     { label: 'Lowercase letter', ok: /[a-z]/.test(password) },
     { label: 'Number', ok: /[0-9]/.test(password) },
     { label: 'Special character', ok: /[^A-Za-z0-9]/.test(password) },
-  ]
-  const score = checks.filter((c) => c.ok).length
-  const colors = ['bg-red-400', 'bg-red-400', 'bg-amber-400', 'bg-amber-400', 'bg-green-500']
+  ];
+  const score = checks.filter((c) => c.ok).length;
+  const colors = [
+    'bg-red-400',
+    'bg-red-400',
+    'bg-amber-400',
+    'bg-amber-400',
+    'bg-green-500',
+  ];
 
-  if (!password) return null
+  if (!password) return null;
 
   return (
     <div className="space-y-2">
@@ -62,18 +84,22 @@ function PasswordStrength({ password }: { password: string }) {
       <div className="grid grid-cols-2 gap-1">
         {checks.map((c) => (
           <div key={c.label} className="flex items-center gap-1 text-xs">
-            <CheckCircle2 className={`h-3 w-3 ${c.ok ? 'text-green-500' : 'text-slate-300'}`} />
-            <span className={c.ok ? 'text-slate-600' : 'text-slate-400'}>{c.label}</span>
+            <CheckCircle2
+              className={`h-3 w-3 ${c.ok ? 'text-green-500' : 'text-slate-300'}`}
+            />
+            <span className={c.ok ? 'text-slate-600' : 'text-slate-400'}>
+              {c.label}
+            </span>
           </div>
         ))}
       </div>
     </div>
-  )
+  );
 }
 
 export function RegisterPage() {
-  const [showPassword, setShowPassword] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const [showPassword, setShowPassword] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const form = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
@@ -85,19 +111,19 @@ export function RegisterPage() {
       password: '',
       company_slug: '',
     },
-  })
+  });
 
-  const password = form.watch('password')
+  const password = form.watch('password');
 
   const mutation = useMutation({
     mutationFn: authApi.register,
     onSuccess: () => {
-      setSuccess(true)
-      toast.success('Account created successfully!')
+      setSuccess(true);
+      toast.success('Account created successfully!');
     },
-  })
+  });
 
-  const onSubmit = (values: RegisterForm) => mutation.mutate(values)
+  const onSubmit = (values: RegisterForm) => mutation.mutate(values);
 
   if (success) {
     return (
@@ -107,8 +133,8 @@ export function RegisterPage() {
             <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
             <h2 className="text-xl font-semibold">Check your email</h2>
             <p className="text-slate-500 text-sm">
-              We've sent a verification link to your email address. Please click the link to activate
-              your account.
+              We've sent a verification link to your email address. Please click
+              the link to activate your account.
             </p>
             <Link to="/login" className="text-blue-600 hover:underline text-sm">
               Back to sign in
@@ -116,7 +142,7 @@ export function RegisterPage() {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
@@ -124,19 +150,22 @@ export function RegisterPage() {
       <div className="w-full max-w-lg">
         <div className="flex items-center justify-center gap-2 mb-8">
           <ShieldCheck className="h-9 w-9 text-blue-600" />
-          <span className="text-2xl font-bold text-slate-900">
-            {import.meta.env.VITE_APP_NAME}
-          </span>
+          <span className="text-2xl font-bold text-slate-900">{APP_NAME}</span>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle>Create an account</CardTitle>
-            <CardDescription>Register your company and admin account</CardDescription>
+            <CardDescription>
+              Register your company and admin account
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4"
+              >
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -173,7 +202,11 @@ export function RegisterPage() {
                     <FormItem>
                       <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="you@company.com" {...field} />
+                        <Input
+                          type="email"
+                          placeholder="you@company.com"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -227,7 +260,11 @@ export function RegisterPage() {
                           onClick={() => setShowPassword((v) => !v)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                         >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
                         </button>
                       </div>
                       <FormMessage />
@@ -238,17 +275,28 @@ export function RegisterPage() {
 
                 {mutation.isError && (
                   <Alert variant="destructive">
-                    <AlertDescription>Registration failed. Please try again.</AlertDescription>
+                    <AlertDescription>
+                      Registration failed. Please try again.
+                    </AlertDescription>
                   </Alert>
                 )}
 
-                <Button type="submit" className="w-full" disabled={mutation.isPending}>
-                  {mutation.isPending ? 'Creating account...' : 'Create account'}
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={mutation.isPending}
+                >
+                  {mutation.isPending
+                    ? 'Creating account...'
+                    : 'Create account'}
                 </Button>
 
                 <div className="text-center text-sm text-slate-500">
                   Already have an account?{' '}
-                  <Link to="/login" className="text-blue-600 hover:underline font-medium">
+                  <Link
+                    to="/login"
+                    className="text-blue-600 hover:underline font-medium"
+                  >
                     Sign in
                   </Link>
                 </div>
@@ -258,5 +306,5 @@ export function RegisterPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

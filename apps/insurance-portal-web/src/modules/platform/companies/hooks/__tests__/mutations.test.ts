@@ -61,7 +61,7 @@ describe('parseApiError', () => {
 
   it('returns network error message for non-axios error', () => {
     expect(parseApiError(new Error('fetch failed')).message).toBe(
-      'Network error - please check your connection',
+      'Network error. Check your connection and try again.',
     );
   });
 

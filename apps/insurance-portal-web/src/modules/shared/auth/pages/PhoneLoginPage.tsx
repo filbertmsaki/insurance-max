@@ -1,69 +1,83 @@
-import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { useMutation } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { ShieldCheck } from 'lucide-react'
-import OtpInput from 'react-otp-input'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { authApi } from '@/modules/shared/auth/api/auth'
-import { getApiErrorMessage } from '@/lib/api-error'
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useMutation } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { ShieldCheck } from 'lucide-react';
+import OtpInput from 'react-otp-input';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { authApi } from '@/modules/shared/auth/api/auth';
+import { APP_NAME } from '@/modules/shared/config';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 
 const phoneSchema = z.object({
   phone: z.string().regex(/^\+255[67]\d{8}$/, 'Invalid Tanzanian phone'),
-})
+});
 
 export function PhoneLoginPage() {
-  const navigate = useNavigate()
-  const { setSession } = useAuthStore()
-  const [otpId, setOtpId] = useState<string | null>(null)
-  const [otp, setOtp] = useState('')
-  const [phone, setPhone] = useState('')
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const navigate = useNavigate();
+  const { setSession } = useAuthStore();
+  const [otpId, setOtpId] = useState<string | null>(null);
+  const [otp, setOtp] = useState('');
+  const [phone, setPhone] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof phoneSchema>>({
     resolver: zodResolver(phoneSchema),
-  })
+  });
 
   const sendOtpMutation = useMutation({
     mutationFn: (d: z.infer<typeof phoneSchema>) => authApi.sendOtp(d.phone),
     onSuccess: (data) => {
-      setOtpId(data.otpId)
-      setPhone(form.getValues('phone'))
-      setErrorMessage(null)
-      toast.success('OTP sent to your phone')
+      setOtpId(data.otpId);
+      setPhone(form.getValues('phone'));
+      setErrorMessage(null);
+      toast.success('OTP sent to your phone');
     },
     onError: (error) => {
-      setErrorMessage(getApiErrorMessage(error))
+      setErrorMessage(getApiErrorMessage(error));
     },
-  })
+  });
 
   const verifyMutation = useMutation({
     mutationFn: () => authApi.phoneLogin({ phone, otp_id: otpId!, otp }),
     onSuccess: (tokens) => {
-      setSession(tokens)
-      setErrorMessage(null)
-      toast.success('Signed in!')
-      navigate('/dashboard')
+      setSession(tokens);
+      setErrorMessage(null);
+      toast.success('Signed in!');
+      navigate('/dashboard');
     },
     onError: (error) => {
-      setErrorMessage(getApiErrorMessage(error))
+      setErrorMessage(getApiErrorMessage(error));
     },
-  })
+  });
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
       <div className="w-full max-w-md">
         <div className="flex items-center justify-center gap-2 mb-8">
           <ShieldCheck className="h-9 w-9 text-blue-600" />
-          <span className="text-2xl font-bold text-slate-900">{import.meta.env.VITE_APP_NAME}</span>
+          <span className="text-2xl font-bold text-slate-900">{APP_NAME}</span>
         </div>
 
         <Card>
@@ -85,8 +99,8 @@ export function PhoneLoginPage() {
               <Form {...form}>
                 <form
                   onSubmit={form.handleSubmit((d) => {
-                    setErrorMessage(null)
-                    sendOtpMutation.mutate(d)
+                    setErrorMessage(null);
+                    sendOtpMutation.mutate(d);
                   })}
                   className="space-y-4"
                 >
@@ -103,7 +117,11 @@ export function PhoneLoginPage() {
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" className="w-full" disabled={sendOtpMutation.isPending}>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={sendOtpMutation.isPending}
+                  >
                     {sendOtpMutation.isPending ? 'Sending OTP...' : 'Send OTP'}
                   </Button>
                 </form>
@@ -133,7 +151,12 @@ export function PhoneLoginPage() {
                 </Button>
                 <button
                   type="button"
-                  onClick={() => { setOtpId(null); setOtp(''); setPhone(''); setErrorMessage(null) }}
+                  onClick={() => {
+                    setOtpId(null);
+                    setOtp('');
+                    setPhone('');
+                    setErrorMessage(null);
+                  }}
                   className="w-full text-sm text-slate-500 hover:underline"
                 >
                   Change phone number
@@ -142,7 +165,10 @@ export function PhoneLoginPage() {
             )}
 
             <div className="mt-4 text-center">
-              <Link to="/login" className="text-sm text-slate-400 hover:underline">
+              <Link
+                to="/login"
+                className="text-sm text-slate-400 hover:underline"
+              >
                 Back to email sign in
               </Link>
             </div>
@@ -150,5 +176,5 @@ export function PhoneLoginPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

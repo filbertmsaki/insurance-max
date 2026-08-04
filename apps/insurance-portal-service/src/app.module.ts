@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -17,6 +17,13 @@ import {
   queueConfig,
   redisConfig,
 } from '@insurance-max/shared-config';
+
+import {
+  ApiExceptionFilter,
+  ApiLoggingInterceptor,
+  ApiResponseInterceptor,
+  RequestContextModule,
+} from '@insurance-max/shared-kernel';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -47,6 +54,9 @@ import { TiramisModule } from './modules/tiramis/tiramis.module';
         tiramisClientConfig,
       ],
     }),
+
+    RequestContextModule,
+
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     ThrottlerModule.forRootAsync({
@@ -79,9 +89,25 @@ import { TiramisModule } from './modules/tiramis/tiramis.module';
   controllers: [AppController],
   providers: [
     AppService,
+
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+
+    {
+      provide: APP_FILTER,
+      useClass: ApiExceptionFilter,
+    },
+
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ApiResponseInterceptor,
+    },
+
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ApiLoggingInterceptor,
     },
   ],
 })
