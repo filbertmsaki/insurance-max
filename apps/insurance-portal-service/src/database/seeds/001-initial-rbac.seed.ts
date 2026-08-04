@@ -1903,6 +1903,77 @@ const permissionSeeds: PermissionSeed[] = [
     description: 'Allow viewing tenant notifications',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
+  {
+    name: 'portal:customer-access',
+    displayName: 'Access customer portal',
+    description: 'Access the customer self-service portal',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'portal:intermediary-access',
+    displayName: 'Access intermediary portal',
+    description: 'Access the intermediary self-service portal',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'portal:account-read',
+    displayName: 'Read portal accounts',
+    description: 'View customer and intermediary portal accounts',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'portal:account-invite',
+    displayName: 'Invite portal accounts',
+    description: 'Invite customer and intermediary portal users',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'portal:account-update',
+    displayName: 'Update portal accounts',
+    description: 'Update customer and intermediary portal accounts',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'portal:account-suspend',
+    displayName: 'Suspend portal accounts',
+    description: 'Suspend and activate portal accounts',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'portal:request-read',
+    displayName: 'Read portal requests',
+    description: 'View portal service requests',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'portal:request-assign',
+    displayName: 'Assign portal requests',
+    description: 'Assign portal service requests',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'portal:request-review',
+    displayName: 'Review portal requests',
+    description: 'Review portal service requests',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'portal:request-complete',
+    displayName: 'Complete portal requests',
+    description: 'Complete portal service requests',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+];
+
+const PORTAL_ADMIN_PERMISSION_NAMES = [
+  'portal:account-read',
+  'portal:account-invite',
+  'portal:account-update',
+  'portal:account-suspend',
+  'portal:request-read',
+  'portal:request-assign',
+  'portal:request-review',
+  'portal:request-complete',
 ];
 
 const TIRAMIS_ADMIN_PERMISSION_NAMES = [
@@ -1960,6 +2031,7 @@ const roleSeeds: RoleSeed[] = [
       ...PHASE2_ADMIN_PERMISSION_NAMES,
       ...CLAIMS_ADMIN_PERMISSION_NAMES,
       ...REINSURANCE_ADMIN_PERMISSION_NAMES,
+      ...PORTAL_ADMIN_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
@@ -2090,6 +2162,7 @@ const roleSeeds: RoleSeed[] = [
       ...PHASE2_ADMIN_PERMISSION_NAMES,
       ...CLAIMS_ADMIN_PERMISSION_NAMES,
       ...REINSURANCE_ADMIN_PERMISSION_NAMES,
+      ...PORTAL_ADMIN_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
@@ -2440,6 +2513,20 @@ const roleSeeds: RoleSeed[] = [
       ...DASHBOARD_VIEWER_PERMISSION_NAMES,
       ...PHASE2_GENERAL_USER_PERMISSION_NAMES,
     ],
+  },
+  {
+    name: 'CUSTOMER_PORTAL',
+    displayName: 'Customer Portal',
+    description: 'Customer self-service portal user',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+    permissionNames: ['portal:customer-access'],
+  },
+  {
+    name: 'INTERMEDIARY_PORTAL',
+    displayName: 'Intermediary Portal',
+    description: 'Broker, agency, or bancassurance portal user',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+    permissionNames: ['portal:intermediary-access'],
   },
 ];
 

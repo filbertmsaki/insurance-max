@@ -29,6 +29,85 @@ export class MailService {
     await this.mailerService.sendMail(options);
   }
 
+  async sendPortalInvitationEmail(
+    email: string,
+    firstName: string,
+    companyName: string,
+    invitationUrl: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    const timezone = this.configService.get<string>(
+      'app.timezone',
+      'Africa/Dar_es_Salaam',
+    );
+
+    const formattedExpiry = new Intl.DateTimeFormat('en-GB', {
+      dateStyle: 'full',
+      timeStyle: 'short',
+      timeZone: timezone,
+    }).format(expiresAt);
+
+    const subject = `${companyName} portal invitation`;
+
+    const text = [
+      `Hello ${firstName},`,
+      '',
+      `${companyName} has invited you to access its insurance self-service portal.`,
+      '',
+      `Accept the invitation using this link:`,
+      invitationUrl,
+      '',
+      `The invitation expires on ${formattedExpiry}.`,
+      '',
+      `Do not share this link with anyone.`,
+      '',
+      `If you did not expect this invitation, ignore this message or contact ${companyName}.`,
+    ].join('\n');
+
+    const html = `
+      <p>Hello ${this.escapeHtml(firstName)},</p>
+
+      <p>
+        <strong>${this.escapeHtml(companyName)}</strong>
+        has invited you to access its insurance self-service portal.
+      </p>
+
+      <p>
+        <a href="${this.escapeHtml(invitationUrl)}" rel="noopener noreferrer">
+          Accept portal invitation
+        </a>
+      </p>
+
+      <p>
+        The invitation expires on
+        <strong>${this.escapeHtml(formattedExpiry)}</strong>.
+      </p>
+
+      <p>Do not share this invitation link with anyone.</p>
+
+      <p>
+        If you did not expect this invitation, ignore this message or
+        contact ${this.escapeHtml(companyName)}.
+      </p>
+    `;
+
+    await this.sendMail({
+      to: email,
+      subject,
+      text,
+      html,
+    });
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   async sendPasswordChangedSuccessEmail(to: string, name: string) {
     await this.mailerService.sendMail({
       to,

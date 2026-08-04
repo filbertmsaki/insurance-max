@@ -77,6 +77,21 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   REPORTS_ENABLED: Joi.boolean().default(true),
   REPORTS_SCHEDULER_CRON: Joi.string().default('0 * * * * *'),
   REPORTS_WORKER_CRON: Joi.string().default('15 * * * * *'),
+
+  PORTAL_INVITATION_EXPIRY_HOURS: Joi.number()
+    .integer()
+    .min(1)
+    .max(168)
+    .default(48),
+  PORTAL_UPLOAD_ROOT: Joi.string().trim().default('./uploads'),
+  PORTAL_UPLOAD_MAX_BYTES: Joi.number()
+    .integer()
+    .min(1024)
+    .max(100 * 1024 * 1024)
+    .default(10 * 1024 * 1024),
+  PORTAL_ALLOWED_MIME_TYPES: Joi.string()
+    .trim()
+    .default('application/pdf,image/jpeg,image/png'),
   REPORTS_MAX_RETRIES: Joi.number().integer().min(0).max(10).default(3),
   REPORTS_ARTIFACT_RETENTION_DAYS: Joi.number().integer().min(1).default(30),
   REPORTS_REQUIRE_MAIL_VERIFICATION: Joi.boolean().default(true),

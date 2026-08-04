@@ -15,6 +15,7 @@ import { InsuranceSubClassesModule } from './insurance-sub-classes/insurance-sub
 import { MotorModule } from './motor/motor.module';
 import { NonMotorModule } from './non-motor/non-motor.module';
 import { PoliciesModule } from './policies/policies.module';
+import { PortalModule } from './portal/portal.module';
 import { PremiumCalculationModule } from './premium-calculation/premium-calculation.module';
 import { PricingModule } from './pricing/pricing.module';
 import { PricingRateBooksModule } from './pricing-rate-books/pricing-rate-books.module';
@@ -69,6 +70,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
     TiramisIntegrationModule,
     VerificationsModule,
     WorkItemsModule,
+    PortalModule,
   ],
   exports: [
     UsersModule,
@@ -103,6 +105,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
     TiramisIntegrationModule,
     VerificationsModule,
     WorkItemsModule,
+    PortalModule,
   ],
 })
 export class TenantModule {}
