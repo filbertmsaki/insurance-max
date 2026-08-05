@@ -13,6 +13,7 @@ import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-
 import { Branch } from '../../tenant/branches/entities/branch.entity';
 import { BranchUser } from '../../tenant/branches/entities/branch-user.entity';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
+import { DepartmentUser } from '../../tenant/departments/entities/department-user.entity';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-poin
       BranchUser,
       Branch,
       TiramisSalePointEntity,
+      DepartmentUser,
     ]),
   ],
   controllers: [CompaniesController],

@@ -1,12 +1,20 @@
 export interface ServiceTenantContext {
   companyId: string;
   companyCode?: string | null;
+  insurerCompanyCode?: string | null;
+  systemCode?: string | null;
+  clientCode?: string | null;
 
   branchId?: string | null;
   branchCode?: string | null;
 
+  departmentId?: string | null;
+  departmentCode?: string | null;
+
   salePointId?: string | null;
   salePointCode?: string | null;
+
+  environment?: 'test' | 'live' | null;
 }
 
 export interface ServiceActorContext {

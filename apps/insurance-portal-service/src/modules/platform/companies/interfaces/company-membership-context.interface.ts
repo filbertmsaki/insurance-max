@@ -16,6 +16,10 @@ export interface CompanySummary {
   defaultSalePointCode?: string | null;
   defaultSalePointName?: string | null;
   assignedBranchIds?: string[];
+  activeDepartmentId?: string | null;
+  activeDepartmentCode?: string | null;
+  activeDepartmentName?: string | null;
+  assignedDepartmentIds?: string[];
   authorizationVersion: number;
 }
 

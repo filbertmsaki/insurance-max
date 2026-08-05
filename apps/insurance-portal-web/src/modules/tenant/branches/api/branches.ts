@@ -13,23 +13,21 @@ import type {
 export interface CreateBranchDto {
   name: string;
   code: string;
-  sale_point_code?: string;
-  sale_point_name?: string;
   address?: BranchAddress;
   phone?: string;
   email?: string;
   manager_id?: string;
+  is_head_office?: boolean;
 }
 
 export interface UpdateBranchDto {
   name?: string;
   code?: string;
-  sale_point_code?: string;
-  sale_point_name?: string;
   address?: BranchAddress;
   phone?: string;
   email?: string;
   manager_id?: string;
+  is_head_office?: boolean;
 }
 
 export interface UpdateBranchStatusDto {

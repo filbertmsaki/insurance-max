@@ -18,6 +18,7 @@ import {
 import type { AuthenticatedUser } from '@insurance-max/portal-shared';
 
 import { TiramisServiceScopes } from '../constants/tiramis-service-scopes.constant';
+import { OrganizationContextService } from '../../shared/organization/organization-context.service';
 
 import { SubmitTiramisDto } from '../dto/submit-tiramis.dto';
 import { TiramisStatusQueryDto } from '../dto/tiramis-status-query.dto';
@@ -56,6 +57,7 @@ export class TiramisClientService {
     private readonly auditService: TiramisAuditService,
     private readonly notificationService: TiramisNotificationService,
     private readonly serviceTokenService: ServiceTokenService,
+    private readonly organizationContextService: OrganizationContextService,
   ) {}
 
   async submit(dto: SubmitTiramisDto, authContext?: any) {
@@ -505,6 +507,83 @@ export class TiramisClientService {
     );
   }
 
+  async validateOrganizationConfiguration(params: {
+    companyId: string;
+    environment: 'test' | 'live';
+    companyCode: string;
+    systemCode: string | null;
+    insurerCompanyCode?: string | null;
+  }): Promise<{ valid: boolean; message?: string }> {
+    try {
+      const serviceToken = this.serviceTokenService.issue(
+        'tiramis-service',
+        [TiramisServiceScopes.READ],
+        {
+          tenant: {
+            companyId: params.companyId,
+          },
+        },
+      );
+
+      const requestId = this.requestContextService.getRequestId();
+      const correlationId =
+        this.requestContextService.getCorrelationId() || requestId;
+      const sourceService = this.configService.getOrThrow<string>(
+        'tiramisClient.sourceService',
+      );
+
+      const response = await firstValueFrom(
+        this.httpService.request({
+          method: 'POST',
+          url: '/api/tiramis/configurations/validate-organization',
+          data: {
+            companyId: params.companyId,
+            environment: params.environment,
+            companyCode: params.companyCode,
+            systemCode: params.systemCode,
+            insurerCompanyCode: params.insurerCompanyCode ?? null,
+          },
+          validateStatus: () => true,
+          headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${serviceToken}`,
+            [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
+            'X-Tenant-Company-Id': params.companyId,
+            ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
+            ...(correlationId
+              ? { [HTTP_HEADERS.CORRELATION_ID]: correlationId }
+              : {}),
+          },
+        }),
+      );
+
+      if (response.status < 200 || response.status >= 300) {
+        const message =
+          this.extractTiramisErrorMessage(response.data) ||
+          `TIRAMIS configuration validation failed with status ${response.status}`;
+        return { valid: false, message };
+      }
+
+      const result = unwrapApiResponse(response.data) as {
+        valid?: boolean;
+        message?: string;
+      };
+
+      return {
+        valid: result?.valid === true,
+        message: result?.message,
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Failed to reach the TIRAMIS service for configuration validation.',
+      };
+    }
+  }
+
   async checkTiramisServiceHealth() {
     return this.send(TIRAMIS_MESSAGE_PATTERNS.HEALTH, {
       sourceService: 'insurance-portal-service',
@@ -649,6 +728,37 @@ export class TiramisClientService {
     };
   }
 
+  /**
+   * Builds the full, signed tenant context for a TIRAMIS submission by
+   * resolving the caller's authoritative organization context (company TIRA
+   * mapping, active branch, active department, default sales point) instead
+   * of trusting whatever the caller's stale JWT claims say. This is the
+   * multi-company-safe path required by TIRAMIS's per-company/system-code
+   * configuration resolution.
+   */
+  private async buildTiramisReadyTenantContext(authContext: AuthenticatedUser) {
+    const organizationContext =
+      await this.organizationContextService.requireTiramisReady(
+        authContext.id,
+        authContext.companyId!,
+      );
+
+    return {
+      companyId: organizationContext.company.id,
+      companyCode: organizationContext.tiramis.companyCode!,
+      insurerCompanyCode: organizationContext.tiramis.insurerCompanyCode!,
+      systemCode: organizationContext.tiramis.systemCode!,
+      clientCode: organizationContext.tiramis.clientCode,
+      branchId: organizationContext.activeBranch!.id,
+      branchCode: organizationContext.activeBranch!.code,
+      departmentId: organizationContext.activeDepartment?.id ?? null,
+      departmentCode: organizationContext.activeDepartment?.code ?? null,
+      salePointId: organizationContext.defaultSalePoint!.id,
+      salePointCode: organizationContext.defaultSalePoint!.code,
+      environment: organizationContext.tiramis.environment,
+    };
+  }
+
   private resolveServiceScopes(pattern: string): string[] {
     if (pattern.includes('verification')) {
       return [TiramisServiceScopes.VERIFY];
@@ -691,24 +801,36 @@ export class TiramisClientService {
         'tiramisClient.sourceService',
       );
 
-      const serviceToken = this.serviceTokenService.issue(
-        'tiramis-service',
-        this.resolveServiceScopes(pattern),
+      const requiredScopes = this.resolveServiceScopes(pattern);
+      const isSubmission = requiredScopes.includes(
+        TiramisServiceScopes.SUBMIT,
+      );
+
+      const tenantContext =
         authContext?.scope === 'company' && authContext.companyId
-          ? {
-              tenant: {
+          ? isSubmission
+            ? await this.buildTiramisReadyTenantContext(authContext)
+            : {
                 companyId: authContext.companyId,
                 branchId: authContext.activeBranchId,
                 branchCode: authContext.activeBranchCode,
                 salePointId: authContext.defaultSalePointId,
                 salePointCode: authContext.defaultSalePointCode,
-              },
+              }
+          : undefined;
+
+      const serviceToken = this.serviceTokenService.issue(
+        'tiramis-service',
+        requiredScopes,
+        tenantContext
+          ? {
+              tenant: tenantContext,
               actor: {
-                userId: authContext.id,
-                companyMembershipId: authContext.companyMembershipId,
-                sessionId: authContext.sessionId,
-                roles: authContext.roles,
-                permissions: authContext.permissions,
+                userId: authContext!.id,
+                companyMembershipId: authContext!.companyMembershipId,
+                sessionId: authContext!.sessionId,
+                roles: authContext!.roles,
+                permissions: authContext!.permissions,
               },
             }
           : undefined,

@@ -66,6 +66,10 @@ type AccessTokenPayload = {
   defaultSalePointCode?: string | null;
   defaultSalePointName?: string | null;
   assignedBranchIds?: string[];
+  activeDepartmentId?: string | null;
+  activeDepartmentCode?: string | null;
+  activeDepartmentName?: string | null;
+  assignedDepartmentIds?: string[];
   roles: string[];
   permissions: string[];
   authorizationVersion: number;
@@ -497,6 +501,10 @@ export class AuthService {
         defaultSalePointCode: companyContext.defaultSalePointCode,
         defaultSalePointName: companyContext.defaultSalePointName,
         assignedBranchIds: companyContext.assignedBranchIds,
+        activeDepartmentId: companyContext.activeDepartmentId,
+        activeDepartmentCode: companyContext.activeDepartmentCode,
+        activeDepartmentName: companyContext.activeDepartmentName,
+        assignedDepartmentIds: companyContext.assignedDepartmentIds,
         authorizationVersion: companyContext.authorizationVersion,
       };
 
@@ -1334,6 +1342,10 @@ export class AuthService {
         defaultSalePointCode: companyContext.defaultSalePointCode,
         defaultSalePointName: companyContext.defaultSalePointName,
         assignedBranchIds: companyContext.assignedBranchIds,
+        activeDepartmentId: companyContext.activeDepartmentId,
+        activeDepartmentCode: companyContext.activeDepartmentCode,
+        activeDepartmentName: companyContext.activeDepartmentName,
+        assignedDepartmentIds: companyContext.assignedDepartmentIds,
         roles: companyContext.roles,
         permissions: companyContext.permissions,
         authorizationVersion: companyContext.authorizationVersion,
@@ -1391,6 +1403,13 @@ export class AuthService {
             id: companyContext.defaultSalePointId,
             code: companyContext.defaultSalePointCode,
             name: companyContext.defaultSalePointName,
+          }
+        : null,
+      active_department: companyContext.activeDepartmentId
+        ? {
+            id: companyContext.activeDepartmentId,
+            code: companyContext.activeDepartmentCode,
+            name: companyContext.activeDepartmentName,
           }
         : null,
       user: {

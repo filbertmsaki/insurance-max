@@ -51,64 +51,16 @@ export const tiramisApi = {
     apiClient
       .post('/tenant/tiramis-submissions/submit', data)
       .then((r) => r.data),
+  /**
+   * @deprecated Sales-point CRUD moved to `salePointsApi`
+   * (`@/modules/tenant/sale-points/api/sale-points`) under the dedicated
+   * `/sale-points` module. Kept here temporarily only for
+   * `TiramisSalePointRecord` type compatibility where still referenced.
+   */
   getSalePoints: (branchId?: string) =>
     apiClient
-      .get<TiramisSalePointRecord[]>(
-        '/tenant/tiramis-submissions/sale-points',
-        {
-          params: branchId ? { branch_id: branchId } : undefined,
-        },
-      )
-      .then((r) => r.data),
-  getBranchSalePoints: (branchId: string) =>
-    apiClient
-      .get<
-        TiramisSalePointRecord[]
-      >(`/tenant/tiramis-submissions/sale-points/branch/${branchId}`)
-      .then((r) => r.data),
-  createBranchSalePoint: (
-    branchId: string,
-    data: {
-      sale_point_code: string;
-      sale_point_name: string;
-      is_default?: boolean;
-    },
-  ) =>
-    apiClient
-      .post(`/tenant/tiramis-submissions/sale-points/branch/${branchId}`, data)
-      .then((r) => r.data),
-  updateSalePoint: (
-    id: string,
-    branchId: string,
-    data: {
-      sale_point_code?: string;
-      sale_point_name?: string;
-      is_default?: boolean;
-    },
-  ) =>
-    apiClient
-      .patch(`/tenant/tiramis-submissions/sale-points/${id}`, {
-        ...data,
-        branch_id: branchId,
-      })
-      .then((r) => r.data),
-  setSalePointStatus: (id: string, branchId: string, is_active: boolean) =>
-    apiClient
-      .patch(`/tenant/tiramis-submissions/sale-points/${id}/status`, {
-        branch_id: branchId,
-        is_active,
-      })
-      .then((r) => r.data),
-  setDefaultSalePoint: (id: string, branchId: string) =>
-    apiClient
-      .patch(`/tenant/tiramis-submissions/sale-points/${id}/default`, {
-        branch_id: branchId,
-      })
-      .then((r) => r.data),
-  deleteSalePoint: (id: string, branchId: string) =>
-    apiClient
-      .delete(`/tenant/tiramis-submissions/sale-points/${id}`, {
-        data: { branch_id: branchId },
+      .get<TiramisSalePointRecord[]>('/sale-points', {
+        params: branchId ? { branch_id: branchId } : undefined,
       })
       .then((r) => r.data),
   getSubmissions: async (

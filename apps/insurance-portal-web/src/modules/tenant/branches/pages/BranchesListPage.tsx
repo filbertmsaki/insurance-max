@@ -64,8 +64,6 @@ const createSchema = z.object({
     .min(1, 'Branch code is required')
     .max(50)
     .regex(/^[A-Za-z0-9_-]+$/, 'Letters, numbers, hyphens and underscores only'),
-  sale_point_code: z.string().max(100).optional().or(z.literal('')),
-  sale_point_name: z.string().max(150).optional().or(z.literal('')),
   phone: z
     .string()
     .regex(/^\+?[\d\s\-().]{7,30}$/, 'Invalid phone number')
@@ -113,8 +111,6 @@ function CreateBranchDialog({ open, onClose, onSubmit, isPending }: CreateBranch
     defaultValues: {
       name: '',
       code: '',
-      sale_point_code: '',
-      sale_point_name: '',
       phone: '',
       email: '',
       address_street: '',
@@ -166,28 +162,6 @@ function CreateBranchDialog({ open, onClose, onSubmit, isPending }: CreateBranch
                     <FormItem>
                       <FormLabel>Branch Code <span className="text-red-500">*</span></FormLabel>
                       <FormControl><Input placeholder="DAR-MAIN" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="sale_point_code"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Sale Point Code</FormLabel>
-                      <FormControl><Input placeholder="SP-001" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="sale_point_name"
-                  render={({ field }) => (
-                    <FormItem className="col-span-2">
-                      <FormLabel>Sale Point Name</FormLabel>
-                      <FormControl><Input placeholder="Kariakoo Sales Point" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -379,22 +353,6 @@ export function BranchesListPage() {
       cell: (r) => <span className="text-sm text-slate-600">{r.phone ?? '—'}</span>,
     },
     {
-      key: 'sale_point_name',
-      header: 'Sale Point',
-      sortable: true,
-      cell: (r) =>
-        r.sale_point_name ? (
-          <div>
-            <p className="text-sm text-slate-700">{r.sale_point_name}</p>
-            {r.sale_point_code && (
-              <code className="text-xs text-slate-400">{r.sale_point_code}</code>
-            )}
-          </div>
-        ) : (
-          <span className="text-slate-400 text-sm">—</span>
-        ),
-    },
-    {
       key: 'created_at',
       header: 'Created',
       sortable: true,
@@ -458,8 +416,6 @@ export function BranchesListPage() {
     const dto: CreateBranchDto = {
       name: v.name,
       code: v.code,
-      sale_point_code: v.sale_point_code || undefined,
-      sale_point_name: v.sale_point_name || undefined,
       phone: v.phone || undefined,
       email: v.email || undefined,
       address: {

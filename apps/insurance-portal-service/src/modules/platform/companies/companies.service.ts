@@ -33,6 +33,7 @@ import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-
 import { BranchUser } from '../../tenant/branches/entities/branch-user.entity';
 import { Branch } from '../../tenant/branches/entities/branch.entity';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
+import { DepartmentUser } from '../../tenant/departments/entities/department-user.entity';
 import { AuditService } from '../../shared/audit/audit.service';
 import { AuthorizationVersionService } from '../../shared/authorization/authorization-version.service';
 
@@ -68,6 +69,9 @@ export class CompaniesService {
 
     @InjectRepository(TiramisSalePointEntity)
     private readonly salePointRepository: Repository<TiramisSalePointEntity>,
+
+    @InjectRepository(DepartmentUser)
+    private readonly departmentUserRepository: Repository<DepartmentUser>,
 
     private readonly identifierGeneratorService: IdentifierGeneratorService,
 
@@ -720,10 +724,73 @@ export class CompaniesService {
       membership.company_id,
     );
 
+    const departmentContext = await this.getActiveDepartmentContext(
+      membership.id,
+      membership.company_id,
+      branchContext.activeBranchId ?? null,
+    );
+
     return {
       ...this.mapMembershipSummary(membership),
       status: membership.status,
       ...branchContext,
+      ...departmentContext,
+    };
+  }
+
+  private async getActiveDepartmentContext(
+    companyUserId: string,
+    companyId: string,
+    activeBranchId: string | null,
+  ): Promise<
+    Pick<
+      CompanyMembershipContext,
+      | "activeDepartmentId"
+      | "activeDepartmentCode"
+      | "activeDepartmentName"
+      | "assignedDepartmentIds"
+    >
+  > {
+    const assignments = await this.departmentUserRepository.find({
+      where: {
+        company_user_id: companyUserId,
+        company_id: companyId,
+      },
+      relations: { department: true },
+      order: { created_at: "ASC" },
+    });
+
+    const compatible = assignments.filter(
+      (assignment) =>
+        assignment.department?.status === "active" &&
+        (assignment.department.branch_id === null ||
+          assignment.department.branch_id === activeBranchId),
+    );
+
+    const assignedDepartmentIds = compatible.map(
+      (assignment) => assignment.department.id,
+    );
+
+    const activeAssignment =
+      compatible.find((assignment) => assignment.is_active_department) ??
+      compatible.find((assignment) => assignment.is_primary) ??
+      compatible[0];
+
+    const department = activeAssignment?.department;
+    if (!department) {
+      return {
+        activeDepartmentId: null,
+        activeDepartmentCode: null,
+        activeDepartmentName: null,
+        assignedDepartmentIds,
+      };
+    }
+
+    return {
+      activeDepartmentId: department.id,
+      activeDepartmentCode: department.code,
+      activeDepartmentName: department.name,
+      assignedDepartmentIds,
     };
   }
 

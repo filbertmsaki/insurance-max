@@ -7,6 +7,8 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import { RequestContextService } from '@insurance-max/shared-kernel';
+
 import { TiramisClientConfigurationEntity } from '../entities/tiramis-client-configuration.entity';
 import { TiramisResponseCodeEntity } from '../entities/tiramis-response-code.entity';
 import { TiramisServiceEndpointEntity } from '../entities/tiramis-service-endpoint.entity';
@@ -60,6 +62,7 @@ export class TiramisConfigService {
     private readonly secretCrypto: TiramisSecretCryptoService,
     private readonly certificateInspector: TiramisCertificateInspectorService,
     private readonly configService: ConfigService,
+    private readonly requestContextService: RequestContextService,
   ) {}
 
   resolveRuntimeEnvironment(appEnv?: string) {
@@ -78,16 +81,86 @@ export class TiramisConfigService {
     return environment === 'production' ? 'live' : 'test';
   }
 
+  /**
+   * Resolves the active TIRAMIS configuration for the signed Portal
+   * organization context (companyCode + systemCode + environment carried in
+   * the service token's tenant claim). This is the multi-company-safe path —
+   * it never falls back to "first active configuration for the environment".
+   */
   async getActiveRuntimeConfiguration(): Promise<TiramisClientConfigurationEntity> {
-    return this.getActiveConfiguration(this.resolveRuntimeEnvironment());
+    const principal = this.requestContextService.getServicePrincipal();
+
+    if (
+      !principal?.tenant?.companyCode ||
+      !principal.tenant.systemCode ||
+      !principal.tenant.environment
+    ) {
+      throw new BadRequestException({
+        code: 'SIGNED_ORGANIZATION_CONTEXT_REQUIRED',
+        message: 'A signed company and system context is required.',
+      });
+    }
+
+    return this.getActiveConfiguration({
+      environment: principal.tenant.environment,
+      companyCode: principal.tenant.companyCode,
+      systemCode: principal.tenant.systemCode,
+    });
   }
 
+  /**
+   * @param environment Legacy single-environment lookup, kept for internal
+   * helper methods (`getEndpoint`, `getCallbackUrl`, etc.) that already
+   * operate on a previously-resolved configuration's environment and don't
+   * need company/system scoping.
+   *
+   * Prefer the `{ environment, companyCode, systemCode }` form for any path
+   * that resolves a configuration on behalf of a Portal-originated,
+   * company-scoped request — it is unsafe to pick "the first active
+   * configuration" on a multi-company platform.
+   */
   async getActiveConfiguration(
     environment: string,
+  ): Promise<TiramisClientConfigurationEntity>;
+  async getActiveConfiguration(params: {
+    environment: string;
+    companyCode: string;
+    systemCode: string;
+  }): Promise<TiramisClientConfigurationEntity>;
+  async getActiveConfiguration(
+    environmentOrParams:
+      | string
+      | { environment: string; companyCode: string; systemCode: string },
   ): Promise<TiramisClientConfigurationEntity> {
+    if (typeof environmentOrParams === 'string') {
+      const environment = environmentOrParams;
+
+      const configuration = await this.clientConfigurationRepository.findOne({
+        where: {
+          environment,
+          isActive: 1,
+        },
+        relations: {
+          endpoints: true,
+        },
+      });
+
+      if (!configuration) {
+        throw new NotFoundException(
+          `Active TIRAMIS configuration not found for environment: ${environment}`,
+        );
+      }
+
+      return configuration;
+    }
+
+    const params = environmentOrParams;
+
     const configuration = await this.clientConfigurationRepository.findOne({
       where: {
-        environment,
+        environment: params.environment,
+        companyCode: params.companyCode,
+        systemCode: params.systemCode,
         isActive: 1,
       },
       relations: {
@@ -96,9 +169,16 @@ export class TiramisConfigService {
     });
 
     if (!configuration) {
-      throw new NotFoundException(
-        `Active TIRAMIS configuration not found for environment: ${environment}`,
-      );
+      throw new NotFoundException({
+        code: 'TIRAMIS_CLIENT_CONFIGURATION_NOT_FOUND',
+        message:
+          'No active TIRAMIS client configuration matches the signed company and system context.',
+        details: {
+          environment: params.environment,
+          companyCode: params.companyCode,
+          systemCode: params.systemCode,
+        },
+      });
     }
 
     return configuration;
@@ -108,15 +188,47 @@ export class TiramisConfigService {
     dto: TDto,
     sourceRecordId: string,
   ): Promise<TiramisResolvedRequestContext<TDto>> {
-    const configuration = await this.getActiveRuntimeConfiguration();
+    const principal = this.requestContextService.getServicePrincipal();
+    const tenant = principal?.tenant;
+
+    if (!tenant?.companyCode || !tenant.systemCode || !tenant.environment) {
+      throw new BadRequestException(
+        'Signed tenant context is required.',
+      );
+    }
+
+    const configuration = await this.getActiveConfiguration({
+      environment: tenant.environment,
+      companyCode: tenant.companyCode,
+      systemCode: tenant.systemCode,
+    });
+
     const incomingDto = dto as Record<string, any>;
 
-    const insurerCompanyCode = this.resolveBusinessCode({
-      incomingValue: incomingDto.insurerCompanyCode,
-      fallbackValue: configuration.insurerCompanyCode,
-      fieldName: 'insurerCompanyCode',
-      required: true,
-    });
+    if (tenant.insurerCompanyCode) {
+      this.assertMatchesSignedValue(
+        incomingDto.insurerCompanyCode,
+        tenant.insurerCompanyCode,
+        'insurerCompanyCode',
+      );
+    }
+
+    if (tenant.salePointCode) {
+      this.assertMatchesSignedValue(
+        incomingDto.salePointCode,
+        tenant.salePointCode,
+        'salePointCode',
+      );
+    }
+
+    const insurerCompanyCode =
+      tenant.insurerCompanyCode ??
+      this.resolveBusinessCode({
+        incomingValue: incomingDto.insurerCompanyCode,
+        fallbackValue: configuration.insurerCompanyCode,
+        fieldName: 'insurerCompanyCode',
+        required: true,
+      });
 
     const tranCompanyCode = this.resolveBusinessCode({
       incomingValue: incomingDto.tranCompanyCode,
@@ -141,14 +253,45 @@ export class TiramisConfigService {
         callbackUrl: configuration.callbackBaseUrl,
 
         /**
-         * Client/company business identifiers.
-         * Portal request value has priority.
-         * Config fallback is temporary for backward compatibility.
+         * Client/company business identifiers. The signed service-token
+         * tenant context (set by the Portal from the resolved
+         * OrganizationContextService result) takes priority over anything
+         * the caller passes in the DTO — TIRAMIS must never trust a
+         * Portal-originated submission's self-reported business codes over
+         * its own signed context, and must never fall back to a globally
+         * configured default sales point/company code for such requests.
          */
         insurerCompanyCode,
         tranCompanyCode,
+        ...('salePointCode' in incomingDto && tenant.salePointCode
+          ? { salePointCode: tenant.salePointCode }
+          : {}),
       },
     };
+  }
+
+  private assertMatchesSignedValue(
+    incomingValue: unknown,
+    signedValue: string,
+    fieldName: string,
+  ): void {
+    if (
+      incomingValue === undefined ||
+      incomingValue === null ||
+      incomingValue === ''
+    ) {
+      return;
+    }
+
+    if (
+      String(incomingValue).trim().toUpperCase() !==
+      signedValue.trim().toUpperCase()
+    ) {
+      throw new BadRequestException({
+        code: 'SIGNED_ORGANIZATION_CONTEXT_MISMATCH',
+        message: `${fieldName} does not match the signed organization context.`,
+      });
+    }
   }
 
   async getConfigurationById(

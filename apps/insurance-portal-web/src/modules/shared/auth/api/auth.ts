@@ -78,4 +78,13 @@ export const authApi = {
         refresh_token,
       })
       .then((response) => response.data),
+
+  switchOrganizationContext: (data: {
+    branch_id: string;
+    department_id?: string | null;
+    refresh_token: string;
+  }) =>
+    apiClient
+      .post<LoginResponse>('/auth/switch-organization-context', data)
+      .then((response) => response.data),
 };

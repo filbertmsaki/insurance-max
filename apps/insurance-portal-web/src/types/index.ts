@@ -127,6 +127,10 @@ export interface AuthUser {
   defaultSalePointCode?: string | null;
   defaultSalePointName?: string | null;
   assignedBranchIds?: string[];
+  activeDepartmentId?: string | null;
+  activeDepartmentCode?: string | null;
+  activeDepartmentName?: string | null;
+  assignedDepartmentIds?: string[];
   roles: string[];
   permissions: string[];
 }
@@ -162,6 +166,17 @@ export interface AuthSessionResponse extends AuthTokens {
   user?: AuthSessionUser;
   company?: AuthSessionCompany;
   companies?: CompanyMembership[];
+  active_branch?: { id: string; code?: string | null; name?: string | null } | null;
+  default_sale_point?: {
+    id: string;
+    code?: string | null;
+    name?: string | null;
+  } | null;
+  active_department?: {
+    id: string;
+    code?: string | null;
+    name?: string | null;
+  } | null;
   requires2FA?: boolean;
   requiresEmailVerification?: boolean;
   tempToken?: string;

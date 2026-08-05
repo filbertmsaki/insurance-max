@@ -8,6 +8,9 @@ import { TiramisPermissionGuard } from './auth/tiramis-permission.guard';
 import { TiramisAdminController } from './controllers/tiramis-admin.controller';
 import { TiramisBusinessController } from './controllers/tiramis-business.controller';
 import { TiramisController } from './controllers/tiramis.controller';
+import { CompanyTiramisConfigurationController } from './controllers/company-tiramis-configuration.controller';
+import { CompanyTiramisConfigurationService } from './services/company-tiramis-configuration.service';
+import { Company } from '../platform/companies/entities/company.entity';
 import { TiramisCompanyConfigurationEntity } from './entities/tiramis-company-configuration.entity';
 import { TiramisSalePointEntity } from './entities/tiramis-sale-point.entity';
 import { TiramisAuditLogEntity } from './entities/tiramis-audit-log.entity';
@@ -71,6 +74,7 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
       MotorPolicyDetail,
       NonMotorPolicyDetail,
       ReinsuranceDeclaration,
+      Company,
     ]),
     TiramisHttpModule,
   ],
@@ -78,9 +82,11 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
     TiramisController,
     TiramisBusinessController,
     TiramisAdminController,
+    CompanyTiramisConfigurationController,
   ],
   providers: [
     TiramisClientService,
+    CompanyTiramisConfigurationService,
     TiramisSubmissionTrackingRepository,
     TiramisAuditLogRepository,
     TiramisAuditService,
@@ -101,6 +107,7 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
   ],
   exports: [
     TiramisClientService,
+    CompanyTiramisConfigurationService,
     TiramisSubmissionTrackingRepository,
     TiramisAuditLogRepository,
     TiramisAuditService,

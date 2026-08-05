@@ -15,12 +15,14 @@ import {
   SERVICE_SCOPES,
 } from './service-auth.constants';
 import { ServiceTokenService } from './service-token.service';
+import { RequestContextService } from '../context/request-context.service';
 
 @Injectable()
 export class ServiceAuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly serviceTokenService: ServiceTokenService,
+    private readonly requestContextService: RequestContextService,
   ) {}
 
   canActivate(context: ExecutionContext): boolean {
@@ -68,12 +70,17 @@ export class ServiceAuthGuard implements CanActivate {
       }
     }
 
-    (request as Request & { servicePrincipal: unknown }).servicePrincipal = {
+    const principal = {
       serviceId: payload.sub,
       scopes: payload.scopes,
       tenant: payload.tenant,
       actor: payload.actor,
     };
+
+    (request as Request & { servicePrincipal: unknown }).servicePrincipal =
+      principal;
+
+    this.requestContextService.setServicePrincipal(principal);
 
     return true;
   }

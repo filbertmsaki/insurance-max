@@ -61,8 +61,8 @@ import {
 } from '@/modules/tenant/branches/hooks'
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
 import type { Branch, EffectiveBranchFeature } from '@/types'
-import { tiramisApi } from '@/modules/tenant/tiramis/api'
-import type { TiramisSalePointRecord } from '@/modules/tenant/tiramis/types'
+import { salePointsApi } from '@/modules/tenant/sale-points/api/sale-points'
+import type { SalePointRecord as TiramisSalePointRecord } from '@/modules/tenant/sale-points/api/sale-points'
 import {
   branchesApi,
   type BranchUserAssignment,
@@ -79,8 +79,6 @@ const editSchema = z.object({
     .regex(/^[A-Za-z0-9_-]+$/, 'Letters, numbers, hyphens and underscores only')
     .optional()
     .or(z.literal('')),
-  sale_point_code: z.string().max(100).optional().or(z.literal('')),
-  sale_point_name: z.string().max(150).optional().or(z.literal('')),
   phone: z
     .string()
     .regex(/^\+?[\d\s\-().]{7,30}$/, 'Invalid phone')
@@ -139,8 +137,6 @@ function EditBranchDialog({ open, branch, onClose, onSubmit, isPending }: EditDi
     defaultValues: {
       name: branch.name,
       code: branch.code,
-      sale_point_code: branch.sale_point_code ?? '',
-      sale_point_name: branch.sale_point_name ?? '',
       phone: branch.phone ?? '',
       email: branch.email ?? '',
       address_street: branch.address?.street ?? '',
@@ -156,8 +152,6 @@ function EditBranchDialog({ open, branch, onClose, onSubmit, isPending }: EditDi
 
     if (values.name) payload.name = values.name
     if (values.code !== undefined) payload.code = values.code || undefined
-    if (values.sale_point_code !== undefined) payload.sale_point_code = values.sale_point_code || undefined
-    if (values.sale_point_name !== undefined) payload.sale_point_name = values.sale_point_name || undefined
     if (values.phone !== undefined) payload.phone = values.phone || undefined
     if (values.email !== undefined) payload.email = values.email || undefined
 
@@ -213,28 +207,6 @@ function EditBranchDialog({ open, branch, onClose, onSubmit, isPending }: EditDi
                     <FormItem>
                       <FormLabel>Branch Code</FormLabel>
                       <FormControl><Input {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="sale_point_code"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Sale Point Code</FormLabel>
-                      <FormControl><Input placeholder="SP-001" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="sale_point_name"
-                  render={({ field }) => (
-                    <FormItem className="col-span-2">
-                      <FormLabel>Sale Point Name</FormLabel>
-                      <FormControl><Input placeholder="Kariakoo Sales Point" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -679,13 +651,13 @@ function BranchSalesPointsTab({ branchId }: { branchId: string }) {
   const [isDefault, setIsDefault] = useState(false)
   const { data: points = [], isLoading } = useQuery({
     queryKey: ['branch-sale-points', branchId],
-    queryFn: () => tiramisApi.getBranchSalePoints(branchId),
+    queryFn: () => salePointsApi.getForBranch(branchId),
   })
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['branch-sale-points', branchId] })
   const saveMutation = useMutation({
     mutationFn: () => editing
-      ? tiramisApi.updateSalePoint(editing.id, branchId, { sale_point_code: code, sale_point_name: name, is_default: isDefault })
-      : tiramisApi.createBranchSalePoint(branchId, { sale_point_code: code, sale_point_name: name, is_default: isDefault }),
+      ? salePointsApi.update(branchId, editing.id, { sale_point_code: code, sale_point_name: name, is_default: isDefault })
+      : salePointsApi.create(branchId, { sale_point_code: code, sale_point_name: name, is_default: isDefault }),
     onSuccess: () => { refresh(); setOpen(false); toast.success(editing ? 'Sales point updated' : 'Sales point created') },
     onError: (error: any) => toast.error(error?.response?.data?.message ?? 'Unable to save sales point'),
   })
@@ -705,7 +677,7 @@ function BranchSalesPointsTab({ branchId }: { branchId: string }) {
         {isLoading ? <Skeleton className="h-32 w-full" /> : points.length === 0 ? <p className="py-8 text-center text-sm text-slate-400">No sales points configured</p> : points.map((point) => (
           <div key={point.id} className="flex flex-col gap-3 rounded-lg border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div><p className="font-medium">{point.salePointName ?? point.salePointCode}</p><p className="text-xs text-slate-500">{point.salePointCode}</p><div className="mt-2 flex gap-2"><StatusBadge status={point.isActive ? 'active' : 'inactive'} />{point.isDefault && <Badge variant="outline"><Star className="mr-1 h-3 w-3" /> Default</Badge>}</div></div>
-            {canManage && <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => openForm(point)}>Edit</Button>{!point.isDefault && point.isActive && <Button variant="outline" size="sm" onClick={() => action(() => tiramisApi.setDefaultSalePoint(point.id, branchId), 'Default sales point updated')}>Set default</Button>}<Button variant="outline" size="sm" onClick={() => action(() => tiramisApi.setSalePointStatus(point.id, branchId, !point.isActive), point.isActive ? 'Sales point deactivated' : 'Sales point activated')}>{point.isActive ? 'Deactivate' : 'Activate'}</Button>{!point.isDefault && <Button variant="destructive" size="sm" onClick={() => action(() => tiramisApi.deleteSalePoint(point.id, branchId), 'Sales point deleted')}>Delete</Button>}</div>}
+            {canManage && <div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" onClick={() => openForm(point)}>Edit</Button>{!point.isDefault && point.isActive && <Button variant="outline" size="sm" onClick={() => action(() => salePointsApi.setDefault(branchId, point.id), 'Default sales point updated')}>Set default</Button>}<Button variant="outline" size="sm" onClick={() => action(() => salePointsApi.setStatus(branchId, point.id, !point.isActive), point.isActive ? 'Sales point deactivated' : 'Sales point activated')}>{point.isActive ? 'Deactivate' : 'Activate'}</Button>{!point.isDefault && <Button variant="destructive" size="sm" onClick={() => action(() => salePointsApi.remove(branchId, point.id), 'Sales point deleted')}>Delete</Button>}</div>}
           </div>
         ))}
       </CardContent>
@@ -881,21 +853,6 @@ export function BranchDetailPage() {
                 />
               </CardContent>
             </Card>
-
-            {(branch.sale_point_code || branch.sale_point_name) && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Tag className="h-4 w-4 text-slate-500" />
-                    Sale Point
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <DetailRow label="Sale Point Code" value={branch.sale_point_code} />
-                  <DetailRow label="Sale Point Name" value={branch.sale_point_name} />
-                </CardContent>
-              </Card>
-            )}
           </div>
         </TabsContent>
 
