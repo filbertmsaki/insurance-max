@@ -1,17 +1,20 @@
-import { Transform, TransformFnParams } from 'class-transformer';
+import { Transform, TransformFnParams, Type } from 'class-transformer';
 import {
   IsDateString,
   IsEmail,
   IsEnum,
   IsNotEmpty,
+  IsObject,
   IsOptional,
   IsString,
   IsStrongPassword,
   Matches,
   MaxLength,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
+import { CreateCompanyBranchDto } from './create-company-branch.dto';
 
 export class CreateCompanyDto {
   @IsString()
@@ -118,4 +121,20 @@ export class CreateCompanyDto {
     },
   )
   admin_password: string;
+
+  @IsNotEmpty()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => CreateCompanyBranchDto)
+  head_office: CreateCompanyBranchDto;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  operating_timezone?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Z]{3}$/)
+  default_currency?: string;
 }

@@ -29,6 +29,7 @@ import { ResetPasswordDto } from './dtos/reset-password.dto';
 import { Complete2FALoginDto } from './dtos/complete-2fa-login.dto';
 import { ResendVerificationDto } from './dtos/resend-verification.dto';
 import { SwitchCompanyDto } from './dtos/switch-company.dto';
+import { SwitchOrganizationContextDto } from './dtos/switch-organization-context.dto';
 import { SendPhoneOtpDto, PhoneLoginDto } from './dtos/phone-login.dto';
 import { SendOtpDto } from './dtos/send-otp.dto';
 import { VerifyOtpDto } from './dtos/verify-otp.dto';
@@ -281,6 +282,32 @@ export class AuthController {
       currentAccessToken: authorization?.replace(/^Bearer\s+/i, ''),
       refreshToken: dto.refresh_token,
       companyId: dto.company_id,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+  }
+
+  @Post('switch-organization-context')
+  @UseGuards(AuthGuard('jwt'))
+  @AuthenticatedAccess()
+  @ApiBearerAuth('access-token')
+  @SkipThrottle()
+  @ApiOperation({
+    summary: 'Switch active branch/department context within the current company',
+  })
+  switchOrganizationContext(
+    @Body() dto: SwitchOrganizationContextDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: ExpressRequest,
+    @Headers('authorization') authorization?: string,
+  ) {
+    return this.authService.switchOrganizationContext({
+      userId: user.id,
+      sessionId: user.sessionId,
+      currentAccessToken: authorization?.replace(/^Bearer\s+/i, ''),
+      refreshToken: dto.refresh_token,
+      branchId: dto.branch_id,
+      departmentId: dto.department_id,
       ip: req.ip,
       userAgent: req.headers['user-agent'],
     });

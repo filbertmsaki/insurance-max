@@ -1,4 +1,6 @@
 import {
+  ArrayNotEmpty,
+  ArrayUnique,
   IsArray,
   IsEmail,
   IsEnum,
@@ -9,7 +11,6 @@ import {
   IsUUID,
   MinLength,
 } from 'class-validator';
-import { Role } from '../../../platform/roles/entities/role.entity';
 import { UserType } from '../entities/user.entity';
 
 export class CreateUserDto {
@@ -50,11 +51,28 @@ export class CreateUserDto {
   @IsNotEmpty()
   officer_title: string;
 
-  @IsUUID()
-  @IsNotEmpty()
-  branch_id: string;
-
   @IsArray()
+  @ArrayNotEmpty()
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  branch_ids: string[];
+
+  @IsUUID()
+  active_branch_id: string;
+
   @IsOptional()
-  roles?: Role[];
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  department_ids?: string[];
+
+  @IsOptional()
+  @IsUUID()
+  active_department_id?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  role_ids?: string[];
 }

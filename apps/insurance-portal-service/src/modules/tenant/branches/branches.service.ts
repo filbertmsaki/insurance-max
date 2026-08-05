@@ -6,7 +6,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, QueryFailedError, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  In,
+  QueryFailedError,
+  Repository,
+} from 'typeorm';
 import {
   PaginationDto,
   SortDirection,
@@ -94,17 +100,30 @@ export class BranchesService {
 
   // ─── Branch CRUD ─────────────────────────────────────────────────────────────
 
-  async createBranch(companyId: string, dto: CreateBranchDto): Promise<Branch> {
+  async createBranch(
+    companyId: string,
+    dto: CreateBranchDto,
+    manager?: EntityManager,
+  ): Promise<Branch> {
     if (dto.manager_id) {
       await this.validateManagerBelongsToCompany(dto.manager_id, companyId);
     }
 
-    const branch = this.branchRepository.create({
+    const branchRepository =
+      manager?.getRepository(Branch) ?? this.branchRepository;
+
+    if (dto.is_head_office) {
+      await branchRepository.update(
+        { company_id: companyId, is_head_office: true },
+        { is_head_office: false },
+      );
+    }
+
+    const branch = branchRepository.create({
       company_id: companyId,
       name: dto.name.trim(),
       code: dto.code.trim().toUpperCase(),
-      sale_point_code: dto.sale_point_code ?? null,
-      sale_point_name: dto.sale_point_name ?? null,
+      is_head_office: dto.is_head_office ?? false,
       status: 'active',
       address: dto.address ?? null,
       phone: dto.phone ?? null,
@@ -113,7 +132,7 @@ export class BranchesService {
     });
 
     try {
-      return await this.branchRepository.save(branch);
+      return await branchRepository.save(branch);
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
         throw new ConflictException(
@@ -198,15 +217,20 @@ export class BranchesService {
 
     if (dto.name !== undefined) branch.name = dto.name.trim();
     if (dto.code !== undefined) branch.code = dto.code.trim().toUpperCase();
-    if (dto.sale_point_code !== undefined)
-      branch.sale_point_code = dto.sale_point_code ?? null;
-    if (dto.sale_point_name !== undefined)
-      branch.sale_point_name = dto.sale_point_name ?? null;
     if (dto.address !== undefined) branch.address = dto.address ?? null;
     if (dto.phone !== undefined) branch.phone = dto.phone ?? null;
     if (dto.email !== undefined) branch.email = dto.email ?? null;
     if (dto.manager_id !== undefined)
       branch.manager_id = dto.manager_id ?? null;
+    if (dto.is_head_office === true) {
+      await this.branchRepository.update(
+        { company_id: companyId, is_head_office: true },
+        { is_head_office: false },
+      );
+      branch.is_head_office = true;
+    } else if (dto.is_head_office === false) {
+      branch.is_head_office = false;
+    }
 
     try {
       return await this.branchRepository.save(branch);
@@ -224,8 +248,57 @@ export class BranchesService {
     companyId: string,
     branchId: string,
     dto: UpdateBranchStatusDto,
+    actorId?: string,
   ): Promise<Branch> {
     const branch = await this.requireBranch(companyId, branchId);
+
+    if (dto.status === 'inactive' && branch.status === 'active') {
+      const activeAssignments = await this.branchUserRepository.find({
+        where: { branch_id: branchId, is_active_branch: true },
+      });
+
+      if (activeAssignments.length) {
+        if (!dto.replacement_branch_id) {
+          throw new BadRequestException(
+            'This branch has users with it as their active branch. Provide replacement_branch_id to reassign them before deactivating.',
+          );
+        }
+
+        const replacementBranch = await this.branchRepository.findOne({
+          where: {
+            id: dto.replacement_branch_id,
+            company_id: companyId,
+            status: 'active',
+          },
+        });
+        if (!replacementBranch) {
+          throw new NotFoundException(
+            'Replacement branch was not found or is not active',
+          );
+        }
+
+        for (const assignment of activeAssignments) {
+          await this.setUserActiveBranch(
+            companyId,
+            assignment.company_user_id,
+            dto.replacement_branch_id,
+            actorId,
+          ).catch(async () => {
+            // User is not assigned to the replacement branch yet; assign then activate.
+            await this.assignUsersToBranch(
+              companyId,
+              dto.replacement_branch_id as string,
+              {
+                company_user_ids: [assignment.company_user_id],
+                make_active: true,
+              } as AssignBranchUserDto,
+              actorId,
+            );
+          });
+        }
+      }
+    }
+
     branch.status = dto.status;
     return this.branchRepository.save(branch);
   }
@@ -302,7 +375,7 @@ export class BranchesService {
         if (shouldActivate) {
           await branchUserRepo.update(
             { company_user_id: membership.id },
-            { is_active_branch: false },
+            { is_active_branch: false, is_primary: false },
           );
         }
 
@@ -453,7 +526,7 @@ export class BranchesService {
       }
       await branchUserRepo.update(
         { company_user_id: companyUserId },
-        { is_active_branch: false },
+        { is_active_branch: false, is_primary: false },
       );
       assignment.is_active_branch = true;
       assignment.is_primary = true;
@@ -691,8 +764,7 @@ export class BranchesService {
       company_id: branch.company_id,
       name: branch.name,
       code: branch.code,
-      sale_point_code: branch.sale_point_code,
-      sale_point_name: branch.sale_point_name,
+      is_head_office: branch.is_head_office,
       status: branch.status,
       address: branch.address,
       phone: branch.phone,

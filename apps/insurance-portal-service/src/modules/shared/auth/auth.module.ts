@@ -9,6 +9,8 @@ import { AuthController } from './auth.controller';
 
 import { CompaniesModule } from '../../platform/companies/companies.module';
 import { UsersModule } from '../../tenant/users/users.module';
+import { BranchesModule } from '../../tenant/branches/branches.module';
+import { DepartmentsModule } from '../../tenant/departments/departments.module';
 import { MailModule } from '../mail/mail.module';
 import { TwoFaModule } from './2fa/2fa.module';
 import { OtpModule } from '../otp/otp.module';
@@ -27,6 +29,8 @@ import { LocalStrategy } from './strategies/local.strategy';
     }),
     CompaniesModule,
     UsersModule,
+    BranchesModule,
+    DepartmentsModule,
     MailModule,
     TwoFaModule,
     OtpModule,

@@ -1,6 +1,7 @@
 import {
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   Entity,
   Index,
   JoinColumn,
@@ -64,6 +65,12 @@ export class TiramisSalePointEntity {
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
 
+  @Column({ name: 'created_by', type: 'uuid', nullable: true })
+  createdBy!: string | null;
+
+  @Column({ name: 'updated_by', type: 'uuid', nullable: true })
+  updatedBy!: string | null;
+
   @Column({ name: 'metadata', type: 'jsonb', nullable: true })
   metadata!: Record<string, unknown> | null;
 
@@ -72,6 +79,9 @@ export class TiramisSalePointEntity {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt!: Date;
+
+  @DeleteDateColumn({ name: 'deleted_at', type: 'timestamptz', nullable: true })
+  deletedAt!: Date | null;
 
   @ManyToOne(() => Company, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'company_id' })

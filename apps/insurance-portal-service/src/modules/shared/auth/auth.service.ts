@@ -22,6 +22,8 @@ import {
   hashPassword,
 } from '@insurance-max/portal-shared/utils/hash.util';
 import { CompaniesService } from '../../platform/companies/companies.service';
+import { BranchesService } from '../../tenant/branches/branches.service';
+import { DepartmentsService } from '../../tenant/departments/departments.service';
 import { CompanySummary } from '../../platform/companies/interfaces/company-membership-context.interface';
 import { MailService } from '../mail/mail.service';
 import { User } from '../../tenant/users/entities/user.entity';
@@ -122,6 +124,8 @@ export class AuthService {
     private readonly mailService: MailService,
     private readonly twoFaService: TwoFaService,
     private readonly companiesService: CompaniesService,
+    private readonly branchesService: BranchesService,
+    private readonly departmentsService: DepartmentsService,
     private readonly otpService: OtpService,
     private readonly sessionsService: SessionsService,
     private readonly devicesService: DevicesService,
@@ -689,6 +693,114 @@ export class AuthService {
     return authResponse;
   }
 
+  // ── Switch organization context (branch/department) ─────────────────────────
+
+  async switchOrganizationContext(options: {
+    userId: string;
+    sessionId: string;
+    currentAccessToken?: string;
+    refreshToken: string;
+    branchId: string;
+    departmentId?: string | null;
+    ip?: string;
+    userAgent?: string;
+  }) {
+    const refreshPayload = this.jwtService.verify<RefreshTokenPayload>(
+      options.refreshToken,
+      { secret: this.getRefreshTokenSecret() },
+    );
+
+    if (
+      refreshPayload.sub !== options.userId ||
+      refreshPayload.sessionId !== options.sessionId ||
+      refreshPayload.type !== 'refresh'
+    ) {
+      throw new UnauthorizedException('Invalid session context.');
+    }
+
+    const companyId = refreshPayload.companyId;
+    const membershipId = refreshPayload.membershipId;
+
+    if (!companyId || !membershipId) {
+      throw new UnauthorizedException(
+        'An active company context is required to switch branches.',
+      );
+    }
+
+    const user = await this.usersService.findById(options.userId);
+
+    if (user.status !== 'active')
+      throw new ForbiddenException('Account is inactive.');
+
+    await this.branchesService.setUserActiveBranch(
+      companyId,
+      membershipId,
+      options.branchId,
+      options.userId,
+    );
+
+    if (options.departmentId) {
+      await this.departmentsService.setActiveDepartment(
+        companyId,
+        membershipId,
+        options.departmentId,
+        options.userId,
+      );
+    } else {
+      await this.departmentsService.reconcileActiveDepartmentForBranch(
+        companyId,
+        membershipId,
+        options.branchId,
+      );
+    }
+
+    const companyContext = await this.companiesService.getMembershipContext(
+      options.userId,
+      companyId,
+    );
+
+    const companies = await this.companiesService.listUserCompanies(
+      options.userId,
+    );
+
+    const authResponse = this.generateCompanyAuthResponse(
+      user,
+      companyContext,
+      companies,
+      options.sessionId,
+    );
+
+    await this.sessionsService.rotateRefreshToken({
+      sessionId: options.sessionId,
+      userId: options.userId,
+      oldRefreshToken: options.refreshToken,
+      newRefreshToken: authResponse.refresh_token,
+      ipAddress: options.ip,
+      userAgent: options.userAgent,
+    });
+
+    await this.blacklistJwt(options.refreshToken, 7 * 24 * 60 * 60);
+
+    if (options.currentAccessToken) {
+      await this.blacklistJwt(options.currentAccessToken, 15 * 60);
+    }
+
+    await this.auditService.log({
+      userId: options.userId,
+      companyId,
+      action: 'auth.organization_context_switched',
+      ipAddress: options.ip,
+      userAgent: options.userAgent,
+      metadata: {
+        sessionId: options.sessionId,
+        branchId: options.branchId,
+        departmentId: options.departmentId ?? null,
+      },
+    });
+
+    return authResponse;
+  }
+
   // ── Register ────────────────────────────────────────────────────────────────
 
   async register(registerDto: RegisterDto) {
@@ -714,7 +826,8 @@ export class AuthService {
         email: registerDto.email,
         password: registerDto.password,
         officer_title: 'Underwriter',
-        branch_id: defaultBranch.id,
+        branch_ids: [defaultBranch.id],
+        active_branch_id: defaultBranch.id,
       },
     );
 

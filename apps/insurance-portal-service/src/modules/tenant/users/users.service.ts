@@ -1,11 +1,12 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, MoreThan, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, MoreThan, Repository } from 'typeorm';
 
 import { PaginationDto } from '@insurance-max/portal-shared/dto/pagination.dto';
 import {
@@ -14,6 +15,11 @@ import {
 } from '@insurance-max/portal-shared/utils/hash.util';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { CompaniesService } from '../../platform/companies/companies.service';
+import { CompanyUserRole } from '../../platform/companies/entities/company-user-role.entity';
+import { Branch } from '../branches/entities/branch.entity';
+import { BranchUser } from '../branches/entities/branch-user.entity';
+import { Department } from '../departments/entities/department.entity';
+import { DepartmentUser } from '../departments/entities/department-user.entity';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { UpdateUserDto } from './dtos/update-user.dto';
 import { UserProfileDto } from './dtos/user-profile-dto';
@@ -26,17 +32,8 @@ export class UsersService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly companiesService: CompaniesService,
+    private readonly dataSource: DataSource,
   ) {}
-
-  private extractRoleIds(
-    roles?: Array<{ id?: string } | string>,
-  ): string[] | undefined {
-    if (!roles?.length) return undefined;
-    const ids = roles
-      .map((r) => (typeof r === 'string' ? r : r?.id))
-      .filter((id): id is string => typeof id === 'string' && id.length > 0);
-    return ids.length ? ids : undefined;
-  }
 
   private async findOrFail(id: string): Promise<User> {
     const user = await this.userRepository.findOne({
@@ -72,99 +69,217 @@ export class UsersService {
     companyId: string,
     createUserDto: CreateUserDto,
   ): Promise<UserProfileDto | { message: string; user: UserProfileDto }> {
-    const { roles, password, branch_id, officer_title, ...userData } =
-      createUserDto;
+    const {
+      password,
+      branch_ids,
+      active_branch_id,
+      department_ids,
+      active_department_id,
+      role_ids,
+      officer_title,
+      ...userData
+    } = createUserDto;
 
-    await this.companiesService.assertBranchBelongsToCompany(
-      companyId,
-      branch_id,
-    );
-    const existingByEmail = await this.userRepository.findOne({
-      where: { email: userData.email },
-    });
-    const existingByPhone = await this.userRepository.findOne({
-      where: { phone: userData.phone },
-    });
-
+    if (!branch_ids.includes(active_branch_id)) {
+      throw new BadRequestException(
+        'active_branch_id must be one of branch_ids',
+      );
+    }
     if (
-      existingByEmail &&
-      existingByPhone &&
-      existingByEmail.id !== existingByPhone.id
+      active_department_id &&
+      !(department_ids ?? []).includes(active_department_id)
     ) {
-      throw new ConflictException(
-        'Email and phone belong to different existing users',
+      throw new BadRequestException(
+        'active_department_id must be one of department_ids',
       );
     }
 
-    const existingUser = existingByEmail ?? existingByPhone;
-    const roleIds = this.extractRoleIds(roles);
+    return this.dataSource.transaction(async (manager) => {
+      const userRepository = manager.getRepository(User);
+      const branchRepository = manager.getRepository(Branch);
+      const branchUserRepository = manager.getRepository(BranchUser);
+      const departmentRepository = manager.getRepository(Department);
+      const departmentUserRepository = manager.getRepository(DepartmentUser);
 
-    if (existingUser) {
-      if (existingByEmail && existingByEmail.phone !== userData.phone) {
-        throw new ConflictException(
-          'This email already exists with a different phone number',
+      const branches = await branchRepository.find({
+        where: { id: In(branch_ids), company_id: companyId, status: 'active' },
+      });
+      if (branches.length !== branch_ids.length) {
+        throw new NotFoundException(
+          'One or more branches were not found or are not active',
         );
       }
-      if (existingByPhone && existingByPhone.email !== userData.email) {
+
+      let departments: Department[] = [];
+      if (department_ids?.length) {
+        departments = await departmentRepository.find({
+          where: {
+            id: In(department_ids),
+            company_id: companyId,
+            status: 'active',
+          },
+        });
+        if (departments.length !== department_ids.length) {
+          throw new NotFoundException(
+            'One or more departments were not found or are not active',
+          );
+        }
+      }
+
+      const existingByEmail = await userRepository.findOne({
+        where: { email: userData.email },
+      });
+      const existingByPhone = await userRepository.findOne({
+        where: { phone: userData.phone },
+      });
+
+      if (
+        existingByEmail &&
+        existingByPhone &&
+        existingByEmail.id !== existingByPhone.id
+      ) {
         throw new ConflictException(
-          'This phone number already exists with a different email',
+          'Email and phone belong to different existing users',
         );
       }
 
-      const currentMembership = await this.companiesService
-        .findCompanyUserContext(companyId, existingUser.id)
-        .catch(() => null);
+      const existingUser = existingByEmail ?? existingByPhone;
 
-      if (currentMembership)
-        throw new ConflictException('User already belongs to this company');
+      let userId: string;
+
+      if (existingUser) {
+        if (existingByEmail && existingByEmail.phone !== userData.phone) {
+          throw new ConflictException(
+            'This email already exists with a different phone number',
+          );
+        }
+        if (existingByPhone && existingByPhone.email !== userData.email) {
+          throw new ConflictException(
+            'This phone number already exists with a different email',
+          );
+        }
+
+        const currentMembership = await this.companiesService
+          .findCompanyUserContext(companyId, existingUser.id)
+          .catch(() => null);
+
+        if (currentMembership) {
+          throw new ConflictException('User already belongs to this company');
+        }
+
+        existingUser.officer_title =
+          officer_title || existingUser.officer_title;
+        await userRepository.save(existingUser);
+        userId = existingUser.id;
+      } else {
+        const hashedPassword = await hashPassword(password);
+        const user = userRepository.create({
+          ...userData,
+          password: hashedPassword,
+          user_no: userData.user_no ?? (await this.generateUserNo(manager)),
+          status: userData.status ?? 'active',
+          user_type: userData.user_type ?? 'COMPANY_USER',
+          officer_title: officer_title || 'Underwriter',
+          is_email_verified: true,
+        });
+        const savedUser = await userRepository.save(user);
+        userId = savedUser.id;
+      }
 
       const membership = await this.companiesService.addUserToCompany(
-        existingUser.id,
+        userId,
         companyId,
-        { roleIds },
-      );
-      existingUser.officer_title = officer_title || existingUser.officer_title;
-      await this.userRepository.save(existingUser);
-      await this.companiesService.assignCompanyUserToBranch(
-        companyId,
-        membership.membershipId,
-        branch_id,
-        true,
+        { roleIds: role_ids },
+        manager,
       );
 
-      return {
-        message: 'Existing user added to company successfully',
-        user: await this.findProfileInCompany(existingUser.id, companyId),
-      };
-    }
+      for (const branch of branches) {
+        await this.companiesService.assignCompanyUserToBranch(
+          companyId,
+          membership.membershipId,
+          branch.id,
+          branch.id === active_branch_id,
+          manager,
+        );
+      }
 
-    const hashedPassword = await hashPassword(password);
-    const user = this.userRepository.create({
-      ...userData,
-      password: hashedPassword,
-      user_no: userData.user_no ?? (await this.generateUserNo()),
-      status: userData.status ?? 'active',
-      user_type: userData.user_type ?? 'COMPANY_USER',
-      officer_title: officer_title || 'Underwriter',
-      is_email_verified: true,
+      for (const department of departments) {
+        const isActive = department.id === active_department_id;
+        await departmentUserRepository.save(
+          departmentUserRepository.create({
+            company_id: companyId,
+            department_id: department.id,
+            company_user_id: membership.membershipId,
+            is_primary: isActive,
+            is_active_department: isActive,
+            assigned_by: null,
+            activated_at: isActive ? new Date() : null,
+            activated_by: null,
+          }),
+        );
+      }
+
+      const result = existingUser
+        ? {
+            message: 'Existing user added to company successfully',
+            user: await this.findProfileInCompanyWithManager(
+              userId,
+              companyId,
+              manager,
+            ),
+          }
+        : await this.findProfileInCompanyWithManager(
+            userId,
+            companyId,
+            manager,
+          );
+
+      return result;
     });
+  }
 
-    const savedUser = await this.userRepository.save(user);
-    const membership = await this.companiesService.addUserToCompany(
-      savedUser.id,
+  private async findProfileInCompanyWithManager(
+    id: string,
+    companyId: string,
+    manager: EntityManager,
+  ): Promise<UserProfileDto> {
+    const userRepository = manager.getRepository(User);
+    const user = await userRepository.findOne({
+      where: { id },
+      relations: { roles: { permissions: true }, permissions: true },
+    });
+    if (!user) throw new NotFoundException(`User with ID ${id} not found`);
+
+    const companyContext = await this.companiesService.getMembershipContext(
+      id,
       companyId,
-      {
-        roleIds,
+      manager,
+    );
+
+    return new UserProfileDto({
+      id: user.id,
+      user_no: user.user_no,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      phone: user.phone,
+      email: user.email,
+      status: user.status,
+      user_type: user.user_type,
+      officer_title: user.officer_title,
+      is_email_verified: user.is_email_verified,
+      is_two_factor_enabled: user.is_two_factor_enabled,
+      last_login_at: user.last_login_at,
+      last_login_ip: user.last_login_ip,
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+      roles: companyContext.roles,
+      permissions: companyContext.permissions,
+      current_company: {
+        id: companyContext.companyId,
+        name: companyContext.companyName,
+        slug: companyContext.companySlug,
       },
-    );
-    await this.companiesService.assignCompanyUserToBranch(
-      companyId,
-      membership.membershipId,
-      branch_id,
-      true,
-    );
-
-    return this.findProfileInCompany(savedUser.id, companyId);
+    });
   }
 
   async findByEmailForAuth(email: string): Promise<User | null> {

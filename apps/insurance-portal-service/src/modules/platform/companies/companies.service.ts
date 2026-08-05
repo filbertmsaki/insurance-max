@@ -421,10 +421,20 @@ export class CompaniesService {
       admin_email,
       admin_phone,
       admin_password,
+      head_office,
+      operating_timezone,
+      default_currency,
     } = createCompanyDto;
+
+    if (!head_office) {
+      throw new BadRequestException(
+        'A head office branch is required to create a company',
+      );
+    }
 
     return this.companyRepository.manager.transaction(async (manager) => {
       const userRepository = this.getUserRepository(manager);
+      const branchRepository = manager.getRepository(Branch);
 
       const existingUser = await userRepository.findOne({
         where: [{ email: admin_email }, { phone: admin_phone }],
@@ -451,6 +461,27 @@ export class CompaniesService {
         },
         manager,
       );
+
+      if (operating_timezone || default_currency) {
+        await manager.getRepository(Company).update(company.id, {
+          ...(operating_timezone ? { operating_timezone } : {}),
+          ...(default_currency ? { default_currency } : {}),
+        });
+      }
+
+      const branch = await branchRepository.save(
+        branchRepository.create({
+          company_id: company.id,
+          name: head_office.name.trim(),
+          code: head_office.code.trim().toUpperCase(),
+          is_head_office: true,
+          status: 'active',
+          address: head_office.address ?? null,
+          phone: head_office.phone ?? null,
+          email: head_office.email ?? null,
+        }),
+      );
+
       const hashedPassword = await hashPassword(admin_password);
       const userNo = await this.generateUserNo(manager);
 
@@ -480,6 +511,14 @@ export class CompaniesService {
         manager,
       );
 
+      await this.assignCompanyUserToBranch(
+        company.id,
+        companyContext.membershipId,
+        branch.id,
+        true,
+        manager,
+      );
+
       return {
         message: 'Company and first administrator created successfully',
         company: {
@@ -491,6 +530,11 @@ export class CompaniesService {
           tira_license_number: company.tira_license_number,
           tira_license_status: company.tira_license_status,
           created_at: company.created_at,
+        },
+        head_office: {
+          id: branch.id,
+          name: branch.name,
+          code: branch.code,
         },
         administrator: {
           id: administrator.id,
@@ -686,8 +730,11 @@ export class CompaniesService {
   async assertBranchBelongsToCompany(
     companyId: string,
     branchId: string,
+    manager?: EntityManager,
   ): Promise<Branch> {
-    const branch = await this.branchRepository.findOne({
+    const branchRepository =
+      manager?.getRepository(Branch) ?? this.branchRepository;
+    const branch = await branchRepository.findOne({
       where: { id: branchId, company_id: companyId, status: 'active' },
     });
     if (!branch) {
@@ -708,10 +755,15 @@ export class CompaniesService {
     companyUserId: string,
     branchId: string,
     isPrimary = true,
+    manager?: EntityManager,
   ): Promise<BranchUser> {
-    await this.assertBranchBelongsToCompany(companyId, branchId);
+    const branchUserRepository =
+      manager?.getRepository(BranchUser) ?? this.branchUserRepository;
+    const companyUserRepository = this.getCompanyUserRepository(manager);
 
-    const membership = await this.companyUserRepository.findOne({
+    await this.assertBranchBelongsToCompany(companyId, branchId, manager);
+
+    const membership = await companyUserRepository.findOne({
       where: { id: companyUserId, company_id: companyId, status: 'active' },
     });
     if (!membership) {
@@ -719,17 +771,17 @@ export class CompaniesService {
     }
 
     if (isPrimary) {
-      await this.branchUserRepository.update(
+      await branchUserRepository.update(
         { company_user_id: companyUserId },
         { is_primary: false, is_active_branch: false },
       );
     }
 
-    let assignment = await this.branchUserRepository.findOne({
+    let assignment = await branchUserRepository.findOne({
       where: { branch_id: branchId, company_user_id: companyUserId },
     });
     if (!assignment) {
-      assignment = this.branchUserRepository.create({
+      assignment = branchUserRepository.create({
         branch_id: branchId,
         company_user_id: companyUserId,
         is_primary: isPrimary,
@@ -746,7 +798,7 @@ export class CompaniesService {
       assignment.is_active_branch = true;
       assignment.activated_at = new Date();
     }
-    return this.branchUserRepository.save(assignment);
+    return branchUserRepository.save(assignment);
   }
 
   private async getActiveBranchContext(

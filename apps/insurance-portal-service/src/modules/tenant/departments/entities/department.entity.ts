@@ -6,12 +6,14 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { Branch } from '../../branches/entities/branch.entity';
+import { DepartmentUser } from './department-user.entity';
 
 @Entity('departments')
 @Unique('UQ_departments_company_code', ['company_id', 'code'])
@@ -63,4 +65,7 @@ export class Department {
   @ManyToOne(() => Branch, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'branch_id' })
   branch: Branch | null;
+
+  @OneToMany(() => DepartmentUser, (assignment) => assignment.department)
+  department_users: DepartmentUser[];
 }

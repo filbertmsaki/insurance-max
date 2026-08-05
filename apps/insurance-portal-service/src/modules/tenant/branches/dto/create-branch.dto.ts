@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEmail,
   IsNotEmpty,
   IsObject,
@@ -7,13 +9,33 @@ import {
   IsString,
   IsUUID,
   MaxLength,
+  ValidateNested,
 } from 'class-validator';
 
-export interface BranchAddressDto {
+export class BranchAddressDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   street?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   city?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   region?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   country?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   postal_code?: string;
 }
 
@@ -33,20 +55,8 @@ export class CreateBranchDto {
   @MaxLength(50)
   code: string;
 
-  @ApiPropertyOptional({ example: 'SP-001' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  sale_point_code?: string;
-
-  @ApiPropertyOptional({ example: 'Main Sale Point' })
-  @IsOptional()
-  @IsString()
-  @MaxLength(150)
-  sale_point_name?: string;
-
   @ApiPropertyOptional({
-    type: Object,
+    type: BranchAddressDto,
     example: {
       street: '123 Samora Ave',
       city: 'Dar es Salaam',
@@ -55,6 +65,8 @@ export class CreateBranchDto {
   })
   @IsOptional()
   @IsObject()
+  @ValidateNested()
+  @Type(() => BranchAddressDto)
   address?: BranchAddressDto;
 
   @ApiPropertyOptional({ example: '+255712345678' })
@@ -72,4 +84,11 @@ export class CreateBranchDto {
   @IsOptional()
   @IsUUID()
   manager_id?: string;
+
+  @ApiPropertyOptional({
+    description: 'Whether this branch is the company head office',
+  })
+  @IsOptional()
+  @IsBoolean()
+  is_head_office?: boolean;
 }

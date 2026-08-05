@@ -87,7 +87,12 @@ export class BranchesController {
     @Param('branchId', ParseUUIDPipe) branchId: string,
     @Body() dto: UpdateBranchStatusDto,
   ) {
-    return this.branchesService.setBranchStatus(user.companyId!, branchId, dto);
+    return this.branchesService.setBranchStatus(
+      user.companyId!,
+      branchId,
+      dto,
+      user.id,
+    );
   }
 
   @Delete(':branchId')

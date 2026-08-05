@@ -42,6 +42,7 @@ import tiramisClientConfig from './config/tiramis-client.config';
 import { HealthModule } from './health/health.module';
 import { InsurancePortalServiceModule } from './modules/insurance-portal-service.module';
 import { TiramisModule } from './modules/tiramis/tiramis.module';
+import { OrganizationModule } from './modules/shared/organization/organization.module';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { TiramisModule } from './modules/tiramis/tiramis.module';
     }),
     InsurancePortalServiceModule,
     TiramisModule,
+    OrganizationModule,
     HealthModule,
   ],
   controllers: [AppController],

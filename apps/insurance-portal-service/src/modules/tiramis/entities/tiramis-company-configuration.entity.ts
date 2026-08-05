@@ -65,11 +65,16 @@ export class TiramisCompanyConfigurationEntity {
   })
   clientCode!: string | null;
 
+  /**
+   * @deprecated Client secrets belong to the TIRAMIS Service.
+   * Retained only for legacy data migration.
+   */
   @Column({
     name: 'client_key',
     type: 'varchar',
     length: 255,
     nullable: true,
+    select: false,
   })
   clientKey!: string | null;
 
@@ -107,6 +112,28 @@ export class TiramisCompanyConfigurationEntity {
 
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
+
+  @Column({
+    name: 'validation_status',
+    type: 'varchar',
+    length: 30,
+    default: 'NOT_VALIDATED',
+  })
+  validationStatus!: 'NOT_VALIDATED' | 'VALID' | 'INVALID';
+
+  @Column({
+    name: 'validated_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  validatedAt!: Date | null;
+
+  @Column({
+    name: 'validation_message',
+    type: 'text',
+    nullable: true,
+  })
+  validationMessage!: string | null;
 
   @Column({ name: 'metadata', type: 'jsonb', nullable: true })
   metadata!: Record<string, unknown> | null;

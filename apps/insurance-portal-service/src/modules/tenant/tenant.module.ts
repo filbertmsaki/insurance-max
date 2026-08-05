@@ -30,6 +30,7 @@ import { ReportingModule } from './reporting/reporting.module';
 import { RiskRatingRulesModule } from './risk-rating-rules/risk-rating-rules.module';
 import { RiskRequiredFactorsModule } from './risk-required-factors/risk-required-factors.module';
 import { RiskRuleConditionsModule } from './risk-rule-conditions/risk-rule-conditions.module';
+import { SalePointsModule } from './sale-points/sale-points.module';
 import { TiramisIntegrationModule } from './tiramis-integration/tiramis-integration.module';
 import { UsersModule } from './users/users.module';
 import { VerificationsModule } from './verifications/verifications.module';
@@ -67,6 +68,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
     CategoryAccessModule,
     ProductAccessModule,
     PremiumCalculationModule,
+    SalePointsModule,
     TiramisIntegrationModule,
     VerificationsModule,
     WorkItemsModule,
@@ -102,6 +104,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
     CategoryAccessModule,
     ProductAccessModule,
     PremiumCalculationModule,
+    SalePointsModule,
     TiramisIntegrationModule,
     VerificationsModule,
     WorkItemsModule,

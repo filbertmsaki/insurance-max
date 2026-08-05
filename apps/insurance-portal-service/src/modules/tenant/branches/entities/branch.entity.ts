@@ -41,11 +41,20 @@ export class Branch {
   @Column({ length: 50 })
   code: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  /**
+   * @deprecated Sales points are stored in tiramis_sale_points.
+   */
+  @Column({ type: 'varchar', length: 100, nullable: true, select: false })
   sale_point_code: string | null;
 
-  @Column({ type: 'varchar', length: 150, nullable: true })
+  /**
+   * @deprecated Sales points are stored in tiramis_sale_points.
+   */
+  @Column({ type: 'varchar', length: 150, nullable: true, select: false })
   sale_point_name: string | null;
+
+  @Column({ default: false })
+  is_head_office: boolean;
 
   @Column({ default: 'active', length: 20 })
   status: string;
