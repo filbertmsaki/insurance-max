@@ -40,6 +40,9 @@ function makeQueryBuilder(session: UserSession | null) {
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
+    update: jest.fn().mockReturnThis(),
+    set: jest.fn().mockReturnThis(),
+    execute: jest.fn().mockResolvedValue({ affected: session ? 1 : 0 }),
     getOne: jest.fn().mockResolvedValue(session),
     getMany: jest.fn().mockResolvedValue(session ? [session] : []),
   };
@@ -253,7 +256,6 @@ describe('SessionsService', () => {
     it('revokes sessions other than the current one', async () => {
       const other = makeSession({ id: 'other-session' });
       const builder = makeQueryBuilder(other);
-      builder.execute = jest.fn().mockResolvedValue({ affected: 1 });
       sessionRepo.createQueryBuilder.mockReturnValue(builder);
 
       await service.revokeOtherUserSessions(USER_ID, SESSION_ID);

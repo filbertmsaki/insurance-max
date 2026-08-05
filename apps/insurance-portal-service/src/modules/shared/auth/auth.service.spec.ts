@@ -27,6 +27,8 @@ import { AuditService } from '../audit/audit.service';
 import { RedisService } from '../redis/redis.service';
 import { comparePasswords } from '@insurance-max/portal-shared/utils/hash.util';
 
+const FUTURE_EXP = Math.floor(Date.now() / 1000) + 900;
+
 const mockUser = {
   id: 'uuid-user-1',
   email: 'test@example.com',
@@ -38,6 +40,7 @@ const mockUser = {
   user_no: 'USER-2025-00001',
   phone: '+255712345678',
   is_email_verified: true,
+  is_phone_verified: true,
   is_two_factor_enabled: false,
   failed_login_attempts: 0,
   locked_until: null,
@@ -45,15 +48,22 @@ const mockUser = {
   permissions: [],
 };
 
-const mockCompanyContext = {
+const mockCompanySummary = {
   companyId: 'uuid-company-1',
   companyName: 'Test Company',
   companySlug: 'test-company',
+  companyType: 'INSURER',
   membershipId: 'uuid-membership-1',
   isDefault: true,
   roles: ['ADMINISTRATOR'],
   permissions: ['users:read'],
-  status: 'active',
+  activeBranchId: null,
+  activeBranchCode: null,
+  activeBranchName: null,
+  defaultSalePointId: null,
+  defaultSalePointCode: null,
+  defaultSalePointName: null,
+  assignedBranchIds: [],
 };
 
 describe('AuthService', () => {
@@ -63,6 +73,8 @@ describe('AuthService', () => {
   let jwtService: jest.Mocked<JwtService>;
   let redisService: jest.Mocked<RedisService>;
   let sessionsService: jest.Mocked<SessionsService>;
+  let devicesService: jest.Mocked<DevicesService>;
+  let twoFaService: jest.Mocked<TwoFaService>;
   let auditService: jest.Mocked<AuditService>;
   let mailService: jest.Mocked<MailService>;
 
@@ -75,12 +87,13 @@ describe('AuthService', () => {
           useValue: {
             findByEmailForAuth: jest.fn(),
             findById: jest.fn(),
+            findByPhone: jest.fn(),
             updateLastLogin: jest.fn(),
             incrementLoginAttempts: jest.fn(),
             resetLoginAttempts: jest.fn(),
             lockAccount: jest.fn(),
             findByEmail: jest.fn(),
-            findByPhone: jest.fn(),
+            markPhoneVerified: jest.fn(),
             updateVerificationToken: jest.fn(),
             markEmailVerified: jest.fn(),
             findByVerificationToken: jest.fn(),
@@ -92,9 +105,9 @@ describe('AuthService', () => {
           useValue: {
             getMembershipContext: jest.fn(),
             findActiveCompanyBySlug: jest.fn(),
-            setActiveMembership: jest.fn(),
+            setActiveMembership: jest.fn().mockResolvedValue(mockCompanySummary),
+            listUserCompanies: jest.fn().mockResolvedValue([mockCompanySummary]),
             createForCompany: jest.fn(),
-            listUserCompanies: jest.fn(),
           },
         },
         {
@@ -102,6 +115,9 @@ describe('AuthService', () => {
           useValue: {
             sign: jest.fn().mockReturnValue('signed-jwt-token'),
             verify: jest.fn(),
+            decode: jest
+              .fn()
+              .mockReturnValue({ exp: FUTURE_EXP, jti: 'decoded-jti' }),
           },
         },
         {
@@ -117,6 +133,9 @@ describe('AuthService', () => {
                 APP_URL: 'http://localhost:9999',
                 'app.lockout.maxAttempts': 5,
                 'app.lockout.durationMinutes': 30,
+                'app.auth.twoFactorMaxAttempts': 5,
+                'app.auth.twoFactorExpiration': '5m',
+                'app.auth.allowTrustedDeviceBypass': true,
               };
               return config[key] ?? def;
             }),
@@ -126,6 +145,7 @@ describe('AuthService', () => {
                 JWT_REFRESH_SECRET: 'refresh-secret',
                 JWT_TEMP_SECRET: 'temp-secret',
                 JWT_RESET_SECRET: 'reset-secret',
+                JWT_2FA_SECRET: '2fa-secret',
                 APP_URL: 'http://localhost:9999',
               };
               if (!config[key]) throw new Error(`Missing config: ${key}`);
@@ -145,7 +165,10 @@ describe('AuthService', () => {
         },
         {
           provide: TwoFaService,
-          useValue: { verify2FALogin: jest.fn(), is2FARequired: jest.fn() },
+          useValue: {
+            verify2FALogin: jest.fn(),
+            is2FARequired: jest.fn().mockResolvedValue(false),
+          },
         },
         {
           provide: OtpService,
@@ -155,9 +178,9 @@ describe('AuthService', () => {
           provide: SessionsService,
           useValue: {
             create: jest.fn().mockResolvedValue({ id: 'session-uuid-1' }),
-            rotateToken: jest.fn(),
+            bindRefreshToken: jest.fn(),
+            rotateRefreshToken: jest.fn(),
             revokeAllUserSessions: jest.fn(),
-            validateRefreshToken: jest.fn(),
             revoke: jest.fn(),
           },
         },
@@ -165,6 +188,8 @@ describe('AuthService', () => {
           provide: DevicesService,
           useValue: {
             upsert: jest.fn().mockResolvedValue({ id: 'device-uuid-1' }),
+            isTrusted: jest.fn().mockResolvedValue(false),
+            trustDevice: jest.fn(),
           },
         },
         { provide: AuditService, useValue: { log: jest.fn() } },
@@ -176,6 +201,10 @@ describe('AuthService', () => {
             set: jest.fn(),
             get: jest.fn(),
             del: jest.fn(),
+            getJson: jest.fn(),
+            setJson: jest.fn(),
+            incr: jest.fn().mockResolvedValue(1),
+            expire: jest.fn(),
           },
         },
       ],
@@ -187,6 +216,8 @@ describe('AuthService', () => {
     jwtService = module.get(JwtService);
     redisService = module.get(RedisService);
     sessionsService = module.get(SessionsService);
+    devicesService = module.get(DevicesService);
+    twoFaService = module.get(TwoFaService);
     auditService = module.get(AuditService);
     mailService = module.get(MailService);
 
@@ -223,6 +254,169 @@ describe('AuthService', () => {
       });
       expect(result).not.toHaveProperty('password');
     });
+
+    it('clears an expired lock and continues validating the password', async () => {
+      usersService.findByEmailForAuth.mockResolvedValue({
+        ...mockUser,
+        locked_until: new Date(Date.now() - 60000),
+        failed_login_attempts: 5,
+      } as any);
+
+      const result = await service.validateUser(mockUser.email, 'pass');
+
+      expect(usersService.resetLoginAttempts).toHaveBeenCalledWith(
+        mockUser.id,
+      );
+      expect(result).toMatchObject({ id: mockUser.id, status: 'active' });
+    });
+  });
+
+  describe('phoneLogin — 2FA enforcement (previously bypassed)', () => {
+    beforeEach(() => {
+      usersService.findByPhone.mockResolvedValue({ ...mockUser } as any);
+    });
+
+    it('requires 2FA when enabled and the device is not trusted', async () => {
+      twoFaService.is2FARequired.mockResolvedValue(true);
+      devicesService.isTrusted.mockResolvedValue(false);
+
+      const result = await service.phoneLogin({
+        phone: mockUser.phone,
+        otp_id: 'otp-1',
+        otp: '123456',
+      } as any);
+
+      expect(result).toMatchObject({ requires2FA: true });
+      expect((result as any).tempToken).toBeDefined();
+      expect(sessionsService.create).not.toHaveBeenCalled();
+    });
+
+    it('bypasses 2FA and issues a session when the device is trusted', async () => {
+      twoFaService.is2FARequired.mockResolvedValue(true);
+      devicesService.isTrusted.mockResolvedValue(true);
+
+      const result = await service.phoneLogin({
+        phone: mockUser.phone,
+        otp_id: 'otp-1',
+        otp: '123456',
+      } as any);
+
+      expect(result).not.toHaveProperty('requires2FA');
+      expect(sessionsService.create).toHaveBeenCalled();
+      expect(result).toHaveProperty('access_token');
+    });
+  });
+
+  describe('completePasswordlessLogin — 2FA enforcement (previously bypassed)', () => {
+    beforeEach(() => {
+      redisService.get.mockResolvedValue(mockUser.id);
+      usersService.findById.mockResolvedValue({ ...mockUser } as any);
+    });
+
+    it('requires 2FA when enabled and the device is not trusted', async () => {
+      twoFaService.is2FARequired.mockResolvedValue(true);
+      devicesService.isTrusted.mockResolvedValue(false);
+
+      const result = await service.completePasswordlessLogin('link-token');
+
+      expect(result).toMatchObject({ requires2FA: true });
+      expect(redisService.del).toHaveBeenCalledWith('passwordless:link-token');
+    });
+  });
+
+  describe('complete2FALogin', () => {
+    const deviceId = 'device-uuid-1';
+    const challengeJti = 'challenge-jti-1';
+
+    function mockValidTempToken(overrides: Record<string, unknown> = {}) {
+      jwtService.verify = jest.fn().mockReturnValue({
+        sub: mockUser.id,
+        email: mockUser.email,
+        scope: 'company',
+        userType: mockUser.user_type,
+        companyId: mockCompanySummary.companyId,
+        deviceId,
+        jti: challengeJti,
+        temp: true,
+        type: '2fa-temp',
+        ...overrides,
+      });
+    }
+
+    beforeEach(() => {
+      mockValidTempToken();
+      redisService.getJson.mockResolvedValue({
+        userId: mockUser.id,
+        deviceId,
+        createdAt: new Date().toISOString(),
+      });
+      redisService.incr.mockResolvedValue(1);
+      twoFaService.verify2FALogin = jest
+        .fn()
+        .mockResolvedValue({ valid: true, used_backup_code: false });
+      usersService.findById.mockResolvedValue({ ...mockUser } as any);
+      devicesService.upsert.mockResolvedValue({ id: deviceId } as any);
+      companiesService.getMembershipContext = jest
+        .fn()
+        .mockResolvedValue(mockCompanySummary);
+    });
+
+    it('issues a session when the code is valid and the device is unchanged', async () => {
+      const result = await service.complete2FALogin(
+        'temp-token',
+        '123456',
+        false,
+      );
+
+      expect(sessionsService.create).toHaveBeenCalled();
+      expect(redisService.del).toHaveBeenCalledWith(
+        `auth:2fa:challenge:${challengeJti}`,
+      );
+      expect(result).toHaveProperty('access_token');
+    });
+
+    it('trusts the device when trustDevice is true', async () => {
+      await service.complete2FALogin('temp-token', '123456', true);
+
+      expect(devicesService.trustDevice).toHaveBeenCalledWith(
+        deviceId,
+        mockUser.id,
+      );
+    });
+
+    it('throws when the resolved device differs from the one on the temp token', async () => {
+      devicesService.upsert.mockResolvedValue({ id: 'a-different-device' } as any);
+
+      await expect(
+        service.complete2FALogin('temp-token', '123456', false),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(sessionsService.create).not.toHaveBeenCalled();
+    });
+
+    it('throws and clears the challenge after exceeding the max attempts', async () => {
+      redisService.incr.mockResolvedValue(6);
+
+      await expect(
+        service.complete2FALogin('temp-token', '000000', false),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(redisService.del).toHaveBeenCalledWith(
+        `auth:2fa:challenge:${challengeJti}`,
+      );
+      expect(redisService.del).toHaveBeenCalledWith(
+        `auth:2fa:challenge:${challengeJti}:attempts`,
+      );
+      expect(twoFaService.verify2FALogin).not.toHaveBeenCalled();
+    });
+
+    it('throws when the Redis challenge is missing or does not match', async () => {
+      redisService.getJson.mockResolvedValue(null);
+
+      await expect(
+        service.complete2FALogin('temp-token', '123456', false),
+      ).rejects.toThrow(UnauthorizedException);
+    });
   });
 
   describe('refreshTokens', () => {
@@ -233,6 +427,144 @@ describe('AuthService', () => {
       await expect(
         service.refreshTokens({ refresh_token: 'bad-token' }),
       ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('throws when the refresh token jti is already blacklisted', async () => {
+      jwtService.verify = jest.fn().mockReturnValue({
+        type: 'refresh',
+        sub: mockUser.id,
+        jti: 'old-jti',
+        sessionId: 'session-uuid-1',
+        scope: 'platform',
+      });
+      redisService.isBlacklisted.mockResolvedValue(true);
+
+      await expect(
+        service.refreshTokens({ refresh_token: 'old-refresh-token' }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('rotates the session refresh token and blacklists the old jti', async () => {
+      jwtService.verify = jest.fn().mockReturnValue({
+        type: 'refresh',
+        sub: mockUser.id,
+        jti: 'old-jti',
+        sessionId: 'session-uuid-1',
+        scope: 'company',
+        companyId: mockCompanySummary.companyId,
+        membershipId: mockCompanySummary.membershipId,
+      });
+      usersService.findById.mockResolvedValue({ ...mockUser } as any);
+      companiesService.getMembershipContext = jest
+        .fn()
+        .mockResolvedValue(mockCompanySummary);
+
+      const result = await service.refreshTokens({
+        refresh_token: 'old-refresh-token',
+      });
+
+      expect(sessionsService.rotateRefreshToken).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionId: 'session-uuid-1',
+          userId: mockUser.id,
+          oldRefreshToken: 'old-refresh-token',
+          newRefreshToken: 'signed-jwt-token',
+        }),
+      );
+      expect(redisService.addToBlacklist).toHaveBeenCalledWith(
+        'old-jti',
+        expect.any(Number),
+      );
+      expect(result).toHaveProperty('access_token');
+    });
+
+    it('rejects reused refresh tokens surfaced by the sessions service', async () => {
+      jwtService.verify = jest.fn().mockReturnValue({
+        type: 'refresh',
+        sub: mockUser.id,
+        jti: 'old-jti',
+        sessionId: 'session-uuid-1',
+        scope: 'platform',
+      });
+      usersService.findById.mockResolvedValue({
+        ...mockUser,
+        user_type: 'SUPER_ADMIN',
+      } as any);
+      sessionsService.rotateRefreshToken.mockRejectedValue(
+        new UnauthorizedException('Refresh token reuse was detected.'),
+      );
+
+      await expect(
+        service.refreshTokens({ refresh_token: 'stolen-refresh-token' }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('switchCompany', () => {
+    it('reuses the existing session instead of creating a new one', async () => {
+      jwtService.verify = jest.fn().mockReturnValue({
+        sub: mockUser.id,
+        sessionId: 'session-uuid-1',
+        type: 'refresh',
+      });
+      usersService.findById.mockResolvedValue({ ...mockUser } as any);
+
+      const result = await service.switchCompany({
+        userId: mockUser.id,
+        sessionId: 'session-uuid-1',
+        refreshToken: 'old-refresh-token',
+        companyId: mockCompanySummary.companyId,
+      });
+
+      expect(sessionsService.create).not.toHaveBeenCalled();
+      expect(sessionsService.rotateRefreshToken).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionId: 'session-uuid-1',
+          userId: mockUser.id,
+          oldRefreshToken: 'old-refresh-token',
+          newRefreshToken: 'signed-jwt-token',
+        }),
+      );
+      expect(redisService.addToBlacklist).toHaveBeenCalled();
+      expect(result).toHaveProperty('company');
+    });
+
+    it('rejects when the refresh token belongs to a different session', async () => {
+      jwtService.verify = jest.fn().mockReturnValue({
+        sub: mockUser.id,
+        sessionId: 'a-different-session',
+        type: 'refresh',
+      });
+
+      await expect(
+        service.switchCompany({
+          userId: mockUser.id,
+          sessionId: 'session-uuid-1',
+          refreshToken: 'old-refresh-token',
+          companyId: mockCompanySummary.companyId,
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('rejects platform users switching company context', async () => {
+      jwtService.verify = jest.fn().mockReturnValue({
+        sub: mockUser.id,
+        sessionId: 'session-uuid-1',
+        type: 'refresh',
+      });
+      usersService.findById.mockResolvedValue({
+        ...mockUser,
+        user_type: 'SUPER_ADMIN',
+      } as any);
+
+      await expect(
+        service.switchCompany({
+          userId: mockUser.id,
+          sessionId: 'session-uuid-1',
+          refreshToken: 'old-refresh-token',
+          companyId: mockCompanySummary.companyId,
+        }),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
