@@ -395,7 +395,7 @@ export class AutoMigration1783079722020 implements MigrationInterface {
       `ALTER TABLE "tiramis_submission_events" DROP CONSTRAINT "FK_8238d53e7c441e3f794cd47af35"`,
     );
     await queryRunner.query(
-      `ALTER TABLE "tiramis_reinsurances" DROP CONSTRAINT "FK_da7c414fd4ff1c93568facadceb"`,
+      `ALTER TABLE "tiramis_reinsurances" DROP CONSTRAINT IF EXISTS "FK_da7c414fd4ff1c93568facadceb"`,
     );
     await queryRunner.query(
       `ALTER TABLE "tiramis_reinsurances" DROP CONSTRAINT "FK_3b10bce6fb832263d9b556af8c4"`,
