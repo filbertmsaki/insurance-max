@@ -50,6 +50,12 @@ export class InsuranceCategory {
   @Column({ default: true })
   is_active: boolean;
 
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  tiramis_category_code: string | null;
+
+  @Column({ type: 'integer', default: 100 })
+  sort_order: number;
+
   @Column({ type: 'varchar', nullable: true })
   created_by: string | null;
 

@@ -15,6 +15,7 @@ import {
   ApiExceptionFilter,
   ApiLoggingInterceptor,
   ApiResponseInterceptor,
+  ProductDefinitionModule,
   RequestContextModule,
   ServiceAuthGuard,
   ServiceAuthModule,
@@ -67,6 +68,7 @@ import { TiramisResponseInterceptor } from './common/interceptors/tiramis-respon
     ScheduleModule.forRoot(),
     RequestContextModule,
     ServiceAuthModule,
+    ProductDefinitionModule,
     SharedConfigModule.forRoot({
       appName: 'tiramis',
       validationSchema: tiramisEnvValidationSchema,

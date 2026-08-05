@@ -7,7 +7,9 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
+import { ProductVersionStatus } from '@insurance-max/contracts';
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
+import { ProductVersionSubClass } from '../insurance-products/entities/product-version-sub-class.entity';
 import { CreateInsuranceSubClassDto } from './dto/create-insurance-sub-class.dto';
 import { FilterInsuranceSubClassDto } from './dto/filter-insurance-sub-class.dto';
 import { UpdateInsuranceSubClassDto } from './dto/update-insurance-sub-class.dto';
@@ -21,6 +23,9 @@ export class InsuranceSubClassesService {
 
     @InjectRepository(InsuranceProduct)
     private readonly productRepository: Repository<InsuranceProduct>,
+
+    @InjectRepository(ProductVersionSubClass)
+    private readonly productVersionSubClassRepository: Repository<ProductVersionSubClass>,
   ) {}
 
   private isDuplicateEntryError(error: unknown): boolean {
@@ -66,6 +71,13 @@ export class InsuranceSubClassesService {
       name: dto.name.trim(),
       description: dto.description ?? null,
       is_active: dto.is_active ?? true,
+      tiramis_sub_class_code: dto.tiramis_sub_class_code?.trim()
+        ? dto.tiramis_sub_class_code.trim().toUpperCase()
+        : null,
+      cover_type_code: dto.cover_type_code?.trim()
+        ? dto.cover_type_code.trim().toUpperCase()
+        : null,
+      sort_order: dto.sort_order ?? 100,
       created_by: userId,
       updated_by: userId,
     });
@@ -165,10 +177,29 @@ export class InsuranceSubClassesService {
       sc.product_id = dto.product_id;
     }
 
-    if (dto.code !== undefined) sc.code = dto.code.trim().toUpperCase();
+    if (dto.code !== undefined) {
+      const newCode = dto.code.trim().toUpperCase();
+      if (newCode !== sc.code && (await this.hasPublishedUsage(sc.id))) {
+        throw new ConflictException(
+          'The code of a sub-class already used by a published product version cannot be changed',
+        );
+      }
+      sc.code = newCode;
+    }
     if (dto.name !== undefined) sc.name = dto.name.trim();
     if (dto.description !== undefined) sc.description = dto.description ?? null;
     if (dto.is_active !== undefined) sc.is_active = dto.is_active;
+    if (dto.tiramis_sub_class_code !== undefined) {
+      sc.tiramis_sub_class_code = dto.tiramis_sub_class_code?.trim()
+        ? dto.tiramis_sub_class_code.trim().toUpperCase()
+        : null;
+    }
+    if (dto.cover_type_code !== undefined) {
+      sc.cover_type_code = dto.cover_type_code?.trim()
+        ? dto.cover_type_code.trim().toUpperCase()
+        : null;
+    }
+    if (dto.sort_order !== undefined) sc.sort_order = dto.sort_order;
     sc.updated_by = userId;
 
     try {
@@ -185,6 +216,26 @@ export class InsuranceSubClassesService {
 
   async remove(companyId: string, id: string): Promise<void> {
     const sc = await this.requireSubClass(companyId, id);
+
+    if (await this.hasPublishedUsage(sc.id)) {
+      throw new ConflictException(
+        'A sub-class used by a published product version cannot be deleted',
+      );
+    }
+
     await this.subClassRepository.softDelete(sc.id);
+  }
+
+  private async hasPublishedUsage(subClassId: string): Promise<boolean> {
+    const count = await this.productVersionSubClassRepository
+      .createQueryBuilder('assignment')
+      .innerJoin('assignment.product_version', 'version')
+      .where('assignment.sub_class_id = :subClassId', { subClassId })
+      .andWhere('version.status = :status', {
+        status: ProductVersionStatus.PUBLISHED,
+      })
+      .getCount();
+
+    return count > 0;
   }
 }

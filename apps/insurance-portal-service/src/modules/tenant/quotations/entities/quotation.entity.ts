@@ -11,12 +11,14 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import type { ProductDefinitionSnapshot } from '@insurance-max/contracts';
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { Branch } from '../../branches/entities/branch.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Department } from '../../departments/entities/department.entity';
 import { InsuranceCategory } from '../../insurance-categories/entities/insurance-category.entity';
 import { InsuranceProduct } from '../../insurance-products/entities/insurance-product.entity';
+import { InsuranceProductVersion } from '../../insurance-products/entities/insurance-product-version.entity';
 import { InsuranceSubClass } from '../../insurance-sub-classes/entities/insurance-sub-class.entity';
 import { ProductChannelType } from '../../product-distribution/enums/product-channel-type.enum';
 import { User } from '../../users/entities/user.entity';
@@ -103,6 +105,15 @@ export class Quotation {
 
   @Column({ type: 'uuid', nullable: true })
   sub_class_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  product_version_id: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  product_definition_hash: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  product_definition_snapshot: ProductDefinitionSnapshot | null;
 
   @Column({ length: 30 })
   quotation_no: string;
@@ -292,6 +303,13 @@ export class Quotation {
   @ManyToOne(() => InsuranceSubClass, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'sub_class_id' })
   sub_class: InsuranceSubClass | null;
+
+  @ManyToOne(() => InsuranceProductVersion, {
+    nullable: true,
+    onDelete: 'RESTRICT',
+  })
+  @JoinColumn({ name: 'product_version_id' })
+  product_version: InsuranceProductVersion | null;
 
   @OneToOne(() => QuotationCoverNote, (coverNote) => coverNote.quotation)
   cover_note: QuotationCoverNote;

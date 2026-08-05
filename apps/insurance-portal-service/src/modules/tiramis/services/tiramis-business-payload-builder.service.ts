@@ -472,17 +472,19 @@ export class TiramisBusinessPayloadBuilderService {
       salePointCode: this.required('salePointCode', common.salePointCode),
       coverNoteStartDate: startDate,
       coverNoteEndDate: endDate,
-      coverNoteDesc:
-        this.value(record, 'description', 'coverNoteDesc') ||
-        this.defaultCoverNoteDescription(requestType),
-      operativeClause:
+      coverNoteDesc: this.required(
+        'coverNoteDesc',
+        this.value(record, 'description', 'coverNoteDesc'),
+      ),
+      operativeClause: this.required(
+        'operativeClause',
         this.value(record, 'operative_clause', 'operativeClause') ||
-        this.value(
-          record,
-          'policy_operative_clause',
-          'policyOperativeClause',
-        ) ||
-        'Standard insurance operative clause',
+          this.value(
+            record,
+            'policy_operative_clause',
+            'policyOperativeClause',
+          ),
+      ),
       paymentMode: this.numberOrDefault(
         this.value(record, 'payment_mode', 'paymentMode'),
         1,
@@ -523,8 +525,10 @@ export class TiramisBusinessPayloadBuilderService {
         this.value(record, 'officer_name', 'officerName') || 'Portal Officer',
       officerTitle:
         this.value(record, 'officer_title', 'officerTitle') || 'Underwriter',
-      productCode:
-        this.value(record, 'product_code', 'productCode') || 'SP005001000000',
+      productCode: this.required(
+        'productCode',
+        this.value(record, 'product_code', 'productCode'),
+      ),
       endorsementType: this.value(
         record,
         'endorsement_type',
@@ -585,18 +589,18 @@ export class TiramisBusinessPayloadBuilderService {
     return this.cleanObject({
       ...common,
       policyNumber: this.required('policyNumber', policyNumber),
-      policyOperativeClause:
+      policyOperativeClause: this.required(
+        'policyOperativeClause',
         this.value(
           record,
           'policy_operative_clause',
           'policyOperativeClause',
           'operative_clause',
-        ) || 'Standard policy operative clause',
+        ),
+      ),
       specialConditions:
-        this.value(record, 'special_conditions', 'specialConditions') ||
-        'Standard special conditions apply',
-      exclusions:
-        this.value(record, 'exclusions') || 'Subject to standard exclusions',
+        this.value(record, 'special_conditions', 'specialConditions') ?? '',
+      exclusions: this.value(record, 'exclusions') ?? '',
       coverNoteReferenceNumbers: this.toArray(
         this.value(
           record,
@@ -1450,18 +1454,6 @@ export class TiramisBusinessPayloadBuilderService {
     ].filter(Boolean);
 
     return names.length ? names.join(' ') : null;
-  }
-
-  private defaultCoverNoteDescription(requestType: TiramisRequestType): string {
-    if (requestType === TiramisRequestType.MOTOR) {
-      return 'Motor cover note';
-    }
-
-    if (requestType === TiramisRequestType.MOTOR_FLEET) {
-      return 'Motor fleet cover note';
-    }
-
-    return 'Non-motor cover note';
   }
 
   private value(record: any, ...keys: string[]) {

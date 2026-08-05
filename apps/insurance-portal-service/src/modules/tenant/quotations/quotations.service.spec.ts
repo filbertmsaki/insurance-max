@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
+import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
+import { ProductDefinitionService } from '../insurance-products/product-definition.service';
 import { ApprovalStatus } from './enums/approval-status.enum';
 import { PaymentStatus } from './enums/payment-status.enum';
 import { QuotationStatus } from './enums/quotation-status.enum';
@@ -26,6 +28,56 @@ import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-
 import { PricingChargeService } from '../pricing/application/pricing-charge.service';
 
 describe('QuotationsService', () => {
+  const productDefinitionHashService = new ProductDefinitionHashService();
+
+  function buildProductDefinitionSnapshot(
+    overrides: Record<string, unknown> = {},
+  ) {
+    const snapshot = {
+      productId: 'product-1',
+      productVersionId: 'version-1',
+      versionNumber: 1,
+      categoryId: '11111111-1111-4111-8111-111111111111',
+      categoryCode: 'MOTOR',
+      categoryName: 'Motor',
+      productCode: 'MOTOR-COMP',
+      productName: 'Motor Comprehensive',
+      description: null,
+      businessLine: 'MOTOR',
+      lifecycleStatus: 'ACTIVE',
+      versionStatus: 'PUBLISHED',
+      reviewStatus: 'APPROVED',
+      tiramisProductCode: 'SP005001000000',
+      supportsFleet: true,
+      coverNoteType: 3,
+      defaultCoverDurationDays: 365,
+      currencyCode: 'TZS',
+      coverNoteDescription: 'Private motor comprehensive cover',
+      operativeClause: 'Motor Comprehensive',
+      policyOperativeClause: 'Motor Comprehensive',
+      specialConditions: '',
+      exclusions: '',
+      allowsCoverTextOverride: true,
+      effectiveFrom: '2026-01-01',
+      effectiveTo: null,
+      definitionItems: [],
+      addons: [],
+      documentRequirements: [],
+      subClasses: [],
+      definitionHash: '',
+      publishedAt: null,
+      ...overrides,
+    };
+
+    const definitionHash = productDefinitionHashService.hashDefinition({
+      ...snapshot,
+      definitionHash: '',
+      publishedAt: null,
+    });
+
+    return { ...snapshot, definitionHash };
+  }
+
   function createServiceFixture(
     overrides?: Partial<Record<string, unknown>> & {
       pricingQuote?: Partial<Record<string, unknown>>;
@@ -70,10 +122,15 @@ describe('QuotationsService', () => {
       effective_from: '2026-01-01',
       effective_to: null,
     };
+    const productDefinitionSnapshot = buildProductDefinitionSnapshot();
+
     const quotation = {
       id: 'quotation-1',
       quotation_no: 'QTN-MTR-2026-000001',
       product_id: 'product-1',
+      product_version_id: productDefinitionSnapshot.productVersionId,
+      product_definition_hash: productDefinitionSnapshot.definitionHash,
+      product_definition_snapshot: productDefinitionSnapshot,
       quotation_flow: authoritativePayload.internal_quotation.quotation_flow,
       channel_type: authoritativePayload.internal_quotation.channel_type,
       status: QuotationStatus.READY_FOR_SUBMISSION,
@@ -420,6 +477,12 @@ describe('QuotationsService', () => {
       ]),
     } as any;
 
+    const productDefinitionService = {
+      resolvePublishedDefinition: jest
+        .fn()
+        .mockResolvedValue(productDefinitionSnapshot),
+    } as unknown as ProductDefinitionService;
+
     const service = new QuotationsService(
       dataSource,
       quotationsRepository,
@@ -436,6 +499,8 @@ describe('QuotationsService', () => {
       pricingChargeService,
       exchangeRateGovernanceService as any,
       pricingQuoteService as any,
+      productDefinitionService,
+      productDefinitionHashService,
       branchUserRepository,
       salePointRepository,
     );
@@ -457,6 +522,8 @@ describe('QuotationsService', () => {
       quotationRiskTaxRepositoryMock,
       tiramisBusinessSubmitService,
       transactionManager,
+      productDefinitionService,
+      productDefinitionSnapshot,
       service,
     };
   }

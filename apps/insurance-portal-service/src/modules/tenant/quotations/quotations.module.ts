@@ -12,6 +12,7 @@ import { Customer } from '../customers/entities/customer.entity';
 import { Department } from '../departments/entities/department.entity';
 import { InsuranceCategory } from '../insurance-categories/entities/insurance-category.entity';
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
+import { InsuranceProductsModule } from '../insurance-products/insurance-products.module';
 import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
@@ -81,6 +82,7 @@ import { PricingModule } from '../pricing/pricing.module';
     ]),
     TiramisModule,
     PricingModule,
+    InsuranceProductsModule,
   ],
   controllers: [QuotationsController],
   providers: [

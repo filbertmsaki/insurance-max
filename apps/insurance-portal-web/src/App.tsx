@@ -37,6 +37,7 @@ import { ApiClientsPage } from '@/modules/platform/api-clients/pages/ApiClientsP
 import { ProfilePage } from '@/modules/shared/profile/pages/ProfilePage';
 import { CategoriesPage } from '@/modules/tenant/product-engine/pages/categories/CategoriesPage';
 import { ProductsPage } from '@/modules/tenant/product-engine/pages/products/ProductsPage';
+import { ProductDetailPage } from '@/modules/tenant/product-engine/pages/products/ProductDetailPage';
 import { SubClassesPage } from '@/modules/tenant/product-engine/pages/sub-classes/SubClassesPage';
 import { RisksPage } from '@/modules/tenant/product-engine/pages/risks/RisksPage';
 import { RatingFactorsPage } from '@/modules/tenant/product-engine/pages/rating-factors/RatingFactorsPage';
@@ -333,6 +334,10 @@ export default function App() {
               <Route
                 path="/product-engine/products"
                 element={<ProductsPage />}
+              />
+              <Route
+                path="/product-engine/products/:productId"
+                element={<ProductDetailPage />}
               />
             </Route>
             <Route

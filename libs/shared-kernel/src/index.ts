@@ -11,3 +11,4 @@ export * from './pipes';
 export * from './utils';
 export * from './request-context.module';
 export * from './service-auth';
+export * from './product-definition';

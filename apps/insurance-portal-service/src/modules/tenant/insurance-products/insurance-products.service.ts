@@ -5,14 +5,20 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
+import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
+import {
+  ProductLifecycleStatus,
+  ProductReviewStatus,
+  ProductVersionStatus,
+} from '@insurance-max/contracts';
 import { InsuranceBusinessLine } from '../insurance-categories/enums/insurance-business-line.enum';
 import { InsuranceCategory } from '../insurance-categories/entities/insurance-category.entity';
 import { CreateInsuranceProductDto } from './dto/create-insurance-product.dto';
 import { FilterInsuranceProductDto } from './dto/filter-insurance-product.dto';
 import { UpdateInsuranceProductDto } from './dto/update-insurance-product.dto';
 import { InsuranceProduct } from './entities/insurance-product.entity';
+import { InsuranceProductVersion } from './entities/insurance-product-version.entity';
 import { PricingRuntimeCacheService } from '../pricing/application/pricing-runtime-cache.service';
 
 @Injectable()
@@ -23,6 +29,8 @@ export class InsuranceProductsService {
 
     @InjectRepository(InsuranceCategory)
     private readonly categoryRepository: Repository<InsuranceCategory>,
+
+    private readonly dataSource: DataSource,
 
     private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
   ) {}
@@ -51,68 +59,116 @@ export class InsuranceProductsService {
 
   // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
+  /**
+   * Creates the stable product identity and its version-1 draft in one
+   * transaction. Product terms (wording, coverages, add-ons, documents,
+   * subclasses) are configured on the draft via ProductDefinitionService
+   * and only take effect once published.
+   */
   async create(
     companyId: string,
     dto: CreateInsuranceProductDto,
     userId: string,
-  ): Promise<InsuranceProduct> {
-    const category = await this.categoryRepository.findOne({
-      where: { id: dto.category_id, company_id: companyId, is_active: true },
-    });
-    if (!category) {
-      throw new BadRequestException(
-        'Category not found or does not belong to this company',
-      );
-    }
+  ): Promise<InsuranceProduct & { draft_version: InsuranceProductVersion }> {
+    return this.dataSource.transaction(async (manager) => {
+      const category = await manager.getRepository(InsuranceCategory).findOne({
+        where: { id: dto.category_id, company_id: companyId, is_active: true },
+      });
+      if (!category) {
+        throw new BadRequestException(
+          'Active category was not found in this company',
+        );
+      }
 
-    if (dto.business_line !== category.business_line) {
-      throw new BadRequestException(
-        'Product business line must match the selected category business line',
-      );
-    }
+      if (
+        category.business_line !== InsuranceBusinessLine.MOTOR &&
+        dto.supports_fleet
+      ) {
+        throw new BadRequestException(
+          'Only motor products can support fleet quotations',
+        );
+      }
 
-    if (
-      dto.business_line !== InsuranceBusinessLine.MOTOR &&
-      dto.supports_fleet
-    ) {
-      throw new BadRequestException(
-        'Only motor products can support fleet quotations',
-      );
-    }
+      const productRepository = manager.getRepository(InsuranceProduct);
+      const versionRepository = manager.getRepository(InsuranceProductVersion);
 
-    const product = this.productRepository.create({
-      company_id: companyId,
-      category_id: dto.category_id,
-      product_code: dto.product_code.trim().toUpperCase(),
-      product_name: dto.product_name.trim(),
-      description: dto.description ?? null,
-      business_line: dto.business_line,
-      supports_fleet:
-        dto.business_line === InsuranceBusinessLine.MOTOR
-          ? (dto.supports_fleet ?? false)
-          : false,
-      tiramis_product_code: dto.tiramis_product_code?.trim()
+      const productCode = dto.product_code.trim().toUpperCase();
+      const resolvedTiramisCode = dto.tiramis_product_code?.trim()
         ? dto.tiramis_product_code.trim().toUpperCase()
-        : dto.product_code.trim().toUpperCase(),
-      is_active: dto.is_active ?? true,
-      created_by: userId,
-      updated_by: userId,
-    });
+        : productCode;
+      const supportsFleet =
+        category.business_line === InsuranceBusinessLine.MOTOR
+          ? (dto.supports_fleet ?? false)
+          : false;
 
-    try {
-      const saved = await this.productRepository.save(product);
+      let product: InsuranceProduct;
+      try {
+        product = await productRepository.save(
+          productRepository.create({
+            company_id: companyId,
+            category_id: category.id,
+            product_code: productCode,
+            product_name: dto.product_name.trim(),
+            description: dto.description ?? null,
+            business_line: category.business_line,
+            supports_fleet: supportsFleet,
+            tiramis_product_code: resolvedTiramisCode,
+            is_active: false,
+            lifecycle_status: ProductLifecycleStatus.DRAFT,
+            latest_version_number: 1,
+            current_version_id: null,
+            code_locked_at: null,
+            created_by: userId,
+            updated_by: userId,
+          }),
+        );
+      } catch (error) {
+        if (this.isDuplicateEntryError(error)) {
+          throw new ConflictException(
+            `A product with code "${productCode}" already exists`,
+          );
+        }
+        throw error;
+      }
+
+      const draft = await versionRepository.save(
+        versionRepository.create({
+          company_id: companyId,
+          product_id: product.id,
+          version_number: 1,
+          status: ProductVersionStatus.DRAFT,
+          review_status: ProductReviewStatus.DRAFT,
+          product_name: dto.product_name.trim(),
+          description: dto.description ?? null,
+          business_line: category.business_line,
+          supports_fleet: supportsFleet,
+          tiramis_product_code: resolvedTiramisCode,
+          cover_note_type:
+            dto.cover_note_type ??
+            (category.business_line === InsuranceBusinessLine.MOTOR ? 3 : 1),
+          default_cover_duration_days: dto.default_cover_duration_days ?? 365,
+          currency_code: dto.currency_code ?? 'TZS',
+          cover_note_description:
+            dto.description?.trim() || dto.product_name.trim(),
+          operative_clause: '',
+          policy_operative_clause: '',
+          special_conditions: '',
+          exclusions: '',
+          allows_cover_text_override: false,
+          effective_from: null,
+          effective_to: null,
+          is_submission_ready: false,
+          created_by: userId,
+          updated_by: userId,
+        }),
+      );
+
       await this.pricingRuntimeCacheService.invalidateProductConfiguration(
         companyId,
       );
-      return saved;
-    } catch (error) {
-      if (this.isDuplicateEntryError(error)) {
-        throw new ConflictException(
-          `A product with code "${dto.product_code.trim().toUpperCase()}" already exists`,
-        );
-      }
-      throw error;
-    }
+
+      return { ...product, draft_version: draft };
+    });
   }
 
   async findAll(companyId: string, query: FilterInsuranceProductDto) {
@@ -143,6 +199,7 @@ export class InsuranceProductsService {
     const qb = this.productRepository
       .createQueryBuilder('product')
       .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.current_version', 'current_version')
       .where('product.company_id = :companyId', { companyId })
       .orderBy(`product.${safeSortBy}`, direction);
 
@@ -192,12 +249,16 @@ export class InsuranceProductsService {
   async findOne(companyId: string, id: string): Promise<InsuranceProduct> {
     const product = await this.productRepository.findOne({
       where: { id, company_id: companyId },
-      relations: { category: true },
+      relations: { category: true, current_version: true },
     });
     if (!product) throw new NotFoundException('Insurance product not found');
     return product;
   }
 
+  /**
+   * Identity-only update. Product terms are changed through product
+   * versions (see ProductDefinitionService) and lifecycle endpoints.
+   */
   async update(
     companyId: string,
     id: string,
@@ -206,67 +267,38 @@ export class InsuranceProductsService {
   ): Promise<InsuranceProduct> {
     const product = await this.requireProduct(companyId, id);
 
+    if (dto.product_code !== undefined && product.code_locked_at) {
+      throw new ConflictException(
+        'The product code is locked because the product has been published',
+      );
+    }
+
+    if (dto.category_id !== undefined && product.current_version_id) {
+      throw new ConflictException(
+        'The product category cannot be changed after publication',
+      );
+    }
+
     if (dto.category_id !== undefined) {
       const category = await this.categoryRepository.findOne({
         where: { id: dto.category_id, company_id: companyId },
       });
-      if (!category)
+      if (!category) {
         throw new BadRequestException(
           'Category not found or does not belong to this company',
         );
+      }
       product.category_id = dto.category_id;
+      product.business_line = category.business_line;
+      if (category.business_line !== InsuranceBusinessLine.MOTOR) {
+        product.supports_fleet = false;
+      }
     }
 
-    const category = await this.categoryRepository.findOne({
-      where: {
-        id: dto.category_id ?? product.category_id,
-        company_id: companyId,
-      },
-    });
-    if (!category) {
-      throw new BadRequestException(
-        'Category not found or does not belong to this company',
-      );
-    }
-
-    if (dto.product_code !== undefined)
+    if (dto.product_code !== undefined) {
       product.product_code = dto.product_code.trim().toUpperCase();
-    if (dto.product_name !== undefined)
-      product.product_name = dto.product_name.trim();
-    if (dto.description !== undefined)
-      product.description = dto.description ?? null;
-    if (dto.business_line !== undefined) {
-      if (dto.business_line !== category.business_line) {
-        throw new BadRequestException(
-          'Product business line must match the selected category business line',
-        );
-      }
-      product.business_line = dto.business_line;
     }
-    if (dto.supports_fleet !== undefined) {
-      if (
-        (dto.business_line ?? product.business_line) !==
-          InsuranceBusinessLine.MOTOR &&
-        dto.supports_fleet
-      ) {
-        throw new BadRequestException(
-          'Only motor products can support fleet quotations',
-        );
-      }
-      product.supports_fleet =
-        (dto.business_line ?? product.business_line) ===
-        InsuranceBusinessLine.MOTOR
-          ? dto.supports_fleet
-          : false;
-    } else if (product.business_line !== InsuranceBusinessLine.MOTOR) {
-      product.supports_fleet = false;
-    }
-    if (dto.tiramis_product_code !== undefined) {
-      product.tiramis_product_code = dto.tiramis_product_code?.trim()
-        ? dto.tiramis_product_code.trim().toUpperCase()
-        : null;
-    }
-    if (dto.is_active !== undefined) product.is_active = dto.is_active;
+
     product.updated_by = userId;
 
     try {
@@ -277,9 +309,7 @@ export class InsuranceProductsService {
       return saved;
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
-        throw new ConflictException(
-          'A product with this code or name already exists',
-        );
+        throw new ConflictException('A product with this code already exists');
       }
       throw error;
     }
@@ -287,6 +317,13 @@ export class InsuranceProductsService {
 
   async remove(companyId: string, id: string): Promise<void> {
     const product = await this.requireProduct(companyId, id);
+
+    if (product.latest_version_number > 1 || product.current_version_id) {
+      throw new ConflictException(
+        'A product with version history cannot be deleted; retire it instead',
+      );
+    }
+
     await this.productRepository.softDelete(product.id);
     await this.pricingRuntimeCacheService.invalidateProductConfiguration(
       companyId,

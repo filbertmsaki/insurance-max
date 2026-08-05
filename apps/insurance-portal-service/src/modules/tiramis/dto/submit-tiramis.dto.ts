@@ -9,6 +9,7 @@ import {
   IsString,
 } from 'class-validator';
 
+import type { ServiceProductContext } from '@insurance-max/contracts';
 import { TiramisRequestType } from '../enums/tiramis-request-type.enum';
 
 export class SubmitTiramisDto {
@@ -104,4 +105,12 @@ export class SubmitTiramisDto {
   @Transform(({ value }) => value === true || value === 'true')
   @IsBoolean()
   returnExisting?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Signed product-definition context, resolved internally — never accepted from an external caller.',
+  })
+  @IsOptional()
+  @IsObject()
+  productContext?: ServiceProductContext;
 }

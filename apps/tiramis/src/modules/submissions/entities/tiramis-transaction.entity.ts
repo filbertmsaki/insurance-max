@@ -92,6 +92,53 @@ export class TiramisTransactionEntity extends BaseEntity {
   })
   sourceCompanyMembershipId?: string | null;
 
+  @Column({
+    name: 'source_product_id',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  sourceProductId?: string | null;
+
+  @Column({
+    name: 'source_product_version_id',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  sourceProductVersionId?: string | null;
+
+  @Column({
+    name: 'source_product_version_number',
+    type: 'int',
+    nullable: true,
+  })
+  sourceProductVersionNumber?: number | null;
+
+  @Column({
+    name: 'source_product_code',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  sourceProductCode?: string | null;
+
+  @Column({
+    name: 'source_tiramis_product_code',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  sourceTiramisProductCode?: string | null;
+
+  @Column({
+    name: 'source_product_definition_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  sourceProductDefinitionHash?: string | null;
+
   @Column({ name: 'business_reference', length: 100 })
   businessReference!: string;
 

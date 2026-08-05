@@ -1366,6 +1366,57 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
 
+  // ── Product Definitions (versioned catalogue) ─────────────────────────────
+  {
+    name: 'product-definitions:read',
+    displayName: 'Read product definitions',
+    description:
+      'View insurance product versions and approved cover definitions',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'product-definitions:create-version',
+    displayName: 'Create product versions',
+    description: 'Create a new draft from the current product definition',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'product-definitions:update',
+    displayName: 'Update product definitions',
+    description: 'Edit draft cover wording, add-ons and requirements',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'product-definitions:submit-review',
+    displayName: 'Submit product definitions',
+    description: 'Submit a draft product definition for approval',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'product-definitions:review',
+    displayName: 'Review product definitions',
+    description: 'Review and reject proposed product definitions',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'product-definitions:publish',
+    displayName: 'Publish product definitions',
+    description: 'Approve and publish insurance product versions',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'product-definitions:retire',
+    displayName: 'Retire product definitions',
+    description: 'Retire published insurance product versions',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'product-definitions:use',
+    displayName: 'Use published products',
+    description: 'Use approved product definitions in quotations',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+
   // ── Insurance Sub-Classes ─────────────────────────────────────────────────
   {
     name: 'insurance-sub-classes:read',
@@ -2662,6 +2713,62 @@ const roleSeeds: RoleSeed[] = [
     description: 'Broker, agency, or bancassurance portal user',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
     permissionNames: ['portal:intermediary-access'],
+  },
+  {
+    name: 'PRODUCT_ADMINISTRATOR',
+    displayName: 'Product Administrator',
+    description:
+      'Authors and maintains the insurance product catalogue and its versions',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+    permissionNames: [
+      'insurance-products:read',
+      'insurance-products:create',
+      'insurance-products:update',
+      'insurance-products:delete',
+      'insurance-categories:read',
+      'insurance-sub-classes:read',
+      'product-definitions:read',
+      'product-definitions:create-version',
+      'product-definitions:update',
+      'product-definitions:submit-review',
+      'product-definitions:use',
+      'product-distribution:read',
+    ],
+  },
+  {
+    name: 'PRODUCT_APPROVER',
+    displayName: 'Product Approver',
+    description:
+      'Reviews, publishes and retires proposed product-definition versions',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+    permissionNames: [
+      'insurance-products:read',
+      'insurance-categories:read',
+      'insurance-sub-classes:read',
+      'product-definitions:read',
+      'product-definitions:review',
+      'product-definitions:publish',
+      'product-definitions:retire',
+      'product-definitions:use',
+    ],
+  },
+  {
+    name: 'UNDERWRITER',
+    displayName: 'Underwriter',
+    description: 'Uses approved product definitions to quote and bind risk',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+    permissionNames: [
+      'insurance-products:read',
+      'insurance-categories:read',
+      'insurance-sub-classes:read',
+      'insurance-risks:read',
+      'product-definitions:read',
+      'product-definitions:use',
+      'quotations:read',
+      'quotations:create',
+      'quotations:update',
+      'quotations:submit',
+    ],
   },
 ];
 

@@ -9,4 +9,5 @@ export * from './useRequiredFactors';
 export * from './useCategoryAccess';
 export * from './useProductAccess';
 export * from './useDepartments';
+export * from './useProductDefinitions';
 export { peKeys } from './query-keys';

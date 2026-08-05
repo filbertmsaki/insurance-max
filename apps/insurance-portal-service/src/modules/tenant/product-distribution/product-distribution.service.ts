@@ -9,6 +9,11 @@ import { Brackets, Repository } from 'typeorm';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import {
+  ProductLifecycleStatus,
+  ProductReviewStatus,
+  ProductVersionStatus,
+} from '@insurance-max/contracts';
+import {
   normalizeMoneyForStorage,
   normalizeRateForStorage,
 } from '@insurance-max/portal-shared/utils/pricing-calculation.util';
@@ -128,16 +133,35 @@ export class ProductDistributionService {
   async listChannelsForIntermediary(
     intermediaryCompanyId: string,
   ): Promise<ProductDistributionChannel[]> {
-    return this.channelRepository.find({
-      where: { intermediary_company_id: intermediaryCompanyId },
-      relations: {
-        insurer_company: true,
-        category: true,
-        product: true,
-        sub_class: true,
-      },
-      order: { created_at: 'DESC' },
-    });
+    const today = this.today();
+
+    return this.channelRepository
+      .createQueryBuilder('channel')
+      .leftJoinAndSelect('channel.insurer_company', 'insurer_company')
+      .leftJoinAndSelect('channel.category', 'category')
+      .innerJoinAndSelect('channel.product', 'product')
+      .leftJoinAndSelect('channel.sub_class', 'sub_class')
+      .innerJoinAndSelect('product.current_version', 'current_version')
+      .where('channel.intermediary_company_id = :intermediaryCompanyId', {
+        intermediaryCompanyId,
+      })
+      .andWhere('product.lifecycle_status = :productLifecycle', {
+        productLifecycle: ProductLifecycleStatus.ACTIVE,
+      })
+      .andWhere('current_version.status = :versionStatus', {
+        versionStatus: ProductVersionStatus.PUBLISHED,
+      })
+      .andWhere('current_version.review_status = :reviewStatus', {
+        reviewStatus: ProductReviewStatus.APPROVED,
+      })
+      .andWhere('current_version.is_submission_ready = true')
+      .andWhere('current_version.effective_from <= :today', { today })
+      .andWhere(
+        '(current_version.effective_to IS NULL OR current_version.effective_to >= :today)',
+        { today },
+      )
+      .orderBy('channel.created_at', 'DESC')
+      .getMany();
   }
 
   async removeChannel(companyId: string, id: string): Promise<void> {
@@ -415,10 +439,22 @@ export class ProductDistributionService {
 
     const product = await this.productRepository.findOne({
       where: { id: productId, company_id: insurerCompanyId },
-      relations: { category: true },
+      relations: { category: true, current_version: true },
     });
     if (!product) {
       throw new NotFoundException('Product not found for insurer');
+    }
+
+    if (
+      product.lifecycle_status !== ProductLifecycleStatus.ACTIVE ||
+      !product.current_version ||
+      product.current_version.status !== ProductVersionStatus.PUBLISHED ||
+      product.current_version.review_status !== ProductReviewStatus.APPROVED ||
+      !product.current_version.is_submission_ready
+    ) {
+      throw new ForbiddenException(
+        'This product does not have an approved, quotation-ready definition',
+      );
     }
 
     const risk = riskId

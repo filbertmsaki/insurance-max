@@ -1,14 +1,17 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
-  IsEnum,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
+  Max,
   MaxLength,
+  Min,
 } from 'class-validator';
-import { InsuranceBusinessLine } from '../../insurance-categories/enums/insurance-business-line.enum';
 
 export class CreateInsuranceProductDto {
   @ApiProperty({
@@ -20,16 +23,20 @@ export class CreateInsuranceProductDto {
 
   @ApiProperty({
     example: 'MOTOR-COMP',
-    description: 'Unique product code within the company',
+    description: 'Unique, permanent product code within the company',
   })
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
   @IsString()
   @IsNotEmpty()
   @MaxLength(50)
+  @Matches(/^[A-Z0-9_-]+$/)
   product_code: string;
 
   @ApiProperty({
     example: 'Motor Comprehensive',
-    description: 'Product display name',
+    description: 'Product display name (compatibility projection)',
   })
   @IsString()
   @IsNotEmpty()
@@ -41,13 +48,6 @@ export class CreateInsuranceProductDto {
   @IsString()
   description?: string;
 
-  @ApiProperty({
-    enum: InsuranceBusinessLine,
-    default: InsuranceBusinessLine.NON_MOTOR,
-  })
-  @IsEnum(InsuranceBusinessLine)
-  business_line: InsuranceBusinessLine;
-
   @ApiPropertyOptional({ example: false, default: false })
   @IsOptional()
   @IsBoolean()
@@ -55,12 +55,34 @@ export class CreateInsuranceProductDto {
 
   @ApiPropertyOptional({ example: 'CP20100000' })
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
   @IsString()
   @MaxLength(50)
-  tiramis_product_code?: string | null;
+  tiramis_product_code?: string;
 
-  @ApiPropertyOptional({ example: true, default: true })
+  @ApiPropertyOptional({ example: 3, description: 'TIRAMIS cover note type' })
   @IsOptional()
-  @IsBoolean()
-  is_active?: boolean;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(99)
+  cover_note_type?: number;
+
+  @ApiPropertyOptional({ example: 365 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(3660)
+  default_cover_duration_days?: number;
+
+  @ApiPropertyOptional({ example: 'TZS' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
+  @Matches(/^[A-Z]{3}$/)
+  currency_code?: string;
 }

@@ -6,6 +6,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AccessStatus } from '@insurance-max/portal-shared/enums/access-status.enum';
+import {
+  ProductLifecycleStatus,
+  ProductVersionStatus,
+} from '@insurance-max/contracts';
 import { Branch } from '../branches/entities/branch.entity';
 import { Department } from '../departments/entities/department.entity';
 import { CompanyUser } from '../../platform/companies/entities/company-user.entity';
@@ -402,11 +406,24 @@ export class ProductAccessService {
     productId: string,
   ): Promise<void> {
     const product = await this.productRepository.findOne({
-      where: { id: productId, company_id: companyId },
+      where: {
+        id: productId,
+        company_id: companyId,
+        lifecycle_status: ProductLifecycleStatus.ACTIVE,
+        is_active: true,
+      },
+      relations: { current_version: true },
     });
-    if (!product)
+
+    if (
+      !product ||
+      !product.current_version ||
+      product.current_version.status !== ProductVersionStatus.PUBLISHED ||
+      !product.current_version.is_submission_ready
+    ) {
       throw new BadRequestException(
-        'Product not found or does not belong to this company',
+        'Only an active product with an approved published definition can receive access rules',
       );
+    }
   }
 }

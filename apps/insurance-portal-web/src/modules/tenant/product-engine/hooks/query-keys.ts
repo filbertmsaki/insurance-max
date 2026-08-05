@@ -90,4 +90,17 @@ export const peKeys = {
   departments: {
     all: () => ['pe', 'departments', 'all'] as const,
   },
+
+  // Product definition versions
+  productVersions: {
+    byProduct: (productId: string) =>
+      ['pe', 'product-versions', 'by-product', productId] as const,
+    detail: (productId: string, versionId: string) =>
+      ['pe', 'product-versions', 'detail', productId, versionId] as const,
+    published: (
+      productId: string,
+      params?: { sub_class_id?: string; effective_date?: string },
+    ) =>
+      ['pe', 'product-versions', 'published', productId, params ?? {}] as const,
+  },
 };

@@ -35,6 +35,34 @@ export type AccessStatus = 'ALLOW' | 'DENY';
 export type LogicalOperator = 'AND' | 'OR';
 export type InsuranceBusinessLine = 'MOTOR' | 'NON_MOTOR';
 
+export type ProductLifecycleStatus = 'DRAFT' | 'ACTIVE' | 'RETIRED';
+export type ProductVersionStatus = 'DRAFT' | 'PUBLISHED' | 'RETIRED';
+export type ProductReviewStatus =
+  | 'DRAFT'
+  | 'IN_REVIEW'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'REQUIRES_REVIEW';
+export type ProductDefinitionItemType =
+  | 'COVERAGE'
+  | 'BENEFIT'
+  | 'CONDITION'
+  | 'WARRANTY'
+  | 'EXCLUSION';
+export type ProductDocumentRequirementType =
+  | 'IDENTITY'
+  | 'OWNERSHIP'
+  | 'FINANCIAL'
+  | 'RISK_INFORMATION'
+  | 'REGULATORY'
+  | 'OTHER';
+export type ProductRequirementAppliesTo =
+  | 'QUOTATION'
+  | 'APPROVAL'
+  | 'PAYMENT'
+  | 'POLICY_ISSUANCE'
+  | 'CLAIM';
+
 // ─── Pagination ───────────────────────────────────────────────────────────────
 
 export type {
@@ -51,6 +79,8 @@ export interface InsuranceCategory {
   description: string | null;
   business_line: InsuranceBusinessLine;
   is_active: boolean;
+  tiramis_category_code: string | null;
+  sort_order: number;
   created_at: string;
   updated_at?: string;
 }
@@ -61,6 +91,8 @@ export interface CreateCategoryDto {
   description?: string;
   business_line: InsuranceBusinessLine;
   is_active?: boolean;
+  tiramis_category_code?: string | null;
+  sort_order?: number;
 }
 
 export interface UpdateCategoryDto {
@@ -69,6 +101,8 @@ export interface UpdateCategoryDto {
   description?: string;
   business_line?: InsuranceBusinessLine;
   is_active?: boolean;
+  tiramis_category_code?: string | null;
+  sort_order?: number;
 }
 
 export interface CategoryQueryParams {
@@ -91,30 +125,244 @@ export interface InsuranceProduct {
   supports_fleet?: boolean;
   tiramis_product_code?: string | null;
   is_active: boolean;
+
+  lifecycle_status: ProductLifecycleStatus;
+  latest_version_number: number;
+  current_version_id: string | null;
+  code_locked_at: string | null;
+
   created_at: string;
   category?: InsuranceCategory;
+  current_version?: InsuranceProductVersion | null;
 }
 
+/** Creates the product identity and its version-1 draft in one call. */
 export interface CreateProductDto {
   category_id: string;
   product_code: string;
   product_name: string;
   description?: string;
-  business_line: InsuranceBusinessLine;
   supports_fleet?: boolean;
-  tiramis_product_code?: string | null;
-  is_active?: boolean;
+  tiramis_product_code?: string;
+  cover_note_type?: number;
+  default_cover_duration_days?: number;
+  currency_code?: string;
 }
 
+/** Identity-only update — product terms are edited through versions. */
 export interface UpdateProductDto {
   category_id?: string;
   product_code?: string;
-  product_name?: string;
-  description?: string;
-  business_line?: InsuranceBusinessLine;
+}
+
+export interface ProductDefinitionItem {
+  id: string;
+  code: string;
+  item_type: ProductDefinitionItemType;
+  title: string;
+  description: string;
+  is_mandatory: boolean;
+  sort_order: number;
+}
+
+export interface ProductAddonDefinition {
+  id: string;
+  code: string;
+  tiramis_addon_code: string | null;
+  name: string;
+  description: string | null;
+  is_optional: boolean;
+  is_default_selected: boolean;
+  allows_separate_sum_insured: boolean;
+  maximum_quantity: number | null;
+  sort_order: number;
+}
+
+export interface ProductDocumentRequirement {
+  id: string;
+  code: string;
+  requirement_type: ProductDocumentRequirementType;
+  applies_to: ProductRequirementAppliesTo;
+  name: string;
+  description: string | null;
+  is_mandatory: boolean;
+  accepted_mime_types: string[];
+  maximum_file_size_mb: number | null;
+  sort_order: number;
+}
+
+export interface ProductVersionSubClass {
+  id: string;
+  sub_class_id: string;
+  code_snapshot: string;
+  name_snapshot: string;
+  description_snapshot: string | null;
+  tiramis_sub_class_code_snapshot: string | null;
+  cover_type_code_snapshot: string | null;
+  is_default: boolean;
+  sort_order: number;
+}
+
+export interface InsuranceProductVersion {
+  id: string;
+  product_id: string;
+  version_number: number;
+  status: ProductVersionStatus;
+  review_status: ProductReviewStatus;
+
+  product_name: string;
+  description: string | null;
+  business_line: InsuranceBusinessLine;
+  supports_fleet: boolean;
+  tiramis_product_code: string | null;
+
+  cover_note_type: number;
+  default_cover_duration_days: number;
+  currency_code: string;
+
+  cover_note_description: string | null;
+  operative_clause: string | null;
+  policy_operative_clause: string | null;
+  special_conditions: string | null;
+  exclusions: string | null;
+  allows_cover_text_override: boolean;
+
+  effective_from: string | null;
+  effective_to: string | null;
+
+  is_submission_ready: boolean;
+  definition_hash: string | null;
+  review_comments: string | null;
+  published_at: string | null;
+
+  definition_items: ProductDefinitionItem[];
+  addons: ProductAddonDefinition[];
+  document_requirements: ProductDocumentRequirement[];
+  sub_classes: ProductVersionSubClass[];
+}
+
+export interface UpsertProductVersionDto {
+  product_name: string;
+  description?: string | null;
   supports_fleet?: boolean;
-  tiramis_product_code?: string | null;
-  is_active?: boolean;
+  tiramis_product_code: string;
+  cover_note_type: number;
+  default_cover_duration_days: number;
+  currency_code: string;
+  cover_note_description: string;
+  operative_clause: string;
+  policy_operative_clause: string;
+  special_conditions: string;
+  exclusions: string;
+  allows_cover_text_override?: boolean;
+  effective_from: string;
+  effective_to?: string | null;
+  sub_class_ids?: string[];
+  default_sub_class_id?: string | null;
+  definition_items: Array<{
+    code: string;
+    item_type: ProductDefinitionItemType;
+    title: string;
+    description: string;
+    is_mandatory?: boolean;
+    sort_order?: number;
+  }>;
+  addons: Array<{
+    code: string;
+    tiramis_addon_code?: string | null;
+    name: string;
+    description?: string | null;
+    is_optional?: boolean;
+    is_default_selected?: boolean;
+    allows_separate_sum_insured?: boolean;
+    maximum_quantity?: number | null;
+    sort_order?: number;
+  }>;
+  document_requirements: Array<{
+    code: string;
+    requirement_type: ProductDocumentRequirementType;
+    applies_to: ProductRequirementAppliesTo;
+    name: string;
+    description?: string | null;
+    is_mandatory?: boolean;
+    accepted_mime_types?: string[];
+    maximum_file_size_mb?: number | null;
+    sort_order?: number;
+  }>;
+}
+
+export interface ProductDefinitionSnapshot {
+  productId: string;
+  productVersionId: string;
+  versionNumber: number;
+  categoryId: string;
+  categoryCode: string;
+  categoryName: string;
+  productCode: string;
+  productName: string;
+  description: string | null;
+  businessLine: InsuranceBusinessLine;
+  lifecycleStatus: ProductLifecycleStatus;
+  versionStatus: ProductVersionStatus;
+  reviewStatus: ProductReviewStatus;
+  tiramisProductCode: string;
+  supportsFleet: boolean;
+  coverNoteType: number;
+  defaultCoverDurationDays: number;
+  currencyCode: string;
+  coverNoteDescription: string;
+  operativeClause: string;
+  policyOperativeClause: string;
+  specialConditions: string;
+  exclusions: string;
+  allowsCoverTextOverride: boolean;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  definitionItems: Array<{
+    id: string;
+    code: string;
+    itemType: ProductDefinitionItemType;
+    title: string;
+    description: string;
+    isMandatory: boolean;
+    sortOrder: number;
+  }>;
+  addons: Array<{
+    id: string;
+    code: string;
+    tiraAddonCode: string | null;
+    name: string;
+    description: string | null;
+    isOptional: boolean;
+    isDefaultSelected: boolean;
+    allowsSeparateSumInsured: boolean;
+    maximumQuantity: number | null;
+    sortOrder: number;
+  }>;
+  documentRequirements: Array<{
+    id: string;
+    code: string;
+    requirementType: ProductDocumentRequirementType;
+    appliesTo: ProductRequirementAppliesTo;
+    name: string;
+    description: string | null;
+    isMandatory: boolean;
+    acceptedMimeTypes: string[];
+    maximumFileSizeMb: number | null;
+    sortOrder: number;
+  }>;
+  subClasses: Array<{
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+    tiramisSubClassCode: string | null;
+    coverTypeCode: string | null;
+    isDefault: boolean;
+    sortOrder: number;
+  }>;
+  definitionHash: string;
+  publishedAt: string | null;
 }
 
 export interface ProductQueryParams {
@@ -136,6 +384,9 @@ export interface InsuranceSubClass {
   name: string;
   description: string | null;
   is_active: boolean;
+  tiramis_sub_class_code: string | null;
+  cover_type_code: string | null;
+  sort_order: number;
   created_at: string;
   product?: InsuranceProduct;
 }
@@ -146,6 +397,9 @@ export interface CreateSubClassDto {
   name: string;
   description?: string;
   is_active?: boolean;
+  tiramis_sub_class_code?: string | null;
+  cover_type_code?: string | null;
+  sort_order?: number;
 }
 
 export interface UpdateSubClassDto {
@@ -154,6 +408,9 @@ export interface UpdateSubClassDto {
   name?: string;
   description?: string;
   is_active?: boolean;
+  tiramis_sub_class_code?: string | null;
+  cover_type_code?: string | null;
+  sort_order?: number;
 }
 
 export interface SubClassQueryParams {

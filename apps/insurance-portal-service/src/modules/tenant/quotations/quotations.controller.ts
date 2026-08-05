@@ -372,6 +372,28 @@ export class QuotationsController {
     );
   }
 
+  @Post(':id/rebase-product-version')
+  @HttpCode(HttpStatus.OK)
+  @Permissions('quotations:update')
+  @ApiOperation({
+    summary: 'Explicitly move the quotation onto the latest product version',
+    description:
+      'Resolves the latest effective product definition, rejects incompatible selected add-ons, and updates the quotation snapshot. Never happens automatically.',
+  })
+  @ApiOkResponse({
+    description: 'Quotation rebased onto the latest product version',
+  })
+  rebaseProductVersion(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.quotationsService.rebaseProductVersion(
+      user.companyId!,
+      id,
+      user,
+    );
+  }
+
   @Post(':id/cancel')
   @HttpCode(HttpStatus.OK)
   @Permissions('quotations:update')

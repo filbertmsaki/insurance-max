@@ -6,6 +6,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
+import { ProductLifecycleStatus } from '@insurance-max/contracts';
+import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
 import { CreateInsuranceCategoryDto } from './dto/create-insurance-category.dto';
 import { FilterInsuranceCategoryDto } from './dto/filter-insurance-category.dto';
 import { UpdateInsuranceCategoryDto } from './dto/update-insurance-category.dto';
@@ -16,6 +18,9 @@ export class InsuranceCategoriesService {
   constructor(
     @InjectRepository(InsuranceCategory)
     private readonly categoryRepository: Repository<InsuranceCategory>,
+
+    @InjectRepository(InsuranceProduct)
+    private readonly productRepository: Repository<InsuranceProduct>,
   ) {}
 
   private isDuplicateEntryError(error: unknown): boolean {
@@ -54,6 +59,10 @@ export class InsuranceCategoriesService {
       description: dto.description ?? null,
       business_line: dto.business_line,
       is_active: dto.is_active ?? true,
+      tiramis_category_code: dto.tiramis_category_code?.trim()
+        ? dto.tiramis_category_code.trim().toUpperCase()
+        : null,
+      sort_order: dto.sort_order ?? 100,
       created_by: userId,
       updated_by: userId,
     });
@@ -153,6 +162,28 @@ export class InsuranceCategoriesService {
       cat.description = dto.description ?? null;
     if (dto.business_line !== undefined) cat.business_line = dto.business_line;
     if (dto.is_active !== undefined) cat.is_active = dto.is_active;
+    if (dto.tiramis_category_code !== undefined) {
+      cat.tiramis_category_code = dto.tiramis_category_code?.trim()
+        ? dto.tiramis_category_code.trim().toUpperCase()
+        : null;
+    }
+    if (dto.sort_order !== undefined) cat.sort_order = dto.sort_order;
+
+    if (dto.is_active === false && cat.is_active) {
+      const activeProducts = await this.productRepository.count({
+        where: {
+          company_id: companyId,
+          category_id: cat.id,
+          lifecycle_status: ProductLifecycleStatus.ACTIVE,
+        },
+      });
+      if (activeProducts > 0) {
+        throw new ConflictException(
+          'Retire all active products before deactivating this category',
+        );
+      }
+    }
+
     cat.updated_by = userId;
 
     try {
@@ -169,6 +200,17 @@ export class InsuranceCategoriesService {
 
   async remove(companyId: string, id: string): Promise<void> {
     const cat = await this.requireCategory(companyId, id);
+
+    const hasProductHistory = await this.productRepository.exists({
+      where: { category_id: cat.id },
+      withDeleted: true,
+    });
+    if (hasProductHistory) {
+      throw new ConflictException(
+        'A category with product history cannot be deleted',
+      );
+    }
+
     await this.categoryRepository.softDelete(cat.id);
   }
 }

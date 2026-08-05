@@ -20,6 +20,13 @@ import {
   QueryFailedError,
   Repository,
 } from 'typeorm';
+import {
+  ProductDefinitionSnapshot,
+  ProductReviewStatus,
+  ProductVersionStatus,
+  ServiceProductContext,
+} from '@insurance-max/contracts';
+import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { TiramisRequestType } from '../../tiramis/enums/tiramis-request-type.enum';
 import { TiramisBusinessSubmitService } from '../../tiramis/services/tiramis-business-submit.service';
@@ -37,6 +44,7 @@ import { InsuranceBusinessLine } from '../insurance-categories/enums/insurance-b
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
 import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
+import { ProductDefinitionService } from '../insurance-products/product-definition.service';
 import {
   SaveQuotationDraftDto,
   UpdateQuotationDraftDto,
@@ -120,6 +128,7 @@ interface ScopeValidationResult {
   product: InsuranceProduct;
   customerId: string | null;
   riskByCode: Map<string, InsuranceRisk>;
+  productDefinition: ProductDefinitionSnapshot;
 }
 
 interface PricingAuthorityRiskContext {
@@ -248,6 +257,8 @@ export class QuotationsService {
     private readonly pricingChargeService: PricingChargeService,
     private readonly exchangeRateGovernanceService: ExchangeRateGovernanceService,
     private readonly pricingQuoteService: PricingQuoteService,
+    private readonly productDefinitionService: ProductDefinitionService,
+    private readonly productDefinitionHashService: ProductDefinitionHashService,
     @InjectRepository(BranchUser)
     private readonly branchUserRepository: Repository<BranchUser>,
     @InjectRepository(TiramisSalePointEntity)
@@ -344,6 +355,7 @@ export class QuotationsService {
           user.id,
           customerId,
           null,
+          scope.productDefinition,
         );
 
         await this.persistAggregate(
@@ -393,10 +405,13 @@ export class QuotationsService {
           );
         const { branchId, salePointCode } =
           await this.resolveDraftBranchContext(companyId, userId);
-        const productCode = await this.resolveDraftProductCode(
-          manager,
-          dto.product_id,
-        );
+        const { productCode, definition } =
+          await this.resolveDraftProductDefinition(
+            manager,
+            dto.insurer_company_id ?? companyId,
+            dto.product_id,
+            dto.sub_class_id,
+          );
         const quotation = await manager.getRepository(Quotation).save(
           manager.getRepository(Quotation).create({
             company_id: companyId,
@@ -423,6 +438,9 @@ export class QuotationsService {
             tira_status: TiraStatus.NOT_SUBMITTED,
             current_wizard_step: dto.current_wizard_step ?? null,
             draft_payload: this.cloneDraftPayload(dto.draft_payload),
+            product_version_id: definition.productVersionId,
+            product_definition_hash: definition.definitionHash,
+            product_definition_snapshot: definition,
           }),
         );
 
@@ -550,6 +568,7 @@ export class QuotationsService {
           user.id,
           customerId,
           lockedQuotation,
+          scope.productDefinition,
         );
 
         await this.persistAggregate(
@@ -626,10 +645,13 @@ export class QuotationsService {
           quotation.cover_note?.sale_point_code?.trim() ||
           (await this.resolveDraftBranchContext(companyId, userId))
             .salePointCode;
-        const productCode = await this.resolveDraftProductCode(
-          manager,
-          dto.product_id,
-        );
+        const { productCode, definition } =
+          await this.resolveDraftProductDefinition(
+            manager,
+            dto.insurer_company_id ?? quotation.company_id,
+            dto.product_id,
+            dto.sub_class_id,
+          );
 
         Object.assign(quotation, {
           insurer_company_id: dto.insurer_company_id ?? quotation.company_id,
@@ -652,6 +674,9 @@ export class QuotationsService {
           tira_status: TiraStatus.NOT_SUBMITTED,
           current_wizard_step: dto.current_wizard_step ?? null,
           draft_payload: this.cloneDraftPayload(dto.draft_payload),
+          product_version_id: definition.productVersionId,
+          product_definition_hash: definition.definitionHash,
+          product_definition_snapshot: definition,
         });
         await manager.getRepository(Quotation).save(quotation);
 
@@ -1405,6 +1430,10 @@ export class QuotationsService {
       );
     }
 
+    const productContext = quotation.product_definition_snapshot
+      ? this.buildServiceProductContext(quotation.product_definition_snapshot)
+      : undefined;
+
     let result: Record<string, unknown>;
 
     try {
@@ -1412,6 +1441,7 @@ export class QuotationsService {
         requestType,
         sourceModule: 'quotations',
         sourceRecordId: quotation.id,
+        productContext,
         businessReference: this.payloadMapper.businessReference(quotation),
         payload: tiramisPayload,
         forceResubmit: submitOptions.force_resubmit,
@@ -1509,6 +1539,78 @@ export class QuotationsService {
       submitted_at: submittedAt.toISOString(),
       submission: result,
     };
+  }
+
+  /**
+   * Explicitly moves a quotation onto the latest effective product
+   * definition. Never happens automatically — the caller must confirm
+   * the new wording/add-ons/documents are still acceptable.
+   */
+  async rebaseProductVersion(
+    companyId: string,
+    id: string,
+    user: AuthenticatedUser,
+  ) {
+    await this.assertUserCanWriteQuotation(user, id);
+
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
+
+    if (TERMINAL_QUOTATION_STATUSES.includes(quotation.status)) {
+      throw new ConflictException(
+        `Quotation in ${quotation.status} status cannot be rebased`,
+      );
+    }
+
+    const latestDefinition =
+      await this.productDefinitionService.resolvePublishedDefinition(
+        quotation.insurer_company_id,
+        quotation.product_id,
+        quotation.sub_class_id,
+      );
+
+    const selectedAddonCodes = await this.dataSource
+      .getRepository(QuotationEntryAddon)
+      .createQueryBuilder('addon')
+      .innerJoin('addon.entry', 'entry')
+      .innerJoin('entry.cover_note', 'coverNote')
+      .where('coverNote.quotation_id = :id', { id })
+      .getMany()
+      .then((addons) =>
+        addons.map((addon) => addon.addon_reference.trim().toUpperCase()),
+      );
+
+    this.validateSelectedAddons(
+      latestDefinition,
+      selectedAddonCodes.map((code) => ({ addon_reference: code })),
+    );
+
+    const beforeVersionId = quotation.product_version_id;
+
+    await this.dataSource.getRepository(Quotation).update(quotation.id, {
+      product_version_id: latestDefinition.productVersionId,
+      product_definition_hash: latestDefinition.definitionHash,
+      product_definition_snapshot: latestDefinition,
+      updated_by: user.id,
+    });
+
+    await this.auditService.logCritical({
+      userId: user.id,
+      companyId,
+      action: 'quotation.product_version.rebased',
+      eventCategory: 'product_catalogue',
+      resource: 'quotation',
+      resourceId: quotation.id,
+      beforeState: { productVersionId: beforeVersionId },
+      afterState: { productVersionId: latestDefinition.productVersionId },
+    });
+
+    // Pricing recalculation against the rebased definition is handled in
+    // Phase 7 — this only realigns the product-definition snapshot.
+
+    return this.findOne(companyId, id);
   }
 
   async transitionStatus(
@@ -1745,10 +1847,12 @@ export class QuotationsService {
     };
   }
 
-  private async resolveDraftProductCode(
+  private async resolveDraftProductDefinition(
     manager: EntityManager,
+    insurerCompanyId: string,
     productId: string,
-  ): Promise<string> {
+    subClassId?: string | null,
+  ): Promise<{ productCode: string; definition: ProductDefinitionSnapshot }> {
     const product = await manager.getRepository(InsuranceProduct).findOne({
       where: { id: productId },
     });
@@ -1757,11 +1861,14 @@ export class QuotationsService {
       throw new NotFoundException('Selected product was not found');
     }
 
-    return (
-      product.tiramis_product_code?.trim() ||
-      product.product_code?.trim() ||
-      product.id
-    );
+    const definition =
+      await this.productDefinitionService.resolvePublishedDefinition(
+        insurerCompanyId,
+        productId,
+        subClassId ?? null,
+      );
+
+    return { productCode: definition.tiramisProductCode, definition };
   }
 
   private cloneDraftPayload(
@@ -2665,6 +2772,32 @@ export class QuotationsService {
       }
     }
 
+    const productDefinition =
+      await this.productDefinitionService.resolvePublishedDefinition(
+        internal.insurer_company_id,
+        product.id,
+        internal.sub_class_id ?? null,
+        this.resolveQuotationEffectiveDate(header.cover_note_start_date),
+      );
+
+    if (
+      internal.quotation_flow === QuotationFlow.MOTOR_FLEET &&
+      !productDefinition.supportsFleet
+    ) {
+      throw new BadRequestException(
+        'The selected product version does not support fleet quotations',
+      );
+    }
+
+    if (
+      this.normalizeUppercase(productDefinition.tiramisProductCode) !==
+      this.normalizeUppercase(header.product_code)
+    ) {
+      throw new BadRequestException(
+        `cover note product_code must be ${productDefinition.tiramisProductCode}`,
+      );
+    }
+
     const primaryPolicyHolder = header.policy_holders[0];
     const customerId = primaryPolicyHolder
       ? await this.resolveExistingCustomerId(companyId, primaryPolicyHolder)
@@ -2674,6 +2807,138 @@ export class QuotationsService {
       product,
       customerId,
       riskByCode,
+      productDefinition,
+    };
+  }
+
+  private async assertProductSnapshotIntegrity(
+    quotation: Quotation,
+  ): Promise<void> {
+    const storedDefinition = quotation.product_definition_snapshot;
+
+    if (
+      !storedDefinition ||
+      !quotation.product_version_id ||
+      !quotation.product_definition_hash
+    ) {
+      throw new BadRequestException({
+        code: 'QUOTATION_PRODUCT_SNAPSHOT_MISSING',
+        message: 'The quotation does not contain a product-definition snapshot',
+      });
+    }
+
+    const currentHash = this.productDefinitionHashService.hashDefinition({
+      ...storedDefinition,
+      definitionHash: '',
+      publishedAt: null,
+    });
+
+    if (currentHash !== quotation.product_definition_hash) {
+      throw new ConflictException({
+        code: 'QUOTATION_PRODUCT_SNAPSHOT_TAMPERED',
+        message: 'The quotation product snapshot failed integrity validation',
+      });
+    }
+
+    if (
+      storedDefinition.versionStatus !== ProductVersionStatus.PUBLISHED ||
+      storedDefinition.reviewStatus !== ProductReviewStatus.APPROVED
+    ) {
+      throw new ConflictException({
+        code: 'QUOTATION_PRODUCT_VERSION_NOT_APPROVED',
+        message: 'The referenced product version is no longer approved',
+      });
+    }
+  }
+
+  private resolveQuotationEffectiveDate(
+    coverNoteStartDate: string | null | undefined,
+  ): Date {
+    if (!coverNoteStartDate) return new Date();
+    const parsed = new Date(coverNoteStartDate);
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  }
+
+  private resolveCoverText(options: {
+    supplied?: string | null;
+    approvedDefault: string;
+    overrideAllowed: boolean;
+    fieldName: string;
+  }): string {
+    const supplied = options.supplied?.trim();
+
+    if (
+      supplied &&
+      !options.overrideAllowed &&
+      supplied !== options.approvedDefault
+    ) {
+      throw new BadRequestException({
+        code: 'PRODUCT_COVER_TEXT_OVERRIDE_NOT_ALLOWED',
+        message: `The selected product does not allow ${options.fieldName} to be overridden`,
+      });
+    }
+
+    return options.overrideAllowed && supplied
+      ? supplied
+      : options.approvedDefault;
+  }
+
+  private validateSelectedAddons(
+    definition: ProductDefinitionSnapshot,
+    requestedAddons: Array<{ addon_reference: string; quantity?: number }>,
+  ): void {
+    const allowed = new Map(
+      definition.addons.map((addon) => [addon.code, addon]),
+    );
+
+    for (const requested of requestedAddons) {
+      const code = requested.addon_reference.trim().toUpperCase();
+      const definitionAddon = allowed.get(code);
+
+      if (!definitionAddon) {
+        throw new BadRequestException(
+          `Add-on ${code} is not permitted by this product version`,
+        );
+      }
+
+      if (
+        definitionAddon.maximumQuantity &&
+        (requested.quantity ?? 1) > definitionAddon.maximumQuantity
+      ) {
+        throw new BadRequestException(
+          `Add-on ${code} exceeds its maximum quantity`,
+        );
+      }
+    }
+  }
+
+  private buildServiceProductContext(
+    definition: ProductDefinitionSnapshot,
+  ): ServiceProductContext {
+    return {
+      productId: definition.productId,
+      productVersionId: definition.productVersionId,
+      versionNumber: definition.versionNumber,
+      productCode: definition.productCode,
+      tiramisProductCode: definition.tiramisProductCode,
+      definitionHash: definition.definitionHash,
+      coverNoteType: definition.coverNoteType,
+      coverNoteDescriptionHash: this.productDefinitionHashService.hashText(
+        definition.coverNoteDescription,
+      ),
+      operativeClauseHash: this.productDefinitionHashService.hashText(
+        definition.operativeClause,
+      ),
+      policyOperativeClauseHash: this.productDefinitionHashService.hashText(
+        definition.policyOperativeClause,
+      ),
+      specialConditionsHash: this.productDefinitionHashService.hashText(
+        definition.specialConditions,
+      ),
+      exclusionsHash: this.productDefinitionHashService.hashText(
+        definition.exclusions,
+      ),
+      allowsCoverTextOverride: definition.allowsCoverTextOverride,
     };
   }
 
@@ -2731,6 +2996,8 @@ export class QuotationsService {
       if (quotation.requires_payment) {
         await this.assertPaymentReady(quotation);
       }
+
+      await this.assertProductSnapshotIntegrity(quotation);
 
       const tiramisContext = await this.resolveStoredTiramisContext(
         companyId,
@@ -5375,6 +5642,7 @@ export class QuotationsService {
     userId: string,
     customerId: string | null,
     current: Quotation | null,
+    productDefinition?: ProductDefinitionSnapshot,
   ): Promise<Quotation> {
     const internal = payload.internal_quotation;
     const repository = manager.getRepository(Quotation);
@@ -5422,6 +5690,13 @@ export class QuotationsService {
       tira_response_code: current?.tira_response_code ?? null,
       tira_response_description: current?.tira_response_description ?? null,
       tira_error_details: current?.tira_error_details ?? null,
+      ...(productDefinition
+        ? {
+            product_version_id: productDefinition.productVersionId,
+            product_definition_hash: productDefinition.definitionHash,
+            product_definition_snapshot: productDefinition,
+          }
+        : null),
     });
 
     return repository.save(quotation);
@@ -5439,6 +5714,7 @@ export class QuotationsService {
     const header = this.resolveHeader(payload);
     const fleetHeader = payload.cover_note_dtl.fleet_hdr;
     const coverNoteRepository = manager.getRepository(QuotationCoverNote);
+    const productDefinition = quotation.product_definition_snapshot;
     const persistedExchangeRateSnapshot = exchangeRateSnapshot
       ? (JSON.parse(JSON.stringify(exchangeRateSnapshot)) as Record<
           string,
@@ -5471,7 +5747,9 @@ export class QuotationsService {
         commission_rate: this.numeric(header.commision_rate, 6),
         officer_name: header.officer_name.trim(),
         officer_title: header.officer_title.trim(),
-        product_code: header.product_code.trim().toUpperCase(),
+        product_code:
+          productDefinition?.tiramisProductCode ??
+          header.product_code.trim().toUpperCase(),
         fleet_id: fleetHeader?.fleet_id?.trim().toUpperCase() ?? null,
         fleet_type: fleetHeader?.fleet_type ?? null,
         fleet_size: fleetHeader?.fleet_size ?? null,
@@ -5504,8 +5782,22 @@ export class QuotationsService {
           prev_cover_note_reference_number:
             input.prev_cover_note_reference_number?.trim().toUpperCase() ??
             null,
-          cover_note_desc: input.cover_note_desc.trim(),
-          operative_clause: input.operative_clause.trim(),
+          cover_note_desc: productDefinition
+            ? this.resolveCoverText({
+                supplied: input.cover_note_desc,
+                approvedDefault: productDefinition.coverNoteDescription,
+                overrideAllowed: productDefinition.allowsCoverTextOverride,
+                fieldName: 'cover_note_desc',
+              })
+            : input.cover_note_desc.trim(),
+          operative_clause: productDefinition
+            ? this.resolveCoverText({
+                supplied: input.operative_clause,
+                approvedDefault: productDefinition.operativeClause,
+                overrideAllowed: productDefinition.allowsCoverTextOverride,
+                fieldName: 'operative_clause',
+              })
+            : input.operative_clause.trim(),
           endorsement_type: input.endorsement_type ?? null,
           endorsement_reason: input.endorsement_reason?.trim() ?? null,
           endorsement_premium_earned:
@@ -5525,6 +5817,7 @@ export class QuotationsService {
         quotation,
         userId,
         header.currency_code,
+        productDefinition,
       );
     }
   }
@@ -5574,9 +5867,15 @@ export class QuotationsService {
     quotation: Quotation,
     userId: string,
     currencyCode: string,
+    productDefinition?: ProductDefinitionSnapshot | null,
   ): Promise<void> {
     await this.persistEntryRisks(manager, entry, input, riskByCode, userId);
     await this.persistSubjectMatters(manager, entry, input);
+
+    if (productDefinition) {
+      this.validateSelectedAddons(productDefinition, input.cover_note_addons);
+    }
+
     await this.persistAddons(manager, entry, input);
 
     if (input.motor_dtl) {

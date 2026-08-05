@@ -1,10 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
+  Min,
   MaxLength,
 } from 'class-validator';
 
@@ -43,4 +46,29 @@ export class CreateInsuranceSubClassDto {
   @IsOptional()
   @IsBoolean()
   is_active?: boolean;
+
+  @ApiPropertyOptional({ example: 'CMP' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
+  @IsString()
+  @MaxLength(50)
+  tiramis_sub_class_code?: string | null;
+
+  @ApiPropertyOptional({ example: 'CT01' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
+  @IsString()
+  @MaxLength(50)
+  cover_type_code?: string | null;
+
+  @ApiPropertyOptional({ example: 100, default: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  sort_order?: number;
 }

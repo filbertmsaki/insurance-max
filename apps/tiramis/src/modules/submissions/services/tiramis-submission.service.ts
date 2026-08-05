@@ -2,6 +2,7 @@ import { environment } from '@insurance-max/shared-config';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DeepPartial } from 'typeorm';
 
+import { RequestContextService } from '@insurance-max/shared-kernel';
 import {
   TIRAMIS_ATTEMPT_STATUS,
   TIRAMIS_SUBMISSION_EVENT_TYPE,
@@ -17,6 +18,7 @@ export class TiramisSubmissionService {
     private readonly transactionRepository: TiramisTransactionRepository,
     private readonly attemptRepository: TiramisSubmissionAttemptRepository,
     private readonly eventRepository: TiramisSubmissionEventRepository,
+    private readonly requestContextService: RequestContextService,
   ) {}
 
   async createTransaction(params: {
@@ -30,6 +32,8 @@ export class TiramisSubmissionService {
     businessReference: string;
     originalRequestId?: string | null;
   }) {
+    const product = this.requestContextService.getServicePrincipal()?.product;
+
     const transaction = this.transactionRepository.create({
       clientConfigurationId: params.clientConfigurationId,
       serviceType: params.serviceType,
@@ -42,6 +46,12 @@ export class TiramisSubmissionService {
       status: TIRAMIS_TRANSACTION_STATUS.PENDING,
       originalRequestId: params.originalRequestId || null,
       totalAttempts: 0,
+      sourceProductId: product?.productId ?? null,
+      sourceProductVersionId: product?.productVersionId ?? null,
+      sourceProductVersionNumber: product?.versionNumber ?? null,
+      sourceProductCode: product?.productCode ?? null,
+      sourceTiramisProductCode: product?.tiramisProductCode ?? null,
+      sourceProductDefinitionHash: product?.definitionHash ?? null,
     });
 
     return this.transactionRepository.save(transaction);

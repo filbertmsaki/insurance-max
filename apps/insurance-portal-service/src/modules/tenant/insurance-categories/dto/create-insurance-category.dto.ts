@@ -1,10 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
+  Min,
   MaxLength,
 } from 'class-validator';
 import { InsuranceBusinessLine } from '../enums/insurance-business-line.enum';
@@ -46,4 +49,20 @@ export class CreateInsuranceCategoryDto {
   @IsOptional()
   @IsBoolean()
   is_active?: boolean;
+
+  @ApiPropertyOptional({ example: 'MOT' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
+  @IsString()
+  @MaxLength(50)
+  tiramis_category_code?: string | null;
+
+  @ApiPropertyOptional({ example: 100, default: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  sort_order?: number;
 }

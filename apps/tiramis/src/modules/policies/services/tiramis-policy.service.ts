@@ -9,6 +9,7 @@ import {
   type TiramisResolvedRequestDtoFields,
 } from '../../config/services/tiramis-config.service';
 import { TiramisBusinessSubmissionService } from '../../shared/services/tiramis-business-submission.service';
+import { TiramisProductWordingValidationService } from '../../../common/services/tiramis-product-wording-validation.service';
 import { TiramisSourceMetadataDto } from '../../submissions/dto/tiramis-source-metadata.dto';
 import { TiramisRequestIdService } from '../../submissions/services/tiramis-request-id.service';
 import { TiramisSubmissionService } from '../../submissions/services/tiramis-submission.service';
@@ -28,6 +29,7 @@ export class TiramisPolicyService {
     private readonly tiramisRequestIdService: TiramisRequestIdService,
     private readonly tiramisSubmissionService: TiramisSubmissionService,
     private readonly businessSubmissionService: TiramisBusinessSubmissionService,
+    private readonly productWordingValidator: TiramisProductWordingValidationService,
   ) {}
 
   async createDraft(
@@ -96,6 +98,8 @@ export class TiramisPolicyService {
     dto: CreatePolicyDto,
     sourceMetadata?: TiramisSourceMetadataDto,
   ) {
+    this.productWordingValidator.assertPolicyWording(dto);
+
     const { configuration, dto: resolvedDto } =
       await this.tiramisConfigService.resolveSubmissionContext(
         dto,

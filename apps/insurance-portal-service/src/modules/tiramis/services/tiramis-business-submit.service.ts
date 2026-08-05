@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 
+import type { ServiceProductContext } from '@insurance-max/contracts';
 import { TiramisPermissions } from '../auth/tiramis-permissions.constant';
 import { SubmitTiramisDto } from '../dto/submit-tiramis.dto';
 import { TiramisAuditAction } from '../enums/tiramis-audit-action.enum';
@@ -245,6 +246,7 @@ export class TiramisBusinessSubmitService {
     authContext?: any;
     forceResubmit?: boolean;
     returnExisting?: boolean;
+    productContext?: ServiceProductContext;
   }) {
     return this.submitWithBuilder({
       requestType: params.requestType,
@@ -255,6 +257,7 @@ export class TiramisBusinessSubmitService {
       authContext: params.authContext,
       forceResubmit: params.forceResubmit,
       returnExisting: params.returnExisting,
+      productContext: params.productContext,
     });
   }
 
@@ -484,6 +487,7 @@ export class TiramisBusinessSubmitService {
     authContext?: any;
     forceResubmit?: boolean;
     returnExisting?: boolean;
+    productContext?: ServiceProductContext;
   }) {
     if (!params.sourceRecordId) {
       throw new BadRequestException(
@@ -622,6 +626,7 @@ export class TiramisBusinessSubmitService {
       payload: builtPayload.payload,
       forceResubmit: !!params.forceResubmit,
       returnExisting: !!params.returnExisting,
+      productContext: params.productContext,
     };
 
     const result = await this.tiramisClientService.submit(

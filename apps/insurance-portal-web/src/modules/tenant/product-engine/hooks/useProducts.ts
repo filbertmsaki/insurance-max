@@ -17,6 +17,14 @@ export function useProductList(params: ProductQueryParams) {
   });
 }
 
+export function useProduct(id: string | undefined) {
+  return useQuery({
+    queryKey: peKeys.products.detail(id ?? ''),
+    queryFn: () => productsApi.getById(id!),
+    enabled: Boolean(id),
+  });
+}
+
 export function useAllActiveProducts(
   params?:
     | string

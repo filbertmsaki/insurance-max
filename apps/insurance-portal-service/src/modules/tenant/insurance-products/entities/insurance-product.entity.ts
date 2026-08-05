@@ -11,9 +11,11 @@ import {
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
+import { ProductLifecycleStatus } from '@insurance-max/contracts';
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { InsuranceCategory } from '../../insurance-categories/entities/insurance-category.entity';
 import { InsuranceBusinessLine } from '../../insurance-categories/enums/insurance-business-line.enum';
+import { InsuranceProductVersion } from './insurance-product-version.entity';
 
 @Entity('insurance_products')
 @Unique('UQ_insurance_products_company_code', ['company_id', 'product_code'])
@@ -66,6 +68,22 @@ export class InsuranceProduct {
   @Column({ default: true })
   is_active: boolean;
 
+  @Column({
+    type: 'varchar',
+    length: 30,
+    default: ProductLifecycleStatus.DRAFT,
+  })
+  lifecycle_status: ProductLifecycleStatus;
+
+  @Column({ type: 'integer', default: 0 })
+  latest_version_number: number;
+
+  @Column({ type: 'uuid', nullable: true })
+  current_version_id: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  code_locked_at: Date | null;
+
   @Column({ type: 'varchar', nullable: true })
   created_by: string | null;
 
@@ -94,4 +112,14 @@ export class InsuranceProduct {
 
   @OneToMany('InsuranceRisk', 'product')
   risks: any[];
+
+  @ManyToOne(() => InsuranceProductVersion, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'current_version_id' })
+  current_version: InsuranceProductVersion | null;
+
+  @OneToMany(() => InsuranceProductVersion, (version) => version.product)
+  versions: InsuranceProductVersion[];
 }

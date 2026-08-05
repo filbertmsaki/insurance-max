@@ -22,6 +22,7 @@ import {
   ApiExceptionFilter,
   ApiLoggingInterceptor,
   ApiResponseInterceptor,
+  ProductDefinitionModule,
   RequestContextModule,
   ServiceAuthModule,
 } from '@insurance-max/shared-kernel';
@@ -65,6 +66,7 @@ import { OrganizationModule } from './modules/shared/organization/organization.m
 
     RequestContextModule,
     ServiceAuthModule,
+    ProductDefinitionModule,
 
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),

@@ -1,16 +1,9 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import {
-  Plus,
-  Pencil,
-  Trash2,
-  MoreHorizontal,
-  ToggleLeft,
-  ToggleRight,
-} from 'lucide-react';
+import { Plus, Pencil, Trash2, MoreHorizontal, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -56,36 +49,58 @@ import {
   useDeleteProduct,
   useAllActiveCategories,
 } from '@/modules/tenant/product-engine/hooks';
-import type { InsuranceProduct } from '@/types/product-engine';
+import type {
+  InsuranceProduct,
+  ProductLifecycleStatus,
+  ProductReviewStatus,
+} from '@/types/product-engine';
 import { format } from 'date-fns';
 
-// ─── Schema ──────────────────────────────────────────────────────────────────
+// ─── Schemas ─────────────────────────────────────────────────────────────────
 
-const schema = z.object({
+const createSchema = z.object({
   category_id: z.string().min(1, 'Category is required'),
   product_code: z.string().min(1).max(50).toUpperCase(),
   product_name: z.string().min(1).max(150),
   description: z.string().max(500).optional(),
-  business_line: z.enum(['MOTOR', 'NON_MOTOR']),
   supports_fleet: z.boolean(),
   tiramis_product_code: z.string().max(50).optional(),
-  is_active: z.boolean(),
 });
-type FormValues = z.infer<typeof schema>;
+type CreateFormValues = z.infer<typeof createSchema>;
 
-function ActiveBadge({ active }: { active: boolean }) {
-  return active ? (
-    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
-      Active
-    </Badge>
-  ) : (
-    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">
-      Inactive
+const identitySchema = z.object({
+  category_id: z.string().min(1),
+  product_code: z.string().min(1).max(50).toUpperCase(),
+});
+type IdentityFormValues = z.infer<typeof identitySchema>;
+
+function LifecycleBadge({ status }: { status: ProductLifecycleStatus }) {
+  const styles: Record<string, string> = {
+    ACTIVE: 'bg-green-100 text-green-700 border-green-200 hover:bg-green-100',
+    DRAFT: 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100',
+    RETIRED: 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100',
+  };
+  return <Badge className={styles[status] ?? styles.DRAFT}>{status}</Badge>;
+}
+
+function ReviewBadge({ status }: { status: ProductReviewStatus | undefined }) {
+  if (!status) return <span className="text-xs text-slate-400">—</span>;
+  const styles: Record<string, string> = {
+    APPROVED: 'bg-green-50 text-green-700 border-green-200',
+    IN_REVIEW: 'bg-blue-50 text-blue-700 border-blue-200',
+    REJECTED: 'bg-red-50 text-red-700 border-red-200',
+    REQUIRES_REVIEW: 'bg-amber-50 text-amber-700 border-amber-200',
+    DRAFT: 'bg-slate-50 text-slate-600 border-slate-200',
+  };
+  return (
+    <Badge variant="outline" className={styles[status]}>
+      {status.replace('_', ' ')}
     </Badge>
   );
 }
 
 export function ProductsPage() {
+  const navigate = useNavigate();
   const { hasPermission } = useAuthStore();
   const canCreate = hasPermission('insurance-products:create');
   const canUpdate = hasPermission('insurance-products:update');
@@ -96,83 +111,81 @@ export function ProductsPage() {
   const limit = Number(params.get('limit') ?? '10');
   const search = params.get('search') ?? '';
   const categoryFilter = params.get('category_id') ?? '';
-  const isActiveFilter = params.get('is_active');
 
   const { data, isLoading } = useProductList({
     page,
     limit,
     search: search || undefined,
     category_id: categoryFilter || undefined,
-    is_active:
-      isActiveFilter === 'true'
-        ? true
-        : isActiveFilter === 'false'
-          ? false
-          : undefined,
   });
   const { data: categories = [] } = useAllActiveCategories();
   const createMutation = useCreateProduct();
   const updateMutation = useUpdateProduct();
   const deleteMutation = useDeleteProduct();
 
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [editItem, setEditItem] = useState<InsuranceProduct | null>(null);
   const [deleteItem, setDeleteItem] = useState<InsuranceProduct | null>(null);
 
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
+  const createForm = useForm<CreateFormValues>({
+    resolver: zodResolver(createSchema),
     defaultValues: {
       category_id: '',
       product_code: '',
       product_name: '',
       description: '',
-      business_line: 'NON_MOTOR',
       supports_fleet: false,
       tiramis_product_code: '',
-      is_active: true,
     },
   });
 
+  const identityForm = useForm<IdentityFormValues>({
+    resolver: zodResolver(identitySchema),
+    defaultValues: { category_id: '', product_code: '' },
+  });
+
   function openCreate() {
-    setEditItem(null);
-    form.reset({
+    createForm.reset({
       category_id: '',
       product_code: '',
       product_name: '',
       description: '',
-      business_line: 'NON_MOTOR',
       supports_fleet: false,
       tiramis_product_code: '',
-      is_active: true,
     });
-    setDialogOpen(true);
+    setCreateOpen(true);
   }
 
   function openEdit(item: InsuranceProduct) {
     setEditItem(item);
-    form.reset({
+    identityForm.reset({
       category_id: item.category_id,
       product_code: item.product_code,
-      product_name: item.product_name,
-      description: item.description ?? '',
-      business_line:
-        item.business_line ?? item.category?.business_line ?? 'NON_MOTOR',
-      supports_fleet: item.supports_fleet ?? false,
-      tiramis_product_code: item.tiramis_product_code ?? item.product_code,
-      is_active: item.is_active,
     });
-    setDialogOpen(true);
   }
 
-  function onSubmit(values: FormValues) {
-    if (editItem) {
-      updateMutation.mutate(
-        { id: editItem.id, data: values },
-        { onSuccess: () => setDialogOpen(false) },
-      );
-    } else {
-      createMutation.mutate(values, { onSuccess: () => setDialogOpen(false) });
+  function onCreateSubmit(values: CreateFormValues) {
+    createMutation.mutate(values, {
+      onSuccess: (created) => {
+        setCreateOpen(false);
+        navigate(`/product-engine/products/${created.id}`);
+      },
+    });
+  }
+
+  function onIdentitySubmit(values: IdentityFormValues) {
+    if (!editItem) return;
+    const patch: Record<string, string> = {};
+    if (!editItem.current_version_id && values.category_id !== editItem.category_id) {
+      patch.category_id = values.category_id;
     }
+    if (!editItem.code_locked_at && values.product_code !== editItem.product_code) {
+      patch.product_code = values.product_code;
+    }
+    updateMutation.mutate(
+      { id: editItem.id, data: patch },
+      { onSuccess: () => setEditItem(null) },
+    );
   }
 
   function setParam(key: string, value: string | null) {
@@ -190,9 +203,12 @@ export function ProductsPage() {
       key: 'product_code',
       header: 'Code',
       cell: (row) => (
-        <span className="font-mono text-xs font-medium">
+        <button
+          className="font-mono text-xs font-medium text-primary hover:underline"
+          onClick={() => navigate(`/product-engine/products/${row.id}`)}
+        >
           {row.product_code}
-        </span>
+        </button>
       ),
     },
     { key: 'product_name', header: 'Name', cell: (row) => row.product_name },
@@ -215,21 +231,38 @@ export function ProductsPage() {
       ),
     },
     {
-      key: 'supports_fleet',
-      header: 'Fleet',
+      key: 'current_version',
+      header: 'Version',
       cell: (row) =>
-        row.supports_fleet ? (
-          <Badge className="bg-blue-50 text-blue-700 border-blue-200">
-            Fleet
-          </Badge>
+        row.current_version ? (
+          <span className="text-xs font-medium">
+            v{row.current_version.version_number}
+          </span>
+        ) : (
+          <span className="text-xs text-slate-400">
+            v{row.latest_version_number || 1} (draft)
+          </span>
+        ),
+    },
+    {
+      key: 'review_status',
+      header: 'Review',
+      cell: (row) => <ReviewBadge status={row.current_version?.review_status} />,
+    },
+    {
+      key: 'submission_ready',
+      header: 'Quote-ready',
+      cell: (row) =>
+        row.current_version?.is_submission_ready ? (
+          <Badge className="bg-green-50 text-green-700 border-green-200">Yes</Badge>
         ) : (
           <span className="text-xs text-slate-400">No</span>
         ),
     },
     {
-      key: 'is_active',
-      header: 'Status',
-      cell: (row) => <ActiveBadge active={row.is_active} />,
+      key: 'lifecycle_status',
+      header: 'Lifecycle',
+      cell: (row) => <LifecycleBadge status={row.lifecycle_status} />,
     },
     {
       key: 'created_at',
@@ -252,31 +285,14 @@ export function ProductsPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => navigate(`/product-engine/products/${row.id}`)}
+            >
+              <Eye className="mr-2 h-4 w-4" /> View / Versions
+            </DropdownMenuItem>
             {canUpdate && (
               <DropdownMenuItem onClick={() => openEdit(row)}>
-                <Pencil className="mr-2 h-4 w-4" /> Edit
-              </DropdownMenuItem>
-            )}
-            {canUpdate && (
-              <DropdownMenuItem
-                onClick={() =>
-                  updateMutation.mutate({
-                    id: row.id,
-                    data: { is_active: !row.is_active },
-                  })
-                }
-              >
-                {row.is_active ? (
-                  <>
-                    <ToggleLeft className="mr-2 h-4 w-4" />
-                    Deactivate
-                  </>
-                ) : (
-                  <>
-                    <ToggleRight className="mr-2 h-4 w-4" />
-                    Activate
-                  </>
-                )}
+                <Pencil className="mr-2 h-4 w-4" /> Edit identity
               </DropdownMenuItem>
             )}
             {canDelete && (
@@ -300,7 +316,7 @@ export function ProductsPage() {
     <div className="p-6 space-y-6">
       <PageHeader
         title="Insurance Products"
-        description="Manage insurance products grouped by category"
+        description="Manage the product catalogue — terms are configured on versions"
         action={
           canCreate ? (
             <Button onClick={openCreate}>
@@ -334,19 +350,6 @@ export function ProductsPage() {
             ))}
           </SelectContent>
         </Select>
-        <Select
-          value={isActiveFilter ?? 'all'}
-          onValueChange={(v) => setParam('is_active', v === 'all' ? null : v)}
-        >
-          <SelectTrigger className="w-36 h-9">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="true">Active</SelectItem>
-            <SelectItem value="false">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       <DataTable
@@ -374,42 +377,26 @@ export function ProductsPage() {
         }
       />
 
-      {/* Create / Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* Create Dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {editItem ? 'Edit Product' : 'New Product'}
-            </DialogTitle>
+            <DialogTitle>New Product</DialogTitle>
           </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <Form {...createForm}>
+            <form
+              onSubmit={createForm.handleSubmit(onCreateSubmit)}
+              className="space-y-4"
+            >
               <FormField
-                control={form.control}
+                control={createForm.control}
                 name="category_id"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
                       Category <span className="text-red-500">*</span>
                     </FormLabel>
-                    <Select
-                      value={field.value}
-                      onValueChange={(value) => {
-                        field.onChange(value);
-
-                        const category = categories.find((c) => c.id === value);
-                        if (category) {
-                          form.setValue(
-                            'business_line',
-                            category.business_line,
-                          );
-                          form.setValue(
-                            'supports_fleet',
-                            category.business_line === 'MOTOR',
-                          );
-                        }
-                      }}
-                    >
+                    <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select category" />
@@ -418,7 +405,7 @@ export function ProductsPage() {
                       <SelectContent>
                         {categories.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
-                            {c.name}
+                            {c.name} ({c.business_line === 'MOTOR' ? 'Motor' : 'Non-Motor'})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -428,28 +415,7 @@ export function ProductsPage() {
                 )}
               />
               <FormField
-                control={form.control}
-                name="business_line"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Business Line</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="NON_MOTOR">Non-Motor</SelectItem>
-                        <SelectItem value="MOTOR">Motor</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
+                control={createForm.control}
                 name="product_code"
                 render={({ field }) => (
                   <FormItem>
@@ -470,7 +436,7 @@ export function ProductsPage() {
                 )}
               />
               <FormField
-                control={form.control}
+                control={createForm.control}
                 name="product_name"
                 render={({ field }) => (
                   <FormItem>
@@ -485,7 +451,7 @@ export function ProductsPage() {
                 )}
               />
               <FormField
-                control={form.control}
+                control={createForm.control}
                 name="tiramis_product_code"
                 render={({ field }) => (
                   <FormItem>
@@ -493,7 +459,7 @@ export function ProductsPage() {
                     <FormControl>
                       <Input
                         {...field}
-                        placeholder="e.g. CP20100000"
+                        placeholder="Defaults to product code"
                         onChange={(e) =>
                           field.onChange(e.target.value.toUpperCase())
                         }
@@ -504,7 +470,7 @@ export function ProductsPage() {
                 )}
               />
               <FormField
-                control={form.control}
+                control={createForm.control}
                 name="description"
                 render={({ field }) => (
                   <FormItem>
@@ -517,7 +483,7 @@ export function ProductsPage() {
                 )}
               />
               <FormField
-                control={form.control}
+                control={createForm.control}
                 name="supports_fleet"
                 render={({ field }) => (
                   <FormItem className="flex items-center gap-3">
@@ -525,7 +491,6 @@ export function ProductsPage() {
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
-                        disabled={form.watch('business_line') !== 'MOTOR'}
                       />
                     </FormControl>
                     <FormLabel className="!mt-0">
@@ -534,18 +499,93 @@ export function ProductsPage() {
                   </FormItem>
                 )}
               />
+              <p className="text-xs text-muted-foreground">
+                A version-1 draft is created automatically. Configure wording,
+                coverages and add-ons on the product page, then submit for
+                review and publish.
+              </p>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setCreateOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={createMutation.isPending}>
+                  Create
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Identity Edit Dialog */}
+      <Dialog open={!!editItem} onOpenChange={(o) => !o && setEditItem(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Product Identity</DialogTitle>
+          </DialogHeader>
+          <Form {...identityForm}>
+            <form
+              onSubmit={identityForm.handleSubmit(onIdentitySubmit)}
+              className="space-y-4"
+            >
               <FormField
-                control={form.control}
-                name="is_active"
+                control={identityForm.control}
+                name="category_id"
                 render={({ field }) => (
-                  <FormItem className="flex items-center gap-3">
+                  <FormItem>
+                    <FormLabel>Category</FormLabel>
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      disabled={!!editItem?.current_version_id}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {categories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {editItem?.current_version_id && (
+                      <p className="text-xs text-muted-foreground">
+                        Locked — the category cannot change after publication.
+                      </p>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={identityForm.control}
+                name="product_code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Product Code</FormLabel>
                     <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
+                      <Input
+                        {...field}
+                        disabled={!!editItem?.code_locked_at}
+                        onChange={(e) =>
+                          field.onChange(e.target.value.toUpperCase())
+                        }
                       />
                     </FormControl>
-                    <FormLabel className="!mt-0">Active</FormLabel>
+                    {editItem?.code_locked_at && (
+                      <p className="text-xs text-muted-foreground">
+                        Locked — the code cannot change after publication.
+                      </p>
+                    )}
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -553,17 +593,12 @@ export function ProductsPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setDialogOpen(false)}
+                  onClick={() => setEditItem(null)}
                 >
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  disabled={
-                    createMutation.isPending || updateMutation.isPending
-                  }
-                >
-                  {editItem ? 'Save Changes' : 'Create'}
+                <Button type="submit" disabled={updateMutation.isPending}>
+                  Save Changes
                 </Button>
               </DialogFooter>
             </form>

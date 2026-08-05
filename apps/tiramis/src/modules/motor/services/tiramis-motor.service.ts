@@ -10,6 +10,7 @@ import { TiramisSignatureService } from '../../messaging/services/tiramis-signat
 import { TiramisXmlBuilderService } from '../../messaging/services/tiramis-xml-builder.service';
 import { TiramisXmlParserService } from '../../messaging/services/tiramis-xml-parser.service';
 import { TiramisPayloadValidationService } from '../../shared/services/tiramis-payload-validation.service';
+import { TiramisProductWordingValidationService } from '../../../common/services/tiramis-product-wording-validation.service';
 import { TiramisRequestIdService } from '../../submissions/services/tiramis-request-id.service';
 import { TiramisSourceMetadataDto } from '../../submissions/dto/tiramis-source-metadata.dto';
 import { TiramisSubmissionService } from '../../submissions/services/tiramis-submission.service';
@@ -33,6 +34,7 @@ export class TiramisMotorService {
     private readonly signatureService: TiramisSignatureService,
     private readonly httpClient: TiramisHttpClientService,
     private readonly payloadValidator: TiramisPayloadValidationService,
+    private readonly productWordingValidator: TiramisProductWordingValidationService,
   ) {}
 
   async createDraft(
@@ -279,6 +281,8 @@ export class TiramisMotorService {
     dto: CreateMotorCoverNoteDto,
     sourceMetadata?: TiramisSourceMetadataDto,
   ) {
+    this.productWordingValidator.assertCoverNoteWording(dto);
+
     const { configuration, dto: resolvedDto } =
       await this.tiramisConfigService.resolveSubmissionContext(
         dto,

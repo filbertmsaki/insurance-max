@@ -9,7 +9,10 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 
-import { unwrapApiResponse } from '@insurance-max/contracts';
+import {
+  unwrapApiResponse,
+  type ServiceProductContext,
+} from '@insurance-max/contracts';
 import {
   HTTP_HEADERS,
   RequestContextService,
@@ -334,7 +337,12 @@ export class TiramisClientService {
         },
       });
 
-      const response = await this.send(pattern, command, authContext);
+      const response = await this.send(
+        pattern,
+        command,
+        authContext,
+        dto.productContext,
+      );
 
       const updatedTracking =
         await this.trackingRepository.markSubmittedResponse(
@@ -783,6 +791,7 @@ export class TiramisClientService {
     pattern: string,
     payload: Record<string, unknown>,
     authContext?: AuthenticatedUser,
+    productContext?: ServiceProductContext,
   ) {
     try {
       const route = this.httpRouteForPattern(pattern);
@@ -830,6 +839,7 @@ export class TiramisClientService {
                 roles: authContext!.roles,
                 permissions: authContext!.permissions,
               },
+              ...(productContext ? { product: productContext } : null),
             }
           : undefined,
       );
