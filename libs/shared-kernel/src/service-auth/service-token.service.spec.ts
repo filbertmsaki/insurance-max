@@ -40,17 +40,36 @@ describe('ServiceTokenService', () => {
     service = module.get(ServiceTokenService);
   });
 
-  it('issues a token that verifies successfully when the audience matches self', () => {
+  it('issues a token addressed to the target service, signed as self', () => {
     const token = service.issue('tiramis-service', ['tiramis:invoke']);
+    const decoded = new JwtService().decode(token) as Record<string, unknown>;
 
-    const payload = service.verify(token);
-
-    expect(payload.iss).toBe('insurance-portal-service');
-    expect(payload.aud).toBe('insurance-portal-service');
-    expect(payload.scopes).toEqual(['tiramis:invoke']);
+    expect(decoded.iss).toBe('insurance-portal-service');
+    expect(decoded.sub).toBe('insurance-portal-service');
+    expect(decoded.aud).toBe('tiramis-service');
+    expect(decoded.scopes).toEqual(['tiramis:invoke']);
   });
 
-  it('rejects tokens issued for a different audience', () => {
+  it('round-trips: a token issued by an allowed peer, addressed to self, verifies successfully', () => {
+    const jwt = new JwtService();
+    const incoming = jwt.sign(
+      { scopes: ['tiramis:notify'] },
+      {
+        secret: ENV.SERVICE_AUTH_SECRET,
+        issuer: 'tiramis-service',
+        subject: 'tiramis-service',
+        audience: ENV.SERVICE_AUTH_AUDIENCE,
+        expiresIn: '60s',
+      },
+    );
+
+    const payload = service.verify(incoming);
+
+    expect(payload.iss).toBe('tiramis-service');
+    expect(payload.scopes).toEqual(['tiramis:notify']);
+  });
+
+  it('rejects a token addressed to a different audience than self', () => {
     const token = service.issue('some-other-service', ['tiramis:invoke']);
 
     expect(() => service.verify(token)).toThrow();
