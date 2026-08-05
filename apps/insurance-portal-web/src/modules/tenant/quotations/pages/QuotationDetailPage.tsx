@@ -258,8 +258,9 @@ export function QuotationDetailPage() {
     }
 
     const pendingOverride =
-      risk.premium_overrides.find((override) => override.approval_status === 'PENDING') ??
-      null;
+      risk.premium_overrides.find(
+        (override) => override.approval_status === 'PENDING',
+      ) ?? null;
     const canApprovePendingOverride =
       !!pendingOverride &&
       canApprovePremiumOverride &&
@@ -285,7 +286,11 @@ export function QuotationDetailPage() {
             variant="outline"
             size="sm"
             onClick={() =>
-              openPremiumOverrideDecisionDialog(risk, pendingOverride, 'approve')
+              openPremiumOverrideDecisionDialog(
+                risk,
+                pendingOverride,
+                'approve',
+              )
             }
           >
             Approve Override
@@ -320,7 +325,10 @@ export function QuotationDetailPage() {
     return (
       <div className="py-24 text-center text-slate-500">
         <p className="font-medium">Quotation not found</p>
-        <Button variant="link" onClick={() => navigate(underwritingPaths.quotations)}>
+        <Button
+          variant="link"
+          onClick={() => navigate(underwritingPaths.quotations)}
+        >
           Back to Quotations
         </Button>
       </div>
@@ -329,7 +337,11 @@ export function QuotationDetailPage() {
 
   const actionButtons = (
     <div className="flex flex-wrap gap-2">
-      <Button variant="outline" size="sm" onClick={() => navigate(underwritingPaths.quotations)}>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => navigate(underwritingPaths.quotations)}
+      >
         <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
         Back to List
       </Button>
@@ -361,7 +373,11 @@ export function QuotationDetailPage() {
           onClick={() =>
             submitMutation.mutate(undefined, {
               onSuccess: () => {
-                navigate(underwritingPaths.quotationDetail(preview.overview.quotation_id));
+                navigate(
+                  underwritingPaths.quotationDetail(
+                    preview.overview.quotation_id,
+                  ),
+                );
               },
             })
           }
@@ -423,11 +439,21 @@ export function QuotationDetailPage() {
         <TabsList className="h-auto flex-wrap gap-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="policyholders">Policyholders</TabsTrigger>
-          {!showFleetTabs ? <TabsTrigger value="risks">Risks & Premium</TabsTrigger> : null}
-          {!showFleetTabs ? <TabsTrigger value="subject-matters">Subject Matters</TabsTrigger> : null}
-          {!showFleetTabs ? <TabsTrigger value="addons">Add-ons</TabsTrigger> : null}
-          {showMotorTab ? <TabsTrigger value="motor">Motor Details</TabsTrigger> : null}
-          {showFleetTabs ? <TabsTrigger value="fleet">Fleet Vehicles</TabsTrigger> : null}
+          {!showFleetTabs ? (
+            <TabsTrigger value="risks">Risks & Premium</TabsTrigger>
+          ) : null}
+          {!showFleetTabs ? (
+            <TabsTrigger value="subject-matters">Subject Matters</TabsTrigger>
+          ) : null}
+          {!showFleetTabs ? (
+            <TabsTrigger value="addons">Add-ons</TabsTrigger>
+          ) : null}
+          {showMotorTab ? (
+            <TabsTrigger value="motor">Motor Details</TabsTrigger>
+          ) : null}
+          {showFleetTabs ? (
+            <TabsTrigger value="fleet">Fleet Vehicles</TabsTrigger>
+          ) : null}
           <TabsTrigger value="payment">Payment</TabsTrigger>
           <TabsTrigger value="tiramis">TIRAMIS</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
@@ -498,10 +524,7 @@ export function QuotationDetailPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog
-        open={cancelDialogOpen}
-        onOpenChange={setCancelDialogOpen}
-      >
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Cancel Quotation</DialogTitle>
@@ -551,7 +574,9 @@ export function QuotationDetailPage() {
                   },
                 })
               }
-              disabled={cancelQuotationMutation.isPending || !cancellationReason.trim()}
+              disabled={
+                cancelQuotationMutation.isPending || !cancellationReason.trim()
+              }
             >
               {cancelQuotationMutation.isPending
                 ? 'Cancelling...'
@@ -606,7 +631,9 @@ export function QuotationDetailPage() {
                 min="0"
                 step="0.01"
                 value={overrideProposedPremium}
-                onChange={(event) => setOverrideProposedPremium(event.target.value)}
+                onChange={(event) =>
+                  setOverrideProposedPremium(event.target.value)
+                }
                 placeholder="Enter the requested premium amount"
               />
             </div>

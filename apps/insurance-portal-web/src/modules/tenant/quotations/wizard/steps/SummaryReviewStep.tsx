@@ -51,9 +51,13 @@ export function SummaryReviewStep({
   onEditStep,
 }: Props) {
   const values = form.watch();
-  const category = categoryOptions.find((item) => item.id === values.category_id);
+  const category = categoryOptions.find(
+    (item) => item.id === values.category_id,
+  );
   const product = productOptions.find((item) => item.id === values.product_id);
-  const existingCustomer = customerOptions.find((item) => item.id === values.customer_id);
+  const existingCustomer = customerOptions.find(
+    (item) => item.id === values.customer_id,
+  );
   const currency = values.currency?.trim().toUpperCase();
   const exchangeRate =
     currency && currency !== 'TZS' ? Number(values.exchange_rate) || 1 : 1;
@@ -76,8 +80,7 @@ export function SummaryReviewStep({
     (sum, item) =>
       sum +
       item.risks_covered.reduce(
-        (riskSum, risk) =>
-          riskSum + (Number(risk.premium_including_tax) || 0),
+        (riskSum, risk) => riskSum + (Number(risk.premium_including_tax) || 0),
         0,
       ),
     0,
@@ -94,9 +97,15 @@ export function SummaryReviewStep({
       </StepSection>
 
       <StepSection
-        title={values.is_fleet ? 'Fleet & Cover Note Setup' : 'Cover Note Setup'}
+        title={
+          values.is_fleet ? 'Fleet & Cover Note Setup' : 'Cover Note Setup'
+        }
         action={
-          <EditButton onClick={() => onEditStep(values.is_fleet ? 'fleet-setup' : 'cover-note')} />
+          <EditButton
+            onClick={() =>
+              onEditStep(values.is_fleet ? 'fleet-setup' : 'cover-note')
+            }
+          />
         }
         contentClassName="grid gap-1 text-sm md:grid-cols-2"
       >
@@ -111,7 +120,10 @@ export function SummaryReviewStep({
           Cover period: {formatCoverDateLabel(values.valid_from)} to{' '}
           {formatCoverDateLabel(values.valid_until)}
         </p>
-        <p>Commission paid: {values.commission_paid || values.total_commission || '0'}</p>
+        <p>
+          Commission paid:{' '}
+          {values.commission_paid || values.total_commission || '0'}
+        </p>
         <p>Commission rate: {values.commission_rate || '0'}</p>
       </StepSection>
 
@@ -121,15 +133,22 @@ export function SummaryReviewStep({
       >
         {values.policyholder_mode === 'existing' ? (
           <p className="text-sm">
-            {existingCustomer ? getCustomerDisplayName(existingCustomer) : 'Not selected'}{' '}
-            {existingCustomer?.customer_no ? `(${existingCustomer.customer_no})` : ''}
+            {existingCustomer
+              ? getCustomerDisplayName(existingCustomer)
+              : 'Not selected'}{' '}
+            {existingCustomer?.customer_no
+              ? `(${existingCustomer.customer_no})`
+              : ''}
           </p>
         ) : (
           <p className="text-sm">
             {values.policyholder.full_name ||
               (values.policyholder.customer_type === 'CORPORATE'
                 ? values.policyholder.company_name || 'New corporate customer'
-                : [values.policyholder.first_name, values.policyholder.last_name]
+                : [
+                    values.policyholder.first_name,
+                    values.policyholder.last_name,
+                  ]
                     .filter(Boolean)
                     .join(' ') || 'New individual customer')}
             {' - '}
@@ -142,7 +161,9 @@ export function SummaryReviewStep({
         title="Risk & Premium"
         action={
           <EditButton
-            onClick={() => onEditStep(values.is_fleet ? 'fleet-vehicles' : 'risk-premium')}
+            onClick={() =>
+              onEditStep(values.is_fleet ? 'fleet-vehicles' : 'risk-premium')
+            }
           />
         }
         contentClassName="space-y-2 text-sm"
@@ -160,7 +181,8 @@ export function SummaryReviewStep({
                   : risk.risk_code || `Risk #${index + 1}`}
               </span>
               <span className="text-slate-500">
-                SI {risk.sum_insured || '0'} - Premium {risk.total_premium || risk.premium_including_tax || '0'}
+                SI {risk.sum_insured || '0'} - Premium{' '}
+                {risk.total_premium || risk.premium_including_tax || '0'}
               </span>
             </div>
           );
@@ -179,8 +201,12 @@ export function SummaryReviewStep({
               key={`${subject.subject_matter_reference}-${index}`}
               className="flex items-center justify-between border-b border-slate-100 py-1 last:border-0"
             >
-              <span>{subject.subject_matter_reference || `Subject #${index + 1}`}</span>
-              <span className="text-slate-500">{subject.subject_matter_desc || '-'}</span>
+              <span>
+                {subject.subject_matter_reference || `Subject #${index + 1}`}
+              </span>
+              <span className="text-slate-500">
+                {subject.subject_matter_desc || '-'}
+              </span>
             </div>
           ))}
         </StepSection>
@@ -198,10 +224,14 @@ export function SummaryReviewStep({
               className="flex items-center justify-between border-b border-slate-100 py-1 last:border-0"
             >
               <span>
-                {addon.addon_reference || `Add-on #${index + 1}`} - {addon.addon_desc}
+                {addon.addon_reference || `Add-on #${index + 1}`} -{' '}
+                {addon.addon_desc}
               </span>
               <span className="text-slate-500">
-                {computeAddonAmounts(addon, exchangeRate).premiumIncludingTax.toFixed(2)}
+                {computeAddonAmounts(
+                  addon,
+                  exchangeRate,
+                ).premiumIncludingTax.toFixed(2)}
               </span>
             </div>
           ))}
@@ -216,9 +246,14 @@ export function SummaryReviewStep({
           title="Motor Details"
           action={<EditButton onClick={() => onEditStep('motor')} />}
         >
-          <p className="text-sm">{values.motor.registration_no || values.motor.chassis_no || 'Vehicle not yet identified'}</p>
+          <p className="text-sm">
+            {values.motor.registration_no ||
+              values.motor.chassis_no ||
+              'Vehicle not yet identified'}
+          </p>
           <p className="text-sm text-slate-500">
-            {values.motor.make} {values.motor.model} - Value {values.motor.vehicle_value || '-'}
+            {values.motor.make} {values.motor.model} - Value{' '}
+            {values.motor.vehicle_value || '-'}
           </p>
         </StepSection>
       ) : null}
@@ -230,12 +265,15 @@ export function SummaryReviewStep({
             action={<EditButton onClick={() => onEditStep('fleet-vehicles')} />}
           >
             <p className="text-sm">
-              Fleet {values.fleet.header.fleet_id || values.fleet.header.fleet_no || '(no number yet)'} -{' '}
-              {values.fleet.items.length} vehicle(s)
+              Fleet{' '}
+              {values.fleet.header.fleet_id ||
+                values.fleet.header.fleet_no ||
+                '(no number yet)'}{' '}
+              - {values.fleet.items.length} vehicle(s)
             </p>
             <p className="text-sm text-slate-500">
-              Total sum insured: {fleetTotalSumInsured.toFixed(2)} - Total premium:{' '}
-              {fleetTotalPremium.toFixed(2)}
+              Total sum insured: {fleetTotalSumInsured.toFixed(2)} - Total
+              premium: {fleetTotalPremium.toFixed(2)}
             </p>
           </StepSection>
           <StepSection
@@ -243,12 +281,21 @@ export function SummaryReviewStep({
             action={<EditButton onClick={() => onEditStep('fleet-vehicles')} />}
             contentClassName="grid gap-1 text-sm md:grid-cols-2"
           >
-            <p>Expected fleet size: {values.fleet.header.fleet_size || values.fleet.items.length}</p>
+            <p>
+              Expected fleet size:{' '}
+              {values.fleet.header.fleet_size || values.fleet.items.length}
+            </p>
             <p>Vehicles entered: {values.fleet.items.length}</p>
             <p>
-              Comprehensively insured vehicles: {values.fleet.header.comprehensive_insured || '0'}
+              Comprehensively insured vehicles:{' '}
+              {values.fleet.header.comprehensive_insured || '0'}
             </p>
-            <p>Fleet type: {values.fleet.header.fleet_type === '2' ? 'Fleet Addition' : 'New Fleet'}</p>
+            <p>
+              Fleet type:{' '}
+              {values.fleet.header.fleet_type === '2'
+                ? 'Fleet Addition'
+                : 'New Fleet'}
+            </p>
           </StepSection>
         </>
       ) : null}

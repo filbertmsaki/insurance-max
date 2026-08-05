@@ -102,9 +102,9 @@ export function QuotationStartModal({
   onProceed,
   onClose,
 }: Props) {
-  const [quotationFlow, setQuotationFlow] = useState<
-    QuotationWizardFlow | ''
-  >('');
+  const [quotationFlow, setQuotationFlow] = useState<QuotationWizardFlow | ''>(
+    '',
+  );
   const [categoryId, setCategoryId] = useState('');
   const [productId, setProductId] = useState('');
   const [channelType, setChannelType] = useState<
@@ -123,7 +123,8 @@ export function QuotationStartModal({
     () => (quotationFlow === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR'),
     [quotationFlow],
   );
-  const requiresDateRange = quotationFlow !== '' && quotationFlow !== 'MOTOR_FLEET';
+  const requiresDateRange =
+    quotationFlow !== '' && quotationFlow !== 'MOTOR_FLEET';
   const requiresTranCompany = channelType !== '' && channelType !== 'DIRECT';
   const tranCompanyLabel =
     channelType === 'BROKER'
@@ -148,7 +149,10 @@ export function QuotationStartModal({
   );
 
   const [prevSync, setPrevSync] = useState({ open, initialSelection });
-  if (open !== prevSync.open || initialSelection !== prevSync.initialSelection) {
+  if (
+    open !== prevSync.open ||
+    initialSelection !== prevSync.initialSelection
+  ) {
     setPrevSync({ open, initialSelection });
 
     if (open) {
@@ -163,7 +167,10 @@ export function QuotationStartModal({
         setValidUntil(initialSelection.valid_until ?? '');
         setDateRangeDays(
           initialSelection.date_range ??
-            matchPresetDays(initialSelection.valid_from, initialSelection.valid_until),
+            matchPresetDays(
+              initialSelection.valid_from,
+              initialSelection.valid_until,
+            ),
         );
       } else {
         setQuotationFlow(DEFAULT_QUOTATION_FLOW);
@@ -184,7 +191,8 @@ export function QuotationStartModal({
   // channel is Direct or the selection no longer matches the current channel/product's
   // option list (e.g. switching between two non-Direct channels, or changing product).
   const effectiveTranCompanyId =
-    requiresTranCompany && tranCompanyOptions.some((option) => option.id === tranCompanyId)
+    requiresTranCompany &&
+    tranCompanyOptions.some((option) => option.id === tranCompanyId)
       ? tranCompanyId
       : '';
 
@@ -206,11 +214,12 @@ export function QuotationStartModal({
 
   const handleDateRangeChange = (value: CoverNoteDateRangeValue) => {
     setDateRangeDays(value);
-    const option = COVER_NOTE_DATE_RANGE_OPTIONS.find((item) => item.value === value);
-    if (!option) return;
-    const { validFrom: nextFrom, validUntil: nextUntil } = computeCoverNoteDateRange(
-      option.days,
+    const option = COVER_NOTE_DATE_RANGE_OPTIONS.find(
+      (item) => item.value === value,
     );
+    if (!option) return;
+    const { validFrom: nextFrom, validUntil: nextUntil } =
+      computeCoverNoteDateRange(option.days);
     setValidFrom(nextFrom);
     setValidUntil(nextUntil);
   };
@@ -218,10 +227,13 @@ export function QuotationStartModal({
   const errors: Partial<
     Record<keyof typeof FIELD_LABELS | 'intermediary_company_id', string>
   > = {};
-  if (!quotationFlow) errors.quotation_flow = `${FIELD_LABELS.quotation_flow} is required`;
-  if (!categoryId) errors.category_id = `${FIELD_LABELS.category_id} is required`;
+  if (!quotationFlow)
+    errors.quotation_flow = `${FIELD_LABELS.quotation_flow} is required`;
+  if (!categoryId)
+    errors.category_id = `${FIELD_LABELS.category_id} is required`;
   if (!productId) errors.product_id = `${FIELD_LABELS.product_id} is required`;
-  if (!channelType) errors.channel_type = `${FIELD_LABELS.channel_type} is required`;
+  if (!channelType)
+    errors.channel_type = `${FIELD_LABELS.channel_type} is required`;
   if (!currency) errors.currency = `${FIELD_LABELS.currency} is required`;
   if (requiresTranCompany && !effectiveTranCompanyId) {
     errors.intermediary_company_id = `${tranCompanyLabel} is required`;
@@ -261,8 +273,16 @@ export function QuotationStartModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DialogContent className="max-w-xl" onInteractOutside={(event) => event.preventDefault()}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
+      <DialogContent
+        className="max-w-xl"
+        onInteractOutside={(event) => event.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Start a New Quotation</DialogTitle>
           <DialogDescription>
@@ -297,12 +317,16 @@ export function QuotationStartModal({
               })}
             </div>
             {touched && errors.quotation_flow && (
-              <p className="mt-1 text-sm text-red-600">{errors.quotation_flow}</p>
+              <p className="mt-1 text-sm text-red-600">
+                {errors.quotation_flow}
+              </p>
             )}
           </div>
 
           <div>
-            <Label htmlFor="quotation-start-category" className="mb-2 block">{FIELD_LABELS.category_id}</Label>
+            <Label htmlFor="quotation-start-category" className="mb-2 block">
+              {FIELD_LABELS.category_id}
+            </Label>
             <Select value={categoryId} onValueChange={handleCategoryChange}>
               <SelectTrigger id="quotation-start-category">
                 <SelectValue placeholder="Select category" />
@@ -321,7 +345,9 @@ export function QuotationStartModal({
           </div>
 
           <div>
-            <Label htmlFor="quotation-start-product" className="mb-2 block">{FIELD_LABELS.product_id}</Label>
+            <Label htmlFor="quotation-start-product" className="mb-2 block">
+              {FIELD_LABELS.product_id}
+            </Label>
             <Select value={productId} onValueChange={setProductId}>
               <SelectTrigger id="quotation-start-product">
                 <SelectValue placeholder="Select product" />
@@ -340,7 +366,9 @@ export function QuotationStartModal({
           </div>
 
           <div>
-            <Label htmlFor="quotation-start-channel" className="mb-2 block">{FIELD_LABELS.channel_type}</Label>
+            <Label htmlFor="quotation-start-channel" className="mb-2 block">
+              {FIELD_LABELS.channel_type}
+            </Label>
             <Select
               value={channelType}
               onValueChange={(value) =>
@@ -365,7 +393,12 @@ export function QuotationStartModal({
 
           {requiresTranCompany && (
             <div>
-              <Label htmlFor="quotation-start-tran-company" className="mb-2 block">{tranCompanyLabel}</Label>
+              <Label
+                htmlFor="quotation-start-tran-company"
+                className="mb-2 block"
+              >
+                {tranCompanyLabel}
+              </Label>
               <select
                 id="quotation-start-tran-company"
                 className="flex h-10 w-full cursor-pointer rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
@@ -393,7 +426,9 @@ export function QuotationStartModal({
           )}
 
           <div>
-            <Label htmlFor="quotation-start-currency" className="mb-2 block">{FIELD_LABELS.currency}</Label>
+            <Label htmlFor="quotation-start-currency" className="mb-2 block">
+              {FIELD_LABELS.currency}
+            </Label>
             <Select value={currency} onValueChange={setCurrency}>
               <SelectTrigger id="quotation-start-currency">
                 <SelectValue placeholder="Select currency" />
@@ -413,7 +448,12 @@ export function QuotationStartModal({
 
           {requiresDateRange && (
             <div>
-              <Label htmlFor="quotation-start-date-range" className="mb-2 block">{FIELD_LABELS.date_range}</Label>
+              <Label
+                htmlFor="quotation-start-date-range"
+                className="mb-2 block"
+              >
+                {FIELD_LABELS.date_range}
+              </Label>
               <Select
                 value={dateRangeDays}
                 onValueChange={(value) =>

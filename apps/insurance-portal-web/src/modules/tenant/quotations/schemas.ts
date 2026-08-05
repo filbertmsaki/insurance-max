@@ -36,9 +36,7 @@ import {
   inclusiveDayCount,
   isBeforeToday,
 } from './wizard/utils/coverNoteDateRange';
-import {
-  getTaxRateForCode,
-} from './wizard/utils/taxOptions';
+import { getTaxRateForCode } from './wizard/utils/taxOptions';
 import {
   buildFleetRiskPricingSignature,
   buildSingleRiskPricingSignature,

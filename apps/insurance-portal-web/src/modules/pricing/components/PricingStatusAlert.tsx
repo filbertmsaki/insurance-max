@@ -1,4 +1,9 @@
-import { AlertTriangle, CheckCircle2, Clock3, LoaderCircle } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  LoaderCircle,
+} from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { PricingQuoteMetadata } from '../types/pricing';
 import {
@@ -44,7 +49,11 @@ export function PricingStatusAlert({
   }
 
   const lines: string[] = [];
-  if (minimumAmount !== null && minimumAmount !== undefined && minimumAmount !== '') {
+  if (
+    minimumAmount !== null &&
+    minimumAmount !== undefined &&
+    minimumAmount !== ''
+  ) {
     lines.push(`Minimum premium: ${Number(minimumAmount).toFixed(2)}`);
   }
   if (showQuoteMetadata && metadata?.pricing_quote_id) {
@@ -66,20 +75,28 @@ export function PricingStatusAlert({
     );
   }
 
-  const variant = errorMessage || hasValidationErrors || expired || stale
-    ? 'destructive'
-    : hasValidationWarnings || metadata?.minimum_applied
-      ? 'warning'
-      : 'success';
+  const variant =
+    errorMessage || hasValidationErrors || expired || stale
+      ? 'destructive'
+      : hasValidationWarnings || metadata?.minimum_applied
+        ? 'warning'
+        : 'success';
 
   return (
-    <Alert variant={variant} className={compact ? 'p-3 [&>svg]:top-3' : undefined}>
+    <Alert
+      variant={variant}
+      className={compact ? 'p-3 [&>svg]:top-3' : undefined}
+    >
       {isPending ? (
         <LoaderCircle className="h-4 w-4 animate-spin" />
       ) : errorMessage || hasValidationErrors || expired || stale ? (
         <AlertTriangle className="h-4 w-4" />
       ) : metadata ? (
-        expired ? <Clock3 className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />
+        expired ? (
+          <Clock3 className="h-4 w-4" />
+        ) : (
+          <CheckCircle2 className="h-4 w-4" />
+        )
       ) : (
         <Clock3 className="h-4 w-4" />
       )}
@@ -91,16 +108,18 @@ export function PricingStatusAlert({
             : stale
               ? 'Pricing is stale'
               : errorMessage || hasValidationErrors
-              ? 'Pricing needs attention'
-              : metadata?.minimum_applied
-                ? 'Minimum premium applied'
-                : 'Pricing available'}
+                ? 'Pricing needs attention'
+                : metadata?.minimum_applied
+                  ? 'Minimum premium applied'
+                  : 'Pricing available'}
       </AlertTitle>
       <AlertDescription className="space-y-2">
         {isPending ? <p>Calculating premium...</p> : null}
         {errorMessage ? <p>{errorMessage}</p> : null}
         {expired ? (
-          <p>The stored pricing quote has expired. Recalculate before continuing.</p>
+          <p>
+            The stored pricing quote has expired. Recalculate before continuing.
+          </p>
         ) : null}
         {stale ? (
           <p>

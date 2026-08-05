@@ -3,7 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Pencil, Trash2, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { DataTable, type Column } from '@/components/shared/DataTable';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
@@ -58,14 +64,20 @@ export function MotorVehiclesPage() {
       header: 'Customer',
       cell: (row) => (
         <span className="text-sm text-slate-600">
-          {row.customer ? getCustomerDisplayName(row.customer) : row.customer_id}
+          {row.customer
+            ? getCustomerDisplayName(row.customer)
+            : row.customer_id}
         </span>
       ),
     },
     {
       key: 'vehicle_value',
       header: 'Value',
-      cell: (row) => <span className="text-sm text-slate-600">{row.currency} {row.vehicle_value}</span>,
+      cell: (row) => (
+        <span className="text-sm text-slate-600">
+          {row.currency} {row.vehicle_value}
+        </span>
+      ),
     },
     {
       key: 'status',
@@ -75,7 +87,11 @@ export function MotorVehiclesPage() {
     {
       key: 'created_at',
       header: 'Created',
-      cell: (row) => <span className="text-sm text-slate-500">{new Date(row.created_at).toLocaleDateString()}</span>,
+      cell: (row) => (
+        <span className="text-sm text-slate-500">
+          {new Date(row.created_at).toLocaleDateString()}
+        </span>
+      ),
     },
     {
       key: 'actions',
@@ -83,13 +99,27 @@ export function MotorVehiclesPage() {
       className: 'w-12',
       cell: (row) => (
         <div className="flex justify-end">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/underwriting/motor/vehicles/${row.id}`)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(`/underwriting/motor/vehicles/${row.id}`)}
+          >
             <Eye className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/underwriting/motor/vehicles/${row.id}/edit`)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() =>
+              navigate(`/underwriting/motor/vehicles/${row.id}/edit`)
+            }
+          >
             <Pencil className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setDeleteItem(row)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setDeleteItem(row)}
+          >
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
@@ -113,7 +143,12 @@ export function MotorVehiclesPage() {
       <div className="mb-4 flex flex-wrap gap-3">
         <div className="relative max-w-sm flex-1 min-w-64">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <Input placeholder="Search vehicles..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          <Input
+            placeholder="Search vehicles..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
         </div>
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="w-40">
@@ -161,7 +196,9 @@ export function MotorVehiclesPage() {
         loading={deleteMutation.isPending}
         onConfirm={() => {
           if (deleteItem) {
-            deleteMutation.mutate(deleteItem.id, { onSuccess: () => setDeleteItem(null) });
+            deleteMutation.mutate(deleteItem.id, {
+              onSuccess: () => setDeleteItem(null),
+            });
           }
         }}
       />

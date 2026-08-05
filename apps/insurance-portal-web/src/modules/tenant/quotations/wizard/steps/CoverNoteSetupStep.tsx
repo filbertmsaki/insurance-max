@@ -142,10 +142,17 @@ export function CoverNoteSetupStep({
   );
 
   useEffect(() => {
-    if (!enforceFreshCoverPeriod || !requiresStandardCoverNoteFields || !validFrom) {
+    if (
+      !enforceFreshCoverPeriod ||
+      !requiresStandardCoverNoteFields ||
+      !validFrom
+    ) {
       return;
     }
-    const nextValidUntil = computeCoverNoteEndFromStart(validFrom, coverPeriodDays);
+    const nextValidUntil = computeCoverNoteEndFromStart(
+      validFrom,
+      coverPeriodDays,
+    );
     if (nextValidUntil && nextValidUntil !== form.getValues('valid_until')) {
       form.setValue('valid_until', nextValidUntil, { shouldValidate: true });
     }
@@ -221,16 +228,13 @@ export function CoverNoteSetupStep({
           />
         )}
 
-
         {coverNoteType !== '1' && (
           <FormField
             control={form.control}
             name="prev_cover_note_reference"
             render={({ field }) => (
               <WizardFormItem>
-                <FormLabel>
-                  Previous Cover Note Reference (required)
-                </FormLabel>
+                <FormLabel>Previous Cover Note Reference (required)</FormLabel>
                 <FormControl>
                   <Input {...field} />
                 </FormControl>
@@ -363,31 +367,31 @@ export function CoverNoteSetupStep({
 
         {channelType !== 'DIRECT' && (
           <>
-        <FormField
-          control={form.control}
-          name="commission_paid"
-          render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Commission Paid</FormLabel>
-              <FormControl>
-                <Input type="number" step="0.01" {...field} />
-              </FormControl>
-            </WizardFormItem>
-          )}
-        />
+            <FormField
+              control={form.control}
+              name="commission_paid"
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Commission Paid</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.01" {...field} />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
 
-        <FormField
-          control={form.control}
-          name="commission_rate"
-          render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Commission Rate</FormLabel>
-              <FormControl>
-                <Input type="number" step="0.000001" {...field} />
-              </FormControl>
-            </WizardFormItem>
-          )}
-        />
+            <FormField
+              control={form.control}
+              name="commission_rate"
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Commission Rate</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.000001" {...field} />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
           </>
         )}
 
@@ -467,8 +471,7 @@ export function CoverNoteSetupStep({
               {[
                 {
                   label: 'Non-Motor',
-                  description:
-                    'Fire, Marine, Engineering, GIT, Miscellaneous',
+                  description: 'Fire, Marine, Engineering, GIT, Miscellaneous',
                   quotation_flow: 'NON_MOTOR' as const,
                   quotation_type: 'NON_MOTOR' as const,
                   is_fleet: false,
@@ -517,9 +520,7 @@ export function CoverNoteSetupStep({
                         : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
                     ].join(' ')}
                   >
-                    <div className="text-sm font-semibold">
-                      {option.label}
-                    </div>
+                    <div className="text-sm font-semibold">{option.label}</div>
                     <div
                       className={[
                         'mt-1 text-xs',
@@ -801,9 +802,7 @@ export function CoverNoteSetupStep({
             name="prev_cover_note_reference"
             render={({ field }) => (
               <WizardFormItem>
-                <FormLabel>
-                  Previous Cover Note Reference (required)
-                </FormLabel>
+                <FormLabel>Previous Cover Note Reference (required)</FormLabel>
                 <FormControl>
                   <Input {...field} />
                 </FormControl>
@@ -936,31 +935,31 @@ export function CoverNoteSetupStep({
 
         {channelType !== 'DIRECT' && (
           <>
-        <FormField
-          control={form.control}
-          name="commission_paid"
-          render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Commission Paid</FormLabel>
-              <FormControl>
-                <Input type="number" step="0.01" {...field} />
-              </FormControl>
-            </WizardFormItem>
-          )}
-        />
+            <FormField
+              control={form.control}
+              name="commission_paid"
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Commission Paid</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.01" {...field} />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
 
-        <FormField
-          control={form.control}
-          name="commission_rate"
-          render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Commission Rate</FormLabel>
-              <FormControl>
-                <Input type="number" step="0.000001" {...field} />
-              </FormControl>
-            </WizardFormItem>
-          )}
-        />
+            <FormField
+              control={form.control}
+              name="commission_rate"
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Commission Rate</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.000001" {...field} />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
           </>
         )}
 

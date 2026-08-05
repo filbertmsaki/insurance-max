@@ -11,9 +11,21 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { CustomerRiskOption, QuotationOption } from '@/modules/tenant/motor/types';
-import { nonMotorQuotationDetailSchema, type NonMotorQuotationDetailFormValues } from '../schemas';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type {
+  CustomerRiskOption,
+  QuotationOption,
+} from '@/modules/tenant/motor/types';
+import {
+  nonMotorQuotationDetailSchema,
+  type NonMotorQuotationDetailFormValues,
+} from '../schemas';
 import type { SubjectMatterRecord } from '../types';
 
 interface Props {
@@ -25,7 +37,14 @@ interface Props {
   onSubmit: (values: NonMotorQuotationDetailFormValues) => void;
 }
 
-export function QuotationNonMotorDetailForm({ quotation, risks, subjectMatters, isPending, submitLabel, onSubmit }: Props) {
+export function QuotationNonMotorDetailForm({
+  quotation,
+  risks,
+  subjectMatters,
+  isPending,
+  submitLabel,
+  onSubmit,
+}: Props) {
   const form = useForm<NonMotorQuotationDetailFormValues>({
     resolver: zodResolver(nonMotorQuotationDetailSchema),
     defaultValues: {
@@ -50,7 +69,9 @@ export function QuotationNonMotorDetailForm({ quotation, risks, subjectMatters, 
               <FormLabel>Quotation Risk</FormLabel>
               <Select value={field.value} onValueChange={field.onChange}>
                 <FormControl>
-                  <SelectTrigger><SelectValue placeholder="Select quotation risk" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select quotation risk" />
+                  </SelectTrigger>
                 </FormControl>
                 <SelectContent>
                   {risks.map((risk) => (
@@ -73,12 +94,16 @@ export function QuotationNonMotorDetailForm({ quotation, risks, subjectMatters, 
               <FormLabel>Subject Matter</FormLabel>
               <Select value={field.value} onValueChange={field.onChange}>
                 <FormControl>
-                  <SelectTrigger><SelectValue placeholder="Select subject matter" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select subject matter" />
+                  </SelectTrigger>
                 </FormControl>
                 <SelectContent>
                   {subjectMatters.map((subjectMatter) => (
                     <SelectItem key={subjectMatter.id} value={subjectMatter.id}>
-                      {subjectMatter.subject_code} - {subjectMatter.customer?.company_name ?? subjectMatter.customer_id}
+                      {subjectMatter.subject_code} -{' '}
+                      {subjectMatter.customer?.company_name ??
+                        subjectMatter.customer_id}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -100,7 +125,11 @@ export function QuotationNonMotorDetailForm({ quotation, risks, subjectMatters, 
               <FormItem>
                 <FormLabel>{label}</FormLabel>
                 <FormControl>
-                  <Textarea {...field} value={field.value == null ? '' : String(field.value)} rows={3} />
+                  <Textarea
+                    {...field}
+                    value={field.value == null ? '' : String(field.value)}
+                    rows={3}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -120,7 +149,12 @@ export function QuotationNonMotorDetailForm({ quotation, risks, subjectMatters, 
               <FormItem>
                 <FormLabel>{label}</FormLabel>
                 <FormControl>
-                  <Input type="number" step="any" {...field} value={field.value == null ? '' : String(field.value)} />
+                  <Input
+                    type="number"
+                    step="any"
+                    {...field}
+                    value={field.value == null ? '' : String(field.value)}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

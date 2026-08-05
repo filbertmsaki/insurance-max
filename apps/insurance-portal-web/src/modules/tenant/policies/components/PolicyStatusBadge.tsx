@@ -8,6 +8,9 @@ export function PolicyStatusBadge({ status }: { status: string }) {
         ? 'bg-slate-100 text-slate-600 border-slate-200'
         : 'bg-amber-100 text-amber-700 border-amber-200';
 
-  return <Badge variant="outline" className={classes}>{status}</Badge>;
+  return (
+    <Badge variant="outline" className={classes}>
+      {status}
+    </Badge>
+  );
 }
-

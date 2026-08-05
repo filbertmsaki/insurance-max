@@ -2,7 +2,12 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { useBillingCustomers, useBillingPolicies, useBillingQuotations, useCreateInvoice } from '../hooks';
+import {
+  useBillingCustomers,
+  useBillingPolicies,
+  useBillingQuotations,
+  useCreateInvoice,
+} from '../hooks';
 import { InvoiceForm } from '../components/InvoiceForm';
 
 export function InvoiceCreatePage() {
@@ -15,10 +20,17 @@ export function InvoiceCreatePage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/billing/invoices')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/billing/invoices')}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <PageHeader title="Create Invoice" description="Create a new billing invoice" />
+        <PageHeader
+          title="Create Invoice"
+          description="Create a new billing invoice"
+        />
       </div>
 
       <InvoiceForm
@@ -27,9 +39,12 @@ export function InvoiceCreatePage() {
         quotationOptions={quotationPage ?? []}
         isPending={createMutation.isPending}
         submitLabel="Create Invoice"
-        onSubmit={(values) => createMutation.mutate(values, { onSuccess: (invoice) => navigate(`/billing/invoices/${invoice.id}`) })}
+        onSubmit={(values) =>
+          createMutation.mutate(values, {
+            onSuccess: (invoice) => navigate(`/billing/invoices/${invoice.id}`),
+          })
+        }
       />
     </div>
   );
 }
-

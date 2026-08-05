@@ -55,7 +55,9 @@ function FactorInput({
       return (
         <div className="flex items-center gap-2">
           <Switch checked={!!value} onCheckedChange={onChange} />
-          <span className="text-sm text-slate-500">{value ? 'True' : 'False'}</span>
+          <span className="text-sm text-slate-500">
+            {value ? 'True' : 'False'}
+          </span>
         </div>
       );
     case 'SELECT':
@@ -77,7 +79,9 @@ function FactorInput({
       return (
         <div className="flex flex-wrap gap-1">
           {(factor.options ?? []).map((option) => {
-            const selected = String(value ?? '').split(',').filter(Boolean);
+            const selected = String(value ?? '')
+              .split(',')
+              .filter(Boolean);
             const isSelected = selected.includes(option);
 
             return (
@@ -86,7 +90,9 @@ function FactorInput({
                 type="button"
                 onClick={() => {
                   const next = isSelected
-                    ? selected.filter((selectedValue) => selectedValue !== option)
+                    ? selected.filter(
+                        (selectedValue) => selectedValue !== option,
+                      )
                     : [...selected, option];
                   onChange(next.join(','));
                 }}

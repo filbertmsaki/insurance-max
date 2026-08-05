@@ -27,7 +27,9 @@ describe('PricingStatusAlert', () => {
     expect(
       screen.getByText('Exchange rate changed after the last calculation.'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Pricing quote: PQ-2026-00000014')).toBeInTheDocument();
+    expect(
+      screen.getByText('Pricing quote: PQ-2026-00000014'),
+    ).toBeInTheDocument();
     expect(screen.getByText('Discount needs approval')).toBeInTheDocument();
   });
 
@@ -57,12 +59,16 @@ describe('PricingStatusAlert', () => {
 
     expect(screen.getByText('Pricing has expired')).toBeInTheDocument();
     expect(
-      screen.getByText('The stored pricing quote has expired. Recalculate before continuing.'),
+      screen.getByText(
+        'The stored pricing quote has expired. Recalculate before continuing.',
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText('Exchange: USD -> TZS @ 2540.125'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Rate date: 2026-07-26 (manual)')).toBeInTheDocument();
+    expect(
+      screen.getByText('Rate date: 2026-07-26 (manual)'),
+    ).toBeInTheDocument();
   });
 
   it('shows validation errors as an attention state', () => {

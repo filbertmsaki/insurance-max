@@ -46,7 +46,11 @@ export function RiskPremiumStep({
   return (
     <>
       <StepSection
-        title={flow === 'MOTOR_SINGLE' ? 'Step 4. Risk & Premium' : 'Step 3. Risk & Premium'}
+        title={
+          flow === 'MOTOR_SINGLE'
+            ? 'Step 4. Risk & Premium'
+            : 'Step 3. Risk & Premium'
+        }
         first
         action={
           <Button type="button" variant="outline" size="sm" onClick={onAddRisk}>

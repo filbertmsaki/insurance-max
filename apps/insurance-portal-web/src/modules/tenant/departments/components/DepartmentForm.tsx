@@ -20,31 +20,43 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { DepartmentRecord } from '@/modules/tenant/departments/api/departments';
 
 const schema = z.object({
-  name: z.string().min(2, 'Department name must be at least 2 characters').max(120),
+  name: z
+    .string()
+    .min(2, 'Department name must be at least 2 characters')
+    .max(120),
   code: z
     .string()
     .min(1, 'Department code is required')
     .max(50)
-    .regex(/^[A-Za-z0-9_-]+$/, 'Letters, numbers, hyphens and underscores only'),
+    .regex(
+      /^[A-Za-z0-9_-]+$/,
+      'Letters, numbers, hyphens and underscores only',
+    ),
   description: z.string().max(500).optional().or(z.literal('')),
   branch_id: z.string().optional().or(z.literal('')),
-})
+});
 
-export type DepartmentFormValues = z.infer<typeof schema>
+export type DepartmentFormValues = z.infer<typeof schema>;
 
-type BranchOption = { id: string; name: string; code: string }
+type BranchOption = { id: string; name: string; code: string };
 
 interface DepartmentFormProps {
-  open: boolean
-  onClose: () => void
-  onSubmit: (values: DepartmentFormValues) => void
-  isPending: boolean
-  editing?: DepartmentRecord | null
-  branchOptions: BranchOption[]
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (values: DepartmentFormValues) => void;
+  isPending: boolean;
+  editing?: DepartmentRecord | null;
+  branchOptions: BranchOption[];
 }
 
 export function DepartmentForm({
@@ -71,18 +83,20 @@ export function DepartmentForm({
       description: '',
       branch_id: '',
     },
-  })
+  });
 
   const handleClose = () => {
-    form.reset()
-    onClose()
-  }
+    form.reset();
+    onClose();
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{editing ? 'Edit Department' : 'Create Department'}</DialogTitle>
+          <DialogTitle>
+            {editing ? 'Edit Department' : 'Create Department'}
+          </DialogTitle>
           <DialogDescription>
             {editing
               ? 'Update the department identity and branch assignment.'
@@ -93,9 +107,9 @@ export function DepartmentForm({
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit((values) => {
-              onSubmit(values)
+              onSubmit(values);
               if (!editing) {
-                form.reset()
+                form.reset();
               }
             })}
             className="space-y-5"
@@ -128,7 +142,9 @@ export function DepartmentForm({
                     <Input
                       placeholder="CLAIMS"
                       {...field}
-                      onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                      onChange={(e) =>
+                        field.onChange(e.target.value.toUpperCase())
+                      }
                     />
                   </FormControl>
                   <FormMessage />
@@ -172,7 +188,11 @@ export function DepartmentForm({
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea rows={3} placeholder="Optional description" {...field} />
+                    <Textarea
+                      rows={3}
+                      placeholder="Optional description"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -180,16 +200,25 @@ export function DepartmentForm({
             />
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose} disabled={isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={isPending}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>
-                {isPending ? 'Saving...' : editing ? 'Save Changes' : 'Create Department'}
+                {isPending
+                  ? 'Saving...'
+                  : editing
+                    ? 'Save Changes'
+                    : 'Create Department'}
               </Button>
             </DialogFooter>
           </form>
         </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

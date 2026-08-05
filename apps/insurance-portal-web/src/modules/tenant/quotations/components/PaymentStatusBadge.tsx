@@ -6,7 +6,10 @@ import { Badge } from '@/components/ui/badge';
  * itself writes (see QuotationPaymentPage), not a backend-enforced contract.
  * Unknown values still render, just with a neutral style.
  */
-const STATUS_VARIANTS: Record<string, 'muted' | 'warning' | 'success' | 'danger'> = {
+const STATUS_VARIANTS: Record<
+  string,
+  'muted' | 'warning' | 'success' | 'danger'
+> = {
   DRAFT: 'muted',
   ISSUED: 'warning',
   NOT_INITIATED: 'warning',

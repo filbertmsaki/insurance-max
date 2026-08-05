@@ -1,11 +1,6 @@
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { usePricingRequiredFactors } from '../hooks/usePricingCalculator';
 import type { PricingFactorValue } from '../types/pricing';
 import { RatingFactorFields } from './RatingFactorFields';

@@ -1,81 +1,86 @@
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { format } from 'date-fns'
-import { Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { DataTable, type Column } from '@/components/shared/DataTable'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { sessionsApi } from '@/modules/shared/sessions/api/sessions'
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
-import type { UserSession } from '@/types'
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { DataTable, type Column } from '@/components/shared/DataTable';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { sessionsApi } from '@/modules/shared/sessions/api/sessions';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import type { UserSession } from '@/types';
 
 export function SessionsPage() {
-  const queryClient = useQueryClient()
-  const [revokeId, setRevokeId] = useState<string | null>(null)
-  const [revokeOthersOpen, setRevokeOthersOpen] = useState(false)
-  const [revokeAllOpen, setRevokeAllOpen] = useState(false)
+  const queryClient = useQueryClient();
+  const [revokeId, setRevokeId] = useState<string | null>(null);
+  const [revokeOthersOpen, setRevokeOthersOpen] = useState(false);
+  const [revokeAllOpen, setRevokeAllOpen] = useState(false);
 
   const { data: sessions, isLoading } = useQuery({
     queryKey: ['sessions'],
     queryFn: sessionsApi.getSessions,
-  })
+  });
 
   const revokeMutation = useMutation({
     mutationFn: sessionsApi.revokeSession,
     onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] })
-      setRevokeId(null)
-      toast.success('Session revoked')
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      setRevokeId(null);
+      toast.success('Session revoked');
 
-      const revokedCurrent = sessions?.find((s) => s.id === id)?.is_current
+      const revokedCurrent = sessions?.find((s) => s.id === id)?.is_current;
       if (revokedCurrent) {
-        useAuthStore.getState().logout()
-        window.location.assign('/login')
+        useAuthStore.getState().logout();
+        window.location.assign('/login');
       }
     },
-  })
+  });
 
   const revokeOthersMutation = useMutation({
     mutationFn: sessionsApi.revokeOtherSessions,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] })
-      setRevokeOthersOpen(false)
-      toast.success('Other sessions revoked')
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      setRevokeOthersOpen(false);
+      toast.success('Other sessions revoked');
     },
-  })
+  });
 
   const revokeAllMutation = useMutation({
     mutationFn: sessionsApi.revokeAllSessions,
     onSuccess: () => {
-      setRevokeAllOpen(false)
-      useAuthStore.getState().logout()
-      window.location.assign('/login')
+      setRevokeAllOpen(false);
+      useAuthStore.getState().logout();
+      window.location.assign('/login');
     },
-  })
+  });
 
-  const paginatedData = sessions ?? []
-  const total = paginatedData.length
+  const paginatedData = sessions ?? [];
+  const total = paginatedData.length;
 
   const columns: Column<UserSession>[] = [
     {
       key: 'ip',
       header: 'IP Address',
-      cell: (r) => <span className="font-mono text-sm">{r.ip_address ?? '—'}</span>,
+      cell: (r) => (
+        <span className="font-mono text-sm">{r.ip_address ?? '—'}</span>
+      ),
     },
     {
       key: 'ua',
       header: 'User Agent',
       cell: (r) => (
-        <span className="text-sm text-slate-600 truncate max-w-xs block">{r.user_agent ?? '—'}</span>
+        <span className="text-sm text-slate-600 truncate max-w-xs block">
+          {r.user_agent ?? '—'}
+        </span>
       ),
     },
     {
       key: 'status',
       header: 'Status',
-      cell: (r) => (r.is_current ? <Badge variant="success">Current</Badge> : null),
+      cell: (r) =>
+        r.is_current ? <Badge variant="success">Current</Badge> : null,
     },
     {
       key: 'last_used',
@@ -110,7 +115,7 @@ export function SessionsPage() {
         </Button>
       ),
     },
-  ]
+  ];
 
   return (
     <div>
@@ -179,5 +184,5 @@ export function SessionsPage() {
         loading={revokeAllMutation.isPending}
       />
     </div>
-  )
+  );
 }

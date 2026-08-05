@@ -1,37 +1,63 @@
-import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Plus, Pencil, Trash2, MoreHorizontal, ToggleLeft, ToggleRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
+import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
+  Plus,
+  Pencil,
+  Trash2,
+  MoreHorizontal,
+  ToggleLeft,
+  ToggleRight,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from '@/components/ui/form'
-import { Textarea } from '@/components/ui/textarea'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
-import { DataTable, type Column } from '@/components/shared/DataTable'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
 import {
-  useSubClassList, useCreateSubClass, useUpdateSubClass, useDeleteSubClass,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { DataTable, type Column } from '@/components/shared/DataTable';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import {
+  useSubClassList,
+  useCreateSubClass,
+  useUpdateSubClass,
+  useDeleteSubClass,
   useAllActiveProducts,
-} from '@/modules/tenant/product-engine/hooks'
-import type { InsuranceSubClass } from '@/types/product-engine'
-import { format } from 'date-fns'
+} from '@/modules/tenant/product-engine/hooks';
+import type { InsuranceSubClass } from '@/types/product-engine';
+import { format } from 'date-fns';
 
 const schema = z.object({
   product_id: z.string().min(1, 'Product is required'),
@@ -39,97 +65,128 @@ const schema = z.object({
   name: z.string().min(1).max(150),
   description: z.string().max(500).optional(),
   is_active: z.boolean(),
-})
-type FormValues = z.infer<typeof schema>
+});
+type FormValues = z.infer<typeof schema>;
 
 function ActiveBadge({ active }: { active: boolean }) {
   return active ? (
-    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">Active</Badge>
+    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
+      Active
+    </Badge>
   ) : (
-    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">Inactive</Badge>
-  )
+    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">
+      Inactive
+    </Badge>
+  );
 }
 
 export function SubClassesPage() {
-  const { hasPermission } = useAuthStore()
-  const canCreate = hasPermission('insurance-sub-classes:create')
-  const canUpdate = hasPermission('insurance-sub-classes:update')
-  const canDelete = hasPermission('insurance-sub-classes:delete')
+  const { hasPermission } = useAuthStore();
+  const canCreate = hasPermission('insurance-sub-classes:create');
+  const canUpdate = hasPermission('insurance-sub-classes:update');
+  const canDelete = hasPermission('insurance-sub-classes:delete');
 
-  const [params, setParams] = useSearchParams()
-  const page = Math.max(1, Number(params.get('page') ?? '1'))
-  const limit = Number(params.get('limit') ?? '10')
-  const search = params.get('search') ?? ''
-  const productFilter = params.get('product_id') ?? ''
-  const isActiveFilter = params.get('is_active')
+  const [params, setParams] = useSearchParams();
+  const page = Math.max(1, Number(params.get('page') ?? '1'));
+  const limit = Number(params.get('limit') ?? '10');
+  const search = params.get('search') ?? '';
+  const productFilter = params.get('product_id') ?? '';
+  const isActiveFilter = params.get('is_active');
 
   const { data, isLoading } = useSubClassList({
     page,
     limit,
     search: search || undefined,
     product_id: productFilter || undefined,
-    is_active: isActiveFilter === 'true' ? true : isActiveFilter === 'false' ? false : undefined,
-  })
-  const { data: products = [] } = useAllActiveProducts()
-  const createMutation = useCreateSubClass()
-  const updateMutation = useUpdateSubClass()
-  const deleteMutation = useDeleteSubClass()
+    is_active:
+      isActiveFilter === 'true'
+        ? true
+        : isActiveFilter === 'false'
+          ? false
+          : undefined,
+  });
+  const { data: products = [] } = useAllActiveProducts();
+  const createMutation = useCreateSubClass();
+  const updateMutation = useUpdateSubClass();
+  const deleteMutation = useDeleteSubClass();
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editItem, setEditItem] = useState<InsuranceSubClass | null>(null)
-  const [deleteItem, setDeleteItem] = useState<InsuranceSubClass | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editItem, setEditItem] = useState<InsuranceSubClass | null>(null);
+  const [deleteItem, setDeleteItem] = useState<InsuranceSubClass | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { product_id: '', code: '', name: '', description: '', is_active: true },
-  })
+    defaultValues: {
+      product_id: '',
+      code: '',
+      name: '',
+      description: '',
+      is_active: true,
+    },
+  });
 
   function openCreate() {
-    setEditItem(null)
-    form.reset({ product_id: '', code: '', name: '', description: '', is_active: true })
-    setDialogOpen(true)
+    setEditItem(null);
+    form.reset({
+      product_id: '',
+      code: '',
+      name: '',
+      description: '',
+      is_active: true,
+    });
+    setDialogOpen(true);
   }
 
   function openEdit(item: InsuranceSubClass) {
-    setEditItem(item)
+    setEditItem(item);
     form.reset({
       product_id: item.product_id,
       code: item.code,
       name: item.name,
       description: item.description ?? '',
       is_active: item.is_active,
-    })
-    setDialogOpen(true)
+    });
+    setDialogOpen(true);
   }
 
   function onSubmit(values: FormValues) {
     if (editItem) {
-      updateMutation.mutate({ id: editItem.id, data: values }, { onSuccess: () => setDialogOpen(false) })
+      updateMutation.mutate(
+        { id: editItem.id, data: values },
+        { onSuccess: () => setDialogOpen(false) },
+      );
     } else {
-      createMutation.mutate(values, { onSuccess: () => setDialogOpen(false) })
+      createMutation.mutate(values, { onSuccess: () => setDialogOpen(false) });
     }
   }
 
   function setParam(key: string, value: string | null) {
     setParams((p) => {
-      const n = new URLSearchParams(p)
-      if (value === null) n.delete(key); else n.set(key, value)
-      n.set('page', '1')
-      return n
-    })
+      const n = new URLSearchParams(p);
+      if (value === null) n.delete(key);
+      else n.set(key, value);
+      n.set('page', '1');
+      return n;
+    });
   }
 
   const columns: Column<InsuranceSubClass>[] = [
     {
       key: 'code',
       header: 'Code',
-      cell: (row) => <span className="font-mono text-xs font-medium">{row.code}</span>,
+      cell: (row) => (
+        <span className="font-mono text-xs font-medium">{row.code}</span>
+      ),
     },
     { key: 'name', header: 'Name', cell: (row) => row.name },
     {
       key: 'product',
       header: 'Product',
-      cell: (row) => <span className="text-slate-500 text-sm">{row.product?.product_name ?? row.product_id}</span>,
+      cell: (row) => (
+        <span className="text-slate-500 text-sm">
+          {row.product?.product_name ?? row.product_id}
+        </span>
+      ),
     },
     {
       key: 'is_active',
@@ -140,7 +197,9 @@ export function SubClassesPage() {
       key: 'created_at',
       header: 'Created',
       cell: (row) => (
-        <span className="text-slate-500 text-xs">{format(new Date(row.created_at), 'dd MMM yyyy')}</span>
+        <span className="text-slate-500 text-xs">
+          {format(new Date(row.created_at), 'dd MMM yyyy')}
+        </span>
       ),
     },
     {
@@ -162,11 +221,24 @@ export function SubClassesPage() {
             )}
             {canUpdate && (
               <DropdownMenuItem
-                onClick={() => updateMutation.mutate({ id: row.id, data: { is_active: !row.is_active } })}
+                onClick={() =>
+                  updateMutation.mutate({
+                    id: row.id,
+                    data: { is_active: !row.is_active },
+                  })
+                }
               >
-                {row.is_active
-                  ? <><ToggleLeft className="mr-2 h-4 w-4" />Deactivate</>
-                  : <><ToggleRight className="mr-2 h-4 w-4" />Activate</>}
+                {row.is_active ? (
+                  <>
+                    <ToggleLeft className="mr-2 h-4 w-4" />
+                    Deactivate
+                  </>
+                ) : (
+                  <>
+                    <ToggleRight className="mr-2 h-4 w-4" />
+                    Activate
+                  </>
+                )}
               </DropdownMenuItem>
             )}
             {canDelete && (
@@ -184,7 +256,7 @@ export function SubClassesPage() {
         </DropdownMenu>
       ),
     },
-  ]
+  ];
 
   return (
     <div className="p-6 space-y-6">
@@ -207,14 +279,19 @@ export function SubClassesPage() {
           onChange={(e) => setParam('search', e.target.value)}
           className="w-64 h-9"
         />
-        <Select value={productFilter || 'all'} onValueChange={(v) => setParam('product_id', v === 'all' ? null : v)}>
+        <Select
+          value={productFilter || 'all'}
+          onValueChange={(v) => setParam('product_id', v === 'all' ? null : v)}
+        >
           <SelectTrigger className="w-48 h-9">
             <SelectValue placeholder="All Products" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Products</SelectItem>
             {products.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.product_name}</SelectItem>
+              <SelectItem key={p.id} value={p.id}>
+                {p.product_name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -241,14 +318,29 @@ export function SubClassesPage() {
         limit={limit}
         total={data?.pagination.total ?? 0}
         totalPages={data?.pagination.totalPages ?? 1}
-        onPageChange={(p) => setParams((prev) => { const n = new URLSearchParams(prev); n.set('page', String(p)); return n })}
-        onLimitChange={(l) => setParams((prev) => { const n = new URLSearchParams(prev); n.set('limit', String(l)); n.set('page', '1'); return n })}
+        onPageChange={(p) =>
+          setParams((prev) => {
+            const n = new URLSearchParams(prev);
+            n.set('page', String(p));
+            return n;
+          })
+        }
+        onLimitChange={(l) =>
+          setParams((prev) => {
+            const n = new URLSearchParams(prev);
+            n.set('limit', String(l));
+            n.set('page', '1');
+            return n;
+          })
+        }
       />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editItem ? 'Edit Sub-Class' : 'New Sub-Class'}</DialogTitle>
+            <DialogTitle>
+              {editItem ? 'Edit Sub-Class' : 'New Sub-Class'}
+            </DialogTitle>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -257,14 +349,20 @@ export function SubClassesPage() {
                 name="product_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Product <span className="text-red-500">*</span></FormLabel>
+                    <FormLabel>
+                      Product <span className="text-red-500">*</span>
+                    </FormLabel>
                     <Select value={field.value} onValueChange={field.onChange}>
                       <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select product" />
+                        </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {products.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>{p.product_name}</SelectItem>
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.product_name}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -277,8 +375,12 @@ export function SubClassesPage() {
                 name="code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Code <span className="text-red-500">*</span></FormLabel>
-                    <FormControl><Input {...field} placeholder="e.g. COMP-PRIVATE" /></FormControl>
+                    <FormLabel>
+                      Code <span className="text-red-500">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="e.g. COMP-PRIVATE" />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -288,8 +390,12 @@ export function SubClassesPage() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name <span className="text-red-500">*</span></FormLabel>
-                    <FormControl><Input {...field} placeholder="Sub-class name" /></FormControl>
+                    <FormLabel>
+                      Name <span className="text-red-500">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Sub-class name" />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -300,7 +406,9 @@ export function SubClassesPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Description</FormLabel>
-                    <FormControl><Textarea {...field} rows={3} /></FormControl>
+                    <FormControl>
+                      <Textarea {...field} rows={3} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -311,15 +419,29 @@ export function SubClassesPage() {
                 render={({ field }) => (
                   <FormItem className="flex items-center gap-3">
                     <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
                     </FormControl>
                     <FormLabel className="!mt-0">Active</FormLabel>
                   </FormItem>
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    createMutation.isPending || updateMutation.isPending
+                  }
+                >
                   {editItem ? 'Save Changes' : 'Create'}
                 </Button>
               </DialogFooter>
@@ -330,15 +452,20 @@ export function SubClassesPage() {
 
       <ConfirmDialog
         open={!!deleteItem}
-        onOpenChange={(o) => { if (!o) setDeleteItem(null) }}
+        onOpenChange={(o) => {
+          if (!o) setDeleteItem(null);
+        }}
         title="Delete Sub-Class"
         description={`Delete "${deleteItem?.name}"? This cannot be undone.`}
         confirmLabel="Delete"
         loading={deleteMutation.isPending}
         onConfirm={() => {
-          if (deleteItem) deleteMutation.mutate(deleteItem.id, { onSuccess: () => setDeleteItem(null) })
+          if (deleteItem)
+            deleteMutation.mutate(deleteItem.id, {
+              onSuccess: () => setDeleteItem(null),
+            });
         }}
       />
     </div>
-  )
+  );
 }

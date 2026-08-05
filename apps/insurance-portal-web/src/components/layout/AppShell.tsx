@@ -1,40 +1,39 @@
-import { useState, useEffect } from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
-import { TooltipProvider } from '@/components/ui/tooltip'
-import { Sidebar } from './Sidebar'
-import { Header } from './Header'
-import { CommandPalette } from './CommandPalette'
-import { PageFooterProvider } from './PageFooterSlot'
-import { cn } from '@/lib/utils'
+import { useState, useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { Sidebar } from './Sidebar';
+import { Header } from './Header';
+import { CommandPalette } from './CommandPalette';
+import { PageFooterProvider } from './PageFooterSlot';
+import { cn } from '@/lib/utils';
 
 export function AppShell() {
-  const [collapsed, setCollapsed] = useState(false)
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const [commandOpen, setCommandOpen] = useState(false)
-  const location = useLocation()
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const location = useLocation();
 
   // Close mobile sidebar on route change
-  const [prevPathname, setPrevPathname] = useState(location.pathname)
+  const [prevPathname, setPrevPathname] = useState(location.pathname);
   if (location.pathname !== prevPathname) {
-    setPrevPathname(location.pathname)
-    setMobileOpen(false)
+    setPrevPathname(location.pathname);
+    setMobileOpen(false);
   }
 
   // Close mobile sidebar on resize to desktop
   useEffect(() => {
     const handler = () => {
-      if (window.innerWidth >= 768) setMobileOpen(false)
-    }
-    window.addEventListener('resize', handler)
-    return () => window.removeEventListener('resize', handler)
-  }, [])
+      if (window.innerWidth >= 768) setMobileOpen(false);
+    };
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
 
   return (
     <TooltipProvider delayDuration={200}>
       <PageFooterProvider>
         {(footer) => (
           <div className="flex h-dvh overflow-hidden bg-slate-50">
-
             {/* ── Desktop sidebar (always in flow, width transitions) ── */}
             <div className="hidden md:flex shrink-0">
               <Sidebar
@@ -47,7 +46,9 @@ export function AppShell() {
             <div
               className={cn(
                 'fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden transition-opacity duration-300',
-                mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
+                mobileOpen
+                  ? 'opacity-100 pointer-events-auto'
+                  : 'opacity-0 pointer-events-none',
               )}
               onClick={() => setMobileOpen(false)}
               aria-hidden
@@ -86,5 +87,5 @@ export function AppShell() {
       </PageFooterProvider>
       <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
     </TooltipProvider>
-  )
+  );
 }

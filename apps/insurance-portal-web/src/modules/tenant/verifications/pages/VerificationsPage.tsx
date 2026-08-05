@@ -350,8 +350,13 @@ export function VerificationsPage() {
                 {coverNoteFields.map(({ name, label, placeholder }) => (
                   <div key={name}>
                     <Label>{label}</Label>
-                    <Input placeholder={placeholder} {...cover.register(name)} />
-                    <FieldError message={cover.formState.errors[name]?.message} />
+                    <Input
+                      placeholder={placeholder}
+                      {...cover.register(name)}
+                    />
+                    <FieldError
+                      message={cover.formState.errors[name]?.message}
+                    />
                   </div>
                 ))}
                 <div className="flex items-end">

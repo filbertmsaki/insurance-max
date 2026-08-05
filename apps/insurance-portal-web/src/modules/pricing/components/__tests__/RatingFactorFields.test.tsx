@@ -7,32 +7,34 @@ describe('RatingFactorFields', () => {
   it('renders factor fields in sort order and marks required factors', () => {
     render(
       <RatingFactorFields
-        requiredFactors={[
-          {
-            id: 'factor-b',
-            sort_order: 2,
-            is_required: false,
-            factor: {
-              code: 'claim_record',
-              name: 'Claim Record',
-              data_type: 'TEXT',
-              default_value: null,
-              options: null,
+        requiredFactors={
+          [
+            {
+              id: 'factor-b',
+              sort_order: 2,
+              is_required: false,
+              factor: {
+                code: 'claim_record',
+                name: 'Claim Record',
+                data_type: 'TEXT',
+                default_value: null,
+                options: null,
+              },
             },
-          },
-          {
-            id: 'factor-a',
-            sort_order: 1,
-            is_required: true,
-            factor: {
-              code: 'seat_capacity',
-              name: 'Seat Capacity',
-              data_type: 'NUMBER',
-              default_value: '14',
-              options: null,
+            {
+              id: 'factor-a',
+              sort_order: 1,
+              is_required: true,
+              factor: {
+                code: 'seat_capacity',
+                name: 'Seat Capacity',
+                data_type: 'NUMBER',
+                default_value: '14',
+                options: null,
+              },
             },
-          },
-        ] as unknown as PricingRequiredFactor[]}
+          ] as unknown as PricingRequiredFactor[]
+        }
         values={{}}
         onChange={vi.fn()}
       />,
@@ -62,44 +64,46 @@ describe('RatingFactorFields', () => {
     const onChange = vi.fn();
     render(
       <RatingFactorFields
-        requiredFactors={[
-          {
-            id: 'factor-1',
-            sort_order: 1,
-            is_required: true,
-            factor: {
-              code: 'sum_insured',
-              name: 'Sum Insured',
-              data_type: 'NUMBER',
-              default_value: null,
-              options: null,
+        requiredFactors={
+          [
+            {
+              id: 'factor-1',
+              sort_order: 1,
+              is_required: true,
+              factor: {
+                code: 'sum_insured',
+                name: 'Sum Insured',
+                data_type: 'NUMBER',
+                default_value: null,
+                options: null,
+              },
             },
-          },
-          {
-            id: 'factor-2',
-            sort_order: 2,
-            is_required: false,
-            factor: {
-              code: 'tracking_device',
-              name: 'Tracking Device',
-              data_type: 'BOOLEAN',
-              default_value: null,
-              options: null,
+            {
+              id: 'factor-2',
+              sort_order: 2,
+              is_required: false,
+              factor: {
+                code: 'tracking_device',
+                name: 'Tracking Device',
+                data_type: 'BOOLEAN',
+                default_value: null,
+                options: null,
+              },
             },
-          },
-          {
-            id: 'factor-3',
-            sort_order: 3,
-            is_required: false,
-            factor: {
-              code: 'extensions',
-              name: 'Extensions',
-              data_type: 'MULTI_SELECT',
-              default_value: null,
-              options: ['RIOT', 'FLOOD'],
+            {
+              id: 'factor-3',
+              sort_order: 3,
+              is_required: false,
+              factor: {
+                code: 'extensions',
+                name: 'Extensions',
+                data_type: 'MULTI_SELECT',
+                default_value: null,
+                options: ['RIOT', 'FLOOD'],
+              },
             },
-          },
-        ] as unknown as PricingRequiredFactor[]}
+          ] as unknown as PricingRequiredFactor[]
+        }
         values={{ extensions: '' }}
         onChange={onChange}
       />,

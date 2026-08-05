@@ -1,11 +1,11 @@
-import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { format } from 'date-fns'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
   ArrowLeft,
   Mail,
@@ -17,13 +17,13 @@ import {
   Trash2,
   Pencil,
   ShieldCheck,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Skeleton } from '@/components/ui/skeleton'
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -31,7 +31,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from '@/components/ui/dialog';
 import {
   Form,
   FormControl,
@@ -39,27 +39,32 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form'
+} from '@/components/ui/form';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
-import { StatusBadge } from '@/components/shared/StatusBadge'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { rolesApi } from '@/modules/platform/roles/api/roles'
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
-import { useRbacGuard } from '@/modules/shared/auth/hooks/useRbacGuard'
-import { mapApiErrorsToForm } from '@/lib/api-error'
-import { useUser, useUpdateUser, useAssignRole, useRevokeRole } from '@/modules/tenant/users/hooks'
-import type { UserStatus, UserType } from '@/types'
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { rolesApi } from '@/modules/platform/roles/api/roles';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { useRbacGuard } from '@/modules/shared/auth/hooks/useRbacGuard';
+import { mapApiErrorsToForm } from '@/lib/api-error';
+import {
+  useUser,
+  useUpdateUser,
+  useAssignRole,
+  useRevokeRole,
+} from '@/modules/tenant/users/hooks';
+import type { UserStatus, UserType } from '@/types';
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
-const PHONE_REGEX = /^(\+255|255|0)[67]\d{8}$/
+const PHONE_REGEX = /^(\+255|255|0)[67]\d{8}$/;
 
 const ALL_USER_TYPES: { value: UserType; label: string }[] = [
   { value: 'SUPER_ADMIN', label: 'Super Admin' },
@@ -70,25 +75,41 @@ const ALL_USER_TYPES: { value: UserType; label: string }[] = [
   { value: 'BROKER', label: 'Broker' },
   { value: 'CUSTOMER', label: 'Customer' },
   { value: 'COMPANY_USER', label: 'Company User' },
-]
+];
 
 const NON_OWNER_USER_TYPES = ALL_USER_TYPES.filter(
   (t) => t.value !== 'SUPER_ADMIN' && t.value !== 'COMPANY_ADMIN',
-)
+);
 
 const editSchema = z.object({
   first_name: z.string().min(1, 'Required'),
   last_name: z.string().min(1, 'Required'),
-  phone: z.string().regex(PHONE_REGEX, 'Must be a valid Tanzanian phone number'),
+  phone: z
+    .string()
+    .regex(PHONE_REGEX, 'Must be a valid Tanzanian phone number'),
   status: z.enum(['active', 'inactive', 'suspended', 'locked']),
-  user_type: z.enum([
-    'SUPER_ADMIN', 'COMPANY_ADMIN', 'STAFF', 'AGENT', 'BROKER', 'CUSTOMER', 'OWNER', 'COMPANY_USER',
-  ] as const).optional(),
-})
+  user_type: z
+    .enum([
+      'SUPER_ADMIN',
+      'COMPANY_ADMIN',
+      'STAFF',
+      'AGENT',
+      'BROKER',
+      'CUSTOMER',
+      'OWNER',
+      'COMPANY_USER',
+    ] as const)
+    .optional(),
+});
 
-type EditForm = z.infer<typeof editSchema>
+type EditForm = z.infer<typeof editSchema>;
 
-const USER_STATUSES: UserStatus[] = ['active', 'inactive', 'suspended', 'locked']
+const USER_STATUSES: UserStatus[] = [
+  'active',
+  'inactive',
+  'suspended',
+  'locked',
+];
 
 const EDIT_FIELD_MAP: Partial<Record<string, keyof EditForm & string>> = {
   first_name: 'first_name',
@@ -96,74 +117,81 @@ const EDIT_FIELD_MAP: Partial<Record<string, keyof EditForm & string>> = {
   phone: 'phone',
   status: 'status',
   user_type: 'user_type',
-}
+};
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function UserDetailPage() {
-  const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
-  const { hasPermission } = useAuthStore()
-  const { isOwner } = useRbacGuard()
-  const userTypeOptions = isOwner ? ALL_USER_TYPES : NON_OWNER_USER_TYPES
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { hasPermission } = useAuthStore();
+  const { isOwner } = useRbacGuard();
+  const userTypeOptions = isOwner ? ALL_USER_TYPES : NON_OWNER_USER_TYPES;
 
   // ── Permissions ───────────────────────────────────────────────────────────
-  const canUpdate = hasPermission('users:update')
-  const canAssignRole = hasPermission('users:assign-role')
-  const canRevokeRole = hasPermission('users:revoke-role')
+  const canUpdate = hasPermission('users:update');
+  const canAssignRole = hasPermission('users:assign-role');
+  const canRevokeRole = hasPermission('users:revoke-role');
 
   // ── Data ─────────────────────────────────────────────────────────────────
-  const { data: user, isLoading } = useUser(id)
+  const { data: user, isLoading } = useUser(id);
 
   // ── Dialog state ─────────────────────────────────────────────────────────
-  const [editOpen, setEditOpen] = useState(false)
-  const [revokeRoleId, setRevokeRoleId] = useState<string | null>(null)
-  const [assignRoleOpen, setAssignRoleOpen] = useState(false)
-  const [selectedRoleId, setSelectedRoleId] = useState('')
+  const [editOpen, setEditOpen] = useState(false);
+  const [revokeRoleId, setRevokeRoleId] = useState<string | null>(null);
+  const [assignRoleOpen, setAssignRoleOpen] = useState(false);
+  const [selectedRoleId, setSelectedRoleId] = useState('');
 
   // ── Roles list for assign dialog ─────────────────────────────────────────
   const { data: roles } = useQuery({
     queryKey: ['roles'],
     queryFn: rolesApi.getRoles,
     enabled: assignRoleOpen,
-  })
+  });
 
   // ── Form ─────────────────────────────────────────────────────────────────
   const editForm = useForm<EditForm>({
     resolver: zodResolver(editSchema),
-    defaultValues: { first_name: '', last_name: '', phone: '', status: 'active', user_type: undefined },
-  })
+    defaultValues: {
+      first_name: '',
+      last_name: '',
+      phone: '',
+      status: 'active',
+      user_type: undefined,
+    },
+  });
 
   // ── Mutations ────────────────────────────────────────────────────────────
-  const updateMutation = useUpdateUser(id)
-  const assignRoleMutation = useAssignRole()
-  const revokeRoleMutation = useRevokeRole()
+  const updateMutation = useUpdateUser(id);
+  const assignRoleMutation = useAssignRole();
+  const revokeRoleMutation = useRevokeRole();
 
   const openEdit = () => {
-    if (!user) return
+    if (!user) return;
     editForm.reset({
       first_name: user.first_name,
       last_name: user.last_name,
       phone: user.phone,
       status: user.status,
       user_type: user.user_type as UserType | undefined,
-    })
-    setEditOpen(true)
-  }
+    });
+    setEditOpen(true);
+  };
 
   const handleUpdate = (data: EditForm) => {
-    if (!id) return
+    if (!id) return;
     updateMutation.mutate(
       { id, data },
       {
         onSuccess: () => {
-          setEditOpen(false)
-          toast.success('User updated')
+          setEditOpen(false);
+          toast.success('User updated');
         },
-        onError: (err) => mapApiErrorsToForm(err, editForm.setError, EDIT_FIELD_MAP),
+        onError: (err) =>
+          mapApiErrorsToForm(err, editForm.setError, EDIT_FIELD_MAP),
       },
-    )
-  }
+    );
+  };
 
   // ── Loading skeleton ─────────────────────────────────────────────────────
   if (isLoading) {
@@ -173,12 +201,12 @@ export function UserDetailPage() {
         <Skeleton className="h-32 w-full" />
         <Skeleton className="h-64 w-full" />
       </div>
-    )
+    );
   }
 
-  if (!user) return null
+  if (!user) return null;
 
-  const fullName = `${user.first_name} ${user.last_name}`
+  const fullName = `${user.first_name} ${user.last_name}`;
 
   return (
     <div>
@@ -200,8 +228,8 @@ export function UserDetailPage() {
               variant="outline"
               size="sm"
               onClick={() => {
-                setSelectedRoleId('')
-                setAssignRoleOpen(true)
+                setSelectedRoleId('');
+                setAssignRoleOpen(true);
               }}
             >
               <ShieldCheck className="mr-2 h-4 w-4" /> Assign role
@@ -231,7 +259,9 @@ export function UserDetailPage() {
                 </span>
               </div>
               <div className="mt-2">
-                <Badge variant="secondary">{user.user_type?.replace(/_/g, ' ')}</Badge>
+                <Badge variant="secondary">
+                  {user.user_type?.replace(/_/g, ' ')}
+                </Badge>
               </div>
             </div>
           </div>
@@ -256,7 +286,10 @@ export function UserDetailPage() {
               <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
                   { label: 'User Number', value: user.user_no },
-                  { label: 'Status', value: <StatusBadge status={user.status} /> },
+                  {
+                    label: 'Status',
+                    value: <StatusBadge status={user.status} />,
+                  },
                   {
                     label: 'Email verified',
                     value: user.is_email_verified ? (
@@ -284,11 +317,17 @@ export function UserDetailPage() {
                   {
                     label: 'Last login',
                     value: user.last_login_at
-                      ? format(new Date(user.last_login_at), 'MMM d, yyyy HH:mm')
+                      ? format(
+                          new Date(user.last_login_at),
+                          'MMM d, yyyy HH:mm',
+                        )
                       : 'Never',
                   },
                   { label: 'Last login IP', value: user.last_login_ip ?? '—' },
-                  { label: 'Failed login attempts', value: String(user.failed_login_attempts) },
+                  {
+                    label: 'Failed login attempts',
+                    value: String(user.failed_login_attempts),
+                  },
                   {
                     label: 'Locked until',
                     value: user.locked_until
@@ -304,7 +343,9 @@ export function UserDetailPage() {
                     <dt className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                       {item.label}
                     </dt>
-                    <dd className="mt-1 text-sm text-slate-900">{item.value}</dd>
+                    <dd className="mt-1 text-sm text-slate-900">
+                      {item.value}
+                    </dd>
                   </div>
                 ))}
               </dl>
@@ -331,7 +372,9 @@ export function UserDetailPage() {
                       className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0"
                     >
                       <div>
-                        <p className="text-sm font-medium">{role.display_name}</p>
+                        <p className="text-sm font-medium">
+                          {role.display_name}
+                        </p>
                         <p className="text-xs text-slate-500">{role.name}</p>
                       </div>
                       {canRevokeRole && (
@@ -359,11 +402,17 @@ export function UserDetailPage() {
             </CardHeader>
             <CardContent>
               {!user.permissions?.length ? (
-                <p className="text-sm text-slate-400">No direct permissions assigned</p>
+                <p className="text-sm text-slate-400">
+                  No direct permissions assigned
+                </p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {user.permissions.map((p) => (
-                    <Badge key={p.id} variant="secondary" className="font-mono text-xs">
+                    <Badge
+                      key={p.id}
+                      variant="secondary"
+                      className="font-mono text-xs"
+                    >
                       {p.name}
                     </Badge>
                   ))}
@@ -384,7 +433,9 @@ export function UserDetailPage() {
                 {user.is_two_factor_enabled ? (
                   <>
                     <CheckCircle2 className="h-5 w-5 text-green-500" />
-                    <span className="font-medium text-green-700">2FA is enabled</span>
+                    <span className="font-medium text-green-700">
+                      2FA is enabled
+                    </span>
                   </>
                 ) : (
                   <>
@@ -403,10 +454,15 @@ export function UserDetailPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>Update {fullName}'s profile details.</DialogDescription>
+            <DialogDescription>
+              Update {fullName}'s profile details.
+            </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(handleUpdate)} className="space-y-4">
+            <form
+              onSubmit={editForm.handleSubmit(handleUpdate)}
+              className="space-y-4"
+            >
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={editForm.control}
@@ -478,7 +534,10 @@ export function UserDetailPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>User type</FormLabel>
-                    <Select value={field.value ?? ''} onValueChange={(v) => field.onChange(v || undefined)}>
+                    <Select
+                      value={field.value ?? ''}
+                      onValueChange={(v) => field.onChange(v || undefined)}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select user type" />
@@ -497,7 +556,11 @@ export function UserDetailPage() {
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditOpen(false)}
+                >
                   Cancel
                 </Button>
                 <Button type="submit" disabled={updateMutation.isPending}>
@@ -525,7 +588,9 @@ export function UserDetailPage() {
                 {(roles ?? []).map((r) => (
                   <SelectItem key={r.id} value={r.id}>
                     <span>{r.display_name}</span>
-                    <span className="ml-2 text-xs text-slate-400">{r.name}</span>
+                    <span className="ml-2 text-xs text-slate-400">
+                      {r.name}
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -535,7 +600,11 @@ export function UserDetailPage() {
               <p className="text-xs text-slate-500">
                 Current roles:{' '}
                 {user.roles.map((r) => (
-                  <Badge key={r.id} variant="secondary" className="text-xs mr-1">
+                  <Badge
+                    key={r.id}
+                    variant="secondary"
+                    className="text-xs mr-1"
+                  >
                     {r.display_name}
                   </Badge>
                 ))}
@@ -549,16 +618,16 @@ export function UserDetailPage() {
             <Button
               disabled={!selectedRoleId || assignRoleMutation.isPending}
               onClick={() => {
-                if (!id) return
+                if (!id) return;
                 assignRoleMutation.mutate(
                   { userId: id, roleId: selectedRoleId },
                   {
                     onSuccess: () => {
-                      setAssignRoleOpen(false)
-                      setSelectedRoleId('')
+                      setAssignRoleOpen(false);
+                      setSelectedRoleId('');
                     },
                   },
-                )
+                );
               }}
             >
               {assignRoleMutation.isPending ? 'Assigning…' : 'Assign role'}
@@ -575,15 +644,14 @@ export function UserDetailPage() {
         description="Are you sure you want to revoke this role from the user?"
         confirmLabel="Revoke"
         onConfirm={() => {
-          if (!id || !revokeRoleId) return
+          if (!id || !revokeRoleId) return;
           revokeRoleMutation.mutate(
             { userId: id, roleId: revokeRoleId },
             { onSuccess: () => setRevokeRoleId(null) },
-          )
+          );
         }}
         loading={revokeRoleMutation.isPending}
       />
     </div>
-  )
+  );
 }
-

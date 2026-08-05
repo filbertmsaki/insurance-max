@@ -11,7 +11,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
 import { useBillingCurrentCompanyId } from '../hooks';
 import { invoiceFormSchema, type InvoiceFormValues } from '../schemas';
@@ -61,7 +67,8 @@ export function InvoiceForm({
     due_date: '',
     ...defaultValues,
   };
-  formDefaults.insurer_company_id = defaultValues?.insurer_company_id ?? currentCompanyId;
+  formDefaults.insurer_company_id =
+    defaultValues?.insurer_company_id ?? currentCompanyId;
 
   const form = useForm<InvoiceFormValues>({
     resolver: zodResolver(invoiceFormSchema),
@@ -76,71 +83,130 @@ export function InvoiceForm({
             <CardTitle className="text-base">Invoice Details</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
-            <FormField control={form.control} name="customer_id" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Customer</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    {customerOptions.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>{getCustomerDisplayName(customer)} ({customer.customer_no})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="invoice_type" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Invoice Type</FormLabel>
-                <FormControl><Input {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="quotation_id" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Quotation</FormLabel>
-                <Select value={field.value || 'none'} onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {quotationOptions.map((quotation) => (
-                      <SelectItem key={quotation.id} value={quotation.id}>{quotation.quotation_no}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="policy_id" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Policy</FormLabel>
-                <Select value={field.value || 'none'} onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {policyOptions.map((policy) => (
-                      <SelectItem key={policy.id} value={policy.id}>{policy.policy_no}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="currency" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Currency</FormLabel>
-                <FormControl><Input {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="status" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Status</FormLabel>
-                <FormControl><Input {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="customer_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Customer</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {customerOptions.map((customer) => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {getCustomerDisplayName(customer)} (
+                          {customer.customer_no})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="invoice_type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Invoice Type</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="quotation_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Quotation</FormLabel>
+                  <Select
+                    value={field.value || 'none'}
+                    onValueChange={(value) =>
+                      field.onChange(value === 'none' ? '' : value)
+                    }
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Optional" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {quotationOptions.map((quotation) => (
+                        <SelectItem key={quotation.id} value={quotation.id}>
+                          {quotation.quotation_no}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="policy_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Policy</FormLabel>
+                  <Select
+                    value={field.value || 'none'}
+                    onValueChange={(value) =>
+                      field.onChange(value === 'none' ? '' : value)
+                    }
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Optional" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {policyOptions.map((policy) => (
+                        <SelectItem key={policy.id} value={policy.id}>
+                          {policy.policy_no}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="currency"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Currency</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             {[
               ['gross_amount', 'Gross Amount'],
               ['discount_amount', 'Discount Amount'],
@@ -157,27 +223,40 @@ export function InvoiceForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{label}</FormLabel>
-                    <FormControl><Input type="number" {...field} value={field.value == null ? '' : String(field.value)} /></FormControl>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        {...field}
+                        value={field.value == null ? '' : String(field.value)}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             ))}
-            <FormField control={form.control} name="due_date" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Due Date</FormLabel>
-                <FormControl><Input type="date" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="due_date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Due Date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
 
         <div className="flex justify-end">
-          <Button type="submit" disabled={isPending}>{isPending ? 'Saving...' : submitLabel}</Button>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? 'Saving...' : submitLabel}
+          </Button>
         </div>
       </form>
     </Form>
   );
 }
-

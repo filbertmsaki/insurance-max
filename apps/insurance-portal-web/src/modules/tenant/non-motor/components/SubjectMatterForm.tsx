@@ -12,7 +12,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { subjectMatterSchema, type SubjectMatterFormValues } from '../schemas';
 import type { MotorCustomerOption } from '@/modules/tenant/motor/types';
 
@@ -24,7 +30,13 @@ interface Props {
   defaultValues?: Partial<SubjectMatterFormValues>;
 }
 
-export function SubjectMatterForm({ customers, isPending, submitLabel, onSubmit, defaultValues }: Props) {
+export function SubjectMatterForm({
+  customers,
+  isPending,
+  submitLabel,
+  onSubmit,
+  defaultValues,
+}: Props) {
   const form = useForm<SubjectMatterFormValues>({
     resolver: zodResolver(subjectMatterSchema),
     defaultValues: {
@@ -48,7 +60,9 @@ export function SubjectMatterForm({ customers, isPending, submitLabel, onSubmit,
   });
 
   const getCustomerLabel = (customer: MotorCustomerOption) =>
-    customer.company_name ?? ([customer.first_name, customer.last_name].filter(Boolean).join(' ') || customer.id);
+    customer.company_name ??
+    ([customer.first_name, customer.last_name].filter(Boolean).join(' ') ||
+      customer.id);
 
   return (
     <Form {...form}>
@@ -66,7 +80,9 @@ export function SubjectMatterForm({ customers, isPending, submitLabel, onSubmit,
                   <FormLabel>Customer</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {customers.map((customer) => (
@@ -101,7 +117,10 @@ export function SubjectMatterForm({ customers, isPending, submitLabel, onSubmit,
                   <FormItem>
                     <FormLabel>{label}</FormLabel>
                     <FormControl>
-                      <Input {...field} value={field.value == null ? '' : String(field.value)} />
+                      <Input
+                        {...field}
+                        value={field.value == null ? '' : String(field.value)}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -115,7 +134,11 @@ export function SubjectMatterForm({ customers, isPending, submitLabel, onSubmit,
                 <FormItem className="md:col-span-2">
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea {...field} value={field.value == null ? '' : String(field.value)} rows={4} />
+                    <Textarea
+                      {...field}
+                      value={field.value == null ? '' : String(field.value)}
+                      rows={4}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -128,7 +151,11 @@ export function SubjectMatterForm({ customers, isPending, submitLabel, onSubmit,
                 <FormItem className="md:col-span-2">
                   <FormLabel>Location</FormLabel>
                   <FormControl>
-                    <Textarea {...field} value={field.value == null ? '' : String(field.value)} rows={3} />
+                    <Textarea
+                      {...field}
+                      value={field.value == null ? '' : String(field.value)}
+                      rows={3}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -141,7 +168,12 @@ export function SubjectMatterForm({ customers, isPending, submitLabel, onSubmit,
                 <FormItem className="md:col-span-2">
                   <FormLabel>Metadata JSON</FormLabel>
                   <FormControl>
-                    <Textarea {...field} value={field.value == null ? '' : String(field.value)} rows={4} placeholder='{"key":"value"}' />
+                    <Textarea
+                      {...field}
+                      value={field.value == null ? '' : String(field.value)}
+                      rows={4}
+                      placeholder='{"key":"value"}'
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

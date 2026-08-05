@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Building2,
@@ -16,19 +16,25 @@ import {
   Users,
   X,
   Check,
-} from 'lucide-react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { format } from 'date-fns'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+} from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -36,7 +42,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog'
+} from '@/components/ui/dialog';
 import {
   Form,
   FormControl,
@@ -45,16 +51,19 @@ import {
   FormLabel,
   FormMessage,
   FormDescription,
-} from '@/components/ui/form'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+} from '@/components/ui/form';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import {
   useCompany,
   useUpdateCompany,
   useUpdateCompanyStatus,
   useDeleteCompany,
-} from '@/modules/platform/companies/hooks'
-import type { Company } from '@/types'
-import { companiesApi, type UpdateCompanyDto } from '@/modules/platform/companies/api/companies'
+} from '@/modules/platform/companies/hooks';
+import type { Company } from '@/types';
+import {
+  companiesApi,
+  type UpdateCompanyDto,
+} from '@/modules/platform/companies/api/companies';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -81,27 +90,39 @@ const editSchema = z.object({
   settings_currency: z.string().max(10).optional(),
   settings_date_format: z.string().max(30).optional(),
   settings_allow_self_registration: z.boolean().optional(),
-})
+});
 
-type EditFormValues = z.infer<typeof editSchema>
+type EditFormValues = z.infer<typeof editSchema>;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{children}</p>
-  )
+    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+      {children}
+    </p>
+  );
 }
 
 function StatusBadge({ status }: { status: string }) {
   return status === 'active' ? (
-    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">Active</Badge>
+    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
+      Active
+    </Badge>
   ) : (
-    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">Inactive</Badge>
-  )
+    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">
+      Inactive
+    </Badge>
+  );
 }
 
-function DetailRow({ label, value }: { label: React.ReactNode; value?: React.ReactNode }) {
+function DetailRow({
+  label,
+  value,
+}: {
+  label: React.ReactNode;
+  value?: React.ReactNode;
+}) {
   return (
     <div className="flex items-start gap-3 py-3 border-b border-slate-100 last:border-0">
       <span className="text-sm text-slate-500 min-w-32 pt-0.5">{label}</span>
@@ -109,30 +130,31 @@ function DetailRow({ label, value }: { label: React.ReactNode; value?: React.Rea
         {value ?? <span className="text-slate-400">—</span>}
       </span>
     </div>
-  )
+  );
 }
 
 // ─── Edit Dialog ──────────────────────────────────────────────────────────────
 
 function CompanyUsersTab({ companyId }: { companyId: string }) {
-  const queryClient = useQueryClient()
-  const [page, setPage] = useState(1)
-  const [limit] = useState(10)
-  const [selectedUserId, setSelectedUserId] = useState('')
+  const queryClient = useQueryClient();
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [selectedUserId, setSelectedUserId] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['company-users', companyId, page, limit],
     queryFn: () => companiesApi.getCompanyUsers(companyId, { page, limit }),
-  })
+  });
 
   const primaryMutation = useMutation({
-    mutationFn: (userId: string) => companiesApi.setPrimaryUser(companyId, userId),
+    mutationFn: (userId: string) =>
+      companiesApi.setPrimaryUser(companyId, userId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['company-users', companyId] })
+      queryClient.invalidateQueries({ queryKey: ['company-users', companyId] });
     },
-  })
+  });
 
-  const users = data?.data ?? []
+  const users = data?.data ?? [];
 
   return (
     <Card>
@@ -146,7 +168,9 @@ function CompanyUsersTab({ companyId }: { companyId: string }) {
         {isLoading ? (
           <Skeleton className="h-40 w-full" />
         ) : users.length === 0 ? (
-          <p className="py-6 text-center text-sm text-slate-400">No users found in this company</p>
+          <p className="py-6 text-center text-sm text-slate-400">
+            No users found in this company
+          </p>
         ) : (
           <div className="space-y-3">
             {users.map((user) => (
@@ -202,7 +226,9 @@ function CompanyUsersTab({ companyId }: { companyId: string }) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setPage((p) => Math.min(data.pagination.totalPages, p + 1))}
+                onClick={() =>
+                  setPage((p) => Math.min(data.pagination.totalPages, p + 1))
+                }
                 disabled={page >= data.pagination.totalPages}
               >
                 Next
@@ -228,24 +254,31 @@ function CompanyUsersTab({ companyId }: { companyId: string }) {
             </Button>
           </div>
           <p className="text-xs text-slate-500">
-            If you already know the company membership UUID, paste it here to set the primary user.
+            If you already know the company membership UUID, paste it here to
+            set the primary user.
           </p>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
 
 interface EditDialogProps {
-  open: boolean
-  company: Company
-  onClose: () => void
-  onSubmit: (data: UpdateCompanyDto) => void
-  isPending: boolean
+  open: boolean;
+  company: Company;
+  onClose: () => void;
+  onSubmit: (data: UpdateCompanyDto) => void;
+  isPending: boolean;
 }
 
-function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: EditDialogProps) {
-  const s = company.settings ?? {}
+function EditCompanyDialog({
+  open,
+  company,
+  onClose,
+  onSubmit,
+  isPending,
+}: EditDialogProps) {
+  const s = company.settings ?? {};
 
   const form = useForm<EditFormValues>({
     resolver: zodResolver(editSchema),
@@ -260,28 +293,32 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
       address_region: company.address?.region ?? '',
       address_country: company.address?.country ?? '',
       address_postal_code: company.address?.postal_code ?? '',
-      settings_timezone: (s.timezone as string) ?? '',
-      settings_currency: (s.currency as string) ?? '',
-      settings_date_format: (s.date_format as string) ?? '',
-      settings_allow_self_registration: (s.allow_self_registration as boolean) ?? false,
+      settings_timezone: s.timezone ?? '',
+      settings_currency: s.currency ?? '',
+      settings_date_format: s.date_format ?? '',
+      settings_allow_self_registration: s.allow_self_registration ?? false,
     },
-  })
+  });
 
   const handleSubmit = (values: EditFormValues) => {
-    const payload: UpdateCompanyDto = {}
+    const payload: UpdateCompanyDto = {};
 
-    if (values.name) payload.name = values.name
-    if (values.contact_email !== undefined) payload.contact_email = values.contact_email || undefined
-    if (values.contact_phone !== undefined) payload.contact_phone = values.contact_phone || undefined
-    if (values.website !== undefined) payload.website = values.website || undefined
-    if (values.logo_url !== undefined) payload.logo_url = values.logo_url || undefined
+    if (values.name) payload.name = values.name;
+    if (values.contact_email !== undefined)
+      payload.contact_email = values.contact_email || undefined;
+    if (values.contact_phone !== undefined)
+      payload.contact_phone = values.contact_phone || undefined;
+    if (values.website !== undefined)
+      payload.website = values.website || undefined;
+    if (values.logo_url !== undefined)
+      payload.logo_url = values.logo_url || undefined;
 
     const hasAddress =
       values.address_street ||
       values.address_city ||
       values.address_region ||
       values.address_country ||
-      values.address_postal_code
+      values.address_postal_code;
     if (hasAddress) {
       payload.address = {
         street: values.address_street || undefined,
@@ -289,7 +326,7 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
         region: values.address_region || undefined,
         country: values.address_country || undefined,
         postal_code: values.address_postal_code || undefined,
-      }
+      };
     }
 
     payload.settings = {
@@ -297,22 +334,26 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
       currency: values.settings_currency || undefined,
       date_format: values.settings_date_format || undefined,
       allow_self_registration: values.settings_allow_self_registration,
-    }
+    };
 
-    onSubmit(payload)
-  }
+    onSubmit(payload);
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Company</DialogTitle>
-          <DialogDescription>Update company profile, contact, address and settings.</DialogDescription>
+          <DialogDescription>
+            Update company profile, contact, address and settings.
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-
+          <form
+            onSubmit={form.handleSubmit(handleSubmit)}
+            className="space-y-6"
+          >
             {/* ── General ── */}
             <div>
               <SectionLabel>General</SectionLabel>
@@ -323,7 +364,9 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
                   render={({ field }) => (
                     <FormItem className="col-span-2">
                       <FormLabel>Company Name</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -334,7 +377,9 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Logo URL</FormLabel>
-                      <FormControl><Input placeholder="https://…" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="https://…" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -345,7 +390,9 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Website</FormLabel>
-                      <FormControl><Input placeholder="https://company.com" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="https://company.com" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -365,7 +412,13 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Contact Email</FormLabel>
-                      <FormControl><Input type="email" placeholder="info@company.com" {...field} /></FormControl>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="info@company.com"
+                          {...field}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -376,7 +429,9 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Contact Phone</FormLabel>
-                      <FormControl><Input placeholder="+255 712 345 678" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="+255 712 345 678" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -396,7 +451,9 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
                   render={({ field }) => (
                     <FormItem className="col-span-2">
                       <FormLabel>Street</FormLabel>
-                      <FormControl><Input placeholder="123 Main Street" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="123 Main Street" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -407,7 +464,9 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>City</FormLabel>
-                      <FormControl><Input placeholder="Dar es Salaam" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Dar es Salaam" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -418,7 +477,9 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Region</FormLabel>
-                      <FormControl><Input placeholder="Dar es Salaam Region" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Dar es Salaam Region" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -429,7 +490,9 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Country</FormLabel>
-                      <FormControl><Input placeholder="Tanzania" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Tanzania" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -440,7 +503,9 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Postal Code</FormLabel>
-                      <FormControl><Input placeholder="11101" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="11101" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -460,7 +525,9 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Timezone</FormLabel>
-                      <FormControl><Input placeholder="Africa/Dar_es_Salaam" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Africa/Dar_es_Salaam" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -471,7 +538,9 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Currency</FormLabel>
-                      <FormControl><Input placeholder="TZS" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="TZS" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -482,7 +551,9 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Date Format</FormLabel>
-                      <FormControl><Input placeholder="DD/MM/YYYY" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="DD/MM/YYYY" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -493,13 +564,18 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
                   render={({ field }) => (
                     <FormItem className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-4 py-3">
                       <div>
-                        <FormLabel className="mb-0">Allow Self-Registration</FormLabel>
+                        <FormLabel className="mb-0">
+                          Allow Self-Registration
+                        </FormLabel>
                         <FormDescription className="text-xs">
                           Users can register without an invitation
                         </FormDescription>
                       </div>
                       <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
                       </FormControl>
                     </FormItem>
                   )}
@@ -508,7 +584,12 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={isPending}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>
@@ -519,22 +600,22 @@ function EditCompanyDialog({ open, company, onClose, onSubmit, isPending }: Edit
         </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function CompanyDetailPage() {
-  const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
-  const [editOpen, setEditOpen] = useState(false)
-  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const { data: company, isLoading } = useCompany(id)
-  const updateMutation = useUpdateCompany(id!)
-  const statusMutation = useUpdateCompanyStatus()
-  const deleteMutation = useDeleteCompany()
+  const { data: company, isLoading } = useCompany(id);
+  const updateMutation = useUpdateCompany(id!);
+  const statusMutation = useUpdateCompanyStatus();
+  const deleteMutation = useDeleteCompany();
 
   if (isLoading) {
     return (
@@ -542,7 +623,7 @@ export function CompanyDetailPage() {
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-64 w-full" />
       </div>
-    )
+    );
   }
 
   if (!company) {
@@ -554,20 +635,29 @@ export function CompanyDetailPage() {
           Back to Companies
         </Button>
       </div>
-    )
+    );
   }
 
-  const address = company.address
-  const addressLine = [address?.street, address?.city, address?.region, address?.country]
+  const address = company.address;
+  const addressLine = [
+    address?.street,
+    address?.city,
+    address?.region,
+    address?.country,
+  ]
     .filter(Boolean)
-    .join(', ')
+    .join(', ');
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="flex items-center gap-3 flex-1">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/companies')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/companies')}
+          >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           {company.logo_url ? (
@@ -583,7 +673,9 @@ export function CompanyDetailPage() {
           )}
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold text-slate-900">{company.name}</h1>
+              <h1 className="text-xl font-semibold text-slate-900">
+                {company.name}
+              </h1>
               <StatusBadge status={company.status} />
             </div>
             <code className="text-xs text-slate-400">{company.slug}</code>
@@ -596,7 +688,9 @@ export function CompanyDetailPage() {
               variant="outline"
               size="sm"
               className="text-amber-600 border-amber-200 hover:bg-amber-50"
-              onClick={() => statusMutation.mutate({ id: company.id, status: 'inactive' })}
+              onClick={() =>
+                statusMutation.mutate({ id: company.id, status: 'inactive' })
+              }
               disabled={statusMutation.isPending}
             >
               <PowerOff className="mr-1.5 h-3.5 w-3.5" />
@@ -607,7 +701,9 @@ export function CompanyDetailPage() {
               variant="outline"
               size="sm"
               className="text-green-600 border-green-200 hover:bg-green-50"
-              onClick={() => statusMutation.mutate({ id: company.id, status: 'active' })}
+              onClick={() =>
+                statusMutation.mutate({ id: company.id, status: 'active' })
+              }
               disabled={statusMutation.isPending}
             >
               <Power className="mr-1.5 h-3.5 w-3.5" />
@@ -618,7 +714,11 @@ export function CompanyDetailPage() {
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             Edit
           </Button>
-          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setDeleteOpen(true)}
+          >
             <Trash2 className="mr-1.5 h-3.5 w-3.5" />
             Delete
           </Button>
@@ -658,7 +758,10 @@ export function CompanyDetailPage() {
                     </code>
                   }
                 />
-                <DetailRow label="Status" value={<StatusBadge status={company.status} />} />
+                <DetailRow
+                  label="Status"
+                  value={<StatusBadge status={company.status} />}
+                />
                 <DetailRow
                   label="Created"
                   value={format(new Date(company.created_at), 'MMM d, yyyy')}
@@ -666,7 +769,10 @@ export function CompanyDetailPage() {
                 {company.updated_at && (
                   <DetailRow
                     label="Last updated"
-                    value={format(new Date(company.updated_at), 'MMM d, yyyy HH:mm')}
+                    value={format(
+                      new Date(company.updated_at),
+                      'MMM d, yyyy HH:mm',
+                    )}
                   />
                 )}
               </CardContent>
@@ -678,24 +784,44 @@ export function CompanyDetailPage() {
               </CardHeader>
               <CardContent className="pt-0">
                 <DetailRow
-                  label={<span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> Email</span>}
+                  label={
+                    <span className="flex items-center gap-1">
+                      <Mail className="h-3.5 w-3.5" /> Email
+                    </span>
+                  }
                   value={
                     company.contact_email ? (
-                      <a href={`mailto:${company.contact_email}`} className="text-blue-600 hover:underline">
+                      <a
+                        href={`mailto:${company.contact_email}`}
+                        className="text-blue-600 hover:underline"
+                      >
                         {company.contact_email}
                       </a>
                     ) : undefined
                   }
                 />
                 <DetailRow
-                  label={<span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> Phone</span>}
+                  label={
+                    <span className="flex items-center gap-1">
+                      <Phone className="h-3.5 w-3.5" /> Phone
+                    </span>
+                  }
                   value={company.contact_phone}
                 />
                 <DetailRow
-                  label={<span className="flex items-center gap-1"><Globe className="h-3.5 w-3.5" /> Website</span>}
+                  label={
+                    <span className="flex items-center gap-1">
+                      <Globe className="h-3.5 w-3.5" /> Website
+                    </span>
+                  }
                   value={
                     company.website ? (
-                      <a href={company.website} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                      <a
+                        href={company.website}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
                         {company.website}
                       </a>
                     ) : undefined
@@ -718,10 +844,15 @@ export function CompanyDetailPage() {
                     <DetailRow label="City" value={address?.city} />
                     <DetailRow label="Region" value={address?.region} />
                     <DetailRow label="Country" value={address?.country} />
-                    <DetailRow label="Postal Code" value={address?.postal_code} />
+                    <DetailRow
+                      label="Postal Code"
+                      value={address?.postal_code}
+                    />
                   </>
                 ) : (
-                  <p className="text-sm text-slate-400 py-4 text-center">No address on file</p>
+                  <p className="text-sm text-slate-400 py-4 text-center">
+                    No address on file
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -741,8 +872,12 @@ export function CompanyDetailPage() {
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-slate-900">Active Users</p>
-                    <p className="text-xs text-slate-500">Currently in this company</p>
+                    <p className="text-sm font-medium text-slate-900">
+                      Active Users
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Currently in this company
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -810,7 +945,9 @@ export function CompanyDetailPage() {
           open={editOpen}
           company={company}
           onClose={() => setEditOpen(false)}
-          onSubmit={(data) => updateMutation.mutate(data, { onSuccess: () => setEditOpen(false) })}
+          onSubmit={(data) =>
+            updateMutation.mutate(data, { onSuccess: () => setEditOpen(false) })
+          }
           isPending={updateMutation.isPending}
         />
       )}
@@ -822,10 +959,12 @@ export function CompanyDetailPage() {
         description={`This will permanently delete "${company.name}" and all associated users, roles, and data. This action cannot be undone.`}
         confirmLabel="Delete Company"
         onConfirm={() =>
-          deleteMutation.mutate(company.id, { onSuccess: () => navigate('/companies') })
+          deleteMutation.mutate(company.id, {
+            onSuccess: () => navigate('/companies'),
+          })
         }
         loading={deleteMutation.isPending}
       />
     </div>
-  )
+  );
 }

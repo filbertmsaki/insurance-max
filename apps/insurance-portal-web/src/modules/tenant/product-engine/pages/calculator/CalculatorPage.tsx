@@ -43,7 +43,9 @@ export function CalculatorPage() {
   const [entries, setEntries] = useState<RiskEntry[]>([]);
   const [results, setResults] = useState<RiskPremiumResult[]>([]);
   const [grandTotal, setGrandTotal] = useState<number | null>(null);
-  const [singleResult, setSingleResult] = useState<RiskPremiumResult | null>(null);
+  const [singleResult, setSingleResult] = useState<RiskPremiumResult | null>(
+    null,
+  );
   const { calculateSingleMutation, calculateMultiMutation } =
     usePricingCalculator();
 
@@ -236,7 +238,12 @@ export function CalculatorPage() {
             </Select>
           </div>
           <div className="flex items-end">
-            <Button size="sm" className="h-9" onClick={addRisk} disabled={!selectedRiskId}>
+            <Button
+              size="sm"
+              className="h-9"
+              onClick={addRisk}
+              disabled={!selectedRiskId}
+            >
               <Plus className="mr-2 h-3.5 w-3.5" />
               Add Risk
             </Button>
@@ -297,7 +304,10 @@ export function CalculatorPage() {
         <div className="space-y-4">
           {singleResult ? <PremiumBreakdown result={singleResult} /> : null}
           {results.map((result) => (
-            <PremiumBreakdown key={`${result.risk_id}-${result.rule_id}`} result={result} />
+            <PremiumBreakdown
+              key={`${result.risk_id}-${result.rule_id}`}
+              result={result}
+            />
           ))}
         </div>
       ) : null}

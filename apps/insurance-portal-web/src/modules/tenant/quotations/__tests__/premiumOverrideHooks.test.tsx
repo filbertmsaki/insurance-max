@@ -1,17 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
-import {
-  QueryClient,
-  QueryClientProvider,
-} from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { useRequestQuotationPremiumOverride } from '../hooks';
 
-const {
-  requestPremiumOverride,
-  toastSuccess,
-  toastError,
-} = vi.hoisted(() => ({
+const { requestPremiumOverride, toastSuccess, toastError } = vi.hoisted(() => ({
   requestPremiumOverride: vi.fn(),
   toastSuccess: vi.fn(),
   toastError: vi.fn(),

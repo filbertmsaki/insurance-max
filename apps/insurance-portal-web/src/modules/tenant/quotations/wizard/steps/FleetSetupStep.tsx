@@ -101,7 +101,9 @@ export function FleetSetupStep({
               <FormLabel>Fleet Type</FormLabel>
               <Select
                 value={toSelectValue(field.value)}
-                onValueChange={(value) => field.onChange(fromSelectValue(value))}
+                onValueChange={(value) =>
+                  field.onChange(fromSelectValue(value))
+                }
               >
                 <FormControl>
                   <SelectTrigger>
@@ -147,10 +149,16 @@ export function FleetSetupStep({
           )}
         />
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 md:col-span-2">
-          <p className="text-sm font-medium text-slate-900">Calculated Fleet Totals</p>
+          <p className="text-sm font-medium text-slate-900">
+            Calculated Fleet Totals
+          </p>
           <div className="mt-2 grid gap-2 text-sm text-slate-600 md:grid-cols-2">
-            <p>Premium excluding tax: {computedPremiumExcludingTax.toFixed(2)}</p>
-            <p>Premium including tax: {computedPremiumIncludingTax.toFixed(2)}</p>
+            <p>
+              Premium excluding tax: {computedPremiumExcludingTax.toFixed(2)}
+            </p>
+            <p>
+              Premium including tax: {computedPremiumIncludingTax.toFixed(2)}
+            </p>
           </div>
         </div>
       </StepSection>

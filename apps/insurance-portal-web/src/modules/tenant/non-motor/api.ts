@@ -1,8 +1,6 @@
 import { apiClient } from '@/modules/shared/api/client';
 import { normalizePaginatedResponse } from '@/modules/shared/api/pagination';
-import type {
-  PaginatedResponse,
-} from '@/modules/shared/api/pagination';
+import type { PaginatedResponse } from '@/modules/shared/api/pagination';
 import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { customersApi } from '@/modules/tenant/customers/api';
 import { motorApi } from '@/modules/tenant/motor/api';

@@ -1,46 +1,79 @@
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
   displayPercentageFromRate,
   rateFromDisplayPercentage,
-} from '@insurance-max/portal-shared/utils/pricing-calculation.util'
+} from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import {
-  Plus, Pencil, Trash2, ChevronDown, ChevronRight,
-  ToggleLeft, ToggleRight,
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
-import { Skeleton } from '@/components/ui/skeleton'
+  Plus,
+  Pencil,
+  Trash2,
+  ChevronDown,
+  ChevronRight,
+  ToggleLeft,
+  ToggleRight,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription,
-} from '@/components/ui/form'
-import { Textarea } from '@/components/ui/textarea'
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+  FormDescription,
+} from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
-  useAllActiveProducts, useRisksByProduct,
-  useRuleList, useCreateRule, useUpdateRule, useDeleteRule,
-  useConditionsByRule, useCreateCondition, useUpdateCondition, useDeleteCondition,
+  useAllActiveProducts,
+  useRisksByProduct,
+  useRuleList,
+  useCreateRule,
+  useUpdateRule,
+  useDeleteRule,
+  useConditionsByRule,
+  useCreateCondition,
+  useUpdateCondition,
+  useDeleteCondition,
   useAllFactors,
-} from '@/modules/tenant/product-engine/hooks'
+} from '@/modules/tenant/product-engine/hooks';
 import type {
-  RiskRatingRule, RiskRuleCondition,
-  RateType, ConditionOperator,
-} from '@/types/product-engine'
+  RiskRatingRule,
+  RiskRuleCondition,
+  RateType,
+  ConditionOperator,
+} from '@/types/product-engine';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -51,11 +84,18 @@ const RATE_TYPES: RateType[] = [
   'PERCENTAGE_PLUS_PER_UNIT',
   'PER_UNIT',
   'FORMULA',
-]
+];
 const OPERATORS: ConditionOperator[] = [
-  'EQUALS', 'NOT_EQUALS', 'GREATER_THAN', 'GREATER_THAN_OR_EQUAL',
-  'LESS_THAN', 'LESS_THAN_OR_EQUAL', 'BETWEEN', 'IN', 'NOT_IN',
-]
+  'EQUALS',
+  'NOT_EQUALS',
+  'GREATER_THAN',
+  'GREATER_THAN_OR_EQUAL',
+  'LESS_THAN',
+  'LESS_THAN_OR_EQUAL',
+  'BETWEEN',
+  'IN',
+  'NOT_IN',
+];
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -87,17 +127,27 @@ const ruleSchema = z.object({
   formula: z.string().nullable().optional(),
   priority: z.number().int().min(1),
   is_active: z.boolean(),
-})
-type RuleFormValues = z.infer<typeof ruleSchema>
+});
+type RuleFormValues = z.infer<typeof ruleSchema>;
 
 const conditionSchema = z.object({
   factor_code: z.string().min(1, 'Factor is required'),
-  operator: z.enum(['EQUALS', 'NOT_EQUALS', 'GREATER_THAN', 'GREATER_THAN_OR_EQUAL', 'LESS_THAN', 'LESS_THAN_OR_EQUAL', 'BETWEEN', 'IN', 'NOT_IN']),
+  operator: z.enum([
+    'EQUALS',
+    'NOT_EQUALS',
+    'GREATER_THAN',
+    'GREATER_THAN_OR_EQUAL',
+    'LESS_THAN',
+    'LESS_THAN_OR_EQUAL',
+    'BETWEEN',
+    'IN',
+    'NOT_IN',
+  ]),
   value_from: z.string().min(1, 'Value is required'),
   value_to: z.string().optional(),
   logical_operator: z.enum(['AND', 'OR']),
-})
-type ConditionFormValues = z.infer<typeof conditionSchema>
+});
+type ConditionFormValues = z.infer<typeof conditionSchema>;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -109,22 +159,30 @@ function RateTypeBadge({ type }: { type: RateType }) {
     PERCENTAGE_PLUS_PER_UNIT: 'bg-indigo-50 text-indigo-700 border-indigo-200',
     PER_UNIT: 'bg-orange-50 text-orange-700 border-orange-200',
     FORMULA: 'bg-green-50 text-green-700 border-green-200',
-  }
-  return <Badge className={`text-[10px] ${map[type]} hover:${map[type]}`}>{type}</Badge>
+  };
+  return (
+    <Badge className={`text-[10px] ${map[type]} hover:${map[type]}`}>
+      {type}
+    </Badge>
+  );
 }
 
 function rateValueSummary(rule: RiskRatingRule): string {
   switch (rule.rate_type) {
     case 'PERCENTAGE':
-      return `${displayPercentageFromRate(rule.percentage_rate ?? 0)}%`
-    case 'FIXED': return `${rule.fixed_amount ?? 0}`
+      return `${displayPercentageFromRate(rule.percentage_rate ?? 0)}%`;
+    case 'FIXED':
+      return `${rule.fixed_amount ?? 0}`;
     case 'PERCENTAGE_PLUS_FIXED':
-      return `${displayPercentageFromRate(rule.percentage_rate ?? 0)}% + ${rule.fixed_amount ?? 0}`
+      return `${displayPercentageFromRate(rule.percentage_rate ?? 0)}% + ${rule.fixed_amount ?? 0}`;
     case 'PERCENTAGE_PLUS_PER_UNIT':
-      return `${displayPercentageFromRate(rule.percentage_rate ?? 0)}% + ${rule.per_unit_amount ?? 0} per ${rule.per_unit_factor_code ?? 'unit'}`
-    case 'PER_UNIT': return `${rule.per_unit_amount ?? 0} per ${rule.per_unit_factor_code ?? 'unit'}`
-    case 'FORMULA': return rule.formula ?? '—'
-    default: return '—'
+      return `${displayPercentageFromRate(rule.percentage_rate ?? 0)}% + ${rule.per_unit_amount ?? 0} per ${rule.per_unit_factor_code ?? 'unit'}`;
+    case 'PER_UNIT':
+      return `${rule.per_unit_amount ?? 0} per ${rule.per_unit_factor_code ?? 'unit'}`;
+    case 'FORMULA':
+      return rule.formula ?? '—';
+    default:
+      return '—';
   }
 }
 
@@ -134,54 +192,64 @@ function ConditionsPanel({
   rule,
   canUpdate,
 }: {
-  rule: RiskRatingRule
-  canUpdate: boolean
+  rule: RiskRatingRule;
+  canUpdate: boolean;
 }) {
-  const { data: conditions = [], isLoading } = useConditionsByRule(rule.id)
-  const { data: allFactors = [] } = useAllFactors()
-  const createMutation = useCreateCondition()
-  const updateMutation = useUpdateCondition()
-  const deleteMutation = useDeleteCondition()
-  const [deleteItem, setDeleteItem] = useState<RiskRuleCondition | null>(null)
-  const [editingItem, setEditingItem] = useState<RiskRuleCondition | null>(null)
+  const { data: conditions = [], isLoading } = useConditionsByRule(rule.id);
+  const { data: allFactors = [] } = useAllFactors();
+  const createMutation = useCreateCondition();
+  const updateMutation = useUpdateCondition();
+  const deleteMutation = useDeleteCondition();
+  const [deleteItem, setDeleteItem] = useState<RiskRuleCondition | null>(null);
+  const [editingItem, setEditingItem] = useState<RiskRuleCondition | null>(
+    null,
+  );
 
   const condForm = useForm<ConditionFormValues>({
     resolver: zodResolver(conditionSchema),
-    defaultValues: { factor_code: '', operator: 'EQUALS', value_from: '', value_to: '', logical_operator: 'AND' },
-  })
-  const watchedOp = condForm.watch('operator')
-  const isBetween = watchedOp === 'BETWEEN'
+    defaultValues: {
+      factor_code: '',
+      operator: 'EQUALS',
+      value_from: '',
+      value_to: '',
+      logical_operator: 'AND',
+    },
+  });
+  const watchedOp = condForm.watch('operator');
+  const isBetween = watchedOp === 'BETWEEN';
 
   function addCondition(values: ConditionFormValues) {
     const payload = {
       factor_code: values.factor_code,
       operator: values.operator,
       value_from: values.value_from,
-      value_to: isBetween ? values.value_to ?? null : null,
+      value_to: isBetween ? (values.value_to ?? null) : null,
       logical_operator: values.logical_operator,
-    }
+    };
 
     if (editingItem) {
       updateMutation.mutate(
         { id: editingItem.id, ruleId: rule.id, data: payload },
         {
           onSuccess: () => {
-            condForm.reset()
-            setEditingItem(null)
+            condForm.reset();
+            setEditingItem(null);
           },
         },
-      )
+      );
     } else {
       createMutation.mutate(
         { rule_id: rule.id, ...payload },
         { onSuccess: () => condForm.reset() },
-      )
+      );
     }
   }
 
   return (
     <div className="bg-slate-50 px-6 py-4 border-t border-slate-100">
-      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Conditions</p>
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+        Conditions
+      </p>
 
       {isLoading ? (
         <Skeleton className="h-20 w-full" />
@@ -200,21 +268,30 @@ function ConditionsPanel({
           <TableBody>
             {conditions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={canUpdate ? 6 : 5} className="text-center text-xs text-slate-400 py-4">
+                <TableCell
+                  colSpan={canUpdate ? 6 : 5}
+                  className="text-center text-xs text-slate-400 py-4"
+                >
                   No conditions — this rule always applies.
                 </TableCell>
               </TableRow>
             ) : (
               conditions.map((c) => (
                 <TableRow key={c.id} className="hover:bg-slate-100/50">
-                  <TableCell className="font-mono text-xs py-2">{c.factor_code}</TableCell>
+                  <TableCell className="font-mono text-xs py-2">
+                    {c.factor_code}
+                  </TableCell>
                   <TableCell className="text-xs py-2">{c.operator}</TableCell>
                   <TableCell className="text-xs py-2">{c.value_from}</TableCell>
-                  <TableCell className="text-xs py-2">{c.value_to ?? '—'}</TableCell>
-                  <TableCell className="py-2">
-                    <Badge variant="outline" className="text-[10px]">{c.logical_operator}</Badge>
+                  <TableCell className="text-xs py-2">
+                    {c.value_to ?? '—'}
                   </TableCell>
-              {canUpdate && (
+                  <TableCell className="py-2">
+                    <Badge variant="outline" className="text-[10px]">
+                      {c.logical_operator}
+                    </Badge>
+                  </TableCell>
+                  {canUpdate && (
                     <TableCell className="py-2">
                       <div className="flex items-center justify-end gap-1">
                         <Button
@@ -222,14 +299,14 @@ function ConditionsPanel({
                           size="icon"
                           className="h-6 w-6"
                           onClick={() => {
-                            setEditingItem(c)
+                            setEditingItem(c);
                             condForm.reset({
                               factor_code: c.factor_code,
                               operator: c.operator,
                               value_from: c.value_from ?? '',
                               value_to: c.value_to ?? '',
                               logical_operator: c.logical_operator,
-                            })
+                            });
                           }}
                         >
                           <Pencil className="h-3 w-3" />
@@ -255,7 +332,10 @@ function ConditionsPanel({
       {/* Add Condition form */}
       {canUpdate && (
         <Form {...condForm}>
-          <form onSubmit={condForm.handleSubmit(addCondition)} className="mt-3 flex flex-wrap gap-2 items-end">
+          <form
+            onSubmit={condForm.handleSubmit(addCondition)}
+            className="mt-3 flex flex-wrap gap-2 items-end"
+          >
             <FormField
               control={condForm.control}
               name="factor_code"
@@ -264,11 +344,15 @@ function ConditionsPanel({
                   <FormLabel className="text-xs">Factor</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select…" /></SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Select…" />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {allFactors.map((f) => (
-                        <SelectItem key={f.id} value={f.code}>{f.name} ({f.code})</SelectItem>
+                        <SelectItem key={f.id} value={f.code}>
+                          {f.name} ({f.code})
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -283,10 +367,16 @@ function ConditionsPanel({
                   <FormLabel className="text-xs">Operator</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {OPERATORS.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                      {OPERATORS.map((o) => (
+                        <SelectItem key={o} value={o}>
+                          {o}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </FormItem>
@@ -297,8 +387,12 @@ function ConditionsPanel({
               name="value_from"
               render={({ field }) => (
                 <FormItem className="w-28">
-                  <FormLabel className="text-xs">{isBetween ? 'From' : 'Value'}</FormLabel>
-                  <FormControl><Input {...field} className="h-8 text-xs" /></FormControl>
+                  <FormLabel className="text-xs">
+                    {isBetween ? 'From' : 'Value'}
+                  </FormLabel>
+                  <FormControl>
+                    <Input {...field} className="h-8 text-xs" />
+                  </FormControl>
                 </FormItem>
               )}
             />
@@ -309,7 +403,9 @@ function ConditionsPanel({
                 render={({ field }) => (
                   <FormItem className="w-28">
                     <FormLabel className="text-xs">To</FormLabel>
-                    <FormControl><Input {...field} className="h-8 text-xs" /></FormControl>
+                    <FormControl>
+                      <Input {...field} className="h-8 text-xs" />
+                    </FormControl>
                   </FormItem>
                 )}
               />
@@ -322,7 +418,9 @@ function ConditionsPanel({
                   <FormLabel className="text-xs">Logic</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="AND">AND</SelectItem>
@@ -347,8 +445,8 @@ function ConditionsPanel({
                 size="sm"
                 className="h-8 mt-5"
                 onClick={() => {
-                  setEditingItem(null)
-                  condForm.reset()
+                  setEditingItem(null);
+                  condForm.reset();
                 }}
               >
                 Cancel
@@ -360,7 +458,9 @@ function ConditionsPanel({
 
       <ConfirmDialog
         open={!!deleteItem}
-        onOpenChange={(o) => { if (!o) setDeleteItem(null) }}
+        onOpenChange={(o) => {
+          if (!o) setDeleteItem(null);
+        }}
         title="Remove Condition"
         description="Remove this condition from the rule?"
         confirmLabel="Remove"
@@ -370,69 +470,55 @@ function ConditionsPanel({
             deleteMutation.mutate(
               { id: deleteItem.id, ruleId: rule.id },
               { onSuccess: () => setDeleteItem(null) },
-            )
+            );
           }
         }}
       />
     </div>
-  )
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function RatingRulesPage() {
-  const { hasPermission } = useAuthStore()
-  const canCreate = hasPermission('pricing.manage_rules')
-  const canUpdate = hasPermission('pricing.manage_rules')
-  const canDelete = hasPermission('pricing.manage_rules')
+  const { hasPermission } = useAuthStore();
+  const canCreate = hasPermission('pricing.manage_rules');
+  const canUpdate = hasPermission('pricing.manage_rules');
+  const canDelete = hasPermission('pricing.manage_rules');
 
-  const [selectedProductId, setSelectedProductId] = useState('')
-  const [selectedRiskId, setSelectedRiskId] = useState('')
-  const [expandedRuleIds, setExpandedRuleIds] = useState<Set<string>>(new Set())
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [selectedRiskId, setSelectedRiskId] = useState('');
+  const [expandedRuleIds, setExpandedRuleIds] = useState<Set<string>>(
+    new Set(),
+  );
 
-  const { data: products = [] } = useAllActiveProducts()
-  const { data: risks = [] } = useRisksByProduct({ product_id: selectedProductId })
-  const { data: rulesPage, isLoading: rulesLoading } = useRuleList({ risk_id: selectedRiskId || undefined, limit: 100 })
-  const rules = rulesPage?.data ?? []
+  const { data: products = [] } = useAllActiveProducts();
+  const { data: risks = [] } = useRisksByProduct({
+    product_id: selectedProductId,
+  });
+  const { data: rulesPage, isLoading: rulesLoading } = useRuleList({
+    risk_id: selectedRiskId || undefined,
+    limit: 100,
+  });
+  const rules = rulesPage?.data ?? [];
 
-  const { data: allFactors = [] } = useAllFactors()
-  const createMutation = useCreateRule()
-  const updateMutation = useUpdateRule()
-  const deleteMutation = useDeleteRule()
+  const { data: allFactors = [] } = useAllFactors();
+  const createMutation = useCreateRule();
+  const updateMutation = useUpdateRule();
+  const deleteMutation = useDeleteRule();
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editRule, setEditRule] = useState<RiskRatingRule | null>(null)
-  const [deleteRule, setDeleteRule] = useState<RiskRatingRule | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editRule, setEditRule] = useState<RiskRatingRule | null>(null);
+  const [deleteRule, setDeleteRule] = useState<RiskRatingRule | null>(null);
 
   const form = useForm<RuleFormValues>({
     resolver: zodResolver(ruleSchema),
     defaultValues: {
-      rule_name: '', rate_type: 'PERCENTAGE',
-      percentage_rate: null, fixed_amount: null,
-      per_unit_amount: null, per_unit_factor_code: null,
-      minimum_amount: null,
-      max_discount_rate: null,
-      max_discount_amount: null,
-      discount_approval_threshold_rate: null,
-      discount_approval_threshold_amount: null,
-      max_loading_rate: null,
-      max_loading_amount: null,
-      loading_approval_threshold_rate: null,
-      loading_approval_threshold_amount: null,
-      adjustment_effective_from: null,
-      adjustment_effective_to: null,
-      formula: null,
-      priority: 1, is_active: true,
-    },
-  })
-
-  const watchedRateType = form.watch('rate_type')
-
-  function openCreate() {
-    setEditRule(null)
-    form.reset({
-      rule_name: '', rate_type: 'PERCENTAGE',
-      percentage_rate: null, fixed_amount: null, per_unit_amount: null,
+      rule_name: '',
+      rate_type: 'PERCENTAGE',
+      percentage_rate: null,
+      fixed_amount: null,
+      per_unit_amount: null,
       per_unit_factor_code: null,
       minimum_amount: null,
       max_discount_rate: null,
@@ -446,13 +532,42 @@ export function RatingRulesPage() {
       adjustment_effective_from: null,
       adjustment_effective_to: null,
       formula: null,
-      priority: Math.max(1, rules.length + 1), is_active: true,
-    })
-    setDialogOpen(true)
+      priority: 1,
+      is_active: true,
+    },
+  });
+
+  const watchedRateType = form.watch('rate_type');
+
+  function openCreate() {
+    setEditRule(null);
+    form.reset({
+      rule_name: '',
+      rate_type: 'PERCENTAGE',
+      percentage_rate: null,
+      fixed_amount: null,
+      per_unit_amount: null,
+      per_unit_factor_code: null,
+      minimum_amount: null,
+      max_discount_rate: null,
+      max_discount_amount: null,
+      discount_approval_threshold_rate: null,
+      discount_approval_threshold_amount: null,
+      max_loading_rate: null,
+      max_loading_amount: null,
+      loading_approval_threshold_rate: null,
+      loading_approval_threshold_amount: null,
+      adjustment_effective_from: null,
+      adjustment_effective_to: null,
+      formula: null,
+      priority: Math.max(1, rules.length + 1),
+      is_active: true,
+    });
+    setDialogOpen(true);
   }
 
   function openEdit(rule: RiskRatingRule) {
-    setEditRule(rule)
+    setEditRule(rule);
     form.reset({
       rule_name: rule.rule_name,
       rate_type: rule.rate_type,
@@ -484,19 +599,18 @@ export function RatingRulesPage() {
         rule.loading_approval_threshold_rate == null
           ? null
           : displayPercentageFromRate(rule.loading_approval_threshold_rate),
-      loading_approval_threshold_amount:
-        rule.loading_approval_threshold_amount,
+      loading_approval_threshold_amount: rule.loading_approval_threshold_amount,
       adjustment_effective_from: rule.adjustment_effective_from,
       adjustment_effective_to: rule.adjustment_effective_to,
       formula: rule.formula,
       priority: rule.priority,
       is_active: rule.is_active,
-    })
-    setDialogOpen(true)
+    });
+    setDialogOpen(true);
   }
 
   function onSubmit(values: RuleFormValues) {
-    if (!selectedRiskId) return
+    if (!selectedRiskId) return;
     const payload = {
       ...values,
       percentage_rate:
@@ -519,20 +633,27 @@ export function RatingRulesPage() {
         values.loading_approval_threshold_rate == null
           ? null
           : rateFromDisplayPercentage(values.loading_approval_threshold_rate),
-    }
+    };
     if (editRule) {
-      updateMutation.mutate({ id: editRule.id, data: payload }, { onSuccess: () => setDialogOpen(false) })
+      updateMutation.mutate(
+        { id: editRule.id, data: payload },
+        { onSuccess: () => setDialogOpen(false) },
+      );
     } else {
-      createMutation.mutate({ ...payload, risk_id: selectedRiskId }, { onSuccess: () => setDialogOpen(false) })
+      createMutation.mutate(
+        { ...payload, risk_id: selectedRiskId },
+        { onSuccess: () => setDialogOpen(false) },
+      );
     }
   }
 
   function toggleExpand(id: string) {
     setExpandedRuleIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   return (
@@ -555,14 +676,21 @@ export function RatingRulesPage() {
           <p className="text-xs font-medium text-slate-500">Product</p>
           <Select
             value={selectedProductId || 'none'}
-            onValueChange={(v) => { setSelectedProductId(v === 'none' ? '' : v); setSelectedRiskId('') }}
+            onValueChange={(v) => {
+              setSelectedProductId(v === 'none' ? '' : v);
+              setSelectedRiskId('');
+            }}
           >
             <SelectTrigger className="w-56 h-9">
               <SelectValue placeholder="Select product…" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">— Select product —</SelectItem>
-              {products.map((p) => <SelectItem key={p.id} value={p.id}>{p.product_name}</SelectItem>)}
+              {products.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.product_name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -578,7 +706,11 @@ export function RatingRulesPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">— Select risk —</SelectItem>
-              {risks.map((r) => <SelectItem key={r.id} value={r.id}>{r.risk_name} ({r.risk_code})</SelectItem>)}
+              {risks.map((r) => (
+                <SelectItem key={r.id} value={r.id}>
+                  {r.risk_name} ({r.risk_code})
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -587,11 +719,15 @@ export function RatingRulesPage() {
       {/* Rules table */}
       {!selectedRiskId ? (
         <div className="text-center py-16 text-slate-400">
-          <p className="text-sm">Select a product and risk to view its rating rules.</p>
+          <p className="text-sm">
+            Select a product and risk to view its rating rules.
+          </p>
         </div>
       ) : rulesLoading ? (
         <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
         </div>
       ) : (
         <div className="rounded-lg border border-slate-200 overflow-hidden">
@@ -611,7 +747,10 @@ export function RatingRulesPage() {
             <TableBody>
               {rules.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-slate-400 text-sm">
+                  <TableCell
+                    colSpan={8}
+                    className="text-center py-12 text-slate-400 text-sm"
+                  >
                     No rules yet. Click "New Rule" to add one.
                   </TableCell>
                 </TableRow>
@@ -619,9 +758,12 @@ export function RatingRulesPage() {
                 rules
                   .sort((a, b) => a.priority - b.priority)
                   .flatMap((rule) => {
-                    const isExpanded = expandedRuleIds.has(rule.id)
+                    const isExpanded = expandedRuleIds.has(rule.id);
                     return [
-                      <TableRow key={rule.id} className="cursor-pointer hover:bg-slate-50/70">
+                      <TableRow
+                        key={rule.id}
+                        className="cursor-pointer hover:bg-slate-50/70"
+                      >
                         <TableCell className="p-2">
                           <Button
                             variant="ghost"
@@ -629,27 +771,50 @@ export function RatingRulesPage() {
                             className="h-6 w-6"
                             onClick={() => toggleExpand(rule.id)}
                           >
-                            {isExpanded
-                              ? <ChevronDown className="h-3.5 w-3.5" />
-                              : <ChevronRight className="h-3.5 w-3.5" />}
+                            {isExpanded ? (
+                              <ChevronDown className="h-3.5 w-3.5" />
+                            ) : (
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            )}
                           </Button>
                         </TableCell>
-                        <TableCell className="text-sm tabular-nums">{rule.priority}</TableCell>
-                        <TableCell className="font-medium text-sm">{rule.rule_name}</TableCell>
-                        <TableCell><RateTypeBadge type={rule.rate_type} /></TableCell>
-                        <TableCell className="text-sm font-mono">{rateValueSummary(rule)}</TableCell>
-                        <TableCell className="text-sm text-slate-500">
-                          {rule.minimum_amount != null ? rule.minimum_amount : '—'}
+                        <TableCell className="text-sm tabular-nums">
+                          {rule.priority}
+                        </TableCell>
+                        <TableCell className="font-medium text-sm">
+                          {rule.rule_name}
                         </TableCell>
                         <TableCell>
-                          {rule.is_active
-                            ? <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100 text-xs">Active</Badge>
-                            : <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100 text-xs">Inactive</Badge>}
+                          <RateTypeBadge type={rule.rate_type} />
+                        </TableCell>
+                        <TableCell className="text-sm font-mono">
+                          {rateValueSummary(rule)}
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-500">
+                          {rule.minimum_amount != null
+                            ? rule.minimum_amount
+                            : '—'}
+                        </TableCell>
+                        <TableCell>
+                          {rule.is_active ? (
+                            <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100 text-xs">
+                              Active
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100 text-xs">
+                              Inactive
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             {canUpdate && (
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(rule)}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => openEdit(rule)}
+                              >
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
                             )}
@@ -658,9 +823,18 @@ export function RatingRulesPage() {
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7"
-                                onClick={() => updateMutation.mutate({ id: rule.id, data: { is_active: !rule.is_active } })}
+                                onClick={() =>
+                                  updateMutation.mutate({
+                                    id: rule.id,
+                                    data: { is_active: !rule.is_active },
+                                  })
+                                }
                               >
-                                {rule.is_active ? <ToggleLeft className="h-3.5 w-3.5" /> : <ToggleRight className="h-3.5 w-3.5" />}
+                                {rule.is_active ? (
+                                  <ToggleLeft className="h-3.5 w-3.5" />
+                                ) : (
+                                  <ToggleRight className="h-3.5 w-3.5" />
+                                )}
                               </Button>
                             )}
                             {canDelete && (
@@ -677,13 +851,19 @@ export function RatingRulesPage() {
                         </TableCell>
                       </TableRow>,
                       isExpanded && (
-                        <TableRow key={`${rule.id}-conditions`} className="hover:bg-transparent">
+                        <TableRow
+                          key={`${rule.id}-conditions`}
+                          className="hover:bg-transparent"
+                        >
                           <TableCell colSpan={8} className="p-0">
-                            <ConditionsPanel rule={rule} canUpdate={canUpdate} />
+                            <ConditionsPanel
+                              rule={rule}
+                              canUpdate={canUpdate}
+                            />
                           </TableCell>
                         </TableRow>
                       ),
-                    ].filter(Boolean)
+                    ].filter(Boolean);
                   })
               )}
             </TableBody>
@@ -695,7 +875,9 @@ export function RatingRulesPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editRule ? 'Edit Rule' : 'New Rating Rule'}</DialogTitle>
+            <DialogTitle>
+              {editRule ? 'Edit Rule' : 'New Rating Rule'}
+            </DialogTitle>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -704,8 +886,12 @@ export function RatingRulesPage() {
                 name="rule_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Rule Name <span className="text-red-500">*</span></FormLabel>
-                    <FormControl><Input {...field} placeholder="e.g. Base Rate" /></FormControl>
+                    <FormLabel>
+                      Rule Name <span className="text-red-500">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="e.g. Base Rate" />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -716,13 +902,24 @@ export function RatingRulesPage() {
                   name="rate_type"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Rate Type <span className="text-red-500">*</span></FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
+                      <FormLabel>
+                        Rate Type <span className="text-red-500">*</span>
+                      </FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
                         <FormControl>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {RATE_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                          {RATE_TYPES.map((t) => (
+                            <SelectItem key={t} value={t}>
+                              {t}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -740,7 +937,9 @@ export function RatingRulesPage() {
                           type="number"
                           min={1}
                           value={field.value ?? 1}
-                          onChange={(e) => field.onChange(Number(e.target.value))}
+                          onChange={(e) =>
+                            field.onChange(Number(e.target.value))
+                          }
                         />
                       </FormControl>
                       <FormMessage />
@@ -750,9 +949,9 @@ export function RatingRulesPage() {
               </div>
 
               {/* Dynamic fields by rate_type */}
-              {(watchedRateType === 'PERCENTAGE'
-                || watchedRateType === 'PERCENTAGE_PLUS_FIXED'
-                || watchedRateType === 'PERCENTAGE_PLUS_PER_UNIT') && (
+              {(watchedRateType === 'PERCENTAGE' ||
+                watchedRateType === 'PERCENTAGE_PLUS_FIXED' ||
+                watchedRateType === 'PERCENTAGE_PLUS_PER_UNIT') && (
                 <FormField
                   control={form.control}
                   name="percentage_rate"
@@ -765,7 +964,13 @@ export function RatingRulesPage() {
                           step="0.0001"
                           placeholder="e.g. 2.5"
                           value={field.value ?? ''}
-                          onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                          onChange={(e) =>
+                            field.onChange(
+                              e.target.value === ''
+                                ? null
+                                : Number(e.target.value),
+                            )
+                          }
                         />
                       </FormControl>
                       <FormMessage />
@@ -773,7 +978,8 @@ export function RatingRulesPage() {
                   )}
                 />
               )}
-              {(watchedRateType === 'FIXED' || watchedRateType === 'PERCENTAGE_PLUS_FIXED') && (
+              {(watchedRateType === 'FIXED' ||
+                watchedRateType === 'PERCENTAGE_PLUS_FIXED') && (
                 <FormField
                   control={form.control}
                   name="fixed_amount"
@@ -786,7 +992,13 @@ export function RatingRulesPage() {
                           step="0.01"
                           placeholder="e.g. 500"
                           value={field.value ?? ''}
-                          onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                          onChange={(e) =>
+                            field.onChange(
+                              e.target.value === ''
+                                ? null
+                                : Number(e.target.value),
+                            )
+                          }
                         />
                       </FormControl>
                       <FormMessage />
@@ -794,7 +1006,8 @@ export function RatingRulesPage() {
                   )}
                 />
               )}
-              {(watchedRateType === 'PER_UNIT' || watchedRateType === 'PERCENTAGE_PLUS_PER_UNIT') && (
+              {(watchedRateType === 'PER_UNIT' ||
+                watchedRateType === 'PERCENTAGE_PLUS_PER_UNIT') && (
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -807,7 +1020,13 @@ export function RatingRulesPage() {
                             type="number"
                             step="0.01"
                             value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value === ''
+                                  ? null
+                                  : Number(e.target.value),
+                              )
+                            }
                           />
                         </FormControl>
                         <FormMessage />
@@ -820,13 +1039,20 @@ export function RatingRulesPage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Per Unit Factor</FormLabel>
-                        <Select value={field.value ?? ''} onValueChange={(v) => field.onChange(v || null)}>
+                        <Select
+                          value={field.value ?? ''}
+                          onValueChange={(v) => field.onChange(v || null)}
+                        >
                           <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Select factor" /></SelectTrigger>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select factor" />
+                            </SelectTrigger>
                           </FormControl>
                           <SelectContent>
                             {allFactors.map((f) => (
-                              <SelectItem key={f.id} value={f.code}>{f.name} ({f.code})</SelectItem>
+                              <SelectItem key={f.id} value={f.code}>
+                                {f.name} ({f.code})
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -847,13 +1073,18 @@ export function RatingRulesPage() {
                         <Textarea
                           {...field}
                           value={field.value ?? ''}
-                          onChange={(e) => field.onChange(e.target.value || null)}
+                          onChange={(e) =>
+                            field.onChange(e.target.value || null)
+                          }
                           rows={3}
                           placeholder="e.g. 2% + 200,000"
                           className="font-mono text-sm"
                         />
                       </FormControl>
-                      <FormDescription>Legacy shorthand only. Supported examples: 2% + 200,000, 15,000 per seat, 5.5% + 15,000 per seat.</FormDescription>
+                      <FormDescription>
+                        Legacy shorthand only. Supported examples: 2% + 200,000,
+                        15,000 per seat, 5.5% + 15,000 per seat.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -872,7 +1103,13 @@ export function RatingRulesPage() {
                         step="0.01"
                         placeholder="e.g. 100"
                         value={field.value ?? ''}
-                        onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                        onChange={(e) =>
+                          field.onChange(
+                            e.target.value === ''
+                              ? null
+                              : Number(e.target.value),
+                          )
+                        }
                       />
                     </FormControl>
                     <FormMessage />
@@ -881,8 +1118,13 @@ export function RatingRulesPage() {
               />
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-4">
                 <div>
-                  <p className="text-sm font-medium text-slate-900">Discount Controls</p>
-                  <p className="text-xs text-slate-500">Set hard limits and approval thresholds for requested discounts on quotations that use this rule.</p>
+                  <p className="text-sm font-medium text-slate-900">
+                    Discount Controls
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Set hard limits and approval thresholds for requested
+                    discounts on quotations that use this rule.
+                  </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -896,7 +1138,13 @@ export function RatingRulesPage() {
                             type="number"
                             step="0.0001"
                             value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value === ''
+                                  ? null
+                                  : Number(e.target.value),
+                              )
+                            }
                           />
                         </FormControl>
                         <FormMessage />
@@ -914,7 +1162,13 @@ export function RatingRulesPage() {
                             type="number"
                             step="0.01"
                             value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value === ''
+                                  ? null
+                                  : Number(e.target.value),
+                              )
+                            }
                           />
                         </FormControl>
                         <FormMessage />
@@ -932,7 +1186,13 @@ export function RatingRulesPage() {
                             type="number"
                             step="0.0001"
                             value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value === ''
+                                  ? null
+                                  : Number(e.target.value),
+                              )
+                            }
                           />
                         </FormControl>
                         <FormMessage />
@@ -950,7 +1210,13 @@ export function RatingRulesPage() {
                             type="number"
                             step="0.01"
                             value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value === ''
+                                  ? null
+                                  : Number(e.target.value),
+                              )
+                            }
                           />
                         </FormControl>
                         <FormMessage />
@@ -961,8 +1227,13 @@ export function RatingRulesPage() {
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-4">
                 <div>
-                  <p className="text-sm font-medium text-slate-900">Loading Controls</p>
-                  <p className="text-xs text-slate-500">Reserve the same control window for loading requests so future pricing adjustments stay on the same policy model.</p>
+                  <p className="text-sm font-medium text-slate-900">
+                    Loading Controls
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Reserve the same control window for loading requests so
+                    future pricing adjustments stay on the same policy model.
+                  </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
@@ -976,7 +1247,13 @@ export function RatingRulesPage() {
                             type="number"
                             step="0.0001"
                             value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value === ''
+                                  ? null
+                                  : Number(e.target.value),
+                              )
+                            }
                           />
                         </FormControl>
                         <FormMessage />
@@ -994,7 +1271,13 @@ export function RatingRulesPage() {
                             type="number"
                             step="0.01"
                             value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value === ''
+                                  ? null
+                                  : Number(e.target.value),
+                              )
+                            }
                           />
                         </FormControl>
                         <FormMessage />
@@ -1012,7 +1295,13 @@ export function RatingRulesPage() {
                             type="number"
                             step="0.0001"
                             value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value === ''
+                                  ? null
+                                  : Number(e.target.value),
+                              )
+                            }
                           />
                         </FormControl>
                         <FormMessage />
@@ -1030,7 +1319,13 @@ export function RatingRulesPage() {
                             type="number"
                             step="0.01"
                             value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value === ''
+                                  ? null
+                                  : Number(e.target.value),
+                              )
+                            }
                           />
                         </FormControl>
                         <FormMessage />
@@ -1049,7 +1344,9 @@ export function RatingRulesPage() {
                           <Input
                             type="date"
                             value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value || null)}
+                            onChange={(e) =>
+                              field.onChange(e.target.value || null)
+                            }
                           />
                         </FormControl>
                         <FormMessage />
@@ -1066,7 +1363,9 @@ export function RatingRulesPage() {
                           <Input
                             type="date"
                             value={field.value ?? ''}
-                            onChange={(e) => field.onChange(e.target.value || null)}
+                            onChange={(e) =>
+                              field.onChange(e.target.value || null)
+                            }
                           />
                         </FormControl>
                         <FormMessage />
@@ -1081,15 +1380,29 @@ export function RatingRulesPage() {
                 render={({ field }) => (
                   <FormItem className="flex items-center gap-3">
                     <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
                     </FormControl>
                     <FormLabel className="!mt-0">Active</FormLabel>
                   </FormItem>
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    createMutation.isPending || updateMutation.isPending
+                  }
+                >
                   {editRule ? 'Save Changes' : 'Create'}
                 </Button>
               </DialogFooter>
@@ -1100,15 +1413,20 @@ export function RatingRulesPage() {
 
       <ConfirmDialog
         open={!!deleteRule}
-        onOpenChange={(o) => { if (!o) setDeleteRule(null) }}
+        onOpenChange={(o) => {
+          if (!o) setDeleteRule(null);
+        }}
         title="Delete Rule"
         description={`Delete rule "${deleteRule?.rule_name}"? This cannot be undone.`}
         confirmLabel="Delete"
         loading={deleteMutation.isPending}
         onConfirm={() => {
-          if (deleteRule) deleteMutation.mutate(deleteRule.id, { onSuccess: () => setDeleteRule(null) })
+          if (deleteRule)
+            deleteMutation.mutate(deleteRule.id, {
+              onSuccess: () => setDeleteRule(null),
+            });
         }}
       />
     </div>
-  )
+  );
 }

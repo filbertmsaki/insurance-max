@@ -1,39 +1,63 @@
-import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from '@/components/ui/form'
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
-import { categoryAccessApi } from '@/modules/tenant/product-engine/api/category-access'
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { categoryAccessApi } from '@/modules/tenant/product-engine/api/category-access';
 import {
   useAllActiveCategories,
-  useCategoryAccessByBranch, useCategoryAccessByDepartment, useCategoryAccessByUser,
-  useGrantCategoryAccessBranch, useGrantCategoryAccessDepartment, useGrantCategoryAccessUser,
-  useRevokeCategoryAccessBranch, useRevokeCategoryAccessDepartment, useRevokeCategoryAccessUser,
+  useCategoryAccessByBranch,
+  useCategoryAccessByDepartment,
+  useCategoryAccessByUser,
+  useGrantCategoryAccessBranch,
+  useGrantCategoryAccessDepartment,
+  useGrantCategoryAccessUser,
+  useRevokeCategoryAccessBranch,
+  useRevokeCategoryAccessDepartment,
+  useRevokeCategoryAccessUser,
   useDepartments,
-} from '@/modules/tenant/product-engine/hooks'
-import { branchesApi } from '@/modules/tenant/branches/api/branches'
-import { useQuery } from '@tanstack/react-query'
-import type { AccessRecord, AccessStatus } from '@/types/product-engine'
+} from '@/modules/tenant/product-engine/hooks';
+import { branchesApi } from '@/modules/tenant/branches/api/branches';
+import { useQuery } from '@tanstack/react-query';
+import type { AccessRecord, AccessStatus } from '@/types/product-engine';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -42,17 +66,21 @@ const grantSchema = z.object({
   can_view: z.boolean(),
   can_create_policy: z.boolean(),
   access_status: z.enum(['ALLOW', 'DENY']),
-})
-type GrantFormValues = z.infer<typeof grantSchema>
+});
+type GrantFormValues = z.infer<typeof grantSchema>;
 
 // ─── Access badge ─────────────────────────────────────────────────────────────
 
 function AccessStatusBadge({ status }: { status: AccessStatus }) {
   return status === 'ALLOW' ? (
-    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">ALLOW</Badge>
+    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
+      ALLOW
+    </Badge>
   ) : (
-    <Badge className="bg-red-100 text-red-700 border-red-200 hover:bg-red-100">DENY</Badge>
-  )
+    <Badge className="bg-red-100 text-red-700 border-red-200 hover:bg-red-100">
+      DENY
+    </Badge>
+  );
 }
 
 // ─── Access table ─────────────────────────────────────────────────────────────
@@ -64,13 +92,20 @@ function AccessTable({
   canManage,
   entityName,
 }: {
-  records: AccessRecord[]
-  isLoading: boolean
-  onRevoke: (record: AccessRecord) => void
-  canManage: boolean
-  entityName: string
+  records: AccessRecord[];
+  isLoading: boolean;
+  onRevoke: (record: AccessRecord) => void;
+  canManage: boolean;
+  entityName: string;
 }) {
-  if (isLoading) return <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+  if (isLoading)
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-10 w-full" />
+        ))}
+      </div>
+    );
 
   return (
     <div className="rounded-lg border border-slate-200 overflow-hidden">
@@ -87,25 +122,40 @@ function AccessTable({
         <TableBody>
           {records.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={canManage ? 5 : 4} className="text-center py-8 text-slate-400 text-sm">
+              <TableCell
+                colSpan={canManage ? 5 : 4}
+                className="text-center py-8 text-slate-400 text-sm"
+              >
                 No access rules configured for this {entityName}.
               </TableCell>
             </TableRow>
           ) : (
             records.map((r) => (
               <TableRow key={r.id}>
-                <TableCell className="font-medium text-sm">{r.category?.name ?? r.category_id}</TableCell>
-                <TableCell>
-                  {r.can_view
-                    ? <Badge className="bg-green-50 text-green-600 border-green-200 text-xs hover:bg-green-50">Yes</Badge>
-                    : <span className="text-slate-400 text-xs">No</span>}
+                <TableCell className="font-medium text-sm">
+                  {r.category?.name ?? r.category_id}
                 </TableCell>
                 <TableCell>
-                  {r.can_create_policy
-                    ? <Badge className="bg-green-50 text-green-600 border-green-200 text-xs hover:bg-green-50">Yes</Badge>
-                    : <span className="text-slate-400 text-xs">No</span>}
+                  {r.can_view ? (
+                    <Badge className="bg-green-50 text-green-600 border-green-200 text-xs hover:bg-green-50">
+                      Yes
+                    </Badge>
+                  ) : (
+                    <span className="text-slate-400 text-xs">No</span>
+                  )}
                 </TableCell>
-                <TableCell><AccessStatusBadge status={r.access_status} /></TableCell>
+                <TableCell>
+                  {r.can_create_policy ? (
+                    <Badge className="bg-green-50 text-green-600 border-green-200 text-xs hover:bg-green-50">
+                      Yes
+                    </Badge>
+                  ) : (
+                    <span className="text-slate-400 text-xs">No</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <AccessStatusBadge status={r.access_status} />
+                </TableCell>
                 {canManage && (
                   <TableCell>
                     <Button
@@ -124,7 +174,7 @@ function AccessTable({
         </TableBody>
       </Table>
     </div>
-  )
+  );
 }
 
 // ─── Grant dialog ─────────────────────────────────────────────────────────────
@@ -136,26 +186,33 @@ function GrantDialog({
   loading,
   categories,
 }: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onGrant: (values: GrantFormValues) => void
-  loading: boolean
-  categories: { id: string; name: string }[]
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onGrant: (values: GrantFormValues) => void;
+  loading: boolean;
+  categories: { id: string; name: string }[];
 }) {
   const form = useForm<GrantFormValues>({
     resolver: zodResolver(grantSchema),
-    defaultValues: { category_id: '', can_view: true, can_create_policy: false, access_status: 'ALLOW' },
-  })
+    defaultValues: {
+      category_id: '',
+      can_view: true,
+      can_create_policy: false,
+      access_status: 'ALLOW',
+    },
+  });
 
   function onSubmit(values: GrantFormValues) {
-    onGrant(values)
-    form.reset()
+    onGrant(values);
+    form.reset();
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
-        <DialogHeader><DialogTitle>Grant Category Access</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Grant Category Access</DialogTitle>
+        </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -163,13 +220,21 @@ function GrantDialog({
               name="category_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Category <span className="text-red-500">*</span></FormLabel>
+                  <FormLabel>
+                    Category <span className="text-red-500">*</span>
+                  </FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -184,7 +249,9 @@ function GrantDialog({
                   <FormLabel>Access Status</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="ALLOW">ALLOW</SelectItem>
@@ -200,7 +267,12 @@ function GrantDialog({
               name="can_view"
               render={({ field }) => (
                 <FormItem className="flex items-center gap-3">
-                  <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
                   <FormLabel className="!mt-0">Can View</FormLabel>
                 </FormItem>
               )}
@@ -210,48 +282,77 @@ function GrantDialog({
               name="can_create_policy"
               render={({ field }) => (
                 <FormItem className="flex items-center gap-3">
-                  <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
                   <FormLabel className="!mt-0">Can Create Policy</FormLabel>
                 </FormItem>
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button type="submit" disabled={loading}>Grant Access</Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                Grant Access
+              </Button>
             </DialogFooter>
           </form>
         </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 // ─── Branch tab ───────────────────────────────────────────────────────────────
 
-function BranchTab({ canManage, categories }: { canManage: boolean; categories: { id: string; name: string }[] }) {
+function BranchTab({
+  canManage,
+  categories,
+}: {
+  canManage: boolean;
+  categories: { id: string; name: string }[];
+}) {
   const { data: branches = [] } = useQuery({
     queryKey: ['branches-list'],
     queryFn: branchesApi.getAllBranches,
     staleTime: 60_000,
-  })
-  const [selectedId, setSelectedId] = useState('')
-  const [grantOpen, setGrantOpen] = useState(false)
-  const [revokeItem, setRevokeItem] = useState<AccessRecord | null>(null)
+  });
+  const [selectedId, setSelectedId] = useState('');
+  const [grantOpen, setGrantOpen] = useState(false);
+  const [revokeItem, setRevokeItem] = useState<AccessRecord | null>(null);
 
-  const { data: records = [], isLoading } = useCategoryAccessByBranch(selectedId)
-  const grantMutation = useGrantCategoryAccessBranch()
-  const revokeMutation = useRevokeCategoryAccessBranch()
+  const { data: records = [], isLoading } =
+    useCategoryAccessByBranch(selectedId);
+  const grantMutation = useGrantCategoryAccessBranch();
+  const revokeMutation = useRevokeCategoryAccessBranch();
 
   return (
     <div className="space-y-4">
       <div className="flex items-end gap-3">
         <div className="space-y-1 flex-1">
           <p className="text-xs font-medium text-slate-500">Select Branch</p>
-          <Select value={selectedId || 'none'} onValueChange={(v) => setSelectedId(v === 'none' ? '' : v)}>
-            <SelectTrigger className="h-9 w-64"><SelectValue placeholder="Choose a branch…" /></SelectTrigger>
+          <Select
+            value={selectedId || 'none'}
+            onValueChange={(v) => setSelectedId(v === 'none' ? '' : v)}
+          >
+            <SelectTrigger className="h-9 w-64">
+              <SelectValue placeholder="Choose a branch…" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">— Choose branch —</SelectItem>
-              {branches.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              {branches.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -277,45 +378,74 @@ function BranchTab({ canManage, categories }: { canManage: boolean; categories: 
         onOpenChange={setGrantOpen}
         categories={categories}
         loading={grantMutation.isPending}
-        onGrant={(v) => grantMutation.mutate({ ...v, branch_id: selectedId }, { onSuccess: () => setGrantOpen(false) })}
+        onGrant={(v) =>
+          grantMutation.mutate(
+            { ...v, branch_id: selectedId },
+            { onSuccess: () => setGrantOpen(false) },
+          )
+        }
       />
       <ConfirmDialog
         open={!!revokeItem}
-        onOpenChange={(o) => { if (!o) setRevokeItem(null) }}
+        onOpenChange={(o) => {
+          if (!o) setRevokeItem(null);
+        }}
         title="Revoke Access"
         description="Revoke this category access for the branch?"
         confirmLabel="Revoke"
         loading={revokeMutation.isPending}
         onConfirm={() => {
-          if (revokeItem) revokeMutation.mutate({ id: revokeItem.id, branchId: selectedId }, { onSuccess: () => setRevokeItem(null) })
+          if (revokeItem)
+            revokeMutation.mutate(
+              { id: revokeItem.id, branchId: selectedId },
+              { onSuccess: () => setRevokeItem(null) },
+            );
         }}
       />
     </div>
-  )
+  );
 }
 
 // ─── Department tab ───────────────────────────────────────────────────────────
 
-function DepartmentTab({ canManage, categories }: { canManage: boolean; categories: { id: string; name: string }[] }) {
-  const { data: departments = [] } = useDepartments()
-  const [selectedId, setSelectedId] = useState('')
-  const [grantOpen, setGrantOpen] = useState(false)
-  const [revokeItem, setRevokeItem] = useState<AccessRecord | null>(null)
+function DepartmentTab({
+  canManage,
+  categories,
+}: {
+  canManage: boolean;
+  categories: { id: string; name: string }[];
+}) {
+  const { data: departments = [] } = useDepartments();
+  const [selectedId, setSelectedId] = useState('');
+  const [grantOpen, setGrantOpen] = useState(false);
+  const [revokeItem, setRevokeItem] = useState<AccessRecord | null>(null);
 
-  const { data: records = [], isLoading } = useCategoryAccessByDepartment(selectedId)
-  const grantMutation = useGrantCategoryAccessDepartment()
-  const revokeMutation = useRevokeCategoryAccessDepartment()
+  const { data: records = [], isLoading } =
+    useCategoryAccessByDepartment(selectedId);
+  const grantMutation = useGrantCategoryAccessDepartment();
+  const revokeMutation = useRevokeCategoryAccessDepartment();
 
   return (
     <div className="space-y-4">
       <div className="flex items-end gap-3">
         <div className="space-y-1 flex-1">
-          <p className="text-xs font-medium text-slate-500">Select Department</p>
-          <Select value={selectedId || 'none'} onValueChange={(v) => setSelectedId(v === 'none' ? '' : v)}>
-            <SelectTrigger className="h-9 w-64"><SelectValue placeholder="Choose a department…" /></SelectTrigger>
+          <p className="text-xs font-medium text-slate-500">
+            Select Department
+          </p>
+          <Select
+            value={selectedId || 'none'}
+            onValueChange={(v) => setSelectedId(v === 'none' ? '' : v)}
+          >
+            <SelectTrigger className="h-9 w-64">
+              <SelectValue placeholder="Choose a department…" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">— Choose department —</SelectItem>
-              {departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+              {departments.map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -341,34 +471,52 @@ function DepartmentTab({ canManage, categories }: { canManage: boolean; categori
         onOpenChange={setGrantOpen}
         categories={categories}
         loading={grantMutation.isPending}
-        onGrant={(v) => grantMutation.mutate({ ...v, department_id: selectedId }, { onSuccess: () => setGrantOpen(false) })}
+        onGrant={(v) =>
+          grantMutation.mutate(
+            { ...v, department_id: selectedId },
+            { onSuccess: () => setGrantOpen(false) },
+          )
+        }
       />
       <ConfirmDialog
         open={!!revokeItem}
-        onOpenChange={(o) => { if (!o) setRevokeItem(null) }}
+        onOpenChange={(o) => {
+          if (!o) setRevokeItem(null);
+        }}
         title="Revoke Access"
         description="Revoke this category access for the department?"
         confirmLabel="Revoke"
         loading={revokeMutation.isPending}
         onConfirm={() => {
-          if (revokeItem) revokeMutation.mutate({ id: revokeItem.id, deptId: selectedId }, { onSuccess: () => setRevokeItem(null) })
+          if (revokeItem)
+            revokeMutation.mutate(
+              { id: revokeItem.id, deptId: selectedId },
+              { onSuccess: () => setRevokeItem(null) },
+            );
         }}
       />
     </div>
-  )
+  );
 }
 
 // ─── User tab ─────────────────────────────────────────────────────────────────
 
-function UserTab({ canManage, categories }: { canManage: boolean; categories: { id: string; name: string }[] }) {
-  const [companyUserId, setCompanyUserId] = useState('')
-  const [grantOpen, setGrantOpen] = useState(false)
-  const [revokeItem, setRevokeItem] = useState<AccessRecord | null>(null)
-  const [inputValue, setInputValue] = useState('')
+function UserTab({
+  canManage,
+  categories,
+}: {
+  canManage: boolean;
+  categories: { id: string; name: string }[];
+}) {
+  const [companyUserId, setCompanyUserId] = useState('');
+  const [grantOpen, setGrantOpen] = useState(false);
+  const [revokeItem, setRevokeItem] = useState<AccessRecord | null>(null);
+  const [inputValue, setInputValue] = useState('');
 
-  const { data: records = [], isLoading } = useCategoryAccessByUser(companyUserId)
-  const grantMutation = useGrantCategoryAccessUser()
-  const revokeMutation = useRevokeCategoryAccessUser()
+  const { data: records = [], isLoading } =
+    useCategoryAccessByUser(companyUserId);
+  const grantMutation = useGrantCategoryAccessUser();
+  const revokeMutation = useRevokeCategoryAccessUser();
 
   return (
     <div className="space-y-4">
@@ -381,9 +529,16 @@ function UserTab({ canManage, categories }: { canManage: boolean; categories: { 
               placeholder="Enter company user ID…"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') setCompanyUserId(inputValue.trim()) }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') setCompanyUserId(inputValue.trim());
+              }}
             />
-            <Button variant="outline" size="sm" className="h-9" onClick={() => setCompanyUserId(inputValue.trim())}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9"
+              onClick={() => setCompanyUserId(inputValue.trim())}
+            >
               Load
             </Button>
           </div>
@@ -410,43 +565,63 @@ function UserTab({ canManage, categories }: { canManage: boolean; categories: { 
         onOpenChange={setGrantOpen}
         categories={categories}
         loading={grantMutation.isPending}
-        onGrant={(v) => grantMutation.mutate({ ...v, company_user_id: companyUserId }, { onSuccess: () => setGrantOpen(false) })}
+        onGrant={(v) =>
+          grantMutation.mutate(
+            { ...v, company_user_id: companyUserId },
+            { onSuccess: () => setGrantOpen(false) },
+          )
+        }
       />
       <ConfirmDialog
         open={!!revokeItem}
-        onOpenChange={(o) => { if (!o) setRevokeItem(null) }}
+        onOpenChange={(o) => {
+          if (!o) setRevokeItem(null);
+        }}
         title="Revoke Access"
         description="Revoke this category access for the user?"
         confirmLabel="Revoke"
         loading={revokeMutation.isPending}
         onConfirm={() => {
-          if (revokeItem) revokeMutation.mutate({ id: revokeItem.id, userId: companyUserId }, { onSuccess: () => setRevokeItem(null) })
+          if (revokeItem)
+            revokeMutation.mutate(
+              { id: revokeItem.id, userId: companyUserId },
+              { onSuccess: () => setRevokeItem(null) },
+            );
         }}
       />
     </div>
-  )
+  );
 }
 
 // ─── Resolve Panel ────────────────────────────────────────────────────────────
 
-function ResolvePanel({ categories }: { categories: { id: string; name: string }[] }) {
-  const [open, setOpen] = useState(false)
-  const [result, setResult] = useState<unknown>(null)
-  const [form, setForm] = useState({ company_user_id: '', branch_id: '', department_id: '', category_id: '' })
-  const [loading, setLoading] = useState(false)
+function ResolvePanel({
+  categories,
+}: {
+  categories: { id: string; name: string }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [result, setResult] = useState<unknown>(null);
+  const [form, setForm] = useState({
+    company_user_id: '',
+    branch_id: '',
+    department_id: '',
+    category_id: '',
+  });
+  const [loading, setLoading] = useState(false);
 
   async function resolve() {
-    setLoading(true)
+    setLoading(true);
     try {
       const res = await categoryAccessApi.resolve({
         company_user_id: form.company_user_id,
         branch_id: form.branch_id || undefined,
         department_id: form.department_id || undefined,
         category_id: form.category_id || undefined,
-      })
-      setResult(res)
+      });
+      setResult(res);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -457,48 +632,76 @@ function ResolvePanel({ categories }: { categories: { id: string; name: string }
         onClick={() => setOpen((v) => !v)}
       >
         Resolve Access
-        {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        {open ? (
+          <ChevronUp className="h-4 w-4" />
+        ) : (
+          <ChevronDown className="h-4 w-4" />
+        )}
       </button>
       {open && (
         <div className="px-4 pb-4 space-y-3 border-t border-slate-100">
           <div className="grid grid-cols-2 gap-3 pt-3">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">Company User ID *</label>
+              <label className="text-xs font-medium text-slate-600">
+                Company User ID *
+              </label>
               <input
                 className="h-8 w-full rounded border border-slate-300 px-2 text-xs"
                 value={form.company_user_id}
-                onChange={(e) => setForm((f) => ({ ...f, company_user_id: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, company_user_id: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">Category</label>
+              <label className="text-xs font-medium text-slate-600">
+                Category
+              </label>
               <select
                 className="h-8 w-full rounded border border-slate-300 px-2 text-xs bg-white"
                 value={form.category_id}
-                onChange={(e) => setForm((f) => ({ ...f, category_id: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, category_id: e.target.value }))
+                }
               >
                 <option value="">Any</option>
-                {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">Branch ID (optional)</label>
+              <label className="text-xs font-medium text-slate-600">
+                Branch ID (optional)
+              </label>
               <input
                 className="h-8 w-full rounded border border-slate-300 px-2 text-xs"
                 value={form.branch_id}
-                onChange={(e) => setForm((f) => ({ ...f, branch_id: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, branch_id: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">Department ID (optional)</label>
+              <label className="text-xs font-medium text-slate-600">
+                Department ID (optional)
+              </label>
               <input
                 className="h-8 w-full rounded border border-slate-300 px-2 text-xs"
                 value={form.department_id}
-                onChange={(e) => setForm((f) => ({ ...f, department_id: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, department_id: e.target.value }))
+                }
               />
             </div>
           </div>
-          <Button size="sm" onClick={resolve} disabled={loading || !form.company_user_id}>
+          <Button
+            size="sm"
+            onClick={resolve}
+            disabled={loading || !form.company_user_id}
+          >
             {loading ? 'Resolving…' : 'Resolve'}
           </Button>
           {result ? (
@@ -509,15 +712,15 @@ function ResolvePanel({ categories }: { categories: { id: string; name: string }
         </div>
       )}
     </div>
-  )
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function CategoryAccessPage() {
-  const { hasPermission } = useAuthStore()
-  const canManage = hasPermission('category-access:manage')
-  const { data: categories = [] } = useAllActiveCategories()
+  const { hasPermission } = useAuthStore();
+  const canManage = hasPermission('category-access:manage');
+  const { data: categories = [] } = useAllActiveCategories();
 
   return (
     <div className="p-6 space-y-6">
@@ -545,5 +748,5 @@ export function CategoryAccessPage() {
 
       <ResolvePanel categories={categories} />
     </div>
-  )
+  );
 }

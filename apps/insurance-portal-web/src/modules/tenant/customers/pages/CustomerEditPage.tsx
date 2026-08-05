@@ -26,7 +26,10 @@ export function CustomerEditPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Customer not found</p>
-        <Button variant="link" onClick={() => navigate(underwritingPaths.customers)}>
+        <Button
+          variant="link"
+          onClick={() => navigate(underwritingPaths.customers)}
+        >
           Back to Customers
         </Button>
       </div>
@@ -36,13 +39,16 @@ export function CustomerEditPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(underwritingPaths.customerDetail(customer.id))}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() =>
+            navigate(underwritingPaths.customerDetail(customer.id))
+          }
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <PageHeader
-          title="Edit Customer"
-          description={customer.customer_no}
-        />
+        <PageHeader title="Edit Customer" description={customer.customer_no} />
       </div>
 
       <CustomerForm
@@ -51,7 +57,8 @@ export function CustomerEditPage() {
         submitLabel="Save Changes"
         onSubmit={(values) =>
           updateMutation.mutate(values, {
-            onSuccess: () => navigate(underwritingPaths.customerDetail(customer.id)),
+            onSuccess: () =>
+              navigate(underwritingPaths.customerDetail(customer.id)),
           })
         }
       />

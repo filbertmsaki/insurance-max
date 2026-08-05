@@ -85,7 +85,9 @@ export function CustomersTable({
       key: 'phone',
       defaultVisible: false,
       header: 'Phone',
-      cell: (row) => <span className="text-sm text-slate-600">{row.phone}</span>,
+      cell: (row) => (
+        <span className="text-sm text-slate-600">{row.phone}</span>
+      ),
     },
     {
       key: 'kyc_status',
@@ -108,7 +110,9 @@ export function CustomersTable({
       key: 'email',
       defaultVisible: false,
       header: 'Email',
-      cell: (row) => <span className="text-sm text-slate-600">{row.email ?? ' - '}</span>,
+      cell: (row) => (
+        <span className="text-sm text-slate-600">{row.email ?? ' - '}</span>
+      ),
     },
     {
       key: 'created_at',
@@ -132,7 +136,9 @@ export function CustomersTable({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
-            <DropdownMenuItem onClick={() => navigate(underwritingPaths.customerDetail(row.id))}>
+            <DropdownMenuItem
+              onClick={() => navigate(underwritingPaths.customerDetail(row.id))}
+            >
               <Eye className="mr-2 h-4 w-4" />
               View Details
             </DropdownMenuItem>
@@ -151,7 +157,10 @@ export function CustomersTable({
             {canDelete && onDelete && (
               <>
                 {(canEdit || canRestore) && <DropdownMenuSeparator />}
-                <DropdownMenuItem onClick={() => onDelete(row)} className="text-red-600 focus:text-red-600">
+                <DropdownMenuItem
+                  onClick={() => onDelete(row)}
+                  className="text-red-600 focus:text-red-600"
+                >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
                 </DropdownMenuItem>

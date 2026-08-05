@@ -3,7 +3,13 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { useBillingCustomers, useBillingPolicies, useBillingQuotations, useInvoiceDetail, useUpdateInvoice } from '../hooks';
+import {
+  useBillingCustomers,
+  useBillingPolicies,
+  useBillingQuotations,
+  useInvoiceDetail,
+  useUpdateInvoice,
+} from '../hooks';
 import { InvoiceForm } from '../components/InvoiceForm';
 
 export function InvoiceEditPage() {
@@ -21,7 +27,9 @@ export function InvoiceEditPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Invoice not found</p>
-        <Button variant="link" onClick={() => navigate('/billing/invoices')}>Back to Invoices</Button>
+        <Button variant="link" onClick={() => navigate('/billing/invoices')}>
+          Back to Invoices
+        </Button>
       </div>
     );
   }
@@ -29,7 +37,11 @@ export function InvoiceEditPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/billing/invoices/${invoice.id}`)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(`/billing/invoices/${invoice.id}`)}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <PageHeader title="Edit Invoice" description={invoice.invoice_no} />
@@ -62,9 +74,12 @@ export function InvoiceEditPage() {
           status: invoice.status,
           due_date: invoice.due_date ?? '',
         }}
-        onSubmit={(values) => updateMutation.mutate(values, { onSuccess: () => navigate(`/billing/invoices/${invoice.id}`) })}
+        onSubmit={(values) =>
+          updateMutation.mutate(values, {
+            onSuccess: () => navigate(`/billing/invoices/${invoice.id}`),
+          })
+        }
       />
     </div>
   );
 }
-

@@ -21,7 +21,11 @@ const classes: Record<string, string> = {
   UNKNOWN: 'bg-slate-100 text-slate-600 border-slate-200',
 };
 
-export function TiramisStatusBadge({ status }: { status: TiramisSubmissionStatus | string }) {
+export function TiramisStatusBadge({
+  status,
+}: {
+  status: TiramisSubmissionStatus | string;
+}) {
   const normalized = String(status || 'UNKNOWN').toUpperCase();
   return (
     <Badge variant="outline" className={classes[normalized] ?? classes.UNKNOWN}>
@@ -29,4 +33,3 @@ export function TiramisStatusBadge({ status }: { status: TiramisSubmissionStatus
     </Badge>
   );
 }
-

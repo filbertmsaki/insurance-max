@@ -1,16 +1,39 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Pencil, Trash2, RotateCcw, UserCircle2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Pencil,
+  Trash2,
+  RotateCcw,
+  UserCircle2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { CustomerStatusBadge } from '../components/CustomerStatusBadge';
-import { useCustomer, useDeleteCustomer, useRestoreCustomer, getCustomerDisplayName } from '../hooks';
+import {
+  useCustomer,
+  useDeleteCustomer,
+  useRestoreCustomer,
+  getCustomerDisplayName,
+} from '../hooks';
 
-function DetailRow({ label, value }: { label: string; value: string | number | null | undefined }) {
+function DetailRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number | null | undefined;
+}) {
   return (
     <div className="flex items-start gap-3">
       <span className="min-w-36 text-sm text-slate-500">{label}</span>
@@ -42,7 +65,10 @@ export function CustomerDetailPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Customer not found</p>
-        <Button variant="link" onClick={() => navigate(underwritingPaths.customers)}>
+        <Button
+          variant="link"
+          onClick={() => navigate(underwritingPaths.customers)}
+        >
           Back to Customers
         </Button>
       </div>
@@ -55,7 +81,11 @@ export function CustomerDetailPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate(underwritingPaths.customers)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(underwritingPaths.customers)}
+          >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="h-11 w-11 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -63,24 +93,45 @@ export function CustomerDetailPage() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold text-slate-900">{customerName}</h1>
+              <h1 className="text-xl font-semibold text-slate-900">
+                {customerName}
+              </h1>
               <CustomerStatusBadge status={customer.status} />
-              <Badge variant="outline">{customer.customer_type.replace(/_/g, ' ')}</Badge>
+              <Badge variant="outline">
+                {customer.customer_type.replace(/_/g, ' ')}
+              </Badge>
             </div>
-            <code className="text-xs text-slate-400">{customer.customer_no}</code>
+            <code className="text-xs text-slate-400">
+              {customer.customer_no}
+            </code>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => navigate(underwritingPaths.customerEdit(customer.id))}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              navigate(underwritingPaths.customerEdit(customer.id))
+            }
+          >
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             Edit
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setRestoreOpen(true)} disabled={customer.status === 'ACTIVE'}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setRestoreOpen(true)}
+            disabled={customer.status === 'ACTIVE'}
+          >
             <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
             Restore
           </Button>
-          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setDeleteOpen(true)}
+          >
             <Trash2 className="mr-1.5 h-3.5 w-3.5" />
             Delete
           </Button>
@@ -91,13 +142,24 @@ export function CustomerDetailPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Overview</CardTitle>
-            <CardDescription>Core customer identity and policy holder information.</CardDescription>
+            <CardDescription>
+              Core customer identity and policy holder information.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <DetailRow label="Customer No." value={customer.customer_no} />
-            <DetailRow label="Type" value={customer.customer_type.replace(/_/g, ' ')} />
-            <DetailRow label="Status" value={customer.status.replace(/_/g, ' ')} />
-            <DetailRow label="KYC Status" value={customer.kyc_status.replace(/_/g, ' ')} />
+            <DetailRow
+              label="Type"
+              value={customer.customer_type.replace(/_/g, ' ')}
+            />
+            <DetailRow
+              label="Status"
+              value={customer.status.replace(/_/g, ' ')}
+            />
+            <DetailRow
+              label="KYC Status"
+              value={customer.kyc_status.replace(/_/g, ' ')}
+            />
             <DetailRow label="ID Type" value={customer.id_type ?? ' - '} />
             <DetailRow label="ID Number" value={customer.id_number} />
           </CardContent>
@@ -110,7 +172,10 @@ export function CustomerDetailPage() {
           <CardContent className="space-y-3">
             <DetailRow label="Phone" value={customer.phone} />
             <DetailRow label="Email" value={customer.email} />
-            <DetailRow label="Alternate Phone" value={customer.alternate_phone} />
+            <DetailRow
+              label="Alternate Phone"
+              value={customer.alternate_phone}
+            />
             <DetailRow label="Contact Name" value={customer.contact_name} />
             <DetailRow label="Contact Role" value={customer.contact_role} />
             <DetailRow label="Contact Phone" value={customer.contact_phone} />
@@ -135,7 +200,9 @@ export function CustomerDetailPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Corporate / Personal Details</CardTitle>
+            <CardTitle className="text-base">
+              Corporate / Personal Details
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {customer.customer_type === 'INDIVIDUAL' ? (
@@ -144,14 +211,23 @@ export function CustomerDetailPage() {
                 <DetailRow label="Middle Name" value={customer.middle_name} />
                 <DetailRow label="Last Name" value={customer.last_name} />
                 <DetailRow label="Gender" value={customer.gender} />
-                <DetailRow label="Date of Birth" value={customer.date_of_birth} />
+                <DetailRow
+                  label="Date of Birth"
+                  value={customer.date_of_birth}
+                />
                 <DetailRow label="Nationality" value={customer.nationality} />
               </>
             ) : (
               <>
                 <DetailRow label="Company Name" value={customer.company_name} />
-                <DetailRow label="Registration No." value={customer.registration_no} />
-                <DetailRow label="Incorporation Cert No." value={customer.incorporation_certificate_no} />
+                <DetailRow
+                  label="Registration No."
+                  value={customer.registration_no}
+                />
+                <DetailRow
+                  label="Incorporation Cert No."
+                  value={customer.incorporation_certificate_no}
+                />
                 <DetailRow label="TIN" value={customer.tin} />
                 <DetailRow label="VRN" value={customer.vrn} />
               </>
@@ -167,10 +243,22 @@ export function CustomerDetailPage() {
         <CardContent className="grid gap-3 md:grid-cols-2">
           <DetailRow label="Document Type" value={customer.document_type} />
           <DetailRow label="Document No." value={customer.document_no} />
-          <DetailRow label="Document File Name" value={customer.document_file_name} />
-          <DetailRow label="Document Mime Type" value={customer.document_mime_type} />
-          <DetailRow label="Document Verified" value={customer.document_verified ? 'Yes' : 'No'} />
-          <DetailRow label="Document Verified At" value={customer.document_verified_at} />
+          <DetailRow
+            label="Document File Name"
+            value={customer.document_file_name}
+          />
+          <DetailRow
+            label="Document Mime Type"
+            value={customer.document_mime_type}
+          />
+          <DetailRow
+            label="Document Verified"
+            value={customer.document_verified ? 'Yes' : 'No'}
+          />
+          <DetailRow
+            label="Document Verified At"
+            value={customer.document_verified_at}
+          />
         </CardContent>
       </Card>
 
@@ -182,7 +270,9 @@ export function CustomerDetailPage() {
         confirmLabel="Delete Customer"
         loading={deleteMutation.isPending}
         onConfirm={() =>
-          deleteMutation.mutate(customer.id, { onSuccess: () => navigate(underwritingPaths.customers) })
+          deleteMutation.mutate(customer.id, {
+            onSuccess: () => navigate(underwritingPaths.customers),
+          })
         }
       />
 
@@ -194,7 +284,9 @@ export function CustomerDetailPage() {
         confirmLabel="Restore Customer"
         loading={restoreMutation.isPending}
         onConfirm={() =>
-          restoreMutation.mutate(customer.id, { onSuccess: () => setRestoreOpen(false) })
+          restoreMutation.mutate(customer.id, {
+            onSuccess: () => setRestoreOpen(false),
+          })
         }
       />
     </div>

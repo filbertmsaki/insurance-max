@@ -1,11 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
-import { format } from 'date-fns'
-import { Shield, Trash2, Smartphone, Monitor, Laptop } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { Shield, Trash2, Smartphone, Monitor, Laptop } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -13,68 +13,73 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { devicesApi } from '@/modules/shared/devices/api/devices'
-import { getApiErrorMessage } from '@/lib/api-error'
-import { useState } from 'react'
-import type { Device } from '@/types'
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { devicesApi } from '@/modules/shared/devices/api/devices';
+import { getApiErrorMessage } from '@/lib/api-error';
+import { useState } from 'react';
+import type { Device } from '@/types';
 
 function DeviceIcon({ type }: { type: string | null }) {
-  if (type?.toLowerCase().includes('mobile') || type?.toLowerCase().includes('phone')) {
-    return <Smartphone className="h-8 w-8 text-slate-400" />
+  if (
+    type?.toLowerCase().includes('mobile') ||
+    type?.toLowerCase().includes('phone')
+  ) {
+    return <Smartphone className="h-8 w-8 text-slate-400" />;
   }
   if (type?.toLowerCase().includes('tablet')) {
-    return <Monitor className="h-8 w-8 text-slate-400" />
+    return <Monitor className="h-8 w-8 text-slate-400" />;
   }
-  return <Laptop className="h-8 w-8 text-slate-400" />
+  return <Laptop className="h-8 w-8 text-slate-400" />;
 }
 
 export function DevicesPage() {
-  const queryClient = useQueryClient()
-  const [removeId, setRemoveId] = useState<string | null>(null)
-  const [trustDeviceId, setTrustDeviceId] = useState<string | null>(null)
-  const [trustCode, setTrustCode] = useState('')
-  const [trustError, setTrustError] = useState<string | null>(null)
+  const queryClient = useQueryClient();
+  const [removeId, setRemoveId] = useState<string | null>(null);
+  const [trustDeviceId, setTrustDeviceId] = useState<string | null>(null);
+  const [trustCode, setTrustCode] = useState('');
+  const [trustError, setTrustError] = useState<string | null>(null);
 
   const { data: devices, isLoading } = useQuery({
     queryKey: ['devices'],
     queryFn: devicesApi.getDevices,
-  })
+  });
 
   const trustMutation = useMutation({
     mutationFn: ({ id, code }: { id: string; code: string }) =>
       devicesApi.trustDevice(id, code),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['devices'] })
-      setTrustDeviceId(null)
-      setTrustCode('')
-      setTrustError(null)
-      toast.success('Device trusted')
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      setTrustDeviceId(null);
+      setTrustCode('');
+      setTrustError(null);
+      toast.success('Device trusted');
     },
     onError: (error) => {
-      setTrustError(getApiErrorMessage(error))
+      setTrustError(getApiErrorMessage(error));
     },
-  })
+  });
 
   const removeMutation = useMutation({
     mutationFn: devicesApi.removeDevice,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['devices'] })
-      setRemoveId(null)
-      toast.success('Device removed')
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      setRemoveId(null);
+      toast.success('Device removed');
     },
-  })
+  });
 
   if (isLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-48" />
-        {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28 w-full" />)}
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-28 w-full" />
+        ))}
       </div>
-    )
+    );
   }
 
   return (
@@ -101,7 +106,10 @@ export function DevicesPage() {
                         {device.device_name ?? 'Unknown Device'}
                       </h3>
                       {device.trusted && (
-                        <Badge variant="success" className="text-xs flex items-center gap-1">
+                        <Badge
+                          variant="success"
+                          className="text-xs flex items-center gap-1"
+                        >
                           <Shield className="h-3 w-3" /> Trusted
                         </Badge>
                       )}
@@ -110,11 +118,16 @@ export function DevicesPage() {
                       {[device.os, device.browser].filter(Boolean).join(' · ')}
                     </p>
                     <p className="text-xs text-slate-400 mt-1">
-                      Last used: {format(new Date(device.last_used_at), 'MMM d, yyyy HH:mm')}
+                      Last used:{' '}
+                      {format(
+                        new Date(device.last_used_at),
+                        'MMM d, yyyy HH:mm',
+                      )}
                     </p>
                     {device.trusted_at && (
                       <p className="text-xs text-slate-400">
-                        Trusted since: {format(new Date(device.trusted_at), 'MMM d, yyyy')}
+                        Trusted since:{' '}
+                        {format(new Date(device.trusted_at), 'MMM d, yyyy')}
                       </p>
                     )}
                   </div>
@@ -123,9 +136,9 @@ export function DevicesPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        setTrustDeviceId(device.id)
-                        setTrustCode('')
-                        setTrustError(null)
+                        setTrustDeviceId(device.id);
+                        setTrustCode('');
+                        setTrustError(null);
                       }}
                       disabled={device.trusted}
                     >
@@ -162,9 +175,9 @@ export function DevicesPage() {
         open={!!trustDeviceId}
         onOpenChange={(o) => {
           if (!o) {
-            setTrustDeviceId(null)
-            setTrustCode('')
-            setTrustError(null)
+            setTrustDeviceId(null);
+            setTrustCode('');
+            setTrustError(null);
           }
         }}
       >
@@ -183,9 +196,7 @@ export function DevicesPage() {
               className="font-mono"
               autoFocus
             />
-            {trustError && (
-              <p className="text-sm text-red-600">{trustError}</p>
-            )}
+            {trustError && <p className="text-sm text-red-600">{trustError}</p>}
           </div>
           <DialogFooter>
             <Button
@@ -199,7 +210,9 @@ export function DevicesPage() {
               onClick={() =>
                 trustMutation.mutate({ id: trustDeviceId!, code: trustCode })
               }
-              disabled={trustMutation.isPending || trustCode.trim().length === 0}
+              disabled={
+                trustMutation.isPending || trustCode.trim().length === 0
+              }
             >
               {trustMutation.isPending ? 'Verifying...' : 'Confirm'}
             </Button>
@@ -207,5 +220,5 @@ export function DevicesPage() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }

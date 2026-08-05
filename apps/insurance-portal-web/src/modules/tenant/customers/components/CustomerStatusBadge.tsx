@@ -9,8 +9,6 @@ const STATUS_STYLES: Record<CustomerStatus, string> = {
 
 export function CustomerStatusBadge({ status }: { status: CustomerStatus }) {
   return (
-    <Badge className={STATUS_STYLES[status]}>
-      {status.replace(/_/g, ' ')}
-    </Badge>
+    <Badge className={STATUS_STYLES[status]}>{status.replace(/_/g, ' ')}</Badge>
   );
 }

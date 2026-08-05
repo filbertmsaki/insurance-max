@@ -382,9 +382,7 @@ function buildRiskPayload(
     ),
     SumInsured: toNumber(risk.sum_insured),
     SumInsuredEquivalent: toNumber(risk.sum_insured),
-    PremiumRate: toNumber(
-      snapshotField(snapshot, 'premium_rate') ?? risk.rate,
-    ),
+    PremiumRate: toNumber(snapshotField(snapshot, 'premium_rate') ?? risk.rate),
     PremiumBeforeDiscount: premiumBeforeDiscount,
     PremiumAfterDiscount:
       toNumber(snapshotField(snapshot, 'premium_after_discount')) ||

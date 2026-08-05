@@ -1,19 +1,27 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
 
-const PageFooterContext = createContext<((node: ReactNode) => void) | null>(null)
+const PageFooterContext = createContext<((node: ReactNode) => void) | null>(
+  null,
+);
 
 export function PageFooterProvider({
   children,
 }: {
-  children: (footer: ReactNode) => ReactNode
-  onFooterChange?: never
+  children: (footer: ReactNode) => ReactNode;
+  onFooterChange?: never;
 }) {
-  const [footer, setFooter] = useState<ReactNode>(null)
+  const [footer, setFooter] = useState<ReactNode>(null);
   return (
     <PageFooterContext.Provider value={setFooter}>
       {children(footer)}
     </PageFooterContext.Provider>
-  )
+  );
 }
 
 /**
@@ -25,9 +33,9 @@ export function PageFooterProvider({
  */
 // eslint-disable-next-line react-refresh/only-export-components -- hook is tightly coupled to PageFooterProvider's context in this file
 export function usePageFooter(node: ReactNode) {
-  const setFooter = useContext(PageFooterContext)
+  const setFooter = useContext(PageFooterContext);
   useEffect(() => {
-    setFooter?.(node)
-    return () => setFooter?.(null)
-  }, [setFooter, node])
+    setFooter?.(node);
+    return () => setFooter?.(null);
+  }, [setFooter, node]);
 }

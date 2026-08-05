@@ -12,9 +12,18 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { RatingFactor } from '@/types/product-engine';
-import { subjectMatterFactorValueSchema, type SubjectMatterFactorValueFormValues } from '../schemas';
+import {
+  subjectMatterFactorValueSchema,
+  type SubjectMatterFactorValueFormValues,
+} from '../schemas';
 
 interface Props {
   subjectMatterId: string;
@@ -24,7 +33,13 @@ interface Props {
   onSubmit: (values: SubjectMatterFactorValueFormValues) => void;
 }
 
-export function SubjectMatterFactorValueForm({ subjectMatterId, factors, isPending, submitLabel, onSubmit }: Props) {
+export function SubjectMatterFactorValueForm({
+  subjectMatterId,
+  factors,
+  isPending,
+  submitLabel,
+  onSubmit,
+}: Props) {
   const form = useForm<SubjectMatterFactorValueFormValues>({
     resolver: zodResolver(subjectMatterFactorValueSchema),
     defaultValues: {
@@ -52,8 +67,11 @@ export function SubjectMatterFactorValueForm({ subjectMatterId, factors, isPendi
         onSubmit={form.handleSubmit((values) =>
           onSubmit({
             ...values,
-            value_boolean: selectedFactor?.data_type === 'BOOLEAN' ? values.value_boolean : undefined,
-          })
+            value_boolean:
+              selectedFactor?.data_type === 'BOOLEAN'
+                ? values.value_boolean
+                : undefined,
+          }),
         )}
         className="space-y-4"
       >
@@ -65,7 +83,9 @@ export function SubjectMatterFactorValueForm({ subjectMatterId, factors, isPendi
               <FormLabel>Rating Factor</FormLabel>
               <Select value={field.value} onValueChange={field.onChange}>
                 <FormControl>
-                  <SelectTrigger><SelectValue placeholder="Select factor" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select factor" />
+                  </SelectTrigger>
                 </FormControl>
                 <SelectContent>
                   {factors.map((factor) => (
@@ -87,9 +107,14 @@ export function SubjectMatterFactorValueForm({ subjectMatterId, factors, isPendi
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Value</FormLabel>
-                <Select value={field.value ? 'true' : 'false'} onValueChange={(value) => field.onChange(value === 'true')}>
+                <Select
+                  value={field.value ? 'true' : 'false'}
+                  onValueChange={(value) => field.onChange(value === 'true')}
+                >
                   <FormControl>
-                    <SelectTrigger><SelectValue placeholder="Select value" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select value" />
+                    </SelectTrigger>
                   </FormControl>
                   <SelectContent>
                     <SelectItem value="true">True</SelectItem>
@@ -107,31 +132,53 @@ export function SubjectMatterFactorValueForm({ subjectMatterId, factors, isPendi
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Value</FormLabel>
-                <FormControl><Input type="date" {...field} value={field.value == null ? '' : String(field.value)} /></FormControl>
+                <FormControl>
+                  <Input
+                    type="date"
+                    {...field}
+                    value={field.value == null ? '' : String(field.value)}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-        ) : dataType === 'NUMBER' || dataType === 'DECIMAL' || dataType === 'INTEGER' ? (
+        ) : dataType === 'NUMBER' ||
+          dataType === 'DECIMAL' ||
+          dataType === 'INTEGER' ? (
           <FormField
             control={form.control}
             name="value_number"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Value</FormLabel>
-                <FormControl><Input type="number" step={dataType === 'INTEGER' ? '1' : 'any'} {...field} value={field.value == null ? '' : String(field.value)} /></FormControl>
+                <FormControl>
+                  <Input
+                    type="number"
+                    step={dataType === 'INTEGER' ? '1' : 'any'}
+                    {...field}
+                    value={field.value == null ? '' : String(field.value)}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-        ) : dataType === 'SELECT' || dataType === 'MULTI_SELECT' || dataType === 'TEXT' ? (
+        ) : dataType === 'SELECT' ||
+          dataType === 'MULTI_SELECT' ||
+          dataType === 'TEXT' ? (
           <FormField
             control={form.control}
             name="value_text"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Value</FormLabel>
-                <FormControl><Input {...field} value={field.value == null ? '' : String(field.value)} /></FormControl>
+                <FormControl>
+                  <Input
+                    {...field}
+                    value={field.value == null ? '' : String(field.value)}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -145,7 +192,12 @@ export function SubjectMatterFactorValueForm({ subjectMatterId, factors, isPendi
             <FormItem>
               <FormLabel>Value JSON</FormLabel>
               <FormControl>
-                <Textarea {...field} value={field.value == null ? '' : String(field.value)} rows={4} placeholder='{"key":"value"}' />
+                <Textarea
+                  {...field}
+                  value={field.value == null ? '' : String(field.value)}
+                  rows={4}
+                  placeholder='{"key":"value"}'
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

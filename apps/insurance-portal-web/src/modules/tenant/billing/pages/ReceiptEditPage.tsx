@@ -3,7 +3,12 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { useBillingCustomers, useBillingInvoices, useReceiptDetail, useUpdateReceipt } from '../hooks';
+import {
+  useBillingCustomers,
+  useBillingInvoices,
+  useReceiptDetail,
+  useUpdateReceipt,
+} from '../hooks';
 import { ReceiptForm } from '../components/ReceiptForm';
 
 export function ReceiptEditPage() {
@@ -20,7 +25,9 @@ export function ReceiptEditPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Receipt not found</p>
-        <Button variant="link" onClick={() => navigate('/billing/receipts')}>Back to Receipts</Button>
+        <Button variant="link" onClick={() => navigate('/billing/receipts')}>
+          Back to Receipts
+        </Button>
       </div>
     );
   }
@@ -28,7 +35,11 @@ export function ReceiptEditPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/billing/receipts/${receipt.id}`)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(`/billing/receipts/${receipt.id}`)}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <PageHeader title="Edit Receipt" description={receipt.receipt_no} />
@@ -50,7 +61,11 @@ export function ReceiptEditPage() {
           received_at: receipt.received_at ?? '',
           status: receipt.status,
         }}
-        onSubmit={(values) => updateMutation.mutate(values, { onSuccess: () => navigate(`/billing/receipts/${receipt.id}`) })}
+        onSubmit={(values) =>
+          updateMutation.mutate(values, {
+            onSuccess: () => navigate(`/billing/receipts/${receipt.id}`),
+          })
+        }
       />
     </div>
   );

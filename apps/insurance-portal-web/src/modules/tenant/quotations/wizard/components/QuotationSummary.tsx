@@ -84,9 +84,7 @@ function SummaryMetric({
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
             {label}
           </div>
-          <div className="mt-1 text-sm font-medium text-slate-900">
-            {value}
-          </div>
+          <div className="mt-1 text-sm font-medium text-slate-900">{value}</div>
         </div>
       </div>
     </div>
@@ -101,8 +99,12 @@ export function QuotationSummary({
   riskCount,
 }: Props) {
   const values = form.watch();
-  const customer = customerOptions.find((item) => item.id === values.customer_id);
-  const category = categoryOptions.find((item) => item.id === values.category_id);
+  const customer = customerOptions.find(
+    (item) => item.id === values.customer_id,
+  );
+  const category = categoryOptions.find(
+    (item) => item.id === values.category_id,
+  );
   const product = productOptions.find((item) => item.id === values.product_id);
 
   const customerName =
@@ -131,7 +133,10 @@ export function QuotationSummary({
       <CardHeader className="border-b border-slate-100 bg-gradient-to-br from-slate-950 via-slate-900 to-sky-900 pb-5 text-white">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <Badge className="border-0 bg-white/12 text-sky-100" variant="outline">
+            <Badge
+              className="border-0 bg-white/12 text-sky-100"
+              variant="outline"
+            >
               Live summary
             </Badge>
             <CardTitle className="mt-3 text-xl text-white">
@@ -155,9 +160,7 @@ export function QuotationSummary({
             {formatCurrencyValue(currency, total)}
           </div>
           <div className="mt-2 flex flex-wrap gap-2 text-xs text-sky-100/80">
-            <span className="rounded-full bg-white/10 px-2.5 py-1">
-              {flow}
-            </span>
+            <span className="rounded-full bg-white/10 px-2.5 py-1">{flow}</span>
             <span className="rounded-full bg-white/10 px-2.5 py-1">
               {riskCount} risk item{riskCount === 1 ? '' : 's'}
             </span>
@@ -188,11 +191,7 @@ export function QuotationSummary({
             label="Cover period"
             value={dateRange}
           />
-          <SummaryMetric
-            icon={Car}
-            label="Risk items"
-            value={`${riskCount}`}
-          />
+          <SummaryMetric icon={Car} label="Risk items" value={`${riskCount}`} />
         </div>
 
         <div className="rounded-[24px] border border-slate-200 bg-slate-50/90 p-4">

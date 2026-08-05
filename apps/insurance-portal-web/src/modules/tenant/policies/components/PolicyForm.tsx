@@ -12,10 +12,20 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
 import type { CustomerRecord } from '@/modules/tenant/customers/types';
-import type { InsuranceCategory, InsuranceProduct, InsuranceSubClass } from '@/types/product-engine';
+import type {
+  InsuranceCategory,
+  InsuranceProduct,
+  InsuranceSubClass,
+} from '@/types/product-engine';
 import { usePolicyCurrentCompanyId } from '../hooks';
 import { policyFormSchema, type PolicyFormSchemaValues } from '../schemas';
 
@@ -78,7 +88,8 @@ export function PolicyForm({
     tiramis_transaction_id: '',
     ...defaultValues,
   };
-  formDefaults.insurer_company_id = defaultValues?.insurer_company_id ?? currentCompanyId;
+  formDefaults.insurer_company_id =
+    defaultValues?.insurer_company_id ?? currentCompanyId;
   const form = useForm<PolicyFormSchemaValues>({
     resolver: zodResolver(policyFormSchema),
     defaultValues: formDefaults,
@@ -92,79 +103,165 @@ export function PolicyForm({
             <CardTitle className="text-base">Policy Setup</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
-            <FormField control={form.control} name="customer_id" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Customer</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    {customerOptions.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>{getCustomerDisplayName(customer)} ({customer.customer_no})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="quotation_id" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Quotation ID</FormLabel>
-                <FormControl><Input {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="category_id" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Category</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger></FormControl>
-                  <SelectContent>{categoryOptions.map((category) => <SelectItem key={category.id} value={category.id}>{category.name}</SelectItem>)}</SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="product_id" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Product</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger></FormControl>
-                  <SelectContent>{productOptions.map((product) => <SelectItem key={product.id} value={product.id}>{product.product_name}</SelectItem>)}</SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="sub_class_id" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Sub-Class</FormLabel>
-                <Select value={field.value || 'none'} onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {subClassOptions.map((subClass) => <SelectItem key={subClass.id} value={subClass.id}>{subClass.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="channel_type" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Channel</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    {['DIRECT', 'BROKER', 'AGENCY', 'BANCASSURANCE', 'API'].map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="policy_status" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Policy Status</FormLabel>
-                <FormControl><Input {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="customer_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Customer</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {customerOptions.map((customer) => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {getCustomerDisplayName(customer)} (
+                          {customer.customer_no})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="quotation_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Quotation ID</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="category_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {categoryOptions.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="product_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Product</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select product" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {productOptions.map((product) => (
+                        <SelectItem key={product.id} value={product.id}>
+                          {product.product_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="sub_class_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Sub-Class</FormLabel>
+                  <Select
+                    value={field.value || 'none'}
+                    onValueChange={(value) =>
+                      field.onChange(value === 'none' ? '' : value)
+                    }
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Optional" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {subClassOptions.map((subClass) => (
+                        <SelectItem key={subClass.id} value={subClass.id}>
+                          {subClass.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="channel_type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Channel</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {[
+                        'DIRECT',
+                        'BROKER',
+                        'AGENCY',
+                        'BANCASSURANCE',
+                        'API',
+                      ].map((item) => (
+                        <SelectItem key={item} value={item}>
+                          {item}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="policy_status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Policy Status</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             {[
               ['start_date', 'Start Date', 'date'],
               ['end_date', 'End Date', 'date'],
@@ -189,25 +286,42 @@ export function PolicyForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{label}</FormLabel>
-                    <FormControl><Input type={type as string} {...field} value={field.value == null ? '' : String(field.value)} /></FormControl>
+                    <FormControl>
+                      <Input
+                        type={type}
+                        {...field}
+                        value={field.value == null ? '' : String(field.value)}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             ))}
-            <FormField control={form.control} name="reinsurance_required" render={({ field }) => (
-              <FormItem className="md:col-span-2 flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3">
-                <FormControl>
-                  <Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(Boolean(checked))} />
-                </FormControl>
-                <FormLabel className="!mt-0">Reinsurance required</FormLabel>
-              </FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="reinsurance_required"
+              render={({ field }) => (
+                <FormItem className="md:col-span-2 flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={(checked) =>
+                        field.onChange(Boolean(checked))
+                      }
+                    />
+                  </FormControl>
+                  <FormLabel className="!mt-0">Reinsurance required</FormLabel>
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
 
         <div className="flex justify-end">
-          <Button type="submit" disabled={isPending}>{isPending ? 'Saving...' : submitLabel}</Button>
+          <Button type="submit" disabled={isPending}>
+            {isPending ? 'Saving...' : submitLabel}
+          </Button>
         </div>
       </form>
     </Form>

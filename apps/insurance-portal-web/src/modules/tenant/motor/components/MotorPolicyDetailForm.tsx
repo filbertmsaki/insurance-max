@@ -11,8 +11,17 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { motorPolicyDetailSchema, type MotorPolicyDetailFormValues } from '../schemas';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  motorPolicyDetailSchema,
+  type MotorPolicyDetailFormValues,
+} from '../schemas';
 import type { MotorVehicleRecord, PolicyOption } from '../types';
 import { useMotorPolicyRisks } from '../hooks';
 
@@ -66,7 +75,9 @@ export function MotorPolicyDetailForm({
                   <FormLabel>Policy</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select policy" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select policy" />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {policyOptions.map((policy) => (
@@ -88,7 +99,9 @@ export function MotorPolicyDetailForm({
                   <FormLabel>Policy Risk</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select policy risk" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select policy risk" />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {policyRisks.map((risk) => (
@@ -110,12 +123,17 @@ export function MotorPolicyDetailForm({
                   <FormLabel>Motor Vehicle</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select vehicle" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select vehicle" />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {vehicleOptions.map((vehicle) => (
                         <SelectItem key={vehicle.id} value={vehicle.id}>
-                          {vehicle.registration_no ?? vehicle.chassis_no ?? vehicle.engine_no ?? vehicle.id}
+                          {vehicle.registration_no ??
+                            vehicle.chassis_no ??
+                            vehicle.engine_no ??
+                            vehicle.id}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -145,7 +163,12 @@ export function MotorPolicyDetailForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{label}</FormLabel>
-                    <FormControl><Input {...field} value={field.value == null ? '' : String(field.value)} /></FormControl>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value == null ? '' : String(field.value)}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

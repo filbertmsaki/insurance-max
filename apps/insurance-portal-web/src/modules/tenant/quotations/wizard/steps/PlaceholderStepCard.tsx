@@ -1,6 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export function PlaceholderStepCard({ title, note }: { title: string; note: string }) {
+export function PlaceholderStepCard({
+  title,
+  note,
+}: {
+  title: string;
+  note: string;
+}) {
   return (
     <Card>
       <CardHeader>

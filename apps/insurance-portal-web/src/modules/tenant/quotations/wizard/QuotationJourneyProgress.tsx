@@ -32,7 +32,8 @@ function getStatusLabel(status: StepStatus) {
 }
 
 const MARKER_CLASSES: Record<StepStatus, string> = {
-  active: 'border-sky-500 bg-sky-500 text-white shadow-[0_0_0_4px_rgba(14,165,233,0.15)]',
+  active:
+    'border-sky-500 bg-sky-500 text-white shadow-[0_0_0_4px_rgba(14,165,233,0.15)]',
   complete: 'border-emerald-500 bg-emerald-500 text-white',
   error: 'border-rose-500 bg-rose-500 text-white',
   upcoming: 'border-slate-300 bg-white text-slate-400',
@@ -59,8 +60,7 @@ export function QuotationJourneyProgress({
     0,
     steps.findIndex((step) => step.id === currentStep),
   );
-  const progressPercent =
-    ((activeIndex + 1) / Math.max(steps.length, 1)) * 100;
+  const progressPercent = ((activeIndex + 1) / Math.max(steps.length, 1)) * 100;
 
   const isPassed = steps.map(
     (step, index) => completedSteps.includes(step.id) || index < activeIndex,
@@ -79,7 +79,9 @@ export function QuotationJourneyProgress({
 
       <ol
         className="grid overflow-x-auto pb-1"
-        style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(2.75rem, 1fr))` }}
+        style={{
+          gridTemplateColumns: `repeat(${steps.length}, minmax(2.75rem, 1fr))`,
+        }}
       >
         {steps.map((step, index) => {
           const active = step.id === currentStep;

@@ -1,8 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react';
-import {
-  type UseFieldArrayReturn,
-  type UseFormReturn,
-} from 'react-hook-form';
+import { type UseFieldArrayReturn, type UseFormReturn } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -24,7 +21,9 @@ export function NonMotorDetailsStep({ form, fieldArray }: Props) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-base">Step 5A. Non-Motor Subject Matters</CardTitle>
+        <CardTitle className="text-base">
+          Step 5A. Non-Motor Subject Matters
+        </CardTitle>
         <Button
           type="button"
           variant="outline"

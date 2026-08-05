@@ -110,13 +110,15 @@ function TestHarness() {
       <RiskRow
         form={form}
         index={0}
-        riskOptions={[
-          {
-            id: 'risk-1',
-            risk_code: 'MOTOR-COMP',
-            risk_name: 'Private Comprehensive',
-          },
-        ] as unknown as InsuranceRisk[]}
+        riskOptions={
+          [
+            {
+              id: 'risk-1',
+              risk_code: 'MOTOR-COMP',
+              risk_name: 'Private Comprehensive',
+            },
+          ] as unknown as InsuranceRisk[]
+        }
         onRemove={vi.fn()}
         canRemove
       />
@@ -132,7 +134,9 @@ describe('RiskRow', () => {
     // still usable in the meantime.
     render(<TestHarness />);
 
-    expect(screen.getByLabelText('Sum Insured')).not.toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Sum Insured')).not.toHaveAttribute(
+      'readonly',
+    );
     expect(screen.getByLabelText('Sum Insured Equivalent')).toHaveAttribute(
       'readonly',
     );
@@ -142,32 +146,28 @@ describe('RiskRow', () => {
     expect(
       screen.getByLabelText('Premium Before Discount'),
     ).not.toHaveAttribute('readonly');
-    expect(
-      screen.getByLabelText('Premium After Discount'),
-    ).not.toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Premium After Discount')).not.toHaveAttribute(
+      'readonly',
+    );
     expect(
       screen.getByLabelText('Premium Excluding Tax Equivalent'),
     ).not.toHaveAttribute('readonly');
-    expect(
-      screen.getByLabelText('Premium Including Tax'),
-    ).not.toHaveAttribute('readonly');
-    expect(screen.getByLabelText('Amount')).not.toHaveAttribute('readonly');
-    expect(screen.getByLabelText('Tax Rate')).not.toHaveAttribute('readonly');
-    expect(screen.getByLabelText('Tax Amount')).not.toHaveAttribute(
+    expect(screen.getByLabelText('Premium Including Tax')).not.toHaveAttribute(
       'readonly',
     );
+    expect(screen.getByLabelText('Amount')).not.toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Tax Rate')).not.toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Tax Amount')).not.toHaveAttribute('readonly');
     expect(screen.getByLabelText('Rate')).not.toHaveAttribute('readonly');
   });
 
   it('mirrors sum insured into sum insured equivalent and does not show the optional-risk notice', () => {
     render(<TestHarness />);
 
-    const sumInsuredInput = screen.getByLabelText(
-      'Sum Insured',
-    ) as HTMLInputElement;
+    const sumInsuredInput = screen.getByLabelText('Sum Insured');
     const sumInsuredEquivalentInput = screen.getByLabelText(
       'Sum Insured Equivalent',
-    ) as HTMLInputElement;
+    );
 
     fireEvent.change(sumInsuredInput, {
       target: { value: '0' },
@@ -184,7 +184,9 @@ describe('RiskRow', () => {
   it('hides the pricing status card and still shows discount request fields', () => {
     render(<TestHarness />);
 
-    expect(screen.queryByText('Pricing needs attention')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Pricing needs attention'),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText('Pricing available')).not.toBeInTheDocument();
     expect(
       screen.queryByText('Pricing quote: PQ-2026-00000051'),
@@ -200,10 +202,10 @@ describe('RiskRow', () => {
 
     const premiumBeforeDiscountInput = screen.getByLabelText(
       'Premium Before Discount',
-    ) as HTMLInputElement;
+    );
     const premiumAfterDiscountInput = screen.getByLabelText(
       'Premium After Discount',
-    ) as HTMLInputElement;
+    );
 
     // The mount-time recompute already normalized this to match Premium
     // Before Discount (35000), since the fixture's default discount row has

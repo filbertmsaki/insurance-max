@@ -1,10 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  useWatch,
-  type FieldPath,
-  type UseFormReturn,
-} from 'react-hook-form';
+import { useWatch, type FieldPath, type UseFormReturn } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -105,7 +101,9 @@ export function RiskRow({
   // Insured is committed via handleSumInsuredBlur above.
   const [committedPremiumBeforeDiscount, setCommittedPremiumBeforeDiscount] =
     useState<string>(
-      () => (form.getValues(path(index, 'premium_before_discount')) as string) ?? '',
+      () =>
+        (form.getValues(path(index, 'premium_before_discount')) as string) ??
+        '',
     );
   const handlePremiumBeforeDiscountBlur = useCallback(() => {
     setCommittedPremiumBeforeDiscount(
@@ -145,7 +143,9 @@ export function RiskRow({
     form.setValue(path(index, 'premium_after_discount'), '');
     form.setValue(path(index, 'premium_excluding_tax_equivalent'), '');
     form.setValue(path(index, 'premium_including_tax'), '');
-    form.setValue(path(index, 'discounts_offered'), [createEmptyRiskDiscountRow()]);
+    form.setValue(path(index, 'discounts_offered'), [
+      createEmptyRiskDiscountRow(),
+    ]);
     form.setValue(path(index, 'taxes_charged'), [createEmptyRiskTaxRow()]);
     form.setValue(path(index, 'factor_values'), {});
     form.setValue(path(index, 'rating_result_metadata'), null);
@@ -160,10 +160,7 @@ export function RiskRow({
       .forEach((code) => {
         const motorField = motorFieldNameForFactorCode(code);
         if (!motorField) return;
-        form.setValue(
-          `motor.${motorField}` as FieldPath<QuotationFormSchemaValues>,
-          '',
-        );
+        form.setValue(`motor.${motorField}`, '');
       });
   }, [form, index, riskId, currentFactorCodes]);
 
@@ -209,7 +206,7 @@ export function RiskRow({
       : toNumber(sumInsuredEquivalent);
 
   useEffect(() => {
-    const nextEquivalent = (sumInsuredValue ?? '') as string;
+    const nextEquivalent = sumInsuredValue ?? '';
     if ((sumInsuredEquivalent ?? '') === nextEquivalent) return;
     form.setValue(path(index, 'sum_insured_equivalent'), nextEquivalent);
   }, [form, index, sumInsuredEquivalent, sumInsuredValue]);
@@ -224,7 +221,10 @@ export function RiskRow({
         recomputedRow.discounts_offered ?? [],
       )
     ) {
-      form.setValue(path(index, 'discounts_offered'), recomputedRow.discounts_offered);
+      form.setValue(
+        path(index, 'discounts_offered'),
+        recomputedRow.discounts_offered,
+      );
     }
     if (
       !isEqualNormalizingNumbers(
@@ -241,7 +241,10 @@ export function RiskRow({
     // forever, alternating with the backend's own format each pass (an
     // infinite update loop — see incident where creating a motor quotation
     // crashed the wizard right after entering Sum Insured).
-    if (toNumber(currentRow.premium_after_discount) !== toNumber(recomputedRow.premium_after_discount)) {
+    if (
+      toNumber(currentRow.premium_after_discount) !==
+      toNumber(recomputedRow.premium_after_discount)
+    ) {
       form.setValue(
         path(index, 'premium_after_discount'),
         recomputedRow.premium_after_discount,
@@ -256,19 +259,16 @@ export function RiskRow({
         recomputedRow.premium_excluding_tax_equivalent,
       );
     }
-    if (toNumber(currentRow.premium_including_tax) !== toNumber(recomputedRow.premium_including_tax)) {
+    if (
+      toNumber(currentRow.premium_including_tax) !==
+      toNumber(recomputedRow.premium_including_tax)
+    ) {
       form.setValue(
         path(index, 'premium_including_tax'),
         recomputedRow.premium_including_tax,
       );
     }
-  }, [
-    committedPremiumBeforeDiscount,
-    discountsKey,
-    form,
-    index,
-    taxesKey,
-  ]);
+  }, [committedPremiumBeforeDiscount, discountsKey, form, index, taxesKey]);
 
   return (
     <StepSection
@@ -294,672 +294,732 @@ export function RiskRow({
       }
       contentClassName="space-y-6"
     >
-        <div className="grid gap-3 md:grid-cols-2">
-          <FormField
-            control={form.control}
-            name={path(index, 'risk_id')}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Risk</FormLabel>
-                <Select
-                  value={toSelectValue(field.value as string)}
-                  onValueChange={(value) => field.onChange(fromSelectValue(value))}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select risk" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
-                    {riskOptions.map((risk) => (
-                      <SelectItem key={risk.id} value={risk.id}>
-                        {risk.risk_name} ({risk.risk_code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name={path(index, 'risk_code')}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Risk Code</FormLabel>
+      <div className="grid gap-3 md:grid-cols-2">
+        <FormField
+          control={form.control}
+          name={path(index, 'risk_id')}
+          render={({ field }) => (
+            <WizardFormItem>
+              <FormLabel>Risk</FormLabel>
+              <Select
+                value={toSelectValue(field.value as string)}
+                onValueChange={(value) =>
+                  field.onChange(fromSelectValue(value))
+                }
+              >
                 <FormControl>
-                  <Input {...field} value={field.value as string} readOnly />
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select risk" />
+                  </SelectTrigger>
                 </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
+                <SelectContent>
+                  <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
+                  {riskOptions.map((risk) => (
+                    <SelectItem key={risk.id} value={risk.id}>
+                      {risk.risk_name} ({risk.risk_code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </WizardFormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name={path(index, 'risk_code')}
+          render={({ field }) => (
+            <WizardFormItem>
+              <FormLabel>Risk Code</FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value as string} readOnly />
+              </FormControl>
+              <FormMessage />
+            </WizardFormItem>
+          )}
+        />
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <FormField
+          control={form.control}
+          name={path(index, 'sum_insured')}
+          render={({ field }) => (
+            <WizardFormItem>
+              <FormLabel>Sum Insured</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  min="0"
+                  {...field}
+                  value={field.value as string}
+                  onChange={(event) => {
+                    field.onChange(event);
+                    form.setValue(
+                      path(index, 'sum_insured_equivalent'),
+                      event.target.value,
+                    );
+                  }}
+                  onBlur={() => {
+                    field.onBlur();
+                    form.setValue(
+                      path(index, 'sum_insured_equivalent'),
+                      (form.getValues(path(index, 'sum_insured')) as string) ??
+                        '',
+                    );
+                    handleSumInsuredBlur();
+                  }}
+                />
+              </FormControl>
+              <FormMessage />
+            </WizardFormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name={path(index, 'sum_insured_equivalent')}
+          render={({ field }) => (
+            <WizardFormItem>
+              <FormLabel>Sum Insured Equivalent</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  min="0"
+                  readOnly
+                  {...field}
+                  value={field.value as string}
+                />
+              </FormControl>
+              <FormMessage />
+            </WizardFormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name={path(index, 'premium_rate')}
+          render={({ field }) => (
+            <WizardFormItem>
+              <FormLabel>Premium Rate</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  step="0.000001"
+                  {...field}
+                  value={field.value as string}
+                />
+              </FormControl>
+              <FormMessage />
+            </WizardFormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name={path(index, 'premium_before_discount')}
+          render={({ field }) => (
+            <WizardFormItem>
+              <FormLabel>Premium Before Discount</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  step="0.01"
+                  {...field}
+                  value={field.value as string}
+                  onBlur={() => {
+                    field.onBlur();
+                    handlePremiumBeforeDiscountBlur();
+                  }}
+                />
+              </FormControl>
+              <FormMessage />
+            </WizardFormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name={path(index, 'premium_after_discount')}
+          render={({ field }) => (
+            <WizardFormItem>
+              <FormLabel>Premium After Discount</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  step="0.01"
+                  {...field}
+                  value={field.value as string}
+                />
+              </FormControl>
+              <FormMessage />
+            </WizardFormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name={path(index, 'premium_excluding_tax_equivalent')}
+          render={({ field }) => (
+            <WizardFormItem>
+              <FormLabel>Premium Excluding Tax Equivalent</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  step="0.01"
+                  {...field}
+                  value={field.value as string}
+                />
+              </FormControl>
+              <FormMessage />
+            </WizardFormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name={path(index, 'premium_including_tax')}
+          render={({ field }) => (
+            <WizardFormItem>
+              <FormLabel>Premium Including Tax</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  step="0.01"
+                  {...field}
+                  value={field.value as string}
+                />
+              </FormControl>
+              <FormMessage />
+            </WizardFormItem>
+          )}
+        />
+      </div>
+
+      <div className="space-y-1 border-t border-slate-100 pt-4">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Discounts Offered (optional)
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              form.setValue(path(index, 'discounts_offered'), [
+                ...discountFieldArray,
+                createEmptyRiskDiscountRow(),
+              ])
+            }
+          >
+            <Plus className="mr-2 h-3.5 w-3.5" />
+            Add Discount
+          </Button>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <FormField
-            control={form.control}
-            name={path(index, 'sum_insured')}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Sum Insured</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    min="0"
-                    {...field}
-                    value={field.value as string}
-                    onChange={(event) => {
-                      field.onChange(event);
-                      form.setValue(
-                        path(index, 'sum_insured_equivalent'),
-                        event.target.value,
-                      );
-                    }}
-                    onBlur={() => {
-                      field.onBlur();
-                      form.setValue(
-                        path(index, 'sum_insured_equivalent'),
-                        (form.getValues(path(index, 'sum_insured')) as string) ?? '',
-                      );
-                      handleSumInsuredBlur();
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={path(index, 'sum_insured_equivalent')}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Sum Insured Equivalent</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    min="0"
-                    readOnly
-                    {...field}
-                    value={field.value as string}
-                  />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={path(index, 'premium_rate')}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Premium Rate</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.000001"
-                    {...field}
-                    value={field.value as string}
-                  />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={path(index, 'premium_before_discount')}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Premium Before Discount</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    {...field}
-                    value={field.value as string}
-                    onBlur={() => {
-                      field.onBlur();
-                      handlePremiumBeforeDiscountBlur();
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={path(index, 'premium_after_discount')}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Premium After Discount</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    {...field}
-                    value={field.value as string}
-                  />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={path(index, 'premium_excluding_tax_equivalent')}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Premium Excluding Tax Equivalent</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    {...field}
-                    value={field.value as string}
-                  />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={path(index, 'premium_including_tax')}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Premium Including Tax</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    {...field}
-                    value={field.value as string}
-                  />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-        </div>
-
-        <div className="space-y-1 border-t border-slate-100 pt-4">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Discounts Offered (optional)
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                form.setValue(path(index, 'discounts_offered'), [
-                  ...discountFieldArray,
-                  createEmptyRiskDiscountRow(),
-                ])
-              }
-            >
-              <Plus className="mr-2 h-3.5 w-3.5" />
-              Add Discount
-            </Button>
-          </div>
-
-          {discountFieldArray.length > 0 ? (
-            <div className="space-y-1">
-              {discountFieldArray.map((_, discountIndex) => (
-                <div
-                  key={discountIndex}
-                  className="grid gap-3 rounded-lg border border-slate-100 p-3 md:grid-cols-5"
-                >
-                  <FormField
-                    control={form.control}
-                    name={path(
-                      index,
-                      `discounts_offered.${discountIndex}.discount_type`,
-                    )}
-                    render={({ field }) => (
-                      <WizardFormItem>
-                        <FormLabel>Discount Type</FormLabel>
-                        <Select
-                          value={toSelectValue(field.value as string)}
-                          onValueChange={(value) => {
-                            const nextValue = fromSelectValue(value);
-                            field.onChange(nextValue);
-                            if (value === SELECT_NONE_VALUE) {
-                              form.setValue(
-                                path(index, `discounts_offered.${discountIndex}.discount_rate`),
-                                '',
-                              );
-                              form.setValue(
-                                path(index, `discounts_offered.${discountIndex}.discount_amount`),
-                                '',
-                              );
-                            } else {
-                              form.setValue(
-                                path(index, `discounts_offered.${discountIndex}.discount_rate`),
-                                getDiscountRateForType(nextValue),
-                              );
-                            }
-                            // discount_amount is not computed here — with
-                            // automatic calculation currently disabled
-                            // (AUTO_CALCULATION_DISABLED), it's left for
-                            // manual entry below rather than guessed.
-                          }}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select discount type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
-                            {DISCOUNT_TYPE_OPTIONS.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </WizardFormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={path(
-                      index,
-                      `discounts_offered.${discountIndex}.discount_rate`,
-                    )}
-                    render={({ field }) => (
-                      <WizardFormItem>
-                        <FormLabel>Rate</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.000001"
-                            {...field}
-                            value={field.value as string}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </WizardFormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={path(
-                      index,
-                      `discounts_offered.${discountIndex}.discount_amount`,
-                    )}
-                    render={({ field }) => (
-                      <WizardFormItem>
-                        <FormLabel>Amount</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            {...field}
-                            value={field.value as string}
-                          />
-                        </FormControl>
-                      </WizardFormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={path(
-                      index,
-                      `discounts_offered.${discountIndex}.request_reason_code`,
-                    )}
-                    render={({ field }) => (
-                      <WizardFormItem>
-                        <FormLabel>Reason Code</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            value={field.value as string}
-                            placeholder="e.g. LOYALTY"
-                          />
-                        </FormControl>
-                      </WizardFormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={path(
-                      index,
-                      `discounts_offered.${discountIndex}.request_comment`,
-                    )}
-                    render={({ field }) => (
-                      <WizardFormItem className="md:col-span-4">
-                        <FormLabel>Comment</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            value={field.value as string}
-                            placeholder="Why is this discount requested?"
-                          />
-                        </FormControl>
-                      </WizardFormItem>
-                    )}
-                  />
-                  <div className="flex items-end justify-end">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        const next = discountFieldArray.filter(
-                          (_, i) => i !== discountIndex,
-                        );
-                        form.setValue(
-                          path(index, 'discounts_offered'),
-                          next.length ? next : [createEmptyRiskDiscountRow()],
-                        );
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="space-y-1 border-t border-slate-100 pt-4">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Taxes Charged
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                form.setValue(path(index, 'taxes_charged'), [
-                  ...taxFieldArray,
-                  createEmptyRiskTaxRow(),
-                ])
-              }
-            >
-              <Plus className="mr-2 h-3.5 w-3.5" />
-              Add Tax
-            </Button>
-          </div>
-
-          {taxFieldArray.length > 0 ? (
-            <div className="space-y-1">
-              {taxFieldArray.map((_, taxIndex) => (
-                <div
-                  key={taxIndex}
-                  className="grid gap-3 rounded-lg border border-slate-100 p-3 md:grid-cols-4"
-                >
-                  <FormField
-                    control={form.control}
-                    name={path(index, `taxes_charged.${taxIndex}.tax_code`)}
-                    render={({ field }) => (
-                      <WizardFormItem>
-                        <FormLabel>Tax Code (required)</FormLabel>
-                        <Select
-                          value={toSelectValue(field.value as string)}
-                          onValueChange={(value) => {
-                            const nextValue = fromSelectValue(value);
-                            field.onChange(nextValue);
-                            // tax_rate is prefilled from the tax code's
-                            // known default; tax_amount is left blank for
-                            // manual entry — automatic calculation is
-                            // currently disabled (AUTO_CALCULATION_DISABLED).
+        {discountFieldArray.length > 0 ? (
+          <div className="space-y-1">
+            {discountFieldArray.map((_, discountIndex) => (
+              <div
+                key={discountIndex}
+                className="grid gap-3 rounded-lg border border-slate-100 p-3 md:grid-cols-5"
+              >
+                <FormField
+                  control={form.control}
+                  name={path(
+                    index,
+                    `discounts_offered.${discountIndex}.discount_type`,
+                  )}
+                  render={({ field }) => (
+                    <WizardFormItem>
+                      <FormLabel>Discount Type</FormLabel>
+                      <Select
+                        value={toSelectValue(field.value as string)}
+                        onValueChange={(value) => {
+                          const nextValue = fromSelectValue(value);
+                          field.onChange(nextValue);
+                          if (value === SELECT_NONE_VALUE) {
                             form.setValue(
-                              path(index, `taxes_charged.${taxIndex}.tax_rate`),
-                              getTaxRateForCode(nextValue),
-                            );
-                            form.setValue(
-                              path(index, `taxes_charged.${taxIndex}.tax_amount`),
+                              path(
+                                index,
+                                `discounts_offered.${discountIndex}.discount_rate`,
+                              ),
                               '',
                             );
-                            if (value === SELECT_NONE_VALUE) {
-                              form.setValue(
-                                path(index, `taxes_charged.${taxIndex}.is_tax_exempted`),
-                                false,
-                              );
-                              form.setValue(
-                                path(index, `taxes_charged.${taxIndex}.tax_exemption_type`),
-                                '',
-                              );
-                              form.setValue(
-                                path(index, `taxes_charged.${taxIndex}.tax_exemption_reference`),
-                                '',
-                              );
-                            }
-                          }}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select tax code" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
-                            {TAX_CODE_OPTIONS.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </WizardFormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={path(
-                      index,
-                      `taxes_charged.${taxIndex}.tax_rate`,
-                    )}
-                    render={({ field }) => (
-                      <WizardFormItem>
-                        <FormLabel>Tax Rate</FormLabel>
+                            form.setValue(
+                              path(
+                                index,
+                                `discounts_offered.${discountIndex}.discount_amount`,
+                              ),
+                              '',
+                            );
+                          } else {
+                            form.setValue(
+                              path(
+                                index,
+                                `discounts_offered.${discountIndex}.discount_rate`,
+                              ),
+                              getDiscountRateForType(nextValue),
+                            );
+                          }
+                          // discount_amount is not computed here — with
+                          // automatic calculation currently disabled
+                          // (AUTO_CALCULATION_DISABLED), it's left for
+                          // manual entry below rather than guessed.
+                        }}
+                      >
                         <FormControl>
-                          <Input
-                            type="number"
-                            step="0.000001"
-                            {...field}
-                            value={field.value as string}
-                          />
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select discount type" />
+                          </SelectTrigger>
                         </FormControl>
-                        <FormMessage />
-                      </WizardFormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={path(index, `taxes_charged.${taxIndex}.tax_amount`)}
-                    render={({ field }) => (
-                      <WizardFormItem>
-                        <FormLabel>Tax Amount</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            {...field}
-                            value={field.value as string}
-                          />
-                        </FormControl>
-                      </WizardFormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={path(
-                      index,
-                      `taxes_charged.${taxIndex}.is_tax_exempted`,
-                    )}
-                    render={({ field }) => (
-                      <WizardFormItem>
-                        <FormLabel>Exempted</FormLabel>
-                        <Select
-                          value={field.value ? 'Y' : 'N'}
-                          onValueChange={(value) => {
-                            if (value === SELECT_NONE_VALUE) {
-                              field.onChange(false);
-                              form.setValue(
-                                path(index, `taxes_charged.${taxIndex}.tax_exemption_type`),
-                                '',
-                              );
-                              form.setValue(
-                                path(index, `taxes_charged.${taxIndex}.tax_exemption_reference`),
-                                '',
-                              );
-                              // Zeroing is a presentation-level clear, not a
-                              // calculation — safe to do immediately rather
-                              // than waiting on the debounced recalculation.
-                              form.setValue(
-                                path(index, `taxes_charged.${taxIndex}.tax_amount`),
-                                '0',
-                              );
-                              return;
-                            }
-                            const isExempted = value === 'Y';
-                            field.onChange(isExempted);
-                            if (!isExempted) {
-                              form.setValue(
-                                path(
-                                  index,
-                                  `taxes_charged.${taxIndex}.tax_exemption_type`,
-                                ),
-                                '',
-                              );
-                              form.setValue(
-                                path(
-                                  index,
-                                  `taxes_charged.${taxIndex}.tax_exemption_reference`,
-                                ),
-                                '',
-                              );
-                              // Un-exempting means the true tax_amount is
-                              // unknown again until the backend recalculates.
-                              form.setValue(
-                                path(index, `taxes_charged.${taxIndex}.tax_amount`),
-                                '',
-                              );
-                            } else {
-                              form.setValue(
-                                path(index, `taxes_charged.${taxIndex}.tax_amount`),
-                                '0',
-                              );
-                            }
-                          }}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select option" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
-                            {TAX_EXEMPTION_OPTIONS.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </WizardFormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={path(
-                      index,
-                      `taxes_charged.${taxIndex}.tax_exemption_type`,
-                    )}
-                    render={({ field }) => (
-                      <WizardFormItem className="md:col-span-2">
-                        <FormLabel>Exemption Type</FormLabel>
-                        <Select
-                          value={toSelectValue(field.value as string)}
-                          onValueChange={(value) => field.onChange(fromSelectValue(value))}
-                          disabled={!form.watch(path(index, `taxes_charged.${taxIndex}.is_tax_exempted`))}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select exemption type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
-                            {TAX_EXEMPTION_TYPE_OPTIONS.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </WizardFormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={path(
-                      index,
-                      `taxes_charged.${taxIndex}.tax_exemption_reference`,
-                    )}
-                    render={({ field }) => (
-                      <WizardFormItem className="md:col-span-2">
-                        <FormLabel>Exemption Reference</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            value={field.value as string}
-                            disabled={!form.watch(path(index, `taxes_charged.${taxIndex}.is_tax_exempted`))}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </WizardFormItem>
-                    )}
-                  />
-                  <div className="flex items-end justify-end md:col-span-4">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        const next = taxFieldArray.filter(
-                          (_, i) => i !== taxIndex,
-                        );
-                        form.setValue(
-                          path(index, 'taxes_charged'),
-                          next.length ? next : [createEmptyRiskTaxRow()],
-                        );
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                        <SelectContent>
+                          <SelectItem value={SELECT_NONE_VALUE}>
+                            None
+                          </SelectItem>
+                          {DISCOUNT_TYPE_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </WizardFormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={path(
+                    index,
+                    `discounts_offered.${discountIndex}.discount_rate`,
+                  )}
+                  render={({ field }) => (
+                    <WizardFormItem>
+                      <FormLabel>Rate</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.000001"
+                          {...field}
+                          value={field.value as string}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </WizardFormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={path(
+                    index,
+                    `discounts_offered.${discountIndex}.discount_amount`,
+                  )}
+                  render={({ field }) => (
+                    <WizardFormItem>
+                      <FormLabel>Amount</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          {...field}
+                          value={field.value as string}
+                        />
+                      </FormControl>
+                    </WizardFormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={path(
+                    index,
+                    `discounts_offered.${discountIndex}.request_reason_code`,
+                  )}
+                  render={({ field }) => (
+                    <WizardFormItem>
+                      <FormLabel>Reason Code</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={field.value as string}
+                          placeholder="e.g. LOYALTY"
+                        />
+                      </FormControl>
+                    </WizardFormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={path(
+                    index,
+                    `discounts_offered.${discountIndex}.request_comment`,
+                  )}
+                  render={({ field }) => (
+                    <WizardFormItem className="md:col-span-4">
+                      <FormLabel>Comment</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={field.value as string}
+                          placeholder="Why is this discount requested?"
+                        />
+                      </FormControl>
+                    </WizardFormItem>
+                  )}
+                />
+                <div className="flex items-end justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      const next = discountFieldArray.filter(
+                        (_, i) => i !== discountIndex,
+                      );
+                      form.setValue(
+                        path(index, 'discounts_offered'),
+                        next.length ? next : [createEmptyRiskDiscountRow()],
+                      );
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
-              ))}
-            </div>
-          ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="space-y-1 border-t border-slate-100 pt-4">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Taxes Charged
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              form.setValue(path(index, 'taxes_charged'), [
+                ...taxFieldArray,
+                createEmptyRiskTaxRow(),
+              ])
+            }
+          >
+            <Plus className="mr-2 h-3.5 w-3.5" />
+            Add Tax
+          </Button>
         </div>
 
-        <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
-          <p>Sum insured equivalent: {sumInsuredEquivalentValue.toFixed(2)}</p>
-          <p>Discount total: {totalDiscount.toFixed(2)}</p>
-          <p>Premium excluding tax: {toNumber(premiumExcludingTaxEquivalent).toFixed(2)}</p>
-          <p>Tax total: {totalTax.toFixed(2)}</p>
-          <p className="font-medium text-slate-900">
-            Premium including tax: {premiumIncludingTaxValue.toFixed(2)}
-          </p>
-        </div>
+        {taxFieldArray.length > 0 ? (
+          <div className="space-y-1">
+            {taxFieldArray.map((_, taxIndex) => (
+              <div
+                key={taxIndex}
+                className="grid gap-3 rounded-lg border border-slate-100 p-3 md:grid-cols-4"
+              >
+                <FormField
+                  control={form.control}
+                  name={path(index, `taxes_charged.${taxIndex}.tax_code`)}
+                  render={({ field }) => (
+                    <WizardFormItem>
+                      <FormLabel>Tax Code (required)</FormLabel>
+                      <Select
+                        value={toSelectValue(field.value as string)}
+                        onValueChange={(value) => {
+                          const nextValue = fromSelectValue(value);
+                          field.onChange(nextValue);
+                          // tax_rate is prefilled from the tax code's
+                          // known default; tax_amount is left blank for
+                          // manual entry — automatic calculation is
+                          // currently disabled (AUTO_CALCULATION_DISABLED).
+                          form.setValue(
+                            path(index, `taxes_charged.${taxIndex}.tax_rate`),
+                            getTaxRateForCode(nextValue),
+                          );
+                          form.setValue(
+                            path(index, `taxes_charged.${taxIndex}.tax_amount`),
+                            '',
+                          );
+                          if (value === SELECT_NONE_VALUE) {
+                            form.setValue(
+                              path(
+                                index,
+                                `taxes_charged.${taxIndex}.is_tax_exempted`,
+                              ),
+                              false,
+                            );
+                            form.setValue(
+                              path(
+                                index,
+                                `taxes_charged.${taxIndex}.tax_exemption_type`,
+                              ),
+                              '',
+                            );
+                            form.setValue(
+                              path(
+                                index,
+                                `taxes_charged.${taxIndex}.tax_exemption_reference`,
+                              ),
+                              '',
+                            );
+                          }
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select tax code" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={SELECT_NONE_VALUE}>
+                            None
+                          </SelectItem>
+                          {TAX_CODE_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </WizardFormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={path(index, `taxes_charged.${taxIndex}.tax_rate`)}
+                  render={({ field }) => (
+                    <WizardFormItem>
+                      <FormLabel>Tax Rate</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.000001"
+                          {...field}
+                          value={field.value as string}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </WizardFormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={path(index, `taxes_charged.${taxIndex}.tax_amount`)}
+                  render={({ field }) => (
+                    <WizardFormItem>
+                      <FormLabel>Tax Amount</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          {...field}
+                          value={field.value as string}
+                        />
+                      </FormControl>
+                    </WizardFormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={path(
+                    index,
+                    `taxes_charged.${taxIndex}.is_tax_exempted`,
+                  )}
+                  render={({ field }) => (
+                    <WizardFormItem>
+                      <FormLabel>Exempted</FormLabel>
+                      <Select
+                        value={field.value ? 'Y' : 'N'}
+                        onValueChange={(value) => {
+                          if (value === SELECT_NONE_VALUE) {
+                            field.onChange(false);
+                            form.setValue(
+                              path(
+                                index,
+                                `taxes_charged.${taxIndex}.tax_exemption_type`,
+                              ),
+                              '',
+                            );
+                            form.setValue(
+                              path(
+                                index,
+                                `taxes_charged.${taxIndex}.tax_exemption_reference`,
+                              ),
+                              '',
+                            );
+                            // Zeroing is a presentation-level clear, not a
+                            // calculation — safe to do immediately rather
+                            // than waiting on the debounced recalculation.
+                            form.setValue(
+                              path(
+                                index,
+                                `taxes_charged.${taxIndex}.tax_amount`,
+                              ),
+                              '0',
+                            );
+                            return;
+                          }
+                          const isExempted = value === 'Y';
+                          field.onChange(isExempted);
+                          if (!isExempted) {
+                            form.setValue(
+                              path(
+                                index,
+                                `taxes_charged.${taxIndex}.tax_exemption_type`,
+                              ),
+                              '',
+                            );
+                            form.setValue(
+                              path(
+                                index,
+                                `taxes_charged.${taxIndex}.tax_exemption_reference`,
+                              ),
+                              '',
+                            );
+                            // Un-exempting means the true tax_amount is
+                            // unknown again until the backend recalculates.
+                            form.setValue(
+                              path(
+                                index,
+                                `taxes_charged.${taxIndex}.tax_amount`,
+                              ),
+                              '',
+                            );
+                          } else {
+                            form.setValue(
+                              path(
+                                index,
+                                `taxes_charged.${taxIndex}.tax_amount`,
+                              ),
+                              '0',
+                            );
+                          }
+                        }}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select option" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={SELECT_NONE_VALUE}>
+                            None
+                          </SelectItem>
+                          {TAX_EXEMPTION_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </WizardFormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={path(
+                    index,
+                    `taxes_charged.${taxIndex}.tax_exemption_type`,
+                  )}
+                  render={({ field }) => (
+                    <WizardFormItem className="md:col-span-2">
+                      <FormLabel>Exemption Type</FormLabel>
+                      <Select
+                        value={toSelectValue(field.value as string)}
+                        onValueChange={(value) =>
+                          field.onChange(fromSelectValue(value))
+                        }
+                        disabled={
+                          !form.watch(
+                            path(
+                              index,
+                              `taxes_charged.${taxIndex}.is_tax_exempted`,
+                            ),
+                          )
+                        }
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select exemption type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value={SELECT_NONE_VALUE}>
+                            None
+                          </SelectItem>
+                          {TAX_EXEMPTION_TYPE_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </WizardFormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={path(
+                    index,
+                    `taxes_charged.${taxIndex}.tax_exemption_reference`,
+                  )}
+                  render={({ field }) => (
+                    <WizardFormItem className="md:col-span-2">
+                      <FormLabel>Exemption Reference</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          value={field.value as string}
+                          disabled={
+                            !form.watch(
+                              path(
+                                index,
+                                `taxes_charged.${taxIndex}.is_tax_exempted`,
+                              ),
+                            )
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </WizardFormItem>
+                  )}
+                />
+                <div className="flex items-end justify-end md:col-span-4">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      const next = taxFieldArray.filter(
+                        (_, i) => i !== taxIndex,
+                      );
+                      form.setValue(
+                        path(index, 'taxes_charged'),
+                        next.length ? next : [createEmptyRiskTaxRow()],
+                      );
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+        <p>Sum insured equivalent: {sumInsuredEquivalentValue.toFixed(2)}</p>
+        <p>Discount total: {totalDiscount.toFixed(2)}</p>
+        <p>
+          Premium excluding tax:{' '}
+          {toNumber(premiumExcludingTaxEquivalent).toFixed(2)}
+        </p>
+        <p>Tax total: {totalTax.toFixed(2)}</p>
+        <p className="font-medium text-slate-900">
+          Premium including tax: {premiumIncludingTaxValue.toFixed(2)}
+        </p>
+      </div>
     </StepSection>
   );
 }

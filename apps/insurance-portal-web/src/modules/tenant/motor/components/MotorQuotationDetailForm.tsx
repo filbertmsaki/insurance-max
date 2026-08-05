@@ -13,8 +13,17 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { motorQuotationDetailSchema, type MotorQuotationDetailFormValues } from '../schemas';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  motorQuotationDetailSchema,
+  type MotorQuotationDetailFormValues,
+} from '../schemas';
 import type { MotorVehicleRecord, QuotationOption } from '../types';
 
 interface Props {
@@ -73,7 +82,9 @@ export function MotorQuotationDetailForm({
                   <FormLabel>Quotation</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select quotation" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select quotation" />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {quotationOptions.map((quotation) => (
@@ -93,7 +104,9 @@ export function MotorQuotationDetailForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Quotation Risk ID</FormLabel>
-                  <FormControl><Input placeholder="UUID from quotation risk" {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="UUID from quotation risk" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -106,12 +119,17 @@ export function MotorQuotationDetailForm({
                   <FormLabel>Motor Vehicle</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select vehicle" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select vehicle" />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {vehicleOptions.map((vehicle) => (
                         <SelectItem key={vehicle.id} value={vehicle.id}>
-                          {vehicle.registration_no ?? vehicle.chassis_no ?? vehicle.engine_no ?? vehicle.id}
+                          {vehicle.registration_no ??
+                            vehicle.chassis_no ??
+                            vehicle.engine_no ??
+                            vehicle.id}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -140,7 +158,12 @@ export function MotorQuotationDetailForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{label}</FormLabel>
-                    <FormControl><Input {...field} value={field.value == null ? '' : String(field.value)} /></FormControl>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value == null ? '' : String(field.value)}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -159,7 +182,13 @@ export function MotorQuotationDetailForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{label}</FormLabel>
-                    <FormControl><Input type="number" {...field} value={field.value == null ? '' : String(field.value)} /></FormControl>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        {...field}
+                        value={field.value == null ? '' : String(field.value)}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -171,11 +200,18 @@ export function MotorQuotationDetailForm({
               render={({ field }) => (
                 <FormItem className="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3 md:col-span-2">
                   <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(Boolean(checked))} />
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={(checked) =>
+                        field.onChange(Boolean(checked))
+                      }
+                    />
                   </FormControl>
                   <div>
                     <FormLabel className="mb-0">Excess applicable</FormLabel>
-                    <p className="text-xs text-slate-500">Enable this when the detail should carry excess rules.</p>
+                    <p className="text-xs text-slate-500">
+                      Enable this when the detail should carry excess rules.
+                    </p>
                   </div>
                 </FormItem>
               )}

@@ -11,7 +11,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { motorVehicleSchema, type MotorVehicleFormValues } from '../schemas';
 import type { MotorCustomerOption } from '../types';
 
@@ -79,9 +85,10 @@ export function MotorVehicleForm({
                       {customerOptions.map((customer) => (
                         <SelectItem key={customer.id} value={customer.id}>
                           {customer.customer_type === 'CORPORATE'
-                            ? customer.company_name ?? customer.customer_no
-                            : [customer.first_name, customer.last_name].filter(Boolean).join(' ') || customer.customer_no}
-                          {' '}
+                            ? (customer.company_name ?? customer.customer_no)
+                            : [customer.first_name, customer.last_name]
+                                .filter(Boolean)
+                                .join(' ') || customer.customer_no}{' '}
                           ({customer.customer_no})
                         </SelectItem>
                       ))}
@@ -110,7 +117,9 @@ export function MotorVehicleForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{label}</FormLabel>
-                    <FormControl><Input {...field} value={field.value ?? ''} /></FormControl>
+                    <FormControl>
+                      <Input {...field} value={field.value ?? ''} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -130,7 +139,13 @@ export function MotorVehicleForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{label}</FormLabel>
-                    <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        {...field}
+                        value={field.value ?? ''}
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -142,7 +157,9 @@ export function MotorVehicleForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Currency</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -153,7 +170,9 @@ export function MotorVehicleForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Status</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import {
   Plus,
   Pencil,
@@ -11,15 +11,15 @@ import {
   ShieldCheck,
   Building2,
   Globe,
-} from 'lucide-react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Switch } from '@/components/ui/switch'
+} from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -27,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog'
+} from '@/components/ui/dialog';
 import {
   Form,
   FormControl,
@@ -35,16 +35,21 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { Separator } from '@/components/ui/separator'
-import { DataTable, type Column } from '@/components/shared/DataTable'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { rolesApi } from '@/modules/platform/roles/api/roles'
-import { permissionsApi } from '@/modules/platform/permissions/api/permissions'
-import { useRbacGuard } from '@/modules/shared/auth/hooks/useRbacGuard'
-import type { Role, Permission } from '@/types'
+} from '@/components/ui/form';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Separator } from '@/components/ui/separator';
+import { DataTable, type Column } from '@/components/shared/DataTable';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { rolesApi } from '@/modules/platform/roles/api/roles';
+import { permissionsApi } from '@/modules/platform/permissions/api/permissions';
+import { useRbacGuard } from '@/modules/shared/auth/hooks/useRbacGuard';
+import type { Role, Permission } from '@/types';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -53,19 +58,21 @@ const schema = z.object({
   display_name: z.string().min(1, 'Display name is required'),
   description: z.string().optional(),
   is_system_generated: z.boolean().optional(),
-})
+});
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function groupPermissions(permissions: Permission[]): Record<string, Permission[]> {
+function groupPermissions(
+  permissions: Permission[],
+): Record<string, Permission[]> {
   return permissions.reduce<Record<string, Permission[]>>((acc, p) => {
-    const category = p.name.includes(':') ? p.name.split(':')[0] : 'general'
-    const key = category.charAt(0).toUpperCase() + category.slice(1)
-    ;(acc[key] ??= []).push(p)
-    return acc
-  }, {})
+    const category = p.name.includes(':') ? p.name.split(':')[0] : 'general';
+    const key = category.charAt(0).toUpperCase() + category.slice(1);
+    (acc[key] ??= []).push(p);
+    return acc;
+  }, {});
 }
 
 function RoleTypeBadge({ role }: { role: Role }) {
@@ -75,7 +82,7 @@ function RoleTypeBadge({ role }: { role: Role }) {
         <Lock className="h-3 w-3" />
         System
       </Badge>
-    )
+    );
   }
   if (role.company_id) {
     return (
@@ -83,29 +90,33 @@ function RoleTypeBadge({ role }: { role: Role }) {
         <Building2 className="h-3 w-3" />
         Company
       </Badge>
-    )
+    );
   }
   return (
     <Badge className="gap-1 bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-100">
       <Globe className="h-3 w-3" />
       Global
     </Badge>
-  )
+  );
 }
 
 // ─── View Permissions Dialog ──────────────────────────────────────────────────
 
 interface ViewPermissionsDialogProps {
-  role: Role | null
-  open: boolean
-  onClose: () => void
+  role: Role | null;
+  open: boolean;
+  onClose: () => void;
 }
 
-function ViewPermissionsDialog({ role, open, onClose }: ViewPermissionsDialogProps) {
-  if (!role) return null
+function ViewPermissionsDialog({
+  role,
+  open,
+  onClose,
+}: ViewPermissionsDialogProps) {
+  if (!role) return null;
 
-  const groups = groupPermissions(role.permissions ?? [])
-  const isEmpty = !role.permissions || role.permissions.length === 0
+  const groups = groupPermissions(role.permissions ?? []);
+  const isEmpty = !role.permissions || role.permissions.length === 0;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -165,20 +176,20 @@ function ViewPermissionsDialog({ role, open, onClose }: ViewPermissionsDialogPro
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 // ─── Role Form Dialog ─────────────────────────────────────────────────────────
 
 interface RoleFormDialogProps {
-  open: boolean
-  onClose: () => void
-  editRole: Role | null
-  allPermissions: Permission[]
-  isOwner: boolean
-  userCompanyId: string | null
-  onSubmit: (values: FormValues, selectedPerms: string[]) => void
-  isPending: boolean
+  open: boolean;
+  onClose: () => void;
+  editRole: Role | null;
+  allPermissions: Permission[];
+  isOwner: boolean;
+  userCompanyId: string | null;
+  onSubmit: (values: FormValues, selectedPerms: string[]) => void;
+  isPending: boolean;
 }
 
 function RoleFormDialog({
@@ -190,70 +201,78 @@ function RoleFormDialog({
   onSubmit,
   isPending,
 }: RoleFormDialogProps) {
-  const [selectedPerms, setSelectedPerms] = useState<string[]>([])
-  const [permSearch, setPermSearch] = useState('')
+  const [selectedPerms, setSelectedPerms] = useState<string[]>([]);
+  const [permSearch, setPermSearch] = useState('');
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', display_name: '', description: '', is_system_generated: false },
-  })
+    defaultValues: {
+      name: '',
+      display_name: '',
+      description: '',
+      is_system_generated: false,
+    },
+  });
 
   // Sync form state when dialog opens
   const handleOpen = (o: boolean) => {
     if (!o) {
-      onClose()
-      return
+      onClose();
+      return;
     }
-  }
+  };
 
-  const [prevSync, setPrevSync] = useState({ open, editRole })
+  const [prevSync, setPrevSync] = useState({ open, editRole });
   if (open !== prevSync.open || editRole !== prevSync.editRole) {
-    setPrevSync({ open, editRole })
+    setPrevSync({ open, editRole });
     if (open) {
       form.reset({
         name: editRole?.name ?? '',
         display_name: editRole?.display_name ?? '',
         description: editRole?.description ?? '',
         is_system_generated: editRole?.is_system_generated ?? false,
-      })
-      setSelectedPerms(editRole?.permissions?.map((p) => p.id) ?? [])
-      setPermSearch('')
+      });
+      setSelectedPerms(editRole?.permissions?.map((p) => p.id) ?? []);
+      setPermSearch('');
     }
   }
 
   const filteredPerms = useMemo(() => {
-    const q = permSearch.toLowerCase()
+    const q = permSearch.toLowerCase();
     return q
       ? allPermissions.filter(
           (p) =>
             p.name.toLowerCase().includes(q) ||
             p.display_name.toLowerCase().includes(q),
         )
-      : allPermissions
-  }, [allPermissions, permSearch])
+      : allPermissions;
+  }, [allPermissions, permSearch]);
 
-  const groupedPerms = useMemo(() => groupPermissions(filteredPerms), [filteredPerms])
+  const groupedPerms = useMemo(
+    () => groupPermissions(filteredPerms),
+    [filteredPerms],
+  );
 
   const togglePerm = (id: string, checked: boolean) => {
     setSelectedPerms((prev) =>
       checked ? [...prev, id] : prev.filter((x) => x !== id),
-    )
-  }
+    );
+  };
 
   const toggleGroup = (perms: Permission[], checked: boolean) => {
-    const ids = perms.map((p) => p.id)
+    const ids = perms.map((p) => p.id);
     setSelectedPerms((prev) =>
       checked
         ? [...new Set([...prev, ...ids])]
         : prev.filter((x) => !ids.includes(x)),
-    )
-  }
+    );
+  };
 
   const handleSubmit = (values: FormValues) => {
-    onSubmit(values, selectedPerms)
-  }
+    onSubmit(values, selectedPerms);
+  };
 
-  const isSystemRole = editRole?.is_system_generated
+  const isSystemRole = editRole?.is_system_generated;
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
@@ -274,7 +293,10 @@ function RoleFormDialog({
         )}
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit(handleSubmit)}
+            className="space-y-4"
+          >
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -315,7 +337,10 @@ function RoleFormDialog({
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Input placeholder="Describe what this role can do…" {...field} />
+                    <Input
+                      placeholder="Describe what this role can do…"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -341,7 +366,8 @@ function RoleFormDialog({
                           System Role
                         </FormLabel>
                         <p className="text-xs text-slate-500">
-                          System roles are protected and can only be managed by Owners
+                          System roles are protected and can only be managed by
+                          Owners
                         </p>
                       </div>
                     </div>
@@ -385,27 +411,44 @@ function RoleFormDialog({
 
               <div className="max-h-52 overflow-y-auto rounded-md border border-slate-200">
                 {Object.keys(groupedPerms).length === 0 ? (
-                  <p className="py-6 text-center text-sm text-slate-400">No permissions found</p>
+                  <p className="py-6 text-center text-sm text-slate-400">
+                    No permissions found
+                  </p>
                 ) : (
                   Object.entries(groupedPerms).map(([group, perms]) => {
-                    const groupIds = perms.map((p) => p.id)
-                    const allChecked = groupIds.every((id) => selectedPerms.includes(id))
-                    const someChecked = groupIds.some((id) => selectedPerms.includes(id))
+                    const groupIds = perms.map((p) => p.id);
+                    const allChecked = groupIds.every((id) =>
+                      selectedPerms.includes(id),
+                    );
+                    const someChecked = groupIds.some((id) =>
+                      selectedPerms.includes(id),
+                    );
 
                     return (
                       <div key={group}>
                         <div className="flex items-center gap-2 bg-slate-50 border-b border-slate-100 px-3 py-1.5">
                           <Checkbox
                             checked={allChecked}
-                            data-state={someChecked && !allChecked ? 'indeterminate' : undefined}
-                            onCheckedChange={(checked) => toggleGroup(perms, !!checked)}
+                            data-state={
+                              someChecked && !allChecked
+                                ? 'indeterminate'
+                                : undefined
+                            }
+                            onCheckedChange={(checked) =>
+                              toggleGroup(perms, !!checked)
+                            }
                             className="h-3.5 w-3.5"
                           />
                           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
                             {group}
                           </span>
                           <span className="text-xs text-slate-400 ml-auto">
-                            {groupIds.filter((id) => selectedPerms.includes(id)).length}/{perms.length}
+                            {
+                              groupIds.filter((id) =>
+                                selectedPerms.includes(id),
+                              ).length
+                            }
+                            /{perms.length}
                           </span>
                         </div>
                         <div className="divide-y divide-slate-50">
@@ -416,66 +459,80 @@ function RoleFormDialog({
                             >
                               <Checkbox
                                 checked={selectedPerms.includes(p.id)}
-                                onCheckedChange={(checked) => togglePerm(p.id, !!checked)}
+                                onCheckedChange={(checked) =>
+                                  togglePerm(p.id, !!checked)
+                                }
                                 className="h-3.5 w-3.5"
                               />
                               <span className="text-sm text-slate-700 flex-1">
                                 {p.display_name}
                               </span>
-                              <code className="text-xs text-slate-400">{p.name}</code>
+                              <code className="text-xs text-slate-400">
+                                {p.name}
+                              </code>
                             </label>
                           ))}
                         </div>
                       </div>
-                    )
+                    );
                   })
                 )}
               </div>
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={isPending}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>
-                {isPending ? 'Saving…' : editRole ? 'Save changes' : 'Create Role'}
+                {isPending
+                  ? 'Saving…'
+                  : editRole
+                    ? 'Save changes'
+                    : 'Create Role'}
               </Button>
             </DialogFooter>
           </form>
         </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function RolesPage() {
-  const queryClient = useQueryClient()
-  const { isOwner, userCompanyId, canManageRole, canDeleteRole } = useRbacGuard()
+  const queryClient = useQueryClient();
+  const { isOwner, userCompanyId, canManageRole, canDeleteRole } =
+    useRbacGuard();
 
-  const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(10)
-  const [search, setSearch] = useState('')
-  const [formOpen, setFormOpen] = useState(false)
-  const [editRole, setEditRole] = useState<Role | null>(null)
-  const [viewRole, setViewRole] = useState<Role | null>(null)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [search, setSearch] = useState('');
+  const [formOpen, setFormOpen] = useState(false);
+  const [editRole, setEditRole] = useState<Role | null>(null);
+  const [viewRole, setViewRole] = useState<Role | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data: allRoles = [], isLoading } = useQuery({
     queryKey: ['roles'],
     queryFn: rolesApi.getRoles,
-  })
+  });
 
   const { data: allPermissions = [] } = useQuery({
     queryKey: ['permissions'],
     queryFn: permissionsApi.getPermissions,
     enabled: formOpen,
-  })
+  });
 
   // Client-side search filter
   const filtered = useMemo(() => {
-    const q = search.toLowerCase()
+    const q = search.toLowerCase();
     return q
       ? allRoles.filter(
           (r) =>
@@ -483,95 +540,119 @@ export function RolesPage() {
             r.display_name.toLowerCase().includes(q) ||
             (r.description ?? '').toLowerCase().includes(q),
         )
-      : allRoles
-  }, [allRoles, search])
+      : allRoles;
+  }, [allRoles, search]);
 
-  const total = filtered.length
-  const totalPages = Math.ceil(total / limit) || 1
-  const pageData = filtered.slice((page - 1) * limit, page * limit)
+  const total = filtered.length;
+  const totalPages = Math.ceil(total / limit) || 1;
+  const pageData = filtered.slice((page - 1) * limit, page * limit);
 
   const openCreate = () => {
-    setEditRole(null)
-    setFormOpen(true)
-  }
+    setEditRole(null);
+    setFormOpen(true);
+  };
 
   const openEdit = (role: Role) => {
-    setEditRole(role)
-    setFormOpen(true)
-  }
+    setEditRole(role);
+    setFormOpen(true);
+  };
 
   const createMutation = useMutation({
-    mutationFn: ({ values, permIds }: { values: FormValues; permIds: string[] }) =>
+    mutationFn: ({
+      values,
+      permIds,
+    }: {
+      values: FormValues;
+      permIds: string[];
+    }) =>
       rolesApi.createRole({
         name: values.name,
         display_name: values.display_name,
         description: values.description,
-        is_system_generated: isOwner ? (values.is_system_generated ?? false) : false,
-        company_id: isOwner && (values.is_system_generated ?? false) ? null : userCompanyId,
+        is_system_generated: isOwner
+          ? (values.is_system_generated ?? false)
+          : false,
+        company_id:
+          isOwner && (values.is_system_generated ?? false)
+            ? null
+            : userCompanyId,
         permission_ids: permIds,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['roles'] })
-      setFormOpen(false)
-      toast.success('Role created successfully')
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+      setFormOpen(false);
+      toast.success('Role created successfully');
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      toast.error(typeof msg === 'string' ? msg : 'Failed to create role')
+      const msg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      toast.error(typeof msg === 'string' ? msg : 'Failed to create role');
     },
-  })
+  });
 
   const updateMutation = useMutation({
-    mutationFn: ({ values, permIds }: { values: FormValues; permIds: string[] }) =>
+    mutationFn: ({
+      values,
+      permIds,
+    }: {
+      values: FormValues;
+      permIds: string[];
+    }) =>
       rolesApi.updateRole(editRole!.id, {
         display_name: values.display_name,
         description: values.description,
         permission_ids: permIds,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['roles'] })
-      setFormOpen(false)
-      toast.success('Role updated successfully')
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+      setFormOpen(false);
+      toast.success('Role updated successfully');
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      toast.error(typeof msg === 'string' ? msg : 'Failed to update role')
+      const msg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      toast.error(typeof msg === 'string' ? msg : 'Failed to update role');
     },
-  })
+  });
 
   const deleteMutation = useMutation({
     mutationFn: rolesApi.deleteRole,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['roles'] })
-      setDeleteId(null)
-      toast.success('Role deleted')
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+      setDeleteId(null);
+      toast.success('Role deleted');
     },
     onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      toast.error(typeof msg === 'string' ? msg : 'Failed to delete role')
+      const msg = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      toast.error(typeof msg === 'string' ? msg : 'Failed to delete role');
     },
-  })
+  });
 
   const handleFormSubmit = (values: FormValues, permIds: string[]) => {
     if (editRole) {
-      updateMutation.mutate({ values, permIds })
+      updateMutation.mutate({ values, permIds });
     } else {
-      createMutation.mutate({ values, permIds })
+      createMutation.mutate({ values, permIds });
     }
-  }
+  };
 
   const columns: Column<Role>[] = [
     {
       key: 'name',
       header: 'Identifier',
       cell: (r) => (
-        <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono">{r.name}</code>
+        <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono">
+          {r.name}
+        </code>
       ),
     },
     {
       key: 'display_name',
       header: 'Display Name',
-      cell: (r) => <span className="font-medium text-slate-900">{r.display_name}</span>,
+      cell: (r) => (
+        <span className="font-medium text-slate-900">{r.display_name}</span>
+      ),
     },
     {
       key: 'description',
@@ -605,8 +686,8 @@ export function RolesPage() {
       header: '',
       className: 'w-28',
       cell: (r) => {
-        const editable = canManageRole(r)
-        const deletable = canDeleteRole(r)
+        const editable = canManageRole(r);
+        const deletable = canDeleteRole(r);
 
         return (
           <TooltipProvider>
@@ -680,10 +761,10 @@ export function RolesPage() {
               </Tooltip>
             </div>
           </TooltipProvider>
-        )
+        );
       },
     },
-  ]
+  ];
 
   return (
     <div>
@@ -702,8 +783,8 @@ export function RolesPage() {
       {!isOwner && (
         <div className="mb-4 flex items-center gap-2 rounded-md bg-blue-50 border border-blue-100 px-4 py-2.5 text-sm text-blue-700">
           <ShieldCheck className="h-4 w-4 shrink-0" />
-          You can create and manage company-scoped roles. System roles are protected and
-          managed by Owners only.
+          You can create and manage company-scoped roles. System roles are
+          protected and managed by Owners only.
         </div>
       )}
 
@@ -714,8 +795,8 @@ export function RolesPage() {
           placeholder="Search roles…"
           value={search}
           onChange={(e) => {
-            setSearch(e.target.value)
-            setPage(1)
+            setSearch(e.target.value);
+            setPage(1);
           }}
           className="pl-9"
         />
@@ -731,8 +812,8 @@ export function RolesPage() {
         totalPages={totalPages}
         onPageChange={setPage}
         onLimitChange={(l) => {
-          setLimit(l)
-          setPage(1)
+          setLimit(l);
+          setPage(1);
         }}
       />
 
@@ -763,6 +844,5 @@ export function RolesPage() {
         loading={deleteMutation.isPending}
       />
     </div>
-  )
+  );
 }
-

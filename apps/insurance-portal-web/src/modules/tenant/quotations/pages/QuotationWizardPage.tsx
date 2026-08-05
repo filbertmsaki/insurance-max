@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
+import {
+  useFieldArray,
+  useForm,
+  useWatch,
+  type Resolver,
+} from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -228,7 +233,10 @@ export function QuotationWizardPage() {
   const hasPersistedDraft = Boolean(activeDraftId);
 
   const quotationSchema = useMemo(
-    () => createQuotationFormSchema({ enforceFreshCoverPeriod: !usesPrefilledQuotation }),
+    () =>
+      createQuotationFormSchema({
+        enforceFreshCoverPeriod: !usesPrefilledQuotation,
+      }),
     [usesPrefilledQuotation],
   );
   const form = useForm<QuotationFormSchemaValues>({
@@ -278,10 +286,9 @@ export function QuotationWizardPage() {
     quotationContext?.cover_note_dtl.sale_point_code ??
     quotationContext?.cover_note_dtl.fleet_hdr?.sale_point_code ??
     '';
-  const quotationFlowForQueries =
-    quotationContext
-      ? quotationContext.internal_quotation.quotation_flow
-      : quotationFlow;
+  const quotationFlowForQueries = quotationContext
+    ? quotationContext.internal_quotation.quotation_flow
+    : quotationFlow;
 
   const businessLine =
     quotationFlowForQueries === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR';
@@ -296,16 +303,19 @@ export function QuotationWizardPage() {
       quotationFlowForQueries === 'MOTOR_FLEET' ? true : undefined,
   });
   const { data: riskOptions = [] } = useQuotationRisks(
-    productId || (usesPrefilledQuotation ? savedProductId || undefined : undefined),
+    productId ||
+      (usesPrefilledQuotation ? savedProductId || undefined : undefined),
   );
   const { data: vehicleOptions = [] } = useQuotationVehicles(
     policyholderMode === 'existing' ? customerId : undefined,
   );
-  const selectedCustomer = customerOptions.find((item) => item.id === customerId);
+  const selectedCustomer = customerOptions.find(
+    (item) => item.id === customerId,
+  );
   const selectedPolicyHolderType =
     policyholderMode === 'existing' && selectedCustomer
-      ? selectedCustomer.policy_holder_type ??
-        (selectedCustomer.customer_type === 'CORPORATE' ? 2 : 1)
+      ? (selectedCustomer.policy_holder_type ??
+        (selectedCustomer.customer_type === 'CORPORATE' ? 2 : 1))
       : form.watch('policyholder.customer_type') === 'CORPORATE'
         ? 2
         : 1;
@@ -373,22 +383,12 @@ export function QuotationWizardPage() {
         shouldValidate: true,
       });
     }
-  }, [
-    form,
-    loggedInOfficerName,
-    loggedInOfficerTitle,
-    usesPrefilledQuotation,
-  ]);
+  }, [form, loggedInOfficerName, loggedInOfficerTitle, usesPrefilledQuotation]);
+
+  useEffect(() => {}, [form, usesPrefilledQuotation]);
 
   useEffect(() => {
-  }, [form, usesPrefilledQuotation]);
-
-  useEffect(() => {
-    if (
-      !quotationContext ||
-      hasHydratedEditRef.current ||
-      !editOptionsReady
-    ) {
+    if (!quotationContext || hasHydratedEditRef.current || !editOptionsReady) {
       return;
     }
 
@@ -410,23 +410,25 @@ export function QuotationWizardPage() {
             | '2'
             | '3'),
       prev_cover_note_reference: isEndorsementMode
-        ? quotationContext.cover_note_dtl.cover_note_number ??
-          quotationContext.quotation_no
-        : quotationContext.cover_note_dtl.prev_cover_note_reference_number ?? '',
+        ? (quotationContext.cover_note_dtl.cover_note_number ??
+          quotationContext.quotation_no)
+        : (quotationContext.cover_note_dtl.prev_cover_note_reference_number ??
+          ''),
       endorsement_type: isEndorsementMode
         ? ''
-        : (quotationContext.cover_note_dtl.endorsement_type != null
+        : ((quotationContext.cover_note_dtl.endorsement_type != null
             ? String(quotationContext.cover_note_dtl.endorsement_type)
-            : '') as '1' | '2' | '3' | '4' | '',
+            : '') as '1' | '2' | '3' | '4' | ''),
       endorsement_reason: isEndorsementMode
         ? ''
-        : quotationContext.cover_note_dtl.endorsement_reason ?? '',
+        : (quotationContext.cover_note_dtl.endorsement_reason ?? ''),
       endorsement_premium_earned: isEndorsementMode
         ? ''
         : quotationContext.cover_note_dtl.endorsement_premium_earned != null
           ? String(quotationContext.cover_note_dtl.endorsement_premium_earned)
           : '',
-      insurer_company_id: quotationContext.internal_quotation.insurer_company_id,
+      insurer_company_id:
+        quotationContext.internal_quotation.insurer_company_id,
     });
     if (
       quotationContext.current_wizard_step &&
@@ -516,12 +518,8 @@ export function QuotationWizardPage() {
   useEffect(() => {
     const totals =
       quotationFlow === 'MOTOR_FLEET'
-        ? aggregateFleetRiskTotals(
-            (watchedFleetItems ?? []) as QuotationFormSchemaValues['fleet']['items'],
-          )
-        : aggregateRiskTotals(
-            (watchedRisks ?? []) as QuotationFormSchemaValues['risks'],
-          );
+        ? aggregateFleetRiskTotals(watchedFleetItems ?? [])
+        : aggregateRiskTotals(watchedRisks ?? []);
     // Compared numerically, not as raw strings: aggregateRiskTotals()/
     // aggregateFleetRiskTotals() format amounts differently than whatever
     // already sits in these top-level fields (e.g. "100000.0000" vs
@@ -582,7 +580,9 @@ export function QuotationWizardPage() {
     fleetItems.forEach((item, itemIndex) => {
       item.risks_covered.forEach((risk, riskIndex) => {
         if (!risk.risk_code && risk.risk_id) {
-          const match = riskOptions.find((option) => option.id === risk.risk_id);
+          const match = riskOptions.find(
+            (option) => option.id === risk.risk_id,
+          );
           if (match?.risk_code) {
             form.setValue(
               `fleet.items.${itemIndex}.risks_covered.${riskIndex}.risk_code`,
@@ -610,7 +610,11 @@ export function QuotationWizardPage() {
     async (nextStep: QuotationWizardStepId) => {
       const currentIndex = steps.findIndex((step) => step.id === stepId);
       const nextIndex = steps.findIndex((step) => step.id === nextStep);
-      if (nextIndex < 0 || (nextIndex > currentIndex + 1 && !completedSteps.includes(nextStep))) return;
+      if (
+        nextIndex < 0 ||
+        (nextIndex > currentIndex + 1 && !completedSteps.includes(nextStep))
+      )
+        return;
       const fields = STEP_FIELDS[stepId];
       if (nextIndex > currentIndex && fields?.length) {
         const valid = await form.trigger(fields, { shouldFocus: true });
@@ -658,9 +662,16 @@ export function QuotationWizardPage() {
       form.setValue('currency', selection.currency);
       form.setValue('cover_note_type', selection.cover_note_type);
       if (selection.intermediary_company_id !== undefined) {
-        form.setValue('intermediary_company_id', selection.intermediary_company_id);
+        form.setValue(
+          'intermediary_company_id',
+          selection.intermediary_company_id,
+        );
       }
-      if (selection.quotation_flow !== 'MOTOR_FLEET' && selection.valid_from && selection.valid_until) {
+      if (
+        selection.quotation_flow !== 'MOTOR_FLEET' &&
+        selection.valid_from &&
+        selection.valid_until
+      ) {
         form.setValue('valid_from', selection.valid_from);
         form.setValue('valid_until', selection.valid_until);
       }
@@ -691,7 +702,9 @@ export function QuotationWizardPage() {
       valid_from:
         values.quotation_flow !== 'MOTOR_FLEET' ? values.valid_from : undefined,
       valid_until:
-        values.quotation_flow !== 'MOTOR_FLEET' ? values.valid_until : undefined,
+        values.quotation_flow !== 'MOTOR_FLEET'
+          ? values.valid_until
+          : undefined,
     });
   }, [form]);
 
@@ -793,7 +806,9 @@ export function QuotationWizardPage() {
     }
 
     const values = form.getValues();
-    const product = productOptions.find((item) => item.id === values.product_id);
+    const product = productOptions.find(
+      (item) => item.id === values.product_id,
+    );
     const existingCustomer = customerOptions.find(
       (item) => item.id === values.customer_id,
     );
@@ -872,8 +887,8 @@ export function QuotationWizardPage() {
   const isLastStep = steps[steps.length - 1]?.id === stepId;
   const errorSteps = steps
     .filter((step) =>
-      (STEP_FIELDS[step.id] ?? []).some((field) =>
-        form.getFieldState(field).invalid,
+      (STEP_FIELDS[step.id] ?? []).some(
+        (field) => form.getFieldState(field).invalid,
       ),
     )
     .map((step) => step.id);
@@ -1013,7 +1028,12 @@ export function QuotationWizardPage() {
       <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-6">
         {!isEditMode && !isEndorsementMode && isFirstStep ? (
           <div className="flex justify-end">
-            <Button type="button" variant="outline" size="sm" onClick={openChangeSetup}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={openChangeSetup}
+            >
               Change quotation setup
             </Button>
           </div>

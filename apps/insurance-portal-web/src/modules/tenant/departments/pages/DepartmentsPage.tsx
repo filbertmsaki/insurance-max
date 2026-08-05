@@ -14,14 +14,29 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { DataTable, type Column } from '@/components/shared/DataTable';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { branchesApi } from '@/modules/tenant/branches/api/branches';
-import { DepartmentForm, type DepartmentFormValues } from '@/modules/tenant/departments/components/DepartmentForm';
+import {
+  DepartmentForm,
+  type DepartmentFormValues,
+} from '@/modules/tenant/departments/components/DepartmentForm';
 import {
   useDepartmentsList,
   useCreateDepartment,
@@ -33,24 +48,28 @@ import type { DepartmentRecord } from '@/modules/tenant/departments/api/departme
 
 function StatusBadge({ status }: { status: string }) {
   return status === 'active' ? (
-    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">Active</Badge>
+    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
+      Active
+    </Badge>
   ) : (
-    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">Inactive</Badge>
-  )
+    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">
+      Inactive
+    </Badge>
+  );
 }
 
 export function DepartmentsPage() {
-  const navigate = useNavigate()
-  const { hasPermission } = useAuthStore()
-  const canCreate = hasPermission('departments:create')
-  const canUpdate = hasPermission('departments:update')
-  const canDelete = hasPermission('departments:delete')
+  const navigate = useNavigate();
+  const { hasPermission } = useAuthStore();
+  const canCreate = hasPermission('departments:create');
+  const canUpdate = hasPermission('departments:update');
+  const canDelete = hasPermission('departments:delete');
 
   const { data: branchOptions = [] } = useQuery({
     queryKey: ['branches', 'all'],
     queryFn: branchesApi.getAllBranches,
     staleTime: 60_000,
-  })
+  });
 
   const {
     departments,
@@ -67,16 +86,16 @@ export function DepartmentsPage() {
     setBranchId,
     setPage,
     setLimit,
-  } = useDepartmentsList()
+  } = useDepartmentsList();
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<DepartmentRecord | null>(null)
-  const [deleteItem, setDeleteItem] = useState<DepartmentRecord | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<DepartmentRecord | null>(null);
+  const [deleteItem, setDeleteItem] = useState<DepartmentRecord | null>(null);
 
-  const createMutation = useCreateDepartment()
-  const updateMutation = useUpdateDepartment(editing?.id ?? undefined)
-  const statusMutation = useUpdateDepartmentStatus()
-  const deleteMutation = useDeleteDepartment()
+  const createMutation = useCreateDepartment();
+  const updateMutation = useUpdateDepartment(editing?.id ?? undefined);
+  const statusMutation = useUpdateDepartmentStatus();
+  const deleteMutation = useDeleteDepartment();
 
   const columns: Column<DepartmentRecord>[] = [
     {
@@ -145,15 +164,17 @@ export function DepartmentsPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onClick={() => navigate(`/departments/${row.id}`)}>
+            <DropdownMenuItem
+              onClick={() => navigate(`/departments/${row.id}`)}
+            >
               <Building2 className="mr-2 h-4 w-4" />
               View Details
             </DropdownMenuItem>
             {canUpdate && (
               <DropdownMenuItem
                 onClick={() => {
-                  setEditing(row)
-                  setDialogOpen(true)
+                  setEditing(row);
+                  setDialogOpen(true);
                 }}
               >
                 <Building2 className="mr-2 h-4 w-4" />
@@ -165,9 +186,16 @@ export function DepartmentsPage() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() =>
-                    statusMutation.mutate({ departmentId: row.id, status: row.status === 'active' ? 'inactive' : 'active' })
+                    statusMutation.mutate({
+                      departmentId: row.id,
+                      status: row.status === 'active' ? 'inactive' : 'active',
+                    })
                   }
-                  className={row.status === 'active' ? 'text-amber-600 focus:text-amber-600' : 'text-green-600 focus:text-green-600'}
+                  className={
+                    row.status === 'active'
+                      ? 'text-amber-600 focus:text-amber-600'
+                      : 'text-green-600 focus:text-green-600'
+                  }
                 >
                   {row.status === 'active' ? (
                     <>
@@ -186,7 +214,10 @@ export function DepartmentsPage() {
             {canDelete && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setDeleteItem(row)} className="text-red-600 focus:text-red-600">
+                <DropdownMenuItem
+                  onClick={() => setDeleteItem(row)}
+                  className="text-red-600 focus:text-red-600"
+                >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
                 </DropdownMenuItem>
@@ -196,35 +227,35 @@ export function DepartmentsPage() {
         </DropdownMenu>
       ),
     },
-  ]
+  ];
 
   function handleSubmit(values: DepartmentFormValues) {
     const dto = {
       name: values.name,
       code: values.code,
       description: values.description || undefined,
-      branch_id: values.branch_id && values.branch_id !== 'none' ? values.branch_id : undefined,
-    }
+      branch_id:
+        values.branch_id && values.branch_id !== 'none'
+          ? values.branch_id
+          : undefined,
+    };
 
     if (editing) {
-      updateMutation.mutate(
-        dto,
-        {
-          onSuccess: () => {
-            setDialogOpen(false)
-            setEditing(null)
-          },
+      updateMutation.mutate(dto, {
+        onSuccess: () => {
+          setDialogOpen(false);
+          setEditing(null);
         },
-      )
-      return
+      });
+      return;
     }
 
     createMutation.mutate(dto, {
       onSuccess: () => {
-        setDialogOpen(false)
-        setEditing(null)
+        setDialogOpen(false);
+        setEditing(null);
       },
-    })
+    });
   }
 
   return (
@@ -236,8 +267,8 @@ export function DepartmentsPage() {
           canCreate ? (
             <Button
               onClick={() => {
-                setEditing(null)
-                setDialogOpen(true)
+                setEditing(null);
+                setDialogOpen(true);
               }}
             >
               <Plus className="mr-2 h-4 w-4" />
@@ -297,8 +328,8 @@ export function DepartmentsPage() {
       <DepartmentForm
         open={dialogOpen}
         onClose={() => {
-          setDialogOpen(false)
-          setEditing(null)
+          setDialogOpen(false);
+          setEditing(null);
         }}
         editing={editing}
         branchOptions={branchOptions}
@@ -317,10 +348,10 @@ export function DepartmentsPage() {
           if (deleteItem) {
             deleteMutation.mutate(deleteItem.id, {
               onSuccess: () => setDeleteItem(null),
-            })
+            });
           }
         }}
       />
     </div>
-  )
+  );
 }

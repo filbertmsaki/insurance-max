@@ -77,11 +77,7 @@ export function QuotationsPage() {
       header: 'Customer Name',
       sortable: true,
       cell: (row) =>
-        row.customer_name ? (
-          <TruncatedText value={row.customer_name} />
-        ) : (
-          'N/A'
-        ),
+        row.customer_name ? <TruncatedText value={row.customer_name} /> : 'N/A',
     },
     {
       key: 'vehicle_registration_number',
@@ -108,7 +104,9 @@ export function QuotationsPage() {
       header: 'Product Name',
       sortable: true,
       hideOnMobile: true,
-      cell: (row) => <TruncatedText value={row.product_name || row.product_code} />,
+      cell: (row) => (
+        <TruncatedText value={row.product_name || row.product_code} />
+      ),
     },
     {
       key: 'total_premium_including_tax',

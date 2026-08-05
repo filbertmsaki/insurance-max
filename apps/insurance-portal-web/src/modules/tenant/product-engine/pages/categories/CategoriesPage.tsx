@@ -1,36 +1,62 @@
-import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Plus, Pencil, Trash2, MoreHorizontal, ToggleLeft, ToggleRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
+import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
+  Plus,
+  Pencil,
+  Trash2,
+  MoreHorizontal,
+  ToggleLeft,
+  ToggleRight,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from '@/components/ui/form'
-import { Textarea } from '@/components/ui/textarea'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
-import { DataTable, type Column } from '@/components/shared/DataTable'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
 import {
-  useCategoryList, useCreateCategory, useUpdateCategory, useDeleteCategory,
-} from '@/modules/tenant/product-engine/hooks'
-import type { InsuranceCategory } from '@/types/product-engine'
-import { format } from 'date-fns'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { DataTable, type Column } from '@/components/shared/DataTable';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import {
+  useCategoryList,
+  useCreateCategory,
+  useUpdateCategory,
+  useDeleteCategory,
+} from '@/modules/tenant/product-engine/hooks';
+import type { InsuranceCategory } from '@/types/product-engine';
+import { format } from 'date-fns';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -40,48 +66,57 @@ const schema = z.object({
   description: z.string().max(500).optional(),
   business_line: z.enum(['MOTOR', 'NON_MOTOR']),
   is_active: z.boolean(),
-})
-type FormValues = z.infer<typeof schema>
+});
+type FormValues = z.infer<typeof schema>;
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
 function ActiveBadge({ active }: { active: boolean }) {
   return active ? (
-    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">Active</Badge>
+    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
+      Active
+    </Badge>
   ) : (
-    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">Inactive</Badge>
-  )
+    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">
+      Inactive
+    </Badge>
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function CategoriesPage() {
-  const { hasPermission } = useAuthStore()
-  const canCreate = hasPermission('insurance-categories:create')
-  const canUpdate = hasPermission('insurance-categories:update')
-  const canDelete = hasPermission('insurance-categories:delete')
+  const { hasPermission } = useAuthStore();
+  const canCreate = hasPermission('insurance-categories:create');
+  const canUpdate = hasPermission('insurance-categories:update');
+  const canDelete = hasPermission('insurance-categories:delete');
 
-  const [params, setParams] = useSearchParams()
-  const page = Math.max(1, Number(params.get('page') ?? '1'))
-  const limit = Number(params.get('limit') ?? '10')
-  const search = params.get('search') ?? ''
-  const isActiveFilter = params.get('is_active')
+  const [params, setParams] = useSearchParams();
+  const page = Math.max(1, Number(params.get('page') ?? '1'));
+  const limit = Number(params.get('limit') ?? '10');
+  const search = params.get('search') ?? '';
+  const isActiveFilter = params.get('is_active');
 
   const queryParams = {
     page,
     limit,
     search: search || undefined,
-    is_active: isActiveFilter === 'true' ? true : isActiveFilter === 'false' ? false : undefined,
-  }
+    is_active:
+      isActiveFilter === 'true'
+        ? true
+        : isActiveFilter === 'false'
+          ? false
+          : undefined,
+  };
 
-  const { data, isLoading } = useCategoryList(queryParams)
-  const createMutation = useCreateCategory()
-  const updateMutation = useUpdateCategory()
-  const deleteMutation = useDeleteCategory()
+  const { data, isLoading } = useCategoryList(queryParams);
+  const createMutation = useCreateCategory();
+  const updateMutation = useUpdateCategory();
+  const deleteMutation = useDeleteCategory();
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editItem, setEditItem] = useState<InsuranceCategory | null>(null)
-  const [deleteItem, setDeleteItem] = useState<InsuranceCategory | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editItem, setEditItem] = useState<InsuranceCategory | null>(null);
+  const [deleteItem, setDeleteItem] = useState<InsuranceCategory | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -92,30 +127,30 @@ export function CategoriesPage() {
       business_line: 'NON_MOTOR',
       is_active: true,
     },
-  })
+  });
 
   function openCreate() {
-    setEditItem(null)
+    setEditItem(null);
     form.reset({
       code: '',
       name: '',
       description: '',
       business_line: 'NON_MOTOR',
       is_active: true,
-    })
-    setDialogOpen(true)
+    });
+    setDialogOpen(true);
   }
 
   function openEdit(item: InsuranceCategory) {
-    setEditItem(item)
+    setEditItem(item);
     form.reset({
       code: item.code,
       name: item.name,
       description: item.description ?? '',
       business_line: item.business_line ?? 'NON_MOTOR',
       is_active: item.is_active,
-    })
-    setDialogOpen(true)
+    });
+    setDialogOpen(true);
   }
 
   function onSubmit(values: FormValues) {
@@ -123,21 +158,26 @@ export function CategoriesPage() {
       updateMutation.mutate(
         { id: editItem.id, data: values },
         { onSuccess: () => setDialogOpen(false) },
-      )
+      );
     } else {
-      createMutation.mutate(values, { onSuccess: () => setDialogOpen(false) })
+      createMutation.mutate(values, { onSuccess: () => setDialogOpen(false) });
     }
   }
 
   function toggleActive(item: InsuranceCategory) {
-    updateMutation.mutate({ id: item.id, data: { is_active: !item.is_active } })
+    updateMutation.mutate({
+      id: item.id,
+      data: { is_active: !item.is_active },
+    });
   }
 
   const columns: Column<InsuranceCategory>[] = [
     {
       key: 'code',
       header: 'Code',
-      cell: (row) => <span className="font-mono text-xs font-medium">{row.code}</span>,
+      cell: (row) => (
+        <span className="font-mono text-xs font-medium">{row.code}</span>
+      ),
     },
     { key: 'name', header: 'Name', cell: (row) => row.name },
     {
@@ -182,9 +222,17 @@ export function CategoriesPage() {
             )}
             {canUpdate && (
               <DropdownMenuItem onClick={() => toggleActive(row)}>
-                {row.is_active
-                  ? <><ToggleLeft className="mr-2 h-4 w-4" />Deactivate</>
-                  : <><ToggleRight className="mr-2 h-4 w-4" />Activate</>}
+                {row.is_active ? (
+                  <>
+                    <ToggleLeft className="mr-2 h-4 w-4" />
+                    Deactivate
+                  </>
+                ) : (
+                  <>
+                    <ToggleRight className="mr-2 h-4 w-4" />
+                    Activate
+                  </>
+                )}
               </DropdownMenuItem>
             )}
             {canDelete && (
@@ -202,7 +250,7 @@ export function CategoriesPage() {
         </DropdownMenu>
       ),
     },
-  ]
+  ];
 
   return (
     <div className="p-6 space-y-6">
@@ -224,14 +272,25 @@ export function CategoriesPage() {
           placeholder="Search categories…"
           value={search}
           onChange={(e) => {
-            setParams((p) => { const n = new URLSearchParams(p); n.set('search', e.target.value); n.set('page', '1'); return n })
+            setParams((p) => {
+              const n = new URLSearchParams(p);
+              n.set('search', e.target.value);
+              n.set('page', '1');
+              return n;
+            });
           }}
           className="w-64 h-9"
         />
         <Select
           value={isActiveFilter ?? 'all'}
           onValueChange={(v) => {
-            setParams((p) => { const n = new URLSearchParams(p); if (v === 'all') n.delete('is_active'); else n.set('is_active', v); n.set('page', '1'); return n })
+            setParams((p) => {
+              const n = new URLSearchParams(p);
+              if (v === 'all') n.delete('is_active');
+              else n.set('is_active', v);
+              n.set('page', '1');
+              return n;
+            });
           }}
         >
           <SelectTrigger className="w-36 h-9">
@@ -253,15 +312,30 @@ export function CategoriesPage() {
         limit={limit}
         total={data?.pagination.total ?? 0}
         totalPages={data?.pagination.totalPages ?? 1}
-        onPageChange={(p) => setParams((prev) => { const n = new URLSearchParams(prev); n.set('page', String(p)); return n })}
-        onLimitChange={(l) => setParams((prev) => { const n = new URLSearchParams(prev); n.set('limit', String(l)); n.set('page', '1'); return n })}
+        onPageChange={(p) =>
+          setParams((prev) => {
+            const n = new URLSearchParams(prev);
+            n.set('page', String(p));
+            return n;
+          })
+        }
+        onLimitChange={(l) =>
+          setParams((prev) => {
+            const n = new URLSearchParams(prev);
+            n.set('limit', String(l));
+            n.set('page', '1');
+            return n;
+          })
+        }
       />
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editItem ? 'Edit Category' : 'New Category'}</DialogTitle>
+            <DialogTitle>
+              {editItem ? 'Edit Category' : 'New Category'}
+            </DialogTitle>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -270,12 +344,16 @@ export function CategoriesPage() {
                 name="code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Code <span className="text-red-500">*</span></FormLabel>
+                    <FormLabel>
+                      Code <span className="text-red-500">*</span>
+                    </FormLabel>
                     <FormControl>
                       <Input
                         {...field}
                         placeholder="e.g. MOTOR"
-                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                        onChange={(e) =>
+                          field.onChange(e.target.value.toUpperCase())
+                        }
                       />
                     </FormControl>
                     <FormMessage />
@@ -287,8 +365,12 @@ export function CategoriesPage() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Name <span className="text-red-500">*</span></FormLabel>
-                    <FormControl><Input {...field} placeholder="Category name" /></FormControl>
+                    <FormLabel>
+                      Name <span className="text-red-500">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Category name" />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -300,7 +382,11 @@ export function CategoriesPage() {
                   <FormItem>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Textarea {...field} placeholder="Optional description" rows={3} />
+                      <Textarea
+                        {...field}
+                        placeholder="Optional description"
+                        rows={3}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -333,19 +419,28 @@ export function CategoriesPage() {
                 render={({ field }) => (
                   <FormItem className="flex items-center gap-3">
                     <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
                     </FormControl>
                     <FormLabel className="!mt-0">Active</FormLabel>
                   </FormItem>
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  disabled={createMutation.isPending || updateMutation.isPending}
+                  disabled={
+                    createMutation.isPending || updateMutation.isPending
+                  }
                 >
                   {editItem ? 'Save Changes' : 'Create'}
                 </Button>
@@ -358,17 +453,21 @@ export function CategoriesPage() {
       {/* Delete Confirm */}
       <ConfirmDialog
         open={!!deleteItem}
-        onOpenChange={(o) => { if (!o) setDeleteItem(null) }}
+        onOpenChange={(o) => {
+          if (!o) setDeleteItem(null);
+        }}
         title="Delete Category"
         description={`Delete "${deleteItem?.name}"? This action cannot be undone.`}
         confirmLabel="Delete"
         loading={deleteMutation.isPending}
         onConfirm={() => {
           if (deleteItem) {
-            deleteMutation.mutate(deleteItem.id, { onSuccess: () => setDeleteItem(null) })
+            deleteMutation.mutate(deleteItem.id, {
+              onSuccess: () => setDeleteItem(null),
+            });
           }
         }}
       />
     </div>
-  )
+  );
 }

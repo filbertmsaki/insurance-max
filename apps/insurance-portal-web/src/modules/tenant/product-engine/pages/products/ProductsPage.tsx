@@ -1,37 +1,63 @@
-import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Plus, Pencil, Trash2, MoreHorizontal, ToggleLeft, ToggleRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
+import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from '@/components/ui/dialog'
+  Plus,
+  Pencil,
+  Trash2,
+  MoreHorizontal,
+  ToggleLeft,
+  ToggleRight,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
-  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
-} from '@/components/ui/form'
-import { Textarea } from '@/components/ui/textarea'
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
-import { DataTable, type Column } from '@/components/shared/DataTable'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Textarea } from '@/components/ui/textarea';
 import {
-  useProductList, useCreateProduct, useUpdateProduct, useDeleteProduct,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { DataTable, type Column } from '@/components/shared/DataTable';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import {
+  useProductList,
+  useCreateProduct,
+  useUpdateProduct,
+  useDeleteProduct,
   useAllActiveCategories,
-} from '@/modules/tenant/product-engine/hooks'
-import type { InsuranceProduct } from '@/types/product-engine'
-import { format } from 'date-fns'
+} from '@/modules/tenant/product-engine/hooks';
+import type { InsuranceProduct } from '@/types/product-engine';
+import { format } from 'date-fns';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -44,45 +70,54 @@ const schema = z.object({
   supports_fleet: z.boolean(),
   tiramis_product_code: z.string().max(50).optional(),
   is_active: z.boolean(),
-})
-type FormValues = z.infer<typeof schema>
+});
+type FormValues = z.infer<typeof schema>;
 
 function ActiveBadge({ active }: { active: boolean }) {
   return active ? (
-    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">Active</Badge>
+    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
+      Active
+    </Badge>
   ) : (
-    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">Inactive</Badge>
-  )
+    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">
+      Inactive
+    </Badge>
+  );
 }
 
 export function ProductsPage() {
-  const { hasPermission } = useAuthStore()
-  const canCreate = hasPermission('insurance-products:create')
-  const canUpdate = hasPermission('insurance-products:update')
-  const canDelete = hasPermission('insurance-products:delete')
+  const { hasPermission } = useAuthStore();
+  const canCreate = hasPermission('insurance-products:create');
+  const canUpdate = hasPermission('insurance-products:update');
+  const canDelete = hasPermission('insurance-products:delete');
 
-  const [params, setParams] = useSearchParams()
-  const page = Math.max(1, Number(params.get('page') ?? '1'))
-  const limit = Number(params.get('limit') ?? '10')
-  const search = params.get('search') ?? ''
-  const categoryFilter = params.get('category_id') ?? ''
-  const isActiveFilter = params.get('is_active')
+  const [params, setParams] = useSearchParams();
+  const page = Math.max(1, Number(params.get('page') ?? '1'));
+  const limit = Number(params.get('limit') ?? '10');
+  const search = params.get('search') ?? '';
+  const categoryFilter = params.get('category_id') ?? '';
+  const isActiveFilter = params.get('is_active');
 
   const { data, isLoading } = useProductList({
     page,
     limit,
     search: search || undefined,
     category_id: categoryFilter || undefined,
-    is_active: isActiveFilter === 'true' ? true : isActiveFilter === 'false' ? false : undefined,
-  })
-  const { data: categories = [] } = useAllActiveCategories()
-  const createMutation = useCreateProduct()
-  const updateMutation = useUpdateProduct()
-  const deleteMutation = useDeleteProduct()
+    is_active:
+      isActiveFilter === 'true'
+        ? true
+        : isActiveFilter === 'false'
+          ? false
+          : undefined,
+  });
+  const { data: categories = [] } = useAllActiveCategories();
+  const createMutation = useCreateProduct();
+  const updateMutation = useUpdateProduct();
+  const deleteMutation = useDeleteProduct();
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editItem, setEditItem] = useState<InsuranceProduct | null>(null)
-  const [deleteItem, setDeleteItem] = useState<InsuranceProduct | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editItem, setEditItem] = useState<InsuranceProduct | null>(null);
+  const [deleteItem, setDeleteItem] = useState<InsuranceProduct | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -96,10 +131,10 @@ export function ProductsPage() {
       tiramis_product_code: '',
       is_active: true,
     },
-  })
+  });
 
   function openCreate() {
-    setEditItem(null)
+    setEditItem(null);
     form.reset({
       category_id: '',
       product_code: '',
@@ -109,23 +144,24 @@ export function ProductsPage() {
       supports_fleet: false,
       tiramis_product_code: '',
       is_active: true,
-    })
-    setDialogOpen(true)
+    });
+    setDialogOpen(true);
   }
 
   function openEdit(item: InsuranceProduct) {
-    setEditItem(item)
+    setEditItem(item);
     form.reset({
       category_id: item.category_id,
       product_code: item.product_code,
       product_name: item.product_name,
       description: item.description ?? '',
-      business_line: item.business_line ?? item.category?.business_line ?? 'NON_MOTOR',
+      business_line:
+        item.business_line ?? item.category?.business_line ?? 'NON_MOTOR',
       supports_fleet: item.supports_fleet ?? false,
       tiramis_product_code: item.tiramis_product_code ?? item.product_code,
       is_active: item.is_active,
-    })
-    setDialogOpen(true)
+    });
+    setDialogOpen(true);
   }
 
   function onSubmit(values: FormValues) {
@@ -133,33 +169,40 @@ export function ProductsPage() {
       updateMutation.mutate(
         { id: editItem.id, data: values },
         { onSuccess: () => setDialogOpen(false) },
-      )
+      );
     } else {
-      createMutation.mutate(values, { onSuccess: () => setDialogOpen(false) })
+      createMutation.mutate(values, { onSuccess: () => setDialogOpen(false) });
     }
   }
 
   function setParam(key: string, value: string | null) {
     setParams((p) => {
-      const n = new URLSearchParams(p)
-      if (value === null) n.delete(key); else n.set(key, value)
-      n.set('page', '1')
-      return n
-    })
+      const n = new URLSearchParams(p);
+      if (value === null) n.delete(key);
+      else n.set(key, value);
+      n.set('page', '1');
+      return n;
+    });
   }
 
   const columns: Column<InsuranceProduct>[] = [
     {
       key: 'product_code',
       header: 'Code',
-      cell: (row) => <span className="font-mono text-xs font-medium">{row.product_code}</span>,
+      cell: (row) => (
+        <span className="font-mono text-xs font-medium">
+          {row.product_code}
+        </span>
+      ),
     },
     { key: 'product_name', header: 'Name', cell: (row) => row.product_name },
     {
       key: 'category',
       header: 'Category',
       cell: (row) => (
-        <span className="text-slate-500 text-sm">{row.category?.name ?? row.category_id}</span>
+        <span className="text-slate-500 text-sm">
+          {row.category?.name ?? row.category_id}
+        </span>
       ),
     },
     {
@@ -176,7 +219,9 @@ export function ProductsPage() {
       header: 'Fleet',
       cell: (row) =>
         row.supports_fleet ? (
-          <Badge className="bg-blue-50 text-blue-700 border-blue-200">Fleet</Badge>
+          <Badge className="bg-blue-50 text-blue-700 border-blue-200">
+            Fleet
+          </Badge>
         ) : (
           <span className="text-xs text-slate-400">No</span>
         ),
@@ -214,11 +259,24 @@ export function ProductsPage() {
             )}
             {canUpdate && (
               <DropdownMenuItem
-                onClick={() => updateMutation.mutate({ id: row.id, data: { is_active: !row.is_active } })}
+                onClick={() =>
+                  updateMutation.mutate({
+                    id: row.id,
+                    data: { is_active: !row.is_active },
+                  })
+                }
               >
-                {row.is_active
-                  ? <><ToggleLeft className="mr-2 h-4 w-4" />Deactivate</>
-                  : <><ToggleRight className="mr-2 h-4 w-4" />Activate</>}
+                {row.is_active ? (
+                  <>
+                    <ToggleLeft className="mr-2 h-4 w-4" />
+                    Deactivate
+                  </>
+                ) : (
+                  <>
+                    <ToggleRight className="mr-2 h-4 w-4" />
+                    Activate
+                  </>
+                )}
               </DropdownMenuItem>
             )}
             {canDelete && (
@@ -236,7 +294,7 @@ export function ProductsPage() {
         </DropdownMenu>
       ),
     },
-  ]
+  ];
 
   return (
     <div className="p-6 space-y-6">
@@ -260,14 +318,19 @@ export function ProductsPage() {
           onChange={(e) => setParam('search', e.target.value)}
           className="w-64 h-9"
         />
-        <Select value={categoryFilter || 'all'} onValueChange={(v) => setParam('category_id', v === 'all' ? null : v)}>
+        <Select
+          value={categoryFilter || 'all'}
+          onValueChange={(v) => setParam('category_id', v === 'all' ? null : v)}
+        >
           <SelectTrigger className="w-44 h-9">
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
             {categories.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -294,15 +357,30 @@ export function ProductsPage() {
         limit={limit}
         total={data?.pagination.total ?? 0}
         totalPages={data?.pagination.totalPages ?? 1}
-        onPageChange={(p) => setParams((prev) => { const n = new URLSearchParams(prev); n.set('page', String(p)); return n })}
-        onLimitChange={(l) => setParams((prev) => { const n = new URLSearchParams(prev); n.set('limit', String(l)); n.set('page', '1'); return n })}
+        onPageChange={(p) =>
+          setParams((prev) => {
+            const n = new URLSearchParams(prev);
+            n.set('page', String(p));
+            return n;
+          })
+        }
+        onLimitChange={(l) =>
+          setParams((prev) => {
+            const n = new URLSearchParams(prev);
+            n.set('limit', String(l));
+            n.set('page', '1');
+            return n;
+          })
+        }
       />
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editItem ? 'Edit Product' : 'New Product'}</DialogTitle>
+            <DialogTitle>
+              {editItem ? 'Edit Product' : 'New Product'}
+            </DialogTitle>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -311,28 +389,37 @@ export function ProductsPage() {
                 name="category_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Category <span className="text-red-500">*</span></FormLabel>
+                    <FormLabel>
+                      Category <span className="text-red-500">*</span>
+                    </FormLabel>
                     <Select
                       value={field.value}
                       onValueChange={(value) => {
-                        field.onChange(value)
+                        field.onChange(value);
 
-                        const category = categories.find((c) => c.id === value)
+                        const category = categories.find((c) => c.id === value);
                         if (category) {
-                          form.setValue('business_line', category.business_line)
+                          form.setValue(
+                            'business_line',
+                            category.business_line,
+                          );
                           form.setValue(
                             'supports_fleet',
                             category.business_line === 'MOTOR',
-                          )
+                          );
                         }
                       }}
                     >
                       <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
                       </FormControl>
                       <SelectContent>
                         {categories.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -366,9 +453,17 @@ export function ProductsPage() {
                 name="product_code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Product Code <span className="text-red-500">*</span></FormLabel>
+                    <FormLabel>
+                      Product Code <span className="text-red-500">*</span>
+                    </FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="e.g. MOTOR-COMP" onChange={(e) => field.onChange(e.target.value.toUpperCase())} />
+                      <Input
+                        {...field}
+                        placeholder="e.g. MOTOR-COMP"
+                        onChange={(e) =>
+                          field.onChange(e.target.value.toUpperCase())
+                        }
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -379,8 +474,12 @@ export function ProductsPage() {
                 name="product_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Product Name <span className="text-red-500">*</span></FormLabel>
-                    <FormControl><Input {...field} placeholder="Product name" /></FormControl>
+                    <FormLabel>
+                      Product Name <span className="text-red-500">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Product name" />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -395,7 +494,9 @@ export function ProductsPage() {
                       <Input
                         {...field}
                         placeholder="e.g. CP20100000"
-                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                        onChange={(e) =>
+                          field.onChange(e.target.value.toUpperCase())
+                        }
                       />
                     </FormControl>
                     <FormMessage />
@@ -408,7 +509,9 @@ export function ProductsPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Description</FormLabel>
-                    <FormControl><Textarea {...field} rows={3} /></FormControl>
+                    <FormControl>
+                      <Textarea {...field} rows={3} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -425,7 +528,9 @@ export function ProductsPage() {
                         disabled={form.watch('business_line') !== 'MOTOR'}
                       />
                     </FormControl>
-                    <FormLabel className="!mt-0">Supports Motor Fleet</FormLabel>
+                    <FormLabel className="!mt-0">
+                      Supports Motor Fleet
+                    </FormLabel>
                   </FormItem>
                 )}
               />
@@ -435,15 +540,29 @@ export function ProductsPage() {
                 render={({ field }) => (
                   <FormItem className="flex items-center gap-3">
                     <FormControl>
-                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
                     </FormControl>
                     <FormLabel className="!mt-0">Active</FormLabel>
                   </FormItem>
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    createMutation.isPending || updateMutation.isPending
+                  }
+                >
                   {editItem ? 'Save Changes' : 'Create'}
                 </Button>
               </DialogFooter>
@@ -454,15 +573,20 @@ export function ProductsPage() {
 
       <ConfirmDialog
         open={!!deleteItem}
-        onOpenChange={(o) => { if (!o) setDeleteItem(null) }}
+        onOpenChange={(o) => {
+          if (!o) setDeleteItem(null);
+        }}
         title="Delete Product"
         description={`Delete "${deleteItem?.product_name}"? This cannot be undone.`}
         confirmLabel="Delete"
         loading={deleteMutation.isPending}
         onConfirm={() => {
-          if (deleteItem) deleteMutation.mutate(deleteItem.id, { onSuccess: () => setDeleteItem(null) })
+          if (deleteItem)
+            deleteMutation.mutate(deleteItem.id, {
+              onSuccess: () => setDeleteItem(null),
+            });
         }}
       />
     </div>
-  )
+  );
 }

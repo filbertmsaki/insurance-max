@@ -1,12 +1,29 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Building2, ArrowLeft, Pencil, Trash2, Power, PowerOff, MapPin } from 'lucide-react';
+import {
+  Building2,
+  ArrowLeft,
+  Pencil,
+  Trash2,
+  Power,
+  PowerOff,
+  MapPin,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { DepartmentForm, type DepartmentFormValues } from '@/modules/tenant/departments/components/DepartmentForm';
+import {
+  DepartmentForm,
+  type DepartmentFormValues,
+} from '@/modules/tenant/departments/components/DepartmentForm';
 import {
   useDepartment,
   useUpdateDepartment,
@@ -18,28 +35,32 @@ import { branchesApi } from '@/modules/tenant/branches/api/branches';
 
 function StatusBadge({ status }: { status: string }) {
   return status === 'active' ? (
-    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">Active</Badge>
+    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
+      Active
+    </Badge>
   ) : (
-    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">Inactive</Badge>
-  )
+    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">
+      Inactive
+    </Badge>
+  );
 }
 
 export function DepartmentDetailPage() {
-  const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
-  const { data: department, isLoading } = useDepartment(id)
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { data: department, isLoading } = useDepartment(id);
   const { data: branchOptions = [] } = useQuery({
     queryKey: ['branches', 'all'],
     queryFn: branchesApi.getAllBranches,
     staleTime: 60_000,
-  })
+  });
 
-  const updateMutation = useUpdateDepartment(id)
-  const statusMutation = useUpdateDepartmentStatus()
-  const deleteMutation = useDeleteDepartment()
+  const updateMutation = useUpdateDepartment(id);
+  const statusMutation = useUpdateDepartmentStatus();
+  const deleteMutation = useDeleteDepartment();
 
-  const [editOpen, setEditOpen] = useState(false)
-  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -47,7 +68,7 @@ export function DepartmentDetailPage() {
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-64 w-full" />
       </div>
-    )
+    );
   }
 
   if (!department) {
@@ -59,7 +80,7 @@ export function DepartmentDetailPage() {
           Back to Departments
         </Button>
       </div>
-    )
+    );
   }
 
   function handleSubmit(values: DepartmentFormValues) {
@@ -68,17 +89,24 @@ export function DepartmentDetailPage() {
         name: values.name,
         code: values.code,
         description: values.description || undefined,
-        branch_id: values.branch_id && values.branch_id !== 'none' ? values.branch_id : null,
+        branch_id:
+          values.branch_id && values.branch_id !== 'none'
+            ? values.branch_id
+            : null,
       },
       { onSuccess: () => setEditOpen(false) },
-    )
+    );
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="flex items-center gap-3 flex-1">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/departments')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/departments')}
+          >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="h-10 w-10 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
@@ -86,7 +114,9 @@ export function DepartmentDetailPage() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold text-slate-900">{department.name}</h1>
+              <h1 className="text-xl font-semibold text-slate-900">
+                {department.name}
+              </h1>
               <StatusBadge status={department.status} />
             </div>
             <code className="text-xs text-slate-400">{department.code}</code>
@@ -97,7 +127,11 @@ export function DepartmentDetailPage() {
           <Button
             variant="outline"
             size="sm"
-            className={department.status === 'active' ? 'text-amber-600 border-amber-200 hover:bg-amber-50' : 'text-green-600 border-green-200 hover:bg-green-50'}
+            className={
+              department.status === 'active'
+                ? 'text-amber-600 border-amber-200 hover:bg-amber-50'
+                : 'text-green-600 border-green-200 hover:bg-green-50'
+            }
             onClick={() =>
               statusMutation.mutate({
                 departmentId: department.id,
@@ -122,7 +156,11 @@ export function DepartmentDetailPage() {
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             Edit
           </Button>
-          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setDeleteOpen(true)}
+          >
             <Trash2 className="mr-1.5 h-3.5 w-3.5" />
             Delete
           </Button>
@@ -141,7 +179,9 @@ export function DepartmentDetailPage() {
             </div>
             <div className="flex items-start gap-3">
               <span className="text-slate-500 min-w-28">Code</span>
-              <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">{department.code}</code>
+              <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded">
+                {department.code}
+              </code>
             </div>
             <div className="flex items-start gap-3">
               <span className="text-slate-500 min-w-28">Status</span>
@@ -149,7 +189,9 @@ export function DepartmentDetailPage() {
             </div>
             <div className="flex items-start gap-3">
               <span className="text-slate-500 min-w-28">Created</span>
-              <span className="text-slate-900">{new Date(department.created_at).toLocaleString()}</span>
+              <span className="text-slate-900">
+                {new Date(department.created_at).toLocaleString()}
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -157,7 +199,9 @@ export function DepartmentDetailPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Branch Assignment</CardTitle>
-            <CardDescription>Departments can be assigned to a branch or left unassigned.</CardDescription>
+            <CardDescription>
+              Departments can be assigned to a branch or left unassigned.
+            </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
             {department.branch ? (
@@ -191,9 +235,11 @@ export function DepartmentDetailPage() {
         confirmLabel="Delete Department"
         loading={deleteMutation.isPending}
         onConfirm={() =>
-          deleteMutation.mutate(department.id, { onSuccess: () => navigate('/departments') })
+          deleteMutation.mutate(department.id, {
+            onSuccess: () => navigate('/departments'),
+          })
         }
       />
     </div>
-  )
+  );
 }

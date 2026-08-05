@@ -1,6 +1,6 @@
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router-dom';
 
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/button';
 
 export function ForbiddenPage() {
   return (
@@ -11,8 +11,7 @@ export function ForbiddenPage() {
         <h1 className="mt-4 text-2xl font-semibold">Access denied</h1>
 
         <p className="mt-2 text-sm text-muted-foreground">
-          Your current role or company context does not permit this
-          operation.
+          Your current role or company context does not permit this operation.
         </p>
 
         <Button asChild className="mt-6">
@@ -20,5 +19,5 @@ export function ForbiddenPage() {
         </Button>
       </div>
     </div>
-  )
+  );
 }

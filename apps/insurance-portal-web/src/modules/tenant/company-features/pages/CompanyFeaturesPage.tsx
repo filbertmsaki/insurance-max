@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Plus,
   Search,
@@ -9,18 +9,24 @@ import {
   Trash2,
   CheckCircle2,
   XCircle,
-} from 'lucide-react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { format } from 'date-fns'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
+} from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -28,14 +34,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog'
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from '@/components/ui/dropdown-menu';
 import {
   Form,
   FormControl,
@@ -44,23 +50,23 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form'
-import { DataTable, type Column } from '@/components/shared/DataTable'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+} from '@/components/ui/form';
+import { DataTable, type Column } from '@/components/shared/DataTable';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import {
   useCompanyFeaturesList,
   useUpsertCompanyFeature,
   useDeleteCompanyFeature,
-} from '@/modules/tenant/company-features/hooks'
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
-import type { CompanyFeature, SortOrder } from '@/types'
-import type { CompanyFeatureSortKey } from '@/modules/tenant/company-features/hooks'
+} from '@/modules/tenant/company-features/hooks';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import type { CompanyFeature, SortOrder } from '@/types';
+import type { CompanyFeatureSortKey } from '@/modules/tenant/company-features/hooks';
 import {
   companyFeaturesApi,
   type CompanyUserBranchAssignment,
   type UpsertCompanyFeatureDto,
-} from '@/modules/tenant/company-features/api/company-features'
+} from '@/modules/tenant/company-features/api/company-features';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -69,40 +75,49 @@ const featureSchema = z.object({
     .string()
     .min(1, 'Feature key is required')
     .max(100)
-    .regex(/^[a-z0-9_:.-]+$/, 'Lowercase letters, numbers, underscores, colons, dots, hyphens only'),
+    .regex(
+      /^[a-z0-9_:.-]+$/,
+      'Lowercase letters, numbers, underscores, colons, dots, hyphens only',
+    ),
   display_name: z.string().min(1, 'Display name is required').max(150),
   description: z.string().optional().or(z.literal('')),
   is_enabled: z.boolean(),
-})
+});
 
-type FeatureFormValues = z.infer<typeof featureSchema>
+type FeatureFormValues = z.infer<typeof featureSchema>;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{children}</p>
-  )
+    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+      {children}
+    </p>
+  );
 }
 
 function FeatureStatusBadge({ enabled }: { enabled: boolean }) {
   return enabled ? (
-    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">Enabled</Badge>
+    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
+      Enabled
+    </Badge>
   ) : (
-    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">Disabled</Badge>
-  )
+    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">
+      Disabled
+    </Badge>
+  );
 }
 
 function UserBranchesPanel() {
-  const [companyUserId, setCompanyUserId] = useState('')
-  const [submittedId, setSubmittedId] = useState('')
+  const [companyUserId, setCompanyUserId] = useState('');
+  const [submittedId, setSubmittedId] = useState('');
 
   const { data: branches = [], isLoading } = useQuery({
     queryKey: ['company-features', 'user-branches', submittedId],
     queryFn: () => companyFeaturesApi.getUserBranches(submittedId),
     enabled: !!submittedId,
     staleTime: 30_000,
-  })
+  });
 
   return (
     <Card className="mt-6">
@@ -120,13 +135,18 @@ function UserBranchesPanel() {
             value={companyUserId}
             onChange={(e) => setCompanyUserId(e.target.value)}
           />
-          <Button onClick={() => setSubmittedId(companyUserId.trim())} disabled={!companyUserId.trim()}>
+          <Button
+            onClick={() => setSubmittedId(companyUserId.trim())}
+            disabled={!companyUserId.trim()}
+          >
             Load Branches
           </Button>
         </div>
 
         {!submittedId ? (
-          <p className="text-sm text-slate-400">Enter a company user ID to view assigned branches.</p>
+          <p className="text-sm text-slate-400">
+            Enter a company user ID to view assigned branches.
+          </p>
         ) : isLoading ? (
           <div className="space-y-2">
             <Separator />
@@ -136,15 +156,24 @@ function UserBranchesPanel() {
             </div>
           </div>
         ) : branches.length === 0 ? (
-          <p className="text-sm text-slate-400">No branches found for this user.</p>
+          <p className="text-sm text-slate-400">
+            No branches found for this user.
+          </p>
         ) : (
           <div className="grid gap-3 md:grid-cols-2">
             {branches.map((assignment: CompanyUserBranchAssignment) => (
-              <div key={assignment.id} className="rounded-lg border border-slate-200 p-3">
+              <div
+                key={assignment.id}
+                className="rounded-lg border border-slate-200 p-3"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-medium text-slate-900">{assignment.branch.name}</p>
-                    <code className="text-xs text-slate-400">{assignment.branch.code}</code>
+                    <p className="font-medium text-slate-900">
+                      {assignment.branch.name}
+                    </p>
+                    <code className="text-xs text-slate-400">
+                      {assignment.branch.code}
+                    </code>
                   </div>
                   {assignment.is_primary && (
                     <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-50">
@@ -153,7 +182,10 @@ function UserBranchesPanel() {
                   )}
                 </div>
                 <p className="mt-2 text-xs text-slate-500">
-                  Status: <span className="font-medium">{assignment.branch.status}</span>
+                  Status:{' '}
+                  <span className="font-medium">
+                    {assignment.branch.status}
+                  </span>
                 </p>
               </div>
             ))}
@@ -161,17 +193,17 @@ function UserBranchesPanel() {
         )}
       </CardContent>
     </Card>
-  )
+  );
 }
 
 // ─── Upsert Dialog ────────────────────────────────────────────────────────────
 
 interface UpsertFeatureDialogProps {
-  open: boolean
-  editing: CompanyFeature | null
-  onClose: () => void
-  onSubmit: (values: FeatureFormValues) => void
-  isPending: boolean
+  open: boolean;
+  editing: CompanyFeature | null;
+  onClose: () => void;
+  onSubmit: (values: FeatureFormValues) => void;
+  isPending: boolean;
 }
 
 function UpsertFeatureDialog({
@@ -197,21 +229,23 @@ function UpsertFeatureDialog({
       description: editing?.description ?? '',
       is_enabled: editing?.is_enabled ?? true,
     },
-  })
+  });
 
   // Reset form when the editing target changes
-  const key = editing?.id ?? 'new'
+  const key = editing?.id ?? 'new';
 
   const handleClose = () => {
-    form.reset()
-    onClose()
-  }
+    form.reset();
+    onClose();
+  };
 
   return (
     <Dialog key={key} open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{editing ? 'Edit Feature' : 'Create Feature'}</DialogTitle>
+          <DialogTitle>
+            {editing ? 'Edit Feature' : 'Create Feature'}
+          </DialogTitle>
           <DialogDescription>
             {editing
               ? 'Update this company-level feature. The feature key cannot be changed after creation.'
@@ -240,7 +274,8 @@ function UpsertFeatureDialog({
                         />
                       </FormControl>
                       <FormDescription className="text-xs">
-                        Unique identifier - lowercase, use colons as namespace separators.
+                        Unique identifier - lowercase, use colons as namespace
+                        separators.
                         {editing && ' Cannot be changed after creation.'}
                       </FormDescription>
                       <FormMessage />
@@ -256,7 +291,10 @@ function UpsertFeatureDialog({
                         Display Name <span className="text-red-500">*</span>
                       </FormLabel>
                       <FormControl>
-                        <Input placeholder="Advanced Claims Routing" {...field} />
+                        <Input
+                          placeholder="Advanced Claims Routing"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -296,37 +334,49 @@ function UpsertFeatureDialog({
                     </FormDescription>
                   </div>
                   <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
                   </FormControl>
                 </FormItem>
               )}
             />
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose} disabled={isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={isPending}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>
-                {isPending ? 'Saving...' : editing ? 'Save Changes' : 'Create Feature'}
+                {isPending
+                  ? 'Saving...'
+                  : editing
+                    ? 'Save Changes'
+                    : 'Create Feature'}
               </Button>
             </DialogFooter>
           </form>
         </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function CompanyFeaturesPage() {
-  const { hasPermission } = useAuthStore()
-  const canManage = hasPermission('branches:manage-access')
+  const { hasPermission } = useAuthStore();
+  const canManage = hasPermission('branches:manage-access');
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<CompanyFeature | null>(null)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [deleteName, setDeleteName] = useState('')
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<CompanyFeature | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteName, setDeleteName] = useState('');
 
   const {
     features,
@@ -342,24 +392,24 @@ export function CompanyFeaturesPage() {
     setPage,
     setLimit,
     setSort,
-  } = useCompanyFeaturesList()
+  } = useCompanyFeaturesList();
 
-  const upsertMutation = useUpsertCompanyFeature()
-  const deleteMutation = useDeleteCompanyFeature()
+  const upsertMutation = useUpsertCompanyFeature();
+  const deleteMutation = useDeleteCompanyFeature();
 
   function openCreate() {
-    setEditing(null)
-    setDialogOpen(true)
+    setEditing(null);
+    setDialogOpen(true);
   }
 
   function openEdit(feature: CompanyFeature) {
-    setEditing(feature)
-    setDialogOpen(true)
+    setEditing(feature);
+    setDialogOpen(true);
   }
 
   function openDelete(feature: CompanyFeature) {
-    setDeleteId(feature.id)
-    setDeleteName(feature.display_name)
+    setDeleteId(feature.id);
+    setDeleteName(feature.display_name);
   }
 
   function handleSubmit(values: FeatureFormValues) {
@@ -368,13 +418,13 @@ export function CompanyFeaturesPage() {
       display_name: values.display_name,
       description: values.description || undefined,
       is_enabled: values.is_enabled,
-    }
+    };
     upsertMutation.mutate(dto, {
       onSuccess: () => {
-        setDialogOpen(false)
-        setEditing(null)
+        setDialogOpen(false);
+        setEditing(null);
       },
-    })
+    });
   }
 
   const columns: Column<CompanyFeature>[] = [
@@ -460,7 +510,7 @@ export function CompanyFeaturesPage() {
           },
         ]
       : []),
-  ]
+  ];
 
   return (
     <div>
@@ -499,15 +549,17 @@ export function CompanyFeaturesPage() {
         sortOrder={sortOrder}
         onPageChange={setPage}
         onLimitChange={setLimit}
-        onSortChange={(key, order) => setSort(key as CompanyFeatureSortKey, order as SortOrder)}
+        onSortChange={(key, order) =>
+          setSort(key as CompanyFeatureSortKey, order)
+        }
       />
 
       <UpsertFeatureDialog
         open={dialogOpen}
         editing={editing}
         onClose={() => {
-          setDialogOpen(false)
-          setEditing(null)
+          setDialogOpen(false);
+          setEditing(null);
         }}
         onSubmit={handleSubmit}
         isPending={upsertMutation.isPending}
@@ -520,12 +572,14 @@ export function CompanyFeaturesPage() {
         description={`This will permanently delete "${deleteName}" and remove all branch-level overrides for this feature. This action cannot be undone.`}
         confirmLabel="Delete Feature"
         onConfirm={() =>
-          deleteMutation.mutate(deleteId!, { onSuccess: () => setDeleteId(null) })
+          deleteMutation.mutate(deleteId!, {
+            onSuccess: () => setDeleteId(null),
+          })
         }
         loading={deleteMutation.isPending}
       />
 
       <UserBranchesPanel />
     </div>
-  )
+  );
 }

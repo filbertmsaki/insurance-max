@@ -1,16 +1,6 @@
 import { Badge } from '@/components/ui/badge';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from '@/components/ui/table';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import type { PricingSingleRiskResult } from '../types/pricing';
 import {
   formatDisplayRatePercent,
@@ -31,7 +21,8 @@ export function PremiumBreakdown({ result }: Props) {
     result.final_premium;
   const rawPremium = item?.raw_premium ?? result.gross_premium;
   const minimumPremium = item?.minimum_premium ?? result.minimum_amount;
-  const premiumAfterDiscount = item?.premium_after_discount ?? result.final_premium;
+  const premiumAfterDiscount =
+    item?.premium_after_discount ?? result.final_premium;
   const taxTotal =
     breakdown?.totals.taxes ??
     (result.charges ?? [])
@@ -41,12 +32,14 @@ export function PremiumBreakdown({ result }: Props) {
     breakdown?.totals.other_charges ??
     Math.max((result.total_charge_amount ?? 0) - taxTotal, 0);
   const chargeLines = breakdown
-    ? [...(item?.taxes ?? []), ...(item?.other_charges ?? [])].map((charge) => ({
-        key: `${charge.charge_code}-${charge.charge_category}`,
-        name: charge.charge_name,
-        code: charge.charge_code,
-        amount: charge.amount,
-      }))
+    ? [...(item?.taxes ?? []), ...(item?.other_charges ?? [])].map(
+        (charge) => ({
+          key: `${charge.charge_code}-${charge.charge_category}`,
+          name: charge.charge_name,
+          code: charge.charge_code,
+          amount: charge.amount,
+        }),
+      )
     : (result.charges ?? []).map((charge) => ({
         key: `${charge.applied_rule_id}-${charge.charge_code}`,
         name: charge.charge_name,
@@ -60,7 +53,9 @@ export function PremiumBreakdown({ result }: Props) {
         <div className="flex items-center justify-between gap-4">
           <div>
             <CardTitle className="text-base">{result.risk_name}</CardTitle>
-            <p className="text-xs font-mono text-slate-400">{result.risk_code}</p>
+            <p className="text-xs font-mono text-slate-400">
+              {result.risk_code}
+            </p>
             <div className="mt-1 flex items-center gap-2">
               <Badge variant="outline" className="text-[10px]">
                 {item?.calculation_method ?? result.rate_type}
@@ -121,7 +116,9 @@ export function PremiumBreakdown({ result }: Props) {
                 </TableCell>
               </TableRow>
               <TableRow className="hover:bg-blue-50/40">
-                <TableCell className="py-1.5 text-xs">Per Unit Premium</TableCell>
+                <TableCell className="py-1.5 text-xs">
+                  Per Unit Premium
+                </TableCell>
                 <TableCell className="py-1.5 text-right text-xs tabular-nums">
                   {formatPricingMoney(result.per_unit_premium)}
                 </TableCell>
@@ -139,7 +136,9 @@ export function PremiumBreakdown({ result }: Props) {
                 </TableCell>
               </TableRow>
               <TableRow className="hover:bg-blue-50/40">
-                <TableCell className="py-1.5 text-xs">Minimum Premium</TableCell>
+                <TableCell className="py-1.5 text-xs">
+                  Minimum Premium
+                </TableCell>
                 <TableCell className="py-1.5 text-right text-xs tabular-nums">
                   {formatPricingMoney(minimumPremium)}
                   {(item?.minimum_applied ?? result.minimum_applied) ? (
@@ -189,10 +188,7 @@ export function PremiumBreakdown({ result }: Props) {
             <Table>
               <TableBody>
                 {chargeLines.map((charge) => (
-                  <TableRow
-                    key={charge.key}
-                    className="hover:bg-blue-50/40"
-                  >
+                  <TableRow key={charge.key} className="hover:bg-blue-50/40">
                     <TableCell className="py-1.5 text-xs">
                       {charge.name}{' '}
                       <span className="text-slate-400">({charge.code})</span>

@@ -32,7 +32,9 @@ export function PricingSummary({
       <CardContent className="flex items-center justify-between gap-4 p-4">
         <div>
           <p className="text-sm font-semibold text-slate-900">{title}</p>
-          <p className="text-xs text-slate-500">Reusable pricing module summary</p>
+          <p className="text-xs text-slate-500">
+            Reusable pricing module summary
+          </p>
         </div>
         <div className="text-right">
           <Badge variant="outline" className="mb-2 text-[10px]">

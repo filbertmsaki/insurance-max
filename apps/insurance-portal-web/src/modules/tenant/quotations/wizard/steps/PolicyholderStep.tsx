@@ -4,9 +4,20 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FormControl, FormField, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  FormControl,
+  FormField,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { WizardFormItem } from '../components/WizardFormItem';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { CustomerStatusBadge } from '@/modules/tenant/customers/components/CustomerStatusBadge';
 import {
   CUSTOMER_GENDER_OPTIONS,
@@ -63,7 +74,10 @@ function ExistingCustomerCard({
     (option) => option.value === customer.gender,
   )?.label;
   const hasContactPerson =
-    customer.contact_name || customer.contact_role || customer.contact_phone || customer.contact_email;
+    customer.contact_name ||
+    customer.contact_role ||
+    customer.contact_phone ||
+    customer.contact_email;
 
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
@@ -77,13 +91,22 @@ function ExistingCustomerCard({
               <p className="text-base font-semibold text-slate-900">
                 {getCustomerDisplayName(customer)}
               </p>
-              <Badge variant="outline">{customer.customer_type.replace(/_/g, ' ')}</Badge>
+              <Badge variant="outline">
+                {customer.customer_type.replace(/_/g, ' ')}
+              </Badge>
               <CustomerStatusBadge status={customer.status} />
             </div>
-            <code className="text-xs text-slate-400">{customer.customer_no}</code>
+            <code className="text-xs text-slate-400">
+              {customer.customer_no}
+            </code>
           </div>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={onChangeCustomer}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onChangeCustomer}
+        >
           Change customer
         </Button>
       </div>
@@ -91,13 +114,21 @@ function ExistingCustomerCard({
       <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4 sm:grid-cols-2">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            {customer.customer_type === 'CORPORATE' ? 'Company Details' : 'Personal Details'}
+            {customer.customer_type === 'CORPORATE'
+              ? 'Company Details'
+              : 'Personal Details'}
           </p>
           {customer.customer_type === 'CORPORATE' ? (
             <>
               <DetailRow label="Company Name" value={customer.company_name} />
-              <DetailRow label="Registration No." value={customer.registration_no} />
-              <DetailRow label="Incorporation No." value={customer.incorporation_certificate_no} />
+              <DetailRow
+                label="Registration No."
+                value={customer.registration_no}
+              />
+              <DetailRow
+                label="Incorporation No."
+                value={customer.incorporation_certificate_no}
+              />
               <DetailRow label="TIN" value={customer.tin} />
               <DetailRow label="VRN" value={customer.vrn} />
             </>
@@ -109,7 +140,11 @@ function ExistingCustomerCard({
               <DetailRow label="Gender" value={genderLabel} />
               <DetailRow
                 label="Date of Birth"
-                value={customer.date_of_birth ? formatCoverDateLabel(customer.date_of_birth) : null}
+                value={
+                  customer.date_of_birth
+                    ? formatCoverDateLabel(customer.date_of_birth)
+                    : null
+                }
               />
               <DetailRow label="Nationality" value={customer.nationality} />
             </>
@@ -142,12 +177,20 @@ function ExistingCustomerCard({
           <DetailRow label="ID Number" value={customer.id_number} />
           <DetailRow label="Document Type" value={customer.document_type} />
           <DetailRow label="Document No." value={customer.document_no} />
-          <DetailRow label="KYC Status" value={customer.kyc_status.replace(/_/g, ' ')} />
-          <DetailRow label="Document Verified" value={customer.document_verified ? 'Yes' : 'No'} />
+          <DetailRow
+            label="KYC Status"
+            value={customer.kyc_status.replace(/_/g, ' ')}
+          />
+          <DetailRow
+            label="Document Verified"
+            value={customer.document_verified ? 'Yes' : 'No'}
+          />
         </div>
 
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Address</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Address
+          </p>
           <DetailRow label="Country" value={customer.country} />
           <DetailRow label="Region" value={customer.region} />
           <DetailRow label="District" value={customer.district} />
@@ -176,7 +219,8 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
   const customerType = form.watch('policyholder.customer_type');
   const currentIdType = form.watch('policyholder.id_type');
   const idFieldOptions = CUSTOMER_ID_TYPE_OPTIONS.filter(
-    (option) => option.appliesTo === 'BOTH' || option.appliesTo === customerType,
+    (option) =>
+      option.appliesTo === 'BOTH' || option.appliesTo === customerType,
   );
 
   function handleCustomerTypeChange(nextType: 'INDIVIDUAL' | 'CORPORATE') {
@@ -201,12 +245,10 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
     <>
       <StepSection title="Step 2. Policyholder" first>
         <div className="flex gap-2">
-          {(
-            [
-              { value: 'existing' as const, label: 'Existing Customer' },
-              { value: 'new' as const, label: 'New Customer' },
-            ]
-          ).map((option) => (
+          {[
+            { value: 'existing' as const, label: 'Existing Customer' },
+            { value: 'new' as const, label: 'New Customer' },
+          ].map((option) => (
             <button
               key={option.value}
               type="button"
@@ -232,7 +274,9 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
                 <FormLabel>Existing Customer (required)</FormLabel>
                 <Select
                   value={toSelectValue(field.value)}
-                  onValueChange={(value) => field.onChange(fromSelectValue(value))}
+                  onValueChange={(value) =>
+                    field.onChange(fromSelectValue(value))
+                  }
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -243,7 +287,8 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
                     <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
                     {customerOptions.map((customer) => (
                       <SelectItem key={customer.id} value={customer.id}>
-                        {getCustomerDisplayName(customer)} ({customer.customer_no})
+                        {getCustomerDisplayName(customer)} (
+                        {customer.customer_no})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -254,8 +299,8 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
           />
         ) : (
           <p className="text-sm text-slate-500">
-            Fill in the policyholder details below. A new customer record will be
-            created when you save this quotation.
+            Fill in the policyholder details below. A new customer record will
+            be created when you save this quotation.
           </p>
         )}
 
@@ -275,12 +320,10 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
           <div className="md:col-span-2">
             <Label className="mb-2 block">Customer Type</Label>
             <div className="flex gap-2">
-              {(
-                [
-                  { value: 'INDIVIDUAL' as const, label: 'Individual' },
-                  { value: 'CORPORATE' as const, label: 'Corporate' },
-                ]
-              ).map((option) => (
+              {[
+                { value: 'INDIVIDUAL' as const, label: 'Individual' },
+                { value: 'CORPORATE' as const, label: 'Corporate' },
+              ].map((option) => (
                 <button
                   key={option.value}
                   type="button"
@@ -298,136 +341,240 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
             </div>
           </div>
 
-          <FormField control={form.control} name={fieldName('full_name')} render={({ field }) => (
-            <WizardFormItem className="md:col-span-2">
-              <FormLabel>Full Name (required)</FormLabel>
-              <FormControl>
-                <Input
-                  {...field}
-                  value={field.value as string}
-                  placeholder={
-                    customerType === 'INDIVIDUAL'
-                      ? 'Augustino Aidan Mwageni'
-                      : 'KISWIGU Company Ltd'
-                  }
-                />
-              </FormControl>
-              <FormMessage />
-            </WizardFormItem>
-          )} />
+          <FormField
+            control={form.control}
+            name={fieldName('full_name')}
+            render={({ field }) => (
+              <WizardFormItem className="md:col-span-2">
+                <FormLabel>Full Name (required)</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    value={field.value as string}
+                    placeholder={
+                      customerType === 'INDIVIDUAL'
+                        ? 'Augustino Aidan Mwageni'
+                        : 'KISWIGU Company Ltd'
+                    }
+                  />
+                </FormControl>
+                <FormMessage />
+              </WizardFormItem>
+            )}
+          />
 
-          <FormField control={form.control} name={fieldName('date_of_birth')} render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Date of Birth / Incorporation Date (required)</FormLabel>
-              <FormControl><Input type="date" max={today} {...field} value={field.value as string} /></FormControl>
-              <FormMessage />
-            </WizardFormItem>
-          )} />
+          <FormField
+            control={form.control}
+            name={fieldName('date_of_birth')}
+            render={({ field }) => (
+              <WizardFormItem>
+                <FormLabel>
+                  Date of Birth / Incorporation Date (required)
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    type="date"
+                    max={today}
+                    {...field}
+                    value={field.value as string}
+                  />
+                </FormControl>
+                <FormMessage />
+              </WizardFormItem>
+            )}
+          />
 
           {customerType === 'INDIVIDUAL' && (
-            <FormField control={form.control} name={fieldName('gender')} render={({ field }) => (
+            <FormField
+              control={form.control}
+              name={fieldName('gender')}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Gender (required)</FormLabel>
+                  <Select
+                    value={toSelectValue(field.value as string)}
+                    onValueChange={(value) =>
+                      field.onChange(fromSelectValue(value))
+                    }
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select gender" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
+                      <SelectItem value="M">Male</SelectItem>
+                      <SelectItem value="F">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </WizardFormItem>
+              )}
+            />
+          )}
+
+          <FormField
+            control={form.control}
+            name={fieldName('id_type')}
+            render={({ field }) => (
               <WizardFormItem>
-                <FormLabel>Gender (required)</FormLabel>
+                <FormLabel>Identification Type (required)</FormLabel>
                 <Select
-                  value={toSelectValue(field.value as string)}
-                  onValueChange={(value) => field.onChange(fromSelectValue(value))}
+                  value={field.value ? String(field.value) : SELECT_NONE_VALUE}
+                  onValueChange={(value) => {
+                    field.onChange(
+                      value === SELECT_NONE_VALUE ? '' : Number(value),
+                    );
+                  }}
                 >
-                  <FormControl><SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger></FormControl>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select ID type" />
+                    </SelectTrigger>
+                  </FormControl>
                   <SelectContent>
                     <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
-                    <SelectItem value="M">Male</SelectItem>
-                    <SelectItem value="F">Female</SelectItem>
+                    {idFieldOptions.map((option) => (
+                      <SelectItem
+                        key={option.value}
+                        value={String(option.value)}
+                      >
+                        {option.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
               </WizardFormItem>
-            )} />
-          )}
+            )}
+          />
 
-          <FormField control={form.control} name={fieldName('id_type')} render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Identification Type (required)</FormLabel>
-              <Select
-                value={field.value ? String(field.value) : SELECT_NONE_VALUE}
-                onValueChange={(value) => {
-                  field.onChange(value === SELECT_NONE_VALUE ? '' : Number(value));
-                }}
-              >
-                <FormControl><SelectTrigger><SelectValue placeholder="Select ID type" /></SelectTrigger></FormControl>
-                <SelectContent>
-                  <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
-                  {idFieldOptions.map((option) => (
-                    <SelectItem key={option.value} value={String(option.value)}>{option.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </WizardFormItem>
-          )} />
+          <FormField
+            control={form.control}
+            name={fieldName('id_number')}
+            render={({ field }) => (
+              <WizardFormItem>
+                <FormLabel>Identification Number (required)</FormLabel>
+                <FormControl>
+                  <Input {...field} value={field.value as string} />
+                </FormControl>
+                <FormMessage />
+              </WizardFormItem>
+            )}
+          />
 
-          <FormField control={form.control} name={fieldName('id_number')} render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Identification Number (required)</FormLabel>
-              <FormControl><Input {...field} value={field.value as string} /></FormControl>
-              <FormMessage />
-            </WizardFormItem>
-          )} />
+          <FormField
+            control={form.control}
+            name={fieldName('phone')}
+            render={({ field }) => (
+              <WizardFormItem>
+                <FormLabel>Phone Number (required)</FormLabel>
+                <FormControl>
+                  <Input {...field} value={field.value as string} />
+                </FormControl>
+                <FormMessage />
+              </WizardFormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name={fieldName('email')}
+            render={({ field }) => (
+              <WizardFormItem>
+                <FormLabel>Email (optional)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="email"
+                    {...field}
+                    value={field.value as string}
+                  />
+                </FormControl>
+                <FormMessage />
+              </WizardFormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name={fieldName('fax')}
+            render={({ field }) => (
+              <WizardFormItem>
+                <FormLabel>Fax (optional)</FormLabel>
+                <FormControl>
+                  <Input {...field} value={field.value as string} />
+                </FormControl>
+              </WizardFormItem>
+            )}
+          />
 
-          <FormField control={form.control} name={fieldName('phone')} render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Phone Number (required)</FormLabel>
-              <FormControl><Input {...field} value={field.value as string} /></FormControl>
-              <FormMessage />
-            </WizardFormItem>
-          )} />
-          <FormField control={form.control} name={fieldName('email')} render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Email (optional)</FormLabel>
-              <FormControl><Input type="email" {...field} value={field.value as string} /></FormControl>
-              <FormMessage />
-            </WizardFormItem>
-          )} />
-          <FormField control={form.control} name={fieldName('fax')} render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Fax (optional)</FormLabel>
-              <FormControl><Input {...field} value={field.value as string} /></FormControl>
-            </WizardFormItem>
-          )} />
-
-          <FormField control={form.control} name={fieldName('country_code')} render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Country Code (ISO alpha-3, required)</FormLabel>
-              <FormControl><Input maxLength={3} {...field} value={field.value as string} /></FormControl>
-              <FormMessage />
-            </WizardFormItem>
-          )} />
-          <FormField control={form.control} name={fieldName('region')} render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Region (required)</FormLabel>
-              <FormControl><Input {...field} value={field.value as string} /></FormControl>
-              <FormMessage />
-            </WizardFormItem>
-          )} />
-          <FormField control={form.control} name={fieldName('district')} render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>District (required)</FormLabel>
-              <FormControl><Input {...field} value={field.value as string} /></FormControl>
-              <FormMessage />
-            </WizardFormItem>
-          )} />
-          <FormField control={form.control} name={fieldName('street')} render={({ field }) => (
-            <WizardFormItem>
-              <FormLabel>Street (optional)</FormLabel>
-              <FormControl><Input {...field} value={field.value as string} /></FormControl>
-            </WizardFormItem>
-          )} />
-          <FormField control={form.control} name={fieldName('postal_address')} render={({ field }) => (
-            <WizardFormItem className="md:col-span-2">
-              <FormLabel>Postal Address</FormLabel>
-              <FormControl><Input {...field} value={field.value as string} /></FormControl>
-              <FormMessage />
-            </WizardFormItem>
-          )} />
+          <FormField
+            control={form.control}
+            name={fieldName('country_code')}
+            render={({ field }) => (
+              <WizardFormItem>
+                <FormLabel>Country Code (ISO alpha-3, required)</FormLabel>
+                <FormControl>
+                  <Input
+                    maxLength={3}
+                    {...field}
+                    value={field.value as string}
+                  />
+                </FormControl>
+                <FormMessage />
+              </WizardFormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name={fieldName('region')}
+            render={({ field }) => (
+              <WizardFormItem>
+                <FormLabel>Region (required)</FormLabel>
+                <FormControl>
+                  <Input {...field} value={field.value as string} />
+                </FormControl>
+                <FormMessage />
+              </WizardFormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name={fieldName('district')}
+            render={({ field }) => (
+              <WizardFormItem>
+                <FormLabel>District (required)</FormLabel>
+                <FormControl>
+                  <Input {...field} value={field.value as string} />
+                </FormControl>
+                <FormMessage />
+              </WizardFormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name={fieldName('street')}
+            render={({ field }) => (
+              <WizardFormItem>
+                <FormLabel>Street (optional)</FormLabel>
+                <FormControl>
+                  <Input {...field} value={field.value as string} />
+                </FormControl>
+              </WizardFormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name={fieldName('postal_address')}
+            render={({ field }) => (
+              <WizardFormItem className="md:col-span-2">
+                <FormLabel>Postal Address</FormLabel>
+                <FormControl>
+                  <Input {...field} value={field.value as string} />
+                </FormControl>
+                <FormMessage />
+              </WizardFormItem>
+            )}
+          />
         </StepSection>
       )}
     </>

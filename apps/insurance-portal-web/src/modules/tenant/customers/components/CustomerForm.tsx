@@ -15,7 +15,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { customerFormSchema, getCustomerDefaultValues } from '../schemas';
 import {
   CUSTOMER_DOCUMENT_TYPE_OPTIONS,
@@ -36,15 +42,26 @@ interface CustomerFormProps {
   onSubmit: (values: CustomerFormValues) => void;
 }
 
-export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: CustomerFormProps) {
+export function CustomerForm({
+  customer,
+  isPending,
+  submitLabel,
+  onSubmit,
+}: CustomerFormProps) {
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerFormSchema) as Resolver<CustomerFormValues>,
     values: customer ? getCustomerDefaultValues(customer) : undefined,
     defaultValues: getCustomerDefaultValues(),
   });
 
-  const customerType = useWatch({ control: form.control, name: 'customer_type' }) as CustomerFormValues['customer_type'];
-  const idType = useWatch({ control: form.control, name: 'id_type' }) as CustomerFormValues['id_type'];
+  const customerType = useWatch({
+    control: form.control,
+    name: 'customer_type',
+  });
+  const idType = useWatch({
+    control: form.control,
+    name: 'id_type',
+  });
 
   const selectedIdField = getCustomerIdFieldName(customerType, idType);
   const selectedIdFieldName = selectedIdField;
@@ -157,7 +174,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
-              {customerType === 'CORPORATE' ? 'Company Details' : 'Personal Details'}
+              {customerType === 'CORPORATE'
+                ? 'Company Details'
+                : 'Personal Details'}
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
@@ -169,7 +188,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>First Name</FormLabel>
-                      <FormControl><Input placeholder="John" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="John" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -180,7 +201,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Middle Name</FormLabel>
-                      <FormControl><Input placeholder="Optional" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Optional" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -191,7 +214,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Last Name</FormLabel>
-                      <FormControl><Input placeholder="Doe" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Doe" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -202,18 +227,21 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Gender</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select gender" />
                           </SelectTrigger>
                         </FormControl>
-                    <SelectContent>
-                      {CUSTOMER_GENDER_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
+                        <SelectContent>
+                          {CUSTOMER_GENDER_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -226,7 +254,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Date of Birth</FormLabel>
-                      <FormControl><Input type="date" {...field} /></FormControl>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -237,7 +267,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Nationality</FormLabel>
-                      <FormControl><Input placeholder="Tanzanian" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Tanzanian" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -251,7 +283,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
                   render={({ field }) => (
                     <FormItem className="md:col-span-2">
                       <FormLabel>Company Name</FormLabel>
-                      <FormControl><Input placeholder="ABC Holdings Ltd" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="ABC Holdings Ltd" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -262,7 +296,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Registration No.</FormLabel>
-                      <FormControl><Input placeholder="REG-12345" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="REG-12345" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -273,7 +309,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Incorporation Certificate No.</FormLabel>
-                      <FormControl><Input placeholder="INC-12345" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="INC-12345" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -284,7 +322,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>TIN</FormLabel>
-                      <FormControl><Input placeholder="TIN1234567" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="TIN1234567" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -295,7 +335,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>VRN</FormLabel>
-                      <FormControl><Input placeholder="VRN1234567" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="VRN1234567" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -318,7 +360,7 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
                   <FormLabel>ID Type</FormLabel>
                   <Select
                     value={field.value ? String(field.value) : ''}
-                    onValueChange={(value) => field.onChange(Number(value) as 1 | 2 | 3 | 4 | 5 | 6 | 7)}
+                    onValueChange={(value) => field.onChange(Number(value))}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -327,9 +369,14 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
                     </FormControl>
                     <SelectContent>
                       {CUSTOMER_ID_TYPE_OPTIONS.filter(
-                        (option) => option.appliesTo === 'BOTH' || option.appliesTo === customerType,
+                        (option) =>
+                          option.appliesTo === 'BOTH' ||
+                          option.appliesTo === customerType,
                       ).map((option) => (
-                        <SelectItem key={option.value} value={String(option.value)}>
+                        <SelectItem
+                          key={option.value}
+                          value={String(option.value)}
+                        >
                           {option.label}
                         </SelectItem>
                       ))}
@@ -345,7 +392,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>ID Number</FormLabel>
-                  <FormControl><Input placeholder="ID number" {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="ID number" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -356,8 +405,12 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
                 name={selectedIdFieldName ?? 'id_number'}
                 render={({ field }) => (
                   <FormItem className="md:col-span-2">
-                    <FormLabel>{selectedIdField.replace(/_/g, ' ').toUpperCase()}</FormLabel>
-                    <FormControl><Input placeholder={selectedIdField} {...field} /></FormControl>
+                    <FormLabel>
+                      {selectedIdField.replace(/_/g, ' ').toUpperCase()}
+                    </FormLabel>
+                    <FormControl>
+                      <Input placeholder={selectedIdField} {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -377,7 +430,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Phone</FormLabel>
-                  <FormControl><Input placeholder="+255 700 000 000" {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="+255 700 000 000" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -388,7 +443,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Alternate Phone</FormLabel>
-                  <FormControl><Input placeholder="Optional" {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="Optional" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -399,7 +456,13 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Email</FormLabel>
-                  <FormControl><Input type="email" placeholder="customer@example.com" {...field} /></FormControl>
+                  <FormControl>
+                    <Input
+                      type="email"
+                      placeholder="customer@example.com"
+                      {...field}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -410,7 +473,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Country</FormLabel>
-                  <FormControl><Input placeholder="Tanzania" {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="Tanzania" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -421,7 +486,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Region</FormLabel>
-                  <FormControl><Input placeholder="Dar es Salaam" {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="Dar es Salaam" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -432,7 +499,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>District</FormLabel>
-                  <FormControl><Input placeholder="Ilala" {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="Ilala" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -443,7 +512,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Ward</FormLabel>
-                  <FormControl><Input placeholder="Ward" {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="Ward" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -454,7 +525,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Street</FormLabel>
-                  <FormControl><Input placeholder="Street" {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="Street" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -465,7 +538,13 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem className="md:col-span-2">
                   <FormLabel>Postal Address</FormLabel>
-                  <FormControl><Textarea rows={2} placeholder="Postal address" {...field} /></FormControl>
+                  <FormControl>
+                    <Textarea
+                      rows={2}
+                      placeholder="Postal address"
+                      {...field}
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -475,7 +554,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Documents and Contact Person</CardTitle>
+            <CardTitle className="text-base">
+              Documents and Contact Person
+            </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <FormField
@@ -484,7 +565,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Contact Name</FormLabel>
-                  <FormControl><Input placeholder="Optional" {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="Optional" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -495,7 +578,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Contact Role</FormLabel>
-                  <FormControl><Input placeholder="Optional" {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="Optional" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -506,7 +591,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Contact Phone</FormLabel>
-                  <FormControl><Input placeholder="Optional" {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="Optional" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -517,7 +604,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Contact Email</FormLabel>
-                  <FormControl><Input type="email" placeholder="Optional" {...field} /></FormControl>
+                  <FormControl>
+                    <Input type="email" placeholder="Optional" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -530,7 +619,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
                   <FormLabel>Document Type</FormLabel>
                   <Select
                     value={field.value || 'none'}
-                    onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}
+                    onValueChange={(value) =>
+                      field.onChange(value === 'none' ? '' : value)
+                    }
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -556,7 +647,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Document No.</FormLabel>
-                  <FormControl><Input placeholder="Optional" {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="Optional" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -567,7 +660,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Document File Name</FormLabel>
-                  <FormControl><Input placeholder="Optional" {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="Optional" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -578,7 +673,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Document File URL</FormLabel>
-                  <FormControl><Input placeholder="Optional" {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="Optional" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -589,7 +686,9 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Document Mime Type</FormLabel>
-                  <FormControl><Input placeholder="Optional" {...field} /></FormControl>
+                  <FormControl>
+                    <Input placeholder="Optional" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -601,11 +700,18 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
                 render={({ field }) => (
                   <FormItem className="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3">
                     <FormControl>
-                      <Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(Boolean(checked))} />
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={(checked) =>
+                          field.onChange(Boolean(checked))
+                        }
+                      />
                     </FormControl>
                     <div>
                       <FormLabel className="mb-0">Document verified</FormLabel>
-                      <p className="text-xs text-slate-500">Mark the attached document as verified.</p>
+                      <p className="text-xs text-slate-500">
+                        Mark the attached document as verified.
+                      </p>
                     </div>
                   </FormItem>
                 )}
@@ -617,7 +723,12 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
         <Separator />
 
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => form.reset()} disabled={isPending}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => form.reset()}
+            disabled={isPending}
+          >
             Reset
           </Button>
           <Button type="submit" disabled={isPending}>

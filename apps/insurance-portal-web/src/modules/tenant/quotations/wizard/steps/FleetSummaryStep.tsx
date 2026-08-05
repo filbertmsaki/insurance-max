@@ -12,15 +12,22 @@ function getVehicleIssues(
 ): string[] {
   const issues: string[] = [];
 
-  if (!item.cover_note_desc.trim()) issues.push('Missing cover note description');
+  if (!item.cover_note_desc.trim())
+    issues.push('Missing cover note description');
   if (!item.operative_clause.trim()) issues.push('Missing operative clause');
-  if (!item.motor_dtl.registration_number.trim() && !item.motor_dtl.chassis_number.trim()) {
+  if (
+    !item.motor_dtl.registration_number.trim() &&
+    !item.motor_dtl.chassis_number.trim()
+  ) {
     issues.push('Vehicle identification is incomplete');
   }
   if (!item.motor_dtl.make.trim() || !item.motor_dtl.model.trim()) {
     issues.push('Make and model are required');
   }
-  if (item.risks_covered.length === 0 || !item.risks_covered.some((risk) => risk.risk_code.trim())) {
+  if (
+    item.risks_covered.length === 0 ||
+    !item.risks_covered.some((risk) => risk.risk_code.trim())
+  ) {
     issues.push('At least one risk is required');
   }
   if (
@@ -41,7 +48,8 @@ export function FleetSummaryStep({ form }: Props) {
   const items = form.watch('fleet.items');
   const comprehensiveInsured =
     Number(form.watch('fleet.header.comprehensive_insured')) || 0;
-  const expectedFleetSize = Number(form.watch('fleet.header.fleet_size')) || items.length;
+  const expectedFleetSize =
+    Number(form.watch('fleet.header.fleet_size')) || items.length;
   const invalidVehicles = items
     .map((item, index) => ({
       index,
@@ -120,7 +128,9 @@ export function FleetSummaryStep({ form }: Props) {
           <p>Vehicles entered: {items.length}</p>
           <p>Comprehensively insured vehicles: {comprehensiveInsured}</p>
           <p>Total sum insured: {totals.sumInsured.toFixed(2)}</p>
-          <p>Premium before discounts: {totals.premiumBeforeDiscount.toFixed(2)}</p>
+          <p>
+            Premium before discounts: {totals.premiumBeforeDiscount.toFixed(2)}
+          </p>
           <p>Total discounts: {totals.totalDiscount.toFixed(2)}</p>
           <p>Total taxes: {totals.totalTax.toFixed(2)}</p>
           <p>Premium excluding tax: {totals.premiumExcludingTax.toFixed(2)}</p>

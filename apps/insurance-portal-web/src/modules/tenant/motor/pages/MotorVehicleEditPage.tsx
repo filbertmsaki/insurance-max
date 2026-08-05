@@ -3,7 +3,11 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { useMotorCustomers, useMotorVehicle, useUpdateMotorVehicle } from '../hooks';
+import {
+  useMotorCustomers,
+  useMotorVehicle,
+  useUpdateMotorVehicle,
+} from '../hooks';
 import { MotorVehicleForm } from '../components/MotorVehicleForm';
 import { motorVehicleRecordToFormValues } from '../schemas';
 
@@ -27,7 +31,10 @@ export function MotorVehicleEditPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Vehicle not found</p>
-        <Button variant="link" onClick={() => navigate('/underwriting/motor/vehicles')}>
+        <Button
+          variant="link"
+          onClick={() => navigate('/underwriting/motor/vehicles')}
+        >
           Back to Vehicles
         </Button>
       </div>
@@ -37,10 +44,17 @@ export function MotorVehicleEditPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/underwriting/motor/vehicles/${vehicle.id}`)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(`/underwriting/motor/vehicles/${vehicle.id}`)}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <PageHeader title="Edit Motor Vehicle" description={vehicle.registration_no ?? vehicle.id} />
+        <PageHeader
+          title="Edit Motor Vehicle"
+          description={vehicle.registration_no ?? vehicle.id}
+        />
       </div>
 
       <MotorVehicleForm
@@ -48,7 +62,12 @@ export function MotorVehicleEditPage() {
         isPending={updateMutation.isPending}
         submitLabel="Save Changes"
         defaultValues={motorVehicleRecordToFormValues(vehicle)}
-        onSubmit={(values) => updateMutation.mutate(values, { onSuccess: () => navigate(`/underwriting/motor/vehicles/${vehicle.id}`) })}
+        onSubmit={(values) =>
+          updateMutation.mutate(values, {
+            onSuccess: () =>
+              navigate(`/underwriting/motor/vehicles/${vehicle.id}`),
+          })
+        }
       />
     </div>
   );

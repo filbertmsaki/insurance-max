@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Plus,
   Eye,
@@ -9,15 +9,15 @@ import {
   Power,
   PowerOff,
   Trash2,
-} from 'lucide-react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { format } from 'date-fns'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
+} from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import {
   Dialog,
   DialogContent,
@@ -25,14 +25,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog'
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from '@/components/ui/dropdown-menu';
 import {
   Form,
   FormControl,
@@ -40,19 +40,19 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form'
-import { DataTable, type Column } from '@/components/shared/DataTable'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+} from '@/components/ui/form';
+import { DataTable, type Column } from '@/components/shared/DataTable';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import {
   useBranchesList,
   useCreateBranch,
   useUpdateBranchStatus,
   useDeleteBranch,
-} from '@/modules/tenant/branches/hooks'
-import type { Branch, SortOrder } from '@/types'
-import type { BranchSortKey } from '@/modules/tenant/branches/hooks'
-import type { CreateBranchDto } from '@/modules/tenant/branches/api/branches'
+} from '@/modules/tenant/branches/hooks';
+import type { Branch, SortOrder } from '@/types';
+import type { BranchSortKey } from '@/modules/tenant/branches/hooks';
+import type { CreateBranchDto } from '@/modules/tenant/branches/api/branches';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -62,7 +62,10 @@ const createSchema = z.object({
     .string()
     .min(1, 'Branch code is required')
     .max(50)
-    .regex(/^[A-Za-z0-9_-]+$/, 'Letters, numbers, hyphens and underscores only'),
+    .regex(
+      /^[A-Za-z0-9_-]+$/,
+      'Letters, numbers, hyphens and underscores only',
+    ),
   phone: z
     .string()
     .regex(/^\+?[\d\s\-().]{7,30}$/, 'Invalid phone number')
@@ -75,36 +78,47 @@ const createSchema = z.object({
   address_region: z.string().max(100).optional(),
   address_country: z.string().max(100).optional(),
   address_postal_code: z.string().max(20).optional(),
-})
+});
 
-type CreateFormValues = z.infer<typeof createSchema>
+type CreateFormValues = z.infer<typeof createSchema>;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{children}</p>
-  )
+    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+      {children}
+    </p>
+  );
 }
 
 function BranchStatusBadge({ status }: { status: string }) {
   return status === 'active' ? (
-    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">Active</Badge>
+    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
+      Active
+    </Badge>
   ) : (
-    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">Inactive</Badge>
-  )
+    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">
+      Inactive
+    </Badge>
+  );
 }
 
 // ─── Create Dialog ────────────────────────────────────────────────────────────
 
 interface CreateBranchDialogProps {
-  open: boolean
-  onClose: () => void
-  onSubmit: (values: CreateFormValues) => void
-  isPending: boolean
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (values: CreateFormValues) => void;
+  isPending: boolean;
 }
 
-function CreateBranchDialog({ open, onClose, onSubmit, isPending }: CreateBranchDialogProps) {
+function CreateBranchDialog({
+  open,
+  onClose,
+  onSubmit,
+  isPending,
+}: CreateBranchDialogProps) {
   const form = useForm<CreateFormValues>({
     resolver: zodResolver(createSchema),
     defaultValues: {
@@ -118,12 +132,12 @@ function CreateBranchDialog({ open, onClose, onSubmit, isPending }: CreateBranch
       address_country: '',
       address_postal_code: '',
     },
-  })
+  });
 
   const handleClose = () => {
-    form.reset()
-    onClose()
-  }
+    form.reset();
+    onClose();
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
@@ -131,14 +145,13 @@ function CreateBranchDialog({ open, onClose, onSubmit, isPending }: CreateBranch
         <DialogHeader>
           <DialogTitle>Create New Branch</DialogTitle>
           <DialogDescription>
-            Add a new branch to this company. Address and contact details can be filled in now or
-            updated later.
+            Add a new branch to this company. Address and contact details can be
+            filled in now or updated later.
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-
             {/* ── Branch identity ── */}
             <div>
               <SectionLabel>Branch Identity</SectionLabel>
@@ -148,8 +161,15 @@ function CreateBranchDialog({ open, onClose, onSubmit, isPending }: CreateBranch
                   name="name"
                   render={({ field }) => (
                     <FormItem className="col-span-2">
-                      <FormLabel>Branch Name <span className="text-red-500">*</span></FormLabel>
-                      <FormControl><Input placeholder="Dar es Salaam Main Branch" {...field} /></FormControl>
+                      <FormLabel>
+                        Branch Name <span className="text-red-500">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Dar es Salaam Main Branch"
+                          {...field}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -159,8 +179,12 @@ function CreateBranchDialog({ open, onClose, onSubmit, isPending }: CreateBranch
                   name="code"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Branch Code <span className="text-red-500">*</span></FormLabel>
-                      <FormControl><Input placeholder="DAR-MAIN" {...field} /></FormControl>
+                      <FormLabel>
+                        Branch Code <span className="text-red-500">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input placeholder="DAR-MAIN" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -180,7 +204,13 @@ function CreateBranchDialog({ open, onClose, onSubmit, isPending }: CreateBranch
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Email</FormLabel>
-                      <FormControl><Input type="email" placeholder="branch@company.com" {...field} /></FormControl>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="branch@company.com"
+                          {...field}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -191,7 +221,9 @@ function CreateBranchDialog({ open, onClose, onSubmit, isPending }: CreateBranch
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Phone</FormLabel>
-                      <FormControl><Input placeholder="+255 712 345 678" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="+255 712 345 678" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -211,7 +243,9 @@ function CreateBranchDialog({ open, onClose, onSubmit, isPending }: CreateBranch
                   render={({ field }) => (
                     <FormItem className="col-span-2">
                       <FormLabel>Street</FormLabel>
-                      <FormControl><Input placeholder="123 Uhuru Street" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="123 Uhuru Street" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -222,7 +256,9 @@ function CreateBranchDialog({ open, onClose, onSubmit, isPending }: CreateBranch
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>City</FormLabel>
-                      <FormControl><Input placeholder="Dar es Salaam" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Dar es Salaam" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -233,7 +269,9 @@ function CreateBranchDialog({ open, onClose, onSubmit, isPending }: CreateBranch
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Region</FormLabel>
-                      <FormControl><Input placeholder="Dar es Salaam Region" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Dar es Salaam Region" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -244,7 +282,9 @@ function CreateBranchDialog({ open, onClose, onSubmit, isPending }: CreateBranch
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Country</FormLabel>
-                      <FormControl><Input placeholder="Tanzania" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Tanzania" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -255,7 +295,9 @@ function CreateBranchDialog({ open, onClose, onSubmit, isPending }: CreateBranch
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Postal Code</FormLabel>
-                      <FormControl><Input placeholder="11101" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="11101" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -264,7 +306,12 @@ function CreateBranchDialog({ open, onClose, onSubmit, isPending }: CreateBranch
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose} disabled={isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={isPending}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>
@@ -275,15 +322,15 @@ function CreateBranchDialog({ open, onClose, onSubmit, isPending }: CreateBranch
         </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function BranchesListPage() {
-  const navigate = useNavigate()
-  const [createOpen, setCreateOpen] = useState(false)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const navigate = useNavigate();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const {
     branches,
@@ -299,11 +346,11 @@ export function BranchesListPage() {
     setPage,
     setLimit,
     setSort,
-  } = useBranchesList()
+  } = useBranchesList();
 
-  const createMutation = useCreateBranch()
-  const statusMutation = useUpdateBranchStatus()
-  const deleteMutation = useDeleteBranch()
+  const createMutation = useCreateBranch();
+  const statusMutation = useUpdateBranchStatus();
+  const deleteMutation = useDeleteBranch();
 
   const columns: Column<Branch>[] = [
     {
@@ -349,7 +396,9 @@ export function BranchesListPage() {
       key: 'phone',
       header: 'Phone',
       sortable: true,
-      cell: (r) => <span className="text-sm text-slate-600">{r.phone ?? '—'}</span>,
+      cell: (r) => (
+        <span className="text-sm text-slate-600">{r.phone ?? '—'}</span>
+      ),
     },
     {
       key: 'created_at',
@@ -380,7 +429,9 @@ export function BranchesListPage() {
             <DropdownMenuSeparator />
             {r.status === 'active' ? (
               <DropdownMenuItem
-                onClick={() => statusMutation.mutate({ id: r.id, status: 'inactive' })}
+                onClick={() =>
+                  statusMutation.mutate({ id: r.id, status: 'inactive' })
+                }
                 className="text-amber-600 focus:text-amber-600"
                 disabled={statusMutation.isPending}
               >
@@ -389,7 +440,9 @@ export function BranchesListPage() {
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem
-                onClick={() => statusMutation.mutate({ id: r.id, status: 'active' })}
+                onClick={() =>
+                  statusMutation.mutate({ id: r.id, status: 'active' })
+                }
                 className="text-green-600 focus:text-green-600"
                 disabled={statusMutation.isPending}
               >
@@ -409,7 +462,7 @@ export function BranchesListPage() {
         </DropdownMenu>
       ),
     },
-  ]
+  ];
 
   function handleCreate(v: CreateFormValues) {
     const dto: CreateBranchDto = {
@@ -424,8 +477,8 @@ export function BranchesListPage() {
         country: v.address_country || undefined,
         postal_code: v.address_postal_code || undefined,
       },
-    }
-    createMutation.mutate(dto, { onSuccess: () => setCreateOpen(false) })
+    };
+    createMutation.mutate(dto, { onSuccess: () => setCreateOpen(false) });
   }
 
   return (
@@ -463,7 +516,7 @@ export function BranchesListPage() {
         sortOrder={sortOrder}
         onPageChange={setPage}
         onLimitChange={setLimit}
-        onSortChange={(key, order) => setSort(key as BranchSortKey, order as SortOrder)}
+        onSortChange={(key, order) => setSort(key as BranchSortKey, order)}
       />
 
       <CreateBranchDialog
@@ -479,9 +532,13 @@ export function BranchesListPage() {
         title="Delete Branch"
         description="This will permanently delete the branch and all its user assignments. This action cannot be undone."
         confirmLabel="Delete Branch"
-        onConfirm={() => deleteMutation.mutate(deleteId!, { onSuccess: () => setDeleteId(null) })}
+        onConfirm={() =>
+          deleteMutation.mutate(deleteId!, {
+            onSuccess: () => setDeleteId(null),
+          })
+        }
         loading={deleteMutation.isPending}
       />
     </div>
-  )
+  );
 }

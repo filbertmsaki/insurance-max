@@ -27,7 +27,9 @@ describe('CompaniesService', () => {
   let branchRepository: jest.Mocked<Partial<Repository<Branch>>>;
   let roleRepository: jest.Mocked<Partial<Repository<Role>>>;
   let userRepository: jest.Mocked<Partial<Repository<User>>>;
-  let companyUserRoleRepository: jest.Mocked<Partial<Repository<CompanyUserRole>>>;
+  let companyUserRoleRepository: jest.Mocked<
+    Partial<Repository<CompanyUserRole>>
+  >;
   let service: CompaniesService;
 
   beforeEach(() => {

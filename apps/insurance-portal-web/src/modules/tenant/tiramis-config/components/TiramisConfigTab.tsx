@@ -1,15 +1,21 @@
-import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, ShieldCheck, XCircle } from 'lucide-react'
-import { toast } from 'sonner'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CheckCircle2, ShieldCheck, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Form,
   FormControl,
@@ -17,11 +23,11 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form'
+} from '@/components/ui/form';
 import {
   tiramisConfigApi,
   type CompanyTiramisConfiguration,
-} from '../api/tiramis-config'
+} from '../api/tiramis-config';
 
 const schema = z.object({
   company_code: z.string().min(1, 'Required').max(30),
@@ -30,28 +36,32 @@ const schema = z.object({
   system_code: z.string().min(1, 'Required').max(100),
   system_name: z.string().max(150).optional().or(z.literal('')),
   callback_url: z.string().url('Invalid URL').optional().or(z.literal('')),
-})
+});
 
-type FormValues = z.infer<typeof schema>
+type FormValues = z.infer<typeof schema>;
 
-type ApiErrorLike = { response?: { data?: { message?: string } } }
+type ApiErrorLike = { response?: { data?: { message?: string } } };
 
-function ValidationBadge({ status }: { status: CompanyTiramisConfiguration['validationStatus'] }) {
+function ValidationBadge({
+  status,
+}: {
+  status: CompanyTiramisConfiguration['validationStatus'];
+}) {
   if (status === 'VALID') {
     return (
       <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
         <CheckCircle2 className="mr-1 h-3 w-3" /> Validated
       </Badge>
-    )
+    );
   }
   if (status === 'INVALID') {
     return (
       <Badge className="bg-red-100 text-red-700 border-red-200 hover:bg-red-100">
         <XCircle className="mr-1 h-3 w-3" /> Invalid
       </Badge>
-    )
+    );
   }
-  return <Badge variant="outline">Not validated</Badge>
+  return <Badge variant="outline">Not validated</Badge>;
 }
 
 function EnvironmentPanel({
@@ -59,12 +69,12 @@ function EnvironmentPanel({
   config,
   canEdit,
 }: {
-  environment: 'test' | 'live'
-  config?: CompanyTiramisConfiguration
-  canEdit: boolean
+  environment: 'test' | 'live';
+  config?: CompanyTiramisConfiguration;
+  canEdit: boolean;
 }) {
-  const queryClient = useQueryClient()
-  const [editing, setEditing] = useState(!config)
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(!config);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -76,7 +86,7 @@ function EnvironmentPanel({
       system_name: config?.systemName ?? '',
       callback_url: config?.callbackUrl ?? '',
     },
-  })
+  });
 
   const saveMutation = useMutation({
     mutationFn: (values: FormValues) =>
@@ -89,33 +99,43 @@ function EnvironmentPanel({
         callback_url: values.callback_url || undefined,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tiramis-my-configurations'] })
-      toast.success(`${environment.toUpperCase()} configuration saved`)
-      setEditing(false)
+      queryClient.invalidateQueries({
+        queryKey: ['tiramis-my-configurations'],
+      });
+      toast.success(`${environment.toUpperCase()} configuration saved`);
+      setEditing(false);
     },
     onError: (error: ApiErrorLike) =>
-      toast.error(error?.response?.data?.message ?? 'Unable to save configuration'),
-  })
+      toast.error(
+        error?.response?.data?.message ?? 'Unable to save configuration',
+      ),
+  });
 
   const validateMutation = useMutation({
     mutationFn: () => tiramisConfigApi.validateMyConfiguration(environment),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['tiramis-my-configurations'] })
+      queryClient.invalidateQueries({
+        queryKey: ['tiramis-my-configurations'],
+      });
       if (result.valid) {
-        toast.success('Configuration validated successfully')
+        toast.success('Configuration validated successfully');
       } else {
-        toast.error(result.message ?? 'Configuration failed validation')
+        toast.error(result.message ?? 'Configuration failed validation');
       }
     },
     onError: (error: ApiErrorLike) =>
-      toast.error(error?.response?.data?.message ?? 'Unable to validate configuration'),
-  })
+      toast.error(
+        error?.response?.data?.message ?? 'Unable to validate configuration',
+      ),
+  });
 
   return (
     <Card>
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <div>
-          <CardTitle className="text-base capitalize">{environment} environment</CardTitle>
+          <CardTitle className="text-base capitalize">
+            {environment} environment
+          </CardTitle>
           <CardDescription>
             {environment === 'live'
               ? 'Production TIRAMIS credentials used for real submissions.'
@@ -128,7 +148,9 @@ function EnvironmentPanel({
         {editing ? (
           <Form {...form}>
             <form
-              onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}
+              onSubmit={form.handleSubmit((values) =>
+                saveMutation.mutate(values),
+              )}
               className="space-y-4"
             >
               <div className="grid grid-cols-2 gap-4">
@@ -138,7 +160,9 @@ function EnvironmentPanel({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Company Code</FormLabel>
-                      <FormControl><Input placeholder="INS001" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="INS001" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -149,7 +173,12 @@ function EnvironmentPanel({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Insurer Company Code</FormLabel>
-                      <FormControl><Input placeholder="Optional, defaults to company code" {...field} /></FormControl>
+                      <FormControl>
+                        <Input
+                          placeholder="Optional, defaults to company code"
+                          {...field}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -160,7 +189,9 @@ function EnvironmentPanel({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Client Code</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -171,7 +202,9 @@ function EnvironmentPanel({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>System Code</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -182,7 +215,9 @@ function EnvironmentPanel({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>System Name</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -193,7 +228,9 @@ function EnvironmentPanel({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Callback URL</FormLabel>
-                      <FormControl><Input placeholder="https://…" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="https://…" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -201,7 +238,11 @@ function EnvironmentPanel({
               </div>
               <div className="flex justify-end gap-2">
                 {config && (
-                  <Button type="button" variant="outline" onClick={() => setEditing(false)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEditing(false)}
+                  >
                     Cancel
                   </Button>
                 )}
@@ -214,10 +255,22 @@ function EnvironmentPanel({
         ) : (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-              <div><span className="text-slate-500">Company Code:</span> {config?.companyCode}</div>
-              <div><span className="text-slate-500">Insurer Code:</span> {config?.insurerCompanyCode ?? '—'}</div>
-              <div><span className="text-slate-500">System Code:</span> {config?.systemCode ?? '—'}</div>
-              <div><span className="text-slate-500">System Name:</span> {config?.systemName ?? '—'}</div>
+              <div>
+                <span className="text-slate-500">Company Code:</span>{' '}
+                {config?.companyCode}
+              </div>
+              <div>
+                <span className="text-slate-500">Insurer Code:</span>{' '}
+                {config?.insurerCompanyCode ?? '—'}
+              </div>
+              <div>
+                <span className="text-slate-500">System Code:</span>{' '}
+                {config?.systemCode ?? '—'}
+              </div>
+              <div>
+                <span className="text-slate-500">System Name:</span>{' '}
+                {config?.systemName ?? '—'}
+              </div>
               {config?.validationMessage && (
                 <div className="col-span-2 text-slate-500">
                   Last validation message: {config.validationMessage}
@@ -226,7 +279,11 @@ function EnvironmentPanel({
             </div>
             {canEdit && (
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditing(true)}
+                >
                   Edit
                 </Button>
                 <Button
@@ -243,14 +300,14 @@ function EnvironmentPanel({
         )}
       </CardContent>
     </Card>
-  )
+  );
 }
 
 export function TiramisConfigTab({ canEdit }: { canEdit: boolean }) {
   const { data: configs, isLoading } = useQuery({
     queryKey: ['tiramis-my-configurations'],
     queryFn: tiramisConfigApi.getMyConfigurations,
-  })
+  });
 
   if (isLoading) {
     return (
@@ -258,16 +315,24 @@ export function TiramisConfigTab({ canEdit }: { canEdit: boolean }) {
         <Skeleton className="h-64" />
         <Skeleton className="h-64" />
       </div>
-    )
+    );
   }
 
-  const testConfig = configs?.find((c) => c.environment === 'test')
-  const liveConfig = configs?.find((c) => c.environment === 'live')
+  const testConfig = configs?.find((c) => c.environment === 'test');
+  const liveConfig = configs?.find((c) => c.environment === 'live');
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <EnvironmentPanel environment="test" config={testConfig} canEdit={canEdit} />
-      <EnvironmentPanel environment="live" config={liveConfig} canEdit={canEdit} />
+      <EnvironmentPanel
+        environment="test"
+        config={testConfig}
+        canEdit={canEdit}
+      />
+      <EnvironmentPanel
+        environment="live"
+        config={liveConfig}
+        canEdit={canEdit}
+      />
     </div>
-  )
+  );
 }

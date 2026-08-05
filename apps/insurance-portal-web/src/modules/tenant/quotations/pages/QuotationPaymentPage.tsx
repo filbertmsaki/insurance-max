@@ -35,7 +35,8 @@ const PAYMENT_METHODS = [
 export function QuotationPaymentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { data: quotation, isLoading: loadingQuotation } = useQuotationDetail(id);
+  const { data: quotation, isLoading: loadingQuotation } =
+    useQuotationDetail(id);
   const transitionStatusMutation = useTransitionQuotationStatus(id);
 
   const [invoice, setInvoice] = useState<InvoiceRecord | null>(null);
@@ -71,8 +72,11 @@ export function QuotationPaymentPage() {
 
     (async () => {
       try {
-        const page = await billingApi.getInvoices({ limit: API_MAX_LIST_LIMIT });
-        const existing = page.data.find((item) => item.quotation_id === id) ?? null;
+        const page = await billingApi.getInvoices({
+          limit: API_MAX_LIST_LIMIT,
+        });
+        const existing =
+          page.data.find((item) => item.quotation_id === id) ?? null;
         if (!cancelled) {
           setInvoice(existing);
           if (existing) setAmount(existing.balance_amount);
@@ -92,7 +96,9 @@ export function QuotationPaymentPage() {
   async function generateInvoice() {
     if (!quotation) return;
     if (!customerReference) {
-      toast.error('Quotation customer is missing. Please reload the quotation or create it again.');
+      toast.error(
+        'Quotation customer is missing. Please reload the quotation or create it again.',
+      );
       return;
     }
     setGenerating(true);
@@ -208,7 +214,9 @@ export function QuotationPaymentPage() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate(underwritingPaths.quotationDetail(quotation.id))}
+          onClick={() =>
+            navigate(underwritingPaths.quotationDetail(quotation.id))
+          }
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -224,9 +232,15 @@ export function QuotationPaymentPage() {
           {!invoice ? (
             <>
               <p className="text-slate-500">
-                No invoice has been generated for this quotation yet. Generating one uses the authoritative quotation premium totals: {totalPremium} {currencyCode}.
+                No invoice has been generated for this quotation yet. Generating
+                one uses the authoritative quotation premium totals:{' '}
+                {totalPremium} {currencyCode}.
               </p>
-              <Button type="button" onClick={generateInvoice} disabled={generating}>
+              <Button
+                type="button"
+                onClick={generateInvoice}
+                disabled={generating}
+              >
                 {generating ? 'Generating...' : 'Generate Invoice'}
               </Button>
             </>
@@ -236,7 +250,9 @@ export function QuotationPaymentPage() {
               <p>Currency: {invoice.currency}</p>
               <p>Total: {invoice.total_amount}</p>
               <p>Paid: {invoice.paid_amount}</p>
-              <p className="font-medium text-slate-900">Balance: {invoice.balance_amount}</p>
+              <p className="font-medium text-slate-900">
+                Balance: {invoice.balance_amount}
+              </p>
             </div>
           )}
         </CardContent>
@@ -249,7 +265,8 @@ export function QuotationPaymentPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-xs text-slate-400">
-              Record money already received outside the system. This remains a manual billing flow.
+              Record money already received outside the system. This remains a
+              manual billing flow.
             </p>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
@@ -295,11 +312,14 @@ export function QuotationPaymentPage() {
         <Card>
           <CardContent className="flex items-center justify-between pt-6 text-sm">
             <p className="text-emerald-700">
-              Payment complete. This quotation can now proceed to TIRAMIS submission from the quotation detail page.
+              Payment complete. This quotation can now proceed to TIRAMIS
+              submission from the quotation detail page.
             </p>
             <Button
               type="button"
-              onClick={() => navigate(underwritingPaths.quotationDetail(quotation.id))}
+              onClick={() =>
+                navigate(underwritingPaths.quotationDetail(quotation.id))
+              }
             >
               Back to Quotation
             </Button>

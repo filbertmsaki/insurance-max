@@ -53,7 +53,10 @@ export function ActionMenu({
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} className={cn('w-44', contentClassName)}>
+      <DropdownMenuContent
+        align={align}
+        className={cn('w-44', contentClassName)}
+      >
         {items.map((item, index) => (
           <div key={`${item.label}-${index}`}>
             {item.separatorBefore && index > 0 && <DropdownMenuSeparator />}
@@ -65,7 +68,9 @@ export function ActionMenu({
                   'text-red-600 focus:bg-red-50 focus:text-red-600',
               )}
             >
-              {item.icon ? <span className="mr-2 h-4 w-4">{item.icon}</span> : null}
+              {item.icon ? (
+                <span className="mr-2 h-4 w-4">{item.icon}</span>
+              ) : null}
               {item.label}
             </DropdownMenuItem>
           </div>

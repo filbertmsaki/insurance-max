@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState } from 'react';
 import {
   Building2,
   Mail,
@@ -9,19 +9,25 @@ import {
   Check,
   X,
   Settings,
-} from 'lucide-react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { format } from 'date-fns'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Separator } from '@/components/ui/separator'
-import { Switch } from '@/components/ui/switch'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+} from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -29,7 +35,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog'
+} from '@/components/ui/dialog';
 import {
   Form,
   FormControl,
@@ -38,13 +44,16 @@ import {
   FormLabel,
   FormMessage,
   FormDescription,
-} from '@/components/ui/form'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { useMyCompany, useUpdateMyCompany } from '@/modules/platform/companies/hooks'
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
-import { TiramisConfigTab } from '@/modules/tenant/tiramis-config/components/TiramisConfigTab'
-import type { Company } from '@/types'
-import type { UpdateCompanyDto } from '@/modules/platform/companies/api/companies'
+} from '@/components/ui/form';
+import { PageHeader } from '@/components/shared/PageHeader';
+import {
+  useMyCompany,
+  useUpdateMyCompany,
+} from '@/modules/platform/companies/hooks';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { TiramisConfigTab } from '@/modules/tenant/tiramis-config/components/TiramisConfigTab';
+import type { Company } from '@/types';
+import type { UpdateCompanyDto } from '@/modules/platform/companies/api/companies';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -70,19 +79,27 @@ const editSchema = z.object({
   settings_currency: z.string().max(10).optional(),
   settings_date_format: z.string().max(30).optional(),
   settings_allow_self_registration: z.boolean().optional(),
-})
+});
 
-type EditFormValues = z.infer<typeof editSchema>
+type EditFormValues = z.infer<typeof editSchema>;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{children}</p>
-  )
+    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+      {children}
+    </p>
+  );
 }
 
-function DetailRow({ label, value }: { label: React.ReactNode; value?: React.ReactNode }) {
+function DetailRow({
+  label,
+  value,
+}: {
+  label: React.ReactNode;
+  value?: React.ReactNode;
+}) {
   return (
     <div className="flex items-start gap-3 py-3 border-b border-slate-100 last:border-0">
       <span className="text-sm text-slate-500 min-w-36 pt-0.5">{label}</span>
@@ -90,21 +107,27 @@ function DetailRow({ label, value }: { label: React.ReactNode; value?: React.Rea
         {value ?? <span className="text-slate-400">—</span>}
       </span>
     </div>
-  )
+  );
 }
 
 // ─── Edit Dialog ──────────────────────────────────────────────────────────────
 
 interface EditDialogProps {
-  open: boolean
-  company: Company
-  onClose: () => void
-  onSubmit: (data: UpdateCompanyDto) => void
-  isPending: boolean
+  open: boolean;
+  company: Company;
+  onClose: () => void;
+  onSubmit: (data: UpdateCompanyDto) => void;
+  isPending: boolean;
 }
 
-function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: EditDialogProps) {
-  const s = company.settings ?? {}
+function EditMyCompanyDialog({
+  open,
+  company,
+  onClose,
+  onSubmit,
+  isPending,
+}: EditDialogProps) {
+  const s = company.settings ?? {};
 
   const form = useForm<EditFormValues>({
     resolver: zodResolver(editSchema),
@@ -118,12 +141,12 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
       address_region: company.address?.region ?? '',
       address_country: company.address?.country ?? '',
       address_postal_code: company.address?.postal_code ?? '',
-      settings_timezone: (s.timezone as string) ?? '',
-      settings_currency: (s.currency as string) ?? '',
-      settings_date_format: (s.date_format as string) ?? '',
-      settings_allow_self_registration: (s.allow_self_registration as boolean) ?? false,
+      settings_timezone: s.timezone ?? '',
+      settings_currency: s.currency ?? '',
+      settings_date_format: s.date_format ?? '',
+      settings_allow_self_registration: s.allow_self_registration ?? false,
     },
-  })
+  });
 
   const handleSubmit = (values: EditFormValues) => {
     const payload: UpdateCompanyDto = {
@@ -131,14 +154,14 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
       contact_phone: values.contact_phone || undefined,
       website: values.website || undefined,
       logo_url: values.logo_url || undefined,
-    }
+    };
 
     const hasAddress =
       values.address_street ||
       values.address_city ||
       values.address_region ||
       values.address_country ||
-      values.address_postal_code
+      values.address_postal_code;
     if (hasAddress) {
       payload.address = {
         street: values.address_street || undefined,
@@ -146,7 +169,7 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
         region: values.address_region || undefined,
         country: values.address_country || undefined,
         postal_code: values.address_postal_code || undefined,
-      }
+      };
     }
 
     payload.settings = {
@@ -154,10 +177,10 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
       currency: values.settings_currency || undefined,
       date_format: values.settings_date_format || undefined,
       allow_self_registration: values.settings_allow_self_registration,
-    }
+    };
 
-    onSubmit(payload)
-  }
+    onSubmit(payload);
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -170,8 +193,10 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-
+          <form
+            onSubmit={form.handleSubmit(handleSubmit)}
+            className="space-y-6"
+          >
             {/* ── Branding ── */}
             <div>
               <SectionLabel>Branding</SectionLabel>
@@ -182,7 +207,9 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Logo URL</FormLabel>
-                      <FormControl><Input placeholder="https://…" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="https://…" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -193,7 +220,9 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Website</FormLabel>
-                      <FormControl><Input placeholder="https://company.com" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="https://company.com" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -213,7 +242,13 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Contact Email</FormLabel>
-                      <FormControl><Input type="email" placeholder="info@company.com" {...field} /></FormControl>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="info@company.com"
+                          {...field}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -224,7 +259,9 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Contact Phone</FormLabel>
-                      <FormControl><Input placeholder="+255 712 345 678" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="+255 712 345 678" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -244,7 +281,9 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
                   render={({ field }) => (
                     <FormItem className="col-span-2">
                       <FormLabel>Street</FormLabel>
-                      <FormControl><Input placeholder="123 Main Street" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="123 Main Street" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -255,7 +294,9 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>City</FormLabel>
-                      <FormControl><Input placeholder="Dar es Salaam" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Dar es Salaam" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -266,7 +307,9 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Region</FormLabel>
-                      <FormControl><Input placeholder="Dar es Salaam Region" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Dar es Salaam Region" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -277,7 +320,9 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Country</FormLabel>
-                      <FormControl><Input placeholder="Tanzania" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Tanzania" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -288,7 +333,9 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Postal Code</FormLabel>
-                      <FormControl><Input placeholder="11101" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="11101" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -308,7 +355,9 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Timezone</FormLabel>
-                      <FormControl><Input placeholder="Africa/Dar_es_Salaam" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Africa/Dar_es_Salaam" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -319,7 +368,9 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Currency</FormLabel>
-                      <FormControl><Input placeholder="TZS" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="TZS" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -330,7 +381,9 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Date Format</FormLabel>
-                      <FormControl><Input placeholder="DD/MM/YYYY" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="DD/MM/YYYY" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -341,13 +394,18 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
                   render={({ field }) => (
                     <FormItem className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-4 py-3">
                       <div>
-                        <FormLabel className="mb-0">Allow Self-Registration</FormLabel>
+                        <FormLabel className="mb-0">
+                          Allow Self-Registration
+                        </FormLabel>
                         <FormDescription className="text-xs">
                           Users can register without an invitation
                         </FormDescription>
                       </div>
                       <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
                       </FormControl>
                     </FormItem>
                   )}
@@ -356,7 +414,12 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={isPending}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>
@@ -367,19 +430,19 @@ function EditMyCompanyDialog({ open, company, onClose, onSubmit, isPending }: Ed
         </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function MyCompanyPage() {
-  const { hasPermission } = useAuthStore()
-  const [editOpen, setEditOpen] = useState(false)
+  const { hasPermission } = useAuthStore();
+  const [editOpen, setEditOpen] = useState(false);
 
-  const canEdit = hasPermission('update_company_data')
+  const canEdit = hasPermission('update_company_data');
 
-  const { data: company, isLoading } = useMyCompany()
-  const updateMutation = useUpdateMyCompany()
+  const { data: company, isLoading } = useMyCompany();
+  const updateMutation = useUpdateMyCompany();
 
   if (isLoading) {
     return (
@@ -390,7 +453,7 @@ export function MyCompanyPage() {
           <Skeleton className="h-48" />
         </div>
       </div>
-    )
+    );
   }
 
   if (!company) {
@@ -400,13 +463,18 @@ export function MyCompanyPage() {
         <p className="font-medium">Company profile not available</p>
         <p className="text-sm mt-1">You may not be assigned to a company.</p>
       </div>
-    )
+    );
   }
 
-  const address = company.address
-  const addressLine = [address?.street, address?.city, address?.region, address?.country]
+  const address = company.address;
+  const addressLine = [
+    address?.street,
+    address?.city,
+    address?.region,
+    address?.country,
+  ]
     .filter(Boolean)
-    .join(', ')
+    .join(', ');
 
   return (
     <div className="space-y-6">
@@ -438,7 +506,9 @@ export function MyCompanyPage() {
         )}
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold text-slate-900">{company.name}</h2>
+            <h2 className="text-lg font-semibold text-slate-900">
+              {company.name}
+            </h2>
             <Badge
               className={
                 company.status === 'active'
@@ -452,7 +522,12 @@ export function MyCompanyPage() {
           <code className="text-xs text-slate-400">{company.slug}</code>
           {company.website && (
             <p className="text-sm text-blue-600 mt-0.5">
-              <a href={company.website} target="_blank" rel="noreferrer" className="hover:underline">
+              <a
+                href={company.website}
+                target="_blank"
+                rel="noreferrer"
+                className="hover:underline"
+              >
                 {company.website}
               </a>
             </p>
@@ -462,8 +537,8 @@ export function MyCompanyPage() {
 
       {!canEdit && (
         <div className="rounded-md bg-slate-50 border border-slate-200 px-4 py-2.5 text-sm text-slate-500">
-          You have read-only access to this company profile. Contact your administrator to make
-          changes.
+          You have read-only access to this company profile. Contact your
+          administrator to make changes.
         </div>
       )}
 
@@ -491,24 +566,44 @@ export function MyCompanyPage() {
               </CardHeader>
               <CardContent className="pt-0">
                 <DetailRow
-                  label={<span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> Email</span>}
+                  label={
+                    <span className="flex items-center gap-1">
+                      <Mail className="h-3.5 w-3.5" /> Email
+                    </span>
+                  }
                   value={
                     company.contact_email ? (
-                      <a href={`mailto:${company.contact_email}`} className="text-blue-600 hover:underline">
+                      <a
+                        href={`mailto:${company.contact_email}`}
+                        className="text-blue-600 hover:underline"
+                      >
                         {company.contact_email}
                       </a>
                     ) : undefined
                   }
                 />
                 <DetailRow
-                  label={<span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> Phone</span>}
+                  label={
+                    <span className="flex items-center gap-1">
+                      <Phone className="h-3.5 w-3.5" /> Phone
+                    </span>
+                  }
                   value={company.contact_phone}
                 />
                 <DetailRow
-                  label={<span className="flex items-center gap-1"><Globe className="h-3.5 w-3.5" /> Website</span>}
+                  label={
+                    <span className="flex items-center gap-1">
+                      <Globe className="h-3.5 w-3.5" /> Website
+                    </span>
+                  }
                   value={
                     company.website ? (
-                      <a href={company.website} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                      <a
+                        href={company.website}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
                         {company.website}
                       </a>
                     ) : undefined
@@ -535,10 +630,15 @@ export function MyCompanyPage() {
                     <DetailRow label="City" value={address?.city} />
                     <DetailRow label="Region" value={address?.region} />
                     <DetailRow label="Country" value={address?.country} />
-                    <DetailRow label="Postal Code" value={address?.postal_code} />
+                    <DetailRow
+                      label="Postal Code"
+                      value={address?.postal_code}
+                    />
                   </>
                 ) : (
-                  <p className="text-sm text-slate-400 py-6 text-center">No address on file</p>
+                  <p className="text-sm text-slate-400 py-6 text-center">
+                    No address on file
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -606,7 +706,9 @@ export function MyCompanyPage() {
         </TabsContent>
 
         <TabsContent value="tiramis" className="mt-4">
-          <TiramisConfigTab canEdit={hasPermission('company-tiramis-config:update')} />
+          <TiramisConfigTab
+            canEdit={hasPermission('company-tiramis-config:update')}
+          />
         </TabsContent>
       </Tabs>
 
@@ -615,10 +717,12 @@ export function MyCompanyPage() {
           open={editOpen}
           company={company}
           onClose={() => setEditOpen(false)}
-          onSubmit={(data) => updateMutation.mutate(data, { onSuccess: () => setEditOpen(false) })}
+          onSubmit={(data) =>
+            updateMutation.mutate(data, { onSuccess: () => setEditOpen(false) })
+          }
           isPending={updateMutation.isPending}
         />
       )}
     </div>
-  )
+  );
 }

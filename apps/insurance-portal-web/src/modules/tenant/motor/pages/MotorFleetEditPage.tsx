@@ -4,7 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { MotorFleetForm } from '../components/MotorFleetForm';
-import { useMotorCustomers, useMotorFleet, useMotorPolicies, useMotorQuotations, useUpdateMotorFleet } from '../hooks';
+import {
+  useMotorCustomers,
+  useMotorFleet,
+  useMotorPolicies,
+  useMotorQuotations,
+  useUpdateMotorFleet,
+} from '../hooks';
 import { motorFleetRecordToFormValues } from '../schemas';
 
 export function MotorFleetEditPage() {
@@ -29,7 +35,10 @@ export function MotorFleetEditPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Fleet not found</p>
-        <Button variant="link" onClick={() => navigate('/underwriting/motor/fleets')}>
+        <Button
+          variant="link"
+          onClick={() => navigate('/underwriting/motor/fleets')}
+        >
           Back to Fleets
         </Button>
       </div>
@@ -39,7 +48,11 @@ export function MotorFleetEditPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(`/underwriting/motor/fleets/${fleet.id}`)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(`/underwriting/motor/fleets/${fleet.id}`)}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <PageHeader title="Edit Motor Fleet" description={fleet.fleet_no} />
@@ -52,7 +65,11 @@ export function MotorFleetEditPage() {
         isPending={updateMutation.isPending}
         submitLabel="Save Changes"
         defaultValues={motorFleetRecordToFormValues(fleet)}
-        onSubmit={(values) => updateMutation.mutate(values, { onSuccess: () => navigate(`/underwriting/motor/fleets/${fleet.id}`) })}
+        onSubmit={(values) =>
+          updateMutation.mutate(values, {
+            onSuccess: () => navigate(`/underwriting/motor/fleets/${fleet.id}`),
+          })
+        }
       />
     </div>
   );

@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   Plus,
   MoreHorizontal,
@@ -13,22 +13,22 @@ import {
   SlidersHorizontal,
   X,
   ShieldCheck,
-} from 'lucide-react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { format } from 'date-fns'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+} from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from '@/components/ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -36,7 +36,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from '@/components/ui/dialog';
 import {
   Form,
   FormControl,
@@ -44,66 +44,82 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form'
+} from '@/components/ui/form';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { DataTable, type Column } from '@/components/shared/DataTable'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { StatusBadge } from '@/components/shared/StatusBadge'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { rolesApi } from '@/modules/platform/roles/api/roles'
-import { branchesApi } from '@/modules/tenant/branches/api/branches'
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
-import { useRbacGuard } from '@/modules/shared/auth/hooks/useRbacGuard'
-import { mapApiErrorsToForm } from '@/lib/api-error'
+} from '@/components/ui/select';
+import { DataTable, type Column } from '@/components/shared/DataTable';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { rolesApi } from '@/modules/platform/roles/api/roles';
+import { branchesApi } from '@/modules/tenant/branches/api/branches';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { useRbacGuard } from '@/modules/shared/auth/hooks/useRbacGuard';
+import { mapApiErrorsToForm } from '@/lib/api-error';
 import {
   useUsersList,
   useCreateUser,
   useUpdateUser,
   useDeleteUser,
   useAssignRole,
-} from '@/modules/tenant/users/hooks'
-import type { UserProfile, UserStatus, UserType, SortOrder } from '@/types'
+} from '@/modules/tenant/users/hooks';
+import type { UserProfile, UserStatus, UserType, SortOrder } from '@/types';
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
 
-const PHONE_REGEX = /^(\+255|255|0)[67]\d{8}$/
+const PHONE_REGEX = /^(\+255|255|0)[67]\d{8}$/;
 
 const USER_TYPE_VALUES = [
-  'SUPER_ADMIN', 'COMPANY_ADMIN', 'STAFF', 'AGENT', 'BROKER', 'CUSTOMER', 'OWNER', 'COMPANY_USER',
-] as const
+  'SUPER_ADMIN',
+  'COMPANY_ADMIN',
+  'STAFF',
+  'AGENT',
+  'BROKER',
+  'CUSTOMER',
+  'OWNER',
+  'COMPANY_USER',
+] as const;
 
 const createUserSchema = z.object({
   first_name: z.string().min(1, 'Required'),
   last_name: z.string().min(1, 'Required'),
   email: z.string().email('Invalid email'),
-  phone: z.string().regex(PHONE_REGEX, 'Must be a valid Tanzanian phone number'),
+  phone: z
+    .string()
+    .regex(PHONE_REGEX, 'Must be a valid Tanzanian phone number'),
   password: z.string().min(6, 'Min 6 characters'),
   user_no: z.string().optional(),
   user_type: z.enum(USER_TYPE_VALUES).optional(),
   officer_title: z.string().min(1, 'Required'),
   branch_id: z.string().uuid('Branch is required'),
-})
+});
 
 const editUserSchema = z.object({
   first_name: z.string().min(1, 'Required'),
   last_name: z.string().min(1, 'Required'),
-  phone: z.string().regex(PHONE_REGEX, 'Must be a valid Tanzanian phone number'),
+  phone: z
+    .string()
+    .regex(PHONE_REGEX, 'Must be a valid Tanzanian phone number'),
   status: z.enum(['active', 'inactive', 'suspended', 'locked']),
   user_type: z.enum(USER_TYPE_VALUES).optional(),
-})
+});
 
-type CreateUserForm = z.infer<typeof createUserSchema>
-type EditUserForm = z.infer<typeof editUserSchema>
+type CreateUserForm = z.infer<typeof createUserSchema>;
+type EditUserForm = z.infer<typeof editUserSchema>;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const USER_STATUSES: UserStatus[] = ['active', 'inactive', 'suspended', 'locked']
+const USER_STATUSES: UserStatus[] = [
+  'active',
+  'inactive',
+  'suspended',
+  'locked',
+];
 
 const SORT_FIELDS = [
   { value: 'created_at', label: 'Created date' },
@@ -111,15 +127,17 @@ const SORT_FIELDS = [
   { value: 'last_name', label: 'Last name' },
   { value: 'email', label: 'Email' },
   { value: 'status', label: 'Status' },
-]
+];
 
-const STATUS_NEXT: Record<UserStatus, { label: string; next: UserStatus; icon: typeof UserCheck }> =
-  {
-    active: { label: 'Deactivate', next: 'inactive', icon: UserX },
-    inactive: { label: 'Activate', next: 'active', icon: UserCheck },
-    suspended: { label: 'Activate', next: 'active', icon: UserCheck },
-    locked: { label: 'Unlock', next: 'active', icon: UserCheck },
-  }
+const STATUS_NEXT: Record<
+  UserStatus,
+  { label: string; next: UserStatus; icon: typeof UserCheck }
+> = {
+  active: { label: 'Deactivate', next: 'inactive', icon: UserX },
+  inactive: { label: 'Activate', next: 'active', icon: UserCheck },
+  suspended: { label: 'Activate', next: 'active', icon: UserCheck },
+  locked: { label: 'Unlock', next: 'active', icon: UserCheck },
+};
 
 const ALL_USER_TYPES: { value: UserType; label: string }[] = [
   { value: 'SUPER_ADMIN', label: 'Super Admin' },
@@ -130,43 +148,44 @@ const ALL_USER_TYPES: { value: UserType; label: string }[] = [
   { value: 'BROKER', label: 'Broker' },
   { value: 'CUSTOMER', label: 'Customer' },
   { value: 'COMPANY_USER', label: 'Company User' },
-]
+];
 
 const NON_OWNER_USER_TYPES = ALL_USER_TYPES.filter(
   (t) => t.value !== 'SUPER_ADMIN' && t.value !== 'COMPANY_ADMIN',
-)
+);
 
-const CREATE_FIELD_MAP: Partial<Record<string, keyof CreateUserForm & string>> = {
-  first_name: 'first_name',
-  last_name: 'last_name',
-  email: 'email',
-  phone: 'phone',
-  password: 'password',
-  user_no: 'user_no',
-  officer_title: 'officer_title',
-  branch_id: 'branch_id',
-}
+const CREATE_FIELD_MAP: Partial<Record<string, keyof CreateUserForm & string>> =
+  {
+    first_name: 'first_name',
+    last_name: 'last_name',
+    email: 'email',
+    phone: 'phone',
+    password: 'password',
+    user_no: 'user_no',
+    officer_title: 'officer_title',
+    branch_id: 'branch_id',
+  };
 
 const EDIT_FIELD_MAP: Partial<Record<string, keyof EditUserForm & string>> = {
   first_name: 'first_name',
   last_name: 'last_name',
   phone: 'phone',
   status: 'status',
-}
+};
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function UsersListPage() {
-  const navigate = useNavigate()
-  const { hasPermission } = useAuthStore()
-  const { isOwner } = useRbacGuard()
-  const userTypeOptions = isOwner ? ALL_USER_TYPES : NON_OWNER_USER_TYPES
+  const navigate = useNavigate();
+  const { hasPermission } = useAuthStore();
+  const { isOwner } = useRbacGuard();
+  const userTypeOptions = isOwner ? ALL_USER_TYPES : NON_OWNER_USER_TYPES;
 
   // ── Permissions ───────────────────────────────────────────────────────────
-  const canCreate = hasPermission('users:create')
-  const canUpdate = hasPermission('users:update')
-  const canDelete = hasPermission('users:delete')
-  const canAssignRole = hasPermission('users:assign-role')
+  const canCreate = hasPermission('users:create');
+  const canUpdate = hasPermission('users:update');
+  const canDelete = hasPermission('users:delete');
+  const canAssignRole = hasPermission('users:assign-role');
 
   // ── Data & state from hook ────────────────────────────────────────────────
   const {
@@ -187,70 +206,90 @@ export function UsersListPage() {
     setLimit,
     setSort,
     clearFilters,
-  } = useUsersList()
+  } = useUsersList();
 
   // ── Dialog state ─────────────────────────────────────────────────────────
-  const [createOpen, setCreateOpen] = useState(false)
-  const [editUser, setEditUser] = useState<UserProfile | null>(null)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [assignRoleUser, setAssignRoleUser] = useState<UserProfile | null>(null)
-  const [selectedRoleId, setSelectedRoleId] = useState('')
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editUser, setEditUser] = useState<UserProfile | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [assignRoleUser, setAssignRoleUser] = useState<UserProfile | null>(
+    null,
+  );
+  const [selectedRoleId, setSelectedRoleId] = useState('');
 
   // ── Roles for assign-role dialog ─────────────────────────────────────────
   const { data: roles } = useQuery({
     queryKey: ['roles'],
     queryFn: rolesApi.getRoles,
     enabled: !!assignRoleUser,
-  })
+  });
   const { data: branchOptions = [] } = useQuery({
     queryKey: ['branches', 'user-assignment-options'],
     queryFn: branchesApi.getAllBranches,
     staleTime: 30_000,
-  })
+  });
 
   // ── Forms ────────────────────────────────────────────────────────────────
   const createForm = useForm<CreateUserForm>({
     resolver: zodResolver(createUserSchema),
-    defaultValues: { first_name: '', last_name: '', email: '', phone: '', password: '', user_no: '', user_type: undefined, officer_title: 'Underwriter', branch_id: '' },
-  })
+    defaultValues: {
+      first_name: '',
+      last_name: '',
+      email: '',
+      phone: '',
+      password: '',
+      user_no: '',
+      user_type: undefined,
+      officer_title: 'Underwriter',
+      branch_id: '',
+    },
+  });
 
   const editForm = useForm<EditUserForm>({
     resolver: zodResolver(editUserSchema),
-    defaultValues: { first_name: '', last_name: '', phone: '', status: 'active', user_type: undefined },
-  })
+    defaultValues: {
+      first_name: '',
+      last_name: '',
+      phone: '',
+      status: 'active',
+      user_type: undefined,
+    },
+  });
 
   // ── Mutations ────────────────────────────────────────────────────────────
-  const createMutation = useCreateUser()
-  const updateMutation = useUpdateUser()
-  const deleteMutation = useDeleteUser()
-  const assignRoleMutation = useAssignRole()
+  const createMutation = useCreateUser();
+  const updateMutation = useUpdateUser();
+  const deleteMutation = useDeleteUser();
+  const assignRoleMutation = useAssignRole();
 
   const handleCreate = (data: CreateUserForm) => {
-    const payload = { ...data, user_no: data.user_no || undefined }
+    const payload = { ...data, user_no: data.user_no || undefined };
     createMutation.mutate(payload, {
       onSuccess: () => {
-        setCreateOpen(false)
-        createForm.reset()
+        setCreateOpen(false);
+        createForm.reset();
       },
-      onError: (err) => mapApiErrorsToForm(err, createForm.setError, CREATE_FIELD_MAP),
-    })
-  }
+      onError: (err) =>
+        mapApiErrorsToForm(err, createForm.setError, CREATE_FIELD_MAP),
+    });
+  };
 
   const handleUpdate = (data: EditUserForm) => {
-    if (!editUser) return
+    if (!editUser) return;
     updateMutation.mutate(
       { id: editUser.id, data },
       {
         onSuccess: () => setEditUser(null),
-        onError: (err) => mapApiErrorsToForm(err, editForm.setError, EDIT_FIELD_MAP),
+        onError: (err) =>
+          mapApiErrorsToForm(err, editForm.setError, EDIT_FIELD_MAP),
       },
-    )
-  }
+    );
+  };
 
   const handleToggleStatus = (user: UserProfile) => {
-    const next = STATUS_NEXT[user.status].next
-    updateMutation.mutate({ id: user.id, data: { status: next } })
-  }
+    const next = STATUS_NEXT[user.status].next;
+    updateMutation.mutate({ id: user.id, data: { status: next } });
+  };
 
   const openEdit = (user: UserProfile) => {
     editForm.reset({
@@ -259,9 +298,9 @@ export function UsersListPage() {
       phone: user.phone,
       status: user.status,
       user_type: user.user_type as UserType | undefined,
-    })
-    setEditUser(user)
-  }
+    });
+    setEditUser(user);
+  };
 
   // ── Columns ──────────────────────────────────────────────────────────────
   const columns: Column<UserProfile>[] = [
@@ -290,13 +329,17 @@ export function UsersListPage() {
       key: 'user_no',
       header: 'User No.',
       cell: (row) => (
-        <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono">{row.user_no}</code>
+        <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded font-mono">
+          {row.user_no}
+        </code>
       ),
     },
     {
       key: 'phone',
       header: 'Phone',
-      cell: (row) => <span className="text-sm text-slate-600">{row.phone}</span>,
+      cell: (row) => (
+        <span className="text-sm text-slate-600">{row.phone}</span>
+      ),
     },
     {
       key: 'status',
@@ -317,7 +360,9 @@ export function UsersListPage() {
       key: 'officer_title',
       header: 'Officer title',
       cell: (row) => (
-        <span className="text-sm text-slate-600">{row.officer_title || '—'}</span>
+        <span className="text-sm text-slate-600">
+          {row.officer_title || '—'}
+        </span>
       ),
     },
     {
@@ -357,14 +402,19 @@ export function UsersListPage() {
       header: '',
       className: 'w-12',
       cell: (row) => {
-        const toggle = STATUS_NEXT[row.status]
-        const hasAnyAction = canUpdate || canDelete || canAssignRole
+        const toggle = STATUS_NEXT[row.status];
+        const hasAnyAction = canUpdate || canDelete || canAssignRole;
         if (!hasAnyAction) {
           return (
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/users/${row.id}`)}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => navigate(`/users/${row.id}`)}
+            >
               <Eye className="h-4 w-4" />
             </Button>
-          )
+          );
         }
         return (
           <DropdownMenu>
@@ -391,8 +441,8 @@ export function UsersListPage() {
               {canAssignRole && (
                 <DropdownMenuItem
                   onClick={() => {
-                    setAssignRoleUser(row)
-                    setSelectedRoleId('')
+                    setAssignRoleUser(row);
+                    setSelectedRoleId('');
                   }}
                 >
                   <ShieldCheck className="mr-2 h-4 w-4" /> Assign role
@@ -411,10 +461,10 @@ export function UsersListPage() {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
-        )
+        );
       },
     },
-  ]
+  ];
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
@@ -461,7 +511,10 @@ export function UsersListPage() {
           </SelectContent>
         </Select>
 
-        <Select value={sortBy} onValueChange={(v) => setSort(v as typeof sortBy, sortOrder)}>
+        <Select
+          value={sortBy}
+          onValueChange={(v) => setSort(v as typeof sortBy, sortOrder)}
+        >
           <SelectTrigger className="w-40">
             <SelectValue placeholder="Sort by" />
           </SelectTrigger>
@@ -488,13 +541,20 @@ export function UsersListPage() {
         </Select>
 
         {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={clearFilters} className="text-slate-500">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="text-slate-500"
+          >
             <X className="mr-1 h-3.5 w-3.5" /> Clear
           </Button>
         )}
 
         {isFetching && !isLoading && (
-          <span className="text-xs text-slate-400 animate-pulse">Refreshing…</span>
+          <span className="text-xs text-slate-400 animate-pulse">
+            Refreshing…
+          </span>
         )}
       </div>
 
@@ -519,10 +579,15 @@ export function UsersListPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Add New User</DialogTitle>
-            <DialogDescription>Create a new user account in this company.</DialogDescription>
+            <DialogDescription>
+              Create a new user account in this company.
+            </DialogDescription>
           </DialogHeader>
           <Form {...createForm}>
-            <form onSubmit={createForm.handleSubmit(handleCreate)} className="space-y-4">
+            <form
+              onSubmit={createForm.handleSubmit(handleCreate)}
+              className="space-y-4"
+            >
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={createForm.control}
@@ -558,7 +623,11 @@ export function UsersListPage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="john@company.com" {...field} />
+                      <Input
+                        type="email"
+                        placeholder="john@company.com"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -584,7 +653,11 @@ export function UsersListPage() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="Min 6 characters" {...field} />
+                      <Input
+                        type="password"
+                        placeholder="Min 6 characters"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -597,7 +670,9 @@ export function UsersListPage() {
                   <FormItem>
                     <FormLabel>
                       User number{' '}
-                      <span className="text-slate-400 font-normal">(optional)</span>
+                      <span className="text-slate-400 font-normal">
+                        (optional)
+                      </span>
                     </FormLabel>
                     <FormControl>
                       <Input placeholder="Auto-generated if blank" {...field} />
@@ -613,9 +688,14 @@ export function UsersListPage() {
                   <FormItem>
                     <FormLabel>
                       User type{' '}
-                      <span className="text-slate-400 font-normal">(optional)</span>
+                      <span className="text-slate-400 font-normal">
+                        (optional)
+                      </span>
                     </FormLabel>
-                    <Select value={field.value ?? ''} onValueChange={(v) => field.onChange(v || undefined)}>
+                    <Select
+                      value={field.value ?? ''}
+                      onValueChange={(v) => field.onChange(v || undefined)}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select user type" />
@@ -677,8 +757,8 @@ export function UsersListPage() {
                   type="button"
                   variant="outline"
                   onClick={() => {
-                    setCreateOpen(false)
-                    createForm.reset()
+                    setCreateOpen(false);
+                    createForm.reset();
                   }}
                 >
                   Cancel
@@ -702,7 +782,10 @@ export function UsersListPage() {
             </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(handleUpdate)} className="space-y-4">
+            <form
+              onSubmit={editForm.handleSubmit(handleUpdate)}
+              className="space-y-4"
+            >
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={editForm.control}
@@ -774,7 +857,10 @@ export function UsersListPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>User type</FormLabel>
-                    <Select value={field.value ?? ''} onValueChange={(v) => field.onChange(v || undefined)}>
+                    <Select
+                      value={field.value ?? ''}
+                      onValueChange={(v) => field.onChange(v || undefined)}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select user type" />
@@ -793,7 +879,11 @@ export function UsersListPage() {
                 )}
               />
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setEditUser(null)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditUser(null)}
+                >
                   Cancel
                 </Button>
                 <Button type="submit" disabled={updateMutation.isPending}>
@@ -806,12 +896,16 @@ export function UsersListPage() {
       </Dialog>
 
       {/* ── Assign Role Dialog ── */}
-      <Dialog open={!!assignRoleUser} onOpenChange={(o) => !o && setAssignRoleUser(null)}>
+      <Dialog
+        open={!!assignRoleUser}
+        onOpenChange={(o) => !o && setAssignRoleUser(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Assign Role</DialogTitle>
             <DialogDescription>
-              Assign a role to {assignRoleUser?.first_name} {assignRoleUser?.last_name}.
+              Assign a role to {assignRoleUser?.first_name}{' '}
+              {assignRoleUser?.last_name}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
@@ -823,7 +917,9 @@ export function UsersListPage() {
                 {(roles ?? []).map((r) => (
                   <SelectItem key={r.id} value={r.id}>
                     <span>{r.display_name}</span>
-                    <span className="ml-2 text-xs text-slate-400">{r.name}</span>
+                    <span className="ml-2 text-xs text-slate-400">
+                      {r.name}
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -847,11 +943,11 @@ export function UsersListPage() {
             <Button
               disabled={!selectedRoleId || assignRoleMutation.isPending}
               onClick={() => {
-                if (!assignRoleUser) return
+                if (!assignRoleUser) return;
                 assignRoleMutation.mutate(
                   { userId: assignRoleUser.id, roleId: selectedRoleId },
                   { onSuccess: () => setAssignRoleUser(null) },
-                )
+                );
               }}
             >
               {assignRoleMutation.isPending ? 'Assigning…' : 'Assign role'}
@@ -864,18 +960,19 @@ export function UsersListPage() {
       <ConfirmDialog
         open={!!deleteId}
         onOpenChange={(o) => {
-          if (!o) setDeleteId(null)
+          if (!o) setDeleteId(null);
         }}
         title="Remove User"
         description="This will remove the user from the active company. The action cannot be undone."
         confirmLabel="Remove user"
         onConfirm={() => {
-          if (!deleteId) return
-          deleteMutation.mutate(deleteId, { onSuccess: () => setDeleteId(null) })
+          if (!deleteId) return;
+          deleteMutation.mutate(deleteId, {
+            onSuccess: () => setDeleteId(null),
+          });
         }}
         loading={deleteMutation.isPending}
       />
     </div>
-  )
+  );
 }
-

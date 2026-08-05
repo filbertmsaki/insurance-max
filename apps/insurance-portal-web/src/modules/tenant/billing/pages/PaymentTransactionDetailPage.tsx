@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { useDeletePaymentTransaction, usePaymentTransactionDetail } from '../hooks';
+import {
+  useDeletePaymentTransaction,
+  usePaymentTransactionDetail,
+} from '../hooks';
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
   return (
@@ -30,7 +33,12 @@ export function PaymentTransactionDetailPage() {
     return (
       <div className="text-center py-24 text-slate-500">
         <p className="font-medium">Payment transaction not found</p>
-        <Button variant="link" onClick={() => navigate('/billing/payment-transactions')}>Back</Button>
+        <Button
+          variant="link"
+          onClick={() => navigate('/billing/payment-transactions')}
+        >
+          Back
+        </Button>
       </div>
     );
   }
@@ -39,25 +47,43 @@ export function PaymentTransactionDetailPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/billing/payment-transactions')}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/billing/payment-transactions')}
+          >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-xl font-semibold text-slate-900">{record.provider_reference}</h1>
+            <h1 className="text-xl font-semibold text-slate-900">
+              {record.provider_reference}
+            </h1>
             <p className="text-sm text-slate-500">{record.provider}</p>
           </div>
         </div>
-        <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => setDeleteOpen(true)}
+        >
           <Trash2 className="mr-1.5 h-3.5 w-3.5" />
           Delete
         </Button>
       </div>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Payment Transaction</CardTitle></CardHeader>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Payment Transaction</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
-          <Row label="Invoice" value={record.invoice?.invoice_no ?? record.invoice_id} />
-          <Row label="Receipt" value={record.receipt?.receipt_no ?? record.receipt_id} />
+          <Row
+            label="Invoice"
+            value={record.invoice?.invoice_no ?? record.invoice_id}
+          />
+          <Row
+            label="Receipt"
+            value={record.receipt?.receipt_no ?? record.receipt_id}
+          />
           <Row label="Provider" value={record.provider} />
           <Row label="Internal Reference" value={record.internal_reference} />
           <Row label="Amount" value={`${record.currency} ${record.amount}`} />
@@ -66,10 +92,16 @@ export function PaymentTransactionDetailPage() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Payloads</CardTitle></CardHeader>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Payloads</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
-          <pre className="overflow-auto rounded-lg bg-slate-50 p-4 text-xs">{JSON.stringify(record.request_payload ?? {}, null, 2)}</pre>
-          <pre className="overflow-auto rounded-lg bg-slate-50 p-4 text-xs">{JSON.stringify(record.response_payload ?? {}, null, 2)}</pre>
+          <pre className="overflow-auto rounded-lg bg-slate-50 p-4 text-xs">
+            {JSON.stringify(record.request_payload ?? {}, null, 2)}
+          </pre>
+          <pre className="overflow-auto rounded-lg bg-slate-50 p-4 text-xs">
+            {JSON.stringify(record.response_payload ?? {}, null, 2)}
+          </pre>
         </CardContent>
       </Card>
 
@@ -80,7 +112,11 @@ export function PaymentTransactionDetailPage() {
         description="This will soft-delete the payment transaction."
         confirmLabel="Delete"
         loading={deleteMutation.isPending}
-        onConfirm={() => deleteMutation.mutate(record.id, { onSuccess: () => navigate('/billing/payment-transactions') })}
+        onConfirm={() =>
+          deleteMutation.mutate(record.id, {
+            onSuccess: () => navigate('/billing/payment-transactions'),
+          })
+        }
       />
     </div>
   );

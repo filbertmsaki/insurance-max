@@ -3,7 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
@@ -83,7 +89,10 @@ export function CustomersPage() {
           />
         </div>
 
-        <Select value={customerType} onValueChange={(value) => setFilter('customer_type', value)}>
+        <Select
+          value={customerType}
+          onValueChange={(value) => setFilter('customer_type', value)}
+        >
           <SelectTrigger className="w-44">
             <SelectValue placeholder="Customer type" />
           </SelectTrigger>
@@ -97,7 +106,10 @@ export function CustomersPage() {
           </SelectContent>
         </Select>
 
-        <Select value={status} onValueChange={(value) => setFilter('status', value)}>
+        <Select
+          value={status}
+          onValueChange={(value) => setFilter('status', value)}
+        >
           <SelectTrigger className="w-44">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
@@ -111,7 +123,10 @@ export function CustomersPage() {
           </SelectContent>
         </Select>
 
-        <Select value={kycStatus} onValueChange={(value) => setFilter('kyc_status', value)}>
+        <Select
+          value={kycStatus}
+          onValueChange={(value) => setFilter('kyc_status', value)}
+        >
           <SelectTrigger className="w-44">
             <SelectValue placeholder="KYC" />
           </SelectTrigger>
@@ -147,7 +162,9 @@ export function CustomersPage() {
         canEdit={canUpdate}
         canDelete={canDelete}
         canRestore={canUpdate}
-        onEdit={(customer) => navigate(underwritingPaths.customerEdit(customer.id))}
+        onEdit={(customer) =>
+          navigate(underwritingPaths.customerEdit(customer.id))
+        }
         onDelete={(customer) => setDeleteItem(customer)}
         onRestore={(customer) => setRestoreItem(customer)}
       />

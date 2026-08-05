@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Plus,
   Eye,
@@ -9,23 +9,23 @@ import {
   Power,
   PowerOff,
   Trash2,
-} from 'lucide-react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { format } from 'date-fns'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { Switch } from '@/components/ui/switch'
+} from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -33,14 +33,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog'
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from '@/components/ui/dropdown-menu';
 import {
   Form,
   FormControl,
@@ -49,22 +49,22 @@ import {
   FormLabel,
   FormMessage,
   FormDescription,
-} from '@/components/ui/form'
-import { DataTable, type Column } from '@/components/shared/DataTable'
-import { PageHeader } from '@/components/shared/PageHeader'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+} from '@/components/ui/form';
+import { DataTable, type Column } from '@/components/shared/DataTable';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import {
   useCompaniesList,
   useCreateCompany,
   useUpdateCompanyStatus,
   useDeleteCompany,
-} from '@/modules/platform/companies/hooks'
-import type { Company, SortOrder } from '@/types'
-import type { CompanySortKey } from '@/modules/platform/companies/hooks'
+} from '@/modules/platform/companies/hooks';
+import type { Company, SortOrder } from '@/types';
+import type { CompanySortKey } from '@/modules/platform/companies/hooks';
 import type {
   CreateCompanyExtendedDto,
   CompanyType,
-} from '@/modules/platform/companies/api/companies'
+} from '@/modules/platform/companies/api/companies';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -86,7 +86,11 @@ const createSchema = z.object({
     .regex(/^\+?[\d\s\-().]{7,30}$/, 'Invalid phone number')
     .optional()
     .or(z.literal('')),
-  website: z.string().url('Must be a valid URL (e.g. https://company.com)').optional().or(z.literal('')),
+  website: z
+    .string()
+    .url('Must be a valid URL (e.g. https://company.com)')
+    .optional()
+    .or(z.literal('')),
   logo_url: z.string().url('Must be a valid URL').optional().or(z.literal('')),
   // Address
   address_street: z.string().max(200).optional(),
@@ -111,7 +115,10 @@ const createSchema = z.object({
   admin_email: z.string().email('Invalid email'),
   admin_phone: z
     .string()
-    .regex(/^(0\d{9}|255\d{9}|\+255\d{9})$/, 'Valid Tanzanian phone required (e.g. 0712345678)'),
+    .regex(
+      /^(0\d{9}|255\d{9}|\+255\d{9})$/,
+      'Valid Tanzanian phone required (e.g. 0712345678)',
+    ),
   admin_password: z
     .string()
     .min(8, 'Minimum 8 characters')
@@ -119,9 +126,9 @@ const createSchema = z.object({
     .regex(/[a-z]/, 'Must contain a lowercase letter')
     .regex(/\d/, 'Must contain a number')
     .regex(/[^A-Za-z0-9]/, 'Must contain a special character'),
-})
+});
 
-type CreateFormValues = z.infer<typeof createSchema>
+type CreateFormValues = z.infer<typeof createSchema>;
 
 const COMPANY_TYPE_OPTIONS: { value: CompanyType; label: string }[] = [
   { value: 'INSURANCE_COMPANY', label: 'Insurance Company' },
@@ -130,34 +137,45 @@ const COMPANY_TYPE_OPTIONS: { value: CompanyType; label: string }[] = [
   { value: 'AGENCY', label: 'Agency' },
   { value: 'BANCASSURANCE', label: 'Bancassurance' },
   { value: 'SERVICE_PROVIDER', label: 'Service Provider' },
-]
+];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">{children}</p>
-  )
+    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
+      {children}
+    </p>
+  );
 }
 
 function CompanyStatusBadge({ status }: { status: string }) {
   return status === 'active' ? (
-    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">Active</Badge>
+    <Badge className="bg-green-100 text-green-700 border-green-200 hover:bg-green-100">
+      Active
+    </Badge>
   ) : (
-    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">Inactive</Badge>
-  )
+    <Badge className="bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-100">
+      Inactive
+    </Badge>
+  );
 }
 
 // ─── Create Dialog ────────────────────────────────────────────────────────────
 
 interface CreateCompanyDialogProps {
-  open: boolean
-  onClose: () => void
-  onSubmit: (values: CreateFormValues) => void
-  isPending: boolean
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (values: CreateFormValues) => void;
+  isPending: boolean;
 }
 
-function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompanyDialogProps) {
+function CreateCompanyDialog({
+  open,
+  onClose,
+  onSubmit,
+  isPending,
+}: CreateCompanyDialogProps) {
   const form = useForm<CreateFormValues>({
     resolver: zodResolver(createSchema),
     defaultValues: {
@@ -182,12 +200,12 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
       admin_phone: '',
       admin_password: '',
     },
-  })
+  });
 
   const handleClose = () => {
-    form.reset()
-    onClose()
-  }
+    form.reset();
+    onClose();
+  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
@@ -195,14 +213,13 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
         <DialogHeader>
           <DialogTitle>Create New Company</DialogTitle>
           <DialogDescription>
-            Set up a new tenant company and its first administrator account. Profile details can be
-            filled in now or updated later.
+            Set up a new tenant company and its first administrator account.
+            Profile details can be filled in now or updated later.
           </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-
             {/* ── Company identity ── */}
             <div>
               <SectionLabel>Company Identity</SectionLabel>
@@ -212,8 +229,12 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   name="company_name"
                   render={({ field }) => (
                     <FormItem className="col-span-2">
-                      <FormLabel>Company Name <span className="text-red-500">*</span></FormLabel>
-                      <FormControl><Input placeholder="Acme Insurance Ltd." {...field} /></FormControl>
+                      <FormLabel>
+                        Company Name <span className="text-red-500">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input placeholder="Acme Insurance Ltd." {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -223,8 +244,13 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   name="company_type"
                   render={({ field }) => (
                     <FormItem className="col-span-2">
-                      <FormLabel>Company Type <span className="text-red-500">*</span></FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
+                      <FormLabel>
+                        Company Type <span className="text-red-500">*</span>
+                      </FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select company type" />
@@ -257,7 +283,13 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Contact Email</FormLabel>
-                      <FormControl><Input type="email" placeholder="info@company.com" {...field} /></FormControl>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="info@company.com"
+                          {...field}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -268,7 +300,9 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Contact Phone</FormLabel>
-                      <FormControl><Input placeholder="+255 712 345 678" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="+255 712 345 678" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -279,7 +313,9 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Website</FormLabel>
-                      <FormControl><Input placeholder="https://company.com" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="https://company.com" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -290,7 +326,12 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Logo URL</FormLabel>
-                      <FormControl><Input placeholder="https://cdn.example.com/logo.png" {...field} /></FormControl>
+                      <FormControl>
+                        <Input
+                          placeholder="https://cdn.example.com/logo.png"
+                          {...field}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -310,7 +351,9 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   render={({ field }) => (
                     <FormItem className="col-span-2">
                       <FormLabel>Street</FormLabel>
-                      <FormControl><Input placeholder="123 Main Street" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="123 Main Street" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -321,7 +364,9 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>City</FormLabel>
-                      <FormControl><Input placeholder="Dar es Salaam" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Dar es Salaam" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -332,7 +377,9 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Region</FormLabel>
-                      <FormControl><Input placeholder="Dar es Salaam Region" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Dar es Salaam Region" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -343,7 +390,9 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Country</FormLabel>
-                      <FormControl><Input placeholder="Tanzania" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Tanzania" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -354,7 +403,9 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Postal Code</FormLabel>
-                      <FormControl><Input placeholder="11101" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="11101" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -374,7 +425,9 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Timezone</FormLabel>
-                      <FormControl><Input placeholder="Africa/Dar_es_Salaam" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="Africa/Dar_es_Salaam" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -385,7 +438,9 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Currency</FormLabel>
-                      <FormControl><Input placeholder="TZS" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="TZS" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -396,7 +451,9 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Date Format</FormLabel>
-                      <FormControl><Input placeholder="DD/MM/YYYY" {...field} /></FormControl>
+                      <FormControl>
+                        <Input placeholder="DD/MM/YYYY" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -407,13 +464,18 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   render={({ field }) => (
                     <FormItem className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-4 py-3">
                       <div>
-                        <FormLabel className="mb-0">Allow Self-Registration</FormLabel>
+                        <FormLabel className="mb-0">
+                          Allow Self-Registration
+                        </FormLabel>
                         <FormDescription className="text-xs">
                           Users can register without an invitation
                         </FormDescription>
                       </div>
                       <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
                       </FormControl>
                     </FormItem>
                   )}
@@ -432,8 +494,12 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   name="admin_first_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>First Name <span className="text-red-500">*</span></FormLabel>
-                      <FormControl><Input placeholder="John" {...field} /></FormControl>
+                      <FormLabel>
+                        First Name <span className="text-red-500">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input placeholder="John" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -443,8 +509,12 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   name="admin_last_name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Name <span className="text-red-500">*</span></FormLabel>
-                      <FormControl><Input placeholder="Doe" {...field} /></FormControl>
+                      <FormLabel>
+                        Last Name <span className="text-red-500">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input placeholder="Doe" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -454,8 +524,16 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   name="admin_email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email <span className="text-red-500">*</span></FormLabel>
-                      <FormControl><Input type="email" placeholder="admin@acme.co.tz" {...field} /></FormControl>
+                      <FormLabel>
+                        Email <span className="text-red-500">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="admin@acme.co.tz"
+                          {...field}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -465,8 +543,12 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   name="admin_phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone <span className="text-red-500">*</span></FormLabel>
-                      <FormControl><Input placeholder="0712345678" {...field} /></FormControl>
+                      <FormLabel>
+                        Phone <span className="text-red-500">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input placeholder="0712345678" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -476,7 +558,10 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
                   name="admin_password"
                   render={({ field }) => (
                     <FormItem className="col-span-2">
-                      <FormLabel>Temporary Password <span className="text-red-500">*</span></FormLabel>
+                      <FormLabel>
+                        Temporary Password{' '}
+                        <span className="text-red-500">*</span>
+                      </FormLabel>
                       <FormControl>
                         <Input
                           type="password"
@@ -492,7 +577,12 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleClose} disabled={isPending}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={isPending}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>
@@ -503,15 +593,15 @@ function CreateCompanyDialog({ open, onClose, onSubmit, isPending }: CreateCompa
         </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function CompaniesListPage() {
-  const navigate = useNavigate()
-  const [createOpen, setCreateOpen] = useState(false)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const navigate = useNavigate();
+  const [createOpen, setCreateOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const {
     companies,
@@ -527,11 +617,11 @@ export function CompaniesListPage() {
     setPage,
     setLimit,
     setSort,
-  } = useCompaniesList()
+  } = useCompaniesList();
 
-  const createMutation = useCreateCompany()
-  const statusMutation = useUpdateCompanyStatus()
-  const deleteMutation = useDeleteCompany()
+  const createMutation = useCreateCompany();
+  const statusMutation = useUpdateCompanyStatus();
+  const deleteMutation = useDeleteCompany();
 
   const columns: Column<Company>[] = [
     {
@@ -585,7 +675,9 @@ export function CompaniesListPage() {
       key: 'contact_phone',
       header: 'Phone',
       sortable: true,
-      cell: (r) => <span className="text-sm text-slate-600">{r.contact_phone ?? '—'}</span>,
+      cell: (r) => (
+        <span className="text-sm text-slate-600">{r.contact_phone ?? '—'}</span>
+      ),
     },
     {
       key: 'website',
@@ -611,7 +703,9 @@ export function CompaniesListPage() {
       header: 'Users',
       sortable: true,
       cell: (r) => (
-        <span className="text-sm tabular-nums text-slate-600">{r.active_users_count ?? 0}</span>
+        <span className="text-sm tabular-nums text-slate-600">
+          {r.active_users_count ?? 0}
+        </span>
       ),
     },
     {
@@ -643,7 +737,9 @@ export function CompaniesListPage() {
             <DropdownMenuSeparator />
             {r.status === 'active' ? (
               <DropdownMenuItem
-                onClick={() => statusMutation.mutate({ id: r.id, status: 'inactive' })}
+                onClick={() =>
+                  statusMutation.mutate({ id: r.id, status: 'inactive' })
+                }
                 className="text-amber-600 focus:text-amber-600"
                 disabled={statusMutation.isPending}
               >
@@ -652,7 +748,9 @@ export function CompaniesListPage() {
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem
-                onClick={() => statusMutation.mutate({ id: r.id, status: 'active' })}
+                onClick={() =>
+                  statusMutation.mutate({ id: r.id, status: 'active' })
+                }
                 className="text-green-600 focus:text-green-600"
                 disabled={statusMutation.isPending}
               >
@@ -672,7 +770,7 @@ export function CompaniesListPage() {
         </DropdownMenu>
       ),
     },
-  ]
+  ];
 
   function handleCreate(v: CreateFormValues) {
     const dto: CreateCompanyExtendedDto = {
@@ -700,8 +798,8 @@ export function CompaniesListPage() {
         date_format: v.settings_date_format || undefined,
         allow_self_registration: v.settings_allow_self_registration,
       },
-    }
-    createMutation.mutate(dto, { onSuccess: () => setCreateOpen(false) })
+    };
+    createMutation.mutate(dto, { onSuccess: () => setCreateOpen(false) });
   }
 
   return (
@@ -739,7 +837,7 @@ export function CompaniesListPage() {
         sortOrder={sortOrder}
         onPageChange={setPage}
         onLimitChange={setLimit}
-        onSortChange={(key, order) => setSort(key as CompanySortKey, order as SortOrder)}
+        onSortChange={(key, order) => setSort(key as CompanySortKey, order)}
       />
 
       <CreateCompanyDialog
@@ -755,9 +853,13 @@ export function CompaniesListPage() {
         title="Delete Company"
         description="This will permanently delete the company and all its data — users, roles, and memberships. This action cannot be undone."
         confirmLabel="Delete Company"
-        onConfirm={() => deleteMutation.mutate(deleteId!, { onSuccess: () => setDeleteId(null) })}
+        onConfirm={() =>
+          deleteMutation.mutate(deleteId!, {
+            onSuccess: () => setDeleteId(null),
+          })
+        }
         loading={deleteMutation.isPending}
       />
     </div>
-  )
+  );
 }

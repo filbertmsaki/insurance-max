@@ -11,9 +11,19 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { motorFleetSchema, type MotorFleetFormValues } from '../schemas';
-import type { MotorCustomerOption, QuotationOption, PolicyOption } from '../types';
+import type {
+  MotorCustomerOption,
+  QuotationOption,
+  PolicyOption,
+} from '../types';
 
 interface Props {
   customerOptions: MotorCustomerOption[];
@@ -66,15 +76,18 @@ export function MotorFleetForm({
                   <FormLabel>Customer</FormLabel>
                   <Select value={field.value} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select customer" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select customer" />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {customerOptions.map((customer) => (
                         <SelectItem key={customer.id} value={customer.id}>
                           {customer.customer_type === 'CORPORATE'
-                            ? customer.company_name ?? customer.customer_no
-                            : [customer.first_name, customer.last_name].filter(Boolean).join(' ') || customer.customer_no}
-                          {' '}
+                            ? (customer.company_name ?? customer.customer_no)
+                            : [customer.first_name, customer.last_name]
+                                .filter(Boolean)
+                                .join(' ') || customer.customer_no}{' '}
                           ({customer.customer_no})
                         </SelectItem>
                       ))}
@@ -90,7 +103,9 @@ export function MotorFleetForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Fleet No.</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -101,7 +116,9 @@ export function MotorFleetForm({
               render={({ field }) => (
                 <FormItem className="md:col-span-2">
                   <FormLabel>Fleet Name</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -112,9 +129,14 @@ export function MotorFleetForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Quotation</FormLabel>
-                  <Select value={field.value || 'none'} onValueChange={(v) => field.onChange(v === 'none' ? '' : v)}>
+                  <Select
+                    value={field.value || 'none'}
+                    onValueChange={(v) => field.onChange(v === 'none' ? '' : v)}
+                  >
                     <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Optional quotation" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Optional quotation" />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="none">No quotation</SelectItem>
@@ -135,9 +157,14 @@ export function MotorFleetForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Policy</FormLabel>
-                  <Select value={field.value || 'none'} onValueChange={(v) => field.onChange(v === 'none' ? '' : v)}>
+                  <Select
+                    value={field.value || 'none'}
+                    onValueChange={(v) => field.onChange(v === 'none' ? '' : v)}
+                  >
                     <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Optional policy" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Optional policy" />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="none">No policy</SelectItem>
@@ -158,7 +185,9 @@ export function MotorFleetForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Total Vehicles</FormLabel>
-                  <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                  <FormControl>
+                    <Input type="number" {...field} value={field.value ?? ''} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -169,7 +198,9 @@ export function MotorFleetForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Total Sum Insured</FormLabel>
-                  <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                  <FormControl>
+                    <Input type="number" {...field} value={field.value ?? ''} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -180,7 +211,9 @@ export function MotorFleetForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Total Premium</FormLabel>
-                  <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                  <FormControl>
+                    <Input type="number" {...field} value={field.value ?? ''} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -191,7 +224,9 @@ export function MotorFleetForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Status</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

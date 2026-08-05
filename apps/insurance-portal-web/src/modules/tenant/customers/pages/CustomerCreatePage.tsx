@@ -13,7 +13,11 @@ export function CustomerCreatePage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(underwritingPaths.customers)}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(underwritingPaths.customers)}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <PageHeader
@@ -26,7 +30,9 @@ export function CustomerCreatePage() {
         isPending={createMutation.isPending}
         submitLabel="Create Customer"
         onSubmit={(values) =>
-          createMutation.mutate(values, { onSuccess: () => navigate(underwritingPaths.customers) })
+          createMutation.mutate(values, {
+            onSuccess: () => navigate(underwritingPaths.customers),
+          })
         }
       />
     </div>

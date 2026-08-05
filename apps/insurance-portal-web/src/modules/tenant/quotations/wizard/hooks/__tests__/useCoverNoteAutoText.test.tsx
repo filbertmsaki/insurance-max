@@ -22,17 +22,14 @@ function setup(initial?: {
 describe('useCoverNoteAutoText', () => {
   it('does not generate text when no product is selected (missing product)', () => {
     const form = setup();
-    const { result } = renderHook(
-      (props) => useCoverNoteAutoText(props),
-      {
-        initialProps: {
-          form,
-          productName: '',
-          validFrom: '2026-07-30',
-          validUntil: '2027-07-29',
-        },
+    const { result } = renderHook((props) => useCoverNoteAutoText(props), {
+      initialProps: {
+        form,
+        productName: '',
+        validFrom: '2026-07-30',
+        validUntil: '2027-07-29',
       },
-    );
+    });
 
     expect(result.current.generatedCoverNoteDesc).toBeNull();
     expect(form.getValues('cover_note_desc')).toBe('');
@@ -40,17 +37,14 @@ describe('useCoverNoteAutoText', () => {
 
   it('auto-populates on initial product selection', () => {
     const form = setup();
-    const { rerender } = renderHook(
-      (props) => useCoverNoteAutoText(props),
-      {
-        initialProps: {
-          form,
-          productName: '',
-          validFrom: '2026-07-30',
-          validUntil: '2027-07-29',
-        } as Parameters<typeof useCoverNoteAutoText>[0],
+    const { rerender } = renderHook((props) => useCoverNoteAutoText(props), {
+      initialProps: {
+        form,
+        productName: '',
+        validFrom: '2026-07-30',
+        validUntil: '2027-07-29',
       },
-    );
+    });
 
     act(() => {
       rerender({
@@ -69,17 +63,14 @@ describe('useCoverNoteAutoText', () => {
 
   it('updates the generated text when the product changes', () => {
     const form = setup();
-    const { rerender } = renderHook(
-      (props) => useCoverNoteAutoText(props),
-      {
-        initialProps: {
-          form,
-          productName: 'Motor Private',
-          validFrom: '2026-07-30',
-          validUntil: '2027-07-29',
-        } as Parameters<typeof useCoverNoteAutoText>[0],
+    const { rerender } = renderHook((props) => useCoverNoteAutoText(props), {
+      initialProps: {
+        form,
+        productName: 'Motor Private',
+        validFrom: '2026-07-30',
+        validUntil: '2027-07-29',
       },
-    );
+    });
 
     act(() => {
       rerender({
@@ -97,17 +88,14 @@ describe('useCoverNoteAutoText', () => {
 
   it('updates the generated text when the cover dates change', () => {
     const form = setup();
-    const { rerender } = renderHook(
-      (props) => useCoverNoteAutoText(props),
-      {
-        initialProps: {
-          form,
-          productName: 'Motor Private',
-          validFrom: '2026-07-30',
-          validUntil: '2027-07-29',
-        } as Parameters<typeof useCoverNoteAutoText>[0],
+    const { rerender } = renderHook((props) => useCoverNoteAutoText(props), {
+      initialProps: {
+        form,
+        productName: 'Motor Private',
+        validFrom: '2026-07-30',
+        validUntil: '2027-07-29',
       },
-    );
+    });
 
     act(() => {
       rerender({
@@ -125,17 +113,14 @@ describe('useCoverNoteAutoText', () => {
 
   it('does not overwrite a manually edited value on subsequent changes', () => {
     const form = setup();
-    const { rerender } = renderHook(
-      (props) => useCoverNoteAutoText(props),
-      {
-        initialProps: {
-          form,
-          productName: 'Motor Private',
-          validFrom: '2026-07-30',
-          validUntil: '2027-07-29',
-        } as Parameters<typeof useCoverNoteAutoText>[0],
+    const { rerender } = renderHook((props) => useCoverNoteAutoText(props), {
+      initialProps: {
+        form,
+        productName: 'Motor Private',
+        validFrom: '2026-07-30',
+        validUntil: '2027-07-29',
       },
-    );
+    });
 
     act(() => {
       form.setValue('cover_note_desc', 'Manually written description', {
@@ -187,18 +172,15 @@ describe('useCoverNoteAutoText', () => {
       operative_clause: 'Saved operative clause from the record',
     });
 
-    const { rerender } = renderHook(
-      (props) => useCoverNoteAutoText(props),
-      {
-        initialProps: {
-          form,
-          productName: 'Motor Private',
-          validFrom: '2026-07-30',
-          validUntil: '2027-07-29',
-          isHydrating: true,
-        } as Parameters<typeof useCoverNoteAutoText>[0],
+    const { rerender } = renderHook((props) => useCoverNoteAutoText(props), {
+      initialProps: {
+        form,
+        productName: 'Motor Private',
+        validFrom: '2026-07-30',
+        validUntil: '2027-07-29',
+        isHydrating: true,
       },
-    );
+    });
 
     // Hydration completes; product/dates were already set from the saved record.
     act(() => {
