@@ -9,7 +9,6 @@ import type {
 import type {
   ProductChannelType,
   QuotationRiskRecord,
-  QuotationPremiumBreakdownRecord,
   QuotationStatusHistoryRecord,
 } from '../quotations/types';
 import type { SortOrder } from '@/types';

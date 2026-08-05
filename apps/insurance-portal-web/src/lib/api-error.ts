@@ -1,4 +1,5 @@
 import { AxiosError } from 'axios';
+import type { Path, UseFormSetError } from 'react-hook-form';
 
 import {
   isApiErrorResponse,
@@ -125,7 +126,7 @@ export function mapApiErrorsToForm<
   TFieldValues extends Record<string, unknown>,
 >(
   error: unknown,
-  setError: (field: any, error: { message: string }) => void,
+  setError: UseFormSetError<TFieldValues>,
   fieldMap: Partial<Record<string, keyof TFieldValues & string>>,
 ): void {
   const parsed = parseApiError(error);
@@ -139,7 +140,9 @@ export function mapApiErrorsToForm<
       const mappedField = fieldMap[apiError.field];
 
       if (mappedField) {
-        setError(mappedField, { message: apiError.message });
+        setError(mappedField as Path<TFieldValues>, {
+          message: apiError.message,
+        });
       }
 
       continue;
@@ -149,7 +152,7 @@ export function mapApiErrorsToForm<
 
     for (const [keyword, field] of Object.entries(fieldMap)) {
       if (field && normalizedMessage.includes(keyword.toLowerCase())) {
-        setError(field, { message: apiError.message });
+        setError(field as Path<TFieldValues>, { message: apiError.message });
         break;
       }
     }

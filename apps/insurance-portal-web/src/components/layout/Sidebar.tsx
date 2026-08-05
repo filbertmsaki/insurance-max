@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   ChevronRight,
@@ -106,9 +106,11 @@ function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
   const [isOpen, setIsOpen] = useState(hasActive);
 
   // Re-sync open state when route changes (e.g. navigating from collapsed mode)
-  useEffect(() => {
+  const [prevHasActive, setPrevHasActive] = useState(hasActive);
+  if (hasActive !== prevHasActive) {
+    setPrevHasActive(hasActive);
     if (hasActive) setIsOpen(true);
-  }, [hasActive]);
+  }
 
   if (children.length === 0) return null;
 

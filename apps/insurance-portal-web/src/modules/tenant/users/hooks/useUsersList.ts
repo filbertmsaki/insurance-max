@@ -65,7 +65,7 @@ export function useUsersList() {
         });
       }, 350);
     },
-    [setSearchParams],
+    [setSearchParams, setLiveSearch],
   );
 
   const setFilterStatus = useCallback(
@@ -120,7 +120,7 @@ export function useUsersList() {
   const clearFilters = useCallback(() => {
     setLiveSearch('');
     setSearchParams({});
-  }, [setSearchParams]);
+  }, [setSearchParams, setLiveSearch]);
 
   return {
     users: data?.data ?? [],

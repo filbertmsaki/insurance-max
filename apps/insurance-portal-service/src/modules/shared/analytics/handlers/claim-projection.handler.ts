@@ -10,11 +10,8 @@ import { AnalyticsDirtyPeriodService } from '../services/analytics-dirty-period.
 import { AnalyticsProjectionHandler } from '../interfaces/analytics-projection-handler.interface';
 
 @Injectable()
-export class ClaimProjectionHandler
-  implements AnalyticsProjectionHandler
-{
-  readonly aggregateType =
-    AnalyticsAggregateType.CLAIM;
+export class ClaimProjectionHandler implements AnalyticsProjectionHandler {
+  readonly aggregateType = AnalyticsAggregateType.CLAIM;
 
   constructor(
     private readonly dirtyPeriodService: AnalyticsDirtyPeriodService,
@@ -24,38 +21,25 @@ export class ClaimProjectionHandler
     manager: EntityManager,
     event: AnalyticsProjectionEvent,
   ): Promise<void> {
-    const payload = event.payload as Record<
-      string,
-      unknown
-    >;
+    const payload = event.payload;
     const metricDate = String(
-      payload.report_date ?? payload.loss_date ?? new Date().toISOString().slice(0, 10),
+      payload.report_date ??
+        payload.loss_date ??
+        new Date().toISOString().slice(0, 10),
     );
-    const lossDate = String(
-      payload.loss_date ?? metricDate,
-    );
-    const reportDate = String(
-      payload.report_date ?? lossDate,
-    );
-    const claimNo = String(
-      payload.claim_no ?? event.aggregate_id,
-    );
-    const claimStatus = String(
-      payload.claim_status ?? 'UNKNOWN',
-    );
-    const currency = String(
-      payload.currency ?? 'UNKNOWN',
-    );
+    const lossDate = String(payload.loss_date ?? metricDate);
+    const reportDate = String(payload.report_date ?? lossDate);
+    const claimNo = String(payload.claim_no ?? event.aggregate_id);
+    const claimStatus = String(payload.claim_status ?? 'UNKNOWN');
+    const currency = String(payload.currency ?? 'UNKNOWN');
 
     if (!payload.policy_id) {
       throw new Error('Analytics claim projection requires policy_id');
     }
 
     if (
-      event.event_type ===
-        AnalyticsEventType.DELETED ||
-      event.event_type ===
-        AnalyticsEventType.REVERSED
+      event.event_type === AnalyticsEventType.DELETED ||
+      event.event_type === AnalyticsEventType.REVERSED
     ) {
       await manager.query(
         `

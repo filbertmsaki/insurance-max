@@ -3,10 +3,7 @@ import { DataSource, IsNull, Repository } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import { hashPassword } from '@insurance-max/portal-shared/utils/hash.util';
-import {
-  PermissionAssignmentScope,
-  RoleScope,
-} from '@insurance-max/contracts';
+import { PermissionAssignmentScope, RoleScope } from '@insurance-max/contracts';
 import { Company } from '../../modules/platform/companies/entities/company.entity';
 import { CompanyUser } from '../../modules/platform/companies/entities/company-user.entity';
 import { CompanyUserRole } from '../../modules/platform/companies/entities/company-user-role.entity';
@@ -647,7 +644,8 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'analytics:read',
     displayName: 'Read analytics data',
-    description: 'Allow reading KPI, scorecard, anomaly, forecast and benchmark analytics data',
+    description:
+      'Allow reading KPI, scorecard, anomaly, forecast and benchmark analytics data',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -665,7 +663,8 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'analytics:scorecard-generate',
     displayName: 'Generate scorecards',
-    description: 'Allow generating analytics scorecards for selected templates and periods',
+    description:
+      'Allow generating analytics scorecards for selected templates and periods',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {

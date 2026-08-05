@@ -7,10 +7,7 @@ import {
 } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 
-import {
-  ServiceAuthGuard,
-  ServiceScopes,
-} from '@insurance-max/shared-kernel';
+import { ServiceAuthGuard, ServiceScopes } from '@insurance-max/shared-kernel';
 import { ServiceEndpoint } from '@insurance-max/portal-shared';
 
 import type { TiramisNotificationEventDto } from './dto/tiramis-notification-event.dto';

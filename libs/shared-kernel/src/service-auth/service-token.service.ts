@@ -64,13 +64,14 @@ export class ServiceTokenService {
       .filter(Boolean);
 
     if (!firstIssuer) {
-      throw new Error('SERVICE_AUTH_ALLOWED_ISSUERS must list at least one issuer');
+      throw new Error(
+        'SERVICE_AUTH_ALLOWED_ISSUERS must list at least one issuer',
+      );
     }
 
     const clockTolerance = Number(
-      this.configService.get<string>(
-        'SERVICE_AUTH_CLOCK_TOLERANCE_SECONDS',
-      ) ?? 5,
+      this.configService.get<string>('SERVICE_AUTH_CLOCK_TOLERANCE_SECONDS') ??
+        5,
     );
 
     return this.jwtService.verify<ServiceTokenPayload>(token, {

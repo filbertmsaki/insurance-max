@@ -69,6 +69,8 @@ import {
   type UpdateBranchDto,
 } from '@/modules/tenant/branches/api/branches'
 
+type ApiErrorLike = { response?: { data?: { message?: string } } }
+
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
 const editSchema = z.object({
@@ -484,7 +486,7 @@ function BranchUsersTab({ branchId }: { branchId: string }) {
       setSelectedUsers([])
       toast.success('Users assigned to branch')
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message ?? 'Unable to assign users'),
+    onError: (error: ApiErrorLike) => toast.error(error?.response?.data?.message ?? 'Unable to assign users'),
   })
 
   const removeMutation = useMutation({
@@ -499,17 +501,16 @@ function BranchUsersTab({ branchId }: { branchId: string }) {
       setReplacementBranchId('')
       toast.success('User removed from branch')
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message ?? 'Unable to remove user'),
+    onError: (error: ApiErrorLike) => toast.error(error?.response?.data?.message ?? 'Unable to remove user'),
   })
 
-  const activeAssignment = users.find((item) => item.is_active_branch)
   const activeMutation = useMutation({
     mutationFn: (companyUserId: string) => branchesApi.setUserActiveBranch(companyUserId, branchId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branch-users', branchId] })
       toast.success('Active branch updated')
     },
-    onError: (error: any) => toast.error(error?.response?.data?.message ?? 'Unable to set active branch'),
+    onError: (error: ApiErrorLike) => toast.error(error?.response?.data?.message ?? 'Unable to set active branch'),
   })
 
   return (
@@ -659,13 +660,13 @@ function BranchSalesPointsTab({ branchId }: { branchId: string }) {
       ? salePointsApi.update(branchId, editing.id, { sale_point_code: code, sale_point_name: name, is_default: isDefault })
       : salePointsApi.create(branchId, { sale_point_code: code, sale_point_name: name, is_default: isDefault }),
     onSuccess: () => { refresh(); setOpen(false); toast.success(editing ? 'Sales point updated' : 'Sales point created') },
-    onError: (error: any) => toast.error(error?.response?.data?.message ?? 'Unable to save sales point'),
+    onError: (error: ApiErrorLike) => toast.error(error?.response?.data?.message ?? 'Unable to save sales point'),
   })
   const openForm = (point?: TiramisSalePointRecord) => {
     setEditing(point ?? null); setCode(point?.salePointCode ?? ''); setName(point?.salePointName ?? ''); setIsDefault(point?.isDefault ?? false); setOpen(true)
   }
   const action = (fn: () => Promise<unknown>, message: string) => {
-    void fn().then(() => { refresh(); toast.success(message) }).catch((error: any) => toast.error(error?.response?.data?.message ?? 'Operation failed'))
+    void fn().then(() => { refresh(); toast.success(message) }).catch((error: ApiErrorLike) => toast.error(error?.response?.data?.message ?? 'Operation failed'))
   }
   return (
     <Card className="mt-4">

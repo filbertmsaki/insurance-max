@@ -7,9 +7,7 @@ import { AnalyticsProjectionRegistryService } from './services/analytics-project
 import { AnalyticsDirtyPeriodService } from './services/analytics-dirty-period.service';
 import { AnalyticsEventPublisherService } from './services/analytics-event-publisher.service';
 import { AnalyticsRollupService } from './services/analytics-rollup.service';
-import {
-  ANALYTICS_PROJECTION_HANDLERS,
-} from './interfaces/analytics-projection-handler.interface';
+import { ANALYTICS_PROJECTION_HANDLERS } from './interfaces/analytics-projection-handler.interface';
 import { PolicyProjectionHandler } from './handlers/policy-projection.handler';
 import { PremiumProjectionHandler } from './handlers/premium-projection.handler';
 import { ClaimProjectionHandler } from './handlers/claim-projection.handler';

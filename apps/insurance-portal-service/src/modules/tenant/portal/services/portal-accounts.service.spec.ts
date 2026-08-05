@@ -88,11 +88,20 @@ describe('PortalAccountsService', () => {
         { provide: DataSource, useValue: dataSource },
         {
           provide: ConfigService,
-          useValue: { get: jest.fn(), getOrThrow: jest.fn(() => 'http://localhost') },
+          useValue: {
+            get: jest.fn(),
+            getOrThrow: jest.fn(() => 'http://localhost'),
+          },
         },
         { provide: AuditService, useValue: { log: jest.fn() } },
-        { provide: MailService, useValue: { sendPortalInvitationEmail: jest.fn() } },
-        { provide: getRepositoryToken(PortalAccount), useValue: accountRepository },
+        {
+          provide: MailService,
+          useValue: { sendPortalInvitationEmail: jest.fn() },
+        },
+        {
+          provide: getRepositoryToken(PortalAccount),
+          useValue: accountRepository,
+        },
         {
           provide: getRepositoryToken(PortalInvitation),
           useValue: invitationRepository,
@@ -160,7 +169,10 @@ describe('PortalAccountsService', () => {
         company: { id: 'company-id', slug: 'acme' },
       };
 
-      const existingUser = { id: 'existing-user-id', email: 'existing@example.com' };
+      const existingUser = {
+        id: 'existing-user-id',
+        email: 'existing@example.com',
+      };
 
       dataSource.transaction = jest.fn((cb: any) =>
         cb(

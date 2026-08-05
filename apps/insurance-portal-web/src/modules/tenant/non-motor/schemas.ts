@@ -1,9 +1,7 @@
 import { z } from 'zod';
 import type {
   NonMotorPolicyDetailPayload,
-  NonMotorPolicyDetailRecord,
   NonMotorQuotationDetailPayload,
-  NonMotorQuotationDetailRecord,
   SubjectMatterFactorValuePayload,
   SubjectMatterFactorValueRecord,
   SubjectMatterPayload,

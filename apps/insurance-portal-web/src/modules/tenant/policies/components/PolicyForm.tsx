@@ -55,7 +55,9 @@ export function PolicyForm({
     channel_type: 'DIRECT',
     policy_status: 'DRAFT',
     start_date: new Date().toISOString().slice(0, 10),
-    end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    end_date: new Date(new Date().getTime() + 365 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10),
     issue_date: new Date().toISOString().slice(0, 10),
     currency: 'TZS',
     sum_insured: '',

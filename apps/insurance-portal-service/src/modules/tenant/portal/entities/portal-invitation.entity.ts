@@ -12,10 +12,7 @@ import {
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 
-import {
-  PortalActorType,
-  PortalInvitationStatus,
-} from '../enums/portal.enums';
+import { PortalActorType, PortalInvitationStatus } from '../enums/portal.enums';
 
 @Entity('portal_invitations')
 @Index('IDX_portal_invitations_company_email', [

@@ -87,12 +87,11 @@ describe('SalePointsService', () => {
 
   describe('create — sale_point_code uniqueness per company', () => {
     it('rejects creation when an active sale point with the same code already exists', async () => {
-      salePointRepository.findOne
-        .mockResolvedValueOnce({
-          companyId,
-          salePointCode: 'SP1',
-          deletedAt: null,
-        });
+      salePointRepository.findOne.mockResolvedValueOnce({
+        companyId,
+        salePointCode: 'SP1',
+        deletedAt: null,
+      });
 
       await expect(
         service.create(
@@ -117,7 +116,7 @@ describe('SalePointsService', () => {
       const saved = await service.create(
         companyId,
         branchId,
-        { sale_point_code: 'sp1', sale_point_name: 'Point 1' } as any,
+        { sale_point_code: 'sp1', sale_point_name: 'Point 1' },
         'actor-1',
       );
 
@@ -132,7 +131,7 @@ describe('SalePointsService', () => {
       const saved = await service.create(
         companyId,
         branchId,
-        { sale_point_code: 'sp1', sale_point_name: 'Point 1' } as any,
+        { sale_point_code: 'sp1', sale_point_name: 'Point 1' },
         'actor-1',
       );
 

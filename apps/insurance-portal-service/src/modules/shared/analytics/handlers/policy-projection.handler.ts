@@ -10,11 +10,8 @@ import { AnalyticsDirtyPeriodService } from '../services/analytics-dirty-period.
 import { AnalyticsProjectionHandler } from '../interfaces/analytics-projection-handler.interface';
 
 @Injectable()
-export class PolicyProjectionHandler
-  implements AnalyticsProjectionHandler
-{
-  readonly aggregateType =
-    AnalyticsAggregateType.POLICY;
+export class PolicyProjectionHandler implements AnalyticsProjectionHandler {
+  readonly aggregateType = AnalyticsAggregateType.POLICY;
 
   constructor(
     private readonly dirtyPeriodService: AnalyticsDirtyPeriodService,
@@ -24,10 +21,7 @@ export class PolicyProjectionHandler
     manager: EntityManager,
     event: AnalyticsProjectionEvent,
   ): Promise<void> {
-    const payload = event.payload as Record<
-      string,
-      unknown
-    >;
+    const payload = event.payload;
     const metricDate = String(
       payload.issue_date ??
         payload.start_date ??
@@ -40,15 +34,9 @@ export class PolicyProjectionHandler
     );
     const startDate = String(payload.start_date ?? issueDate);
     const endDate = String(payload.end_date ?? startDate);
-    const policyNo = String(
-      payload.policy_no ?? event.aggregate_id,
-    );
-    const policyStatus = String(
-      payload.policy_status ?? 'UNKNOWN',
-    );
-    const currency = String(
-      payload.currency ?? 'UNKNOWN',
-    );
+    const policyNo = String(payload.policy_no ?? event.aggregate_id);
+    const policyStatus = String(payload.policy_status ?? 'UNKNOWN');
+    const currency = String(payload.currency ?? 'UNKNOWN');
 
     if (!payload.category_id) {
       throw new Error('Analytics policy projection requires category_id');
@@ -61,10 +49,8 @@ export class PolicyProjectionHandler
     }
 
     if (
-      event.event_type ===
-        AnalyticsEventType.DELETED ||
-      event.event_type ===
-        AnalyticsEventType.REVERSED
+      event.event_type === AnalyticsEventType.DELETED ||
+      event.event_type === AnalyticsEventType.REVERSED
     ) {
       await manager.query(
         `
@@ -174,8 +160,12 @@ export class PolicyProjectionHandler
           payload.ceded_premium ?? 0,
           payload.reinsurance_required ?? false,
           payload.tiramis_status ?? null,
-          payload.source_created_at ?? payload.created_at ?? new Date().toISOString(),
-          payload.source_updated_at ?? payload.updated_at ?? new Date().toISOString(),
+          payload.source_created_at ??
+            payload.created_at ??
+            new Date().toISOString(),
+          payload.source_updated_at ??
+            payload.updated_at ??
+            new Date().toISOString(),
           payload.projected_at ?? new Date().toISOString(),
           event.event_version,
         ],

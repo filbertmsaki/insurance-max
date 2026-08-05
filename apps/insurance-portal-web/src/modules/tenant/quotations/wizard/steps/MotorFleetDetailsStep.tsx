@@ -1295,11 +1295,9 @@ export function MotorFleetDetailsStep({
     form.setValue('fleet.header.fleet_size', String(fields.length || 0));
   }, [fields.length, form]);
 
-  useEffect(() => {
-    if (activeIndex != null && activeIndex >= fields.length) {
-      setActiveIndex(fields.length > 0 ? fields.length - 1 : null);
-    }
-  }, [activeIndex, fields.length]);
+  if (activeIndex != null && activeIndex >= fields.length) {
+    setActiveIndex(fields.length > 0 ? fields.length - 1 : null);
+  }
 
   async function calculateFleetPremiums(targetVehicleIndex?: number) {
     const fleetItems = form.getValues('fleet.items');

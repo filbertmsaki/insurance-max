@@ -9,10 +9,7 @@ export interface KpiCalculationContext {
   periodStart: string;
   periodEnd: string;
 
-  parameters?: Record<
-    string,
-    unknown
-  >;
+  parameters?: Record<string, unknown>;
 }
 
 export interface KpiCalculationResult {
@@ -23,20 +20,13 @@ export interface KpiCalculationResult {
 
   explanation: string;
 
-  metadata?: Record<
-    string,
-    unknown
-  >;
+  metadata?: Record<string, unknown>;
 }
 
 export interface KpiCalculator {
   readonly key: string;
 
-  calculate(
-    context:
-      KpiCalculationContext,
-  ): Promise<KpiCalculationResult>;
+  calculate(context: KpiCalculationContext): Promise<KpiCalculationResult>;
 }
 
-export const KPI_CALCULATORS =
-  Symbol('KPI_CALCULATORS');
+export const KPI_CALCULATORS = Symbol('KPI_CALCULATORS');

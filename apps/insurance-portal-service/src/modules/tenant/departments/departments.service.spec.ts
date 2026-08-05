@@ -88,7 +88,13 @@ describe('DepartmentsService', () => {
   describe('setActiveDepartment — only one active department per membership', () => {
     it('rejects activating a department that is not active or does not belong to this company', async () => {
       const manager = buildTransactionManager({
-        memberships: [{ id: companyUserId, company_id: companyId, status: 'active' } as CompanyUser],
+        memberships: [
+          {
+            id: companyUserId,
+            company_id: companyId,
+            status: 'active',
+          } as CompanyUser,
+        ],
         departmentUserRepo: {
           findOne: jest.fn().mockResolvedValue({
             company_user_id: companyUserId,
@@ -110,7 +116,13 @@ describe('DepartmentsService', () => {
 
     it('demotes any other active department assignment before activating this one', async () => {
       const manager = buildTransactionManager({
-        memberships: [{ id: companyUserId, company_id: companyId, status: 'active' } as CompanyUser],
+        memberships: [
+          {
+            id: companyUserId,
+            company_id: companyId,
+            status: 'active',
+          } as CompanyUser,
+        ],
         departmentUserRepo: {
           findOne: jest.fn().mockResolvedValue({
             id: 'du-1',

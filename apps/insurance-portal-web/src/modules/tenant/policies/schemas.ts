@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { PolicyFormValues, PolicyPayload } from './types';
+import type { PolicyFormValues, PolicyPayload, PolicyRecord } from './types';
 
 const optionalText = z.string().trim().optional().or(z.literal(''));
 
@@ -95,7 +95,7 @@ export function buildPolicyPayload(
 }
 
 export function policyRecordToFormValues(
-  record: any,
+  record: PolicyRecord,
 ): Partial<PolicyFormValues> {
   return {
     insurer_company_id: record.insurer_company_id ?? '',

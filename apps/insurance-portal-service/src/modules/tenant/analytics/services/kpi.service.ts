@@ -31,7 +31,9 @@ export class KpiService {
     },
   ): Promise<KpiCalculationResult> {
     if (!user.companyId) {
-      throw new NotFoundException('Company context is required for KPI calculations');
+      throw new NotFoundException(
+        'Company context is required for KPI calculations',
+      );
     }
 
     const companyId = user.companyId;
@@ -43,8 +45,7 @@ export class KpiService {
 
     const calculator = this.calculators.find(
       (candidate) =>
-        candidate.key === definition.calculator_key ||
-        candidate.key === code,
+        candidate.key === definition.calculator_key || candidate.key === code,
     );
 
     const context: KpiCalculationContext = {

@@ -72,7 +72,7 @@ export function useCustomersList() {
         });
       }, 350);
     },
-    [setSearchParams],
+    [setSearchParams, setLiveSearch],
   );
 
   const setFilter = useCallback(
@@ -130,7 +130,7 @@ export function useCustomersList() {
   const clearFilters = useCallback(() => {
     setLiveSearch('');
     setSearchParams({});
-  }, [setSearchParams]);
+  }, [setSearchParams, setLiveSearch]);
 
   return {
     customers: data?.data ?? [],

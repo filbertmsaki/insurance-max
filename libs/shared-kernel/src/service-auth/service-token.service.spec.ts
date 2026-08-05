@@ -42,7 +42,7 @@ describe('ServiceTokenService', () => {
 
   it('issues a token addressed to the target service, signed as self', () => {
     const token = service.issue('tiramis-service', ['tiramis:invoke']);
-    const decoded = new JwtService().decode(token) as Record<string, unknown>;
+    const decoded = new JwtService().decode(token);
 
     expect(decoded.iss).toBe('insurance-portal-service');
     expect(decoded.sub).toBe('insurance-portal-service');

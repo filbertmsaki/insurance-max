@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { PageHeader } from '@/components/shared/PageHeader';
 import { BillingStatusBadge } from '../components/BillingStatusBadge';
 import { useDeleteInvoice, useInvoiceDetail } from '../hooks';
 

@@ -22,7 +22,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { DataTable, type Column } from '@/components/shared/DataTable'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { permissionsApi, type CreatePermissionDto } from '@/modules/platform/permissions/api/permissions'
+import { permissionsApi } from '@/modules/platform/permissions/api/permissions'
 import { useRbacGuard } from '@/modules/shared/auth/hooks/useRbacGuard'
 import type { Permission } from '@/types'
 
@@ -272,7 +272,11 @@ export function PermissionsPage() {
   })
 
   const handleFormSubmit = (values: FormValues) => {
-    editPerm ? updateMutation.mutate(values) : createMutation.mutate(values)
+    if (editPerm) {
+      updateMutation.mutate(values)
+    } else {
+      createMutation.mutate(values)
+    }
   }
 
   const columns: Column<Permission>[] = [

@@ -7,9 +7,7 @@ import { SalePointsController } from './sale-points.controller';
 import { SalePointsService } from './sale-points.service';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([TiramisSalePointEntity, Branch]),
-  ],
+  imports: [TypeOrmModule.forFeature([TiramisSalePointEntity, Branch])],
   controllers: [SalePointsController],
   providers: [SalePointsService],
   exports: [SalePointsService],

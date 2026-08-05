@@ -19,7 +19,9 @@ describe('PlatformIntelligenceService', () => {
       ],
     }).compile();
 
-    service = module.get<PlatformIntelligenceService>(PlatformIntelligenceService);
+    service = module.get<PlatformIntelligenceService>(
+      PlatformIntelligenceService,
+    );
   });
 
   it('returns company health records', async () => {
@@ -43,10 +45,12 @@ describe('PlatformIntelligenceService', () => {
       }),
     ).resolves.toEqual(expected);
 
-    expect(dataSource.query).toHaveBeenCalledWith(
-      expect.any(String),
-      ['METRIC_1', 'cohort-a', '2026-01-01', '2026-01-31'],
-    );
+    expect(dataSource.query).toHaveBeenCalledWith(expect.any(String), [
+      'METRIC_1',
+      'cohort-a',
+      '2026-01-01',
+      '2026-01-31',
+    ]);
   });
 
   it('returns anomaly findings with query parameters', async () => {
@@ -62,10 +66,12 @@ describe('PlatformIntelligenceService', () => {
       }),
     ).resolves.toEqual(expected);
 
-    expect(dataSource.query).toHaveBeenCalledWith(
-      expect.any(String),
-      ['company-id', 'branch-id', '2026-01-01', '2026-01-31'],
-    );
+    expect(dataSource.query).toHaveBeenCalledWith(expect.any(String), [
+      'company-id',
+      'branch-id',
+      '2026-01-01',
+      '2026-01-31',
+    ]);
   });
 
   it('returns forecast runs with query parameters', async () => {
@@ -80,10 +86,11 @@ describe('PlatformIntelligenceService', () => {
       }),
     ).resolves.toEqual(expected);
 
-    expect(dataSource.query).toHaveBeenCalledWith(
-      expect.any(String),
-      ['company-id', 'branch-id', 'COMPLETED'],
-    );
+    expect(dataSource.query).toHaveBeenCalledWith(expect.any(String), [
+      'company-id',
+      'branch-id',
+      'COMPLETED',
+    ]);
   });
 
   it('returns a fallback message when rebuilding benchmark snapshots', async () => {

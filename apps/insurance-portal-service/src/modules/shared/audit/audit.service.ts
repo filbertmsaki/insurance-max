@@ -252,7 +252,8 @@ export class AuditService {
       .orderBy('audit.created_at', 'DESC');
 
     const canReadAll =
-      actor.scope === 'platform' && actor.permissions.includes('audit:read-all');
+      actor.scope === 'platform' &&
+      actor.permissions.includes('audit:read-all');
 
     if (!canReadAll) {
       if (actor.scope !== 'company' || !actor.companyId) {

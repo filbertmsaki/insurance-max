@@ -10,11 +10,8 @@ import { AnalyticsDirtyPeriodService } from '../services/analytics-dirty-period.
 import { AnalyticsProjectionHandler } from '../interfaces/analytics-projection-handler.interface';
 
 @Injectable()
-export class ReinsuranceProjectionHandler
-  implements AnalyticsProjectionHandler
-{
-  readonly aggregateType =
-    AnalyticsAggregateType.REINSURANCE_CESSION;
+export class ReinsuranceProjectionHandler implements AnalyticsProjectionHandler {
+  readonly aggregateType = AnalyticsAggregateType.REINSURANCE_CESSION;
 
   constructor(
     private readonly dirtyPeriodService: AnalyticsDirtyPeriodService,
@@ -24,38 +21,25 @@ export class ReinsuranceProjectionHandler
     manager: EntityManager,
     event: AnalyticsProjectionEvent,
   ): Promise<void> {
-    const payload = event.payload as Record<
-      string,
-      unknown
-    >;
+    const payload = event.payload;
     const metricDate = String(
-      payload.effective_from ?? payload.source_updated_at ?? new Date().toISOString().slice(0, 10),
+      payload.effective_from ??
+        payload.source_updated_at ??
+        new Date().toISOString().slice(0, 10),
     );
-    const effectiveFrom = String(
-      payload.effective_from ?? metricDate,
-    );
-    const effectiveTo = String(
-      payload.effective_to ?? effectiveFrom,
-    );
-    const cessionType = String(
-      payload.cession_type ?? 'UNKNOWN',
-    );
-    const cessionStatus = String(
-      payload.cession_status ?? 'UNKNOWN',
-    );
-    const currency = String(
-      payload.currency ?? 'UNKNOWN',
-    );
+    const effectiveFrom = String(payload.effective_from ?? metricDate);
+    const effectiveTo = String(payload.effective_to ?? effectiveFrom);
+    const cessionType = String(payload.cession_type ?? 'UNKNOWN');
+    const cessionStatus = String(payload.cession_status ?? 'UNKNOWN');
+    const currency = String(payload.currency ?? 'UNKNOWN');
 
     if (!payload.policy_id) {
       throw new Error('Analytics reinsurance projection requires policy_id');
     }
 
     if (
-      event.event_type ===
-        AnalyticsEventType.DELETED ||
-      event.event_type ===
-        AnalyticsEventType.REVERSED
+      event.event_type === AnalyticsEventType.DELETED ||
+      event.event_type === AnalyticsEventType.REVERSED
     ) {
       await manager.query(
         `

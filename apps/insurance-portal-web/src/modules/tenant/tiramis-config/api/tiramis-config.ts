@@ -34,7 +34,9 @@ export interface UpsertCompanyTiramisConfigurationDto {
 export const tiramisConfigApi = {
   getMyConfigurations: () =>
     apiClient
-      .get<CompanyTiramisConfiguration[]>('/companies/my/tiramis-configurations')
+      .get<
+        CompanyTiramisConfiguration[]
+      >('/companies/my/tiramis-configurations')
       .then((r) => r.data),
 
   upsertMyConfiguration: (
@@ -50,8 +52,9 @@ export const tiramisConfigApi = {
 
   validateMyConfiguration: (environment: 'test' | 'live') =>
     apiClient
-      .post<{ valid: boolean; message?: string }>(
-        `/companies/my/tiramis-configurations/${environment}/validate`,
-      )
+      .post<{
+        valid: boolean;
+        message?: string;
+      }>(`/companies/my/tiramis-configurations/${environment}/validate`)
       .then((r) => r.data),
 };

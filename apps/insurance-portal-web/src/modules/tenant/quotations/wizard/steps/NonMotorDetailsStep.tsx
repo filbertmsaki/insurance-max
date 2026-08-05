@@ -1,6 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react';
 import {
-  useFieldArray,
   type UseFieldArrayReturn,
   type UseFormReturn,
 } from 'react-hook-form';

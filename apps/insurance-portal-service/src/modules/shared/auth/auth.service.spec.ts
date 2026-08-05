@@ -18,6 +18,8 @@ import {
 import { AuthService } from './auth.service';
 import { UsersService } from '../../tenant/users/users.service';
 import { CompaniesService } from '../../platform/companies/companies.service';
+import { BranchesService } from '../../tenant/branches/branches.service';
+import { DepartmentsService } from '../../tenant/departments/departments.service';
 import { MailService } from '../mail/mail.service';
 import { TwoFaService } from './2fa/2fa.service';
 import { OtpService } from '../otp/otp.service';
@@ -105,9 +107,26 @@ describe('AuthService', () => {
           useValue: {
             getMembershipContext: jest.fn(),
             findActiveCompanyBySlug: jest.fn(),
-            setActiveMembership: jest.fn().mockResolvedValue(mockCompanySummary),
-            listUserCompanies: jest.fn().mockResolvedValue([mockCompanySummary]),
+            setActiveMembership: jest
+              .fn()
+              .mockResolvedValue(mockCompanySummary),
+            listUserCompanies: jest
+              .fn()
+              .mockResolvedValue([mockCompanySummary]),
             createForCompany: jest.fn(),
+          },
+        },
+        {
+          provide: BranchesService,
+          useValue: {
+            setUserActiveBranch: jest.fn(),
+          },
+        },
+        {
+          provide: DepartmentsService,
+          useValue: {
+            setActiveDepartment: jest.fn(),
+            reconcileActiveDepartmentForBranch: jest.fn(),
           },
         },
         {
@@ -264,9 +283,7 @@ describe('AuthService', () => {
 
       const result = await service.validateUser(mockUser.email, 'pass');
 
-      expect(usersService.resetLoginAttempts).toHaveBeenCalledWith(
-        mockUser.id,
-      );
+      expect(usersService.resetLoginAttempts).toHaveBeenCalledWith(mockUser.id);
       expect(result).toMatchObject({ id: mockUser.id, status: 'active' });
     });
   });
@@ -284,7 +301,7 @@ describe('AuthService', () => {
         phone: mockUser.phone,
         otp_id: 'otp-1',
         otp: '123456',
-      } as any);
+      });
 
       expect(result).toMatchObject({ requires2FA: true });
       expect((result as any).tempToken).toBeDefined();
@@ -299,7 +316,7 @@ describe('AuthService', () => {
         phone: mockUser.phone,
         otp_id: 'otp-1',
         otp: '123456',
-      } as any);
+      });
 
       expect(result).not.toHaveProperty('requires2FA');
       expect(sessionsService.create).toHaveBeenCalled();
@@ -385,7 +402,9 @@ describe('AuthService', () => {
     });
 
     it('throws when the resolved device differs from the one on the temp token', async () => {
-      devicesService.upsert.mockResolvedValue({ id: 'a-different-device' } as any);
+      devicesService.upsert.mockResolvedValue({
+        id: 'a-different-device',
+      } as any);
 
       await expect(
         service.complete2FALogin('temp-token', '123456', false),

@@ -1,16 +1,9 @@
-import {
-  MigrationInterface,
-  QueryRunner,
-} from 'typeorm';
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class EnterpriseAnalytics1794000000000
-  implements MigrationInterface
-{
+export class EnterpriseAnalytics1794000000000 implements MigrationInterface {
   name = 'EnterpriseAnalytics1794000000000';
 
-  async up(
-    queryRunner: QueryRunner,
-  ): Promise<void> {
+  async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       CREATE TABLE "analytics_projection_events" (
         "id" uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -1142,9 +1135,7 @@ export class EnterpriseAnalytics1794000000000
     `);
   }
 
-  async down(
-    queryRunner: QueryRunner,
-  ): Promise<void> {
+  async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       DROP TABLE IF EXISTS
         "platform_benchmark_snapshots"

@@ -4,7 +4,6 @@ const PageFooterContext = createContext<((node: ReactNode) => void) | null>(null
 
 export function PageFooterProvider({
   children,
-  onFooterChange,
 }: {
   children: (footer: ReactNode) => ReactNode
   onFooterChange?: never
@@ -24,6 +23,7 @@ export function PageFooterProvider({
  * or leaving trailing scroll-padding beneath it. Pages that don't call this
  * leave the slot empty and AppShell renders no extra footer element at all.
  */
+// eslint-disable-next-line react-refresh/only-export-components -- hook is tightly coupled to PageFooterProvider's context in this file
 export function usePageFooter(node: ReactNode) {
   const setFooter = useContext(PageFooterContext)
   useEffect(() => {

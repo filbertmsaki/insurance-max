@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateTiramisAccessAuditLogs1794600000000
-  implements MigrationInterface
-{
+export class CreateTiramisAccessAuditLogs1794600000000 implements MigrationInterface {
   name = 'CreateTiramisAccessAuditLogs1794600000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {

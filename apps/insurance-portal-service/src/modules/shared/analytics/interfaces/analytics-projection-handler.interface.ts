@@ -1,13 +1,10 @@
-import {
-  EntityManager,
-} from 'typeorm';
+import { EntityManager } from 'typeorm';
 
 import { AnalyticsProjectionEvent } from '../entities/analytics-projection-event.entity';
 import { AnalyticsAggregateType } from '../enums/analytics.enums';
 
 export interface AnalyticsProjectionHandler {
-  readonly aggregateType:
-    AnalyticsAggregateType;
+  readonly aggregateType: AnalyticsAggregateType;
 
   project(
     manager: EntityManager,
@@ -15,7 +12,6 @@ export interface AnalyticsProjectionHandler {
   ): Promise<void>;
 }
 
-export const ANALYTICS_PROJECTION_HANDLERS =
-  Symbol(
-    'ANALYTICS_PROJECTION_HANDLERS',
-  );
+export const ANALYTICS_PROJECTION_HANDLERS = Symbol(
+  'ANALYTICS_PROJECTION_HANDLERS',
+);

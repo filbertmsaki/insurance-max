@@ -154,7 +154,10 @@ describe('DevicesService', () => {
 
   describe('trustDevice', () => {
     it('sets trusted_until roughly trustedDeviceDays in the future', async () => {
-      deviceRepo.findOne.mockResolvedValue({ id: 'device-1', user_id: USER_ID });
+      deviceRepo.findOne.mockResolvedValue({
+        id: 'device-1',
+        user_id: USER_ID,
+      });
 
       await service.trustDevice('device-1', USER_ID);
 
@@ -179,7 +182,10 @@ describe('DevicesService', () => {
 
   describe('removeDevice', () => {
     it('revokes device sessions and marks the device as revoked', async () => {
-      deviceRepo.findOne.mockResolvedValue({ id: 'device-1', user_id: USER_ID });
+      deviceRepo.findOne.mockResolvedValue({
+        id: 'device-1',
+        user_id: USER_ID,
+      });
 
       await service.removeDevice('device-1', USER_ID);
 

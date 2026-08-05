@@ -20,7 +20,9 @@ export class ForecastService {
       forecastPeriodEnd: string;
     },
   ) {
-    const definition = await this.analyticsService.getForecastDefinition(params.definitionId);
+    const definition = await this.analyticsService.getForecastDefinition(
+      params.definitionId,
+    );
     if (!definition) {
       throw new NotFoundException('Forecast definition not found');
     }
@@ -42,11 +44,16 @@ export class ForecastService {
       createdBy: user.id,
     });
 
-    const points = [] as Array<{ forecastDate: string; predictedValue: number; lowerBound?: number; upperBound?: number }>;
+    const points = [] as Array<{
+      forecastDate: string;
+      predictedValue: number;
+      lowerBound?: number;
+      upperBound?: number;
+    }>;
     const trainingCount = 10;
     const startDate = new Date(params.forecastPeriodStart);
     const endDate = new Date(params.forecastPeriodEnd);
-    let currentDate = new Date(startDate);
+    const currentDate = new Date(startDate);
 
     while (currentDate <= endDate) {
       points.push({
@@ -58,7 +65,10 @@ export class ForecastService {
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    const insertedPoints = await this.analyticsService.insertForecastPoints(run.id, points);
+    const insertedPoints = await this.analyticsService.insertForecastPoints(
+      run.id,
+      points,
+    );
     return { run, points: insertedPoints };
   }
 }

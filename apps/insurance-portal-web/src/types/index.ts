@@ -166,7 +166,11 @@ export interface AuthSessionResponse extends AuthTokens {
   user?: AuthSessionUser;
   company?: AuthSessionCompany;
   companies?: CompanyMembership[];
-  active_branch?: { id: string; code?: string | null; name?: string | null } | null;
+  active_branch?: {
+    id: string;
+    code?: string | null;
+    name?: string | null;
+  } | null;
   default_sale_point?: {
     id: string;
     code?: string | null;

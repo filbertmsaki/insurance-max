@@ -9,7 +9,6 @@ import {
   Power,
   PowerOff,
   Trash2,
-  MapPin,
 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'

@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { PageHeader } from '@/components/shared/PageHeader';
 import { useDeletePaymentTransaction, usePaymentTransactionDetail } from '../hooks';
 
 function Row({ label, value }: { label: string; value: ReactNode }) {

@@ -31,10 +31,19 @@ describe('AnomalyService', () => {
 
   it('returns existing findings for the requested company and branch', async () => {
     const findings = [{ id: 'f1' }];
-    (analyticsService.listAnomalyFindings as jest.Mock).mockResolvedValue(findings);
+    (analyticsService.listAnomalyFindings as jest.Mock).mockResolvedValue(
+      findings,
+    );
 
-    await expect(service.listFindings('company-id', { branchId: 'branch-id' })).resolves.toEqual(findings);
-    expect(analyticsService.listAnomalyFindings).toHaveBeenCalledWith('company-id', 'branch-id', undefined, undefined);
+    await expect(
+      service.listFindings('company-id', { branchId: 'branch-id' }),
+    ).resolves.toEqual(findings);
+    expect(analyticsService.listAnomalyFindings).toHaveBeenCalledWith(
+      'company-id',
+      'branch-id',
+      undefined,
+      undefined,
+    );
   });
 
   it('throws if the requested anomaly rule does not exist', async () => {
@@ -71,8 +80,12 @@ describe('AnomalyService', () => {
       { metricDate: '2025-01-10', metricValue: '120' },
     ]);
     (analyticsService.listAnomalyFindings as jest.Mock).mockResolvedValue([]);
-    (analyticsService.listAnomalyFindingsByRuleAndDate as jest.Mock).mockResolvedValue([]);
-    (analyticsService.insertAnomalyFinding as jest.Mock).mockResolvedValue({ id: 'finding-id' });
+    (
+      analyticsService.listAnomalyFindingsByRuleAndDate as jest.Mock
+    ).mockResolvedValue([]);
+    (analyticsService.insertAnomalyFinding as jest.Mock).mockResolvedValue({
+      id: 'finding-id',
+    });
 
     const result = await service.runDetection(
       { companyId: 'company-id', id: 'user-id' },

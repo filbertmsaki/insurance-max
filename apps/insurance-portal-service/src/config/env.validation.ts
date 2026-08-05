@@ -184,11 +184,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   JWT_2FA_EXPIRATION: Joi.string().default('5m'),
 
   AUTH_2FA_MAX_ATTEMPTS: Joi.number().integer().min(1).max(10).default(5),
-  AUTH_TRUSTED_DEVICE_DAYS: Joi.number()
-    .integer()
-    .min(1)
-    .max(365)
-    .default(30),
+  AUTH_TRUSTED_DEVICE_DAYS: Joi.number().integer().min(1).max(365).default(30),
   AUTH_ALLOW_TRUSTED_DEVICE_BYPASS: Joi.boolean().default(true),
 
   AUTH_SECRET_ENCRYPTION_KEY: Joi.string().base64().required(),

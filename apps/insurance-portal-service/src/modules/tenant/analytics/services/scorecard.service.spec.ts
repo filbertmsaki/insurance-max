@@ -44,9 +44,13 @@ describe('ScorecardService', () => {
 
   it('lists available scorecard templates', async () => {
     const expectedTemplates = [{ id: 'template-id' }];
-    (analyticsService.listScorecardTemplates as jest.Mock).mockResolvedValue(expectedTemplates);
+    (analyticsService.listScorecardTemplates as jest.Mock).mockResolvedValue(
+      expectedTemplates,
+    );
 
-    await expect(service.listTemplates('company-id')).resolves.toEqual(expectedTemplates);
+    await expect(service.listTemplates('company-id')).resolves.toEqual(
+      expectedTemplates,
+    );
   });
 
   it('generates and stores a scorecard snapshot with values', async () => {
@@ -64,7 +68,9 @@ describe('ScorecardService', () => {
       },
     ];
 
-    (analyticsService.getScorecardTemplateItems as jest.Mock).mockResolvedValue(templateItems);
+    (analyticsService.getScorecardTemplateItems as jest.Mock).mockResolvedValue(
+      templateItems,
+    );
     (kpiService.calculateKpi as jest.Mock).mockResolvedValue({
       value: '5',
       numerator: '5',
@@ -105,7 +111,10 @@ describe('ScorecardService', () => {
     dataSource.query.mockResolvedValue([]);
 
     await expect(
-      service.publishScorecard({ companyId: 'company-id', id: 'user-id' } as any, 'snapshot-id'),
+      service.publishScorecard(
+        { companyId: 'company-id', id: 'user-id' } as any,
+        'snapshot-id',
+      ),
     ).rejects.toThrow(NotFoundException);
   });
 });

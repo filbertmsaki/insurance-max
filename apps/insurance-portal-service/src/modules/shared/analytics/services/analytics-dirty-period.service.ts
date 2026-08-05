@@ -1,9 +1,5 @@
-import {
-  Injectable,
-} from '@nestjs/common';
-import {
-  EntityManager,
-} from 'typeorm';
+import { Injectable } from '@nestjs/common';
+import { EntityManager } from 'typeorm';
 
 @Injectable()
 export class AnalyticsDirtyPeriodService {
@@ -17,9 +13,7 @@ export class AnalyticsDirtyPeriodService {
     },
   ): Promise<void> {
     if (!params.companyId) {
-      throw new Error(
-        'Analytics dirty period requires a valid companyId',
-      );
+      throw new Error('Analytics dirty period requires a valid companyId');
     }
 
     await manager.query(
@@ -97,11 +91,7 @@ export class AnalyticsDirtyPeriodService {
           last_error = NULL,
           updated_at = now()
         `,
-        [
-          params.companyId,
-          params.domain,
-          params.metricDate,
-        ],
+        [params.companyId, params.domain, params.metricDate],
       );
     }
   }

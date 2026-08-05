@@ -8,7 +8,10 @@ import {
   Logger,
 } from '@nestjs/common';
 
-import { PublicServiceEndpoint, RawResponse } from '@insurance-max/shared-kernel';
+import {
+  PublicServiceEndpoint,
+  RawResponse,
+} from '@insurance-max/shared-kernel';
 
 import { TiramisCallbackService } from '../services/tiramis-callback.service';
 

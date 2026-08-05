@@ -14,10 +14,7 @@ import { Company } from '../../../platform/companies/entities/company.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { User } from '../../users/entities/user.entity';
 
-import {
-  PortalAccountStatus,
-  PortalActorType,
-} from '../enums/portal.enums';
+import { PortalAccountStatus, PortalActorType } from '../enums/portal.enums';
 
 @Entity('portal_accounts')
 @Index('IDX_portal_accounts_company_user', ['company_id', 'user_id'])

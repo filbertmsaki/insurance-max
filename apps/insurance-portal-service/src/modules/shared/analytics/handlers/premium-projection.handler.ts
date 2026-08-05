@@ -10,11 +10,8 @@ import { AnalyticsDirtyPeriodService } from '../services/analytics-dirty-period.
 import { AnalyticsProjectionHandler } from '../interfaces/analytics-projection-handler.interface';
 
 @Injectable()
-export class PremiumProjectionHandler
-  implements AnalyticsProjectionHandler
-{
-  readonly aggregateType =
-    AnalyticsAggregateType.PREMIUM_LEDGER;
+export class PremiumProjectionHandler implements AnalyticsProjectionHandler {
+  readonly aggregateType = AnalyticsAggregateType.PREMIUM_LEDGER;
 
   constructor(
     private readonly dirtyPeriodService: AnalyticsDirtyPeriodService,
@@ -24,35 +21,26 @@ export class PremiumProjectionHandler
     manager: EntityManager,
     event: AnalyticsProjectionEvent,
   ): Promise<void> {
-    const payload = event.payload as Record<
-      string,
-      unknown
-    >;
+    const payload = event.payload;
     const metricDate = String(
-      payload.effective_date ?? payload.source_updated_at ?? new Date().toISOString().slice(0, 10),
+      payload.effective_date ??
+        payload.source_updated_at ??
+        new Date().toISOString().slice(0, 10),
     );
     const effectiveDate = String(
       payload.effective_date ?? payload.source_updated_at ?? metricDate,
     );
-    const entryType = String(
-      payload.entry_type ?? 'UNKNOWN',
-    );
-    const status = String(
-      payload.status ?? 'UNKNOWN',
-    );
-    const currency = String(
-      payload.currency ?? 'UNKNOWN',
-    );
+    const entryType = String(payload.entry_type ?? 'UNKNOWN');
+    const status = String(payload.status ?? 'UNKNOWN');
+    const currency = String(payload.currency ?? 'UNKNOWN');
 
     if (!payload.policy_id) {
       throw new Error('Analytics premium projection requires policy_id');
     }
 
     if (
-      event.event_type ===
-        AnalyticsEventType.DELETED ||
-      event.event_type ===
-        AnalyticsEventType.REVERSED
+      event.event_type === AnalyticsEventType.DELETED ||
+      event.event_type === AnalyticsEventType.REVERSED
     ) {
       await manager.query(
         `

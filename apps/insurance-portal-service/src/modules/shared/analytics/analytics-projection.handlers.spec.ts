@@ -1,4 +1,7 @@
-import { AnalyticsAggregateType, AnalyticsEventType } from './enums/analytics.enums';
+import {
+  AnalyticsAggregateType,
+  AnalyticsEventType,
+} from './enums/analytics.enums';
 import { AnalyticsDirtyPeriodService } from './services/analytics-dirty-period.service';
 import { ClaimProjectionHandler } from './handlers/claim-projection.handler';
 import { PolicyProjectionHandler } from './handlers/policy-projection.handler';
@@ -19,9 +22,7 @@ describe('Analytics projection handlers', () => {
 
   it('PolicyProjectionHandler inserts required non-null values', async () => {
     const dirtyPeriodService = new AnalyticsDirtyPeriodService();
-    const handler = new PolicyProjectionHandler(
-      dirtyPeriodService,
-    );
+    const handler = new PolicyProjectionHandler(dirtyPeriodService);
 
     const event: any = {
       aggregate_id: 'policy-1',
@@ -68,9 +69,7 @@ describe('Analytics projection handlers', () => {
 
   it('PremiumProjectionHandler inserts required non-null values', async () => {
     const dirtyPeriodService = new AnalyticsDirtyPeriodService();
-    const handler = new PremiumProjectionHandler(
-      dirtyPeriodService,
-    );
+    const handler = new PremiumProjectionHandler(dirtyPeriodService);
 
     const event: any = {
       aggregate_id: 'premium-1',
@@ -107,9 +106,7 @@ describe('Analytics projection handlers', () => {
 
   it('ClaimProjectionHandler inserts required non-null values', async () => {
     const dirtyPeriodService = new AnalyticsDirtyPeriodService();
-    const handler = new ClaimProjectionHandler(
-      dirtyPeriodService,
-    );
+    const handler = new ClaimProjectionHandler(dirtyPeriodService);
 
     const event: any = {
       aggregate_id: 'claim-1',
@@ -148,9 +145,7 @@ describe('Analytics projection handlers', () => {
 
   it('ReinsuranceProjectionHandler inserts required non-null values', async () => {
     const dirtyPeriodService = new AnalyticsDirtyPeriodService();
-    const handler = new ReinsuranceProjectionHandler(
-      dirtyPeriodService,
-    );
+    const handler = new ReinsuranceProjectionHandler(dirtyPeriodService);
 
     const event: any = {
       aggregate_id: 'cession-1',
@@ -189,9 +184,7 @@ describe('Analytics projection handlers', () => {
 
   it('TiramisProjectionHandler inserts required non-null values', async () => {
     const dirtyPeriodService = new AnalyticsDirtyPeriodService();
-    const handler = new TiramisProjectionHandler(
-      dirtyPeriodService,
-    );
+    const handler = new TiramisProjectionHandler(dirtyPeriodService);
 
     const event: any = {
       aggregate_id: 'tracking-1',

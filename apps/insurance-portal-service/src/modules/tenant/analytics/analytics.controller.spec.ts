@@ -29,7 +29,9 @@ describe('AnalyticsController', () => {
     scorecardService = {
       listTemplates: jest.fn().mockResolvedValue([{ id: 'template-id' }]),
       generateScorecard: jest.fn().mockResolvedValue({ id: 'snapshot-id' }),
-      publishScorecard: jest.fn().mockResolvedValue({ id: 'snapshot-id', status: 'PUBLISHED' }),
+      publishScorecard: jest
+        .fn()
+        .mockResolvedValue({ id: 'snapshot-id', status: 'PUBLISHED' }),
     } as any;
 
     anomalyService = {
@@ -75,11 +77,15 @@ describe('AnalyticsController', () => {
     });
 
     expect(result).toEqual({ value: '10' });
-    expect(kpiService.calculateKpi).toHaveBeenCalledWith(mockUser, 'POLICY_COUNT', {
-      from: '2026-01-01',
-      to: '2026-01-31',
-      branchId: 'branch-id',
-    });
+    expect(kpiService.calculateKpi).toHaveBeenCalledWith(
+      mockUser,
+      'POLICY_COUNT',
+      {
+        from: '2026-01-01',
+        to: '2026-01-31',
+        branchId: 'branch-id',
+      },
+    );
   });
 
   it('lists scorecard templates', async () => {
@@ -100,22 +106,37 @@ describe('AnalyticsController', () => {
     const result = await controller.generateScorecard(mockUser, dto);
 
     expect(result).toEqual({ id: 'snapshot-id' });
-    expect(scorecardService.generateScorecard).toHaveBeenCalledWith(mockUser, dto);
+    expect(scorecardService.generateScorecard).toHaveBeenCalledWith(
+      mockUser,
+      dto,
+    );
   });
 
   it('publishes a scorecard snapshot', async () => {
-    const result = await controller.publishScorecard(mockUser, { snapshotId: 'snapshot-id' });
+    const result = await controller.publishScorecard(mockUser, {
+      snapshotId: 'snapshot-id',
+    });
 
     expect(result).toEqual({ id: 'snapshot-id', status: 'PUBLISHED' });
-    expect(scorecardService.publishScorecard).toHaveBeenCalledWith(mockUser, 'snapshot-id');
+    expect(scorecardService.publishScorecard).toHaveBeenCalledWith(
+      mockUser,
+      'snapshot-id',
+    );
   });
 
   it('lists anomaly findings', async () => {
-    const query = { branchId: 'branch-id', from: '2026-01-01', to: '2026-01-31' };
+    const query = {
+      branchId: 'branch-id',
+      from: '2026-01-01',
+      to: '2026-01-31',
+    };
     const result = await controller.listAnomalies(mockUser, query);
 
     expect(result).toEqual([{ id: 'finding-id' }]);
-    expect(anomalyService.listFindings).toHaveBeenCalledWith('company-id', query);
+    expect(anomalyService.listFindings).toHaveBeenCalledWith(
+      'company-id',
+      query,
+    );
   });
 
   it('runs anomaly detection', async () => {
@@ -161,7 +182,12 @@ describe('AnalyticsController', () => {
   });
 
   it('lists benchmark snapshots', async () => {
-    const query = { metricCode: 'METRIC_1', cohortKey: 'cohort-a', from: '2026-01-01', to: '2026-01-31' };
+    const query = {
+      metricCode: 'METRIC_1',
+      cohortKey: 'cohort-a',
+      from: '2026-01-01',
+      to: '2026-01-31',
+    };
     const result = await controller.getBenchmarks(query);
 
     expect(result).toEqual([{ id: 'benchmark-id' }]);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import {
@@ -46,63 +46,59 @@ export function TiramisSubmissionDialog(props: {
   const [branchId, setBranchId] = useState(props.initialBranchId ?? '');
   const [salePointId, setSalePointId] = useState('');
 
-  useEffect(() => {
-    if (!props.open) {
-      return;
+  // Reset the selection whenever the dialog (re)opens for a different initial branch.
+  const [prevSync, setPrevSync] = useState({
+    open: props.open,
+    initialBranchId: props.initialBranchId,
+  });
+  if (
+    props.open !== prevSync.open ||
+    props.initialBranchId !== prevSync.initialBranchId
+  ) {
+    setPrevSync({ open: props.open, initialBranchId: props.initialBranchId });
+
+    if (props.open) {
+      setBranchId(props.initialBranchId ?? '');
+      setSalePointId('');
     }
+  }
 
-    setBranchId(props.initialBranchId ?? '');
-    setSalePointId('');
-  }, [props.initialBranchId, props.open]);
-
-  useEffect(() => {
-    if (
-      !props.open ||
-      props.initialBranchId ||
-      branchId ||
-      branches.length !== 1
-    ) {
-      return;
-    }
-
+  // Auto-select the only available branch when nothing was pre-selected.
+  if (
+    props.open &&
+    !props.initialBranchId &&
+    !branchId &&
+    branches.length === 1
+  ) {
     setBranchId(branches[0].id);
-  }, [branchId, branches, props.initialBranchId, props.open]);
+  }
 
   const salePointsQuery = useTiramisSalePoints(branchId || undefined, {
     enabled: props.open,
   });
   const salePoints = salePointsQuery.data ?? [];
 
-  useEffect(() => {
-    if (!props.open) {
-      return;
-    }
-
+  // Keep the sale point selection in sync with the sale points available for the branch.
+  if (props.open) {
     if (
       salePointId &&
       !salePoints.some((salePoint) => salePoint.id === salePointId)
     ) {
       setSalePointId('');
-      return;
-    }
+    } else if (!salePointId) {
+      if (salePoints.length === 1) {
+        setSalePointId(salePoints[0].id);
+      } else {
+        const defaultSalePoints = salePoints.filter(
+          (salePoint) => salePoint.isDefault,
+        );
 
-    if (salePointId) {
-      return;
+        if (defaultSalePoints.length === 1) {
+          setSalePointId(defaultSalePoints[0].id);
+        }
+      }
     }
-
-    if (salePoints.length === 1) {
-      setSalePointId(salePoints[0].id);
-      return;
-    }
-
-    const defaultSalePoints = salePoints.filter(
-      (salePoint) => salePoint.isDefault,
-    );
-
-    if (defaultSalePoints.length === 1) {
-      setSalePointId(defaultSalePoints[0].id);
-    }
-  }, [props.open, salePointId, salePoints]);
+  }
 
   const selectedBranch = useMemo(
     () => branches.find((branch) => branch.id === branchId) ?? null,

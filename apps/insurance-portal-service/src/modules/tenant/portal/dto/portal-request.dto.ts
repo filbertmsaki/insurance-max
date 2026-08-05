@@ -189,9 +189,7 @@ export class CompletePortalRequestDto {
 
 export class ReviewPaymentProofDto {
   @IsEnum(PortalPaymentProofStatus)
-  status:
-    | PortalPaymentProofStatus.VERIFIED
-    | PortalPaymentProofStatus.REJECTED;
+  status: PortalPaymentProofStatus.VERIFIED | PortalPaymentProofStatus.REJECTED;
 
   @IsOptional()
   @IsString()

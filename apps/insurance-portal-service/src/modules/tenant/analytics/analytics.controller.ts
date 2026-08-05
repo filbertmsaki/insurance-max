@@ -1,4 +1,12 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
@@ -122,7 +130,9 @@ export class AnalyticsController {
 
   private ensureCompanyId(user: AuthenticatedUser): string {
     if (!user.companyId) {
-      throw new BadRequestException('Company context is required for analytics');
+      throw new BadRequestException(
+        'Company context is required for analytics',
+      );
     }
 
     return user.companyId;

@@ -9,14 +9,14 @@ function setup(initial?: {
   operative_clause?: string;
 }) {
   const { result: formResult } = renderHook(() =>
-    useForm<Partial<QuotationFormSchemaValues>>({
+    useForm<QuotationFormSchemaValues>({
       defaultValues: {
         cover_note_desc: initial?.cover_note_desc ?? '',
         operative_clause: initial?.operative_clause ?? '',
       },
     }),
   );
-  return formResult.current as any;
+  return formResult.current;
 }
 
 describe('useCoverNoteAutoText', () => {

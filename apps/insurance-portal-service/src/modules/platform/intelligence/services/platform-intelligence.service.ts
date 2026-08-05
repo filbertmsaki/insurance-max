@@ -36,7 +36,12 @@ export class PlatformIntelligenceService {
     from?: string;
     to?: string;
   }) {
-    const params: Array<string | null> = [query.metricCode ?? null, query.cohortKey ?? null, query.from ?? null, query.to ?? null];
+    const params: Array<string | null> = [
+      query.metricCode ?? null,
+      query.cohortKey ?? null,
+      query.from ?? null,
+      query.to ?? null,
+    ];
 
     return this.dataSource.query(
       `
@@ -58,7 +63,12 @@ export class PlatformIntelligenceService {
     from?: string;
     to?: string;
   }) {
-    const params: Array<string | null> = [query.companyId ?? null, query.branchId ?? null, query.from ?? null, query.to ?? null];
+    const params: Array<string | null> = [
+      query.companyId ?? null,
+      query.branchId ?? null,
+      query.from ?? null,
+      query.to ?? null,
+    ];
 
     return this.dataSource.query(
       `
@@ -82,7 +92,11 @@ export class PlatformIntelligenceService {
     branchId?: string;
     status?: string;
   }) {
-    const params: Array<string | null> = [query.companyId ?? null, query.branchId ?? null, query.status ?? null];
+    const params: Array<string | null> = [
+      query.companyId ?? null,
+      query.branchId ?? null,
+      query.status ?? null,
+    ];
 
     return this.dataSource.query(
       `

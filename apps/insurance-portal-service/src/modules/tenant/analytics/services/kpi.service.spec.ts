@@ -43,9 +43,13 @@ describe('KpiService', () => {
 
   it('returns KPI definitions from analytics service', async () => {
     const expected = [{ code: 'POLICY_COUNT' }];
-    (analyticsService.listKpiDefinitions as jest.Mock).mockResolvedValue(expected);
+    (analyticsService.listKpiDefinitions as jest.Mock).mockResolvedValue(
+      expected,
+    );
 
-    await expect(service.listDefinitions('company-id')).resolves.toEqual(expected);
+    await expect(service.listDefinitions('company-id')).resolves.toEqual(
+      expected,
+    );
     expect(analyticsService.listKpiDefinitions).toHaveBeenCalled();
   });
 

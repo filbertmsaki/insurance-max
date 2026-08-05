@@ -10,7 +10,7 @@ import {
   Post,
   Put,
   Query,
-  } from '@nestjs/common';
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,

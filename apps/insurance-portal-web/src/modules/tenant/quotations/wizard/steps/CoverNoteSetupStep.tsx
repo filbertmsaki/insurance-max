@@ -54,6 +54,7 @@ interface Props {
   firstSection?: boolean;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- shared constant intentionally co-located with the step it configures
 export const CHANNEL_TYPES = [
   'DIRECT',
   'BROKER',
@@ -61,6 +62,7 @@ export const CHANNEL_TYPES = [
   'BANCASSURANCE',
   'API',
 ] as const;
+// eslint-disable-next-line react-refresh/only-export-components -- shared constant intentionally co-located with the step it configures
 export const COVER_NOTE_TYPES = [
   { value: '1', label: 'New' },
   { value: '2', label: 'Renew' },
@@ -106,7 +108,6 @@ export function CoverNoteSetupStep({
           ),
         )
       : validFromDateOnly;
-  const intermediaryCompanyId = form.watch('intermediary_company_id');
   const intermediaryOptions = useIntermediaryCompanyOptions(
     channelType,
     productId,

@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
@@ -32,7 +36,10 @@ export class OrganizationContextService {
     private readonly configService: ConfigService,
   ) {}
 
-  async resolve(userId: string, companyId: string): Promise<OrganizationContext> {
+  async resolve(
+    userId: string,
+    companyId: string,
+  ): Promise<OrganizationContext> {
     const membership = await this.membershipRepository.findOne({
       where: {
         user_id: userId,
@@ -62,7 +69,9 @@ export class OrganizationContextService {
       },
     });
 
-    const validBranches = branchAssignments.filter((assignment) => !assignment.branch.deleted_at);
+    const validBranches = branchAssignments.filter(
+      (assignment) => !assignment.branch.deleted_at,
+    );
 
     const activeBranchAssignment =
       validBranches.find((assignment) => assignment.is_active_branch) ??
@@ -92,7 +101,9 @@ export class OrganizationContextService {
     );
 
     const activeDepartmentAssignment =
-      compatibleDepartments.find((assignment) => assignment.is_active_department) ??
+      compatibleDepartments.find(
+        (assignment) => assignment.is_active_department,
+      ) ??
       compatibleDepartments.find((assignment) => assignment.is_primary) ??
       compatibleDepartments[0];
 
@@ -207,13 +218,17 @@ export class OrganizationContextService {
     };
   }
 
-  async requireTiramisReady(userId: string, companyId: string): Promise<OrganizationContext> {
+  async requireTiramisReady(
+    userId: string,
+    companyId: string,
+  ): Promise<OrganizationContext> {
     const context = await this.resolve(userId, companyId);
 
     if (!context.tiramis.ready) {
       throw new BadRequestException({
         code: 'ORGANIZATION_NOT_TIRAMIS_READY',
-        message: 'The current organizational context is not ready for TIRA submission.',
+        message:
+          'The current organizational context is not ready for TIRA submission.',
         details: {
           missingRequirements: context.tiramis.missingRequirements,
         },

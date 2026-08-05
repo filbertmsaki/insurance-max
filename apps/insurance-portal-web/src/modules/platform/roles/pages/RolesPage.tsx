@@ -41,7 +41,7 @@ import { Separator } from '@/components/ui/separator'
 import { DataTable, type Column } from '@/components/shared/DataTable'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { rolesApi, type CreateRoleDto } from '@/modules/platform/roles/api/roles'
+import { rolesApi } from '@/modules/platform/roles/api/roles'
 import { permissionsApi } from '@/modules/platform/permissions/api/permissions'
 import { useRbacGuard } from '@/modules/shared/auth/hooks/useRbacGuard'
 import type { Role, Permission } from '@/types'
@@ -187,7 +187,6 @@ function RoleFormDialog({
   editRole,
   allPermissions,
   isOwner,
-  userCompanyId,
   onSubmit,
   isPending,
 }: RoleFormDialogProps) {
@@ -207,7 +206,9 @@ function RoleFormDialog({
     }
   }
 
-  useMemo(() => {
+  const [prevSync, setPrevSync] = useState({ open, editRole })
+  if (open !== prevSync.open || editRole !== prevSync.editRole) {
+    setPrevSync({ open, editRole })
     if (open) {
       form.reset({
         name: editRole?.name ?? '',
@@ -218,8 +219,7 @@ function RoleFormDialog({
       setSelectedPerms(editRole?.permissions?.map((p) => p.id) ?? [])
       setPermSearch('')
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, editRole])
+  }
 
   const filteredPerms = useMemo(() => {
     const q = permSearch.toLowerCase()
@@ -452,7 +452,7 @@ function RoleFormDialog({
 
 export function RolesPage() {
   const queryClient = useQueryClient()
-  const { isOwner, userCompanyId, canManageRole, canDeleteRole, canCreateSystemRole } = useRbacGuard()
+  const { isOwner, userCompanyId, canManageRole, canDeleteRole } = useRbacGuard()
 
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(10)

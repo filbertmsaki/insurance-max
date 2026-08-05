@@ -170,7 +170,6 @@ function Result({ result }: { result: VerificationResult }) {
 export function VerificationsPage() {
   const permissions = useAuthStore((state) => state.user?.permissions ?? []);
   const canMotor = permissions.includes('verifications:motor:submit');
-  const canCoverNote = permissions.includes('verifications:cover-note:submit');
   const [result, setResult] = useState<VerificationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(canMotor ? 'motor' : 'cover-note');

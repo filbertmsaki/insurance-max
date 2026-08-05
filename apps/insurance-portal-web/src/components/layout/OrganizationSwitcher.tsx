@@ -14,6 +14,8 @@ import { authApi } from '@/modules/shared/auth/api/auth';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { organizationApi } from '@/modules/shared/organization/api/organization';
 
+type ApiErrorLike = { response?: { data?: { message?: string } } };
+
 /**
  * Switches the active branch/department for the current company by calling
  * the backend `/auth/switch-organization-context` endpoint, which rotates the
@@ -45,7 +47,7 @@ export function OrganizationSwitcher() {
       queryClient.invalidateQueries();
       toast.success('Organization context switched');
     },
-    onError: (error: any) =>
+    onError: (error: ApiErrorLike) =>
       toast.error(
         error?.response?.data?.message ??
           'Unable to switch organization context',

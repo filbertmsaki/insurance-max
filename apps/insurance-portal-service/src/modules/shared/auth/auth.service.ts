@@ -393,9 +393,7 @@ export class AuthService {
     const challengeKey = `auth:2fa:challenge:${payload.jti}`;
 
     const challenge =
-      await this.redisService.getJson<TwoFactorChallengeRecord>(
-        challengeKey,
-      );
+      await this.redisService.getJson<TwoFactorChallengeRecord>(challengeKey);
 
     if (
       !challenge ||
@@ -571,11 +569,10 @@ export class AuthService {
           );
         }
 
-        const companyContext =
-          await this.companiesService.getMembershipContext(
-            payload.sub,
-            payload.companyId,
-          );
+        const companyContext = await this.companiesService.getMembershipContext(
+          payload.sub,
+          payload.companyId,
+        );
         if (companyContext.membershipId !== payload.membershipId) {
           throw new UnauthorizedException(
             'Refresh token company context is invalid',
@@ -1560,8 +1557,7 @@ export class AuthService {
   ): Promise<void> {
     const payload = this.decodeJwtPayload(token);
 
-    const jti =
-      payload && typeof payload.jti === 'string' ? payload.jti : null;
+    const jti = payload && typeof payload.jti === 'string' ? payload.jti : null;
 
     if (!jti) {
       return;

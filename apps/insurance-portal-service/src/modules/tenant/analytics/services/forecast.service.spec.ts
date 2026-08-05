@@ -30,13 +30,19 @@ describe('ForecastService', () => {
 
   it('lists forecast definitions', async () => {
     const definitions = [{ id: 'def-1' }];
-    (analyticsService.listForecastDefinitions as jest.Mock).mockResolvedValue(definitions);
+    (analyticsService.listForecastDefinitions as jest.Mock).mockResolvedValue(
+      definitions,
+    );
 
-    await expect(service.listDefinitions('company-id')).resolves.toEqual(definitions);
+    await expect(service.listDefinitions('company-id')).resolves.toEqual(
+      definitions,
+    );
   });
 
   it('throws when forecast definition cannot be found', async () => {
-    (analyticsService.getForecastDefinition as jest.Mock).mockResolvedValue(null);
+    (analyticsService.getForecastDefinition as jest.Mock).mockResolvedValue(
+      null,
+    );
 
     await expect(
       service.runForecast(
@@ -53,8 +59,14 @@ describe('ForecastService', () => {
   });
 
   it('creates a forecast run and returns forecast points', async () => {
-    (analyticsService.getForecastDefinition as jest.Mock).mockResolvedValue({ id: 'def-1', method: 'AUTO' });
-    (analyticsService.insertForecastRun as jest.Mock).mockResolvedValue({ id: 'run-1', run_no: 'FR-123' });
+    (analyticsService.getForecastDefinition as jest.Mock).mockResolvedValue({
+      id: 'def-1',
+      method: 'AUTO',
+    });
+    (analyticsService.insertForecastRun as jest.Mock).mockResolvedValue({
+      id: 'run-1',
+      run_no: 'FR-123',
+    });
     (analyticsService.insertForecastPoints as jest.Mock).mockResolvedValue([
       { forecastDate: '2025-02-01', predictedValue: 100 },
       { forecastDate: '2025-02-02', predictedValue: 100 },
@@ -74,6 +86,9 @@ describe('ForecastService', () => {
     expect(result.run).toEqual({ id: 'run-1', run_no: 'FR-123' });
     expect(result.points).toHaveLength(2);
     expect(analyticsService.insertForecastRun).toHaveBeenCalled();
-    expect(analyticsService.insertForecastPoints).toHaveBeenCalledWith('run-1', expect.any(Array));
+    expect(analyticsService.insertForecastPoints).toHaveBeenCalledWith(
+      'run-1',
+      expect.any(Array),
+    );
   });
 });

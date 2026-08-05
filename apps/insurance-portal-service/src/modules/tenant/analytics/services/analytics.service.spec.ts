@@ -34,15 +34,21 @@ describe('AnalyticsService', () => {
     dataSource.query.mockResolvedValue([]);
 
     await expect(service.getKpiDefinition('UNKNOWN')).resolves.toBeNull();
-    expect(dataSource.query).toHaveBeenCalledWith(expect.any(String), ['UNKNOWN']);
+    expect(dataSource.query).toHaveBeenCalledWith(expect.any(String), [
+      'UNKNOWN',
+    ]);
   });
 
   it('lists scorecard templates for a company', async () => {
     const expected = [{ id: 'template-1' }];
     dataSource.query.mockResolvedValue(expected);
 
-    await expect(service.listScorecardTemplates('company-1')).resolves.toEqual(expected);
-    expect(dataSource.query).toHaveBeenCalledWith(expect.any(String), ['company-1']);
+    await expect(service.listScorecardTemplates('company-1')).resolves.toEqual(
+      expected,
+    );
+    expect(dataSource.query).toHaveBeenCalledWith(expect.any(String), [
+      'company-1',
+    ]);
   });
 
   it('queries daily metrics with date and branch filters', async () => {
@@ -59,10 +65,13 @@ describe('AnalyticsService', () => {
       }),
     ).resolves.toEqual(expected);
 
-    expect(dataSource.query).toHaveBeenCalledWith(
-      expect.any(String),
-      ['company-1', 'METRIC_1', '2026-01-01', '2026-01-31', 'branch-1'],
-    );
+    expect(dataSource.query).toHaveBeenCalledWith(expect.any(String), [
+      'company-1',
+      'METRIC_1',
+      '2026-01-01',
+      '2026-01-31',
+      'branch-1',
+    ]);
   });
 
   it('lists anomaly findings with company and branch filters', async () => {
@@ -70,13 +79,20 @@ describe('AnalyticsService', () => {
     dataSource.query.mockResolvedValue(expected);
 
     await expect(
-      service.listAnomalyFindings('company-1', 'branch-1', '2026-01-01', '2026-01-31'),
+      service.listAnomalyFindings(
+        'company-1',
+        'branch-1',
+        '2026-01-01',
+        '2026-01-31',
+      ),
     ).resolves.toEqual(expected);
 
-    expect(dataSource.query).toHaveBeenCalledWith(
-      expect.any(String),
-      ['company-1', 'branch-1', '2026-01-01', '2026-01-31'],
-    );
+    expect(dataSource.query).toHaveBeenCalledWith(expect.any(String), [
+      'company-1',
+      'branch-1',
+      '2026-01-01',
+      '2026-01-31',
+    ]);
   });
 
   it('inserts forecast points using batched SQL values', async () => {
@@ -112,14 +128,23 @@ describe('AnalyticsService', () => {
       ]),
     ).resolves.toEqual(expected);
 
-    expect(dataSource.query).toHaveBeenCalledWith(
-      expect.any(String),
-      ['run-1', '2026-02-01', 100, 90, 110, '2026-02-02', 120, null, null],
-    );
+    expect(dataSource.query).toHaveBeenCalledWith(expect.any(String), [
+      'run-1',
+      '2026-02-01',
+      100,
+      90,
+      110,
+      '2026-02-02',
+      120,
+      null,
+      null,
+    ]);
   });
 
   it('returns an empty array when no forecast points are provided', async () => {
-    await expect(service.insertForecastPoints('run-1', [])).resolves.toEqual([]);
+    await expect(service.insertForecastPoints('run-1', [])).resolves.toEqual(
+      [],
+    );
     expect(dataSource.query).not.toHaveBeenCalled();
   });
 });

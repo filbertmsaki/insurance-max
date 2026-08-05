@@ -10,14 +10,11 @@ export function VerifyEmailPage() {
   const [params] = useSearchParams();
   const token = params.get('token') ?? '';
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>(
-    'loading',
+    token ? 'loading' : 'error',
   );
 
   useEffect(() => {
-    if (!token) {
-      setStatus('error');
-      return;
-    }
+    if (!token) return;
     authApi
       .verifyEmail(token)
       .then(() => setStatus('success'))

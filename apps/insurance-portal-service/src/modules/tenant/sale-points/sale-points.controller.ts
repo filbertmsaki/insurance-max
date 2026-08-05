@@ -123,6 +123,11 @@ export class SalePointsController {
     @Param('branchId', ParseUUIDPipe) branchId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.salePointsService.remove(user.companyId!, branchId, id, user.id);
+    return this.salePointsService.remove(
+      user.companyId!,
+      branchId,
+      id,
+      user.id,
+    );
   }
 }

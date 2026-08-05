@@ -100,12 +100,6 @@ export function QuotationDetailPage() {
   const requiresApproval = preview?.overview.requires_approval ?? false;
   const requiresPayment = preview?.overview.requires_payment ?? false;
   const submittedAt = preview?.overview.submitted_at ?? null;
-  const allPreviewRisks = [
-    ...(preview?.risks ?? []),
-    ...(
-      preview?.fleet?.vehicles.flatMap((vehicle) => vehicle.risks) ?? []
-    ),
-  ];
   const canSubmit = quotationStatus === 'READY_FOR_SUBMISSION';
   const canSubmitForApproval =
     requiresApproval &&

@@ -29,16 +29,30 @@ describe('UsersService.createForCompany — user creation transaction validation
     role_ids: [] as string[],
   };
 
-  const buildTransactionManager = (branches: Branch[], departments: Department[] = []) => ({
+  const buildTransactionManager = (
+    branches: Branch[],
+    departments: Department[] = [],
+  ) => ({
     getRepository: jest.fn((entity: unknown) => {
       if (entity === User) {
         return {
-          findOne: jest.fn().mockResolvedValue(null),
+          findOne: jest.fn().mockImplementation(async (options: any) => {
+            if (options?.where?.id) {
+              return { id: options.where.id, roles: [], permissions: [] };
+            }
+            return null;
+          }),
           create: jest.fn().mockImplementation((value) => value),
           save: jest.fn().mockImplementation(async (value) => ({
             id: 'user-new',
             ...value,
           })),
+          createQueryBuilder: jest.fn().mockReturnValue({
+            where: jest.fn().mockReturnThis(),
+            orderBy: jest.fn().mockReturnThis(),
+            limit: jest.fn().mockReturnThis(),
+            getOne: jest.fn().mockResolvedValue(null),
+          }),
         };
       }
       if (entity === Branch) {
@@ -124,7 +138,13 @@ describe('UsersService.createForCompany — user creation transaction validation
     dataSource.transaction.mockImplementation(async (cb) =>
       cb(
         buildTransactionManager(
-          [{ id: 'branch-1', company_id: companyId, status: 'active' } as Branch],
+          [
+            {
+              id: 'branch-1',
+              company_id: companyId,
+              status: 'active',
+            } as Branch,
+          ],
           [],
         ),
       ),
@@ -143,8 +163,20 @@ describe('UsersService.createForCompany — user creation transaction validation
     dataSource.transaction.mockImplementation(async (cb) =>
       cb(
         buildTransactionManager(
-          [{ id: 'branch-1', company_id: companyId, status: 'active' } as Branch],
-          [{ id: 'dept-1', company_id: companyId, status: 'active' } as Department],
+          [
+            {
+              id: 'branch-1',
+              company_id: companyId,
+              status: 'active',
+            } as Branch,
+          ],
+          [
+            {
+              id: 'dept-1',
+              company_id: companyId,
+              status: 'active',
+            } as Department,
+          ],
         ),
       ),
     );

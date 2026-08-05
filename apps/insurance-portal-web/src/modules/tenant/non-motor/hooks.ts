@@ -7,7 +7,6 @@ import { motorApi } from '@/modules/tenant/motor/api';
 import { useAllFactors } from '@/modules/tenant/product-engine/hooks';
 import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { normalizePaginatedResponse } from '@/modules/shared/api/pagination';
 import { nonMotorApi } from './api';
 import {
   buildNonMotorPolicyDetailPayload,

@@ -6,9 +6,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * "quotation_status" (the Quotation entity's `status` TS property maps to
  * that DB column name via @Column({ name: 'quotation_status' })).
  */
-export class PortalBusinessAccessIndexes1794200000000
-  implements MigrationInterface
-{
+export class PortalBusinessAccessIndexes1794200000000 implements MigrationInterface {
   name = 'PortalBusinessAccessIndexes1794200000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {
@@ -62,11 +60,15 @@ export class PortalBusinessAccessIndexes1794200000000
     await queryRunner.query(
       `DROP INDEX IF EXISTS "IDX_invoice_intermediary_portal"`,
     );
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_invoice_customer_portal"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_invoice_customer_portal"`,
+    );
     await queryRunner.query(
       `DROP INDEX IF EXISTS "IDX_policy_intermediary_portal"`,
     );
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_policy_customer_portal"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_policy_customer_portal"`,
+    );
     await queryRunner.query(
       `DROP INDEX IF EXISTS "IDX_quotation_intermediary_portal"`,
     );

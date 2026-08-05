@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class Phase3AuthorizationAndAudit1794500000000
-  implements MigrationInterface
-{
+export class Phase3AuthorizationAndAudit1794500000000 implements MigrationInterface {
   name = 'Phase3AuthorizationAndAudit1794500000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {
@@ -249,7 +247,9 @@ export class Phase3AuthorizationAndAudit1794500000000
     await queryRunner.query(
       `DROP TRIGGER IF EXISTS "TRG_audit_logs_append_only" ON "audit_logs"`,
     );
-    await queryRunner.query(`DROP FUNCTION IF EXISTS prevent_audit_log_mutation()`);
+    await queryRunner.query(
+      `DROP FUNCTION IF EXISTS prevent_audit_log_mutation()`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_audit_correlation_id"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_audit_request_id"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_audit_company_created"`);
@@ -277,7 +277,9 @@ export class Phase3AuthorizationAndAudit1794500000000
       `ALTER TABLE "users" DROP COLUMN IF EXISTS "authorization_version"`,
     );
 
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_permissions_assignment_scope"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_permissions_assignment_scope"`,
+    );
     await queryRunner.query(
       `ALTER TABLE "permissions" DROP CONSTRAINT IF EXISTS "CHK_permissions_assignment_scope"`,
     );

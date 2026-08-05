@@ -17,13 +17,11 @@ export default class AnalyticsDefinitionsSeeder implements Seeder {
       const targetCompanyCode =
         process.env.SEED_TARGET_COMPANY_CODE ?? 'ICC110';
 
-      const company = await queryRunner.manager
-        .getRepository(Company)
-        .findOne({
-          where: {
-            tira_company_code: targetCompanyCode,
-          },
-        });
+      const company = await queryRunner.manager.getRepository(Company).findOne({
+        where: {
+          tira_company_code: targetCompanyCode,
+        },
+      });
 
       if (!company) {
         throw new Error(

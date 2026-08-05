@@ -565,21 +565,18 @@ export class PortalBusinessAccessService {
       .andWhere(
         new Brackets((portfolio) => {
           // Customers created directly under the intermediary company.
-          portfolio
-            .where('customer.company_id = :intermediaryCompanyId', {
-              intermediaryCompanyId,
-            })
-            // Customers connected through quotations.
-            .orWhere(`
+          // Customers connected through policies.
+          // Customers connected through quotations.
+          portfolio.where('customer.company_id = :intermediaryCompanyId', {
+            intermediaryCompanyId,
+          }).orWhere(`
               EXISTS (
                 SELECT 1 FROM quotations portfolio_quotation
                 WHERE portfolio_quotation.customer_id = customer.id
                   AND portfolio_quotation.intermediary_company_id = :intermediaryCompanyId
                   AND portfolio_quotation.deleted_at IS NULL
               )
-            `)
-            // Customers connected through policies.
-            .orWhere(`
+            `).orWhere(`
               EXISTS (
                 SELECT 1 FROM policies portfolio_policy
                 WHERE portfolio_policy.customer_id = customer.id
@@ -649,19 +646,16 @@ export class PortalBusinessAccessService {
       .andWhere('customer.deleted_at IS NULL')
       .andWhere(
         new Brackets((portfolio) => {
-          portfolio
-            .where('customer.company_id = :intermediaryCompanyId', {
-              intermediaryCompanyId,
-            })
-            .orWhere(`
+          portfolio.where('customer.company_id = :intermediaryCompanyId', {
+            intermediaryCompanyId,
+          }).orWhere(`
               EXISTS (
                 SELECT 1 FROM quotations scoped_quotation
                 WHERE scoped_quotation.customer_id = customer.id
                   AND scoped_quotation.intermediary_company_id = :intermediaryCompanyId
                   AND scoped_quotation.deleted_at IS NULL
               )
-            `)
-            .orWhere(`
+            `).orWhere(`
               EXISTS (
                 SELECT 1 FROM policies scoped_policy
                 WHERE scoped_policy.customer_id = customer.id
@@ -706,7 +700,10 @@ export class PortalBusinessAccessService {
     return quotation;
   }
 
-  async assertPolicy(account: PortalAccount, policyId: string): Promise<Policy> {
+  async assertPolicy(
+    account: PortalAccount,
+    policyId: string,
+  ): Promise<Policy> {
     const qb = this.policyRepository
       .createQueryBuilder('policy')
       .where('policy.id = :policyId', { policyId })
@@ -867,7 +864,7 @@ export class PortalBusinessAccessService {
         intermediary_company_id: null,
         customer_id: account.customer_id,
         channel_type: ProductChannelType.DIRECT,
-      } as T;
+      };
     }
 
     this.assertIntermediaryAccount(account);
@@ -895,7 +892,7 @@ export class PortalBusinessAccessService {
       intermediary_company_id: account.intermediary_company_id,
       customer_id: customerId,
       channel_type: this.intermediaryChannel(account),
-    } as T;
+    };
   }
 
   private async scopeFinalPayload(
@@ -911,7 +908,7 @@ export class PortalBusinessAccessService {
         // type but are not persisted through this helper.
         current_wizard_step: null,
         draft_payload: {},
-      } as SaveQuotationDraftDto,
+      },
       quotation,
     );
 
@@ -961,7 +958,7 @@ export class PortalBusinessAccessService {
       ...payload,
       internal_quotation: {
         ...payload.internal_quotation,
-        insurer_company_id: internalDraft.insurer_company_id!,
+        insurer_company_id: internalDraft.insurer_company_id,
         intermediary_company_id: internalDraft.intermediary_company_id ?? null,
         channel_type: internalDraft.channel_type,
       },

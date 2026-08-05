@@ -14,15 +14,15 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
 import { useBillingCurrentCompanyId } from '../hooks';
-import { buildInvoicePayload, invoiceFormSchema, type InvoiceFormValues } from '../schemas';
+import { invoiceFormSchema, type InvoiceFormValues } from '../schemas';
 import type { CustomerRecord } from '@/modules/tenant/customers/types';
 import type { PolicyRecord } from '@/modules/tenant/policies/types';
-import type { QuotationRecord } from '@/modules/tenant/quotations/types';
+import type { QuotationListItem } from '@/modules/tenant/quotations/types';
 
 interface Props {
   customerOptions: CustomerRecord[];
   policyOptions: PolicyRecord[];
-  quotationOptions: QuotationRecord[];
+  quotationOptions: QuotationListItem[];
   isPending: boolean;
   submitLabel: string;
   onSubmit: (values: InvoiceFormValues) => void;

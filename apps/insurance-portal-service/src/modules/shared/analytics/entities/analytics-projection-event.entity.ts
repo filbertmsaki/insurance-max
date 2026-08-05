@@ -57,8 +57,7 @@ export class AnalyticsProjectionEvent {
     type: 'varchar',
     length: 80,
   })
-  aggregate_type:
-    AnalyticsAggregateType;
+  aggregate_type: AnalyticsAggregateType;
 
   @Column({ type: 'uuid' })
   aggregate_id: string;
@@ -87,8 +86,7 @@ export class AnalyticsProjectionEvent {
   @Column({
     type: 'varchar',
     length: 30,
-    default:
-      AnalyticsProjectionStatus.PENDING,
+    default: AnalyticsProjectionStatus.PENDING,
   })
   status: AnalyticsProjectionStatus;
 

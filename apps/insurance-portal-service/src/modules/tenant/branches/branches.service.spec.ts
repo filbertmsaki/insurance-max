@@ -57,7 +57,7 @@ describe('BranchesService', () => {
         name: 'New HQ',
         code: 'hq2',
         is_head_office: true,
-      } as any);
+      });
 
       expect(branchRepository.update).toHaveBeenCalledWith(
         { company_id: companyId, is_head_office: true },
@@ -73,7 +73,7 @@ describe('BranchesService', () => {
         name: 'Branch',
         code: 'br1',
         is_head_office: false,
-      } as any);
+      });
 
       expect(branchRepository.update).not.toHaveBeenCalled();
     });
@@ -90,7 +90,7 @@ describe('BranchesService', () => {
 
       await service.updateBranch(companyId, 'branch-2', {
         is_head_office: true,
-      } as any);
+      });
 
       expect(branchRepository.update).toHaveBeenCalledWith(
         { company_id: companyId, is_head_office: true },
@@ -107,7 +107,10 @@ describe('BranchesService', () => {
         status: 'active',
       } as Branch);
       branchUserRepository.find.mockResolvedValue([
-        { company_user_id: 'membership-1', is_active_branch: true } as BranchUser,
+        {
+          company_user_id: 'membership-1',
+          is_active_branch: true,
+        } as BranchUser,
       ]);
 
       await expect(
@@ -126,7 +129,10 @@ describe('BranchesService', () => {
         } as Branch)
         .mockResolvedValueOnce(null);
       branchUserRepository.find.mockResolvedValue([
-        { company_user_id: 'membership-1', is_active_branch: true } as BranchUser,
+        {
+          company_user_id: 'membership-1',
+          is_active_branch: true,
+        } as BranchUser,
       ]);
 
       await expect(

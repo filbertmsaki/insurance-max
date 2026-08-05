@@ -232,7 +232,10 @@ describe('SessionsService', () => {
 
       expect(sessionRepo.update).toHaveBeenCalledWith(
         SESSION_ID,
-        expect.objectContaining({ revoked: true, revocation_reason: 'expired' }),
+        expect.objectContaining({
+          revoked: true,
+          revocation_reason: 'expired',
+        }),
       );
     });
   });

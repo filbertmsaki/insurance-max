@@ -57,5 +57,7 @@ export const auditApi = {
       .then((response) => response.data),
 
   findOne: (id: string) =>
-    apiClient.get<AuditLog>(`/audit-logs/${id}`).then((response) => response.data),
+    apiClient
+      .get<AuditLog>(`/audit-logs/${id}`)
+      .then((response) => response.data),
 };

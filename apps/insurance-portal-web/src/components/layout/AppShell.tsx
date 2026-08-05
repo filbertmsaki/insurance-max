@@ -14,9 +14,11 @@ export function AppShell() {
   const location = useLocation()
 
   // Close mobile sidebar on route change
-  useEffect(() => {
+  const [prevPathname, setPrevPathname] = useState(location.pathname)
+  if (location.pathname !== prevPathname) {
+    setPrevPathname(location.pathname)
     setMobileOpen(false)
-  }, [location.pathname])
+  }
 
   // Close mobile sidebar on resize to desktop
   useEffect(() => {

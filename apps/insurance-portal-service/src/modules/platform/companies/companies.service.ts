@@ -745,10 +745,10 @@ export class CompaniesService {
   ): Promise<
     Pick<
       CompanyMembershipContext,
-      | "activeDepartmentId"
-      | "activeDepartmentCode"
-      | "activeDepartmentName"
-      | "assignedDepartmentIds"
+      | 'activeDepartmentId'
+      | 'activeDepartmentCode'
+      | 'activeDepartmentName'
+      | 'assignedDepartmentIds'
     >
   > {
     const assignments = await this.departmentUserRepository.find({
@@ -757,12 +757,12 @@ export class CompaniesService {
         company_id: companyId,
       },
       relations: { department: true },
-      order: { created_at: "ASC" },
+      order: { created_at: 'ASC' },
     });
 
     const compatible = assignments.filter(
       (assignment) =>
-        assignment.department?.status === "active" &&
+        assignment.department?.status === 'active' &&
         (assignment.department.branch_id === null ||
           assignment.department.branch_id === activeBranchId),
     );

@@ -298,15 +298,12 @@ export class DepartmentsService {
           department_id: departmentId,
           company_user_id: membership.id,
           is_primary: dto.make_primary === true || hasAnyAssignment === 0,
-          is_active_department:
-            shouldActivate || hasAnyAssignment === 0,
+          is_active_department: shouldActivate || hasAnyAssignment === 0,
           assigned_by: actorId ?? null,
           activated_at:
             shouldActivate || hasAnyAssignment === 0 ? new Date() : null,
           activated_by:
-            shouldActivate || hasAnyAssignment === 0
-              ? (actorId ?? null)
-              : null,
+            shouldActivate || hasAnyAssignment === 0 ? (actorId ?? null) : null,
         });
         assignments.push(await departmentUserRepo.save(assignment));
       }
@@ -326,9 +323,7 @@ export class DepartmentsService {
       where: { department_id: department.id, company_user_id: companyUserId },
     });
     if (!assignment) {
-      throw new NotFoundException(
-        'User is not assigned to this department',
-      );
+      throw new NotFoundException('User is not assigned to this department');
     }
 
     await this.departmentUserRepository.delete(assignment.id);

@@ -136,7 +136,8 @@ export class RolesService {
     if (invalid.length > 0) {
       throw new ForbiddenException({
         code: 'PERMISSION_NOT_ASSIGNABLE',
-        message: 'One or more permissions cannot be assigned to this role type.',
+        message:
+          'One or more permissions cannot be assigned to this role type.',
         details: {
           permissions: invalid.map((permission) => ({
             id: permission.id,
@@ -160,7 +161,8 @@ export class RolesService {
     const platformOwner = hasOwnerRole(actor) && actor?.scope === 'platform';
 
     if (platformOwner) {
-      const scope = dto.scope ?? (dto.company_id ? RoleScope.TENANT : RoleScope.PLATFORM);
+      const scope =
+        dto.scope ?? (dto.company_id ? RoleScope.TENANT : RoleScope.PLATFORM);
 
       if (scope === RoleScope.TENANT && !dto.company_id) {
         throw new BadRequestException('A tenant role requires company_id.');
@@ -246,7 +248,9 @@ export class RolesService {
             description: saved.description,
             scope: saved.scope,
             company_id: saved.company_id,
-            permission_ids: saved.permissions.map((permission) => permission.id),
+            permission_ids: saved.permissions.map(
+              (permission) => permission.id,
+            ),
           },
         },
         manager,
@@ -381,7 +385,10 @@ export class RolesService {
         permission_ids: role.permissions.map((permission) => permission.id),
       };
 
-      if (updateRoleDto.scope !== undefined && updateRoleDto.scope !== role.scope) {
+      if (
+        updateRoleDto.scope !== undefined &&
+        updateRoleDto.scope !== role.scope
+      ) {
         const assignments = await manager.query(
           `
             SELECT
@@ -471,7 +478,9 @@ export class RolesService {
             description: saved.description,
             scope: saved.scope,
             company_id: saved.company_id,
-            permission_ids: saved.permissions.map((permission) => permission.id),
+            permission_ids: saved.permissions.map(
+              (permission) => permission.id,
+            ),
           },
         },
         manager,

@@ -12,6 +12,7 @@ import {
   type QuotationFormSchemaValues,
 } from '../../../schemas';
 import { RiskRow } from '../RiskRow';
+import type { InsuranceRisk } from '@/types/product-engine';
 
 vi.mock('../../hooks/useRiskPremiumCalculation', () => ({
   useRiskPremiumCalculation: () => ({
@@ -115,7 +116,7 @@ function TestHarness() {
             risk_code: 'MOTOR-COMP',
             risk_name: 'Private Comprehensive',
           },
-        ] as any}
+        ] as unknown as InsuranceRisk[]}
         onRemove={vi.fn()}
         canRemove
       />

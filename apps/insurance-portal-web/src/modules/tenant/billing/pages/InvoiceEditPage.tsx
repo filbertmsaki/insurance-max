@@ -38,7 +38,7 @@ export function InvoiceEditPage() {
       <InvoiceForm
         customerOptions={customerOptions}
         policyOptions={policyPage ?? []}
-        quotationOptions={(quotationPage ?? []) as any}
+        quotationOptions={quotationPage ?? []}
         isPending={updateMutation.isPending}
         submitLabel="Save Changes"
         defaultValues={{

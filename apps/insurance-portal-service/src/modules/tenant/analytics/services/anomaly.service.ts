@@ -5,7 +5,10 @@ import { AnalyticsService } from './analytics.service';
 export class AnomalyService {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
-  async listFindings(companyId: string, query: { branchId?: string | null; from?: string; to?: string }) {
+  async listFindings(
+    companyId: string,
+    query: { branchId?: string | null; from?: string; to?: string },
+  ) {
     return this.analyticsService.listAnomalyFindings(
       companyId,
       query.branchId ?? null,
@@ -23,9 +26,9 @@ export class AnomalyService {
       to: string;
     },
   ) {
-    const rule = await this.analyticsService.listAnomalyRules(user.companyId).then((rules) =>
-      rules.find((entry: any) => entry.id === params.ruleId),
-    );
+    const rule = await this.analyticsService
+      .listAnomalyRules(user.companyId)
+      .then((rules) => rules.find((entry: any) => entry.id === params.ruleId));
 
     if (!rule) {
       throw new NotFoundException('Anomaly rule not found');
@@ -47,25 +50,39 @@ export class AnomalyService {
     }
 
     const latest = metrics[metrics.length - 1];
-    const average = metrics.reduce((sum, row) => sum + Number(row.metricValue ?? 0), 0) / metrics.length;
+    const average =
+      metrics.reduce((sum, row) => sum + Number(row.metricValue ?? 0), 0) /
+      metrics.length;
     const observed = Number(latest.metricValue ?? 0);
     const deviation = observed - average;
     const deviationPercent = average ? (deviation / average) * 100 : 0;
-    const severity = Math.abs(deviationPercent) > 50 ? 'HIGH' : Math.abs(deviationPercent) > 20 ? 'MEDIUM' : 'LOW';
+    const severity =
+      Math.abs(deviationPercent) > 50
+        ? 'HIGH'
+        : Math.abs(deviationPercent) > 20
+          ? 'MEDIUM'
+          : 'LOW';
 
     const existingFinding = await this.analyticsService
       .listAnomalyFindings(user.companyId, params.branchId ?? null)
-      .then((existing) => existing.find((entry: any) => entry.rule_id === params.ruleId && entry.metric_date === latest?.metricDate));
+      .then((existing) =>
+        existing.find(
+          (entry: any) =>
+            entry.rule_id === params.ruleId &&
+            entry.metric_date === latest?.metricDate,
+        ),
+      );
 
     if (existingFinding) {
       return existingFinding;
     }
 
-    const [existingByRule] = await this.analyticsService.listAnomalyFindingsByRuleAndDate(
-      params.ruleId,
-      user.companyId,
-      latest.metricDate,
-    );
+    const [existingByRule] =
+      await this.analyticsService.listAnomalyFindingsByRuleAndDate(
+        params.ruleId,
+        user.companyId,
+        latest.metricDate,
+      );
 
     if (existingByRule) {
       return existingByRule;

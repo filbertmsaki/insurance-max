@@ -164,11 +164,7 @@ export class PermissionsService {
         throw new NotFoundException('Permission not found');
       }
 
-      assertCanMutateSystemGeneratedRbacRecord(
-        actor,
-        permission,
-        'permission',
-      );
+      assertCanMutateSystemGeneratedRbacRecord(actor, permission, 'permission');
 
       const beforeState = {
         name: permission.name,
@@ -244,11 +240,7 @@ export class PermissionsService {
         throw new NotFoundException('Permission not found');
       }
 
-      assertCanMutateSystemGeneratedRbacRecord(
-        actor,
-        permission,
-        'permission',
-      );
+      assertCanMutateSystemGeneratedRbacRecord(actor, permission, 'permission');
 
       const result = await manager.query(
         `

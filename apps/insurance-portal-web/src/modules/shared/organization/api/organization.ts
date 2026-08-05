@@ -9,8 +9,9 @@ export const organizationApi = {
 
   getTiramisReadiness: () =>
     apiClient
-      .get<{ ready: boolean; missingRequirements: string[] }>(
-        '/organization/tiramis-readiness',
-      )
+      .get<{
+        ready: boolean;
+        missingRequirements: string[];
+      }>('/organization/tiramis-readiness')
       .then((r) => r.data),
 };

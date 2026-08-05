@@ -12,6 +12,7 @@ import {
   useTenantSubmissionDetail,
 } from '../hooks';
 import { formatDateTime, getSubmissionDetailId } from '../utils';
+import type { TiramisRequestType } from '../types';
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -91,7 +92,8 @@ export function TiramisSubmissionDetailPage() {
                   submitMutation.mutate(
                     {
                       requestType:
-                        (tenantSubmission.request_type as any) || 'NON_MOTOR',
+                        (tenantSubmission.request_type as TiramisRequestType | null) ||
+                        'NON_MOTOR',
                       policy_id: tenantSubmission.policy_id ?? undefined,
                       quotation_id: tenantSubmission.quotation_id ?? undefined,
                       source_module:

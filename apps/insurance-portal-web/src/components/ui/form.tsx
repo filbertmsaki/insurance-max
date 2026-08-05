@@ -155,6 +155,7 @@ const FormMessage = React.forwardRef<
 FormMessage.displayName = 'FormMessage'
 
 export {
+  // eslint-disable-next-line react-refresh/only-export-components -- shadcn/ui pattern: form field hook co-located with its components
   useFormField,
   Form,
   FormItem,

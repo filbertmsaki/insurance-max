@@ -46,8 +46,7 @@ export class CreateRoleDto {
   company_id?: string;
 
   @ApiPropertyOptional({
-    description:
-      'Role scope. Only the platform owner may set this explicitly.',
+    description: 'Role scope. Only the platform owner may set this explicitly.',
     enum: Object.values(RoleScope),
   })
   @IsEnum(RoleScope)

@@ -1,25 +1,17 @@
 export const PlatformIntelligencePermissions = {
-  READ:
-    'platform:intelligence-read',
+  READ: 'platform:intelligence-read',
 
-  COMPANY_HEALTH:
-    'platform:intelligence-company-health',
+  COMPANY_HEALTH: 'platform:intelligence-company-health',
 
-  BENCHMARK_READ:
-    'platform:intelligence-benchmark-read',
+  BENCHMARK_READ: 'platform:intelligence-benchmark-read',
 
-  BENCHMARK_REBUILD:
-    'platform:intelligence-benchmark-rebuild',
+  BENCHMARK_REBUILD: 'platform:intelligence-benchmark-rebuild',
 
-  ANOMALY_READ:
-    'platform:intelligence-anomaly-read',
+  ANOMALY_READ: 'platform:intelligence-anomaly-read',
 
-  FORECAST_READ:
-    'platform:intelligence-forecast-read',
+  FORECAST_READ: 'platform:intelligence-forecast-read',
 
-  EXPORT:
-    'platform:intelligence-export',
+  EXPORT: 'platform:intelligence-export',
 
-  ADMIN:
-    'platform:intelligence-admin',
+  ADMIN: 'platform:intelligence-admin',
 } as const;

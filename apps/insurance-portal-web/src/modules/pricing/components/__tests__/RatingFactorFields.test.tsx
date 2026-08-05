@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { RatingFactorFields } from '../RatingFactorFields';
+import type { PricingRequiredFactor } from '../../types/pricing';
 
 describe('RatingFactorFields', () => {
   it('renders factor fields in sort order and marks required factors', () => {
@@ -31,7 +32,7 @@ describe('RatingFactorFields', () => {
               options: null,
             },
           },
-        ] as any}
+        ] as unknown as PricingRequiredFactor[]}
         values={{}}
         onChange={vi.fn()}
       />,
@@ -98,7 +99,7 @@ describe('RatingFactorFields', () => {
               options: ['RIOT', 'FLOOD'],
             },
           },
-        ] as any}
+        ] as unknown as PricingRequiredFactor[]}
         values={{ extensions: '' }}
         onChange={onChange}
       />,

@@ -1,9 +1,5 @@
-import {
-  Injectable,
-} from '@nestjs/common';
-import {
-  EntityManager,
-} from 'typeorm';
+import { Injectable } from '@nestjs/common';
+import { EntityManager } from 'typeorm';
 
 @Injectable()
 export class AnalyticsRollupService {
@@ -18,38 +14,23 @@ export class AnalyticsRollupService {
   ): Promise<void> {
     switch (period.domain) {
       case 'POLICY':
-        await this.refreshPolicyMetrics(
-          manager,
-          period,
-        );
+        await this.refreshPolicyMetrics(manager, period);
         return;
 
       case 'PREMIUM':
-        await this.refreshPremiumMetrics(
-          manager,
-          period,
-        );
+        await this.refreshPremiumMetrics(manager, period);
         return;
 
       case 'CLAIM':
-        await this.refreshClaimMetrics(
-          manager,
-          period,
-        );
+        await this.refreshClaimMetrics(manager, period);
         return;
 
       case 'REINSURANCE':
-        await this.refreshReinsuranceMetrics(
-          manager,
-          period,
-        );
+        await this.refreshReinsuranceMetrics(manager, period);
         return;
 
       case 'TIRAMIS':
-        await this.refreshTiramisMetrics(
-          manager,
-          period,
-        );
+        await this.refreshTiramisMetrics(manager, period);
         return;
     }
   }
@@ -62,9 +43,8 @@ export class AnalyticsRollupService {
       metric_date: string;
     },
   ) {
-    const values =
-      await manager.query(
-        `
+    const values = await manager.query(
+      `
         SELECT
           COUNT(*) FILTER (
             WHERE policy_status NOT IN (
@@ -103,63 +83,35 @@ export class AnalyticsRollupService {
             OR branch_id = $3
           )
         `,
-        [
-          period.company_id,
-          period.metric_date,
-          period.branch_id,
-        ],
-      );
-
-    await this.upsertMetric(
-      manager,
-      {
-        ...period,
-        metricCode:
-          'policy.issued_count',
-
-        value:
-          values[0]?.issued_count ??
-          0,
-
-        observationCount:
-          values[0]?.issued_count ??
-          0,
-      },
+      [period.company_id, period.metric_date, period.branch_id],
     );
 
-    await this.upsertMetric(
-      manager,
-      {
-        ...period,
-        metricCode:
-          'policy.written_premium',
+    await this.upsertMetric(manager, {
+      ...period,
+      metricCode: 'policy.issued_count',
 
-        value:
-          values[0]?.written_premium ??
-          0,
+      value: values[0]?.issued_count ?? 0,
 
-        observationCount:
-          values[0]?.issued_count ??
-          0,
-      },
-    );
+      observationCount: values[0]?.issued_count ?? 0,
+    });
 
-    await this.upsertMetric(
-      manager,
-      {
-        ...period,
-        metricCode:
-          'policy.sum_insured',
+    await this.upsertMetric(manager, {
+      ...period,
+      metricCode: 'policy.written_premium',
 
-        value:
-          values[0]?.sum_insured ??
-          0,
+      value: values[0]?.written_premium ?? 0,
 
-        observationCount:
-          values[0]?.issued_count ??
-          0,
-      },
-    );
+      observationCount: values[0]?.issued_count ?? 0,
+    });
+
+    await this.upsertMetric(manager, {
+      ...period,
+      metricCode: 'policy.sum_insured',
+
+      value: values[0]?.sum_insured ?? 0,
+
+      observationCount: values[0]?.issued_count ?? 0,
+    });
   }
 
   private async refreshPremiumMetrics(
@@ -170,9 +122,8 @@ export class AnalyticsRollupService {
       metric_date: string;
     },
   ) {
-    const values =
-      await manager.query(
-        `
+    const values = await manager.query(
+      `
         SELECT
           COALESCE(
             SUM(gross_premium),
@@ -201,46 +152,26 @@ export class AnalyticsRollupService {
             OR branch_id = $3
           )
         `,
-        [
-          period.company_id,
-          period.metric_date,
-          period.branch_id,
-        ],
-      );
-
-    await this.upsertMetric(
-      manager,
-      {
-        ...period,
-        metricCode:
-          'premium.gross_written',
-
-        value:
-          values[0]?.gross_premium ??
-          0,
-
-        observationCount:
-          values[0]?.entry_count ??
-          0,
-      },
+      [period.company_id, period.metric_date, period.branch_id],
     );
 
-    await this.upsertMetric(
-      manager,
-      {
-        ...period,
-        metricCode:
-          'premium.commission',
+    await this.upsertMetric(manager, {
+      ...period,
+      metricCode: 'premium.gross_written',
 
-        value:
-          values[0]?.commission_amount ??
-          0,
+      value: values[0]?.gross_premium ?? 0,
 
-        observationCount:
-          values[0]?.entry_count ??
-          0,
-      },
-    );
+      observationCount: values[0]?.entry_count ?? 0,
+    });
+
+    await this.upsertMetric(manager, {
+      ...period,
+      metricCode: 'premium.commission',
+
+      value: values[0]?.commission_amount ?? 0,
+
+      observationCount: values[0]?.entry_count ?? 0,
+    });
   }
 
   private async refreshClaimMetrics(
@@ -251,9 +182,8 @@ export class AnalyticsRollupService {
       metric_date: string;
     },
   ) {
-    const values =
-      await manager.query(
-        `
+    const values = await manager.query(
+      `
         SELECT
           COUNT(*)::numeric
             AS reported_count,
@@ -281,81 +211,44 @@ export class AnalyticsRollupService {
             OR branch_id = $3
           )
         `,
-        [
-          period.company_id,
-          period.metric_date,
-          period.branch_id,
-        ],
-      );
-
-    await this.upsertMetric(
-      manager,
-      {
-        ...period,
-        metricCode:
-          'claim.reported_count',
-
-        value:
-          values[0]?.reported_count ??
-          0,
-
-        observationCount:
-          values[0]?.reported_count ??
-          0,
-      },
+      [period.company_id, period.metric_date, period.branch_id],
     );
 
-    await this.upsertMetric(
-      manager,
-      {
-        ...period,
-        metricCode:
-          'claim.approved_amount',
+    await this.upsertMetric(manager, {
+      ...period,
+      metricCode: 'claim.reported_count',
 
-        value:
-          values[0]?.approved_amount ??
-          0,
+      value: values[0]?.reported_count ?? 0,
 
-        observationCount:
-          values[0]?.reported_count ??
-          0,
-      },
-    );
+      observationCount: values[0]?.reported_count ?? 0,
+    });
 
-    await this.upsertMetric(
-      manager,
-      {
-        ...period,
-        metricCode:
-          'claim.paid_amount',
+    await this.upsertMetric(manager, {
+      ...period,
+      metricCode: 'claim.approved_amount',
 
-        value:
-          values[0]?.paid_amount ??
-          0,
+      value: values[0]?.approved_amount ?? 0,
 
-        observationCount:
-          values[0]?.reported_count ??
-          0,
-      },
-    );
+      observationCount: values[0]?.reported_count ?? 0,
+    });
 
-    await this.upsertMetric(
-      manager,
-      {
-        ...period,
-        metricCode:
-          'claim.outstanding_reserve',
+    await this.upsertMetric(manager, {
+      ...period,
+      metricCode: 'claim.paid_amount',
 
-        value:
-          values[0]
-            ?.outstanding_reserve ??
-          0,
+      value: values[0]?.paid_amount ?? 0,
 
-        observationCount:
-          values[0]?.reported_count ??
-          0,
-      },
-    );
+      observationCount: values[0]?.reported_count ?? 0,
+    });
+
+    await this.upsertMetric(manager, {
+      ...period,
+      metricCode: 'claim.outstanding_reserve',
+
+      value: values[0]?.outstanding_reserve ?? 0,
+
+      observationCount: values[0]?.reported_count ?? 0,
+    });
   }
 
   private async refreshReinsuranceMetrics(
@@ -366,9 +259,8 @@ export class AnalyticsRollupService {
       metric_date: string;
     },
   ) {
-    const values =
-      await manager.query(
-        `
+    const values = await manager.query(
+      `
         SELECT
           COALESCE(
             SUM(ceded_premium),
@@ -395,29 +287,17 @@ export class AnalyticsRollupService {
             OR branch_id = $3
           )
         `,
-        [
-          period.company_id,
-          period.metric_date,
-          period.branch_id,
-        ],
-      );
-
-    await this.upsertMetric(
-      manager,
-      {
-        ...period,
-        metricCode:
-          'reinsurance.ceded_premium',
-
-        value:
-          values[0]?.ceded_premium ??
-          0,
-
-        observationCount:
-          values[0]?.cession_count ??
-          0,
-      },
+      [period.company_id, period.metric_date, period.branch_id],
     );
+
+    await this.upsertMetric(manager, {
+      ...period,
+      metricCode: 'reinsurance.ceded_premium',
+
+      value: values[0]?.ceded_premium ?? 0,
+
+      observationCount: values[0]?.cession_count ?? 0,
+    });
   }
 
   private async refreshTiramisMetrics(
@@ -428,9 +308,8 @@ export class AnalyticsRollupService {
       metric_date: string;
     },
   ) {
-    const values =
-      await manager.query(
-        `
+    const values = await manager.query(
+      `
         SELECT
           COUNT(*)::numeric
             AS submission_count,
@@ -453,68 +332,38 @@ export class AnalyticsRollupService {
             OR branch_id = $3
           )
         `,
-        [
-          period.company_id,
-          period.metric_date,
-          period.branch_id,
-        ],
-      );
-
-    const total =
-      Number(
-        values[0]
-          ?.submission_count ?? 0,
-      );
-
-    const success =
-      Number(
-        values[0]
-          ?.success_count ?? 0,
-      );
-
-    await this.upsertMetric(
-      manager,
-      {
-        ...period,
-        metricCode:
-          'tiramis.submission_count',
-
-        value: total,
-        observationCount: total,
-      },
+      [period.company_id, period.metric_date, period.branch_id],
     );
 
-    await this.upsertMetric(
-      manager,
-      {
-        ...period,
-        metricCode:
-          'tiramis.success_rate',
+    const total = Number(values[0]?.submission_count ?? 0);
 
-        value:
-          total > 0
-            ? (success / total) * 100
-            : 0,
+    const success = Number(values[0]?.success_count ?? 0);
 
-        observationCount: total,
-      },
-    );
+    await this.upsertMetric(manager, {
+      ...period,
+      metricCode: 'tiramis.submission_count',
 
-    await this.upsertMetric(
-      manager,
-      {
-        ...period,
-        metricCode:
-          'tiramis.average_duration_ms',
+      value: total,
+      observationCount: total,
+    });
 
-        value:
-          values[0]
-            ?.average_duration_ms ??
-          0,
+    await this.upsertMetric(manager, {
+      ...period,
+      metricCode: 'tiramis.success_rate',
 
-        observationCount: total,
-      },
-    );
+      value: total > 0 ? (success / total) * 100 : 0,
+
+      observationCount: total,
+    });
+
+    await this.upsertMetric(manager, {
+      ...period,
+      metricCode: 'tiramis.average_duration_ms',
+
+      value: values[0]?.average_duration_ms ?? 0,
+
+      observationCount: total,
+    });
   }
 
   private async upsertMetric(
@@ -525,13 +374,9 @@ export class AnalyticsRollupService {
       metric_date: string;
       metricCode: string;
       value: string | number;
-      observationCount:
-        string | number;
+      observationCount: string | number;
       dimensionKey?: string;
-      dimensions?: Record<
-        string,
-        unknown
-      >;
+      dimensions?: Record<string, unknown>;
       currency?: string | null;
     },
   ) {
@@ -591,8 +436,7 @@ export class AnalyticsRollupService {
         params.branch_id,
         params.metric_date,
         params.metricCode,
-        params.dimensionKey ??
-          'default',
+        params.dimensionKey ?? 'default',
         params.dimensions ?? {},
         params.value,
         params.observationCount,

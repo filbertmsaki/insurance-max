@@ -2,7 +2,10 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import { AnalyticsProjectionJob } from './jobs/analytics-projection.job';
 import { AnalyticsProjectionRegistryService } from './services/analytics-projection-registry.service';
-import { AnalyticsAggregateType, AnalyticsEventType } from './enums/analytics.enums';
+import {
+  AnalyticsAggregateType,
+  AnalyticsEventType,
+} from './enums/analytics.enums';
 
 describe('AnalyticsProjectionJob', () => {
   it('processes pending analytics events end to end', async () => {
@@ -33,7 +36,8 @@ describe('AnalyticsProjectionJob', () => {
       query: jest.fn(),
     };
 
-    const transactions = jest.fn()
+    const transactions = jest
+      .fn()
       .mockImplementationOnce(async (cb: any) => cb(manager))
       .mockImplementationOnce(async (cb: any) => cb(manager));
 

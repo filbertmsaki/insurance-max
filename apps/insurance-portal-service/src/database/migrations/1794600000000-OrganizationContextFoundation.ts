@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class OrganizationContextFoundation1794600000000
-  implements MigrationInterface
-{
+export class OrganizationContextFoundation1794600000000 implements MigrationInterface {
   name = 'OrganizationContextFoundation1794600000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {
@@ -386,8 +384,12 @@ export class OrganizationContextFoundation1794600000000
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS "UQ_department_users_one_active"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "UQ_department_users_one_primary"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "UQ_department_users_one_active"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "UQ_department_users_one_primary"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "department_users"`);
 
     await queryRunner.query(`
@@ -402,7 +404,9 @@ export class OrganizationContextFoundation1794600000000
       DROP COLUMN IF EXISTS "created_by"
     `);
 
-    await queryRunner.query(`DROP INDEX IF EXISTS "UQ_tiramis_company_environment_codes"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "UQ_tiramis_company_environment_codes"`,
+    );
 
     await queryRunner.query(`
       ALTER TABLE "tiramis_company_configurations"
@@ -416,15 +420,21 @@ export class OrganizationContextFoundation1794600000000
       DROP COLUMN IF EXISTS "validation_status"
     `);
 
-    await queryRunner.query(`DROP INDEX IF EXISTS "UQ_branch_users_one_primary_branch"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "UQ_branches_one_head_office"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "UQ_branch_users_one_primary_branch"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "UQ_branches_one_head_office"`,
+    );
 
     await queryRunner.query(`
       ALTER TABLE "branches"
       DROP COLUMN IF EXISTS "is_head_office"
     `);
 
-    await queryRunner.query(`DROP INDEX IF EXISTS "UQ_company_users_one_default_membership"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "UQ_company_users_one_default_membership"`,
+    );
 
     await queryRunner.query(`
       ALTER TABLE "companies"

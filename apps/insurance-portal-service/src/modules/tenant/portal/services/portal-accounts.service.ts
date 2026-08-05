@@ -129,11 +129,7 @@ export class PortalAccountsService {
     // Don't let an administrator silently link an arbitrary email to an
     // existing customer; the customer record must be updated first through
     // the normal customer-management workflow.
-    if (
-      requestedEmail &&
-      customerEmail &&
-      requestedEmail !== customerEmail
-    ) {
+    if (requestedEmail && customerEmail && requestedEmail !== customerEmail) {
       throw new ConflictException(
         'Invitation email must match the customer email address',
       );
@@ -201,9 +197,11 @@ export class PortalAccountsService {
 
     if (
       !company ||
-      ![CompanyType.BROKER, CompanyType.AGENCY, CompanyType.BANCASSURANCE].includes(
-        company.company_type,
-      )
+      ![
+        CompanyType.BROKER,
+        CompanyType.AGENCY,
+        CompanyType.BANCASSURANCE,
+      ].includes(company.company_type)
     ) {
       throw new BadRequestException(
         'Intermediary portal accounts require a broker, agency, or bancassurance company',
@@ -377,9 +375,17 @@ export class PortalAccountsService {
         invitation,
       );
 
-      await this.ensurePrimaryBranch(manager, invitation.company_id, membership.id);
+      await this.ensurePrimaryBranch(
+        manager,
+        invitation.company_id,
+        membership.id,
+      );
 
-      const account = await this.activatePortalAccount(manager, invitation, user);
+      const account = await this.activatePortalAccount(
+        manager,
+        invitation,
+        user,
+      );
 
       await this.markInvitationAccepted(manager, invitation, user.id);
 
@@ -463,9 +469,17 @@ export class PortalAccountsService {
         invitation,
       );
 
-      await this.ensurePrimaryBranch(manager, invitation.company_id, membership.id);
+      await this.ensurePrimaryBranch(
+        manager,
+        invitation.company_id,
+        membership.id,
+      );
 
-      const account = await this.activatePortalAccount(manager, invitation, user);
+      const account = await this.activatePortalAccount(
+        manager,
+        invitation,
+        user,
+      );
 
       await this.markInvitationAccepted(manager, invitation, user.id);
 
@@ -697,9 +711,7 @@ export class PortalAccountsService {
 
   private assertInvitationUsable(invitation: PortalInvitation) {
     if (invitation.status !== PortalInvitationStatus.PENDING) {
-      throw new ConflictException(
-        'Portal invitation is no longer available',
-      );
+      throw new ConflictException('Portal invitation is no longer available');
     }
 
     if (invitation.expires_at.getTime() <= Date.now()) {
@@ -742,7 +754,10 @@ export class PortalAccountsService {
     return { emailUser, phoneUser };
   }
 
-  private assertUserMatchesInvitation(user: User, invitation: PortalInvitation) {
+  private assertUserMatchesInvitation(
+    user: User,
+    invitation: PortalInvitation,
+  ) {
     const invitationEmail = invitation.email.trim().toLowerCase();
     const userEmail = user.email.trim().toLowerCase();
 
@@ -766,7 +781,9 @@ export class PortalAccountsService {
       invitation.actor_type === PortalActorType.CUSTOMER &&
       user.user_type !== UserType.CUSTOMER
     ) {
-      throw new ConflictException('The existing account is not a customer account');
+      throw new ConflictException(
+        'The existing account is not a customer account',
+      );
     }
 
     if (
@@ -1026,7 +1043,9 @@ export class PortalAccountsService {
   }
 
   private resolveIntermediaryUserType(companyType: CompanyType): UserType {
-    return companyType === CompanyType.BROKER ? UserType.BROKER : UserType.AGENT;
+    return companyType === CompanyType.BROKER
+      ? UserType.BROKER
+      : UserType.AGENT;
   }
 
   /**

@@ -27,6 +27,7 @@ describe('CompaniesService', () => {
   let branchRepository: jest.Mocked<Partial<Repository<Branch>>>;
   let roleRepository: jest.Mocked<Partial<Repository<Role>>>;
   let userRepository: jest.Mocked<Partial<Repository<User>>>;
+  let companyUserRoleRepository: jest.Mocked<Partial<Repository<CompanyUserRole>>>;
   let service: CompaniesService;
 
   beforeEach(() => {
@@ -34,7 +35,7 @@ describe('CompaniesService', () => {
       findOne: jest.fn().mockResolvedValue({
         id: companyId,
         status: 'active',
-      } as Company),
+      }),
     };
 
     companyUserRepository = {
@@ -60,7 +61,7 @@ describe('CompaniesService', () => {
         id: 'branch-1',
         company_id: companyId,
         status: 'active',
-      } as Branch),
+      }),
     };
 
     roleRepository = {
@@ -74,13 +75,21 @@ describe('CompaniesService', () => {
     };
 
     userRepository = {
-      findOne: jest.fn().mockResolvedValue({ id: userId, user_type: 'COMPANY_USER' }),
+      findOne: jest
+        .fn()
+        .mockResolvedValue({ id: userId, user_type: 'COMPANY_USER' }),
+    };
+
+    companyUserRoleRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockImplementation((value) => value) as any,
+      save: jest.fn().mockImplementation(async (value) => value) as any,
     };
 
     service = new CompaniesService(
       companyRepository as unknown as Repository<Company>,
       companyUserRepository as unknown as Repository<CompanyUser>,
-      {} as Repository<CompanyUserRole>,
+      companyUserRoleRepository as unknown as Repository<CompanyUserRole>,
       {} as Repository<CompanyUserPermission>,
       userRepository as unknown as Repository<User>,
       roleRepository as unknown as Repository<Role>,
@@ -109,7 +118,7 @@ describe('CompaniesService', () => {
       permissions: [],
       status: 'active',
       authorizationVersion: 1,
-    } as any);
+    });
   });
 
   describe('addUserToCompany — only one default company membership per user', () => {
@@ -122,7 +131,7 @@ describe('CompaniesService', () => {
         setParameter: jest.fn().mockReturnThis(),
         getOne: jest
           .fn()
-          .mockResolvedValue({ id: 'role-viewer', name: 'VIEWER' } as Role),
+          .mockResolvedValue({ id: 'role-viewer', name: 'VIEWER' }),
       };
       roleRepository.createQueryBuilder = jest.fn().mockReturnValue(qb) as any;
     };
@@ -161,7 +170,7 @@ describe('CompaniesService', () => {
         company_id: companyId,
         user_id: userId,
         status: 'active',
-      } as CompanyUser);
+      });
 
       await service.assignCompanyUserToBranch(
         companyId,

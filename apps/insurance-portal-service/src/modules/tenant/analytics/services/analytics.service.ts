@@ -110,7 +110,10 @@ export class AnalyticsService {
     from?: string;
     to?: string;
   }) {
-    const queryParams: Array<string | null> = [params.companyId, params.metricCode];
+    const queryParams: Array<string | null> = [
+      params.companyId,
+      params.metricCode,
+    ];
     let dateFilter = '';
 
     if (params.from) {
@@ -149,7 +152,12 @@ export class AnalyticsService {
     from?: string,
     to?: string,
   ) {
-    const params: Array<string | null> = [companyId, branchId ?? null, from ?? null, to ?? null];
+    const params: Array<string | null> = [
+      companyId,
+      branchId ?? null,
+      from ?? null,
+      to ?? null,
+    ];
 
     return this.dataSource.query(
       `
@@ -333,7 +341,12 @@ export class AnalyticsService {
 
   async insertForecastPoints(
     runId: string,
-    points: Array<{ forecastDate: string; predictedValue: number; lowerBound?: number | null; upperBound?: number | null }>,
+    points: Array<{
+      forecastDate: string;
+      predictedValue: number;
+      lowerBound?: number | null;
+      upperBound?: number | null;
+    }>,
   ) {
     const values = points
       .map(
@@ -344,7 +357,12 @@ export class AnalyticsService {
 
     const params: Array<string | number | null> = [runId];
     points.forEach((point) => {
-      params.push(point.forecastDate, point.predictedValue, point.lowerBound ?? null, point.upperBound ?? null);
+      params.push(
+        point.forecastDate,
+        point.predictedValue,
+        point.lowerBound ?? null,
+        point.upperBound ?? null,
+      );
     });
 
     if (points.length === 0) {
@@ -372,7 +390,12 @@ export class AnalyticsService {
     from?: string;
     to?: string;
   }) {
-    const params: Array<string | null> = [query.metricCode ?? null, query.cohortKey ?? null, query.from ?? null, query.to ?? null];
+    const params: Array<string | null> = [
+      query.metricCode ?? null,
+      query.cohortKey ?? null,
+      query.from ?? null,
+      query.to ?? null,
+    ];
     const conditions = [
       '($1::varchar IS NULL OR metric_code = $1)',
       '($2::varchar IS NULL OR cohort_key = $2)',

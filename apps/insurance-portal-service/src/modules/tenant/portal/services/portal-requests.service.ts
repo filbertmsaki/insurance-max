@@ -44,7 +44,10 @@ import {
 } from '../enums/portal.enums';
 
 import { PortalBusinessAccessService } from './portal-business-access.service';
-import { PortalFileStorageService, PortalUploadFile } from './portal-file-storage.service';
+import {
+  PortalFileStorageService,
+  PortalUploadFile,
+} from './portal-file-storage.service';
 import { PortalNotificationService } from './portal-notification.service';
 import { PortalReferenceService } from './portal-reference.service';
 
@@ -75,31 +78,32 @@ const DEDUPE_KEY_TYPES = new Set<PortalRequestType>([
   PortalRequestType.QUOTATION_ASSISTANCE,
 ]);
 
-const REQUEST_TRANSITIONS: Record<PortalRequestStatus, PortalRequestStatus[]> = {
-  [PortalRequestStatus.DRAFT]: [
-    PortalRequestStatus.SUBMITTED,
-    PortalRequestStatus.CANCELLED,
-  ],
-  [PortalRequestStatus.SUBMITTED]: [
-    PortalRequestStatus.IN_REVIEW,
-    PortalRequestStatus.ADDITIONAL_INFO_REQUIRED,
-    PortalRequestStatus.REJECTED,
-    PortalRequestStatus.CANCELLED,
-  ],
-  [PortalRequestStatus.IN_REVIEW]: [
-    PortalRequestStatus.ADDITIONAL_INFO_REQUIRED,
-    PortalRequestStatus.APPROVED,
-    PortalRequestStatus.REJECTED,
-  ],
-  [PortalRequestStatus.ADDITIONAL_INFO_REQUIRED]: [
-    PortalRequestStatus.SUBMITTED,
-    PortalRequestStatus.CANCELLED,
-  ],
-  [PortalRequestStatus.APPROVED]: [PortalRequestStatus.COMPLETED],
-  [PortalRequestStatus.REJECTED]: [],
-  [PortalRequestStatus.COMPLETED]: [],
-  [PortalRequestStatus.CANCELLED]: [],
-};
+const REQUEST_TRANSITIONS: Record<PortalRequestStatus, PortalRequestStatus[]> =
+  {
+    [PortalRequestStatus.DRAFT]: [
+      PortalRequestStatus.SUBMITTED,
+      PortalRequestStatus.CANCELLED,
+    ],
+    [PortalRequestStatus.SUBMITTED]: [
+      PortalRequestStatus.IN_REVIEW,
+      PortalRequestStatus.ADDITIONAL_INFO_REQUIRED,
+      PortalRequestStatus.REJECTED,
+      PortalRequestStatus.CANCELLED,
+    ],
+    [PortalRequestStatus.IN_REVIEW]: [
+      PortalRequestStatus.ADDITIONAL_INFO_REQUIRED,
+      PortalRequestStatus.APPROVED,
+      PortalRequestStatus.REJECTED,
+    ],
+    [PortalRequestStatus.ADDITIONAL_INFO_REQUIRED]: [
+      PortalRequestStatus.SUBMITTED,
+      PortalRequestStatus.CANCELLED,
+    ],
+    [PortalRequestStatus.APPROVED]: [PortalRequestStatus.COMPLETED],
+    [PortalRequestStatus.REJECTED]: [],
+    [PortalRequestStatus.COMPLETED]: [],
+    [PortalRequestStatus.CANCELLED]: [],
+  };
 
 const PAYMENT_PROOF_DOCUMENT_TYPE = 'PAYMENT_PROOF';
 const POSTGRES_UNIQUE_VIOLATION = '23505';
@@ -799,9 +803,10 @@ export class PortalRequestsService {
       }
 
       if (
-        ![PortalRequestStatus.SUBMITTED, PortalRequestStatus.IN_REVIEW].includes(
-          request.status,
-        )
+        ![
+          PortalRequestStatus.SUBMITTED,
+          PortalRequestStatus.IN_REVIEW,
+        ].includes(request.status)
       ) {
         throw new ConflictException(
           'Payment proof request is not awaiting review',
@@ -835,7 +840,9 @@ export class PortalRequestsService {
         const attachmentCount = await manager
           .getRepository(PortalRequestAttachment)
           .createQueryBuilder('attachment')
-          .where('attachment.request_id = :requestId', { requestId: request.id })
+          .where('attachment.request_id = :requestId', {
+            requestId: request.id,
+          })
           .andWhere('attachment.company_id = :companyId', { companyId })
           .andWhere('attachment.status = :status', {
             status: PortalAttachmentStatus.ACTIVE,
@@ -947,7 +954,9 @@ export class PortalRequestsService {
     );
 
     if (TERMINAL_REQUEST_STATUSES.has(request.status)) {
-      throw new ConflictException('Attachments cannot be added to this request');
+      throw new ConflictException(
+        'Attachments cannot be added to this request',
+      );
     }
 
     const normalizedDocumentType = documentType
@@ -1005,16 +1014,16 @@ export class PortalRequestsService {
         created_at: attachment.created_at,
       };
     } catch (error) {
-      await this.fileStorageService.remove(stored.storageKey).catch(
-        (cleanupError) => {
+      await this.fileStorageService
+        .remove(stored.storageKey)
+        .catch((cleanupError) => {
           this.logger.error(
             'Failed to clean up orphan portal upload',
             cleanupError instanceof Error
               ? cleanupError.stack
               : String(cleanupError),
           );
-        },
-      );
+        });
 
       throw error;
     }
@@ -1164,9 +1173,8 @@ export class PortalRequestsService {
     }
 
     const driverCode = (error as unknown as { code?: string }).code;
-    const nestedCode = (
-      error as unknown as { driverError?: { code?: string } }
-    ).driverError?.code;
+    const nestedCode = (error as unknown as { driverError?: { code?: string } })
+      .driverError?.code;
 
     return (
       driverCode === POSTGRES_UNIQUE_VIOLATION ||
@@ -1320,7 +1328,9 @@ export class PortalRequestsService {
       request.active_dedupe_key = null;
     }
 
-    const saved = await manager.getRepository(PortalServiceRequest).save(request);
+    const saved = await manager
+      .getRepository(PortalServiceRequest)
+      .save(request);
 
     await this.recordEvent(
       manager,
@@ -1511,9 +1521,11 @@ export class PortalRequestsService {
     reason?: string,
   ) {
     try {
-      const account = await this.dataSource.getRepository(PortalAccount).findOne({
-        where: { id: request.portal_account_id },
-      });
+      const account = await this.dataSource
+        .getRepository(PortalAccount)
+        .findOne({
+          where: { id: request.portal_account_id },
+        });
 
       if (!account) {
         return;

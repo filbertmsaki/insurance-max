@@ -37,7 +37,6 @@ import {
   isBeforeToday,
 } from './wizard/utils/coverNoteDateRange';
 import {
-  getDiscountRateForType,
   getTaxRateForCode,
 } from './wizard/utils/taxOptions';
 import {

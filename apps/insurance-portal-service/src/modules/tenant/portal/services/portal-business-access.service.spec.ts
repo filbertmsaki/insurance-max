@@ -105,7 +105,10 @@ describe('PortalBusinessAccessService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         PortalBusinessAccessService,
-        { provide: getRepositoryToken(Quotation), useValue: quotationRepository },
+        {
+          provide: getRepositoryToken(Quotation),
+          useValue: quotationRepository,
+        },
         { provide: getRepositoryToken(Policy), useValue: policyRepository },
         { provide: getRepositoryToken(Invoice), useValue: invoiceRepository },
         { provide: getRepositoryToken(Receipt), useValue: receiptRepository },
@@ -162,9 +165,7 @@ describe('PortalBusinessAccessService', () => {
     jest
       .spyOn(service, 'assertPortfolioCustomer')
       .mockRejectedValue(
-        new NotFoundException(
-          'Customer not found in intermediary portfolio',
-        ),
+        new NotFoundException('Customer not found in intermediary portfolio'),
       );
 
     companyRepository.findOne = jest.fn().mockResolvedValue({

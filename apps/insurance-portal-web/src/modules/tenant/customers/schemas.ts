@@ -4,7 +4,6 @@ import {
   getCustomerIdFieldName,
   splitCustomerFullName,
   type CustomerFormValues,
-  type CustomerIdType,
   type CustomerPayload,
   type CustomerRecord,
 } from './types';

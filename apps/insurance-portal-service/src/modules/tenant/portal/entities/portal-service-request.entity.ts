@@ -18,10 +18,7 @@ import { Policy } from '../../policies/entities/policy.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
 import { User } from '../../users/entities/user.entity';
 
-import {
-  PortalRequestStatus,
-  PortalRequestType,
-} from '../enums/portal.enums';
+import { PortalRequestStatus, PortalRequestType } from '../enums/portal.enums';
 
 import { PortalAccount } from './portal-account.entity';
 import { PortalPaymentProof } from './portal-payment-proof.entity';
@@ -160,10 +157,7 @@ export class PortalServiceRequest {
   @OneToMany(() => PortalServiceRequestEvent, (event) => event.request)
   events: PortalServiceRequestEvent[];
 
-  @OneToMany(
-    () => PortalRequestAttachment,
-    (attachment) => attachment.request,
-  )
+  @OneToMany(() => PortalRequestAttachment, (attachment) => attachment.request)
   attachments: PortalRequestAttachment[];
 
   @OneToOne(() => PortalPaymentProof, (proof) => proof.request)

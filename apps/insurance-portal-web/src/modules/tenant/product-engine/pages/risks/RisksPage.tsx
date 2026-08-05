@@ -41,7 +41,6 @@ import {
   useRemoveRequiredFactor, useUpdateRequiredFactor,
 } from '@/modules/tenant/product-engine/hooks'
 import type { InsuranceRisk, RiskRequiredFactor } from '@/types/product-engine'
-import { format } from 'date-fns'
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 

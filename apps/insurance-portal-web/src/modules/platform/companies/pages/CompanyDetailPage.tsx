@@ -28,13 +28,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
@@ -61,7 +54,7 @@ import {
   useDeleteCompany,
 } from '@/modules/platform/companies/hooks'
 import type { Company } from '@/types'
-import { companiesApi, type UpdateCompanyDto, type CompanyUser } from '@/modules/platform/companies/api/companies'
+import { companiesApi, type UpdateCompanyDto } from '@/modules/platform/companies/api/companies'
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 

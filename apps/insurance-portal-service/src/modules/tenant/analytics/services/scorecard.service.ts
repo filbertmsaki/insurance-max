@@ -31,7 +31,9 @@ export class ScorecardService {
     );
 
     if (!items.length) {
-      throw new NotFoundException('Scorecard template not found or has no items');
+      throw new NotFoundException(
+        'Scorecard template not found or has no items',
+      );
     }
 
     const values = [] as Array<Record<string, unknown>>;
@@ -39,20 +41,20 @@ export class ScorecardService {
     let totalWeight = 0;
 
     for (const item of items) {
-      const kpiResult = await this.kpiService.calculateKpi(
-        user,
-        item.code,
-        {
-          branchId: params.branchId ?? null,
-          from: params.periodStart,
-          to: params.periodEnd,
-        },
-      );
+      const kpiResult = await this.kpiService.calculateKpi(user, item.code, {
+        branchId: params.branchId ?? null,
+        from: params.periodStart,
+        to: params.periodEnd,
+      });
 
       const actual = Number(kpiResult.value ?? 0);
       const target = Number(item.targetValue ?? item.defaultTarget ?? 0);
-      const warning = Number(item.warningThreshold ?? item.defaultWarningThreshold ?? 0);
-      const critical = Number(item.criticalThreshold ?? item.defaultCriticalThreshold ?? 0);
+      const warning = Number(
+        item.warningThreshold ?? item.defaultWarningThreshold ?? 0,
+      );
+      const critical = Number(
+        item.criticalThreshold ?? item.defaultCriticalThreshold ?? 0,
+      );
 
       const score = this.calculateScore(actual, target, warning, critical);
       const status = this.resolveStatus(actual, target, warning, critical);
@@ -76,7 +78,8 @@ export class ScorecardService {
     }
 
     const overallScore = totalWeight > 0 ? totalWeightedScore / totalWeight : 0;
-    const overallStatus = overallScore >= 75 ? 'GOOD' : overallScore >= 50 ? 'WARNING' : 'CRITICAL';
+    const overallStatus =
+      overallScore >= 75 ? 'GOOD' : overallScore >= 50 ? 'WARNING' : 'CRITICAL';
 
     const snapshot = await this.dataSource.query(
       `

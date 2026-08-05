@@ -34,6 +34,8 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
+type ApiErrorLike = { response?: { data?: { message?: string } } }
+
 function ValidationBadge({ status }: { status: CompanyTiramisConfiguration['validationStatus'] }) {
   if (status === 'VALID') {
     return (
@@ -91,7 +93,7 @@ function EnvironmentPanel({
       toast.success(`${environment.toUpperCase()} configuration saved`)
       setEditing(false)
     },
-    onError: (error: any) =>
+    onError: (error: ApiErrorLike) =>
       toast.error(error?.response?.data?.message ?? 'Unable to save configuration'),
   })
 
@@ -105,7 +107,7 @@ function EnvironmentPanel({
         toast.error(result.message ?? 'Configuration failed validation')
       }
     },
-    onError: (error: any) =>
+    onError: (error: ApiErrorLike) =>
       toast.error(error?.response?.data?.message ?? 'Unable to validate configuration'),
   })
 

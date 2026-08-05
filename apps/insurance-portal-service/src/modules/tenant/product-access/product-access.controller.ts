@@ -7,7 +7,7 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
-  } from '@nestjs/common';
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';

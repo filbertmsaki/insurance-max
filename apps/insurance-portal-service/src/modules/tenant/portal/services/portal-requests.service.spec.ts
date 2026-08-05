@@ -68,7 +68,11 @@ describe('PortalRequestsService', () => {
   };
   let referenceService: { next: jest.Mock };
   let notificationService: { create: jest.Mock };
-  let fileStorageService: { store: jest.Mock; remove: jest.Mock; read: jest.Mock };
+  let fileStorageService: {
+    store: jest.Mock;
+    remove: jest.Mock;
+    read: jest.Mock;
+  };
   let auditService: { log: jest.Mock };
   let dataSource: { transaction: jest.Mock; getRepository: jest.Mock };
 
@@ -92,7 +96,7 @@ describe('PortalRequestsService', () => {
     status: PortalAccountStatus.ACTIVE,
   } as PortalAccount;
 
-  const accountA = { ...account, id: 'account-a' } as PortalAccount;
+  const accountA = { ...account, id: 'account-a' };
 
   const endorsementDto = {
     policy_id: policyId,
@@ -339,7 +343,9 @@ describe('PortalRequestsService', () => {
         buildManager({
           request: mockRepo({
             createQueryBuilder: jest.fn(() =>
-              mockQueryBuilder({ getOne: jest.fn().mockResolvedValue(requestEntity) }),
+              mockQueryBuilder({
+                getOne: jest.fn().mockResolvedValue(requestEntity),
+              }),
             ),
           }),
           paymentProof: mockRepo({
@@ -497,7 +503,9 @@ describe('PortalRequestsService', () => {
         buildManager({
           request: mockRepo({
             createQueryBuilder: jest.fn(() =>
-              mockQueryBuilder({ getOne: jest.fn().mockResolvedValue(requestEntity) }),
+              mockQueryBuilder({
+                getOne: jest.fn().mockResolvedValue(requestEntity),
+              }),
             ),
           }),
         }),

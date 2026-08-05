@@ -1,11 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { customersApi } from '@/modules/tenant/customers/api';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
 import { getApiErrorMessage } from '@/lib/api-error';
-import { normalizePaginatedResponse } from '@/modules/shared/api/pagination';
 import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { motorApi } from './api';
 import {
@@ -20,7 +19,6 @@ import {
 } from './schemas';
 import type {
   MotorFleetRecord,
-  MotorListParams,
   MotorPolicyDetailRecord,
   MotorQuotationDetailRecord,
   MotorVehicleRecord,

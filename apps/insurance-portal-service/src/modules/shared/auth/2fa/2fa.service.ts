@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 
 import { ConfigService } from '@nestjs/config';
 
@@ -25,9 +29,7 @@ export class TwoFaService {
     const user = await this.usersService.findByIdFor2FA(userId);
 
     if (user.is_two_factor_enabled) {
-      throw new BadRequestException(
-        '2FA is already enabled for this account.',
-      );
+      throw new BadRequestException('2FA is already enabled for this account.');
     }
 
     const secret = generateSecret({ length: 32 });

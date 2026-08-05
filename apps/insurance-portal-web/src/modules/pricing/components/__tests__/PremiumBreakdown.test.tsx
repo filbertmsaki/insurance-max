@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { PremiumBreakdown } from '../PremiumBreakdown';
+import type { PricingSingleRiskResult } from '../../types/pricing';
 
 describe('PremiumBreakdown', () => {
   it('renders the successful premium breakdown, charge lines, and final total', () => {
@@ -117,7 +118,7 @@ describe('PremiumBreakdown', () => {
               warnings: [],
               expires_at: '2026-07-28T10:00:00.000Z',
             },
-          } as any
+          } as unknown as PricingSingleRiskResult
         }
       />,
     );

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,8 +37,8 @@ interface CustomerFormProps {
 }
 
 export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: CustomerFormProps) {
-  const form = useForm<any>({
-    resolver: zodResolver(customerFormSchema),
+  const form = useForm<CustomerFormValues>({
+    resolver: zodResolver(customerFormSchema) as Resolver<CustomerFormValues>,
     values: customer ? getCustomerDefaultValues(customer) : undefined,
     defaultValues: getCustomerDefaultValues(),
   });
@@ -47,7 +47,7 @@ export function CustomerForm({ customer, isPending, submitLabel, onSubmit }: Cus
   const idType = useWatch({ control: form.control, name: 'id_type' }) as CustomerFormValues['id_type'];
 
   const selectedIdField = getCustomerIdFieldName(customerType, idType);
-  const selectedIdFieldName = selectedIdField as keyof CustomerFormValues | null;
+  const selectedIdFieldName = selectedIdField;
 
   useEffect(() => {
     if (!idType) return;

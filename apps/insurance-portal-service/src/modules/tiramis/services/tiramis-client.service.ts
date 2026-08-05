@@ -802,9 +802,7 @@ export class TiramisClientService {
       );
 
       const requiredScopes = this.resolveServiceScopes(pattern);
-      const isSubmission = requiredScopes.includes(
-        TiramisServiceScopes.SUBMIT,
-      );
+      const isSubmission = requiredScopes.includes(TiramisServiceScopes.SUBMIT);
 
       const tenantContext =
         authContext?.scope === 'company' && authContext.companyId

@@ -47,7 +47,9 @@ describe('PortalGuard', () => {
     reflector.getAllAndOverride = jest.fn().mockReturnValue(undefined);
 
     await expect(
-      guard.canActivate(createContext({ id: 'user-id', companyId: 'company-id' })),
+      guard.canActivate(
+        createContext({ id: 'user-id', companyId: 'company-id' }),
+      ),
     ).rejects.toThrow(ForbiddenException);
   });
 
@@ -100,7 +102,11 @@ describe('PortalGuard', () => {
 
     await expect(
       guard.canActivate(
-        createContext({ id: 'user-id', companyId: 'company-id', permissions: [] }),
+        createContext({
+          id: 'user-id',
+          companyId: 'company-id',
+          permissions: [],
+        }),
       ),
     ).rejects.toThrow(ForbiddenException);
   });

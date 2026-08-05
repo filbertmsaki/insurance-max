@@ -192,9 +192,7 @@ export class TiramisConfigService {
     const tenant = principal?.tenant;
 
     if (!tenant?.companyCode || !tenant.systemCode || !tenant.environment) {
-      throw new BadRequestException(
-        'Signed tenant context is required.',
-      );
+      throw new BadRequestException('Signed tenant context is required.');
     }
 
     const configuration = await this.getActiveConfiguration({

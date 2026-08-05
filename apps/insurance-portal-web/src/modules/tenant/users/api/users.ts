@@ -83,9 +83,11 @@ export const usersApi = {
   /** POST /users/2fa/setup */
   setup2fa: () =>
     apiClient
-      .post<{ qr_code_url: string; secret: string; otp_auth_url: string }>(
-        '/users/2fa/setup',
-      )
+      .post<{
+        qr_code_url: string;
+        secret: string;
+        otp_auth_url: string;
+      }>('/users/2fa/setup')
       .then((r) => r.data),
 
   /** POST /users/2fa/verify */

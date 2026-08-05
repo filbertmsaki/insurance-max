@@ -54,10 +54,7 @@ export class SessionsService {
 
     private readonly configService: ConfigService,
   ) {
-    const expiration = configService.get<string>(
-      'jwt.refreshExpiration',
-      '7d',
-    );
+    const expiration = configService.get<string>('jwt.refreshExpiration', '7d');
 
     this.refreshTtlDays = Number.parseInt(expiration, 10) || 7;
   }
@@ -308,9 +305,7 @@ export class SessionsService {
     );
 
     await Promise.all(
-      sessions.map((session) =>
-        this.redisService.del(`session:${session.id}`),
-      ),
+      sessions.map((session) => this.redisService.del(`session:${session.id}`)),
     );
   }
 
@@ -348,9 +343,7 @@ export class SessionsService {
       .execute();
 
     await Promise.all(
-      sessions.map((session) =>
-        this.redisService.del(`session:${session.id}`),
-      ),
+      sessions.map((session) => this.redisService.del(`session:${session.id}`)),
     );
   }
 
@@ -380,9 +373,7 @@ export class SessionsService {
     );
 
     await Promise.all(
-      sessions.map((session) =>
-        this.redisService.del(`session:${session.id}`),
-      ),
+      sessions.map((session) => this.redisService.del(`session:${session.id}`)),
     );
   }
 

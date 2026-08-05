@@ -39,7 +39,7 @@ import {
 } from '@/modules/tenant/product-engine/hooks'
 import type {
   RiskRatingRule, RiskRuleCondition,
-  RateType, ConditionOperator, LogicalOperator,
+  RateType, ConditionOperator,
 } from '@/types/product-engine'
 
 // ─── Constants ────────────────────────────────────────────────────────────────

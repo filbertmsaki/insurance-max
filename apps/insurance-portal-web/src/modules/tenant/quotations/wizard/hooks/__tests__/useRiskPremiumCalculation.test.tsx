@@ -178,7 +178,7 @@ describe('useRiskPremiumCalculation', () => {
         name: 'Test Company',
         slug: 'test-company',
       },
-    } as any);
+    });
   });
 
   afterEach(() => {
@@ -186,7 +186,7 @@ describe('useRiskPremiumCalculation', () => {
     useAuthStore.setState({
       company: null,
       user: null,
-    } as any);
+    });
   });
 
   it('prefills zero sum insured and keeps pricing in preview mode for risks that do not require it', async () => {
@@ -414,7 +414,7 @@ describe('useRiskPremiumCalculation', () => {
         ...baseResult,
         premium_rate: 0.999,
         premium_before_discount: 999000,
-      } as any);
+      });
     });
     // ...then the stale, earlier request (#1) resolves late.
     act(() => {
@@ -422,7 +422,7 @@ describe('useRiskPremiumCalculation', () => {
         ...baseResult,
         premium_rate: 0.035,
         premium_before_discount: 350000,
-      } as any);
+      });
     });
 
     // The stale (#1) result must NOT have overwritten the newer (#2) one.
@@ -510,7 +510,7 @@ describe('useRiskPremiumCalculation', () => {
         },
         validation_errors: [],
         validation_warnings: [],
-      } as any);
+      });
     });
 
     hook.rerender();
@@ -578,7 +578,7 @@ describe('useRiskPremiumCalculation', () => {
         },
         validation_errors: [],
         validation_warnings: [],
-      } as any);
+      });
     });
 
     expect(form.getValues('risks.0.premium_before_discount')).toBe('1750000');

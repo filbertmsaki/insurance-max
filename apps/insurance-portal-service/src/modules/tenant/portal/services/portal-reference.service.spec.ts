@@ -30,9 +30,7 @@ describe('PortalReferenceService', () => {
   });
 
   it('uses the supplied transactional manager', async () => {
-    const managerQuery = jest
-      .fn()
-      .mockResolvedValue([{ current_value: '2' }]);
+    const managerQuery = jest.fn().mockResolvedValue([{ current_value: '2' }]);
 
     const manager = { query: managerQuery } as never;
 

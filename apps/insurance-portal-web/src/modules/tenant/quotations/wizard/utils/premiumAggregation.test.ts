@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { RiskPremiumResult } from '@/types/product-engine';
 import {
   createEmptyFleetDetails,
   createEmptyRiskDiscountRow,
@@ -110,7 +111,7 @@ describe('premiumAggregation', () => {
           payable_premium: 392350,
         },
       },
-    } as any;
+    } as unknown as RiskPremiumResult;
 
     const pricedRow = applyRiskPremiumResult(row, result);
     const premiumAfterDiscount = computePremiumAfterDiscount(
@@ -133,7 +134,7 @@ describe('premiumAggregation', () => {
 
     expect(Number(totals.total_premium)).toBe(392350);
     expect(Number(totals.total_premium)).toBe(
-      result.premium_breakdown.totals.payable_premium,
+      result.premium_breakdown!.totals.payable_premium,
     );
     expect(
       pricedRow.rating_result_metadata?.discount_control
@@ -198,7 +199,7 @@ describe('premiumAggregation', () => {
       },
       validation_errors: [],
       validation_warnings: [],
-    } as any);
+    } as unknown as RiskPremiumResult);
 
     expect(pricedRow.premium_before_discount).toBe('1750000');
     expect(pricedRow.premium_after_discount).toBe('1750000');
@@ -226,7 +227,7 @@ describe('premiumAggregation', () => {
       charges: [],
       validation_errors: [],
       validation_warnings: [],
-    } as any);
+    } as unknown as RiskPremiumResult);
 
     expect(pricedRow.sum_insured).toBe('0');
     expect(pricedRow.sum_insured_equivalent).toBe('0');
@@ -277,7 +278,7 @@ describe('premiumAggregation', () => {
       },
       validation_errors: [],
       validation_warnings: [],
-    } as any);
+    } as unknown as RiskPremiumResult);
 
     expect(pricedRow.taxes_charged[0].tax_amount).toBe('0');
   });
@@ -407,7 +408,7 @@ describe('premiumAggregation', () => {
         effective_from: '2026-01-01',
         effective_to: '2026-12-31',
       },
-    } as any);
+    } as unknown as RiskPremiumResult);
 
     expect(applied.sum_insured_equivalent).toBe('5000000');
     expect(applied.premium_rate).toBe('0.02');

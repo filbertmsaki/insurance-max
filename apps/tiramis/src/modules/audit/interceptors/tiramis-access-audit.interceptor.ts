@@ -35,9 +35,9 @@ export class TiramisAccessAuditInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    const request = context.switchToHttp().getRequest<
-      Request & { servicePrincipal?: ServicePrincipal }
-    >();
+    const request = context
+      .switchToHttp()
+      .getRequest<Request & { servicePrincipal?: ServicePrincipal }>();
     const response = context.switchToHttp().getResponse<Response>();
 
     const requiredScopes =
@@ -53,8 +53,7 @@ export class TiramisAccessAuditInterceptor implements NestInterceptor {
         .save(
           this.repository.create({
             requestId:
-              (request.headers['x-request-id'] as string | undefined) ??
-              null,
+              (request.headers['x-request-id'] as string | undefined) ?? null,
             correlationId:
               (request.headers['x-correlation-id'] as string | undefined) ??
               null,

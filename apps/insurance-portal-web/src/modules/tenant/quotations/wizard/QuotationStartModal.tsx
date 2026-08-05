@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Car, Shield, Truck } from 'lucide-react';
 import {
   Dialog,
@@ -32,8 +32,10 @@ import {
 } from './utils/coverNoteDateRange';
 import type { QuotationWizardFlow } from './types';
 
+// eslint-disable-next-line react-refresh/only-export-components -- shared constant intentionally co-located with the modal it configures
 export const CURRENCY_OPTIONS = ['TZS', 'USD', 'GBP', 'EUR'] as const;
 
+// eslint-disable-next-line react-refresh/only-export-components -- shared constant intentionally co-located with the modal it configures
 export const QUOTATION_FLOW_OPTIONS = [
   {
     label: 'Non-Motor',
@@ -145,35 +147,38 @@ export function QuotationStartModal({
     productId || undefined,
   );
 
-  useEffect(() => {
-    if (!open) return;
+  const [prevSync, setPrevSync] = useState({ open, initialSelection });
+  if (open !== prevSync.open || initialSelection !== prevSync.initialSelection) {
+    setPrevSync({ open, initialSelection });
 
-    if (initialSelection) {
-      setQuotationFlow(initialSelection.quotation_flow);
-      setCategoryId(initialSelection.category_id);
-      setProductId(initialSelection.product_id);
-      setChannelType(initialSelection.channel_type);
-      setCurrency(initialSelection.currency);
-      setTranCompanyId(initialSelection.intermediary_company_id ?? '');
-      setValidFrom(initialSelection.valid_from ?? '');
-      setValidUntil(initialSelection.valid_until ?? '');
-      setDateRangeDays(
-        initialSelection.date_range ??
-          matchPresetDays(initialSelection.valid_from, initialSelection.valid_until),
-      );
-    } else {
-      setQuotationFlow(DEFAULT_QUOTATION_FLOW);
-      setCategoryId('');
-      setProductId('');
-      setChannelType('');
-      setCurrency('');
-      setTranCompanyId('');
-      setDateRangeDays('');
-      setValidFrom('');
-      setValidUntil('');
+    if (open) {
+      if (initialSelection) {
+        setQuotationFlow(initialSelection.quotation_flow);
+        setCategoryId(initialSelection.category_id);
+        setProductId(initialSelection.product_id);
+        setChannelType(initialSelection.channel_type);
+        setCurrency(initialSelection.currency);
+        setTranCompanyId(initialSelection.intermediary_company_id ?? '');
+        setValidFrom(initialSelection.valid_from ?? '');
+        setValidUntil(initialSelection.valid_until ?? '');
+        setDateRangeDays(
+          initialSelection.date_range ??
+            matchPresetDays(initialSelection.valid_from, initialSelection.valid_until),
+        );
+      } else {
+        setQuotationFlow(DEFAULT_QUOTATION_FLOW);
+        setCategoryId('');
+        setProductId('');
+        setChannelType('');
+        setCurrency('');
+        setTranCompanyId('');
+        setDateRangeDays('');
+        setValidFrom('');
+        setValidUntil('');
+      }
+      setTouched(false);
     }
-    setTouched(false);
-  }, [open, initialSelection]);
+  }
 
   // Derived rather than cleared via effect: automatically drops out whenever the
   // channel is Direct or the selection no longer matches the current channel/product's

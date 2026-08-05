@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
-import { PageHeader } from '@/components/shared/PageHeader';
 import { MotorStatusBadge } from '../components/MotorStatusBadge';
 import { useDeleteMotorVehicle, useMotorVehicle } from '../hooks';
 import { getCustomerDisplayName } from '@/modules/tenant/customers/types';

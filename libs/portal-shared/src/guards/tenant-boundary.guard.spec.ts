@@ -59,7 +59,7 @@ describe('TenantBoundaryGuard', () => {
     ).toThrow('belongs to another company');
   });
 
-  it('allows a request scoped to the caller\'s own company', () => {
+  it("allows a request scoped to the caller's own company", () => {
     const guard = new TenantBoundaryGuard(buildReflector(true));
 
     expect(

@@ -51,7 +51,7 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @SkipThrottle()
   @ApiOperation({
-    summary: 'Return the caller\'s current authorization context',
+    summary: "Return the caller's current authorization context",
   })
   async getAuthorizationContext(
     @CurrentUser() user: AuthenticatedUser,
@@ -64,7 +64,8 @@ export class AuthController {
           ? 'company_users'
           : 'users';
 
-      const idColumn = table === 'company_users' ? user.companyMembershipId : user.id;
+      const idColumn =
+        table === 'company_users' ? user.companyMembershipId : user.id;
 
       const [row] = await this.dataSource.query(
         `SELECT "authorization_version" FROM "${table}" WHERE "id" = $1`,
@@ -293,7 +294,8 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @SkipThrottle()
   @ApiOperation({
-    summary: 'Switch active branch/department context within the current company',
+    summary:
+      'Switch active branch/department context within the current company',
   })
   switchOrganizationContext(
     @Body() dto: SwitchOrganizationContextDto,

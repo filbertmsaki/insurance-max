@@ -38,7 +38,8 @@ export class CreatePermissionDto {
   assignment_scope: PermissionAssignmentScope;
 
   @ApiPropertyOptional({
-    description: 'Whether the permission can be attached to company (tenant) roles.',
+    description:
+      'Whether the permission can be attached to company (tenant) roles.',
   })
   @IsBoolean()
   assignable_to_company_role: boolean;

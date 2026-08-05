@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class PortalRequestDedupeKey1794300000000
-  implements MigrationInterface
-{
+export class PortalRequestDedupeKey1794300000000 implements MigrationInterface {
   name = 'PortalRequestDedupeKey1794300000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {

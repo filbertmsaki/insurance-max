@@ -24,7 +24,7 @@ export function InvoiceCreatePage() {
       <InvoiceForm
         customerOptions={customerOptions}
         policyOptions={policyPage ?? []}
-        quotationOptions={(quotationPage ?? []) as any}
+        quotationOptions={quotationPage ?? []}
         isPending={createMutation.isPending}
         submitLabel="Create Invoice"
         onSubmit={(values) => createMutation.mutate(values, { onSuccess: (invoice) => navigate(`/billing/invoices/${invoice.id}`) })}

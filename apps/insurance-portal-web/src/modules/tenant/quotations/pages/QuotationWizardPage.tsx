@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useFieldArray, useForm, useWatch } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -232,7 +232,9 @@ export function QuotationWizardPage() {
     [usesPrefilledQuotation],
   );
   const form = useForm<QuotationFormSchemaValues>({
-    resolver: zodResolver(quotationSchema as any) as any,
+    resolver: zodResolver(
+      quotationSchema as unknown as Parameters<typeof zodResolver>[0],
+    ) as unknown as Resolver<QuotationFormSchemaValues>,
     defaultValues: DEFAULT_VALUES,
   });
 

@@ -31,7 +31,6 @@ import type {
   QuotationPreviewRecord,
   RequestQuotationPremiumOverridePayload,
   QuotationSubmitResponse,
-  QuotationStatus,
   QuotationStatusTransitionAction,
   TransitionQuotationStatusPayload,
 } from './types';
