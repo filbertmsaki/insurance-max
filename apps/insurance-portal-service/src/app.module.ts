@@ -26,6 +26,12 @@ import {
   ServiceAuthModule,
 } from '@insurance-max/shared-kernel';
 
+import {
+  AuthorizationGuard,
+  GlobalJwtAuthGuard,
+  TenantBoundaryGuard,
+} from '@insurance-max/portal-shared';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import appConfig from './config/app.config';
@@ -95,6 +101,21 @@ import { TiramisModule } from './modules/tiramis/tiramis.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+
+    {
+      provide: APP_GUARD,
+      useClass: GlobalJwtAuthGuard,
+    },
+
+    {
+      provide: APP_GUARD,
+      useClass: AuthorizationGuard,
+    },
+
+    {
+      provide: APP_GUARD,
+      useClass: TenantBoundaryGuard,
     },
 
     {

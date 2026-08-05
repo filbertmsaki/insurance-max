@@ -7,13 +7,10 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
+import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import { RegulatoryPermissions } from './regulatory.permissions';
@@ -21,7 +18,7 @@ import { PremiumLevyReturnService } from './services/premium-levy-return.service
 import { RegulatoryCalendarService } from './services/regulatory-calendar.service';
 
 @Controller('tenant/regulatory')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class RegulatoryController {
   constructor(
     private readonly calendarService: RegulatoryCalendarService,
@@ -29,14 +26,12 @@ export class RegulatoryController {
   ) {}
 
   @Get('profile')
-  @UseGuards(PermissionsGuard)
   @Permissions(RegulatoryPermissions.PROFILE_READ)
   getProfile(@CurrentUser() user: AuthenticatedUser) {
     return this.calendarService.getProfile(user.companyId!);
   }
 
   @Patch('profile')
-  @UseGuards(PermissionsGuard)
   @Permissions(RegulatoryPermissions.PROFILE_UPDATE)
   updateProfile(
     @CurrentUser() user: AuthenticatedUser,
@@ -46,14 +41,12 @@ export class RegulatoryController {
   }
 
   @Get('calendar')
-  @UseGuards(PermissionsGuard)
   @Permissions(RegulatoryPermissions.CALENDAR_READ)
   listCalendar(@CurrentUser() user: AuthenticatedUser) {
     return this.calendarService.listCalendar(user.companyId!);
   }
 
   @Post('calendar/generate/:year')
-  @UseGuards(PermissionsGuard)
   @Permissions(RegulatoryPermissions.CALENDAR_MANAGE)
   generate(
     @CurrentUser() user: AuthenticatedUser,
@@ -63,14 +56,12 @@ export class RegulatoryController {
   }
 
   @Get('returns')
-  @UseGuards(PermissionsGuard)
   @Permissions(RegulatoryPermissions.RETURN_READ)
   listReturns(@CurrentUser() user: AuthenticatedUser) {
     return this.calendarService.listReturns(user.companyId!);
   }
 
   @Get('returns/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions(RegulatoryPermissions.RETURN_READ)
   getReturn(
     @CurrentUser() user: AuthenticatedUser,
@@ -80,7 +71,6 @@ export class RegulatoryController {
   }
 
   @Post('returns/:id/premium-levy/calculate')
-  @UseGuards(PermissionsGuard)
   @Permissions(RegulatoryPermissions.LEVY_CALCULATE)
   calculateLevy(
     @CurrentUser() user: AuthenticatedUser,
@@ -91,7 +81,6 @@ export class RegulatoryController {
   }
 
   @Post('premium-levy/:id/adjustments')
-  @UseGuards(PermissionsGuard)
   @Permissions(RegulatoryPermissions.LEVY_ADJUST)
   addLevyAdjustment(
     @CurrentUser() user: AuthenticatedUser,

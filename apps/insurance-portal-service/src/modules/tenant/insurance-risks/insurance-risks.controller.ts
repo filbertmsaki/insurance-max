@@ -8,29 +8,25 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
-} from '@nestjs/common';
+  } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { InsuranceRisksService } from './insurance-risks.service';
 import { CreateInsuranceRiskDto } from './dto/create-insurance-risk.dto';
 import { UpdateInsuranceRiskDto } from './dto/update-insurance-risk.dto';
 import { FilterInsuranceRiskDto } from './dto/filter-insurance-risk.dto';
+import { TenantScoped } from '@insurance-max/portal-shared';
 
 @ApiTags('Insurance Risks')
 @ApiBearerAuth()
 @Controller('insurance-risks')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class InsuranceRisksController {
   constructor(private readonly service: InsuranceRisksService) {}
 
   @Get()
-  @UseGuards(PermissionsGuard)
   @Permissions('insurance-risks:read')
   @ApiOperation({
     summary:
@@ -44,7 +40,6 @@ export class InsuranceRisksController {
   }
 
   @Post()
-  @UseGuards(PermissionsGuard)
   @Permissions('insurance-risks:create')
   @ApiOperation({ summary: 'Create a new insurance risk' })
   async create(
@@ -55,7 +50,6 @@ export class InsuranceRisksController {
   }
 
   @Get(':riskId/rating-requirements')
-  @UseGuards(PermissionsGuard)
   @Permissions('insurance-risks:read')
   @ApiOperation({
     summary:
@@ -69,7 +63,6 @@ export class InsuranceRisksController {
   }
 
   @Get(':riskId')
-  @UseGuards(PermissionsGuard)
   @Permissions('insurance-risks:read')
   @ApiOperation({ summary: 'Get an insurance risk by ID' })
   async findOne(
@@ -80,7 +73,6 @@ export class InsuranceRisksController {
   }
 
   @Patch(':riskId')
-  @UseGuards(PermissionsGuard)
   @Permissions('insurance-risks:update')
   @ApiOperation({ summary: 'Update an insurance risk' })
   async update(
@@ -92,7 +84,6 @@ export class InsuranceRisksController {
   }
 
   @Delete(':riskId')
-  @UseGuards(PermissionsGuard)
   @Permissions('insurance-risks:delete')
   @ApiOperation({ summary: 'Soft-delete an insurance risk' })
   async remove(

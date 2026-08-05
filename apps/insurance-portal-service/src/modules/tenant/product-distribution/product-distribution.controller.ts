@@ -9,14 +9,12 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { CompanyTypes } from '@insurance-max/portal-shared/decorators/company-types.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import { CompanyTypeGuard } from '@insurance-max/portal-shared/guards/company-type.guard';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
+import { TenantScoped } from '@insurance-max/portal-shared';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { CreateProductCommissionRuleDto } from './dto/create-product-commission-rule.dto';
@@ -28,12 +26,12 @@ import { ProductDistributionService } from './product-distribution.service';
 @ApiTags('Product Distribution')
 @ApiBearerAuth()
 @Controller('product-distribution')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class ProductDistributionController {
   constructor(private readonly service: ProductDistributionService) {}
 
   @Post('channels')
-  @UseGuards(PermissionsGuard, CompanyTypeGuard)
+  @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:create')
   @ApiOperation({ summary: 'Create a product distribution channel' })
@@ -45,7 +43,7 @@ export class ProductDistributionController {
   }
 
   @Get('channels')
-  @UseGuards(PermissionsGuard, CompanyTypeGuard)
+  @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:read')
   @ApiOperation({
@@ -56,7 +54,6 @@ export class ProductDistributionController {
   }
 
   @Get('channels/my')
-  @UseGuards(PermissionsGuard)
   @Permissions('product-distribution:read')
   @ApiOperation({
     summary: 'List distribution channels for the current intermediary company',
@@ -66,7 +63,7 @@ export class ProductDistributionController {
   }
 
   @Delete('channels/:id')
-  @UseGuards(PermissionsGuard, CompanyTypeGuard)
+  @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:delete')
   @ApiOperation({ summary: 'Delete a distribution channel' })
@@ -78,7 +75,7 @@ export class ProductDistributionController {
   }
 
   @Patch('channels/:id/restore')
-  @UseGuards(PermissionsGuard, CompanyTypeGuard)
+  @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:update')
   @ApiOperation({ summary: 'Restore a soft-deleted distribution channel' })
@@ -90,7 +87,7 @@ export class ProductDistributionController {
   }
 
   @Post('commission-rules')
-  @UseGuards(PermissionsGuard, CompanyTypeGuard)
+  @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:create')
   @ApiOperation({ summary: 'Create a product commission rule' })
@@ -102,7 +99,7 @@ export class ProductDistributionController {
   }
 
   @Get('commission-rules')
-  @UseGuards(PermissionsGuard, CompanyTypeGuard)
+  @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:read')
   @ApiOperation({ summary: 'List commission rules for the insurer company' })
@@ -111,7 +108,7 @@ export class ProductDistributionController {
   }
 
   @Delete('commission-rules/:id')
-  @UseGuards(PermissionsGuard, CompanyTypeGuard)
+  @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:delete')
   @ApiOperation({ summary: 'Delete a product commission rule' })
@@ -123,7 +120,7 @@ export class ProductDistributionController {
   }
 
   @Patch('commission-rules/:id/restore')
-  @UseGuards(PermissionsGuard, CompanyTypeGuard)
+  @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:update')
   @ApiOperation({ summary: 'Restore a soft-deleted commission rule' })
@@ -135,7 +132,7 @@ export class ProductDistributionController {
   }
 
   @Post('tax-rules')
-  @UseGuards(PermissionsGuard, CompanyTypeGuard)
+  @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:create')
   @ApiOperation({ summary: 'Create a product tax rule' })
@@ -147,7 +144,7 @@ export class ProductDistributionController {
   }
 
   @Get('tax-rules')
-  @UseGuards(PermissionsGuard, CompanyTypeGuard)
+  @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:read')
   @ApiOperation({ summary: 'List tax rules for the insurer company' })
@@ -156,7 +153,7 @@ export class ProductDistributionController {
   }
 
   @Delete('tax-rules/:id')
-  @UseGuards(PermissionsGuard, CompanyTypeGuard)
+  @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:delete')
   @ApiOperation({ summary: 'Delete a product tax rule' })
@@ -168,7 +165,7 @@ export class ProductDistributionController {
   }
 
   @Patch('tax-rules/:id/restore')
-  @UseGuards(PermissionsGuard, CompanyTypeGuard)
+  @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:update')
   @ApiOperation({ summary: 'Restore a soft-deleted tax rule' })
@@ -180,7 +177,7 @@ export class ProductDistributionController {
   }
 
   @Post('document-requirements')
-  @UseGuards(PermissionsGuard, CompanyTypeGuard)
+  @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:create')
   @ApiOperation({ summary: 'Create a product document requirement' })
@@ -192,7 +189,7 @@ export class ProductDistributionController {
   }
 
   @Get('document-requirements')
-  @UseGuards(PermissionsGuard, CompanyTypeGuard)
+  @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:read')
   @ApiOperation({
@@ -203,7 +200,7 @@ export class ProductDistributionController {
   }
 
   @Delete('document-requirements/:id')
-  @UseGuards(PermissionsGuard, CompanyTypeGuard)
+  @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:delete')
   @ApiOperation({ summary: 'Delete a product document requirement' })
@@ -215,7 +212,7 @@ export class ProductDistributionController {
   }
 
   @Patch('document-requirements/:id/restore')
-  @UseGuards(PermissionsGuard, CompanyTypeGuard)
+  @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)
   @Permissions('product-distribution:update')
   @ApiOperation({ summary: 'Restore a soft-deleted document requirement' })

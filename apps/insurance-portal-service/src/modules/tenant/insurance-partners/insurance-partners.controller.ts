@@ -8,12 +8,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import { CompanyTypes } from '@insurance-max/portal-shared/decorators/company-types.decorator';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
+import { TenantScoped } from '@insurance-max/portal-shared';
 import { CompanyTypeGuard } from '@insurance-max/portal-shared/guards/company-type.guard';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
@@ -24,7 +22,8 @@ import { InsurancePartnersService } from './insurance-partners.service';
 @ApiTags('Insurance Partners')
 @ApiBearerAuth()
 @Controller('insurance-partners')
-@UseGuards(AuthGuard('jwt'), TenantGuard, PermissionsGuard, CompanyTypeGuard)
+@TenantScoped()
+@UseGuards(CompanyTypeGuard)
 @CompanyTypes(CompanyType.INSURANCE_COMPANY)
 export class InsurancePartnersController {
   constructor(private readonly service: InsurancePartnersService) {}

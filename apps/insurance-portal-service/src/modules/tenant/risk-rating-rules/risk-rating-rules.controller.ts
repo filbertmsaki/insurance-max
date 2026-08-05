@@ -8,14 +8,11 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
+import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { RiskRatingRulesService } from './risk-rating-rules.service';
 import { CreateRiskRatingRuleDto } from './dto/create-risk-rating-rule.dto';
@@ -25,12 +22,11 @@ import { FilterRiskRatingRuleDto } from './dto/filter-risk-rating-rule.dto';
 @ApiTags('Risk Rating Rules')
 @ApiBearerAuth()
 @Controller('risk-rating-rules')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class RiskRatingRulesController {
   constructor(private readonly service: RiskRatingRulesService) {}
 
   @Get()
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rules')
   @ApiOperation({
     summary: 'List all rating rules (filter by risk_id, rate_type, is_active)',
@@ -43,7 +39,6 @@ export class RiskRatingRulesController {
   }
 
   @Post()
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'Create a new rating rule for a risk' })
   @ApiBody({
@@ -117,7 +112,6 @@ export class RiskRatingRulesController {
   }
 
   @Get(':ruleId')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'Get a rating rule with its conditions' })
   async findOne(
@@ -128,7 +122,6 @@ export class RiskRatingRulesController {
   }
 
   @Patch(':ruleId')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'Update a rating rule' })
   async update(
@@ -140,7 +133,6 @@ export class RiskRatingRulesController {
   }
 
   @Delete(':ruleId')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'Soft-delete a rating rule' })
   async remove(

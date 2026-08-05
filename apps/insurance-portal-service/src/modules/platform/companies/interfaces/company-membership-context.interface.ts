@@ -16,6 +16,7 @@ export interface CompanySummary {
   defaultSalePointCode?: string | null;
   defaultSalePointName?: string | null;
   assignedBranchIds?: string[];
+  authorizationVersion: number;
 }
 
 export interface CompanyMembershipContext extends CompanySummary {

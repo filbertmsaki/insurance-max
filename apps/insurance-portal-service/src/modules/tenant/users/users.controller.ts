@@ -6,7 +6,6 @@ import {
   Patch,
   Param,
   Delete,
-  UseGuards,
   Req,
   Query,
 } from '@nestjs/common';
@@ -21,10 +20,6 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { UpdateUserDto } from './dtos/update-user.dto';
 
-import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from '@insurance-max/portal-shared/guards/roles.guard';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import type { Request as ExpressRequest } from 'express';
 
@@ -34,11 +29,13 @@ import { TwoFaService } from '../../shared/auth/2fa/2fa.service';
 import { Verify2FaDto } from '../../shared/auth/2fa/dto/verify-2fa.dto';
 import { ChangePasswordDto } from './dtos/change-password.dto';
 import { PaginationDto } from '@insurance-max/portal-shared/dto/pagination.dto';
+import { TenantScoped } from '@insurance-max/portal-shared';
+import { AuthenticatedAccess } from '@insurance-max/portal-shared/decorators/authorization.decorator';
 
 @ApiTags('Users')
 @ApiBearerAuth('access-token')
 @Controller('users')
-@UseGuards(AuthGuard('jwt'))
+@TenantScoped()
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
@@ -53,6 +50,7 @@ export class UsersController {
   }
 
   @Patch('me')
+  @AuthenticatedAccess()
   @ApiOperation({ summary: 'Update current authenticated user profile' })
   @ApiResponse({ status: 200, description: 'Profile updated successfully' })
   async updateMe(
@@ -63,6 +61,7 @@ export class UsersController {
   }
 
   @Post('me/change-password')
+  @AuthenticatedAccess()
   @ApiOperation({ summary: 'Change current user password' })
   @ApiResponse({ status: 200, description: 'Password changed successfully' })
   @ApiResponse({ status: 401, description: 'Current password incorrect' })
@@ -78,7 +77,6 @@ export class UsersController {
   }
 
   @Post()
-  @UseGuards(TenantGuard, RolesGuard, PermissionsGuard)
   @Permissions('users:create')
   @ApiOperation({ summary: 'Create a new user' })
   @ApiResponse({ status: 201, description: 'User created successfully' })
@@ -97,7 +95,6 @@ export class UsersController {
   }
 
   @Get()
-  @UseGuards(TenantGuard, PermissionsGuard)
   @Permissions('users:read')
   @ApiOperation({ summary: 'Get all users' })
   async findAll(
@@ -111,7 +108,6 @@ export class UsersController {
   }
 
   @Get(':id')
-  @UseGuards(TenantGuard, PermissionsGuard)
   @Permissions('users:read')
   @ApiOperation({ summary: 'Get user by ID' })
   findOne(
@@ -122,7 +118,6 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @UseGuards(TenantGuard, PermissionsGuard)
   @Permissions('users:update')
   @ApiOperation({ summary: 'Update user information' })
   update(
@@ -138,7 +133,6 @@ export class UsersController {
   }
 
   @Delete(':id')
-  @UseGuards(TenantGuard, RolesGuard, PermissionsGuard)
   @Roles('ADMINISTRATOR')
   @Permissions('users:delete')
   @ApiOperation({ summary: 'Delete a user (company administrator only)' })
@@ -146,11 +140,14 @@ export class UsersController {
     @Req() req: ExpressRequest & { user: AuthenticatedUser },
     @Param('id') id: string,
   ) {
-    return this.usersService.removeFromCompany(req.user.companyId!, id);
+    return this.usersService.removeFromCompany(
+      req.user.companyId!,
+      id,
+      req.user,
+    );
   }
 
   @Post(':userId/roles/:roleId')
-  @UseGuards(TenantGuard, RolesGuard, PermissionsGuard)
   @Roles('ADMINISTRATOR')
   @Permissions('users:assign-role')
   @ApiOperation({
@@ -165,11 +162,11 @@ export class UsersController {
       req.user.companyId!,
       userId,
       roleId,
+      req.user,
     );
   }
 
   @Delete(':userId/roles/:roleId')
-  @UseGuards(TenantGuard, RolesGuard, PermissionsGuard)
   @Roles('ADMINISTRATOR')
   @Permissions('users:revoke-role')
   @ApiOperation({
@@ -184,15 +181,18 @@ export class UsersController {
       req.user.companyId!,
       userId,
       roleId,
+      req.user,
     );
   }
 
   @Post('2fa/setup')
+  @AuthenticatedAccess()
   async setup2FA(@Req() req: ExpressRequest & { user: AuthenticatedUser }) {
     return this.twoFaService.generate2FASetup(req.user.id);
   }
 
   @Post('2fa/verify')
+  @AuthenticatedAccess()
   async verify2FA(
     @Req() req: ExpressRequest & { user: AuthenticatedUser },
     @Body() dto: Verify2FaDto,
@@ -201,6 +201,7 @@ export class UsersController {
   }
 
   @Post('2fa/disable')
+  @AuthenticatedAccess()
   async disable2FA(
     @Req() req: ExpressRequest & { user: AuthenticatedUser },
     @Body() dto: Verify2FaDto,
@@ -209,6 +210,7 @@ export class UsersController {
   }
 
   @Post('2fa/backup-codes/regenerate')
+  @AuthenticatedAccess()
   async regenerateBackupCodes(
     @Req() req: ExpressRequest & { user: AuthenticatedUser },
     @Body() dto: Verify2FaDto,

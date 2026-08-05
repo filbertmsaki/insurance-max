@@ -1,3 +1,4 @@
+export * from './authorization';
 export * from './dto';
 export * from './interfaces';
 export * from './events';

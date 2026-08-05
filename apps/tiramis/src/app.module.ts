@@ -25,6 +25,8 @@ import tiramisAppConfig from './config/app.config';
 import databaseConfig from './config/database.config';
 import { tiramisEnvValidationSchema } from './config/env.validation';
 import transportConfig from './config/transport.config';
+import { TiramisAccessAuditEntity } from './modules/audit/entities/tiramis-access-audit.entity';
+import { TiramisAuditModule } from './modules/audit/tiramis-audit.module';
 import { TiramisClientConfigurationEntity } from './modules/config/entities/tiramis-client-configuration.entity';
 import { TiramisResponseCodeEntity } from './modules/config/entities/tiramis-response-code.entity';
 import { TiramisServiceEndpointEntity } from './modules/config/entities/tiramis-service-endpoint.entity';
@@ -113,12 +115,14 @@ import { TiramisResponseInterceptor } from './common/interceptors/tiramis-respon
               TiramisClaimantEntity,
               TiramisVerificationRequestEntity,
               TiramisVerificationResponseEntity,
+              TiramisAccessAuditEntity,
             ],
           },
         ),
     }),
     TiramisModule,
     TiramisInternalModule,
+    TiramisAuditModule,
     HealthModule,
   ],
   controllers: [AppController],

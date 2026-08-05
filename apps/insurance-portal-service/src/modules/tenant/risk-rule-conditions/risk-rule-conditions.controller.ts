@@ -7,14 +7,11 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
+import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { RiskRuleConditionsService } from './risk-rule-conditions.service';
 import { CreateRiskRuleConditionDto } from './dto/create-risk-rule-condition.dto';
@@ -23,12 +20,11 @@ import { UpdateRiskRuleConditionDto } from './dto/update-risk-rule-condition.dto
 @ApiTags('Risk Rule Conditions')
 @ApiBearerAuth()
 @Controller('risk-rule-conditions')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class RiskRuleConditionsController {
   constructor(private readonly service: RiskRuleConditionsService) {}
 
   @Get('by-rule/:ruleId')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'List all conditions for a rating rule' })
   async findByRule(
@@ -39,7 +35,6 @@ export class RiskRuleConditionsController {
   }
 
   @Post()
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'Add a condition to a rating rule' })
   async create(
@@ -50,7 +45,6 @@ export class RiskRuleConditionsController {
   }
 
   @Get(':conditionId')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'Get a rule condition by ID' })
   async findOne(
@@ -61,7 +55,6 @@ export class RiskRuleConditionsController {
   }
 
   @Patch(':conditionId')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'Update a rule condition' })
   async update(
@@ -73,7 +66,6 @@ export class RiskRuleConditionsController {
   }
 
   @Delete(':conditionId')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rules')
   @ApiOperation({ summary: 'Delete a rule condition' })
   async remove(

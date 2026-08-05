@@ -12,10 +12,14 @@ import { AuthGuard } from '@nestjs/passport';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request as ExpressRequest } from 'express';
+import { DataSource } from 'typeorm';
+import type { AuthorizationContext } from '@insurance-max/contracts';
 import { AuthService } from './auth.service';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Public } from '@insurance-max/portal-shared/decorators/public.decorator';
+import { AuthenticatedAccess } from '@insurance-max/portal-shared/decorators/authorization.decorator';
+import { DataAccessScopeService } from '../authorization/data-access-scope.service';
 import { RegisterDto } from './dtos/register.dto';
 import { LoginDto } from './dtos/login.dto';
 import { RefreshTokenDto } from './dtos/refresh-token.dto';
@@ -33,7 +37,82 @@ import { RequestPasswordlessLinkDto } from './dtos/passwordless-login.dto';
 @ApiTags('auth')
 @Controller({ path: 'auth', version: '1' })
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly dataAccessScopeService: DataAccessScopeService,
+    private readonly dataSource: DataSource,
+  ) {}
+
+  // ── Authorization context ────────────────────────────────────────────────────
+
+  @Get('authorization-context')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth('access-token')
+  @SkipThrottle()
+  @ApiOperation({
+    summary: 'Return the caller\'s current authorization context',
+  })
+  async getAuthorizationContext(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<AuthorizationContext> {
+    let authorizationVersion = 0;
+
+    try {
+      const table =
+        user.scope === 'company' && user.companyMembershipId
+          ? 'company_users'
+          : 'users';
+
+      const idColumn = table === 'company_users' ? user.companyMembershipId : user.id;
+
+      const [row] = await this.dataSource.query(
+        `SELECT "authorization_version" FROM "${table}" WHERE "id" = $1`,
+        [idColumn],
+      );
+
+      authorizationVersion = row?.authorization_version ?? 0;
+    } catch {
+      authorizationVersion = 0;
+    }
+
+    const dataScope =
+      user.scope === 'company' && user.companyId && user.companyMembershipId
+        ? (() => {
+            const scope = this.dataAccessScopeService.resolve(user);
+
+            return {
+              companyAll: scope.canViewAllBranches,
+              assignedBranches: scope.canViewAssignedBranches,
+              ownRecordsOnly: scope.ownRecordsOnly,
+              partnerPortfolio:
+                scope.canViewCarrierPortfolio ||
+                scope.canViewIntermediaryPortfolio,
+              activeBranchId: scope.activeBranchId,
+              assignedBranchIds: scope.assignedBranchIds,
+              allowedBranchIds: scope.allowedBranchIds,
+            };
+          })()
+        : null;
+
+    return {
+      userId: user.id,
+      sessionId: user.sessionId,
+
+      scope: user.scope,
+      authorizationVersion,
+
+      companyId: user.companyId ?? null,
+      companyMembershipId: user.companyMembershipId ?? null,
+
+      activeBranchId: user.activeBranchId ?? null,
+      assignedBranchIds: user.assignedBranchIds ?? [],
+
+      roles: user.roles ?? [],
+      permissions: user.permissions ?? [],
+
+      dataScope,
+    };
+  }
 
   // ── Registration & Email login ──────────────────────────────────────────────
 
@@ -169,6 +248,7 @@ export class AuthController {
 
   @Post('logout')
   @UseGuards(AuthGuard('jwt'))
+  @AuthenticatedAccess()
   @ApiBearerAuth('access-token')
   @SkipThrottle()
   @ApiOperation({ summary: 'Logout — blacklists tokens' })
@@ -185,6 +265,7 @@ export class AuthController {
 
   @Post('switch-company')
   @UseGuards(AuthGuard('jwt'))
+  @AuthenticatedAccess()
   @ApiBearerAuth('access-token')
   @SkipThrottle()
   @ApiOperation({ summary: 'Switch active company context' })

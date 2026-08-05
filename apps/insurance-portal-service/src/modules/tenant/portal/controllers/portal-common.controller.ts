@@ -27,6 +27,7 @@ import type { Response } from 'express';
 import { memoryStorage } from 'multer';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
+import { AuthenticatedAccess } from '@insurance-max/portal-shared/decorators/authorization.decorator';
 import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { RawResponse } from '@insurance-max/shared-kernel';
@@ -87,6 +88,7 @@ export class PortalCommonController {
   }
 
   @Post('requests/policy')
+  @AuthenticatedAccess()
   @ApiOperation({
     summary: 'Submit an endorsement, cancellation, or renewal request',
   })
@@ -99,6 +101,7 @@ export class PortalCommonController {
   }
 
   @Post('requests/claims')
+  @AuthenticatedAccess()
   @ApiOperation({ summary: 'Submit a claim notification' })
   createClaim(
     @CurrentPortalAccount() account: PortalAccount,
@@ -109,6 +112,7 @@ export class PortalCommonController {
   }
 
   @Post('requests/quotation-assistance')
+  @AuthenticatedAccess()
   @ApiOperation({ summary: 'Request assistance with a quotation' })
   createQuotationAssistance(
     @CurrentPortalAccount() account: PortalAccount,
@@ -123,6 +127,7 @@ export class PortalCommonController {
   }
 
   @Post('requests/payment-proofs')
+  @AuthenticatedAccess()
   @ApiOperation({
     summary: 'Submit manual payment information for finance review',
   })
@@ -153,6 +158,7 @@ export class PortalCommonController {
   }
 
   @Post('requests/:id/cancel')
+  @AuthenticatedAccess()
   @ApiOperation({ summary: 'Cancel an eligible portal request' })
   cancel(
     @CurrentPortalAccount() account: PortalAccount,
@@ -163,6 +169,7 @@ export class PortalCommonController {
   }
 
   @Post('requests/:id/resubmit')
+  @AuthenticatedAccess()
   @ApiOperation({
     summary: 'Resubmit a request after supplying additional information',
   })
@@ -175,6 +182,7 @@ export class PortalCommonController {
   }
 
   @Post('requests/:id/attachments')
+  @AuthenticatedAccess()
   @ApiOperation({ summary: 'Upload a supporting document to a portal request' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -255,6 +263,7 @@ export class PortalCommonController {
   }
 
   @Post('notifications/:id/read')
+  @AuthenticatedAccess()
   @ApiOperation({ summary: 'Mark a portal notification as read' })
   markRead(
     @CurrentUser() user: AuthenticatedUser,

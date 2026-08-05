@@ -8,29 +8,25 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
-} from '@nestjs/common';
+  } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { InsuranceCategoriesService } from './insurance-categories.service';
 import { CreateInsuranceCategoryDto } from './dto/create-insurance-category.dto';
 import { UpdateInsuranceCategoryDto } from './dto/update-insurance-category.dto';
 import { FilterInsuranceCategoryDto } from './dto/filter-insurance-category.dto';
+import { TenantScoped } from '@insurance-max/portal-shared';
 
 @ApiTags('Insurance Categories')
 @ApiBearerAuth()
 @Controller('insurance-categories')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class InsuranceCategoriesController {
   constructor(private readonly service: InsuranceCategoriesService) {}
 
   @Get()
-  @UseGuards(PermissionsGuard)
   @Permissions('insurance-categories:read')
   @ApiOperation({
     summary: 'List all insurance categories for the current company',
@@ -43,7 +39,6 @@ export class InsuranceCategoriesController {
   }
 
   @Post()
-  @UseGuards(PermissionsGuard)
   @Permissions('insurance-categories:create')
   @ApiOperation({ summary: 'Create a new insurance category' })
   async create(
@@ -54,7 +49,6 @@ export class InsuranceCategoriesController {
   }
 
   @Get(':categoryId')
-  @UseGuards(PermissionsGuard)
   @Permissions('insurance-categories:read')
   @ApiOperation({ summary: 'Get an insurance category by ID' })
   async findOne(
@@ -65,7 +59,6 @@ export class InsuranceCategoriesController {
   }
 
   @Patch(':categoryId')
-  @UseGuards(PermissionsGuard)
   @Permissions('insurance-categories:update')
   @ApiOperation({ summary: 'Update an insurance category' })
   async update(
@@ -77,7 +70,6 @@ export class InsuranceCategoriesController {
   }
 
   @Delete(':categoryId')
-  @UseGuards(PermissionsGuard)
   @Permissions('insurance-categories:delete')
   @ApiOperation({ summary: 'Soft-delete an insurance category' })
   async remove(

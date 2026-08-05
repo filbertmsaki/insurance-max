@@ -8,14 +8,11 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
+import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { ClonePricingRateBookDto } from './dto/clone-pricing-rate-book.dto';
 import { CreatePricingRateBookDto } from './dto/create-pricing-rate-book.dto';
@@ -26,12 +23,11 @@ import { PricingRateBooksService } from './pricing-rate-books.service';
 @ApiTags('Pricing Rate Books')
 @ApiBearerAuth()
 @Controller('pricing-rate-books')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class PricingRateBooksController {
   constructor(private readonly service: PricingRateBooksService) {}
 
   @Get()
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rate_books')
   @ApiOperation({ summary: 'List pricing rate books' })
   async findAll(
@@ -42,7 +38,6 @@ export class PricingRateBooksController {
   }
 
   @Post()
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rate_books')
   @ApiOperation({ summary: 'Create a draft pricing rate book' })
   async create(
@@ -53,7 +48,6 @@ export class PricingRateBooksController {
   }
 
   @Post('clone')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rate_books')
   @ApiOperation({
     summary: 'Clone an existing pricing rate book into a new draft version',
@@ -66,7 +60,6 @@ export class PricingRateBooksController {
   }
 
   @Get(':rateBookId')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rate_books')
   @ApiOperation({
     summary: 'Get a pricing rate book with rules and conditions',
@@ -79,7 +72,6 @@ export class PricingRateBooksController {
   }
 
   @Patch(':rateBookId')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rate_books')
   @ApiOperation({ summary: 'Update an editable pricing rate book' })
   async update(
@@ -91,7 +83,6 @@ export class PricingRateBooksController {
   }
 
   @Post(':rateBookId/submit-review')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.publish_rate_books')
   @ApiOperation({ summary: 'Submit a pricing rate book for review' })
   async submitForReview(
@@ -102,7 +93,6 @@ export class PricingRateBooksController {
   }
 
   @Post(':rateBookId/approve')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.publish_rate_books')
   @ApiOperation({ summary: 'Approve a pricing rate book' })
   async approve(
@@ -113,7 +103,6 @@ export class PricingRateBooksController {
   }
 
   @Post(':rateBookId/reject')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.publish_rate_books')
   @ApiOperation({ summary: 'Reject a pricing rate book' })
   async reject(
@@ -124,7 +113,6 @@ export class PricingRateBooksController {
   }
 
   @Post(':rateBookId/publish')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.publish_rate_books')
   @ApiOperation({ summary: 'Publish an approved pricing rate book' })
   async publish(
@@ -135,7 +123,6 @@ export class PricingRateBooksController {
   }
 
   @Post(':rateBookId/retire')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.publish_rate_books')
   @ApiOperation({ summary: 'Retire a published pricing rate book' })
   async retire(
@@ -146,7 +133,6 @@ export class PricingRateBooksController {
   }
 
   @Delete(':rateBookId')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.manage_rate_books')
   @ApiOperation({ summary: 'Soft-delete an editable pricing rate book' })
   async remove(

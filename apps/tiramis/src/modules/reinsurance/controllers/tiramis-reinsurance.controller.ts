@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBody,
   ApiConsumes,
@@ -9,13 +17,14 @@ import {
 
 import { ServiceScopes } from '@insurance-max/shared-kernel';
 
+import { TiramisTenantContextGuard } from '../../../common/guards/tiramis-tenant-context.guard';
 import { CreateReinsuranceDto } from '../dto/create-reinsurance.dto';
 import { TiramisReinsuranceService } from '../services/tiramis-reinsurance.service';
 
 @ApiTags('Tiramis Reinsurance')
 @ApiConsumes('application/json')
 @Controller('tiramis/reinsurance')
-@ServiceScopes('tiramis:invoke')
+@UseGuards(TiramisTenantContextGuard)
 export class TiramisReinsuranceController {
   constructor(
     private readonly tiramisReinsuranceService: TiramisReinsuranceService,
@@ -23,6 +32,7 @@ export class TiramisReinsuranceController {
 
   @ApiOperation({ summary: 'Create a reinsurance draft' })
   @ApiBody({ type: CreateReinsuranceDto })
+  @ServiceScopes('tiramis:prepare')
   @Post('draft')
   createDraft(@Body() dto: CreateReinsuranceDto) {
     return this.tiramisReinsuranceService.createDraft(dto);
@@ -39,6 +49,7 @@ export class TiramisReinsuranceController {
     description:
       'Set to false to preview XML without MsgSignature. Default is true.',
   })
+  @ServiceScopes('tiramis:prepare')
   @Post('preview/xml')
   previewXml(
     @Body() dto: CreateReinsuranceDto,
@@ -49,16 +60,19 @@ export class TiramisReinsuranceController {
 
   @ApiOperation({ summary: 'Submit reinsurance to TIRA' })
   @ApiBody({ type: CreateReinsuranceDto })
+  @ServiceScopes('tiramis:submit')
   @Post('submit')
   submit(@Body() dto: CreateReinsuranceDto) {
     return this.tiramisReinsuranceService.submit(dto);
   }
 
+  @ServiceScopes('tiramis:read')
   @Get('request/:requestId')
   findByRequestId(@Param('requestId') requestId: string) {
     return this.tiramisReinsuranceService.findByRequestId(requestId);
   }
 
+  @ServiceScopes('tiramis:read')
   @Get('cover-note/:coverNoteReferenceNumber')
   findByCoverNoteReferenceNumber(
     @Param('coverNoteReferenceNumber') coverNoteReferenceNumber: string,
@@ -68,6 +82,7 @@ export class TiramisReinsuranceController {
     );
   }
 
+  @ServiceScopes('tiramis:read')
   @Get(':id')
   findById(@Param('id') id: string) {
     return this.tiramisReinsuranceService.findById(id);

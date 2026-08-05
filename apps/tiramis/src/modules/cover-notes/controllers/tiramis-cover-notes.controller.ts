@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBody,
   ApiConsumes,
@@ -9,13 +17,14 @@ import {
 
 import { ServiceScopes } from '@insurance-max/shared-kernel';
 
+import { TiramisTenantContextGuard } from '../../../common/guards/tiramis-tenant-context.guard';
 import { CreateCoverNoteDto } from '../dto/create-cover-note.dto';
 import { TiramisCoverNoteService } from '../services/tiramis-cover-note.service';
 
 @ApiTags('Tiramis Non-Motor Cover Notes')
 @ApiConsumes('application/json')
 @Controller('tiramis/non-motor/cover-notes')
-@ServiceScopes('tiramis:invoke')
+@UseGuards(TiramisTenantContextGuard)
 export class TiramisCoverNotesController {
   constructor(
     private readonly tiramisCoverNoteService: TiramisCoverNoteService,
@@ -23,6 +32,7 @@ export class TiramisCoverNotesController {
 
   @ApiOperation({ summary: 'Create a non-motor cover note draft' })
   @ApiBody({ type: CreateCoverNoteDto })
+  @ServiceScopes('tiramis:prepare')
   @Post('draft')
   createDraft(@Body() dto: CreateCoverNoteDto) {
     return this.tiramisCoverNoteService.createDraft(dto);
@@ -39,6 +49,7 @@ export class TiramisCoverNotesController {
     description:
       'Set to false to preview XML without generating MsgSignature. Default is true.',
   })
+  @ServiceScopes('tiramis:prepare')
   @Post('preview/xml')
   previewXml(
     @Body() dto: CreateCoverNoteDto,
@@ -49,16 +60,19 @@ export class TiramisCoverNotesController {
 
   @ApiOperation({ summary: 'Submit a non-motor cover note' })
   @ApiBody({ type: CreateCoverNoteDto })
+  @ServiceScopes('tiramis:submit')
   @Post('submit')
   submit(@Body() dto: CreateCoverNoteDto) {
     return this.tiramisCoverNoteService.submit(dto);
   }
 
+  @ServiceScopes('tiramis:read')
   @Get(':id')
   findById(@Param('id') id: string) {
     return this.tiramisCoverNoteService.findById(id);
   }
 
+  @ServiceScopes('tiramis:read')
   @Get('request/:requestId')
   findByRequestId(@Param('requestId') requestId: string) {
     return this.tiramisCoverNoteService.findByRequestId(requestId);

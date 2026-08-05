@@ -8,14 +8,10 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+  } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { CreateMotorFleetDto } from './dto/create-motor-fleet.dto';
 import { CreateMotorFleetItemDto } from './dto/create-motor-fleet-item.dto';
@@ -27,16 +23,16 @@ import { UpdateMotorFleetItemDto } from './dto/update-motor-fleet-item.dto';
 import { UpdateMotorPolicyDetailDto } from './dto/update-motor-policy-detail.dto';
 import { UpdateMotorVehicleDto } from './dto/update-motor-vehicle.dto';
 import { MotorService } from './motor.service';
+import { TenantScoped } from '@insurance-max/portal-shared';
 
 @ApiTags('motor')
 @ApiBearerAuth()
 @Controller('tenant/motor')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class MotorController {
   constructor(private readonly motorService: MotorService) {}
 
   @Get('vehicles')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:read')
   @ApiOperation({ summary: 'List motor vehicles for the current company' })
   listVehicles(
@@ -47,7 +43,6 @@ export class MotorController {
   }
 
   @Post('vehicles')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:create')
   @ApiOperation({ summary: 'Create a motor vehicle' })
   createVehicle(
@@ -58,7 +53,6 @@ export class MotorController {
   }
 
   @Get('vehicles/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:read')
   @ApiOperation({ summary: 'Get a motor vehicle by ID' })
   findVehicle(
@@ -69,7 +63,6 @@ export class MotorController {
   }
 
   @Patch('vehicles/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:update')
   @ApiOperation({ summary: 'Update a motor vehicle' })
   updateVehicle(
@@ -81,7 +74,6 @@ export class MotorController {
   }
 
   @Delete('vehicles/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:delete')
   @ApiOperation({ summary: 'Soft-delete a motor vehicle' })
   async removeVehicle(
@@ -93,7 +85,6 @@ export class MotorController {
   }
 
   @Get('fleets')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:read')
   @ApiOperation({ summary: 'List motor fleets for the current company' })
   listFleets(
@@ -104,7 +95,6 @@ export class MotorController {
   }
 
   @Post('fleets')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:create')
   @ApiOperation({ summary: 'Create a motor fleet' })
   createFleet(
@@ -115,7 +105,6 @@ export class MotorController {
   }
 
   @Get('fleets/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:read')
   @ApiOperation({ summary: 'Get a motor fleet by ID' })
   findFleet(
@@ -126,7 +115,6 @@ export class MotorController {
   }
 
   @Patch('fleets/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:update')
   @ApiOperation({ summary: 'Update a motor fleet' })
   updateFleet(
@@ -138,7 +126,6 @@ export class MotorController {
   }
 
   @Delete('fleets/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:delete')
   @ApiOperation({ summary: 'Soft-delete a motor fleet' })
   async removeFleet(
@@ -150,7 +137,6 @@ export class MotorController {
   }
 
   @Get('fleets/:fleetId/items')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:read')
   @ApiOperation({ summary: 'List items in a motor fleet' })
   listFleetItems(
@@ -161,7 +147,6 @@ export class MotorController {
   }
 
   @Post('fleets/:fleetId/items')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:create')
   @ApiOperation({ summary: 'Add a vehicle item to a motor fleet' })
   createFleetItem(
@@ -173,7 +158,6 @@ export class MotorController {
   }
 
   @Get('fleets/:fleetId/items/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:read')
   @ApiOperation({ summary: 'Get a motor fleet item by ID' })
   findFleetItem(
@@ -185,7 +169,6 @@ export class MotorController {
   }
 
   @Patch('fleets/:fleetId/items/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:update')
   @ApiOperation({ summary: 'Update a motor fleet item' })
   updateFleetItem(
@@ -198,7 +181,6 @@ export class MotorController {
   }
 
   @Delete('fleets/:fleetId/items/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:delete')
   @ApiOperation({ summary: 'Remove a motor fleet item' })
   async removeFleetItem(
@@ -211,7 +193,6 @@ export class MotorController {
   }
 
   @Get('policy-details')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:read')
   @ApiOperation({ summary: 'List motor policy details' })
   listPolicyDetails(
@@ -222,7 +203,6 @@ export class MotorController {
   }
 
   @Post('policy-details')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:create')
   @ApiOperation({ summary: 'Create a motor policy detail' })
   createPolicyDetail(
@@ -233,7 +213,6 @@ export class MotorController {
   }
 
   @Get('policy-details/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:read')
   @ApiOperation({ summary: 'Get a motor policy detail by ID' })
   findPolicyDetail(
@@ -244,7 +223,6 @@ export class MotorController {
   }
 
   @Patch('policy-details/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:update')
   @ApiOperation({ summary: 'Update a motor policy detail' })
   updatePolicyDetail(
@@ -256,7 +234,6 @@ export class MotorController {
   }
 
   @Delete('policy-details/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:delete')
   @ApiOperation({ summary: 'Delete a motor policy detail' })
   async removePolicyDetail(
@@ -268,7 +245,6 @@ export class MotorController {
   }
 
   @Patch('policy-details/:id/restore')
-  @UseGuards(PermissionsGuard)
   @Permissions('motor:update')
   @ApiOperation({ summary: 'Restore a soft-deleted motor policy detail' })
   async restorePolicyDetail(

@@ -36,6 +36,9 @@ export class CompanyUser {
   @Column({ type: 'timestamp', nullable: true })
   last_accessed_at: Date | null;
 
+  @Column({ type: 'integer', default: 1 })
+  authorization_version: number;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 

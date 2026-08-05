@@ -103,6 +103,9 @@ export class User {
   @DeleteDateColumn({ type: 'timestamp', nullable: true })
   deleted_at: Date | null;
 
+  @Column({ type: 'integer', default: 1 })
+  authorization_version: number;
+
   // ── Relations ───────────────────────────────────────────────────────────────
 
   @ManyToMany(() => Role, (role) => role.users)

@@ -1,10 +1,8 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Body, Controller, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
+import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
   CoverNoteVerificationDto,
@@ -15,7 +13,7 @@ import { VerificationsService } from './verifications.service';
 @ApiTags('Verifications')
 @ApiBearerAuth()
 @Controller('verifications')
-@UseGuards(AuthGuard('jwt'), TenantGuard, PermissionsGuard)
+@TenantScoped()
 export class VerificationsController {
   constructor(private readonly service: VerificationsService) {}
   @Post('motor')

@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { ProtectedRoute } from '@/modules/shared/auth/components/ProtectedRoute';
 import { GuestRoute } from '@/modules/shared/auth/components/GuestRoute';
+import { ForbiddenPage } from '@/modules/shared/auth/pages/ForbiddenPage';
 import { AuthBootstrap } from '@/modules/shared/auth/components/AuthBootstrap';
 
 import { LoginPage } from '@/modules/shared/auth/pages/LoginPage';
@@ -108,6 +109,7 @@ export default function App() {
         {/* Authenticated routes */}
         <Route element={<ProtectedRoute />}>
           <Route element={<AppShell />}>
+            <Route path="/forbidden" element={<ForbiddenPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
 
             <Route element={<ProtectedRoute requiredPermission="users:read" />}>

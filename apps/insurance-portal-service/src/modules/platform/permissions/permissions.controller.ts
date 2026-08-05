@@ -8,7 +8,6 @@ import {
   Patch,
   Post,
   Req,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -16,12 +15,9 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import type { Request as ExpressRequest } from 'express';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import { Roles } from '@insurance-max/portal-shared/decorators/roles.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { RolesGuard } from '@insurance-max/portal-shared/guards/roles.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { CreatePermissionDto } from './dtos/create-permission.dto';
 import { UpdatePermissionDto } from './dtos/update-permission.dto';
@@ -30,12 +26,10 @@ import { PermissionsService } from './permissions.service';
 @ApiTags('Permissions')
 @ApiBearerAuth('access-token')
 @Controller('permissions')
-@UseGuards(AuthGuard('jwt'))
 export class PermissionsController {
   constructor(private readonly permissionsService: PermissionsService) {}
 
   @Post()
-  @UseGuards(RolesGuard)
   @Roles('OWNER')
   @ApiOperation({ summary: 'Create a new permission' })
   @ApiResponse({ status: 201, description: 'Permission created' })
@@ -51,7 +45,6 @@ export class PermissionsController {
   }
 
   @Get()
-  @UseGuards(PermissionsGuard)
   @Permissions('permissions:read')
   @ApiOperation({ summary: 'Get permissions visible to the current actor' })
   findAll(@Req() req: ExpressRequest & { user: AuthenticatedUser }) {
@@ -59,7 +52,6 @@ export class PermissionsController {
   }
 
   @Get(':id')
-  @UseGuards(PermissionsGuard)
   @Permissions('permissions:read')
   @ApiOperation({ summary: 'Get permission by ID' })
   findOne(
@@ -70,7 +62,6 @@ export class PermissionsController {
   }
 
   @Patch(':id')
-  @UseGuards(RolesGuard)
   @Roles('OWNER')
   @ApiOperation({ summary: 'Update a permission' })
   @ApiResponse({
@@ -86,7 +77,6 @@ export class PermissionsController {
   }
 
   @Delete(':id')
-  @UseGuards(RolesGuard)
   @Roles('OWNER')
   @ApiOperation({ summary: 'Delete a permission' })
   @ApiResponse({

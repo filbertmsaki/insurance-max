@@ -11,11 +11,13 @@ import {
   ServiceAuthGuard,
   ServiceScopes,
 } from '@insurance-max/shared-kernel';
+import { ServiceEndpoint } from '@insurance-max/portal-shared';
 
 import type { TiramisNotificationEventDto } from './dto/tiramis-notification-event.dto';
 import { TiramisIntegrationService } from './tiramis-integration.service';
 
 @ApiExcludeController()
+@ServiceEndpoint()
 @UseGuards(ServiceAuthGuard)
 @ServiceScopes('tiramis:notify')
 @Controller('webhooks/tiramis')

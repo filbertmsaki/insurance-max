@@ -8,29 +8,25 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
-} from '@nestjs/common';
+  } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { RatingFactorsService } from './rating-factors.service';
 import { CreateRatingFactorDto } from './dto/create-rating-factor.dto';
 import { UpdateRatingFactorDto } from './dto/update-rating-factor.dto';
 import { FilterRatingFactorDto } from './dto/filter-rating-factor.dto';
+import { TenantScoped } from '@insurance-max/portal-shared';
 
 @ApiTags('Rating Factors')
 @ApiBearerAuth()
 @Controller('rating-factors')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class RatingFactorsController {
   constructor(private readonly service: RatingFactorsService) {}
 
   @Get()
-  @UseGuards(PermissionsGuard)
   @Permissions('rating-factors:read')
   @ApiOperation({ summary: 'List all rating factors for the current company' })
   async findAll(
@@ -41,7 +37,6 @@ export class RatingFactorsController {
   }
 
   @Post()
-  @UseGuards(PermissionsGuard)
   @Permissions('rating-factors:create')
   @ApiOperation({
     summary: 'Create a new rating factor (e.g. sum_insured, vehicle_age)',
@@ -54,7 +49,6 @@ export class RatingFactorsController {
   }
 
   @Get(':factorId')
-  @UseGuards(PermissionsGuard)
   @Permissions('rating-factors:read')
   @ApiOperation({ summary: 'Get a rating factor by ID' })
   async findOne(
@@ -65,7 +59,6 @@ export class RatingFactorsController {
   }
 
   @Patch(':factorId')
-  @UseGuards(PermissionsGuard)
   @Permissions('rating-factors:update')
   @ApiOperation({ summary: 'Update a rating factor' })
   async update(
@@ -77,7 +70,6 @@ export class RatingFactorsController {
   }
 
   @Delete(':factorId')
-  @UseGuards(PermissionsGuard)
   @Permissions('rating-factors:delete')
   @ApiOperation({ summary: 'Soft-delete a rating factor' })
   async remove(

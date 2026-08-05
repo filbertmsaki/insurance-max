@@ -8,14 +8,10 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+  } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { CreateCommissionPaymentDto } from './dto/create-commission-payment.dto';
 import { CreateCommissionTransactionDto } from './dto/create-commission-transaction.dto';
@@ -29,18 +25,18 @@ import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { UpdatePaymentTransactionDto } from './dto/update-payment-transaction.dto';
 import { UpdateReceiptDto } from './dto/update-receipt.dto';
 import { BillingCommissionService } from './billing-commission.service';
+import { TenantScoped } from '@insurance-max/portal-shared';
 
 @ApiTags('billing', 'commissions')
 @ApiBearerAuth()
 @Controller('tenant/billing')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class BillingCommissionController {
   constructor(
     private readonly billingCommissionService: BillingCommissionService,
   ) {}
 
   @Post('invoices')
-  @UseGuards(PermissionsGuard)
   @Permissions('billing:create')
   @ApiOperation({ summary: 'Create an invoice' })
   createInvoice(
@@ -55,7 +51,6 @@ export class BillingCommissionController {
   }
 
   @Get('invoices')
-  @UseGuards(PermissionsGuard)
   @Permissions('billing:read')
   @ApiOperation({ summary: 'List invoices' })
   findInvoices(
@@ -66,7 +61,6 @@ export class BillingCommissionController {
   }
 
   @Get('invoices/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('billing:read')
   @ApiOperation({ summary: 'Get an invoice by ID' })
   findInvoice(
@@ -77,7 +71,6 @@ export class BillingCommissionController {
   }
 
   @Patch('invoices/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('billing:update')
   @ApiOperation({ summary: 'Update an invoice' })
   updateInvoice(
@@ -94,7 +87,6 @@ export class BillingCommissionController {
   }
 
   @Delete('invoices/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('billing:delete')
   @ApiOperation({ summary: 'Delete an invoice' })
   async deleteInvoice(
@@ -106,7 +98,6 @@ export class BillingCommissionController {
   }
 
   @Post('receipts')
-  @UseGuards(PermissionsGuard)
   @Permissions('billing:create')
   @ApiOperation({ summary: 'Create a receipt' })
   createReceipt(
@@ -121,7 +112,6 @@ export class BillingCommissionController {
   }
 
   @Get('receipts')
-  @UseGuards(PermissionsGuard)
   @Permissions('billing:read')
   @ApiOperation({ summary: 'List receipts' })
   findReceipts(
@@ -132,7 +122,6 @@ export class BillingCommissionController {
   }
 
   @Get('receipts/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('billing:read')
   @ApiOperation({ summary: 'Get a receipt by ID' })
   findReceipt(
@@ -143,7 +132,6 @@ export class BillingCommissionController {
   }
 
   @Patch('receipts/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('billing:update')
   @ApiOperation({ summary: 'Update a receipt' })
   updateReceipt(
@@ -160,7 +148,6 @@ export class BillingCommissionController {
   }
 
   @Delete('receipts/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('billing:delete')
   @ApiOperation({ summary: 'Delete a receipt' })
   async deleteReceipt(
@@ -172,7 +159,6 @@ export class BillingCommissionController {
   }
 
   @Post('payment-transactions')
-  @UseGuards(PermissionsGuard)
   @Permissions('billing:create')
   @ApiOperation({ summary: 'Create a payment transaction' })
   createPaymentTransaction(
@@ -186,7 +172,6 @@ export class BillingCommissionController {
   }
 
   @Get('payment-transactions')
-  @UseGuards(PermissionsGuard)
   @Permissions('billing:read')
   @ApiOperation({ summary: 'List payment transactions' })
   findPaymentTransactions(
@@ -200,7 +185,6 @@ export class BillingCommissionController {
   }
 
   @Get('payment-transactions/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('billing:read')
   @ApiOperation({ summary: 'Get a payment transaction by ID' })
   findPaymentTransaction(
@@ -214,7 +198,6 @@ export class BillingCommissionController {
   }
 
   @Patch('payment-transactions/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('billing:update')
   @ApiOperation({ summary: 'Update a payment transaction' })
   updatePaymentTransaction(
@@ -230,7 +213,6 @@ export class BillingCommissionController {
   }
 
   @Delete('payment-transactions/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('billing:delete')
   @ApiOperation({ summary: 'Delete a payment transaction' })
   async deletePaymentTransaction(
@@ -245,7 +227,6 @@ export class BillingCommissionController {
   }
 
   @Post('commission-transactions')
-  @UseGuards(PermissionsGuard)
   @Permissions('commissions:create')
   @ApiOperation({ summary: 'Create a commission transaction' })
   createCommissionTransaction(
@@ -259,7 +240,6 @@ export class BillingCommissionController {
   }
 
   @Get('commission-transactions')
-  @UseGuards(PermissionsGuard)
   @Permissions('commissions:read')
   @ApiOperation({ summary: 'List commission transactions' })
   findCommissionTransactions(
@@ -273,7 +253,6 @@ export class BillingCommissionController {
   }
 
   @Get('commission-transactions/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('commissions:read')
   @ApiOperation({ summary: 'Get a commission transaction by ID' })
   findCommissionTransaction(
@@ -287,7 +266,6 @@ export class BillingCommissionController {
   }
 
   @Patch('commission-transactions/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('commissions:update')
   @ApiOperation({ summary: 'Update a commission transaction' })
   updateCommissionTransaction(
@@ -303,7 +281,6 @@ export class BillingCommissionController {
   }
 
   @Delete('commission-transactions/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('commissions:delete')
   @ApiOperation({ summary: 'Delete a commission transaction' })
   async deleteCommissionTransaction(
@@ -318,7 +295,6 @@ export class BillingCommissionController {
   }
 
   @Post('commission-payments')
-  @UseGuards(PermissionsGuard)
   @Permissions('commissions:create')
   @ApiOperation({ summary: 'Create a commission payment' })
   createCommissionPayment(
@@ -333,7 +309,6 @@ export class BillingCommissionController {
   }
 
   @Get('commission-payments')
-  @UseGuards(PermissionsGuard)
   @Permissions('commissions:read')
   @ApiOperation({ summary: 'List commission payments' })
   findCommissionPayments(
@@ -347,7 +322,6 @@ export class BillingCommissionController {
   }
 
   @Get('commission-payments/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('commissions:read')
   @ApiOperation({ summary: 'Get a commission payment by ID' })
   findCommissionPayment(
@@ -361,7 +335,6 @@ export class BillingCommissionController {
   }
 
   @Patch('commission-payments/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('commissions:update')
   @ApiOperation({ summary: 'Update a commission payment' })
   updateCommissionPayment(
@@ -377,7 +350,6 @@ export class BillingCommissionController {
   }
 
   @Delete('commission-payments/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('commissions:delete')
   @ApiOperation({ summary: 'Delete a commission payment' })
   async deleteCommissionPayment(

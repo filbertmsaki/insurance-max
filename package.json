@@ -68,7 +68,9 @@
     "phase0:routes:check": "node scripts/phase0/inventory-routes.mjs --check",
     "phase0:verify-build": "node scripts/phase0/verify-build-output.mjs",
     "phase0:validate": "npm run phase0:validate:migrations && npm run phase0:validate:env && npm run phase0:routes:check",
-    "phase0:verify": "npm run phase0:validate && npm run format:check && npm run lint:all && npm run test:all && npm run build:all && npm run phase0:verify-build"
+    "phase0:verify": "npm run phase0:validate && npm run format:check && npm run lint:all && npm run test:all && npm run build:all && npm run phase0:verify-build",
+
+    "phase3:validate:authorization": "node scripts/phase3/validate-authorization.mjs"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.1",

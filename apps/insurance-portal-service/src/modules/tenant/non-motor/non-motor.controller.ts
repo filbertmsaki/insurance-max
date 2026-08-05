@@ -8,14 +8,10 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+  } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { CreateNonMotorPolicyDetailDto } from './dto/create-non-motor-policy-detail.dto';
 import { CreateSubjectMatterFactorValueDto } from './dto/create-subject-matter-factor-value.dto';
@@ -24,16 +20,16 @@ import { FilterNonMotorDto } from './dto/filter-non-motor.dto';
 import { UpdateNonMotorPolicyDetailDto } from './dto/update-non-motor-policy-detail.dto';
 import { UpdateSubjectMatterDto } from './dto/update-subject-matter.dto';
 import { NonMotorService } from './non-motor.service';
+import { TenantScoped } from '@insurance-max/portal-shared';
 
 @ApiTags('non-motor')
 @ApiBearerAuth()
 @Controller('tenant/non-motor')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class NonMotorController {
   constructor(private readonly nonMotorService: NonMotorService) {}
 
   @Get('subject-matters')
-  @UseGuards(PermissionsGuard)
   @Permissions('non-motor:read')
   @ApiOperation({ summary: 'List subject matters' })
   listSubjectMatters(
@@ -44,7 +40,6 @@ export class NonMotorController {
   }
 
   @Post('subject-matters')
-  @UseGuards(PermissionsGuard)
   @Permissions('non-motor:create')
   @ApiOperation({ summary: 'Create a subject matter' })
   createSubjectMatter(
@@ -59,7 +54,6 @@ export class NonMotorController {
   }
 
   @Get('subject-matters/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('non-motor:read')
   @ApiOperation({ summary: 'Get a subject matter by ID' })
   findSubjectMatter(
@@ -70,7 +64,6 @@ export class NonMotorController {
   }
 
   @Patch('subject-matters/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('non-motor:update')
   @ApiOperation({ summary: 'Update a subject matter' })
   updateSubjectMatter(
@@ -87,7 +80,6 @@ export class NonMotorController {
   }
 
   @Delete('subject-matters/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('non-motor:delete')
   @ApiOperation({ summary: 'Soft-delete a subject matter' })
   async removeSubjectMatter(
@@ -99,7 +91,6 @@ export class NonMotorController {
   }
 
   @Get('subject-matter-factor-values')
-  @UseGuards(PermissionsGuard)
   @Permissions('non-motor:read')
   @ApiOperation({ summary: 'List subject matter factor values' })
   listFactorValues(
@@ -113,7 +104,6 @@ export class NonMotorController {
   }
 
   @Post('subject-matter-factor-values')
-  @UseGuards(PermissionsGuard)
   @Permissions('non-motor:create')
   @ApiOperation({ summary: 'Create a subject matter factor value' })
   createFactorValue(
@@ -124,7 +114,6 @@ export class NonMotorController {
   }
 
   @Post('policy-details')
-  @UseGuards(PermissionsGuard)
   @Permissions('non-motor:create')
   @ApiOperation({ summary: 'Create a non-motor policy detail' })
   createPolicyDetail(
@@ -135,7 +124,6 @@ export class NonMotorController {
   }
 
   @Get('policy-details')
-  @UseGuards(PermissionsGuard)
   @Permissions('non-motor:read')
   @ApiOperation({ summary: 'List non-motor policy details' })
   listPolicyDetails(

@@ -3,6 +3,10 @@ import { DataSource, IsNull, Repository } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import { hashPassword } from '@insurance-max/portal-shared/utils/hash.util';
+import {
+  PermissionAssignmentScope,
+  RoleScope,
+} from '@insurance-max/contracts';
 import { Company } from '../../modules/platform/companies/entities/company.entity';
 import { CompanyUser } from '../../modules/platform/companies/entities/company-user.entity';
 import { CompanyUserRole } from '../../modules/platform/companies/entities/company-user-role.entity';
@@ -51,6 +55,43 @@ const GLOBAL_AND_DEFAULT_COMPANY_SCOPES: SeedScope[] = [
   'global',
   'default_company',
 ];
+
+function resolvePermissionPolicy(definition: PermissionSeed): {
+  assignmentScope: PermissionAssignmentScope;
+  assignableToCompanyRole: boolean;
+  assignableToPlatformRole: boolean;
+} {
+  const company = definition.scopes.includes('default_company');
+  const platform = definition.scopes.includes('global');
+
+  const assignmentScope =
+    company && platform
+      ? PermissionAssignmentScope.SHARED
+      : company
+        ? PermissionAssignmentScope.TENANT
+        : PermissionAssignmentScope.PLATFORM;
+
+  return {
+    assignmentScope,
+    assignableToCompanyRole: company,
+    assignableToPlatformRole: platform,
+  };
+}
+
+function resolveRoleScope(
+  definition: RoleSeed,
+  companyId: string | null,
+): RoleScope {
+  if (companyId) {
+    return RoleScope.TENANT;
+  }
+
+  if (definition.scopes.includes('default_company')) {
+    return RoleScope.TENANT_TEMPLATE;
+  }
+
+  return RoleScope.PLATFORM;
+}
 
 const DASHBOARD_ADMIN_PERMISSION_NAMES = [
   'dashboard:overview',
@@ -746,6 +787,37 @@ const permissionSeeds: PermissionSeed[] = [
     name: 'users:revoke-role',
     displayName: 'Revoke user roles',
     description: 'Compatibility permission for role revocation endpoints',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'users:grant-permission',
+    displayName: 'Grant direct user permission',
+    description:
+      'Grant an approved tenant permission directly to a company membership',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'users:revoke-permission',
+    displayName: 'Revoke direct user permission',
+    description: 'Remove a direct permission from a company membership',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'audit:read',
+    displayName: 'Read audit logs',
+    description: 'View audit records within the current authorized scope',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'audit:read-all',
+    displayName: 'Read all platform audit logs',
+    description: 'View audit records across all companies',
+    scopes: GLOBAL_SCOPE,
+  },
+  {
+    name: 'audit:export',
+    displayName: 'Export audit logs',
+    description: 'Export authorized audit records',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -2018,6 +2090,9 @@ const roleSeeds: RoleSeed[] = [
       'permissions:delete',
       'tiramis-submissions:read',
       'tiramis.admin',
+      'audit:read',
+      'audit:read-all',
+      'audit:export',
     ],
   },
   {
@@ -2047,6 +2122,10 @@ const roleSeeds: RoleSeed[] = [
       'users:delete',
       'users:assign-role',
       'users:revoke-role',
+      'users:grant-permission',
+      'users:revoke-permission',
+      'audit:read',
+      'audit:export',
       'roles:read',
       'roles:create',
       'roles:update',
@@ -2793,6 +2872,13 @@ export default class InitialRbacSeeder implements Seeder {
 
       permission.is_system_generated = true;
 
+      const policy = resolvePermissionPolicy(definition);
+
+      permission.assignment_scope = policy.assignmentScope;
+      permission.assignable_to_company_role = policy.assignableToCompanyRole;
+      permission.assignable_to_platform_role = policy.assignableToPlatformRole;
+      permission.is_deprecated = false;
+
       permission = await permissionRepo.save(permission);
       permissionsByName.set(permission.name, permission);
     }
@@ -2835,6 +2921,11 @@ export default class InitialRbacSeeder implements Seeder {
         }
 
         role.is_system_generated = true;
+        role.scope = resolveRoleScope(definition, companyId);
+        role.is_administrative =
+          ['OWNER', 'SUPER_ADMIN', 'ADMINISTRATOR'].includes(definition.name) ||
+          definition.name.endsWith('_ADMIN');
+
         const permissionNames = [
           ...new Set(withPricingPermissionAliases(definition.permissionNames)),
         ];

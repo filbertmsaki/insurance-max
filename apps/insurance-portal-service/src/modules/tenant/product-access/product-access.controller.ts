@@ -7,16 +7,13 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
-  UseGuards,
-} from '@nestjs/common';
+  } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { ProductAccessService } from './product-access.service';
+import { TenantScoped } from '@insurance-max/portal-shared';
 import {
   ResolveProductAccessDto,
   UpsertBranchProductAccessDto,
@@ -27,14 +24,13 @@ import {
 @ApiTags('Product Access')
 @ApiBearerAuth()
 @Controller('product-access')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class ProductAccessController {
   constructor(private readonly service: ProductAccessService) {}
 
   // ─── Branch ───────────────────────────────────────────────────────────────────
 
   @Post('branch')
-  @UseGuards(PermissionsGuard)
   @Permissions('product-access:manage')
   @ApiOperation({ summary: 'Set or update product access for a branch' })
   async upsertBranchAccess(
@@ -45,7 +41,6 @@ export class ProductAccessController {
   }
 
   @Get('branch/:branchId')
-  @UseGuards(PermissionsGuard)
   @Permissions('product-access:read')
   @ApiOperation({ summary: 'Get all product access rules for a branch' })
   async getBranchAccess(
@@ -56,7 +51,6 @@ export class ProductAccessController {
   }
 
   @Delete('branch/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('product-access:manage')
   @ApiOperation({ summary: 'Remove a branch product access rule' })
   async deleteBranchAccess(
@@ -70,7 +64,6 @@ export class ProductAccessController {
   // ─── Department ───────────────────────────────────────────────────────────────
 
   @Post('department')
-  @UseGuards(PermissionsGuard)
   @Permissions('product-access:manage')
   @ApiOperation({ summary: 'Set or update product access for a department' })
   async upsertDepartmentAccess(
@@ -81,7 +74,6 @@ export class ProductAccessController {
   }
 
   @Get('department/:departmentId')
-  @UseGuards(PermissionsGuard)
   @Permissions('product-access:read')
   @ApiOperation({ summary: 'Get all product access rules for a department' })
   async getDepartmentAccess(
@@ -92,7 +84,6 @@ export class ProductAccessController {
   }
 
   @Delete('department/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('product-access:manage')
   @ApiOperation({ summary: 'Remove a department product access rule' })
   async deleteDepartmentAccess(
@@ -106,7 +97,6 @@ export class ProductAccessController {
   // ─── User ─────────────────────────────────────────────────────────────────────
 
   @Post('user')
-  @UseGuards(PermissionsGuard)
   @Permissions('product-access:manage')
   @ApiOperation({ summary: 'Set or update product access for a company user' })
   async upsertUserAccess(
@@ -117,7 +107,6 @@ export class ProductAccessController {
   }
 
   @Get('user/:companyUserId')
-  @UseGuards(PermissionsGuard)
   @Permissions('product-access:read')
   @ApiOperation({ summary: 'Get all product access rules for a company user' })
   async getUserAccess(
@@ -128,7 +117,6 @@ export class ProductAccessController {
   }
 
   @Delete('user/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('product-access:manage')
   @ApiOperation({ summary: 'Remove a user product access rule' })
   async deleteUserAccess(
@@ -142,7 +130,6 @@ export class ProductAccessController {
   // ─── Resolve / Accessible ─────────────────────────────────────────────────────
 
   @Post('resolve')
-  @UseGuards(PermissionsGuard)
   @Permissions('product-access:read')
   @ApiOperation({
     summary:
@@ -156,7 +143,6 @@ export class ProductAccessController {
   }
 
   @Get('accessible')
-  @UseGuards(PermissionsGuard)
   @Permissions('product-access:read')
   @ApiOperation({
     summary: 'Get all products a user can view in their context',

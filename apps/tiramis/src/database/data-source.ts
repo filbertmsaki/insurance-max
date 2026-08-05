@@ -11,6 +11,7 @@ import {
   readDatabaseEnv,
 } from '@insurance-max/shared-config';
 
+import { TiramisAccessAuditEntity } from '../modules/audit/entities/tiramis-access-audit.entity';
 import { TiramisClientConfigurationEntity } from '../modules/config/entities/tiramis-client-configuration.entity';
 import { TiramisResponseCodeEntity } from '../modules/config/entities/tiramis-response-code.entity';
 import { TiramisServiceEndpointEntity } from '../modules/config/entities/tiramis-service-endpoint.entity';
@@ -100,6 +101,7 @@ export default new DataSource(
       TiramisClaimEntity,
       TiramisVerificationRequestEntity,
       TiramisVerificationResponseEntity,
+      TiramisAccessAuditEntity,
     ],
     migrations: [join(__dirname, 'migrations', '*.{ts,js}')],
   }),

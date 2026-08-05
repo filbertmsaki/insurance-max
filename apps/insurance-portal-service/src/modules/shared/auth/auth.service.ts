@@ -66,6 +66,7 @@ type AccessTokenPayload = {
   assignedBranchIds?: string[];
   roles: string[];
   permissions: string[];
+  authorizationVersion: number;
   type: 'access';
   iss: string;
   aud: string;
@@ -109,6 +110,7 @@ type PlatformAccessContext = {
   userType: UserType;
   roles: string[];
   permissions: string[];
+  authorizationVersion: number;
 };
 
 @Injectable()
@@ -491,6 +493,7 @@ export class AuthService {
         defaultSalePointCode: companyContext.defaultSalePointCode,
         defaultSalePointName: companyContext.defaultSalePointName,
         assignedBranchIds: companyContext.assignedBranchIds,
+        authorizationVersion: companyContext.authorizationVersion,
       };
 
       companies = await this.companiesService.listUserCompanies(user.id);
@@ -1144,6 +1147,7 @@ export class AuthService {
         userType: platformContext.userType,
         roles: platformContext.roles,
         permissions: platformContext.permissions,
+        authorizationVersion: platformContext.authorizationVersion,
         type: 'access',
         iss: this.configService.get('jwt.issuer', 'insurance-idp.tz'),
         aud: this.configService.get('jwt.audience', 'insurance-platform'),
@@ -1219,6 +1223,7 @@ export class AuthService {
         assignedBranchIds: companyContext.assignedBranchIds,
         roles: companyContext.roles,
         permissions: companyContext.permissions,
+        authorizationVersion: companyContext.authorizationVersion,
         type: 'access',
         iss: this.configService.get('jwt.issuer', 'insurance-idp.tz'),
         aud: this.configService.get('jwt.audience', 'insurance-platform'),
@@ -1331,6 +1336,7 @@ export class AuthService {
       userType: user.user_type as UserType,
       roles: user.roles?.map((r) => r.name) ?? [],
       permissions: Array.from(permissions),
+      authorizationVersion: user.authorization_version ?? 0,
     };
   }
 

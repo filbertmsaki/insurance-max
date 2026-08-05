@@ -1,12 +1,9 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { BadRequestException, Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 
 import { AnalyticsPermissions } from './analytics.permissions';
 import { AnalyticsQueryDto } from './dto/analytics-query.dto';
@@ -20,11 +17,12 @@ import { ScorecardService } from './services/scorecard.service';
 import { AnomalyService } from './services/anomaly.service';
 import { ForecastService } from './services/forecast.service';
 import { BenchmarkService } from './services/benchmark.service';
+import { TenantScoped } from '@insurance-max/portal-shared';
 
 @ApiTags('Tenant Analytics')
 @ApiBearerAuth()
 @Controller('tenant/analytics')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class AnalyticsController {
   constructor(
     private readonly kpiService: KpiService,
@@ -35,7 +33,6 @@ export class AnalyticsController {
   ) {}
 
   @Get('kpis')
-  @UseGuards(PermissionsGuard)
   @Permissions(AnalyticsPermissions.READ)
   @ApiOperation({ summary: 'List available KPI definitions' })
   getKpis(@CurrentUser() user: AuthenticatedUser) {
@@ -43,7 +40,6 @@ export class AnalyticsController {
   }
 
   @Get('kpis/:code')
-  @UseGuards(PermissionsGuard)
   @Permissions(AnalyticsPermissions.READ)
   @ApiOperation({ summary: 'Calculate KPI result for the selected period' })
   async calculateKpi(
@@ -55,7 +51,6 @@ export class AnalyticsController {
   }
 
   @Get('scorecards/templates')
-  @UseGuards(PermissionsGuard)
   @Permissions(AnalyticsPermissions.SCORECARD_READ)
   @ApiOperation({ summary: 'List scorecard templates' })
   getScorecardTemplates(@CurrentUser() user: AuthenticatedUser) {
@@ -63,7 +58,6 @@ export class AnalyticsController {
   }
 
   @Post('scorecards/generate')
-  @UseGuards(PermissionsGuard)
   @Permissions(AnalyticsPermissions.SCORECARD_GENERATE)
   @ApiOperation({ summary: 'Generate a scorecard snapshot for a period' })
   generateScorecard(
@@ -74,7 +68,6 @@ export class AnalyticsController {
   }
 
   @Post('scorecards/publish')
-  @UseGuards(PermissionsGuard)
   @Permissions(AnalyticsPermissions.SCORECARD_PUBLISH)
   @ApiOperation({ summary: 'Publish a generated scorecard snapshot' })
   publishScorecard(
@@ -85,7 +78,6 @@ export class AnalyticsController {
   }
 
   @Get('anomalies')
-  @UseGuards(PermissionsGuard)
   @Permissions(AnalyticsPermissions.ANOMALY_READ)
   @ApiOperation({ summary: 'List anomaly findings' })
   listAnomalies(
@@ -96,7 +88,6 @@ export class AnalyticsController {
   }
 
   @Post('anomalies/run')
-  @UseGuards(PermissionsGuard)
   @Permissions(AnalyticsPermissions.ANOMALY_CONFIGURE)
   @ApiOperation({ summary: 'Run anomaly detection for the selected metric' })
   runAnomalyDetection(
@@ -110,7 +101,6 @@ export class AnalyticsController {
   }
 
   @Get('forecasts')
-  @UseGuards(PermissionsGuard)
   @Permissions(AnalyticsPermissions.FORECAST_READ)
   @ApiOperation({ summary: 'List active forecast definitions' })
   listForecasts(@CurrentUser() user: AuthenticatedUser) {
@@ -118,7 +108,6 @@ export class AnalyticsController {
   }
 
   @Post('forecasts/run')
-  @UseGuards(PermissionsGuard)
   @Permissions(AnalyticsPermissions.FORECAST_RUN)
   @ApiOperation({ summary: 'Run a forecast definition' })
   runForecast(
@@ -140,7 +129,6 @@ export class AnalyticsController {
   }
 
   @Get('benchmarks')
-  @UseGuards(PermissionsGuard)
   @Permissions(AnalyticsPermissions.BENCHMARK_READ)
   @ApiOperation({ summary: 'Fetch benchmark snapshot data' })
   getBenchmarks(@Query() query: BenchmarkQueryDto) {

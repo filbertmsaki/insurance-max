@@ -5,14 +5,10 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
-  UseGuards,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+  } from '@nestjs/common';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import {
@@ -29,9 +25,10 @@ import {
 import { ReinsurancePermissions } from './reinsurance.permissions';
 import { ReinsuranceService } from './reinsurance.service';
 import { ReinsuranceRecoveryService } from './services/reinsurance-recovery.service';
+import { TenantScoped } from '@insurance-max/portal-shared';
 
 @Controller('tenant/reinsurance')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class ReinsuranceController {
   constructor(
     private readonly reinsuranceService: ReinsuranceService,
@@ -39,14 +36,12 @@ export class ReinsuranceController {
   ) {}
 
   @Get('treaties')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.READ)
   findTreaties(@CurrentUser() user: AuthenticatedUser) {
     return this.reinsuranceService.findTreaties(user);
   }
 
   @Post('treaties')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.TREATY_CREATE)
   createTreaty(
     @CurrentUser() user: AuthenticatedUser,
@@ -56,7 +51,6 @@ export class ReinsuranceController {
   }
 
   @Post('treaties/:id/sections')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.TREATY_UPDATE)
   addSection(
     @CurrentUser() user: AuthenticatedUser,
@@ -67,7 +61,6 @@ export class ReinsuranceController {
   }
 
   @Post('treaties/:id/participants')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.TREATY_UPDATE)
   addParticipant(
     @CurrentUser() user: AuthenticatedUser,
@@ -78,7 +71,6 @@ export class ReinsuranceController {
   }
 
   @Post('treaties/:id/submit')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.TREATY_SUBMIT)
   submitTreaty(
     @CurrentUser() user: AuthenticatedUser,
@@ -88,7 +80,6 @@ export class ReinsuranceController {
   }
 
   @Post('treaties/:id/approve')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.TREATY_APPROVE)
   approveTreaty(
     @CurrentUser() user: AuthenticatedUser,
@@ -98,7 +89,6 @@ export class ReinsuranceController {
   }
 
   @Post('treaties/:id/activate')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.TREATY_ACTIVATE)
   activateTreaty(
     @CurrentUser() user: AuthenticatedUser,
@@ -108,7 +98,6 @@ export class ReinsuranceController {
   }
 
   @Post('facultative-placements')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.PLACEMENT_CREATE)
   createPlacement(
     @CurrentUser() user: AuthenticatedUser,
@@ -118,7 +107,6 @@ export class ReinsuranceController {
   }
 
   @Post('facultative-placements/:id/offers')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.PLACEMENT_MARKET)
   inviteOffer(
     @CurrentUser() user: AuthenticatedUser,
@@ -129,7 +117,6 @@ export class ReinsuranceController {
   }
 
   @Post('facultative-offers/:id/respond')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.OFFER_RESPOND)
   respondToOffer(
     @CurrentUser() user: AuthenticatedUser,
@@ -140,7 +127,6 @@ export class ReinsuranceController {
   }
 
   @Post('facultative-offers/:id/accept')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.PLACEMENT_CLOSE)
   acceptOffer(
     @CurrentUser() user: AuthenticatedUser,
@@ -151,14 +137,12 @@ export class ReinsuranceController {
   }
 
   @Get('cessions')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.READ)
   findCessions(@CurrentUser() user: AuthenticatedUser) {
     return this.reinsuranceService.findCessions(user);
   }
 
   @Post('cessions')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.CESSION_CREATE)
   createCession(
     @CurrentUser() user: AuthenticatedUser,
@@ -168,7 +152,6 @@ export class ReinsuranceController {
   }
 
   @Post('cessions/:id/submit')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.CESSION_SUBMIT)
   submitCession(
     @CurrentUser() user: AuthenticatedUser,
@@ -178,7 +161,6 @@ export class ReinsuranceController {
   }
 
   @Post('cessions/:id/approve')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.CESSION_APPROVE)
   approveCession(
     @CurrentUser() user: AuthenticatedUser,
@@ -188,7 +170,6 @@ export class ReinsuranceController {
   }
 
   @Post('cessions/:id/apply')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.CESSION_APPLY)
   applyCession(
     @CurrentUser() user: AuthenticatedUser,
@@ -198,7 +179,6 @@ export class ReinsuranceController {
   }
 
   @Post('cessions/:id/declaration')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.DECLARATION_CREATE)
   createDeclaration(
     @CurrentUser() user: AuthenticatedUser,
@@ -208,7 +188,6 @@ export class ReinsuranceController {
   }
 
   @Post('declarations/:id/tiramis')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.TIRAMIS_SUBMIT)
   submitDeclaration(
     @CurrentUser() user: AuthenticatedUser,
@@ -218,7 +197,6 @@ export class ReinsuranceController {
   }
 
   @Post('claims/:claimId/recoveries/calculate')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.RECOVERY_CREATE)
   calculateRecoveries(
     @CurrentUser() user: AuthenticatedUser,
@@ -228,7 +206,6 @@ export class ReinsuranceController {
   }
 
   @Post('recoveries/:id/admit')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReinsurancePermissions.RECOVERY_APPROVE)
   admitRecovery(
     @CurrentUser() user: AuthenticatedUser,

@@ -8,18 +8,14 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import { Roles } from '@insurance-max/portal-shared/decorators/roles.decorator';
 import { PaginationDto } from '@insurance-max/portal-shared/dto/pagination.dto';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { RolesGuard } from '@insurance-max/portal-shared/guards/roles.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { PlatformScoped, TenantScoped } from '@insurance-max/portal-shared';
 import { CreateCompanyDto } from './dtos/create-company.dto';
 import { SetCompanyPrimaryUserDto } from './dtos/set-company-primary-user.dto';
 import {
@@ -31,12 +27,11 @@ import { CompaniesService } from './companies.service';
 @ApiTags('Companies')
 @ApiBearerAuth()
 @Controller('companies')
-@UseGuards(AuthGuard('jwt'))
+@PlatformScoped()
 export class CompaniesController {
   constructor(private readonly companiesService: CompaniesService) {}
 
   @Get()
-  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles('OWNER')
   @Permissions('companies:read')
   @ApiOperation({ summary: 'List all companies (Owner only)' })
@@ -45,7 +40,6 @@ export class CompaniesController {
   }
 
   @Post()
-  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles('OWNER')
   @Permissions('companies:create')
   @ApiOperation({
@@ -58,14 +52,14 @@ export class CompaniesController {
   }
 
   @Get('my')
-  @UseGuards(TenantGuard)
+  @TenantScoped()
   @ApiOperation({ summary: "Get the current user's active company profile" })
   async getMyCompany(@CurrentUser() user: AuthenticatedUser) {
     return this.companiesService.findCompanyById(user.companyId!);
   }
 
   @Patch('my')
-  @UseGuards(TenantGuard, PermissionsGuard)
+  @TenantScoped()
   @Permissions('update_company_data')
   @ApiOperation({ summary: "Update the current user's company profile" })
   async updateMyCompany(
@@ -76,7 +70,6 @@ export class CompaniesController {
   }
 
   @Get(':id/users')
-  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles('OWNER')
   @Permissions('companies:read')
   @ApiOperation({ summary: 'List users that belong to a company (Owner only)' })
@@ -88,7 +81,6 @@ export class CompaniesController {
   }
 
   @Patch(':id/primary-user')
-  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles('OWNER')
   @Permissions('companies:update')
   @ApiOperation({ summary: 'Set the primary user for a company (Owner only)' })
@@ -100,7 +92,6 @@ export class CompaniesController {
   }
 
   @Get(':id')
-  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles('OWNER')
   @Permissions('companies:read')
   @ApiOperation({ summary: 'Get any company by ID (Owner only)' })
@@ -109,7 +100,6 @@ export class CompaniesController {
   }
 
   @Patch(':id')
-  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles('OWNER')
   @Permissions('companies:update')
   @ApiOperation({ summary: 'Update any company (Owner only)' })
@@ -121,7 +111,6 @@ export class CompaniesController {
   }
 
   @Patch(':id/status')
-  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles('OWNER')
   @Permissions('companies:update')
   @ApiOperation({ summary: 'Activate or deactivate a company (Owner only)' })
@@ -133,7 +122,6 @@ export class CompaniesController {
   }
 
   @Delete(':id')
-  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles('OWNER')
   @Permissions('companies:delete')
   @ApiOperation({ summary: 'Delete a company permanently (Owner only)' })

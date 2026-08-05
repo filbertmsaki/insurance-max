@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Role } from '../../roles/entities/role.entity';
 import { User } from '../../../tenant/users/entities/user.entity';
+import { PermissionAssignmentScope } from '@insurance-max/contracts';
 
 @Entity('permissions')
 @Index('UQ_permission_name', ['name'], { unique: true })
@@ -29,6 +30,22 @@ export class Permission {
   @ApiProperty({ default: false })
   @Column({ default: false })
   is_system_generated: boolean;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    default: PermissionAssignmentScope.TENANT,
+  })
+  assignment_scope: PermissionAssignmentScope;
+
+  @Column({ default: false })
+  assignable_to_company_role: boolean;
+
+  @Column({ default: false })
+  assignable_to_platform_role: boolean;
+
+  @Column({ default: false })
+  is_deprecated: boolean;
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

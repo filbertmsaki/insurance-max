@@ -8,29 +8,25 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+  } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { FilterCustomerDto } from './dto/filter-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CustomersService } from './customers.service';
+import { TenantScoped } from '@insurance-max/portal-shared';
 
 @ApiTags('Customers')
 @ApiBearerAuth()
 @Controller('tenant/customers')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
   @Post()
-  @UseGuards(PermissionsGuard)
   @Permissions('customers:create')
   @ApiOperation({ summary: 'Create a customer for the current company' })
   create(
@@ -41,7 +37,6 @@ export class CustomersController {
   }
 
   @Get()
-  @UseGuards(PermissionsGuard)
   @Permissions('customers:read')
   @ApiOperation({ summary: 'List customers for the current company' })
   findAll(
@@ -52,7 +47,6 @@ export class CustomersController {
   }
 
   @Get(':id')
-  @UseGuards(PermissionsGuard)
   @Permissions('customers:read')
   @ApiOperation({ summary: 'Get a customer by ID' })
   findOne(
@@ -63,7 +57,6 @@ export class CustomersController {
   }
 
   @Patch(':id')
-  @UseGuards(PermissionsGuard)
   @Permissions('customers:update')
   @ApiOperation({ summary: 'Update a customer' })
   update(
@@ -75,7 +68,6 @@ export class CustomersController {
   }
 
   @Delete(':id')
-  @UseGuards(PermissionsGuard)
   @Permissions('customers:delete')
   @ApiOperation({ summary: 'Soft-delete a customer' })
   async remove(
@@ -87,7 +79,6 @@ export class CustomersController {
   }
 
   @Patch(':id/restore')
-  @UseGuards(PermissionsGuard)
   @Permissions('customers:update')
   @ApiOperation({ summary: 'Restore a soft-deleted customer' })
   restore(

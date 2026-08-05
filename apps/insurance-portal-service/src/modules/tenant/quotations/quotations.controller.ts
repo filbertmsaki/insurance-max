@@ -10,9 +10,7 @@ import {
   Post,
   Put,
   Query,
-  UseGuards,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+  } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -23,8 +21,6 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { FilterQuotationDto } from './dto/filter-quotation.dto';
 import {
@@ -43,16 +39,16 @@ import {
 } from './dto/quotation-premium-override.dto';
 import { TransitionQuotationStatusDto } from './dto/transition-quotation-status.dto';
 import { QuotationsService } from './quotations.service';
+import { TenantScoped } from '@insurance-max/portal-shared';
 
 @ApiTags('quotations')
 @ApiBearerAuth()
 @Controller('tenant/quotations')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class QuotationsController {
   constructor(private readonly quotationsService: QuotationsService) {}
 
   @Post('drafts')
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:create')
   @ApiOperation({
     summary: 'Create a quotation draft',
@@ -71,7 +67,6 @@ export class QuotationsController {
   }
 
   @Post()
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:create')
   @ApiOperation({
     summary: 'Create a quotation using the authoritative quotation structure',
@@ -90,7 +85,6 @@ export class QuotationsController {
   }
 
   @Get()
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:read')
   @ApiOperation({
     summary: 'List quotations for the current company',
@@ -106,7 +100,6 @@ export class QuotationsController {
   }
 
   @Get(':id/payload')
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:read')
   @ApiOperation({
     summary: 'Generate the authoritative quotation payload',
@@ -124,7 +117,6 @@ export class QuotationsController {
   }
 
   @Get(':id')
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:read')
   @ApiOperation({
     summary: 'Get a quotation by ID',
@@ -140,7 +132,6 @@ export class QuotationsController {
   }
 
   @Get(':id/edit')
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:update')
   @ApiOperation({
     summary: 'Get an editable quotation graph',
@@ -158,7 +149,6 @@ export class QuotationsController {
   }
 
   @Put(':id/draft')
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:update')
   @ApiOperation({
     summary: 'Update a quotation draft',
@@ -178,7 +168,6 @@ export class QuotationsController {
   }
 
   @Get(':id/preview')
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:read')
   @ApiOperation({
     summary: 'Get a structured quotation preview',
@@ -197,7 +186,6 @@ export class QuotationsController {
 
   @Post(':id/risks/:riskId/premium-overrides')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.request_override')
   @ApiOperation({
     summary: 'Request a manual premium override for a quotation risk',
@@ -220,7 +208,6 @@ export class QuotationsController {
 
   @Post(':id/risks/:riskId/premium-overrides/:overrideId/approve')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.approve_override')
   @ApiOperation({
     summary: 'Approve a manual premium override for a quotation risk',
@@ -245,7 +232,6 @@ export class QuotationsController {
 
   @Post(':id/risks/:riskId/premium-overrides/:overrideId/reject')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.approve_override')
   @ApiOperation({
     summary: 'Reject a manual premium override for a quotation risk',
@@ -269,7 +255,6 @@ export class QuotationsController {
   }
 
   @Put(':id')
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:update')
   @ApiOperation({
     summary: 'Replace an existing quotation',
@@ -290,7 +275,6 @@ export class QuotationsController {
 
   @Post(':id/finalize')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:update')
   @ApiOperation({
     summary: 'Complete a quotation',
@@ -311,7 +295,6 @@ export class QuotationsController {
 
   @Post(':id/submit-for-approval')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:update')
   @ApiOperation({
     summary: 'Submit a completed quotation for approval',
@@ -332,7 +315,6 @@ export class QuotationsController {
 
   @Post(':id/request-payment')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:update')
   @ApiOperation({
     summary: 'Create a quotation payment request',
@@ -349,7 +331,6 @@ export class QuotationsController {
 
   @Post(':id/submit')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:submit')
   @ApiOperation({
     summary: 'Submit a quotation to TIRAMIS',
@@ -373,7 +354,6 @@ export class QuotationsController {
 
   @Post(':id/retry-tira')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:submit')
   @ApiOperation({
     summary: 'Retry a failed TIRAMIS submission',
@@ -394,7 +374,6 @@ export class QuotationsController {
 
   @Post(':id/cancel')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:update')
   @ApiOperation({
     summary: 'Cancel a quotation',
@@ -418,7 +397,6 @@ export class QuotationsController {
 
   @Post(':id/status')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:update')
   @ApiOperation({
     summary: 'Transition a quotation status',
@@ -443,7 +421,6 @@ export class QuotationsController {
   }
 
   @Delete(':id')
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:delete')
   @ApiOperation({
     summary: 'Delete an unsubmitted draft quotation',
@@ -463,7 +440,6 @@ export class QuotationsController {
   }
 
   @Delete(':id/draft')
-  @UseGuards(PermissionsGuard)
   @Permissions('quotations:delete')
   @ApiOperation({
     summary: 'Delete an unsubmitted quotation draft',

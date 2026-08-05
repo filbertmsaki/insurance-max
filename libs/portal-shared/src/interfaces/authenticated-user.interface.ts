@@ -30,6 +30,7 @@ export interface AuthenticatedUser {
 
   sessionId: string;
   accessTokenId: string;
+  authorizationVersion: number;
 
   companyId?: string;
   companyName?: string;

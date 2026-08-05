@@ -14,9 +14,11 @@ import {
 import { Company } from '../../companies/entities/company.entity';
 import { Permission } from '../../permissions/entities/permission.entity';
 import { User } from '../../../tenant/users/entities/user.entity';
+import { RoleScope } from '@insurance-max/contracts';
 
 @Entity('roles')
 @Index('IDX_role_company', ['company_id'])
+@Index('IDX_roles_scope_company', ['scope', 'company_id'])
 @Index('UQ_roles_global_name', ['name'], {
   unique: true,
   where: '"company_id" IS NULL',
@@ -49,6 +51,12 @@ export class Role {
   @ApiProperty({ default: false })
   @Column({ default: false })
   is_system_generated: boolean;
+
+  @Column({ type: 'varchar', length: 30, default: RoleScope.TENANT })
+  scope: RoleScope;
+
+  @Column({ default: false })
+  is_administrative: boolean;
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

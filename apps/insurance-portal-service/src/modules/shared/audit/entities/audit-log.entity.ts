@@ -56,6 +56,9 @@ export enum AuditAction {
 @Index('IDX_audit_user_id', ['user_id'])
 @Index('IDX_audit_action', ['action'])
 @Index('IDX_audit_created_at', ['created_at'])
+@Index('IDX_audit_company_created', ['company_id', 'created_at'])
+@Index('IDX_audit_request_id', ['request_id'])
+@Index('IDX_audit_correlation_id', ['correlation_id'])
 export class AuditLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -81,12 +84,48 @@ export class AuditLog {
   @Column({ type: 'text', nullable: true })
   user_agent: string | null;
 
-  @Column({ type: 'simple-json', nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
   @Column({ type: 'varchar', length: 20, default: 'success' })
   status: string;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @Column({ type: 'varchar', nullable: true })
+  company_membership_id: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  branch_id: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  session_id: string | null;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  request_id: string | null;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  correlation_id: string | null;
+
+  @Column({ type: 'varchar', length: 30, default: 'user' })
+  actor_type: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  actor_service: string | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  event_category: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  reason: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  before_state: Record<string, unknown> | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  after_state: Record<string, unknown> | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  changed_fields: string[] | null;
+
+  @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 }

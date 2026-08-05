@@ -1,10 +1,13 @@
 import {
+  BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { DataSource, EntityManager, IsNull, Repository } from 'typeorm';
+import { RoleScope } from '@insurance-max/contracts';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
   assertCanManageScopedRbacRecord,
@@ -18,6 +21,8 @@ import {
 } from '@insurance-max/portal-shared/utils/system-generated-rbac.util';
 import { Company } from '../companies/entities/company.entity';
 import { Permission } from '../permissions/entities/permission.entity';
+import { AuditService } from '../../shared/audit/audit.service';
+import { AuthorizationVersionService } from '../../shared/authorization/authorization-version.service';
 import { CreateRoleDto } from './dtos/create-role.dto';
 import { UpdateRoleDto } from './dtos/update-role.dto';
 import { Role } from './entities/role.entity';
@@ -31,6 +36,9 @@ export class RolesService {
     private readonly permissionsRepository: Repository<Permission>,
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
+    private readonly dataSource: DataSource,
+    private readonly auditService: AuditService,
+    private readonly authorizationVersionService: AuthorizationVersionService,
   ) {}
 
   private createBaseQuery() {
@@ -61,8 +69,22 @@ export class RolesService {
     if (!hasOwnerRole(actor)) {
       const companyActor = ensureCompanyScopedActor(actor);
       query.andWhere(
-        '(role.company_id IS NULL OR role.company_id = :companyId)',
-        { companyId: companyActor.companyId },
+        `
+          (
+            role.scope = :templateScope
+            AND role.company_id IS NULL
+          )
+          OR
+          (
+            role.scope = :tenantScope
+            AND role.company_id = :companyId
+          )
+        `,
+        {
+          templateScope: RoleScope.TENANT_TEMPLATE,
+          tenantScope: RoleScope.TENANT,
+          companyId: companyActor.companyId,
+        },
       );
     }
 
@@ -75,8 +97,13 @@ export class RolesService {
     return role;
   }
 
+  /**
+   * Restrict permission assignment by role scope (spec 3.14).
+   */
   private async resolvePermissions(
     permissionIds: string[],
+    roleScope: RoleScope,
+    manager?: EntityManager,
   ): Promise<Permission[]> {
     const ids = Array.from(new Set(permissionIds));
 
@@ -84,41 +111,85 @@ export class RolesService {
       return [];
     }
 
-    const query = this.permissionsRepository
-      .createQueryBuilder('permission')
-      .where('permission.id IN (:...ids)', { ids });
+    const repository =
+      manager?.getRepository(Permission) ?? this.permissionsRepository;
 
-    const permissions = await query.getMany();
+    const permissions = await repository.find({
+      where: ids.map((id) => ({ id })),
+    });
 
     if (permissions.length !== ids.length) {
-      throw new NotFoundException('One or more permissions were not found');
+      throw new NotFoundException('One or more permissions were not found.');
+    }
+
+    const companyRole =
+      roleScope === RoleScope.TENANT || roleScope === RoleScope.TENANT_TEMPLATE;
+
+    const invalid = permissions.filter(
+      (permission) =>
+        permission.is_deprecated ||
+        (companyRole && !permission.assignable_to_company_role) ||
+        (roleScope === RoleScope.PLATFORM &&
+          !permission.assignable_to_platform_role),
+    );
+
+    if (invalid.length > 0) {
+      throw new ForbiddenException({
+        code: 'PERMISSION_NOT_ASSIGNABLE',
+        message: 'One or more permissions cannot be assigned to this role type.',
+        details: {
+          permissions: invalid.map((permission) => ({
+            id: permission.id,
+            name: permission.name,
+            assignmentScope: permission.assignment_scope,
+          })),
+        },
+      });
     }
 
     return permissions;
   }
 
-  private resolveUpdatedCompanyId(
+  /**
+   * Resolve role scope during creation (spec 3.14).
+   */
+  private resolveRoleScope(
     actor: AuthenticatedUser | undefined,
-    role: Role,
-    requestedCompanyId: string | undefined,
-  ): string | null {
-    if (requestedCompanyId === undefined) {
-      return role.company_id;
-    }
+    dto: CreateRoleDto,
+  ): { scope: RoleScope; companyId: string | null } {
+    const platformOwner = hasOwnerRole(actor) && actor?.scope === 'platform';
 
-    if (hasOwnerRole(actor)) {
-      return requestedCompanyId;
+    if (platformOwner) {
+      const scope = dto.scope ?? (dto.company_id ? RoleScope.TENANT : RoleScope.PLATFORM);
+
+      if (scope === RoleScope.TENANT && !dto.company_id) {
+        throw new BadRequestException('A tenant role requires company_id.');
+      }
+
+      if (scope !== RoleScope.TENANT && dto.company_id) {
+        throw new BadRequestException(
+          'Platform and tenant-template roles cannot contain company_id.',
+        );
+      }
+
+      return { scope, companyId: dto.company_id ?? null };
     }
 
     const companyActor = ensureCompanyScopedActor(actor);
 
-    if (requestedCompanyId !== companyActor.companyId) {
+    if (dto.scope && dto.scope !== RoleScope.TENANT) {
       throw new ForbiddenException(
-        'You can only keep roles in your active company',
+        'Company users can only create company-scoped roles.',
       );
     }
 
-    return companyActor.companyId;
+    if (dto.is_system_generated || dto.is_administrative) {
+      throw new ForbiddenException(
+        'Company users cannot create protected or administrative roles.',
+      );
+    }
+
+    return { scope: RoleScope.TENANT, companyId: companyActor.companyId };
   }
 
   async create(
@@ -131,41 +202,90 @@ export class RolesService {
       'role',
     );
 
-    const companyId = resolveScopedRbacCompanyId(
-      actor,
-      createRoleDto.company_id,
-      'role',
-    );
+    const { scope, companyId } = this.resolveRoleScope(actor, createRoleDto);
 
     if (companyId !== null) {
       await this.assertCompanyExists(companyId);
     }
 
-    const permissions = await this.resolvePermissions(
-      createRoleDto.permission_ids ?? [],
-    );
+    return this.dataSource.transaction(async (manager) => {
+      const permissions = await this.resolvePermissions(
+        createRoleDto.permission_ids ?? [],
+        scope,
+        manager,
+      );
 
-    const role = this.rolesRepository.create({
-      name: createRoleDto.name,
-      display_name: createRoleDto.display_name,
-      description: createRoleDto.description ?? null,
-      company_id: companyId,
-      is_system_generated: createRoleDto.is_system_generated ?? false,
-      permissions,
+      const roleRepository = manager.getRepository(Role);
+
+      const role = roleRepository.create({
+        name: createRoleDto.name,
+        display_name: createRoleDto.display_name,
+        description: createRoleDto.description ?? null,
+        company_id: companyId,
+        scope,
+        is_system_generated: createRoleDto.is_system_generated ?? false,
+        is_administrative: createRoleDto.is_administrative ?? false,
+        permissions,
+      });
+
+      const saved = await roleRepository.save(role);
+
+      await this.auditService.logCritical(
+        {
+          userId: actor?.id,
+          companyId: actor?.companyId,
+          companyMembershipId: actor?.companyMembershipId,
+          sessionId: actor?.sessionId,
+          action: 'role.created',
+          eventCategory: 'authorization',
+          resource: 'role',
+          resourceId: saved.id,
+          afterState: {
+            name: saved.name,
+            display_name: saved.display_name,
+            description: saved.description,
+            scope: saved.scope,
+            company_id: saved.company_id,
+            permission_ids: saved.permissions.map((permission) => permission.id),
+          },
+        },
+        manager,
+      );
+
+      return saved;
     });
-
-    return this.rolesRepository.save(role);
   }
 
+  /**
+   * Company actors may read tenant-template roles but not modify them (spec 3.14).
+   */
   async findAll(actor?: AuthenticatedUser): Promise<Role[]> {
-    const query = this.createBaseQuery().orderBy('role.name', 'ASC');
+    const query = this.createBaseQuery().orderBy('role.display_name', 'ASC');
 
-    if (!hasOwnerRole(actor)) {
-      const companyActor = ensureCompanyScopedActor(actor);
-      query.where('(role.company_id IS NULL OR role.company_id = :companyId)', {
-        companyId: companyActor.companyId,
-      });
+    if (hasOwnerRole(actor) && actor?.scope === 'platform') {
+      return query.getMany();
     }
+
+    const companyActor = ensureCompanyScopedActor(actor);
+
+    query.where(
+      `
+        (
+          role.scope = :templateScope
+          AND role.company_id IS NULL
+        )
+        OR
+        (
+          role.scope = :tenantScope
+          AND role.company_id = :companyId
+        )
+      `,
+      {
+        templateScope: RoleScope.TENANT_TEMPLATE,
+        tenantScope: RoleScope.TENANT,
+        companyId: companyActor.companyId,
+      },
+    );
 
     return query.getMany();
   }
@@ -193,58 +313,226 @@ export class RolesService {
     return role;
   }
 
+  private resolveUpdatedCompanyId(
+    actor: AuthenticatedUser | undefined,
+    role: Role,
+    requestedCompanyId: string | undefined,
+  ): string | null {
+    if (requestedCompanyId === undefined) {
+      return role.company_id;
+    }
+
+    if (hasOwnerRole(actor)) {
+      return requestedCompanyId;
+    }
+
+    const companyActor = ensureCompanyScopedActor(actor);
+
+    if (requestedCompanyId !== companyActor.companyId) {
+      throw new ForbiddenException(
+        'You can only keep roles in your active company',
+      );
+    }
+
+    return companyActor.companyId;
+  }
+
+  /**
+   * Transactional role update with audit trail (spec 3.15).
+   */
   async update(
     id: string,
     updateRoleDto: UpdateRoleDto,
     actor?: AuthenticatedUser,
   ): Promise<Role> {
-    const role = await this.findAccessibleRoleOrFail(id, actor);
+    return this.dataSource.transaction(async (manager) => {
+      const roleRepository = manager.getRepository(Role);
 
-    assertCanMutateSystemGeneratedRbacRecord(actor, role, 'role');
-    assertCanManageScopedRbacRecord(actor, role, 'role');
-    assertCanCreateSystemGeneratedRbacRecord(
-      actor,
-      updateRoleDto.is_system_generated,
-      'role',
-    );
+      const role = await roleRepository.findOne({
+        where: { id },
+        relations: { permissions: true },
+      });
 
-    const updatedCompanyId = this.resolveUpdatedCompanyId(
-      actor,
-      role,
-      updateRoleDto.company_id,
-    );
+      if (!role) {
+        throw new NotFoundException('Role not found.');
+      }
 
-    if (updatedCompanyId !== null) {
-      await this.assertCompanyExists(updatedCompanyId);
-    }
+      assertCanManageScopedRbacRecord(actor, role, 'role');
+      assertCanMutateSystemGeneratedRbacRecord(actor, role, 'role');
 
-    if (updateRoleDto.permission_ids !== undefined) {
-      role.permissions = await this.resolvePermissions(
-        updateRoleDto.permission_ids,
+      if (role.scope === RoleScope.TENANT_TEMPLATE && !hasOwnerRole(actor)) {
+        throw new ForbiddenException(
+          'Tenant-template roles can only be modified by the platform owner.',
+        );
+      }
+
+      assertCanCreateSystemGeneratedRbacRecord(
+        actor,
+        updateRoleDto.is_system_generated,
+        'role',
       );
-    }
 
-    role.name = updateRoleDto.name ?? role.name;
-    role.display_name = updateRoleDto.display_name ?? role.display_name;
-    role.description =
-      updateRoleDto.description !== undefined
-        ? (updateRoleDto.description ?? null)
-        : role.description;
-    role.company_id = updatedCompanyId;
+      const beforeState = {
+        name: role.name,
+        display_name: role.display_name,
+        description: role.description,
+        scope: role.scope,
+        company_id: role.company_id,
+        permission_ids: role.permissions.map((permission) => permission.id),
+      };
 
-    if (updateRoleDto.is_system_generated !== undefined) {
-      role.is_system_generated = updateRoleDto.is_system_generated;
-    }
+      if (updateRoleDto.scope !== undefined && updateRoleDto.scope !== role.scope) {
+        const assignments = await manager.query(
+          `
+            SELECT
+              (
+                SELECT count(*) FROM "company_user_roles" WHERE "role_id" = $1
+              ) +
+              (
+                SELECT count(*) FROM "role_user" WHERE "roles_id" = $1
+              ) AS count
+          `,
+          [role.id],
+        );
 
-    return this.rolesRepository.save(role);
+        if (Number(assignments[0]?.count ?? 0) > 0) {
+          throw new ConflictException(
+            'Role scope cannot be changed while the role is assigned.',
+          );
+        }
+
+        if (!hasOwnerRole(actor)) {
+          throw new ForbiddenException(
+            'Only the platform owner can change role scope.',
+          );
+        }
+
+        role.scope = updateRoleDto.scope;
+      }
+
+      const updatedCompanyId = this.resolveUpdatedCompanyId(
+        actor,
+        role,
+        updateRoleDto.company_id,
+      );
+
+      if (updatedCompanyId !== null) {
+        await this.assertCompanyExists(updatedCompanyId);
+      }
+
+      if (updateRoleDto.permission_ids !== undefined) {
+        role.permissions = await this.resolvePermissions(
+          updateRoleDto.permission_ids,
+          role.scope,
+          manager,
+        );
+      }
+
+      role.name = updateRoleDto.name ?? role.name;
+      role.display_name = updateRoleDto.display_name ?? role.display_name;
+      role.description =
+        updateRoleDto.description !== undefined
+          ? (updateRoleDto.description ?? null)
+          : role.description;
+      role.company_id = updatedCompanyId;
+
+      if (updateRoleDto.is_system_generated !== undefined) {
+        role.is_system_generated = updateRoleDto.is_system_generated;
+      }
+
+      if (updateRoleDto.is_administrative !== undefined) {
+        if (!hasOwnerRole(actor)) {
+          throw new ForbiddenException(
+            'Only the platform owner can classify administrative roles.',
+          );
+        }
+
+        role.is_administrative = updateRoleDto.is_administrative;
+      }
+
+      const saved = await roleRepository.save(role);
+
+      await this.authorizationVersionService.bumpForRole(saved.id, manager);
+
+      await this.auditService.logCritical(
+        {
+          userId: actor?.id,
+          companyId: actor?.companyId,
+          companyMembershipId: actor?.companyMembershipId,
+          sessionId: actor?.sessionId,
+          action: 'role.updated',
+          eventCategory: 'authorization',
+          resource: 'role',
+          resourceId: saved.id,
+          beforeState,
+          afterState: {
+            name: saved.name,
+            display_name: saved.display_name,
+            description: saved.description,
+            scope: saved.scope,
+            company_id: saved.company_id,
+            permission_ids: saved.permissions.map((permission) => permission.id),
+          },
+        },
+        manager,
+      );
+
+      return saved;
+    });
   }
 
+  /**
+   * Prevent deletion of assigned roles (spec 3.16), transactional + audited.
+   */
   async remove(id: string, actor?: AuthenticatedUser): Promise<void> {
-    const role = await this.findAccessibleRoleOrFail(id, actor);
+    return this.dataSource.transaction(async (manager) => {
+      const roleRepository = manager.getRepository(Role);
 
-    assertCanMutateSystemGeneratedRbacRecord(actor, role, 'role');
-    assertCanManageScopedRbacRecord(actor, role, 'role');
+      const role = await this.findAccessibleRoleOrFail(id, actor);
 
-    await this.rolesRepository.remove(role);
+      assertCanMutateSystemGeneratedRbacRecord(actor, role, 'role');
+      assertCanManageScopedRbacRecord(actor, role, 'role');
+
+      const result = await manager.query(
+        `
+          SELECT
+            (
+              SELECT count(*) FROM "company_user_roles" WHERE "role_id" = $1
+            ) +
+            (
+              SELECT count(*) FROM "role_user" WHERE "roles_id" = $1
+            ) AS count
+        `,
+        [id],
+      );
+
+      if (Number(result[0]?.count ?? 0) > 0) {
+        throw new ConflictException(
+          'The role cannot be deleted while it is assigned to users.',
+        );
+      }
+
+      await roleRepository.remove(role);
+
+      await this.auditService.logCritical(
+        {
+          userId: actor?.id,
+          companyId: actor?.companyId,
+          companyMembershipId: actor?.companyMembershipId,
+          sessionId: actor?.sessionId,
+          action: 'role.deleted',
+          eventCategory: 'authorization',
+          resource: 'role',
+          resourceId: id,
+          beforeState: {
+            name: role.name,
+            display_name: role.display_name,
+            scope: role.scope,
+            company_id: role.company_id,
+          },
+        },
+        manager,
+      );
+    });
   }
 }

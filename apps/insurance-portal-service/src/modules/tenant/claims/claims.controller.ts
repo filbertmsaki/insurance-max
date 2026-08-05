@@ -6,20 +6,17 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
-  UseGuards,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+  } from '@nestjs/common';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import { ClaimsPermissions } from './claims.permissions';
 import { ClaimsService } from './claims.service';
 import { FindClaimsQueryDto } from './dto/find-claims-query.dto';
 import { CreateClaimDto } from './dto/create-claim.dto';
+import { TenantScoped } from '@insurance-max/portal-shared';
 import {
   AddClaimDocumentDto,
   AssignClaimDto,
@@ -37,19 +34,17 @@ import {
 } from './dto/claim-workflow.dto';
 
 @Controller('tenant/claims')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class ClaimsController {
   constructor(private readonly claimsService: ClaimsService) {}
 
   @Post()
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.CREATE)
   create(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateClaimDto) {
     return this.claimsService.create(user, dto);
   }
 
   @Get()
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.READ)
   findAll(
     @CurrentUser() user: AuthenticatedUser,
@@ -59,7 +54,6 @@ export class ClaimsController {
   }
 
   @Get(':id')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.READ)
   findOne(
     @CurrentUser() user: AuthenticatedUser,
@@ -69,7 +63,6 @@ export class ClaimsController {
   }
 
   @Post(':id/assign')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.ASSIGN)
   assign(
     @CurrentUser() user: AuthenticatedUser,
@@ -80,7 +73,6 @@ export class ClaimsController {
   }
 
   @Post(':id/documents')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.DOCUMENT_UPLOAD)
   addDocument(
     @CurrentUser() user: AuthenticatedUser,
@@ -91,7 +83,6 @@ export class ClaimsController {
   }
 
   @Post('documents/:id/verify')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.DOCUMENT_VERIFY)
   verifyDocument(
     @CurrentUser() user: AuthenticatedUser,
@@ -102,7 +93,6 @@ export class ClaimsController {
   }
 
   @Post(':id/intimations')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.UPDATE)
   createIntimation(
     @CurrentUser() user: AuthenticatedUser,
@@ -113,7 +103,6 @@ export class ClaimsController {
   }
 
   @Post(':id/reserves')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.RESERVE_CREATE)
   createReserve(
     @CurrentUser() user: AuthenticatedUser,
@@ -124,7 +113,6 @@ export class ClaimsController {
   }
 
   @Post('reserves/:id/submit')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.RESERVE_CREATE)
   submitReserve(
     @CurrentUser() user: AuthenticatedUser,
@@ -134,7 +122,6 @@ export class ClaimsController {
   }
 
   @Post('reserves/:id/approve')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.RESERVE_APPROVE)
   approveReserve(
     @CurrentUser() user: AuthenticatedUser,
@@ -144,7 +131,6 @@ export class ClaimsController {
   }
 
   @Post(':id/service-assignments')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.ASSIGN)
   createServiceAssignment(
     @CurrentUser() user: AuthenticatedUser,
@@ -155,7 +141,6 @@ export class ClaimsController {
   }
 
   @Post(':id/assessments')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.ASSESSMENT_CREATE)
   createAssessment(
     @CurrentUser() user: AuthenticatedUser,
@@ -166,7 +151,6 @@ export class ClaimsController {
   }
 
   @Post('assessments/:id/submit')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.ASSESSMENT_CREATE)
   submitAssessment(
     @CurrentUser() user: AuthenticatedUser,
@@ -176,7 +160,6 @@ export class ClaimsController {
   }
 
   @Post('assessments/:id/approve')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.ASSESSMENT_APPROVE)
   approveAssessment(
     @CurrentUser() user: AuthenticatedUser,
@@ -186,7 +169,6 @@ export class ClaimsController {
   }
 
   @Post(':id/discharge-vouchers')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.DISCHARGE_CREATE)
   createDischargeVoucher(
     @CurrentUser() user: AuthenticatedUser,
@@ -197,7 +179,6 @@ export class ClaimsController {
   }
 
   @Post('discharge-vouchers/:id/submit')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.DISCHARGE_CREATE)
   submitDischargeVoucher(
     @CurrentUser() user: AuthenticatedUser,
@@ -207,7 +188,6 @@ export class ClaimsController {
   }
 
   @Post('discharge-vouchers/:id/approve')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.DISCHARGE_APPROVE)
   approveDischargeVoucher(
     @CurrentUser() user: AuthenticatedUser,
@@ -217,7 +197,6 @@ export class ClaimsController {
   }
 
   @Post('discharge-vouchers/:id/respond')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.DISCHARGE_APPROVE)
   respondToDischarge(
     @CurrentUser() user: AuthenticatedUser,
@@ -228,7 +207,6 @@ export class ClaimsController {
   }
 
   @Post(':id/payments')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.PAYMENT_CREATE)
   createPayment(
     @CurrentUser() user: AuthenticatedUser,
@@ -239,7 +217,6 @@ export class ClaimsController {
   }
 
   @Post('payments/:id/submit')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.PAYMENT_CREATE)
   submitPayment(
     @CurrentUser() user: AuthenticatedUser,
@@ -249,7 +226,6 @@ export class ClaimsController {
   }
 
   @Post('payments/:id/approve')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.PAYMENT_APPROVE)
   approvePayment(
     @CurrentUser() user: AuthenticatedUser,
@@ -259,7 +235,6 @@ export class ClaimsController {
   }
 
   @Post('payments/:id/mark-paid')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.PAYMENT_MARK_PAID)
   markPaymentPaid(
     @CurrentUser() user: AuthenticatedUser,
@@ -270,7 +245,6 @@ export class ClaimsController {
   }
 
   @Post(':id/reject')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.REJECT)
   rejectClaim(
     @CurrentUser() user: AuthenticatedUser,
@@ -281,7 +255,6 @@ export class ClaimsController {
   }
 
   @Post(':id/close')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.CLOSE)
   closeClaim(
     @CurrentUser() user: AuthenticatedUser,
@@ -292,7 +265,6 @@ export class ClaimsController {
   }
 
   @Post(':id/tiramis/notification')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.TIRAMIS_SUBMIT)
   submitNotification(
     @CurrentUser() user: AuthenticatedUser,
@@ -302,7 +274,6 @@ export class ClaimsController {
   }
 
   @Post('intimations/:id/tiramis')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.TIRAMIS_SUBMIT)
   submitIntimation(
     @CurrentUser() user: AuthenticatedUser,
@@ -312,7 +283,6 @@ export class ClaimsController {
   }
 
   @Post('assessments/:id/tiramis')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.TIRAMIS_SUBMIT)
   submitAssessmentToTiramis(
     @CurrentUser() user: AuthenticatedUser,
@@ -322,7 +292,6 @@ export class ClaimsController {
   }
 
   @Post('payments/:id/tiramis')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.TIRAMIS_SUBMIT)
   submitPaymentToTiramis(
     @CurrentUser() user: AuthenticatedUser,

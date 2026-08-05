@@ -1,21 +1,35 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   ArrayUnique,
   IsArray,
   IsBoolean,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
+  Matches,
+  MaxLength,
 } from 'class-validator';
+import { RoleScope } from '@insurance-max/contracts';
 
 export class CreateRoleDto {
+  @Transform(({ value }) =>
+    String(value)
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '_'),
+  )
   @IsString()
   @IsNotEmpty()
+  @MaxLength(50)
+  @Matches(/^[A-Z][A-Z0-9_]{1,49}$/)
   name: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   display_name: string;
 
   @IsString()
@@ -33,12 +47,30 @@ export class CreateRoleDto {
 
   @ApiPropertyOptional({
     description:
-      'Marks the role as system-generated and protected from non-owner mutations',
+      'Role scope. Only the platform owner may set this explicitly.',
+    enum: Object.values(RoleScope),
+  })
+  @IsEnum(RoleScope)
+  @IsOptional()
+  scope?: RoleScope;
+
+  @ApiPropertyOptional({
+    description:
+      'Marks the role as system-generated and protected from non-owner mutations. Platform owner only.',
     default: false,
   })
   @IsBoolean()
   @IsOptional()
   is_system_generated?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Marks the role as administrative (grants elevated company access). Platform owner only.',
+    default: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  is_administrative?: boolean;
 
   @ApiPropertyOptional({
     description:

@@ -8,29 +8,25 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
-} from '@nestjs/common';
+  } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { InsuranceSubClassesService } from './insurance-sub-classes.service';
 import { CreateInsuranceSubClassDto } from './dto/create-insurance-sub-class.dto';
 import { UpdateInsuranceSubClassDto } from './dto/update-insurance-sub-class.dto';
 import { FilterInsuranceSubClassDto } from './dto/filter-insurance-sub-class.dto';
+import { TenantScoped } from '@insurance-max/portal-shared';
 
 @ApiTags('Insurance Sub-Classes')
 @ApiBearerAuth()
 @Controller('insurance-sub-classes')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class InsuranceSubClassesController {
   constructor(private readonly service: InsuranceSubClassesService) {}
 
   @Get()
-  @UseGuards(PermissionsGuard)
   @Permissions('insurance-sub-classes:read')
   @ApiOperation({
     summary: 'List all insurance sub-classes for the current company',
@@ -43,7 +39,6 @@ export class InsuranceSubClassesController {
   }
 
   @Post()
-  @UseGuards(PermissionsGuard)
   @Permissions('insurance-sub-classes:create')
   @ApiOperation({ summary: 'Create a new insurance sub-class' })
   async create(
@@ -54,7 +49,6 @@ export class InsuranceSubClassesController {
   }
 
   @Get(':subClassId')
-  @UseGuards(PermissionsGuard)
   @Permissions('insurance-sub-classes:read')
   @ApiOperation({ summary: 'Get an insurance sub-class by ID' })
   async findOne(
@@ -65,7 +59,6 @@ export class InsuranceSubClassesController {
   }
 
   @Patch(':subClassId')
-  @UseGuards(PermissionsGuard)
   @Permissions('insurance-sub-classes:update')
   @ApiOperation({ summary: 'Update an insurance sub-class' })
   async update(
@@ -77,7 +70,6 @@ export class InsuranceSubClassesController {
   }
 
   @Delete(':subClassId')
-  @UseGuards(PermissionsGuard)
   @Permissions('insurance-sub-classes:delete')
   @ApiOperation({ summary: 'Soft-delete an insurance sub-class' })
   async remove(

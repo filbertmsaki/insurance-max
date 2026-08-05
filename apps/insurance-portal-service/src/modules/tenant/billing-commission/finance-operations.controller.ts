@@ -4,13 +4,9 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
-  UseGuards,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+  } from '@nestjs/common';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import {
@@ -22,16 +18,16 @@ import {
 } from './dto/finance-operations.dto';
 import { FinancePermissions } from './finance.permissions';
 import { FinanceLifecycleService } from './finance-lifecycle.service';
+import { TenantScoped } from '@insurance-max/portal-shared';
 
 @Controller('tenant/billing')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class FinanceOperationsController {
   constructor(
     private readonly financeLifecycleService: FinanceLifecycleService,
   ) {}
 
   @Post('invoices/:id/issue')
-  @UseGuards(PermissionsGuard)
   @Permissions(FinancePermissions.INVOICE_ISSUE)
   issueInvoice(
     @CurrentUser() user: AuthenticatedUser,
@@ -42,7 +38,6 @@ export class FinanceOperationsController {
   }
 
   @Post('invoices/:id/void')
-  @UseGuards(PermissionsGuard)
   @Permissions(FinancePermissions.INVOICE_VOID)
   voidInvoice(
     @CurrentUser() user: AuthenticatedUser,
@@ -53,7 +48,6 @@ export class FinanceOperationsController {
   }
 
   @Post('receipts/:id/post')
-  @UseGuards(PermissionsGuard)
   @Permissions(FinancePermissions.RECEIPT_POST)
   postReceipt(
     @CurrentUser() user: AuthenticatedUser,
@@ -64,7 +58,6 @@ export class FinanceOperationsController {
   }
 
   @Post('receipts/:id/allocate')
-  @UseGuards(PermissionsGuard)
   @Permissions(FinancePermissions.RECEIPT_ALLOCATE)
   allocateReceipt(
     @CurrentUser() user: AuthenticatedUser,
@@ -75,7 +68,6 @@ export class FinanceOperationsController {
   }
 
   @Post('allocations/:id/reverse')
-  @UseGuards(PermissionsGuard)
   @Permissions(FinancePermissions.RECEIPT_REVERSE)
   reverseAllocation(
     @CurrentUser() user: AuthenticatedUser,
@@ -86,7 +78,6 @@ export class FinanceOperationsController {
   }
 
   @Post('receipts/:id/reverse')
-  @UseGuards(PermissionsGuard)
   @Permissions(FinancePermissions.RECEIPT_REVERSE)
   reverseReceipt(
     @CurrentUser() user: AuthenticatedUser,
@@ -97,7 +88,6 @@ export class FinanceOperationsController {
   }
 
   @Post('commission-payments/:id/pay')
-  @UseGuards(PermissionsGuard)
   @Permissions(FinancePermissions.COMMISSION_PAY)
   payCommission(
     @CurrentUser() user: AuthenticatedUser,

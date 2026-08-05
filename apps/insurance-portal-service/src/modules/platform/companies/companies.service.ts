@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -11,8 +12,10 @@ import {
   SortDirection,
 } from '@insurance-max/portal-shared/dto/pagination.dto';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
-import { EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { isDuplicateEntryError } from '@insurance-max/portal-shared/utils/db-error.util';
+import { RoleScope } from '@insurance-max/contracts';
+import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { Role } from '../roles/entities/role.entity';
 import { Permission } from '../permissions/entities/permission.entity';
 import { User } from '../../tenant/users/entities/user.entity';
@@ -30,6 +33,8 @@ import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-
 import { BranchUser } from '../../tenant/branches/entities/branch-user.entity';
 import { Branch } from '../../tenant/branches/entities/branch.entity';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
+import { AuditService } from '../../shared/audit/audit.service';
+import { AuthorizationVersionService } from '../../shared/authorization/authorization-version.service';
 
 @Injectable()
 export class CompaniesService {
@@ -65,7 +70,63 @@ export class CompaniesService {
     private readonly salePointRepository: Repository<TiramisSalePointEntity>,
 
     private readonly identifierGeneratorService: IdentifierGeneratorService,
+
+    private readonly dataSource: DataSource,
+    private readonly auditService: AuditService,
+    private readonly authorizationVersionService: AuthorizationVersionService,
   ) {}
+
+  /**
+   * Protect the final company administrator (spec 3.19). Counts other active
+   * memberships holding an administrative role, excluding the given membership.
+   */
+  private async assertNotLastCompanyAdministrator(
+    companyId: string,
+    membershipId: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    const result = await manager.query(
+      `
+        SELECT count(DISTINCT membership."id") AS count
+        FROM "company_users" membership
+        INNER JOIN "company_user_roles" assignment
+          ON assignment."company_user_id" = membership."id"
+        INNER JOIN "roles" role
+          ON role."id" = assignment."role_id"
+        WHERE membership."company_id" = $1
+          AND membership."status" = 'active'
+          AND membership."id" != $2
+          AND role."is_administrative" = true
+      `,
+      [companyId, membershipId],
+    );
+
+    if (Number(result[0]?.count ?? 0) === 0) {
+      throw new ConflictException({
+        code: 'LAST_ADMINISTRATOR_PROTECTED',
+        message:
+          'This action would leave the company without an active administrator.',
+      });
+    }
+  }
+
+  private async membershipHasAdministrativeRole(
+    membershipId: string,
+    manager: EntityManager,
+  ): Promise<boolean> {
+    const result = await manager.query(
+      `
+        SELECT count(*) AS count
+        FROM "company_user_roles" assignment
+        INNER JOIN "roles" role ON role."id" = assignment."role_id"
+        WHERE assignment."company_user_id" = $1
+          AND role."is_administrative" = true
+      `,
+      [membershipId],
+    );
+
+    return Number(result[0]?.count ?? 0) > 0;
+  }
 
   private getCompanyRepository(manager?: EntityManager): Repository<Company> {
     return manager?.getRepository(Company) ?? this.companyRepository;
@@ -264,6 +325,7 @@ export class CompaniesService {
           (assignment) => assignment.role.name,
         ) ?? [],
       permissions: this.getMembershipPermissions(membership),
+      authorizationVersion: membership.authorization_version,
     };
   }
 
@@ -966,67 +1028,290 @@ export class CompaniesService {
     return this.getMembershipContext(userId, companyId, manager);
   }
 
+  /**
+   * Transactional company role assignment with audit + authorization
+   * version bump (spec 3.18).
+   */
   async assignRole(
     companyId: string,
     userId: string,
     roleId: string,
+    actor?: AuthenticatedUser,
   ): Promise<CompanyMembershipContext> {
-    const membership = await this.companyUserRepository.findOne({
-      where: {
-        company_id: companyId,
-        user_id: userId,
-        status: 'active',
-      },
-    });
+    await this.dataSource.transaction(async (manager) => {
+      const membershipRepository = manager.getRepository(CompanyUser);
+      const assignmentRepository = manager.getRepository(CompanyUserRole);
+      const roleRepository = manager.getRepository(Role);
 
-    if (!membership) {
-      throw new NotFoundException('User is not a member of this company');
-    }
+      const membership = await membershipRepository
+        .createQueryBuilder('membership')
+        .setLock('pessimistic_write')
+        .where('membership.company_id = :companyId', { companyId })
+        .andWhere('membership.user_id = :userId', { userId })
+        .andWhere('membership.status = :status', { status: 'active' })
+        .getOne();
 
-    const role = await this.roleRepository.findOne({ where: { id: roleId } });
-    if (!role || (role.company_id !== null && role.company_id !== companyId)) {
-      throw new NotFoundException('Role not found');
-    }
+      if (!membership) {
+        throw new NotFoundException('Active company membership was not found.');
+      }
 
-    const existingAssignment = await this.companyUserRoleRepository.findOne({
-      where: {
-        company_user_id: membership.id,
-        role_id: roleId,
-      },
-    });
+      const role = await roleRepository.findOne({ where: { id: roleId } });
 
-    if (!existingAssignment) {
-      await this.companyUserRoleRepository.save(
-        this.companyUserRoleRepository.create({
+      if (!role) {
+        throw new NotFoundException('Role not found.');
+      }
+
+      const assignable =
+        (role.scope === RoleScope.TENANT && role.company_id === companyId) ||
+        (role.scope === RoleScope.TENANT_TEMPLATE && role.company_id === null);
+
+      if (!assignable) {
+        throw new ForbiddenException({
+          code: 'ROLE_NOT_ASSIGNABLE_TO_COMPANY',
+          message: 'This role cannot be assigned within this company.',
+        });
+      }
+
+      const existingAssignment = await assignmentRepository.findOne({
+        where: {
           company_user_id: membership.id,
           role_id: roleId,
-        }),
+        },
+      });
+
+      if (!existingAssignment) {
+        await assignmentRepository.save(
+          assignmentRepository.create({
+            company_user_id: membership.id,
+            role_id: roleId,
+          }),
+        );
+      }
+
+      await this.authorizationVersionService.bumpMembership(
+        membership.id,
+        manager,
       );
-    }
+
+      await this.auditService.logCritical(
+        {
+          userId: actor?.id,
+          companyId,
+          companyMembershipId: actor?.companyMembershipId,
+          sessionId: actor?.sessionId,
+          action: 'role.assigned',
+          eventCategory: 'authorization',
+          resource: 'company_user_role',
+          resourceId: membership.id,
+          metadata: { userId, roleId },
+          afterState: { role_id: roleId, user_id: userId },
+        },
+        manager,
+      );
+    });
 
     return this.getMembershipContext(userId, companyId);
   }
 
+  /**
+   * Transactional company role revocation. Protects the final company
+   * administrator (spec 3.18/3.19).
+   */
   async revokeRole(
     companyId: string,
     userId: string,
     roleId: string,
+    actor?: AuthenticatedUser,
   ): Promise<CompanyMembershipContext> {
-    const membership = await this.companyUserRepository.findOne({
-      where: {
-        company_id: companyId,
-        user_id: userId,
-        status: 'active',
-      },
+    await this.dataSource.transaction(async (manager) => {
+      const membershipRepository = manager.getRepository(CompanyUser);
+      const assignmentRepository = manager.getRepository(CompanyUserRole);
+      const roleRepository = manager.getRepository(Role);
+
+      const membership = await membershipRepository
+        .createQueryBuilder('membership')
+        .setLock('pessimistic_write')
+        .where('membership.company_id = :companyId', { companyId })
+        .andWhere('membership.user_id = :userId', { userId })
+        .andWhere('membership.status = :status', { status: 'active' })
+        .getOne();
+
+      if (!membership) {
+        throw new NotFoundException('Active company membership was not found.');
+      }
+
+      const role = await roleRepository.findOne({ where: { id: roleId } });
+
+      if (role?.is_administrative) {
+        await this.assertNotLastCompanyAdministrator(
+          companyId,
+          membership.id,
+          manager,
+        );
+      }
+
+      await assignmentRepository.delete({
+        company_user_id: membership.id,
+        role_id: roleId,
+      });
+
+      await this.authorizationVersionService.bumpMembership(
+        membership.id,
+        manager,
+      );
+
+      await this.auditService.logCritical(
+        {
+          userId: actor?.id,
+          companyId,
+          companyMembershipId: actor?.companyMembershipId,
+          sessionId: actor?.sessionId,
+          action: 'role.revoked',
+          eventCategory: 'authorization',
+          resource: 'company_user_role',
+          resourceId: membership.id,
+          metadata: { userId, roleId },
+          beforeState: { role_id: roleId, user_id: userId },
+        },
+        manager,
+      );
     });
 
-    if (!membership) {
-      throw new NotFoundException('User is not a member of this company');
-    }
+    return this.getMembershipContext(userId, companyId);
+  }
 
-    await this.companyUserRoleRepository.delete({
-      company_user_id: membership.id,
-      role_id: roleId,
+  /**
+   * Grant a direct permission exception to a company membership (spec 3.18/3.20).
+   */
+  async grantPermission(
+    companyId: string,
+    userId: string,
+    permissionId: string,
+    actor?: AuthenticatedUser,
+  ): Promise<CompanyMembershipContext> {
+    await this.dataSource.transaction(async (manager) => {
+      const membershipRepository = manager.getRepository(CompanyUser);
+      const assignmentRepository = manager.getRepository(CompanyUserPermission);
+      const permissionRepository = manager.getRepository(Permission);
+
+      const membership = await membershipRepository
+        .createQueryBuilder('membership')
+        .setLock('pessimistic_write')
+        .where('membership.company_id = :companyId', { companyId })
+        .andWhere('membership.user_id = :userId', { userId })
+        .andWhere('membership.status = :status', { status: 'active' })
+        .getOne();
+
+      if (!membership) {
+        throw new NotFoundException('Active company membership was not found.');
+      }
+
+      const permission = await permissionRepository.findOne({
+        where: { id: permissionId },
+      });
+
+      if (!permission) {
+        throw new NotFoundException('Permission not found.');
+      }
+
+      if (permission.is_deprecated || !permission.assignable_to_company_role) {
+        throw new ForbiddenException({
+          code: 'PERMISSION_NOT_ASSIGNABLE',
+          message: 'This permission cannot be granted to a company membership.',
+        });
+      }
+
+      const existingAssignment = await assignmentRepository.findOne({
+        where: {
+          company_user_id: membership.id,
+          permission_id: permissionId,
+        },
+      });
+
+      if (!existingAssignment) {
+        await assignmentRepository.save(
+          assignmentRepository.create({
+            company_user_id: membership.id,
+            permission_id: permissionId,
+          }),
+        );
+      }
+
+      await this.authorizationVersionService.bumpMembership(
+        membership.id,
+        manager,
+      );
+
+      await this.auditService.logCritical(
+        {
+          userId: actor?.id,
+          companyId,
+          companyMembershipId: actor?.companyMembershipId,
+          sessionId: actor?.sessionId,
+          action: 'permission.granted',
+          eventCategory: 'authorization',
+          resource: 'company_user_permission',
+          resourceId: membership.id,
+          metadata: { userId, permissionId },
+          afterState: { permission_id: permissionId, user_id: userId },
+        },
+        manager,
+      );
+    });
+
+    return this.getMembershipContext(userId, companyId);
+  }
+
+  /**
+   * Revoke a direct permission exception from a company membership (spec 3.18/3.20).
+   */
+  async revokePermission(
+    companyId: string,
+    userId: string,
+    permissionId: string,
+    actor?: AuthenticatedUser,
+  ): Promise<CompanyMembershipContext> {
+    await this.dataSource.transaction(async (manager) => {
+      const membershipRepository = manager.getRepository(CompanyUser);
+      const assignmentRepository = manager.getRepository(CompanyUserPermission);
+
+      const membership = await membershipRepository
+        .createQueryBuilder('membership')
+        .setLock('pessimistic_write')
+        .where('membership.company_id = :companyId', { companyId })
+        .andWhere('membership.user_id = :userId', { userId })
+        .andWhere('membership.status = :status', { status: 'active' })
+        .getOne();
+
+      if (!membership) {
+        throw new NotFoundException('Active company membership was not found.');
+      }
+
+      await assignmentRepository.delete({
+        company_user_id: membership.id,
+        permission_id: permissionId,
+      });
+
+      await this.authorizationVersionService.bumpMembership(
+        membership.id,
+        manager,
+      );
+
+      await this.auditService.logCritical(
+        {
+          userId: actor?.id,
+          companyId,
+          companyMembershipId: actor?.companyMembershipId,
+          sessionId: actor?.sessionId,
+          action: 'permission.revoked',
+          eventCategory: 'authorization',
+          resource: 'company_user_permission',
+          resourceId: membership.id,
+          metadata: { userId, permissionId },
+          beforeState: { permission_id: permissionId, user_id: userId },
+        },
+        manager,
+      );
     });
 
     return this.getMembershipContext(userId, companyId);
@@ -1041,22 +1326,50 @@ export class CompaniesService {
   async removeUserFromCompany(
     companyId: string,
     userId: string,
+    actor?: AuthenticatedUser,
   ): Promise<{ message: string }> {
-    const membership = await this.companyUserRepository.findOne({
-      where: {
-        company_id: companyId,
-        user_id: userId,
-        status: 'active',
-      },
+    return this.dataSource.transaction(async (manager) => {
+      const membershipRepository = manager.getRepository(CompanyUser);
+
+      const membership = await membershipRepository
+        .createQueryBuilder('membership')
+        .setLock('pessimistic_write')
+        .where('membership.company_id = :companyId', { companyId })
+        .andWhere('membership.user_id = :userId', { userId })
+        .andWhere('membership.status = :status', { status: 'active' })
+        .getOne();
+
+      if (!membership) {
+        throw new NotFoundException('User is not a member of this company');
+      }
+
+      if (await this.membershipHasAdministrativeRole(membership.id, manager)) {
+        await this.assertNotLastCompanyAdministrator(
+          companyId,
+          membership.id,
+          manager,
+        );
+      }
+
+      await membershipRepository.delete({ id: membership.id });
+
+      await this.auditService.logCritical(
+        {
+          userId: actor?.id,
+          companyId,
+          companyMembershipId: actor?.companyMembershipId,
+          sessionId: actor?.sessionId,
+          action: 'company_membership.removed',
+          eventCategory: 'authorization',
+          resource: 'company_user',
+          resourceId: membership.id,
+          metadata: { userId },
+        },
+        manager,
+      );
+
+      return { message: 'User removed from company successfully' };
     });
-
-    if (!membership) {
-      throw new NotFoundException('User is not a member of this company');
-    }
-
-    await this.companyUserRepository.delete({ id: membership.id });
-
-    return { message: 'User removed from company successfully' };
   }
 
   async findCompanyUserContext(

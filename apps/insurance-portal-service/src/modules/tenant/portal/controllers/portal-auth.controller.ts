@@ -5,6 +5,7 @@ import { Throttle } from '@nestjs/throttler';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Public } from '@insurance-max/portal-shared/decorators/public.decorator';
+import { AuthenticatedAccess } from '@insurance-max/portal-shared/decorators/authorization.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import { AcceptPortalInvitationDto } from '../dto/portal-invitation.dto';
@@ -41,6 +42,7 @@ export class PortalAuthController {
    */
   @Post('invitations/accept-existing')
   @UseGuards(AuthGuard('jwt'))
+  @AuthenticatedAccess()
   @ApiBearerAuth('access-token')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({

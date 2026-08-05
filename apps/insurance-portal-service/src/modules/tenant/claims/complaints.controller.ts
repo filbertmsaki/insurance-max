@@ -4,18 +4,15 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
-  UseGuards,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+  } from '@nestjs/common';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import { ClaimsPermissions } from './claims.permissions';
 import { ComplaintsService } from './complaints.service';
+import { TenantScoped } from '@insurance-max/portal-shared';
 import {
   AssignComplaintDto,
   ComplaintDecisionDto,
@@ -23,12 +20,11 @@ import {
 } from './dto/complaint.dto';
 
 @Controller('tenant/complaints')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class ComplaintsController {
   constructor(private readonly complaintsService: ComplaintsService) {}
 
   @Post()
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.COMPLAINT_CREATE)
   create(
     @CurrentUser() user: AuthenticatedUser,
@@ -38,7 +34,6 @@ export class ComplaintsController {
   }
 
   @Post(':id/acknowledge')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.COMPLAINT_ASSIGN)
   acknowledge(
     @CurrentUser() user: AuthenticatedUser,
@@ -48,7 +43,6 @@ export class ComplaintsController {
   }
 
   @Post(':id/assign')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.COMPLAINT_ASSIGN)
   assign(
     @CurrentUser() user: AuthenticatedUser,
@@ -59,7 +53,6 @@ export class ComplaintsController {
   }
 
   @Post(':id/resolve')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.COMPLAINT_RESOLVE)
   resolve(
     @CurrentUser() user: AuthenticatedUser,
@@ -70,7 +63,6 @@ export class ComplaintsController {
   }
 
   @Post(':id/escalate')
-  @UseGuards(PermissionsGuard)
   @Permissions(ClaimsPermissions.COMPLAINT_ESCALATE)
   escalate(
     @CurrentUser() user: AuthenticatedUser,

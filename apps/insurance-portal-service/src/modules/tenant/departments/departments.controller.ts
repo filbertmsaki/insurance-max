@@ -8,18 +8,15 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
-} from '@nestjs/common';
+  } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { PaginationDto } from '@insurance-max/portal-shared/dto/pagination.dto';
 import { DepartmentsService } from './departments.service';
 import { CreateDepartmentDto } from './dto/create-department.dto';
+import { TenantScoped } from '@insurance-max/portal-shared';
 import {
   UpdateDepartmentDto,
   UpdateDepartmentStatusDto,
@@ -28,12 +25,11 @@ import {
 @ApiTags('Departments')
 @ApiBearerAuth()
 @Controller('departments')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class DepartmentsController {
   constructor(private readonly departmentsService: DepartmentsService) {}
 
   @Get()
-  @UseGuards(PermissionsGuard)
   @Permissions('departments:read')
   @ApiOperation({ summary: 'List all departments for the current company' })
   async listDepartments(
@@ -44,7 +40,6 @@ export class DepartmentsController {
   }
 
   @Post()
-  @UseGuards(PermissionsGuard)
   @Permissions('departments:create')
   @ApiOperation({ summary: 'Create a new department' })
   async createDepartment(
@@ -55,7 +50,6 @@ export class DepartmentsController {
   }
 
   @Get(':departmentId')
-  @UseGuards(PermissionsGuard)
   @Permissions('departments:read')
   @ApiOperation({ summary: 'Get a department by ID' })
   async getDepartment(
@@ -66,7 +60,6 @@ export class DepartmentsController {
   }
 
   @Patch(':departmentId')
-  @UseGuards(PermissionsGuard)
   @Permissions('departments:update')
   @ApiOperation({ summary: 'Update a department' })
   async updateDepartment(
@@ -83,7 +76,6 @@ export class DepartmentsController {
   }
 
   @Patch(':departmentId/status')
-  @UseGuards(PermissionsGuard)
   @Permissions('departments:update')
   @ApiOperation({ summary: 'Activate or deactivate a department' })
   async setDepartmentStatus(
@@ -100,7 +92,6 @@ export class DepartmentsController {
   }
 
   @Delete(':departmentId')
-  @UseGuards(PermissionsGuard)
   @Permissions('departments:delete')
   @ApiOperation({ summary: 'Soft-delete a department' })
   async deleteDepartment(

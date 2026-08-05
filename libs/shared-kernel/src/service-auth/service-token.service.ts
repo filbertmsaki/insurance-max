@@ -5,7 +5,11 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { StringValue } from 'ms';
 
-import type { ServiceTokenPayload } from '@insurance-max/contracts';
+import type {
+  ServiceActorContext,
+  ServiceTenantContext,
+  ServiceTokenPayload,
+} from '@insurance-max/contracts';
 
 @Injectable()
 export class ServiceTokenService {
@@ -14,7 +18,14 @@ export class ServiceTokenService {
     private readonly configService: ConfigService,
   ) {}
 
-  issue(targetAudience: string, scopes: string[]): string {
+  issue(
+    targetAudience: string,
+    scopes: string[],
+    context?: {
+      tenant?: ServiceTenantContext;
+      actor?: ServiceActorContext;
+    },
+  ): string {
     const secret = this.configService.getOrThrow<string>('SERVICE_AUTH_SECRET');
     const issuer = this.configService.getOrThrow<string>('SERVICE_AUTH_ISSUER');
     const subject = this.configService.getOrThrow<string>(
@@ -25,7 +36,11 @@ export class ServiceTokenService {
     ) ?? '60s') as StringValue;
 
     return this.jwtService.sign(
-      { scopes },
+      {
+        scopes,
+        tenant: context?.tenant,
+        actor: context?.actor,
+      },
       {
         secret,
         issuer,

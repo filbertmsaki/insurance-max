@@ -15,6 +15,9 @@ import {
   RequestContextService,
   ServiceTokenService,
 } from '@insurance-max/shared-kernel';
+import type { AuthenticatedUser } from '@insurance-max/portal-shared';
+
+import { TiramisServiceScopes } from '../constants/tiramis-service-scopes.constant';
 
 import { SubmitTiramisDto } from '../dto/submit-tiramis.dto';
 import { TiramisStatusQueryDto } from '../dto/tiramis-status-query.dto';
@@ -329,7 +332,7 @@ export class TiramisClientService {
         },
       });
 
-      const response = await this.send(pattern, command);
+      const response = await this.send(pattern, command, authContext);
 
       const updatedTracking =
         await this.trackingRepository.markSubmittedResponse(
@@ -466,12 +469,16 @@ export class TiramisClientService {
       },
     });
 
-    return this.send(TIRAMIS_MESSAGE_PATTERNS.STATUS, {
-      transactionId: query.transactionId || null,
-      requestId: query.requestId || null,
-      businessReference: query.businessReference || null,
-      includePayload: !!query.includePayload,
-    });
+    return this.send(
+      TIRAMIS_MESSAGE_PATTERNS.STATUS,
+      {
+        transactionId: query.transactionId || null,
+        requestId: query.requestId || null,
+        businessReference: query.businessReference || null,
+        includePayload: !!query.includePayload,
+      },
+      authContext,
+    );
   }
 
   async getTrace(query: TiramisStatusQueryDto, authContext?: any) {
@@ -486,12 +493,16 @@ export class TiramisClientService {
       },
     });
 
-    return this.send(TIRAMIS_MESSAGE_PATTERNS.TRACE, {
-      transactionId: query.transactionId || null,
-      requestId: query.requestId || null,
-      businessReference: query.businessReference || null,
-      includePayload: !!query.includePayload,
-    });
+    return this.send(
+      TIRAMIS_MESSAGE_PATTERNS.TRACE,
+      {
+        transactionId: query.transactionId || null,
+        requestId: query.requestId || null,
+        businessReference: query.businessReference || null,
+        includePayload: !!query.includePayload,
+      },
+      authContext,
+    );
   }
 
   async checkTiramisServiceHealth() {
@@ -571,7 +582,28 @@ export class TiramisClientService {
       `Retrying ${tracking.requestType} to tiramis-service using pattern ${pattern}`,
     );
 
-    return this.send(pattern, command);
+    // This is a system-initiated retry (no live HTTP request/user session),
+    // but TIRAMIS's TiramisTenantContextGuard requires a signed tenant
+    // context on every business call. Reconstruct a minimal company-scoped
+    // context from the tracking record so the retry isn't rejected with
+    // TIRAMIS_TENANT_CONTEXT_REQUIRED.
+    const retryAuthContext: AuthenticatedUser | undefined =
+      tracking.sourceCompanyId
+        ? {
+            id: tracking.sourceUserId || 'system',
+            email: 'system@internal',
+            scope: 'company',
+            userType: 'COMPANY_USER',
+            sessionId: 'system-retry',
+            accessTokenId: 'system-retry',
+            authorizationVersion: 0,
+            companyId: tracking.sourceCompanyId,
+            roles: [],
+            permissions: [],
+          }
+        : undefined;
+
+    return this.send(pattern, command, retryAuthContext);
   }
 
   async checkDuplicate(params: {
@@ -617,7 +649,31 @@ export class TiramisClientService {
     };
   }
 
-  private async send(pattern: string, payload: Record<string, unknown>) {
+  private resolveServiceScopes(pattern: string): string[] {
+    if (pattern.includes('verification')) {
+      return [TiramisServiceScopes.VERIFY];
+    }
+
+    if (
+      pattern.includes('status') ||
+      pattern.includes('trace') ||
+      pattern.includes('health')
+    ) {
+      return [TiramisServiceScopes.READ];
+    }
+
+    if (pattern.includes('retry')) {
+      return [TiramisServiceScopes.RETRY];
+    }
+
+    return [TiramisServiceScopes.SUBMIT];
+  }
+
+  private async send(
+    pattern: string,
+    payload: Record<string, unknown>,
+    authContext?: AuthenticatedUser,
+  ) {
     try {
       const route = this.httpRouteForPattern(pattern);
 
@@ -635,9 +691,28 @@ export class TiramisClientService {
         'tiramisClient.sourceService',
       );
 
-      const serviceToken = this.serviceTokenService.issue('tiramis-service', [
-        'tiramis:invoke',
-      ]);
+      const serviceToken = this.serviceTokenService.issue(
+        'tiramis-service',
+        this.resolveServiceScopes(pattern),
+        authContext?.scope === 'company' && authContext.companyId
+          ? {
+              tenant: {
+                companyId: authContext.companyId,
+                branchId: authContext.activeBranchId,
+                branchCode: authContext.activeBranchCode,
+                salePointId: authContext.defaultSalePointId,
+                salePointCode: authContext.defaultSalePointCode,
+              },
+              actor: {
+                userId: authContext.id,
+                companyMembershipId: authContext.companyMembershipId,
+                sessionId: authContext.sessionId,
+                roles: authContext.roles,
+                permissions: authContext.permissions,
+              },
+            }
+          : undefined,
+      );
 
       const response = await firstValueFrom(
         this.httpService.request({
@@ -657,6 +732,12 @@ export class TiramisClientService {
             Authorization: `Bearer ${serviceToken}`,
 
             [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
+
+            'X-Tenant-Company-Id': authContext?.companyId ?? '',
+
+            'X-Actor-User-Id': authContext?.id ?? '',
+
+            'X-Actor-Membership-Id': authContext?.companyMembershipId ?? '',
 
             ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
 

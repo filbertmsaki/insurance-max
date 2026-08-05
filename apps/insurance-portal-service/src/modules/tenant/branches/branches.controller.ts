@@ -9,14 +9,10 @@ import {
   Post,
   Put,
   Query,
-  UseGuards,
-} from '@nestjs/common';
+  } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { PaginationDto } from '@insurance-max/portal-shared/dto/pagination.dto';
 import { BranchesService } from './branches.service';
@@ -27,6 +23,7 @@ import {
 } from './dto/update-branch.dto';
 import { AssignBranchUserDto } from './dto/assign-branch-user.dto';
 import { RemoveBranchUsersDto } from './dto/remove-branch-users.dto';
+import { TenantScoped } from '@insurance-max/portal-shared';
 import {
   SetBranchFeatureDto,
   UpsertCompanyFeatureDto,
@@ -35,14 +32,13 @@ import {
 @ApiTags('Branches')
 @ApiBearerAuth()
 @Controller('branches')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class BranchesController {
   constructor(private readonly branchesService: BranchesService) {}
 
   // ─── Branch CRUD ─────────────────────────────────────────────────────────────
 
   @Get()
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:read')
   @ApiOperation({ summary: 'List all branches for the current company' })
   async listBranches(
@@ -53,7 +49,6 @@ export class BranchesController {
   }
 
   @Post()
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:create')
   @ApiOperation({ summary: 'Create a new branch for the current company' })
   async createBranch(
@@ -64,7 +59,6 @@ export class BranchesController {
   }
 
   @Get(':branchId')
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:read')
   @ApiOperation({ summary: 'Get a branch by ID (tenant-scoped)' })
   async getBranch(
@@ -75,7 +69,6 @@ export class BranchesController {
   }
 
   @Patch(':branchId')
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:update')
   @ApiOperation({ summary: 'Update a branch' })
   async updateBranch(
@@ -87,7 +80,6 @@ export class BranchesController {
   }
 
   @Patch(':branchId/status')
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:update')
   @ApiOperation({ summary: 'Activate or deactivate a branch' })
   async setBranchStatus(
@@ -99,7 +91,6 @@ export class BranchesController {
   }
 
   @Delete(':branchId')
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:delete')
   @ApiOperation({ summary: 'Soft-delete a branch' })
   async deleteBranch(
@@ -113,7 +104,6 @@ export class BranchesController {
   // ─── Branch User Management ──────────────────────────────────────────────────
 
   @Get(':branchId/users')
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:read')
   @ApiOperation({ summary: 'List users assigned to a branch' })
   async getBranchUsers(
@@ -124,7 +114,6 @@ export class BranchesController {
   }
 
   @Get(':branchId/eligible-users')
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:read')
   async getEligibleUsers(
     @CurrentUser() user: AuthenticatedUser,
@@ -139,7 +128,6 @@ export class BranchesController {
   }
 
   @Post(':branchId/users')
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:manage-access')
   @ApiOperation({ summary: 'Assign a company user to a branch' })
   async assignUser(
@@ -156,7 +144,6 @@ export class BranchesController {
   }
 
   @Delete(':branchId/users')
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:manage-access')
   async removeUsers(
     @CurrentUser() user: AuthenticatedUser,
@@ -173,7 +160,6 @@ export class BranchesController {
   }
 
   @Delete(':branchId/users/:companyUserId')
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:manage-access')
   @ApiOperation({ summary: 'Remove a user from a branch' })
   async removeUser(
@@ -189,7 +175,6 @@ export class BranchesController {
   }
 
   @Patch('users/:companyUserId/active-branch')
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:manage-access')
   async setUserActiveBranch(
     @CurrentUser() user: AuthenticatedUser,
@@ -205,7 +190,6 @@ export class BranchesController {
   }
 
   @Patch('me/active-branch')
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:read')
   async setMyActiveBranch(
     @CurrentUser() user: AuthenticatedUser,
@@ -225,7 +209,6 @@ export class BranchesController {
   // ─── Branch Feature Management ───────────────────────────────────────────────
 
   @Get(':branchId/features')
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:read')
   @ApiOperation({
     summary:
@@ -242,7 +225,6 @@ export class BranchesController {
   }
 
   @Put(':branchId/features/:companyFeatureId')
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:manage-access')
   @ApiOperation({
     summary:
@@ -263,7 +245,6 @@ export class BranchesController {
   }
 
   @Delete(':branchId/features/:companyFeatureId')
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:manage-access')
   @ApiOperation({
     summary:
@@ -290,12 +271,10 @@ export class BranchesController {
 @ApiTags('Company Features')
 @ApiBearerAuth()
 @Controller('company-features')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
 export class CompanyFeaturesController {
   constructor(private readonly branchesService: BranchesService) {}
 
   @Get()
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:read')
   @ApiOperation({ summary: 'List all features enabled at the company level' })
   async listFeatures(@CurrentUser() user: AuthenticatedUser) {
@@ -303,7 +282,6 @@ export class CompanyFeaturesController {
   }
 
   @Post()
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:manage-access')
   @ApiOperation({ summary: 'Create or update a company-level feature' })
   async upsertFeature(
@@ -314,7 +292,6 @@ export class CompanyFeaturesController {
   }
 
   @Delete(':featureId')
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:manage-access')
   @ApiOperation({
     summary: 'Delete a company feature (also removes all branch overrides)',
@@ -328,7 +305,6 @@ export class CompanyFeaturesController {
   }
 
   @Get(':companyUserId/branches')
-  @UseGuards(PermissionsGuard)
   @Permissions('branches:read')
   @ApiOperation({ summary: 'List branches a company user is assigned to' })
   async getUserBranches(

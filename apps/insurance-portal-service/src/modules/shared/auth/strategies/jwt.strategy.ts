@@ -32,6 +32,7 @@ type JwtAccessPayload = {
   assignedBranchIds?: string[];
   sessionId?: string;
   type?: string;
+  authorizationVersion?: number;
 };
 
 @Injectable()
@@ -105,6 +106,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         role.permissions?.forEach((p) => p?.name && permissions.add(p.name)),
       );
 
+      if (
+        payload.authorizationVersion !== undefined &&
+        payload.authorizationVersion !== (user.authorization_version ?? 0)
+      ) {
+        throw new UnauthorizedException({
+          code: 'AUTHORIZATION_CONTEXT_CHANGED',
+          message:
+            'Your permissions have changed. Please sign in again to continue.',
+        });
+      }
+
       return {
         id: user.id,
         email: user.email,
@@ -114,6 +126,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         accessTokenId: payload.jti,
         roles: user.roles?.map((r) => r.name) ?? [],
         permissions: Array.from(permissions),
+        authorizationVersion: user.authorization_version ?? 0,
       };
     }
 
@@ -126,6 +139,17 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         payload.sub,
         payload.companyId,
       );
+
+      if (
+        payload.authorizationVersion !== undefined &&
+        payload.authorizationVersion !== companyContext.authorizationVersion
+      ) {
+        throw new UnauthorizedException({
+          code: 'AUTHORIZATION_CONTEXT_CHANGED',
+          message:
+            'Your permissions have changed. Please sign in again to continue.',
+        });
+      }
 
       return {
         id: payload.sub,
@@ -148,8 +172,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         assignedBranchIds: companyContext.assignedBranchIds ?? [],
         roles: companyContext.roles,
         permissions: companyContext.permissions,
+        authorizationVersion: companyContext.authorizationVersion,
       };
-    } catch {
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
       throw new UnauthorizedException('Company access is no longer available');
     }
   }

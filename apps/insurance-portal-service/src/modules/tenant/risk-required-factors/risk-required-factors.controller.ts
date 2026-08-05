@@ -8,14 +8,11 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
+import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { RiskRequiredFactorsService } from './risk-required-factors.service';
 import { CreateRiskRequiredFactorDto } from './dto/create-risk-required-factor.dto';
@@ -24,12 +21,11 @@ import { UpdateRiskRequiredFactorDto } from './dto/update-risk-required-factor.d
 @ApiTags('Risk Required Factors')
 @ApiBearerAuth()
 @Controller('risk-required-factors')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class RiskRequiredFactorsController {
   constructor(private readonly service: RiskRequiredFactorsService) {}
 
   @Get('by-risk/:riskId')
-  @UseGuards(PermissionsGuard)
   @Permissions('rating-factors:read')
   @ApiOperation({
     summary: 'List all required factors for a risk (ordered by sort_order)',
@@ -42,7 +38,6 @@ export class RiskRequiredFactorsController {
   }
 
   @Post()
-  @UseGuards(PermissionsGuard)
   @Permissions('rating-factors:create')
   @ApiOperation({ summary: 'Assign a rating factor as required for a risk' })
   async assign(
@@ -53,7 +48,6 @@ export class RiskRequiredFactorsController {
   }
 
   @Patch(':id')
-  @UseGuards(PermissionsGuard)
   @Permissions('rating-factors:update')
   @ApiOperation({
     summary: 'Update a required factor assignment (sort_order, is_required)',
@@ -67,7 +61,6 @@ export class RiskRequiredFactorsController {
   }
 
   @Delete(':id')
-  @UseGuards(PermissionsGuard)
   @Permissions('rating-factors:delete')
   @ApiOperation({ summary: 'Remove a required factor from a risk' })
   async remove(

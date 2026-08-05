@@ -5,14 +5,11 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
-  UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
+import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { PremiumCalculationService } from './premium-calculation.service';
 import {
@@ -23,12 +20,11 @@ import {
 @ApiTags('Premium Calculation')
 @ApiBearerAuth()
 @Controller('premium-calculation')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class PremiumCalculationController {
   constructor(private readonly service: PremiumCalculationService) {}
 
   @Post('single')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.calculate')
   @ApiOperation({
     summary: 'Calculate premium for a single risk',
@@ -65,7 +61,6 @@ export class PremiumCalculationController {
   }
 
   @Post('multi')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.calculate')
   @ApiOperation({
     summary: 'Calculate premium for multiple risks at once',
@@ -80,7 +75,6 @@ export class PremiumCalculationController {
   }
 
   @Get('explain/:risk_id')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.calculate')
   @ApiOperation({
     summary: "Explain a risk's resolved rating rule without calculating",
@@ -95,7 +89,6 @@ export class PremiumCalculationController {
   }
 
   @Get('quotes/:pricingQuoteId')
-  @UseGuards(PermissionsGuard)
   @Permissions('pricing.view_breakdown')
   @ApiOperation({
     summary: 'Fetch an immutable stored pricing quote snapshot',

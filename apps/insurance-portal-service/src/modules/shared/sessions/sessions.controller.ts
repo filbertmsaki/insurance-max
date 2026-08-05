@@ -16,6 +16,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { SessionsService } from './sessions.service';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
+import { AuthenticatedAccess } from '@insurance-max/portal-shared/decorators/authorization.decorator';
 
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
@@ -33,6 +34,7 @@ export class SessionsController {
   }
 
   @Delete('others')
+  @AuthenticatedAccess()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Revoke all sessions except the current session' })
   revokeOthers(@CurrentUser() user: AuthenticatedUser) {
@@ -43,6 +45,7 @@ export class SessionsController {
   }
 
   @Delete('all')
+  @AuthenticatedAccess()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Revoke all sessions including the current session',
@@ -55,6 +58,7 @@ export class SessionsController {
   }
 
   @Delete(':id')
+  @AuthenticatedAccess()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Revoke one session' })
   revoke(

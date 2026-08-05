@@ -7,22 +7,19 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  UseGuards,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+  } from '@nestjs/common';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import { ReportFormat, ReportScheduleStatus } from './enums/reporting.enums';
 import { ReportingPermissions } from './reporting.permissions';
 import { ReportMailHealthService } from './services/report-mail-health.service';
 import { ReportScheduleService } from './services/report-schedule.service';
+import { TenantScoped } from '@insurance-max/portal-shared';
 
 @Controller('tenant/reports')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class ReportingController {
   constructor(
     private readonly scheduleService: ReportScheduleService,
@@ -30,28 +27,24 @@ export class ReportingController {
   ) {}
 
   @Get('definitions')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReportingPermissions.DEFINITION_READ)
   listDefinitions() {
     return this.scheduleService.listDefinitions();
   }
 
   @Post('mail/test')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReportingPermissions.MAIL_TEST)
   testMail(@Body() dto: { recipient: string }) {
     return this.mailHealthService.test(dto.recipient);
   }
 
   @Get('schedules')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReportingPermissions.SCHEDULE_READ)
   listSchedules(@CurrentUser() user: AuthenticatedUser) {
     return this.scheduleService.listSchedules(user.companyId!);
   }
 
   @Post('schedules')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReportingPermissions.SCHEDULE_CREATE)
   createSchedule(
     @CurrentUser() user: AuthenticatedUser,
@@ -71,7 +64,6 @@ export class ReportingController {
   }
 
   @Patch('schedules/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReportingPermissions.SCHEDULE_UPDATE)
   updateSchedule(
     @CurrentUser() user: AuthenticatedUser,
@@ -82,7 +74,6 @@ export class ReportingController {
   }
 
   @Delete('schedules/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReportingPermissions.SCHEDULE_DELETE)
   removeSchedule(
     @CurrentUser() user: AuthenticatedUser,
@@ -92,7 +83,6 @@ export class ReportingController {
   }
 
   @Post('run')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReportingPermissions.RUN)
   runReport(
     @CurrentUser() user: AuthenticatedUser,
@@ -108,14 +98,12 @@ export class ReportingController {
   }
 
   @Get('jobs')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReportingPermissions.JOB_READ)
   listJobs(@CurrentUser() user: AuthenticatedUser) {
     return this.scheduleService.listJobs(user.companyId!);
   }
 
   @Get('jobs/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReportingPermissions.JOB_READ)
   getJob(
     @CurrentUser() user: AuthenticatedUser,
@@ -125,7 +113,6 @@ export class ReportingController {
   }
 
   @Get('artifacts/:id/download')
-  @UseGuards(PermissionsGuard)
   @Permissions(ReportingPermissions.DOWNLOAD)
   downloadArtifact(
     @CurrentUser() user: AuthenticatedUser,

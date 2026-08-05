@@ -7,16 +7,13 @@ import {
   ParseUUIDPipe,
   Post,
   Query,
-  UseGuards,
-} from '@nestjs/common';
+  } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { CategoryAccessService } from './category-access.service';
+import { TenantScoped } from '@insurance-max/portal-shared';
 import {
   ResolveAccessDto,
   UpsertBranchCategoryAccessDto,
@@ -27,14 +24,13 @@ import {
 @ApiTags('Category Access')
 @ApiBearerAuth()
 @Controller('category-access')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class CategoryAccessController {
   constructor(private readonly service: CategoryAccessService) {}
 
   // ─── Branch ───────────────────────────────────────────────────────────────────
 
   @Post('branch')
-  @UseGuards(PermissionsGuard)
   @Permissions('category-access:manage')
   @ApiOperation({ summary: 'Set or update category access for a branch' })
   async upsertBranchAccess(
@@ -45,7 +41,6 @@ export class CategoryAccessController {
   }
 
   @Get('branch/:branchId')
-  @UseGuards(PermissionsGuard)
   @Permissions('category-access:read')
   @ApiOperation({ summary: 'Get all category access rules for a branch' })
   async getBranchAccess(
@@ -56,7 +51,6 @@ export class CategoryAccessController {
   }
 
   @Delete('branch/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('category-access:manage')
   @ApiOperation({ summary: 'Remove a branch category access rule' })
   async deleteBranchAccess(
@@ -70,7 +64,6 @@ export class CategoryAccessController {
   // ─── Department ───────────────────────────────────────────────────────────────
 
   @Post('department')
-  @UseGuards(PermissionsGuard)
   @Permissions('category-access:manage')
   @ApiOperation({ summary: 'Set or update category access for a department' })
   async upsertDepartmentAccess(
@@ -81,7 +74,6 @@ export class CategoryAccessController {
   }
 
   @Get('department/:departmentId')
-  @UseGuards(PermissionsGuard)
   @Permissions('category-access:read')
   @ApiOperation({ summary: 'Get all category access rules for a department' })
   async getDepartmentAccess(
@@ -92,7 +84,6 @@ export class CategoryAccessController {
   }
 
   @Delete('department/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('category-access:manage')
   @ApiOperation({ summary: 'Remove a department category access rule' })
   async deleteDepartmentAccess(
@@ -106,7 +97,6 @@ export class CategoryAccessController {
   // ─── User ─────────────────────────────────────────────────────────────────────
 
   @Post('user')
-  @UseGuards(PermissionsGuard)
   @Permissions('category-access:manage')
   @ApiOperation({ summary: 'Set or update category access for a company user' })
   async upsertUserAccess(
@@ -117,7 +107,6 @@ export class CategoryAccessController {
   }
 
   @Get('user/:companyUserId')
-  @UseGuards(PermissionsGuard)
   @Permissions('category-access:read')
   @ApiOperation({ summary: 'Get all category access rules for a company user' })
   async getUserAccess(
@@ -128,7 +117,6 @@ export class CategoryAccessController {
   }
 
   @Delete('user/:id')
-  @UseGuards(PermissionsGuard)
   @Permissions('category-access:manage')
   @ApiOperation({ summary: 'Remove a user category access rule' })
   async deleteUserAccess(
@@ -142,7 +130,6 @@ export class CategoryAccessController {
   // ─── Resolve / Accessible ─────────────────────────────────────────────────────
 
   @Post('resolve')
-  @UseGuards(PermissionsGuard)
   @Permissions('category-access:read')
   @ApiOperation({
     summary:
@@ -156,7 +143,6 @@ export class CategoryAccessController {
   }
 
   @Get('accessible')
-  @UseGuards(PermissionsGuard)
   @Permissions('category-access:read')
   @ApiOperation({
     summary: 'Get all categories a user can view in their context',

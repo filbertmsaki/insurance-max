@@ -21,6 +21,7 @@ import { TwoFaService } from '../auth/2fa/2fa.service';
 import { Verify2FaDto } from '../auth/2fa/dto/verify-2fa.dto';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
+import { AuthenticatedAccess } from '@insurance-max/portal-shared/decorators/authorization.decorator';
 
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
@@ -42,6 +43,7 @@ export class DevicesController {
   }
 
   @Patch(':id/trust')
+  @AuthenticatedAccess()
   @ApiOperation({ summary: 'Trust a device after 2FA reconfirmation' })
   async trustDevice(
     @Param('id', ParseUUIDPipe) id: string,
@@ -56,6 +58,7 @@ export class DevicesController {
   }
 
   @Patch(':id/untrust')
+  @AuthenticatedAccess()
   @ApiOperation({ summary: 'Remove trusted status from a device' })
   untrustDevice(
     @Param('id', ParseUUIDPipe) id: string,
@@ -66,6 +69,7 @@ export class DevicesController {
   }
 
   @Delete(':id')
+  @AuthenticatedAccess()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Remove a device and revoke its sessions' })
   remove(

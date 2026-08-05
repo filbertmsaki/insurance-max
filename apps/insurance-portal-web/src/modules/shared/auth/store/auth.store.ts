@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { AuthorizationContext } from '@insurance-max/contracts';
 import type {
   AuthSessionCompany,
   AuthUser,
@@ -98,6 +99,10 @@ interface AuthState {
   profile: UserProfile | null;
   /** Temporary token during 2FA flow */
   tempToken: string | null;
+  /** Live authorization context loaded from /auth/authorization-context */
+  authorizationContext: AuthorizationContext | null;
+
+  setAuthorizationContext: (context: AuthorizationContext | null) => void;
 
   setSession: (
     session: Pick<
@@ -133,6 +138,30 @@ export const useAuthStore = create<AuthState>()(
       companies: [],
       profile: null,
       tempToken: readTwoFactorToken(),
+      authorizationContext: null,
+
+      setAuthorizationContext: (authorizationContext) =>
+        set({
+          authorizationContext,
+
+          user: authorizationContext
+            ? {
+                ...get().user!,
+
+                scope: authorizationContext.scope,
+                roles: authorizationContext.roles,
+                permissions: authorizationContext.permissions,
+
+                companyId: authorizationContext.companyId ?? undefined,
+
+                companyMembershipId:
+                  authorizationContext.companyMembershipId ?? undefined,
+
+                activeBranchId: authorizationContext.activeBranchId,
+                assignedBranchIds: authorizationContext.assignedBranchIds,
+              }
+            : get().user,
+        }),
 
       setSession: (session) => {
         const user = decodeJwt(session.access_token);
@@ -208,13 +237,29 @@ export const useAuthStore = create<AuthState>()(
           companies: [],
           profile: null,
           tempToken: null,
+          authorizationContext: null,
         });
       },
 
-      hasPermission: (permission) =>
-        get().user?.permissions?.includes(permission) ?? false,
+      hasPermission: (permission) => {
+        const context = get().authorizationContext;
 
-      hasRole: (role) => get().user?.roles?.includes(role) ?? false,
+        if (context) {
+          return context.permissions.includes(permission);
+        }
+
+        return get().user?.permissions?.includes(permission) ?? false;
+      },
+
+      hasRole: (role) => {
+        const context = get().authorizationContext;
+
+        if (context) {
+          return context.roles.includes(role);
+        }
+
+        return get().user?.roles?.includes(role) ?? false;
+      },
     }),
     {
       name: 'auth-storage',

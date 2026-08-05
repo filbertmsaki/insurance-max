@@ -1,21 +1,19 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import { DashboardService } from './dashboard.service';
 import { DashboardQueryDto } from './dto/dashboard-query.dto';
 import { DashboardPermissions } from './dashboard.permissions';
+import { TenantScoped } from '@insurance-max/portal-shared';
 
 @ApiTags('Tenant Dashboard')
 @ApiBearerAuth()
 @Controller('tenant/dashboard')
-@UseGuards(AuthGuard('jwt'), TenantGuard)
+@TenantScoped()
 export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
@@ -28,7 +26,6 @@ export class DashboardController {
   }
 
   @Get()
-  @UseGuards(PermissionsGuard)
   @Permissions(DashboardPermissions.OVERVIEW)
   @ApiOperation({
     summary: 'Get the tenant dashboard overview',
@@ -41,7 +38,6 @@ export class DashboardController {
   }
 
   @Get('sales')
-  @UseGuards(PermissionsGuard)
   @Permissions(DashboardPermissions.SALES)
   @ApiOperation({
     summary: 'Get quotation and sales dashboard information',
@@ -54,7 +50,6 @@ export class DashboardController {
   }
 
   @Get('policies')
-  @UseGuards(PermissionsGuard)
   @Permissions(DashboardPermissions.POLICIES)
   @ApiOperation({
     summary: 'Get policy dashboard information',
@@ -67,7 +62,6 @@ export class DashboardController {
   }
 
   @Get('finance')
-  @UseGuards(PermissionsGuard)
   @Permissions(DashboardPermissions.FINANCE)
   @ApiOperation({
     summary: 'Get premium, invoice, receipt and commission summaries',
@@ -80,7 +74,6 @@ export class DashboardController {
   }
 
   @Get('tiramis')
-  @UseGuards(PermissionsGuard)
   @Permissions(DashboardPermissions.TIRAMIS)
   @ApiOperation({
     summary: 'Get company-scoped TIRAMIS statistics',
@@ -93,7 +86,6 @@ export class DashboardController {
   }
 
   @Get('tasks')
-  @UseGuards(PermissionsGuard)
   @Permissions(DashboardPermissions.TASKS)
   @ApiOperation({
     summary: 'Get dashboard work queues and alerts',
@@ -106,7 +98,6 @@ export class DashboardController {
   }
 
   @Get('reinsurance')
-  @UseGuards(PermissionsGuard)
   @Permissions(DashboardPermissions.REINSURANCE)
   @ApiOperation({
     summary: 'Get reinsurance dashboard information',

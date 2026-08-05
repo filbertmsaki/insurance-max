@@ -12,6 +12,7 @@ import {
   comparePasswords,
   hashPassword,
 } from '@insurance-max/portal-shared/utils/hash.util';
+import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { CompaniesService } from '../../platform/companies/companies.service';
 import { CreateUserDto } from './dtos/create-user.dto';
 import { UpdateUserDto } from './dtos/update-user.dto';
@@ -528,8 +529,9 @@ export class UsersService {
     companyId: string,
     userId: string,
     roleId: string,
+    actor?: AuthenticatedUser,
   ): Promise<UserProfileDto> {
-    await this.companiesService.assignRole(companyId, userId, roleId);
+    await this.companiesService.assignRole(companyId, userId, roleId, actor);
     return this.findProfileInCompany(userId, companyId);
   }
 
@@ -537,16 +539,22 @@ export class UsersService {
     companyId: string,
     userId: string,
     roleId: string,
+    actor?: AuthenticatedUser,
   ): Promise<UserProfileDto> {
-    await this.companiesService.revokeRole(companyId, userId, roleId);
+    await this.companiesService.revokeRole(companyId, userId, roleId, actor);
     return this.findProfileInCompany(userId, companyId);
   }
 
   async removeFromCompany(
     companyId: string,
     userId: string,
+    actor?: AuthenticatedUser,
   ): Promise<{ message: string }> {
-    return this.companiesService.removeUserFromCompany(companyId, userId);
+    return this.companiesService.removeUserFromCompany(
+      companyId,
+      userId,
+      actor,
+    );
   }
 
   // ── Account lockout ─────────────────────────────────────────────────────────
