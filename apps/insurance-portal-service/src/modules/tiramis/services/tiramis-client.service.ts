@@ -13,6 +13,7 @@ import { unwrapApiResponse } from '@insurance-max/contracts';
 import {
   HTTP_HEADERS,
   RequestContextService,
+  ServiceTokenService,
 } from '@insurance-max/shared-kernel';
 
 import { SubmitTiramisDto } from '../dto/submit-tiramis.dto';
@@ -51,6 +52,7 @@ export class TiramisClientService {
     private readonly businessRecordSyncService: TiramisBusinessRecordSyncService,
     private readonly auditService: TiramisAuditService,
     private readonly notificationService: TiramisNotificationService,
+    private readonly serviceTokenService: ServiceTokenService,
   ) {}
 
   async submit(dto: SubmitTiramisDto, authContext?: any) {
@@ -633,6 +635,10 @@ export class TiramisClientService {
         'tiramisClient.sourceService',
       );
 
+      const serviceToken = this.serviceTokenService.issue('tiramis-service', [
+        'tiramis:invoke',
+      ]);
+
       const response = await firstValueFrom(
         this.httpService.request({
           method: isQuery ? 'GET' : 'POST',
@@ -647,6 +653,8 @@ export class TiramisClientService {
 
           headers: {
             Accept: 'application/json',
+
+            Authorization: `Bearer ${serviceToken}`,
 
             [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
 

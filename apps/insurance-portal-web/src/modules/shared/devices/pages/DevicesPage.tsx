@@ -6,9 +6,19 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { devicesApi } from '@/modules/shared/devices/api/devices'
+import { getApiErrorMessage } from '@/lib/api-error'
 import { useState } from 'react'
 import type { Device } from '@/types'
 
@@ -25,6 +35,9 @@ function DeviceIcon({ type }: { type: string | null }) {
 export function DevicesPage() {
   const queryClient = useQueryClient()
   const [removeId, setRemoveId] = useState<string | null>(null)
+  const [trustDeviceId, setTrustDeviceId] = useState<string | null>(null)
+  const [trustCode, setTrustCode] = useState('')
+  const [trustError, setTrustError] = useState<string | null>(null)
 
   const { data: devices, isLoading } = useQuery({
     queryKey: ['devices'],
@@ -32,10 +45,17 @@ export function DevicesPage() {
   })
 
   const trustMutation = useMutation({
-    mutationFn: devicesApi.trustDevice,
+    mutationFn: ({ id, code }: { id: string; code: string }) =>
+      devicesApi.trustDevice(id, code),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['devices'] })
+      setTrustDeviceId(null)
+      setTrustCode('')
+      setTrustError(null)
       toast.success('Device trusted')
+    },
+    onError: (error) => {
+      setTrustError(getApiErrorMessage(error))
     },
   })
 
@@ -102,8 +122,12 @@ export function DevicesPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => trustMutation.mutate(device.id)}
-                      disabled={trustMutation.isPending || device.trusted}
+                      onClick={() => {
+                        setTrustDeviceId(device.id)
+                        setTrustCode('')
+                        setTrustError(null)
+                      }}
+                      disabled={device.trusted}
                     >
                       <Shield className="mr-1 h-4 w-4" />
                       {device.trusted ? 'Trusted' : 'Trust'}
@@ -133,6 +157,55 @@ export function DevicesPage() {
         onConfirm={() => removeMutation.mutate(removeId!)}
         loading={removeMutation.isPending}
       />
+
+      <Dialog
+        open={!!trustDeviceId}
+        onOpenChange={(o) => {
+          if (!o) {
+            setTrustDeviceId(null)
+            setTrustCode('')
+            setTrustError(null)
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Trust Device</DialogTitle>
+            <DialogDescription>
+              Enter your current 2FA code to confirm trusting this device.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Input
+              placeholder="6-digit code or backup code"
+              value={trustCode}
+              onChange={(e) => setTrustCode(e.target.value)}
+              className="font-mono"
+              autoFocus
+            />
+            {trustError && (
+              <p className="text-sm text-red-600">{trustError}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setTrustDeviceId(null)}
+              disabled={trustMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() =>
+                trustMutation.mutate({ id: trustDeviceId!, code: trustCode })
+              }
+              disabled={trustMutation.isPending || trustCode.trim().length === 0}
+            >
+              {trustMutation.isPending ? 'Verifying...' : 'Confirm'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

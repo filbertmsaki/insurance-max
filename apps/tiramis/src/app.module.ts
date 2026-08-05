@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -16,6 +16,8 @@ import {
   ApiLoggingInterceptor,
   ApiResponseInterceptor,
   RequestContextModule,
+  ServiceAuthGuard,
+  ServiceAuthModule,
 } from '@insurance-max/shared-kernel';
 
 import applicationConfig from './config/application.config';
@@ -62,6 +64,7 @@ import { TiramisResponseInterceptor } from './common/interceptors/tiramis-respon
   imports: [
     ScheduleModule.forRoot(),
     RequestContextModule,
+    ServiceAuthModule,
     SharedConfigModule.forRoot({
       appName: 'tiramis',
       validationSchema: tiramisEnvValidationSchema,
@@ -123,6 +126,11 @@ import { TiramisResponseInterceptor } from './common/interceptors/tiramis-respon
     {
       provide: APP_FILTER,
       useClass: ApiExceptionFilter,
+    },
+
+    {
+      provide: APP_GUARD,
+      useClass: ServiceAuthGuard,
     },
 
     {

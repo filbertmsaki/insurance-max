@@ -7,4 +7,8 @@ export class SwitchCompanyDto {
   @IsNotEmpty()
   @IsUUID()
   company_id: string;
+
+  @IsString()
+  @IsNotEmpty()
+  refresh_token: string;
 }

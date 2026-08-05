@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import {
   HTTP_HEADERS,
   RequestContextService,
+  ServiceTokenService,
 } from '@insurance-max/shared-kernel';
 
 import { TiramisPortalNotificationEventDto } from '../dto/tiramis-portal-notification-event.dto';
@@ -18,6 +19,7 @@ export class TiramisPortalNotificationService {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly requestContextService: RequestContextService,
+    private readonly serviceTokenService: ServiceTokenService,
   ) {}
 
   async publish(event: TiramisPortalNotificationEventDto): Promise<void> {
@@ -40,8 +42,6 @@ export class TiramisPortalNotificationService {
       return;
     }
 
-    const webhookToken =
-      this.configService.get<string>('tiramisService.portalWebhookToken') || '';
     const timeoutMs =
       this.configService.get<number>('tiramisService.portalWebhookTimeoutMs') ||
       5000;
@@ -56,6 +56,11 @@ export class TiramisPortalNotificationService {
       'tiramisService.sourceService',
     );
 
+    const serviceToken = this.serviceTokenService.issue(
+      'insurance-portal-service',
+      ['tiramis:notify'],
+    );
+
     try {
       const response = await firstValueFrom(
         this.httpService.post(webhookUrl, event, {
@@ -65,13 +70,11 @@ export class TiramisPortalNotificationService {
             'Content-Type': 'application/json',
             Accept: 'application/json',
 
+            Authorization: `Bearer ${serviceToken}`,
+
             [HTTP_HEADERS.REQUEST_ID]: requestId,
             [HTTP_HEADERS.CORRELATION_ID]: correlationId,
             [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
-
-            ...(webhookToken
-              ? { 'x-tiramis-webhook-token': webhookToken }
-              : {}),
           },
         }),
       );

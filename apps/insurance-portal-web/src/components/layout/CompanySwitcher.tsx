@@ -18,7 +18,11 @@ export function CompanySwitcher() {
   const queryClient = useQueryClient()
 
   const switchMutation = useMutation({
-    mutationFn: authApi.switchCompany,
+    mutationFn: (companyId: string) =>
+      authApi.switchCompany(
+        companyId,
+        useAuthStore.getState().refreshToken!,
+      ),
     onSuccess: (tokens) => {
       setSession(tokens)
       queryClient.clear()

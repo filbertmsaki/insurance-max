@@ -7,12 +7,15 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
+import { ServiceScopes } from '@insurance-max/shared-kernel';
+
 import { CreateReinsuranceDto } from '../dto/create-reinsurance.dto';
 import { TiramisReinsuranceService } from '../services/tiramis-reinsurance.service';
 
 @ApiTags('Tiramis Reinsurance')
 @ApiConsumes('application/json')
 @Controller('tiramis/reinsurance')
+@ServiceScopes('tiramis:invoke')
 export class TiramisReinsuranceController {
   constructor(
     private readonly tiramisReinsuranceService: TiramisReinsuranceService,

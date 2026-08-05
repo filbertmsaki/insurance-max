@@ -67,11 +67,6 @@ export const tiramisEnvValidationSchema = Joi.object({
   INSURANCE_PORTAL_WEBHOOK_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .default('http://localhost:9090/api/v1/webhooks/tiramis/notifications'),
-  INSURANCE_PORTAL_WEBHOOK_TOKEN: Joi.when('APP_ENV', {
-    is: 'production',
-    then: Joi.string().min(16).required(),
-    otherwise: Joi.string().min(16).default('local-only-tiramis-webhook-token'),
-  }),
   INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS: Joi.number().default(5000),
 
   TIRAMIS_SOURCE_SERVICE: Joi.string().trim().min(1).default('tiramis-service'),
@@ -81,4 +76,20 @@ export const tiramisEnvValidationSchema = Joi.object({
     .max(300000)
     .default(60000),
   TIRAMIS_LOG_PAYLOADS: Joi.boolean().default(false),
+
+  SERVICE_AUTH_SECRET: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().min(64).required(),
+    otherwise: Joi.string().min(32).required(),
+  }),
+  SERVICE_AUTH_ISSUER: Joi.string().trim().min(1).required(),
+  SERVICE_AUTH_SUBJECT: Joi.string().trim().min(1).required(),
+  SERVICE_AUTH_AUDIENCE: Joi.string().trim().min(1).required(),
+  SERVICE_AUTH_ALLOWED_ISSUERS: Joi.string().trim().min(1).required(),
+  SERVICE_AUTH_TOKEN_EXPIRATION: Joi.string().default('60s'),
+  SERVICE_AUTH_CLOCK_TOLERANCE_SECONDS: Joi.number()
+    .integer()
+    .min(0)
+    .max(30)
+    .default(5),
 });

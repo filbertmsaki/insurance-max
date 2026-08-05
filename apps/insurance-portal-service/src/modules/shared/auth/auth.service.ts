@@ -22,10 +22,7 @@ import {
   hashPassword,
 } from '@insurance-max/portal-shared/utils/hash.util';
 import { CompaniesService } from '../../platform/companies/companies.service';
-import {
-  CompanyMembershipContext,
-  CompanySummary,
-} from '../../platform/companies/interfaces/company-membership-context.interface';
+import { CompanySummary } from '../../platform/companies/interfaces/company-membership-context.interface';
 import { MailService } from '../mail/mail.service';
 import { User } from '../../tenant/users/entities/user.entity';
 import { UsersService } from '../../tenant/users/users.service';
@@ -93,8 +90,18 @@ type TwoFactorTempTokenPayload = {
   scope: AuthScope;
   userType: UserType;
   companyId?: string;
+
+  deviceId: string;
+  jti: string;
+
   temp: true;
   type: '2fa-temp';
+};
+
+type TwoFactorChallengeRecord = {
+  userId: string;
+  deviceId: string;
+  createdAt: string;
 };
 
 type PlatformAccessContext = {
@@ -126,10 +133,24 @@ export class AuthService {
     const user = await this.usersService.findByEmailForAuth(email);
     if (!user) return null;
 
-    if (user.locked_until && new Date() < new Date(user.locked_until)) {
-      throw new ForbiddenException(
-        'Account is temporarily locked due to too many failed login attempts.',
-      );
+    if (user.locked_until) {
+      const lockedUntil = new Date(user.locked_until);
+
+      if (lockedUntil.getTime() > Date.now()) {
+        throw new ForbiddenException(
+          'Account is temporarily locked due to too many failed login attempts.',
+        );
+      }
+
+      /*
+       * The lock expired. Reset both the database
+       * record and this already-loaded object.
+       */
+      await this.usersService.resetLoginAttempts(user.id);
+
+      user.failed_login_attempts = 0;
+      user.locked_until = null;
+      user.status = 'active';
     }
 
     const match = await comparePasswords(pass, user.password ?? '');
@@ -140,6 +161,7 @@ export class AuthService {
 
     if (user.failed_login_attempts > 0) {
       await this.usersService.resetLoginAttempts(user.id);
+      user.failed_login_attempts = 0;
     }
 
     const { password, ...result } = user;
@@ -147,7 +169,12 @@ export class AuthService {
     return result;
   }
 
-  async login(loginDto: LoginDto, ip?: string, userAgent?: string) {
+  async login(
+    loginDto: LoginDto,
+    ip?: string,
+    userAgent?: string,
+    deviceToken?: string,
+  ) {
     const user = await this.validateUser(loginDto.email, loginDto.password);
     if (!user) {
       await this.auditService.log({
@@ -177,102 +204,12 @@ export class AuthService {
       };
     }
 
-    const device = await this.devicesService.upsert({
-      userId: user.id,
+    return this.finishPrimaryAuthentication(user as User, {
+      ip,
       userAgent,
-      ipAddress: ip,
+      deviceToken,
+      method: 'password',
     });
-
-    if (this.isPlatformUser(user)) {
-      const platformContext = this.buildPlatformAccessContext(user as User);
-      const is2FAEnabled = await this.twoFaService.is2FARequired(user.id);
-
-      if (is2FAEnabled) {
-        return this.build2FATempResponse(
-          user.id,
-          user.email,
-          'platform',
-          user.user_type as UserType,
-        );
-      }
-
-      await this.usersService.updateLastLogin(user.id, new Date(), ip ?? null);
-      const session = await this.sessionsService.create({
-        userId: user.id,
-        refreshToken: randomUUID(),
-        deviceId: device.id,
-        ipAddress: ip,
-        userAgent,
-      });
-
-      await this.auditService.log({
-        userId: user.id,
-        action: AuditAction.LOGIN_SUCCESS,
-        ipAddress: ip,
-        userAgent,
-        metadata: { scope: 'platform' },
-      });
-
-      const authResponse = this.generatePlatformAuthResponse(
-        user as User,
-        platformContext,
-        session.id,
-      );
-      await this.sessionsService.bindRefreshToken(
-        session.id,
-        authResponse.refresh_token,
-      );
-      return authResponse;
-    }
-
-    const { activeCompany, companies } =
-      await this.resolveSingleActiveCompanyForLogin(user.id);
-    const is2FAEnabled = await this.twoFaService.is2FARequired(user.id);
-
-    if (is2FAEnabled) {
-      return this.build2FATempResponse(
-        user.id,
-        user.email,
-        'company',
-        user.user_type as UserType,
-        activeCompany.companyId,
-      );
-    }
-
-    await this.usersService.updateLastLogin(user.id, new Date(), ip ?? null);
-    const activeCompanyContext =
-      await this.companiesService.setActiveMembership(
-        user.id,
-        activeCompany.companyId,
-      );
-    const availableCompanies = companies;
-    const session = await this.sessionsService.create({
-      userId: user.id,
-      refreshToken: randomUUID(),
-      deviceId: device.id,
-      ipAddress: ip,
-      userAgent,
-    });
-
-    await this.auditService.log({
-      userId: user.id,
-      action: AuditAction.LOGIN_SUCCESS,
-      ipAddress: ip,
-      userAgent,
-      metadata: { scope: 'company', companyId: activeCompany.companyId },
-    });
-
-    const authResponse = this.generateCompanyAuthResponse(
-      user as User,
-      activeCompanyContext,
-      availableCompanies,
-      session.id,
-    );
-    await this.sessionsService.bindRefreshToken(
-      session.id,
-      authResponse.refresh_token,
-    );
-    return authResponse;
   }
 
   // ── Phone OTP login ─────────────────────────────────────────────────────────
@@ -299,7 +236,12 @@ export class AuthService {
     });
   }
 
-  async phoneLogin(dto: PhoneLoginDto, ip?: string, userAgent?: string) {
+  async phoneLogin(
+    dto: PhoneLoginDto,
+    ip?: string,
+    userAgent?: string,
+    deviceToken?: string,
+  ) {
     const user = await this.usersService.findByPhone(dto.phone);
     if (!user) throw new UnauthorizedException('Invalid credentials');
 
@@ -318,61 +260,12 @@ export class AuthService {
       await this.usersService.markPhoneVerified(user.id);
     }
 
-    const device = await this.devicesService.upsert({
-      userId: user.id,
+    return this.finishPrimaryAuthentication(user, {
+      ip,
       userAgent,
-      ipAddress: ip,
+      deviceToken,
+      method: 'phone_otp',
     });
-    await this.usersService.updateLastLogin(user.id, new Date(), ip ?? null);
-
-    const session = await this.sessionsService.create({
-      userId: user.id,
-      refreshToken: randomUUID(),
-      deviceId: device.id,
-      ipAddress: ip,
-      userAgent,
-    });
-
-    await this.auditService.log({
-      userId: user.id,
-      action: AuditAction.LOGIN_SUCCESS,
-      ipAddress: ip,
-      userAgent,
-      metadata: { method: 'phone_otp' },
-    });
-
-    if (this.isPlatformUser(user)) {
-      const ctx = this.buildPlatformAccessContext(user);
-      const authResponse = this.generatePlatformAuthResponse(
-        user,
-        ctx,
-        session.id,
-      );
-      await this.sessionsService.bindRefreshToken(
-        session.id,
-        authResponse.refresh_token,
-      );
-      return authResponse;
-    }
-
-    const { activeCompany, companies: availableCompanies } =
-      await this.resolveSingleActiveCompanyForLogin(user.id);
-    const companyCtx = await this.companiesService.setActiveMembership(
-      user.id,
-      activeCompany.companyId,
-    );
-
-    const authResponse = this.generateCompanyAuthResponse(
-      user,
-      companyCtx,
-      availableCompanies,
-      session.id,
-    );
-    await this.sessionsService.bindRefreshToken(
-      session.id,
-      authResponse.refresh_token,
-    );
-    return authResponse;
   }
 
   // ── Generic OTP operations ──────────────────────────────────────────────────
@@ -431,6 +324,7 @@ export class AuthService {
     token: string,
     ip?: string,
     userAgent?: string,
+    deviceToken?: string,
   ) {
     const userId = await this.redisService.get(`passwordless:${token}`);
     if (!userId)
@@ -442,59 +336,12 @@ export class AuthService {
     if (user.status !== 'active')
       throw new ForbiddenException('Account is inactive');
 
-    const device = await this.devicesService.upsert({
-      userId: user.id,
+    return this.finishPrimaryAuthentication(user, {
+      ip,
       userAgent,
-      ipAddress: ip,
+      deviceToken,
+      method: 'passwordless',
     });
-    await this.usersService.updateLastLogin(user.id, new Date(), ip ?? null);
-
-    const session = await this.sessionsService.create({
-      userId: user.id,
-      refreshToken: randomUUID(),
-      deviceId: device.id,
-      ipAddress: ip,
-      userAgent,
-    });
-
-    await this.auditService.log({
-      userId: user.id,
-      action: AuditAction.LOGIN_SUCCESS,
-      ipAddress: ip,
-      metadata: { method: 'passwordless' },
-    });
-
-    if (this.isPlatformUser(user)) {
-      const ctx = this.buildPlatformAccessContext(user);
-      const authResponse = this.generatePlatformAuthResponse(
-        user,
-        ctx,
-        session.id,
-      );
-      await this.sessionsService.bindRefreshToken(
-        session.id,
-        authResponse.refresh_token,
-      );
-      return authResponse;
-    }
-
-    const { activeCompany, companies } =
-      await this.resolveSingleActiveCompanyForLogin(user.id);
-    const companyCtx = await this.companiesService.setActiveMembership(
-      user.id,
-      activeCompany.companyId,
-    );
-    const authResponse = this.generateCompanyAuthResponse(
-      user,
-      companyCtx,
-      companies,
-      session.id,
-    );
-    await this.sessionsService.bindRefreshToken(
-      session.id,
-      authResponse.refresh_token,
-    );
-    return authResponse;
   }
 
   // ── 2FA completion ──────────────────────────────────────────────────────────
@@ -502,95 +349,161 @@ export class AuthService {
   async complete2FALogin(
     tempToken: string,
     code: string,
+    trustDevice: boolean,
     ip?: string,
     userAgent?: string,
+    deviceToken?: string,
   ) {
+    let payload: TwoFactorTempTokenPayload;
+
     try {
-      const payload = this.jwtService.verify<TwoFactorTempTokenPayload>(
-        tempToken,
-        {
-          secret: this.getAccessTokenSecret(),
-        },
-      );
-
-      if (payload.type !== '2fa-temp' || !payload.temp || !payload.sub) {
-        throw new UnauthorizedException('Invalid temporary token');
-      }
-
-      const isValid = await this.twoFaService.verify2FALogin(payload.sub, code);
-      if (!isValid) throw new UnauthorizedException('Invalid 2FA code');
-
-      const user = await this.usersService.findById(payload.sub);
-      if (user.status !== 'active') {
-        throw new ForbiddenException('Your account is inactive.');
-      }
-
-      const device = await this.devicesService.upsert({
-        userId: user.id,
-        userAgent,
-        ipAddress: ip,
+      payload = this.jwtService.verify<TwoFactorTempTokenPayload>(tempToken, {
+        secret: this.getTwoFactorTokenSecret(),
       });
-      await this.usersService.updateLastLogin(user.id, new Date(), ip ?? null);
-
-      const session = await this.sessionsService.create({
-        userId: user.id,
-        refreshToken: randomUUID(),
-        deviceId: device.id,
-        ipAddress: ip,
-        userAgent,
-      });
-
-      if (payload.scope === 'platform') {
-        if (!this.isPlatformUser(user))
-          throw new UnauthorizedException('Invalid platform login context');
-        const authResponse = this.generatePlatformAuthResponse(
-          user,
-          this.buildPlatformAccessContext(user),
-          session.id,
-        );
-        await this.sessionsService.bindRefreshToken(
-          session.id,
-          authResponse.refresh_token,
-        );
-        return authResponse;
-      }
-
-      if (!payload.companyId)
-        throw new UnauthorizedException('Company context is missing');
-
-      const companyContext = await this.companiesService.setActiveMembership(
-        payload.sub,
-        payload.companyId,
-      );
-      const companies = await this.companiesService.listUserCompanies(
-        payload.sub,
-      );
-
-      const authResponse = this.generateCompanyAuthResponse(
-        user,
-        companyContext,
-        companies,
-        session.id,
-      );
-      await this.sessionsService.bindRefreshToken(
-        session.id,
-        authResponse.refresh_token,
-      );
-      return authResponse;
     } catch (error) {
-      if (
-        error instanceof UnauthorizedException ||
-        error instanceof ForbiddenException
-      )
-        throw error;
-      if (error instanceof NotFoundException)
-        throw new UnauthorizedException('Company access unavailable');
-      if (this.isJwtError(error))
+      if (this.isJwtError(error)) {
         throw new UnauthorizedException(
           'Temporary token is invalid or expired.',
         );
+      }
+
       throw error;
     }
+
+    if (
+      payload.type !== '2fa-temp' ||
+      !payload.temp ||
+      !payload.sub ||
+      !payload.jti ||
+      !payload.deviceId
+    ) {
+      throw new UnauthorizedException('Invalid temporary token.');
+    }
+
+    const challengeKey = `auth:2fa:challenge:${payload.jti}`;
+
+    const challenge =
+      await this.redisService.getJson<TwoFactorChallengeRecord>(
+        challengeKey,
+      );
+
+    if (
+      !challenge ||
+      challenge.userId !== payload.sub ||
+      challenge.deviceId !== payload.deviceId
+    ) {
+      throw new UnauthorizedException(
+        'The 2FA challenge has expired or has already been used.',
+      );
+    }
+
+    const attemptsKey = `${challengeKey}:attempts`;
+
+    const attempts = await this.redisService.incr(attemptsKey);
+
+    if (attempts === 1) {
+      await this.redisService.expire(attemptsKey, 300);
+    }
+
+    const maxAttempts = this.configService.get<number>(
+      'app.auth.twoFactorMaxAttempts',
+      5,
+    );
+
+    if (attempts > maxAttempts) {
+      await this.redisService.del(challengeKey);
+      await this.redisService.del(attemptsKey);
+
+      throw new UnauthorizedException(
+        'Too many invalid 2FA attempts. Start the login process again.',
+      );
+    }
+
+    try {
+      await this.twoFaService.verify2FALogin(payload.sub, code);
+    } catch (error) {
+      await this.auditService.log({
+        userId: payload.sub,
+        action: AuditAction.TWO_FA_LOGIN_FAILURE,
+        ipAddress: ip,
+        userAgent,
+        status: 'failure',
+        metadata: {
+          attempt: attempts,
+        },
+      });
+
+      throw error;
+    }
+
+    await this.redisService.del(challengeKey);
+    await this.redisService.del(attemptsKey);
+
+    const user = await this.usersService.findById(payload.sub);
+
+    if (user.status !== 'active') {
+      throw new ForbiddenException('Your account is inactive.');
+    }
+
+    const device = await this.devicesService.upsert({
+      userId: user.id,
+      deviceToken,
+      userAgent,
+      ipAddress: ip,
+    });
+
+    if (device.id !== payload.deviceId) {
+      throw new UnauthorizedException(
+        'The login device changed during authentication. Start the login process again.',
+      );
+    }
+
+    if (trustDevice) {
+      await this.devicesService.trustDevice(device.id, user.id);
+    }
+
+    let company: CompanySummary | undefined;
+    let companies: CompanySummary[] = [];
+
+    if (payload.scope === 'company') {
+      if (!payload.companyId) {
+        throw new UnauthorizedException('Company context is missing.');
+      }
+
+      const companyContext = await this.companiesService.getMembershipContext(
+        user.id,
+        payload.companyId,
+      );
+
+      company = {
+        companyId: companyContext.companyId,
+        companyName: companyContext.companyName,
+        companySlug: companyContext.companySlug,
+        companyType: companyContext.companyType,
+        membershipId: companyContext.membershipId,
+        isDefault: companyContext.isDefault,
+        roles: companyContext.roles,
+        permissions: companyContext.permissions,
+        activeBranchId: companyContext.activeBranchId,
+        activeBranchCode: companyContext.activeBranchCode,
+        activeBranchName: companyContext.activeBranchName,
+        defaultSalePointId: companyContext.defaultSalePointId,
+        defaultSalePointCode: companyContext.defaultSalePointCode,
+        defaultSalePointName: companyContext.defaultSalePointName,
+        assignedBranchIds: companyContext.assignedBranchIds,
+      };
+
+      companies = await this.companiesService.listUserCompanies(user.id);
+    }
+
+    return this.issueAuthenticatedSession(user, {
+      deviceId: device.id,
+      ip,
+      userAgent,
+      method: 'two_factor',
+      company,
+      companies,
+    });
   }
 
   // ── Token refresh ───────────────────────────────────────────────────────────
@@ -615,76 +528,70 @@ export class AuthService {
         throw new UnauthorizedException('Refresh token has been revoked');
       }
 
-      await this.sessionsService
-        .validateRefreshToken(
-          payload.sessionId,
-          refreshTokenDto.refresh_token,
-          payload.sub,
-        )
-        .catch(() => {
-          throw new UnauthorizedException('Session has been revoked');
-        });
-
       const user = await this.usersService.findById(payload.sub);
       if (user.status !== 'active')
         throw new ForbiddenException('Account inactive');
 
-      // Blacklist the used refresh token (rotation)
+      const newRefreshJti = randomUUID();
+      const sessionId = payload.sessionId;
+
+      let authResponse: ReturnType<
+        | typeof this.generatePlatformAuthResponse
+        | typeof this.generateCompanyAuthResponse
+      >;
+
+      if (payload.scope === 'platform') {
+        if (!this.isPlatformUser(user))
+          throw new UnauthorizedException('Invalid scope');
+        authResponse = this.generatePlatformAuthResponse(
+          user,
+          this.buildPlatformAccessContext(user),
+          sessionId,
+          newRefreshJti,
+        );
+      } else {
+        if (!payload.companyId || !payload.membershipId) {
+          throw new UnauthorizedException(
+            'Refresh token company context is invalid',
+          );
+        }
+
+        const companyContext =
+          await this.companiesService.getMembershipContext(
+            payload.sub,
+            payload.companyId,
+          );
+        if (companyContext.membershipId !== payload.membershipId) {
+          throw new UnauthorizedException(
+            'Refresh token company context is invalid',
+          );
+        }
+
+        const companies = await this.companiesService.listUserCompanies(
+          payload.sub,
+        );
+        authResponse = this.generateCompanyAuthResponse(
+          user,
+          companyContext,
+          companies,
+          sessionId,
+          newRefreshJti,
+        );
+      }
+
+      await this.sessionsService.rotateRefreshToken({
+        sessionId,
+        userId: payload.sub,
+        oldRefreshToken: refreshTokenDto.refresh_token,
+        newRefreshToken: authResponse.refresh_token,
+      });
+
       const ttl = this.getTokenBlacklistTtlSeconds(
         refreshTokenDto.refresh_token,
         60,
       );
       await this.redisService.addToBlacklist(payload.jti, ttl);
 
-      const newRefreshJti = randomUUID();
-      const sessionId = payload.sessionId;
-
-      if (payload.scope === 'platform') {
-        if (!this.isPlatformUser(user))
-          throw new UnauthorizedException('Invalid scope');
-        const authResponse = this.generatePlatformAuthResponse(
-          user,
-          this.buildPlatformAccessContext(user),
-          sessionId,
-          newRefreshJti,
-        );
-        await this.sessionsService.bindRefreshToken(
-          sessionId,
-          authResponse.refresh_token,
-        );
-        return authResponse;
-      }
-
-      if (!payload.companyId || !payload.membershipId) {
-        throw new UnauthorizedException(
-          'Refresh token company context is invalid',
-        );
-      }
-
-      const companyContext = await this.companiesService.getMembershipContext(
-        payload.sub,
-        payload.companyId,
-      );
-      if (companyContext.membershipId !== payload.membershipId) {
-        throw new UnauthorizedException(
-          'Refresh token company context is invalid',
-        );
-      }
-
-      const companies = await this.companiesService.listUserCompanies(
-        payload.sub,
-      );
-      const authResponse = this.generateCompanyAuthResponse(
-        user,
-        companyContext,
-        companies,
-        sessionId,
-        newRefreshJti,
-      );
-      await this.sessionsService.bindRefreshToken(
-        sessionId,
-        authResponse.refresh_token,
-      );
       return authResponse;
     } catch (error) {
       if (
@@ -702,43 +609,80 @@ export class AuthService {
 
   // ── Switch company ──────────────────────────────────────────────────────────
 
-  async switchCompany(userId: string, companyId: string, ip?: string) {
-    const user = await this.usersService.findById(userId);
-    if (user.status !== 'active')
-      throw new ForbiddenException('Account inactive');
-    if (this.isPlatformUser(user))
-      throw new ForbiddenException('Platform users do not use company context');
+  async switchCompany(options: {
+    userId: string;
+    sessionId: string;
+    currentAccessToken?: string;
+    refreshToken: string;
+    companyId: string;
+    ip?: string;
+    userAgent?: string;
+  }) {
+    const refreshPayload = this.jwtService.verify<RefreshTokenPayload>(
+      options.refreshToken,
+      { secret: this.getRefreshTokenSecret() },
+    );
 
-    let companyContext: CompanyMembershipContext;
-    try {
-      companyContext = await this.companiesService.setActiveMembership(
-        userId,
-        companyId,
-      );
-    } catch {
-      throw new UnauthorizedException(
-        'You do not have access to the selected company',
-      );
+    if (
+      refreshPayload.sub !== options.userId ||
+      refreshPayload.sessionId !== options.sessionId ||
+      refreshPayload.type !== 'refresh'
+    ) {
+      throw new UnauthorizedException('Invalid session context.');
     }
 
-    await this.usersService.updateLastLogin(userId, new Date(), ip ?? null);
-    const companies = await this.companiesService.listUserCompanies(userId);
-    const session = await this.sessionsService.create({
-      userId,
-      refreshToken: randomUUID(),
-      ipAddress: ip,
-    });
+    const user = await this.usersService.findById(options.userId);
+
+    if (user.status !== 'active')
+      throw new ForbiddenException('Account is inactive.');
+
+    if (this.isPlatformUser(user))
+      throw new ForbiddenException(
+        'Platform users do not use company context.',
+      );
+
+    const companyContext = await this.companiesService.setActiveMembership(
+      options.userId,
+      options.companyId,
+    );
+
+    const companies = await this.companiesService.listUserCompanies(
+      options.userId,
+    );
 
     const authResponse = this.generateCompanyAuthResponse(
       user,
       companyContext,
       companies,
-      session.id,
+      options.sessionId,
     );
-    await this.sessionsService.bindRefreshToken(
-      session.id,
-      authResponse.refresh_token,
-    );
+
+    await this.sessionsService.rotateRefreshToken({
+      sessionId: options.sessionId,
+      userId: options.userId,
+      oldRefreshToken: options.refreshToken,
+      newRefreshToken: authResponse.refresh_token,
+      ipAddress: options.ip,
+      userAgent: options.userAgent,
+    });
+
+    await this.blacklistJwt(options.refreshToken, 7 * 24 * 60 * 60);
+
+    if (options.currentAccessToken) {
+      await this.blacklistJwt(options.currentAccessToken, 15 * 60);
+    }
+
+    await this.auditService.log({
+      userId: options.userId,
+      companyId: options.companyId,
+      action: AuditAction.COMPANY_SWITCHED,
+      ipAddress: options.ip,
+      userAgent: options.userAgent,
+      metadata: {
+        sessionId: options.sessionId,
+      },
+    });
+
     return authResponse;
   }
 
@@ -999,31 +943,188 @@ export class AuthService {
     return { message: 'A new verification email has been sent.' };
   }
 
+  // ── Unified login / 2FA / session helpers ───────────────────────────────────
+
+  private async finishPrimaryAuthentication(
+    user: User,
+    options: {
+      ip?: string;
+      userAgent?: string;
+      deviceToken?: string;
+      method: 'password' | 'phone_otp' | 'passwordless';
+    },
+  ) {
+    const device = await this.devicesService.upsert({
+      userId: user.id,
+      deviceToken: options.deviceToken,
+      userAgent: options.userAgent,
+      ipAddress: options.ip,
+    });
+
+    let company: CompanySummary | undefined;
+    let companies: CompanySummary[] = [];
+
+    if (!this.isPlatformUser(user)) {
+      const resolved = await this.resolveSingleActiveCompanyForLogin(user.id);
+
+      company = resolved.activeCompany;
+      companies = resolved.companies;
+    }
+
+    const twoFactorEnabled = await this.twoFaService.is2FARequired(user.id);
+
+    const trustedDeviceBypass = this.configService.get<boolean>(
+      'app.auth.allowTrustedDeviceBypass',
+      true,
+    );
+
+    const deviceTrusted =
+      trustedDeviceBypass &&
+      twoFactorEnabled &&
+      (await this.devicesService.isTrusted(user.id, options.deviceToken));
+
+    if (twoFactorEnabled && !deviceTrusted) {
+      return this.build2FATempResponse(user, device.id, company?.companyId);
+    }
+
+    return this.issueAuthenticatedSession(user, {
+      deviceId: device.id,
+      ip: options.ip,
+      userAgent: options.userAgent,
+      method: options.method,
+      company,
+      companies,
+      twoFactorBypassedByTrustedDevice: deviceTrusted,
+    });
+  }
+
+  private async issueAuthenticatedSession(
+    user: User,
+    options: {
+      deviceId: string;
+      ip?: string;
+      userAgent?: string;
+      method: string;
+      company?: CompanySummary;
+      companies?: CompanySummary[];
+      twoFactorBypassedByTrustedDevice?: boolean;
+    },
+  ) {
+    await this.usersService.updateLastLogin(
+      user.id,
+      new Date(),
+      options.ip ?? null,
+    );
+
+    const session = await this.sessionsService.create({
+      userId: user.id,
+      refreshToken: randomUUID(),
+      deviceId: options.deviceId,
+      ipAddress: options.ip,
+      userAgent: options.userAgent,
+    });
+
+    let authResponse: ReturnType<
+      | typeof this.generatePlatformAuthResponse
+      | typeof this.generateCompanyAuthResponse
+    >;
+
+    if (this.isPlatformUser(user)) {
+      authResponse = this.generatePlatformAuthResponse(
+        user,
+        this.buildPlatformAccessContext(user),
+        session.id,
+      );
+    } else {
+      if (!options.company) {
+        throw new ForbiddenException('Company context is unavailable.');
+      }
+
+      const companyContext = await this.companiesService.setActiveMembership(
+        user.id,
+        options.company.companyId,
+      );
+
+      authResponse = this.generateCompanyAuthResponse(
+        user,
+        companyContext,
+        options.companies ?? [],
+        session.id,
+      );
+    }
+
+    await this.sessionsService.bindRefreshToken(
+      session.id,
+      authResponse.refresh_token,
+    );
+
+    await this.auditService.log({
+      userId: user.id,
+      action: AuditAction.LOGIN_SUCCESS,
+      ipAddress: options.ip,
+      userAgent: options.userAgent,
+      metadata: {
+        method: options.method,
+        scope: this.isPlatformUser(user) ? 'platform' : 'company',
+        sessionId: session.id,
+        deviceId: options.deviceId,
+        trustedDeviceBypass: options.twoFactorBypassedByTrustedDevice ?? false,
+      },
+    });
+
+    return authResponse;
+  }
+
   // ── Token generation helpers ────────────────────────────────────────────────
 
-  private build2FATempResponse(
-    userId: string,
-    email: string,
-    scope: AuthScope,
-    userType: UserType,
+  private async build2FATempResponse(
+    user: User,
+    deviceId: string,
     companyId?: string,
   ) {
+    const challengeId = randomUUID();
+
+    const expiresIn = this.configService.get<string>(
+      'app.auth.twoFactorExpiration',
+      '5m',
+    ) as StringValue;
+
     const tempToken = this.jwtService.sign<TwoFactorTempTokenPayload>(
       {
-        sub: userId,
-        email,
-        scope,
-        userType,
+        sub: user.id,
+        email: user.email,
+        scope: this.isPlatformUser(user) ? 'platform' : 'company',
+        userType: user.user_type as UserType,
         companyId,
+        deviceId,
+        jti: challengeId,
         temp: true,
         type: '2fa-temp',
       },
-      { secret: this.getAccessTokenSecret(), expiresIn: '5m' },
+      {
+        secret: this.getTwoFactorTokenSecret(),
+        expiresIn,
+      },
     );
+
+    const ttlSeconds = this.getTokenBlacklistTtlSeconds(tempToken, 300);
+
+    await this.redisService.setJson<TwoFactorChallengeRecord>(
+      `auth:2fa:challenge:${challengeId}`,
+      {
+        userId: user.id,
+        deviceId,
+        createdAt: new Date().toISOString(),
+      },
+      ttlSeconds,
+    );
+
     return {
       requires2FA: true,
       tempToken,
-      message: 'Password verified. Please provide your 2FA code.',
+      expiresAt: this.getTokenExpiryTimestamp(tempToken),
+      message:
+        'Primary authentication succeeded. Enter your two-factor authentication code.',
     };
   }
 
@@ -1309,6 +1410,28 @@ export class AuthService {
 
   private getResetTokenSecret(): string {
     return this.configService.getOrThrow<string>('JWT_RESET_SECRET');
+  }
+
+  private getTwoFactorTokenSecret(): string {
+    return this.configService.getOrThrow<string>('JWT_2FA_SECRET');
+  }
+
+  private async blacklistJwt(
+    token: string,
+    fallbackTtlSeconds: number,
+  ): Promise<void> {
+    const payload = this.decodeJwtPayload(token);
+
+    const jti =
+      payload && typeof payload.jti === 'string' ? payload.jti : null;
+
+    if (!jti) {
+      return;
+    }
+
+    const ttl = this.getTokenBlacklistTtlSeconds(token, fallbackTtlSeconds);
+
+    await this.redisService.addToBlacklist(jti, ttl);
   }
 
   private buildFrontendAuthUrl(path: string): string {

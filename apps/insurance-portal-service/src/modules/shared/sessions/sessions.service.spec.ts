@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
+
+import { hashToken } from '@insurance-max/portal-shared/utils/hash.util';
+
 import { SessionsService } from './sessions.service';
 import { UserSession } from './entities/user-session.entity';
 import { RedisService } from '../redis/redis.service';
@@ -20,12 +24,26 @@ function makeSession(overrides: Partial<UserSession> = {}): UserSession {
     device_info: null,
     revoked: false,
     revoked_at: null,
+    revocation_reason: null,
     expires_at: new Date(Date.now() + 7 * 24 * 3600 * 1000),
     last_used_at: new Date(),
     created_at: new Date(),
     updated_at: new Date(),
     ...overrides,
   } as UserSession;
+}
+
+function makeQueryBuilder(session: UserSession | null) {
+  const builder: any = {
+    addSelect: jest.fn().mockReturnThis(),
+    setLock: jest.fn().mockReturnThis(),
+    where: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    select: jest.fn().mockReturnThis(),
+    getOne: jest.fn().mockResolvedValue(session),
+    getMany: jest.fn().mockResolvedValue(session ? [session] : []),
+  };
+  return builder;
 }
 
 describe('SessionsService', () => {
@@ -37,8 +55,10 @@ describe('SessionsService', () => {
     find: jest.Mock;
     update: jest.Mock;
     delete: jest.Mock;
+    createQueryBuilder: jest.Mock;
   };
   let redisService: jest.Mocked<RedisService>;
+  let dataSource: { transaction: jest.Mock };
 
   beforeEach(async () => {
     sessionRepo = {
@@ -50,16 +70,26 @@ describe('SessionsService', () => {
       find: jest.fn(),
       update: jest.fn().mockResolvedValue({ affected: 1 }),
       delete: jest.fn().mockResolvedValue({ affected: 1 }),
+      createQueryBuilder: jest.fn(),
+    };
+
+    dataSource = {
+      transaction: jest.fn().mockImplementation(async (callback) => {
+        const manager = { getRepository: () => sessionRepo };
+        return callback(manager);
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SessionsService,
         { provide: getRepositoryToken(UserSession), useValue: sessionRepo },
+        { provide: DataSource, useValue: dataSource },
         {
           provide: RedisService,
           useValue: {
             setJson: jest.fn(),
+            getJson: jest.fn(),
             del: jest.fn(),
           },
         },
@@ -111,25 +141,96 @@ describe('SessionsService', () => {
       );
       expect(redisService.del).toHaveBeenCalledWith(`session:${SESSION_ID}`);
     });
-  });
 
-  describe('validateRefreshToken', () => {
-    it('throws ForbiddenException when session not found', async () => {
+    it('throws NotFoundException when the session does not exist', async () => {
       sessionRepo.findOne.mockResolvedValue(null);
 
-      await expect(
-        service.validateRefreshToken(SESSION_ID, 'any-token'),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.revoke(SESSION_ID)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+  });
+
+  describe('rotateRefreshToken', () => {
+    it('rotates the hash when the old refresh token matches', async () => {
+      const oldToken = 'old-refresh-token';
+      const hash = await hashToken(oldToken);
+      const session = makeSession({ refresh_token_hash: hash });
+
+      sessionRepo.createQueryBuilder.mockReturnValue(makeQueryBuilder(session));
+      sessionRepo.findOne.mockResolvedValue(session);
+
+      await service.rotateRefreshToken({
+        sessionId: SESSION_ID,
+        userId: USER_ID,
+        oldRefreshToken: oldToken,
+        newRefreshToken: 'new-refresh-token',
+      });
+
+      expect(sessionRepo.update).toHaveBeenCalledWith(
+        SESSION_ID,
+        expect.objectContaining({ refresh_token_hash: expect.any(String) }),
+      );
+      expect(redisService.del).toHaveBeenCalledWith(`session:${SESSION_ID}`);
     });
 
-    it('throws ForbiddenException when session is expired', async () => {
-      sessionRepo.findOne.mockResolvedValue(
-        makeSession({ expires_at: new Date(Date.now() - 1000) }),
-      );
+    it('revokes the session and throws when the old refresh token does not match (reuse detection)', async () => {
+      const hash = await hashToken('the-real-token');
+      const session = makeSession({ refresh_token_hash: hash });
+
+      sessionRepo.createQueryBuilder.mockReturnValue(makeQueryBuilder(session));
 
       await expect(
-        service.validateRefreshToken(SESSION_ID, 'any-token'),
-      ).rejects.toThrow(ForbiddenException);
+        service.rotateRefreshToken({
+          sessionId: SESSION_ID,
+          userId: USER_ID,
+          oldRefreshToken: 'a-stolen-token',
+          newRefreshToken: 'new-refresh-token',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(sessionRepo.update).toHaveBeenCalledWith(
+        SESSION_ID,
+        expect.objectContaining({
+          revoked: true,
+          revocation_reason: 'refresh_token_reuse',
+        }),
+      );
+    });
+
+    it('throws when the session does not exist', async () => {
+      sessionRepo.createQueryBuilder.mockReturnValue(makeQueryBuilder(null));
+
+      await expect(
+        service.rotateRefreshToken({
+          sessionId: SESSION_ID,
+          userId: USER_ID,
+          oldRefreshToken: 'any',
+          newRefreshToken: 'new',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('revokes and throws when the session is already expired', async () => {
+      const session = makeSession({
+        expires_at: new Date(Date.now() - 1000),
+      });
+
+      sessionRepo.createQueryBuilder.mockReturnValue(makeQueryBuilder(session));
+
+      await expect(
+        service.rotateRefreshToken({
+          sessionId: SESSION_ID,
+          userId: USER_ID,
+          oldRefreshToken: 'any',
+          newRefreshToken: 'new',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(sessionRepo.update).toHaveBeenCalledWith(
+        SESSION_ID,
+        expect.objectContaining({ revoked: true, revocation_reason: 'expired' }),
+      );
     });
   });
 
@@ -148,19 +249,39 @@ describe('SessionsService', () => {
     });
   });
 
-  describe('findById', () => {
-    it('throws NotFoundException when session does not exist', async () => {
-      sessionRepo.findOne.mockResolvedValue(null);
-      await expect(service.findById('nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+  describe('revokeOtherUserSessions', () => {
+    it('revokes sessions other than the current one', async () => {
+      const other = makeSession({ id: 'other-session' });
+      const builder = makeQueryBuilder(other);
+      builder.execute = jest.fn().mockResolvedValue({ affected: 1 });
+      sessionRepo.createQueryBuilder.mockReturnValue(builder);
+
+      await service.revokeOtherUserSessions(USER_ID, SESSION_ID);
+
+      expect(builder.execute).toHaveBeenCalled();
+      expect(redisService.del).toHaveBeenCalledWith(`session:other-session`);
+    });
+  });
+
+  describe('findUserSessions', () => {
+    it('marks the matching session as current', async () => {
+      const session = makeSession();
+      sessionRepo.find.mockResolvedValue([session]);
+
+      const result = await service.findUserSessions(USER_ID, SESSION_ID);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].is_current).toBe(true);
+      expect((result[0] as any).refresh_token_hash).toBeUndefined();
     });
 
-    it('returns session when found', async () => {
+    it('marks sessions as not current when currentSessionId does not match', async () => {
       const session = makeSession();
-      sessionRepo.findOne.mockResolvedValue(session);
-      const result = await service.findById(SESSION_ID);
-      expect(result.id).toBe(SESSION_ID);
+      sessionRepo.find.mockResolvedValue([session]);
+
+      const result = await service.findUserSessions(USER_ID, 'some-other-id');
+
+      expect(result[0].is_current).toBe(false);
     });
   });
 });

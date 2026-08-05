@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsString, Matches } from 'class-validator';
+import {
+  IsBoolean,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+} from 'class-validator';
 
 export class Complete2FALoginDto {
   @IsString()
@@ -11,4 +17,8 @@ export class Complete2FALoginDto {
     message: '2FA code must be a 6-digit authenticator code or a backup code',
   })
   code: string;
+
+  @IsOptional()
+  @IsBoolean()
+  trustDevice = false;
 }

@@ -8,6 +8,9 @@ export const sessionsApi = {
   revokeSession: (id: string) =>
     apiClient.delete(`/sessions/${id}`).then((r) => r.data),
 
+  revokeOtherSessions: () =>
+    apiClient.delete('/sessions/others').then((r) => r.data),
+
   revokeAllSessions: () =>
     apiClient.delete('/sessions/all').then((r) => r.data),
 };

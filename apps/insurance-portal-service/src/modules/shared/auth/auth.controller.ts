@@ -49,8 +49,17 @@ export class AuthController {
   @Public()
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: 'Email / password login' })
-  login(@Body() dto: LoginDto, @Req() req: ExpressRequest) {
-    return this.authService.login(dto, req.ip, req.headers['user-agent']);
+  login(
+    @Body() dto: LoginDto,
+    @Req() req: ExpressRequest,
+    @Headers('x-device-token') deviceToken?: string,
+  ) {
+    return this.authService.login(
+      dto,
+      req.ip,
+      req.headers['user-agent'],
+      deviceToken,
+    );
   }
 
   // ── Phone / OTP login ───────────────────────────────────────────────────────
@@ -67,8 +76,17 @@ export class AuthController {
   @Public()
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: 'Verify phone OTP and login' })
-  phoneLogin(@Body() dto: PhoneLoginDto, @Req() req: ExpressRequest) {
-    return this.authService.phoneLogin(dto, req.ip, req.headers['user-agent']);
+  phoneLogin(
+    @Body() dto: PhoneLoginDto,
+    @Req() req: ExpressRequest,
+    @Headers('x-device-token') deviceToken?: string,
+  ) {
+    return this.authService.phoneLogin(
+      dto,
+      req.ip,
+      req.headers['user-agent'],
+      deviceToken,
+    );
   }
 
   // ── Generic OTP ─────────────────────────────────────────────────────────────
@@ -108,11 +126,13 @@ export class AuthController {
   completePasswordlessLogin(
     @Query('token') token: string,
     @Req() req: ExpressRequest,
+    @Headers('x-device-token') deviceToken?: string,
   ) {
     return this.authService.completePasswordlessLogin(
       token,
       req.ip,
       req.headers['user-agent'],
+      deviceToken,
     );
   }
 
@@ -125,12 +145,15 @@ export class AuthController {
   complete2FALogin(
     @Body() dto: Complete2FALoginDto,
     @Req() req: ExpressRequest,
+    @Headers('x-device-token') deviceToken?: string,
   ) {
     return this.authService.complete2FALogin(
       dto.tempToken,
       dto.code,
+      dto.trustDevice,
       req.ip,
       req.headers['user-agent'],
+      deviceToken,
     );
   }
 
@@ -169,8 +192,17 @@ export class AuthController {
     @Body() dto: SwitchCompanyDto,
     @CurrentUser() user: AuthenticatedUser,
     @Req() req: ExpressRequest,
+    @Headers('authorization') authorization?: string,
   ) {
-    return this.authService.switchCompany(user.id, dto.company_id, req.ip);
+    return this.authService.switchCompany({
+      userId: user.id,
+      sessionId: user.sessionId,
+      currentAccessToken: authorization?.replace(/^Bearer\s+/i, ''),
+      refreshToken: dto.refresh_token,
+      companyId: dto.company_id,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
   }
 
   // ── Email verification ──────────────────────────────────────────────────────

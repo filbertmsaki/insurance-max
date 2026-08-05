@@ -7,12 +7,15 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
+import { ServiceScopes } from '@insurance-max/shared-kernel';
+
 import { CreateMotorCoverNoteDto } from '../dto/create-motor-cover-note.dto';
 import { TiramisMotorService } from '../services/tiramis-motor.service';
 
 @ApiTags('Tiramis Motor Cover Notes')
 @ApiConsumes('application/json')
 @Controller('tiramis/motor')
+@ServiceScopes('tiramis:invoke')
 export class TiramisMotorController {
   constructor(private readonly tiramisMotorService: TiramisMotorService) {}
 

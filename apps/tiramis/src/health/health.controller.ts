@@ -2,10 +2,12 @@ import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
 import type { Response } from 'express';
 
 import type { ServiceHealthResponse } from '@insurance-max/contracts';
+import { PublicServiceEndpoint } from '@insurance-max/shared-kernel';
 
 import { HealthService } from './health.service';
 
 @Controller('health')
+@PublicServiceEndpoint()
 export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 

@@ -110,6 +110,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         email: user.email,
         scope: 'platform',
         userType: user.user_type,
+        sessionId: payload.sessionId,
+        accessTokenId: payload.jti,
         roles: user.roles?.map((r) => r.name) ?? [],
         permissions: Array.from(permissions),
       };
@@ -130,6 +132,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         email: payload.email,
         scope: 'company',
         userType: payload.userType as any,
+        sessionId: payload.sessionId,
+        accessTokenId: payload.jti,
         companyId: companyContext.companyId,
         companyName: companyContext.companyName,
         companySlug: companyContext.companySlug,

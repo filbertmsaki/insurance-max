@@ -33,6 +33,23 @@ export enum AuditAction {
   USER_CREATED = 'user.created',
   USER_UPDATED = 'user.updated',
   USER_DELETED = 'user.deleted',
+
+  TWO_FA_LOGIN_SUCCESS = '2fa.login_success',
+  TWO_FA_LOGIN_FAILURE = '2fa.login_failure',
+  TWO_FA_BACKUP_CODES_REGENERATED = '2fa.backup_codes_regenerated',
+
+  DEVICE_TRUSTED = 'device.trusted',
+  DEVICE_UNTRUSTED = 'device.untrusted',
+  DEVICE_REMOVED = 'device.removed',
+
+  SESSION_REVOKED = 'session.revoked',
+  SESSIONS_REVOKED = 'sessions.revoked',
+
+  REFRESH_TOKEN_REUSE = 'token.refresh_reuse',
+
+  COMPANY_SWITCHED = 'auth.company_switched',
+
+  SERVICE_AUTH_FAILURE = 'service_auth.failure',
 }
 
 @Entity('audit_logs')

@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
 import { authApi } from '@/modules/shared/auth/api/auth';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
@@ -25,6 +26,7 @@ export function TwoFactorPage() {
   const [code, setCode] = useState('');
   const [backupCode, setBackupCode] = useState('');
   const [useBackup, setUseBackup] = useState(false);
+  const [trustDevice, setTrustDevice] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(useAuthStore.persist.hasHydrated());
 
@@ -40,7 +42,8 @@ export function TwoFactorPage() {
     mutationFn: () =>
       authApi.complete2fa({
         tempToken: tempToken!,
-        token: useBackup ? backupCode : code,
+        code: useBackup ? backupCode : code,
+        trustDevice,
       }),
     onSuccess: (tokens) => {
       setSession(tokens);
@@ -111,6 +114,20 @@ export function TwoFactorPage() {
                 />
               </div>
             )}
+
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="trust-device"
+                checked={trustDevice}
+                onCheckedChange={(checked) => setTrustDevice(checked === true)}
+              />
+              <label
+                htmlFor="trust-device"
+                className="text-sm text-slate-600 cursor-pointer"
+              >
+                Trust this device for 30 days
+              </label>
+            </div>
 
             <Button
               className="w-full"

@@ -9,9 +9,12 @@ import {
 } from '../dto/create-verification.dto';
 import { TiramisVerificationService } from '../services/tiramis-verification.service';
 
+import { ServiceScopes } from '@insurance-max/shared-kernel';
+
 @ApiTags('Tiramis Verifications')
 @ApiConsumes('application/json')
 @Controller('tiramis/verifications')
+@ServiceScopes('tiramis:invoke')
 export class TiramisVerificationsController {
   constructor(
     private readonly tiramisVerificationService: TiramisVerificationService,

@@ -19,6 +19,8 @@ import {
 
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 
+import { getDeviceToken } from '@/modules/shared/devices/device-token';
+
 import type { LoginResponse } from '@/types';
 
 import { isPaginatedPayload, normalizePaginatedResponse } from './pagination';
@@ -95,6 +97,8 @@ apiClient.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
   config.headers['X-Correlation-Id'] =
     config.headers['X-Correlation-Id']?.toString() || requestId;
+
+  config.headers['X-Device-Token'] = getDeviceToken();
 
   const token = useAuthStore.getState().accessToken;
 

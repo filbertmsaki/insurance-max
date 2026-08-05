@@ -174,6 +174,43 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   JWT_ISSUER: Joi.string().default('insurance-idp.tz'),
   JWT_AUDIENCE: Joi.string().default('insurance-platform'),
 
+  JWT_2FA_SECRET: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().min(32).required(),
+    otherwise: Joi.string()
+      .min(32)
+      .default('development-only-2fa-secret-change-me'),
+  }),
+  JWT_2FA_EXPIRATION: Joi.string().default('5m'),
+
+  AUTH_2FA_MAX_ATTEMPTS: Joi.number().integer().min(1).max(10).default(5),
+  AUTH_TRUSTED_DEVICE_DAYS: Joi.number()
+    .integer()
+    .min(1)
+    .max(365)
+    .default(30),
+  AUTH_ALLOW_TRUSTED_DEVICE_BYPASS: Joi.boolean().default(true),
+
+  AUTH_SECRET_ENCRYPTION_KEY: Joi.string().base64().required(),
+  AUTH_BACKUP_CODE_PEPPER: Joi.string().min(32).required(),
+  AUTH_DEVICE_TOKEN_PEPPER: Joi.string().min(32).required(),
+
+  SERVICE_AUTH_SECRET: Joi.when('APP_ENV', {
+    is: 'production',
+    then: Joi.string().min(64).required(),
+    otherwise: Joi.string().min(32).required(),
+  }),
+  SERVICE_AUTH_ISSUER: Joi.string().trim().min(1).required(),
+  SERVICE_AUTH_SUBJECT: Joi.string().trim().min(1).required(),
+  SERVICE_AUTH_AUDIENCE: Joi.string().trim().min(1).required(),
+  SERVICE_AUTH_ALLOWED_ISSUERS: Joi.string().trim().min(1).required(),
+  SERVICE_AUTH_TOKEN_EXPIRATION: Joi.string().default('60s'),
+  SERVICE_AUTH_CLOCK_TOLERANCE_SECONDS: Joi.number()
+    .integer()
+    .min(0)
+    .max(30)
+    .default(5),
+
   ENABLE_EMAIL_VERIFICATION: Joi.boolean().default(true),
   EMAIL_VERIFICATION_EXPIRY_HOURS: Joi.number().default(24),
   MAX_LOGIN_ATTEMPTS: Joi.number().default(5),
@@ -213,11 +250,6 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .min(1000)
     .max(300000)
     .default(60000),
-  TIRAMIS_PORTAL_WEBHOOK_TOKEN: Joi.when('APP_ENV', {
-    is: 'production',
-    then: Joi.string().min(16).required(),
-    otherwise: Joi.string().min(16).default('local-only-tiramis-webhook-token'),
-  }),
   TIRAMIS_STATUS_SYNC_ENABLED: Joi.boolean().default(true),
   TIRAMIS_STATUS_SYNC_CRON: Joi.string().default('*/2 * * * *'),
   TIRAMIS_STATUS_SYNC_LIMIT: Joi.number().default(50),

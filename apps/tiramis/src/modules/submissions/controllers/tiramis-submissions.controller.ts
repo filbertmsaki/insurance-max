@@ -1,11 +1,14 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 
+import { ServiceScopes } from '@insurance-max/shared-kernel';
+
 import { TiramisSubmissionStatusQueryDto } from '../dto/tiramis-submission-status-query.dto';
 import { TiramisSubmissionService } from '../services/tiramis-submission.service';
 
 @ApiTags('TIRAMIS Submissions')
 @Controller('tiramis/submissions')
+@ServiceScopes('tiramis:invoke')
 export class TiramisSubmissionsController {
   constructor(
     private readonly tiramisSubmissionService: TiramisSubmissionService,

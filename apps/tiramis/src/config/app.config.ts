@@ -26,9 +26,6 @@ export default registerAs('tiramisService', () => {
 
     portalWebhookUrl: process.env.INSURANCE_PORTAL_WEBHOOK_URL?.trim() || '',
 
-    portalWebhookToken:
-      process.env.INSURANCE_PORTAL_WEBHOOK_TOKEN?.trim() || '',
-
     portalWebhookTimeoutMs: Number(
       process.env.INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS || 5000,
     ),

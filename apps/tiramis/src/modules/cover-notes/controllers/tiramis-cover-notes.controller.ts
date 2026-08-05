@@ -7,12 +7,15 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
+import { ServiceScopes } from '@insurance-max/shared-kernel';
+
 import { CreateCoverNoteDto } from '../dto/create-cover-note.dto';
 import { TiramisCoverNoteService } from '../services/tiramis-cover-note.service';
 
 @ApiTags('Tiramis Non-Motor Cover Notes')
 @ApiConsumes('application/json')
 @Controller('tiramis/non-motor/cover-notes')
+@ServiceScopes('tiramis:invoke')
 export class TiramisCoverNotesController {
   constructor(
     private readonly tiramisCoverNoteService: TiramisCoverNoteService,

@@ -8,11 +8,12 @@ import {
   Logger,
 } from '@nestjs/common';
 
-import { RawResponse } from '@insurance-max/shared-kernel';
+import { PublicServiceEndpoint, RawResponse } from '@insurance-max/shared-kernel';
 
 import { TiramisCallbackService } from '../services/tiramis-callback.service';
 
 @Controller('tiramis/callbacks')
+@PublicServiceEndpoint()
 export class TiramisCallbackController {
   private readonly logger = new Logger(TiramisCallbackController.name);
 

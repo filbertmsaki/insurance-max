@@ -7,12 +7,15 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
+import { ServiceScopes } from '@insurance-max/shared-kernel';
+
 import { CreatePolicyDto } from '../dto/create-policy.dto';
 import { TiramisPolicyService } from '../services/tiramis-policy.service';
 
 @ApiTags('Tiramis Policies')
 @ApiConsumes('application/json')
 @Controller('tiramis/policies')
+@ServiceScopes('tiramis:invoke')
 export class TiramisPoliciesController {
   constructor(private readonly tiramisPolicyService: TiramisPolicyService) {}
 

@@ -14,9 +14,12 @@ import { CreateClaimPaymentDto } from '../dto/create-claim-payment.dto';
 import { CreateClaimRejectionDto } from '../dto/create-claim-rejection.dto';
 import { TiramisClaimService } from '../services/tiramis-claim.service';
 
+import { ServiceScopes } from '@insurance-max/shared-kernel';
+
 @ApiTags('Tiramis Claims')
 @ApiConsumes('application/json')
 @Controller('tiramis/claims')
+@ServiceScopes('tiramis:invoke')
 export class TiramisClaimController {
   constructor(private readonly tiramisClaimService: TiramisClaimService) {}
 

@@ -48,6 +48,28 @@ function decodeJwt(token: string): AuthUser | null {
   }
 }
 
+const TWO_FACTOR_TOKEN_KEY = 'insurance-max-2fa-challenge';
+
+function readTwoFactorToken(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  return window.sessionStorage.getItem(TWO_FACTOR_TOKEN_KEY);
+}
+
+function writeTwoFactorToken(token: string | null): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (token) {
+    window.sessionStorage.setItem(TWO_FACTOR_TOKEN_KEY, token);
+  } else {
+    window.sessionStorage.removeItem(TWO_FACTOR_TOKEN_KEY);
+  }
+}
+
 function toCompany(
   company:
     | UserProfile['current_company']
@@ -110,10 +132,11 @@ export const useAuthStore = create<AuthState>()(
       company: null,
       companies: [],
       profile: null,
-      tempToken: null,
+      tempToken: readTwoFactorToken(),
 
       setSession: (session) => {
         const user = decodeJwt(session.access_token);
+        writeTwoFactorToken(null);
         set({
           accessToken: session.access_token,
           refreshToken: session.refresh_token,
@@ -149,7 +172,10 @@ export const useAuthStore = create<AuthState>()(
         }));
       },
 
-      setTempToken: (token) => set({ tempToken: token }),
+      setTempToken: (token) => {
+        writeTwoFactorToken(token);
+        set({ tempToken: token });
+      },
 
       setProfile: (profile) =>
         set((state) => ({
@@ -172,7 +198,8 @@ export const useAuthStore = create<AuthState>()(
             : state.user,
         })),
 
-      logout: () =>
+      logout: () => {
+        writeTwoFactorToken(null);
         set({
           accessToken: null,
           refreshToken: null,
@@ -181,7 +208,8 @@ export const useAuthStore = create<AuthState>()(
           companies: [],
           profile: null,
           tempToken: null,
-        }),
+        });
+      },
 
       hasPermission: (permission) =>
         get().user?.permissions?.includes(permission) ?? false,
@@ -197,7 +225,6 @@ export const useAuthStore = create<AuthState>()(
         company: state.company,
         companies: state.companies,
         profile: state.profile,
-        tempToken: state.tempToken,
       }),
     },
   ),

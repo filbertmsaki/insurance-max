@@ -27,6 +27,10 @@ export interface AuthenticatedUser {
   email: string;
   scope: AuthScope;
   userType: UserType;
+
+  sessionId: string;
+  accessTokenId: string;
+
   companyId?: string;
   companyName?: string;
   companySlug?: string;

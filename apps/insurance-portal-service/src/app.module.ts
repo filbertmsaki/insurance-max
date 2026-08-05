@@ -23,6 +23,7 @@ import {
   ApiLoggingInterceptor,
   ApiResponseInterceptor,
   RequestContextModule,
+  ServiceAuthModule,
 } from '@insurance-max/shared-kernel';
 
 import { AppController } from './app.controller';
@@ -56,6 +57,7 @@ import { TiramisModule } from './modules/tiramis/tiramis.module';
     }),
 
     RequestContextModule,
+    ServiceAuthModule,
 
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),

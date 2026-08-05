@@ -88,6 +88,7 @@ async function bootstrap() {
         'X-Request-Id',
         'X-Correlation-Id',
         'X-Idempotency-Key',
+        'X-Device-Token',
       ],
       exposedHeaders: [
         'X-Request-Id',

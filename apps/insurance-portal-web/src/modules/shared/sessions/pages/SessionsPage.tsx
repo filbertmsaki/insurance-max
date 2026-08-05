@@ -9,11 +9,13 @@ import { DataTable, type Column } from '@/components/shared/DataTable'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { sessionsApi } from '@/modules/shared/sessions/api/sessions'
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store'
 import type { UserSession } from '@/types'
 
 export function SessionsPage() {
   const queryClient = useQueryClient()
   const [revokeId, setRevokeId] = useState<string | null>(null)
+  const [revokeOthersOpen, setRevokeOthersOpen] = useState(false)
   const [revokeAllOpen, setRevokeAllOpen] = useState(false)
 
   const { data: sessions, isLoading } = useQuery({
@@ -23,19 +25,34 @@ export function SessionsPage() {
 
   const revokeMutation = useMutation({
     mutationFn: sessionsApi.revokeSession,
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] })
       setRevokeId(null)
       toast.success('Session revoked')
+
+      const revokedCurrent = sessions?.find((s) => s.id === id)?.is_current
+      if (revokedCurrent) {
+        useAuthStore.getState().logout()
+        window.location.assign('/login')
+      }
+    },
+  })
+
+  const revokeOthersMutation = useMutation({
+    mutationFn: sessionsApi.revokeOtherSessions,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sessions'] })
+      setRevokeOthersOpen(false)
+      toast.success('Other sessions revoked')
     },
   })
 
   const revokeAllMutation = useMutation({
     mutationFn: sessionsApi.revokeAllSessions,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sessions'] })
       setRevokeAllOpen(false)
-      toast.success('All sessions revoked')
+      useAuthStore.getState().logout()
+      window.location.assign('/login')
     },
   })
 
@@ -58,8 +75,15 @@ export function SessionsPage() {
     {
       key: 'status',
       header: 'Status',
+      cell: (r) => (r.is_current ? <Badge variant="success">Current</Badge> : null),
+    },
+    {
+      key: 'last_used',
+      header: 'Last Used',
       cell: (r) => (
-        <Badge variant={r.revoked ? 'danger' : 'success'}>{r.revoked ? 'Revoked' : 'Active'}</Badge>
+        <span className="text-sm text-slate-500">
+          {format(new Date(r.last_used_at), 'MMM d, yyyy HH:mm')}
+        </span>
       ),
     },
     {
@@ -72,15 +96,6 @@ export function SessionsPage() {
       ),
     },
     {
-      key: 'created',
-      header: 'Created',
-      cell: (r) => (
-        <span className="text-sm text-slate-500">
-          {format(new Date(r.created_at), 'MMM d, yyyy HH:mm')}
-        </span>
-      ),
-    },
-    {
       key: 'actions',
       header: '',
       className: 'w-10',
@@ -89,7 +104,6 @@ export function SessionsPage() {
           variant="ghost"
           size="icon"
           className="h-8 w-8 text-red-500"
-          disabled={r.revoked}
           onClick={() => setRevokeId(r.id)}
         >
           <Trash2 className="h-4 w-4" />
@@ -104,13 +118,22 @@ export function SessionsPage() {
         title="Sessions"
         description="View and manage your active sessions"
         action={
-          <Button
-            variant="destructive"
-            onClick={() => setRevokeAllOpen(true)}
-            disabled={!sessions?.some((s) => !s.revoked)}
-          >
-            Revoke All Sessions
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setRevokeOthersOpen(true)}
+              disabled={!sessions || sessions.length <= 1}
+            >
+              Revoke Other Sessions
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => setRevokeAllOpen(true)}
+              disabled={!sessions?.length}
+            >
+              Revoke All Sessions
+            </Button>
+          </div>
         }
       />
 
@@ -137,10 +160,20 @@ export function SessionsPage() {
       />
 
       <ConfirmDialog
+        open={revokeOthersOpen}
+        onOpenChange={setRevokeOthersOpen}
+        title="Revoke Other Sessions"
+        description="This will sign you out of all devices except this one."
+        confirmLabel="Revoke Others"
+        onConfirm={() => revokeOthersMutation.mutate()}
+        loading={revokeOthersMutation.isPending}
+      />
+
+      <ConfirmDialog
         open={revokeAllOpen}
         onOpenChange={setRevokeAllOpen}
         title="Revoke All Sessions"
-        description="This will sign you out of all devices. You'll need to sign in again."
+        description="This will sign you out of all devices, including this one. You'll need to sign in again."
         confirmLabel="Revoke All"
         onConfirm={() => revokeAllMutation.mutate()}
         loading={revokeAllMutation.isPending}

@@ -218,6 +218,21 @@ export class UsersService {
     return this.findOrFail(id);
   }
 
+  async findByIdFor2FA(userId: string): Promise<User> {
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.two_factor_secret')
+      .addSelect('user.two_factor_backup_codes')
+      .where('user.id = :userId', { userId })
+      .getOne();
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    return user;
+  }
+
   async findByEmail(email: string): Promise<User | null> {
     return this.userRepository.findOne({
       where: { email },

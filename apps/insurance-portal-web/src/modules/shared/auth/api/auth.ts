@@ -51,10 +51,16 @@ export const authApi = {
       )
       .then((r) => r.data),
 
-  complete2fa: (data: { tempToken: string; token: string }) =>
+  complete2fa: (data: {
+    tempToken: string;
+    code: string;
+    trustDevice: boolean;
+  }) =>
     apiClient
-      .post<LoginResponse>('/auth/2fa/complete-login', data)
-      .then((r) => r.data),
+      .post<LoginResponse>('/auth/2fa/complete-login', data, {
+        skipAuthRefresh: true,
+      })
+      .then((response) => response.data),
 
   /** Backend returns { access_token, refresh_token } (snake_case) */
   refresh: (refresh_token: string) =>
@@ -65,8 +71,11 @@ export const authApi = {
   logout: (refresh_token: string) =>
     apiClient.post('/auth/logout', { refresh_token }).then((r) => r.data),
 
-  switchCompany: (company_id: string) =>
+  switchCompany: (company_id: string, refresh_token: string) =>
     apiClient
-      .post<LoginResponse>('/auth/switch-company', { company_id })
-      .then((r) => r.data),
+      .post<LoginResponse>('/auth/switch-company', {
+        company_id,
+        refresh_token,
+      })
+      .then((response) => response.data),
 };

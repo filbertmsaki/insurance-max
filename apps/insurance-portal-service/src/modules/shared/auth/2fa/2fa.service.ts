@@ -1,181 +1,216 @@
-import {
-  Injectable,
-  BadRequestException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+
 import { ConfigService } from '@nestjs/config';
+
 import { generateSecret, generateURI, verify } from 'otplib';
+
 import * as qrcode from 'qrcode';
-import * as crypto from 'crypto';
+
+import { randomBytes } from 'node:crypto';
+
 import { UsersService } from '../../../tenant/users/users.service';
+import { AuthSecretCryptoService } from './auth-secret-crypto.service';
 
 @Injectable()
 export class TwoFaService {
   constructor(
-    private usersService: UsersService,
-    private configService: ConfigService,
+    private readonly usersService: UsersService,
+
+    private readonly configService: ConfigService,
+
+    private readonly cryptoService: AuthSecretCryptoService,
   ) {}
 
-  private normalizeCode(code: string): string {
-    return code.replace(/[\s-]/g, '').toUpperCase();
-  }
-
-  private formatBackupCodes(codes: string[]): string[] {
-    return codes.map((code) => code.match(/.{1,5}/g)?.join('-') ?? code);
-  }
-
   async generate2FASetup(userId: string) {
-    const user = await this.usersService.findById(userId);
-    if (!user) throw new BadRequestException('User not found');
+    const user = await this.usersService.findByIdFor2FA(userId);
 
     if (user.is_two_factor_enabled) {
-      throw new BadRequestException('2FA is already enabled for this account');
+      throw new BadRequestException(
+        '2FA is already enabled for this account.',
+      );
     }
 
     const secret = generateSecret({ length: 32 });
-    const serviceName = this.configService.get('APP_NAME') || 'YourApp';
+
+    const serviceName =
+      this.configService.get<string>('app.name') || 'Insurance Max';
+
     const otpAuthUrl = generateURI({
       issuer: serviceName,
       label: user.email,
       secret,
     });
 
-    const qrCode = await qrcode.toDataURL(otpAuthUrl);
+    const qrCodeUrl = await qrcode.toDataURL(otpAuthUrl);
 
-    await this.usersService.update2FASecret(userId, secret);
+    await this.usersService.update2FASecret(
+      userId,
+      this.cryptoService.encrypt(secret),
+    );
 
     return {
       secret,
-      qrCode,
-      otpAuthUrl,
+      qr_code_url: qrCodeUrl,
+      otp_auth_url: otpAuthUrl,
     };
   }
 
-  async verifyAndActivate2FA(userId: string, token: string) {
-    const user = await this.usersService.findById(userId);
-    if (!user) throw new BadRequestException('User not found');
+  async verifyAndActivate2FA(userId: string, code: string) {
+    const user = await this.usersService.findByIdFor2FA(userId);
 
     if (!user.two_factor_secret) {
-      throw new BadRequestException('No 2FA setup in progress');
+      throw new BadRequestException('No 2FA setup is in progress.');
     }
 
-    const normalizedToken = this.normalizeCode(token);
+    const secret = this.cryptoService.decrypt(user.two_factor_secret);
+
+    const normalizedCode = this.normalizeCode(code);
+
     const result = await verify({
-      secret: user.two_factor_secret,
-      token: normalizedToken,
+      secret,
+      token: normalizedCode,
     });
 
     if (!result.valid) {
-      throw new BadRequestException('Invalid 2FA code');
+      throw new BadRequestException('Invalid 2FA code.');
     }
 
-    const backupCodes = Array.from({ length: 10 }, () =>
-      crypto.randomBytes(5).toString('hex').toUpperCase(),
+    const backupCodes = this.generateBackupCodes();
+
+    const hashedCodes = backupCodes.map((backupCode) =>
+      this.cryptoService.hashBackupCode(backupCode),
     );
 
-    const hashed = backupCodes.map((code) =>
-      crypto.createHash('sha256').update(code).digest('hex'),
+    await this.usersService.activate2FA(
+      userId,
+      this.cryptoService.encrypt(secret),
+      hashedCodes,
     );
-
-    await this.usersService.activate2FA(userId, user.two_factor_secret, hashed);
-
-    const formattedBackupCodes = this.formatBackupCodes(backupCodes);
 
     return {
-      message: '2FA successfully enabled!',
-      backupCodes: formattedBackupCodes,
-      note: 'Store these codes securely. Each is single-use. You can regenerate them later if needed.',
+      message: 'Two-factor authentication has been enabled.',
+      backup_codes: this.formatBackupCodes(backupCodes),
     };
   }
 
-  /**
-   * Verify 2FA code during login (TOTP or backup code)
-   */
-  async verify2FALogin(userId: string, token: string): Promise<boolean> {
-    const user = await this.usersService.findById(userId);
-    if (!user || !user.is_two_factor_enabled || !user.two_factor_secret) {
-      throw new BadRequestException('2FA is not enabled for this user');
+  async verify2FALogin(
+    userId: string,
+    code: string,
+  ): Promise<{
+    valid: true;
+    used_backup_code: boolean;
+  }> {
+    const user = await this.usersService.findByIdFor2FA(userId);
+
+    if (!user.is_two_factor_enabled || !user.two_factor_secret) {
+      throw new BadRequestException('2FA is not enabled for this user.');
     }
 
-    const normalizedToken = this.normalizeCode(token);
+    const normalizedCode = this.normalizeCode(code);
+
+    const secret = this.cryptoService.decrypt(user.two_factor_secret);
 
     const totpResult = await verify({
-      secret: user.two_factor_secret,
-      token: normalizedToken,
+      secret,
+      token: normalizedCode,
     });
-    if (totpResult.valid) return true;
+
+    if (totpResult.valid) {
+      /*
+       * Lazily migrate existing plaintext secrets.
+       */
+      if (!this.cryptoService.isEncrypted(user.two_factor_secret)) {
+        await this.usersService.update2FASecret(
+          userId,
+          this.cryptoService.encrypt(secret),
+        );
+      }
+
+      return {
+        valid: true,
+        used_backup_code: false,
+      };
+    }
 
     if (user.two_factor_backup_codes?.length) {
-      const hashedToken = crypto
-        .createHash('sha256')
-        .update(normalizedToken)
-        .digest('hex');
-      const index = user.two_factor_backup_codes.indexOf(hashedToken);
+      const hashedCode = this.cryptoService.hashBackupCode(normalizedCode);
+
+      const index = user.two_factor_backup_codes.indexOf(hashedCode);
 
       if (index !== -1) {
-        user.two_factor_backup_codes.splice(index, 1);
-        await this.usersService.updateBackupCodes(
-          userId,
-          user.two_factor_backup_codes,
+        const remainingCodes = user.two_factor_backup_codes.filter(
+          (_value, codeIndex) => codeIndex !== index,
         );
-        return true;
+
+        await this.usersService.updateBackupCodes(userId, remainingCodes);
+
+        return {
+          valid: true,
+          used_backup_code: true,
+        };
       }
     }
 
-    throw new UnauthorizedException('Invalid 2FA code');
+    throw new UnauthorizedException('Invalid 2FA code.');
   }
 
-  async disable2FA(userId: string, token: string) {
-    const user = await this.usersService.findById(userId);
-    if (!user || !user.is_two_factor_enabled) {
-      throw new BadRequestException('2FA is not enabled');
+  async disable2FA(userId: string, code: string) {
+    const user = await this.usersService.findByIdFor2FA(userId);
+
+    if (!user.is_two_factor_enabled) {
+      throw new BadRequestException('2FA is not enabled.');
     }
 
-    const isValid = await this.verify2FALogin(userId, token);
-    if (!isValid) {
-      throw new UnauthorizedException('Invalid 2FA code');
-    }
+    await this.verify2FALogin(userId, code);
 
     await this.usersService.disable2FA(userId);
 
-    return { message: '2FA successfully disabled' };
+    return {
+      message: 'Two-factor authentication has been disabled.',
+    };
   }
 
   async is2FARequired(userId: string): Promise<boolean> {
-    const user = await this.usersService.findById(userId);
-    if (!user) {
-      throw new BadRequestException('User not found');
-    }
-    return user.is_two_factor_enabled ?? false;
+    const user = await this.usersService.findByIdFor2FA(userId);
+
+    return Boolean(user.is_two_factor_enabled);
   }
 
-  async regenerateBackupCodes(
-    userId: string,
-    token: string,
-  ): Promise<{ backupCodes: string[]; message: string }> {
-    const user = await this.usersService.findById(userId);
-    if (!user?.is_two_factor_enabled) {
-      throw new BadRequestException('2FA is not enabled');
+  async regenerateBackupCodes(userId: string, code: string) {
+    const user = await this.usersService.findByIdFor2FA(userId);
+
+    if (!user.is_two_factor_enabled) {
+      throw new BadRequestException('2FA is not enabled.');
     }
 
-    const valid = await this.verify2FALogin(userId, token);
-    if (!valid) throw new UnauthorizedException('Invalid code');
+    await this.verify2FALogin(userId, code);
 
-    const newCodes = Array.from({ length: 10 }, () =>
-      crypto.randomBytes(5).toString('hex').toUpperCase(),
+    const backupCodes = this.generateBackupCodes();
+
+    const hashedCodes = backupCodes.map((backupCode) =>
+      this.cryptoService.hashBackupCode(backupCode),
     );
 
-    const hashed = newCodes.map((c) =>
-      crypto.createHash('sha256').update(c).digest('hex'),
-    );
-
-    await this.usersService.updateBackupCodes(userId, hashed);
-
-    const formatted = this.formatBackupCodes(newCodes);
+    await this.usersService.updateBackupCodes(userId, hashedCodes);
 
     return {
-      backupCodes: formatted,
-      message: 'New backup codes generated. Old ones are invalidated.',
+      message:
+        'New backup codes have been generated. Previous backup codes are invalid.',
+      backup_codes: this.formatBackupCodes(backupCodes),
     };
+  }
+
+  private generateBackupCodes(): string[] {
+    return Array.from({ length: 10 }, () =>
+      randomBytes(5).toString('hex').toUpperCase(),
+    );
+  }
+
+  private normalizeCode(code: string): string {
+    return code.replace(/[\s-]/g, '').toUpperCase();
+  }
+
+  private formatBackupCodes(codes: string[]): string[] {
+    return codes.map((code) => `${code.slice(0, 5)}-${code.slice(5)}`);
   }
 }

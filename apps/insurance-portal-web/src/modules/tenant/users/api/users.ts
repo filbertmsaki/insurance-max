@@ -83,24 +83,26 @@ export const usersApi = {
   /** POST /users/2fa/setup */
   setup2fa: () =>
     apiClient
-      .post<{ qr_code_url: string; secret: string }>('/users/2fa/setup')
+      .post<{ qr_code_url: string; secret: string; otp_auth_url: string }>(
+        '/users/2fa/setup',
+      )
       .then((r) => r.data),
 
   /** POST /users/2fa/verify */
   verify2fa: (code: string) =>
     apiClient
-      .post<{ backup_codes: string[] }>('/users/2fa/verify', { token: code })
+      .post<{ backup_codes: string[] }>('/users/2fa/verify', { code })
       .then((r) => r.data),
 
   /** POST /users/2fa/disable */
   disable2fa: (code: string) =>
-    apiClient.post('/users/2fa/disable', { token: code }).then((r) => r.data),
+    apiClient.post('/users/2fa/disable', { code }).then((r) => r.data),
 
   /** POST /users/2fa/backup-codes/regenerate */
   regenerateBackupCodes: (code: string) =>
     apiClient
       .post<{
         backup_codes: string[];
-      }>('/users/2fa/backup-codes/regenerate', { token: code })
+      }>('/users/2fa/backup-codes/regenerate', { code })
       .then((r) => r.data),
 };

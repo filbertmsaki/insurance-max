@@ -1,7 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { PublicServiceEndpoint } from '@insurance-max/shared-kernel';
+
 @Controller()
+@PublicServiceEndpoint()
 export class AppController {
   constructor(private readonly configService: ConfigService) {}
 

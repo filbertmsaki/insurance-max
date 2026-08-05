@@ -53,5 +53,16 @@ export default registerAs('app', () => {
       maxAttempts: Number(process.env.OTP_MAX_ATTEMPTS || 3),
       smsProvider: process.env.SMS_PROVIDER || 'beem',
     },
+
+    auth: {
+      twoFactorExpiration: process.env.JWT_2FA_EXPIRATION || '5m',
+
+      twoFactorMaxAttempts: Number(process.env.AUTH_2FA_MAX_ATTEMPTS || 5),
+
+      trustedDeviceDays: Number(process.env.AUTH_TRUSTED_DEVICE_DAYS || 30),
+
+      allowTrustedDeviceBypass:
+        process.env.AUTH_ALLOW_TRUSTED_DEVICE_BYPASS !== 'false',
+    },
   };
 });

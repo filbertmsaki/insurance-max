@@ -25,7 +25,7 @@ export function DashboardPage() {
   const { data: devices, isLoading: devicesLoading } = useQuery({ queryKey: ['devices'], queryFn: devicesApi.getDevices })
   const { data: apiClients, isLoading: apiClientsLoading } = useQuery({ queryKey: ['api-clients', { page: 1, limit: 1 }], queryFn: () => apiClientsApi.getApiClients({ page: 1, limit: 1 }), enabled: isPlatformAccount })
 
-  const activeSessions = sessions?.filter((s) => !s.revoked).length
+  const activeSessions = sessions?.length
   const trustedDevices = devices?.filter((d) => d.trusted).length
   const activeClients = apiClients?.data?.filter((c) => c.status === 'active').length
 

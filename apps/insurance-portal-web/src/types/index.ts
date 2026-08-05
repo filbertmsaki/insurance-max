@@ -240,13 +240,14 @@ export interface Device {
 
 export interface UserSession {
   id: string;
+  device_id: string | null;
   ip_address: string | null;
   user_agent: string | null;
   device_info: Record<string, unknown> | null;
   expires_at: string;
-  revoked: boolean;
-  revoked_at: string | null;
+  last_used_at: string;
   created_at: string;
+  is_current: boolean;
 }
 
 export interface ApiClient {

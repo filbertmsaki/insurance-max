@@ -197,7 +197,7 @@ export class UsersController {
     @Req() req: ExpressRequest & { user: AuthenticatedUser },
     @Body() dto: Verify2FaDto,
   ) {
-    return this.twoFaService.verifyAndActivate2FA(req.user.id, dto.token);
+    return this.twoFaService.verifyAndActivate2FA(req.user.id, dto.code);
   }
 
   @Post('2fa/disable')
@@ -205,7 +205,7 @@ export class UsersController {
     @Req() req: ExpressRequest & { user: AuthenticatedUser },
     @Body() dto: Verify2FaDto,
   ) {
-    return this.twoFaService.disable2FA(req.user.id, dto.token);
+    return this.twoFaService.disable2FA(req.user.id, dto.code);
   }
 
   @Post('2fa/backup-codes/regenerate')
@@ -213,6 +213,6 @@ export class UsersController {
     @Req() req: ExpressRequest & { user: AuthenticatedUser },
     @Body() dto: Verify2FaDto,
   ) {
-    return this.twoFaService.regenerateBackupCodes(req.user.id, dto.token);
+    return this.twoFaService.regenerateBackupCodes(req.user.id, dto.code);
   }
 }

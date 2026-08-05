@@ -7,12 +7,15 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
+import { ServiceScopes } from '@insurance-max/shared-kernel';
+
 import { CreateDischargeVoucherDto } from '../dto/create-discharge-voucher.dto';
 import { TiramisDischargeVoucherService } from '../services/tiramis-discharge-voucher.service';
 
 @ApiTags('Tiramis Discharge Vouchers')
 @ApiConsumes('application/json')
 @Controller('tiramis/claims/discharge-voucher')
+@ServiceScopes('tiramis:invoke')
 export class TiramisDischargeVoucherController {
   constructor(
     private readonly dischargeVoucherService: TiramisDischargeVoucherService,
