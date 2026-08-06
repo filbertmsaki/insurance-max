@@ -1,15 +1,10 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import type {
   RegulatoryCoverNoteReference,
   RegulatoryFinalResponse,
 } from '@insurance-max/contracts';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 
 import { TiramisNotificationEventDto } from '../tiramis-integration/dto/tiramis-notification-event.dto';
 import { PortalTiraSubmission } from '../tiramis-integration/entities/portal-tira-submission.entity';
@@ -26,7 +21,6 @@ import { QuotationPolicyHolder } from '../quotations/entities/structured/quotati
 import { QuotationRiskDiscount } from '../quotations/entities/structured/quotation-risk-discount.entity';
 import { QuotationRiskTax } from '../quotations/entities/structured/quotation-risk-tax.entity';
 import { QuotationSubjectMatter } from '../quotations/entities/structured/quotation-subject-matter.entity';
-import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { Policy } from '../policies/entities/policy.entity';
 import { PolicyCoverNote } from '../policies/entities/policy-cover-note.entity';
 import { PolicyPremiumBreakdown } from '../policies/entities/policy-premium-breakdown.entity';
@@ -34,6 +28,7 @@ import { PolicyRisk } from '../policies/entities/policy-risk.entity';
 import { PolicyStatusHistory } from '../policies/entities/policy-status-history.entity';
 import { PolicyVersion } from '../policies/entities/policy-version.entity';
 import { ProductChannelType } from '../product-distribution/enums/product-channel-type.enum';
+import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
 
 type IssuableQuotation = Quotation & {
   customer: Customer | null;
@@ -61,25 +56,6 @@ export class IssuanceService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly hashService: ProductDefinitionHashService,
-    private readonly identifierService: IdentifierGeneratorService,
-    @InjectRepository(PortalTiraSubmission)
-    private readonly submissionRepository: Repository<PortalTiraSubmission>,
-    @InjectRepository(Quotation)
-    private readonly quotationRepository: Repository<Quotation>,
-    @InjectRepository(CoverNote)
-    private readonly coverNoteRepository: Repository<CoverNote>,
-    @InjectRepository(Policy)
-    private readonly policyRepository: Repository<Policy>,
-    @InjectRepository(PolicyCoverNote)
-    private readonly policyCoverNoteRepository: Repository<PolicyCoverNote>,
-    @InjectRepository(PolicyVersion)
-    private readonly policyVersionRepository: Repository<PolicyVersion>,
-    @InjectRepository(PolicyRisk)
-    private readonly policyRiskRepository: Repository<PolicyRisk>,
-    @InjectRepository(PolicyPremiumBreakdown)
-    private readonly premiumBreakdownRepository: Repository<PolicyPremiumBreakdown>,
-    @InjectRepository(PolicyStatusHistory)
-    private readonly policyStatusHistoryRepository: Repository<PolicyStatusHistory>,
   ) {}
 
   async applyNotification(
@@ -105,15 +81,28 @@ export class IssuanceService {
       .toUpperCase();
 
     if (
-      ['NON_MOTOR', 'MOTOR', 'MOTOR_FLEET', 'NON_MOTOR_COVER_NOTE', 'MOTOR_COVER_NOTE', 'MOTOR_FLEET_COVER_NOTE'].includes(
-        requestType,
-      )
+      [
+        'NON_MOTOR',
+        'MOTOR',
+        'MOTOR_FLEET',
+        'NON_MOTOR_COVER_NOTE',
+        'MOTOR_COVER_NOTE',
+        'MOTOR_FLEET_COVER_NOTE',
+      ].includes(requestType)
     ) {
-      return this.applyCoverNoteIssuance(submission, payload, regulatoryResponse);
+      return this.applyCoverNoteIssuance(
+        submission,
+        payload,
+        regulatoryResponse,
+      );
     }
 
     if (requestType === 'POLICY') {
-      return this.applyPolicyActivation(submission, payload, regulatoryResponse);
+      return this.applyPolicyActivation(
+        submission,
+        payload,
+        regulatoryResponse,
+      );
     }
 
     return null;
@@ -137,9 +126,11 @@ export class IssuanceService {
         submission.company_id,
         submission.quotation_id!,
       );
+      const tracking = await this.resolveTrackingOrThrow(manager, submission);
       const coverNotes = await this.createOrUpdateCoverNotes(
         manager,
         submission,
+        tracking,
         quotation,
         regulatoryResponse,
       );
@@ -194,13 +185,15 @@ export class IssuanceService {
 
       const saved = await manager.getRepository(Policy).save(policy);
 
-      const existingHistory = await manager.getRepository(PolicyStatusHistory).findOne({
-        where: {
-          policy_id: saved.id,
-          old_status: 'COVER_NOTE_ISSUED',
-          new_status: 'ACTIVE',
-        },
-      });
+      const existingHistory = await manager
+        .getRepository(PolicyStatusHistory)
+        .findOne({
+          where: {
+            policy_id: saved.id,
+            old_status: 'COVER_NOTE_ISSUED',
+            new_status: 'ACTIVE',
+          },
+        });
 
       if (!existingHistory) {
         await manager.getRepository(PolicyStatusHistory).save({
@@ -219,6 +212,7 @@ export class IssuanceService {
   private async createOrUpdateCoverNotes(
     manager: EntityManager,
     submission: PortalTiraSubmission,
+    tracking: TiramisSubmissionTrackingEntity,
     quotation: IssuableQuotation,
     regulatoryResponse: RegulatoryFinalResponse,
   ): Promise<CoverNote[]> {
@@ -284,11 +278,17 @@ export class IssuanceService {
         quotation_entry_id: entry.id,
         policy_id: persisted?.policy_id ?? null,
         insured_asset_id: persisted?.insured_asset_id ?? null,
-        tiramis_tracking_id: submission.tiramis_transaction_id ?? ZERO_UUID_FALLBACK,
+        tiramis_tracking_id: tracking.id,
         tiramis_transaction_id:
-          submission.tiramis_transaction_id ?? regulatoryResponse.transactionId,
+          submission.tiramis_transaction_id ??
+          regulatoryResponse.transactionId ??
+          tracking.tiramisTransactionId ??
+          tracking.id,
         tiramis_request_id:
-          submission.tiramis_request_id ?? regulatoryResponse.requestId,
+          submission.tiramis_request_id ??
+          regulatoryResponse.requestId ??
+          tracking.tiramisRequestId ??
+          tracking.id,
         response_id: regulatoryResponse.responseId,
         cover_note_number: entry.cover_note_number,
         cover_note_reference_number:
@@ -306,9 +306,8 @@ export class IssuanceService {
         product_code: quotation.cover_note.product_code,
         product_definition_hash: quotation.product_definition_hash,
         customer_snapshot: customerSnapshot,
-        customer_snapshot_hash: this.hashService.hashDefinition(
-          customerSnapshot,
-        ),
+        customer_snapshot_hash:
+          this.hashService.hashDefinition(customerSnapshot),
         asset_snapshot: assetSnapshot,
         asset_snapshot_hash: this.hashService.hashDefinition(assetSnapshot),
         pricing_snapshot: pricingSnapshot,
@@ -337,11 +336,13 @@ export class IssuanceService {
         commission_rate: quotation.cover_note.commission_rate,
         final_response_status_code: regulatoryResponse.statusCode,
         final_response_status_desc: regulatoryResponse.statusDescription,
-        final_response_payload:
-          regulatoryResponse as unknown as Record<string, unknown>,
-        final_response_payload_hash: this.hashService.hashDefinition(
-          coverNoteUnsigned,
-        ),
+        final_response_payload: regulatoryResponse as unknown as Record<
+          string,
+          unknown
+        >,
+        final_response_payload_hash:
+          regulatoryResponse.responsePayloadHash ??
+          this.hashService.hashDefinition(coverNoteUnsigned),
         signature_verified: regulatoryResponse.signatureVerified,
         issued_at: issuedAt,
         rejected_at: null,
@@ -368,7 +369,6 @@ export class IssuanceService {
         company_id: quotation.company_id,
         quotation_id: quotation.id,
         source_quotation_revision: quotation.workflow_revision,
-        deleted_at: null as never,
       },
     });
 
@@ -420,9 +420,8 @@ export class IssuanceService {
           rejected_at: null,
           currency: quotation.cover_note.currency_code,
           customer_snapshot: customerSnapshot,
-          customer_snapshot_hash: this.hashService.hashDefinition(
-            customerSnapshot,
-          ),
+          customer_snapshot_hash:
+            this.hashService.hashDefinition(customerSnapshot),
           pricing_snapshot: pricingSnapshot,
           pricing_result_hash: this.hashService.hashDefinition(pricingSnapshot),
           distribution_snapshot: distributionSnapshot,
@@ -445,22 +444,26 @@ export class IssuanceService {
           tira_status: 'SUBMITTED',
           tira_portal_transaction_id: submission.id,
           tiramis_transaction_id:
-            submission.tiramis_transaction_id ?? regulatoryResponse.transactionId,
+            submission.tiramis_transaction_id ??
+            regulatoryResponse.transactionId,
           tiramis_submission_tracking_id: null,
           tiramis_status: submission.status,
           tiramis_request_id:
             submission.tiramis_request_id ?? regulatoryResponse.requestId,
           tiramis_service_type:
             submission.service_type ?? regulatoryResponse.requestType,
-          tiramis_root_element: submission.root_element ?? regulatoryResponse.responseRoot,
+          tiramis_root_element:
+            submission.root_element ?? regulatoryResponse.responseRoot,
           tiramis_final_response_id: regulatoryResponse.responseId,
           tiramis_final_response_status_code: regulatoryResponse.statusCode,
           tiramis_final_response_status_desc:
             regulatoryResponse.statusDescription,
           tiramis_last_synced_at: new Date(),
           tiramis_payload: payloadLike(regulatoryResponse),
-          regulatory_response_payload:
-            regulatoryResponse as unknown as Record<string, unknown>,
+          regulatory_response_payload: regulatoryResponse as unknown as Record<
+            string,
+            unknown
+          >,
           regulatory_response_hash: regulatoryResponse.responsePayloadHash,
           state_version: 1,
           current_version_no: 1,
@@ -472,7 +475,12 @@ export class IssuanceService {
         }),
       );
 
-      await this.createPolicyStatusHistory(manager, policy, 'NONE', 'COVER_NOTE_ISSUED');
+      await this.createPolicyStatusHistory(
+        manager,
+        policy,
+        'NONE',
+        'COVER_NOTE_ISSUED',
+      );
       await this.createPolicyChildren(manager, policy, quotation);
       await this.createPolicyVersion(
         manager,
@@ -483,7 +491,9 @@ export class IssuanceService {
       );
     } else {
       policy.cover_note_no =
-        policy.cover_note_no ?? coverNotes[0]?.cover_note_reference_number ?? null;
+        policy.cover_note_no ??
+        coverNotes[0]?.cover_note_reference_number ??
+        null;
       policy.regulatory_sync_status = 'IN_SYNC';
       policy.regulatory_response_payload =
         regulatoryResponse as unknown as Record<string, unknown>;
@@ -511,7 +521,9 @@ export class IssuanceService {
     });
 
     for (const [index, coverNote] of coverNotes.entries()) {
-      const found = existing.find((item) => item.cover_note_id === coverNote.id);
+      const found = existing.find(
+        (item) => item.cover_note_id === coverNote.id,
+      );
       if (!found) {
         await linkRepository.save({
           company_id: policy.company_id,
@@ -536,14 +548,18 @@ export class IssuanceService {
     const riskRepository = manager.getRepository(PolicyRisk);
     const breakdownRepository = manager.getRepository(PolicyPremiumBreakdown);
 
-    const riskCodeToId = new Map<string, string>();
-
     for (const entry of quotation.cover_note.entries) {
       for (const risk of entry.risks) {
+        if (!risk.insurance_risk_id) {
+          throw new BadRequestException(
+            `Quotation risk ${risk.id} is missing insurance_risk_id and cannot be issued into a policy.`,
+          );
+        }
+
         const policyRisk = await riskRepository.save({
           policy_id: policy.id,
           quotation_entry_risk_id: risk.id,
-          risk_id: risk.insurance_risk_id ?? riskCodeToId.get(risk.risk_code) ?? ZERO_UUID_FALLBACK,
+          risk_id: risk.insurance_risk_id,
           subject_matter_id: null,
           motor_vehicle_id: null,
           sum_insured: risk.sum_insured,
@@ -703,19 +719,103 @@ export class IssuanceService {
     }
 
     if (submission.quotation_id) {
-      return repository.findOne({
-        where: {
-          quotation_id: submission.quotation_id,
-          company_id: submission.company_id,
-          source_quotation_revision: 1 as never,
-        },
-        order: {
-          created_at: 'DESC',
-        },
-      });
+      return repository
+        .createQueryBuilder('policy')
+        .where('policy.quotation_id = :quotationId', {
+          quotationId: submission.quotation_id,
+        })
+        .andWhere('policy.company_id = :companyId', {
+          companyId: submission.company_id,
+        })
+        .orderBy('policy.created_at', 'DESC')
+        .getOne();
     }
 
     return null;
+  }
+
+  private async resolveTrackingOrThrow(
+    manager: EntityManager,
+    submission: PortalTiraSubmission,
+  ) {
+    const repository = manager.getRepository(TiramisSubmissionTrackingEntity);
+
+    const byLegacySubmission = await repository.findOne({
+      where: {
+        legacyPortalSubmissionId: submission.id,
+      },
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+
+    if (byLegacySubmission) {
+      return byLegacySubmission;
+    }
+
+    if (submission.tiramis_request_id) {
+      const byRequest = await repository.findOne({
+        where: {
+          tiramisRequestId: submission.tiramis_request_id,
+        },
+        order: {
+          createdAt: 'DESC',
+        },
+      });
+
+      if (byRequest) {
+        return byRequest;
+      }
+    }
+
+    if (submission.tiramis_transaction_id) {
+      const byTransaction = await repository.findOne({
+        where: {
+          tiramisTransactionId: submission.tiramis_transaction_id,
+        },
+        order: {
+          createdAt: 'DESC',
+        },
+      });
+
+      if (byTransaction) {
+        return byTransaction;
+      }
+    }
+
+    if (submission.source_record_id) {
+      const bySourceRecord = await repository.findOne({
+        where: {
+          sourceRecordId: submission.source_record_id,
+        },
+        order: {
+          createdAt: 'DESC',
+        },
+      });
+
+      if (bySourceRecord) {
+        return bySourceRecord;
+      }
+    }
+
+    if (submission.quotation_id) {
+      const byQuotation = await repository.findOne({
+        where: {
+          quotationId: submission.quotation_id,
+        },
+        order: {
+          createdAt: 'DESC',
+        },
+      });
+
+      if (byQuotation) {
+        return byQuotation;
+      }
+    }
+
+    throw new BadRequestException(
+      'TIRAMIS tracking provenance is required before cover-note issuance can be persisted.',
+    );
   }
 
   private async loadIssuableQuotation(
@@ -801,7 +901,7 @@ export class IssuanceService {
 
     return {
       customerId: quotation.customer_id,
-      customerNumber: quotation.customer?.customer_number ?? null,
+      customerNumber: quotation.customer?.customer_no ?? null,
       displayName:
         quotation.customer?.display_name ??
         primaryHolder?.policy_holder_name ??
@@ -902,8 +1002,10 @@ export class IssuanceService {
       workflowRevision: quotation.workflow_revision,
       currencyCode: quotation.cover_note.currency_code,
       exchangeRate: quotation.cover_note.exchange_rate,
-      totalPremiumExcludingTax: quotation.cover_note.total_premium_excluding_tax,
-      totalPremiumIncludingTax: quotation.cover_note.total_premium_including_tax,
+      totalPremiumExcludingTax:
+        quotation.cover_note.total_premium_excluding_tax,
+      totalPremiumIncludingTax:
+        quotation.cover_note.total_premium_including_tax,
       commissionPaid: quotation.cover_note.commission_paid,
       commissionRate: quotation.cover_note.commission_rate,
       entries: quotation.cover_note.entries.map((entry) =>
@@ -985,7 +1087,7 @@ export class IssuanceService {
   ) {
     return String(
       entry.risks.reduce(
-        (total, risk) => total + Number((risk as Record<string, string>)[field] ?? 0),
+        (total, risk) => total + Number(this.getRiskNumericField(risk, field)),
         0,
       ),
     );
@@ -1001,7 +1103,7 @@ export class IssuanceService {
           total +
           entry.risks.reduce(
             (riskTotal, risk) =>
-              riskTotal + Number((risk as Record<string, string>)[field] ?? 0),
+              riskTotal + Number(this.getRiskNumericField(risk, field)),
             0,
           ),
         0,
@@ -1015,7 +1117,8 @@ export class IssuanceService {
         (total, entry) =>
           total +
           entry.risks.reduce(
-            (riskTotal, risk) => riskTotal + Number(this.sumRiskDiscounts(risk)),
+            (riskTotal, risk) =>
+              riskTotal + Number(this.sumRiskDiscounts(risk)),
             0,
           ),
         0,
@@ -1043,13 +1146,16 @@ export class IssuanceService {
     return String(
       (risk.discounts ?? []).reduce(
         (total, discount) =>
-          total + Number(discount.approved_amount ?? discount.discount_amount ?? 0),
+          total +
+          Number(discount.approved_amount ?? discount.discount_amount ?? 0),
         0,
       ),
     );
   }
 
-  private sumRiskTaxes(risk: QuotationEntryRisk & { taxes?: QuotationRiskTax[] }) {
+  private sumRiskTaxes(
+    risk: QuotationEntryRisk & { taxes?: QuotationRiskTax[] },
+  ) {
     return String(
       (risk.taxes ?? []).reduce(
         (total, tax) => total + Number(tax.tax_amount ?? 0),
@@ -1057,9 +1163,26 @@ export class IssuanceService {
       ),
     );
   }
-}
 
-const ZERO_UUID_FALLBACK = '00000000-0000-0000-0000-000000000000';
+  private getRiskNumericField(
+    risk: QuotationEntryRisk,
+    field:
+      | 'sum_insured'
+      | 'premium_excluding_tax_equivalent'
+      | 'premium_including_tax',
+  ) {
+    switch (field) {
+      case 'sum_insured':
+        return risk.sum_insured;
+      case 'premium_excluding_tax_equivalent':
+        return risk.premium_excluding_tax_equivalent;
+      case 'premium_including_tax':
+        return risk.premium_including_tax;
+      default:
+        return '0';
+    }
+  }
+}
 
 function payloadLike(value: RegulatoryFinalResponse): Record<string, unknown> {
   return value as unknown as Record<string, unknown>;

@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { TiramisHttpModule } from '../../../integrations/tiramis/tiramis-http.module';
 import { Branch } from '../branches/entities/branch.entity';
+import { IssuanceModule } from '../issuance/issuance.module';
 import { Policy } from '../policies/entities/policy.entity';
 import { PolicyStatusHistory } from '../policies/entities/policy-status-history.entity';
 import { QuotationStatusHistory } from '../quotations/entities/quotation-status-history.entity';
@@ -20,6 +21,7 @@ import { TiramisIntegrationService } from './tiramis-integration.service';
 
 @Module({
   imports: [
+    IssuanceModule,
     QuotationsModule,
     TiramisModule,
     TypeOrmModule.forFeature([

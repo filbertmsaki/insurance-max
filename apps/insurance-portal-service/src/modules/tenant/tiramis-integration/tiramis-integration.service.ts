@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, In, Repository } from 'typeorm';
 
 import { Branch } from '../branches/entities/branch.entity';
+import { IssuanceService } from '../issuance/issuance.service';
 import { Policy } from '../policies/entities/policy.entity';
 import { PolicyStatusHistory } from '../policies/entities/policy-status-history.entity';
 import { QuotationStatusHistory } from '../quotations/entities/quotation-status-history.entity';
@@ -58,6 +59,7 @@ export class TiramisIntegrationService {
     private readonly tiramisBusinessRecordSyncService: TiramisBusinessRecordSyncService,
     private readonly identifierGeneratorService: IdentifierGeneratorService,
     private readonly quotationLifecycleService: QuotationLifecycleService,
+    private readonly issuanceService: IssuanceService,
   ) {}
 
   async submitToTiramis(params: {
@@ -499,11 +501,16 @@ export class TiramisIntegrationService {
     submission.root_element = payload.rootElement || submission.root_element;
     submission.cover_note_reference_number =
       payload.coverNoteReferenceNumber ||
+      payload.regulatoryResponse?.coverNotes?.[0]?.coverNoteReferenceNumber ||
       submission.cover_note_reference_number;
     submission.policy_reference_number =
-      payload.policyReferenceNumber || submission.policy_reference_number;
+      payload.policyReferenceNumber ||
+      payload.regulatoryResponse?.policy?.policyReferenceNumber ||
+      submission.policy_reference_number;
     submission.sticker_number =
-      payload.stickerNumber || submission.sticker_number;
+      payload.stickerNumber ||
+      payload.regulatoryResponse?.coverNotes?.[0]?.stickerNumber ||
+      submission.sticker_number;
     submission.last_error = payload.errorMessage || null;
     submission.last_payload = payload as any;
     submission.last_event_at = occurredAt;
@@ -518,6 +525,7 @@ export class TiramisIntegrationService {
       await this.syncLocalTrackingFromNotification(payload);
 
     await this.createEvent(savedSubmission, payload);
+    await this.issuanceService.applyNotification(savedSubmission, payload);
     await this.updateLinkedPolicy(savedSubmission, payload);
     await this.updateLinkedQuotation(savedSubmission, payload);
 
