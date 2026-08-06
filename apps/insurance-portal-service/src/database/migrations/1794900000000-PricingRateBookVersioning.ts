@@ -6,9 +6,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * exist from earlier "Phase 2-26" migrations) — purely additive, no
  * pre-existing table is recreated or renamed.
  */
-export class PricingRateBookVersioning1794900000000
-  implements MigrationInterface
-{
+export class PricingRateBookVersioning1794900000000 implements MigrationInterface {
   name = 'PricingRateBookVersioning1794900000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {

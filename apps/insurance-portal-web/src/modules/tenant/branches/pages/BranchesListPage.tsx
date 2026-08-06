@@ -50,7 +50,7 @@ import {
   useUpdateBranchStatus,
   useDeleteBranch,
 } from '@/modules/tenant/branches/hooks';
-import type { Branch, SortOrder } from '@/types';
+import type { Branch } from '@/types';
 import type { BranchSortKey } from '@/modules/tenant/branches/hooks';
 import type { CreateBranchDto } from '@/modules/tenant/branches/api/branches';
 

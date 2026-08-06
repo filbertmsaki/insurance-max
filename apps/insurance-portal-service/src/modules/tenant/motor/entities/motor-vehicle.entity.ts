@@ -6,12 +6,15 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { Customer } from '../../customers/entities/customer.entity';
+import { InsuredAsset } from '../../customers/entities/insured-asset.entity';
 import { User } from '../../users/entities/user.entity';
+import { MotorVehicleOwnership } from './motor-vehicle-ownership.entity';
 
 @Entity('motor_vehicles')
 @Index('IDX_motor_vehicles_company_id', ['company_id'])
@@ -42,11 +45,20 @@ export class MotorVehicle {
   @Column({ type: 'uuid' })
   customer_id: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  insured_asset_id: string | null;
+
   @Column({ type: 'varchar', length: 50, nullable: true })
   registration_no: string | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
+  registration_no_normalized: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
   chassis_no: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  chassis_no_normalized: string | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   engine_no: string | null;
@@ -126,6 +138,9 @@ export class MotorVehicle {
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
+  @Column({ type: 'int', default: 1 })
+  snapshot_version: number;
+
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
@@ -148,9 +163,13 @@ export class MotorVehicle {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @ManyToOne(() => Customer, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Customer, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'customer_id' })
   customer: Customer;
+
+  @ManyToOne(() => InsuredAsset, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'insured_asset_id' })
+  insured_asset: InsuredAsset | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by' })
@@ -159,4 +178,10 @@ export class MotorVehicle {
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'updated_by' })
   updater: User | null;
+
+  @OneToMany(
+    () => MotorVehicleOwnership,
+    (ownership) => ownership.motor_vehicle,
+  )
+  ownership_history: MotorVehicleOwnership[];
 }

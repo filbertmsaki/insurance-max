@@ -14,6 +14,7 @@ import { Branch } from '../../branches/entities/branch.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { User } from '../../users/entities/user.entity';
 import { Invoice } from './invoice.entity';
+import { PaymentTransaction } from './payment-transaction.entity';
 
 @Entity('receipts')
 @Index('IDX_receipts_company_id', ['company_id'])
@@ -33,6 +34,12 @@ export class Receipt {
   customer_id: string;
 
   @Column({ type: 'uuid', nullable: true })
+  payment_transaction_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  payer_customer_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
   invoice_id: string | null;
 
   @Column({ type: 'uuid', nullable: true })
@@ -47,17 +54,41 @@ export class Receipt {
   @Column({ type: 'varchar', length: 50 })
   payment_method: string;
 
+  @Column({ type: 'varchar', length: 180, nullable: true })
+  payer_name: string | null;
+
   @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
   amount: string;
 
   @Column({ type: 'varchar', length: 10, default: 'TZS' })
   currency: string;
 
+  @Column({ type: 'numeric', precision: 20, scale: 10, default: 1 })
+  exchange_rate: string;
+
+  @Column({ type: 'varchar', length: 3, nullable: true })
+  base_currency_code: string | null;
+
+  @Column({ type: 'numeric', precision: 20, scale: 4, nullable: true })
+  base_currency_amount: string | null;
+
+  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  allocated_amount: string;
+
   @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
   unallocated_amount: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   payment_reference: string | null;
+
+  @Column({ type: 'varchar', length: 180, nullable: true })
+  provider_reference: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  receipt_hash: string | null;
+
+  @Column({ type: 'int', default: 1 })
+  state_version: number;
 
   @Column({ type: 'uuid', nullable: true })
   received_by: string | null;
@@ -83,6 +114,9 @@ export class Receipt {
   @Column({ type: 'text', nullable: true })
   reversal_reason: string | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  reversal_receipt_id: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 
@@ -100,9 +134,17 @@ export class Receipt {
   @JoinColumn({ name: 'customer_id' })
   customer: Customer;
 
+  @ManyToOne(() => Customer, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'payer_customer_id' })
+  payer_customer: Customer | null;
+
   @ManyToOne(() => Branch, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'branch_id' })
   branch: Branch | null;
+
+  @ManyToOne(() => PaymentTransaction, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'payment_transaction_id' })
+  payment_transaction: PaymentTransaction | null;
 
   @ManyToOne(() => Invoice, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'invoice_id' })

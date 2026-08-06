@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import {
   ConflictException,
   Injectable,
@@ -5,6 +7,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
+import {
+  QuotationApprovalStatus as WorkflowApprovalStatus,
+  QuotationPaymentStatus as WorkflowPaymentStatus,
+  QuotationStage as WorkflowQuotationStage,
+  QuotationSubmissionStatus as WorkflowSubmissionStatus,
+} from '@insurance-max/contracts';
 import { Quotation } from '../entities/quotation.entity';
 import { QuotationStatusHistory } from '../entities/quotation-status-history.entity';
 import { ApprovalStatus } from '../enums/approval-status.enum';
@@ -57,6 +65,16 @@ export class QuotationLifecycleService {
     Quotation,
     | 'requires_approval'
     | 'requires_payment'
+    | 'quotation_stage'
+    | 'approval_status_v2'
+    | 'payment_status_v2'
+    | 'submission_status_v2'
+    | 'workflow_revision'
+    | 'state_version'
+    | 'finalization_snapshot'
+    | 'finalization_hash'
+    | 'workflow_gate_hash'
+    | 'workflow_completed_at'
     | 'approval_status'
     | 'payment_status'
     | 'tira_status'
@@ -70,6 +88,20 @@ export class QuotationLifecycleService {
     return {
       requires_approval: requiresApproval,
       requires_payment: requiresPayment,
+      quotation_stage: WorkflowQuotationStage.DRAFT,
+      approval_status_v2: requiresApproval
+        ? WorkflowApprovalStatus.NOT_EVALUATED
+        : WorkflowApprovalStatus.NOT_REQUIRED,
+      payment_status_v2: requiresPayment
+        ? WorkflowPaymentStatus.NOT_REQUESTED
+        : WorkflowPaymentStatus.NOT_REQUIRED,
+      submission_status_v2: WorkflowSubmissionStatus.NOT_READY,
+      workflow_revision: 1,
+      state_version: 1,
+      finalization_snapshot: null,
+      finalization_hash: null,
+      workflow_gate_hash: null,
+      workflow_completed_at: null,
       approval_status: requiresApproval
         ? ApprovalStatus.NOT_SUBMITTED
         : ApprovalStatus.NOT_REQUIRED,
@@ -79,6 +111,33 @@ export class QuotationLifecycleService {
       tira_status: TiraStatus.NOT_SUBMITTED,
       status: QuotationStatus.DRAFT,
     };
+  }
+
+  async recordWorkflowFinalization(params: {
+    companyId: string;
+    quotationId: string;
+    finalizationSnapshot: Record<string, unknown>;
+    finalizationHash: string;
+    workflowGateHash: string;
+    completedAt?: Date | null;
+    changedBy?: string | null;
+  }) {
+    return this.withLockedQuotation(
+      params.companyId,
+      params.quotationId,
+      async (manager, quotation) => {
+        quotation.finalization_snapshot = params.finalizationSnapshot;
+        quotation.finalization_hash = params.finalizationHash;
+        quotation.workflow_gate_hash = params.workflowGateHash;
+        quotation.workflow_completed_at =
+          params.completedAt ?? quotation.workflow_completed_at ?? new Date();
+        quotation.updated_by = params.changedBy ?? quotation.updated_by;
+        quotation.workflow_revision =
+          Number(quotation.workflow_revision ?? 0) + 1;
+        quotation.state_version = Number(quotation.state_version ?? 0) + 1;
+        return manager.getRepository(Quotation).save(quotation);
+      },
+    );
   }
 
   async evaluateRequirements(
@@ -981,6 +1040,7 @@ export class QuotationLifecycleService {
       return quotation;
     }
 
+    this.applyWorkflowProjection(quotation, { incrementVersion: true });
     quotation.updated_by = context.changedBy ?? quotation.updated_by;
     await manager.getRepository(Quotation).save(quotation);
 
@@ -1048,5 +1108,184 @@ export class QuotationLifecycleService {
       QuotationStatus.CANCELLED,
       QuotationStatus.EXPIRED,
     ].includes(status);
+  }
+
+  private applyWorkflowProjection(
+    quotation: Quotation,
+    options: { incrementVersion?: boolean } = {},
+  ) {
+    quotation.quotation_stage = this.resolveWorkflowStage(quotation);
+    quotation.approval_status_v2 =
+      this.resolveWorkflowApprovalStatus(quotation);
+    quotation.payment_status_v2 = this.resolveWorkflowPaymentStatus(quotation);
+    quotation.submission_status_v2 =
+      this.resolveWorkflowSubmissionStatus(quotation);
+
+    if (quotation.finalization_snapshot && !quotation.finalization_hash) {
+      quotation.finalization_hash = this.hashDefinition(
+        quotation.finalization_snapshot,
+      );
+    }
+
+    if (quotation.quotation_stage === WorkflowQuotationStage.DRAFT) {
+      quotation.workflow_completed_at = null;
+    } else if (
+      !quotation.workflow_completed_at &&
+      (quotation.quotation_stage === WorkflowQuotationStage.COMPLETED ||
+        quotation.quotation_stage ===
+          WorkflowQuotationStage.SUBMISSION_PROCESSING ||
+        quotation.quotation_stage === WorkflowQuotationStage.SUBMITTED)
+    ) {
+      quotation.workflow_completed_at = new Date();
+    }
+
+    quotation.workflow_gate_hash = this.hashDefinition({
+      quotationStage: quotation.quotation_stage,
+      approvalStatus: quotation.approval_status_v2,
+      paymentStatus: quotation.payment_status_v2,
+      submissionStatus: quotation.submission_status_v2,
+      approvalRequired: quotation.requires_approval,
+      paymentRequired: quotation.requires_payment,
+      finalizationHash: quotation.finalization_hash,
+      completedAt: quotation.workflow_completed_at?.toISOString() ?? null,
+    });
+
+    if (options.incrementVersion) {
+      quotation.workflow_revision =
+        Number(quotation.workflow_revision ?? 0) + 1;
+      quotation.state_version = Number(quotation.state_version ?? 0) + 1;
+    }
+  }
+
+  private resolveWorkflowStage(quotation: Quotation) {
+    if (quotation.status === QuotationStatus.CANCELLED) {
+      return WorkflowQuotationStage.CANCELLED;
+    }
+
+    if (quotation.status === QuotationStatus.EXPIRED) {
+      return WorkflowQuotationStage.EXPIRED;
+    }
+
+    if (
+      quotation.status === QuotationStatus.SUBMITTING_TO_TIRA ||
+      quotation.status === QuotationStatus.TIRA_PROCESSING ||
+      quotation.tira_status === TiraStatus.SUBMITTING ||
+      quotation.tira_status === TiraStatus.PROCESSING
+    ) {
+      return WorkflowQuotationStage.SUBMISSION_PROCESSING;
+    }
+
+    if (
+      quotation.status === QuotationStatus.SUBMITTED_TO_TIRA ||
+      quotation.tira_status === TiraStatus.SUBMITTED ||
+      quotation.tira_status === TiraStatus.SUCCESS
+    ) {
+      return WorkflowQuotationStage.SUBMITTED;
+    }
+
+    if (quotation.status === QuotationStatus.READY_FOR_SUBMISSION) {
+      return WorkflowQuotationStage.COMPLETED;
+    }
+
+    return WorkflowQuotationStage.DRAFT;
+  }
+
+  private resolveWorkflowApprovalStatus(quotation: Quotation) {
+    switch (quotation.approval_status) {
+      case ApprovalStatus.NOT_REQUIRED:
+        return WorkflowApprovalStatus.NOT_REQUIRED;
+      case ApprovalStatus.PENDING:
+        return WorkflowApprovalStatus.PENDING;
+      case ApprovalStatus.APPROVED:
+        return WorkflowApprovalStatus.APPROVED;
+      case ApprovalStatus.CHANGES_REQUESTED:
+        return WorkflowApprovalStatus.CHANGES_REQUESTED;
+      case ApprovalStatus.REJECTED:
+        return WorkflowApprovalStatus.REJECTED;
+      case ApprovalStatus.CANCELLED:
+        return WorkflowApprovalStatus.CANCELLED;
+      case ApprovalStatus.NOT_SUBMITTED:
+      default:
+        return quotation.requires_approval
+          ? WorkflowApprovalStatus.NOT_EVALUATED
+          : WorkflowApprovalStatus.NOT_REQUIRED;
+    }
+  }
+
+  private resolveWorkflowPaymentStatus(quotation: Quotation) {
+    switch (quotation.payment_status) {
+      case PaymentStatus.NOT_REQUIRED:
+        return WorkflowPaymentStatus.NOT_REQUIRED;
+      case PaymentStatus.REQUESTED:
+        return WorkflowPaymentStatus.REQUESTED;
+      case PaymentStatus.PROCESSING:
+        return WorkflowPaymentStatus.PROCESSING;
+      case PaymentStatus.PARTIALLY_PAID:
+        return WorkflowPaymentStatus.PARTIAL;
+      case PaymentStatus.PAID:
+        return WorkflowPaymentStatus.PAID;
+      case PaymentStatus.FAILED:
+      case PaymentStatus.EXPIRED:
+        return WorkflowPaymentStatus.FAILED;
+      case PaymentStatus.REFUNDED:
+        return WorkflowPaymentStatus.REFUNDED;
+      case PaymentStatus.CANCELLED:
+        return WorkflowPaymentStatus.CANCELLED;
+      case PaymentStatus.NOT_INITIATED:
+      default:
+        return quotation.requires_payment
+          ? WorkflowPaymentStatus.NOT_REQUESTED
+          : WorkflowPaymentStatus.NOT_REQUIRED;
+    }
+  }
+
+  private resolveWorkflowSubmissionStatus(quotation: Quotation) {
+    switch (quotation.tira_status) {
+      case TiraStatus.SUBMITTING:
+      case TiraStatus.PROCESSING:
+        return WorkflowSubmissionStatus.PROCESSING;
+      case TiraStatus.SUBMITTED:
+        return WorkflowSubmissionStatus.ACKNOWLEDGED;
+      case TiraStatus.SUCCESS:
+        return WorkflowSubmissionStatus.ACCEPTED;
+      case TiraStatus.REJECTED:
+        return WorkflowSubmissionStatus.REJECTED;
+      case TiraStatus.FAILED:
+        return this.canRetryTiraSubmission(quotation)
+          ? WorkflowSubmissionStatus.RETRYABLE
+          : WorkflowSubmissionStatus.FAILED;
+      case TiraStatus.NOT_SUBMITTED:
+      default:
+        return quotation.status === QuotationStatus.READY_FOR_SUBMISSION
+          ? WorkflowSubmissionStatus.READY
+          : WorkflowSubmissionStatus.NOT_READY;
+    }
+  }
+
+  private hashDefinition(value: unknown): string {
+    return createHash('sha256')
+      .update(JSON.stringify(this.sortValue(value)), 'utf8')
+      .digest('hex');
+  }
+
+  private sortValue(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.sortValue(item));
+    }
+
+    if (value && typeof value === 'object') {
+      return Object.keys(value)
+        .sort()
+        .reduce<Record<string, unknown>>((result, key) => {
+          result[key] = this.sortValue((value as Record<string, unknown>)[key]);
+          return result;
+        }, {});
+    }
+
+    if (typeof value === 'string') {
+      return value.trim().replace(/\r\n/g, '\n');
+    }
+
+    return value;
   }
 }

@@ -1,5 +1,8 @@
 import type { ServiceProductContext } from '../product-catalogue/product-context.interface';
 import type { ServicePricingContext } from '../pricing/service-pricing-context.interface';
+import type { ServiceInsuredDataContext } from '../insured-data/service-insured-data-context.interface';
+import type { ServiceQuotationGateContext } from '../quotations/service-quotation-gate-context.interface';
+import type { ServiceFinanceContext } from '../finance/finance.interface';
 
 export interface ServiceTenantContext {
   companyId: string;
@@ -41,6 +44,9 @@ export interface ServiceTokenPayload {
   actor?: ServiceActorContext;
   product?: ServiceProductContext;
   pricing?: ServicePricingContext;
+  insuredData?: ServiceInsuredDataContext;
+  quotationGate?: ServiceQuotationGateContext;
+  finance?: ServiceFinanceContext;
 }
 
 export interface ServicePrincipal {
@@ -51,4 +57,7 @@ export interface ServicePrincipal {
   actor?: ServiceActorContext;
   product?: ServiceProductContext;
   pricing?: ServicePricingContext;
+  insuredData?: ServiceInsuredDataContext;
+  quotationGate?: ServiceQuotationGateContext;
+  finance?: ServiceFinanceContext;
 }

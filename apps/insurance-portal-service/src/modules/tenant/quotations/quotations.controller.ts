@@ -184,6 +184,23 @@ export class QuotationsController {
     return this.quotationsService.getPreviewForUser(user, id);
   }
 
+  @Get(':id/workflow')
+  @Permissions('quotations:read')
+  @ApiOperation({
+    summary: 'Get the quotation workflow view',
+    description:
+      'Returns the current workflow stage, gate summaries, blocking reasons, and available commands for the quotation.',
+  })
+  @ApiOkResponse({
+    description: 'Quotation workflow view retrieved successfully',
+  })
+  workflow(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.quotationsService.getWorkflowViewForUser(user, id);
+  }
+
   @Post(':id/risks/:riskId/premium-overrides')
   @HttpCode(HttpStatus.OK)
   @Permissions('pricing.request_override')
@@ -275,7 +292,7 @@ export class QuotationsController {
 
   @Post(':id/finalize')
   @HttpCode(HttpStatus.OK)
-  @Permissions('quotations:update')
+  @Permissions('quotations:complete')
   @ApiOperation({
     summary: 'Complete a quotation',
     description:
@@ -295,7 +312,7 @@ export class QuotationsController {
 
   @Post(':id/submit-for-approval')
   @HttpCode(HttpStatus.OK)
-  @Permissions('quotations:update')
+  @Permissions('quotations:submit-approval')
   @ApiOperation({
     summary: 'Submit a completed quotation for approval',
   })
@@ -315,7 +332,7 @@ export class QuotationsController {
 
   @Post(':id/request-payment')
   @HttpCode(HttpStatus.OK)
-  @Permissions('quotations:update')
+  @Permissions('quotations:request-payment')
   @ApiOperation({
     summary: 'Create a quotation payment request',
   })
@@ -331,7 +348,7 @@ export class QuotationsController {
 
   @Post(':id/submit')
   @HttpCode(HttpStatus.OK)
-  @Permissions('quotations:submit')
+  @Permissions('quotations:submit-tiramis')
   @ApiOperation({
     summary: 'Submit a quotation to TIRAMIS',
     description:
@@ -354,7 +371,7 @@ export class QuotationsController {
 
   @Post(':id/retry-tira')
   @HttpCode(HttpStatus.OK)
-  @Permissions('quotations:submit')
+  @Permissions('quotations:retry-tiramis')
   @ApiOperation({
     summary: 'Retry a failed TIRAMIS submission',
   })
@@ -396,7 +413,7 @@ export class QuotationsController {
 
   @Post(':id/cancel')
   @HttpCode(HttpStatus.OK)
-  @Permissions('quotations:update')
+  @Permissions('quotations:cancel')
   @ApiOperation({
     summary: 'Cancel a quotation',
   })
@@ -443,7 +460,7 @@ export class QuotationsController {
   }
 
   @Delete(':id')
-  @Permissions('quotations:delete')
+  @Permissions('quotations:delete-draft')
   @ApiOperation({
     summary: 'Delete an unsubmitted draft quotation',
   })
@@ -462,7 +479,7 @@ export class QuotationsController {
   }
 
   @Delete(':id/draft')
-  @Permissions('quotations:delete')
+  @Permissions('quotations:delete-draft')
   @ApiOperation({
     summary: 'Delete an unsubmitted quotation draft',
   })

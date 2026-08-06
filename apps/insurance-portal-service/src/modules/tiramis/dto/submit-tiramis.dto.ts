@@ -10,8 +10,11 @@ import {
 } from 'class-validator';
 
 import type {
+  ServiceFinanceContext,
+  ServiceInsuredDataContext,
   ServicePricingContext,
   ServiceProductContext,
+  ServiceQuotationGateContext,
 } from '@insurance-max/contracts';
 import { TiramisRequestType } from '../enums/tiramis-request-type.enum';
 
@@ -124,4 +127,28 @@ export class SubmitTiramisDto {
   @IsOptional()
   @IsObject()
   pricingContext?: ServicePricingContext;
+
+  @ApiPropertyOptional({
+    description:
+      'Signed customer and insured-asset context, resolved internally - never accepted from an external caller.',
+  })
+  @IsOptional()
+  @IsObject()
+  insuredDataContext?: ServiceInsuredDataContext;
+
+  @ApiPropertyOptional({
+    description:
+      'Signed quotation workflow gate context, resolved internally - never accepted from an external caller.',
+  })
+  @IsOptional()
+  @IsObject()
+  quotationGateContext?: ServiceQuotationGateContext;
+
+  @ApiPropertyOptional({
+    description:
+      'Signed finance context, resolved internally - never accepted from an external caller.',
+  })
+  @IsOptional()
+  @IsObject()
+  financeContext?: ServiceFinanceContext;
 }

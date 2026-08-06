@@ -8,3 +8,7 @@ export * from './utils';
 export * from './organization';
 export * from './product-catalogue';
 export * from './pricing';
+export * from './insured-data';
+export * from './quotations';
+export * from './finance';
+export * from './tiramis';

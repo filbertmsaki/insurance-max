@@ -173,7 +173,7 @@ describe('RiskRow', () => {
       target: { value: '0' },
     });
 
-    expect(sumInsuredEquivalentInput.value).toBe('0');
+    expect((sumInsuredEquivalentInput as HTMLInputElement).value).toBe('0');
     expect(
       screen.queryByText(
         'Sum insured is not required for the selected Motor risk.',
@@ -210,16 +210,22 @@ describe('RiskRow', () => {
     // The mount-time recompute already normalized this to match Premium
     // Before Discount (35000), since the fixture's default discount row has
     // no discount_type/discount_rate set.
-    expect(Number(premiumAfterDiscountInput.value)).toBe(35000);
+    expect(Number((premiumAfterDiscountInput as HTMLInputElement).value)).toBe(
+      35000,
+    );
 
     // Typing alone must not trigger a recompute yet.
     fireEvent.change(premiumBeforeDiscountInput, {
       target: { value: '100000' },
     });
-    expect(Number(premiumAfterDiscountInput.value)).toBe(35000);
+    expect(Number((premiumAfterDiscountInput as HTMLInputElement).value)).toBe(
+      35000,
+    );
 
     // Leaving the field commits the value and recomputes dependents.
     fireEvent.blur(premiumBeforeDiscountInput);
-    expect(Number(premiumAfterDiscountInput.value)).toBe(100000);
+    expect(Number((premiumAfterDiscountInput as HTMLInputElement).value)).toBe(
+      100000,
+    );
   });
 });

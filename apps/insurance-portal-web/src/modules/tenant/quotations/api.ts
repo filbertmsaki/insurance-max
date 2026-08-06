@@ -12,6 +12,7 @@ import type {
   QuotationPayload,
   QuotationPreviewRecord,
   QuotationSubmitResponse,
+  QuotationWorkflowView,
   RequestQuotationPremiumOverridePayload,
   TransitionQuotationStatusPayload,
 } from './types';
@@ -74,6 +75,10 @@ export const quotationsApi = {
   getPreview: (id: string) =>
     apiClient
       .get<QuotationPreviewRecord>(`/tenant/quotations/${id}/preview`)
+      .then((response) => response.data),
+  getWorkflow: (id: string) =>
+    apiClient
+      .get<QuotationWorkflowView>(`/tenant/quotations/${id}/workflow`)
       .then((response) => response.data),
   getPayload: (id: string) =>
     apiClient

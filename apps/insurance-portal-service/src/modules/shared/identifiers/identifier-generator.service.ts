@@ -176,6 +176,106 @@ export class IdentifierGeneratorService {
     };
   }
 
+  async generateInvoiceNumber(
+    companyId: string,
+    manager?: EntityManager,
+  ): Promise<string> {
+    return this.generateFinanceIdentifier(
+      companyId,
+      IdentifierType.INVOICE,
+      IDENTIFIER_CONSTANTS.invoice,
+      IDENTIFIER_SEQUENCE_LENGTHS.invoice,
+      manager,
+    );
+  }
+
+  async generateReceiptNumber(
+    companyId: string,
+    manager?: EntityManager,
+  ): Promise<string> {
+    return this.generateFinanceIdentifier(
+      companyId,
+      IdentifierType.RECEIPT,
+      IDENTIFIER_CONSTANTS.receipt,
+      IDENTIFIER_SEQUENCE_LENGTHS.receipt,
+      manager,
+    );
+  }
+
+  async generatePaymentTransactionNumber(
+    companyId: string,
+    manager?: EntityManager,
+  ): Promise<string> {
+    return this.generateFinanceIdentifier(
+      companyId,
+      IdentifierType.PAYMENT_TRANSACTION,
+      IDENTIFIER_CONSTANTS.paymentTransaction,
+      IDENTIFIER_SEQUENCE_LENGTHS.paymentTransaction,
+      manager,
+    );
+  }
+
+  async generateRefundNumber(
+    companyId: string,
+    manager?: EntityManager,
+  ): Promise<string> {
+    return this.generateFinanceIdentifier(
+      companyId,
+      IdentifierType.REFUND,
+      IDENTIFIER_CONSTANTS.refund,
+      IDENTIFIER_SEQUENCE_LENGTHS.refund,
+      manager,
+    );
+  }
+
+  async generateCommissionAccrualNumber(
+    companyId: string,
+    manager?: EntityManager,
+  ): Promise<string> {
+    return this.generateFinanceIdentifier(
+      companyId,
+      IdentifierType.COMMISSION_ACCRUAL,
+      IDENTIFIER_CONSTANTS.commissionAccrual,
+      IDENTIFIER_SEQUENCE_LENGTHS.commissionAccrual,
+      manager,
+    );
+  }
+
+  async generateCommissionPaymentNumber(
+    companyId: string,
+    manager?: EntityManager,
+  ): Promise<string> {
+    return this.generateFinanceIdentifier(
+      companyId,
+      IdentifierType.COMMISSION_PAYMENT,
+      IDENTIFIER_CONSTANTS.commissionPayment,
+      IDENTIFIER_SEQUENCE_LENGTHS.commissionPayment,
+      manager,
+    );
+  }
+
+  private async generateFinanceIdentifier(
+    companyId: string,
+    identifierType: IdentifierType,
+    readableConstant: string,
+    sequenceLength: number,
+    manager?: EntityManager,
+  ): Promise<string> {
+    const company = await this.resolveCompany(companyId, manager);
+    const prefix = await this.ensureCompanyIdentifierPrefix(company, manager);
+    const today = this.formatDate(new Date(), IDENTIFIER_DATE_FORMATS.finance);
+
+    return this.generateFormattedIdentifier({
+      companyId,
+      identifierType,
+      prefix,
+      datePart: today,
+      sequenceLength,
+      readableConstant,
+      manager,
+    });
+  }
+
   private async generateFormattedIdentifier(params: {
     companyId: string;
     identifierType: IdentifierType;

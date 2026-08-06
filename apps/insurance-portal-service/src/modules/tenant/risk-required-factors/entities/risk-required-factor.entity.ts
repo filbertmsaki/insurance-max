@@ -19,11 +19,10 @@ import { PricingRateBook } from '../../pricing-rate-books/entities/pricing-rate-
   ['company_id', 'rate_book_id', 'risk_id', 'factor_id'],
   { unique: true, where: `"rate_book_id" IS NOT NULL` },
 )
-@Index(
-  'UQ_required_factor_legacy',
-  ['company_id', 'risk_id', 'factor_id'],
-  { unique: true, where: `"rate_book_id" IS NULL` },
-)
+@Index('UQ_required_factor_legacy', ['company_id', 'risk_id', 'factor_id'], {
+  unique: true,
+  where: `"rate_book_id" IS NULL`,
+})
 @Index('IDX_risk_required_factors_company_id', ['company_id'])
 @Index('IDX_risk_required_factors_risk_id', ['risk_id'])
 @Index('IDX_risk_required_factors_factor_id', ['factor_id'])

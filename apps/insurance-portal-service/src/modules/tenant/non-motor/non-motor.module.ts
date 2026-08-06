@@ -2,10 +2,12 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { Customer } from '../customers/entities/customer.entity';
+import { InsuredAsset } from '../customers/entities/insured-asset.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { PolicyRisk } from '../policies/entities/policy-risk.entity';
 import { RatingFactor } from '../rating-factors/entities/rating-factor.entity';
 import { User } from '../users/entities/user.entity';
+import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { NonMotorController } from './non-motor.controller';
 import { NonMotorPolicyDetail } from './entities/non-motor-policy-detail.entity';
 import { SubjectMatterFactorValue } from './entities/subject-matter-factor-value.entity';
@@ -20,6 +22,7 @@ import { NonMotorService } from './non-motor.service';
       NonMotorPolicyDetail,
       Company,
       Customer,
+      InsuredAsset,
       Policy,
       PolicyRisk,
       RatingFactor,
@@ -27,7 +30,7 @@ import { NonMotorService } from './non-motor.service';
     ]),
   ],
   controllers: [NonMotorController],
-  providers: [NonMotorService],
+  providers: [NonMotorService, IdentifierGeneratorService],
   exports: [NonMotorService],
 })
 export class NonMotorModule {}

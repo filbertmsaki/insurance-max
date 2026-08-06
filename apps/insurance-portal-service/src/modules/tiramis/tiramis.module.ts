@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { TiramisHttpModule } from '../../integrations/tiramis/tiramis-http.module';
@@ -20,10 +19,7 @@ import { TiramisSubmissionTrackingEntity } from './entities/tiramis-submission-t
 import { TiramisAuditLogRepository } from './repositories/tiramis-audit-log.repository';
 import { TiramisNotificationRepository } from './repositories/tiramis-notification.repository';
 import { TiramisSubmissionTrackingRepository } from './repositories/tiramis-submission-tracking.repository';
-import {
-  TIRAMIS_CLIENT,
-  TiramisClientService,
-} from './services/tiramis-client.service';
+import { TiramisClientService } from './services/tiramis-client.service';
 import { TiramisBusinessRecordSyncService } from './services/tiramis-business-record-sync.service';
 import { TiramisBusinessSchemaService } from './services/tiramis-business-schema.service';
 import { TiramisDashboardService } from './services/tiramis-dashboard.service';
@@ -32,6 +28,7 @@ import { TiramisBusinessPayloadBuilderService } from './services/tiramis-busines
 import { TiramisBusinessSubmitService } from './services/tiramis-business-submit.service';
 import { TiramisBusinessValidationService } from './services/tiramis-business-validation.service';
 import { TiramisAuditService } from './services/tiramis-audit.service';
+import { TiramisEnvelopeService } from './services/tiramis-envelope.service';
 import { TiramisMonitoringService } from './services/tiramis-monitoring.service';
 import { TiramisNotificationService } from './services/tiramis-notification.service';
 import { TiramisRetryService } from './services/tiramis-retry.service';
@@ -100,6 +97,7 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
     TiramisBusinessPayloadBuilderService,
     TiramisBusinessValidationService,
     TiramisBusinessSubmitService,
+    TiramisEnvelopeService,
     TiramisRetryService,
     TiramisMonitoringService,
     TiramisPermissionGuard,
@@ -121,6 +119,7 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
     TiramisBusinessPayloadBuilderService,
     TiramisBusinessValidationService,
     TiramisBusinessSubmitService,
+    TiramisEnvelopeService,
     TiramisRetryService,
     TiramisMonitoringService,
     TiramisPermissionGuard,

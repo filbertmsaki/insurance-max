@@ -46,6 +46,7 @@ const quotationKeys = {
   detail: (id: string) => ['quotations', 'detail', id] as const,
   editDetail: (id: string) => ['quotations', 'edit-detail', id] as const,
   preview: (id: string) => ['quotations', 'preview', id] as const,
+  workflow: (id: string) => ['quotations', 'workflow', id] as const,
   payload: (id: string) => ['quotations', 'payload', id] as const,
 };
 
@@ -188,6 +189,15 @@ export function useQuotationPreview(id?: string) {
   });
 }
 
+export function useQuotationWorkflow(id?: string) {
+  return useQuery({
+    queryKey: id ? quotationKeys.workflow(id) : quotationKeys.workflow(''),
+    queryFn: () => quotationsApi.getWorkflow(id!),
+    enabled: !!id,
+    staleTime: 15_000,
+  });
+}
+
 export function useQuotationPayload(id?: string) {
   return useQuery({
     queryKey: id ? quotationKeys.payload(id) : quotationKeys.payload(''),
@@ -305,6 +315,9 @@ export function useCreateQuotationDraft() {
         quotationKeys.editDetail(quotation.id),
         quotation,
       );
+      queryClient.invalidateQueries({
+        queryKey: quotationKeys.workflow(quotation.id),
+      });
       toast.success('Quotation draft saved');
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
@@ -337,6 +350,9 @@ export function useUpdateQuotationDraft() {
         quotationKeys.editDetail(quotation.id),
         quotation,
       );
+      queryClient.invalidateQueries({
+        queryKey: quotationKeys.workflow(quotation.id),
+      });
       toast.success('Quotation draft updated');
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
@@ -395,6 +411,9 @@ export function useFinalizeQuotation() {
       queryClient.invalidateQueries({
         queryKey: quotationKeys.preview(quotation.id),
       });
+      queryClient.invalidateQueries({
+        queryKey: quotationKeys.workflow(quotation.id),
+      });
       toast.success('Quotation completed');
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
@@ -413,6 +432,7 @@ export function useSubmitQuotation(id?: string) {
       queryClient.invalidateQueries({ queryKey: quotationKeys.all });
       if (id) {
         queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
+        queryClient.invalidateQueries({ queryKey: quotationKeys.workflow(id) });
       }
       toast.success('Quotation submitted to TIRAMIS');
     },
@@ -431,6 +451,7 @@ export function useSubmitQuotationForApproval(id?: string) {
         queryClient.setQueryData(quotationKeys.detail(id), quotation);
         queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
         queryClient.invalidateQueries({ queryKey: quotationKeys.preview(id) });
+        queryClient.invalidateQueries({ queryKey: quotationKeys.workflow(id) });
       }
       toast.success('Quotation submitted for approval');
     },
@@ -449,6 +470,7 @@ export function useRequestQuotationPayment(id?: string) {
         queryClient.setQueryData(quotationKeys.detail(id), quotation);
         queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
         queryClient.invalidateQueries({ queryKey: quotationKeys.preview(id) });
+        queryClient.invalidateQueries({ queryKey: quotationKeys.workflow(id) });
       }
       toast.success('Payment request created');
     },
@@ -466,6 +488,7 @@ export function useRetryQuotationTira(id?: string) {
       if (id) {
         queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
         queryClient.invalidateQueries({ queryKey: quotationKeys.preview(id) });
+        queryClient.invalidateQueries({ queryKey: quotationKeys.workflow(id) });
       }
       toast.success('TIRAMIS submission retried');
     },
@@ -487,6 +510,7 @@ export function useCancelQuotation(id?: string) {
         queryClient.setQueryData(quotationKeys.detail(id), quotation);
         queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
         queryClient.invalidateQueries({ queryKey: quotationKeys.preview(id) });
+        queryClient.invalidateQueries({ queryKey: quotationKeys.workflow(id) });
       }
       toast.success('Quotation cancelled');
     },
@@ -509,6 +533,7 @@ export function useTransitionQuotationStatus(id?: string) {
         );
         queryClient.invalidateQueries({ queryKey: quotationKeys.detail(id) });
         queryClient.invalidateQueries({ queryKey: quotationKeys.preview(id) });
+        queryClient.invalidateQueries({ queryKey: quotationKeys.workflow(id) });
       }
 
       const actionMessages: Partial<

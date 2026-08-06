@@ -1713,6 +1713,74 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'customers:duplicate-override',
+    displayName: 'Override possible customer duplicates',
+    description:
+      'Create a customer despite matching phone or email information',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'customers:merge',
+    displayName: 'Merge customer records',
+    description:
+      'Merge duplicate customer master records while preserving history',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'customer-kyc:read',
+    displayName: 'Read customer KYC',
+    description: 'Allow reading customer KYC status, evidence, and history',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'customer-kyc:submit',
+    displayName: 'Submit customer KYC',
+    description: 'Allow submitting customer KYC for reviewer approval',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'customer-kyc:review',
+    displayName: 'Review customer KYC',
+    description: 'Allow reviewing submitted customer KYC evidence',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'customer-kyc:approve',
+    displayName: 'Approve customer KYC',
+    description: 'Allow approving verified customer KYC reviews',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'insured-assets:read',
+    displayName: 'Read insured assets',
+    description: 'Allow listing and viewing reusable insured assets',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'insured-assets:create',
+    displayName: 'Create insured assets',
+    description: 'Allow creating reusable insured assets',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'insured-assets:update',
+    displayName: 'Update insured assets',
+    description: 'Allow updating reusable insured assets',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'insured-assets:retire',
+    displayName: 'Retire insured assets',
+    description: 'Allow retiring reusable insured assets',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'motor-ownership:update',
+    displayName: 'Change motor vehicle ownership',
+    description: 'Allow changing effective-dated motor vehicle ownership',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'insurance-partners:read',
     displayName: 'Read insurance partners',
     description: 'Allow listing insurer and intermediary partner relationships',
@@ -1807,9 +1875,101 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'quotations:complete',
+    displayName: 'Complete quotations',
+    description:
+      'Allow finalizing quotations after validation and pricing refresh',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'quotations:submit-approval',
+    displayName: 'Submit quotations for approval',
+    description:
+      'Allow submitting completed quotations into the approval workflow',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'quotations:approve',
+    displayName: 'Approve quotations',
+    description: 'Allow approving quotations within the standard workflow',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'quotations:approve-high-risk',
+    displayName: 'Approve high-risk quotations',
+    description:
+      'Allow approving quotations that exceed normal workflow thresholds',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'quotations:request-changes',
+    displayName: 'Request quotation changes',
+    description:
+      'Allow returning submitted quotations for changes before approval',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'quotations:reject',
+    displayName: 'Reject quotations',
+    description: 'Allow rejecting submitted quotations during approval review',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'quotations:request-payment',
+    displayName: 'Request quotation payment',
+    description:
+      'Allow generating and marking quotation payment requests for collection',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'quotations:submit-tiramis',
+    displayName: 'Submit quotations to TIRAMIS',
+    description:
+      'Allow submitting completed, approved, and paid quotations to TIRAMIS',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'quotations:retry-tiramis',
+    displayName: 'Retry quotation TIRAMIS submissions',
+    description: 'Allow retrying failed quotation submissions to TIRAMIS',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'quotations:cancel',
+    displayName: 'Cancel quotations',
+    description:
+      'Allow cancelling quotations before external submission completes',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'quotations:delete-draft',
+    displayName: 'Delete quotation drafts',
+    description: 'Allow deleting draft quotations before submission',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'quotations:delete',
     displayName: 'Delete quotations',
     description: 'Allow deleting quotations',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'quotation-approvals:read',
+    displayName: 'Read quotation approvals',
+    description: 'Allow viewing quotation approval queues and decisions',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'quotation-approvals:assign',
+    displayName: 'Assign quotation approvals',
+    description: 'Allow assigning quotation approvals to reviewers',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'quotation-requirements:waive',
+    displayName: 'Waive quotation requirements',
+    description:
+      'Allow waiving quotation approval or payment requirements when authorized',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -2652,6 +2812,14 @@ const roleSeeds: RoleSeed[] = [
       'quotations:create',
       'quotations:update',
       'quotations:submit',
+      'customers:read',
+      'customers:create',
+      'customers:update',
+      'customer-kyc:read',
+      'customer-kyc:submit',
+      'insured-assets:read',
+      'insured-assets:create',
+      'insured-assets:update',
       'pricing.override.request',
       'pricing.override.view',
       'tiramis-submissions:read',
@@ -2822,6 +2990,14 @@ const roleSeeds: RoleSeed[] = [
       'quotations:create',
       'quotations:update',
       'quotations:submit',
+      'customers:read',
+      'customers:create',
+      'customers:update',
+      'customer-kyc:read',
+      'customer-kyc:submit',
+      'insured-assets:read',
+      'insured-assets:create',
+      'insured-assets:update',
     ],
   },
 ];
@@ -2868,6 +3044,29 @@ function withPricingPermissionAliases(permissionNames: string[]): string[] {
 
   if (expanded.has('quotations:create') || expanded.has('quotations:update')) {
     expanded.add('pricing.request_discount');
+  }
+
+  if (expanded.has('quotations:update')) {
+    expanded.add('quotations:complete');
+    expanded.add('quotations:submit-approval');
+    expanded.add('quotations:approve');
+    expanded.add('quotations:approve-high-risk');
+    expanded.add('quotations:request-changes');
+    expanded.add('quotations:reject');
+    expanded.add('quotations:request-payment');
+    expanded.add('quotations:cancel');
+    expanded.add('quotation-approvals:read');
+    expanded.add('quotation-approvals:assign');
+    expanded.add('quotation-requirements:waive');
+  }
+
+  if (expanded.has('quotations:submit')) {
+    expanded.add('quotations:submit-tiramis');
+    expanded.add('quotations:retry-tiramis');
+  }
+
+  if (expanded.has('quotations:delete')) {
+    expanded.add('quotations:delete-draft');
   }
 
   if (

@@ -7,7 +7,8 @@ import {
   AllocateReceiptDto,
   IssueInvoiceDto,
   PostReceiptDto,
-  ReverseFinancialRecordDto,
+  ReverseAllocationDto,
+  ReverseReceiptDto,
   VoidInvoiceDto,
 } from './dto/finance-operations.dto';
 import { FinancePermissions } from './finance.permissions';
@@ -66,7 +67,7 @@ export class FinanceOperationsController {
   reverseAllocation(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: ReverseFinancialRecordDto,
+    @Body() dto: ReverseAllocationDto,
   ) {
     return this.financeLifecycleService.reverseAllocation(user, id, dto);
   }
@@ -76,7 +77,7 @@ export class FinanceOperationsController {
   reverseReceipt(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: ReverseFinancialRecordDto,
+    @Body() dto: ReverseReceiptDto,
   ) {
     return this.financeLifecycleService.reverseReceipt(user, id, dto);
   }

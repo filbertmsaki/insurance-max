@@ -14,6 +14,7 @@ import { Company } from '../../../platform/companies/entities/company.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
 import { MotorFleetItem } from './motor-fleet-item.entity';
+import { MotorFleetMembership } from './motor-fleet-membership.entity';
 
 @Entity('motor_fleets')
 @Index('IDX_motor_fleets_company_id', ['company_id'])
@@ -47,11 +48,17 @@ export class MotorFleet {
   @Column({ type: 'int', default: 0 })
   total_vehicles: number;
 
+  @Column({ type: 'int', default: 0 })
+  derived_vehicle_count: number;
+
   @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
   total_sum_insured: string;
 
   @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
   total_premium: string;
+
+  @Column({ type: 'int', default: 1 })
+  snapshot_version: number;
 
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
@@ -121,4 +128,7 @@ export class MotorFleet {
 
   @OneToMany(() => MotorFleetItem, (item) => item.fleet)
   items: MotorFleetItem[];
+
+  @OneToMany(() => MotorFleetMembership, (membership) => membership.fleet)
+  memberships: MotorFleetMembership[];
 }

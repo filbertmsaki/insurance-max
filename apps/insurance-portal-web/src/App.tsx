@@ -74,20 +74,23 @@ import { TiramisTrackingPage } from '@/modules/tenant/tiramis/pages/TiramisTrack
 import { TiramisFailedSubmissionsPage } from '@/modules/tenant/tiramis/pages/TiramisFailedSubmissionsPage';
 import { TiramisRetryablePage } from '@/modules/tenant/tiramis/pages/TiramisRetryablePage';
 import { VerificationsPage } from '@/modules/tenant/verifications/pages/VerificationsPage';
-import { InvoicesPage } from '@/modules/tenant/billing/pages/InvoicesPage';
-import { InvoiceDetailPage } from '@/modules/tenant/billing/pages/InvoiceDetailPage';
-import { InvoiceCreatePage } from '@/modules/tenant/billing/pages/InvoiceCreatePage';
-import { InvoiceEditPage } from '@/modules/tenant/billing/pages/InvoiceEditPage';
-import { ReceiptsPage } from '@/modules/tenant/billing/pages/ReceiptsPage';
-import { ReceiptDetailPage } from '@/modules/tenant/billing/pages/ReceiptDetailPage';
-import { ReceiptCreatePage } from '@/modules/tenant/billing/pages/ReceiptCreatePage';
-import { ReceiptEditPage } from '@/modules/tenant/billing/pages/ReceiptEditPage';
-import { PaymentTransactionsPage } from '@/modules/tenant/billing/pages/PaymentTransactionsPage';
-import { PaymentTransactionDetailPage } from '@/modules/tenant/billing/pages/PaymentTransactionDetailPage';
-import { CommissionTransactionsPage } from '@/modules/tenant/billing/pages/CommissionTransactionsPage';
-import { CommissionTransactionDetailPage } from '@/modules/tenant/billing/pages/CommissionTransactionDetailPage';
-import { CommissionPaymentsPage } from '@/modules/tenant/billing/pages/CommissionPaymentsPage';
-import { CommissionPaymentDetailPage } from '@/modules/tenant/billing/pages/CommissionPaymentDetailPage';
+import { FinanceDashboardPage } from '@/modules/tenant/finance/pages/FinanceDashboardPage';
+import { FinanceInvoicesPage } from '@/modules/tenant/finance/pages/FinanceInvoicesPage';
+import { FinanceInvoiceDetailPage } from '@/modules/tenant/finance/pages/FinanceInvoiceDetailPage';
+import { FinancePaymentsPage } from '@/modules/tenant/finance/pages/FinancePaymentsPage';
+import { FinancePaymentDetailPage } from '@/modules/tenant/finance/pages/FinancePaymentDetailPage';
+import { FinanceReceiptsPage } from '@/modules/tenant/finance/pages/FinanceReceiptsPage';
+import { FinanceReceiptDetailPage } from '@/modules/tenant/finance/pages/FinanceReceiptDetailPage';
+import { FinanceRefundsPage } from '@/modules/tenant/finance/pages/FinanceRefundsPage';
+import { FinanceRefundDetailPage } from '@/modules/tenant/finance/pages/FinanceRefundDetailPage';
+import { FinanceReconciliationPage } from '@/modules/tenant/finance/pages/FinanceReconciliationPage';
+import { FinanceReconciliationDetailPage } from '@/modules/tenant/finance/pages/FinanceReconciliationDetailPage';
+import { FinanceCommissionAccrualsPage } from '@/modules/tenant/finance/pages/FinanceCommissionAccrualsPage';
+import { FinanceCommissionAccrualDetailPage } from '@/modules/tenant/finance/pages/FinanceCommissionAccrualDetailPage';
+import { FinanceCommissionPaymentsPage } from '@/modules/tenant/finance/pages/FinanceCommissionPaymentsPage';
+import { FinanceCommissionPaymentDetailPage } from '@/modules/tenant/finance/pages/FinanceCommissionPaymentDetailPage';
+import { FinanceJournalsPage } from '@/modules/tenant/finance/pages/FinanceJournalsPage';
+import { FinanceJournalDetailPage } from '@/modules/tenant/finance/pages/FinanceJournalDetailPage';
 
 export default function App() {
   return (
@@ -223,7 +226,9 @@ export default function App() {
               />
             </Route>
             <Route
-              element={<ProtectedRoute requiredPermission="billing:create" />}
+              element={
+                <ProtectedRoute requiredPermission="quotations:request-payment" />
+              }
             >
               <Route
                 path={underwritingPaths.quotationPayment(':id')}
@@ -468,65 +473,106 @@ export default function App() {
             </Route>
 
             <Route
-              element={<ProtectedRoute requiredPermission="billing:read" />}
+              element={
+                <ProtectedRoute requiredPermission="finance:dashboard" />
+              }
             >
-              <Route path="/billing/invoices" element={<InvoicesPage />} />
               <Route
-                path="/billing/invoices/:id"
-                element={<InvoiceDetailPage />}
-              />
-              <Route path="/billing/receipts" element={<ReceiptsPage />} />
-              <Route
-                path="/billing/receipts/:id"
-                element={<ReceiptDetailPage />}
-              />
-              <Route
-                path="/billing/payment-transactions"
-                element={<PaymentTransactionsPage />}
-              />
-              <Route
-                path="/billing/payment-transactions/:id"
-                element={<PaymentTransactionDetailPage />}
-              />
-              <Route
-                path="/billing/commission-transactions"
-                element={<CommissionTransactionsPage />}
-              />
-              <Route
-                path="/billing/commission-transactions/:id"
-                element={<CommissionTransactionDetailPage />}
-              />
-              <Route
-                path="/billing/commission-payments"
-                element={<CommissionPaymentsPage />}
-              />
-              <Route
-                path="/billing/commission-payments/:id"
-                element={<CommissionPaymentDetailPage />}
+                path="/finance/dashboard"
+                element={<FinanceDashboardPage />}
               />
             </Route>
             <Route
-              element={<ProtectedRoute requiredPermission="billing:create" />}
+              element={<ProtectedRoute requiredPermission="invoices:read" />}
             >
               <Route
-                path="/billing/invoices/new"
-                element={<InvoiceCreatePage />}
+                path="/finance/invoices"
+                element={<FinanceInvoicesPage />}
               />
               <Route
-                path="/billing/receipts/new"
-                element={<ReceiptCreatePage />}
+                path="/finance/invoices/:id"
+                element={<FinanceInvoiceDetailPage />}
               />
             </Route>
             <Route
-              element={<ProtectedRoute requiredPermission="billing:update" />}
+              element={<ProtectedRoute requiredPermission="payments:read" />}
             >
               <Route
-                path="/billing/invoices/:id/edit"
-                element={<InvoiceEditPage />}
+                path="/finance/payments"
+                element={<FinancePaymentsPage />}
               />
               <Route
-                path="/billing/receipts/:id/edit"
-                element={<ReceiptEditPage />}
+                path="/finance/payments/:id"
+                element={<FinancePaymentDetailPage />}
+              />
+            </Route>
+            <Route
+              element={<ProtectedRoute requiredPermission="receipts:read" />}
+            >
+              <Route
+                path="/finance/receipts"
+                element={<FinanceReceiptsPage />}
+              />
+              <Route
+                path="/finance/receipts/:id"
+                element={<FinanceReceiptDetailPage />}
+              />
+            </Route>
+            <Route
+              element={<ProtectedRoute requiredPermission="refunds:read" />}
+            >
+              <Route path="/finance/refunds" element={<FinanceRefundsPage />} />
+              <Route
+                path="/finance/refunds/:id"
+                element={<FinanceRefundDetailPage />}
+              />
+            </Route>
+            <Route
+              element={
+                <ProtectedRoute requiredPermission="reconciliation:read" />
+              }
+            >
+              <Route
+                path="/finance/reconciliation"
+                element={<FinanceReconciliationPage />}
+              />
+              <Route
+                path="/finance/reconciliation/:id"
+                element={<FinanceReconciliationDetailPage />}
+              />
+            </Route>
+            <Route
+              element={<ProtectedRoute requiredPermission="commissions:read" />}
+            >
+              <Route
+                path="/finance/commission-accruals"
+                element={<FinanceCommissionAccrualsPage />}
+              />
+              <Route
+                path="/finance/commission-accruals/:id"
+                element={<FinanceCommissionAccrualDetailPage />}
+              />
+              <Route
+                path="/finance/commission-payments"
+                element={<FinanceCommissionPaymentsPage />}
+              />
+              <Route
+                path="/finance/commission-payments/:id"
+                element={<FinanceCommissionPaymentDetailPage />}
+              />
+            </Route>
+            <Route
+              element={
+                <ProtectedRoute requiredPermission="finance-journals:read" />
+              }
+            >
+              <Route
+                path="/finance/journals"
+                element={<FinanceJournalsPage />}
+              />
+              <Route
+                path="/finance/journals/:id"
+                element={<FinanceJournalDetailPage />}
               />
             </Route>
 
@@ -569,6 +615,62 @@ export default function App() {
         </Route>
 
         {/* Legacy route redirects */}
+        <Route
+          path="/billing/invoices"
+          element={<Navigate to="/finance/invoices" replace />}
+        />
+        <Route
+          path="/billing/invoices/new"
+          element={<Navigate to="/finance/invoices" replace />}
+        />
+        <Route
+          path="/billing/invoices/:id"
+          element={<Navigate to="/finance/invoices" replace />}
+        />
+        <Route
+          path="/billing/invoices/:id/edit"
+          element={<Navigate to="/finance/invoices" replace />}
+        />
+        <Route
+          path="/billing/receipts"
+          element={<Navigate to="/finance/receipts" replace />}
+        />
+        <Route
+          path="/billing/receipts/new"
+          element={<Navigate to="/finance/receipts" replace />}
+        />
+        <Route
+          path="/billing/receipts/:id"
+          element={<Navigate to="/finance/receipts" replace />}
+        />
+        <Route
+          path="/billing/receipts/:id/edit"
+          element={<Navigate to="/finance/receipts" replace />}
+        />
+        <Route
+          path="/billing/payment-transactions"
+          element={<Navigate to="/finance/payments" replace />}
+        />
+        <Route
+          path="/billing/payment-transactions/:id"
+          element={<Navigate to="/finance/payments" replace />}
+        />
+        <Route
+          path="/billing/commission-transactions"
+          element={<Navigate to="/finance/commission-accruals" replace />}
+        />
+        <Route
+          path="/billing/commission-transactions/:id"
+          element={<Navigate to="/finance/commission-accruals" replace />}
+        />
+        <Route
+          path="/billing/commission-payments"
+          element={<Navigate to="/finance/commission-payments" replace />}
+        />
+        <Route
+          path="/billing/commission-payments/:id"
+          element={<Navigate to="/finance/commission-payments" replace />}
+        />
         <Route
           path="/quotations"
           element={<Navigate to={underwritingPaths.quotations} replace />}

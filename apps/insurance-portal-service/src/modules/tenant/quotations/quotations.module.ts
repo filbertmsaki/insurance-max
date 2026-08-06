@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { TiramisModule } from '../../tiramis/tiramis.module';
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
 import { Branch } from '../branches/entities/branch.entity';
+import { BillingCommissionModule } from '../billing-commission/billing-commission.module';
 import { BranchUser } from '../branches/entities/branch-user.entity';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
@@ -83,6 +84,7 @@ import { PricingModule } from '../pricing/pricing.module';
     TiramisModule,
     PricingModule,
     InsuranceProductsModule,
+    forwardRef(() => BillingCommissionModule),
   ],
   controllers: [QuotationsController],
   providers: [

@@ -37,6 +37,18 @@ export class InvoiceItem {
   @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
   total_amount: string;
 
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  source_line_type: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  source_line_id: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  line_snapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  line_hash: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

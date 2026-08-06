@@ -1,8 +1,12 @@
 import { PricingQuoteService } from './pricing-quote.service';
 
+import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
+
 const COMPANY_ID = 'company-1';
 
 describe('PricingQuoteService', () => {
+  const hashService = new ProductDefinitionHashService();
+
   it('persists a single-risk pricing quote snapshot and returns quote metadata', async () => {
     const exchangeRateGovernanceService = {
       resolveSnapshot: jest.fn().mockResolvedValue({
@@ -85,6 +89,7 @@ describe('PricingQuoteService', () => {
       identifierGeneratorService as any,
       exchangeRateGovernanceService as any,
       pricingRuntimeCacheService as any,
+      hashService,
       pricingQuoteRepository as any,
       riskRepository as any,
     );
@@ -137,6 +142,7 @@ describe('PricingQuoteService', () => {
       { generatePricingQuoteId: jest.fn() } as any,
       { resolveSnapshot: jest.fn() } as any,
       { getConfigurationSignature: jest.fn() } as any,
+      hashService,
       {
         create: jest.fn(),
         save: jest.fn(),
@@ -284,6 +290,7 @@ describe('PricingQuoteService', () => {
       identifierGeneratorService as any,
       exchangeRateGovernanceService as any,
       pricingRuntimeCacheService as any,
+      hashService,
       pricingQuoteRepository as any,
       riskRepository as any,
     );
@@ -438,6 +445,7 @@ describe('PricingQuoteService', () => {
       identifierGeneratorService as any,
       exchangeRateGovernanceService as any,
       pricingRuntimeCacheService as any,
+      hashService,
       pricingQuoteRepository as any,
       riskRepository as any,
     );
@@ -586,6 +594,7 @@ describe('PricingQuoteService', () => {
       identifierGeneratorService as any,
       exchangeRateGovernanceService as any,
       pricingRuntimeCacheService as any,
+      hashService,
       pricingQuoteRepository as any,
       riskRepository as any,
     );

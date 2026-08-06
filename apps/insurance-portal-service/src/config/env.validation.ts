@@ -108,6 +108,31 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .min(0)
     .max(100)
     .default(0),
+  FINANCE_BASE_CURRENCY: Joi.string()
+    .trim()
+    .uppercase()
+    .length(3)
+    .default('TZS'),
+  FINANCE_DEFAULT_INVOICE_DUE_DAYS: Joi.number().integer().min(0).default(0),
+  FINANCE_ALLOW_OVERPAYMENT: Joi.boolean().default(false),
+  FINANCE_AUTO_RECEIPT_PROVIDER_PAYMENTS: Joi.boolean().default(true),
+  FINANCE_AUTO_ALLOCATE_EXACT_INVOICE_REFERENCE: Joi.boolean().default(true),
+  FINANCE_RECONCILIATION_AUTO_MATCH_SCORE: Joi.number()
+    .integer()
+    .min(0)
+    .max(100)
+    .default(90),
+  FINANCE_REFUND_APPROVAL_THRESHOLD: Joi.number().min(0).default(0),
+  FINANCE_RECEIPT_REVERSAL_APPROVAL_THRESHOLD: Joi.number().min(0).default(0),
+  FINANCE_COMMISSION_PAYMENT_APPROVAL_THRESHOLD: Joi.number().min(0).default(0),
+  FINANCE_OUTBOX_ENABLED: Joi.boolean().default(true),
+  FINANCE_OUTBOX_CRON: Joi.string().default('*/1 * * * *'),
+  FINANCE_OUTBOX_BATCH_SIZE: Joi.number().integer().min(1).default(100),
+  FINANCE_OUTBOX_MAX_ATTEMPTS: Joi.number().integer().min(1).default(10),
+  FINANCE_PROVIDER_PAYLOAD_RETENTION_DAYS: Joi.number()
+    .integer()
+    .min(1)
+    .default(90),
 
   CORS_ENABLED: Joi.boolean().default(true),
   CORS_ALLOWED_ORIGINS: Joi.string().default('http://localhost:9092'),

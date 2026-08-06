@@ -10,17 +10,14 @@ import { motorApi } from './api';
 import {
   buildMotorFleetPayload,
   buildMotorPolicyDetailPayload,
-  buildMotorQuotationDetailPayload,
   buildMotorVehiclePayload,
   type MotorFleetFormValues,
   type MotorPolicyDetailFormValues,
-  type MotorQuotationDetailFormValues,
   type MotorVehicleFormValues,
 } from './schemas';
 import type {
   MotorFleetRecord,
   MotorPolicyDetailRecord,
-  MotorQuotationDetailRecord,
   MotorVehicleRecord,
   MotorCustomerOption,
   QuotationOption,
@@ -33,9 +30,6 @@ const motorKeys = {
   vehicle: (id: string) => [...motorKeys.all, 'vehicle', id] as const,
   fleets: () => [...motorKeys.all, 'fleets'] as const,
   fleet: (id: string) => [...motorKeys.all, 'fleet', id] as const,
-  quotationDetails: () => [...motorKeys.all, 'quotation-details'] as const,
-  quotationDetail: (id: string) =>
-    [...motorKeys.all, 'quotation-detail', id] as const,
   policyDetails: () => [...motorKeys.all, 'policy-details'] as const,
   policyDetail: (id: string) =>
     [...motorKeys.all, 'policy-detail', id] as const,
@@ -319,78 +313,6 @@ export function useDeleteMotorFleet() {
   });
 }
 
-export function useMotorQuotationDetails(quotationId?: string) {
-  return useQuery({
-    queryKey: [...motorKeys.quotationDetails(), quotationId ?? 'all'],
-    queryFn: () => motorApi.getQuotationDetails(quotationId),
-    staleTime: 30_000,
-  });
-}
-
-export function useMotorQuotationDetail(id?: string) {
-  return useQuery({
-    queryKey: id
-      ? motorKeys.quotationDetail(id)
-      : motorKeys.quotationDetail(''),
-    queryFn: () => motorApi.getQuotationDetail(id!),
-    enabled: !!id,
-    staleTime: 30_000,
-  });
-}
-
-export function useCreateMotorQuotationDetail() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (values: MotorQuotationDetailFormValues) =>
-      motorApi.createQuotationDetail(buildMotorQuotationDetailPayload(values)),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: motorKeys.quotationDetails() });
-      toast.success('Motor quotation detail created');
-    },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
-  });
-}
-
-export function useUpdateMotorQuotationDetail(id?: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (values: MotorQuotationDetailFormValues) =>
-      motorApi.updateQuotationDetail(
-        id!,
-        buildMotorQuotationDetailPayload(values),
-      ),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: motorKeys.quotationDetails() });
-      toast.success('Motor quotation detail updated');
-    },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
-  });
-}
-
-export function useDeleteMotorQuotationDetail() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => motorApi.deleteQuotationDetail(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: motorKeys.quotationDetails() });
-      toast.success('Motor quotation detail deleted');
-    },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
-  });
-}
-
-export function useRestoreMotorQuotationDetail() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => motorApi.restoreQuotationDetail(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: motorKeys.quotationDetails() });
-      toast.success('Motor quotation detail restored');
-    },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
-  });
-}
-
 export function useMotorPolicyDetails(policyId?: string) {
   return useQuery({
     queryKey: [...motorKeys.policyDetails(), policyId ?? 'all'],
@@ -502,7 +424,6 @@ export { motorKeys, getCustomerDisplayName };
 export type {
   MotorVehicleRecord,
   MotorFleetRecord,
-  MotorQuotationDetailRecord,
   MotorPolicyDetailRecord,
   MotorCustomerOption,
   QuotationOption,

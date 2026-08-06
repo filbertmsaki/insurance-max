@@ -20,6 +20,9 @@ import { ServiceScopes } from '@insurance-max/shared-kernel';
 import { TiramisTenantContextGuard } from '../../../common/guards/tiramis-tenant-context.guard';
 import { TiramisProductContextGuard } from '../../../common/guards/tiramis-product-context.guard';
 import { TiramisPricingContextGuard } from '../../../common/guards/tiramis-pricing-context.guard';
+import { TiramisInsuredDataContextGuard } from '../../../common/guards/tiramis-insured-data-context.guard';
+import { TiramisFinanceContextGuard } from '../../../common/guards/tiramis-finance-context.guard';
+import { TiramisQuotationGateGuard } from '../../../common/guards/tiramis-quotation-gate.guard';
 import { CreatePolicyDto } from '../dto/create-policy.dto';
 import { TiramisPolicyService } from '../services/tiramis-policy.service';
 
@@ -58,7 +61,13 @@ export class TiramisPoliciesController {
   @ApiOperation({ summary: 'Submit policy data to TIRA' })
   @ApiBody({ type: CreatePolicyDto })
   @ServiceScopes('tiramis:submit')
-  @UseGuards(TiramisProductContextGuard, TiramisPricingContextGuard)
+  @UseGuards(
+    TiramisProductContextGuard,
+    TiramisPricingContextGuard,
+    TiramisInsuredDataContextGuard,
+    TiramisQuotationGateGuard,
+    TiramisFinanceContextGuard,
+  )
   @Post('submit')
   submit(@Body() dto: CreatePolicyDto) {
     return this.tiramisPolicyService.submit(dto);

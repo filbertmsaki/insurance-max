@@ -7,6 +7,11 @@ import type { StringValue } from 'ms';
 
 import type {
   ServiceActorContext,
+  ServiceFinanceContext,
+  ServiceInsuredDataContext,
+  ServicePricingContext,
+  ServiceProductContext,
+  ServiceQuotationGateContext,
   ServiceTenantContext,
   ServiceTokenPayload,
 } from '@insurance-max/contracts';
@@ -24,6 +29,11 @@ export class ServiceTokenService {
     context?: {
       tenant?: ServiceTenantContext;
       actor?: ServiceActorContext;
+      product?: ServiceProductContext;
+      pricing?: ServicePricingContext;
+      insuredData?: ServiceInsuredDataContext;
+      quotationGate?: ServiceQuotationGateContext;
+      finance?: ServiceFinanceContext;
     },
   ): string {
     const secret = this.configService.getOrThrow<string>('SERVICE_AUTH_SECRET');
@@ -40,6 +50,11 @@ export class ServiceTokenService {
         scopes,
         tenant: context?.tenant,
         actor: context?.actor,
+        product: context?.product,
+        pricing: context?.pricing,
+        insuredData: context?.insuredData,
+        quotationGate: context?.quotationGate,
+        finance: context?.finance,
       },
       {
         secret,

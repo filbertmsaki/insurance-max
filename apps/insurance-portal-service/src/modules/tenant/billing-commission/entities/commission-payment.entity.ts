@@ -46,11 +46,20 @@ export class CommissionPayment {
   @Column({ type: 'varchar', length: 50 })
   payment_method: string;
 
+  @Column({ type: 'varchar', length: 180, nullable: true })
+  idempotency_key: string | null;
+
   @Column({ type: 'varchar', length: 100, nullable: true })
   payment_reference: string | null;
 
   @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
   total_amount: string;
+
+  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  allocated_amount: string;
+
+  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  unallocated_amount: string;
 
   @Column({ type: 'varchar', length: 10, default: 'TZS' })
   currency: string;
@@ -84,6 +93,15 @@ export class CommissionPayment {
 
   @Column({ type: 'text', nullable: true })
   rejection_reason: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  reversed_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  reversed_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  reversal_reason: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
@@ -121,6 +139,10 @@ export class CommissionPayment {
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'rejected_by' })
   rejector: User | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'reversed_by' })
+  reverser: User | null;
 
   @OneToMany(() => CommissionPaymentItem, (item) => item.commission_payment)
   items: CommissionPaymentItem[];

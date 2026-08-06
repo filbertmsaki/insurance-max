@@ -17,7 +17,8 @@ import {
   AllocateReceiptDto,
   IssueInvoiceDto,
   PostReceiptDto,
-  ReverseFinancialRecordDto,
+  ReverseAllocationDto,
+  ReverseReceiptDto,
   VoidInvoiceDto,
 } from './dto/finance-operations.dto';
 import { CommissionPayment } from './entities/commission-payment.entity';
@@ -176,8 +177,6 @@ export class FinanceLifecycleService {
       receipt.posted_by = user.id;
       receipt.posted_at = new Date();
       receipt.unallocated_amount = receipt.amount;
-      receipt.payment_reference =
-        dto.posting_reference ?? receipt.payment_reference;
 
       return manager.getRepository(Receipt).save(receipt);
     });
@@ -322,7 +321,7 @@ export class FinanceLifecycleService {
   async reverseAllocation(
     user: AuthenticatedUser,
     allocationId: string,
-    dto: ReverseFinancialRecordDto,
+    dto: ReverseAllocationDto,
   ): Promise<ReceiptAllocation> {
     const result = await this.dataSource.transaction(async (manager) => {
       const allocation = await manager
@@ -397,7 +396,7 @@ export class FinanceLifecycleService {
   async reverseReceipt(
     user: AuthenticatedUser,
     receiptId: string,
-    dto: ReverseFinancialRecordDto,
+    dto: ReverseReceiptDto,
   ): Promise<Receipt> {
     const result = await this.dataSource.transaction(async (manager) => {
       const receipt = await this.getReceiptForUpdate(manager, user, receiptId);

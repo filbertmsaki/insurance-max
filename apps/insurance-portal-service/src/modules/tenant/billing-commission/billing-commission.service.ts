@@ -31,6 +31,8 @@ import { UpdateReceiptDto } from './dto/update-receipt.dto';
 import { CommissionPayment } from './entities/commission-payment.entity';
 import { CommissionPaymentItem } from './entities/commission-payment-item.entity';
 import { CommissionTransaction } from './entities/commission-transaction.entity';
+import { FinanceRefund } from './entities/finance-refund.entity';
+import { FinanceJournalEntry } from './entities/finance-journal-entry.entity';
 import { Invoice } from './entities/invoice.entity';
 import { InvoiceItem } from './entities/invoice-item.entity';
 import { PaymentTransaction } from './entities/payment-transaction.entity';
@@ -62,6 +64,10 @@ export class BillingCommissionService {
     private readonly commissionPaymentRepository: Repository<CommissionPayment>,
     @InjectRepository(CommissionPaymentItem)
     private readonly commissionPaymentItemRepository: Repository<CommissionPaymentItem>,
+    @InjectRepository(FinanceRefund)
+    private readonly financeRefundRepository: Repository<FinanceRefund>,
+    @InjectRepository(FinanceJournalEntry)
+    private readonly financeJournalEntryRepository: Repository<FinanceJournalEntry>,
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
     @InjectRepository(Customer)
@@ -244,6 +250,37 @@ export class BillingCommissionService {
     });
     if (!payment) throw new NotFoundException('Commission payment not found');
     return payment;
+  }
+
+  private async ensureRefund(
+    companyId: string,
+    id: string,
+  ): Promise<FinanceRefund> {
+    const refund = await this.financeRefundRepository.findOne({
+      where: { id, company_id: companyId },
+    });
+
+    if (!refund) {
+      throw new NotFoundException('Refund not found');
+    }
+
+    return refund;
+  }
+
+  private async ensureJournal(
+    companyId: string,
+    id: string,
+  ): Promise<FinanceJournalEntry> {
+    const journal = await this.financeJournalEntryRepository.findOne({
+      where: { id, company_id: companyId },
+      relations: { lines: true },
+    });
+
+    if (!journal) {
+      throw new NotFoundException('Finance journal not found');
+    }
+
+    return journal;
   }
 
   private async recalculateInvoiceBalance(
@@ -935,6 +972,93 @@ export class BillingCommissionService {
   async deletePaymentTransaction(companyId: string, id: string): Promise<void> {
     const payment = await this.ensurePaymentTransaction(companyId, id);
     await this.paymentTransactionRepository.softDelete(payment.id);
+  }
+
+  async findRefunds(companyId: string, query: FilterBillingDto) {
+    const {
+      page = 1,
+      limit = 20,
+      sortBy = 'created_at',
+      sortOrder = SortDirection.DESC,
+      search,
+    } = query;
+    const allowedSortFields = [
+      'refund_no',
+      'status',
+      'requested_at',
+      'paid_at',
+      'created_at',
+      'updated_at',
+    ];
+    const safeSortBy = allowedSortFields.includes(sortBy)
+      ? sortBy
+      : 'created_at';
+    const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
+    const qb = this.financeRefundRepository
+      .createQueryBuilder('refund')
+      .where('refund.company_id = :companyId', { companyId })
+      .orderBy(`refund.${safeSortBy}`, direction);
+
+    if (search?.trim()) {
+      const term = `%${search.trim()}%`;
+      qb.andWhere(
+        '(refund.refund_no ILIKE :term OR refund.status ILIKE :term OR refund.reason ILIKE :term)',
+        { term },
+      );
+    }
+
+    const skip = (page - 1) * limit;
+    const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
+    return this.paginate(items, total, page, limit);
+  }
+
+  async findRefund(companyId: string, id: string): Promise<FinanceRefund> {
+    return this.ensureRefund(companyId, id);
+  }
+
+  async findFinanceJournals(companyId: string, query: FilterBillingDto) {
+    const {
+      page = 1,
+      limit = 20,
+      sortBy = 'created_at',
+      sortOrder = SortDirection.DESC,
+      search,
+    } = query;
+    const allowedSortFields = [
+      'journal_no',
+      'journal_date',
+      'source_type',
+      'status',
+      'created_at',
+    ];
+    const safeSortBy = allowedSortFields.includes(sortBy)
+      ? sortBy
+      : 'created_at';
+    const direction = sortOrder === SortDirection.ASC ? 'ASC' : 'DESC';
+    const qb = this.financeJournalEntryRepository
+      .createQueryBuilder('journal')
+      .leftJoinAndSelect('journal.lines', 'lines')
+      .where('journal.company_id = :companyId', { companyId })
+      .orderBy(`journal.${safeSortBy}`, direction);
+
+    if (search?.trim()) {
+      const term = `%${search.trim()}%`;
+      qb.andWhere(
+        '(journal.journal_no ILIKE :term OR journal.description ILIKE :term OR journal.source_type ILIKE :term OR journal.source_event_id ILIKE :term)',
+        { term },
+      );
+    }
+
+    const skip = (page - 1) * limit;
+    const [items, total] = await qb.skip(skip).take(limit).getManyAndCount();
+    return this.paginate(items, total, page, limit);
+  }
+
+  async findFinanceJournal(
+    companyId: string,
+    id: string,
+  ): Promise<FinanceJournalEntry> {
+    return this.ensureJournal(companyId, id);
   }
 
   async createCommissionTransaction(

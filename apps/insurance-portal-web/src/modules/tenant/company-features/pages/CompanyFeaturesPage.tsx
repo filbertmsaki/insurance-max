@@ -60,7 +60,7 @@ import {
   useDeleteCompanyFeature,
 } from '@/modules/tenant/company-features/hooks';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
-import type { CompanyFeature, SortOrder } from '@/types';
+import type { CompanyFeature } from '@/types';
 import type { CompanyFeatureSortKey } from '@/modules/tenant/company-features/hooks';
 import {
   companyFeaturesApi,

@@ -7,6 +7,7 @@ import { ConditionOperator } from '@insurance-max/portal-shared/enums/condition-
 import { FactorDataType } from '@insurance-max/portal-shared/enums/factor-data-type.enum';
 import { LogicalOperator } from '@insurance-max/portal-shared/enums/logical-operator.enum';
 import { RateType } from '@insurance-max/portal-shared/enums/rate-type.enum';
+import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { PricingEngineService } from '../pricing/application/pricing-engine.service';
 import { PricingChargeService } from '../pricing/application/pricing-charge.service';
 import { PricingQuoteService } from '../pricing/application/pricing-quote.service';
@@ -24,6 +25,7 @@ import { PerUnitPricingStrategy } from '../pricing/infrastructure/strategies/per
 import { PremiumCalculationService } from './premium-calculation.service';
 
 const COMPANY_ID = 'company-1';
+const hashService = new ProductDefinitionHashService();
 
 // Fixtures below mirror the real seeded rating rules for these risk codes
 // (verified directly against the database) rather than made-up numbers, so
@@ -347,6 +349,7 @@ function createServiceFixture(options: {
       }),
     } as any,
     pricingRuntimeCacheService as any,
+    hashService,
     pricingQuoteRepository as any,
     pricingQuoteRiskRepository as any,
   );

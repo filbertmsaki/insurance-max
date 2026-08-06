@@ -5,6 +5,8 @@ import { Column, Entity, Index } from 'typeorm';
 @Index(['businessReference'])
 @Index(['currentRequestId'])
 @Index(['successfulRequestId'])
+@Index(['sourceQuotationId'])
+@Index(['sourceWorkflowGateHash'])
 export class TiramisTransactionEntity extends BaseEntity {
   @Column({ name: 'client_configuration_id' })
   clientConfigurationId!: string;
@@ -225,6 +227,207 @@ export class TiramisTransactionEntity extends BaseEntity {
     nullable: true,
   })
   sourceCalculationVersion?: string | null;
+
+  @Column({
+    name: 'source_customer_id',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  sourceCustomerId?: string | null;
+
+  @Column({
+    name: 'source_customer_number',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  sourceCustomerNumber?: string | null;
+
+  @Column({
+    name: 'source_customer_kyc_status',
+    type: 'varchar',
+    length: 30,
+    nullable: true,
+  })
+  sourceCustomerKycStatus?: string | null;
+
+  @Column({
+    name: 'source_customer_kyc_version',
+    type: 'int',
+    nullable: true,
+  })
+  sourceCustomerKycVersion?: number | null;
+
+  @Column({
+    name: 'source_customer_snapshot_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  sourceCustomerSnapshotHash?: string | null;
+
+  @Column({
+    name: 'source_tiramis_policy_holder_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  sourceTiramisPolicyHolderHash?: string | null;
+
+  @Column({
+    name: 'source_asset_manifest_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  sourceAssetManifestHash?: string | null;
+
+  @Column({
+    name: 'source_asset_count',
+    type: 'int',
+    nullable: true,
+  })
+  sourceAssetCount?: number | null;
+
+  @Column({
+    name: 'source_quotation_id',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  sourceQuotationId?: string | null;
+
+  @Column({
+    name: 'source_quotation_number',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  sourceQuotationNumber?: string | null;
+
+  @Column({
+    name: 'source_workflow_revision',
+    type: 'int',
+    nullable: true,
+  })
+  sourceWorkflowRevision?: number | null;
+
+  @Column({
+    name: 'source_quotation_stage',
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+  })
+  sourceQuotationStage?: string | null;
+
+  @Column({
+    name: 'source_approval_status',
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+  })
+  sourceApprovalStatus?: string | null;
+
+  @Column({
+    name: 'source_payment_status',
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+  })
+  sourcePaymentStatus?: string | null;
+
+  @Column({
+    name: 'source_finalization_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  sourceFinalizationHash?: string | null;
+
+  @Column({
+    name: 'source_workflow_gate_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  sourceWorkflowGateHash?: string | null;
+
+  @Column({
+    name: 'source_invoice_id',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  sourceInvoiceId?: string | null;
+
+  @Column({
+    name: 'source_invoice_number',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  sourceInvoiceNumber?: string | null;
+
+  @Column({
+    name: 'source_invoice_status',
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+  })
+  sourceInvoiceStatus?: string | null;
+
+  @Column({
+    name: 'source_allocated_amount',
+    type: 'numeric',
+    precision: 20,
+    scale: 4,
+    nullable: true,
+  })
+  sourceAllocatedAmount?: string | null;
+
+  @Column({
+    name: 'source_invoice_balance_amount',
+    type: 'numeric',
+    precision: 20,
+    scale: 4,
+    nullable: true,
+  })
+  sourceInvoiceBalanceAmount?: string | null;
+
+  @Column({
+    name: 'source_payment_gate_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  sourcePaymentGateHash?: string | null;
+
+  @Column({
+    name: 'source_commission_accrual_id',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  sourceCommissionAccrualId?: string | null;
+
+  @Column({
+    name: 'source_commission_rate',
+    type: 'numeric',
+    precision: 18,
+    scale: 10,
+    nullable: true,
+  })
+  sourceCommissionRate?: string | null;
+
+  @Column({
+    name: 'source_commission_amount',
+    type: 'numeric',
+    precision: 20,
+    scale: 4,
+    nullable: true,
+  })
+  sourceCommissionAmount?: string | null;
 
   @Column({ name: 'business_reference', length: 100 })
   businessReference!: string;

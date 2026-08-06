@@ -11,7 +11,13 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import type { ProductDefinitionSnapshot } from '@insurance-max/contracts';
+import type {
+  ProductDefinitionSnapshot,
+  QuotationApprovalStatus as WorkflowApprovalStatus,
+  QuotationPaymentStatus as WorkflowPaymentStatus,
+  QuotationStage as WorkflowQuotationStage,
+  QuotationSubmissionStatus as WorkflowSubmissionStatus,
+} from '@insurance-max/contracts';
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { Branch } from '../../branches/entities/branch.entity';
 import { Customer } from '../../customers/entities/customer.entity';
@@ -44,9 +50,24 @@ import { QuotationPolicyHolder } from './structured/quotation-policy-holder.enti
   'payment_status',
 ])
 @Index('IDX_quotations_company_tira_status', ['company_id', 'tira_status'])
+@Index('IDX_quotations_company_stage_v2', ['company_id', 'quotation_stage'])
+@Index('IDX_quotations_company_approval_status_v2', [
+  'company_id',
+  'approval_status_v2',
+])
+@Index('IDX_quotations_company_payment_status_v2', [
+  'company_id',
+  'payment_status_v2',
+])
+@Index('IDX_quotations_company_submission_status_v2', [
+  'company_id',
+  'submission_status_v2',
+])
 @Index('IDX_quotations_company_customer_id', ['company_id', 'customer_id'])
 @Index('IDX_quotations_company_product_id', ['company_id', 'product_id'])
 @Index('IDX_quotations_company_flow', ['company_id', 'quotation_flow'])
+@Index('IDX_quotations_finalization_hash', ['finalization_hash'])
+@Index('IDX_quotations_workflow_gate_hash', ['workflow_gate_hash'])
 @Index('IDX_quotations_company_quotation_no', ['company_id', 'quotation_no'], {
   unique: true,
   where: 'deleted_at IS NULL',
@@ -157,6 +178,52 @@ export class Quotation {
 
   @Column({ type: 'boolean', default: false })
   requires_payment: boolean;
+
+  @Column({
+    type: 'varchar',
+    length: 40,
+    default: 'DRAFT',
+  })
+  quotation_stage: WorkflowQuotationStage;
+
+  @Column({
+    type: 'varchar',
+    length: 40,
+    default: 'NOT_REQUIRED',
+  })
+  approval_status_v2: WorkflowApprovalStatus;
+
+  @Column({
+    type: 'varchar',
+    length: 40,
+    default: 'NOT_REQUIRED',
+  })
+  payment_status_v2: WorkflowPaymentStatus;
+
+  @Column({
+    type: 'varchar',
+    length: 40,
+    default: 'NOT_READY',
+  })
+  submission_status_v2: WorkflowSubmissionStatus;
+
+  @Column({ type: 'int', default: 1 })
+  workflow_revision: number;
+
+  @Column({ type: 'int', default: 1 })
+  state_version: number;
+
+  @Column({ type: 'jsonb', nullable: true })
+  finalization_snapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  finalization_hash: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  workflow_gate_hash: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  workflow_completed_at: Date | null;
 
   @Column({
     type: 'enum',

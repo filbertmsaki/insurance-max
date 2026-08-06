@@ -91,6 +91,60 @@ export type ProductChannelType =
   | 'AGENCY'
   | 'BANCASSURANCE'
   | 'API';
+export type QuotationStage =
+  | 'DRAFT'
+  | 'COMPLETED'
+  | 'SUBMISSION_PROCESSING'
+  | 'SUBMITTED'
+  | 'CANCELLED'
+  | 'EXPIRED';
+export type QuotationApprovalStatusV2 =
+  | 'NOT_EVALUATED'
+  | 'NOT_REQUIRED'
+  | 'PENDING'
+  | 'APPROVED'
+  | 'CHANGES_REQUESTED'
+  | 'REJECTED'
+  | 'CANCELLED';
+export type QuotationPaymentStatusV2 =
+  | 'NOT_EVALUATED'
+  | 'NOT_REQUIRED'
+  | 'NOT_REQUESTED'
+  | 'REQUESTED'
+  | 'PROCESSING'
+  | 'PARTIAL'
+  | 'PAID'
+  | 'FAILED'
+  | 'REFUNDED'
+  | 'CANCELLED';
+export type QuotationSubmissionStatusV2 =
+  | 'NOT_READY'
+  | 'READY'
+  | 'QUEUED'
+  | 'PROCESSING'
+  | 'ACKNOWLEDGED'
+  | 'ACCEPTED'
+  | 'REJECTED'
+  | 'FAILED'
+  | 'RETRYABLE'
+  | 'RETRY_EXHAUSTED'
+  | 'CANCELLED';
+export type QuotationWorkflowCommand =
+  | 'SAVE_DRAFT'
+  | 'SAVE_AND_CONTINUE'
+  | 'COMPLETE'
+  | 'SUBMIT_APPROVAL'
+  | 'APPROVE'
+  | 'REQUEST_CHANGES'
+  | 'REJECT'
+  | 'REQUEST_PAYMENT'
+  | 'SUBMIT_TIRAMIS'
+  | 'RETRY_TIRAMIS'
+  | 'CANCEL'
+  | 'DELETE'
+  | 'REFRESH_CUSTOMER'
+  | 'REFRESH_ASSET'
+  | 'RECALCULATE';
 
 export interface InternalQuotationPayload {
   insurer_company_id: string;
@@ -678,6 +732,51 @@ export interface QuotationPreviewRecord {
   tiramis: QuotationPreviewTiramisSubmission | null;
   history: QuotationPreviewHistoryItem[];
   pricing_integration?: QuotationPricingIntegration | null;
+}
+
+export interface QuotationWorkflowBlockingReason {
+  code: string;
+  message: string;
+  field?: string | null;
+}
+
+export interface QuotationWorkflowView {
+  quotationId: string;
+  quotationNumber: string;
+  workflowRevision: number;
+  quotationStage: QuotationStage;
+  approval: {
+    required: boolean;
+    status: QuotationApprovalStatusV2;
+    assignedToUserId?: string | null;
+    submittedAt?: string | null;
+    decidedAt?: string | null;
+    comments?: string | null;
+    reason?: string | null;
+  };
+  payment: {
+    required: boolean;
+    status: QuotationPaymentStatusV2;
+    mode?: 'INVOICE' | 'DIRECT' | 'CREDIT' | null;
+    reference?: string | null;
+    requestedAt?: string | null;
+    completedAt?: string | null;
+    failureReason?: string | null;
+  };
+  submission: {
+    status: QuotationSubmissionStatusV2;
+    requestId?: string | null;
+    responseId?: string | null;
+    submittedAt?: string | null;
+    acknowledgedAt?: string | null;
+    acceptedAt?: string | null;
+    failureReason?: string | null;
+  };
+  finalizationHash?: string | null;
+  workflowGateHash?: string | null;
+  completedAt?: string | null;
+  blockingReasons: QuotationWorkflowBlockingReason[];
+  availableCommands: Partial<Record<QuotationWorkflowCommand, boolean>>;
 }
 
 export interface QuotationRiskRecord {

@@ -35,6 +35,9 @@ export class ReceiptAllocation {
   @Column({ type: 'varchar', length: 10 })
   currency: string;
 
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  allocation_hash: string | null;
+
   @Column({
     type: 'varchar',
     length: 20,

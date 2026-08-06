@@ -7,8 +7,6 @@ import { motorApi } from '@/modules/tenant/motor/api';
 import type {
   NonMotorPolicyDetailPayload,
   NonMotorPolicyDetailRecord,
-  NonMotorQuotationDetailPayload,
-  NonMotorQuotationDetailRecord,
   SubjectMatterFactorValuePayload,
   SubjectMatterFactorValueRecord,
   SubjectMatterListParams,
@@ -67,34 +65,6 @@ export const nonMotorApi = {
       )
       .then((r) => r.data),
 
-  getQuotationDetails: async (
-    quotationId?: string,
-  ): Promise<NonMotorQuotationDetailRecord[]> => {
-    const params = quotationId ? { quotation_id: quotationId } : undefined;
-    const response = await apiClient.get(
-      '/tenant/non-motor/quotation-details',
-      { params },
-    );
-    return response.data;
-  },
-  createQuotationDetail: (data: NonMotorQuotationDetailPayload) =>
-    apiClient
-      .post<NonMotorQuotationDetailRecord>(
-        '/tenant/non-motor/quotation-details',
-        data,
-      )
-      .then((r) => r.data),
-  updateQuotationDetail: (
-    id: string,
-    data: Partial<NonMotorQuotationDetailPayload>,
-  ) =>
-    apiClient
-      .patch<NonMotorQuotationDetailRecord>(
-        `/tenant/non-motor/quotation-details/${id}`,
-        data,
-      )
-      .then((r) => r.data),
-
   getPolicyDetails: async (
     policyId?: string,
   ): Promise<NonMotorPolicyDetailRecord[]> => {
@@ -120,6 +90,5 @@ export const nonMotorApi = {
   },
   getQuotations: motorApi.getQuotations,
   getPolicies: motorApi.getPolicies,
-  getQuotationRisks: motorApi.getQuotationRisks,
   getPolicyRisks: motorApi.getPolicyRisks,
 };

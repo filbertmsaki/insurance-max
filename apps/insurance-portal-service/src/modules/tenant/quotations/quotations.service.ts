@@ -25,8 +25,18 @@ import {
   ProductDefinitionSnapshot,
   ProductReviewStatus,
   ProductVersionStatus,
+  QuotationCommand,
+  QuotationWorkflowView,
+  QuotationApprovalStatus,
+  QuotationPaymentStatus,
+  QuotationStage,
+  QuotationSubmissionStatus,
+  type QuotationBlockingReason,
+  ServiceInsuredDataContext,
+  ServiceFinanceContext,
   ServicePricingContext,
   ServiceProductContext,
+  ServiceQuotationGateContext,
 } from '@insurance-max/contracts';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { Company } from '../../platform/companies/entities/company.entity';
@@ -98,6 +108,8 @@ import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
 import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
+import { CommissionTransaction } from '../billing-commission/entities/commission-transaction.entity';
+import { QuotationInvoiceService } from '../billing-commission/services/quotation-invoice.service';
 import { PortalTiraSubmission } from '../tiramis-integration/entities/portal-tira-submission.entity';
 import { PortalTiraSubmissionEvent } from '../tiramis-integration/entities/portal-tira-submission-event.entity';
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
@@ -230,6 +242,19 @@ interface PostgreSqlDriverError {
 }
 
 const DIRECT_PAYMENT_MODE = 1;
+const QUOTATION_COMPLETE_PERMISSION = 'quotations:complete';
+const QUOTATION_SUBMIT_APPROVAL_PERMISSION = 'quotations:submit-approval';
+const QUOTATION_APPROVE_PERMISSIONS = [
+  'quotations:approve',
+  'quotations:approve-high-risk',
+] as const;
+const QUOTATION_REQUEST_CHANGES_PERMISSION = 'quotations:request-changes';
+const QUOTATION_REJECT_PERMISSION = 'quotations:reject';
+const QUOTATION_REQUEST_PAYMENT_PERMISSION = 'quotations:request-payment';
+const QUOTATION_SUBMIT_TIRAMIS_PERMISSION = 'quotations:submit-tiramis';
+const QUOTATION_RETRY_TIRAMIS_PERMISSION = 'quotations:retry-tiramis';
+const QUOTATION_CANCEL_PERMISSION = 'quotations:cancel';
+const QUOTATION_DELETE_DRAFT_PERMISSION = 'quotations:delete-draft';
 const MONEY_TOLERANCE = 0.01;
 const RATE_TOLERANCE = 0.000001;
 const PRICING_VIEW_BREAKDOWN_PERMISSION = 'pricing.view_breakdown';
@@ -261,6 +286,7 @@ export class QuotationsService {
     private readonly pricingQuoteService: PricingQuoteService,
     private readonly productDefinitionService: ProductDefinitionService,
     private readonly productDefinitionHashService: ProductDefinitionHashService,
+    private readonly quotationInvoiceService: QuotationInvoiceService,
     @InjectRepository(BranchUser)
     private readonly branchUserRepository: Repository<BranchUser>,
     @InjectRepository(TiramisSalePointEntity)
@@ -415,6 +441,11 @@ export class QuotationsService {
             dto.sub_class_id,
             dto.draft_payload,
           );
+        const lifecycleState =
+          this.quotationLifecycleService.initializeForCreation({
+            paymentMode: DIRECT_PAYMENT_MODE,
+            existingApprovalRequired: false,
+          });
         const quotation = await manager.getRepository(Quotation).save(
           manager.getRepository(Quotation).create({
             company_id: companyId,
@@ -433,12 +464,7 @@ export class QuotationsService {
             quotation_flow: dto.quotation_flow,
             is_fleet: dto.is_fleet,
             channel_type: dto.channel_type,
-            status: QuotationStatus.DRAFT,
-            requires_approval: false,
-            requires_payment: false,
-            approval_status: ApprovalStatus.NOT_REQUIRED,
-            payment_status: PaymentStatus.NOT_REQUIRED,
-            tira_status: TiraStatus.NOT_SUBMITTED,
+            ...lifecycleState,
             current_wizard_step: dto.current_wizard_step ?? null,
             draft_payload: this.cloneDraftPayload(dto.draft_payload),
             product_version_id: definition.productVersionId,
@@ -656,6 +682,11 @@ export class QuotationsService {
             dto.sub_class_id,
             dto.draft_payload,
           );
+        const lifecycleState =
+          this.quotationLifecycleService.initializeForCreation({
+            paymentMode: DIRECT_PAYMENT_MODE,
+            existingApprovalRequired: false,
+          });
 
         Object.assign(quotation, {
           insurer_company_id: dto.insurer_company_id ?? quotation.company_id,
@@ -670,12 +701,7 @@ export class QuotationsService {
           is_fleet: dto.is_fleet,
           channel_type: dto.channel_type,
           updated_by: userId,
-          status: QuotationStatus.DRAFT,
-          requires_approval: false,
-          requires_payment: false,
-          approval_status: ApprovalStatus.NOT_REQUIRED,
-          payment_status: PaymentStatus.NOT_REQUIRED,
-          tira_status: TiraStatus.NOT_SUBMITTED,
+          ...lifecycleState,
           current_wizard_step: dto.current_wizard_step ?? null,
           draft_payload: this.cloneDraftPayload(dto.draft_payload),
           product_version_id: definition.productVersionId,
@@ -705,6 +731,7 @@ export class QuotationsService {
     payload: UpdateQuotationDto,
     user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
   ) {
+    this.assertWorkflowPermission(user, QUOTATION_COMPLETE_PERMISSION);
     await this.assertUserCanWriteQuotation(user as AuthenticatedUser, id);
 
     const existing = await this.quotationsRepository.findOneAggregate(
@@ -745,6 +772,7 @@ export class QuotationsService {
     id: string,
     user: AuthenticatedUser,
   ) {
+    this.assertWorkflowPermission(user, QUOTATION_SUBMIT_APPROVAL_PERMISSION);
     await this.assertUserCanWriteQuotation(user, id);
 
     await this.quotationLifecycleService.submitForApproval(companyId, id, {
@@ -758,6 +786,7 @@ export class QuotationsService {
   }
 
   async requestPayment(companyId: string, id: string, user: AuthenticatedUser) {
+    this.assertWorkflowPermission(user, QUOTATION_REQUEST_PAYMENT_PERMISSION);
     await this.assertUserCanWriteQuotation(user, id);
 
     const quotation = await this.quotationsRepository.findOneAggregate(
@@ -769,14 +798,48 @@ export class QuotationsService {
     const latestInvoice = await this.findLatestInvoice(companyId, id);
     const invoice =
       latestInvoice &&
-      !['VOID', 'CANCELLED'].includes(
+      !['VOID', 'VOIDED', 'CANCELLED'].includes(
         String(latestInvoice.status).toUpperCase(),
       )
         ? latestInvoice
-        : await this.createQuotationPaymentInvoice(
-            companyId,
-            quotation,
-            user.id,
+        : await this.quotationInvoiceService.createOrReuseQuotationInvoice(
+            this.dataSource.manager,
+            {
+              companyId,
+              quotationId: quotation.id,
+              quotationNumber: quotation.quotation_no,
+              workflowRevision: Number(quotation.workflow_revision ?? 1),
+              insurerCompanyId: quotation.insurer_company_id,
+              intermediaryCompanyId: quotation.intermediary_company_id ?? null,
+              customerId: quotation.customer_id!,
+              branchId: quotation.branch_id ?? null,
+              currencyCode:
+                quotation.cover_note?.currency_code?.trim().toUpperCase() ??
+                'TZS',
+              amount: this.numeric(
+                quotation.cover_note?.total_premium_including_tax ?? 0,
+                4,
+              ),
+              pricingResultHash: (() => {
+                const snapshot = (quotation.cover_note?.entries ?? [])
+                  .flatMap((entry) => entry.risks ?? [])
+                  .find((risk) => !!risk.pricing_snapshot)?.pricing_snapshot as
+                  | { resultHash?: string | null }
+                  | undefined;
+
+                return snapshot?.resultHash ?? null;
+              })(),
+              finalizationHash:
+                quotation.finalization_hash ??
+                this.productDefinitionHashService.hashDefinition(
+                  quotation.finalization_snapshot ?? {},
+                ),
+              sourceSnapshot:
+                quotation.finalization_snapshot ??
+                (quotation as unknown as Record<string, unknown>),
+              createdBy: user.id,
+              instructions: 'Quotation payment invoice generated from workflow',
+            },
           );
 
     await this.quotationLifecycleService.markPaymentRequested(companyId, id, {
@@ -795,6 +858,7 @@ export class QuotationsService {
     id: string,
     user: AuthenticatedUser,
   ) {
+    this.assertWorkflowPermission(user, QUOTATION_RETRY_TIRAMIS_PERMISSION);
     await this.assertUserCanWriteQuotation(user, id);
 
     return this.submit(
@@ -813,6 +877,7 @@ export class QuotationsService {
     cancellationReason: string,
     user: AuthenticatedUser,
   ) {
+    this.assertWorkflowPermission(user, QUOTATION_CANCEL_PERMISSION);
     await this.assertUserCanWriteQuotation(user, id);
 
     const trimmedReason = cancellationReason.trim();
@@ -926,6 +991,32 @@ export class QuotationsService {
     await this.assertUserCanWriteQuotation(user, id);
 
     return this.findOneForUser(user, id);
+  }
+
+  async getWorkflowView(
+    companyId: string,
+    id: string,
+    user?: Pick<AuthenticatedUser, 'permissions'> | null,
+  ): Promise<QuotationWorkflowView> {
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
+
+    return this.buildWorkflowView(quotation, companyId, user);
+  }
+
+  async getWorkflowViewForUser(
+    user: AuthenticatedUser,
+    id: string,
+  ): Promise<QuotationWorkflowView> {
+    const scope = this.resolveUserScope(user);
+    const quotation = await this.quotationsRepository.findOneAggregateForScope(
+      scope,
+      id,
+    );
+
+    return this.buildWorkflowView(quotation, quotation.company_id, user);
   }
 
   async getAuthoritativePayload(companyId: string, id: string) {
@@ -1356,6 +1447,7 @@ export class QuotationsService {
   }
 
   async removeDraftForUser(user: AuthenticatedUser, id: string): Promise<void> {
+    this.assertWorkflowPermission(user, QUOTATION_DELETE_DRAFT_PERMISSION);
     await this.assertUserCanWriteQuotation(user, id);
 
     const quotation = await this.quotationsRepository.findOneAggregate(
@@ -1381,6 +1473,12 @@ export class QuotationsService {
     dto: SubmitQuotationDto | undefined,
     user: AuthenticatedUser,
   ) {
+    this.assertWorkflowPermission(
+      user,
+      dto?.force_resubmit
+        ? QUOTATION_RETRY_TIRAMIS_PERMISSION
+        : QUOTATION_SUBMIT_TIRAMIS_PERMISSION,
+    );
     await this.assertUserCanWriteQuotation(user, id);
 
     const submitOptions = dto ?? {};
@@ -1456,6 +1554,31 @@ export class QuotationsService {
           riskWithPricingSnapshot.pricing_snapshot as unknown as PricingResultSnapshot,
         )
       : undefined;
+    const insuredDataContext = this.buildServiceInsuredDataContext(
+      quotation,
+      tiramisPayload,
+    );
+    const quotationGateContext = this.buildServiceQuotationGateContext(
+      quotation,
+      tiramisPayload,
+      submitOptions,
+    );
+    const financeContext = await this.buildServiceFinanceContext(
+      companyId,
+      quotation,
+    );
+
+    await this.quotationLifecycleService.recordWorkflowFinalization({
+      companyId,
+      quotationId: quotation.id,
+      finalizationSnapshot: tiramisPayload,
+      finalizationHash: quotationGateContext.finalizationHash,
+      workflowGateHash: quotationGateContext.workflowGateHash,
+      completedAt: quotationGateContext.completedAt
+        ? new Date(quotationGateContext.completedAt)
+        : null,
+      changedBy: user.id,
+    });
 
     let result: Record<string, unknown>;
 
@@ -1466,6 +1589,10 @@ export class QuotationsService {
         sourceRecordId: quotation.id,
         productContext,
         pricingContext,
+        insuredDataContext,
+        quotationId: quotation.id,
+        quotationGateContext,
+        financeContext,
         businessReference: this.payloadMapper.businessReference(quotation),
         payload: tiramisPayload,
         forceResubmit: submitOptions.force_resubmit,
@@ -1667,6 +1794,7 @@ export class QuotationsService {
     dto: TransitionQuotationStatusDto,
     user: AuthenticatedUser,
   ) {
+    this.assertTransitionPermission(user, dto.action);
     await this.assertUserCanWriteQuotation(user, id);
 
     const userId = user.id;
@@ -2399,72 +2527,6 @@ export class QuotationsService {
     }
   }
 
-  private async createQuotationPaymentInvoice(
-    companyId: string,
-    quotation: Quotation,
-    userId: string,
-  ): Promise<Invoice> {
-    const invoiceRepository = this.dataSource.getRepository(Invoice);
-    const invoiceNo = await this.nextInvoiceNumber(companyId);
-    const currency =
-      quotation.cover_note?.currency_code?.trim().toUpperCase() ?? 'TZS';
-    const grossAmount = Number(
-      quotation.cover_note?.total_premium_excluding_tax ?? 0,
-    );
-    const totalAmount = Number(
-      quotation.cover_note?.total_premium_including_tax ?? grossAmount,
-    );
-    const taxAmount = roundMoney(totalAmount - grossAmount);
-    const customerId = quotation.customer_id;
-
-    if (!customerId) {
-      throw new ConflictException(
-        'A linked customer is required before requesting payment',
-      );
-    }
-
-    const invoice = invoiceRepository.create({
-      company_id: companyId,
-      insurer_company_id: quotation.insurer_company_id,
-      intermediary_company_id: quotation.intermediary_company_id ?? null,
-      customer_id: customerId,
-      quotation_id: quotation.id,
-      invoice_no: invoiceNo,
-      invoice_type: 'POLICY',
-      currency,
-      gross_amount: this.numeric(grossAmount, 2),
-      discount_amount: this.numeric(0, 2),
-      tax_amount: this.numeric(taxAmount, 2),
-      charges_amount: this.numeric(0, 2),
-      total_amount: this.numeric(totalAmount, 2),
-      paid_amount: this.numeric(0, 2),
-      balance_amount: this.numeric(totalAmount, 2),
-      status: 'ISSUED',
-      created_by: userId,
-      updated_by: userId,
-    });
-
-    return invoiceRepository.save(invoice);
-  }
-
-  private async nextInvoiceNumber(companyId: string): Promise<string> {
-    const repository = this.dataSource.getRepository(Invoice);
-    const prefix = `INV-${new Date().getFullYear()}-`;
-    const last = await repository
-      .createQueryBuilder('invoice')
-      .where('invoice.company_id = :companyId', { companyId })
-      .andWhere('invoice.invoice_no LIKE :prefix', {
-        prefix: `${prefix}%`,
-      })
-      .orderBy('invoice.invoice_no', 'DESC')
-      .limit(1)
-      .getOne();
-
-    const current = last?.invoice_no ?? '';
-    const next = current ? Number(current.substring(prefix.length)) + 1 : 1;
-    return `${prefix}${String(next).padStart(5, '0')}`;
-  }
-
   private async assertDraftDeletionAllowed(
     companyId: string,
     quotation: Quotation,
@@ -3068,6 +3130,439 @@ export class QuotationsService {
     };
   }
 
+  private buildServiceInsuredDataContext(
+    quotation: Quotation,
+    outboundPayload: Record<string, unknown>,
+  ): ServiceInsuredDataContext {
+    const customer = quotation.customer;
+
+    if (!customer?.id || !customer.customer_no) {
+      throw new ConflictException(
+        'Quotation is missing an authoritative customer record for TIRAMIS submission.',
+      );
+    }
+
+    if (customer.kyc_status !== CustomerKycStatus.VERIFIED) {
+      throw new ConflictException(
+        'Customer KYC must be verified before submitting this quotation to TIRAMIS.',
+      );
+    }
+
+    const policyHolderManifest =
+      this.buildTiramisPolicyHolderManifest(outboundPayload);
+
+    if (policyHolderManifest.length === 0) {
+      throw new BadRequestException(
+        'Quotation is missing policy-holder data for TIRAMIS submission.',
+      );
+    }
+
+    const assetManifest = this.buildTiramisAssetManifest(outboundPayload);
+
+    if (assetManifest.length === 0) {
+      throw new BadRequestException(
+        'Quotation is missing insured-asset data for TIRAMIS submission.',
+      );
+    }
+
+    const tiramisPolicyHolderHash =
+      this.productDefinitionHashService.hashDefinition(
+        policyHolderManifest as unknown as Record<string, unknown>,
+      );
+
+    return {
+      customerId: customer.id,
+      customerNumber: customer.customer_no,
+      customerKycStatus: customer.kyc_status,
+      customerKycVersion: Number(customer.kyc_version ?? 0),
+      customerSnapshotHash: tiramisPolicyHolderHash,
+      tiramisPolicyHolderHash,
+      assetManifestHash: this.productDefinitionHashService.hashDefinition(
+        assetManifest as unknown as Record<string, unknown>,
+      ),
+      assetCount: assetManifest.length,
+      manifestVersion: '8.1',
+    };
+  }
+
+  private buildServiceQuotationGateContext(
+    quotation: Quotation,
+    outboundPayload: Record<string, unknown>,
+    submitOptions: SubmitQuotationDto,
+  ): ServiceQuotationGateContext {
+    const workflowRevision = Math.max(
+      1,
+      quotation.workflow_revision ?? quotation.status_history?.length ?? 0,
+    );
+    const quotationStage = this.mapQuotationStageForGate(
+      quotation,
+      submitOptions,
+    );
+    const approvalStatus = this.mapApprovalStatusForGate(quotation);
+    const paymentStatus = this.mapPaymentStatusForGate(quotation);
+    const submissionStatus = this.mapSubmissionStatusForGate(
+      quotation,
+      submitOptions,
+    );
+    const completedAt = (
+      quotation.workflow_completed_at ??
+      quotation.submitted_at ??
+      quotation.updated_at ??
+      quotation.created_at ??
+      null
+    )?.toISOString();
+    const finalizationHash =
+      quotation.finalization_hash ??
+      this.productDefinitionHashService.hashDefinition(outboundPayload);
+    const workflowGateHash = this.productDefinitionHashService.hashDefinition({
+      quotationId: quotation.id,
+      quotationNumber: quotation.quotation_no,
+      workflowRevision,
+      quotationStage,
+      approvalStatus,
+      paymentStatus,
+      submissionStatus,
+      approvalRequired: quotation.requires_approval,
+      paymentRequired: quotation.requires_payment,
+      finalizationHash,
+      completedAt,
+    });
+
+    return {
+      quotationId: quotation.id,
+      quotationNumber: quotation.quotation_no,
+      workflowRevision,
+      quotationStage,
+      approvalStatus,
+      paymentStatus,
+      submissionStatus,
+      paymentRequired: quotation.requires_payment,
+      approvalRequired: quotation.requires_approval,
+      finalizationHash,
+      workflowGateHash,
+      completedAt,
+    };
+  }
+
+  private async buildServiceFinanceContext(
+    companyId: string,
+    quotation: Quotation,
+  ): Promise<ServiceFinanceContext | undefined> {
+    const invoice = await this.findLatestInvoice(companyId, quotation.id);
+    const latestReceipt = invoice?.id
+      ? await this.dataSource
+          .getRepository(Receipt)
+          .createQueryBuilder('receipt')
+          .where('receipt.company_id = :companyId', { companyId })
+          .andWhere('receipt.invoice_id = :invoiceId', {
+            invoiceId: invoice.id,
+          })
+          .andWhere('receipt.deleted_at IS NULL')
+          .orderBy('receipt.created_at', 'DESC')
+          .getOne()
+      : null;
+
+    const commissionAccrual = await this.dataSource
+      .getRepository(CommissionTransaction)
+      .createQueryBuilder('commission')
+      .where('commission.company_id = :companyId', { companyId })
+      .andWhere('commission.quotation_id = :quotationId', {
+        quotationId: quotation.id,
+      })
+      .andWhere('commission.deleted_at IS NULL')
+      .orderBy('commission.created_at', 'DESC')
+      .getOne();
+
+    const requiredAmount = this.numeric(
+      invoice?.total_amount ??
+        quotation.cover_note?.total_premium_including_tax ??
+        0,
+      4,
+    );
+    const allocatedAmount = this.numeric(invoice?.paid_amount ?? 0, 4);
+    const balanceAmount = this.numeric(
+      invoice?.balance_amount ??
+        quotation.cover_note?.total_premium_including_tax ??
+        0,
+      4,
+    );
+    const currencyCode =
+      invoice?.currency ??
+      quotation.cover_note?.currency_code?.trim().toUpperCase() ??
+      'TZS';
+
+    return {
+      invoiceId: invoice?.id ?? null,
+      invoiceNumber: invoice?.invoice_no ?? null,
+      invoiceStatus: invoice?.status ?? null,
+      requiredAmount,
+      allocatedAmount,
+      balanceAmount,
+      currencyCode,
+      latestReceiptId: latestReceipt?.id ?? null,
+      latestReceiptNumber: latestReceipt?.receipt_no ?? null,
+      paymentGateHash: this.productDefinitionHashService.hashDefinition({
+        invoiceId: invoice?.id ?? null,
+        invoiceStatus: invoice?.status ?? null,
+        requiredAmount,
+        allocatedAmount,
+        balanceAmount,
+        paymentStatus: quotation.payment_status_v2,
+        workflowRevision: quotation.workflow_revision,
+      }),
+      commissionRate: commissionAccrual?.commission_rate ?? null,
+      commissionAmount: commissionAccrual?.commission_amount ?? null,
+      commissionAccrualId: commissionAccrual?.id ?? null,
+    };
+  }
+
+  private mapQuotationStageForGate(
+    quotation: Quotation,
+    submitOptions: SubmitQuotationDto,
+  ): QuotationStage {
+    if (quotation.status === QuotationStatus.CANCELLED) {
+      return QuotationStage.CANCELLED;
+    }
+
+    if (quotation.status === QuotationStatus.EXPIRED) {
+      return QuotationStage.EXPIRED;
+    }
+
+    if (
+      quotation.status === QuotationStatus.SUBMITTING_TO_TIRA ||
+      quotation.status === QuotationStatus.TIRA_PROCESSING ||
+      quotation.tira_status === TiraStatus.SUBMITTING ||
+      quotation.tira_status === TiraStatus.PROCESSING
+    ) {
+      return QuotationStage.SUBMISSION_PROCESSING;
+    }
+
+    if (
+      quotation.status === QuotationStatus.SUBMITTED_TO_TIRA ||
+      quotation.tira_status === TiraStatus.SUBMITTED ||
+      quotation.tira_status === TiraStatus.SUCCESS
+    ) {
+      return QuotationStage.SUBMITTED;
+    }
+
+    if (
+      quotation.status === QuotationStatus.READY_FOR_SUBMISSION ||
+      (submitOptions.force_resubmit === true &&
+        quotation.status === QuotationStatus.FAILED &&
+        quotation.tira_status === TiraStatus.FAILED)
+    ) {
+      return QuotationStage.COMPLETED;
+    }
+
+    return QuotationStage.DRAFT;
+  }
+
+  private mapApprovalStatusForGate(
+    quotation: Quotation,
+  ): QuotationApprovalStatus {
+    switch (quotation.approval_status) {
+      case ApprovalStatus.NOT_REQUIRED:
+        return QuotationApprovalStatus.NOT_REQUIRED;
+      case ApprovalStatus.PENDING:
+        return QuotationApprovalStatus.PENDING;
+      case ApprovalStatus.APPROVED:
+        return QuotationApprovalStatus.APPROVED;
+      case ApprovalStatus.CHANGES_REQUESTED:
+        return QuotationApprovalStatus.CHANGES_REQUESTED;
+      case ApprovalStatus.REJECTED:
+        return QuotationApprovalStatus.REJECTED;
+      case ApprovalStatus.CANCELLED:
+        return QuotationApprovalStatus.CANCELLED;
+      case ApprovalStatus.NOT_SUBMITTED:
+      default:
+        return QuotationApprovalStatus.NOT_EVALUATED;
+    }
+  }
+
+  private mapPaymentStatusForGate(
+    quotation: Quotation,
+  ): QuotationPaymentStatus {
+    switch (quotation.payment_status) {
+      case PaymentStatus.NOT_REQUIRED:
+        return QuotationPaymentStatus.NOT_REQUIRED;
+      case PaymentStatus.REQUESTED:
+        return QuotationPaymentStatus.REQUESTED;
+      case PaymentStatus.PROCESSING:
+        return QuotationPaymentStatus.PROCESSING;
+      case PaymentStatus.PARTIALLY_PAID:
+        return QuotationPaymentStatus.PARTIAL;
+      case PaymentStatus.PAID:
+        return QuotationPaymentStatus.PAID;
+      case PaymentStatus.FAILED:
+      case PaymentStatus.EXPIRED:
+        return QuotationPaymentStatus.FAILED;
+      case PaymentStatus.REFUNDED:
+        return QuotationPaymentStatus.REFUNDED;
+      case PaymentStatus.CANCELLED:
+        return QuotationPaymentStatus.CANCELLED;
+      case PaymentStatus.NOT_INITIATED:
+      default:
+        return QuotationPaymentStatus.NOT_REQUESTED;
+    }
+  }
+
+  private mapSubmissionStatusForGate(
+    quotation: Quotation,
+    submitOptions: SubmitQuotationDto,
+  ): QuotationSubmissionStatus {
+    switch (quotation.tira_status) {
+      case TiraStatus.SUBMITTING:
+        return QuotationSubmissionStatus.PROCESSING;
+      case TiraStatus.SUBMITTED:
+        return QuotationSubmissionStatus.ACKNOWLEDGED;
+      case TiraStatus.PROCESSING:
+        return QuotationSubmissionStatus.PROCESSING;
+      case TiraStatus.SUCCESS:
+        return QuotationSubmissionStatus.ACCEPTED;
+      case TiraStatus.REJECTED:
+        return QuotationSubmissionStatus.REJECTED;
+      case TiraStatus.FAILED:
+        return submitOptions.force_resubmit
+          ? QuotationSubmissionStatus.RETRYABLE
+          : QuotationSubmissionStatus.FAILED;
+      case TiraStatus.NOT_SUBMITTED:
+      default:
+        return quotation.status === QuotationStatus.READY_FOR_SUBMISSION
+          ? QuotationSubmissionStatus.READY
+          : QuotationSubmissionStatus.NOT_READY;
+    }
+  }
+
+  private buildTiramisPolicyHolderManifest(
+    outboundPayload: Record<string, unknown>,
+  ): Array<Record<string, string | number | null>> {
+    const policyHolders = Array.isArray(outboundPayload.policyHolders)
+      ? outboundPayload.policyHolders
+      : [];
+
+    return policyHolders
+      .map((holder) => {
+        const record = holder as Record<string, unknown>;
+
+        return {
+          policyHolderName: String(record.policyHolderName ?? '').trim(),
+          policyHolderBirthDate: record.policyHolderBirthDate
+            ? this.formatTiramisDate(record.policyHolderBirthDate)
+            : null,
+          policyHolderType: Number(record.policyHolderType),
+          policyHolderIdNumber: String(record.policyHolderIdNumber ?? '')
+            .replace(/[^A-Za-z0-9]/g, '')
+            .toUpperCase(),
+          policyHolderIdType: Number(record.policyHolderIdType),
+          phoneNumber: String(record.phoneNumber ?? '').replace(/[\s()-]/g, ''),
+          email:
+            (record.email ?? record.emailAddress ?? null)
+              ?.toString()
+              .trim()
+              .toLowerCase() ?? null,
+        };
+      })
+      .sort((left, right) =>
+        String(left.policyHolderIdNumber).localeCompare(
+          String(right.policyHolderIdNumber),
+        ),
+      );
+  }
+
+  private buildTiramisAssetManifest(
+    outboundPayload: Record<string, unknown>,
+  ): Array<Record<string, string | number | null>> {
+    const fleet = outboundPayload.fleet as
+      | {
+          items?: unknown[];
+        }
+      | undefined;
+
+    if (Array.isArray(fleet?.items)) {
+      return fleet.items
+        .map((item) =>
+          this.mapTiramisMotorManifestItem(
+            ((item as Record<string, unknown>).motorDetail ?? {}) as Record<
+              string,
+              unknown
+            >,
+          ),
+        )
+        .sort((left, right) =>
+          String(
+            left.registrationNumber ?? left.chassisNumber ?? '',
+          ).localeCompare(
+            String(right.registrationNumber ?? right.chassisNumber ?? ''),
+          ),
+        );
+    }
+
+    if (outboundPayload.motorDetail) {
+      return [
+        this.mapTiramisMotorManifestItem(
+          outboundPayload.motorDetail as Record<string, unknown>,
+        ),
+      ];
+    }
+
+    const subjectMatters = Array.isArray(outboundPayload.subjectMatters)
+      ? outboundPayload.subjectMatters
+      : [];
+
+    return subjectMatters
+      .map((subject) => {
+        const record = subject as Record<string, unknown>;
+
+        return {
+          reference: String(record.subjectMatterReference ?? '')
+            .trim()
+            .toUpperCase(),
+          description: String(record.subjectMatterDesc ?? '').trim(),
+        };
+      })
+      .sort((left, right) =>
+        String(left.reference).localeCompare(String(right.reference)),
+      );
+  }
+
+  private mapTiramisMotorManifestItem(
+    motor: Record<string, unknown>,
+  ): Record<string, string | number | null> {
+    return {
+      registrationNumber: this.normalizeTiramisMotorField(
+        motor.registrationNumber,
+      ),
+      chassisNumber: this.normalizeTiramisMotorField(motor.chassisNumber),
+      engineNumber: this.normalizeTiramisMotorField(motor.engineNumber),
+      make: motor.make?.toString().trim() ?? null,
+      model: motor.model?.toString().trim() ?? null,
+      yearOfManufacture: motor.yearOfManufacture
+        ? Number(motor.yearOfManufacture)
+        : null,
+      ownerName: motor.ownerName?.toString().trim() ?? null,
+    };
+  }
+
+  private normalizeTiramisMotorField(value: unknown): string | null {
+    const normalized = String(value ?? '')
+      .replace(/[^A-Za-z0-9]/g, '')
+      .toUpperCase();
+
+    return normalized || null;
+  }
+
+  private formatTiramisDate(value: unknown): string {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+
+      if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+        return trimmed.slice(0, 10);
+      }
+    }
+
+    return new Date(value as string | number | Date).toISOString().slice(0, 10);
+  }
+
   /**
    * Guards quotation completion against premium calculations that have
    * been silently invalidated by later edits (e.g. sum insured, discounts,
@@ -3120,8 +3615,7 @@ export class QuotationsService {
       riskId: risk.insurance_risk_id,
       riskCode: risk.risk_code,
       currencyCode: quotation.cover_note?.currency_code ?? null,
-      coverNoteStartDate:
-        quotation.cover_note?.cover_note_start_date ?? null,
+      coverNoteStartDate: quotation.cover_note?.cover_note_start_date ?? null,
       coverNoteEndDate: quotation.cover_note?.cover_note_end_date ?? null,
       sumInsured: risk.sum_insured,
       sumInsuredEquivalent: risk.sum_insured_equivalent,
@@ -4483,6 +4977,63 @@ export class QuotationsService {
     return user?.permissions?.includes(permission) ?? false;
   }
 
+  private assertWorkflowPermission(
+    user: Pick<AuthenticatedUser, 'permissions'> | null | undefined,
+    permissions: string | readonly string[],
+  ): void {
+    const requiredPermissions = Array.isArray(permissions)
+      ? permissions
+      : [permissions];
+
+    if (
+      requiredPermissions.some((permission) =>
+        this.hasPermission(user, permission),
+      )
+    ) {
+      return;
+    }
+
+    throw new ForbiddenException(
+      `Missing required permission: ${requiredPermissions.join(' or ')}`,
+    );
+  }
+
+  private assertTransitionPermission(
+    user: Pick<AuthenticatedUser, 'permissions'> | null | undefined,
+    action: QuotationStatusTransitionAction,
+  ): void {
+    const requiredPermissions = this.requiredPermissionsForTransition(action);
+
+    if (requiredPermissions.length === 0) {
+      return;
+    }
+
+    this.assertWorkflowPermission(user, requiredPermissions);
+  }
+
+  private requiredPermissionsForTransition(
+    action: QuotationStatusTransitionAction,
+  ): readonly string[] {
+    switch (action) {
+      case QuotationStatusTransitionAction.EVALUATE_REQUIREMENTS:
+        return [QUOTATION_COMPLETE_PERMISSION];
+      case QuotationStatusTransitionAction.SUBMIT_FOR_APPROVAL:
+        return [QUOTATION_SUBMIT_APPROVAL_PERMISSION];
+      case QuotationStatusTransitionAction.APPROVE:
+        return QUOTATION_APPROVE_PERMISSIONS;
+      case QuotationStatusTransitionAction.REQUEST_CHANGES:
+        return [QUOTATION_REQUEST_CHANGES_PERMISSION];
+      case QuotationStatusTransitionAction.REJECT_APPROVAL:
+        return [QUOTATION_REJECT_PERMISSION];
+      case QuotationStatusTransitionAction.MARK_PAYMENT_REQUESTED:
+        return [QUOTATION_REQUEST_PAYMENT_PERMISSION];
+      case QuotationStatusTransitionAction.CANCEL:
+        return [QUOTATION_CANCEL_PERMISSION];
+      default:
+        return [];
+    }
+  }
+
   private assertDiscountPermissions(
     payload: CreateQuotationDto,
     user: Pick<AuthenticatedUser, 'permissions'>,
@@ -4965,6 +5516,350 @@ export class QuotationsService {
     }
 
     return 'Pricing information is no longer current. Recalculate before continuing.';
+  }
+
+  private async buildWorkflowView(
+    quotation: Quotation,
+    companyId: string,
+    user?: Pick<AuthenticatedUser, 'permissions'> | null,
+  ): Promise<QuotationWorkflowView> {
+    const quotationStage =
+      quotation.quotation_stage ?? this.mapQuotationStageForGate(quotation, {});
+    const approvalStatus =
+      quotation.approval_status_v2 ?? this.mapApprovalStatusForGate(quotation);
+    const paymentStatus =
+      quotation.payment_status_v2 ?? this.mapPaymentStatusForGate(quotation);
+    const submissionStatus =
+      quotation.submission_status_v2 ??
+      this.mapSubmissionStatusForGate(quotation, {});
+
+    const pricingIntegration = this.canViewPricingBreakdown(user)
+      ? await this.evaluateQuotationPricingIntegration(companyId, quotation)
+      : null;
+    const blockingReasons = new Map<string, QuotationBlockingReason>();
+    const availableCommands: Partial<Record<QuotationCommand, boolean>> = {};
+
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.SAVE_DRAFT,
+      this.hasPermission(user, 'quotations:update') &&
+        this.isDraftWritableForWorkflow(quotation),
+    );
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.SAVE_AND_CONTINUE,
+      this.hasPermission(user, 'quotations:update') &&
+        this.isDraftWritableForWorkflow(quotation),
+    );
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.COMPLETE,
+      this.hasPermission(user, QUOTATION_COMPLETE_PERMISSION) &&
+        this.isDraftWritableForWorkflow(quotation) &&
+        !(pricingIntegration?.is_stale ?? false),
+      pricingIntegration?.is_stale
+        ? {
+            code: 'QUOTATION_PRICING_STALE',
+            message:
+              'Pricing information is no longer current. Recalculate before continuing.',
+            field: 'pricing',
+          }
+        : !this.isDraftWritableForWorkflow(quotation)
+          ? {
+              code: 'QUOTATION_NOT_DRAFT',
+              message: 'Only draft quotations can be completed.',
+              field: 'quotation_status',
+            }
+          : undefined,
+    );
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.SUBMIT_APPROVAL,
+      this.hasPermission(user, QUOTATION_SUBMIT_APPROVAL_PERMISSION) &&
+        quotation.requires_approval &&
+        quotation.status !== QuotationStatus.DRAFT &&
+        [
+          ApprovalStatus.NOT_SUBMITTED,
+          ApprovalStatus.CHANGES_REQUESTED,
+        ].includes(quotation.approval_status),
+      !quotation.requires_approval
+        ? {
+            code: 'QUOTATION_APPROVAL_NOT_REQUIRED',
+            message: 'Approval is not required for this quotation.',
+            field: 'approval',
+          }
+        : quotation.status === QuotationStatus.DRAFT
+          ? {
+              code: 'QUOTATION_INCOMPLETE',
+              message:
+                'Complete the quotation before submitting it for approval.',
+              field: 'quotation_status',
+            }
+          : undefined,
+    );
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.APPROVE,
+      this.canApproveQuotationWorkflow(user) &&
+        quotation.approval_status === ApprovalStatus.PENDING,
+      quotation.approval_status !== ApprovalStatus.PENDING
+        ? {
+            code: 'QUOTATION_APPROVAL_NOT_PENDING',
+            message: `Approval cannot be completed from ${quotation.approval_status}.`,
+            field: 'approval',
+          }
+        : undefined,
+    );
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.REQUEST_CHANGES,
+      this.hasPermission(user, QUOTATION_REQUEST_CHANGES_PERMISSION) &&
+        quotation.approval_status === ApprovalStatus.PENDING,
+      quotation.approval_status !== ApprovalStatus.PENDING
+        ? {
+            code: 'QUOTATION_APPROVAL_NOT_PENDING',
+            message: `Changes cannot be requested from ${quotation.approval_status}.`,
+            field: 'approval',
+          }
+        : undefined,
+    );
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.REJECT,
+      this.hasPermission(user, QUOTATION_REJECT_PERMISSION) &&
+        quotation.approval_status === ApprovalStatus.PENDING,
+      quotation.approval_status !== ApprovalStatus.PENDING
+        ? {
+            code: 'QUOTATION_APPROVAL_NOT_PENDING',
+            message: `Approval cannot be rejected from ${quotation.approval_status}.`,
+            field: 'approval',
+          }
+        : undefined,
+    );
+
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.REQUEST_PAYMENT,
+      this.hasPermission(user, QUOTATION_REQUEST_PAYMENT_PERMISSION),
+      await this.getWorkflowValidationReason(async () =>
+        this.assertPaymentRequestAllowed(quotation),
+      ),
+    );
+
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.SUBMIT_TIRAMIS,
+      this.hasPermission(user, QUOTATION_SUBMIT_TIRAMIS_PERMISSION),
+      await this.getWorkflowValidationReason(async () => {
+        this.assertPricingSnapshotsCurrent(quotation);
+        this.assertTiraSubmissionReadiness(quotation, {});
+      }),
+    );
+
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.RETRY_TIRAMIS,
+      this.hasPermission(user, QUOTATION_RETRY_TIRAMIS_PERMISSION),
+      await this.getWorkflowValidationReason(async () => {
+        this.assertPricingSnapshotsCurrent(quotation);
+        this.assertTiraSubmissionReadiness(quotation, {
+          force_resubmit: true,
+        });
+      }),
+    );
+
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.CANCEL,
+      this.hasPermission(user, QUOTATION_CANCEL_PERMISSION),
+      await this.getWorkflowValidationReason(async () => {
+        if (this.isTerminalQuotationStatusForWorkflow(quotation.status)) {
+          throw new ConflictException(
+            `Quotation cannot be cancelled from ${quotation.status}`,
+          );
+        }
+
+        if (quotation.tira_status !== TiraStatus.NOT_SUBMITTED) {
+          throw new ConflictException(
+            'Quotation cannot be cancelled after TIRAMIS submission has started',
+          );
+        }
+      }),
+    );
+
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.DELETE,
+      this.hasPermission(user, QUOTATION_DELETE_DRAFT_PERMISSION),
+      await this.getWorkflowValidationReason(async () =>
+        this.assertDraftDeletionAllowed(companyId, quotation),
+      ),
+    );
+
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.REFRESH_CUSTOMER,
+      this.hasPermission(user, 'customers:update') &&
+        quotation.status === QuotationStatus.DRAFT,
+    );
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.REFRESH_ASSET,
+      this.hasPermission(user, 'motor:update') &&
+        quotation.status === QuotationStatus.DRAFT,
+    );
+    this.setWorkflowCommandAvailability(
+      availableCommands,
+      blockingReasons,
+      QuotationCommand.RECALCULATE,
+      this.hasPermission(user, 'quotations:update') &&
+        (pricingIntegration?.is_stale ?? false),
+      !(pricingIntegration?.is_stale ?? false)
+        ? {
+            code: 'QUOTATION_PRICING_CURRENT',
+            message: 'Pricing is already current for this quotation.',
+            field: 'pricing',
+          }
+        : undefined,
+    );
+
+    return {
+      quotationId: quotation.id,
+      quotationNumber: quotation.quotation_no,
+      workflowRevision: Number(quotation.workflow_revision ?? 1),
+      quotationStage,
+      approval: {
+        required: quotation.requires_approval,
+        status: approvalStatus,
+        assignedToUserId: null,
+        submittedAt: quotation.approval_submitted_at?.toISOString() ?? null,
+        decidedAt: quotation.approval_decided_at?.toISOString() ?? null,
+        comments: quotation.approval_comments ?? null,
+        reason: quotation.approval_reason ?? null,
+      },
+      payment: {
+        required: quotation.requires_payment,
+        status: paymentStatus,
+        mode: null,
+        reference: quotation.payment_request_reference ?? null,
+        requestedAt: quotation.payment_requested_at?.toISOString() ?? null,
+        completedAt: quotation.payment_completed_at?.toISOString() ?? null,
+        failureReason: quotation.payment_failure_reason ?? null,
+      },
+      submission: {
+        status: submissionStatus,
+        requestId: quotation.tira_request_id ?? null,
+        responseId: quotation.tira_response_id ?? null,
+        submittedAt: quotation.submitted_at?.toISOString() ?? null,
+        acknowledgedAt: null,
+        acceptedAt:
+          quotation.tira_status === TiraStatus.SUCCESS
+            ? (quotation.updated_at?.toISOString() ?? null)
+            : null,
+        failureReason: quotation.tira_response_description ?? null,
+      },
+      finalizationHash: quotation.finalization_hash ?? null,
+      workflowGateHash: quotation.workflow_gate_hash ?? null,
+      completedAt: quotation.workflow_completed_at?.toISOString() ?? null,
+      blockingReasons: [...blockingReasons.values()],
+      availableCommands,
+    };
+  }
+
+  private setWorkflowCommandAvailability(
+    availableCommands: Partial<Record<QuotationCommand, boolean>>,
+    blockingReasons: Map<string, QuotationBlockingReason>,
+    command: QuotationCommand,
+    hasPermission: boolean,
+    blockingReason?: QuotationBlockingReason | null,
+  ): void {
+    const isAvailable = hasPermission && !blockingReason;
+    availableCommands[command] = isAvailable;
+
+    if (!isAvailable && blockingReason) {
+      blockingReasons.set(`${command}:${blockingReason.code}`, blockingReason);
+    }
+  }
+
+  private async getWorkflowValidationReason(
+    validator: () => void | Promise<void>,
+  ): Promise<QuotationBlockingReason | null> {
+    try {
+      await validator();
+      return null;
+    } catch (error) {
+      return this.toWorkflowBlockingReason(error);
+    }
+  }
+
+  private toWorkflowBlockingReason(error: unknown): QuotationBlockingReason {
+    const response =
+      error &&
+      typeof error === 'object' &&
+      'response' in error &&
+      typeof (error as { response?: unknown }).response === 'object'
+        ? ((error as { response?: Record<string, unknown> }).response ?? null)
+        : null;
+
+    if (response) {
+      return {
+        code:
+          typeof response.code === 'string'
+            ? response.code
+            : 'QUOTATION_WORKFLOW_BLOCKED',
+        message:
+          typeof response.message === 'string'
+            ? response.message
+            : this.readErrorMessage(error),
+        field: typeof response.field === 'string' ? response.field : undefined,
+      };
+    }
+
+    return {
+      code: 'QUOTATION_WORKFLOW_BLOCKED',
+      message: this.readErrorMessage(error),
+    };
+  }
+
+  private canApproveQuotationWorkflow(
+    user: Pick<AuthenticatedUser, 'permissions'> | null | undefined,
+  ): boolean {
+    return QUOTATION_APPROVE_PERMISSIONS.some((permission) =>
+      this.hasPermission(user, permission),
+    );
+  }
+
+  private isDraftWritableForWorkflow(quotation: Quotation): boolean {
+    return (
+      quotation.status === QuotationStatus.DRAFT &&
+      quotation.tira_status === TiraStatus.NOT_SUBMITTED
+    );
+  }
+
+  private isTerminalQuotationStatusForWorkflow(
+    status: QuotationStatus,
+  ): boolean {
+    return [
+      QuotationStatus.COMPLETED,
+      QuotationStatus.REJECTED,
+      QuotationStatus.FAILED,
+      QuotationStatus.CANCELLED,
+      QuotationStatus.EXPIRED,
+    ].includes(status);
   }
 
   private async logPricingValidationSuccess(
@@ -6284,9 +7179,11 @@ export class QuotationsService {
     }
 
     if (pricingQuote.pricing_result_snapshot && pricingQuote.result_hash) {
-      const computedResultHash = this.productDefinitionHashService.hashDefinition(
-        { ...pricingQuote.pricing_result_snapshot, resultHash: undefined },
-      );
+      const computedResultHash =
+        this.productDefinitionHashService.hashDefinition({
+          ...pricingQuote.pricing_result_snapshot,
+          resultHash: undefined,
+        });
 
       if (computedResultHash !== pricingQuote.result_hash) {
         throw new ConflictException({

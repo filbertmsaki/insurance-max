@@ -45,7 +45,6 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import {
   apiClientsApi,
-  type CreateApiClientDto,
 } from '@/modules/platform/api-clients/api/api-clients';
 import type { ApiClient } from '@/types';
 

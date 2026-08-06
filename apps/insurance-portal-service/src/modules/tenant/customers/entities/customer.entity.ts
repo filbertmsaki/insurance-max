@@ -6,11 +6,18 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { User } from '../../users/entities/user.entity';
+import { CustomerAddress } from './customer-address.entity';
+import { CustomerContact } from './customer-contact.entity';
+import { CustomerDocument } from './customer-document.entity';
+import { CustomerIdentifier } from './customer-identifier.entity';
+import { CustomerKycReview } from './customer-kyc-review.entity';
+import { InsuredAsset } from './insured-asset.entity';
 import { CustomerDocumentType } from '../enums/customer-document-type.enum';
 import { CustomerGender } from '../enums/customer-gender.enum';
 import { CustomerKycStatus } from '../enums/customer-kyc-status.enum';
@@ -35,6 +42,9 @@ export class Customer {
 
   @Column({ length: 30 })
   customer_no: string;
+
+  @Column({ type: 'varchar', length: 180, nullable: true })
+  display_name: string | null;
 
   @Column({ type: 'enum', enum: CustomerType, enumName: 'customer_type_enum' })
   customer_type: CustomerType;
@@ -76,6 +86,9 @@ export class Customer {
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   vrn: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  identity_fingerprint: string | null;
 
   @Column({
     type: 'smallint',
@@ -163,6 +176,21 @@ export class Customer {
   })
   kyc_status: CustomerKycStatus;
 
+  @Column({ type: 'int', default: 0 })
+  kyc_version: number;
+
+  @Column({ type: 'uuid', nullable: true })
+  kyc_verified_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  kyc_verified_at: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  kyc_expires_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  kyc_rejection_reason: string | null;
+
   @Column({
     type: 'enum',
     enum: CustomerDocumentType,
@@ -200,6 +228,12 @@ export class Customer {
   })
   status: CustomerStatus;
 
+  @Column({ type: 'uuid', nullable: true })
+  merged_into_customer_id: string | null;
+
+  @Column({ type: 'varchar', length: 30, default: 'MANUAL' })
+  data_source: string;
+
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
@@ -225,4 +259,33 @@ export class Customer {
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'document_verified_by' })
   document_verified_by_user: User | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'kyc_verified_by' })
+  kyc_verified_by_user: User | null;
+
+  @ManyToOne(() => Customer, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'merged_into_customer_id' })
+  merged_into_customer: Customer | null;
+
+  @OneToMany(() => CustomerIdentifier, (identifier) => identifier.customer)
+  identifiers: CustomerIdentifier[];
+
+  @OneToMany(() => CustomerAddress, (address) => address.customer)
+  addresses: CustomerAddress[];
+
+  @OneToMany(() => CustomerContact, (contact) => contact.customer)
+  contacts: CustomerContact[];
+
+  @OneToMany(() => CustomerDocument, (document) => document.customer)
+  documents: CustomerDocument[];
+
+  @OneToMany(() => CustomerKycReview, (review) => review.customer)
+  kyc_reviews: CustomerKycReview[];
+
+  @OneToMany(() => InsuredAsset, (asset) => asset.customer)
+  insured_assets: InsuredAsset[];
+
+  @OneToMany(() => InsuredAsset, (asset) => asset.owner_customer)
+  owned_insured_assets: InsuredAsset[];
 }

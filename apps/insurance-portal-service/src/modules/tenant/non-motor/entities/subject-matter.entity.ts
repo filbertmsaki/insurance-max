@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { Customer } from '../../customers/entities/customer.entity';
+import { InsuredAsset } from '../../customers/entities/insured-asset.entity';
 import { User } from '../../users/entities/user.entity';
 import { SubjectMatterFactorValue } from './subject-matter-factor-value.entity';
 
@@ -36,8 +37,17 @@ export class SubjectMatter {
   @Column({ type: 'uuid' })
   customer_id: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  owner_customer_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  insured_asset_id: string | null;
+
   @Column({ type: 'varchar', length: 100, nullable: true })
   subject_type: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  subject_category: string | null;
 
   @Column({ type: 'varchar', length: 100 })
   subject_code: string;
@@ -50,6 +60,9 @@ export class SubjectMatter {
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   country: string | null;
+
+  @Column({ type: 'varchar', length: 3, nullable: true })
+  country_code: string | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   region: string | null;
@@ -75,6 +88,9 @@ export class SubjectMatter {
   @Column({ type: 'varchar', length: 20, default: 'ACTIVE' })
   status: string;
 
+  @Column({ type: 'int', default: 1 })
+  snapshot_version: number;
+
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
 
@@ -97,9 +113,17 @@ export class SubjectMatter {
   @JoinColumn({ name: 'company_id' })
   company: Company;
 
-  @ManyToOne(() => Customer, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Customer, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'customer_id' })
   customer: Customer;
+
+  @ManyToOne(() => Customer, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'owner_customer_id' })
+  owner_customer: Customer | null;
+
+  @ManyToOne(() => InsuredAsset, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'insured_asset_id' })
+  insured_asset: InsuredAsset | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by' })

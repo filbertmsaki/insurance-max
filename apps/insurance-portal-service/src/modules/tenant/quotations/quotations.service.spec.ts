@@ -29,6 +29,14 @@ import { PricingChargeService } from '../pricing/application/pricing-charge.serv
 
 describe('QuotationsService', () => {
   const productDefinitionHashService = new ProductDefinitionHashService();
+  const submitTiramisUser = {
+    id: 'user-1',
+    permissions: ['quotations:submit-tiramis'],
+  } as any;
+  const rejectApprovalUser = {
+    id: 'user-1',
+    permissions: ['quotations:reject'],
+  } as any;
 
   function buildProductDefinitionSnapshot(
     overrides: Record<string, unknown> = {},
@@ -83,6 +91,18 @@ describe('QuotationsService', () => {
       pricingQuote?: Partial<Record<string, unknown>>;
     },
   ) {
+    const createQueryBuilderStub = <T,>(value: T) => ({
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(value),
+      getMany: jest.fn().mockResolvedValue(
+        Array.isArray(value) ? value : value ? [value] : [],
+      ),
+    });
+
     const authoritativePayload = createMotorSingleQuotationPayload();
     const { pricingQuote: pricingQuoteOverrides, ...quotationOverrides } =
       overrides ?? {};
@@ -142,6 +162,13 @@ describe('QuotationsService', () => {
       submitted_at: null,
       submitted_by: null,
       branch_id: null,
+      customer_id: 'customer-1',
+      customer: {
+        id: 'customer-1',
+        customer_no: 'CUS-2026-000001',
+        kyc_status: 'VERIFIED',
+        kyc_version: 3,
+      },
       branch: {
         id: 'branch-1',
         company_id: 'company-1',
@@ -278,6 +305,44 @@ describe('QuotationsService', () => {
           };
         }
 
+        if (
+          typeof entity === 'function' &&
+          'name' in entity &&
+          entity.name === 'Invoice'
+        ) {
+          return {
+            createQueryBuilder: jest.fn().mockReturnValue(
+              createQueryBuilderStub(null),
+            ),
+            count: jest.fn().mockResolvedValue(0),
+          };
+        }
+
+        if (
+          typeof entity === 'function' &&
+          'name' in entity &&
+          entity.name === 'Receipt'
+        ) {
+          return {
+            createQueryBuilder: jest.fn().mockReturnValue(
+              createQueryBuilderStub(null),
+            ),
+            count: jest.fn().mockResolvedValue(0),
+          };
+        }
+
+        if (
+          typeof entity === 'function' &&
+          'name' in entity &&
+          entity.name === 'CommissionTransaction'
+        ) {
+          return {
+            createQueryBuilder: jest.fn().mockReturnValue(
+              createQueryBuilderStub(null),
+            ),
+          };
+        }
+
         return {
           find: jest.fn().mockResolvedValue([]),
         };
@@ -357,6 +422,7 @@ describe('QuotationsService', () => {
       startTiraSubmission: jest.fn().mockResolvedValue(undefined),
       markTiraSubmitted: jest.fn().mockResolvedValue(undefined),
       markTiraFailed: jest.fn().mockResolvedValue(undefined),
+      recordWorkflowFinalization: jest.fn().mockResolvedValue(undefined),
       evaluateRequirements: jest.fn().mockResolvedValue(undefined),
       submitForApproval: jest.fn().mockResolvedValue(undefined),
       approveQuotation: jest.fn().mockResolvedValue(undefined),
@@ -482,6 +548,9 @@ describe('QuotationsService', () => {
         .fn()
         .mockResolvedValue(productDefinitionSnapshot),
     } as unknown as ProductDefinitionService;
+    const quotationInvoiceService = {
+      createOrReuseQuotationInvoice: jest.fn(),
+    } as any;
 
     const service = new QuotationsService(
       dataSource,
@@ -501,6 +570,7 @@ describe('QuotationsService', () => {
       pricingQuoteService as any,
       productDefinitionService,
       productDefinitionHashService,
+      quotationInvoiceService,
       branchUserRepository,
       salePointRepository,
     );
@@ -524,6 +594,7 @@ describe('QuotationsService', () => {
       transactionManager,
       productDefinitionService,
       productDefinitionSnapshot,
+      quotationInvoiceService,
       service,
     };
   }
@@ -531,9 +602,12 @@ describe('QuotationsService', () => {
   it('submits the final outbound payload to TIRAMIS using camelCase fields', async () => {
     const fixture = createServiceFixture();
 
-    await fixture.service.submit('company-1', fixture.quotation.id, undefined, {
-      id: 'user-1',
-    } as any);
+    await fixture.service.submit(
+      'company-1',
+      fixture.quotation.id,
+      undefined,
+      submitTiramisUser,
+    );
 
     expect(
       (
@@ -1015,9 +1089,7 @@ describe('QuotationsService', () => {
       {
         return_existing: true,
       },
-      {
-        id: 'user-1',
-      } as any,
+      submitTiramisUser,
     );
 
     expect(
@@ -1036,9 +1108,12 @@ describe('QuotationsService', () => {
     });
 
     await expect(
-      fixture.service.submit('company-1', fixture.quotation.id, undefined, {
-        id: 'user-1',
-      } as any),
+      fixture.service.submit(
+        'company-1',
+        fixture.quotation.id,
+        undefined,
+        submitTiramisUser,
+      ),
     ).rejects.toThrow(
       'Quotation approval is not complete. Current approval status is PENDING.',
     );
@@ -1052,9 +1127,12 @@ describe('QuotationsService', () => {
     });
 
     await expect(
-      fixture.service.submit('company-1', fixture.quotation.id, undefined, {
-        id: 'user-1',
-      } as any),
+      fixture.service.submit(
+        'company-1',
+        fixture.quotation.id,
+        undefined,
+        submitTiramisUser,
+      ),
     ).rejects.toThrow(
       'Pricing quote PQ-2026-00000001 expired on 2026-07-26T08:00:00.000Z. Recalculate the premium and try again.',
     );
@@ -1118,9 +1196,12 @@ describe('QuotationsService', () => {
     });
 
     await expect(
-      fixture.service.submit('company-1', fixture.quotation.id, undefined, {
-        id: 'user-1',
-      } as any),
+      fixture.service.submit(
+        'company-1',
+        fixture.quotation.id,
+        undefined,
+        submitTiramisUser,
+      ),
     ).rejects.toThrow(
       'Quotation payment is not settled. Only direct payment mode can be submitted without a settled invoice.',
     );
@@ -1136,11 +1217,38 @@ describe('QuotationsService', () => {
         {
           action: QuotationStatusTransitionAction.REJECT_APPROVAL,
         },
-        {
-          id: 'user-1',
-        } as any,
+        rejectApprovalUser,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('returns a workflow view with available commands for ready quotations', async () => {
+    const fixture = createServiceFixture();
+
+    const workflow = await fixture.service.getWorkflowView(
+      'company-1',
+      'quotation-1',
+      {
+        permissions: [
+          'quotations:submit-tiramis',
+          'quotations:cancel',
+          'quotations:update',
+        ],
+      },
+    );
+
+    expect(workflow.quotationId).toBe('quotation-1');
+    expect(workflow.quotationStage).toBe('COMPLETED');
+    expect(workflow.submission.status).toBe('READY');
+    expect(workflow.availableCommands.SUBMIT_TIRAMIS).toBe(true);
+    expect(workflow.availableCommands.CANCEL).toBe(true);
+    expect(workflow.blockingReasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'QUOTATION_PRICING_CURRENT',
+        }),
+      ]),
+    );
   });
 
   it('normalizes quotation taxes from backend charge rules before submission', async () => {
@@ -1148,9 +1256,12 @@ describe('QuotationsService', () => {
     fixture.authoritativePayload.cover_note_dtl.risks_covered![0].taxes_charged[0].tax_amount = 1;
     fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_including_tax = 100001;
 
-    await fixture.service.submit('company-1', fixture.quotation.id, undefined, {
-      id: 'user-1',
-    } as any);
+    await fixture.service.submit(
+      'company-1',
+      fixture.quotation.id,
+      undefined,
+      submitTiramisUser,
+    );
 
     expect(fixture.pricingChargeService.calculateCharges).toHaveBeenCalled();
     expect(
@@ -1203,9 +1314,12 @@ describe('QuotationsService', () => {
       premium_including_charges: 100000,
     });
 
-    await fixture.service.submit('company-1', fixture.quotation.id, undefined, {
-      id: 'user-1',
-    } as any);
+    await fixture.service.submit(
+      'company-1',
+      fixture.quotation.id,
+      undefined,
+      submitTiramisUser,
+    );
 
     expect(
       (

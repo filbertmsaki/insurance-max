@@ -382,7 +382,10 @@ export class PricingQuoteService {
         singleResult?.rate_book_context?.definition_hash ?? null,
       result_hash: pricingSnapshot?.resultHash ?? null,
       rate_book_snapshot: pricingSnapshot
-        ? (pricingSnapshot.rateBookSnapshot as unknown as Record<string, unknown>)
+        ? (pricingSnapshot.rateBookSnapshot as unknown as Record<
+            string,
+            unknown
+          >)
         : null,
       pricing_result_snapshot: pricingSnapshot
         ? (pricingSnapshot.resultSnapshot as unknown as Record<string, unknown>)
@@ -613,10 +616,7 @@ export class PricingQuoteService {
     result: RiskPremiumResult | MultiRiskPremiumResult,
   ) {
     if (this.isSingleRiskResult(result)) {
-      return Math.max(
-        0,
-        result.premium_after_minimum - result.final_premium,
-      );
+      return Math.max(0, result.premium_after_minimum - result.final_premium);
     }
 
     return result.risks.reduce(
@@ -675,9 +675,7 @@ export class PricingQuoteService {
         risk.discount_control.approval_threshold_amount,
       ),
       maxLoadingRate: this.toNullableString(risk.loading_control.max_rate),
-      maxLoadingAmount: this.toNullableString(
-        risk.loading_control.max_amount,
-      ),
+      maxLoadingAmount: this.toNullableString(risk.loading_control.max_amount),
       loadingApprovalThresholdRate: this.toNullableString(
         risk.loading_control.approval_threshold_rate,
       ),
@@ -790,9 +788,8 @@ export class PricingQuoteService {
       expiresAt: expiresAt.toISOString(),
     };
 
-    const resultHash = this.productDefinitionHashService.hashDefinition(
-      resultWithoutHash as unknown as Record<string, unknown>,
-    );
+    const resultHash =
+      this.productDefinitionHashService.hashDefinition(resultWithoutHash);
 
     return {
       rateBookSnapshot,

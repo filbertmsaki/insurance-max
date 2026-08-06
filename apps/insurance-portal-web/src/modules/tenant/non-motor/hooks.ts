@@ -10,17 +10,14 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { nonMotorApi } from './api';
 import {
   buildNonMotorPolicyDetailPayload,
-  buildNonMotorQuotationDetailPayload,
   buildSubjectMatterFactorValuePayload,
   buildSubjectMatterPayload,
   type NonMotorPolicyDetailFormValues,
-  type NonMotorQuotationDetailFormValues,
   type SubjectMatterFactorValueFormValues,
   type SubjectMatterFormValues,
 } from './schemas';
 import type {
   NonMotorPolicyDetailRecord,
-  NonMotorQuotationDetailRecord,
   SubjectMatterFactorValueRecord,
   SubjectMatterListParams,
   SubjectMatterRecord,
@@ -33,15 +30,11 @@ const nonMotorKeys = {
     [...nonMotorKeys.all, 'subject-matter', id] as const,
   factorValues: (subjectMatterId?: string) =>
     [...nonMotorKeys.all, 'factor-values', subjectMatterId ?? 'all'] as const,
-  quotationDetails: (quotationId?: string) =>
-    [...nonMotorKeys.all, 'quotation-details', quotationId ?? 'all'] as const,
   policyDetails: (policyId?: string) =>
     [...nonMotorKeys.all, 'policy-details', policyId ?? 'all'] as const,
   customers: () => [...nonMotorKeys.all, 'customers'] as const,
   quotations: () => [...nonMotorKeys.all, 'quotations'] as const,
   policies: () => [...nonMotorKeys.all, 'policies'] as const,
-  quotationRisks: (quotationId: string) =>
-    [...nonMotorKeys.all, 'quotation-risks', quotationId] as const,
   policyRisks: (policyId: string) =>
     [...nonMotorKeys.all, 'policy-risks', policyId] as const,
   factors: () => [...nonMotorKeys.all, 'factors'] as const,
@@ -199,32 +192,6 @@ export function useCreateSubjectMatterFactorValue() {
   });
 }
 
-export function useNonMotorQuotationDetails(quotationId?: string) {
-  return useQuery({
-    queryKey: nonMotorKeys.quotationDetails(quotationId),
-    queryFn: () => nonMotorApi.getQuotationDetails(quotationId),
-    enabled: !!quotationId,
-    staleTime: 30_000,
-  });
-}
-
-export function useCreateNonMotorQuotationDetail() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (values: NonMotorQuotationDetailFormValues) =>
-      nonMotorApi.createQuotationDetail(
-        buildNonMotorQuotationDetailPayload(values),
-      ),
-    onSuccess: (_created, variables) => {
-      qc.invalidateQueries({
-        queryKey: nonMotorKeys.quotationDetails(variables.quotation_id),
-      });
-      toast.success('Non-motor quotation detail created');
-    },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
-  });
-}
-
 export function useNonMotorPolicyDetails(policyId?: string) {
   return useQuery({
     queryKey: nonMotorKeys.policyDetails(policyId),
@@ -274,17 +241,6 @@ export function useNonMotorPolicies() {
   });
 }
 
-export function useNonMotorQuotationRisks(quotationId?: string) {
-  return useQuery({
-    queryKey: quotationId
-      ? nonMotorKeys.quotationRisks(quotationId)
-      : nonMotorKeys.quotationRisks(''),
-    queryFn: () => motorApi.getQuotationRisks(quotationId!),
-    enabled: !!quotationId,
-    staleTime: 30_000,
-  });
-}
-
 export function useNonMotorPolicyRisks(policyId?: string) {
   return useQuery({
     queryKey: policyId
@@ -304,6 +260,5 @@ export { nonMotorKeys };
 export type {
   SubjectMatterRecord,
   SubjectMatterFactorValueRecord,
-  NonMotorQuotationDetailRecord,
   NonMotorPolicyDetailRecord,
 };

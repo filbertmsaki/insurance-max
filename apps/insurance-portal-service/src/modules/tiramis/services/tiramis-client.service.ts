@@ -11,8 +11,11 @@ import { firstValueFrom } from 'rxjs';
 
 import {
   unwrapApiResponse,
+  type ServiceFinanceContext,
+  type ServiceInsuredDataContext,
   type ServicePricingContext,
   type ServiceProductContext,
+  type ServiceQuotationGateContext,
 } from '@insurance-max/contracts';
 import {
   HTTP_HEADERS,
@@ -344,6 +347,9 @@ export class TiramisClientService {
         authContext,
         dto.productContext,
         dto.pricingContext,
+        dto.insuredDataContext,
+        dto.quotationGateContext,
+        dto.financeContext,
       );
 
       const updatedTracking =
@@ -795,6 +801,9 @@ export class TiramisClientService {
     authContext?: AuthenticatedUser,
     productContext?: ServiceProductContext,
     pricingContext?: ServicePricingContext,
+    insuredDataContext?: ServiceInsuredDataContext,
+    quotationGateContext?: ServiceQuotationGateContext,
+    financeContext?: ServiceFinanceContext,
   ) {
     try {
       const route = this.httpRouteForPattern(pattern);
@@ -844,6 +853,13 @@ export class TiramisClientService {
               },
               ...(productContext ? { product: productContext } : null),
               ...(pricingContext ? { pricing: pricingContext } : null),
+              ...(insuredDataContext
+                ? { insuredData: insuredDataContext }
+                : null),
+              ...(quotationGateContext
+                ? { quotationGate: quotationGateContext }
+                : null),
+              ...(financeContext ? { finance: financeContext } : null),
             }
           : undefined,
       );

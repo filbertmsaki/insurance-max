@@ -41,7 +41,9 @@ export class CreateAddonRateRuleDto {
   @Min(0)
   percentage_rate?: number;
 
-  @ApiPropertyOptional({ description: 'Fixed addon premium amount (FIXED only)' })
+  @ApiPropertyOptional({
+    description: 'Fixed addon premium amount (FIXED only)',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsNumber()

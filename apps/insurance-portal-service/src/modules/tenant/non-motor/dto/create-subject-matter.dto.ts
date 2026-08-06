@@ -1,19 +1,30 @@
 import {
+  IsEnum,
   IsObject,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
 } from 'class-validator';
+import { AssetOwnershipType } from '@insurance-max/contracts';
 
 export class CreateSubjectMatterDto {
   @IsUUID()
   customer_id: string;
 
   @IsOptional()
+  @IsUUID()
+  owner_customer_id?: string | null;
+
+  @IsOptional()
   @IsString()
   @MaxLength(100)
   subject_type?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  subject_category?: string | null;
 
   @IsString()
   @MaxLength(100)
@@ -26,6 +37,11 @@ export class CreateSubjectMatterDto {
   @IsOptional()
   @IsString()
   location?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(3)
+  country_code?: string | null;
 
   @IsOptional()
   @IsString()
@@ -60,6 +76,10 @@ export class CreateSubjectMatterDto {
   @IsString()
   @MaxLength(10)
   currency?: string;
+
+  @IsOptional()
+  @IsEnum(AssetOwnershipType)
+  ownership_type?: AssetOwnershipType | null;
 
   @IsOptional()
   @IsString()

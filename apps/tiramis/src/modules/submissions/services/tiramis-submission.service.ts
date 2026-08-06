@@ -35,6 +35,9 @@ export class TiramisSubmissionService {
     const principal = this.requestContextService.getServicePrincipal();
     const product = principal?.product;
     const pricing = principal?.pricing;
+    const insuredData = principal?.insuredData;
+    const quotationGate = principal?.quotationGate;
+    const finance = principal?.finance;
 
     const transaction = this.transactionRepository.create({
       clientConfigurationId: params.clientConfigurationId,
@@ -67,6 +70,32 @@ export class TiramisSubmissionService {
       sourcePricingInputHash: pricing?.inputHash ?? null,
       sourcePricingResultHash: pricing?.resultHash ?? null,
       sourceCalculationVersion: pricing?.calculationVersion ?? null,
+      sourceCustomerId: insuredData?.customerId ?? null,
+      sourceCustomerNumber: insuredData?.customerNumber ?? null,
+      sourceCustomerKycStatus: insuredData?.customerKycStatus ?? null,
+      sourceCustomerKycVersion: insuredData?.customerKycVersion ?? null,
+      sourceCustomerSnapshotHash: insuredData?.customerSnapshotHash ?? null,
+      sourceTiramisPolicyHolderHash:
+        insuredData?.tiramisPolicyHolderHash ?? null,
+      sourceAssetManifestHash: insuredData?.assetManifestHash ?? null,
+      sourceAssetCount: insuredData?.assetCount ?? null,
+      sourceQuotationId: quotationGate?.quotationId ?? null,
+      sourceQuotationNumber: quotationGate?.quotationNumber ?? null,
+      sourceWorkflowRevision: quotationGate?.workflowRevision ?? null,
+      sourceQuotationStage: quotationGate?.quotationStage ?? null,
+      sourceApprovalStatus: quotationGate?.approvalStatus ?? null,
+      sourcePaymentStatus: quotationGate?.paymentStatus ?? null,
+      sourceFinalizationHash: quotationGate?.finalizationHash ?? null,
+      sourceWorkflowGateHash: quotationGate?.workflowGateHash ?? null,
+      sourceInvoiceId: finance?.invoiceId ?? null,
+      sourceInvoiceNumber: finance?.invoiceNumber ?? null,
+      sourceInvoiceStatus: finance?.invoiceStatus ?? null,
+      sourceAllocatedAmount: finance?.allocatedAmount ?? null,
+      sourceInvoiceBalanceAmount: finance?.balanceAmount ?? null,
+      sourcePaymentGateHash: finance?.paymentGateHash ?? null,
+      sourceCommissionAccrualId: finance?.commissionAccrualId ?? null,
+      sourceCommissionRate: finance?.commissionRate ?? null,
+      sourceCommissionAmount: finance?.commissionAmount ?? null,
     });
 
     return this.transactionRepository.save(transaction);
@@ -609,6 +638,26 @@ export class TiramisSubmissionService {
       sourceUserId: transaction.sourceUserId,
       sourceModule: transaction.sourceModule,
       sourceRecordId: transaction.sourceRecordId,
+      insuredData: {
+        customerId: transaction.sourceCustomerId,
+        customerNumber: transaction.sourceCustomerNumber,
+        customerKycStatus: transaction.sourceCustomerKycStatus,
+        customerKycVersion: transaction.sourceCustomerKycVersion,
+        customerSnapshotHash: transaction.sourceCustomerSnapshotHash,
+        tiramisPolicyHolderHash: transaction.sourceTiramisPolicyHolderHash,
+        assetManifestHash: transaction.sourceAssetManifestHash,
+        assetCount: transaction.sourceAssetCount,
+      },
+      quotationGate: {
+        quotationId: transaction.sourceQuotationId,
+        quotationNumber: transaction.sourceQuotationNumber,
+        workflowRevision: transaction.sourceWorkflowRevision,
+        quotationStage: transaction.sourceQuotationStage,
+        approvalStatus: transaction.sourceApprovalStatus,
+        paymentStatus: transaction.sourcePaymentStatus,
+        finalizationHash: transaction.sourceFinalizationHash,
+        workflowGateHash: transaction.sourceWorkflowGateHash,
+      },
       businessReference: transaction.businessReference,
       status: transaction.status,
       originalRequestId: transaction.originalRequestId,

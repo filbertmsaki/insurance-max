@@ -1,13 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { BadRequestException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { MotorService } from './motor.service';
 import { MotorVehicle } from './entities/motor-vehicle.entity';
 import { MotorFleet } from './entities/motor-fleet.entity';
 import { MotorFleetItem } from './entities/motor-fleet-item.entity';
+import { MotorFleetMembership } from './entities/motor-fleet-membership.entity';
 import { MotorPolicyDetail } from './entities/motor-policy-detail.entity';
+import { MotorVehicleOwnership } from './entities/motor-vehicle-ownership.entity';
+import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { Customer } from '../customers/entities/customer.entity';
+import { InsuredAsset } from '../customers/entities/insured-asset.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationEntryRisk } from '../quotations/entities/structured/quotation-entry-risk.entity';
 import { Policy } from '../policies/entities/policy.entity';
@@ -46,6 +51,7 @@ describe('MotorService â€” tenant isolation on policy details', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MotorService,
+        { provide: DataSource, useValue: { transaction: jest.fn() } },
         {
           provide: getRepositoryToken(MotorVehicle),
           useValue: motorVehicleRepo,
@@ -53,11 +59,20 @@ describe('MotorService â€” tenant isolation on policy details', () => {
         { provide: getRepositoryToken(MotorFleet), useValue: mockRepo() },
         { provide: getRepositoryToken(MotorFleetItem), useValue: mockRepo() },
         {
+          provide: getRepositoryToken(MotorFleetMembership),
+          useValue: mockRepo(),
+        },
+        {
           provide: getRepositoryToken(MotorPolicyDetail),
           useValue: motorPolicyDetailRepo,
         },
+        {
+          provide: getRepositoryToken(MotorVehicleOwnership),
+          useValue: mockRepo(),
+        },
         { provide: getRepositoryToken(Company), useValue: mockRepo() },
         { provide: getRepositoryToken(Customer), useValue: mockRepo() },
+        { provide: getRepositoryToken(InsuredAsset), useValue: mockRepo() },
         { provide: getRepositoryToken(Quotation), useValue: mockRepo() },
         {
           provide: getRepositoryToken(QuotationEntryRisk),
@@ -66,6 +81,10 @@ describe('MotorService â€” tenant isolation on policy details', () => {
         { provide: getRepositoryToken(Policy), useValue: policyRepo },
         { provide: getRepositoryToken(PolicyRisk), useValue: policyRiskRepo },
         { provide: getRepositoryToken(User), useValue: mockRepo() },
+        {
+          provide: IdentifierGeneratorService,
+          useValue: { generateMotorPolicyDetailNumber: jest.fn() },
+        },
       ],
     }).compile();
 

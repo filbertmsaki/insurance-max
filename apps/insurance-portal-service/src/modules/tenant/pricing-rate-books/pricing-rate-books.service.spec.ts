@@ -1,6 +1,8 @@
 import { ConflictException } from '@nestjs/common';
 import { PricingRateBooksService } from './pricing-rate-books.service';
 import { PricingRateBookStatus } from './enums/pricing-rate-book-status.enum';
+import { ProductVersionStatus } from '@insurance-max/contracts';
+import { ConflictException } from '@nestjs/common';
 
 const COMPANY_ID = 'company-1';
 
@@ -30,8 +32,13 @@ function createServiceFixture(options?: {
   };
   const productRepository = {
     findOne: jest.fn().mockResolvedValue({
-      id: 'product-1',
+      id: 'product-version-1',
       company_id: COMPANY_ID,
+      product_id: 'product-1',
+      status: ProductVersionStatus.PUBLISHED,
+      definition_hash: 'hash-1',
+      effective_from: '2026-01-01',
+      effective_to: null,
       is_active: options?.productActive ?? true,
     }),
   };
@@ -39,8 +46,25 @@ function createServiceFixture(options?: {
     count: jest.fn().mockResolvedValue(options?.count ?? 1),
   };
   const conditionRepository = {};
+  const addonRateRuleRepository = {};
+  const addonDefinitionRepository = {};
   const pricingRuntimeCacheService = {
     invalidateRateConfiguration: jest.fn().mockResolvedValue(undefined),
+  };
+  const editabilityService = {
+    assertEditable: jest.fn().mockImplementation((rateBook) => {
+      if (rateBook.status !== PricingRateBookStatus.DRAFT) {
+        throw new ConflictException(
+          'Only DRAFT pricing rate books can be edited directly',
+        );
+      }
+    }),
+  };
+  const validationService = {
+    validateForReview: jest.fn().mockResolvedValue(undefined),
+  };
+  const hashService = {
+    hashDefinition: jest.fn().mockReturnValue('hash-1'),
   };
 
   const service = new PricingRateBooksService(
@@ -48,7 +72,12 @@ function createServiceFixture(options?: {
     productRepository as any,
     ruleRepository as any,
     conditionRepository as any,
+    addonRateRuleRepository as any,
+    addonDefinitionRepository as any,
     pricingRuntimeCacheService as any,
+    editabilityService as any,
+    validationService as any,
+    hashService as any,
   );
 
   return {
@@ -57,6 +86,8 @@ function createServiceFixture(options?: {
     productRepository,
     ruleRepository,
     pricingRuntimeCacheService,
+    editabilityService,
+    validationService,
   };
 }
 
@@ -67,7 +98,7 @@ describe('PricingRateBooksService', () => {
     await service.create(
       COMPANY_ID,
       {
-        product_id: 'product-1',
+        product_version_id: 'product-version-1',
         code: 'motor-standard',
         version: '2026.1',
         effective_from: '2026-07-27',
@@ -79,6 +110,7 @@ describe('PricingRateBooksService', () => {
       expect.objectContaining({
         company_id: COMPANY_ID,
         product_id: 'product-1',
+        product_version_id: 'product-version-1',
         code: 'MOTOR-STANDARD',
         version: '2026.1',
         status: PricingRateBookStatus.DRAFT,
@@ -109,7 +141,7 @@ describe('PricingRateBooksService', () => {
     ).rejects.toThrow(ConflictException);
   });
 
-  it('retires overlapping published books when publishing a new approved version', async () => {
+  it('rejects overlapping published books when publishing a new approved version', async () => {
     const { service, rateBookRepository } = createServiceFixture({
       overlappingPublished: [
         {
@@ -133,19 +165,9 @@ describe('PricingRateBooksService', () => {
       effective_to: null,
     });
 
-    const result = await service.publish(COMPANY_ID, 'rate-book-new', 'user-1');
-
-    expect(rateBookRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 'rate-book-old',
-        status: PricingRateBookStatus.RETIRED,
-      }),
-    );
-    expect(result).toEqual(
-      expect.objectContaining({
-        status: PricingRateBookStatus.PUBLISHED,
-      }),
-    );
+    await expect(
+      service.publish(COMPANY_ID, 'rate-book-new', 'user-1'),
+    ).rejects.toThrow(ConflictException);
   });
 
   it('carries discount/loading governance fields over when cloning a rate book', async () => {
@@ -182,6 +204,7 @@ describe('PricingRateBooksService', () => {
       id: 'source-book-1',
       company_id: COMPANY_ID,
       product_id: 'product-1',
+      product_version_id: 'product-version-1',
       code: 'MOTOR-STANDARD',
       currency_code: null,
       effective_from: '2026-01-01',

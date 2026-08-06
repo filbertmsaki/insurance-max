@@ -6,7 +6,6 @@ import type {
 } from '@/modules/shared/api/pagination';
 import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import type {
-  CustomerRiskOption,
   MotorFleetItemPayload,
   MotorFleetItemRecord,
   MotorFleetPayload,
@@ -14,8 +13,6 @@ import type {
   MotorListParams,
   MotorPolicyDetailPayload,
   MotorPolicyDetailRecord,
-  MotorQuotationDetailPayload,
-  MotorQuotationDetailRecord,
   MotorVehiclePayload,
   MotorVehicleRecord,
   PolicyRiskOption,
@@ -88,39 +85,6 @@ export const motorApi = {
       .delete(`/tenant/motor/fleets/${fleetId}/items/${id}`)
       .then((r) => r.data),
 
-  getQuotationDetails: async (
-    quotationId?: string,
-  ): Promise<MotorQuotationDetailRecord[]> => {
-    const params = quotationId ? { quotation_id: quotationId } : undefined;
-    const response = await apiClient.get('/tenant/motor/quotation-details', {
-      params,
-    });
-    return response.data;
-  },
-  getQuotationDetail: (id: string) =>
-    apiClient
-      .get<MotorQuotationDetailRecord>(`/tenant/motor/quotation-details/${id}`)
-      .then((r) => r.data),
-  createQuotationDetail: (data: MotorQuotationDetailPayload) =>
-    apiClient
-      .post<MotorQuotationDetailRecord>('/tenant/motor/quotation-details', data)
-      .then((r) => r.data),
-  updateQuotationDetail: (id: string, data: MotorQuotationDetailPayload) =>
-    apiClient
-      .patch<MotorQuotationDetailRecord>(
-        `/tenant/motor/quotation-details/${id}`,
-        data,
-      )
-      .then((r) => r.data),
-  deleteQuotationDetail: (id: string) =>
-    apiClient
-      .delete(`/tenant/motor/quotation-details/${id}`)
-      .then((r) => r.data),
-  restoreQuotationDetail: (id: string) =>
-    apiClient
-      .patch(`/tenant/motor/quotation-details/${id}/restore`)
-      .then((r) => r.data),
-
   getPolicyDetails: async (
     policyId?: string,
   ): Promise<MotorPolicyDetailRecord[]> => {
@@ -169,12 +133,4 @@ export const motorApi = {
     apiClient
       .get<PolicyRiskOption[]>(`/tenant/policies/${policyId}/risks`)
       .then((r) => r.data),
-  getQuotationRisks: async (
-    quotationId: string,
-  ): Promise<CustomerRiskOption[]> => {
-    const response = await apiClient.get(
-      `/tenant/quotations/${quotationId}/breakdowns`,
-    );
-    return response.data as CustomerRiskOption[];
-  },
 };

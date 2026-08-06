@@ -59,7 +59,7 @@ import {
   useUpdateCompanyStatus,
   useDeleteCompany,
 } from '@/modules/platform/companies/hooks';
-import type { Company, SortOrder } from '@/types';
+import type { Company } from '@/types';
 import type { CompanySortKey } from '@/modules/platform/companies/hooks';
 import type {
   CreateCompanyExtendedDto,

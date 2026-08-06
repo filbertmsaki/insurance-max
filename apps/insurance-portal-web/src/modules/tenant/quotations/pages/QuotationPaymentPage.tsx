@@ -1,194 +1,122 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
-import { billingApi } from '@/modules/tenant/billing/api';
-import type { InvoiceRecord } from '@/modules/tenant/billing/types';
-import { getApiErrorMessage } from '@/lib/api-error';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
-import { useQuotationDetail } from '../hooks';
-import { PaymentStatusBadge } from '../components/PaymentStatusBadge';
-import { useTransitionQuotationStatus } from '../hooks';
+import { financeApi } from '@/modules/tenant/finance/api';
+import {
+  FinanceStatusBadge,
+  createIdempotencyKey,
+  formatMoney,
+  partyName,
+} from '@/modules/tenant/finance/components';
+import {
+  useQuotationDetail,
+  useQuotationWorkflow,
+  useRequestQuotationPayment,
+} from '../hooks';
 
-const PAYMENT_METHODS = [
-  'Cash',
-  'Cheque',
-  'EFT',
-  'Bank Transfer',
-  'Mobile Money',
-];
+type PaymentMethodCode =
+  | 'BANK_TRANSFER'
+  | 'EFT'
+  | 'MOBILE_MONEY'
+  | 'CARD'
+  | 'CASH'
+  | 'CHEQUE';
 
 export function QuotationPaymentPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: quotation, isLoading: loadingQuotation } =
     useQuotationDetail(id);
-  const transitionStatusMutation = useTransitionQuotationStatus(id);
-
-  const [invoice, setInvoice] = useState<InvoiceRecord | null>(null);
-  const [loadingInvoice, setLoadingInvoice] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [recording, setRecording] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]);
+  const { data: workflow, isLoading: loadingWorkflow } =
+    useQuotationWorkflow(id);
+  const requestPaymentMutation = useRequestQuotationPayment(id);
+  const [paymentMethod, setPaymentMethod] =
+    useState<PaymentMethodCode>('BANK_TRANSFER');
   const [amount, setAmount] = useState('');
   const [reference, setReference] = useState('');
+  const [payerName, setPayerName] = useState('');
 
-  const currencyCode =
-    quotation?.cover_note_dtl.fleet_hdr?.currency_code ??
-    quotation?.cover_note_dtl.currency_code ??
-    'TZS';
-  const basicPremium =
-    Number(
-      quotation?.cover_note_dtl.fleet_hdr?.total_premium_excluding_tax ??
-        quotation?.cover_note_dtl.total_premium_excluding_tax ??
-        0,
-    ) || 0;
-  const totalPremium =
-    Number(
-      quotation?.cover_note_dtl.fleet_hdr?.total_premium_including_tax ??
-        quotation?.cover_note_dtl.total_premium_including_tax ??
-        0,
-    ) || 0;
-  const taxAmount = Math.max(0, totalPremium - basicPremium);
-  const customerReference = quotation?.customer_id ?? '';
+  const invoicesQuery = useQuery({
+    queryKey: ['finance', 'quotation-payment', 'invoices', id],
+    queryFn: () => financeApi.getInvoices({ limit: 100 }),
+    enabled: !!id,
+  });
 
-  useEffect(() => {
-    if (!id) return;
-    let cancelled = false;
+  const invoice = useMemo(() => {
+    const items = invoicesQuery.data?.data ?? [];
+    return (
+      items.find(
+        (item) =>
+          item.quotation_id === id &&
+          !['VOIDED', 'CANCELLED'].includes(String(item.status).toUpperCase()),
+      ) ?? null
+    );
+  }, [id, invoicesQuery.data]);
 
-    (async () => {
-      try {
-        const page = await billingApi.getInvoices({
-          limit: API_MAX_LIST_LIMIT,
-        });
-        const existing =
-          page.data.find((item) => item.quotation_id === id) ?? null;
-        if (!cancelled) {
-          setInvoice(existing);
-          if (existing) setAmount(existing.balance_amount);
-        }
-      } catch (error) {
-        toast.error(getApiErrorMessage(error));
-      } finally {
-        if (!cancelled) setLoadingInvoice(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
-
-  async function generateInvoice() {
-    if (!quotation) return;
-    if (!customerReference) {
-      toast.error(
-        'Quotation customer is missing. Please reload the quotation or create it again.',
-      );
-      return;
-    }
-    setGenerating(true);
-    try {
-      const created = await billingApi.createInvoice({
-        insurer_company_id: quotation.internal_quotation.insurer_company_id,
-        customer_id: customerReference,
-        quotation_id: quotation.id,
-        invoice_type: 'POLICY',
-        currency: currencyCode,
-        gross_amount: basicPremium,
-        discount_amount: 0,
-        tax_amount: taxAmount,
-        charges_amount: 0,
-        total_amount: totalPremium,
-        paid_amount: 0,
-        balance_amount: totalPremium,
-        status: 'ISSUED',
+  const issueMutation = useMutation({
+    mutationFn: () =>
+      financeApi.issueInvoice(invoice!.id, {
+        expected_state_version: invoice?.state_version ?? 1,
+        idempotency_key: createIdempotencyKey('quotation-invoice-issue'),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['finance', 'quotation-payment', 'invoices', id],
       });
-      await transitionStatusMutation.mutateAsync({
-        action: 'MARK_PAYMENT_REQUESTED',
-        reason: `Invoice ${created.invoice_no} generated for quotation payment`,
-      });
-      setInvoice(created);
-      setAmount(created.balance_amount);
-      toast.success(`Invoice ${created.invoice_no} generated`);
-    } catch (error) {
-      toast.error(getApiErrorMessage(error));
-    } finally {
-      setGenerating(false);
-    }
-  }
+      queryClient.invalidateQueries({ queryKey: ['finance', 'invoices'] });
+    },
+  });
 
-  async function recordPayment() {
-    if (!invoice) return;
-    const paidNow = Number(amount);
-    if (!Number.isFinite(paidNow) || paidNow <= 0) {
-      toast.error('Enter a valid payment amount');
-      return;
-    }
-    setRecording(true);
-    try {
-      const receipt = await billingApi.createReceipt({
+  const recordPaymentMutation = useMutation({
+    mutationFn: async () => {
+      if (!invoice) throw new Error('Invoice not found');
+
+      const paymentAmount = Number(amount || invoice.balance_amount || 0);
+      const payment = await financeApi.recordManualPayment({
+        invoice_id: invoice.id,
         customer_id: invoice.customer_id,
-        invoice_id: invoice.id,
         payment_method: paymentMethod,
-        amount: paidNow,
-        currency: invoice.currency,
-        payment_reference: reference || null,
-        status: 'RECEIVED',
+        provider_code: 'MANUAL',
+        payment_reference: reference || invoice.invoice_no,
+        amount: paymentAmount,
+        currency_code: invoice.currency ?? invoice.currency_code ?? 'TZS',
+        payer_name: payerName || partyName(invoice.customer),
+        idempotency_key: createIdempotencyKey('quotation-manual-payment'),
       });
-      await billingApi.createPaymentTransaction({
+
+      await financeApi.postReceipt({
+        payment_transaction_id: payment.id,
         invoice_id: invoice.id,
-        receipt_id: receipt.id,
-        provider: paymentMethod,
-        provider_reference: reference || receipt.receipt_no,
-        internal_reference: receipt.receipt_no,
-        amount: paidNow,
-        currency: invoice.currency,
-        status: 'SUCCESS',
+        allocation_amount: paymentAmount,
+        idempotency_key: createIdempotencyKey('quotation-receipt-post'),
       });
-
-      const newPaid = (Number(invoice.paid_amount) || 0) + paidNow;
-      const totalAmount = Number(invoice.total_amount) || 0;
-      const newBalance = Math.max(0, totalAmount - newPaid);
-      const updated = await billingApi.updateInvoice(invoice.id, {
-        paid_amount: newPaid,
-        balance_amount: newBalance,
-        status: newBalance <= 0 ? 'PAID' : 'PARTIALLY_PAID',
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['finance', 'quotation-payment', 'invoices', id],
       });
-      await transitionStatusMutation.mutateAsync({
-        action: newBalance <= 0 ? 'MARK_PAYMENT_PAID' : 'MARK_PARTIALLY_PAID',
-        reason:
-          newBalance <= 0
-            ? 'Payment completed from manual quotation payment screen'
-            : 'Partial payment recorded from manual quotation payment screen',
-        payment_transaction_id: reference || receipt.receipt_no,
+      queryClient.invalidateQueries({ queryKey: ['finance', 'invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['finance', 'payments'] });
+      queryClient.invalidateQueries({ queryKey: ['finance', 'receipts'] });
+      queryClient.invalidateQueries({ queryKey: ['quotations', 'detail', id] });
+      queryClient.invalidateQueries({
+        queryKey: ['quotations', 'workflow', id],
       });
-      setInvoice(updated);
-      setAmount(updated.balance_amount);
+      setAmount('');
       setReference('');
-      toast.success('Payment recorded');
-    } catch (error) {
-      toast.error(getApiErrorMessage(error));
-    } finally {
-      setRecording(false);
-    }
-  }
+    },
+  });
 
-  if (loadingQuotation || loadingInvoice) {
+  if (loadingQuotation || loadingWorkflow || invoicesQuery.isLoading) {
     return <Skeleton className="h-96 w-full" />;
   }
 
@@ -206,7 +134,22 @@ export function QuotationPaymentPage() {
     );
   }
 
-  const isPaid = invoice?.status === 'PAID';
+  const paymentBlockingReasons = workflow?.blockingReasons ?? [];
+  const canRequestPayment =
+    workflow?.availableCommands.REQUEST_PAYMENT ?? false;
+  const currencyCode =
+    quotation?.cover_note_dtl.fleet_hdr?.currency_code ??
+    quotation?.cover_note_dtl.currency_code ??
+    'TZS';
+  const totalPremium =
+    Number(
+      quotation?.cover_note_dtl.fleet_hdr?.total_premium_including_tax ??
+        quotation?.cover_note_dtl.total_premium_including_tax ??
+        0,
+    ) || 0;
+  const isPaid = ['PAID', 'OVERPAID'].includes(
+    String(invoice?.status).toUpperCase(),
+  );
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -226,63 +169,118 @@ export function QuotationPaymentPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Invoice</CardTitle>
-          <PaymentStatusBadge status={invoice?.status} />
+          <FinanceStatusBadge
+            status={invoice?.status ?? workflow?.payment.status ?? 'REQUESTED'}
+          />
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           {!invoice ? (
             <>
               <p className="text-slate-500">
-                No invoice has been generated for this quotation yet. Generating
-                one uses the authoritative quotation premium totals:{' '}
-                {totalPremium} {currencyCode}.
+                No finance invoice exists for this quotation yet. Requesting
+                payment will create or reuse the quotation invoice snapshot from
+                the authoritative workflow.
               </p>
+              <p className="font-medium text-slate-900">
+                Required premium: {formatMoney(totalPremium, currencyCode)}
+              </p>
+              {paymentBlockingReasons.length > 0 && !canRequestPayment ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                  {paymentBlockingReasons.map((reason) => (
+                    <p key={`${reason.code}:${reason.message}`}>
+                      {reason.message}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
               <Button
                 type="button"
-                onClick={generateInvoice}
-                disabled={generating}
+                onClick={() => requestPaymentMutation.mutate()}
+                disabled={
+                  requestPaymentMutation.isPending || !canRequestPayment
+                }
               >
-                {generating ? 'Generating...' : 'Generate Invoice'}
+                {requestPaymentMutation.isPending
+                  ? 'Requesting...'
+                  : 'Request Payment'}
               </Button>
             </>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               <p>Invoice No: {invoice.invoice_no}</p>
-              <p>Currency: {invoice.currency}</p>
-              <p>Total: {invoice.total_amount}</p>
-              <p>Paid: {invoice.paid_amount}</p>
-              <p className="font-medium text-slate-900">
-                Balance: {invoice.balance_amount}
+              <p>Status: {invoice.status}</p>
+              <p>
+                Total:{' '}
+                {formatMoney(
+                  invoice.total_amount,
+                  invoice.currency ?? invoice.currency_code,
+                )}
+              </p>
+              <p>
+                Paid:{' '}
+                {formatMoney(
+                  invoice.paid_amount,
+                  invoice.currency ?? invoice.currency_code,
+                )}
+              </p>
+              <p>
+                Balance:{' '}
+                {formatMoney(
+                  invoice.balance_amount,
+                  invoice.currency ?? invoice.currency_code,
+                )}
+              </p>
+              <p>
+                Workflow Payment Status: {workflow?.payment.status ?? 'N/A'}
               </p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {invoice && !isPaid && (
+      {invoice?.status === 'DRAFT' ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Record Payment</CardTitle>
+            <CardTitle className="text-base">Issue Invoice</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-slate-500">
+              Draft quotation invoices do not open the payment gate until they
+              are issued.
+            </p>
+            <Button
+              onClick={() => issueMutation.mutate()}
+              disabled={issueMutation.isPending}
+            >
+              {issueMutation.isPending ? 'Issuing...' : 'Issue Invoice'}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {invoice &&
+      !isPaid &&
+      ['ISSUED', 'PARTIALLY_PAID'].includes(invoice.status) ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Record Manual Payment</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-xs text-slate-400">
-              Record money already received outside the system. This remains a
-              manual billing flow.
+              This records a payment transaction, posts the receipt, and
+              allocates it through backend finance commands.
             </p>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <Label className="mb-2 block">Payment Method</Label>
-                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PAYMENT_METHODS.map((method) => (
-                      <SelectItem key={method} value={method}>
-                        {method}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Input
+                  value={paymentMethod}
+                  onChange={(event) =>
+                    setPaymentMethod(
+                      event.target.value.toUpperCase() as PaymentMethodCode,
+                    )
+                  }
+                />
               </div>
               <div>
                 <Label className="mb-2 block">Amount</Label>
@@ -290,30 +288,45 @@ export function QuotationPaymentPage() {
                   type="number"
                   value={amount}
                   onChange={(event) => setAmount(event.target.value)}
+                  placeholder={invoice.balance_amount}
                 />
               </div>
-              <div className="md:col-span-2">
-                <Label className="mb-2 block">Reference (optional)</Label>
+              <div>
+                <Label className="mb-2 block">Reference</Label>
                 <Input
                   value={reference}
                   onChange={(event) => setReference(event.target.value)}
-                  placeholder="Transaction or receipt reference"
+                  placeholder="Transaction reference"
+                />
+              </div>
+              <div>
+                <Label className="mb-2 block">Payer Name</Label>
+                <Input
+                  value={payerName}
+                  onChange={(event) => setPayerName(event.target.value)}
+                  placeholder={partyName(invoice.customer)}
                 />
               </div>
             </div>
-            <Button type="button" onClick={recordPayment} disabled={recording}>
-              {recording ? 'Recording...' : 'Record Payment'}
+            <Button
+              type="button"
+              onClick={() => recordPaymentMutation.mutate()}
+              disabled={recordPaymentMutation.isPending}
+            >
+              {recordPaymentMutation.isPending
+                ? 'Posting...'
+                : 'Record and Allocate Payment'}
             </Button>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
-      {isPaid && (
+      {isPaid ? (
         <Card>
           <CardContent className="flex items-center justify-between pt-6 text-sm">
             <p className="text-emerald-700">
-              Payment complete. This quotation can now proceed to TIRAMIS
-              submission from the quotation detail page.
+              Payment complete. The quotation payment gate can now move forward
+              from finance-backed allocations.
             </p>
             <Button
               type="button"
@@ -325,7 +338,7 @@ export function QuotationPaymentPage() {
             </Button>
           </CardContent>
         </Card>
-      )}
+      ) : null}
     </div>
   );
 }

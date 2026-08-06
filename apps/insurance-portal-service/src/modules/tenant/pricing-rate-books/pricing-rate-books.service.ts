@@ -511,9 +511,7 @@ export class PricingRateBooksService {
           .getRepository(PricingRateBook)
           .save(rateBook);
 
-        const riskIds = Array.from(
-          new Set(rules.map((rule) => rule.risk_id)),
-        );
+        const riskIds = Array.from(new Set(rules.map((rule) => rule.risk_id)));
 
         if (riskIds.length > 0) {
           await manager
@@ -717,7 +715,8 @@ export class PricingRateBooksService {
         tiramis_addon_code: addonDefinition.tiramis_addon_code,
         is_optional: addonDefinition.is_optional,
         is_default_selected: addonDefinition.is_default_selected,
-        allows_separate_sum_insured: addonDefinition.allows_separate_sum_insured,
+        allows_separate_sum_insured:
+          addonDefinition.allows_separate_sum_insured,
         maximum_quantity: addonDefinition.maximum_quantity,
       },
       created_by: userId,
@@ -744,7 +743,8 @@ export class PricingRateBooksService {
       throw new NotFoundException('Add-on rate rule not found');
     }
 
-    if (dto.rule_code !== undefined) rule.rule_code = dto.rule_code.trim().toUpperCase();
+    if (dto.rule_code !== undefined)
+      rule.rule_code = dto.rule_code.trim().toUpperCase();
     if (dto.pricing_type !== undefined) rule.pricing_type = dto.pricing_type;
     if (dto.percentage_rate !== undefined)
       rule.percentage_rate = dto.percentage_rate?.toString() ?? null;
@@ -758,8 +758,10 @@ export class PricingRateBooksService {
       rule.minimum_amount = dto.minimum_amount?.toString() ?? null;
     if (dto.maximum_amount !== undefined)
       rule.maximum_amount = dto.maximum_amount?.toString() ?? null;
-    if (dto.effective_from !== undefined) rule.effective_from = dto.effective_from ?? null;
-    if (dto.effective_to !== undefined) rule.effective_to = dto.effective_to ?? null;
+    if (dto.effective_from !== undefined)
+      rule.effective_from = dto.effective_from ?? null;
+    if (dto.effective_to !== undefined)
+      rule.effective_to = dto.effective_to ?? null;
     if (dto.priority !== undefined) rule.priority = dto.priority;
     if (dto.is_active !== undefined) rule.is_active = dto.is_active;
     rule.updated_by = userId;

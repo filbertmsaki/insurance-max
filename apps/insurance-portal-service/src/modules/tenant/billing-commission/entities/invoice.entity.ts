@@ -69,6 +69,15 @@ export class Invoice {
   @Column({ type: 'varchar', length: 30 })
   invoice_type: string;
 
+  @Column({ type: 'varchar', length: 40, default: 'MANUAL' })
+  source_type: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  source_record_id: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  source_revision: number | null;
+
   @Column({ type: 'varchar', length: 10, default: 'TZS' })
   currency: string;
 
@@ -90,11 +99,41 @@ export class Invoice {
   @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
   paid_amount: string;
 
+  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  allocated_amount: string;
+
+  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  refunded_amount: string;
+
+  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  written_off_amount: string;
+
   @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
   balance_amount: string;
 
   @Column({ type: 'varchar', length: 20, default: 'DRAFT' })
   status: string;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  pricing_result_hash: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  source_snapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  source_snapshot_hash: string | null;
+
+  @Column({ type: 'int', default: 1 })
+  balance_revision: number;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  balance_hash: string | null;
+
+  @Column({ type: 'int', default: 1 })
+  state_version: number;
+
+  @Column({ type: 'text', nullable: true })
+  notes: string | null;
 
   @Column({ type: 'date', nullable: true })
   due_date: string | null;
@@ -110,6 +149,12 @@ export class Invoice {
 
   @Column({ type: 'timestamptz', nullable: true })
   posted_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  issued_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  issued_at: Date | null;
 
   @Column({ type: 'uuid', nullable: true })
   voided_by: string | null;
@@ -168,6 +213,10 @@ export class Invoice {
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'posted_by' })
   poster: User | null;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'issued_by' })
+  issuer: User | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'voided_by' })

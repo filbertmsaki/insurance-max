@@ -35,6 +35,7 @@ import {
   useApproveQuotationPremiumOverride,
   useCancelQuotation,
   useQuotationPreview,
+  useQuotationWorkflow,
   useRequestQuotationPayment,
   useRequestQuotationPremiumOverride,
   useRetryQuotationTira,
@@ -45,14 +46,8 @@ import {
 import type {
   QuotationPreviewPremiumOverride,
   QuotationPreviewRisk,
+  QuotationWorkflowBlockingReason,
 } from '../types';
-
-const TERMINAL_STATUSES = new Set([
-  'CANCELLED',
-  'EXPIRED',
-  'COMPLETED',
-  'REJECTED',
-]);
 type PremiumOverrideRequestDialogState = {
   risk: QuotationPreviewRisk;
   open: boolean;
@@ -71,6 +66,8 @@ export function QuotationDetailPage() {
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
   const { data: preview, isLoading } = useQuotationPreview(id);
+  const { data: workflow, isLoading: workflowLoading } =
+    useQuotationWorkflow(id);
   const submitMutation = useSubmitQuotation(id);
   const submitForApprovalMutation = useSubmitQuotationForApproval(id);
   const requestPaymentMutation = useRequestQuotationPayment(id);
@@ -91,37 +88,22 @@ export function QuotationDetailPage() {
   const [overrideDecisionReason, setOverrideDecisionReason] = useState('');
 
   const quotationStatus = preview?.overview.quotation_status ?? null;
-  const approvalStatus = preview?.overview.approval_status ?? null;
   const paymentStatus = preview?.overview.payment_status ?? null;
-  const tiraStatus = preview?.overview.tira_status ?? null;
   const displayStatus = preview?.overview.display_status ?? null;
   const pricingIntegration = preview?.pricing_integration ?? null;
-  const hasStalePricing = pricingIntegration?.is_stale ?? false;
-  const requiresApproval = preview?.overview.requires_approval ?? false;
-  const requiresPayment = preview?.overview.requires_payment ?? false;
   const submittedAt = preview?.overview.submitted_at ?? null;
-  const canSubmit = quotationStatus === 'READY_FOR_SUBMISSION';
+  const hasStalePricing = pricingIntegration?.is_stale ?? false;
+  const canSubmit = workflow?.availableCommands.SUBMIT_TIRAMIS ?? false;
   const canSubmitForApproval =
-    requiresApproval &&
-    approvalStatus !== 'PENDING' &&
-    approvalStatus !== 'APPROVED' &&
-    quotationStatus !== 'DRAFT';
+    workflow?.availableCommands.SUBMIT_APPROVAL ?? false;
   const canRequestPayment =
-    requiresPayment &&
-    (!requiresApproval || approvalStatus === 'APPROVED') &&
-    ['NOT_INITIATED', 'FAILED', 'EXPIRED'].includes(paymentStatus ?? '') &&
-    quotationStatus !== 'DRAFT';
-  const canRetrySubmission =
-    quotationStatus === 'FAILED' && tiraStatus === 'FAILED';
-  const canCancel =
-    !!quotationStatus &&
-    !TERMINAL_STATUSES.has(quotationStatus) &&
-    quotationStatus !== 'COMPLETED';
+    workflow?.availableCommands.REQUEST_PAYMENT ?? false;
+  const canRetrySubmission = workflow?.availableCommands.RETRY_TIRAMIS ?? false;
+  const canCancel = workflow?.availableCommands.CANCEL ?? false;
   const canManagePremiumOverrides =
     !submittedAt &&
     !!quotationStatus &&
-    !TERMINAL_STATUSES.has(quotationStatus) &&
-    tiraStatus === 'NOT_SUBMITTED';
+    workflow?.submission.status === 'NOT_READY';
   const canRequestPremiumOverride = hasPermission('pricing.request_override');
   const canApprovePremiumOverride = hasPermission('pricing.approve_override');
   const canRejectPremiumOverride = hasPermission('pricing.approve_override');
@@ -321,6 +303,15 @@ export function QuotationDetailPage() {
     );
   }
 
+  const workflowBlockingReasons = (workflow?.blockingReasons ?? []).filter(
+    (reason, index, collection) =>
+      collection.findIndex(
+        (candidate) =>
+          candidate.code === reason.code &&
+          candidate.message === reason.message,
+      ) === index,
+  );
+
   if (!preview) {
     return (
       <div className="py-24 text-center text-slate-500">
@@ -434,6 +425,21 @@ export function QuotationDetailPage() {
         </div>
         {actionButtons}
       </div>
+
+      {!workflowLoading && workflowBlockingReasons.length > 0 ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-medium">Workflow blockers</p>
+          <ul className="mt-2 space-y-1">
+            {workflowBlockingReasons.map(
+              (reason: QuotationWorkflowBlockingReason) => (
+                <li key={`${reason.code}:${reason.message}`}>
+                  {reason.message}
+                </li>
+              ),
+            )}
+          </ul>
+        </div>
+      ) : null}
 
       <Tabs defaultValue={tabs[0]} className="space-y-4">
         <TabsList className="h-auto flex-wrap gap-1">

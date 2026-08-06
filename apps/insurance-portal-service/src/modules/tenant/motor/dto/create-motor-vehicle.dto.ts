@@ -1,4 +1,6 @@
 import {
+  IsDateString,
+  IsEnum,
   IsInt,
   IsObject,
   IsOptional,
@@ -7,10 +9,28 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { AssetOwnershipType } from '@insurance-max/contracts';
 
 export class CreateMotorVehicleDto {
   @IsUUID()
   customer_id: string;
+
+  @IsOptional()
+  @IsUUID()
+  owner_customer_id?: string | null;
+
+  @IsOptional()
+  @IsEnum(AssetOwnershipType)
+  ownership_type?: AssetOwnershipType | null;
+
+  @IsOptional()
+  @IsDateString()
+  ownership_effective_from?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  ownership_change_reason?: string | null;
 
   @IsOptional()
   @IsString()

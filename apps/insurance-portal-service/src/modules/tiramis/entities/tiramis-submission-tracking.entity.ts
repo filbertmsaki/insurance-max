@@ -8,6 +8,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+import type { TiramisIntegrationStatus } from '@insurance-max/contracts';
+
 import { TiramisRequestType } from '../enums/tiramis-request-type.enum';
 import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum';
 
@@ -25,6 +27,8 @@ import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum
 @Index(['tiramisTransactionId'])
 @Index(['tiramisRequestId'])
 @Index(['status'])
+@Index(['canonicalStatus'])
+@Index(['correlationId'])
 export class TiramisSubmissionTrackingEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -43,6 +47,58 @@ export class TiramisSubmissionTrackingEntity {
     default: TiramisSubmissionStatus.PENDING,
   })
   status!: TiramisSubmissionStatus;
+
+  @Column({
+    name: 'schema_version',
+    type: 'varchar',
+    length: 100,
+    default: 'insurance-max.tiramis.submission.v1',
+  })
+  schemaVersion!: string;
+
+  @Column({
+    name: 'contract_version',
+    type: 'varchar',
+    length: 20,
+    default: '1.0',
+  })
+  contractVersion!: string;
+
+  @Column({
+    name: 'workflow_revision',
+    type: 'int',
+    nullable: true,
+  })
+  workflowRevision?: number | null;
+
+  @Column({
+    name: 'correlation_id',
+    type: 'uuid',
+    nullable: true,
+  })
+  correlationId?: string | null;
+
+  @Column({
+    name: 'causation_id',
+    type: 'uuid',
+    nullable: true,
+  })
+  causationId?: string | null;
+
+  @Column({
+    name: 'canonical_status',
+    type: 'varchar',
+    length: 60,
+    default: 'CREATED',
+  })
+  canonicalStatus!: TiramisIntegrationStatus | string;
+
+  @Column({
+    name: 'resource_version',
+    type: 'int',
+    default: 1,
+  })
+  resourceVersion!: number;
 
   @Column({
     name: 'source_service',
@@ -231,6 +287,79 @@ export class TiramisSubmissionTrackingEntity {
     nullable: true,
   })
   requestPayload?: Record<string, any> | null;
+
+  @Column({
+    name: 'envelope',
+    type: 'jsonb',
+    nullable: true,
+  })
+  envelope?: Record<string, any> | null;
+
+  @Column({
+    name: 'payload_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  payloadHash?: string | null;
+
+  @Column({
+    name: 'context_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  contextHash?: string | null;
+
+  @Column({
+    name: 'envelope_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  envelopeHash?: string | null;
+
+  @Column({
+    name: 'latest_event_sequence',
+    type: 'int',
+    default: 0,
+  })
+  latestEventSequence!: number;
+
+  @Column({
+    name: 'latest_event_id',
+    type: 'uuid',
+    nullable: true,
+  })
+  latestEventId?: string | null;
+
+  @Column({
+    name: 'reconciliation_required',
+    type: 'boolean',
+    default: false,
+  })
+  reconciliationRequired!: boolean;
+
+  @Column({
+    name: 'reconciliation_reason',
+    type: 'text',
+    nullable: true,
+  })
+  reconciliationReason?: string | null;
+
+  @Column({
+    name: 'last_reconciled_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  lastReconciledAt?: Date | null;
+
+  @Column({
+    name: 'legacy_portal_submission_id',
+    type: 'uuid',
+    nullable: true,
+  })
+  legacyPortalSubmissionId?: string | null;
 
   @Column({
     name: 'tiramis_response_payload',

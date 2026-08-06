@@ -75,6 +75,11 @@ export class ServiceAuthGuard implements CanActivate {
       scopes: payload.scopes,
       tenant: payload.tenant,
       actor: payload.actor,
+      product: payload.product,
+      pricing: payload.pricing,
+      insuredData: payload.insuredData,
+      quotationGate: payload.quotationGate,
+      finance: payload.finance,
     };
 
     (request as Request & { servicePrincipal: unknown }).servicePrincipal =
