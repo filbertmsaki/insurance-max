@@ -257,6 +257,54 @@ export class FinanceJournalService {
     );
   }
 
+  /**
+   * Posts a claim payment disbursement. Takes primitives rather than a
+   * `ClaimDisbursement` entity so `billing-commission` doesn't need to
+   * depend on the `claims` module — the claims module owns disbursement
+   * lifecycle/authority, Finance only owns the ledger entry.
+   */
+  async postClaimDisbursement(
+    manager: EntityManager,
+    params: {
+      companyId: string;
+      disbursementId: string;
+      disbursementNo: string;
+      customerId: string | null;
+      amount: string;
+      currencyCode: string;
+    },
+    sourceEventId: string,
+    userId: string | null,
+  ) {
+    return this.postJournal(
+      manager,
+      params.companyId,
+      {
+        sourceType: 'CLAIM_DISBURSEMENT',
+        sourceId: params.disbursementId,
+        sourceEventId,
+        description: `Claim disbursement ${params.disbursementNo} paid`,
+        currencyCode: params.currencyCode,
+        lines: [
+          {
+            accountCode: '2400',
+            accountName: 'Claims Payable',
+            accountType: 'LIABILITY',
+            customerId: params.customerId,
+            debit: params.amount,
+          },
+          {
+            accountCode: '1100',
+            accountName: 'Bank/Cash',
+            accountType: 'ASSET',
+            credit: params.amount,
+          },
+        ],
+      },
+      userId,
+    );
+  }
+
   async postCommissionPayment(
     manager: EntityManager,
     payment: CommissionPayment,

@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 
 import type {
+  ServiceClaimContext,
   ServiceFinanceContext,
   ServiceInsuredDataContext,
   ServicePolicyTransactionContext,
@@ -160,4 +161,12 @@ export class SubmitTiramisDto {
   @IsOptional()
   @IsObject()
   policyTransactionContext?: ServicePolicyTransactionContext;
+
+  @ApiPropertyOptional({
+    description:
+      'Signed claim regulatory-operation context, resolved internally - never accepted from an external caller.',
+  })
+  @IsOptional()
+  @IsObject()
+  claimContext?: ServiceClaimContext;
 }

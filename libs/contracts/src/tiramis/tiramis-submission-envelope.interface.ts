@@ -1,3 +1,4 @@
+import type { ServiceClaimContext } from '../claims/claim.interface';
 import type { ServiceFinanceContext } from '../finance/finance.interface';
 import type { ServiceInsuredDataContext } from '../insured-data/service-insured-data-context.interface';
 import type { ServicePricingContext } from '../pricing/service-pricing-context.interface';
@@ -51,6 +52,7 @@ export interface TiramisSubmissionContext {
   quotationGate: ServiceQuotationGateContext | null;
   finance: ServiceFinanceContext | null;
   policyTransaction: ServicePolicyTransactionContext | null;
+  claim: ServiceClaimContext | null;
 }
 
 export interface TiramisSubmissionSource {

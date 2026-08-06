@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEnum,
   IsOptional,
   IsString,
@@ -48,4 +49,14 @@ export class AssignComplaintDto {
 export class ComplaintDecisionDto {
   @IsString()
   reason: string;
+}
+
+export class AddComplaintCommentDto {
+  @IsString()
+  @MaxLength(4000)
+  body: string;
+
+  @IsOptional()
+  @IsBoolean()
+  is_customer_visible?: boolean;
 }

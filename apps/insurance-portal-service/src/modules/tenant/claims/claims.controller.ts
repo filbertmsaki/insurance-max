@@ -27,16 +27,38 @@ import {
   CreateClaimReserveDto,
   CreateDischargeVoucherDto,
   CreateServiceAssignmentDto,
-  MarkClaimPaymentPaidDto,
   RejectClaimDto,
+  ReleaseReserveDto,
   RespondToDischargeDto,
   VerifyClaimDocumentDto,
 } from './dto/claim-workflow.dto';
+import {
+  ConfirmDisbursementDto,
+  FailDisbursementDto,
+  RequestDisbursementDto,
+} from './dto/claim-disbursement.dto';
+import {
+  ClaimDecisionActionDto,
+  CreateClaimDecisionDto,
+} from './dto/claim-decision.dto';
+import {
+  CreateClaimRecoveryDto,
+  RecordRecoveryReceiptDto,
+  WriteOffRecoveryDto,
+} from './dto/claim-recovery.dto';
+import { ClaimDecisionService } from './services/claim-decision.service';
+import { ClaimDisbursementService } from './services/claim-disbursement.service';
+import { ClaimRecoveryService } from './services/claim-recovery.service';
 
 @Controller('tenant/claims')
 @TenantScoped()
 export class ClaimsController {
-  constructor(private readonly claimsService: ClaimsService) {}
+  constructor(
+    private readonly claimsService: ClaimsService,
+    private readonly claimDecisionService: ClaimDecisionService,
+    private readonly claimDisbursementService: ClaimDisbursementService,
+    private readonly claimRecoveryService: ClaimRecoveryService,
+  ) {}
 
   @Post()
   @Permissions(ClaimsPermissions.CREATE)
@@ -130,6 +152,16 @@ export class ClaimsController {
     return this.claimsService.approveReserve(user, id);
   }
 
+  @Post('reserves/:id/release')
+  @Permissions(ClaimsPermissions.RESERVE_RELEASE)
+  releaseReserve(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ReleaseReserveDto,
+  ) {
+    return this.claimsService.releaseReserve(user, id, dto.reason);
+  }
+
   @Post(':id/service-assignments')
   @Permissions(ClaimsPermissions.ASSIGN)
   createServiceAssignment(
@@ -166,6 +198,53 @@ export class ClaimsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.claimsService.approveAssessment(user, id);
+  }
+
+  @Post(':id/decisions')
+  @Permissions(ClaimsPermissions.DECISION_CREATE)
+  createDecision(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateClaimDecisionDto,
+  ) {
+    return this.claimDecisionService.create(user, id, dto);
+  }
+
+  @Get(':id/decisions')
+  @Permissions(ClaimsPermissions.DECISION_CREATE)
+  listDecisions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.claimDecisionService.findAll(user.companyId!, id);
+  }
+
+  @Post('decisions/:id/submit')
+  @Permissions(ClaimsPermissions.DECISION_SUBMIT)
+  submitDecision(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.claimDecisionService.submit(user, id);
+  }
+
+  @Post('decisions/:id/approve')
+  @Permissions(ClaimsPermissions.DECISION_APPROVE)
+  approveDecision(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.claimDecisionService.approve(user, id);
+  }
+
+  @Post('decisions/:id/reject')
+  @Permissions(ClaimsPermissions.DECISION_REJECT)
+  rejectDecision(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ClaimDecisionActionDto,
+  ) {
+    return this.claimDecisionService.reject(user, id, dto.reason ?? '');
   }
 
   @Post(':id/discharge-vouchers')
@@ -234,14 +313,122 @@ export class ClaimsController {
     return this.claimsService.approvePayment(user, id);
   }
 
-  @Post('payments/:id/mark-paid')
-  @Permissions(ClaimsPermissions.PAYMENT_MARK_PAID)
-  markPaymentPaid(
+  @Post('payments/:id/request-disbursement')
+  @Permissions(ClaimsPermissions.PAYMENT_REQUEST_DISBURSEMENT)
+  requestDisbursement(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: MarkClaimPaymentPaidDto,
+    @Body() dto: RequestDisbursementDto,
   ) {
-    return this.claimsService.markPaymentPaid(user, id, dto);
+    return this.claimDisbursementService.requestDisbursement(
+      user,
+      id,
+      dto.idempotency_key,
+    );
+  }
+
+  @Post('disbursements/:id/confirm')
+  @Permissions(ClaimsPermissions.PAYMENT_CONFIRM_DISBURSEMENT)
+  confirmDisbursement(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ConfirmDisbursementDto,
+  ) {
+    return this.claimDisbursementService.confirmDisbursement(
+      user,
+      id,
+      dto.payment_method,
+      dto.provider_reference ?? null,
+    );
+  }
+
+  @Post('disbursements/:id/fail')
+  @Permissions(ClaimsPermissions.PAYMENT_CONFIRM_DISBURSEMENT)
+  failDisbursement(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: FailDisbursementDto,
+  ) {
+    return this.claimDisbursementService.failDisbursement(
+      user,
+      id,
+      dto.reason,
+    );
+  }
+
+  @Post('disbursements/:id/reverse')
+  @Permissions(ClaimsPermissions.PAYMENT_REVERSE)
+  reverseDisbursement(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: FailDisbursementDto,
+  ) {
+    return this.claimDisbursementService.reverseDisbursement(
+      user,
+      id,
+      dto.reason,
+    );
+  }
+
+  @Get(':id/recoveries')
+  @Permissions(ClaimsPermissions.RECOVERY_CREATE)
+  listRecoveries(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.claimRecoveryService.findAll(user.companyId!, id);
+  }
+
+  @Post(':id/recoveries')
+  @Permissions(ClaimsPermissions.RECOVERY_CREATE)
+  createRecovery(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateClaimRecoveryDto,
+  ) {
+    return this.claimRecoveryService.create(user, id, dto);
+  }
+
+  @Post('recoveries/:id/request')
+  @Permissions(ClaimsPermissions.RECOVERY_REQUEST)
+  requestRecovery(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.claimRecoveryService.request(user, id);
+  }
+
+  @Post('recoveries/:id/record-receipt')
+  @Permissions(ClaimsPermissions.RECOVERY_RECORD_RECEIPT)
+  recordRecoveryReceipt(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RecordRecoveryReceiptDto,
+  ) {
+    return this.claimRecoveryService.recordReceipt(
+      user,
+      id,
+      dto.received_amount,
+    );
+  }
+
+  @Post('recoveries/:id/write-off')
+  @Permissions(ClaimsPermissions.RECOVERY_WRITE_OFF)
+  writeOffRecovery(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: WriteOffRecoveryDto,
+  ) {
+    return this.claimRecoveryService.writeOff(user, id, dto.reason);
+  }
+
+  @Post('recoveries/:id/cancel')
+  @Permissions(ClaimsPermissions.RECOVERY_CANCEL)
+  cancelRecovery(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.claimRecoveryService.cancel(user, id);
   }
 
   @Post(':id/reject')

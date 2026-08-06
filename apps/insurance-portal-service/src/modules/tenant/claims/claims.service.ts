@@ -3,10 +3,13 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
+import { ClaimReserveMovementType } from '@insurance-max/contracts';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 
 import { AuditService } from '../../shared/audit/audit.service';
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
@@ -17,6 +20,10 @@ import { NotificationsService } from '../work-items/notifications.service';
 import { PolicyRisk } from '../policies/entities/policy-risk.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { WorkItemsService } from '../work-items/work-items.service';
+import { ClaimCoverageService } from './services/claim-coverage.service';
+import { ClaimReserveMovementService } from './services/claim-reserve-movement.service';
+import { ClaimFinancialProjectionService } from './services/claim-financial-projection.service';
+import { DocumentsService } from '../insurance-documents/documents.service';
 import { CreateClaimDto } from './dto/create-claim.dto';
 import { FindClaimsQueryDto } from './dto/find-claims-query.dto';
 import {
@@ -29,7 +36,6 @@ import {
   CreateClaimReserveDto,
   CreateDischargeVoucherDto,
   CreateServiceAssignmentDto,
-  MarkClaimPaymentPaidDto,
   RejectClaimDto,
   RespondToDischargeDto,
   VerifyClaimDocumentDto,
@@ -37,12 +43,14 @@ import {
 import {
   ClaimAssessmentStatus,
   ClaimDischargeStatus,
+  ClaimDisbursementStatus,
   ClaimDocumentStatus,
   ClaimLiabilityStatus,
   ClaimPriority,
   ClaimPaymentStatus,
   ClaimReserveStatus,
   ClaimServiceAssignmentStatus,
+  ClaimStage,
   ClaimStatus,
   DischargeResponse,
 } from './enums/claim.enums';
@@ -58,6 +66,7 @@ import { ClaimRejection } from './entities/claim-rejection.entity';
 import { ClaimReserve } from './entities/claim-reserve.entity';
 import { ClaimServiceAssignment } from './entities/claim-service-assignment.entity';
 import { ClaimStatusHistory } from './entities/claim-status-history.entity';
+import { ClaimDisbursement } from './entities/claim-disbursement.entity';
 
 @Injectable()
 export class ClaimsService {
@@ -97,6 +106,9 @@ export class ClaimsService {
     @InjectRepository(ClaimStatusHistory)
     private readonly statusHistoryRepository: Repository<ClaimStatusHistory>,
 
+    @InjectRepository(ClaimDisbursement)
+    private readonly claimDisbursementRepository: Repository<ClaimDisbursement>,
+
     @InjectRepository(Policy)
     private readonly policyRepository: Repository<Policy>,
 
@@ -114,6 +126,16 @@ export class ClaimsService {
     private readonly notificationsService: NotificationsService,
 
     private readonly auditService: AuditService,
+
+    private readonly coverageService: ClaimCoverageService,
+
+    private readonly hashService: ProductDefinitionHashService,
+
+    private readonly reserveMovementService: ClaimReserveMovementService,
+
+    private readonly financialProjectionService: ClaimFinancialProjectionService,
+
+    private readonly documentsService: DocumentsService,
   ) {}
 
   async create(
@@ -146,24 +168,44 @@ export class ClaimsService {
 
       this.validateLossDate(user, policy, dto.loss_date);
 
-      const duplicate = await manager
+      const coverage = await this.coverageService.evaluate(
+        manager,
+        policy,
+        dto.loss_date,
+      );
+
+      if (!coverage.covered) {
+        throw new UnprocessableEntityException({
+          code: 'CLAIM_COVERAGE_VALIDATION_FAILED',
+          details: coverage.blockers,
+        });
+      }
+
+      // A duplicate is a review signal, never an automatic hard block —
+      // legitimate multiple claims can arise from the same incident
+      // (§14.5/14.13).
+      const duplicateFingerprint = this.hashService.hashDefinition({
+        policyId: policy.id,
+        policyRiskId: dto.policy_risk_id ?? null,
+        lossDate: dto.loss_date,
+        lossType: dto.loss_type.trim().toLowerCase(),
+        policeReportNumber: dto.police_report_number?.trim().toLowerCase() ?? null,
+        claimantNames: dto.claimants
+          .map((claimant) => claimant.full_name.trim().toLowerCase())
+          .sort(),
+      });
+
+      const possibleDuplicate = await manager
         .getRepository(InsuranceClaim)
         .createQueryBuilder('claim')
-        .where('claim.policy_id = :policyId', { policyId: policy.id })
-        .andWhere('claim.loss_date = :lossDate', {
-          lossDate: dto.loss_date,
+        .where('claim.company_id = :companyId', {
+          companyId: policy.insurer_company_id,
         })
-        .andWhere('LOWER(claim.loss_type) = LOWER(:lossType)', {
-          lossType: dto.loss_type.trim(),
+        .andWhere('claim.duplicate_fingerprint = :fingerprint', {
+          fingerprint: duplicateFingerprint,
         })
         .andWhere('claim.deleted_at IS NULL')
         .getOne();
-
-      if (duplicate) {
-        throw new ConflictException(
-          `A similar claim already exists: ${duplicate.claim_no}`,
-        );
-      }
 
       const year = new Date().getFullYear();
       const claimNo = await this.referenceService.next({
@@ -179,6 +221,21 @@ export class ClaimsService {
         manager,
       });
 
+      const incidentSnapshot = {
+        lossDate: dto.loss_date,
+        lossNature: dto.loss_nature.trim(),
+        lossType: dto.loss_type.trim(),
+        lossLocation: dto.loss_location.trim(),
+        description: dto.description.trim(),
+        causeOfLoss: dto.cause_of_loss?.trim() ?? null,
+        policeReportNumber: dto.police_report_number?.trim() ?? null,
+      };
+      const claimantManifest = dto.claimants.map((claimant) => ({
+        fullName: claimant.full_name.trim(),
+        claimantType: claimant.claimant_type,
+        identificationNumber: claimant.identification_number?.trim() ?? null,
+      }));
+
       const claim = manager.getRepository(InsuranceClaim).create({
         company_id: policy.insurer_company_id,
         insurer_company_id: policy.insurer_company_id,
@@ -189,6 +246,8 @@ export class ClaimsService {
         sale_point_id: user.defaultSalePointId ?? null,
         policy_id: policy.id,
         policy_risk_id: dto.policy_risk_id ?? null,
+        policy_version_id: coverage.version!.id,
+        policy_version_number: coverage.version!.version_number,
         customer_id: policy.customer_id,
         assigned_user_id: null,
         reported_by_user_id: user.id,
@@ -225,6 +284,19 @@ export class ClaimsService {
         litigation_indicator: false,
         metadata: dto.metadata ?? null,
         tiramis_status: 'NOT_SUBMITTED',
+        claim_stage: ClaimStage.NOTIFICATION_PENDING,
+        coverage_status: coverage.status,
+        policy_snapshot: coverage.version!.policy_snapshot,
+        policy_snapshot_hash: coverage.version!.policy_snapshot_hash,
+        coverage_snapshot: coverage.coverageSnapshot,
+        coverage_snapshot_hash: coverage.coverageSnapshotHash,
+        incident_snapshot: incidentSnapshot,
+        incident_snapshot_hash: this.hashService.hashDefinition(incidentSnapshot),
+        claimant_manifest_hash: this.hashService.hashDefinition({
+          claimants: claimantManifest,
+        }),
+        duplicate_fingerprint: duplicateFingerprint,
+        possible_duplicate_of_id: possibleDuplicate?.id ?? null,
       });
 
       const savedClaim = await manager
@@ -474,13 +546,25 @@ export class ClaimsService {
   ) {
     await this.findOne(user, claimId);
 
+    // Storage key is always resolved through the controlled document
+    // registry, never accepted verbatim from the client (§14.9).
+    const registered = await this.documentsService.register(user, {
+      ownerType: 'CLAIM_DOCUMENT',
+      ownerId: claimId,
+      fileName: dto.file_name.trim(),
+      checksum: dto.checksum?.trim() ?? 'UNVERIFIED',
+      contentType: dto.mime_type?.trim() ?? null,
+      fileSize: dto.file_size ?? null,
+    });
+
     return this.documentRepository.save({
       company_id: user.companyId!,
       claim_id: claimId,
+      document_id: registered.id,
       document_type: dto.document_type.trim(),
       requirement_code: dto.requirement_code?.trim() ?? null,
       title: dto.title.trim(),
-      storage_key: dto.storage_key.trim(),
+      storage_key: registered.storage_key,
       file_name: dto.file_name.trim(),
       mime_type: dto.mime_type?.trim() ?? null,
       file_size: dto.file_size !== undefined ? String(dto.file_size) : null,
@@ -698,6 +782,100 @@ export class ClaimsService {
 
       await manager.getRepository(ClaimReserve).save(reserve);
       await this.recalculateClaimReserve(manager, reserve.claim_id);
+
+      const claimBeforeMovement = await manager
+        .getRepository(InsuranceClaim)
+        .findOneOrFail({ where: { id: reserve.claim_id } });
+      const movementType: ClaimReserveMovementType =
+        MoneyUtil.compare(claimBeforeMovement.gross_case_reserve, '0.00') === 0
+          ? ClaimReserveMovementType.INITIAL
+          : ClaimReserveMovementType.INCREASE;
+
+      await this.reserveMovementService.record(
+        manager,
+        reserve,
+        movementType,
+        reserve.amount,
+        reserve.reason,
+        `reserve-approved:${reserve.id}`,
+        user.id,
+      );
+      await this.financialProjectionService.recalculate(
+        manager,
+        reserve.claim_id,
+      );
+
+      return reserve;
+    });
+  }
+
+  async releaseReserve(
+    user: AuthenticatedUser,
+    reserveId: string,
+    reason: string,
+  ) {
+    return this.dataSource.transaction(async (manager) => {
+      const reserve = await manager
+        .getRepository(ClaimReserve)
+        .createQueryBuilder('reserve')
+        .setLock('pessimistic_write')
+        .where('reserve.id = :id', { id: reserveId })
+        .andWhere('reserve.company_id = :companyId', {
+          companyId: user.companyId,
+        })
+        .getOne();
+
+      if (!reserve) {
+        throw new NotFoundException('Claim reserve not found');
+      }
+
+      if (reserve.status !== ClaimReserveStatus.APPROVED) {
+        throw new ConflictException('Only an approved reserve can be released');
+      }
+
+      await this.getClaimForWrite(user, reserve.claim_id);
+
+      const claim = await manager
+        .getRepository(InsuranceClaim)
+        .createQueryBuilder('claim')
+        .setLock('pessimistic_write')
+        .where('claim.id = :claimId', { claimId: reserve.claim_id })
+        .getOneOrFail();
+
+      const remainingReserve = MoneyUtil.subtract(
+        claim.gross_case_reserve,
+        reserve.amount,
+      );
+
+      if (MoneyUtil.compare(remainingReserve, claim.paid_amount) < 0) {
+        throw new ConflictException(
+          'Reserve cannot be released below the amount already paid on this claim',
+        );
+      }
+
+      reserve.status = ClaimReserveStatus.RELEASED;
+      reserve.released_by = user.id;
+      reserve.released_at = new Date();
+      reserve.release_reason = reason;
+
+      await manager.getRepository(ClaimReserve).save(reserve);
+      await this.recalculateClaimReserve(manager, reserve.claim_id);
+
+      const releaseAmount = MoneyUtil.subtract('0.00', reserve.amount);
+
+      await this.reserveMovementService.record(
+        manager,
+        reserve,
+        ClaimReserveMovementType.RELEASE,
+        releaseAmount,
+        reason,
+        `reserve-released:${reserve.id}`,
+        user.id,
+      );
+      await this.financialProjectionService.recalculate(
+        manager,
+        reserve.claim_id,
+      );
 
       return reserve;
     });
@@ -1216,82 +1394,6 @@ export class ClaimsService {
     return this.paymentRepository.save(payment);
   }
 
-  async markPaymentPaid(
-    user: AuthenticatedUser,
-    paymentId: string,
-    dto: MarkClaimPaymentPaidDto,
-  ) {
-    return this.dataSource.transaction(async (manager) => {
-      const payment = await manager
-        .getRepository(ClaimPayment)
-        .createQueryBuilder('payment')
-        .setLock('pessimistic_write')
-        .where('payment.id = :id', { id: paymentId })
-        .andWhere('payment.company_id = :companyId', {
-          companyId: user.companyId,
-        })
-        .getOne();
-
-      if (!payment) {
-        throw new NotFoundException('Claim payment not found');
-      }
-
-      if (payment.status !== ClaimPaymentStatus.APPROVED) {
-        throw new ConflictException(
-          'Claim payment must be approved before it can be marked paid',
-        );
-      }
-
-      const claim = await manager
-        .getRepository(InsuranceClaim)
-        .createQueryBuilder('claim')
-        .setLock('pessimistic_write')
-        .where('claim.id = :claimId', { claimId: payment.claim_id })
-        .getOneOrFail();
-
-      const newPaidAmount = MoneyUtil.add(
-        claim.paid_amount,
-        payment.paid_amount,
-      );
-
-      if (MoneyUtil.compare(newPaidAmount, claim.approved_amount) > 0) {
-        throw new BadRequestException(
-          'Total claim payments exceed the approved claim amount',
-        );
-      }
-
-      payment.status = ClaimPaymentStatus.PAID;
-      payment.payment_date = dto.payment_date
-        ? new Date(dto.payment_date)
-        : new Date();
-      payment.payment_method = dto.payment_method.trim();
-      payment.payment_reference = dto.payment_reference.trim();
-      payment.paid_by = user.id;
-      payment.paid_at = new Date();
-      payment.parties_notified = 'Y';
-
-      await manager.getRepository(ClaimPayment).save(payment);
-
-      claim.paid_amount = newPaidAmount;
-      const nextStatus =
-        MoneyUtil.compare(claim.paid_amount, claim.approved_amount) === 0
-          ? ClaimStatus.PAID
-          : ClaimStatus.PARTIALLY_PAID;
-
-      await this.transitionClaimWithManager(
-        manager,
-        claim,
-        nextStatus,
-        `Claim payment ${payment.claim_payment_number} completed`,
-        user.id,
-      );
-
-      await this.recalculateClaimReserve(manager, claim.id);
-
-      return payment;
-    });
-  }
-
   async rejectClaim(
     user: AuthenticatedUser,
     claimId: string,
@@ -1312,6 +1414,36 @@ export class ClaimsService {
     ) {
       throw new ConflictException(
         `Claim cannot be rejected from ${claim.status} status`,
+      );
+    }
+
+    const unreversedDisbursement = await this.claimDisbursementRepository.count({
+      where: {
+        claim_id: claim.id,
+        status: In([
+          ClaimDisbursementStatus.REQUESTED,
+          ClaimDisbursementStatus.PROCESSING,
+          ClaimDisbursementStatus.PAID,
+        ]),
+      },
+    });
+
+    if (unreversedDisbursement > 0) {
+      throw new ConflictException(
+        'A claim with an unreversed disbursement cannot be rejected',
+      );
+    }
+
+    const acceptedDischarge = await this.dischargeRepository.count({
+      where: {
+        claim_id: claim.id,
+        status: ClaimDischargeStatus.ACCEPTED,
+      },
+    });
+
+    if (acceptedDischarge > 0) {
+      throw new ConflictException(
+        'A claim with an accepted discharge voucher cannot be rejected',
       );
     }
 
@@ -1482,9 +1614,9 @@ export class ClaimsService {
       throw new NotFoundException('Policy not found');
     }
 
-    if (['CANCELLED', 'VOID'].includes(policy.policy_status.toUpperCase())) {
+    if (policy.policy_status.toUpperCase() === 'VOID') {
       throw new ConflictException(
-        'Claims cannot be notified against a cancelled or void policy',
+        'Claims cannot be notified against a void policy',
       );
     }
 

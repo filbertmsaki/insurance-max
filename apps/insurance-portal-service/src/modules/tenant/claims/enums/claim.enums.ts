@@ -121,8 +121,10 @@ export enum ComplaintStatus {
   IN_PROGRESS = 'IN_PROGRESS',
   RESOLVED = 'RESOLVED',
   ESCALATED = 'ESCALATED',
+  APPEALED = 'APPEALED',
   CLOSED = 'CLOSED',
   REOPENED = 'REOPENED',
+  CANCELLED = 'CANCELLED',
 }
 
 export enum ComplaintPriority {
@@ -142,4 +144,81 @@ export enum ClaimSlaStatus {
 export enum DischargeResponse {
   ACCEPT = 'ACCEPT',
   REJECT = 'REJECT',
+}
+
+/**
+ * Phase 14: status *dimensions* additive to the existing (overloaded)
+ * `ClaimStatus`. New workflow logic (coverage, decisions, disbursement,
+ * closure) reads/writes these; `ClaimStatus` and every existing
+ * status-transition call site in `ClaimsService` are left untouched.
+ */
+export enum ClaimStage {
+  DRAFT = 'DRAFT',
+  NOTIFICATION_PENDING = 'NOTIFICATION_PENDING',
+  NOTIFIED = 'NOTIFIED',
+  INTIMATION_PENDING = 'INTIMATION_PENDING',
+  INTIMATED = 'INTIMATED',
+  INVESTIGATION = 'INVESTIGATION',
+  ASSESSMENT = 'ASSESSMENT',
+  DECISION = 'DECISION',
+  SETTLEMENT = 'SETTLEMENT',
+  CLOSED = 'CLOSED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum ClaimCoverageStatus {
+  NOT_EVALUATED = 'NOT_EVALUATED',
+  PENDING_REVIEW = 'PENDING_REVIEW',
+  CONFIRMED = 'CONFIRMED',
+  PARTIALLY_CONFIRMED = 'PARTIALLY_CONFIRMED',
+  DECLINED = 'DECLINED',
+  OVERRIDE_APPROVAL_REQUIRED = 'OVERRIDE_APPROVAL_REQUIRED',
+}
+
+export enum ClaimSettlementStatus {
+  NOT_READY = 'NOT_READY',
+  DISCHARGE_PENDING = 'DISCHARGE_PENDING',
+  DISCHARGE_ACCEPTED = 'DISCHARGE_ACCEPTED',
+  PAYMENT_PENDING = 'PAYMENT_PENDING',
+  PARTIALLY_PAID = 'PARTIALLY_PAID',
+  PAID = 'PAID',
+  REVERSED = 'REVERSED',
+  NO_PAYMENT_REQUIRED = 'NO_PAYMENT_REQUIRED',
+}
+
+export enum ClaimFraudStatus {
+  NOT_SCREENED = 'NOT_SCREENED',
+  CLEAR = 'CLEAR',
+  REFERRED = 'REFERRED',
+  UNDER_INVESTIGATION = 'UNDER_INVESTIGATION',
+  CONFIRMED = 'CONFIRMED',
+  CLOSED_NO_FINDING = 'CLOSED_NO_FINDING',
+}
+
+export enum ClaimRegulatoryStatus {
+  NOT_REQUIRED = 'NOT_REQUIRED',
+  NOT_SUBMITTED = 'NOT_SUBMITTED',
+  QUEUED = 'QUEUED',
+  PROCESSING = 'PROCESSING',
+  ACKNOWLEDGED = 'ACKNOWLEDGED',
+  ACCEPTED = 'ACCEPTED',
+  REJECTED = 'REJECTED',
+  RETRYABLE = 'RETRYABLE',
+  FAILED = 'FAILED',
+  RECONCILIATION_REQUIRED = 'RECONCILIATION_REQUIRED',
+}
+
+export enum ClaimDisbursementStatus {
+  REQUESTED = 'REQUESTED',
+  PROCESSING = 'PROCESSING',
+  PAID = 'PAID',
+  FAILED = 'FAILED',
+  REVERSED = 'REVERSED',
+}
+
+export enum ClaimDecisionStatus {
+  DRAFT = 'DRAFT',
+  SUBMITTED = 'SUBMITTED',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
 }

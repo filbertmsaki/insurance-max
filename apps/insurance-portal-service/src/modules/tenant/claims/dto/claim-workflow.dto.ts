@@ -55,6 +55,12 @@ export class CreateClaimReserveDto {
   effective_at?: string;
 }
 
+export class ReleaseReserveDto {
+  @IsString()
+  @MaxLength(2000)
+  reason: string;
+}
+
 export class ClaimDecisionDto {
   @IsOptional()
   @IsString()
@@ -179,18 +185,6 @@ export class CreateClaimPaymentDto {
   litigation_reason?: string;
 }
 
-export class MarkClaimPaymentPaidDto {
-  @IsString()
-  payment_method: string;
-
-  @IsString()
-  payment_reference: string;
-
-  @IsOptional()
-  @IsDateString()
-  payment_date?: string;
-}
-
 export class RejectClaimDto {
   @IsString()
   @MaxLength(2000)
@@ -213,9 +207,6 @@ export class AddClaimDocumentDto {
 
   @IsString()
   title: string;
-
-  @IsString()
-  storage_key: string;
 
   @IsString()
   file_name: string;

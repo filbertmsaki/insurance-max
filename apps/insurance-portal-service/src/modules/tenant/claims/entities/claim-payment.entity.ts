@@ -8,6 +8,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+import type { ClaimPaymentType } from '@insurance-max/contracts';
+
 import { ClaimPaymentStatus } from '../enums/claim.enums';
 import { InsuranceClaim } from './claim.entity';
 import { TiramisTrackableClaimEntity } from './tiramis-trackable-claim.entity';
@@ -106,6 +108,36 @@ export class ClaimPayment extends TiramisTrackableClaimEntity {
 
   @Column({ type: 'text', nullable: true })
   rejection_reason: string | null;
+
+  @Column({ type: 'varchar', length: 40, default: 'INDEMNITY' })
+  payment_type: ClaimPaymentType;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  payee_type: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  payee_id: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  payee_snapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  payment_snapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  payment_snapshot_hash: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  finance_disbursement_id: string | null;
+
+  @Column({ type: 'varchar', length: 40, default: 'NOT_REQUESTED' })
+  finance_status: string;
+
+  @Column({ type: 'varchar', length: 180, nullable: true })
+  finance_event_id: string | null;
+
+  @Column({ type: 'int', default: 1 })
+  state_version: number;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

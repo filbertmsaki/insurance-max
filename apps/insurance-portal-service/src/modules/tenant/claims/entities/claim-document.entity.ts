@@ -23,6 +23,9 @@ export class ClaimDocument {
   @Column({ type: 'uuid' })
   claim_id: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  document_id: string | null;
+
   @Column({ type: 'varchar', length: 80 })
   document_type: string;
 

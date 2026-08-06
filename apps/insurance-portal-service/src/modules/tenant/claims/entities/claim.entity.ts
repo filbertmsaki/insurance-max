@@ -17,8 +17,12 @@ import { Policy } from '../../policies/entities/policy.entity';
 import { PolicyRisk } from '../../policies/entities/policy-risk.entity';
 import { User } from '../../users/entities/user.entity';
 import {
+  ClaimCoverageStatus,
+  ClaimFraudStatus,
   ClaimLiabilityStatus,
   ClaimPriority,
+  ClaimSettlementStatus,
+  ClaimStage,
   ClaimStatus,
 } from '../enums/claim.enums';
 import { ClaimAssessment } from './claim-assessment.entity';
@@ -171,6 +175,98 @@ export class InsuranceClaim extends TiramisTrackableClaimEntity {
 
   @Column({ type: 'text', nullable: true })
   closure_reason: string | null;
+
+  @Column({ type: 'varchar', length: 40, default: ClaimStage.NOTIFICATION_PENDING })
+  claim_stage: ClaimStage;
+
+  @Column({
+    type: 'varchar',
+    length: 40,
+    default: ClaimCoverageStatus.NOT_EVALUATED,
+  })
+  coverage_status: ClaimCoverageStatus;
+
+  @Column({
+    type: 'varchar',
+    length: 40,
+    default: ClaimSettlementStatus.NOT_READY,
+  })
+  settlement_status: ClaimSettlementStatus;
+
+  @Column({ type: 'varchar', length: 40, default: ClaimFraudStatus.NOT_SCREENED })
+  fraud_status: ClaimFraudStatus;
+
+  @Column({ type: 'uuid', nullable: true })
+  policy_version_id: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  policy_version_number: number | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  policy_snapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  policy_snapshot_hash: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  coverage_snapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  coverage_snapshot_hash: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  incident_snapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  incident_snapshot_hash: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  claimant_manifest_hash: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  duplicate_fingerprint: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  possible_duplicate_of_id: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  duplicate_override_reason: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  duplicate_override_by: string | null;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  gross_case_reserve: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  gross_incurred_amount: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  expense_paid_amount: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  indemnity_paid_amount: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  total_recovery_expected: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  total_recovery_received: string;
+
+  @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
+  net_incurred_amount: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  current_assessment_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  current_discharge_voucher_id: string | null;
+
+  @Column({ type: 'varchar', length: 40, default: 'INTERNAL' })
+  source_channel: string;
+
+  @Column({ type: 'int', default: 1 })
+  state_version: number;
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;

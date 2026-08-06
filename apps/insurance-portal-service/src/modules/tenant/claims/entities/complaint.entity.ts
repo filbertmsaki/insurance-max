@@ -86,6 +86,75 @@ export class Complaint {
   @Column({ type: 'timestamptz', nullable: true })
   closed_at: Date | null;
 
+  @Column({ type: 'text', nullable: true })
+  closure_reason: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  reopened_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  reopened_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  cancelled_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  cancelled_at: Date | null;
+
+  @Column({ type: 'varchar', length: 40, default: 'CUSTOMER' })
+  complainant_type: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  complainant_snapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 40, default: 'INTERNAL' })
+  source_channel: string;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  source_reference: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  invoice_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  payment_id: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  assigned_team: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  root_cause: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  corrective_action: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  preventive_action: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  regulatory_reportable: boolean;
+
+  @Column({ type: 'varchar', length: 30, default: 'PENDING' })
+  customer_acceptance_status: string;
+
+  @Column({ type: 'text', nullable: true })
+  customer_response: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  customer_responded_at: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  acknowledgement_due_at: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  resolution_due_at: Date | null;
+
+  @Column({ type: 'int', default: 0 })
+  appeal_count: number;
+
+  @Column({ type: 'int', default: 1 })
+  state_version: number;
+
   @Column({ type: 'uuid', nullable: true })
   created_by: string | null;
 

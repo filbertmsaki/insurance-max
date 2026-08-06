@@ -14,3 +14,4 @@ export * from './finance';
 export * from './tiramis';
 export * from './issuance';
 export * from './policy-transactions';
+export * from './claims';

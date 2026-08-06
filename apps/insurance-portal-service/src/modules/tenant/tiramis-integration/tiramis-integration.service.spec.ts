@@ -93,6 +93,8 @@ describe('TiramisIntegrationService callback handling', () => {
       } as any,
       {} as any,
       quotationLifecycleService,
+      { applyNotification: jest.fn().mockResolvedValue(null) } as any,
+      { applyIssuedPolicyIfRenewal: jest.fn().mockResolvedValue(null) } as any,
     );
 
     return {
