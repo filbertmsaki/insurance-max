@@ -19,9 +19,11 @@ import { InsuranceProduct } from '../../insurance-products/entities/insurance-pr
 import { InsuranceSubClass } from '../../insurance-sub-classes/entities/insurance-sub-class.entity';
 import { ProductChannelType } from '../../product-distribution/enums/product-channel-type.enum';
 import { User } from '../../users/entities/user.entity';
+import { PolicyCoverNote } from './policy-cover-note.entity';
 import { PolicyPremiumBreakdown } from './policy-premium-breakdown.entity';
 import { PolicyRisk } from './policy-risk.entity';
 import { PolicyStatusHistory } from './policy-status-history.entity';
+import { PolicyVersion } from './policy-version.entity';
 
 @Entity('policies')
 @Index('IDX_policies_company_id', ['company_id'])
@@ -316,4 +318,10 @@ export class Policy {
 
   @OneToMany(() => PolicyStatusHistory, (history) => history.policy)
   status_history: PolicyStatusHistory[];
+
+  @OneToMany(() => PolicyCoverNote, (link) => link.policy)
+  cover_note_links: PolicyCoverNote[];
+
+  @OneToMany(() => PolicyVersion, (version) => version.policy)
+  versions: PolicyVersion[];
 }

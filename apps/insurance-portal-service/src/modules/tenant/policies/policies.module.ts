@@ -17,7 +17,9 @@ import { QuotationsModule } from '../quotations/quotations.module';
 import { User } from '../users/entities/user.entity';
 import { PolicyPremiumBreakdown } from './entities/policy-premium-breakdown.entity';
 import { PolicyRisk } from './entities/policy-risk.entity';
+import { PolicyCoverNote } from './entities/policy-cover-note.entity';
 import { PolicyStatusHistory } from './entities/policy-status-history.entity';
+import { PolicyVersion } from './entities/policy-version.entity';
 import { Policy } from './entities/policy.entity';
 import { PoliciesController } from './policies.controller';
 import { PoliciesService } from './policies.service';
@@ -29,7 +31,9 @@ import { PoliciesService } from './policies.service';
       Policy,
       PolicyRisk,
       PolicyPremiumBreakdown,
+      PolicyCoverNote,
       PolicyStatusHistory,
+      PolicyVersion,
       Company,
       Customer,
       Branch,
