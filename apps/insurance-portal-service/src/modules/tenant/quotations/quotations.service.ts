@@ -411,6 +411,7 @@ export class QuotationsService {
             dto.insurer_company_id ?? companyId,
             dto.product_id,
             dto.sub_class_id,
+            dto.draft_payload,
           );
         const quotation = await manager.getRepository(Quotation).save(
           manager.getRepository(Quotation).create({
@@ -651,6 +652,7 @@ export class QuotationsService {
             dto.insurer_company_id ?? quotation.company_id,
             dto.product_id,
             dto.sub_class_id,
+            dto.draft_payload,
           );
 
         Object.assign(quotation, {
@@ -1431,7 +1433,10 @@ export class QuotationsService {
     }
 
     const productContext = quotation.product_definition_snapshot
-      ? this.buildServiceProductContext(quotation.product_definition_snapshot)
+      ? this.buildServiceProductContext(
+          quotation.product_definition_snapshot,
+          tiramisPayload,
+        )
       : undefined;
 
     let result: Record<string, unknown>;
@@ -1852,6 +1857,7 @@ export class QuotationsService {
     insurerCompanyId: string,
     productId: string,
     subClassId?: string | null,
+    draftPayload?: Record<string, unknown> | null,
   ): Promise<{ productCode: string; definition: ProductDefinitionSnapshot }> {
     const product = await manager.getRepository(InsuranceProduct).findOne({
       where: { id: productId },
@@ -1866,9 +1872,33 @@ export class QuotationsService {
         insurerCompanyId,
         productId,
         subClassId ?? null,
+        this.resolveDraftEffectiveDate(draftPayload),
       );
 
     return { productCode: definition.tiramisProductCode, definition };
+  }
+
+  /**
+   * Resolves the product definition against the draft's planned cover
+   * start date rather than "today" — a draft written today for cover
+   * starting next month must see whichever version is effective on that
+   * future start date, not whichever happens to be effective right now.
+   */
+  private resolveDraftEffectiveDate(
+    draftPayload?: Record<string, unknown> | null,
+  ): Date {
+    if (!draftPayload) return new Date();
+
+    const today = new Date().toISOString().slice(0, 10);
+    const validFrom = this.draftDateTime(
+      draftPayload,
+      'valid_from',
+      today,
+      false,
+    );
+    const parsed = new Date(validFrom);
+
+    return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
   }
 
   private cloneDraftPayload(
@@ -2912,9 +2942,27 @@ export class QuotationsService {
     }
   }
 
+  /**
+   * Hashes are signed against the wording actually being submitted, not
+   * the product's static default text. When allows_cover_text_override
+   * is true, a quotation's resolved wording can legitimately differ from
+   * the product default (per entry), so the outbound TIRAMIS payload's
+   * own fields are the only reliable source of truth for what TIRAMIS
+   * must later re-verify.
+   */
   private buildServiceProductContext(
     definition: ProductDefinitionSnapshot,
+    outboundPayload: Record<string, unknown>,
   ): ServiceProductContext {
+    const outboundCoverNoteDesc =
+      typeof outboundPayload.coverNoteDesc === 'string'
+        ? outboundPayload.coverNoteDesc
+        : definition.coverNoteDescription;
+    const outboundOperativeClause =
+      typeof outboundPayload.operativeClause === 'string'
+        ? outboundPayload.operativeClause
+        : definition.operativeClause;
+
     return {
       productId: definition.productId,
       productVersionId: definition.productVersionId,
@@ -2924,10 +2972,10 @@ export class QuotationsService {
       definitionHash: definition.definitionHash,
       coverNoteType: definition.coverNoteType,
       coverNoteDescriptionHash: this.productDefinitionHashService.hashText(
-        definition.coverNoteDescription,
+        outboundCoverNoteDesc,
       ),
       operativeClauseHash: this.productDefinitionHashService.hashText(
-        definition.operativeClause,
+        outboundOperativeClause,
       ),
       policyOperativeClauseHash: this.productDefinitionHashService.hashText(
         definition.policyOperativeClause,

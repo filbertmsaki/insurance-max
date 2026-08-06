@@ -194,6 +194,12 @@ export function ProductDetailPage() {
     updateDraft.mutate({ versionId: version.id, data: values });
   }
 
+  async function onSaveThenSubmitReview(values: UpsertProductVersionDto) {
+    if (!version) return;
+    await updateDraft.mutateAsync({ versionId: version.id, data: values });
+    submitReview.mutate(version.id);
+  }
+
   if (!product) {
     return <div className="p-6">Loading…</div>;
   }
@@ -245,13 +251,8 @@ export function ProductDetailPage() {
                 )}
                 {canSubmitReview && (
                   <Button
-                    onClick={() =>
-                      form.handleSubmit((values) => {
-                        onSave(values);
-                        submitReview.mutate(version.id);
-                      })()
-                    }
-                    disabled={submitReview.isPending}
+                    onClick={form.handleSubmit(onSaveThenSubmitReview)}
+                    disabled={updateDraft.isPending || submitReview.isPending}
                   >
                     Submit for Review
                   </Button>

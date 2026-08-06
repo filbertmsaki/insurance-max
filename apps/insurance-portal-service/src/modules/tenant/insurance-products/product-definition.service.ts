@@ -230,6 +230,10 @@ export class ProductDefinitionService {
 
       version.product_name = dto.product_name.trim();
       version.description = dto.description?.trim() || null;
+      // Kept in sync with the product's category while still a draft — the
+      // category (and therefore business line) can change up until
+      // publication, at which point the version becomes immutable.
+      version.business_line = product.business_line;
       version.supports_fleet =
         product.business_line === 'MOTOR'
           ? (dto.supports_fleet ?? false)

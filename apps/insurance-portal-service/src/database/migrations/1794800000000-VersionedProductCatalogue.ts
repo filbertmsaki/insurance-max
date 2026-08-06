@@ -500,20 +500,30 @@ export class VersionedProductCatalogue1794800000000 implements MigrationInterfac
           'categoryName', category."name",
           'productCode', product."product_code",
           'productName', version."product_name",
+          'description', version."description",
           'businessLine', version."business_line",
+          'lifecycleStatus', product."lifecycle_status",
+          'versionStatus', version."status",
+          'reviewStatus', version."review_status",
           'tiramisProductCode', version."tiramis_product_code",
           'supportsFleet', version."supports_fleet",
           'coverNoteType', version."cover_note_type",
+          'defaultCoverDurationDays', version."default_cover_duration_days",
+          'currencyCode', version."currency_code",
           'coverNoteDescription', version."cover_note_description",
           'operativeClause', version."operative_clause",
           'policyOperativeClause', version."policy_operative_clause",
           'specialConditions', version."special_conditions",
           'exclusions', version."exclusions",
           'allowsCoverTextOverride', version."allows_cover_text_override",
+          'effectiveFrom', version."effective_from",
+          'effectiveTo', version."effective_to",
           'definitionItems', '[]'::jsonb,
           'addons', '[]'::jsonb,
           'documentRequirements', '[]'::jsonb,
-          'subClasses', '[]'::jsonb
+          'subClasses', '[]'::jsonb,
+          'definitionHash', version."definition_hash",
+          'publishedAt', version."published_at"
         )
       FROM "insurance_products" product
       INNER JOIN "insurance_product_versions" version
