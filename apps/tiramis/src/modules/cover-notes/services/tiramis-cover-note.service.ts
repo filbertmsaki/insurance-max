@@ -459,6 +459,8 @@ export class TiramisCoverNoteService {
         errors,
       });
     }
+
+    this.payloadValidator.validateSignedPricingMatch(dto.risks || []);
   }
 
   private maskTiraHeaders(

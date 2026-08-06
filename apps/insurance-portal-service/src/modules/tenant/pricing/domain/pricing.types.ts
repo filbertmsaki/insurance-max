@@ -1,6 +1,11 @@
 import { ConditionOperator } from '@insurance-max/portal-shared/enums/condition-operator.enum';
 import { LogicalOperator } from '@insurance-max/portal-shared/enums/logical-operator.enum';
 import { RateType } from '@insurance-max/portal-shared/enums/rate-type.enum';
+import type {
+  AddonPricingType,
+  PricingProrationMethod,
+  PricingRoundingMode,
+} from '@insurance-max/contracts';
 
 export type PricingFactorValues = Record<string, string | number | boolean>;
 
@@ -10,6 +15,12 @@ export interface PricingAdjustmentRequestInput {
 }
 
 export type PricingAdjustmentType = 'PERCENTAGE' | 'FIXED' | 'NONE';
+
+export interface PricingSingleRiskAddonInput {
+  addon_definition_id: string;
+  quantity?: number;
+  sum_insured?: number;
+}
 
 export interface PricingSingleRiskInput {
   client_reference?: string;
@@ -24,6 +35,9 @@ export interface PricingSingleRiskInput {
   discount?: PricingAdjustmentRequestInput | null;
   loading?: PricingAdjustmentRequestInput | null;
   tax_rule_ids?: string[] | null;
+  addons?: PricingSingleRiskAddonInput[];
+  cover_start_date?: string;
+  cover_end_date?: string;
 }
 
 export interface PricingMultiRiskInput {
@@ -259,7 +273,6 @@ export interface RiskPremiumResult {
   sum_insured_equivalent: number;
   minimum_premium: number;
   minimum_premium_applied: boolean;
-  /** Not yet supported: no maximum-premium ceiling exists on rating rules. */
   maximum_premium: number | null;
   maximum_premium_applied: boolean;
   loading_rate: number | null;
@@ -279,6 +292,20 @@ export interface RiskPremiumResult {
   premium_including_tax: number;
   premium_including_tax_equivalent: number;
   final_payable_premium: number;
+
+  // --- Phase 7 pricing authority: raw context needed to build the
+  // immutable pricing snapshot/result hash persisted by PricingQuoteService.
+  // Internal transit fields, not part of the documented calculation-response
+  // contract above. ---
+  premium_after_minimum: number;
+  base_addon_premium: number;
+  premium_before_loading: number;
+  proration_factor: number;
+  matched_rule_priority: number;
+  matched_rule_specificity_score: number;
+  matched_rule_conditions: RiskRuleConditionContext[];
+  addon_results: AddonPricingResultContext[];
+  rate_book_context: PricingRateBookContext | null;
 }
 
 export interface MultiRiskPremiumFailure {
@@ -314,6 +341,62 @@ export interface RiskRuleConditionSummary {
   logical_operator: LogicalOperator;
 }
 
+/**
+ * Phase 7 pricing authority: same shape as RiskRuleConditionSummary plus the
+ * condition's own id, which PricingRuleConditionSnapshot (contracts) needs
+ * but the plain summary above never carried.
+ */
+export interface RiskRuleConditionContext extends RiskRuleConditionSummary {
+  id: string;
+}
+
+/**
+ * Phase 7 pricing authority: raw per-addon calculation context threaded from
+ * PricingEngineService through to PricingQuoteService so it can build the
+ * immutable AddonPricingRuleSnapshot without re-querying the database.
+ */
+export interface AddonPricingResultContext {
+  rule_id: string;
+  addon_definition_id: string;
+  addon_code: string;
+  addon_name: string;
+  pricing_type: AddonPricingType;
+  percentage_rate: string | null;
+  fixed_amount: string | null;
+  per_unit_amount: string | null;
+  per_unit_factor_code: string | null;
+  minimum_amount: string | null;
+  maximum_amount: string | null;
+  quantity: number;
+  sum_insured: number | null;
+  calculated_premium: number;
+}
+
+/**
+ * Phase 7 pricing authority: raw resolved rate-book context threaded from
+ * PricingEngineService through to PricingQuoteService so it can build the
+ * immutable PricingRateBookSnapshot/result hash without re-querying the
+ * database. Null when the matched rule has no associated rate book (legacy
+ * risk-level rules with rate_book_id IS NULL).
+ */
+export interface PricingRateBookContext {
+  rate_book_id: string;
+  code: string;
+  version: string;
+  company_id: string;
+  product_id: string;
+  product_version_id: string | null;
+  product_definition_hash: string | null;
+  currency_code: string | null;
+  effective_from: string;
+  effective_to: string | null;
+  rounding_mode: PricingRoundingMode;
+  rounding_increment: string;
+  proration_method: PricingProrationMethod;
+  calculation_version: string;
+  definition_hash: string | null;
+}
+
 export interface RiskRuleExplanation {
   risk_id: string;
   risk_code: string;
@@ -347,9 +430,12 @@ export interface RuleCalculationBreakdown {
   per_unit_premium: number;
   fixed_amount: number;
   minimum_amount: number;
+  maximum_amount: number | null;
   gross_premium: number;
+  premium_after_minimum: number;
   final_premium: number;
   minimum_applied: boolean;
+  maximum_applied: boolean;
 }
 
 export interface PricingFactorValidationResult {

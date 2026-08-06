@@ -139,6 +139,93 @@ export class TiramisTransactionEntity extends BaseEntity {
   })
   sourceProductDefinitionHash?: string | null;
 
+  @Column({
+    name: 'source_pricing_quote_id',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  sourcePricingQuoteId?: string | null;
+
+  @Column({
+    name: 'source_rate_book_id',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  sourceRateBookId?: string | null;
+
+  @Column({
+    name: 'source_rate_book_code',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  sourceRateBookCode?: string | null;
+
+  @Column({
+    name: 'source_rate_book_version',
+    type: 'varchar',
+    length: 30,
+    nullable: true,
+  })
+  sourceRateBookVersion?: string | null;
+
+  @Column({
+    name: 'source_rate_book_definition_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  sourceRateBookDefinitionHash?: string | null;
+
+  @Column({
+    name: 'source_rating_rule_id',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  sourceRatingRuleId?: string | null;
+
+  @Column({
+    name: 'source_rating_rule_code',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  sourceRatingRuleCode?: string | null;
+
+  @Column({
+    name: 'source_rating_rule_version',
+    type: 'int',
+    nullable: true,
+  })
+  sourceRatingRuleVersion?: number | null;
+
+  @Column({
+    name: 'source_pricing_input_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  sourcePricingInputHash?: string | null;
+
+  @Column({
+    name: 'source_pricing_result_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  sourcePricingResultHash?: string | null;
+
+  @Column({
+    name: 'source_calculation_version',
+    type: 'varchar',
+    length: 30,
+    nullable: true,
+  })
+  sourceCalculationVersion?: string | null;
+
   @Column({ name: 'business_reference', length: 100 })
   businessReference!: string;
 

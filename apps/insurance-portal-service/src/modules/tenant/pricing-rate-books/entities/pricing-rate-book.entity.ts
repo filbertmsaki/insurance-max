@@ -11,8 +11,13 @@ import {
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
+import {
+  PricingProrationMethod,
+  PricingRoundingMode,
+} from '@insurance-max/contracts';
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { InsuranceProduct } from '../../insurance-products/entities/insurance-product.entity';
+import { InsuranceProductVersion } from '../../insurance-products/entities/insurance-product-version.entity';
 import { PricingRateBookStatus } from '../enums/pricing-rate-book-status.enum';
 
 @Entity('pricing_rate_books')
@@ -58,6 +63,38 @@ export class PricingRateBook {
   @Column({ type: 'date', nullable: true })
   effective_to: string | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  product_version_id: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  product_definition_hash: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  definition_hash: string | null;
+
+  @Column({ type: 'varchar', length: 30, default: '7.1' })
+  calculation_version: string;
+
+  @Column({
+    type: 'varchar',
+    length: 20,
+    default: PricingRoundingMode.HALF_UP,
+  })
+  rounding_mode: PricingRoundingMode;
+
+  @Column({ type: 'numeric', precision: 20, scale: 4, default: 1 })
+  rounding_increment: string;
+
+  @Column({
+    type: 'varchar',
+    length: 30,
+    default: PricingProrationMethod.NONE,
+  })
+  proration_method: PricingProrationMethod;
+
+  @Column({ type: 'jsonb', nullable: true })
+  metadata: Record<string, unknown> | null;
+
   @Column({ type: 'varchar', nullable: true })
   created_by: string | null;
 
@@ -98,6 +135,13 @@ export class PricingRateBook {
   @ManyToOne(() => InsuranceProduct, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'product_id' })
   product: InsuranceProduct;
+
+  @ManyToOne(() => InsuranceProductVersion, {
+    nullable: true,
+    onDelete: 'RESTRICT',
+  })
+  @JoinColumn({ name: 'product_version_id' })
+  product_version: InsuranceProductVersion | null;
 
   @OneToMany('RiskRatingRule', 'rate_book')
   rules: any[];

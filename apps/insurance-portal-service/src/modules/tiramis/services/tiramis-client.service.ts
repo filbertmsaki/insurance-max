@@ -11,6 +11,7 @@ import { firstValueFrom } from 'rxjs';
 
 import {
   unwrapApiResponse,
+  type ServicePricingContext,
   type ServiceProductContext,
 } from '@insurance-max/contracts';
 import {
@@ -342,6 +343,7 @@ export class TiramisClientService {
         command,
         authContext,
         dto.productContext,
+        dto.pricingContext,
       );
 
       const updatedTracking =
@@ -792,6 +794,7 @@ export class TiramisClientService {
     payload: Record<string, unknown>,
     authContext?: AuthenticatedUser,
     productContext?: ServiceProductContext,
+    pricingContext?: ServicePricingContext,
   ) {
     try {
       const route = this.httpRouteForPattern(pattern);
@@ -840,6 +843,7 @@ export class TiramisClientService {
                 permissions: authContext!.permissions,
               },
               ...(productContext ? { product: productContext } : null),
+              ...(pricingContext ? { pricing: pricingContext } : null),
             }
           : undefined,
       );

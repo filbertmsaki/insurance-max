@@ -9,7 +9,10 @@ import {
   IsString,
 } from 'class-validator';
 
-import type { ServiceProductContext } from '@insurance-max/contracts';
+import type {
+  ServicePricingContext,
+  ServiceProductContext,
+} from '@insurance-max/contracts';
 import { TiramisRequestType } from '../enums/tiramis-request-type.enum';
 
 export class SubmitTiramisDto {
@@ -113,4 +116,12 @@ export class SubmitTiramisDto {
   @IsOptional()
   @IsObject()
   productContext?: ServiceProductContext;
+
+  @ApiPropertyOptional({
+    description:
+      'Signed authoritative pricing-result context, resolved internally — never accepted from an external caller.',
+  })
+  @IsOptional()
+  @IsObject()
+  pricingContext?: ServicePricingContext;
 }

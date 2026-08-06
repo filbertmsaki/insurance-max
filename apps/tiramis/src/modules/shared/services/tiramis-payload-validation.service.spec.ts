@@ -1,8 +1,12 @@
+import { RequestContextService } from '@insurance-max/shared-kernel';
+
 import { TiramisPayloadValidationService } from './tiramis-payload-validation.service';
 
 describe('TiramisPayloadValidationService', () => {
   it('allows zero-valued risk sums and premium rate', () => {
-    const service = new TiramisPayloadValidationService();
+    const service = new TiramisPayloadValidationService(
+      new RequestContextService(),
+    );
     const errors: string[] = [];
 
     service.validateRisks(

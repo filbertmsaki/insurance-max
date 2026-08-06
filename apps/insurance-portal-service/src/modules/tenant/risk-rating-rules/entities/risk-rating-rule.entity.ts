@@ -85,6 +85,9 @@ export class RiskRatingRule {
   @Column({ type: 'numeric', precision: 20, scale: 4, nullable: true })
   minimum_amount: number | null;
 
+  @Column({ type: 'numeric', precision: 20, scale: 4, nullable: true })
+  maximum_amount: number | null;
+
   @Column({
     type: 'numeric',
     precision: 18,
@@ -154,6 +157,9 @@ export class RiskRatingRule {
 
   @Column({ type: 'int', default: 1 })
   rule_version: number;
+
+  @Column({ type: 'int', default: 0 })
+  specificity_score: number;
 
   @Column({ default: true })
   is_active: boolean;

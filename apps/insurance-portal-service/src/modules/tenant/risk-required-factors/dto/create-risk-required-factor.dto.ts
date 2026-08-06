@@ -9,6 +9,11 @@ import {
 } from 'class-validator';
 
 export class CreateRiskRequiredFactorDto {
+  @ApiProperty({ description: 'Pricing rate book UUID this assignment is scoped to' })
+  @IsUUID()
+  @IsNotEmpty()
+  rate_book_id: string;
+
   @ApiProperty({ description: 'Insurance risk UUID' })
   @IsUUID()
   @IsNotEmpty()

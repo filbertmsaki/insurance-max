@@ -88,6 +88,9 @@ export class PricingQuote {
   minimum_premium_adjustment: number;
 
   @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
+  maximum_premium_adjustment: number;
+
+  @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
   gross_premium: number;
 
   @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
@@ -101,6 +104,24 @@ export class PricingQuote {
 
   @Column({ type: 'varchar', length: 64 })
   input_signature: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  product_version_id: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  product_definition_hash: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  rate_book_definition_hash: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  result_hash: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  rate_book_snapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  pricing_result_snapshot: Record<string, unknown> | null;
 
   @Column({ type: 'jsonb' })
   input_payload: Record<string, unknown>;

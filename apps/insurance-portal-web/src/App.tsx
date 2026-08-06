@@ -42,6 +42,8 @@ import { SubClassesPage } from '@/modules/tenant/product-engine/pages/sub-classe
 import { RisksPage } from '@/modules/tenant/product-engine/pages/risks/RisksPage';
 import { RatingFactorsPage } from '@/modules/tenant/product-engine/pages/rating-factors/RatingFactorsPage';
 import { RatingRulesPage } from '@/modules/tenant/product-engine/pages/rating-rules/RatingRulesPage';
+import { RateBooksPage } from '@/modules/tenant/product-engine/pages/rate-books/RateBooksPage';
+import { RateBookDetailPage } from '@/modules/tenant/product-engine/pages/rate-books/RateBookDetailPage';
 import { CategoryAccessPage } from '@/modules/tenant/product-engine/pages/access/categories/CategoryAccessPage';
 import { ProductAccessPage } from '@/modules/tenant/product-engine/pages/access/products/ProductAccessPage';
 import { CalculatorPage } from '@/modules/tenant/product-engine/pages/calculator/CalculatorPage';
@@ -375,6 +377,20 @@ export default function App() {
               <Route
                 path="/product-engine/rating-rules"
                 element={<RatingRulesPage />}
+              />
+            </Route>
+            <Route
+              element={
+                <ProtectedRoute requiredPermission="pricing.manage_rate_books" />
+              }
+            >
+              <Route
+                path="/product-engine/rate-books"
+                element={<RateBooksPage />}
+              />
+              <Route
+                path="/product-engine/rate-books/:rateBookId"
+                element={<RateBookDetailPage />}
               />
             </Route>
             <Route

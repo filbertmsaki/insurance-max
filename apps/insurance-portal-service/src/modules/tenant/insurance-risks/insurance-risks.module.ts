@@ -4,6 +4,7 @@ import { InsuranceProduct } from '../insurance-products/entities/insurance-produ
 import { PricingRuntimeCacheModule } from '../pricing/pricing-runtime-cache.module';
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
 import { RiskRequiredFactor } from '../risk-required-factors/entities/risk-required-factor.entity';
+import { RiskRatingRule } from '../risk-rating-rules/entities/risk-rating-rule.entity';
 import { InsuranceRisksController } from './insurance-risks.controller';
 import { InsuranceRisksService } from './insurance-risks.service';
 import { InsuranceRisk } from './entities/insurance-risk.entity';
@@ -16,6 +17,7 @@ import { InsuranceRisk } from './entities/insurance-risk.entity';
       InsuranceProduct,
       InsuranceSubClass,
       RiskRequiredFactor,
+      RiskRatingRule,
     ]),
   ],
   controllers: [InsuranceRisksController],

@@ -87,6 +87,14 @@ export class CreateRiskRatingRuleDto {
   minimum_amount?: number;
 
   @ApiPropertyOptional({
+    example: 5000000,
+    description: 'Maximum premium ceiling amount',
+  })
+  @IsOptional()
+  @IsNumber()
+  maximum_amount?: number;
+
+  @ApiPropertyOptional({
     example: 0.1,
     description: 'Maximum aggregate discount rate allowed (decimal fraction)',
   })

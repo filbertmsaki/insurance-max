@@ -35,6 +35,11 @@ export class PremiumBreakdownService {
       Number(perUnitFactorCode ? (factorValues[perUnitFactorCode] ?? 0) : 0),
     );
 
+    const maximumAmount =
+      rule.maximum_amount !== null && rule.maximum_amount !== undefined
+        ? toDecimal(rule.maximum_amount)
+        : null;
+
     const percentageAmount = applyRate(sumInsured, percentageRate);
     const perUnitPremium = perUnitValue.mul(perUnitAmount);
     const rawPremium =
@@ -61,11 +66,22 @@ export class PremiumBreakdownService {
       rule.rate_type === RateType.PERCENTAGE_PLUS_PER_UNIT
         ? percentageAmount
         : rawPremium;
-    const finalPremium =
+
+    // Calculation order per PRICING_CALCULATION_SEQUENCE step
+    // APPLY_MINIMUM_AND_MAXIMUM_PREMIUM_RULES: the minimum floor is applied
+    // first, then the maximum ceiling is applied to the result of that.
+    const premiumAfterMinimum =
       minimumAmount.gt(0) && rawPremium.lt(minimumAmount)
         ? minimumAmount
         : rawPremium;
-    const minimumApplied = finalPremium.gt(rawPremium);
+    const minimumApplied = premiumAfterMinimum.gt(rawPremium);
+
+    const finalPremium =
+      maximumAmount !== null && premiumAfterMinimum.gt(maximumAmount)
+        ? maximumAmount
+        : premiumAfterMinimum;
+    const maximumApplied =
+      maximumAmount !== null && finalPremium.lt(premiumAfterMinimum);
 
     return {
       percentage_rate: roundRate(percentageRate),
@@ -78,9 +94,12 @@ export class PremiumBreakdownService {
       per_unit_premium: roundMoney(perUnitPremium),
       fixed_amount: roundMoney(fixedAmount),
       minimum_amount: roundMoney(minimumAmount),
+      maximum_amount: maximumAmount !== null ? roundMoney(maximumAmount) : null,
       gross_premium: roundMoney(rawPremium),
+      premium_after_minimum: roundMoney(premiumAfterMinimum),
       final_premium: roundMoney(finalPremium),
       minimum_applied: minimumApplied,
+      maximum_applied: maximumApplied,
     };
   }
 

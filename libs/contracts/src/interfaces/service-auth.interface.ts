@@ -1,4 +1,5 @@
 import type { ServiceProductContext } from '../product-catalogue/product-context.interface';
+import type { ServicePricingContext } from '../pricing/service-pricing-context.interface';
 
 export interface ServiceTenantContext {
   companyId: string;
@@ -39,6 +40,7 @@ export interface ServiceTokenPayload {
   tenant?: ServiceTenantContext;
   actor?: ServiceActorContext;
   product?: ServiceProductContext;
+  pricing?: ServicePricingContext;
 }
 
 export interface ServicePrincipal {
@@ -48,4 +50,5 @@ export interface ServicePrincipal {
   tenant?: ServiceTenantContext;
   actor?: ServiceActorContext;
   product?: ServiceProductContext;
+  pricing?: ServicePricingContext;
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -73,6 +73,7 @@ import type {
   RiskRuleCondition,
   RateType,
   ConditionOperator,
+  PricingRateBookStatus,
 } from '@/types/product-engine';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -85,6 +86,10 @@ const RATE_TYPES: RateType[] = [
   'PER_UNIT',
   'FORMULA',
 ];
+/** FORMULA is legacy shorthand only — the backend rejects it for NEW rules. */
+const CREATABLE_RATE_TYPES: RateType[] = RATE_TYPES.filter(
+  (t) => t !== 'FORMULA',
+);
 const OPERATORS: ConditionOperator[] = [
   'EQUALS',
   'NOT_EQUALS',
@@ -114,6 +119,7 @@ const ruleSchema = z.object({
   per_unit_amount: z.number().nullable().optional(),
   per_unit_factor_code: z.string().nullable().optional(),
   minimum_amount: z.number().nullable().optional(),
+  maximum_amount: z.number().nullable().optional(),
   max_discount_rate: z.number().nullable().optional(),
   max_discount_amount: z.number().nullable().optional(),
   discount_approval_threshold_rate: z.number().nullable().optional(),
@@ -480,17 +486,40 @@ function ConditionsPanel({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export function RatingRulesPage() {
-  const { hasPermission } = useAuthStore();
-  const canCreate = hasPermission('pricing.manage_rules');
-  const canUpdate = hasPermission('pricing.manage_rules');
-  const canDelete = hasPermission('pricing.manage_rules');
+export interface RatingRulesPageProps {
+  /** When set, scopes this page to a single pricing rate book: the rule list
+   * is filtered to that rate book, new rules are created against it, and
+   * create/edit is disabled unless the rate book is DRAFT or REJECTED. */
+  rateBookId?: string;
+  /** Locks the product selector to the rate book's product when scoped. */
+  productId?: string;
+  rateBookStatus?: PricingRateBookStatus;
+}
 
-  const [selectedProductId, setSelectedProductId] = useState('');
+export function RatingRulesPage({
+  rateBookId,
+  productId,
+  rateBookStatus,
+}: RatingRulesPageProps = {}) {
+  const { hasPermission } = useAuthStore();
+  const isScoped = !!rateBookId;
+  const rateBookEditable =
+    !isScoped ||
+    rateBookStatus === 'DRAFT' ||
+    rateBookStatus === 'REJECTED';
+  const canCreate = hasPermission('pricing.manage_rules') && rateBookEditable;
+  const canUpdate = hasPermission('pricing.manage_rules') && rateBookEditable;
+  const canDelete = hasPermission('pricing.manage_rules') && rateBookEditable;
+
+  const [selectedProductId, setSelectedProductId] = useState(productId ?? '');
   const [selectedRiskId, setSelectedRiskId] = useState('');
   const [expandedRuleIds, setExpandedRuleIds] = useState<Set<string>>(
     new Set(),
   );
+
+  useEffect(() => {
+    if (productId) setSelectedProductId(productId);
+  }, [productId]);
 
   const { data: products = [] } = useAllActiveProducts();
   const { data: risks = [] } = useRisksByProduct({
@@ -500,7 +529,10 @@ export function RatingRulesPage() {
     risk_id: selectedRiskId || undefined,
     limit: 100,
   });
-  const rules = rulesPage?.data ?? [];
+  const rules = useMemo(() => {
+    const all = rulesPage?.data ?? [];
+    return isScoped ? all.filter((r) => r.rate_book_id === rateBookId) : all;
+  }, [rulesPage, isScoped, rateBookId]);
 
   const { data: allFactors = [] } = useAllFactors();
   const createMutation = useCreateRule();
@@ -521,6 +553,7 @@ export function RatingRulesPage() {
       per_unit_amount: null,
       per_unit_factor_code: null,
       minimum_amount: null,
+      maximum_amount: null,
       max_discount_rate: null,
       max_discount_amount: null,
       discount_approval_threshold_rate: null,
@@ -549,6 +582,7 @@ export function RatingRulesPage() {
       per_unit_amount: null,
       per_unit_factor_code: null,
       minimum_amount: null,
+      maximum_amount: null,
       max_discount_rate: null,
       max_discount_amount: null,
       discount_approval_threshold_rate: null,
@@ -579,6 +613,7 @@ export function RatingRulesPage() {
       per_unit_amount: rule.per_unit_amount,
       per_unit_factor_code: rule.per_unit_factor_code,
       minimum_amount: rule.minimum_amount,
+      maximum_amount: rule.maximum_amount ?? null,
       max_discount_rate:
         rule.max_discount_rate == null
           ? null
@@ -641,7 +676,11 @@ export function RatingRulesPage() {
       );
     } else {
       createMutation.mutate(
-        { ...payload, risk_id: selectedRiskId },
+        {
+          ...payload,
+          risk_id: selectedRiskId,
+          ...(rateBookId ? { rate_book_id: rateBookId } : {}),
+        },
         { onSuccess: () => setDialogOpen(false) },
       );
     }
@@ -657,43 +696,62 @@ export function RatingRulesPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <PageHeader
-        title="Rating Rules"
-        description="Define premium calculation rules with conditions per risk"
-        action={
-          canCreate && selectedRiskId ? (
+    <div className={isScoped ? 'space-y-6' : 'p-6 space-y-6'}>
+      {!isScoped && (
+        <PageHeader
+          title="Rating Rules"
+          description="Define premium calculation rules with conditions per risk"
+          action={
+            canCreate && selectedRiskId ? (
+              <Button onClick={openCreate}>
+                <Plus className="mr-2 h-4 w-4" /> New Rule
+              </Button>
+            ) : undefined
+          }
+        />
+      )}
+
+      {isScoped && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-slate-500">
+            {rateBookEditable
+              ? 'Rules scoped to this rate book. Only rules assigned to this rate book are shown.'
+              : `This rate book is ${rateBookStatus ?? 'not editable'} — rules cannot be added or changed until it returns to DRAFT.`}
+          </p>
+          {canCreate && selectedRiskId ? (
             <Button onClick={openCreate}>
               <Plus className="mr-2 h-4 w-4" /> New Rule
             </Button>
-          ) : undefined
-        }
-      />
+          ) : null}
+        </div>
+      )}
 
       {/* Risk selector */}
       <div className="flex flex-wrap gap-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-slate-500">Product</p>
-          <Select
-            value={selectedProductId || 'none'}
-            onValueChange={(v) => {
-              setSelectedProductId(v === 'none' ? '' : v);
-              setSelectedRiskId('');
-            }}
-          >
-            <SelectTrigger className="w-56 h-9">
-              <SelectValue placeholder="Select product…" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">— Select product —</SelectItem>
-              {products.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.product_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {!isScoped && (
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-slate-500">Product</p>
+            <Select
+              value={selectedProductId || 'none'}
+              onValueChange={(v) => {
+                setSelectedProductId(v === 'none' ? '' : v);
+                setSelectedRiskId('');
+              }}
+            >
+              <SelectTrigger className="w-56 h-9">
+                <SelectValue placeholder="Select product…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— Select product —</SelectItem>
+                {products.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.product_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <div className="space-y-1">
           <p className="text-xs font-medium text-slate-500">Risk</p>
           <Select
@@ -720,7 +778,9 @@ export function RatingRulesPage() {
       {!selectedRiskId ? (
         <div className="text-center py-16 text-slate-400">
           <p className="text-sm">
-            Select a product and risk to view its rating rules.
+            {isScoped
+              ? 'Select a risk to view its rating rules for this rate book.'
+              : 'Select a product and risk to view its rating rules.'}
           </p>
         </div>
       ) : rulesLoading ? (
@@ -740,6 +800,7 @@ export function RatingRulesPage() {
                 <TableHead>Rate Type</TableHead>
                 <TableHead>Rate Value</TableHead>
                 <TableHead>Min Amount</TableHead>
+                <TableHead>Max Amount</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
@@ -748,7 +809,7 @@ export function RatingRulesPage() {
               {rules.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={8}
+                    colSpan={9}
                     className="text-center py-12 text-slate-400 text-sm"
                   >
                     No rules yet. Click "New Rule" to add one.
@@ -793,6 +854,11 @@ export function RatingRulesPage() {
                         <TableCell className="text-sm text-slate-500">
                           {rule.minimum_amount != null
                             ? rule.minimum_amount
+                            : '—'}
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-500">
+                          {rule.maximum_amount != null
+                            ? rule.maximum_amount
                             : '—'}
                         </TableCell>
                         <TableCell>
@@ -855,7 +921,7 @@ export function RatingRulesPage() {
                           key={`${rule.id}-conditions`}
                           className="hover:bg-transparent"
                         >
-                          <TableCell colSpan={8} className="p-0">
+                          <TableCell colSpan={9} className="p-0">
                             <ConditionsPanel
                               rule={rule}
                               canUpdate={canUpdate}
@@ -900,31 +966,45 @@ export function RatingRulesPage() {
                 <FormField
                   control={form.control}
                   name="rate_type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Rate Type <span className="text-red-500">*</span>
-                      </FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {RATE_TYPES.map((t) => (
-                            <SelectItem key={t} value={t}>
-                              {t}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const isFormulaLocked = editRule?.rate_type === 'FORMULA';
+                    const options = isFormulaLocked
+                      ? RATE_TYPES
+                      : CREATABLE_RATE_TYPES;
+                    return (
+                      <FormItem>
+                        <FormLabel>
+                          Rate Type <span className="text-red-500">*</span>
+                        </FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          disabled={isFormulaLocked}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {options.map((t) => (
+                              <SelectItem key={t} value={t}>
+                                {t}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {isFormulaLocked && (
+                          <FormDescription>
+                            FORMULA is legacy shorthand and can no longer be
+                            assigned to new or existing rules — only display of
+                            this existing rule is supported.
+                          </FormDescription>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
                 <FormField
                   control={form.control}
@@ -1102,6 +1182,31 @@ export function RatingRulesPage() {
                         type="number"
                         step="0.01"
                         placeholder="e.g. 100"
+                        value={field.value ?? ''}
+                        onChange={(e) =>
+                          field.onChange(
+                            e.target.value === ''
+                              ? null
+                              : Number(e.target.value),
+                          )
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="maximum_amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Maximum Amount (optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="e.g. 5000000"
                         value={field.value ?? ''}
                         onChange={(e) =>
                           field.onChange(

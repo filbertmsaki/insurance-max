@@ -19,6 +19,7 @@ import { ServiceScopes } from '@insurance-max/shared-kernel';
 
 import { TiramisTenantContextGuard } from '../../../common/guards/tiramis-tenant-context.guard';
 import { TiramisProductContextGuard } from '../../../common/guards/tiramis-product-context.guard';
+import { TiramisPricingContextGuard } from '../../../common/guards/tiramis-pricing-context.guard';
 import { CreateCoverNoteDto } from '../dto/create-cover-note.dto';
 import { TiramisCoverNoteService } from '../services/tiramis-cover-note.service';
 
@@ -62,7 +63,7 @@ export class TiramisCoverNotesController {
   @ApiOperation({ summary: 'Submit a non-motor cover note' })
   @ApiBody({ type: CreateCoverNoteDto })
   @ServiceScopes('tiramis:submit')
-  @UseGuards(TiramisProductContextGuard)
+  @UseGuards(TiramisProductContextGuard, TiramisPricingContextGuard)
   @Post('submit')
   submit(@Body() dto: CreateCoverNoteDto) {
     return this.tiramisCoverNoteService.submit(dto);

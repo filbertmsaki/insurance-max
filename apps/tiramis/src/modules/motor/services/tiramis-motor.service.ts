@@ -478,6 +478,28 @@ export class TiramisMotorService {
         errors,
       });
     }
+
+    this.payloadValidator.validateSignedPricingMatch(
+      this.collectRisksForPricingMatch(dto),
+    );
+  }
+
+  /**
+   * Flattens the risk rows a signed pricing context could apply to: the
+   * top-level risks for a non-fleet submission, or every fleet item's
+   * effective risk rows (falling back to the shared dto.risks when an item
+   * does not override them) for a fleet submission.
+   */
+  private collectRisksForPricingMatch(
+    dto: CreateMotorCoverNoteDto & Partial<TiramisResolvedRequestDtoFields>,
+  ): any[] {
+    if (!dto.isFleet) {
+      return dto.risks || [];
+    }
+
+    return (dto.fleet?.items || []).flatMap((item: any) =>
+      item.risks && item.risks.length > 0 ? item.risks : dto.risks || [],
+    );
   }
 
   private validateFleet(

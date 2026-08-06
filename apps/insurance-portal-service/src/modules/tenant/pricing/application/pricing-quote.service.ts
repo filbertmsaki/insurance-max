@@ -7,6 +7,14 @@ import {
   sumDecimals,
 } from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import { In, Repository } from 'typeorm';
+import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
+import type {
+  AddonPricingRuleSnapshot,
+  PricingAdjustmentSnapshot,
+  PricingRateBookSnapshot,
+  PricingResultSnapshot,
+  PricingRuleSnapshot,
+} from '@insurance-max/contracts';
 import { IdentifierGeneratorService } from '../../../shared/identifiers/identifier-generator.service';
 import { InsuranceRisk } from '../../insurance-risks/entities/insurance-risk.entity';
 import { ExchangeRateGovernanceService } from './exchange-rate-governance.service';
@@ -35,6 +43,12 @@ import type {
   StoredPricingQuote,
 } from '../domain/pricing.types';
 
+interface BuiltPricingSnapshot {
+  rateBookSnapshot: PricingRateBookSnapshot;
+  resultSnapshot: PricingResultSnapshot;
+  resultHash: string;
+}
+
 @Injectable()
 export class PricingQuoteService {
   private readonly defaultExpiryHours = 24;
@@ -49,6 +63,7 @@ export class PricingQuoteService {
     private readonly identifierGeneratorService: IdentifierGeneratorService,
     private readonly exchangeRateGovernanceService: ExchangeRateGovernanceService,
     private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
+    private readonly productDefinitionHashService: ProductDefinitionHashService,
 
     @InjectRepository(PricingQuote)
     private readonly pricingQuoteRepository: Repository<PricingQuote>,
@@ -326,6 +341,16 @@ export class PricingQuoteService {
       expires_at: expiresAt.toISOString(),
     });
 
+    const pricingSnapshot = singleResult
+      ? this.buildPricingSnapshot(
+          pricingQuoteId,
+          singleResult,
+          calculatedAt,
+          expiresAt,
+          inputSignature,
+        )
+      : null;
+
     const persisted = this.pricingQuoteRepository.create({
       company_id: companyId,
       pricing_quote_id: pricingQuoteId,
@@ -343,11 +368,25 @@ export class PricingQuoteService {
       matched_rule_version: singleResult?.rule_version ?? null,
       base_premium: this.resolveBasePremium(result),
       minimum_premium_adjustment: this.resolveMinimumPremiumAdjustment(result),
+      maximum_premium_adjustment: this.resolveMaximumPremiumAdjustment(result),
       gross_premium: this.resolveGrossPremium(result),
       final_premium: this.resolveFinalPremium(result),
       expires_at: expiresAt,
       calculated_at: calculatedAt,
       input_signature: inputSignature,
+      product_version_id:
+        singleResult?.rate_book_context?.product_version_id ?? null,
+      product_definition_hash:
+        singleResult?.rate_book_context?.product_definition_hash ?? null,
+      rate_book_definition_hash:
+        singleResult?.rate_book_context?.definition_hash ?? null,
+      result_hash: pricingSnapshot?.resultHash ?? null,
+      rate_book_snapshot: pricingSnapshot
+        ? (pricingSnapshot.rateBookSnapshot as unknown as Record<string, unknown>)
+        : null,
+      pricing_result_snapshot: pricingSnapshot
+        ? (pricingSnapshot.resultSnapshot as unknown as Record<string, unknown>)
+        : null,
       input_payload: this.toJsonObject(input),
       factor_payload: this.resolveFactorPayload(input, enrichedResult),
       result_payload: this.toJsonObject(enrichedResult),
@@ -563,6 +602,221 @@ export class PricingQuoteService {
       (sum, risk) => sum + Math.max(0, risk.final_premium - risk.gross_premium),
       0,
     );
+  }
+
+  /**
+   * The delta the maximum-premium ceiling subtracted, analogous to
+   * resolveMinimumPremiumAdjustment above (which reports the delta the
+   * minimum-premium floor added).
+   */
+  private resolveMaximumPremiumAdjustment(
+    result: RiskPremiumResult | MultiRiskPremiumResult,
+  ) {
+    if (this.isSingleRiskResult(result)) {
+      return Math.max(
+        0,
+        result.premium_after_minimum - result.final_premium,
+      );
+    }
+
+    return result.risks.reduce(
+      (sum, risk) =>
+        sum + Math.max(0, risk.premium_after_minimum - risk.final_premium),
+      0,
+    );
+  }
+
+  /**
+   * Builds the immutable Phase 7 pricing-authority snapshot (rate book +
+   * matched rule + evaluated add-ons + calculation result) and its content
+   * hash, for persistence alongside the pricing quote. Only meaningful for a
+   * single-risk quote resolved against a published rate book — returns null
+   * for multi-risk quotes (no single rate book/rule to snapshot) and for
+   * legacy risk-level rules with no associated rate book (rate_book_id IS
+   * NULL), since PricingRateBookSnapshot requires a non-null rate book
+   * identity.
+   */
+  private buildPricingSnapshot(
+    pricingQuoteId: string,
+    risk: RiskPremiumResult,
+    calculatedAt: Date,
+    expiresAt: Date,
+    inputSignature: string,
+  ): BuiltPricingSnapshot | null {
+    const rateBookContext = risk.rate_book_context;
+    if (!rateBookContext) {
+      return null;
+    }
+
+    const matchedRule: PricingRuleSnapshot = {
+      ruleId: risk.rule_id,
+      ruleName: risk.rule_name,
+      ruleVersion: risk.rule_version ?? 0,
+      riskId: risk.risk_id,
+      riskCode: risk.risk_code,
+      riskName: risk.risk_name,
+      priority: risk.matched_rule_priority,
+      specificityScore: risk.matched_rule_specificity_score,
+      rateType: risk.rate_type,
+      percentageRate: this.toNullableString(risk.percentage_rate),
+      fixedAmount: this.toNullableString(risk.fixed_amount),
+      perUnitAmount: this.toNullableString(risk.per_unit_amount),
+      perUnitFactorCode: risk.per_unit_factor_code,
+      minimumAmount: this.toNullableString(risk.minimum_amount),
+      maximumAmount: this.toNullableString(risk.maximum_premium),
+      maxDiscountRate: this.toNullableString(risk.discount_control.max_rate),
+      maxDiscountAmount: this.toNullableString(
+        risk.discount_control.max_amount,
+      ),
+      discountApprovalThresholdRate: this.toNullableString(
+        risk.discount_control.approval_threshold_rate,
+      ),
+      discountApprovalThresholdAmount: this.toNullableString(
+        risk.discount_control.approval_threshold_amount,
+      ),
+      maxLoadingRate: this.toNullableString(risk.loading_control.max_rate),
+      maxLoadingAmount: this.toNullableString(
+        risk.loading_control.max_amount,
+      ),
+      loadingApprovalThresholdRate: this.toNullableString(
+        risk.loading_control.approval_threshold_rate,
+      ),
+      loadingApprovalThresholdAmount: this.toNullableString(
+        risk.loading_control.approval_threshold_amount,
+      ),
+      conditions: risk.matched_rule_conditions.map((condition) => ({
+        id: condition.id,
+        factorCode: condition.factor_code,
+        operator: condition.operator,
+        valueFrom: condition.value_from,
+        valueTo: condition.value_to,
+        logicalOperator: condition.logical_operator,
+      })),
+    };
+
+    const addons: AddonPricingRuleSnapshot[] = risk.addon_results.map(
+      (addon) => ({
+        ruleId: addon.rule_id,
+        addonDefinitionId: addon.addon_definition_id,
+        addonCode: addon.addon_code,
+        addonName: addon.addon_name,
+        pricingType: addon.pricing_type,
+        percentageRate: addon.percentage_rate,
+        fixedAmount: addon.fixed_amount,
+        perUnitAmount: addon.per_unit_amount,
+        perUnitFactorCode: addon.per_unit_factor_code,
+        minimumAmount: addon.minimum_amount,
+        maximumAmount: addon.maximum_amount,
+        quantity: addon.quantity,
+        sumInsured:
+          addon.sum_insured !== null ? String(addon.sum_insured) : null,
+        calculatedPremium: String(addon.calculated_premium),
+      }),
+    );
+
+    const rateBookSnapshot: PricingRateBookSnapshot = {
+      rateBookId: rateBookContext.rate_book_id,
+      code: rateBookContext.code,
+      version: rateBookContext.version,
+      insurerCompanyId: rateBookContext.company_id,
+      productId: rateBookContext.product_id,
+      productVersionId: rateBookContext.product_version_id ?? '',
+      productDefinitionHash: rateBookContext.product_definition_hash ?? '',
+      currencyCode: rateBookContext.currency_code,
+      effectiveFrom: rateBookContext.effective_from,
+      effectiveTo: rateBookContext.effective_to,
+      roundingMode: rateBookContext.rounding_mode,
+      roundingIncrement: rateBookContext.rounding_increment,
+      prorationMethod: rateBookContext.proration_method,
+      calculationVersion: rateBookContext.calculation_version,
+      definitionHash: rateBookContext.definition_hash,
+      matchedRule,
+      addons,
+    };
+
+    const loadingType = this.resolveSnapshotAdjustmentType(
+      risk.loading_rate,
+      risk.loading_amount,
+    );
+    const loadingAdjustment: PricingAdjustmentSnapshot = {
+      type: loadingType,
+      requestedRate: this.toNullableString(risk.loading_rate),
+      requestedAmount:
+        risk.loading_rate === null && risk.loading_amount > 0
+          ? String(risk.loading_amount)
+          : null,
+      appliedRate: this.toNullableString(risk.loading_rate),
+      appliedAmount: String(risk.loading_amount),
+      approvalRequired: risk.loading_approval_required,
+    };
+
+    const discountAdjustment: PricingAdjustmentSnapshot = {
+      type: risk.discount_type,
+      requestedRate: this.toNullableString(risk.discount_rate),
+      requestedAmount:
+        risk.discount_rate === null && risk.discount_amount > 0
+          ? String(risk.discount_amount)
+          : null,
+      appliedRate: this.toNullableString(risk.discount_rate),
+      appliedAmount: String(risk.discount_amount),
+      approvalRequired: risk.discount_approval_required,
+    };
+
+    const resultWithoutHash: Omit<PricingResultSnapshot, 'resultHash'> = {
+      pricingQuoteId,
+      calculationVersion: rateBookContext.calculation_version,
+      riskId: risk.risk_id,
+      riskCode: risk.risk_code,
+      riskName: risk.risk_name,
+      currencyCode: rateBookContext.currency_code,
+      sumInsured: String(risk.sum_insured),
+      rawPremium: String(risk.raw_premium),
+      premiumAfterMinimum: String(risk.premium_after_minimum),
+      premiumAfterMaximum: String(risk.final_premium),
+      baseAddonPremium: String(risk.base_addon_premium),
+      premiumBeforeLoading: String(risk.premium_before_loading),
+      loading: loadingAdjustment,
+      premiumBeforeDiscount: String(risk.premium_before_discount),
+      discount: discountAdjustment,
+      premiumExcludingCharges: String(risk.premium_after_discount),
+      totalChargeAmount: String(risk.total_charge_amount),
+      finalPayablePremium: String(risk.final_payable_premium),
+      minimumPremiumApplied: risk.minimum_premium_applied,
+      maximumPremiumApplied: risk.maximum_premium_applied,
+      prorationFactor: String(risk.proration_factor),
+      rateBook: rateBookSnapshot,
+      inputHash: inputSignature,
+      calculatedAt: calculatedAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+    };
+
+    const resultHash = this.productDefinitionHashService.hashDefinition(
+      resultWithoutHash as unknown as Record<string, unknown>,
+    );
+
+    return {
+      rateBookSnapshot,
+      resultSnapshot: { ...resultWithoutHash, resultHash },
+      resultHash,
+    };
+  }
+
+  private resolveSnapshotAdjustmentType(
+    rate: number | null,
+    amount: number,
+  ): 'NONE' | 'PERCENTAGE' | 'FIXED' {
+    if (typeof rate === 'number' && rate > 0) return 'PERCENTAGE';
+    if (amount > 0) return 'FIXED';
+    return 'NONE';
+  }
+
+  private toNullableString(
+    value: number | string | null | undefined,
+  ): string | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    return String(value);
   }
 
   private resolveGrossPremium(

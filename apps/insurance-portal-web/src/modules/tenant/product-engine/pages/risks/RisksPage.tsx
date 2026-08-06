@@ -69,6 +69,7 @@ import {
   useAddRequiredFactor,
   useRemoveRequiredFactor,
   useUpdateRequiredFactor,
+  useRateBookList,
 } from '@/modules/tenant/product-engine/hooks';
 import type { InsuranceRisk, RiskRequiredFactor } from '@/types/product-engine';
 
@@ -109,11 +110,15 @@ function ManageFactorsDrawer({
     risk.id,
   );
   const { data: allFactors = [] } = useAllFactors();
+  const { data: rateBooks = [] } = useRateBookList({
+    product_id: risk.product_id,
+  });
   const addMutation = useAddRequiredFactor();
   const removeMutation = useRemoveRequiredFactor();
   const updateMutation = useUpdateRequiredFactor();
 
   const [selectedFactorId, setSelectedFactorId] = useState('');
+  const [selectedRateBookId, setSelectedRateBookId] = useState('');
   const [isRequired, setIsRequired] = useState(true);
   const [deleteFactorItem, setDeleteFactorItem] =
     useState<RiskRequiredFactor | null>(null);
@@ -122,9 +127,10 @@ function ManageFactorsDrawer({
   const availableFactors = allFactors.filter((f) => !assignedIds.has(f.id));
 
   function handleAdd() {
-    if (!selectedFactorId) return;
+    if (!selectedFactorId || !selectedRateBookId) return;
     addMutation.mutate(
       {
+        rate_book_id: selectedRateBookId,
         risk_id: risk.id,
         factor_id: selectedFactorId,
         is_required: isRequired,
@@ -198,6 +204,27 @@ function ManageFactorsDrawer({
           <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
             Add Factor
           </p>
+          <Select
+            value={selectedRateBookId}
+            onValueChange={setSelectedRateBookId}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Select a rate book…" />
+            </SelectTrigger>
+            <SelectContent>
+              {rateBooks.length === 0 ? (
+                <div className="px-2 py-1.5 text-xs text-slate-400">
+                  No rate books exist for this product yet
+                </div>
+              ) : (
+                rateBooks.map((rb) => (
+                  <SelectItem key={rb.id} value={rb.id}>
+                    {rb.code} / {rb.version} ({rb.status})
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
           <Select value={selectedFactorId} onValueChange={setSelectedFactorId}>
             <SelectTrigger className="h-9">
               <SelectValue placeholder="Select a rating factor…" />
@@ -223,7 +250,9 @@ function ManageFactorsDrawer({
           <Button
             size="sm"
             onClick={handleAdd}
-            disabled={!selectedFactorId || addMutation.isPending}
+            disabled={
+              !selectedFactorId || !selectedRateBookId || addMutation.isPending
+            }
             className="w-full"
           >
             <Plus className="mr-2 h-3.5 w-3.5" /> Add Factor

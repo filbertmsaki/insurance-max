@@ -10,6 +10,8 @@ import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
 import { RiskRequiredFactor } from '../risk-required-factors/entities/risk-required-factor.entity';
+import { RiskRatingRule } from '../risk-rating-rules/entities/risk-rating-rule.entity';
+import { PricingRateBookStatus } from '../pricing-rate-books/enums/pricing-rate-book-status.enum';
 import { isMotorProductCode } from '../pricing/domain/motor-rating.config';
 import { CreateInsuranceRiskDto } from './dto/create-insurance-risk.dto';
 import { FilterInsuranceRiskDto } from './dto/filter-insurance-risk.dto';
@@ -31,6 +33,9 @@ export class InsuranceRisksService {
 
     @InjectRepository(RiskRequiredFactor)
     private readonly requiredFactorRepository: Repository<RiskRequiredFactor>,
+
+    @InjectRepository(RiskRatingRule)
+    private readonly ruleRepository: Repository<RiskRatingRule>,
 
     private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
   ) {}
@@ -273,6 +278,30 @@ export class InsuranceRisksService {
 
   async remove(companyId: string, id: string): Promise<void> {
     const risk = await this.requireRisk(companyId, id);
+
+    const activeUsage = await this.ruleRepository
+      .createQueryBuilder('rule')
+      .leftJoin(
+        'pricing_rate_books',
+        'rate_book',
+        'rate_book.id = rule.rate_book_id',
+      )
+      .where('rule.company_id = :companyId', { companyId })
+      .andWhere('rule.risk_id = :id', { id })
+      .andWhere('rule.is_active = true')
+      .andWhere('rule.deleted_at IS NULL')
+      .andWhere(
+        '(rule.rate_book_id IS NULL OR rate_book.status = :published)',
+        { published: PricingRateBookStatus.PUBLISHED },
+      )
+      .getCount();
+
+    if (activeUsage > 0) {
+      throw new ConflictException(
+        'This risk is used by an active rating rule in a published rate book and cannot be deleted.',
+      );
+    }
+
     await this.riskRepository.softDelete(risk.id);
     await this.pricingRuntimeCacheService.invalidateProductConfiguration(
       companyId,

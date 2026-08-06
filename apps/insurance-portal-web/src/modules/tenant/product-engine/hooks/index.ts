@@ -10,4 +10,6 @@ export * from './useCategoryAccess';
 export * from './useProductAccess';
 export * from './useDepartments';
 export * from './useProductDefinitions';
+export * from './useRateBooks';
+export * from './useAddonRateRules';
 export { peKeys } from './query-keys';

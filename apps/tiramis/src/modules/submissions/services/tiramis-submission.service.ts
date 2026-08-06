@@ -32,7 +32,9 @@ export class TiramisSubmissionService {
     businessReference: string;
     originalRequestId?: string | null;
   }) {
-    const product = this.requestContextService.getServicePrincipal()?.product;
+    const principal = this.requestContextService.getServicePrincipal();
+    const product = principal?.product;
+    const pricing = principal?.pricing;
 
     const transaction = this.transactionRepository.create({
       clientConfigurationId: params.clientConfigurationId,
@@ -52,6 +54,19 @@ export class TiramisSubmissionService {
       sourceProductCode: product?.productCode ?? null,
       sourceTiramisProductCode: product?.tiramisProductCode ?? null,
       sourceProductDefinitionHash: product?.definitionHash ?? null,
+      sourcePricingQuoteId: pricing?.pricingQuoteId ?? null,
+      sourceRateBookId: pricing?.rateBookId ?? null,
+      sourceRateBookCode: pricing?.rateBookCode ?? null,
+      sourceRateBookVersion: pricing?.rateBookVersion ?? null,
+      sourceRateBookDefinitionHash: pricing?.rateBookDefinitionHash ?? null,
+      sourceRatingRuleId: pricing?.matchedRuleId ?? null,
+      // ServicePricingContext does not carry a matched-rule code, only its
+      // id/version — left null until that field exists upstream.
+      sourceRatingRuleCode: null,
+      sourceRatingRuleVersion: pricing?.matchedRuleVersion ?? null,
+      sourcePricingInputHash: pricing?.inputHash ?? null,
+      sourcePricingResultHash: pricing?.resultHash ?? null,
+      sourceCalculationVersion: pricing?.calculationVersion ?? null,
     });
 
     return this.transactionRepository.save(transaction);

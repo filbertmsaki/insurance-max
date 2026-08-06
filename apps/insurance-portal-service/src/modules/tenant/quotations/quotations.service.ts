@@ -21,9 +21,11 @@ import {
   Repository,
 } from 'typeorm';
 import {
+  PricingResultSnapshot,
   ProductDefinitionSnapshot,
   ProductReviewStatus,
   ProductVersionStatus,
+  ServicePricingContext,
   ServiceProductContext,
 } from '@insurance-max/contracts';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
@@ -712,6 +714,13 @@ export class QuotationsService {
     this.assertDraftWritable(existing);
 
     const quotation = await this.replace(companyId, id, payload, user);
+
+    const replacedAggregate = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
+    this.assertPricingSnapshotsCurrent(replacedAggregate);
+
     await this.quotationLifecycleService.evaluateRequirements(companyId, id, {
       changedBy: user.id,
       changedByType: 'USER',
@@ -1439,6 +1448,15 @@ export class QuotationsService {
         )
       : undefined;
 
+    const riskWithPricingSnapshot = (quotation.cover_note?.entries ?? [])
+      .flatMap((entry) => entry.risks ?? [])
+      .find((risk) => !!risk.pricing_snapshot);
+    const pricingContext = riskWithPricingSnapshot?.pricing_snapshot
+      ? this.buildServicePricingContext(
+          riskWithPricingSnapshot.pricing_snapshot as unknown as PricingResultSnapshot,
+        )
+      : undefined;
+
     let result: Record<string, unknown>;
 
     try {
@@ -1447,6 +1465,7 @@ export class QuotationsService {
         sourceModule: 'quotations',
         sourceRecordId: quotation.id,
         productContext,
+        pricingContext,
         businessReference: this.payloadMapper.businessReference(quotation),
         payload: tiramisPayload,
         forceResubmit: submitOptions.force_resubmit,
@@ -1612,10 +1631,34 @@ export class QuotationsService {
       afterState: { productVersionId: latestDefinition.productVersionId },
     });
 
-    // Pricing recalculation against the rebased definition is handled in
-    // Phase 7 — this only realigns the product-definition snapshot.
+    // Any pricing snapshots computed against the previous product version
+    // are no longer valid — clear them so premiums must be recalculated
+    // against the rebased version.
+    const rebasedRiskIds = await this.dataSource
+      .getRepository(QuotationEntryRisk)
+      .createQueryBuilder('risk')
+      .innerJoin('risk.entry', 'entry')
+      .innerJoin('entry.cover_note', 'coverNote')
+      .where('coverNote.quotation_id = :id', { id })
+      .select('risk.id')
+      .getMany()
+      .then((risks) => risks.map((risk) => risk.id));
 
-    return this.findOne(companyId, id);
+    if (rebasedRiskIds.length > 0) {
+      await this.dataSource.getRepository(QuotationEntryRisk).update(
+        { id: In(rebasedRiskIds) },
+        {
+          pricing_quote_id: null,
+          pricing_result_hash: null,
+          pricing_snapshot: null,
+        },
+      );
+    }
+
+    return {
+      ...(await this.findOne(companyId, id)),
+      pricing_recalculation_required: true,
+    };
   }
 
   async transitionStatus(
@@ -2987,6 +3030,119 @@ export class QuotationsService {
         definition.exclusions,
       ),
       allowsCoverTextOverride: definition.allowsCoverTextOverride,
+    };
+  }
+
+  /**
+   * Mirrors buildServiceProductContext, but signs the authoritative pricing
+   * result actually attached to the risk being submitted, so TIRAMIS can
+   * independently re-verify the premium it is being asked to bind against.
+   */
+  private buildServicePricingContext(
+    snapshot: PricingResultSnapshot,
+  ): ServicePricingContext {
+    return {
+      pricingQuoteId: snapshot.pricingQuoteId,
+      productVersionId: snapshot.rateBook.productVersionId,
+      productDefinitionHash: snapshot.rateBook.productDefinitionHash,
+      rateBookId: snapshot.rateBook.rateBookId,
+      rateBookCode: snapshot.rateBook.code,
+      rateBookVersion: snapshot.rateBook.version,
+      rateBookDefinitionHash: snapshot.rateBook.definitionHash ?? '',
+      matchedRuleId: snapshot.rateBook.matchedRule.ruleId,
+      matchedRuleVersion: snapshot.rateBook.matchedRule.ruleVersion,
+      riskId: snapshot.riskId,
+      riskCode: snapshot.riskCode,
+      currencyCode: snapshot.currencyCode,
+      basicPremium: snapshot.premiumAfterMaximum,
+      addonPremium: snapshot.baseAddonPremium,
+      loadingAmount: snapshot.loading.appliedAmount,
+      discountAmount: snapshot.discount.appliedAmount,
+      premiumExcludingTax: snapshot.premiumExcludingCharges,
+      taxAmount: snapshot.totalChargeAmount,
+      premiumIncludingTax: snapshot.finalPayablePremium,
+      finalPayablePremium: snapshot.finalPayablePremium,
+      calculationVersion: snapshot.calculationVersion,
+      inputHash: snapshot.inputHash,
+      resultHash: snapshot.resultHash,
+    };
+  }
+
+  /**
+   * Guards quotation completion against premium calculations that have
+   * been silently invalidated by later edits (e.g. sum insured, discounts,
+   * or addons changed after the pricing engine last calculated a risk's
+   * premium, without a fresh calculation being requested). Compares a
+   * best-effort reconstruction of the risk's current pricing inputs against
+   * the inputHash recorded on the risk's attached pricing_snapshot.
+   *
+   * NOTE: this input reconstruction is built independently from the
+   * pricing-quote persistence code that originally computed inputHash. If
+   * that code hashes a different/richer shape (e.g. additional rating
+   * factors not represented on quotation_entry_risks), this comparison may
+   * under- or over-report staleness and should be reconciled against that
+   * implementation once both are available together.
+   */
+  private assertPricingSnapshotsCurrent(quotation: Quotation): void {
+    for (const entry of quotation.cover_note?.entries ?? []) {
+      for (const risk of entry.risks ?? []) {
+        const snapshot =
+          risk.pricing_snapshot as unknown as PricingResultSnapshot | null;
+        if (!snapshot?.inputHash) {
+          continue;
+        }
+
+        const currentInput = this.buildCurrentPricingInputSnapshot(
+          quotation,
+          entry,
+          risk,
+        );
+        const currentInputHash =
+          this.productDefinitionHashService.hashDefinition(currentInput);
+
+        if (currentInputHash !== snapshot.inputHash) {
+          throw new ConflictException({
+            code: 'QUOTATION_PRICING_STALE',
+            message: 'Quotation information changed after premium calculation.',
+            details: { action: 'RECALCULATE_PREMIUM' },
+          });
+        }
+      }
+    }
+  }
+
+  private buildCurrentPricingInputSnapshot(
+    quotation: Quotation,
+    entry: QuotationCoverNoteEntry,
+    risk: QuotationEntryRisk,
+  ): Record<string, unknown> {
+    return {
+      riskId: risk.insurance_risk_id,
+      riskCode: risk.risk_code,
+      currencyCode: quotation.cover_note?.currency_code ?? null,
+      coverNoteStartDate:
+        quotation.cover_note?.cover_note_start_date ?? null,
+      coverNoteEndDate: quotation.cover_note?.cover_note_end_date ?? null,
+      sumInsured: risk.sum_insured,
+      sumInsuredEquivalent: risk.sum_insured_equivalent,
+      premiumRate: risk.premium_rate,
+      discounts: (risk.discounts ?? [])
+        .map((discount) => ({
+          discountType: discount.discount_type,
+          discountRate: discount.discount_rate,
+          discountAmount: discount.discount_amount,
+        }))
+        .sort((left, right) =>
+          `${left.discountType}`.localeCompare(`${right.discountType}`),
+        ),
+      addons: (entry.addons ?? [])
+        .map((addon) => ({
+          addonReference: addon.addon_reference,
+          addonAmount: addon.addon_amount,
+        }))
+        .sort((left, right) =>
+          left.addonReference.localeCompare(right.addonReference),
+        ),
     };
   }
 
@@ -5917,7 +6073,14 @@ export class QuotationsService {
     currencyCode: string,
     productDefinition?: ProductDefinitionSnapshot | null,
   ): Promise<void> {
-    await this.persistEntryRisks(manager, entry, input, riskByCode, userId);
+    await this.persistEntryRisks(
+      manager,
+      entry,
+      input,
+      riskByCode,
+      userId,
+      quotation,
+    );
     await this.persistSubjectMatters(manager, entry, input);
 
     if (productDefinition) {
@@ -6067,12 +6230,86 @@ export class QuotationsService {
     return `${prefix}${String(next).padStart(6, '0')}`;
   }
 
+  /**
+   * Re-verifies a risk's attached pricing quote immediately before it is
+   * written to quotation_entry_risks, so a stale, expired, rebased, or
+   * tampered pricing result can never be persisted onto a quotation. This
+   * is additional to (and independent of) the broader authoritative-pricing
+   * checks performed on the payload in assertAuthoritativePricing.
+   */
+  private async resolvePricingAttachmentForRisk(
+    manager: EntityManager,
+    companyId: string,
+    productVersionId: string | null,
+    pricingQuoteId: string | null,
+  ): Promise<{
+    pricing_quote_id: string | null;
+    pricing_result_hash: string | null;
+    pricing_snapshot: Record<string, unknown> | null;
+  }> {
+    if (!pricingQuoteId) {
+      return {
+        pricing_quote_id: null,
+        pricing_result_hash: null,
+        pricing_snapshot: null,
+      };
+    }
+
+    const pricingQuote = await manager.getRepository(PricingQuote).findOne({
+      where: {
+        company_id: companyId,
+        pricing_quote_id: pricingQuoteId,
+      },
+    });
+
+    if (!pricingQuote) {
+      throw new NotFoundException('Pricing quote was not found.');
+    }
+
+    if (pricingQuote.expires_at.getTime() < Date.now()) {
+      throw new ConflictException({
+        code: 'PRICING_QUOTE_EXPIRED',
+        message: 'The pricing quote has expired and must be recalculated.',
+      });
+    }
+
+    if (
+      productVersionId &&
+      pricingQuote.product_version_id &&
+      pricingQuote.product_version_id !== productVersionId
+    ) {
+      throw new ConflictException(
+        'The pricing quote belongs to another product version.',
+      );
+    }
+
+    if (pricingQuote.pricing_result_snapshot && pricingQuote.result_hash) {
+      const computedResultHash = this.productDefinitionHashService.hashDefinition(
+        { ...pricingQuote.pricing_result_snapshot, resultHash: undefined },
+      );
+
+      if (computedResultHash !== pricingQuote.result_hash) {
+        throw new ConflictException({
+          code: 'PRICING_RESULT_INTEGRITY_FAILURE',
+          message: 'The pricing result failed its integrity check.',
+        });
+      }
+    }
+
+    return {
+      pricing_quote_id: pricingQuoteId,
+      pricing_result_hash: pricingQuote.result_hash,
+      pricing_snapshot: pricingQuote.pricing_result_snapshot,
+    };
+  }
+
   private async persistEntryRisks(
     manager: EntityManager,
     entry: QuotationCoverNoteEntry,
     input: ResolvedEntry,
     riskByCode: Map<string, InsuranceRisk>,
     userId: string,
+    quotation: Quotation,
   ): Promise<void> {
     const riskRepository = manager.getRepository(QuotationEntryRisk);
     const discountRepository = manager.getRepository(QuotationRiskDiscount);
@@ -6086,6 +6323,12 @@ export class QuotationsService {
       const inputRisk = input.risks_covered[riskIndex];
       const normalizedRiskCode = this.normalizeUppercase(inputRisk.risk_code);
       const configuredRisk = riskByCode.get(normalizedRiskCode);
+      const pricingAttachment = await this.resolvePricingAttachmentForRisk(
+        manager,
+        quotation.company_id,
+        quotation.product_version_id,
+        inputRisk.pricing_quote_id?.trim() ?? null,
+      );
 
       const risk = await riskRepository.save(
         riskRepository.create({
@@ -6093,7 +6336,9 @@ export class QuotationsService {
           insurance_risk_id: configuredRisk?.id ?? null,
           sequence_no: riskIndex + 1,
           risk_code: normalizedRiskCode,
-          pricing_quote_id: inputRisk.pricing_quote_id?.trim() ?? null,
+          pricing_quote_id: pricingAttachment.pricing_quote_id,
+          pricing_result_hash: pricingAttachment.pricing_result_hash,
+          pricing_snapshot: pricingAttachment.pricing_snapshot,
           sum_insured: this.numeric(inputRisk.sum_insured, 2),
           sum_insured_equivalent: this.numeric(
             inputRisk.sum_insured_equivalent,

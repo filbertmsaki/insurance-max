@@ -105,24 +105,38 @@ export class RatingRuleMatcherService {
       return null;
     }
 
-    const topPriority = matchingRules[0].priority;
-    const topPriorityMatches = matchingRules.filter(
-      (rule) => rule.priority === topPriority,
+    // Rank by specificity first (more matching conditions on the rule wins),
+    // then by priority as a tiebreaker (lower number = higher priority). This
+    // ensures a highly specific conditional rule beats a zero-condition
+    // fallback rule even when the fallback has a numerically lower priority.
+    const ranked = [...matchingRules].sort((a, b) => {
+      if (b.specificity_score !== a.specificity_score) {
+        return b.specificity_score - a.specificity_score;
+      }
+      return a.priority - b.priority;
+    });
+
+    const topMatch = ranked[0];
+    const topMatches = ranked.filter(
+      (rule) =>
+        rule.specificity_score === topMatch.specificity_score &&
+        rule.priority === topMatch.priority,
     );
 
-    if (topPriorityMatches.length > 1) {
+    if (topMatches.length > 1) {
       throw new ConflictException({
         status: 'CONFIGURATION_ERROR',
         code: 'MULTIPLE_MATCHING_RULES',
-        message: `Multiple active rating rules match risk ${riskId} at priority ${topPriority}`,
+        message: `Multiple active rating rules match risk ${riskId} at specificity ${topMatch.specificity_score} and priority ${topMatch.priority}`,
         risk_id: riskId,
-        priority: topPriority,
-        matching_rule_ids: topPriorityMatches.map((rule) => rule.id),
-        matching_rule_names: topPriorityMatches.map((rule) => rule.rule_name),
+        priority: topMatch.priority,
+        specificity_score: topMatch.specificity_score,
+        matching_rule_ids: topMatches.map((rule) => rule.id),
+        matching_rule_names: topMatches.map((rule) => rule.rule_name),
       });
     }
 
-    return topPriorityMatches[0] ?? null;
+    return topMatches[0] ?? null;
   }
 
   private async findApplicablePublishedRateBook(

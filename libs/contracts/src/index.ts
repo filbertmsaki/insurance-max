@@ -7,3 +7,4 @@ export * from './message-patterns';
 export * from './utils';
 export * from './organization';
 export * from './product-catalogue';
+export * from './pricing';

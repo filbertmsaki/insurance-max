@@ -518,6 +518,7 @@ export interface RiskRequiredFactor {
   factor: RatingFactor;
   is_required: boolean;
   sort_order: number;
+  rate_book_id?: string | null;
 }
 
 export interface RiskRatingRequirements {
@@ -532,6 +533,7 @@ export interface RiskRatingRequirements {
 }
 
 export interface CreateRequiredFactorDto {
+  rate_book_id: string;
   risk_id: string;
   factor_id: string;
   is_required?: boolean;
@@ -548,6 +550,7 @@ export interface UpdateRequiredFactorDto {
 export interface RiskRatingRule {
   id: string;
   risk_id: string;
+  rate_book_id?: string | null;
   rule_name: string;
   rate_type: RateType;
   percentage_rate: number | null;
@@ -555,6 +558,7 @@ export interface RiskRatingRule {
   per_unit_amount: number | null;
   per_unit_factor_code: string | null;
   minimum_amount: number | null;
+  maximum_amount?: number | null;
   max_discount_rate: number | null;
   max_discount_amount: number | null;
   discount_approval_threshold_rate: number | null;
@@ -570,10 +574,12 @@ export interface RiskRatingRule {
   is_active: boolean;
   created_at: string;
   conditions?: RiskRuleCondition[];
+  risk?: InsuranceRisk;
 }
 
 export interface CreateRuleDto {
   risk_id: string;
+  rate_book_id?: string;
   rule_name: string;
   rate_type: RateType;
   percentage_rate?: number | null;
@@ -581,6 +587,7 @@ export interface CreateRuleDto {
   per_unit_amount?: number | null;
   per_unit_factor_code?: string | null;
   minimum_amount?: number | null;
+  maximum_amount?: number | null;
   max_discount_rate?: number | null;
   max_discount_amount?: number | null;
   discount_approval_threshold_rate?: number | null;
@@ -604,6 +611,7 @@ export interface UpdateRuleDto {
   per_unit_amount?: number | null;
   per_unit_factor_code?: string | null;
   minimum_amount?: number | null;
+  maximum_amount?: number | null;
   max_discount_rate?: number | null;
   max_discount_amount?: number | null;
   discount_approval_threshold_rate?: number | null;
@@ -655,6 +663,132 @@ export interface UpdateConditionDto {
   value_to?: string | null;
   logical_operator?: LogicalOperator;
 }
+
+// ─── Pricing Rate Books ───────────────────────────────────────────────────────
+
+export type PricingRateBookStatus =
+  | 'DRAFT'
+  | 'UNDER_REVIEW'
+  | 'APPROVED'
+  | 'PUBLISHED'
+  | 'RETIRED'
+  | 'REJECTED';
+
+export type PricingRoundingMode = 'HALF_UP' | 'UP' | 'DOWN';
+
+export type PricingProrationMethod =
+  | 'NONE'
+  | 'DAILY_365'
+  | 'DAILY_366'
+  | 'MONTHLY_12';
+
+export interface PricingRateBook {
+  id: string;
+  company_id: string;
+  product_id: string;
+  code: string;
+  version: string;
+  name: string | null;
+  currency_code: string | null;
+  status: PricingRateBookStatus;
+  effective_from: string;
+  effective_to: string | null;
+  product_version_id: string | null;
+  product_definition_hash: string | null;
+  definition_hash: string | null;
+  calculation_version: string;
+  rounding_mode: PricingRoundingMode;
+  rounding_increment: string | number;
+  proration_method: PricingProrationMethod;
+  metadata: Record<string, unknown> | null;
+  created_by?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+  published_by?: string | null;
+  published_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  product?: InsuranceProduct;
+  product_version?: InsuranceProductVersion;
+  rules?: RiskRatingRule[];
+}
+
+export interface CreatePricingRateBookDto {
+  product_version_id: string;
+  code: string;
+  version: string;
+  name?: string;
+  currency_code?: string;
+  effective_from: string;
+  effective_to?: string | null;
+  rounding_mode?: PricingRoundingMode;
+  rounding_increment?: number;
+  proration_method?: PricingProrationMethod;
+}
+
+export type UpdatePricingRateBookDto = Partial<CreatePricingRateBookDto>;
+
+export interface ClonePricingRateBookDto {
+  source_rate_book_id: string;
+  version: string;
+  code?: string;
+  name?: string;
+  effective_from?: string;
+  effective_to?: string | null;
+}
+
+export interface RateBookQueryParams {
+  product_id?: string;
+  status?: PricingRateBookStatus;
+}
+
+// ─── Product Add-on Rate Rules ────────────────────────────────────────────────
+
+export type AddonPricingType = 'PERCENTAGE' | 'FIXED' | 'PER_UNIT' | 'INCLUDED';
+
+export interface ProductAddonRateRule {
+  id: string;
+  company_id: string;
+  rate_book_id: string;
+  product_version_id: string;
+  addon_definition_id: string;
+  rule_code: string;
+  pricing_type: AddonPricingType;
+  percentage_rate: number | null;
+  fixed_amount: number | null;
+  per_unit_amount: number | null;
+  per_unit_factor_code: string | null;
+  minimum_amount: number | null;
+  maximum_amount: number | null;
+  effective_from: string | null;
+  effective_to: string | null;
+  priority: number;
+  is_active: boolean;
+  created_at: string;
+  addon_definition?: ProductAddonDefinition;
+}
+
+export interface CreateAddonRateRuleDto {
+  addon_definition_id: string;
+  rule_code: string;
+  pricing_type: AddonPricingType;
+  percentage_rate?: number | null;
+  fixed_amount?: number | null;
+  per_unit_amount?: number | null;
+  per_unit_factor_code?: string | null;
+  minimum_amount?: number | null;
+  maximum_amount?: number | null;
+  effective_from?: string | null;
+  effective_to?: string | null;
+  priority?: number;
+  is_active?: boolean;
+}
+
+export type UpdateAddonRateRuleDto = Partial<
+  Omit<CreateAddonRateRuleDto, 'addon_definition_id'>
+>;
 
 // ─── Access Control ───────────────────────────────────────────────────────────
 
@@ -925,6 +1059,10 @@ export interface RiskPremiumResult {
   premium_including_tax: number;
   premium_including_tax_equivalent: number;
   final_payable_premium: number;
+
+  // --- Add-on pricing & proration (additive, Phase 7) ---
+  base_addon_premium?: number | null;
+  proration_factor?: number | null;
 }
 
 export interface MultiCalcFailure {
@@ -958,6 +1096,12 @@ export interface PricingAdjustmentRequest {
   fixed_amount?: number | null;
 }
 
+export interface SingleCalcRequestAddon {
+  addon_definition_id: string;
+  quantity?: number;
+  sum_insured?: number;
+}
+
 export interface SingleCalcRequest {
   client_reference?: string;
   risk_id: string;
@@ -969,6 +1113,7 @@ export interface SingleCalcRequest {
   discount?: PricingAdjustmentRequest | null;
   loading?: PricingAdjustmentRequest | null;
   tax_rule_ids?: string[] | null;
+  addons?: SingleCalcRequestAddon[];
 }
 
 export interface MultiCalcRequest {

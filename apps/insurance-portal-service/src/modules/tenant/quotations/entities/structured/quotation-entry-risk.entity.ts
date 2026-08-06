@@ -58,6 +58,19 @@ export class QuotationEntryRisk {
   pricing_quote_id: string | null;
 
   @Column({
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  pricing_result_hash: string | null;
+
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+  })
+  pricing_snapshot: Record<string, unknown> | null;
+
+  @Column({
     type: 'numeric',
     precision: 20,
     scale: 4,

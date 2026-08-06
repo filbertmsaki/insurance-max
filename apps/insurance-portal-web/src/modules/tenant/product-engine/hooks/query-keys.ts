@@ -103,4 +103,17 @@ export const peKeys = {
     ) =>
       ['pe', 'product-versions', 'published', productId, params ?? {}] as const,
   },
+
+  // Pricing Rate Books
+  rateBooks: {
+    all: () => ['pe', 'rate-books'] as const,
+    lists: (p?: object) => ['pe', 'rate-books', 'list', p ?? {}] as const,
+    detail: (id: string) => ['pe', 'rate-books', 'detail', id] as const,
+  },
+
+  // Product Add-on Rate Rules (nested under a rate book)
+  addonRateRules: {
+    byRateBook: (rateBookId: string) =>
+      ['pe', 'addon-rate-rules', 'by-rate-book', rateBookId] as const,
+  },
 };

@@ -14,7 +14,10 @@ import { PricingEngineService } from './application/pricing-engine.service';
 import { PricingQuoteService } from './application/pricing-quote.service';
 import { PricingValidationService } from './application/pricing-validation.service';
 import { QuotationRecalculationService } from './application/quotation-recalculation.service';
+import { AddonPricingService } from './application/addon-pricing.service';
+import { PricingProrationService } from './application/pricing-proration.service';
 import { PricingQuote } from './entities/pricing-quote.entity';
+import { ProductAddonRateRule } from './entities/product-addon-rate-rule.entity';
 import { PremiumBreakdownService } from './infrastructure/premium-breakdown.service';
 import { RatingFactorValidatorService } from './infrastructure/rating-factor-validator.service';
 import { RatingRuleMatcherService } from './infrastructure/rating-rule-matcher.service';
@@ -39,6 +42,7 @@ import { PricingRuntimeCacheService } from './application/pricing-runtime-cache.
       RatingFactor,
       RiskRequiredFactor,
       RiskRatingRule,
+      ProductAddonRateRule,
     ]),
   ],
   providers: [
@@ -58,6 +62,8 @@ import { PricingRuntimeCacheService } from './application/pricing-runtime-cache.
     PricingEngineService,
     PricingQuoteService,
     QuotationRecalculationService,
+    AddonPricingService,
+    PricingProrationService,
   ],
   exports: [
     PricingValidationService,

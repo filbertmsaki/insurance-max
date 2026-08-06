@@ -40,6 +40,15 @@ export class RiskRuleConditionsService {
     );
   }
 
+  private async recomputeSpecificityScore(ruleId: string): Promise<void> {
+    const conditionCount = await this.conditionRepository.count({
+      where: { rule_id: ruleId },
+    });
+    await this.ruleRepository.update(ruleId, {
+      specificity_score: conditionCount,
+    });
+  }
+
   async create(
     companyId: string,
     dto: CreateRiskRuleConditionDto,
@@ -74,6 +83,7 @@ export class RiskRuleConditionsService {
 
     try {
       const saved = await this.conditionRepository.save(condition);
+      await this.recomputeSpecificityScore(dto.rule_id);
       await this.pricingRuntimeCacheService.invalidateRateConfiguration(
         companyId,
       );
@@ -145,6 +155,7 @@ export class RiskRuleConditionsService {
 
     try {
       const saved = await this.conditionRepository.save(condition);
+      await this.recomputeSpecificityScore(condition.rule_id);
       await this.pricingRuntimeCacheService.invalidateRateConfiguration(
         companyId,
       );
@@ -175,6 +186,7 @@ export class RiskRuleConditionsService {
       condition.id,
     );
     await this.conditionRepository.delete(condition.id);
+    await this.recomputeSpecificityScore(condition.rule_id);
     await this.pricingRuntimeCacheService.invalidateRateConfiguration(
       companyId,
     );

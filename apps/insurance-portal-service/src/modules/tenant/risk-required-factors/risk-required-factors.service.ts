@@ -8,6 +8,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
 import { RatingFactor } from '../rating-factors/entities/rating-factor.entity';
+import { PricingRateBook } from '../pricing-rate-books/entities/pricing-rate-book.entity';
+import { PricingRateBookEditabilityService } from '../pricing-rate-books/pricing-rate-book-editability.service';
 import { CreateRiskRequiredFactorDto } from './dto/create-risk-required-factor.dto';
 import { UpdateRiskRequiredFactorDto } from './dto/update-risk-required-factor.dto';
 import { RiskRequiredFactor } from './entities/risk-required-factor.entity';
@@ -24,6 +26,11 @@ export class RiskRequiredFactorsService {
 
     @InjectRepository(RatingFactor)
     private readonly factorRepository: Repository<RatingFactor>,
+
+    @InjectRepository(PricingRateBook)
+    private readonly rateBookRepository: Repository<PricingRateBook>,
+
+    private readonly editabilityService: PricingRateBookEditabilityService,
 
     private readonly pricingRuntimeCacheService: PricingRuntimeCacheService,
   ) {}
@@ -44,6 +51,14 @@ export class RiskRequiredFactorsService {
     dto: CreateRiskRequiredFactorDto,
     userId: string,
   ): Promise<RiskRequiredFactor> {
+    const rateBook = await this.rateBookRepository.findOne({
+      where: { id: dto.rate_book_id, company_id: companyId },
+    });
+    if (!rateBook) {
+      throw new NotFoundException('Pricing rate book not found');
+    }
+    this.editabilityService.assertEditable(rateBook);
+
     const risk = await this.riskRepository.findOne({
       where: { id: dto.risk_id, company_id: companyId },
     });
@@ -51,19 +66,37 @@ export class RiskRequiredFactorsService {
       throw new BadRequestException(
         'Risk not found or does not belong to this company',
       );
+    if (risk.product_id !== rateBook.product_id) {
+      throw new BadRequestException(
+        'Risk does not belong to the rate-book product.',
+      );
+    }
 
     const factor = await this.factorRepository.findOne({
-      where: { id: dto.factor_id, company_id: companyId },
+      where: { id: dto.factor_id, company_id: companyId, is_active: true },
     });
     if (!factor)
       throw new BadRequestException(
         'Rating factor not found or does not belong to this company',
       );
 
+    const factorSnapshot = {
+      factorId: factor.id,
+      code: factor.code,
+      name: factor.name,
+      dataType: factor.data_type,
+      unit: factor.unit,
+      options: factor.options ?? [],
+      defaultValue: factor.default_value,
+      validationRules: factor.validation_rules,
+    };
+
     const rf = this.requiredFactorRepository.create({
       company_id: companyId,
       risk_id: dto.risk_id,
       factor_id: dto.factor_id,
+      rate_book_id: dto.rate_book_id,
+      factor_snapshot: factorSnapshot,
       is_required: dto.is_required ?? true,
       sort_order: dto.sort_order ?? 0,
       created_by: userId,
@@ -79,7 +112,7 @@ export class RiskRequiredFactorsService {
     } catch (error) {
       if (this.isDuplicateEntryError(error)) {
         throw new ConflictException(
-          'This factor is already assigned to this risk',
+          'This factor is already assigned to this risk within this rate book',
         );
       }
       throw error;

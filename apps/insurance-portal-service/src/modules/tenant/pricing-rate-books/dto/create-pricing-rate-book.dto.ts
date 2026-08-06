@@ -1,18 +1,29 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsDateString,
+  IsEnum,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
+  Min,
   MaxLength,
 } from 'class-validator';
+import {
+  PricingProrationMethod,
+  PricingRoundingMode,
+} from '@insurance-max/contracts';
 
 export class CreatePricingRateBookDto {
-  @ApiProperty({ description: 'Insurance product UUID' })
+  @ApiProperty({
+    description:
+      'Published insurance product-version UUID this rate book is bound to',
+  })
   @IsUUID()
   @IsNotEmpty()
-  product_id: string;
+  product_version_id: string;
 
   @ApiProperty({ example: 'MOTOR-STANDARD' })
   @IsString()
@@ -46,4 +57,21 @@ export class CreatePricingRateBookDto {
   @IsOptional()
   @IsDateString()
   effective_to?: string | null;
+
+  @ApiPropertyOptional({ enum: PricingRoundingMode })
+  @IsOptional()
+  @IsEnum(PricingRoundingMode)
+  rounding_mode?: PricingRoundingMode;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.01)
+  rounding_increment?: number;
+
+  @ApiPropertyOptional({ enum: PricingProrationMethod })
+  @IsOptional()
+  @IsEnum(PricingProrationMethod)
+  proration_method?: PricingProrationMethod;
 }

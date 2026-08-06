@@ -1,7 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import Decimal from 'decimal.js';
+
+import { RequestContextService } from '@insurance-max/shared-kernel';
 
 @Injectable()
 export class TiramisPayloadValidationService {
+  constructor(private readonly requestContextService: RequestContextService) {}
+
   validateCommonCoverNoteData(dto: any, errors: string[]) {
     this.requireString(dto.insurerCompanyCode, 'insurerCompanyCode', errors);
     this.requireString(dto.tranCompanyCode, 'tranCompanyCode', errors);
@@ -363,6 +368,93 @@ export class TiramisPayloadValidationService {
       this.requireString(holder.district, `${path}.district`, errors);
       this.requireString(holder.phoneNumber, `${path}.phoneNumber`, errors);
     });
+  }
+
+  /**
+   * Verifies that the premium figures on the incoming risk that matches the
+   * signed Portal pricing context are exactly what Portal already
+   * calculated and signed. TIRAMIS never re-derives premium — it only
+   * verifies what was signed by the pricing authority.
+   *
+   * This is a no-op when no pricing context is present on the current
+   * request (e.g. the draft and preview-xml endpoints, which are not
+   * gated by TiramisPricingContextGuard and may legitimately be called
+   * before a pricing quote exists).
+   */
+  validateSignedPricingMatch(
+    risks: Array<{
+      riskCode?: string | null;
+      premiumBeforeDiscount?: string | number | null;
+      premiumExcludingTaxEquivalent?: string | number | null;
+      premiumIncludingTax?: string | number | null;
+      discounts?: Array<{ discountAmount?: string | number | null }> | null;
+      taxes?: Array<{ taxAmount?: string | number | null }> | null;
+    }>,
+  ): void {
+    const pricing = this.requestContextService.getServicePrincipal()?.pricing;
+
+    if (!pricing) {
+      return;
+    }
+
+    const matchedRisk =
+      risks.find((risk) => risk.riskCode === pricing.riskCode) ||
+      (risks.length === 1 ? risks[0] : undefined);
+
+    if (!matchedRisk) {
+      throw new BadRequestException({
+        code: 'SIGNED_PRICING_VALUE_MISMATCH',
+        message: 'riskCode does not match the signed Portal pricing result.',
+      });
+    }
+
+    const totalDiscountAmount = (matchedRisk.discounts || []).reduce(
+      (sum, discount) => sum.plus(new Decimal(discount.discountAmount ?? 0)),
+      new Decimal(0),
+    );
+
+    const totalTaxAmount = (matchedRisk.taxes || []).reduce(
+      (sum, tax) => sum.plus(new Decimal(tax.taxAmount ?? 0)),
+      new Decimal(0),
+    );
+
+    this.assertMoneyMatches(
+      matchedRisk.premiumBeforeDiscount,
+      pricing.basicPremium,
+      'basicPremium',
+    );
+    this.assertMoneyMatches(
+      totalDiscountAmount,
+      pricing.discountAmount,
+      'discountAmount',
+    );
+    this.assertMoneyMatches(totalTaxAmount, pricing.taxAmount, 'taxAmount');
+    this.assertMoneyMatches(
+      matchedRisk.premiumExcludingTaxEquivalent,
+      pricing.premiumExcludingTax,
+      'premiumExcludingTaxEquivalent',
+    );
+    this.assertMoneyMatches(
+      matchedRisk.premiumIncludingTax,
+      pricing.premiumIncludingTax,
+      'premiumIncludingTax',
+    );
+  }
+
+  private assertMoneyMatches(
+    incoming: string | number | Decimal | null | undefined,
+    signed: string,
+    field: string,
+  ) {
+    const incomingValue = new Decimal(incoming ?? 0).toDecimalPlaces(4);
+    const signedValue = new Decimal(signed).toDecimalPlaces(4);
+
+    if (!incomingValue.equals(signedValue)) {
+      throw new BadRequestException({
+        code: 'SIGNED_PRICING_VALUE_MISMATCH',
+        message: `${field} does not match the signed Portal pricing result.`,
+      });
+    }
   }
 
   validateDateRange(

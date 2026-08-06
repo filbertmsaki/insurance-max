@@ -1601,6 +1601,60 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'pricing-rate-books:read',
+    displayName: 'Read pricing rate books',
+    description: 'Read pricing rate books',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing-rate-books:create',
+    displayName: 'Create pricing rate books',
+    description: 'Create pricing rate books',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing-rate-books:update',
+    displayName: 'Update pricing rate books',
+    description: 'Update pricing rate books',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing-rate-books:submit-review',
+    displayName: 'Submit pricing rate books for review',
+    description: 'Submit pricing rate books for review',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing-rate-books:review',
+    displayName: 'Approve or reject pricing rate books under review',
+    description: 'Approve or reject pricing rate books under review',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing-rate-books:publish',
+    displayName: 'Publish pricing rate books',
+    description: 'Publish pricing rate books',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing-rate-books:retire',
+    displayName: 'Retire pricing rate books',
+    description: 'Retire pricing rate books',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing:calculate',
+    displayName: 'Calculate premiums',
+    description: 'Calculate premiums',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'pricing:simulate',
+    displayName: 'Simulate premium calculations without persisting a quotation',
+    description: 'Simulate premium calculations without persisting a quotation',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'pricing.request_discount',
     displayName: 'Request pricing discounts',
     description:
@@ -2793,6 +2847,22 @@ function withPricingPermissionAliases(permissionNames: string[]): string[] {
   }
 
   if (expanded.has('risk-rating-rules:update')) {
+    expanded.add('pricing.publish_rate_books');
+  }
+
+  if (
+    [
+      'pricing-rate-books:read',
+      'pricing-rate-books:create',
+      'pricing-rate-books:update',
+      'pricing-rate-books:submit-review',
+      'pricing-rate-books:review',
+    ].some((permission) => expanded.has(permission))
+  ) {
+    expanded.add('pricing.manage_rate_books');
+  }
+
+  if (expanded.has('pricing-rate-books:publish')) {
     expanded.add('pricing.publish_rate_books');
   }
 

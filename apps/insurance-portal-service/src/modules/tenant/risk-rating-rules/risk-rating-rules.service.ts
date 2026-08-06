@@ -346,6 +346,7 @@ export class RiskRatingRulesService {
       per_unit_amount: this.normalizePerUnitAmount(dto.per_unit_amount),
       per_unit_factor_code: normalizedPerUnitFactorCode,
       minimum_amount: this.normalizeMoneyAmount(dto.minimum_amount),
+      maximum_amount: this.normalizeMoneyAmount(dto.maximum_amount),
       max_discount_rate: this.normalizePercentageRate(dto.max_discount_rate),
       max_discount_amount: this.normalizeMoneyAmount(dto.max_discount_amount),
       discount_approval_threshold_rate: this.normalizePercentageRate(
@@ -377,6 +378,11 @@ export class RiskRatingRulesService {
       created_by: userId,
       updated_by: userId,
     });
+    if (dto.rate_type === RateType.FORMULA) {
+      throw new BadRequestException(
+        'New FORMULA rate rules are not permitted. Use a structured calculation type (PERCENTAGE, FIXED, PER_UNIT, PERCENTAGE_PLUS_FIXED, or PERCENTAGE_PLUS_PER_UNIT).',
+      );
+    }
     this.validateStructuredRateFields(rule);
     this.validateAdjustmentControls(rule);
     await this.ruleConfigurationValidator.assertRuleCanBeSaved(companyId, rule);
@@ -488,6 +494,8 @@ export class RiskRatingRulesService {
     }
     if (dto.minimum_amount !== undefined)
       rule.minimum_amount = this.normalizeMoneyAmount(dto.minimum_amount);
+    if (dto.maximum_amount !== undefined)
+      rule.maximum_amount = this.normalizeMoneyAmount(dto.maximum_amount);
     if (dto.max_discount_rate !== undefined)
       rule.max_discount_rate = this.normalizePercentageRate(
         dto.max_discount_rate,

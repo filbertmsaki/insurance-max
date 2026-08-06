@@ -62,6 +62,15 @@ export class RatingFactor {
   @Column({ default: true })
   is_active: boolean;
 
+  @Column({ type: 'jsonb', nullable: true })
+  validation_rules: Record<string, unknown> | null;
+
+  @Column({ default: false })
+  is_system: boolean;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  code_locked_at: Date | null;
+
   @Column({ type: 'varchar', nullable: true })
   created_by: string | null;
 

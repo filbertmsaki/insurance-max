@@ -51,6 +51,15 @@ export class InsuranceRisk {
   @Column({ default: true })
   is_active: boolean;
 
+  @Column({ type: 'varchar', length: 30, default: 'ACTIVE' })
+  lifecycle_status: 'DRAFT' | 'ACTIVE' | 'RETIRED';
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  tiramis_risk_code: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  code_locked_at: Date | null;
+
   @Column({ type: 'varchar', nullable: true })
   created_by: string | null;
 

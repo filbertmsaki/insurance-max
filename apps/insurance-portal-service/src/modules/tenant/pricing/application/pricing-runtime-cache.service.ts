@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { RedisService } from '../../../shared/redis/redis.service';
 
-type PricingCacheVersionFamily = 'product' | 'rate' | 'tax';
+type PricingCacheVersionFamily = 'product' | 'rate' | 'tax' | 'addon-rate';
 
 @Injectable()
 export class PricingRuntimeCacheService {
@@ -109,6 +109,10 @@ export class PricingRuntimeCacheService {
 
   async invalidateTaxConfiguration(companyId: string): Promise<void> {
     await this.bumpVersion(companyId, 'tax');
+  }
+
+  async invalidateAddonRateConfiguration(companyId: string): Promise<void> {
+    await this.bumpVersion(companyId, 'addon-rate');
   }
 
   private async getOrLoadJson<T>(

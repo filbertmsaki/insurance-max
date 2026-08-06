@@ -4,27 +4,43 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  PricingProrationMethod,
+  PricingRoundingMode,
+} from '@insurance-max/contracts';
+import {
   applyRate,
   displayPercentageFromRate,
   roundMoney,
   sumDecimals,
+  toDecimal,
 } from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import { RatingFactorValidatorService } from '../infrastructure/rating-factor-validator.service';
 import { RatingRuleMatcherService } from '../infrastructure/rating-rule-matcher.service';
 import { PremiumBreakdownService } from '../infrastructure/premium-breakdown.service';
+import { PricingRateBook } from '../../pricing-rate-books/entities/pricing-rate-book.entity';
+import { RiskRuleCondition } from '../../risk-rule-conditions/entities/risk-rule-condition.entity';
 import { PricingChargeService } from './pricing-charge.service';
 import { PricingValidationService } from './pricing-validation.service';
+import {
+  AddonPricingService,
+  type AddonPricingCalculationResult,
+} from './addon-pricing.service';
+import { PricingProrationService } from './pricing-proration.service';
+import { roundToIncrement } from './pricing-rounding.util';
 import type {
+  AddonPricingResultContext,
   MultiRiskPremiumFailure,
   MultiRiskPremiumResult,
   PricingAdjustmentControl,
   PricingAdjustmentRequestInput,
   PricingAdjustmentType,
   PricingMultiRiskInput,
+  PricingRateBookContext,
   PricingSingleRiskInput,
   PricingFactorValidationResult,
   PricingValidationFailurePayload,
   RiskPremiumResult,
+  RiskRuleConditionContext,
   RiskRuleExplanation,
 } from '../domain/pricing.types';
 
@@ -36,6 +52,8 @@ export class PricingEngineService {
     private readonly ratingRuleMatcherService: RatingRuleMatcherService,
     private readonly premiumBreakdownService: PremiumBreakdownService,
     private readonly pricingChargeService: PricingChargeService,
+    private readonly addonPricingService: AddonPricingService,
+    private readonly pricingProrationService: PricingProrationService,
   ) {}
 
   async calculateSingleRisk(
@@ -96,17 +114,73 @@ export class PricingEngineService {
     );
     const loadingControl = this.buildAdjustmentControl(matchingRule, 'loading');
 
+    const rateBook = matchingRule.rate_book ?? null;
+    const effectiveDate =
+      input.effective_date ?? new Date().toISOString().slice(0, 10);
+
+    // Optional add-ons are priced against the same resolved rate book as the
+    // primary risk premium. A rate book must exist to have any
+    // product_addon_rate_rules to resolve against.
+    const addonResults: AddonPricingCalculationResult[] =
+      input.addons && input.addons.length > 0
+        ? await this.addonPricingService.calculate({
+            companyId,
+            rateBookId: this.requireRateBookIdForAddons(
+              matchingRule.rate_book_id ?? null,
+            ),
+            effectiveDate,
+            factors: validationResult.normalized_factor_values,
+            selectedAddons: input.addons.map((addon) => ({
+              addonDefinitionId: addon.addon_definition_id,
+              quantity: addon.quantity ?? 1,
+              sumInsured: addon.sum_insured ?? null,
+            })),
+          })
+        : [];
+    const baseAddonPremium = roundMoney(
+      sumDecimals(addonResults.map((result) => result.premium)),
+    );
+
     // Calculation order per PRICING_CALCULATION_SEQUENCE: minimum/maximum
-    // premium (already applied by buildBreakdown) -> loadings -> discounts ->
-    // taxes/levies/fees. Loading and discount are computed here as a live,
-    // unauthorized preview — the matched rule's own limits are used to flag
+    // premium (already applied by buildBreakdown) -> optional covers
+    // (add-ons) -> proration -> loadings -> discounts -> taxes/levies/fees.
+    // Both the min/max-clamped risk premium and the add-on premium are
+    // prorated together, before loadings are computed on top of the result.
+    const prorationMethod =
+      rateBook?.proration_method ?? PricingProrationMethod.NONE;
+    let prorationFactor = 1;
+    if (prorationMethod !== PricingProrationMethod.NONE) {
+      if (!input.cover_start_date || !input.cover_end_date) {
+        throw new BadRequestException(
+          'cover_start_date and cover_end_date are required to prorate this premium.',
+        );
+      }
+      prorationFactor = this.pricingProrationService.resolveFactor(
+        prorationMethod,
+        input.cover_start_date,
+        input.cover_end_date,
+      );
+    }
+
+    const proratedRiskPremium = roundMoney(
+      toDecimal(breakdown.final_premium).mul(prorationFactor),
+    );
+    const proratedAddonPremium = roundMoney(
+      toDecimal(baseAddonPremium).mul(prorationFactor),
+    );
+    const premiumBeforeLoading = roundMoney(
+      proratedRiskPremium + proratedAddonPremium,
+    );
+
+    // Loading and discount are computed here as a live, unauthorized
+    // preview — the matched rule's own limits are used to flag
     // discount_approval_required/loading_approval_required, but a value
     // above the limit is still computed and returned (not rejected) so the
     // frontend can show the user what would happen; actual enforcement
     // happens at quotation submission time.
     const loadingRate = input.loading?.rate ?? null;
     const loadingAmount = this.computeAdjustmentAmount(
-      breakdown.final_premium,
+      premiumBeforeLoading,
       input.loading,
     );
     const loadingApprovalRequired = this.isAdjustmentApprovalRequired(
@@ -116,7 +190,7 @@ export class PricingEngineService {
     );
 
     const premiumBeforeDiscount = roundMoney(
-      breakdown.final_premium + loadingAmount,
+      premiumBeforeLoading + loadingAmount,
     );
 
     const discountType = this.resolveAdjustmentType(input.discount);
@@ -152,6 +226,15 @@ export class PricingEngineService {
     const sumInsured = roundMoney(Number(factorValues.sum_insured ?? 0));
     const taxAmount = chargeSummary.total_charge_amount;
     const premiumIncludingTax = chargeSummary.premium_including_charges;
+
+    // Rate-book-scoped rounding is applied ONLY at this final step — every
+    // earlier intermediate figure above keeps using the global roundMoney()
+    // HALF_UP-to-2dp policy unchanged.
+    const finalPayablePremium = roundToIncrement(
+      toDecimal(premiumIncludingTax),
+      rateBook?.rounding_increment ?? '1',
+      rateBook?.rounding_mode ?? PricingRoundingMode.HALF_UP,
+    ).toNumber();
 
     return {
       client_reference: input.client_reference ?? null,
@@ -199,8 +282,8 @@ export class PricingEngineService {
       sum_insured_equivalent: sumInsured,
       minimum_premium: breakdown.minimum_amount,
       minimum_premium_applied: breakdown.minimum_applied,
-      maximum_premium: null,
-      maximum_premium_applied: false,
+      maximum_premium: breakdown.maximum_amount,
+      maximum_premium_applied: breakdown.maximum_applied,
       loading_rate: loadingRate,
       loading_amount: loadingAmount,
       loading_approval_required: loadingApprovalRequired,
@@ -217,7 +300,21 @@ export class PricingEngineService {
       total_tax_amount: taxAmount,
       premium_including_tax: premiumIncludingTax,
       premium_including_tax_equivalent: premiumIncludingTax,
-      final_payable_premium: premiumIncludingTax,
+      final_payable_premium: finalPayablePremium,
+
+      // Phase 7 pricing authority: raw context for PricingQuoteService's
+      // immutable snapshot/hash — see pricing.types.ts for field docs.
+      premium_after_minimum: breakdown.premium_after_minimum,
+      base_addon_premium: baseAddonPremium,
+      premium_before_loading: premiumBeforeLoading,
+      proration_factor: prorationFactor,
+      matched_rule_priority: matchingRule.priority,
+      matched_rule_specificity_score: matchingRule.specificity_score,
+      matched_rule_conditions: this.buildRuleConditionContexts(
+        matchingRule.conditions ?? [],
+      ),
+      addon_results: this.buildAddonResultContexts(addonResults),
+      rate_book_context: this.buildRateBookContext(rateBook),
     };
   }
 
@@ -312,6 +409,75 @@ export class PricingEngineService {
       validation_warnings: validationResult.warnings.map(
         (warning) => warning.message,
       ),
+    };
+  }
+
+  private requireRateBookIdForAddons(rateBookId: string | null): string {
+    if (!rateBookId) {
+      throw new BadRequestException(
+        'Add-ons require a resolved rate book; none is configured for this risk.',
+      );
+    }
+    return rateBookId;
+  }
+
+  private buildRuleConditionContexts(
+    conditions: RiskRuleCondition[],
+  ): RiskRuleConditionContext[] {
+    return conditions.map((condition) => ({
+      id: condition.id,
+      factor_code: condition.factor_code,
+      operator: condition.operator,
+      value_from: condition.value_from,
+      value_to: condition.value_to,
+      logical_operator: condition.logical_operator,
+    }));
+  }
+
+  private buildAddonResultContexts(
+    addonResults: AddonPricingCalculationResult[],
+  ): AddonPricingResultContext[] {
+    return addonResults.map((entry) => ({
+      rule_id: entry.rule.id,
+      addon_definition_id: entry.rule.addon_definition_id,
+      addon_code: entry.rule.addon_definition?.code ?? '',
+      addon_name: entry.rule.addon_definition?.name ?? '',
+      pricing_type: entry.rule.pricing_type,
+      percentage_rate: entry.rule.percentage_rate,
+      fixed_amount: entry.rule.fixed_amount,
+      per_unit_amount: entry.rule.per_unit_amount,
+      per_unit_factor_code: entry.rule.per_unit_factor_code,
+      minimum_amount: entry.rule.minimum_amount,
+      maximum_amount: entry.rule.maximum_amount,
+      quantity: entry.quantity,
+      sum_insured: entry.sumInsured,
+      calculated_premium: roundMoney(entry.premium),
+    }));
+  }
+
+  private buildRateBookContext(
+    rateBook: PricingRateBook | null,
+  ): PricingRateBookContext | null {
+    if (!rateBook) {
+      return null;
+    }
+
+    return {
+      rate_book_id: rateBook.id,
+      code: rateBook.code,
+      version: rateBook.version,
+      company_id: rateBook.company_id,
+      product_id: rateBook.product_id,
+      product_version_id: rateBook.product_version_id,
+      product_definition_hash: rateBook.product_definition_hash,
+      currency_code: rateBook.currency_code,
+      effective_from: rateBook.effective_from,
+      effective_to: rateBook.effective_to,
+      rounding_mode: rateBook.rounding_mode,
+      rounding_increment: rateBook.rounding_increment,
+      proration_method: rateBook.proration_method,
+      calculation_version: rateBook.calculation_version,
+      definition_hash: rateBook.definition_hash,
     };
   }
 

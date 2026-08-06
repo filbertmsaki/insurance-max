@@ -148,6 +148,41 @@ export function PremiumBreakdown({ result }: Props) {
                   ) : null}
                 </TableCell>
               </TableRow>
+              {result.maximum_premium != null ? (
+                <TableRow className="hover:bg-blue-50/40">
+                  <TableCell className="py-1.5 text-xs">
+                    Maximum Premium
+                  </TableCell>
+                  <TableCell className="py-1.5 text-right text-xs tabular-nums">
+                    {formatPricingMoney(result.maximum_premium)}
+                    {result.maximum_premium_applied ? (
+                      <Badge className="ml-2 border-amber-200 bg-amber-50 text-[10px] text-amber-600 hover:bg-amber-50">
+                        Max Applied
+                      </Badge>
+                    ) : null}
+                  </TableCell>
+                </TableRow>
+              ) : null}
+              {result.base_addon_premium != null ? (
+                <TableRow className="hover:bg-blue-50/40">
+                  <TableCell className="py-1.5 text-xs">
+                    Add-on Premium
+                  </TableCell>
+                  <TableCell className="py-1.5 text-right text-xs tabular-nums">
+                    {formatPricingMoney(result.base_addon_premium)}
+                  </TableCell>
+                </TableRow>
+              ) : null}
+              {result.proration_factor != null ? (
+                <TableRow className="hover:bg-blue-50/40">
+                  <TableCell className="py-1.5 text-xs">
+                    Proration Factor
+                  </TableCell>
+                  <TableCell className="py-1.5 text-right text-xs tabular-nums">
+                    {result.proration_factor}
+                  </TableCell>
+                </TableRow>
+              ) : null}
               <TableRow className="hover:bg-blue-50/40">
                 <TableCell className="py-1.5 text-xs font-semibold">
                   Premium After Discount

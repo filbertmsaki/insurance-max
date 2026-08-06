@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   Sliders,
   BookOpen,
+  BookMarked,
   Calculator,
   CarFront,
   Truck,
@@ -189,6 +190,13 @@ export const NAV_NODES: NavNode[] = [
         to: '/product-engine/rating-rules',
         icon: BookOpen,
         permission: 'pricing.manage_rules',
+      },
+      {
+        kind: 'link',
+        label: 'Rate Books',
+        to: '/product-engine/rate-books',
+        icon: BookMarked,
+        permission: 'pricing.manage_rate_books',
       },
       {
         kind: 'link',
