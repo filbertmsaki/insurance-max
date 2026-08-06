@@ -7,7 +7,109 @@ import { Column, Entity, Index } from 'typeorm';
 @Index(['successfulRequestId'])
 @Index(['sourceQuotationId'])
 @Index(['sourceWorkflowGateHash'])
+@Index(['requestType'])
+@Index(['idempotencyKey'])
 export class TiramisTransactionEntity extends BaseEntity {
+  @Column({
+    name: 'schema_version',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  schemaVersion?: string | null;
+
+  @Column({
+    name: 'contract_version',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  contractVersion?: string | null;
+
+  @Column({
+    name: 'command',
+    type: 'varchar',
+    length: 40,
+    nullable: true,
+  })
+  command?: string | null;
+
+  @Column({
+    name: 'request_type',
+    type: 'varchar',
+    length: 80,
+    nullable: true,
+  })
+  requestType?: string | null;
+
+  @Column({
+    name: 'canonical_status',
+    type: 'varchar',
+    length: 60,
+    nullable: true,
+  })
+  canonicalStatus?: string | null;
+
+  @Column({
+    name: 'idempotency_key',
+    type: 'varchar',
+    length: 180,
+    nullable: true,
+  })
+  idempotencyKey?: string | null;
+
+  @Column({
+    name: 'correlation_id',
+    type: 'uuid',
+    nullable: true,
+  })
+  correlationId?: string | null;
+
+  @Column({
+    name: 'causation_id',
+    type: 'uuid',
+    nullable: true,
+  })
+  causationId?: string | null;
+
+  @Column({
+    name: 'resource_version',
+    type: 'int',
+    default: 1,
+  })
+  resourceVersion!: number;
+
+  @Column({
+    name: 'envelope',
+    type: 'jsonb',
+    nullable: true,
+  })
+  envelope?: Record<string, unknown> | null;
+
+  @Column({
+    name: 'payload_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  payloadHash?: string | null;
+
+  @Column({
+    name: 'context_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  contextHash?: string | null;
+
+  @Column({
+    name: 'envelope_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
+  envelopeHash?: string | null;
+
   @Column({ name: 'client_configuration_id' })
   clientConfigurationId!: string;
 

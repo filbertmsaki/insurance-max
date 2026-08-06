@@ -56,6 +56,7 @@ import { TiramisReinsuranceParticipantEntity } from './modules/reinsurance/entit
 import { TiramisSubmissionAttemptEntity } from './modules/submissions/entities/tiramis-submission-attempt.entity';
 import { TiramisSubmissionEventEntity } from './modules/submissions/entities/tiramis-submission-event.entity';
 import { TiramisTransactionEntity } from './modules/submissions/entities/tiramis-transaction.entity';
+import { TiramisIngressRequestEntity } from './modules/integration/entities/tiramis-ingress-request.entity';
 import { TiramisVerificationRequestEntity } from './modules/verifications/entities/tiramis-verification-request.entity';
 import { TiramisVerificationResponseEntity } from './modules/verifications/entities/tiramis-verification-response.entity';
 import { TiramisModule } from './modules/tiramis.module';
@@ -92,6 +93,7 @@ import { TiramisResponseInterceptor } from './common/interceptors/tiramis-respon
               TiramisServiceEndpointEntity,
               TiramisResponseCodeEntity,
               TiramisTransactionEntity,
+              TiramisIngressRequestEntity,
               TiramisSubmissionAttemptEntity,
               TiramisSubmissionEventEntity,
               TiramisCoverNoteEntity,

@@ -31,6 +31,21 @@ export class TiramisSubmissionService {
     sourceRecordId?: string;
     businessReference: string;
     originalRequestId?: string | null;
+    policyId?: string | null;
+    quotationId?: string | null;
+    workflowRevision?: number | null;
+    schemaVersion?: string | null;
+    contractVersion?: string | null;
+    command?: string | null;
+    requestType?: string | null;
+    canonicalStatus?: string | null;
+    idempotencyKey?: string | null;
+    correlationId?: string | null;
+    causationId?: string | null;
+    envelope?: Record<string, unknown> | null;
+    payloadHash?: string | null;
+    contextHash?: string | null;
+    envelopeHash?: string | null;
   }) {
     const principal = this.requestContextService.getServicePrincipal();
     const product = principal?.product;
@@ -47,10 +62,27 @@ export class TiramisSubmissionService {
       sourceUserId: params.sourceUserId || null,
       sourceModule: params.sourceModule || null,
       sourceRecordId: params.sourceRecordId || null,
+      policyId: params.policyId ?? null,
+      sourceQuotationId: params.quotationId ?? quotationGate?.quotationId ?? null,
+      sourceWorkflowRevision:
+        params.workflowRevision ?? quotationGate?.workflowRevision ?? null,
       businessReference: params.businessReference,
       status: TIRAMIS_TRANSACTION_STATUS.PENDING,
       originalRequestId: params.originalRequestId || null,
       totalAttempts: 0,
+      schemaVersion: params.schemaVersion ?? null,
+      contractVersion: params.contractVersion ?? null,
+      command: params.command ?? null,
+      requestType: params.requestType ?? null,
+      canonicalStatus: params.canonicalStatus ?? null,
+      idempotencyKey: params.idempotencyKey ?? null,
+      correlationId: params.correlationId ?? null,
+      causationId: params.causationId ?? null,
+      envelope: params.envelope ?? null,
+      payloadHash: params.payloadHash ?? null,
+      contextHash: params.contextHash ?? null,
+      envelopeHash: params.envelopeHash ?? null,
+      resourceVersion: 1,
       sourceProductId: product?.productId ?? null,
       sourceProductVersionId: product?.productVersionId ?? null,
       sourceProductVersionNumber: product?.versionNumber ?? null,
@@ -79,9 +111,7 @@ export class TiramisSubmissionService {
         insuredData?.tiramisPolicyHolderHash ?? null,
       sourceAssetManifestHash: insuredData?.assetManifestHash ?? null,
       sourceAssetCount: insuredData?.assetCount ?? null,
-      sourceQuotationId: quotationGate?.quotationId ?? null,
       sourceQuotationNumber: quotationGate?.quotationNumber ?? null,
-      sourceWorkflowRevision: quotationGate?.workflowRevision ?? null,
       sourceQuotationStage: quotationGate?.quotationStage ?? null,
       sourceApprovalStatus: quotationGate?.approvalStatus ?? null,
       sourcePaymentStatus: quotationGate?.paymentStatus ?? null,

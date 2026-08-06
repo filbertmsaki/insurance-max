@@ -8,6 +8,7 @@ import { TiramisMessagingModule } from './messaging/tiramis-messaging.module';
 import { TiramisMotorModule } from './motor/tiramis-motor.module';
 import { TiramisPoliciesModule } from './policies/tiramis-policies.module';
 import { TiramisReinsuranceModule } from './reinsurance/tiramis-reinsurance.module';
+import { TiramisIntegrationModule } from './integration/tiramis-integration.module';
 import { TiramisSubmissionsModule } from './submissions/tiramis-submissions.module';
 import { TiramisTcpGatewayController } from './tcp/tiramis-tcp-gateway.controller';
 import { TiramisVerificationsModule } from './verifications/tiramis-verifications.module';
@@ -15,6 +16,7 @@ import { TiramisVerificationsModule } from './verifications/tiramis-verification
 @Module({
   imports: [
     TiramisConfigModule,
+    TiramisIntegrationModule,
     TiramisSubmissionsModule,
     TiramisMessagingModule,
     TiramisCoverNotesModule,
