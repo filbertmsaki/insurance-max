@@ -141,6 +141,14 @@ export class TiramisTransactionEntity extends BaseEntity {
   sourceRecordId?: string | null;
 
   @Column({
+    name: 'source_policy_id',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  sourcePolicyId?: string | null;
+
+  @Column({
     name: 'source_company_id',
     type: 'varchar',
     length: 100,

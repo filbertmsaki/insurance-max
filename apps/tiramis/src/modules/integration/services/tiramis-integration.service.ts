@@ -58,7 +58,7 @@ export class TiramisIntegrationService {
       }
 
       return {
-        ...(existing.acceptancePayload as TiramisSubmissionAcceptance),
+        ...((existing.acceptancePayload as unknown) as TiramisSubmissionAcceptance),
         duplicate: true,
       };
     }
@@ -172,7 +172,9 @@ export class TiramisIntegrationService {
     }
 
     const payloadHash = this.hashService.hashDefinition(envelope.payload);
-    const contextHash = this.hashService.hashDefinition(envelope.context);
+    const contextHash = this.hashService.hashDefinition(
+      envelope.context as unknown as Record<string, unknown>,
+    );
     const envelopeHash = this.hashService.hashDefinition({
       ...envelope,
       hashes: {

@@ -31,5 +31,36 @@ export default registerAs('tiramisService', () => {
     ),
 
     sourceService: process.env.TIRAMIS_SOURCE_SERVICE || 'tiramis-service',
+    portalEventUrl:
+      process.env.INSURANCE_PORTAL_EVENT_URL?.trim() ||
+      'http://127.0.0.1:9090/api/v1/internal/tiramis/events',
+    portalEventOutboxEnabled:
+      process.env.TIRAMIS_PORTAL_EVENT_OUTBOX_ENABLED !== 'false',
+    portalEventBatchSize: Number(
+      process.env.TIRAMIS_PORTAL_EVENT_BATCH_SIZE || 50,
+    ),
+    portalEventMaxAttempts: Number(
+      process.env.TIRAMIS_PORTAL_EVENT_MAX_ATTEMPTS || 12,
+    ),
+    portalEventBaseDelaySeconds: Number(
+      process.env.TIRAMIS_PORTAL_EVENT_BASE_DELAY_SECONDS || 30,
+    ),
+    portalEventMaxDelaySeconds: Number(
+      process.env.TIRAMIS_PORTAL_EVENT_MAX_DELAY_SECONDS || 1800,
+    ),
+    retryEnabled: process.env.TIRAMIS_RETRY_ENABLED !== 'false',
+    retryBatchSize: Number(process.env.TIRAMIS_RETRY_BATCH_SIZE || 20),
+    retryMaxAttempts: Number(process.env.TIRAMIS_RETRY_MAX_ATTEMPTS || 5),
+    retryBaseDelaySeconds: Number(
+      process.env.TIRAMIS_RETRY_BASE_DELAY_SECONDS || 60,
+    ),
+    retryMaxDelaySeconds: Number(
+      process.env.TIRAMIS_RETRY_MAX_DELAY_SECONDS || 900,
+    ),
+    finalCallbackTimeoutMinutes: Number(
+      process.env.TIRAMIS_FINAL_CALLBACK_TIMEOUT_MINUTES || 30,
+    ),
+    legacyPortalWebhookTokenEnabled:
+      process.env.TIRAMIS_LEGACY_PORTAL_WEBHOOK_TOKEN_ENABLED === 'true',
   };
 });

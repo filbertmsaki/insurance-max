@@ -262,6 +262,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   TIRAMIS_SERVICE_BASE_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .default('http://127.0.0.1:9091'),
+  TIRAMIS_TARGET_ENV: Joi.string().valid('test', 'live').default('test'),
   TIRAMIS_SOURCE_SERVICE: Joi.string()
     .trim()
     .min(1)
@@ -275,7 +276,22 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   TIRAMIS_STATUS_SYNC_CRON: Joi.string().default('*/2 * * * *'),
   TIRAMIS_STATUS_SYNC_LIMIT: Joi.number().default(50),
   TIRAMIS_STATUS_SYNC_INCLUDE_PAYLOAD: Joi.boolean().default(true),
+  TIRAMIS_PORTAL_OUTBOX_ENABLED: Joi.boolean().default(true),
+  TIRAMIS_PORTAL_OUTBOX_BATCH_SIZE: Joi.number().integer().min(1).default(50),
+  TIRAMIS_PORTAL_OUTBOX_MAX_ATTEMPTS: Joi.number()
+    .integer()
+    .min(1)
+    .default(10),
+  TIRAMIS_RECONCILIATION_ENABLED: Joi.boolean().default(true),
+  TIRAMIS_RECONCILIATION_CRON: Joi.string().default('*/5 * * * *'),
+  TIRAMIS_RECONCILIATION_BATCH_SIZE: Joi.number()
+    .integer()
+    .min(1)
+    .default(50),
   TIRAMIS_CALLBACK_OVERDUE_MINUTES: Joi.number().default(10),
+  TIRAMIS_PORTAL_TRANSPORT_RETRY_ENABLED: Joi.boolean().default(false),
+  TIRAMIS_LEGACY_ROUTES_ENABLED: Joi.boolean().default(true),
+  TIRAMIS_LEGACY_WEBHOOK_ENABLED: Joi.boolean().default(false),
   TIRAMIS_RETRY_ENABLED: Joi.boolean().default(true),
   TIRAMIS_RETRY_CRON: Joi.string().default('*/3 * * * *'),
   TIRAMIS_RETRY_LIMIT: Joi.number().default(25),

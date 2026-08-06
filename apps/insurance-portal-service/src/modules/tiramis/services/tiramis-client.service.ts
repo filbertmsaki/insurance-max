@@ -10,12 +10,18 @@ import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 
 import {
+  TiramisIntegrationCommand,
+  TiramisIntegrationSchemaVersion,
+  TiramisIntegrationStatus,
   unwrapApiResponse,
   type ServiceFinanceContext,
   type ServiceInsuredDataContext,
   type ServicePricingContext,
   type ServiceProductContext,
   type ServiceQuotationGateContext,
+  type TiramisSubmissionAcceptance,
+  type TiramisSubmissionContext,
+  type TiramisSubmissionEnvelope,
 } from '@insurance-max/contracts';
 import {
   HTTP_HEADERS,
@@ -39,8 +45,13 @@ import {
   buildTiramisIdempotencyKey,
 } from '../utils/tiramis-idempotency.util';
 import { isRetryableError } from '../utils/tiramis-retry.util';
+import {
+  mapLegacyRequestTypeToCanonical,
+  mapLegacyStatusToCanonical,
+} from '../utils/tiramis-canonical-mapping.util';
 import { TiramisAuditService } from './tiramis-audit.service';
 import { TiramisBusinessRecordSyncService } from './tiramis-business-record-sync.service';
+import { TiramisEnvelopeService } from './tiramis-envelope.service';
 import { TiramisNotificationService } from './tiramis-notification.service';
 import {
   TIRAMIS_MESSAGE_PATTERNS,
@@ -65,6 +76,7 @@ export class TiramisClientService {
     private readonly notificationService: TiramisNotificationService,
     private readonly serviceTokenService: ServiceTokenService,
     private readonly organizationContextService: OrganizationContextService,
+    private readonly tiramisEnvelopeService: TiramisEnvelopeService,
   ) {}
 
   async submit(dto: SubmitTiramisDto, authContext?: any) {
@@ -210,12 +222,47 @@ export class TiramisClientService {
         businessReference: command.businessReference,
       });
 
+    const canonicalRequestType = mapLegacyRequestTypeToCanonical(
+      dto.requestType,
+    );
+
+    const canonicalEnvelope =
+      canonicalRequestType && authContext?.scope === 'company'
+        ? await this.buildCanonicalEnvelope({
+            dto,
+            authContext,
+            idempotencyKey,
+            sourceService: command.sourceService,
+            sourceCompanyId: command.sourceCompanyId,
+            sourceUserId: command.sourceUserId,
+            sourceModule: command.sourceModule,
+            sourceRecordId: command.sourceRecordId,
+            businessReference: command.businessReference,
+            policyId: command.policyId,
+            quotationId: command.quotationId,
+          })
+        : null;
+
     let tracking: any;
     try {
       tracking = await this.trackingRepository.save(
         this.trackingRepository.create({
           requestType: dto.requestType,
           status: TiramisSubmissionStatus.PENDING,
+          schemaVersion:
+            canonicalEnvelope?.schemaVersion ??
+            TiramisIntegrationSchemaVersion.V1,
+          contractVersion: canonicalEnvelope?.contractVersion ?? '1.0',
+          workflowRevision:
+            canonicalEnvelope?.source.workflowRevision ??
+            dto.quotationGateContext?.workflowRevision ??
+            null,
+          correlationId: canonicalEnvelope?.correlationId ?? null,
+          causationId: canonicalEnvelope?.causationId ?? null,
+          canonicalStatus: canonicalEnvelope
+            ? TiramisIntegrationStatus.QUEUED
+            : mapLegacyStatusToCanonical(TiramisSubmissionStatus.PENDING),
+          resourceVersion: 1,
           sourceService: command.sourceService,
           sourceCompanyId: command.sourceCompanyId,
           sourceUserId: command.sourceUserId,
@@ -235,6 +282,10 @@ export class TiramisClientService {
             : 0,
           forceResubmitted: !!dto.forceResubmit,
           requestPayload: dto.payload,
+          envelope: canonicalEnvelope,
+          payloadHash: canonicalEnvelope?.hashes.payloadHash ?? null,
+          contextHash: canonicalEnvelope?.hashes.contextHash ?? null,
+          envelopeHash: canonicalEnvelope?.hashes.envelopeHash ?? null,
         }),
       );
     } catch (error: any) {
@@ -341,22 +392,33 @@ export class TiramisClientService {
         },
       });
 
-      const response = await this.send(
-        pattern,
-        command,
-        authContext,
-        dto.productContext,
-        dto.pricingContext,
-        dto.insuredDataContext,
-        dto.quotationGateContext,
-        dto.financeContext,
-      );
+      const response = canonicalEnvelope
+        ? await this.sendCanonicalEnvelope(
+            canonicalEnvelope,
+            authContext,
+            dto.productContext,
+            dto.pricingContext,
+            dto.insuredDataContext,
+            dto.quotationGateContext,
+            dto.financeContext,
+          )
+        : await this.send(
+            pattern,
+            command,
+            authContext,
+            dto.productContext,
+            dto.pricingContext,
+            dto.insuredDataContext,
+            dto.quotationGateContext,
+            dto.financeContext,
+          );
 
-      const updatedTracking =
-        await this.trackingRepository.markSubmittedResponse(
-          tracking.id,
-          response,
-        );
+      const updatedTracking = canonicalEnvelope
+        ? await this.markCanonicalSubmissionAccepted(tracking.id, response)
+        : await this.trackingRepository.markSubmittedResponse(
+            tracking.id,
+            response,
+          );
 
       await this.businessRecordSyncService.syncFromTracking(updatedTracking);
 
@@ -370,7 +432,7 @@ export class TiramisClientService {
         authContext,
         durationMs: Date.now() - startedAt,
         metadata: {
-          pattern,
+          pattern: canonicalEnvelope ? 'CANONICAL_INGRESS' : pattern,
           resolvedStatus: updatedTracking?.status,
           acknowledgementCode: updatedTracking?.acknowledgementStatusCode,
           finalResponseCode: updatedTracking?.finalResponseStatusCode,
@@ -773,6 +835,220 @@ export class TiramisClientService {
       salePointCode: organizationContext.defaultSalePoint!.code,
       environment: organizationContext.tiramis.environment,
     };
+  }
+
+  private async buildCanonicalEnvelope(params: {
+    dto: SubmitTiramisDto;
+    authContext: AuthenticatedUser;
+    idempotencyKey: string;
+    sourceService: string;
+    sourceCompanyId: string | null;
+    sourceUserId: string | null;
+    sourceModule: string;
+    sourceRecordId: string | null;
+    businessReference: string | null;
+    policyId: string | null;
+    quotationId: string | null;
+  }): Promise<TiramisSubmissionEnvelope | null> {
+    const canonicalRequestType = mapLegacyRequestTypeToCanonical(
+      params.dto.requestType,
+    );
+
+    if (
+      !canonicalRequestType ||
+      !params.sourceCompanyId ||
+      !params.sourceRecordId ||
+      !params.businessReference
+    ) {
+      return null;
+    }
+
+    const tenantContext =
+      await this.buildTiramisReadyTenantContext(params.authContext);
+
+    const context: TiramisSubmissionContext = {
+      organization: {
+        insurerCompanyId: tenantContext.companyId,
+        operatingCompanyId: tenantContext.companyId,
+        branchId: tenantContext.branchId || 'UNKNOWN',
+        branchCode: tenantContext.branchCode || 'UNKNOWN',
+        departmentId: tenantContext.departmentId || null,
+        salePointId: tenantContext.salePointId || 'UNKNOWN',
+        salePointCode: tenantContext.salePointCode || 'UNKNOWN',
+        companyMembershipId:
+          params.authContext.companyMembershipId || 'UNKNOWN',
+      },
+      distribution: {
+        relationshipId: null,
+        distributionChannelId: 'DIRECT',
+        channelType: 'DIRECT',
+        intermediaryCompanyId: null,
+        intermediaryAgentId: null,
+        transactionCompanyCode:
+          tenantContext.companyCode ||
+          tenantContext.systemCode ||
+          tenantContext.companyId,
+        commissionRate: params.dto.financeContext?.commissionRate ?? null,
+        commissionAmount: params.dto.financeContext?.commissionAmount ?? null,
+      },
+      product: {
+        productId:
+          params.dto.productContext?.productId ||
+          params.sourceRecordId ||
+          params.dto.requestType,
+        productVersionId:
+          params.dto.productContext?.productVersionId ||
+          params.dto.pricingContext?.productVersionId ||
+          'UNSPECIFIED',
+        productCode:
+          params.dto.productContext?.productCode ||
+          String(params.dto.payload?.productCode || params.dto.requestType),
+        productDefinitionHash:
+          params.dto.productContext?.definitionHash ||
+          params.dto.pricingContext?.productDefinitionHash ||
+          params.dto.pricingContext?.resultHash ||
+          params.idempotencyKey,
+        insuranceCategoryCode: String(
+          params.dto.payload?.insuranceType ||
+            params.dto.payload?.insuranceCategoryCode ||
+            'GENERAL',
+        ),
+        insuranceSubClassCode:
+          params.dto.payload?.insuranceSubClassCode != null
+            ? String(params.dto.payload.insuranceSubClassCode)
+            : null,
+        riskCodes: params.dto.pricingContext?.riskCode
+          ? [params.dto.pricingContext.riskCode]
+          : Array.isArray(params.dto.payload?.riskCodes)
+            ? params.dto.payload.riskCodes.map((value) => String(value))
+            : [],
+      },
+      pricing: params.dto.pricingContext ?? null,
+      insuredData: params.dto.insuredDataContext ?? null,
+      quotationGate: params.dto.quotationGateContext ?? null,
+      finance: params.dto.financeContext ?? null,
+    };
+
+    return this.tiramisEnvelopeService.build({
+      command: TiramisIntegrationCommand.SUBMIT,
+      requestType: canonicalRequestType,
+      idempotencyKey: params.idempotencyKey,
+      source: {
+        service: 'insurance-portal-service',
+        companyId: params.sourceCompanyId,
+        userId: params.sourceUserId,
+        module: params.sourceModule,
+        recordId: params.sourceRecordId,
+        workflowRevision:
+          params.dto.quotationGateContext?.workflowRevision ?? null,
+        quotationId: params.quotationId,
+        policyId: params.policyId,
+        businessReference: params.businessReference,
+      },
+      context,
+      payload: params.dto.payload,
+    });
+  }
+
+  private async sendCanonicalEnvelope(
+    envelope: TiramisSubmissionEnvelope,
+    authContext: AuthenticatedUser,
+    productContext?: ServiceProductContext,
+    pricingContext?: ServicePricingContext,
+    insuredDataContext?: ServiceInsuredDataContext,
+    quotationGateContext?: ServiceQuotationGateContext,
+    financeContext?: ServiceFinanceContext,
+  ) {
+    const requestId = this.requestContextService.getRequestId();
+    const correlationId =
+      this.requestContextService.getCorrelationId() ||
+      requestId ||
+      envelope.correlationId;
+    const sourceService = this.configService.getOrThrow<string>(
+      'tiramisClient.sourceService',
+    );
+    const tenantContext = await this.buildTiramisReadyTenantContext(authContext);
+    const serviceToken = this.serviceTokenService.issue(
+      'tiramis-service',
+      [TiramisServiceScopes.SUBMIT],
+      {
+        tenant: tenantContext,
+        actor: {
+          userId: authContext.id,
+          companyMembershipId: authContext.companyMembershipId,
+          sessionId: authContext.sessionId,
+          roles: authContext.roles,
+          permissions: authContext.permissions,
+        },
+        ...(productContext ? { product: productContext } : null),
+        ...(pricingContext ? { pricing: pricingContext } : null),
+        ...(insuredDataContext ? { insuredData: insuredDataContext } : null),
+        ...(quotationGateContext ? { quotationGate: quotationGateContext } : null),
+        ...(financeContext ? { finance: financeContext } : null),
+      },
+    );
+
+    const response = await firstValueFrom(
+      this.httpService.request({
+        method: 'POST',
+        url: '/api/v1/internal/tiramis/integration/submissions',
+        data: envelope,
+        validateStatus: () => true,
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${serviceToken}`,
+          [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
+          'X-Tenant-Company-Id': authContext.companyId ?? '',
+          'X-Actor-User-Id': authContext.id ?? '',
+          'X-Actor-Membership-Id': authContext.companyMembershipId ?? '',
+          ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
+          ...(correlationId
+            ? { [HTTP_HEADERS.CORRELATION_ID]: correlationId }
+            : {}),
+        },
+      }),
+    );
+
+    if (response.status < 200 || response.status >= 300) {
+      const error = new Error(
+        `TIRAMIS HTTP request failed with status ${response.status}`,
+      ) as Error & {
+        response?: {
+          data: unknown;
+          status: number;
+        };
+      };
+
+      error.response = { data: response.data, status: response.status };
+      throw error;
+    }
+
+    return unwrapApiResponse(response.data) as TiramisSubmissionAcceptance;
+  }
+
+  private async markCanonicalSubmissionAccepted(
+    trackingId: string,
+    acceptance: TiramisSubmissionAcceptance,
+  ) {
+    const tracking = await this.trackingRepository.findById(trackingId);
+
+    if (!tracking) {
+      throw new BadRequestException('TIRAMIS local tracking record not found');
+    }
+
+    tracking.status = TiramisSubmissionStatus.SENT_TO_TIRAMIS_SERVICE;
+    tracking.canonicalStatus = acceptance.status;
+    tracking.tiramisTransactionId = acceptance.transactionId;
+    tracking.tiramisRequestId = acceptance.requestId;
+    tracking.tiramisServiceType = acceptance.serviceType;
+    tracking.tiramisRootElement = acceptance.rootElement;
+    tracking.tiramisResponsePayload =
+      acceptance as unknown as Record<string, unknown>;
+    tracking.submittedAt = new Date(acceptance.acceptedAt);
+    tracking.resourceVersion = acceptance.resourceVersion;
+    tracking.correlationId = acceptance.correlationId;
+
+    return this.trackingRepository.save(tracking);
   }
 
   private resolveServiceScopes(pattern: string): string[] {

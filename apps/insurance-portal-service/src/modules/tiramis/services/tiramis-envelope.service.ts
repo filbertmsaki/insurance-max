@@ -31,7 +31,9 @@ export class TiramisEnvelopeService {
     payload: Record<string, unknown>;
   }): TiramisSubmissionEnvelope {
     const payloadHash = this.hashService.hashDefinition(params.payload);
-    const contextHash = this.hashService.hashDefinition(params.context);
+    const contextHash = this.hashService.hashDefinition(
+      params.context as unknown as Record<string, unknown>,
+    );
     const environment =
       this.configService.get<'test' | 'live'>('TIRAMIS_TARGET_ENV') ?? 'test';
 
