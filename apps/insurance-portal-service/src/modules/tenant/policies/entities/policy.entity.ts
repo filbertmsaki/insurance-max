@@ -60,6 +60,12 @@ export class Policy {
   @Column({ type: 'uuid', nullable: true })
   quotation_id: string | null;
 
+  @Column({ type: 'int', nullable: true })
+  source_quotation_revision: number | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  source_finalization_hash: string | null;
+
   @Column({ type: 'uuid', nullable: true })
   proposal_id: string | null;
 
@@ -68,6 +74,12 @@ export class Policy {
 
   @Column({ type: 'uuid' })
   product_id: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  product_version_id: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  product_definition_hash: string | null;
 
   @Column({ type: 'uuid', nullable: true })
   sub_class_id: string | null;
@@ -91,6 +103,18 @@ export class Policy {
   @Column({ type: 'varchar', length: 20, default: 'DRAFT' })
   policy_status: string;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  policy_reference_number: string | null;
+
+  @Column({ type: 'varchar', length: 40, default: 'PENDING' })
+  regulatory_sync_status: string;
+
+  @Column({ type: 'int', default: 0 })
+  source_cover_note_count: number;
+
+  @Column({ type: 'boolean', default: false })
+  issued_by_system: boolean;
+
   @Column({ type: 'date' })
   start_date: string;
 
@@ -100,8 +124,32 @@ export class Policy {
   @Column({ type: 'date' })
   issue_date: string;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  activated_at: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  rejected_at: Date | null;
+
   @Column({ type: 'varchar', length: 10, default: 'TZS' })
   currency: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  customer_snapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  customer_snapshot_hash: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  pricing_snapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  pricing_result_hash: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  distribution_snapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  distribution_snapshot_hash: string | null;
 
   @Column({ type: 'numeric', precision: 18, scale: 2, default: 0 })
   sum_insured: string;
@@ -198,6 +246,15 @@ export class Policy {
 
   @Column({ type: 'jsonb', nullable: true })
   tiramis_payload: Record<string, unknown> | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  regulatory_response_payload: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  regulatory_response_hash: string | null;
+
+  @Column({ type: 'int', default: 1 })
+  state_version: number;
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;

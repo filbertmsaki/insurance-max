@@ -1,3 +1,5 @@
+import type { RegulatoryFinalResponse } from '@insurance-max/contracts';
+
 export type TiramisPortalNotificationEventType =
   | 'TIRAMIS_ACK_RECEIVED'
   | 'TIRAMIS_ACK_FAILED'
@@ -28,6 +30,7 @@ export interface TiramisPortalNotificationEventDto {
   coverNoteReferenceNumber?: string | null;
   policyReferenceNumber?: string | null;
   stickerNumber?: string | null;
+  regulatoryResponse?: RegulatoryFinalResponse | null;
   errorMessage?: string | null;
   occurredAt: string;
 }

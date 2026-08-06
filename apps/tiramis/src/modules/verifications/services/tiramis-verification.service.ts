@@ -320,6 +320,14 @@ export class TiramisVerificationService {
       ? await this.tiramisConfigService.isSuccessResponse(statusCode)
       : false;
     const isSuccess = responseSignatureValid && isBusinessSuccess;
+    const normalizedVerification = this.buildNormalizedVerificationResult({
+      verificationType: params.verificationType,
+      content,
+      statusCode,
+      statusDesc,
+      signatureVerified: responseSignatureValid,
+      respondedAt: new Date(),
+    });
 
     const responseEntity = this.verificationRepository.createResponse({
       verificationRequestId: savedRequest.id,
@@ -356,6 +364,7 @@ export class TiramisVerificationService {
 
     return {
       signatureVerified: responseSignatureValid,
+      verification: normalizedVerification,
       request: savedRequest,
       response: savedResponse,
       transaction,
@@ -480,5 +489,82 @@ export class TiramisVerificationService {
     }
 
     return normalized || null;
+  }
+
+  private buildNormalizedVerificationResult(params: {
+    verificationType: string;
+    content: Record<string, unknown>;
+    statusCode: string | null;
+    statusDesc: string | null;
+    signatureVerified: boolean;
+    respondedAt: Date;
+  }) {
+    const responseHeader =
+      params.verificationType === TIRAMIS_VERIFICATION_TYPE.COVER_NOTE
+        ? this.asPlainRecord(params.content.CoverNoteHdr)
+        : this.asPlainRecord(params.content.VerificationHdr);
+
+    const responseDetails =
+      params.verificationType === TIRAMIS_VERIFICATION_TYPE.COVER_NOTE
+        ? this.normalizeResponseValue(params.content.CoverNoteDtl)
+        : this.normalizeResponseValue(params.content.VerificationDtl);
+
+    return {
+      verificationType: params.verificationType,
+      status: this.resolveVerificationStatus(
+        params.statusCode,
+        params.signatureVerified,
+      ),
+      responseCode: params.statusCode,
+      responseMessage: params.statusDesc,
+      signatureVerified: params.signatureVerified,
+      respondedAt: params.respondedAt.toISOString(),
+      details: {
+        responseHeader,
+        responseDetails,
+      },
+    };
+  }
+
+  private resolveVerificationStatus(
+    statusCode: string | null,
+    signatureVerified: boolean,
+  ) {
+    if (!statusCode) {
+      return TIRAMIS_VERIFICATION_STATUS.PENDING;
+    }
+
+    if (!signatureVerified) {
+      return TIRAMIS_VERIFICATION_STATUS.FAILED;
+    }
+
+    return statusCode === 'TIRA001'
+      ? TIRAMIS_VERIFICATION_STATUS.SUCCESS
+      : TIRAMIS_VERIFICATION_STATUS.FAILED;
+  }
+
+  private asPlainRecord(value: unknown): Record<string, unknown> | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      return null;
+    }
+
+    return this.normalizeResponseValue(value) as Record<string, unknown>;
+  }
+
+  private normalizeResponseValue(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.normalizeResponseValue(item));
+    }
+
+    if (!value || typeof value !== 'object') {
+      return value;
+    }
+
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
+        key,
+        this.normalizeResponseValue(entry),
+      ]),
+    );
   }
 }

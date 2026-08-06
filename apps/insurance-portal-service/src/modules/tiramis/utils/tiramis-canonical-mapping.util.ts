@@ -20,6 +20,14 @@ export function mapLegacyRequestTypeToCanonical(
       return TiramisIntegrationRequestType.MOTOR_FLEET_COVER_NOTE;
     case TiramisRequestType.POLICY:
       return TiramisIntegrationRequestType.POLICY;
+    case TiramisRequestType.MOTOR_VERIFICATION:
+      return TiramisIntegrationRequestType.MOTOR_VERIFICATION;
+    case TiramisRequestType.COVER_NOTE_VERIFICATION:
+      return TiramisIntegrationRequestType.COVER_NOTE_VERIFICATION;
+    case TiramisRequestType.NIN_VERIFICATION:
+      return TiramisIntegrationRequestType.NIN_VERIFICATION;
+    case TiramisRequestType.COMPANY_VERIFICATION:
+      return TiramisIntegrationRequestType.COMPANY_VERIFICATION;
     case TiramisRequestType.CLAIM_NOTIFICATION:
       return TiramisIntegrationRequestType.CLAIM_NOTIFICATION;
     case TiramisRequestType.CLAIM_INTIMATION:

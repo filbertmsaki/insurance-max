@@ -12,3 +12,4 @@ export * from './insured-data';
 export * from './quotations';
 export * from './finance';
 export * from './tiramis';
+export * from './issuance';

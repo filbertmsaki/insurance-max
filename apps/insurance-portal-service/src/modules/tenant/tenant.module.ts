@@ -4,14 +4,17 @@ import { BillingCommissionModule } from './billing-commission/billing-commission
 import { BranchesModule } from './branches/branches.module';
 import { CategoryAccessModule } from './category-access/category-access.module';
 import { ClaimsModule } from './claims/claims.module';
+import { CoverNotesModule } from './cover-notes/cover-notes.module';
 import { CustomersModule } from './customers/customers.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { InsuranceCategoriesModule } from './insurance-categories/insurance-categories.module';
+import { InsuranceDocumentsModule } from './insurance-documents/insurance-documents.module';
 import { InsurancePartnersModule } from './insurance-partners/insurance-partners.module';
 import { InsuranceProductsModule } from './insurance-products/insurance-products.module';
 import { InsuranceRisksModule } from './insurance-risks/insurance-risks.module';
 import { InsuranceSubClassesModule } from './insurance-sub-classes/insurance-sub-classes.module';
+import { IssuanceModule } from './issuance/issuance.module';
 import { MotorModule } from './motor/motor.module';
 import { NonMotorModule } from './non-motor/non-motor.module';
 import { PoliciesModule } from './policies/policies.module';
@@ -26,6 +29,7 @@ import { ReinsuranceModule } from './reinsurance/reinsurance.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { RegulatoryComplianceModule } from './regulatory-compliance/regulatory-compliance.module';
 import { RatingFactorsModule } from './rating-factors/rating-factors.module';
+import { RegulatorySyncModule } from './regulatory-sync/regulatory-sync.module';
 import { ReportingModule } from './reporting/reporting.module';
 import { RiskRatingRulesModule } from './risk-rating-rules/risk-rating-rules.module';
 import { RiskRequiredFactorsModule } from './risk-required-factors/risk-required-factors.module';
@@ -41,14 +45,17 @@ import { WorkItemsModule } from './work-items/work-items.module';
     UsersModule,
     CustomersModule,
     ClaimsModule,
+    CoverNotesModule,
     DashboardModule,
     BranchesModule,
     DepartmentsModule,
     InsuranceCategoriesModule,
+    InsuranceDocumentsModule,
     InsuranceProductsModule,
     InsuranceSubClassesModule,
     InsuranceRisksModule,
     InsurancePartnersModule,
+    IssuanceModule,
     ProductDistributionModule,
     QuotationsModule,
     MotorModule,
@@ -58,6 +65,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
     PricingRateBooksModule,
     ReinsuranceModule,
     RegulatoryComplianceModule,
+    RegulatorySyncModule,
     ReportingModule,
     BillingCommissionModule,
     AnalyticsModule,
@@ -78,14 +86,17 @@ import { WorkItemsModule } from './work-items/work-items.module';
     UsersModule,
     CustomersModule,
     ClaimsModule,
+    CoverNotesModule,
     DashboardModule,
     BranchesModule,
     DepartmentsModule,
     InsuranceCategoriesModule,
+    InsuranceDocumentsModule,
     InsuranceProductsModule,
     InsuranceSubClassesModule,
     InsuranceRisksModule,
     InsurancePartnersModule,
+    IssuanceModule,
     ProductDistributionModule,
     QuotationsModule,
     MotorModule,
@@ -95,6 +106,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
     PricingRateBooksModule,
     ReinsuranceModule,
     RegulatoryComplianceModule,
+    RegulatorySyncModule,
     ReportingModule,
     BillingCommissionModule,
     RatingFactorsModule,

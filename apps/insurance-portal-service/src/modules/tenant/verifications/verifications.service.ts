@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { XMLParser } from 'fast-xml-parser';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { TiramisRequestType } from '../../tiramis/enums/tiramis-request-type.enum';
 import { TiramisClientService } from '../../tiramis/services/tiramis-client.service';
@@ -11,7 +10,6 @@ import {
 @Injectable()
 export class VerificationsService {
   constructor(private readonly tiramisClient: TiramisClientService) {}
-  private readonly xmlParser = new XMLParser({ ignoreAttributes: true });
   verifyMotor(user: AuthenticatedUser, dto: MotorVerificationDto) {
     const payload = this.clean(dto as unknown as Record<string, unknown>);
     if (!payload.motorRegistrationNumber && !payload.motorChassisNumber)
@@ -86,10 +84,17 @@ export class VerificationsService {
       storedPayload.currentAttempt ??
       {};
     const storedFinalResponse = storedAttempt.finalResponse ?? {};
-    const responseXml =
-      liveResponse.xml ?? storedAttempt.payloads?.responseXml ?? null;
-    const verifiedRecordDetails = this.parseSafeXml(responseXml);
+    const normalizedVerification =
+      liveResponse.verification ??
+      storedPayload.verification ??
+      storedSummary.verification ??
+      null;
+    const verifiedRecordDetails =
+      normalizedVerification?.details ??
+      liveResponse.verifiedRecordDetails ??
+      null;
     const responseCode =
+      normalizedVerification?.responseCode ??
       tira.statusCode ??
       storedSummary.finalResponseStatusCode ??
       storedFinalResponse.statusCode ??
@@ -108,13 +113,15 @@ export class VerificationsService {
         liveResponse.request?.requestId ?? tracking.tiramisRequestId ?? null,
       transactionId: tracking.tiramisTransactionId ?? null,
       status:
-        responseCode === 'TIRA001'
+        normalizedVerification?.status ??
+        (responseCode === 'TIRA001'
           ? 'VERIFIED'
           : responseCode
             ? 'NOT_VERIFIED'
-            : 'PENDING',
+            : 'PENDING'),
       responseCode,
       responseMessage:
+        normalizedVerification?.responseMessage ??
         tira.message ??
         storedSummary.finalResponseStatusDesc ??
         storedFinalResponse.statusDesc ??
@@ -134,32 +141,20 @@ export class VerificationsService {
         },
         tira: {
           responseId: tira.responseId ?? null,
-          statusCode: tira.statusCode ?? null,
-          message: tira.message ?? null,
-          signatureVerified: tira.signatureVerified ?? null,
-          receivedAt: tira.receivedAt ?? null,
+          statusCode:
+            normalizedVerification?.responseCode ?? tira.statusCode ?? null,
+          message:
+            normalizedVerification?.responseMessage ?? tira.message ?? null,
+          signatureVerified:
+            normalizedVerification?.signatureVerified ??
+            tira.signatureVerified ??
+            null,
+          receivedAt:
+            normalizedVerification?.respondedAt ?? tira.receivedAt ?? null,
         },
         verifiedRecordDetails,
       },
     };
-  }
-
-  private parseSafeXml(xml?: string): unknown {
-    if (!xml) return null;
-    try {
-      const parsed = this.xmlParser.parse(xml);
-      const root = parsed?.TiraMsg ?? parsed;
-      if (root && typeof root === 'object') delete root.MsgSignature;
-      const response =
-        root?.MotorVerificationRes ?? root?.CoverNoteVerificationRes ?? root;
-      return {
-        responseHeader:
-          response?.VerificationHdr ?? response?.CoverNoteHdr ?? null,
-        details: response?.VerificationDtl ?? response?.CoverNoteDtl ?? null,
-      };
-    } catch {
-      return null;
-    }
   }
   private clean<T extends Record<string, unknown>>(
     dto: T,

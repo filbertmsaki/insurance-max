@@ -1,3 +1,4 @@
+import type { RegulatoryFinalResponse } from '../issuance/regulatory-response.interface';
 import type {
   TiramisIntegrationEventType,
   TiramisIntegrationSchemaVersion,
@@ -42,5 +43,6 @@ export interface TiramisIntegrationEvent {
     code: string | null;
     message: string | null;
   } | null;
+  regulatoryResponse: RegulatoryFinalResponse | null;
   occurredAt: string;
 }

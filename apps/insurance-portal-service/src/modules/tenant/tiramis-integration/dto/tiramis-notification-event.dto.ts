@@ -1,3 +1,5 @@
+import type { RegulatoryFinalResponse } from '@insurance-max/contracts';
+
 export interface TiramisNotificationEventDto {
   eventType: string;
 
@@ -22,6 +24,7 @@ export interface TiramisNotificationEventDto {
   coverNoteReferenceNumber?: string | null;
   policyReferenceNumber?: string | null;
   stickerNumber?: string | null;
+  regulatoryResponse?: RegulatoryFinalResponse | null;
 
   errorMessage?: string | null;
   occurredAt?: string | null;

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
 import { Repository } from 'typeorm';
+import type { RegulatoryFinalResponse } from '@insurance-max/contracts';
 
 import { TiramisConfigService } from '../../config/services/tiramis-config.service';
 import { TiramisCoverNoteEntity } from '../../cover-notes/entities/tiramis-cover-note.entity';
@@ -199,6 +200,7 @@ export class TiramisCallbackService {
 
       await this.notifyPortalAfterCallback({
         eventType: isSuccess ? 'TIRAMIS_FINAL_SUCCESS' : 'TIRAMIS_FINAL_FAILED',
+        finalResponse,
         parsedCallback,
         transactionStatus: isSuccess ? 'SUCCESS' : 'FAILED',
         attemptStatus: isSuccess ? 'FINAL_SUCCESS' : 'FINAL_FAILED',
@@ -739,6 +741,7 @@ export class TiramisCallbackService {
       | 'TIRAMIS_FINAL_FAILED'
       | 'TIRAMIS_RESPONSE_ACK_SENT'
       | 'TIRAMIS_CALLBACK_REJECTED';
+    finalResponse?: TiramisFinalResponseDto | null;
     parsedCallback: ParsedTiramisCallbackDto;
     transactionStatus?: string | null;
     attemptStatus?: string | null;
@@ -749,6 +752,14 @@ export class TiramisCallbackService {
         await this.tiramisSubmissionService.getTransactionForNotification({
           requestId: params.parsedCallback.requestId,
         });
+      const regulatoryResponse = params.finalResponse
+        ? this.buildRegulatoryResponse(
+            params.parsedCallback,
+            params.finalResponse,
+            transaction?.requestType || transaction?.serviceType || null,
+            transaction?.businessReference || null,
+          )
+        : null;
 
       await this.portalNotificationService.publish({
         eventType: params.eventType,
@@ -772,6 +783,7 @@ export class TiramisCallbackService {
         policyReferenceNumber:
           params.parsedCallback.policyReferenceNumber || null,
         stickerNumber: params.parsedCallback.stickerNumber || null,
+        regulatoryResponse,
         errorMessage: params.errorMessage || null,
         occurredAt: new Date().toISOString(),
       });
@@ -788,6 +800,61 @@ export class TiramisCallbackService {
     return createHash('sha256')
       .update(rawXml || '', 'utf8')
       .digest('hex');
+  }
+
+  private buildRegulatoryResponse(
+    parsedCallback: ParsedTiramisCallbackDto,
+    finalResponse: TiramisFinalResponseDto,
+    requestType: string | null,
+    businessReference: string | null,
+  ): RegulatoryFinalResponse {
+    const coverNoteReferences =
+      parsedCallback.coverNoteReferenceNumber ||
+      finalResponse.coverNoteReferenceNumber
+        ? [
+            {
+              sourceCoverNoteNumber: businessReference,
+              quotationEntryId: null,
+              fleetEntry: null,
+              coverNoteReferenceNumber:
+                parsedCallback.coverNoteReferenceNumber ||
+                finalResponse.coverNoteReferenceNumber ||
+                '',
+              stickerNumber:
+                parsedCallback.stickerNumber ||
+                finalResponse.stickerNumber ||
+                null,
+              registrationNumber: null,
+              chassisNumber: null,
+            },
+          ]
+        : [];
+
+    return {
+      transactionId: businessReference || parsedCallback.requestId,
+      requestId: finalResponse.requestId,
+      responseId: finalResponse.responseId,
+      requestType: requestType || finalResponse.serviceType,
+      responseRoot: finalResponse.rootElement,
+      success: finalResponse.responseStatusCode === 'TIRA001',
+      statusCode: finalResponse.responseStatusCode,
+      statusDescription: finalResponse.responseStatusDesc,
+      coverNotes: coverNoteReferences,
+      policy: parsedCallback.policyReferenceNumber
+        ? {
+            policyNumber: businessReference || parsedCallback.requestId,
+            policyReferenceNumber: parsedCallback.policyReferenceNumber,
+            coverNoteReferenceNumbers: coverNoteReferences.map(
+              (item) => item.coverNoteReferenceNumber,
+            ),
+          }
+        : null,
+      signatureVerified: parsedCallback.signatureVerified === true,
+      responsePayloadHash: this.hashPayload(
+        JSON.stringify(finalResponse.payload || {}),
+      ),
+      receivedAt: new Date().toISOString(),
+    };
   }
 
   private getStringValue(
