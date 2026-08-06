@@ -12,6 +12,7 @@ import {
 import type {
   ServiceFinanceContext,
   ServiceInsuredDataContext,
+  ServicePolicyTransactionContext,
   ServicePricingContext,
   ServiceProductContext,
   ServiceQuotationGateContext,
@@ -151,4 +152,12 @@ export class SubmitTiramisDto {
   @IsOptional()
   @IsObject()
   financeContext?: ServiceFinanceContext;
+
+  @ApiPropertyOptional({
+    description:
+      'Signed policy-transaction (endorsement/cancellation/renewal) gate context, resolved internally - never accepted from an external caller.',
+  })
+  @IsOptional()
+  @IsObject()
+  policyTransactionContext?: ServicePolicyTransactionContext;
 }

@@ -11,7 +11,34 @@ import {
   IDENTIFIER_SEQUENCE_LENGTHS,
   IdentifierType,
 } from '@insurance-max/portal-shared/constants/identifier.constants';
+import { PolicyTransactionType } from '@insurance-max/contracts';
 import { Company } from '../../platform/companies/entities/company.entity';
+
+const POLICY_TRANSACTION_IDENTIFIER_TYPE: Record<
+  PolicyTransactionType,
+  IdentifierType
+> = {
+  [PolicyTransactionType.ENDORSEMENT]: IdentifierType.ENDORSEMENT,
+  [PolicyTransactionType.CANCELLATION]: IdentifierType.CANCELLATION,
+  [PolicyTransactionType.RENEWAL]: IdentifierType.RENEWAL,
+};
+
+const POLICY_TRANSACTION_IDENTIFIER_CONSTANT: Record<
+  PolicyTransactionType,
+  string
+> = {
+  [PolicyTransactionType.ENDORSEMENT]: IDENTIFIER_CONSTANTS.endorsement,
+  [PolicyTransactionType.CANCELLATION]: IDENTIFIER_CONSTANTS.cancellation,
+  [PolicyTransactionType.RENEWAL]: IDENTIFIER_CONSTANTS.renewal,
+};
+
+const POLICY_TRANSACTION_SEQUENCE_LENGTH: Record<PolicyTransactionType, number> =
+  {
+    [PolicyTransactionType.ENDORSEMENT]: IDENTIFIER_SEQUENCE_LENGTHS.endorsement,
+    [PolicyTransactionType.CANCELLATION]:
+      IDENTIFIER_SEQUENCE_LENGTHS.cancellation,
+    [PolicyTransactionType.RENEWAL]: IDENTIFIER_SEQUENCE_LENGTHS.renewal,
+  };
 
 interface GeneratedIdentifierRow {
   id: string;
@@ -250,6 +277,20 @@ export class IdentifierGeneratorService {
       IdentifierType.COMMISSION_PAYMENT,
       IDENTIFIER_CONSTANTS.commissionPayment,
       IDENTIFIER_SEQUENCE_LENGTHS.commissionPayment,
+      manager,
+    );
+  }
+
+  async generatePolicyTransactionNumber(
+    transactionType: PolicyTransactionType,
+    companyId: string,
+    manager?: EntityManager,
+  ): Promise<string> {
+    return this.generateFinanceIdentifier(
+      companyId,
+      POLICY_TRANSACTION_IDENTIFIER_TYPE[transactionType],
+      POLICY_TRANSACTION_IDENTIFIER_CONSTANT[transactionType],
+      POLICY_TRANSACTION_SEQUENCE_LENGTH[transactionType],
       manager,
     );
   }

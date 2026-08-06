@@ -105,6 +105,18 @@ export class PortalServiceRequest {
   @Column({ type: 'timestamptz', nullable: true })
   completed_at: Date | null;
 
+  // The operational transaction an approved request created (policy
+  // endorsement/cancellation/renewal), so re-running completion is
+  // idempotent (§13.28).
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  operational_resource_type: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  operational_resource_id: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  operational_created_at: Date | null;
+
   // Not a foreign key by design: this is an immutable audit value that must
   // outlive the creating user's account.
   @Column({ type: 'uuid' })

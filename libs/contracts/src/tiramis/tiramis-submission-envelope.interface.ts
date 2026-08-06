@@ -1,6 +1,7 @@
 import type { ServiceFinanceContext } from '../finance/finance.interface';
 import type { ServiceInsuredDataContext } from '../insured-data/service-insured-data-context.interface';
 import type { ServicePricingContext } from '../pricing/service-pricing-context.interface';
+import type { ServicePolicyTransactionContext } from '../policy-transactions/service-policy-transaction-gate-context.interface';
 import type { ServiceQuotationGateContext } from '../quotations/service-quotation-gate-context.interface';
 import type {
   TiramisIntegrationCommand,
@@ -49,6 +50,7 @@ export interface TiramisSubmissionContext {
   insuredData: ServiceInsuredDataContext | null;
   quotationGate: ServiceQuotationGateContext | null;
   finance: ServiceFinanceContext | null;
+  policyTransaction: ServicePolicyTransactionContext | null;
 }
 
 export interface TiramisSubmissionSource {

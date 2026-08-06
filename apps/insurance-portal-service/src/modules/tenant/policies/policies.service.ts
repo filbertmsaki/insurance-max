@@ -1023,4 +1023,54 @@ export class PoliciesService {
 
     return this.listHistory(user.companyId!, policyId);
   }
+
+  /**
+   * Backend-computed action list (Phase 13 §13.31) so the frontend never
+   * decides for itself whether an endorsement/cancellation/renewal can be
+   * started — it just renders whatever this returns.
+   */
+  async actionsForUser(user: AuthenticatedUser, policyId: string) {
+    const policy = await this.findScopedPolicyEntity(user, policyId, false);
+    const hasActiveTransaction = Boolean(policy.pending_transaction_id);
+    const isActive = policy.policy_status === 'ACTIVE';
+
+    const blockedReason = !isActive
+      ? 'The policy is not active.'
+      : hasActiveTransaction
+        ? 'The policy has an active endorsement, cancellation, or renewal transaction.'
+        : null;
+
+    return {
+      actions: [
+        {
+          code: 'CREATE_ENDORSEMENT',
+          enabled: isActive && !hasActiveTransaction,
+          disabledReason: blockedReason,
+        },
+        {
+          code: 'REQUEST_CANCELLATION',
+          enabled: isActive && !hasActiveTransaction,
+          disabledReason: blockedReason,
+        },
+        {
+          code: 'CREATE_RENEWAL',
+          enabled:
+            isActive && !hasActiveTransaction && !policy.renewed_to_policy_id,
+          disabledReason: policy.renewed_to_policy_id
+            ? 'The policy has already been renewed.'
+            : blockedReason,
+        },
+        {
+          code: 'VIEW_VERSION_HISTORY',
+          enabled: true,
+          disabledReason: null,
+        },
+        {
+          code: 'VIEW_TRANSACTIONS',
+          enabled: true,
+          disabledReason: null,
+        },
+      ],
+    };
+  }
 }

@@ -10,7 +10,10 @@ export const QuotationStage = {
 export type QuotationStage =
   (typeof QuotationStage)[keyof typeof QuotationStage];
 
-export const QuotationApprovalStatus = {
+// Generalized workflow-gate enums, originally modeled for quotations (Phase 9)
+// and reused as-is for policy transactions (Phase 13). The `Quotation*` names
+// are kept as aliases below so every existing quotation import keeps working.
+export const WorkflowApprovalStatus = {
   NOT_EVALUATED: 'NOT_EVALUATED',
   NOT_REQUIRED: 'NOT_REQUIRED',
   PENDING: 'PENDING',
@@ -20,10 +23,13 @@ export const QuotationApprovalStatus = {
   CANCELLED: 'CANCELLED',
 } as const;
 
-export type QuotationApprovalStatus =
-  (typeof QuotationApprovalStatus)[keyof typeof QuotationApprovalStatus];
+export type WorkflowApprovalStatus =
+  (typeof WorkflowApprovalStatus)[keyof typeof WorkflowApprovalStatus];
 
-export const QuotationPaymentStatus = {
+export const QuotationApprovalStatus = WorkflowApprovalStatus;
+export type QuotationApprovalStatus = WorkflowApprovalStatus;
+
+export const WorkflowPaymentStatus = {
   NOT_EVALUATED: 'NOT_EVALUATED',
   NOT_REQUIRED: 'NOT_REQUIRED',
   NOT_REQUESTED: 'NOT_REQUESTED',
@@ -36,10 +42,13 @@ export const QuotationPaymentStatus = {
   CANCELLED: 'CANCELLED',
 } as const;
 
-export type QuotationPaymentStatus =
-  (typeof QuotationPaymentStatus)[keyof typeof QuotationPaymentStatus];
+export type WorkflowPaymentStatus =
+  (typeof WorkflowPaymentStatus)[keyof typeof WorkflowPaymentStatus];
 
-export const QuotationSubmissionStatus = {
+export const QuotationPaymentStatus = WorkflowPaymentStatus;
+export type QuotationPaymentStatus = WorkflowPaymentStatus;
+
+export const WorkflowSubmissionStatus = {
   NOT_READY: 'NOT_READY',
   READY: 'READY',
   QUEUED: 'QUEUED',
@@ -53,8 +62,11 @@ export const QuotationSubmissionStatus = {
   CANCELLED: 'CANCELLED',
 } as const;
 
-export type QuotationSubmissionStatus =
-  (typeof QuotationSubmissionStatus)[keyof typeof QuotationSubmissionStatus];
+export type WorkflowSubmissionStatus =
+  (typeof WorkflowSubmissionStatus)[keyof typeof WorkflowSubmissionStatus];
+
+export const QuotationSubmissionStatus = WorkflowSubmissionStatus;
+export type QuotationSubmissionStatus = WorkflowSubmissionStatus;
 
 export const QuotationPaymentMode = {
   INVOICE: 'INVOICE',

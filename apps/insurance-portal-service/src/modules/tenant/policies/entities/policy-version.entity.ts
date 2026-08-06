@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 
 import { TiramisSubmissionTrackingEntity } from '../../../tiramis/entities/tiramis-submission-tracking.entity';
+import { PolicyTransaction } from '../../policy-transactions/entities/policy-transaction.entity';
 import { Policy } from './policy.entity';
 
 @Entity('policy_versions')
@@ -66,6 +67,24 @@ export class PolicyVersion {
   tiramis_tracking_id!: string | null;
 
   @Column({ type: 'uuid', nullable: true })
+  policy_transaction_id!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  supersedes_version_id!: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  superseded_at!: Date | null;
+
+  @Column({ type: 'boolean', default: false })
+  is_current!: boolean;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  regulatory_reference!: string | null;
+
+  @Column({ type: 'date', nullable: true })
+  effective_transaction_date!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
   created_by!: string | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
@@ -81,4 +100,12 @@ export class PolicyVersion {
   })
   @JoinColumn({ name: 'tiramis_tracking_id' })
   tiramis_tracking!: TiramisSubmissionTrackingEntity | null;
+
+  @ManyToOne(() => PolicyTransaction, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'policy_transaction_id' })
+  policy_transaction!: PolicyTransaction | null;
+
+  @ManyToOne(() => PolicyVersion, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'supersedes_version_id' })
+  supersedes_version!: PolicyVersion | null;
 }

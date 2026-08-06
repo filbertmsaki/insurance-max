@@ -18,6 +18,7 @@ import { IssuanceModule } from './issuance/issuance.module';
 import { MotorModule } from './motor/motor.module';
 import { NonMotorModule } from './non-motor/non-motor.module';
 import { PoliciesModule } from './policies/policies.module';
+import { PolicyTransactionsModule } from './policy-transactions/policy-transactions.module';
 import { PortalModule } from './portal/portal.module';
 import { PremiumCalculationModule } from './premium-calculation/premium-calculation.module';
 import { PricingModule } from './pricing/pricing.module';
@@ -61,6 +62,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
     MotorModule,
     NonMotorModule,
     PoliciesModule,
+    PolicyTransactionsModule,
     PricingModule,
     PricingRateBooksModule,
     ReinsuranceModule,
@@ -102,6 +104,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
     MotorModule,
     NonMotorModule,
     PoliciesModule,
+    PolicyTransactionsModule,
     PricingModule,
     PricingRateBooksModule,
     ReinsuranceModule,

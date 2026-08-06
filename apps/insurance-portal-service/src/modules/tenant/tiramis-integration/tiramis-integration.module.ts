@@ -5,6 +5,7 @@ import { TiramisHttpModule } from '../../../integrations/tiramis/tiramis-http.mo
 import { Branch } from '../branches/entities/branch.entity';
 import { IssuanceModule } from '../issuance/issuance.module';
 import { Policy } from '../policies/entities/policy.entity';
+import { PolicyTransactionsModule } from '../policy-transactions/policy-transactions.module';
 import { PolicyStatusHistory } from '../policies/entities/policy-status-history.entity';
 import { QuotationStatusHistory } from '../quotations/entities/quotation-status-history.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
@@ -22,6 +23,7 @@ import { TiramisIntegrationService } from './tiramis-integration.service';
 @Module({
   imports: [
     IssuanceModule,
+    PolicyTransactionsModule,
     QuotationsModule,
     TiramisModule,
     TypeOrmModule.forFeature([

@@ -13,10 +13,10 @@ import {
 } from 'typeorm';
 import type {
   ProductDefinitionSnapshot,
-  QuotationApprovalStatus as WorkflowApprovalStatus,
-  QuotationPaymentStatus as WorkflowPaymentStatus,
+  WorkflowApprovalStatus,
+  WorkflowPaymentStatus,
   QuotationStage as WorkflowQuotationStage,
-  QuotationSubmissionStatus as WorkflowSubmissionStatus,
+  WorkflowSubmissionStatus,
 } from '@insurance-max/contracts';
 import { Company } from '../../../platform/companies/entities/company.entity';
 import { Branch } from '../../branches/entities/branch.entity';

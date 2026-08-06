@@ -9,6 +9,9 @@ export enum IdentifierType {
   REFUND = 'REFUND',
   COMMISSION_ACCRUAL = 'COMMISSION_ACCRUAL',
   COMMISSION_PAYMENT = 'COMMISSION_PAYMENT',
+  ENDORSEMENT = 'ENDORSEMENT',
+  CANCELLATION = 'CANCELLATION',
+  RENEWAL = 'RENEWAL',
 }
 
 export const IDENTIFIER_CONSTANTS = {
@@ -21,6 +24,9 @@ export const IDENTIFIER_CONSTANTS = {
   refund: 'RFD',
   commissionAccrual: 'CAC',
   commissionPayment: 'CMP',
+  endorsement: 'END',
+  cancellation: 'CXL',
+  renewal: 'RNW',
 } as const;
 
 export const IDENTIFIER_SEQUENCE_LENGTHS = {
@@ -35,6 +41,9 @@ export const IDENTIFIER_SEQUENCE_LENGTHS = {
   refund: 5,
   commissionAccrual: 5,
   commissionPayment: 5,
+  endorsement: 5,
+  cancellation: 5,
+  renewal: 5,
 } as const;
 
 export const IDENTIFIER_DATE_FORMATS = {

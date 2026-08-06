@@ -927,6 +927,7 @@ export class TiramisClientService {
       insuredData: params.dto.insuredDataContext ?? null,
       quotationGate: params.dto.quotationGateContext ?? null,
       finance: params.dto.financeContext ?? null,
+      policyTransaction: params.dto.policyTransactionContext ?? null,
     };
 
     return this.tiramisEnvelopeService.build({

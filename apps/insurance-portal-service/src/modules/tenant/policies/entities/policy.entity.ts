@@ -213,6 +213,21 @@ export class Policy {
   @Column({ type: 'uuid', nullable: true })
   renewed_to_policy_id: string | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  active_version_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  pending_transaction_id: string | null;
+
+  @Column({ type: 'date', nullable: true })
+  last_endorsement_date: string | null;
+
+  @Column({ type: 'date', nullable: true })
+  cancellation_effective_date: string | null;
+
+  @Column({ type: 'varchar', length: 40, default: 'NOT_STARTED' })
+  renewal_status: string;
+
   @Column({ type: 'varchar', length: 50, nullable: true })
   tiramis_status: string | null;
 

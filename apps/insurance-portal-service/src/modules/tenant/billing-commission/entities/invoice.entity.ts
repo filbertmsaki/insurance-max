@@ -14,6 +14,9 @@ import { Company } from '../../../platform/companies/entities/company.entity';
 import { Branch } from '../../branches/entities/branch.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Policy } from '../../policies/entities/policy.entity';
+import { PolicyCancellation } from '../../policy-transactions/entities/policy-cancellation.entity';
+import { PolicyEndorsement } from '../../policy-transactions/entities/policy-endorsement.entity';
+import { PolicyRenewal } from '../../policy-transactions/entities/policy-renewal.entity';
 import { Quotation } from '../../quotations/entities/quotation.entity';
 import { User } from '../../users/entities/user.entity';
 import { InvoiceItem } from './invoice-item.entity';
@@ -201,6 +204,18 @@ export class Invoice {
   @ManyToOne(() => Policy, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'policy_id' })
   policy: Policy | null;
+
+  @ManyToOne(() => PolicyEndorsement, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'endorsement_id' })
+  endorsement: PolicyEndorsement | null;
+
+  @ManyToOne(() => PolicyCancellation, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'cancellation_id' })
+  cancellation: PolicyCancellation | null;
+
+  @ManyToOne(() => PolicyRenewal, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'renewal_id' })
+  renewal: PolicyRenewal | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'created_by' })

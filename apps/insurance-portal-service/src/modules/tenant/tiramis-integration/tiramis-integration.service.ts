@@ -11,6 +11,7 @@ import { Brackets, In, Repository } from 'typeorm';
 import { Branch } from '../branches/entities/branch.entity';
 import { IssuanceService } from '../issuance/issuance.service';
 import { Policy } from '../policies/entities/policy.entity';
+import { RenewalService } from '../policy-transactions/services/renewal.service';
 import { PolicyStatusHistory } from '../policies/entities/policy-status-history.entity';
 import { QuotationStatusHistory } from '../quotations/entities/quotation-status-history.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
@@ -60,6 +61,7 @@ export class TiramisIntegrationService {
     private readonly identifierGeneratorService: IdentifierGeneratorService,
     private readonly quotationLifecycleService: QuotationLifecycleService,
     private readonly issuanceService: IssuanceService,
+    private readonly renewalService: RenewalService,
   ) {}
 
   async submitToTiramis(params: {
@@ -525,7 +527,25 @@ export class TiramisIntegrationService {
       await this.syncLocalTrackingFromNotification(payload);
 
     await this.createEvent(savedSubmission, payload);
-    await this.issuanceService.applyNotification(savedSubmission, payload);
+    const issuanceResult = await this.issuanceService.applyNotification(
+      savedSubmission,
+      payload,
+    );
+
+    if (issuanceResult?.policy) {
+      try {
+        await this.renewalService.applyIssuedPolicyIfRenewal(
+          issuanceResult.policy,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to apply renewal linkage for policy ${issuanceResult.policy.id}: ${
+            error instanceof Error ? error.message : error
+          }`,
+        );
+      }
+    }
+
     await this.updateLinkedPolicy(savedSubmission, payload);
     await this.updateLinkedQuotation(savedSubmission, payload);
 

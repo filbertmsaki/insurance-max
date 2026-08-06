@@ -113,4 +113,14 @@ export class PoliciesController {
   ) {
     return this.policiesService.listHistoryForUser(user, id);
   }
+
+  @Get(':id/actions')
+  @Permissions('policies:read')
+  @ApiOperation({ summary: 'Get the backend-computed available actions for a policy' })
+  actions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.policiesService.actionsForUser(user, id);
+  }
 }

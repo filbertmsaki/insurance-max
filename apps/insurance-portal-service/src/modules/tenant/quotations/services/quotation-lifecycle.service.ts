@@ -8,10 +8,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import {
-  QuotationApprovalStatus as WorkflowApprovalStatus,
-  QuotationPaymentStatus as WorkflowPaymentStatus,
+  WorkflowApprovalStatus,
+  WorkflowPaymentStatus,
   QuotationStage as WorkflowQuotationStage,
-  QuotationSubmissionStatus as WorkflowSubmissionStatus,
+  WorkflowSubmissionStatus,
 } from '@insurance-max/contracts';
 import { Quotation } from '../entities/quotation.entity';
 import { QuotationStatusHistory } from '../entities/quotation-status-history.entity';
