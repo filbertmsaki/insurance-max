@@ -5,6 +5,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
@@ -16,15 +17,21 @@ import {
   AdmitRecoveryDto,
   CreateFacultativePlacementDto,
   CreatePolicyCessionDto,
+  CreateReinsuranceSettlementDto,
   CreateTreatyDto,
   CreateTreatyParticipantDto,
   CreateTreatySectionDto,
+  EvaluateCapacityDto,
+  EvaluateQuotationCapacityDto,
   InviteFacultativeOfferDto,
+  RejectReinsuranceSettlementDto,
   RespondFacultativeOfferDto,
 } from './dto/reinsurance.dto';
 import { ReinsurancePermissions } from './reinsurance.permissions';
 import { ReinsuranceService } from './reinsurance.service';
+import { ReinsuranceCapacityService } from './services/reinsurance-capacity.service';
 import { ReinsuranceRecoveryService } from './services/reinsurance-recovery.service';
+import { ReinsuranceSettlementService } from './services/reinsurance-settlement.service';
 import { TenantScoped } from '@insurance-max/portal-shared';
 
 @Controller('tenant/reinsurance')
@@ -33,6 +40,8 @@ export class ReinsuranceController {
   constructor(
     private readonly reinsuranceService: ReinsuranceService,
     private readonly recoveryService: ReinsuranceRecoveryService,
+    private readonly capacityService: ReinsuranceCapacityService,
+    private readonly settlementService: ReinsuranceSettlementService,
   ) {}
 
   @Get('treaties')
@@ -213,5 +222,88 @@ export class ReinsuranceController {
     @Body() dto: AdmitRecoveryDto,
   ) {
     return this.recoveryService.admitRecovery(user, id, dto.admitted_amount);
+  }
+
+  @Post('capacity/evaluate')
+  @Permissions(ReinsurancePermissions.CAPACITY_EVALUATE)
+  evaluateCapacity(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: EvaluateCapacityDto,
+  ) {
+    return this.capacityService.evaluate(user, {
+      treatyId: dto.treaty_id,
+      treatySectionId: dto.treaty_section_id ?? null,
+      exposureAmount: dto.exposure_amount,
+      classOfBusiness: dto.class_of_business ?? null,
+      territory: dto.territory ?? null,
+    });
+  }
+
+  @Get('quotations/:id/capacity')
+  @Permissions(ReinsurancePermissions.CAPACITY_EVALUATE)
+  evaluateQuotationCapacity(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) _quotationId: string,
+    @Query() query: EvaluateQuotationCapacityDto,
+  ) {
+    return this.capacityService.evaluate(user, {
+      treatyId: query.treaty_id,
+      treatySectionId: query.treaty_section_id ?? null,
+      exposureAmount: query.exposure_amount,
+      classOfBusiness: query.class_of_business ?? null,
+      territory: query.territory ?? null,
+    });
+  }
+
+  @Get('settlements')
+  @Permissions(ReinsurancePermissions.READ)
+  findSettlements(@CurrentUser() user: AuthenticatedUser) {
+    return this.settlementService.findAll(user);
+  }
+
+  @Post('settlements')
+  @Permissions(ReinsurancePermissions.SETTLEMENT_CREATE)
+  createSettlement(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateReinsuranceSettlementDto,
+  ) {
+    return this.settlementService.create(user, dto);
+  }
+
+  @Post('settlements/:id/submit')
+  @Permissions(ReinsurancePermissions.SETTLEMENT_CREATE)
+  submitSettlement(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.settlementService.submit(user, id);
+  }
+
+  @Post('settlements/:id/approve')
+  @Permissions(ReinsurancePermissions.SETTLEMENT_APPROVE)
+  approveSettlement(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.settlementService.approve(user, id);
+  }
+
+  @Post('settlements/:id/reject')
+  @Permissions(ReinsurancePermissions.SETTLEMENT_APPROVE)
+  rejectSettlement(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RejectReinsuranceSettlementDto,
+  ) {
+    return this.settlementService.reject(user, id, dto.reason);
+  }
+
+  @Post('settlements/:id/pay')
+  @Permissions(ReinsurancePermissions.SETTLEMENT_PAY)
+  paySettlement(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.settlementService.confirmPayment(user, id);
   }
 }

@@ -43,6 +43,12 @@ export const ReinsurancePermissions = {
   SETTLEMENT_PAY: 'reinsurance:settlement-pay',
   SETTLEMENT_RECONCILE: 'reinsurance:settlement-reconcile',
 
+  CAPACITY_EVALUATE: 'reinsurance:capacity-evaluate',
+  PROGRAM_CREATE: 'reinsurance:program-create',
+  PROGRAM_UPDATE: 'reinsurance:program-update',
+  COUNTERPARTY_CREATE: 'reinsurance:counterparty-create',
+  COUNTERPARTY_UPDATE: 'reinsurance:counterparty-update',
+
   DASHBOARD: 'dashboard:reinsurance',
 } as const;
 

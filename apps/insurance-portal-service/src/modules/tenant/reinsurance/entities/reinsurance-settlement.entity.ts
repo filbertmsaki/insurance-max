@@ -74,6 +74,33 @@ export class ReinsuranceSettlement {
   @Column({ type: 'uuid', nullable: true })
   created_by: string | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  submitted_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  submitted_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  approved_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  approved_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  rejection_reason: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  finance_journal_entry_id: string | null;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  finance_event_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  settled_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  settled_at: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

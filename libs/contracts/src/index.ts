@@ -15,3 +15,4 @@ export * from './tiramis';
 export * from './issuance';
 export * from './policy-transactions';
 export * from './claims';
+export * from './reinsurance';

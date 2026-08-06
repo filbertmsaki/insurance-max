@@ -335,6 +335,8 @@ export class ReinsuranceService {
   async activateTreaty(user: AuthenticatedUser, treatyId: string) {
     const treaty = await this.getTreatyForWrite(user, treatyId);
 
+    await this.assertParticipantSharesComplete(treaty.id);
+
     if (
       ![TreatyStatus.APPROVED, TreatyStatus.SUSPENDED].includes(treaty.status)
     ) {
@@ -1196,6 +1198,49 @@ export class ReinsuranceService {
 
     if (totalShare > 100.0000000001) {
       throw new ConflictException('Treaty participation exceeds 100%');
+    }
+  }
+
+  /**
+   * A single treaty participant push is only checked against a 100% ceiling
+   * (`assertTreatyShareAvailable`) — nothing ever verified the shares add up
+   * to exactly 100% before a treaty goes live. Grouped by section so a
+   * sectioned treaty must have every section fully placed, not just the
+   * treaty as a whole.
+   */
+  private async assertParticipantSharesComplete(treatyId: string) {
+    const rows = await this.treatyParticipantRepository
+      .createQueryBuilder('participant')
+      .select('participant.treaty_section_id', 'sectionId')
+      .addSelect('COALESCE(SUM(participant.share_percent), 0)', 'share')
+      .where('participant.treaty_id = :treatyId', { treatyId })
+      .andWhere('participant.deleted_at IS NULL')
+      .andWhere('participant.status IN (:...statuses)', {
+        statuses: [
+          TreatyParticipantStatus.INVITED,
+          TreatyParticipantStatus.CONFIRMED,
+          TreatyParticipantStatus.ACTIVE,
+        ],
+      })
+      .groupBy('participant.treaty_section_id')
+      .getRawMany<{ sectionId: string | null; share: string }>();
+
+    if (!rows.length) {
+      throw new BadRequestException(
+        'Treaty has no participants — add participants before activation',
+      );
+    }
+
+    const EPSILON = 0.0001;
+    for (const row of rows) {
+      const totalShare = Number(row.share ?? 0);
+      if (Math.abs(totalShare - 100) > EPSILON) {
+        throw new BadRequestException(
+          `Treaty participant shares must total 100% before activation${
+            row.sectionId ? ` for section ${row.sectionId}` : ''
+          } (currently ${totalShare.toFixed(4)}%)`,
+        );
+      }
     }
   }
 

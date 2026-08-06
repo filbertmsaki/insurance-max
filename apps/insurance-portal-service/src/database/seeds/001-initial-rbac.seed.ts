@@ -298,6 +298,11 @@ const REINSURANCE_ADMIN_PERMISSION_NAMES = [
   'reinsurance:settlement-approve',
   'reinsurance:settlement-pay',
   'reinsurance:settlement-reconcile',
+  'reinsurance:capacity-evaluate',
+  'reinsurance:program-create',
+  'reinsurance:program-update',
+  'reinsurance:counterparty-create',
+  'reinsurance:counterparty-update',
 ];
 
 const REINSURANCE_PARTNER_PERMISSION_NAMES = [
@@ -525,6 +530,36 @@ const REINSURANCE_PERMISSION_SEEDS: PermissionSeed[] = [
     name: 'reinsurance:settlement-reconcile',
     displayName: 'Reconcile reinsurance settlements',
     description: 'Allow reconciling counterparty balances and variances',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'reinsurance:capacity-evaluate',
+    displayName: 'Evaluate reinsurance capacity',
+    description: 'Allow read-only evaluation of treaty capacity and exposure',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'reinsurance:program-create',
+    displayName: 'Create reinsurance programmes',
+    description: 'Allow creating reinsurance programmes/treaty groupings',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'reinsurance:program-update',
+    displayName: 'Update reinsurance programmes',
+    description: 'Allow updating reinsurance programmes/treaty groupings',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'reinsurance:counterparty-create',
+    displayName: 'Create reinsurance counterparties',
+    description: 'Allow creating reinsurer/broker counterparty profiles',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'reinsurance:counterparty-update',
+    displayName: 'Update reinsurance counterparties',
+    description: 'Allow updating reinsurer/broker counterparty profiles',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
 ];

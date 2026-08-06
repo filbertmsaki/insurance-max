@@ -9,6 +9,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+import { ReinsuranceDirection } from '@insurance-max/contracts';
+
 import {
   TreatyForm,
   TreatyStatus,
@@ -115,6 +117,18 @@ export class ReinsuranceTreaty {
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  program_id: string | null;
+
+  @Column({ type: 'varchar', length: 20, default: ReinsuranceDirection.OUTWARD })
+  direction: ReinsuranceDirection;
+
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  territory: string | null;
+
+  @Column({ type: 'varchar', length: 30, default: 'UNREGISTERED' })
+  regulatory_status: string;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

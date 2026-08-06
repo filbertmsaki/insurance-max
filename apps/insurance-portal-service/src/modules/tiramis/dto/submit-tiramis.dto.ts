@@ -17,6 +17,7 @@ import type {
   ServicePricingContext,
   ServiceProductContext,
   ServiceQuotationGateContext,
+  ServiceReinsuranceContext,
 } from '@insurance-max/contracts';
 import { TiramisRequestType } from '../enums/tiramis-request-type.enum';
 
@@ -169,4 +170,12 @@ export class SubmitTiramisDto {
   @IsOptional()
   @IsObject()
   claimContext?: ServiceClaimContext;
+
+  @ApiPropertyOptional({
+    description:
+      'Signed reinsurance cession/declaration context, resolved internally - never accepted from an external caller.',
+  })
+  @IsOptional()
+  @IsObject()
+  reinsuranceContext?: ServiceReinsuranceContext;
 }

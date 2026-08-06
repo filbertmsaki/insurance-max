@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { SharedModule } from '../../shared/shared.module';
 import { TiramisModule } from '../../tiramis/tiramis.module';
+import { BillingCommissionModule } from '../billing-commission/billing-commission.module';
 import { InsuranceClaim } from '../claims/entities/claim.entity';
 import { PolicyRisk } from '../policies/entities/policy-risk.entity';
 import { Policy } from '../policies/entities/policy.entity';
@@ -12,22 +13,29 @@ import { ReinsuranceController } from './reinsurance.controller';
 import { ReinsuranceService } from './reinsurance.service';
 import { FacultativePlacementOffer } from './entities/facultative-placement-offer.entity';
 import { FacultativePlacement } from './entities/facultative-placement.entity';
+import { FacultativeSignedLine } from './entities/facultative-signed-line.entity';
 import { PolicyCessionParticipant } from './entities/policy-cession-participant.entity';
 import { PolicyCession } from './entities/policy-cession.entity';
 import { ReinsuranceBordereauItem } from './entities/reinsurance-bordereau-item.entity';
 import { ReinsuranceBordereau } from './entities/reinsurance-bordereau.entity';
 import { ReinsuranceClaimRecovery } from './entities/reinsurance-claim-recovery.entity';
+import { ReinsuranceCounterparty } from './entities/reinsurance-counterparty.entity';
 import { ReinsuranceDeclaration } from './entities/reinsurance-declaration.entity';
 import { ReinsurancePremiumAccountItem } from './entities/reinsurance-premium-account-item.entity';
 import { ReinsurancePremiumAccount } from './entities/reinsurance-premium-account.entity';
+import { ReinsuranceProgram } from './entities/reinsurance-program.entity';
 import { ReinsuranceReconciliationItem } from './entities/reinsurance-reconciliation-item.entity';
+import { ReinsuranceRecoveryReceipt } from './entities/reinsurance-recovery-receipt.entity';
 import { ReinsuranceSettlementItem } from './entities/reinsurance-settlement-item.entity';
 import { ReinsuranceSettlement } from './entities/reinsurance-settlement.entity';
+import { ReinsuranceTreatyEligibilityRule } from './entities/reinsurance-treaty-eligibility-rule.entity';
 import { ReinsuranceTreatyParticipant } from './entities/reinsurance-treaty-participant.entity';
 import { ReinsuranceTreatySection } from './entities/reinsurance-treaty-section.entity';
 import { ReinsuranceTreaty } from './entities/reinsurance-treaty.entity';
+import { ReinsuranceCapacityService } from './services/reinsurance-capacity.service';
 import { ReinsuranceDeclarationSyncService } from './services/reinsurance-declaration-sync.service';
 import { ReinsuranceRecoveryService } from './services/reinsurance-recovery.service';
+import { ReinsuranceSettlementService } from './services/reinsurance-settlement.service';
 
 @Module({
   imports: [
@@ -39,8 +47,12 @@ import { ReinsuranceRecoveryService } from './services/reinsurance-recovery.serv
       ReinsuranceTreaty,
       ReinsuranceTreatySection,
       ReinsuranceTreatyParticipant,
+      ReinsuranceTreatyEligibilityRule,
+      ReinsuranceProgram,
+      ReinsuranceCounterparty,
       FacultativePlacement,
       FacultativePlacementOffer,
+      FacultativeSignedLine,
       PolicyCession,
       PolicyCessionParticipant,
       ReinsuranceDeclaration,
@@ -49,6 +61,7 @@ import { ReinsuranceRecoveryService } from './services/reinsurance-recovery.serv
       ReinsurancePremiumAccount,
       ReinsurancePremiumAccountItem,
       ReinsuranceClaimRecovery,
+      ReinsuranceRecoveryReceipt,
       ReinsuranceSettlement,
       ReinsuranceSettlementItem,
       ReinsuranceReconciliationItem,
@@ -56,17 +69,22 @@ import { ReinsuranceRecoveryService } from './services/reinsurance-recovery.serv
     SharedModule,
     WorkItemsModule,
     TiramisModule,
+    BillingCommissionModule,
   ],
   controllers: [ReinsuranceController],
   providers: [
     ReinsuranceService,
     ReinsuranceRecoveryService,
     ReinsuranceDeclarationSyncService,
+    ReinsuranceCapacityService,
+    ReinsuranceSettlementService,
   ],
   exports: [
     ReinsuranceService,
     ReinsuranceRecoveryService,
     ReinsuranceDeclarationSyncService,
+    ReinsuranceCapacityService,
+    ReinsuranceSettlementService,
   ],
 })
 export class ReinsuranceModule {}

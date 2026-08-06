@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 
 import { BusinessReferenceService } from '../../../shared/identifiers/business-reference.service';
 import { MoneyUtil } from '../../billing-commission/utils/money.util';
@@ -13,10 +13,19 @@ import { InsuranceClaim } from '../../claims/entities/claim.entity';
 import { PolicyCessionParticipant } from '../entities/policy-cession-participant.entity';
 import { PolicyCession } from '../entities/policy-cession.entity';
 import { ReinsuranceClaimRecovery } from '../entities/reinsurance-claim-recovery.entity';
+import { ReinsuranceTreatySection } from '../entities/reinsurance-treaty-section.entity';
+import { ReinsuranceTreaty } from '../entities/reinsurance-treaty.entity';
 import {
   ReinsuranceCessionStatus,
   ReinsuranceRecoveryStatus,
+  TreatyForm,
 } from '../enums/reinsurance.enums';
+
+const NON_PROPORTIONAL_FORMS: TreatyForm[] = [
+  TreatyForm.EXCESS_OF_LOSS,
+  TreatyForm.CATASTROPHE_EXCESS_OF_LOSS,
+  TreatyForm.STOP_LOSS,
+];
 
 @Injectable()
 export class ReinsuranceRecoveryService {
@@ -34,6 +43,12 @@ export class ReinsuranceRecoveryService {
 
     @InjectRepository(ReinsuranceClaimRecovery)
     private readonly recoveryRepository: Repository<ReinsuranceClaimRecovery>,
+
+    @InjectRepository(ReinsuranceTreaty)
+    private readonly treatyRepository: Repository<ReinsuranceTreaty>,
+
+    @InjectRepository(ReinsuranceTreatySection)
+    private readonly sectionRepository: Repository<ReinsuranceTreatySection>,
 
     private readonly referenceService: BusinessReferenceService,
   ) {}
@@ -73,6 +88,12 @@ export class ReinsuranceRecoveryService {
             where: { cession_id: cession.id },
           });
 
+        const cessionRecoveryAmount = await this.resolveCessionRecoveryAmount(
+          manager,
+          cession,
+          baseClaimAmount,
+        );
+
         for (const participant of participants) {
           const existing = await manager
             .getRepository(ReinsuranceClaimRecovery)
@@ -90,7 +111,7 @@ export class ReinsuranceRecoveryService {
           }
 
           const expected =
-            (baseClaimAmount * Number(participant.premium_share)) / 100;
+            (cessionRecoveryAmount * Number(participant.premium_share)) / 100;
           const recoveryNo = await this.referenceService.next({
             companyId: user.companyId!,
             documentType: 'REINSURANCE_RECOVERY',
@@ -158,6 +179,46 @@ export class ReinsuranceRecoveryService {
         : ReinsuranceRecoveryStatus.PARTIALLY_RECEIVED;
 
     return this.recoveryRepository.save(recovery);
+  }
+
+  /**
+   * Proportional treaties (quota-share/surplus) recover a straight
+   * percentage of the claim. Non-proportional forms (XOL/CAT-XOL/stop-loss)
+   * only respond above the layer's attachment point, capped at the layer
+   * limit — apportioning the raw claim amount by premium share (the old
+   * behaviour) would badly overstate recovery for those forms.
+   */
+  private async resolveCessionRecoveryAmount(
+    manager: EntityManager,
+    cession: PolicyCession,
+    baseClaimAmount: number,
+  ): Promise<number> {
+    if (!cession.treaty_id) {
+      return baseClaimAmount;
+    }
+
+    const treaty = await manager
+      .getRepository(ReinsuranceTreaty)
+      .findOne({ where: { id: cession.treaty_id } });
+
+    if (!treaty || !NON_PROPORTIONAL_FORMS.includes(treaty.treaty_form)) {
+      return baseClaimAmount;
+    }
+
+    const section = cession.treaty_section_id
+      ? await manager
+          .getRepository(ReinsuranceTreatySection)
+          .findOne({ where: { id: cession.treaty_section_id } })
+      : null;
+
+    const attachmentPoint = Number(
+      section?.retention_amount ?? treaty.company_retention ?? 0,
+    );
+    const layerLimit = Number(
+      section?.treaty_limit ?? treaty.total_capacity ?? 0,
+    );
+
+    return Math.min(layerLimit, Math.max(0, baseClaimAmount - attachmentPoint));
   }
 
   private money(value: string | number) {

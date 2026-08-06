@@ -305,6 +305,76 @@ export class FinanceJournalService {
     );
   }
 
+  /**
+   * Posts a reinsurance settlement. Takes primitives rather than a
+   * `ReinsuranceSettlement` entity so `billing-commission` doesn't need to
+   * depend on the `reinsurance` module — reinsurance owns settlement
+   * lifecycle/authority, Finance only owns the ledger entry. Claim-recovery
+   * settlements are an inflow (money received from the reinsurer); every
+   * other settlement type (premium/commission/net-account/adjustment) is
+   * modelled as an outflow (money paid to the reinsurer).
+   */
+  async postReinsuranceSettlement(
+    manager: EntityManager,
+    params: {
+      companyId: string;
+      settlementId: string;
+      settlementNo: string;
+      counterpartyCompanyId: string | null;
+      settlementType: string;
+      amount: string;
+      currencyCode: string;
+    },
+    sourceEventId: string,
+    userId: string | null,
+  ) {
+    const isInflow = params.settlementType === 'CLAIM_RECOVERY';
+
+    return this.postJournal(
+      manager,
+      params.companyId,
+      {
+        sourceType: 'REINSURANCE_SETTLEMENT',
+        sourceId: params.settlementId,
+        sourceEventId,
+        description: `Reinsurance settlement ${params.settlementNo} (${params.settlementType}) paid`,
+        currencyCode: params.currencyCode,
+        lines: isInflow
+          ? [
+              {
+                accountCode: '1100',
+                accountName: 'Bank/Cash',
+                accountType: 'ASSET',
+                debit: params.amount,
+              },
+              {
+                accountCode: '1300',
+                accountName: 'Reinsurance Recoverables',
+                accountType: 'ASSET',
+                intermediaryCompanyId: params.counterpartyCompanyId,
+                credit: params.amount,
+              },
+            ]
+          : [
+              {
+                accountCode: '2500',
+                accountName: 'Reinsurance Premium Payable',
+                accountType: 'LIABILITY',
+                intermediaryCompanyId: params.counterpartyCompanyId,
+                debit: params.amount,
+              },
+              {
+                accountCode: '1100',
+                accountName: 'Bank/Cash',
+                accountType: 'ASSET',
+                credit: params.amount,
+              },
+            ],
+      },
+      userId,
+    );
+  }
+
   async postCommissionPayment(
     manager: EntityManager,
     payment: CommissionPayment,

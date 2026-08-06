@@ -303,3 +303,75 @@ export class ReinsuranceDecisionDto {
 export class AdmitRecoveryDto {
   admitted_amount: string | number;
 }
+
+export class EvaluateCapacityDto {
+  @IsUUID()
+  treaty_id: string;
+
+  @IsOptional()
+  @IsUUID()
+  treaty_section_id?: string;
+
+  exposure_amount: string | number;
+
+  @IsOptional()
+  @IsString()
+  class_of_business?: string;
+
+  @IsOptional()
+  @IsString()
+  territory?: string;
+}
+
+export class EvaluateQuotationCapacityDto {
+  @IsUUID()
+  treaty_id: string;
+
+  @IsOptional()
+  @IsUUID()
+  treaty_section_id?: string;
+
+  exposure_amount: string | number;
+
+  @IsOptional()
+  @IsString()
+  class_of_business?: string;
+
+  @IsOptional()
+  @IsString()
+  territory?: string;
+}
+
+export class CreateReinsuranceSettlementDto {
+  @IsUUID()
+  counterparty_company_id: string;
+
+  @IsString()
+  settlement_type: string;
+
+  @IsOptional()
+  @IsDateString()
+  period_from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  period_to?: string;
+
+  @IsString()
+  currency: string;
+
+  gross_amount: string | number;
+
+  @IsOptional()
+  deduction_amount?: string | number;
+
+  @IsOptional()
+  @IsString()
+  payment_method?: string;
+}
+
+export class RejectReinsuranceSettlementDto {
+  @IsOptional()
+  @IsString()
+  reason?: string;
+}

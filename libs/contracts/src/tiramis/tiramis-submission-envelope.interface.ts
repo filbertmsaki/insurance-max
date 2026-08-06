@@ -1,4 +1,5 @@
 import type { ServiceClaimContext } from '../claims/claim.interface';
+import type { ServiceReinsuranceContext } from '../reinsurance/reinsurance.interface';
 import type { ServiceFinanceContext } from '../finance/finance.interface';
 import type { ServiceInsuredDataContext } from '../insured-data/service-insured-data-context.interface';
 import type { ServicePricingContext } from '../pricing/service-pricing-context.interface';
@@ -53,6 +54,7 @@ export interface TiramisSubmissionContext {
   finance: ServiceFinanceContext | null;
   policyTransaction: ServicePolicyTransactionContext | null;
   claim: ServiceClaimContext | null;
+  reinsurance: ServiceReinsuranceContext | null;
 }
 
 export interface TiramisSubmissionSource {
