@@ -1,16 +1,22 @@
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Get,
   Param,
+  ParseBoolPipe,
   ParseUUIDPipe,
   Post,
+  Req,
+  Res,
   Put,
   Query,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Request, Response } from 'express';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
@@ -23,6 +29,7 @@ import {
   UpdateQuotationDraftDto,
 } from '../../quotations/dto/quotation-draft.dto';
 import { UpdateQuotationDto } from '../../quotations/dto/quotation-payload.dto';
+import { CreateCommunicationMessageDto } from '../../communications/dto/communications.dto';
 
 import { CurrentPortalAccount } from '../decorators/current-portal-account.decorator';
 import { PortalActors } from '../decorators/portal-actors.decorator';
@@ -33,6 +40,8 @@ import { PortalGuard } from '../guards/portal.guard';
 import { PortalPermissions } from '../portal.permissions';
 import { PortalBusinessAccessService } from '../services/portal-business-access.service';
 import { PortalDashboardService } from '../services/portal-dashboard.service';
+import { PortalEngagementService } from '../services/portal-engagement.service';
+import { PortalNotificationService } from '../services/portal-notification.service';
 
 // Every route in this controller requires the same single permission, so
 // PermissionsGuard + @Permissions() are applied once at class level rather
@@ -48,6 +57,8 @@ export class CustomerPortalController {
   constructor(
     private readonly businessService: PortalBusinessAccessService,
     private readonly dashboardService: PortalDashboardService,
+    private readonly engagementService: PortalEngagementService,
+    private readonly notificationService: PortalNotificationService,
   ) {}
 
   @Get('dashboard')
@@ -155,5 +166,123 @@ export class CustomerPortalController {
     @Query() query: PortalListQueryDto,
   ) {
     return this.businessService.findReceipts(account, query);
+  }
+
+  @Get('documents')
+  @ApiOperation({ summary: 'List customer portal documents' })
+  documents(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Query() query: PortalListQueryDto,
+  ) {
+    return this.engagementService.listDocuments(account, query);
+  }
+
+  @Get('documents/:id')
+  @ApiOperation({ summary: 'Get a customer portal document' })
+  document(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.engagementService.findDocument(account, id);
+  }
+
+  @Get('documents/:id/download')
+  @ApiOperation({ summary: 'Download a customer portal document' })
+  async downloadDocument(
+    @CurrentPortalAccount() account: PortalAccount,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const file = await this.engagementService.downloadDocument(account, id, {
+      actorId: user.id,
+      ipAddress: request.ip,
+      userAgent: request.headers['user-agent'] ?? null,
+    });
+
+    response.setHeader('Content-Type', file.mimeType);
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${file.fileName.replace(/"/g, '')}"`,
+    );
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    response.setHeader('Cache-Control', 'private, no-store');
+
+    return new StreamableFile(file.buffer);
+  }
+
+  @Get('notifications')
+  @ApiOperation({ summary: 'List customer portal notifications' })
+  notifications(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('unread_only', new DefaultValuePipe(false), ParseBoolPipe)
+    unreadOnly: boolean,
+  ) {
+    return this.notificationService.findMine(user.companyId!, user.id, unreadOnly);
+  }
+
+  @Post('notifications/:id/read')
+  @ApiOperation({ summary: 'Mark a customer portal notification as read' })
+  markNotificationRead(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.notificationService.markRead(user.companyId!, user.id, id);
+  }
+
+  @Get('messages')
+  @ApiOperation({ summary: 'List customer communication threads' })
+  messages(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Query() query: PortalListQueryDto,
+  ) {
+    return this.engagementService.listThreads(account, query);
+  }
+
+  @Get('messages/:id')
+  @ApiOperation({ summary: 'Get a customer communication thread' })
+  messageThread(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.engagementService.findThread(account, id);
+  }
+
+  @Get('messages/:id/messages')
+  @ApiOperation({ summary: 'List customer communication messages' })
+  messageHistory(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.engagementService.listMessages(account, id);
+  }
+
+  @Post('messages/:id/messages')
+  @ApiOperation({ summary: 'Reply to a customer communication thread' })
+  postMessage(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateCommunicationMessageDto,
+  ) {
+    return this.engagementService.postMessage(account, id, dto);
+  }
+
+  @Get('signatures')
+  @ApiOperation({ summary: 'List customer signature requests' })
+  signatures(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Query() query: PortalListQueryDto,
+  ) {
+    return this.engagementService.listSignatureRequests(account, query);
+  }
+
+  @Get('signatures/:id')
+  @ApiOperation({ summary: 'Get a customer signature request' })
+  signature(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.engagementService.findSignatureRequest(account, id);
   }
 }

@@ -9,8 +9,16 @@ import { CompanyUser } from '../../platform/companies/entities/company-user.enti
 import { CommissionTransaction } from '../billing-commission/entities/commission-transaction.entity';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
+import { CommunicationMessage } from '../communications/entities/communication-message.entity';
+import { CommunicationThread } from '../communications/entities/communication-thread.entity';
 import { CustomersModule } from '../customers/customers.module';
 import { Customer } from '../customers/entities/customer.entity';
+import { InsuranceDocumentsModule } from '../insurance-documents/insurance-documents.module';
+import { DocumentLink } from '../insurance-documents/entities/document-link.entity';
+import { Document } from '../insurance-documents/entities/document.entity';
+import { SignatureEvent } from '../insurance-documents/entities/signature-event.entity';
+import { SignatureParticipant } from '../insurance-documents/entities/signature-participant.entity';
+import { SignatureRequest } from '../insurance-documents/entities/signature-request.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationsModule } from '../quotations/quotations.module';
@@ -39,6 +47,7 @@ import { PortalFileStorageService } from './services/portal-file-storage.service
 import { PortalNotificationService } from './services/portal-notification.service';
 import { PortalReferenceService } from './services/portal-reference.service';
 import { PortalRequestsService } from './services/portal-requests.service';
+import { PortalEngagementService } from './services/portal-engagement.service';
 
 /**
  * Full customer/intermediary self-service portal module: invitation
@@ -63,11 +72,19 @@ import { PortalRequestsService } from './services/portal-requests.service';
       Invoice,
       Receipt,
       CommissionTransaction,
+      Document,
+      DocumentLink,
+      CommunicationThread,
+      CommunicationMessage,
+      SignatureRequest,
+      SignatureParticipant,
+      SignatureEvent,
     ]),
     AuditModule,
     MailModule,
     QuotationsModule,
     CustomersModule,
+    InsuranceDocumentsModule,
   ],
   controllers: [
     PortalAuthController,
@@ -84,12 +101,14 @@ import { PortalRequestsService } from './services/portal-requests.service';
     PortalNotificationService,
     PortalReferenceService,
     PortalRequestsService,
+    PortalEngagementService,
     PortalInvitationExpiryJob,
     PortalGuard,
   ],
   exports: [
     PortalAccountsService,
     PortalBusinessAccessService,
+    PortalEngagementService,
     PortalNotificationService,
     PortalRequestsService,
     PortalGuard,

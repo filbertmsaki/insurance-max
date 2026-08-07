@@ -33,6 +33,10 @@ import {
   BarChart3,
   FileSpreadsheet,
   Landmark,
+  BellRing,
+  Files,
+  ListTodo,
+  MessagesSquare,
 } from 'lucide-react';
 
 export interface NavLeaf {
@@ -340,6 +344,55 @@ export const NAV_NODES: NavNode[] = [
         to: '/finance/journals',
         icon: FileText,
         permission: 'finance-journals:read',
+      },
+    ],
+  },
+  {
+    kind: 'group',
+    label: 'Engagement',
+    icon: BellRing,
+    children: [
+      {
+        kind: 'link',
+        label: 'Documents',
+        to: '/documents',
+        icon: Files,
+        anyPermission: ['documents:read', 'documents:register'],
+      },
+      {
+        kind: 'link',
+        label: 'Templates',
+        to: '/document-templates',
+        icon: Files,
+        permission: 'document-templates:read',
+      },
+      {
+        kind: 'link',
+        label: 'Signatures',
+        to: '/signatures',
+        icon: Files,
+        permission: 'signatures:read',
+      },
+      {
+        kind: 'link',
+        label: 'Notifications',
+        to: '/notifications',
+        icon: BellRing,
+        permission: 'notifications:read',
+      },
+      {
+        kind: 'link',
+        label: 'Communications',
+        to: '/communications',
+        icon: MessagesSquare,
+        permission: 'communications:read',
+      },
+      {
+        kind: 'link',
+        label: 'Work Items',
+        to: '/work-items',
+        icon: ListTodo,
+        permission: 'work-items:read',
       },
     ],
   },

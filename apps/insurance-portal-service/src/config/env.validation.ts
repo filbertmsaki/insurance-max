@@ -107,6 +107,80 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .min(1)
     .max(168)
     .default(48),
+  DOCUMENTS_ENABLED: Joi.boolean().default(true),
+  DOCUMENT_STORAGE_PROVIDER: Joi.string()
+    .trim()
+    .default('local_private'),
+  DOCUMENT_STORAGE_ROOT: Joi.string().trim().default('./uploads/documents'),
+  DOCUMENT_DEFAULT_MAX_BYTES: Joi.number()
+    .integer()
+    .min(1024)
+    .max(100 * 1024 * 1024)
+    .default(10 * 1024 * 1024),
+  DOCUMENT_ALLOWED_MIME_TYPES: Joi.string()
+    .trim()
+    .default('application/pdf,image/jpeg,image/png'),
+  DOCUMENT_SCAN_ENABLED: Joi.boolean().default(true),
+  DOCUMENT_SCAN_REQUIRED: Joi.boolean().default(true),
+  DOCUMENT_QUARANTINE_ROOT: Joi.string()
+    .trim()
+    .default('./uploads/quarantine'),
+  DOCUMENT_DOWNLOAD_TOKEN_MINUTES: Joi.number().integer().min(1).default(10),
+  DOCUMENT_PUBLIC_VERIFICATION_ENABLED: Joi.boolean().default(true),
+  DOCUMENT_ACCESS_AUDIT_ENABLED: Joi.boolean().default(true),
+  DOCUMENT_GENERATION_ENABLED: Joi.boolean().default(true),
+  DOCUMENT_GENERATION_QUEUE: Joi.string().trim().default('documents'),
+  DOCUMENT_RENDER_TIMEOUT_SECONDS: Joi.number().integer().min(1).default(60),
+  DOCUMENT_RENDER_MAX_ATTEMPTS: Joi.number().integer().min(1).default(3),
+  SIGNATURES_ENABLED: Joi.boolean().default(true),
+  SIGNATURE_DEFAULT_PROVIDER: Joi.string().trim().default('internal'),
+  SIGNATURE_DEFAULT_EXPIRY_DAYS: Joi.number().integer().min(1).default(14),
+  SIGNATURE_REMINDER_DAYS: Joi.string().trim().default('7,3,1'),
+  NOTIFICATIONS_ENABLED: Joi.boolean().default(true),
+  NOTIFICATION_QUEUE_ENABLED: Joi.boolean().default(true),
+  NOTIFICATION_MAX_ATTEMPTS: Joi.number().integer().min(1).default(5),
+  NOTIFICATION_BASE_RETRY_SECONDS: Joi.number().integer().min(1).default(60),
+  NOTIFICATION_DEAD_LETTER_ENABLED: Joi.boolean().default(true),
+  NOTIFICATION_DEFAULT_LOCALE: Joi.string().trim().default('en'),
+  NOTIFICATION_DEFAULT_TIMEZONE: Joi.string()
+    .trim()
+    .default('Africa/Dar_es_Salaam'),
+  WHATSAPP_ENABLED: Joi.boolean().default(false),
+  WHATSAPP_PROVIDER: Joi.string().allow('').default(''),
+  WHATSAPP_API_BASE_URL: Joi.string().allow('').default(''),
+  WHATSAPP_ACCESS_TOKEN: Joi.string().allow('').default(''),
+  WHATSAPP_PHONE_NUMBER_ID: Joi.string().allow('').default(''),
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN: Joi.string().allow('').default(''),
+  WHATSAPP_APP_SECRET: Joi.string().allow('').default(''),
+  COMMUNICATIONS_ENABLED: Joi.boolean().default(true),
+  COMMUNICATION_INBOUND_ENABLED: Joi.boolean().default(true),
+  COMMUNICATION_MAX_ATTACHMENT_BYTES: Joi.number()
+    .integer()
+    .min(1024)
+    .max(100 * 1024 * 1024)
+    .default(10 * 1024 * 1024),
+  COMMUNICATION_RETENTION_DAYS: Joi.number().integer().min(1).default(2555),
+  WORK_ITEMS_ENABLED: Joi.boolean().default(true),
+  WORK_ITEM_MONITOR_CRON: Joi.string().default('*/5 * * * *'),
+  WORK_ITEM_MONITOR_BATCH_SIZE: Joi.number().integer().min(1).default(500),
+  WORK_ITEM_AUTO_ESCALATION_ENABLED: Joi.boolean().default(true),
+  PORTAL_ENABLED: Joi.boolean().default(true),
+  PORTAL_CUSTOMER_FRONTEND_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:9092/customer'),
+  PORTAL_INTERMEDIARY_FRONTEND_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .default('http://localhost:9092/intermediary'),
+  PORTAL_ACCOUNT_LOCKOUT_ATTEMPTS: Joi.number()
+    .integer()
+    .min(1)
+    .default(5),
+  PORTAL_ACCOUNT_LOCKOUT_MINUTES: Joi.number()
+    .integer()
+    .min(1)
+    .default(15),
+  PORTAL_SESSION_IDLE_MINUTES: Joi.number().integer().min(1).default(30),
+  PORTAL_REQUIRE_TERMS_ACCEPTANCE: Joi.boolean().default(true),
   PORTAL_UPLOAD_ROOT: Joi.string().trim().default('./uploads'),
   PORTAL_UPLOAD_MAX_BYTES: Joi.number()
     .integer()

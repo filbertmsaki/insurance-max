@@ -16,6 +16,9 @@ export class WorkItem {
   @Column({ type: 'uuid' })
   company_id: string;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  work_item_no: string | null;
+
   @Column({ type: 'uuid', nullable: true })
   branch_id: string | null;
 
@@ -27,6 +30,30 @@ export class WorkItem {
 
   @Column({ type: 'uuid' })
   resource_id: string;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  work_item_type: string | null;
+
+  @Column({ type: 'varchar', length: 20, default: 'USER' })
+  assignment_type: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  assigned_team: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  queue_code: string | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  source_module: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  source_record_id: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  source_record_version: number | null;
+
+  @Column({ type: 'varchar', length: 180, nullable: true })
+  idempotency_key: string | null;
 
   @Column({ type: 'varchar', length: 180 })
   title: string;
@@ -40,11 +67,17 @@ export class WorkItem {
   @Column({ type: 'varchar', length: 20, default: 'OPEN' })
   status: string;
 
+  @Column({ type: 'varchar', length: 30, default: 'ON_TRACK' })
+  sla_status: string;
+
   @Column({ type: 'uuid', nullable: true })
   assigned_user_id: string | null;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   assigned_role: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  deep_link: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })
   due_at: Date | null;
@@ -58,11 +91,38 @@ export class WorkItem {
   @Column({ type: 'uuid', nullable: true })
   created_by: string | null;
 
+  @Column({ type: 'timestamptz', nullable: true })
+  claimed_at: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  started_at: Date | null;
+
   @Column({ type: 'uuid', nullable: true })
   completed_by: string | null;
 
   @Column({ type: 'timestamptz', nullable: true })
   completed_at: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  cancelled_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  cancelled_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  cancellation_reason: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  delegated_by: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  delegated_at: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  warning_sent_at: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  escalated_at: Date | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

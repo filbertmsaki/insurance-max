@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   LogOut,
   User,
@@ -27,11 +27,20 @@ import { CompanySwitcher } from './CompanySwitcher';
 import { OrganizationSwitcher } from './OrganizationSwitcher';
 import { authApi } from '@/modules/shared/auth/api/auth';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { engagementApi } from '@/modules/tenant/engagement/api';
+import { formatDateTime, safeInternalLink } from '@/modules/tenant/engagement/utils';
 
 // ─── Route → breadcrumb mapping ───────────────────────────────────────────────
 
 const ROUTE_LABELS: [string, string[]][] = [
   ['/dashboard', ['Dashboard']],
+  ['/documents', ['Engagement', 'Documents']],
+  ['/document-templates', ['Engagement', 'Document Templates']],
+  ['/signatures', ['Engagement', 'Signatures']],
+  ['/notifications', ['Engagement', 'Notifications']],
+  ['/notification-preferences', ['Engagement', 'Notification Preferences']],
+  ['/communications', ['Engagement', 'Communications']],
+  ['/work-items', ['Engagement', 'Work Items']],
   ['/users', ['User Management', 'Users']],
   ['/roles', ['User Management', 'Roles']],
   ['/permissions', ['User Management', 'Permissions']],
@@ -80,6 +89,23 @@ export function Header({ onMobileMenuToggle, onOpenCommand }: HeaderProps) {
   const navigate = useNavigate();
   const { user, profile, refreshToken, logout } = useAuthStore();
   const crumbs = useBreadcrumb();
+  const queryClient = useQueryClient();
+
+  const notificationsSummaryQuery = useQuery({
+    queryKey: ['engagement', 'notifications', 'summary'],
+    queryFn: engagementApi.getNotificationUnreadSummary,
+    staleTime: 30_000,
+  });
+
+  const markNotificationReadMutation = useMutation({
+    mutationFn: (id: string) => engagementApi.markNotificationRead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['engagement', 'notifications', 'summary'],
+      });
+      queryClient.invalidateQueries({ queryKey: ['engagement', 'notifications'] });
+    },
+  });
 
   const logoutMutation = useMutation({
     mutationFn: () => authApi.logout(refreshToken ?? ''),
@@ -163,15 +189,67 @@ export function Header({ onMobileMenuToggle, onOpenCommand }: HeaderProps) {
         <CompanySwitcher />
         <OrganizationSwitcher />
 
-        {/* Notification bell (placeholder) */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 relative text-slate-500 hover:text-slate-900"
-        >
-          <Bell className="h-4.5 w-4.5" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-blue-500" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 relative text-slate-500 hover:text-slate-900"
+            >
+              <Bell className="h-4.5 w-4.5" />
+              {(notificationsSummaryQuery.data?.count ?? 0) > 0 ? (
+                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold text-white">
+                  {Math.min(notificationsSummaryQuery.data?.count ?? 0, 99)}
+                </span>
+              ) : null}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80" sideOffset={8}>
+            <DropdownMenuLabel className="flex items-center justify-between">
+              <span>Notifications</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                onClick={() => navigate('/notifications')}
+              >
+                Open all
+              </Button>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {(notificationsSummaryQuery.data?.latest ?? []).map((item) => (
+              <DropdownMenuItem
+                key={item.id}
+                onClick={() => {
+                  markNotificationReadMutation.mutate(item.id);
+                  const link = safeInternalLink(item.deep_link);
+                  if (link) {
+                    navigate(link);
+                  } else {
+                    navigate('/notifications');
+                  }
+                }}
+                className="flex flex-col items-start gap-1 py-3"
+              >
+                <div className="flex w-full items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-slate-900">{item.title}</span>
+                  <Badge variant="outline" className="text-[10px]">
+                    {item.priority}
+                  </Badge>
+                </div>
+                <span className="line-clamp-2 text-xs text-slate-500">{item.message}</span>
+                <span className="text-[10px] text-slate-400">
+                  {formatDateTime(item.created_at)}
+                </span>
+              </DropdownMenuItem>
+            ))}
+            {!(notificationsSummaryQuery.data?.latest ?? []).length ? (
+              <div className="px-3 py-4 text-sm text-slate-500">
+                No unread notifications.
+              </div>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Separator orientation="vertical" className="h-6 mx-1" />
 

@@ -1,5 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { SharedModule } from '../../shared/shared.module';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { Customer } from '../customers/entities/customer.entity';
@@ -88,6 +89,7 @@ import { ReceiptBalanceService } from './services/receipt-balance.service';
   ],
   providers: [
     BillingCommissionService,
+    IdentifierGeneratorService,
     FinanceLifecycleService,
     FinanceCommandService,
     FinanceAutoReceiptService,
@@ -108,6 +110,7 @@ import { ReceiptBalanceService } from './services/receipt-balance.service';
   ],
   exports: [
     BillingCommissionService,
+    IdentifierGeneratorService,
     FinanceLifecycleService,
     FinanceCommandService,
     FinanceAutoReceiptService,

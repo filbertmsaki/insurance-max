@@ -4,6 +4,7 @@ import { BillingCommissionModule } from './billing-commission/billing-commission
 import { BranchesModule } from './branches/branches.module';
 import { CategoryAccessModule } from './category-access/category-access.module';
 import { ClaimsModule } from './claims/claims.module';
+import { CommunicationsModule } from './communications/communications.module';
 import { CoverNotesModule } from './cover-notes/cover-notes.module';
 import { CustomersModule } from './customers/customers.module';
 import { DashboardModule } from './dashboard/dashboard.module';
@@ -46,6 +47,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
     UsersModule,
     CustomersModule,
     ClaimsModule,
+    CommunicationsModule,
     CoverNotesModule,
     DashboardModule,
     BranchesModule,
@@ -88,6 +90,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
     UsersModule,
     CustomersModule,
     ClaimsModule,
+    CommunicationsModule,
     CoverNotesModule,
     DashboardModule,
     BranchesModule,

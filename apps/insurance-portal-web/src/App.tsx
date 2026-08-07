@@ -1,7 +1,17 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
+import { PortalShell } from '@/modules/portal/components/PortalShell';
+import { PortalDashboardPage } from '@/modules/portal/pages/PortalDashboardPage';
+import { PortalDocumentsPage } from '@/modules/portal/pages/PortalDocumentsPage';
+import { PortalMessageDetailPage } from '@/modules/portal/pages/PortalMessageDetailPage';
+import { PortalMessagesPage } from '@/modules/portal/pages/PortalMessagesPage';
+import { PortalNotificationsPage } from '@/modules/portal/pages/PortalNotificationsPage';
+import { PortalProfilePage } from '@/modules/portal/pages/PortalProfilePage';
+import { PortalSignatureDetailPage } from '@/modules/portal/pages/PortalSignatureDetailPage';
+import { PortalSignaturesPage } from '@/modules/portal/pages/PortalSignaturesPage';
 import { ProtectedRoute } from '@/modules/shared/auth/components/ProtectedRoute';
 import { GuestRoute } from '@/modules/shared/auth/components/GuestRoute';
+import { DefaultLandingPage } from '@/modules/shared/auth/components/DefaultLandingPage';
 import { ForbiddenPage } from '@/modules/shared/auth/pages/ForbiddenPage';
 import { AuthBootstrap } from '@/modules/shared/auth/components/AuthBootstrap';
 
@@ -92,6 +102,20 @@ import { FinanceCommissionPaymentDetailPage } from '@/modules/tenant/finance/pag
 import { FinanceJournalsPage } from '@/modules/tenant/finance/pages/FinanceJournalsPage';
 import { FinanceJournalDetailPage } from '@/modules/tenant/finance/pages/FinanceJournalDetailPage';
 import { AnalyticsMetricsPage } from '@/modules/tenant/analytics/pages/AnalyticsMetricsPage';
+import { CommunicationsPage } from '@/modules/tenant/engagement/pages/CommunicationsPage';
+import { CommunicationDetailPage } from '@/modules/tenant/engagement/pages/CommunicationDetailPage';
+import { DocumentDetailPage } from '@/modules/tenant/engagement/pages/DocumentDetailPage';
+import { DocumentTemplateDetailPage } from '@/modules/tenant/engagement/pages/DocumentTemplateDetailPage';
+import { DocumentTemplatesPage } from '@/modules/tenant/engagement/pages/DocumentTemplatesPage';
+import { DocumentsPage } from '@/modules/tenant/engagement/pages/DocumentsPage';
+import { NotificationPreferencesPage } from '@/modules/tenant/engagement/pages/NotificationPreferencesPage';
+import { NotificationsPage } from '@/modules/tenant/engagement/pages/NotificationsPage';
+import { PublicDocumentVerificationPage } from '@/modules/tenant/engagement/pages/PublicDocumentVerificationPage';
+import { PublicSignaturePage } from '@/modules/tenant/engagement/pages/PublicSignaturePage';
+import { SignatureRequestDetailPage } from '@/modules/tenant/engagement/pages/SignatureRequestDetailPage';
+import { SignatureRequestsPage } from '@/modules/tenant/engagement/pages/SignatureRequestsPage';
+import { WorkItemDetailPage } from '@/modules/tenant/engagement/pages/WorkItemDetailPage';
+import { WorkItemsPage } from '@/modules/tenant/engagement/pages/WorkItemsPage';
 import { ReportsWorkbenchPage } from '@/modules/tenant/reporting/pages/ReportsWorkbenchPage';
 import { RegulatoryWorkbenchPage } from '@/modules/tenant/regulatory/pages/RegulatoryWorkbenchPage';
 
@@ -114,9 +138,105 @@ export default function App() {
 
         {/* 2FA (needs tempToken, no full auth) */}
         <Route path="/2fa" element={<TwoFactorPage />} />
+        <Route path="/forbidden" element={<ForbiddenPage />} />
+        <Route
+          path="/documents/verify/:code"
+          element={<PublicDocumentVerificationPage />}
+        />
+        <Route
+          path="/signatures/respond/:token"
+          element={<PublicSignaturePage />}
+        />
 
         {/* Authenticated routes */}
         <Route element={<ProtectedRoute />}>
+          <Route
+            element={
+              <ProtectedRoute anyPermissions={['portal:customer-access']} />
+            }
+          >
+            <Route path="/customer" element={<PortalShell audience="customer" />}>
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route
+                path="dashboard"
+                element={<PortalDashboardPage audience="customer" />}
+              />
+              <Route
+                path="profile"
+                element={<PortalProfilePage audience="customer" />}
+              />
+              <Route
+                path="documents"
+                element={<PortalDocumentsPage audience="customer" />}
+              />
+              <Route
+                path="notifications"
+                element={<PortalNotificationsPage audience="customer" />}
+              />
+              <Route
+                path="messages"
+                element={<PortalMessagesPage audience="customer" />}
+              />
+              <Route
+                path="messages/:id"
+                element={<PortalMessageDetailPage audience="customer" />}
+              />
+              <Route
+                path="signatures"
+                element={<PortalSignaturesPage audience="customer" />}
+              />
+              <Route
+                path="signatures/:id"
+                element={<PortalSignatureDetailPage audience="customer" />}
+              />
+            </Route>
+          </Route>
+
+          <Route
+            element={
+              <ProtectedRoute anyPermissions={['portal:intermediary-access']} />
+            }
+          >
+            <Route
+              path="/intermediary"
+              element={<PortalShell audience="intermediary" />}
+            >
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route
+                path="dashboard"
+                element={<PortalDashboardPage audience="intermediary" />}
+              />
+              <Route
+                path="profile"
+                element={<PortalProfilePage audience="intermediary" />}
+              />
+              <Route
+                path="documents"
+                element={<PortalDocumentsPage audience="intermediary" />}
+              />
+              <Route
+                path="notifications"
+                element={<PortalNotificationsPage audience="intermediary" />}
+              />
+              <Route
+                path="messages"
+                element={<PortalMessagesPage audience="intermediary" />}
+              />
+              <Route
+                path="messages/:id"
+                element={<PortalMessageDetailPage audience="intermediary" />}
+              />
+              <Route
+                path="signatures"
+                element={<PortalSignaturesPage audience="intermediary" />}
+              />
+              <Route
+                path="signatures/:id"
+                element={<PortalSignatureDetailPage audience="intermediary" />}
+              />
+            </Route>
+          </Route>
+
           <Route element={<AppShell />}>
             <Route path="/forbidden" element={<ForbiddenPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
@@ -129,6 +249,69 @@ export default function App() {
               }
             >
               <Route path="/analytics/metrics" element={<AnalyticsMetricsPage />} />
+            </Route>
+
+            <Route
+              element={
+                <ProtectedRoute
+                  anyPermissions={['documents:read', 'documents:register']}
+                />
+              }
+            >
+              <Route path="/documents" element={<DocumentsPage />} />
+              <Route path="/documents/:id" element={<DocumentDetailPage />} />
+            </Route>
+
+            <Route
+              element={
+                <ProtectedRoute requiredPermission="document-templates:read" />
+              }
+            >
+              <Route
+                path="/document-templates"
+                element={<DocumentTemplatesPage />}
+              />
+              <Route
+                path="/document-templates/:id"
+                element={<DocumentTemplateDetailPage />}
+              />
+            </Route>
+
+            <Route
+              element={<ProtectedRoute requiredPermission="signatures:read" />}
+            >
+              <Route path="/signatures" element={<SignatureRequestsPage />} />
+              <Route
+                path="/signatures/:id"
+                element={<SignatureRequestDetailPage />}
+              />
+            </Route>
+
+            <Route
+              element={<ProtectedRoute requiredPermission="notifications:read" />}
+            >
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route
+                path="/notification-preferences"
+                element={<NotificationPreferencesPage />}
+              />
+            </Route>
+
+            <Route
+              element={<ProtectedRoute requiredPermission="communications:read" />}
+            >
+              <Route path="/communications" element={<CommunicationsPage />} />
+              <Route
+                path="/communications/:id"
+                element={<CommunicationDetailPage />}
+              />
+            </Route>
+
+            <Route
+              element={<ProtectedRoute requiredPermission="work-items:read" />}
+            >
+              <Route path="/work-items" element={<WorkItemsPage />} />
+              <Route path="/work-items/:id" element={<WorkItemDetailPage />} />
             </Route>
 
             <Route
@@ -827,8 +1010,8 @@ export default function App() {
         />
 
         {/* Default redirects */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<DefaultLandingPage />} />
+        <Route path="*" element={<DefaultLandingPage />} />
       </Routes>
     </>
   );
