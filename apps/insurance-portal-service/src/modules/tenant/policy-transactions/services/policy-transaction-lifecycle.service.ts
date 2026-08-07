@@ -381,10 +381,45 @@ export class PolicyTransactionLifecycleService {
     );
   }
 
+  /**
+   * A submission that failed to reach/be processed by TIRAMIS (network
+   * error, ack timeout, final-callback overdue) is retryable — unlike
+   * `markSubmissionRejected` (a genuine regulatory rejection of the
+   * content), this does not move `stage` to the terminal REJECTED value,
+   * so `canSubmit()` still allows the same transaction to be resubmitted.
+   */
+  async markSubmissionFailed(
+    companyId: string,
+    transactionId: string,
+    context: PolicyTransactionLifecycleContext = {},
+  ) {
+    return this.withLockedTransaction(
+      companyId,
+      transactionId,
+      async (manager, transaction) => {
+        if (this.isTerminal(transaction.stage)) {
+          return transaction;
+        }
+
+        const previous = this.snapshot(transaction);
+        transaction.submission_status = WorkflowSubmissionStatus.FAILED;
+
+        return this.persistTransition(
+          manager,
+          transaction,
+          previous,
+          PolicyTransactionEventType.SUBMISSION_REJECTED,
+          context,
+        );
+      },
+    );
+  }
+
   async markApplied(
     companyId: string,
     transactionId: string,
     context: PolicyTransactionLifecycleContext = {},
+    eventType: PolicyTransactionEventType = PolicyTransactionEventType.POLICY_VERSION_APPLIED,
   ) {
     return this.withLockedTransaction(
       companyId,
@@ -397,7 +432,7 @@ export class PolicyTransactionLifecycleService {
           manager,
           transaction,
           previous,
-          PolicyTransactionEventType.POLICY_VERSION_APPLIED,
+          eventType,
           context,
         );
       },

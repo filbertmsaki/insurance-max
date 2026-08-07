@@ -11,6 +11,9 @@ import { Brackets, In, Repository } from 'typeorm';
 import { Branch } from '../branches/entities/branch.entity';
 import { IssuanceService } from '../issuance/issuance.service';
 import { Policy } from '../policies/entities/policy.entity';
+import { PolicyTransaction } from '../policy-transactions/entities/policy-transaction.entity';
+import { PolicyTransactionApplyService } from '../policy-transactions/services/policy-transaction-apply.service';
+import { PolicyTransactionLifecycleService } from '../policy-transactions/services/policy-transaction-lifecycle.service';
 import { RenewalService } from '../policy-transactions/services/renewal.service';
 import { PolicyStatusHistory } from '../policies/entities/policy-status-history.entity';
 import { QuotationStatusHistory } from '../quotations/entities/quotation-status-history.entity';
@@ -55,6 +58,8 @@ export class TiramisIntegrationService {
     private readonly branchRepository: Repository<Branch>,
     @InjectRepository(TiramisSalePointEntity)
     private readonly salePointRepository: Repository<TiramisSalePointEntity>,
+    @InjectRepository(PolicyTransaction)
+    private readonly policyTransactionRepository: Repository<PolicyTransaction>,
     private readonly tiramisClientService: TiramisClientService,
     private readonly localTrackingRepository: TiramisSubmissionTrackingRepository,
     private readonly tiramisBusinessRecordSyncService: TiramisBusinessRecordSyncService,
@@ -62,6 +67,8 @@ export class TiramisIntegrationService {
     private readonly quotationLifecycleService: QuotationLifecycleService,
     private readonly issuanceService: IssuanceService,
     private readonly renewalService: RenewalService,
+    private readonly policyTransactionLifecycleService: PolicyTransactionLifecycleService,
+    private readonly policyTransactionApplyService: PolicyTransactionApplyService,
   ) {}
 
   async submitToTiramis(params: {
@@ -548,6 +555,7 @@ export class TiramisIntegrationService {
 
     await this.updateLinkedPolicy(savedSubmission, payload);
     await this.updateLinkedQuotation(savedSubmission, payload);
+    await this.updateLinkedPolicyTransaction(savedSubmission, payload);
 
     if (updatedTracking) {
       await this.tiramisBusinessRecordSyncService.syncFromTracking(
@@ -1323,6 +1331,109 @@ export class TiramisIntegrationService {
           );
         }
         break;
+    }
+  }
+
+  /**
+   * Resolves the async TIRAMIS ack/final-response/callback loop for an
+   * endorsement/cancellation resubmission (`PolicyTransactionTiramisSubmissionService.submit`
+   * sets `source_module: 'policy-transactions'`, `source_record_id`: the
+   * transaction id). On acceptance this both flips the transaction's
+   * submission status *and* applies the change to the policy
+   * (`PolicyTransactionApplyService`) — mirroring how a successful
+   * quotation outcome above both updates the quotation and (via
+   * `IssuanceService`) the policy in one step.
+   */
+  private async updateLinkedPolicyTransaction(
+    submission: PortalTiraSubmission,
+    payload: TiramisNotificationEventDto,
+  ) {
+    if (submission.source_module !== 'policy-transactions') {
+      return;
+    }
+
+    const transactionId = submission.source_record_id;
+
+    if (!transactionId) {
+      return;
+    }
+
+    const transaction = await this.policyTransactionRepository.findOne({
+      where: { id: transactionId, company_id: submission.company_id },
+    });
+
+    if (!transaction) {
+      return;
+    }
+
+    const context = {
+      changedBy: null,
+      reason: payload.statusDescription ?? payload.errorMessage ?? null,
+      tiraRequestId: payload.requestId,
+      tiraResponseId: payload.responseId ?? null,
+    };
+
+    switch (payload.eventType) {
+      case 'TIRAMIS_FINAL_SUCCESS':
+      case 'TIRAMIS_RESPONSE_ACK_SENT':
+        await this.policyTransactionLifecycleService.markSubmissionAccepted(
+          submission.company_id,
+          transaction.id,
+          context,
+        );
+        await this.applyAcceptedPolicyTransaction(
+          submission.company_id,
+          transaction,
+        );
+        break;
+      case 'TIRAMIS_CALLBACK_REJECTED':
+        // A genuine regulatory rejection of the submitted content — terminal,
+        // the underwriter must raise a new endorsement/cancellation.
+        await this.policyTransactionLifecycleService.markSubmissionRejected(
+          submission.company_id,
+          transaction.id,
+          context,
+        );
+        break;
+      case 'TIRAMIS_ACK_FAILED':
+      case 'TIRAMIS_FINAL_FAILED':
+      case 'TIRAMIS_FINAL_CALLBACK_OVERDUE':
+      case 'TIRAMIS_SUBMISSION_FAILED':
+        // Failed to reach/be processed by TIRAMIS — retryable, so this does
+        // not move the transaction to a terminal stage.
+        await this.policyTransactionLifecycleService.markSubmissionFailed(
+          submission.company_id,
+          transaction.id,
+          context,
+        );
+        break;
+      default:
+        break;
+    }
+  }
+
+  private async applyAcceptedPolicyTransaction(
+    companyId: string,
+    transaction: PolicyTransaction,
+  ) {
+    try {
+      if (transaction.transaction_type === 'ENDORSEMENT') {
+        await this.policyTransactionApplyService.applyEndorsement(
+          companyId,
+          transaction.id,
+        );
+      } else if (transaction.transaction_type === 'CANCELLATION') {
+        await this.policyTransactionApplyService.applyCancellation(
+          companyId,
+          transaction.id,
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to apply accepted policy transaction ${transaction.id}: ${
+          error instanceof Error ? error.message : error
+        }`,
+      );
     }
   }
 

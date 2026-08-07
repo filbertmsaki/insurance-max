@@ -80,6 +80,7 @@ describe('TiramisIntegrationService callback handling', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any, // policyTransactionRepository
       {} as any,
       {
         findByRequestId: jest.fn().mockResolvedValue(null),
@@ -95,6 +96,8 @@ describe('TiramisIntegrationService callback handling', () => {
       quotationLifecycleService,
       { applyNotification: jest.fn().mockResolvedValue(null) } as any,
       { applyIssuedPolicyIfRenewal: jest.fn().mockResolvedValue(null) } as any,
+      {} as any, // policyTransactionLifecycleService
+      {} as any, // policyTransactionApplyService
     );
 
     return {

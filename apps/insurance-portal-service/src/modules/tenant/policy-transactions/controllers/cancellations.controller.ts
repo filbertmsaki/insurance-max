@@ -17,6 +17,7 @@ import { ClaimsReviewDto } from '../dto/claims-review.dto';
 import { ReasonDto } from '../dto/reason.dto';
 import { CancellationService } from '../services/cancellation.service';
 import { PolicyTransactionLifecycleService } from '../services/policy-transaction-lifecycle.service';
+import { PolicyTransactionTiramisSubmissionService } from '../services/policy-transaction-tiramis-submission.service';
 
 @ApiTags('cancellations')
 @ApiBearerAuth()
@@ -26,6 +27,7 @@ export class CancellationsController {
   constructor(
     private readonly cancellationService: CancellationService,
     private readonly lifecycleService: PolicyTransactionLifecycleService,
+    private readonly submissionService: PolicyTransactionTiramisSubmissionService,
   ) {}
 
   @Post('tenant/policies/:policyId/cancellations')
@@ -114,6 +116,16 @@ export class CancellationsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.cancellationService.requestPayment(user, id);
+  }
+
+  @Post('tenant/cancellations/:id/submit-tiramis')
+  @Permissions('cancellations:submit-tiramis')
+  @ApiOperation({ summary: 'Submit a completed, approved cancellation to TIRAMIS (also used to retry after a failed attempt)' })
+  submitTiramis(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.submissionService.submitCancellation(user, id);
   }
 
   @Post('tenant/cancellations/:id/cancel')

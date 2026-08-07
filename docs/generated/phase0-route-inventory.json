@@ -10,6 +10,209 @@
         "file": "apps/insurance-portal-service/src/app.controller.ts"
       },
       {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/cancellations/:id/approve",
+        "handler": "approve",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/cancellations.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/cancellations/:id/cancel",
+        "handler": "cancel",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/cancellations.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/cancellations/:id/claims-review",
+        "handler": "claimsReview",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/cancellations.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/cancellations/:id/complete",
+        "handler": "complete",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/cancellations.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "",
+        "routePath": "tenant/cancellations/:id",
+        "handler": "findOne",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/cancellations.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/cancellations/:id/request-payment",
+        "handler": "requestPayment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/cancellations.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/cancellations/:id/submit-approval",
+        "handler": "submitApproval",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/cancellations.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "",
+        "routePath": "tenant/cancellations",
+        "handler": "findAll",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/cancellations.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/endorsements/:id/approve",
+        "handler": "approve",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/endorsements.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/endorsements/:id/cancel",
+        "handler": "cancel",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/endorsements.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/endorsements/:id/changes",
+        "handler": "recordChange",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/endorsements.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/endorsements/:id/complete",
+        "handler": "complete",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/endorsements.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "",
+        "routePath": "tenant/endorsements/:id",
+        "handler": "findOne",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/endorsements.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/endorsements/:id/recalculate",
+        "handler": "recalculate",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/endorsements.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/endorsements/:id/reject",
+        "handler": "reject",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/endorsements.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/endorsements/:id/request-changes",
+        "handler": "requestChanges",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/endorsements.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/endorsements/:id/request-payment",
+        "handler": "requestPayment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/endorsements.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/endorsements/:id/submit-approval",
+        "handler": "submitApproval",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/endorsements.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "",
+        "routePath": "tenant/endorsements",
+        "handler": "findAll",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/endorsements.controller.ts"
+      },
+      {
+        "httpMethod": "PATCH",
+        "controllerPath": "",
+        "routePath": "tenant/policies/:id/administrative-details",
+        "handler": "update",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/administrative-amendment.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/policies/:policyId/cancellations",
+        "handler": "create",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/cancellations.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/policies/:policyId/endorsements",
+        "handler": "create",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/endorsements.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/policies/:policyId/renewals",
+        "handler": "create",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/renewals.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/renewals/:id/accept",
+        "handler": "accept",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/renewals.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/renewals/:id/decline",
+        "handler": "decline",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/renewals.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/renewals/:id/link-quotation",
+        "handler": "linkQuotation",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/renewals.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "",
+        "routePath": "tenant/renewals/:id/send-offer",
+        "handler": "sendOffer",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/renewals.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "",
+        "routePath": "tenant/renewals",
+        "handler": "findAll",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/renewals.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "api-clients",
+        "routePath": ":id/audit",
+        "handler": "findAudit",
+        "file": "apps/insurance-portal-service/src/modules/platform/api-clients/api-clients.controller.ts"
+      },
+      {
         "httpMethod": "DELETE",
         "controllerPath": "api-clients",
         "routePath": ":id",
@@ -21,6 +224,13 @@
         "controllerPath": "api-clients",
         "routePath": ":id",
         "handler": "findOne",
+        "file": "apps/insurance-portal-service/src/modules/platform/api-clients/api-clients.controller.ts"
+      },
+      {
+        "httpMethod": "PATCH",
+        "controllerPath": "api-clients",
+        "routePath": ":id",
+        "handler": "update",
         "file": "apps/insurance-portal-service/src/modules/platform/api-clients/api-clients.controller.ts"
       },
       {
@@ -45,10 +255,38 @@
         "file": "apps/insurance-portal-service/src/modules/platform/api-clients/api-clients.controller.ts"
       },
       {
+        "httpMethod": "GET",
+        "controllerPath": "audit-logs",
+        "routePath": ":id",
+        "handler": "findOne",
+        "file": "apps/insurance-portal-service/src/modules/shared/audit/audit.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "audit-logs",
+        "routePath": "",
+        "handler": "search",
+        "file": "apps/insurance-portal-service/src/modules/shared/audit/audit.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "audit-logs",
+        "routePath": "verify-chain/status",
+        "handler": "verifyChain",
+        "file": "apps/insurance-portal-service/src/modules/shared/audit/audit.controller.ts"
+      },
+      {
         "httpMethod": "POST",
         "controllerPath": "auth",
         "routePath": "2fa/complete-login",
         "handler": "complete2FALogin",
+        "file": "apps/insurance-portal-service/src/modules/shared/auth/auth.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "auth",
+        "routePath": "authorization-context",
+        "handler": "getAuthorizationContext",
         "file": "apps/insurance-portal-service/src/modules/shared/auth/auth.controller.ts"
       },
       {
@@ -140,6 +378,13 @@
         "controllerPath": "auth",
         "routePath": "switch-company",
         "handler": "switchCompany",
+        "file": "apps/insurance-portal-service/src/modules/shared/auth/auth.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "auth",
+        "routePath": "switch-organization-context",
+        "handler": "switchOrganizationContext",
         "file": "apps/insurance-portal-service/src/modules/shared/auth/auth.controller.ts"
       },
       {
@@ -444,10 +689,52 @@
         "file": "apps/insurance-portal-service/src/modules/platform/companies/companies.controller.ts"
       },
       {
+        "httpMethod": "PUT",
+        "controllerPath": "companies/my/tiramis-configurations",
+        "routePath": ":environment",
+        "handler": "upsertMyTiramisConfiguration",
+        "file": "apps/insurance-portal-service/src/modules/tiramis/controllers/company-tiramis-configuration.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "companies/my/tiramis-configurations",
+        "routePath": ":environment/validate",
+        "handler": "validateMyTiramisConfiguration",
+        "file": "apps/insurance-portal-service/src/modules/tiramis/controllers/company-tiramis-configuration.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "companies/my/tiramis-configurations",
+        "routePath": "",
+        "handler": "findMyTiramisConfigurations",
+        "file": "apps/insurance-portal-service/src/modules/tiramis/controllers/company-tiramis-configuration.controller.ts"
+      },
+      {
         "httpMethod": "GET",
         "controllerPath": "customer",
         "routePath": "dashboard",
         "handler": "dashboard",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/customer-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "customer",
+        "routePath": "documents/:id/download",
+        "handler": "downloadDocument",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/customer-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "customer",
+        "routePath": "documents/:id",
+        "handler": "document",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/customer-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "customer",
+        "routePath": "documents",
+        "handler": "documents",
         "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/customer-portal.controller.ts"
       },
       {
@@ -462,6 +749,48 @@
         "controllerPath": "customer",
         "routePath": "invoices",
         "handler": "invoices",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/customer-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "customer",
+        "routePath": "messages/:id",
+        "handler": "messageThread",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/customer-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "customer",
+        "routePath": "messages/:id/messages",
+        "handler": "messageHistory",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/customer-portal.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "customer",
+        "routePath": "messages/:id/messages",
+        "handler": "postMessage",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/customer-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "customer",
+        "routePath": "messages",
+        "handler": "messages",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/customer-portal.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "customer",
+        "routePath": "notifications/:id/read",
+        "handler": "markNotificationRead",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/customer-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "customer",
+        "routePath": "notifications",
+        "handler": "notifications",
         "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/customer-portal.controller.ts"
       },
       {
@@ -528,6 +857,20 @@
         "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/customer-portal.controller.ts"
       },
       {
+        "httpMethod": "GET",
+        "controllerPath": "customer",
+        "routePath": "signatures/:id",
+        "handler": "signature",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/customer-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "customer",
+        "routePath": "signatures",
+        "handler": "signatures",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/customer-portal.controller.ts"
+      },
+      {
         "httpMethod": "DELETE",
         "controllerPath": "departments",
         "routePath": ":departmentId",
@@ -556,6 +899,27 @@
         "file": "apps/insurance-portal-service/src/modules/tenant/departments/departments.controller.ts"
       },
       {
+        "httpMethod": "DELETE",
+        "controllerPath": "departments",
+        "routePath": ":departmentId/users/:companyUserId",
+        "handler": "removeUser",
+        "file": "apps/insurance-portal-service/src/modules/tenant/departments/departments.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "departments",
+        "routePath": ":departmentId/users",
+        "handler": "getDepartmentUsers",
+        "file": "apps/insurance-portal-service/src/modules/tenant/departments/departments.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "departments",
+        "routePath": ":departmentId/users",
+        "handler": "assignUsers",
+        "file": "apps/insurance-portal-service/src/modules/tenant/departments/departments.controller.ts"
+      },
+      {
         "httpMethod": "GET",
         "controllerPath": "departments",
         "routePath": "",
@@ -570,6 +934,27 @@
         "file": "apps/insurance-portal-service/src/modules/tenant/departments/departments.controller.ts"
       },
       {
+        "httpMethod": "PATCH",
+        "controllerPath": "departments",
+        "routePath": "me/active-department",
+        "handler": "setMyActiveDepartment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/departments/departments.controller.ts"
+      },
+      {
+        "httpMethod": "PATCH",
+        "controllerPath": "departments",
+        "routePath": "users/:companyUserId/active-department",
+        "handler": "setActiveDepartment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/departments/departments.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "departments",
+        "routePath": "users/:companyUserId/departments",
+        "handler": "getUserDepartments",
+        "file": "apps/insurance-portal-service/src/modules/tenant/departments/departments.controller.ts"
+      },
+      {
         "httpMethod": "DELETE",
         "controllerPath": "devices",
         "routePath": ":id",
@@ -581,6 +966,13 @@
         "controllerPath": "devices",
         "routePath": ":id/trust",
         "handler": "trustDevice",
+        "file": "apps/insurance-portal-service/src/modules/shared/devices/devices.controller.ts"
+      },
+      {
+        "httpMethod": "PATCH",
+        "controllerPath": "devices",
+        "routePath": ":id/untrust",
+        "handler": "untrustDevice",
         "file": "apps/insurance-portal-service/src/modules/shared/devices/devices.controller.ts"
       },
       {
@@ -698,6 +1090,76 @@
       {
         "httpMethod": "GET",
         "controllerPath": "insurance-products",
+        "routePath": ":productId/published-definition",
+        "handler": "getPublishedDefinition",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-products/insurance-products.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "insurance-products",
+        "routePath": ":productId/versions/:versionId",
+        "handler": "findVersion",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-products/insurance-products.controller.ts"
+      },
+      {
+        "httpMethod": "PATCH",
+        "controllerPath": "insurance-products",
+        "routePath": ":productId/versions/:versionId",
+        "handler": "updateDraft",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-products/insurance-products.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "insurance-products",
+        "routePath": ":productId/versions/:versionId/publish",
+        "handler": "publish",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-products/insurance-products.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "insurance-products",
+        "routePath": ":productId/versions/:versionId/reject",
+        "handler": "rejectReview",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-products/insurance-products.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "insurance-products",
+        "routePath": ":productId/versions/:versionId/retire",
+        "handler": "retire",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-products/insurance-products.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "insurance-products",
+        "routePath": ":productId/versions/:versionId/return-draft",
+        "handler": "returnDraft",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-products/insurance-products.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "insurance-products",
+        "routePath": ":productId/versions/:versionId/submit-review",
+        "handler": "submitReview",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-products/insurance-products.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "insurance-products",
+        "routePath": ":productId/versions",
+        "handler": "listVersions",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-products/insurance-products.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "insurance-products",
+        "routePath": ":productId/versions",
+        "handler": "createVersion",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-products/insurance-products.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "insurance-products",
         "routePath": "",
         "handler": "findAll",
         "file": "apps/insurance-portal-service/src/modules/tenant/insurance-products/insurance-products.controller.ts"
@@ -788,6 +1250,13 @@
       },
       {
         "httpMethod": "GET",
+        "controllerPath": "integration/api",
+        "routePath": "health",
+        "handler": "health",
+        "file": "apps/insurance-portal-service/src/modules/platform/api-clients/api-client-integration.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
         "controllerPath": "intermediary",
         "routePath": "commissions",
         "handler": "commissions",
@@ -817,6 +1286,27 @@
       {
         "httpMethod": "GET",
         "controllerPath": "intermediary",
+        "routePath": "documents/:id/download",
+        "handler": "downloadDocument",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/intermediary-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "intermediary",
+        "routePath": "documents/:id",
+        "handler": "document",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/intermediary-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "intermediary",
+        "routePath": "documents",
+        "handler": "documents",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/intermediary-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "intermediary",
         "routePath": "invoices/:id",
         "handler": "invoice",
         "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/intermediary-portal.controller.ts"
@@ -826,6 +1316,48 @@
         "controllerPath": "intermediary",
         "routePath": "invoices",
         "handler": "invoices",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/intermediary-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "intermediary",
+        "routePath": "messages/:id",
+        "handler": "messageThread",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/intermediary-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "intermediary",
+        "routePath": "messages/:id/messages",
+        "handler": "messageHistory",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/intermediary-portal.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "intermediary",
+        "routePath": "messages/:id/messages",
+        "handler": "postMessage",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/intermediary-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "intermediary",
+        "routePath": "messages",
+        "handler": "messages",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/intermediary-portal.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "intermediary",
+        "routePath": "notifications/:id/read",
+        "handler": "markNotificationRead",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/intermediary-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "intermediary",
+        "routePath": "notifications",
+        "handler": "notifications",
         "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/intermediary-portal.controller.ts"
       },
       {
@@ -890,6 +1422,48 @@
         "routePath": "receipts",
         "handler": "receipts",
         "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/intermediary-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "intermediary",
+        "routePath": "signatures/:id",
+        "handler": "signature",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/intermediary-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "intermediary",
+        "routePath": "signatures",
+        "handler": "signatures",
+        "file": "apps/insurance-portal-service/src/modules/tenant/portal/controllers/intermediary-portal.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "operations",
+        "routePath": "metrics",
+        "handler": "metrics",
+        "file": "apps/insurance-portal-service/src/health/metrics.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "operations",
+        "routePath": "release-gate",
+        "handler": "getReleaseGate",
+        "file": "apps/insurance-portal-service/src/health/release-gate.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "organization",
+        "routePath": "context",
+        "handler": "getContext",
+        "file": "apps/insurance-portal-service/src/modules/shared/organization/organization.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "organization",
+        "routePath": "tiramis-readiness",
+        "handler": "getTiramisReadiness",
+        "file": "apps/insurance-portal-service/src/modules/shared/organization/organization.controller.ts"
       },
       {
         "httpMethod": "DELETE",
@@ -971,6 +1545,27 @@
       {
         "httpMethod": "POST",
         "controllerPath": "platform/saas",
+        "routePath": "invoice-adjustments/:id/approve",
+        "handler": "approveInvoiceAdjustment",
+        "file": "apps/insurance-portal-service/src/modules/platform/saas-billing/saas-billing.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "platform/saas",
+        "routePath": "invoices/:id/adjustments",
+        "handler": "listInvoiceAdjustments",
+        "file": "apps/insurance-portal-service/src/modules/platform/saas-billing/saas-billing.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "platform/saas",
+        "routePath": "invoices/:id/adjustments",
+        "handler": "createInvoiceAdjustment",
+        "file": "apps/insurance-portal-service/src/modules/platform/saas-billing/saas-billing.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "platform/saas",
         "routePath": "invoices/:id/payments",
         "handler": "recordPayment",
         "file": "apps/insurance-portal-service/src/modules/platform/saas-billing/saas-billing.controller.ts"
@@ -985,6 +1580,20 @@
       {
         "httpMethod": "POST",
         "controllerPath": "platform/saas",
+        "routePath": "operations/process-dunning",
+        "handler": "processDunning",
+        "file": "apps/insurance-portal-service/src/modules/platform/saas-billing/saas-billing.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "platform/saas",
+        "routePath": "operations/process-scheduled-changes",
+        "handler": "processScheduledChanges",
+        "file": "apps/insurance-portal-service/src/modules/platform/saas-billing/saas-billing.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "platform/saas",
         "routePath": "plans/:id/activate",
         "handler": "activatePlan",
         "file": "apps/insurance-portal-service/src/modules/platform/saas-billing/saas-billing.controller.ts"
@@ -994,6 +1603,34 @@
         "controllerPath": "platform/saas",
         "routePath": "plans/:id",
         "handler": "updatePlan",
+        "file": "apps/insurance-portal-service/src/modules/platform/saas-billing/saas-billing.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "platform/saas",
+        "routePath": "plans/:id/versions/:versionId/approve",
+        "handler": "approvePlanVersion",
+        "file": "apps/insurance-portal-service/src/modules/platform/saas-billing/saas-billing.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "platform/saas",
+        "routePath": "plans/:id/versions/:versionId/publish",
+        "handler": "publishPlanVersion",
+        "file": "apps/insurance-portal-service/src/modules/platform/saas-billing/saas-billing.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "platform/saas",
+        "routePath": "plans/:id/versions",
+        "handler": "listPlanVersions",
+        "file": "apps/insurance-portal-service/src/modules/platform/saas-billing/saas-billing.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "platform/saas",
+        "routePath": "plans/:id/versions",
+        "handler": "createPlanVersion",
         "file": "apps/insurance-portal-service/src/modules/platform/saas-billing/saas-billing.controller.ts"
       },
       {
@@ -1015,6 +1652,20 @@
         "controllerPath": "platform/saas",
         "routePath": "subscriptions/:id/cancel",
         "handler": "cancelSubscription",
+        "file": "apps/insurance-portal-service/src/modules/platform/saas-billing/saas-billing.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "platform/saas",
+        "routePath": "subscriptions/:id/schedule-cancellation",
+        "handler": "scheduleCancellation",
+        "file": "apps/insurance-portal-service/src/modules/platform/saas-billing/saas-billing.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "platform/saas",
+        "routePath": "subscriptions/:id/schedule-plan-change",
+        "handler": "schedulePlanChange",
         "file": "apps/insurance-portal-service/src/modules/platform/saas-billing/saas-billing.controller.ts"
       },
       {
@@ -1170,6 +1821,34 @@
         "routePath": "quotes/:pricingQuoteId",
         "handler": "findStoredQuote",
         "file": "apps/insurance-portal-service/src/modules/tenant/premium-calculation/premium-calculation.controller.ts"
+      },
+      {
+        "httpMethod": "DELETE",
+        "controllerPath": "pricing-rate-books",
+        "routePath": ":rateBookId/addon-rules/:ruleId",
+        "handler": "removeAddonRule",
+        "file": "apps/insurance-portal-service/src/modules/tenant/pricing-rate-books/pricing-rate-books.controller.ts"
+      },
+      {
+        "httpMethod": "PATCH",
+        "controllerPath": "pricing-rate-books",
+        "routePath": ":rateBookId/addon-rules/:ruleId",
+        "handler": "updateAddonRule",
+        "file": "apps/insurance-portal-service/src/modules/tenant/pricing-rate-books/pricing-rate-books.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "pricing-rate-books",
+        "routePath": ":rateBookId/addon-rules",
+        "handler": "findAddonRules",
+        "file": "apps/insurance-portal-service/src/modules/tenant/pricing-rate-books/pricing-rate-books.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "pricing-rate-books",
+        "routePath": ":rateBookId/addon-rules",
+        "handler": "createAddonRule",
+        "file": "apps/insurance-portal-service/src/modules/tenant/pricing-rate-books/pricing-rate-books.controller.ts"
       },
       {
         "httpMethod": "POST",
@@ -1480,6 +2159,27 @@
         "file": "apps/insurance-portal-service/src/modules/tenant/rating-factors/rating-factors.controller.ts"
       },
       {
+        "httpMethod": "POST",
+        "controllerPath": "retention",
+        "routePath": "dry-run",
+        "handler": "dryRun",
+        "file": "apps/insurance-portal-service/src/modules/shared/retention/retention.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "retention",
+        "routePath": "legal-holds",
+        "handler": "listLegalHolds",
+        "file": "apps/insurance-portal-service/src/modules/shared/retention/retention.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "retention",
+        "routePath": "policies",
+        "handler": "listPolicies",
+        "file": "apps/insurance-portal-service/src/modules/shared/retention/retention.controller.ts"
+      },
+      {
         "httpMethod": "DELETE",
         "controllerPath": "risk-rating-rules",
         "routePath": ":ruleId",
@@ -1606,6 +2306,55 @@
         "file": "apps/insurance-portal-service/src/modules/platform/roles/roles.controller.ts"
       },
       {
+        "httpMethod": "GET",
+        "controllerPath": "sale-points",
+        "routePath": "",
+        "handler": "findAll",
+        "file": "apps/insurance-portal-service/src/modules/tenant/sale-points/sale-points.controller.ts"
+      },
+      {
+        "httpMethod": "PATCH",
+        "controllerPath": "sale-points",
+        "routePath": "branch/:branchId/:id/default",
+        "handler": "setDefault",
+        "file": "apps/insurance-portal-service/src/modules/tenant/sale-points/sale-points.controller.ts"
+      },
+      {
+        "httpMethod": "DELETE",
+        "controllerPath": "sale-points",
+        "routePath": "branch/:branchId/:id",
+        "handler": "remove",
+        "file": "apps/insurance-portal-service/src/modules/tenant/sale-points/sale-points.controller.ts"
+      },
+      {
+        "httpMethod": "PATCH",
+        "controllerPath": "sale-points",
+        "routePath": "branch/:branchId/:id",
+        "handler": "update",
+        "file": "apps/insurance-portal-service/src/modules/tenant/sale-points/sale-points.controller.ts"
+      },
+      {
+        "httpMethod": "PATCH",
+        "controllerPath": "sale-points",
+        "routePath": "branch/:branchId/:id/status",
+        "handler": "setStatus",
+        "file": "apps/insurance-portal-service/src/modules/tenant/sale-points/sale-points.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "sale-points",
+        "routePath": "branch/:branchId",
+        "handler": "findForBranch",
+        "file": "apps/insurance-portal-service/src/modules/tenant/sale-points/sale-points.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "sale-points",
+        "routePath": "branch/:branchId",
+        "handler": "create",
+        "file": "apps/insurance-portal-service/src/modules/tenant/sale-points/sale-points.controller.ts"
+      },
+      {
         "httpMethod": "DELETE",
         "controllerPath": "sessions",
         "routePath": ":id",
@@ -1627,6 +2376,13 @@
         "file": "apps/insurance-portal-service/src/modules/shared/sessions/sessions.controller.ts"
       },
       {
+        "httpMethod": "DELETE",
+        "controllerPath": "sessions",
+        "routePath": "others",
+        "handler": "revokeOthers",
+        "file": "apps/insurance-portal-service/src/modules/shared/sessions/sessions.controller.ts"
+      },
+      {
         "httpMethod": "GET",
         "controllerPath": "tenant/analytics",
         "routePath": "anomalies",
@@ -1645,6 +2401,13 @@
         "controllerPath": "tenant/analytics",
         "routePath": "benchmarks",
         "handler": "getBenchmarks",
+        "file": "apps/insurance-portal-service/src/modules/tenant/analytics/analytics.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/analytics",
+        "routePath": "compare",
+        "handler": "compareMetric",
         "file": "apps/insurance-portal-service/src/modules/tenant/analytics/analytics.controller.ts"
       },
       {
@@ -1673,6 +2436,27 @@
         "controllerPath": "tenant/analytics",
         "routePath": "kpis",
         "handler": "getKpis",
+        "file": "apps/insurance-portal-service/src/modules/tenant/analytics/analytics.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/analytics",
+        "routePath": "metrics/:code",
+        "handler": "getMetricDefinition",
+        "file": "apps/insurance-portal-service/src/modules/tenant/analytics/analytics.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/analytics",
+        "routePath": "metrics",
+        "handler": "getMetrics",
+        "file": "apps/insurance-portal-service/src/modules/tenant/analytics/analytics.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/analytics",
+        "routePath": "query",
+        "handler": "queryMetric",
         "file": "apps/insurance-portal-service/src/modules/tenant/analytics/analytics.controller.ts"
       },
       {
@@ -1942,6 +2726,20 @@
         "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
       },
       {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/claims",
+        "routePath": ":id/decisions",
+        "handler": "listDecisions",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/claims",
+        "routePath": ":id/decisions",
+        "handler": "createDecision",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
+      },
+      {
         "httpMethod": "POST",
         "controllerPath": "tenant/claims",
         "routePath": ":id/discharge-vouchers",
@@ -1974,6 +2772,20 @@
         "controllerPath": "tenant/claims",
         "routePath": ":id/payments",
         "handler": "createPayment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/claims",
+        "routePath": ":id/recoveries",
+        "handler": "listRecoveries",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/claims",
+        "routePath": ":id/recoveries",
+        "handler": "createRecovery",
         "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
       },
       {
@@ -2042,6 +2854,48 @@
       {
         "httpMethod": "POST",
         "controllerPath": "tenant/claims",
+        "routePath": "decisions/:id/approve",
+        "handler": "approveDecision",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/claims",
+        "routePath": "decisions/:id/reject",
+        "handler": "rejectDecision",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/claims",
+        "routePath": "decisions/:id/submit",
+        "handler": "submitDecision",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/claims",
+        "routePath": "disbursements/:id/confirm",
+        "handler": "confirmDisbursement",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/claims",
+        "routePath": "disbursements/:id/fail",
+        "handler": "failDisbursement",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/claims",
+        "routePath": "disbursements/:id/reverse",
+        "handler": "reverseDisbursement",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/claims",
         "routePath": "discharge-vouchers/:id/approve",
         "handler": "approveDischargeVoucher",
         "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
@@ -2084,8 +2938,8 @@
       {
         "httpMethod": "POST",
         "controllerPath": "tenant/claims",
-        "routePath": "payments/:id/mark-paid",
-        "handler": "markPaymentPaid",
+        "routePath": "payments/:id/request-disbursement",
+        "handler": "requestDisbursement",
         "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
       },
       {
@@ -2105,8 +2959,43 @@
       {
         "httpMethod": "POST",
         "controllerPath": "tenant/claims",
+        "routePath": "recoveries/:id/cancel",
+        "handler": "cancelRecovery",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/claims",
+        "routePath": "recoveries/:id/record-receipt",
+        "handler": "recordRecoveryReceipt",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/claims",
+        "routePath": "recoveries/:id/request",
+        "handler": "requestRecovery",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/claims",
+        "routePath": "recoveries/:id/write-off",
+        "handler": "writeOffRecovery",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/claims",
         "routePath": "reserves/:id/approve",
         "handler": "approveReserve",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/claims",
+        "routePath": "reserves/:id/release",
+        "handler": "releaseReserve",
         "file": "apps/insurance-portal-service/src/modules/tenant/claims/claims.controller.ts"
       },
       {
@@ -2118,9 +3007,79 @@
       },
       {
         "httpMethod": "POST",
+        "controllerPath": "tenant/communications/threads",
+        "routePath": ":id/assign",
+        "handler": "assign",
+        "file": "apps/insurance-portal-service/src/modules/tenant/communications/communications.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/communications/threads",
+        "routePath": ":id/close",
+        "handler": "close",
+        "file": "apps/insurance-portal-service/src/modules/tenant/communications/communications.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/communications/threads",
+        "routePath": ":id",
+        "handler": "findOne",
+        "file": "apps/insurance-portal-service/src/modules/tenant/communications/communications.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/communications/threads",
+        "routePath": ":id/messages",
+        "handler": "messages",
+        "file": "apps/insurance-portal-service/src/modules/tenant/communications/communications.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/communications/threads",
+        "routePath": ":id/messages",
+        "handler": "postMessage",
+        "file": "apps/insurance-portal-service/src/modules/tenant/communications/communications.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/communications/threads",
+        "routePath": ":id/reopen",
+        "handler": "reopen",
+        "file": "apps/insurance-portal-service/src/modules/tenant/communications/communications.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/communications/threads",
+        "routePath": "",
+        "handler": "list",
+        "file": "apps/insurance-portal-service/src/modules/tenant/communications/communications.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/communications/threads",
+        "routePath": "",
+        "handler": "create",
+        "file": "apps/insurance-portal-service/src/modules/tenant/communications/communications.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
         "controllerPath": "tenant/complaints",
         "routePath": ":id/acknowledge",
         "handler": "acknowledge",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/complaints.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/complaints",
+        "routePath": ":id/add-comment",
+        "handler": "addComment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/complaints.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/complaints",
+        "routePath": ":id/appeal",
+        "handler": "appeal",
         "file": "apps/insurance-portal-service/src/modules/tenant/claims/complaints.controller.ts"
       },
       {
@@ -2133,8 +3092,43 @@
       {
         "httpMethod": "POST",
         "controllerPath": "tenant/complaints",
+        "routePath": ":id/cancel",
+        "handler": "cancel",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/complaints.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/complaints",
+        "routePath": ":id/close",
+        "handler": "close",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/complaints.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/complaints",
+        "routePath": ":id/comments",
+        "handler": "listComments",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/complaints.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/complaints",
         "routePath": ":id/escalate",
         "handler": "escalate",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/complaints.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/complaints",
+        "routePath": ":id",
+        "handler": "findOne",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/complaints.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/complaints",
+        "routePath": ":id/reopen",
+        "handler": "reopen",
         "file": "apps/insurance-portal-service/src/modules/tenant/claims/complaints.controller.ts"
       },
       {
@@ -2142,6 +3136,13 @@
         "controllerPath": "tenant/complaints",
         "routePath": ":id/resolve",
         "handler": "resolve",
+        "file": "apps/insurance-portal-service/src/modules/tenant/claims/complaints.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/complaints",
+        "routePath": "",
+        "handler": "findAll",
         "file": "apps/insurance-portal-service/src/modules/tenant/claims/complaints.controller.ts"
       },
       {
@@ -2163,6 +3164,55 @@
         "controllerPath": "tenant/customers",
         "routePath": ":id",
         "handler": "findOne",
+        "file": "apps/insurance-portal-service/src/modules/tenant/customers/customers.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/customers",
+        "routePath": ":id/kyc/approve",
+        "handler": "approveKycReview",
+        "file": "apps/insurance-portal-service/src/modules/tenant/customers/customers.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/customers",
+        "routePath": ":id/kyc/expire",
+        "handler": "expireKyc",
+        "file": "apps/insurance-portal-service/src/modules/tenant/customers/customers.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/customers",
+        "routePath": ":id/kyc",
+        "handler": "getKyc",
+        "file": "apps/insurance-portal-service/src/modules/tenant/customers/customers.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/customers",
+        "routePath": ":id/kyc/history",
+        "handler": "getKycHistory",
+        "file": "apps/insurance-portal-service/src/modules/tenant/customers/customers.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/customers",
+        "routePath": ":id/kyc/reject",
+        "handler": "rejectKycReview",
+        "file": "apps/insurance-portal-service/src/modules/tenant/customers/customers.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/customers",
+        "routePath": ":id/kyc/request-update",
+        "handler": "requestKycUpdate",
+        "file": "apps/insurance-portal-service/src/modules/tenant/customers/customers.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/customers",
+        "routePath": ":id/kyc/submit-review",
+        "handler": "submitKycReview",
         "file": "apps/insurance-portal-service/src/modules/tenant/customers/customers.controller.ts"
       },
       {
@@ -2210,6 +3260,13 @@
       {
         "httpMethod": "GET",
         "controllerPath": "tenant/dashboard",
+        "routePath": "executive",
+        "handler": "getExecutive",
+        "file": "apps/insurance-portal-service/src/modules/tenant/dashboard/dashboard.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/dashboard",
         "routePath": "finance",
         "handler": "getFinance",
         "file": "apps/insurance-portal-service/src/modules/tenant/dashboard/dashboard.controller.ts"
@@ -2248,6 +3305,503 @@
         "routePath": "tiramis",
         "handler": "getTiramis",
         "file": "apps/insurance-portal-service/src/modules/tenant/dashboard/dashboard.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/document-templates",
+        "routePath": ":id/approve",
+        "handler": "approve",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/document-templates.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/document-templates",
+        "routePath": ":id",
+        "handler": "findOne",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/document-templates.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/document-templates",
+        "routePath": ":id/preview",
+        "handler": "preview",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/document-templates.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/document-templates",
+        "routePath": ":id/publish",
+        "handler": "publish",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/document-templates.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/document-templates",
+        "routePath": ":id/retire",
+        "handler": "retire",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/document-templates.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/document-templates",
+        "routePath": ":id/submit-approval",
+        "handler": "submitApproval",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/document-templates.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/document-templates",
+        "routePath": ":id/versions",
+        "handler": "createVersion",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/document-templates.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/document-templates",
+        "routePath": "",
+        "handler": "list",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/document-templates.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/document-templates",
+        "routePath": "",
+        "handler": "create",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/document-templates.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/documents",
+        "routePath": ":id/access-history",
+        "handler": "accessHistory",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/documents",
+        "routePath": ":id/archive",
+        "handler": "archive",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/documents",
+        "routePath": ":id/create-version",
+        "handler": "createVersion",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/documents",
+        "routePath": ":id/download",
+        "handler": "download",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/documents",
+        "routePath": ":id",
+        "handler": "findOne",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/documents",
+        "routePath": ":id/links",
+        "handler": "links",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/documents",
+        "routePath": ":id/reject",
+        "handler": "reject",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/documents",
+        "routePath": ":id/rescan",
+        "handler": "rescan",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/documents",
+        "routePath": ":id/restore",
+        "handler": "restore",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/documents",
+        "routePath": ":id/revoke",
+        "handler": "revoke",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/documents",
+        "routePath": ":id/share",
+        "handler": "share",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/documents",
+        "routePath": ":id/verify",
+        "handler": "verify",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/documents",
+        "routePath": ":id/versions",
+        "handler": "versions",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/documents",
+        "routePath": "",
+        "handler": "list",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/documents",
+        "routePath": "",
+        "handler": "register",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/documents",
+        "routePath": "generate",
+        "handler": "generate",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/documents",
+        "routePath": "upload-sessions/:token/complete",
+        "handler": "FileInterceptor",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/documents",
+        "routePath": "upload-sessions",
+        "handler": "createUploadSession",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/documents.controller.ts"
+      },
+      {
+        "httpMethod": "PATCH",
+        "controllerPath": "tenant/endorsement-types",
+        "routePath": ":id",
+        "handler": "update",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/endorsement-types.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/endorsement-types",
+        "routePath": "",
+        "handler": "findAll",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/endorsement-types.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/endorsement-types",
+        "routePath": "",
+        "handler": "create",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/endorsement-types.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "allocations/:id/reverse",
+        "handler": "reverseAllocation",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "commission-accruals/:id/approve",
+        "handler": "approveCommissionAccrual",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/finance",
+        "routePath": "commission-accruals/:id",
+        "handler": "getCommissionAccrual",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "commission-accruals/:id/reverse",
+        "handler": "reverseCommissionAccrual",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/finance",
+        "routePath": "commission-accruals",
+        "handler": "listCommissionAccruals",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "commission-payments/:id/approve",
+        "handler": "approveCommissionPayment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/finance",
+        "routePath": "commission-payments/:id",
+        "handler": "getCommissionPayment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "commission-payments/:id/pay",
+        "handler": "payCommissionPayment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "commission-payments/:id/reverse",
+        "handler": "reverseCommissionPayment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/finance",
+        "routePath": "commission-payments",
+        "handler": "listCommissionPayments",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "commission-payments",
+        "handler": "createCommissionPayment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/finance",
+        "routePath": "invoices/:id",
+        "handler": "getInvoice",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "invoices/:id/issue",
+        "handler": "issueInvoice",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "invoices/:id/void",
+        "handler": "voidInvoice",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/finance",
+        "routePath": "invoices",
+        "handler": "listInvoices",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/finance",
+        "routePath": "journals/:id",
+        "handler": "getJournal",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/finance",
+        "routePath": "journals",
+        "handler": "listJournals",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/finance",
+        "routePath": "payment-transactions/:id",
+        "handler": "getPayment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/finance",
+        "routePath": "payment-transactions",
+        "handler": "listPayments",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "payment-transactions/manual",
+        "handler": "recordManualPayment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance/providers",
+        "routePath": ":providerCode/webhook",
+        "handler": "providerWebhook",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance-webhook.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "receipts/:id/allocate",
+        "handler": "allocateReceipt",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/finance",
+        "routePath": "receipts/:id",
+        "handler": "getReceipt",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "receipts/:id/reverse",
+        "handler": "reverseReceipt",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/finance",
+        "routePath": "receipts",
+        "handler": "listReceipts",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "receipts/post",
+        "handler": "postReceipt",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "reconciliation-batches/:id/approve",
+        "handler": "approveReconciliationBatch",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "reconciliation-batches/:id/auto-match",
+        "handler": "autoMatchReconciliationBatch",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/finance",
+        "routePath": "reconciliation-batches/:id",
+        "handler": "getReconciliationBatch",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "reconciliation-batches/:id/import",
+        "handler": "importReconciliationBatch",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "reconciliation-batches/:id/post",
+        "handler": "postReconciliationBatch",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/finance",
+        "routePath": "reconciliation-batches",
+        "handler": "listReconciliationBatches",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "reconciliation-batches",
+        "handler": "createReconciliationBatch",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "reconciliation-items/:id/exclude",
+        "handler": "excludeReconciliationItem",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "reconciliation-items/:id/match",
+        "handler": "matchReconciliationItem",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "refunds/:id/approve",
+        "handler": "approveRefund",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "refunds/:id/cancel",
+        "handler": "cancelRefund",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/finance",
+        "routePath": "refunds/:id",
+        "handler": "getRefund",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "refunds/:id/pay",
+        "handler": "payRefund",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/finance",
+        "routePath": "refunds",
+        "handler": "listRefunds",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/finance",
+        "routePath": "refunds",
+        "handler": "requestRefund",
+        "file": "apps/insurance-portal-service/src/modules/tenant/billing-commission/finance.controller.ts"
       },
       {
         "httpMethod": "DELETE",
@@ -2462,8 +4016,29 @@
       {
         "httpMethod": "POST",
         "controllerPath": "tenant/notifications",
+        "routePath": ":id/dismiss",
+        "handler": "dismiss",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/notifications.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/notifications",
+        "routePath": ":id",
+        "handler": "findOne",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/notifications.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/notifications",
         "routePath": ":id/read",
         "handler": "markRead",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/notifications.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/notifications",
+        "routePath": ":id/unread",
+        "handler": "markUnread",
         "file": "apps/insurance-portal-service/src/modules/tenant/work-items/notifications.controller.ts"
       },
       {
@@ -2474,11 +4049,39 @@
         "file": "apps/insurance-portal-service/src/modules/tenant/work-items/notifications.controller.ts"
       },
       {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/notifications",
+        "routePath": "",
+        "handler": "list",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/notifications.controller.ts"
+      },
+      {
+        "httpMethod": "PUT",
+        "controllerPath": "tenant/notifications",
+        "routePath": "",
+        "handler": "update",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/notifications.controller.ts"
+      },
+      {
         "httpMethod": "POST",
         "controllerPath": "tenant/notifications",
         "routePath": "read-all",
         "handler": "markAllRead",
         "file": "apps/insurance-portal-service/src/modules/tenant/work-items/notifications.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/notifications",
+        "routePath": "unread-count",
+        "handler": "unreadCount",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/notifications.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/policies",
+        "routePath": ":id/actions",
+        "handler": "actions",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policies/policies.controller.ts"
       },
       {
         "httpMethod": "GET",
@@ -2542,6 +4145,41 @@
         "routePath": "",
         "handler": "create",
         "file": "apps/insurance-portal-service/src/modules/tenant/policies/policies.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/policy-transactions",
+        "routePath": ":id/changes",
+        "handler": "changes",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/policy-transactions.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/policy-transactions",
+        "routePath": ":id",
+        "handler": "findOne",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/policy-transactions.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/policy-transactions",
+        "routePath": ":id/pricing",
+        "handler": "pricing",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/policy-transactions.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/policy-transactions",
+        "routePath": ":id/timeline",
+        "handler": "timeline",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/policy-transactions.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/policy-transactions",
+        "routePath": "",
+        "handler": "findAll",
+        "file": "apps/insurance-portal-service/src/modules/tenant/policy-transactions/controllers/policy-transactions.controller.ts"
       },
       {
         "httpMethod": "PATCH",
@@ -2700,6 +4338,13 @@
       {
         "httpMethod": "POST",
         "controllerPath": "tenant/quotations",
+        "routePath": ":id/rebase-product-version",
+        "handler": "rebaseProductVersion",
+        "file": "apps/insurance-portal-service/src/modules/tenant/quotations/quotations.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/quotations",
         "routePath": ":id/request-payment",
         "handler": "requestPayment",
         "file": "apps/insurance-portal-service/src/modules/tenant/quotations/quotations.controller.ts"
@@ -2756,6 +4401,13 @@
       {
         "httpMethod": "GET",
         "controllerPath": "tenant/quotations",
+        "routePath": ":id/workflow",
+        "handler": "workflow",
+        "file": "apps/insurance-portal-service/src/modules/tenant/quotations/quotations.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/quotations",
         "routePath": "",
         "handler": "findAll",
         "file": "apps/insurance-portal-service/src/modules/tenant/quotations/quotations.controller.ts"
@@ -2775,6 +4427,13 @@
         "file": "apps/insurance-portal-service/src/modules/tenant/quotations/quotations.controller.ts"
       },
       {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "authorities",
+        "handler": "listAuthorities",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
         "httpMethod": "POST",
         "controllerPath": "tenant/regulatory",
         "routePath": "calendar/generate/:year",
@@ -2786,6 +4445,90 @@
         "controllerPath": "tenant/regulatory",
         "routePath": "calendar",
         "handler": "listCalendar",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "levy-assessments/:id/approve",
+        "handler": "approveLevyAssessment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "levy-assessments/:id",
+        "handler": "getLevyAssessment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "levy-assessments/:id/reconcile",
+        "handler": "reconcileLevyAssessment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "levy-assessments/:id/request-payment",
+        "handler": "requestLevyPayment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "levy-assessments/:id/submit-approval",
+        "handler": "submitLevyForApproval",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "levy-assessments",
+        "handler": "listLevyAssessments",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "obligation-definitions",
+        "handler": "listDefinitions",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "obligations/:id/assign",
+        "handler": "assignObligation",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "obligations/:id",
+        "handler": "getObligation",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "obligations/:id/mark-not-applicable",
+        "handler": "markNotApplicable",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "obligations/:id/waive",
+        "handler": "waiveObligation",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "obligations",
+        "handler": "listObligations",
         "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
       },
       {
@@ -2810,6 +4553,20 @@
         "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
       },
       {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "returns/:id/approve",
+        "handler": "approveReturn",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "returns/:id/create-correction",
+        "handler": "createCorrection",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
         "httpMethod": "GET",
         "controllerPath": "tenant/regulatory",
         "routePath": "returns/:id",
@@ -2824,11 +4581,74 @@
         "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
       },
       {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "returns/:id/reconcile",
+        "handler": "reconcileReturn",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "returns/:id/reconciliation",
+        "handler": "getReturnReconciliation",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "returns/:id/record-acknowledgement",
+        "handler": "recordAcknowledgement",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "returns/:id/record-submission",
+        "handler": "recordSubmission",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "returns/:id/submit-review",
+        "handler": "submitReturnForReview",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "returns/:id/validate",
+        "handler": "validateReturn",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "returns/:id/validation",
+        "handler": "getReturnValidation",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/regulatory",
+        "routePath": "returns/:id/versions",
+        "handler": "getReturnVersions",
+        "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
         "httpMethod": "GET",
         "controllerPath": "tenant/regulatory",
         "routePath": "returns",
         "handler": "listReturns",
         "file": "apps/insurance-portal-service/src/modules/tenant/regulatory-compliance/regulatory.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/reinsurance",
+        "routePath": "capacity/evaluate",
+        "handler": "evaluateCapacity",
+        "file": "apps/insurance-portal-service/src/modules/tenant/reinsurance/reinsurance.controller.ts"
       },
       {
         "httpMethod": "POST",
@@ -2915,10 +4735,59 @@
         "file": "apps/insurance-portal-service/src/modules/tenant/reinsurance/reinsurance.controller.ts"
       },
       {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/reinsurance",
+        "routePath": "quotations/:id/capacity",
+        "handler": "evaluateQuotationCapacity",
+        "file": "apps/insurance-portal-service/src/modules/tenant/reinsurance/reinsurance.controller.ts"
+      },
+      {
         "httpMethod": "POST",
         "controllerPath": "tenant/reinsurance",
         "routePath": "recoveries/:id/admit",
         "handler": "admitRecovery",
+        "file": "apps/insurance-portal-service/src/modules/tenant/reinsurance/reinsurance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/reinsurance",
+        "routePath": "settlements/:id/approve",
+        "handler": "approveSettlement",
+        "file": "apps/insurance-portal-service/src/modules/tenant/reinsurance/reinsurance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/reinsurance",
+        "routePath": "settlements/:id/pay",
+        "handler": "paySettlement",
+        "file": "apps/insurance-portal-service/src/modules/tenant/reinsurance/reinsurance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/reinsurance",
+        "routePath": "settlements/:id/reject",
+        "handler": "rejectSettlement",
+        "file": "apps/insurance-portal-service/src/modules/tenant/reinsurance/reinsurance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/reinsurance",
+        "routePath": "settlements/:id/submit",
+        "handler": "submitSettlement",
+        "file": "apps/insurance-portal-service/src/modules/tenant/reinsurance/reinsurance.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/reinsurance",
+        "routePath": "settlements",
+        "handler": "findSettlements",
+        "file": "apps/insurance-portal-service/src/modules/tenant/reinsurance/reinsurance.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/reinsurance",
+        "routePath": "settlements",
+        "handler": "createSettlement",
         "file": "apps/insurance-portal-service/src/modules/tenant/reinsurance/reinsurance.controller.ts"
       },
       {
@@ -3042,6 +4911,76 @@
       },
       {
         "httpMethod": "GET",
+        "controllerPath": "tenant/signature-requests",
+        "routePath": ":code",
+        "handler": "verify",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/signature-requests.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/signature-requests",
+        "routePath": ":id/cancel",
+        "handler": "cancel",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/signature-requests.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/signature-requests",
+        "routePath": ":id",
+        "handler": "findOne",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/signature-requests.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/signature-requests",
+        "routePath": ":id/reconcile",
+        "handler": "reconcile",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/signature-requests.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/signature-requests",
+        "routePath": ":id/remind",
+        "handler": "remind",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/signature-requests.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/signature-requests",
+        "routePath": ":id/send",
+        "handler": "send",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/signature-requests.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/signature-requests",
+        "routePath": ":token",
+        "handler": "findByToken",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/signature-requests.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/signature-requests",
+        "routePath": ":token/respond",
+        "handler": "respond",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/signature-requests.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/signature-requests",
+        "routePath": "",
+        "handler": "list",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/signature-requests.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/signature-requests",
+        "routePath": "",
+        "handler": "create",
+        "file": "apps/insurance-portal-service/src/modules/tenant/insurance-documents/signature-requests.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
         "controllerPath": "tenant/tiramis-submissions",
         "routePath": ":id",
         "handler": "findOne",
@@ -3062,55 +5001,6 @@
         "file": "apps/insurance-portal-service/src/modules/tenant/tiramis-integration/tiramis-integration.controller.ts"
       },
       {
-        "httpMethod": "PATCH",
-        "controllerPath": "tenant/tiramis-submissions",
-        "routePath": "sale-points/:id/default",
-        "handler": "setDefaultSalePoint",
-        "file": "apps/insurance-portal-service/src/modules/tenant/tiramis-integration/tiramis-integration.controller.ts"
-      },
-      {
-        "httpMethod": "DELETE",
-        "controllerPath": "tenant/tiramis-submissions",
-        "routePath": "sale-points/:id",
-        "handler": "deleteSalePoint",
-        "file": "apps/insurance-portal-service/src/modules/tenant/tiramis-integration/tiramis-integration.controller.ts"
-      },
-      {
-        "httpMethod": "PATCH",
-        "controllerPath": "tenant/tiramis-submissions",
-        "routePath": "sale-points/:id",
-        "handler": "updateSalePoint",
-        "file": "apps/insurance-portal-service/src/modules/tenant/tiramis-integration/tiramis-integration.controller.ts"
-      },
-      {
-        "httpMethod": "PATCH",
-        "controllerPath": "tenant/tiramis-submissions",
-        "routePath": "sale-points/:id/status",
-        "handler": "setSalePointStatus",
-        "file": "apps/insurance-portal-service/src/modules/tenant/tiramis-integration/tiramis-integration.controller.ts"
-      },
-      {
-        "httpMethod": "GET",
-        "controllerPath": "tenant/tiramis-submissions",
-        "routePath": "sale-points/branch/:branchId",
-        "handler": "findBranchSalePoints",
-        "file": "apps/insurance-portal-service/src/modules/tenant/tiramis-integration/tiramis-integration.controller.ts"
-      },
-      {
-        "httpMethod": "POST",
-        "controllerPath": "tenant/tiramis-submissions",
-        "routePath": "sale-points/branch/:branchId",
-        "handler": "createSalePoint",
-        "file": "apps/insurance-portal-service/src/modules/tenant/tiramis-integration/tiramis-integration.controller.ts"
-      },
-      {
-        "httpMethod": "GET",
-        "controllerPath": "tenant/tiramis-submissions",
-        "routePath": "sale-points",
-        "handler": "findSalePoints",
-        "file": "apps/insurance-portal-service/src/modules/tenant/tiramis-integration/tiramis-integration.controller.ts"
-      },
-      {
         "httpMethod": "POST",
         "controllerPath": "tenant/tiramis-submissions",
         "routePath": "submit",
@@ -3120,8 +5010,71 @@
       {
         "httpMethod": "POST",
         "controllerPath": "tenant/work-items",
+        "routePath": ":id/assign",
+        "handler": "assign",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/work-items.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/work-items",
+        "routePath": ":id/cancel",
+        "handler": "cancel",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/work-items.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/work-items",
+        "routePath": ":id/claim",
+        "handler": "claim",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/work-items.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/work-items",
+        "routePath": ":id/comment",
+        "handler": "comment",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/work-items.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/work-items",
         "routePath": ":id/complete",
         "handler": "complete",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/work-items.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/work-items",
+        "routePath": ":id/execute",
+        "handler": "execute",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/work-items.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/work-items",
+        "routePath": ":id",
+        "handler": "findOne",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/work-items.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/work-items",
+        "routePath": ":id/reassign",
+        "handler": "reassign",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/work-items.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
+        "controllerPath": "tenant/work-items",
+        "routePath": ":id/start",
+        "handler": "start",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/work-items.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/work-items",
+        "routePath": ":id/timeline",
+        "handler": "timeline",
         "file": "apps/insurance-portal-service/src/modules/tenant/work-items/work-items.controller.ts"
       },
       {
@@ -3129,6 +5082,20 @@
         "controllerPath": "tenant/work-items",
         "routePath": "",
         "handler": "list",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/work-items.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/work-items",
+        "routePath": "my",
+        "handler": "listMy",
+        "file": "apps/insurance-portal-service/src/modules/tenant/work-items/work-items.controller.ts"
+      },
+      {
+        "httpMethod": "GET",
+        "controllerPath": "tenant/work-items",
+        "routePath": "queues",
+        "handler": "queues",
         "file": "apps/insurance-portal-service/src/modules/tenant/work-items/work-items.controller.ts"
       },
       {
@@ -3744,6 +5711,13 @@
       },
       {
         "httpMethod": "POST",
+        "controllerPath": "internal/tiramis/integration",
+        "routePath": "submissions",
+        "handler": "acceptSubmission",
+        "file": "apps/tiramis/src/modules/integration/controllers/tiramis-integration.controller.ts"
+      },
+      {
+        "httpMethod": "POST",
         "controllerPath": "tiramis/callbacks",
         "routePath": ":environment",
         "handler": "handleCallback",
@@ -3953,6 +5927,13 @@
         "file": "apps/tiramis/src/modules/claims/controllers/tiramis-claim.controller.ts"
       },
       {
+        "httpMethod": "POST",
+        "controllerPath": "tiramis/configurations",
+        "routePath": "validate-organization",
+        "handler": "validate",
+        "file": "apps/tiramis/src/modules/config/controllers/tiramis-configuration-validation.controller.ts"
+      },
+      {
         "httpMethod": "GET",
         "controllerPath": "tiramis/motor",
         "routePath": "cover-note/:coverNoteId/details",
@@ -4160,6 +6141,7 @@
       "*",
       "/",
       "/2fa",
+      "/analytics/metrics",
       "/api-clients",
       "/billing/commission-payments",
       "/billing/commission-payments/:id",
@@ -4177,9 +6159,12 @@
       "/billing/receipts/new",
       "/branches",
       "/branches/:id",
+      "/communications",
+      "/communications/:id",
       "/companies",
       "/companies/:id",
       "/company-features",
+      "/customer",
       "/customers",
       "/customers/:id",
       "/customers/:id/edit",
@@ -4188,7 +6173,31 @@
       "/departments",
       "/departments/:id",
       "/devices",
+      "/document-templates",
+      "/document-templates/:id",
+      "/documents",
+      "/documents/:id",
+      "/documents/verify/:code",
+      "/finance/commission-accruals",
+      "/finance/commission-accruals/:id",
+      "/finance/commission-payments",
+      "/finance/commission-payments/:id",
+      "/finance/dashboard",
+      "/finance/invoices",
+      "/finance/invoices/:id",
+      "/finance/journals",
+      "/finance/journals/:id",
+      "/finance/payments",
+      "/finance/payments/:id",
+      "/finance/receipts",
+      "/finance/receipts/:id",
+      "/finance/reconciliation",
+      "/finance/reconciliation/:id",
+      "/finance/refunds",
+      "/finance/refunds/:id",
+      "/forbidden",
       "/forgot-password",
+      "/intermediary",
       "/login",
       "/motor/fleets",
       "/motor/fleets/:id",
@@ -4203,6 +6212,8 @@
       "/my-company",
       "/non-motor/subject-matters",
       "/non-motor/subject-matters/:id",
+      "/notification-preferences",
+      "/notifications",
       "/passwordless",
       "/passwordless/complete",
       "/permissions",
@@ -4216,6 +6227,9 @@
       "/product-engine/calculator",
       "/product-engine/categories",
       "/product-engine/products",
+      "/product-engine/products/:productId",
+      "/product-engine/rate-books",
+      "/product-engine/rate-books/:rateBookId",
       "/product-engine/rating-factors",
       "/product-engine/rating-rules",
       "/product-engine/risks",
@@ -4226,10 +6240,15 @@
       "/quotations/new",
       "/quotations/wizard",
       "/register",
+      "/regulatory",
+      "/reports",
       "/reset-password",
       "/roles",
       "/sessions",
       "/settings/profile",
+      "/signatures",
+      "/signatures/:id",
+      "/signatures/respond/:token",
       "/tiramis/dashboard",
       "/tiramis/failed",
       "/tiramis/health",
@@ -4241,6 +6260,16 @@
       "/users/:id",
       "/verifications",
       "/verify-email",
+      "/work-items",
+      "/work-items/:id",
+      "dashboard",
+      "documents",
+      "messages",
+      "messages/:id",
+      "notifications",
+      "profile",
+      "signatures",
+      "signatures/:id",
       "{underwritingPaths.customerCreate}",
       "{underwritingPaths.customerDetail(':id')}",
       "{underwritingPaths.customerEdit(':id')}",

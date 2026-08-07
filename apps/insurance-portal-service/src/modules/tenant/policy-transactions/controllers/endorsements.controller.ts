@@ -17,6 +17,7 @@ import { RecordEndorsementChangeDto } from '../dto/record-endorsement-change.dto
 import { ReasonDto } from '../dto/reason.dto';
 import { EndorsementService } from '../services/endorsement.service';
 import { PolicyTransactionLifecycleService } from '../services/policy-transaction-lifecycle.service';
+import { PolicyTransactionTiramisSubmissionService } from '../services/policy-transaction-tiramis-submission.service';
 
 @ApiTags('endorsements')
 @ApiBearerAuth()
@@ -26,6 +27,7 @@ export class EndorsementsController {
   constructor(
     private readonly endorsementService: EndorsementService,
     private readonly lifecycleService: PolicyTransactionLifecycleService,
+    private readonly submissionService: PolicyTransactionTiramisSubmissionService,
   ) {}
 
   @Post('tenant/policies/:policyId/endorsements')
@@ -147,6 +149,26 @@ export class EndorsementsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.endorsementService.requestPayment(user, id);
+  }
+
+  @Post('tenant/endorsements/:id/submit-tiramis')
+  @Permissions('endorsements:submit-tiramis')
+  @ApiOperation({ summary: 'Submit a completed, approved, paid endorsement to TIRAMIS' })
+  submitTiramis(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.submissionService.submitEndorsement(user, id);
+  }
+
+  @Post('tenant/endorsements/:id/retry-tiramis')
+  @Permissions('endorsements:retry-tiramis')
+  @ApiOperation({ summary: 'Retry a rejected/failed TIRAMIS submission for an endorsement' })
+  retryTiramis(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.submissionService.submitEndorsement(user, id);
   }
 
   @Post('tenant/endorsements/:id/cancel')

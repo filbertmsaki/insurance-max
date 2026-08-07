@@ -31,7 +31,6 @@ import { ReinsuranceModule } from './reinsurance/reinsurance.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { RegulatoryComplianceModule } from './regulatory-compliance/regulatory-compliance.module';
 import { RatingFactorsModule } from './rating-factors/rating-factors.module';
-import { RegulatorySyncModule } from './regulatory-sync/regulatory-sync.module';
 import { ReportingModule } from './reporting/reporting.module';
 import { RiskRatingRulesModule } from './risk-rating-rules/risk-rating-rules.module';
 import { RiskRequiredFactorsModule } from './risk-required-factors/risk-required-factors.module';
@@ -69,7 +68,6 @@ import { WorkItemsModule } from './work-items/work-items.module';
     PricingRateBooksModule,
     ReinsuranceModule,
     RegulatoryComplianceModule,
-    RegulatorySyncModule,
     ReportingModule,
     BillingCommissionModule,
     AnalyticsModule,
@@ -112,7 +110,6 @@ import { WorkItemsModule } from './work-items/work-items.module';
     PricingRateBooksModule,
     ReinsuranceModule,
     RegulatoryComplianceModule,
-    RegulatorySyncModule,
     ReportingModule,
     BillingCommissionModule,
     RatingFactorsModule,
