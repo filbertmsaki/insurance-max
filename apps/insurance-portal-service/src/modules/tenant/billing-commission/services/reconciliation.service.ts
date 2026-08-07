@@ -284,6 +284,7 @@ export class ReconciliationService {
 
       await manager.getRepository(FinanceReconciliationItem).save(items);
       await this.recalculateBatchTotals(manager, batch);
+      await manager.getRepository(FinanceReconciliationBatch).save(batch);
 
       return manager
         .getRepository(FinanceReconciliationBatch)
@@ -361,6 +362,7 @@ export class ReconciliationService {
         .getRepository(FinanceReconciliationBatch)
         .findOneByOrFail({ id: item.batch_id });
       await this.recalculateBatchTotals(manager, batch);
+      await manager.getRepository(FinanceReconciliationBatch).save(batch);
 
       return saved;
     });
@@ -400,6 +402,7 @@ export class ReconciliationService {
         .getRepository(FinanceReconciliationBatch)
         .findOneByOrFail({ id: item.batch_id });
       await this.recalculateBatchTotals(manager, batch);
+      await manager.getRepository(FinanceReconciliationBatch).save(batch);
 
       return saved;
     });

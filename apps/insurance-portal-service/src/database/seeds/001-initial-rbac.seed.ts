@@ -2459,6 +2459,90 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'invoices:read',
+    displayName: 'Read invoices',
+    description: 'Allow viewing invoices within finance operations.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'invoices:issue',
+    displayName: 'Issue invoices',
+    description: 'Allow issuing draft invoices in finance operations.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'invoices:void',
+    displayName: 'Void invoices',
+    description: 'Allow voiding invoices in finance operations.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'payments:read',
+    displayName: 'Read payment transactions',
+    description: 'Allow viewing payment transactions in finance operations.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'payments:record-manual',
+    displayName: 'Record manual payment transactions',
+    description: 'Allow recording manual payment transactions in finance operations.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'receipts:read',
+    displayName: 'Read receipts',
+    description: 'Allow viewing receipts in finance operations.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'receipts:post',
+    displayName: 'Post receipts',
+    description: 'Allow posting receipts in finance operations.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'receipts:allocate',
+    displayName: 'Allocate receipts',
+    description: 'Allow allocating receipts in finance operations.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'receipts:reverse',
+    displayName: 'Reverse receipts',
+    description: 'Allow reversing receipts in finance operations.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'refunds:read',
+    displayName: 'Read refunds',
+    description: 'Allow viewing refunds in finance operations.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'refunds:request',
+    displayName: 'Request refunds',
+    description: 'Allow requesting refunds in finance operations.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'refunds:approve',
+    displayName: 'Approve refunds',
+    description: 'Allow approving refunds in finance operations.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'refunds:pay',
+    displayName: 'Pay refunds',
+    description: 'Allow paying approved refunds in finance operations.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'refunds:cancel',
+    displayName: 'Cancel refunds',
+    description: 'Allow canceling refunds in finance operations.',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'reconciliation:read',
     displayName: 'Read reconciliation batches',
     description: 'Allow viewing finance reconciliation batches and items',
@@ -3013,10 +3097,48 @@ const FINANCE_RECONCILIATION_PERMISSION_NAMES = [
   'reconciliation:post',
 ];
 
+const FINANCE_OPERATION_PERMISSION_NAMES = [
+  'invoices:read',
+  'invoices:issue',
+  'invoices:void',
+  'payments:read',
+  'payments:record-manual',
+  'receipts:read',
+  'receipts:post',
+  'receipts:allocate',
+  'receipts:reverse',
+  'refunds:read',
+  'refunds:request',
+  'refunds:approve',
+  'refunds:pay',
+  'refunds:cancel',
+];
+
 const COMPANY_TIRAMIS_CONFIGURATION_PERMISSION_NAMES = [
   'company-tiramis-config:read',
   'company-tiramis-config:update',
   'company-tiramis-config:validate',
+];
+
+const PORTAL_ADMIN_ROLE_PERMISSION_NAMES = [
+  ...PORTAL_ADMIN_PERMISSION_NAMES,
+  ...PHASE2_GENERAL_USER_PERMISSION_NAMES,
+  ...PHASE18_GOVERNANCE_PERMISSION_NAMES,
+  ...FINANCE_OPERATION_PERMISSION_NAMES,
+  ...FINANCE_RECONCILIATION_PERMISSION_NAMES,
+  ...COMPANY_TIRAMIS_CONFIGURATION_PERMISSION_NAMES,
+  'view_company_dashboard',
+  'view_company_data',
+  'users:read',
+  'branches:read',
+  'departments:read',
+  'customers:read',
+  'work-items:assign',
+  'work-items:reassign',
+  'work-items:cancel',
+  'work-items:manage',
+  'communications:assign',
+  'communications:close',
 ];
 
 const roleSeeds: RoleSeed[] = [
@@ -3065,6 +3187,7 @@ const roleSeeds: RoleSeed[] = [
       ...REINSURANCE_ADMIN_PERMISSION_NAMES,
       ...PORTAL_ADMIN_PERMISSION_NAMES,
       ...PHASE18_GOVERNANCE_PERMISSION_NAMES,
+      ...FINANCE_OPERATION_PERMISSION_NAMES,
       ...FINANCE_RECONCILIATION_PERMISSION_NAMES,
       ...COMPANY_TIRAMIS_CONFIGURATION_PERMISSION_NAMES,
       'view_company_dashboard',
@@ -3212,6 +3335,7 @@ const roleSeeds: RoleSeed[] = [
       ...REINSURANCE_ADMIN_PERMISSION_NAMES,
       ...PORTAL_ADMIN_PERMISSION_NAMES,
       ...PHASE18_GOVERNANCE_PERMISSION_NAMES,
+      ...FINANCE_OPERATION_PERMISSION_NAMES,
       ...FINANCE_RECONCILIATION_PERMISSION_NAMES,
       ...COMPANY_TIRAMIS_CONFIGURATION_PERMISSION_NAMES,
       'view_company_dashboard',
@@ -3582,6 +3706,14 @@ const roleSeeds: RoleSeed[] = [
       ...DASHBOARD_VIEWER_PERMISSION_NAMES,
       ...PHASE2_GENERAL_USER_PERMISSION_NAMES,
     ],
+  },
+  {
+    name: 'PORTAL_ADMIN',
+    displayName: 'Portal Administrator',
+    description:
+      'Administrator for portal accounts, requests, communications, and operational readiness workflows',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+    permissionNames: [...PORTAL_ADMIN_ROLE_PERMISSION_NAMES],
   },
   {
     name: 'CUSTOMER_PORTAL',
