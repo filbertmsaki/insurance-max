@@ -1,0 +1,40 @@
+{
+  "generatedAt": "2026-08-07T12:00:00.000Z",
+  "release": {
+    "sha": "abc123def456",
+    "version": "2026.08.07",
+    "builtAt": "2026-08-07T11:45:00.000Z"
+  },
+  "gate": {
+    "build": {
+      "lintPassed": {
+        "value": true,
+        "checkedAt": "2026-08-07T11:40:00.000Z",
+        "source": "ci",
+        "details": {
+          "workflow": "service-ci",
+          "job": "lint"
+        }
+      },
+      "unitTestsPassed": true,
+      "integrationTestsPassed": true,
+      "e2eTestsPassed": true
+    },
+    "security": {
+      "criticalFindings": 0,
+      "tenantIsolationPassed": true,
+      "secretsScanPassed": true,
+      "authorizationPassed": true
+    },
+    "operations": {
+      "backupVerified": true,
+      "restoreVerified": true,
+      "rollbackVerified": true
+    },
+    "approvals": {
+      "uatApproved": true,
+      "technicalApproved": true,
+      "businessApproved": true
+    }
+  }
+}

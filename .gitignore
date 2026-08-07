@@ -61,6 +61,7 @@ certificates/
 # temp directory
 .temp
 .tmp
+.release/release-gate.json
 
 # Runtime data
 pids

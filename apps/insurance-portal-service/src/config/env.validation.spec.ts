@@ -56,6 +56,8 @@ describe('insurance portal environment validation', () => {
       ANALYTICS_PROJECTION_MAX_ATTEMPTS: 5,
       SESSION_IDLE_MINUTES: 45,
       SECURITY_STEP_UP_MAX_AGE_MINUTES: 15,
+      RELEASE_EVIDENCE_FILE: '.release/release-gate.json',
+      RELEASE_EVIDENCE_MAX_AGE_HOURS: 24,
       RELEASE_BUILD_LINT_PASSED: true,
     });
 
@@ -65,6 +67,10 @@ describe('insurance portal environment validation', () => {
     expect(result.value.ANALYTICS_PROJECTION_MAX_ATTEMPTS).toBe(5);
     expect(result.value.SESSION_IDLE_MINUTES).toBe(45);
     expect(result.value.SECURITY_STEP_UP_MAX_AGE_MINUTES).toBe(15);
+    expect(result.value.RELEASE_EVIDENCE_FILE).toBe(
+      '.release/release-gate.json',
+    );
+    expect(result.value.RELEASE_EVIDENCE_MAX_AGE_HOURS).toBe(24);
     expect(result.value.RELEASE_BUILD_LINT_PASSED).toBe(true);
   });
 

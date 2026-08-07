@@ -128,6 +128,10 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   APP_RELEASE_SHA: Joi.string().allow('').default(''),
   APP_RELEASE_VERSION: Joi.string().allow('').default(''),
   APP_BUILT_AT: Joi.string().allow('').default(''),
+  RELEASE_EVIDENCE_FILE: Joi.string()
+    .trim()
+    .default('.release/release-gate.json'),
+  RELEASE_EVIDENCE_MAX_AGE_HOURS: Joi.number().integer().min(1).default(168),
   RELEASE_BUILD_LINT_PASSED: Joi.boolean().default(false),
   RELEASE_BUILD_UNIT_TESTS_PASSED: Joi.boolean().default(false),
   RELEASE_BUILD_INTEGRATION_TESTS_PASSED: Joi.boolean().default(false),
