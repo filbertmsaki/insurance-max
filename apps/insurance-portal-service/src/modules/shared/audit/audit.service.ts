@@ -413,7 +413,7 @@ export class AuditService {
       | 'reason'
     >,
   ): string {
-    const payload = JSON.stringify({
+    const payload = this.stableStringify({
       eventNo: event.event_no ?? null,
       previousEventHash: event.previous_event_hash ?? null,
       userId: event.user_id ?? null,
@@ -435,5 +435,25 @@ export class AuditService {
     });
 
     return createHash('sha256').update(payload).digest('hex');
+  }
+
+  private stableStringify(value: unknown): string {
+    return JSON.stringify(this.canonicalize(value));
+  }
+
+  private canonicalize(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.canonicalize(item));
+    }
+
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value as Record<string, unknown>)
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([key, item]) => [key, this.canonicalize(item)]),
+      );
+    }
+
+    return value;
   }
 }
