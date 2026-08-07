@@ -108,6 +108,18 @@ function saveResult(name, status, data, error) {
   });
 }
 
+function unwrapApiData(payload) {
+  if (!payload || typeof payload !== 'object') {
+    return payload;
+  }
+
+  if ('data' in payload) {
+    return payload.data;
+  }
+
+  return payload;
+}
+
 async function request(name, method, url, body, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
@@ -146,7 +158,8 @@ async function request(name, method, url, body, options = {}) {
     const result = {
       statusCode: response.status,
       ok: response.ok,
-      data,
+      body: data,
+      data: unwrapApiData(data),
     };
 
     saveResult(name, response.ok ? 'PASS' : 'FAIL', result);
@@ -202,7 +215,7 @@ async function loginAndGetToken() {
   assert('Login request works', response.ok, response.data);
 
   const token = response.data?.access_token;
-  assert('Login returned access token', Boolean(token), response.data);
+  assert('Login returned access token', Boolean(token), response.body);
 
   config.token = token;
 }
@@ -274,8 +287,8 @@ async function testValidation() {
 
   assert(
     'Validation passed',
-    response.ok && response.data?.success !== false,
-    response.data,
+    response.ok && response.body?.success !== false,
+    response.body,
   );
 
   return response;
@@ -303,10 +316,10 @@ async function testSubmit() {
   assert(
     'Submit request accepted',
     response.ok &&
-      (response.data?.success === true ||
+      (response.body?.success === true ||
         response.data?.localTrackingId ||
         response.data?.duplicatePrevented),
-    response.data,
+    response.body,
   );
 
   return response;

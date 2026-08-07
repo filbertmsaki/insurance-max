@@ -496,10 +496,14 @@ describe('Portal engagement access (real database)', () => {
       const { Phase3AuthorizationAndAudit1794500000000 } = require('../../src/database/migrations/1794500000000-Phase3AuthorizationAndAudit');
       const { OrganizationContextFoundation1794600000000 } = require('../../src/database/migrations/1794600000000-OrganizationContextFoundation');
       const { CustomerAndInsuredAssetFoundation1795000000000 } = require('../../src/database/migrations/1795000000000-CustomerAndInsuredAssetFoundation');
+      const { Phase18SecurityGovernanceObservability1796300000000 } = require('../../src/database/migrations/1796300000000-Phase18SecurityGovernanceObservability');
       await new Phase2AuthenticationHardening1794400000000().up(queryRunner);
       await new Phase3AuthorizationAndAudit1794500000000().up(queryRunner);
       await new OrganizationContextFoundation1794600000000().up(queryRunner);
       await new CustomerAndInsuredAssetFoundation1795000000000().up(queryRunner);
+      await new Phase18SecurityGovernanceObservability1796300000000().up(
+        queryRunner,
+      );
 
       if (!(await tableExists(queryRunner, 'documents'))) {
         const { ClaimsAndComplaintsAuthority1795600000000 } = require('../../src/database/migrations/1795600000000-ClaimsAndComplaintsAuthority');
