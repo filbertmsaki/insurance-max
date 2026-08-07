@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AuthenticationStrength } from '@insurance-max/contracts';
 import { buildUrl } from '@insurance-max/shared-config';
 import { JwtService } from '@nestjs/jwt';
 import { randomUUID } from 'crypto';
@@ -516,6 +517,10 @@ export class AuthService {
       method: 'two_factor',
       company,
       companies,
+      authenticationStrength: this.resolveAuthenticationStrength(
+        'two_factor',
+        true,
+      ),
     });
   }
 
@@ -1092,7 +1097,16 @@ export class AuthService {
       companies = resolved.companies;
     }
 
-    const twoFactorEnabled = await this.twoFaService.is2FARequired(user.id);
+    const twoFactorRequirement = await this.twoFaService.getRequirement(
+      user.id,
+      company?.companyId,
+    );
+
+    if (twoFactorRequirement.required && !twoFactorRequirement.enrolled) {
+      throw new ForbiddenException(
+        'Two-factor authentication is required for this account before login can continue.',
+      );
+    }
 
     const trustedDeviceBypass = this.configService.get<boolean>(
       'app.auth.allowTrustedDeviceBypass',
@@ -1101,10 +1115,11 @@ export class AuthService {
 
     const deviceTrusted =
       trustedDeviceBypass &&
-      twoFactorEnabled &&
+      twoFactorRequirement.required &&
+      twoFactorRequirement.allowTrustedDeviceBypass &&
       (await this.devicesService.isTrusted(user.id, options.deviceToken));
 
-    if (twoFactorEnabled && !deviceTrusted) {
+    if (twoFactorRequirement.required && !deviceTrusted) {
       return this.build2FATempResponse(user, device.id, company?.companyId);
     }
 
@@ -1116,6 +1131,10 @@ export class AuthService {
       company,
       companies,
       twoFactorBypassedByTrustedDevice: deviceTrusted,
+      authenticationStrength: this.resolveAuthenticationStrength(
+        options.method,
+        false,
+      ),
     });
   }
 
@@ -1129,6 +1148,7 @@ export class AuthService {
       company?: CompanySummary;
       companies?: CompanySummary[];
       twoFactorBypassedByTrustedDevice?: boolean;
+      authenticationStrength?: AuthenticationStrength;
     },
   ) {
     await this.usersService.updateLastLogin(
@@ -1143,6 +1163,10 @@ export class AuthService {
       deviceId: options.deviceId,
       ipAddress: options.ip,
       userAgent: options.userAgent,
+      authenticationStrength:
+        options.authenticationStrength ?? AuthenticationStrength.PASSWORD,
+      twoFactorVerifiedAt:
+        options.method === 'two_factor' ? new Date() : null,
     });
 
     let authResponse: ReturnType<
@@ -1451,6 +1475,21 @@ export class AuthService {
 
   private isPlatformUser(user: Pick<User, 'user_type'>): boolean {
     return PLATFORM_USER_TYPES.includes(user.user_type as UserType);
+  }
+
+  private resolveAuthenticationStrength(
+    method: string,
+    usedTwoFactor: boolean,
+  ): AuthenticationStrength {
+    if (usedTwoFactor || method === 'two_factor') {
+      return AuthenticationStrength.PASSWORD_TOTP;
+    }
+
+    if (method === 'phone_otp') {
+      return AuthenticationStrength.PASSWORD_OTP;
+    }
+
+    return AuthenticationStrength.PASSWORD;
   }
 
   private buildPlatformAccessContext(user: User): PlatformAccessContext {

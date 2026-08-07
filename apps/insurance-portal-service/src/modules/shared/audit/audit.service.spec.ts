@@ -19,6 +19,7 @@ describe('AuditService', () => {
           provide: getRepositoryToken(AuditLog),
           useValue: {
             create: (input: Partial<AuditLog>) => input,
+            findOne: jest.fn().mockResolvedValue(null),
             save: (entity: Partial<AuditLog>) => {
               saved = entity;
               return Promise.resolve(entity);
@@ -82,5 +83,16 @@ describe('AuditService', () => {
     });
 
     expect(saved?.changed_fields).toEqual(['roles']);
+  });
+
+  it('builds an audit hash chain for written events', async () => {
+    await service.log({
+      action: 'role.assigned',
+      metadata: { role: 'ADMINISTRATOR' },
+    });
+
+    expect(saved?.event_no).toBe('1');
+    expect(saved?.previous_event_hash).toBeNull();
+    expect(saved?.event_hash).toEqual(expect.any(String));
   });
 });

@@ -14,6 +14,8 @@ import { randomBytes } from 'node:crypto';
 
 import { UsersService } from '../../../tenant/users/users.service';
 import { AuthSecretCryptoService } from './auth-secret-crypto.service';
+import { SessionsService } from '../../sessions/sessions.service';
+import { SecurityPoliciesService } from '../../security-policies/security-policies.service';
 
 @Injectable()
 export class TwoFaService {
@@ -23,6 +25,10 @@ export class TwoFaService {
     private readonly configService: ConfigService,
 
     private readonly cryptoService: AuthSecretCryptoService,
+
+    private readonly sessionsService: SessionsService,
+
+    private readonly securityPoliciesService: SecurityPoliciesService,
   ) {}
 
   async generate2FASetup(userId: string) {
@@ -156,7 +162,12 @@ export class TwoFaService {
     throw new UnauthorizedException('Invalid 2FA code.');
   }
 
-  async disable2FA(userId: string, code: string) {
+  async disable2FA(
+    userId: string,
+    sessionId: string,
+    code: string,
+    companyId?: string | null,
+  ) {
     const user = await this.usersService.findByIdFor2FA(userId);
 
     if (!user.is_two_factor_enabled) {
@@ -164,6 +175,14 @@ export class TwoFaService {
     }
 
     await this.verify2FALogin(userId, code);
+    await this.sessionsService.markTwoFactorVerified(sessionId, userId);
+
+    const requirement = await this.getRequirement(userId, companyId);
+    if (!requirement.enrolled) {
+      throw new UnauthorizedException(
+        'Two-factor authentication must remain enabled for this account.',
+      );
+    }
 
     await this.usersService.disable2FA(userId);
 
@@ -172,13 +191,26 @@ export class TwoFaService {
     };
   }
 
-  async is2FARequired(userId: string): Promise<boolean> {
+  async getRequirement(userId: string, companyId?: string | null) {
     const user = await this.usersService.findByIdFor2FA(userId);
 
-    return Boolean(user.is_two_factor_enabled);
+    return this.securityPoliciesService.resolveTwoFactorRequirement(
+      user,
+      companyId,
+    );
   }
 
-  async regenerateBackupCodes(userId: string, code: string) {
+  async is2FARequired(userId: string, companyId?: string | null): Promise<boolean> {
+    const requirement = await this.getRequirement(userId, companyId);
+    return requirement.required;
+  }
+
+  async regenerateBackupCodes(
+    userId: string,
+    sessionId: string,
+    code: string,
+    companyId?: string | null,
+  ) {
     const user = await this.usersService.findByIdFor2FA(userId);
 
     if (!user.is_two_factor_enabled) {
@@ -186,6 +218,14 @@ export class TwoFaService {
     }
 
     await this.verify2FALogin(userId, code);
+    await this.sessionsService.markTwoFactorVerified(sessionId, userId);
+
+    const requirement = await this.getRequirement(userId, companyId);
+    if (!requirement.enrolled) {
+      throw new UnauthorizedException(
+        'Two-factor authentication must be enabled before backup codes can be regenerated.',
+      );
+    }
 
     const backupCodes = this.generateBackupCodes();
 

@@ -2,3 +2,4 @@ export * from './logger';
 export * from './metrics';
 export * from './tracing';
 export * from './health';
+export * from './release';

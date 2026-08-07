@@ -1,4 +1,5 @@
 import {
+  BeforeInsert,
   Column,
   CreateDateColumn,
   Entity,
@@ -63,6 +64,10 @@ export class AuditLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'bigint', nullable: true })
+  @Index('IDX_audit_event_no', { unique: true })
+  event_no: string | null;
+
   @Column({ type: 'varchar', nullable: true })
   user_id: string | null;
 
@@ -105,6 +110,12 @@ export class AuditLog {
   @Column({ type: 'varchar', length: 128, nullable: true })
   correlation_id: string | null;
 
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  previous_event_hash: string | null;
+
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  event_hash: string | null;
+
   @Column({ type: 'varchar', length: 30, default: 'user' })
   actor_type: string;
 
@@ -128,4 +139,11 @@ export class AuditLog {
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
+
+  @BeforeInsert()
+  normalizeIntegrityColumns(): void {
+    if (this.event_no !== null && this.event_no !== undefined) {
+      this.event_no = String(this.event_no);
+    }
+  }
 }

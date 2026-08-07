@@ -15,6 +15,7 @@ export const SaasBillingPermissions = {
 
   INVOICE_READ: 'platform:saas-invoice-read',
   INVOICE_ISSUE: 'platform:saas-invoice-issue',
+  INVOICE_ADJUST: 'platform:saas-invoice-adjust',
   INVOICE_VOID: 'platform:saas-invoice-void',
   PAYMENT_RECORD: 'platform:saas-payment-record',
 

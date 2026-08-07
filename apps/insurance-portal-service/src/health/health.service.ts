@@ -1,12 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
+import { access } from 'node:fs/promises';
 
 import type {
   HealthCheckResult,
   HealthState,
   ServiceHealthResponse,
 } from '@insurance-max/contracts';
+import {
+  observabilityMetrics,
+  sanitizeHealthResponse,
+} from '@insurance-max/observability';
 
 import { RedisService } from '../modules/shared/redis/redis.service';
 
@@ -19,13 +24,18 @@ export class HealthService {
   ) {}
 
   live(): ServiceHealthResponse {
-    return this.createResponse('UP');
+    return sanitizeHealthResponse(
+      this.createResponse('UP'),
+      this.includeHealthDetails(),
+    );
   }
 
   async ready(): Promise<ServiceHealthResponse> {
-    const [database, redis] = await Promise.all([
+    const [database, redis, storage, queue] = await Promise.all([
       this.checkDatabase(),
       this.checkRedis(),
+      this.checkStorage(),
+      this.checkQueue(),
     ]);
 
     const appEnvironment =
@@ -40,14 +50,31 @@ export class HealthService {
 
     if (database.status === 'DOWN') {
       status = 'DOWN';
-    } else if (redis.status === 'DOWN' || redis.status === 'DEGRADED') {
+    } else if (
+      redis.status === 'DOWN' ||
+      redis.status === 'DEGRADED' ||
+      storage.status === 'DOWN' ||
+      queue.status === 'DOWN'
+    ) {
       status = redisRequired ? 'DOWN' : 'DEGRADED';
     }
 
-    return this.createResponse(status, {
+    const response = this.createResponse(status, {
       database,
       redis,
+      storage,
+      queue,
     });
+
+    for (const [name, check] of Object.entries(response.checks ?? {})) {
+      observabilityMetrics.setGauge(
+        'service_health_status',
+        { check: name },
+        check.status === 'UP' ? 1 : 0,
+      );
+    }
+
+    return sanitizeHealthResponse(response, this.includeHealthDetails());
   }
 
   private async checkDatabase(): Promise<HealthCheckResult> {
@@ -104,6 +131,54 @@ export class HealthService {
     };
   }
 
+  private async checkStorage(): Promise<HealthCheckResult> {
+    const startedAt = Date.now();
+    const root =
+      this.configService.get<string>('DOCUMENT_STORAGE_ROOT') ??
+      './uploads/documents';
+
+    try {
+      await access(root);
+      return {
+        status: 'UP',
+        latencyMs: Date.now() - startedAt,
+        details: { root },
+      };
+    } catch (error) {
+      return {
+        status: 'DOWN',
+        latencyMs: Date.now() - startedAt,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Document storage root is unavailable.',
+      };
+    }
+  }
+
+  private async checkQueue(): Promise<HealthCheckResult> {
+    const startedAt = Date.now();
+    const queueEnabled = this.configService.get<boolean>('QUEUE_ENABLED') ?? true;
+
+    if (!queueEnabled) {
+      return {
+        status: 'DEGRADED',
+        latencyMs: Date.now() - startedAt,
+        message: 'Queues are disabled.',
+      };
+    }
+
+    const redis = await this.redisService.healthCheck();
+
+    return {
+      status: redis.available ? 'UP' : 'DOWN',
+      latencyMs: Date.now() - startedAt,
+      message: redis.available
+        ? 'Queue broker reachable through Redis.'
+        : redis.message,
+    };
+  }
+
   private createResponse(
     status: HealthState,
     checks?: Record<string, HealthCheckResult>,
@@ -119,5 +194,9 @@ export class HealthService {
       uptimeSeconds: Math.floor(process.uptime()),
       checks,
     };
+  }
+
+  private includeHealthDetails(): boolean {
+    return this.configService.get<boolean>('HEALTH_DETAILS_PUBLIC') ?? false;
   }
 }

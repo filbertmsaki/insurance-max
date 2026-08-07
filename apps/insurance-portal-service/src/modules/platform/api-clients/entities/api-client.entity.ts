@@ -30,13 +30,13 @@ export class ApiClient {
   @Column({ length: 100, unique: true })
   client_id: string;
 
-  @Column({ length: 32, nullable: true })
+  @Column({ type: 'varchar', length: 32, nullable: true })
   key_prefix: string | null;
 
   @Column({ length: 255, select: false })
   client_secret_hash: string;
 
-  @Column({ length: 255, nullable: true, select: false })
+  @Column({ type: 'varchar', length: 255, nullable: true, select: false })
   previous_secret_hash: string | null;
 
   @Column({ type: 'timestamp', nullable: true })

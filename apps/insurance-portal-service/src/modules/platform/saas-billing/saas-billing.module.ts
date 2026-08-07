@@ -12,6 +12,7 @@ import { PlatformUsageEvent } from './entities/platform-usage-event.entity';
 import { PlatformUsageSnapshot } from './entities/platform-usage-snapshot.entity';
 import { SaasBillingCycle } from './entities/saas-billing-cycle.entity';
 import { SaasInvoiceItem } from './entities/saas-invoice-item.entity';
+import { SaasInvoiceAdjustment } from './entities/saas-invoice-adjustment.entity';
 import { SaasInvoice } from './entities/saas-invoice.entity';
 import { SaasPayment } from './entities/saas-payment.entity';
 import { SaasPlanFeature } from './entities/saas-plan-feature.entity';
@@ -46,6 +47,7 @@ import { UsageMeteringService } from './services/usage-metering.service';
       PlatformUsageSnapshot,
       SaasBillingCycle,
       SaasInvoice,
+      SaasInvoiceAdjustment,
       SaasInvoiceItem,
       SaasPayment,
     ]),

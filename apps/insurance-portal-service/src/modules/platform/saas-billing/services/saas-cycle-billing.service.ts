@@ -1,26 +1,34 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { DateTime } from 'luxon';
 import { createHash } from 'crypto';
-import { Repository } from 'typeorm';
+import { In, LessThan, Not, Repository } from 'typeorm';
 
 import { DecimalUtil } from '../../../shared/finance/decimal.util';
 import { CompanySubscription } from '../entities/company-subscription.entity';
 import { PlatformUsageSnapshot } from '../entities/platform-usage-snapshot.entity';
 import { SaasBillingCycle } from '../entities/saas-billing-cycle.entity';
+import { SaasInvoiceAdjustment } from '../entities/saas-invoice-adjustment.entity';
 import { SaasInvoiceItem } from '../entities/saas-invoice-item.entity';
 import { SaasInvoice } from '../entities/saas-invoice.entity';
 import { SaasPayment } from '../entities/saas-payment.entity';
+import { SubscriptionChange } from '../entities/subscription-change.entity';
 import {
   SaasBillingCycleStatus,
+  SaasInvoiceAdjustmentStatus,
+  SaasInvoiceAdjustmentType,
   SaasInvoiceStatus,
   SaasPaymentStatus,
+  SubscriptionChangeType,
+  SubscriptionStatus,
 } from '../enums/saas-billing.enums';
 
 @Injectable()
@@ -34,10 +42,14 @@ export class SaasCycleBillingService {
     private readonly cycleRepository: Repository<SaasBillingCycle>,
     @InjectRepository(SaasInvoice)
     private readonly invoiceRepository: Repository<SaasInvoice>,
+    @InjectRepository(SaasInvoiceAdjustment)
+    private readonly invoiceAdjustmentRepository: Repository<SaasInvoiceAdjustment>,
     @InjectRepository(SaasInvoiceItem)
     private readonly invoiceItemRepository: Repository<SaasInvoiceItem>,
     @InjectRepository(SaasPayment)
     private readonly paymentRepository: Repository<SaasPayment>,
+    @InjectRepository(SubscriptionChange)
+    private readonly subscriptionChangeRepository: Repository<SubscriptionChange>,
     private readonly configService: ConfigService,
   ) {}
 
@@ -47,6 +59,13 @@ export class SaasCycleBillingService {
         created_at: 'DESC',
       },
       take: 200,
+    });
+  }
+
+  listInvoiceAdjustments(invoiceId: string) {
+    return this.invoiceAdjustmentRepository.find({
+      where: { invoice_id: invoiceId },
+      order: { created_at: 'DESC' },
     });
   }
 
@@ -185,7 +204,218 @@ export class SaasCycleBillingService {
     }
 
     await this.invoiceRepository.save(invoice);
+    await this.restoreSubscriptionAfterPayment(invoice.subscription_id, user.id);
     return payment;
+  }
+
+  async createInvoiceAdjustment(
+    user: AuthenticatedUser,
+    invoiceId: string,
+    dto: {
+      adjustment_type: SaasInvoiceAdjustmentType;
+      amount: string | number;
+      reason: string;
+      metadata?: Record<string, unknown>;
+    },
+  ) {
+    const invoice = await this.invoiceRepository.findOneBy({ id: invoiceId });
+    if (!invoice) {
+      throw new NotFoundException('SaaS invoice was not found');
+    }
+
+    if (
+      ![
+        SaasInvoiceStatus.ISSUED,
+        SaasInvoiceStatus.PARTIALLY_PAID,
+        SaasInvoiceStatus.OVERDUE,
+        SaasInvoiceStatus.PAID,
+      ].includes(invoice.status)
+    ) {
+      throw new ConflictException(
+        'Only issued invoices can be adjusted through an invoice adjustment.',
+      );
+    }
+
+    const amount = DecimalUtil.value(dto.amount);
+    if (amount.lte(0)) {
+      throw new BadRequestException('Adjustment amount must be positive');
+    }
+
+    return this.invoiceAdjustmentRepository.save(
+      this.invoiceAdjustmentRepository.create({
+        company_id: invoice.company_id,
+        invoice_id: invoice.id,
+        adjustment_no: `SADJ-${DateTime.utc().toFormat('yyyyLLddHHmmss')}-${invoice.company_id.slice(0, 6).toUpperCase()}`,
+        adjustment_type: dto.adjustment_type,
+        amount: amount.toFixed(4),
+        currency: invoice.currency,
+        reason: dto.reason.trim(),
+        status: SaasInvoiceAdjustmentStatus.DRAFT,
+        created_by: user.id,
+        approved_by: null,
+        approved_at: null,
+        metadata: dto.metadata ?? null,
+      }),
+    );
+  }
+
+  async approveInvoiceAdjustment(user: AuthenticatedUser, adjustmentId: string) {
+    const adjustment = await this.invoiceAdjustmentRepository.findOneBy({
+      id: adjustmentId,
+    });
+    if (!adjustment) {
+      throw new NotFoundException('Invoice adjustment was not found');
+    }
+
+    if (adjustment.status !== SaasInvoiceAdjustmentStatus.DRAFT) {
+      throw new ConflictException('Only draft adjustments can be approved.');
+    }
+
+    const invoice = await this.invoiceRepository.findOneBy({
+      id: adjustment.invoice_id,
+    });
+    if (!invoice) {
+      throw new NotFoundException('SaaS invoice was not found');
+    }
+
+    const approvedAt = new Date();
+    const adjustmentAmount = DecimalUtil.value(adjustment.amount);
+    const currentTotal = DecimalUtil.value(invoice.total_amount);
+    const currentPaid = DecimalUtil.value(invoice.paid_amount);
+    const currentBalance = DecimalUtil.value(invoice.balance_amount);
+
+    let nextTotal = currentTotal;
+    let nextBalance = currentBalance;
+
+    switch (adjustment.adjustment_type) {
+      case SaasInvoiceAdjustmentType.DEBIT:
+        nextTotal = currentTotal.plus(adjustmentAmount);
+        nextBalance = currentBalance.plus(adjustmentAmount);
+        break;
+      case SaasInvoiceAdjustmentType.CREDIT:
+      case SaasInvoiceAdjustmentType.REVERSAL:
+        nextTotal = currentTotal.minus(adjustmentAmount);
+        if (nextTotal.lt(currentPaid)) {
+          throw new BadRequestException(
+            'Adjustment would reduce invoice total below the amount already paid.',
+          );
+        }
+        nextBalance = DecimalUtil.value(nextTotal).minus(currentPaid);
+        break;
+      case SaasInvoiceAdjustmentType.WRITE_OFF:
+        nextBalance = DecimalUtil.value(currentBalance).minus(adjustmentAmount);
+        break;
+    }
+
+    if (nextBalance.lt(0)) {
+      nextBalance = DecimalUtil.value(0);
+    }
+
+    invoice.total_amount = DecimalUtil.money(nextTotal);
+    invoice.balance_amount = DecimalUtil.money(nextBalance);
+    invoice.updated_by = user.id;
+    invoice.metadata = {
+      ...(invoice.metadata ?? {}),
+      last_adjustment_id: adjustment.id,
+      adjusted_at: approvedAt.toISOString(),
+    };
+    invoice.status = nextBalance.eq(0)
+      ? SaasInvoiceStatus.PAID
+      : currentPaid.gt(0)
+        ? SaasInvoiceStatus.PARTIALLY_PAID
+        : SaasInvoiceStatus.ISSUED;
+
+    adjustment.status = SaasInvoiceAdjustmentStatus.APPLIED;
+    adjustment.approved_by = user.id;
+    adjustment.approved_at = approvedAt;
+
+    await this.invoiceRepository.save(invoice);
+    await this.invoiceAdjustmentRepository.save(adjustment);
+    await this.restoreSubscriptionAfterPayment(invoice.subscription_id, user.id);
+
+    return adjustment;
+  }
+
+  @Cron(process.env.SAAS_DUNNING_CRON ?? '0 15 1 * * *')
+  async processDunning() {
+    const graceDays = Number(
+      this.configService.get<string>('SAAS_PAST_DUE_GRACE_DAYS') ?? '7',
+    );
+    const autoSuspend = this.configService.get<boolean>(
+      'SAAS_AUTO_SUSPEND_ENABLED',
+      true,
+    );
+    const now = new Date();
+
+    const overdueInvoices = await this.invoiceRepository.find({
+      where: {
+        status: Not(SaasInvoiceStatus.VOID),
+        due_at: LessThan(now),
+      },
+      order: { due_at: 'ASC' },
+    });
+
+    let processed = 0;
+
+    for (const invoice of overdueInvoices) {
+      if (DecimalUtil.value(invoice.balance_amount).lte(0)) {
+        continue;
+      }
+
+      const subscription = await this.subscriptionRepository.findOneBy({
+        id: invoice.subscription_id,
+      });
+      if (!subscription) {
+        continue;
+      }
+
+      const dueAt = invoice.due_at ?? now;
+      const graceEndsAt = DateTime.fromJSDate(dueAt)
+        .plus({ day: graceDays })
+        .toJSDate();
+      const beyondGrace = now > graceEndsAt;
+
+      invoice.status = SaasInvoiceStatus.OVERDUE;
+      subscription.grace_period_ends_at = graceEndsAt;
+
+      if (beyondGrace && autoSuspend) {
+        if (subscription.status !== SubscriptionStatus.SUSPENDED) {
+          subscription.status = SubscriptionStatus.SUSPENDED;
+          subscription.suspended_at = now;
+          subscription.suspension_reason = 'SUBSCRIPTION_PAYMENT_OVERDUE';
+          subscription.state_version += 1;
+          await this.subscriptionChangeRepository.save(
+            this.subscriptionChangeRepository.create({
+              subscription_id: subscription.id,
+              company_id: subscription.company_id,
+              change_type: SubscriptionChangeType.SUSPENDED,
+              old_plan_version_id: subscription.plan_version_id,
+              new_plan_version_id: subscription.plan_version_id,
+              effective_at: now,
+              change_summary: {
+                source: 'DUNNING',
+                invoice_id: invoice.id,
+                grace_period_ends_at: graceEndsAt.toISOString(),
+              },
+              changed_by: null,
+            }),
+          );
+        }
+      } else if (
+        [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING].includes(
+          subscription.status,
+        )
+      ) {
+        subscription.status = SubscriptionStatus.PAST_DUE;
+        subscription.state_version += 1;
+      }
+
+      await this.invoiceRepository.save(invoice);
+      await this.subscriptionRepository.save(subscription);
+      processed += 1;
+    }
+
+    return { processed };
   }
 
   async ensureOpenCycleForSubscription(subscriptionId: string) {
@@ -344,5 +574,75 @@ export class SaasCycleBillingService {
         .update(JSON.stringify(snapshot))
         .digest('hex'),
     };
+  }
+
+  private async restoreSubscriptionAfterPayment(
+    subscriptionId: string,
+    changedBy: string,
+  ) {
+    const autoRestore = this.configService.get<boolean>(
+      'SAAS_AUTO_RESTORE_AFTER_PAYMENT',
+      true,
+    );
+    if (!autoRestore) {
+      return;
+    }
+
+    const subscription = await this.subscriptionRepository.findOneBy({
+      id: subscriptionId,
+    });
+    if (
+      !subscription ||
+      ![
+        SubscriptionStatus.PAST_DUE,
+        SubscriptionStatus.SUSPENDED,
+      ].includes(subscription.status)
+    ) {
+      return;
+    }
+
+    const outstanding = await this.invoiceRepository.count({
+      where: {
+        subscription_id: subscriptionId,
+        due_at: LessThan(new Date()),
+        status: In([
+          SaasInvoiceStatus.ISSUED,
+          SaasInvoiceStatus.PARTIALLY_PAID,
+          SaasInvoiceStatus.OVERDUE,
+        ]),
+      },
+    });
+
+    if (outstanding > 0) {
+      return;
+    }
+
+    subscription.status =
+      subscription.trial_ends_at &&
+      DateTime.fromJSDate(subscription.trial_ends_at) > DateTime.utc()
+        ? SubscriptionStatus.TRIALING
+        : SubscriptionStatus.ACTIVE;
+    subscription.suspended_at = null;
+    subscription.suspension_reason = null;
+    subscription.grace_period_ends_at = null;
+    subscription.updated_by = changedBy;
+    subscription.state_version += 1;
+    await this.subscriptionRepository.save(subscription);
+
+    await this.subscriptionChangeRepository.save(
+      this.subscriptionChangeRepository.create({
+        subscription_id: subscription.id,
+        company_id: subscription.company_id,
+        change_type: SubscriptionChangeType.UNSUSPENSION,
+        old_plan_version_id: subscription.plan_version_id,
+        new_plan_version_id: subscription.plan_version_id,
+        effective_at: new Date(),
+        change_summary: {
+          source: 'PAYMENT_RESTORED',
+          restored_status: subscription.status,
+        },
+        changed_by: changedBy,
+      }),
+    );
   }
 }

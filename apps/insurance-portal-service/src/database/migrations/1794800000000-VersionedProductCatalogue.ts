@@ -6,7 +6,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * contain valid UUID values.
  */
 const SAFE_UUID_CAST = (column: string) =>
-  `CASE WHEN ${column} ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN ${column}::uuid ELSE NULL END`;
+  `CASE WHEN ${column}::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN ${column}::uuid ELSE NULL END`;
 
 export class VersionedProductCatalogue1794800000000 implements MigrationInterface {
   name = 'VersionedProductCatalogue1794800000000';
@@ -78,7 +78,7 @@ export class VersionedProductCatalogue1794800000000 implements MigrationInterfac
      * Versioned product definition.
      */
     await queryRunner.query(`
-      CREATE TABLE "insurance_product_versions" (
+      CREATE TABLE IF NOT EXISTS "insurance_product_versions" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "company_id" uuid NOT NULL,
@@ -162,17 +162,17 @@ export class VersionedProductCatalogue1794800000000 implements MigrationInterfac
     `);
 
     await queryRunner.query(`
-      CREATE INDEX "IDX_product_versions_company"
+      CREATE INDEX IF NOT EXISTS "IDX_product_versions_company"
       ON "insurance_product_versions" ("company_id")
     `);
 
     await queryRunner.query(`
-      CREATE INDEX "IDX_product_versions_product_status"
+      CREATE INDEX IF NOT EXISTS "IDX_product_versions_product_status"
       ON "insurance_product_versions" ("product_id", "status", "effective_from", "effective_to")
     `);
 
     await queryRunner.query(`
-      CREATE UNIQUE INDEX "UQ_product_one_editable_draft"
+      CREATE UNIQUE INDEX IF NOT EXISTS "UQ_product_one_editable_draft"
       ON "insurance_product_versions" ("product_id")
       WHERE "status" = 'DRAFT'
     `);
@@ -181,7 +181,7 @@ export class VersionedProductCatalogue1794800000000 implements MigrationInterfac
      * Product definition items (coverages, benefits, conditions, warranties, exclusions).
      */
     await queryRunner.query(`
-      CREATE TABLE "product_definition_items" (
+      CREATE TABLE IF NOT EXISTS "product_definition_items" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "company_id" uuid NOT NULL,
@@ -217,7 +217,7 @@ export class VersionedProductCatalogue1794800000000 implements MigrationInterfac
      * Approved add-on definitions. Pricing for these add-ons is configured in Phase 7.
      */
     await queryRunner.query(`
-      CREATE TABLE "product_addon_definitions" (
+      CREATE TABLE IF NOT EXISTS "product_addon_definitions" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "company_id" uuid NOT NULL,
@@ -257,7 +257,7 @@ export class VersionedProductCatalogue1794800000000 implements MigrationInterfac
      * Supporting-document definitions.
      */
     await queryRunner.query(`
-      CREATE TABLE "product_document_requirements" (
+      CREATE TABLE IF NOT EXISTS "product_document_requirements" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "company_id" uuid NOT NULL,
@@ -299,7 +299,7 @@ export class VersionedProductCatalogue1794800000000 implements MigrationInterfac
      * Subclasses available under each immutable version (snapshotted).
      */
     await queryRunner.query(`
-      CREATE TABLE "product_version_sub_classes" (
+      CREATE TABLE IF NOT EXISTS "product_version_sub_classes" (
         "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
 
         "company_id" uuid NOT NULL,
@@ -334,9 +334,14 @@ export class VersionedProductCatalogue1794800000000 implements MigrationInterfac
     `);
 
     await queryRunner.query(`
-      CREATE UNIQUE INDEX "UQ_product_version_one_default_sub_class"
+      CREATE UNIQUE INDEX IF NOT EXISTS "UQ_product_version_one_default_sub_class"
       ON "product_version_sub_classes" ("product_version_id")
       WHERE "is_default" = true
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE "insurance_products"
+      DROP CONSTRAINT IF EXISTS "FK_insurance_product_current_version"
     `);
 
     await queryRunner.query(`
@@ -483,6 +488,11 @@ export class VersionedProductCatalogue1794800000000 implements MigrationInterfac
 
     await queryRunner.query(`
       ALTER TABLE "quotations"
+      DROP CONSTRAINT IF EXISTS "FK_quotation_product_version"
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE "quotations"
       ADD CONSTRAINT "FK_quotation_product_version"
       FOREIGN KEY ("product_version_id") REFERENCES "insurance_product_versions"("id") ON DELETE RESTRICT
     `);
@@ -534,7 +544,7 @@ export class VersionedProductCatalogue1794800000000 implements MigrationInterfac
     `);
 
     await queryRunner.query(`
-      CREATE INDEX "IDX_quotations_product_version"
+      CREATE INDEX IF NOT EXISTS "IDX_quotations_product_version"
       ON "quotations" ("product_version_id")
     `);
   }

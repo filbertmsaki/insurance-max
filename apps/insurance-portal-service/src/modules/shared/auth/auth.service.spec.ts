@@ -187,6 +187,12 @@ describe('AuthService', () => {
           useValue: {
             verify2FALogin: jest.fn(),
             is2FARequired: jest.fn().mockResolvedValue(false),
+            getRequirement: jest.fn().mockResolvedValue({
+              required: false,
+              enrolled: false,
+              allowTrustedDeviceBypass: true,
+              stepUpMaxAgeMinutes: 10,
+            }),
           },
         },
         {
@@ -294,7 +300,12 @@ describe('AuthService', () => {
     });
 
     it('requires 2FA when enabled and the device is not trusted', async () => {
-      twoFaService.is2FARequired.mockResolvedValue(true);
+      twoFaService.getRequirement.mockResolvedValue({
+        required: true,
+        enrolled: true,
+        allowTrustedDeviceBypass: true,
+        stepUpMaxAgeMinutes: 10,
+      });
       devicesService.isTrusted.mockResolvedValue(false);
 
       const result = await service.phoneLogin({
@@ -309,7 +320,12 @@ describe('AuthService', () => {
     });
 
     it('bypasses 2FA and issues a session when the device is trusted', async () => {
-      twoFaService.is2FARequired.mockResolvedValue(true);
+      twoFaService.getRequirement.mockResolvedValue({
+        required: true,
+        enrolled: true,
+        allowTrustedDeviceBypass: true,
+        stepUpMaxAgeMinutes: 10,
+      });
       devicesService.isTrusted.mockResolvedValue(true);
 
       const result = await service.phoneLogin({
@@ -331,7 +347,12 @@ describe('AuthService', () => {
     });
 
     it('requires 2FA when enabled and the device is not trusted', async () => {
-      twoFaService.is2FARequired.mockResolvedValue(true);
+      twoFaService.getRequirement.mockResolvedValue({
+        required: true,
+        enrolled: true,
+        allowTrustedDeviceBypass: true,
+        stepUpMaxAgeMinutes: 10,
+      });
       devicesService.isTrusted.mockResolvedValue(false);
 
       const result = await service.completePasswordlessLogin('link-token');

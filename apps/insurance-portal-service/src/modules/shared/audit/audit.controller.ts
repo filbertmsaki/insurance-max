@@ -61,4 +61,10 @@ export class AuditController {
 
     return record;
   }
+
+  @Get('verify-chain/status')
+  @Permissions('audit:verify-chain')
+  verifyChain() {
+    return this.auditService.verifyChain();
+  }
 }

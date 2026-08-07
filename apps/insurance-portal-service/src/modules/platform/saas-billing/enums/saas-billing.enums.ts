@@ -62,8 +62,28 @@ export enum EntitlementValueType {
 
 export enum SubscriptionChangeType {
   CREATED = 'CREATED',
+  UPGRADE = 'UPGRADE',
+  DOWNGRADE = 'DOWNGRADE',
+  RENEWAL = 'RENEWAL',
   PLAN_CHANGED = 'PLAN_CHANGED',
+  REACTIVATION = 'REACTIVATION',
   SUSPENDED = 'SUSPENDED',
+  UNSUSPENSION = 'UNSUSPENSION',
   CANCELLED = 'CANCELLED',
   RESUMED = 'RESUMED',
+  MANUAL_ADJUSTMENT = 'MANUAL_ADJUSTMENT',
+}
+
+export enum SaasInvoiceAdjustmentType {
+  CREDIT = 'CREDIT',
+  DEBIT = 'DEBIT',
+  REVERSAL = 'REVERSAL',
+  WRITE_OFF = 'WRITE_OFF',
+}
+
+export enum SaasInvoiceAdjustmentStatus {
+  DRAFT = 'DRAFT',
+  APPROVED = 'APPROVED',
+  APPLIED = 'APPLIED',
+  VOID = 'VOID',
 }

@@ -54,12 +54,18 @@ describe('insurance portal environment validation', () => {
       ANALYTICS_ENABLED: false,
       ANALYTICS_PROJECTION_BATCH_SIZE: 50,
       ANALYTICS_PROJECTION_MAX_ATTEMPTS: 5,
+      SESSION_IDLE_MINUTES: 45,
+      SECURITY_STEP_UP_MAX_AGE_MINUTES: 15,
+      RELEASE_BUILD_LINT_PASSED: true,
     });
 
     expect(result.error).toBeUndefined();
     expect(result.value.ANALYTICS_ENABLED).toBe(false);
     expect(result.value.ANALYTICS_PROJECTION_BATCH_SIZE).toBe(50);
     expect(result.value.ANALYTICS_PROJECTION_MAX_ATTEMPTS).toBe(5);
+    expect(result.value.SESSION_IDLE_MINUTES).toBe(45);
+    expect(result.value.SECURITY_STEP_UP_MAX_AGE_MINUTES).toBe(15);
+    expect(result.value.RELEASE_BUILD_LINT_PASSED).toBe(true);
   });
 
   it.each([

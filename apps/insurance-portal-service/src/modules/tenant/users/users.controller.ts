@@ -206,7 +206,12 @@ export class UsersController {
     @Req() req: ExpressRequest & { user: AuthenticatedUser },
     @Body() dto: Verify2FaDto,
   ) {
-    return this.twoFaService.disable2FA(req.user.id, dto.code);
+    return this.twoFaService.disable2FA(
+      req.user.id,
+      req.user.sessionId,
+      dto.code,
+      req.user.companyId,
+    );
   }
 
   @Post('2fa/backup-codes/regenerate')
@@ -215,6 +220,11 @@ export class UsersController {
     @Req() req: ExpressRequest & { user: AuthenticatedUser },
     @Body() dto: Verify2FaDto,
   ) {
-    return this.twoFaService.regenerateBackupCodes(req.user.id, dto.code);
+    return this.twoFaService.regenerateBackupCodes(
+      req.user.id,
+      req.user.sessionId,
+      dto.code,
+      req.user.companyId,
+    );
   }
 }

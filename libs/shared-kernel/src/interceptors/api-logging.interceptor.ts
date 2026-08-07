@@ -8,6 +8,10 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { tap, type Observable } from 'rxjs';
+import {
+  buildStructuredLog,
+  observabilityMetrics,
+} from '@insurance-max/observability';
 
 import type { RequestWithContext } from '../interfaces';
 import { RequestContextService } from '../context';
@@ -72,15 +76,25 @@ export class ApiLoggingInterceptor implements NestInterceptor {
       this.contextService.getRequestId() ||
       'unknown';
 
-    const logPayload = JSON.stringify({
-      event: 'http.request.completed',
+    const route = params.request.originalUrl || params.request.url;
+    const slowThresholdMs = Number(process.env.SLOW_REQUEST_THRESHOLD_MS ?? 2000);
+
+    observabilityMetrics.recordHttpRequest(
+      params.request.method,
+      route,
+      params.statusCode,
+      params.durationMs,
+      slowThresholdMs,
+    );
+
+    const logPayload = buildStructuredLog('http.request.completed', {
       requestId,
       correlationId:
         params.request.correlationId ||
         this.contextService.getCorrelationId() ||
         requestId,
       method: params.request.method,
-      path: params.request.originalUrl || params.request.url,
+      path: route,
       statusCode: params.statusCode,
       durationMs: params.durationMs,
       sourceService: params.request.sourceService || null,

@@ -337,6 +337,9 @@ export class UsersService {
   async findByIdFor2FA(userId: string): Promise<User> {
     const user = await this.userRepository
       .createQueryBuilder('user')
+      .leftJoinAndSelect('user.roles', 'role')
+      .leftJoinAndSelect('role.permissions', 'rolePermission')
+      .leftJoinAndSelect('user.permissions', 'permission')
       .addSelect('user.two_factor_secret')
       .addSelect('user.two_factor_backup_codes')
       .where('user.id = :userId', { userId })

@@ -4,7 +4,8 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { createHash } from 'node:crypto';
+import { EntityManager, IsNull, Not, Repository } from 'typeorm';
 import { RequestContextService } from '@insurance-max/shared-kernel';
 
 import { AuditLog, AuditAction } from './entities/audit-log.entity';
@@ -43,6 +44,7 @@ type LogOptions = AuditOptions;
 @Injectable()
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
+  private readonly hashChainEnabled: boolean;
 
   private readonly sensitiveKeys = new Set([
     'password',
@@ -65,7 +67,11 @@ export class AuditService {
     private readonly auditRepo: Repository<AuditLog>,
 
     private readonly requestContextService: RequestContextService,
-  ) {}
+  ) {
+    this.hashChainEnabled =
+      process.env.AUDIT_HASH_CHAIN_ENABLED !== 'false' &&
+      process.env.SECURITY_AUDIT_HASH_CHAIN_ENABLED !== 'false';
+  }
 
   /**
    * Best-effort audit write. Failures are logged but never thrown -
@@ -148,7 +154,64 @@ export class AuditService {
       status: options.status ?? 'success',
     });
 
+    if (this.hashChainEnabled) {
+      const previousEvent = await repository.findOne({
+        where: {
+          event_no: Not(IsNull()),
+        },
+        order: { event_no: 'DESC' },
+      });
+
+      entity.event_no = String((Number(previousEvent?.event_no ?? 0) || 0) + 1);
+      entity.previous_event_hash = previousEvent?.event_hash ?? null;
+      entity.event_hash = this.computeEventHash(entity);
+    }
+
     await repository.save(entity);
+  }
+
+  async verifyChain() {
+    const events = await this.auditRepo.find({
+      where: {
+        event_no: Not(IsNull()),
+      },
+      order: { event_no: 'ASC', created_at: 'ASC' },
+    });
+
+    let previousHash: string | null = null;
+
+    for (const event of events) {
+      const expectedHash = this.computeEventHash(event);
+      if (event.previous_event_hash !== previousHash) {
+        return {
+          valid: false,
+          totalEvents: events.length,
+          brokenEventId: event.id,
+          brokenEventNo: event.event_no,
+          reason: 'PREVIOUS_HASH_MISMATCH',
+        };
+      }
+
+      if (event.event_hash !== expectedHash) {
+        return {
+          valid: false,
+          totalEvents: events.length,
+          brokenEventId: event.id,
+          brokenEventNo: event.event_no,
+          reason: 'EVENT_HASH_MISMATCH',
+        };
+      }
+
+      previousHash = event.event_hash;
+    }
+
+    return {
+      valid: true,
+      totalEvents: events.length,
+      brokenEventId: null,
+      brokenEventNo: null,
+      reason: null,
+    };
   }
 
   private redact(
@@ -325,5 +388,52 @@ export class AuditService {
         hasPreviousPage: page > 1,
       },
     };
+  }
+
+  private computeEventHash(
+    event: Pick<
+      AuditLog,
+      | 'event_no'
+      | 'previous_event_hash'
+      | 'user_id'
+      | 'company_id'
+      | 'action'
+      | 'resource'
+      | 'resource_id'
+      | 'status'
+      | 'metadata'
+      | 'before_state'
+      | 'after_state'
+      | 'changed_fields'
+      | 'request_id'
+      | 'correlation_id'
+      | 'actor_type'
+      | 'actor_service'
+      | 'event_category'
+      | 'reason'
+    >,
+  ): string {
+    const payload = JSON.stringify({
+      eventNo: event.event_no ?? null,
+      previousEventHash: event.previous_event_hash ?? null,
+      userId: event.user_id ?? null,
+      companyId: event.company_id ?? null,
+      action: event.action,
+      resource: event.resource ?? null,
+      resourceId: event.resource_id ?? null,
+      status: event.status,
+      metadata: event.metadata ?? null,
+      beforeState: event.before_state ?? null,
+      afterState: event.after_state ?? null,
+      changedFields: event.changed_fields ?? null,
+      requestId: event.request_id ?? null,
+      correlationId: event.correlation_id ?? null,
+      actorType: event.actor_type,
+      actorService: event.actor_service ?? null,
+      eventCategory: event.event_category ?? null,
+      reason: event.reason ?? null,
+    });
+
+    return createHash('sha256').update(payload).digest('hex');
   }
 }

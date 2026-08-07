@@ -4,6 +4,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { createHash } from 'crypto';
@@ -54,6 +56,7 @@ export class SubscriptionService {
     private readonly entitlementRepository: Repository<SubscriptionEntitlement>,
     @InjectRepository(Company)
     private readonly companyRepository: Repository<Company>,
+    private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -464,6 +467,307 @@ export class SubscriptionService {
           cancel_at_period_end: subscription.cancel_at_period_end,
         },
         changed_by: user.id,
+      }),
+    );
+
+    return saved;
+  }
+
+  async schedulePlanChange(
+    user: AuthenticatedUser,
+    id: string,
+    dto: {
+      plan_id: string;
+      effective_at?: string;
+      reason?: string;
+    },
+  ) {
+    const subscription = await this.getSubscription(id);
+    if (
+      ![
+        SubscriptionStatus.TRIALING,
+        SubscriptionStatus.ACTIVE,
+        SubscriptionStatus.PAST_DUE,
+      ].includes(subscription.status)
+    ) {
+      throw new ConflictException(
+        'Only active or past-due subscriptions can schedule a plan change.',
+      );
+    }
+
+    const plan = await this.planRepository.findOne({
+      where: {
+        id: dto.plan_id,
+        status: SaasPlanStatus.ACTIVE,
+        deleted_at: IsNull(),
+      },
+    });
+    if (!plan?.active_version_id) {
+      throw new NotFoundException('The target SaaS plan is not published.');
+    }
+
+    const version = await this.planVersionRepository.findOneByOrFail({
+      id: plan.active_version_id,
+    });
+
+    const effectiveAt = dto.effective_at
+      ? DateTime.fromISO(dto.effective_at)
+      : DateTime.fromJSDate(subscription.current_period_end).plus({
+          millisecond: 1,
+        });
+
+    if (!effectiveAt.isValid) {
+      throw new BadRequestException('Invalid scheduled change date.');
+    }
+
+    if (effectiveAt < DateTime.utc()) {
+      throw new BadRequestException(
+        'Scheduled subscription changes must be in the future.',
+      );
+    }
+
+    subscription.scheduled_plan_id = plan.id;
+    subscription.scheduled_plan_version_id = version.id;
+    subscription.scheduled_change_at = effectiveAt.toJSDate();
+    subscription.cancel_at_period_end = false;
+    subscription.updated_by = user.id;
+    subscription.state_version += 1;
+    const saved = await this.subscriptionRepository.save(subscription);
+
+    const changeType =
+      Number(version.base_price) >= Number(subscription.base_price)
+        ? SubscriptionChangeType.UPGRADE
+        : SubscriptionChangeType.DOWNGRADE;
+
+    await this.subscriptionChangeRepository.save(
+      this.subscriptionChangeRepository.create({
+        subscription_id: saved.id,
+        company_id: saved.company_id,
+        change_type: changeType,
+        old_plan_version_id: saved.plan_version_id,
+        new_plan_version_id: version.id,
+        effective_at: effectiveAt.toJSDate(),
+        change_summary: {
+          status: 'SCHEDULED',
+          reason: dto.reason ?? null,
+          scheduled_change_at: effectiveAt.toISO(),
+        },
+        changed_by: user.id,
+      }),
+    );
+
+    return saved;
+  }
+
+  async scheduleCancellation(
+    user: AuthenticatedUser,
+    id: string,
+    reason?: string,
+  ) {
+    const subscription = await this.getSubscription(id);
+    if (
+      ![
+        SubscriptionStatus.TRIALING,
+        SubscriptionStatus.ACTIVE,
+        SubscriptionStatus.PAST_DUE,
+        SubscriptionStatus.SUSPENDED,
+      ].includes(subscription.status)
+    ) {
+      throw new ConflictException(
+        'This subscription cannot be scheduled for cancellation.',
+      );
+    }
+
+    subscription.cancel_at_period_end = true;
+    subscription.scheduled_plan_id = null;
+    subscription.scheduled_plan_version_id = null;
+    subscription.scheduled_change_at = subscription.current_period_end;
+    subscription.updated_by = user.id;
+    subscription.state_version += 1;
+    const saved = await this.subscriptionRepository.save(subscription);
+
+    await this.subscriptionChangeRepository.save(
+      this.subscriptionChangeRepository.create({
+        subscription_id: saved.id,
+        company_id: saved.company_id,
+        change_type: SubscriptionChangeType.CANCELLED,
+        old_plan_version_id: saved.plan_version_id,
+        new_plan_version_id: null,
+        effective_at: saved.current_period_end,
+        change_summary: {
+          status: 'SCHEDULED',
+          reason: reason ?? null,
+          cancel_at_period_end: true,
+        },
+        changed_by: user.id,
+      }),
+    );
+
+    return saved;
+  }
+
+  async reactivateSubscription(id: string, changedBy?: string) {
+    const subscription = await this.getSubscription(id);
+    if (
+      ![
+        SubscriptionStatus.SUSPENDED,
+        SubscriptionStatus.PAST_DUE,
+      ].includes(subscription.status)
+    ) {
+      return subscription;
+    }
+
+    const now = DateTime.utc();
+    subscription.status =
+      subscription.trial_ends_at && DateTime.fromJSDate(subscription.trial_ends_at) > now
+        ? SubscriptionStatus.TRIALING
+        : SubscriptionStatus.ACTIVE;
+    subscription.suspended_at = null;
+    subscription.suspension_reason = null;
+    subscription.grace_period_ends_at = null;
+    subscription.updated_by = changedBy ?? subscription.updated_by;
+    subscription.state_version += 1;
+    const saved = await this.subscriptionRepository.save(subscription);
+
+    await this.subscriptionChangeRepository.save(
+      this.subscriptionChangeRepository.create({
+        subscription_id: saved.id,
+        company_id: saved.company_id,
+        change_type: SubscriptionChangeType.UNSUSPENSION,
+        old_plan_version_id: saved.plan_version_id,
+        new_plan_version_id: saved.plan_version_id,
+        effective_at: new Date(),
+        change_summary: {
+          restored_status: saved.status,
+          source: 'PAYMENT_RESTORED',
+        },
+        changed_by: changedBy ?? null,
+      }),
+    );
+
+    return saved;
+  }
+
+  @Cron(process.env.SAAS_SCHEDULED_CHANGES_CRON ?? '0 */15 * * * *')
+  async processScheduledChanges() {
+    return this.applyDueScheduledChanges();
+  }
+
+  async applyDueScheduledChanges() {
+    const now = new Date();
+    const dueSubscriptions = await this.subscriptionRepository.find({
+      where: {
+        deleted_at: IsNull(),
+      },
+      order: { scheduled_change_at: 'ASC' },
+    });
+
+    let processed = 0;
+
+    for (const subscription of dueSubscriptions) {
+      if (!subscription.scheduled_change_at || subscription.scheduled_change_at > now) {
+        continue;
+      }
+
+      if (subscription.cancel_at_period_end) {
+        subscription.status = SubscriptionStatus.CANCELLED;
+        subscription.cancelled_at = now;
+        subscription.cancel_at_period_end = false;
+        subscription.scheduled_plan_id = null;
+        subscription.scheduled_plan_version_id = null;
+        subscription.scheduled_change_at = null;
+        subscription.state_version += 1;
+        const saved = await this.subscriptionRepository.save(subscription);
+        await this.subscriptionChangeRepository.save(
+          this.subscriptionChangeRepository.create({
+            subscription_id: saved.id,
+            company_id: saved.company_id,
+            change_type: SubscriptionChangeType.CANCELLED,
+            old_plan_version_id: saved.plan_version_id,
+            new_plan_version_id: null,
+            effective_at: now,
+            change_summary: {
+              status: 'APPLIED',
+              cancel_at_period_end: true,
+            },
+            changed_by: saved.updated_by ?? null,
+          }),
+        );
+        processed += 1;
+        continue;
+      }
+
+      if (
+        subscription.scheduled_plan_id &&
+        subscription.scheduled_plan_version_id
+      ) {
+        await this.applyScheduledPlanChange(subscription, now);
+        processed += 1;
+      }
+    }
+
+    return { processed };
+  }
+
+  private async applyScheduledPlanChange(
+    subscription: CompanySubscription,
+    appliedAt: Date,
+  ) {
+    const oldPlanVersionId = subscription.plan_version_id;
+    const version = await this.planVersionRepository.findOneByOrFail({
+      id: subscription.scheduled_plan_version_id!,
+    });
+
+    await this.entitlementRepository.update(
+      {
+        subscription_id: subscription.id,
+        company_id: subscription.company_id,
+        effective_to: IsNull(),
+      },
+      { effective_to: appliedAt },
+    );
+
+    subscription.plan_id = subscription.scheduled_plan_id!;
+    subscription.plan_version_id = version.id;
+    subscription.billing_interval = version.billing_interval;
+    subscription.currency = version.currency;
+    subscription.base_price = version.base_price;
+    subscription.plan_snapshot = version.plan_snapshot;
+    subscription.plan_snapshot_hash = version.plan_snapshot_hash;
+    subscription.current_period_start = appliedAt;
+    subscription.current_period_end = this.addBillingInterval(
+      DateTime.fromJSDate(appliedAt),
+      version.billing_interval,
+    )
+      .minus({ day: 1 })
+      .toJSDate();
+    subscription.last_billed_at = appliedAt;
+    subscription.next_billing_at = subscription.current_period_end;
+    subscription.scheduled_plan_id = null;
+    subscription.scheduled_plan_version_id = null;
+    subscription.scheduled_change_at = null;
+    subscription.state_version += 1;
+
+    const saved = await this.subscriptionRepository.save(subscription);
+    await this.copyVersionFeaturesToEntitlements(
+      saved.id,
+      saved.company_id,
+      version,
+    );
+
+    await this.subscriptionChangeRepository.save(
+      this.subscriptionChangeRepository.create({
+        subscription_id: saved.id,
+        company_id: saved.company_id,
+        change_type: SubscriptionChangeType.PLAN_CHANGED,
+        old_plan_version_id: oldPlanVersionId,
+        new_plan_version_id: version.id,
+        effective_at: appliedAt,
+        change_summary: {
+          status: 'APPLIED',
+          current_period_end: saved.current_period_end.toISOString(),
+        },
+        changed_by: saved.updated_by ?? null,
       }),
     );
 

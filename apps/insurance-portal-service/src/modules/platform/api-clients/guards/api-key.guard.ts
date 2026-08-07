@@ -7,6 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { ApiClientsService } from '../api-clients.service';
+import { API_CLIENT_SCOPES_KEY } from '../decorators/require-api-client-scopes.decorator';
 import { ApiClient } from '../entities/api-client.entity';
 
 declare module 'express' {
@@ -34,7 +35,7 @@ export class ApiKeyGuard implements CanActivate {
 
     const [clientId, clientSecret] = parts;
     const requiredScopes =
-      this.reflector.getAllAndMerge<string[]>('api-client-scopes', [
+      this.reflector.getAllAndMerge<string[]>(API_CLIENT_SCOPES_KEY, [
         context.getHandler(),
         context.getClass(),
       ]) ?? [];

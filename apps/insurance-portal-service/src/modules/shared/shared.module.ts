@@ -10,6 +10,8 @@ import { OtpModule } from './otp/otp.module';
 import { RedisModule } from './redis/redis.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { AnalyticsCoreModule } from './analytics/analytics-core.module';
+import { SecurityPoliciesModule } from './security-policies/security-policies.module';
+import { RetentionModule } from './retention/retention.module';
 
 @Module({
   imports: [
@@ -22,6 +24,8 @@ import { AnalyticsCoreModule } from './analytics/analytics-core.module';
     SessionsModule,
     DevicesModule,
     AnalyticsCoreModule,
+    SecurityPoliciesModule,
+    RetentionModule,
   ],
   providers: [BusinessReferenceService],
   exports: [
@@ -35,6 +39,8 @@ import { AnalyticsCoreModule } from './analytics/analytics-core.module';
     DevicesModule,
     BusinessReferenceService,
     AnalyticsCoreModule,
+    SecurityPoliciesModule,
+    RetentionModule,
   ],
 })
 export class SharedModule {}
