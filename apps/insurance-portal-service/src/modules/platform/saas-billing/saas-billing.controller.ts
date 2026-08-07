@@ -56,6 +56,41 @@ export class SaasBillingController {
     return this.subscriptionService.updatePlan(user, id, dto);
   }
 
+  @Get('plans/:id/versions')
+  @Permissions(SaasBillingPermissions.PLAN_READ)
+  listPlanVersions(@Param('id', ParseUUIDPipe) id: string) {
+    return this.subscriptionService.listPlanVersions(id);
+  }
+
+  @Post('plans/:id/versions')
+  @Permissions(SaasBillingPermissions.PLAN_UPDATE)
+  createPlanVersion(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.subscriptionService.createPlanVersion(user, id);
+  }
+
+  @Post('plans/:id/versions/:versionId/approve')
+  @Permissions(SaasBillingPermissions.PLAN_ACTIVATE)
+  approvePlanVersion(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('versionId', ParseUUIDPipe) versionId: string,
+  ) {
+    return this.subscriptionService.approvePlanVersion(user, id, versionId);
+  }
+
+  @Post('plans/:id/versions/:versionId/publish')
+  @Permissions(SaasBillingPermissions.PLAN_ACTIVATE)
+  publishPlanVersion(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('versionId', ParseUUIDPipe) versionId: string,
+  ) {
+    return this.subscriptionService.publishPlanVersion(user, id, versionId);
+  }
+
   @Post('plans/:id/activate')
   @Permissions(SaasBillingPermissions.PLAN_ACTIVATE)
   activatePlan(

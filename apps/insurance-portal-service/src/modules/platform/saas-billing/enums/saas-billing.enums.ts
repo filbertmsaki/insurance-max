@@ -5,6 +5,14 @@ export enum SaasPlanStatus {
   ARCHIVED = 'ARCHIVED',
 }
 
+export enum SaasPlanVersionStatus {
+  DRAFT = 'DRAFT',
+  APPROVED = 'APPROVED',
+  ACTIVE = 'ACTIVE',
+  SUPERSEDED = 'SUPERSEDED',
+  RETIRED = 'RETIRED',
+}
+
 export enum SubscriptionStatus {
   TRIALING = 'TRIALING',
   ACTIVE = 'ACTIVE',
@@ -50,4 +58,12 @@ export enum EntitlementValueType {
   DECIMAL = 'DECIMAL',
   TEXT = 'TEXT',
   JSON = 'JSON',
+}
+
+export enum SubscriptionChangeType {
+  CREATED = 'CREATED',
+  PLAN_CHANGED = 'PLAN_CHANGED',
+  SUSPENDED = 'SUSPENDED',
+  CANCELLED = 'CANCELLED',
+  RESUMED = 'RESUMED',
 }

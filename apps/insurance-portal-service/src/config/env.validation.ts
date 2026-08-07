@@ -71,6 +71,18 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   SAAS_INVOICE_DUE_DAYS: Joi.number().integer().min(1).default(14),
   SAAS_PAST_DUE_GRACE_DAYS: Joi.number().integer().min(0).default(7),
   SAAS_USAGE_AGGREGATION_CRON: Joi.string().default('0 15 1 * * *'),
+  API_KEYS_ENABLED: Joi.boolean().default(true),
+  API_KEY_REQUIRE_IP_ALLOWLIST: Joi.boolean().default(true),
+  API_KEY_MAX_IPS_PER_KEY: Joi.number().integer().min(1).default(1),
+  API_KEY_DEFAULT_RATE_LIMIT_PER_MINUTE: Joi.number()
+    .integer()
+    .min(1)
+    .default(60),
+  API_KEY_ROTATION_GRACE_HOURS: Joi.number()
+    .integer()
+    .min(1)
+    .default(24),
+  API_KEY_MAX_VALIDITY_DAYS: Joi.number().integer().min(1).default(365),
   REGULATORY_ENABLED: Joi.boolean().default(true),
   REGULATORY_CALENDAR_ENABLED: Joi.boolean().default(true),
   REGULATORY_CALENDAR_GENERATION_CRON: Joi.string().default('0 10 0 * * *'),

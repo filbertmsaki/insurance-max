@@ -23,6 +23,9 @@ export class CompanySubscription {
   @Column({ type: 'uuid' })
   plan_id: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  plan_version_id!: string | null;
+
   @Column({ length: 60, unique: true })
   subscription_no: string;
 
@@ -42,6 +45,12 @@ export class CompanySubscription {
   @Column({ type: 'numeric', precision: 20, scale: 2, default: 0 })
   base_price: string;
 
+  @Column({ type: 'jsonb', nullable: true })
+  plan_snapshot!: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  plan_snapshot_hash!: string | null;
+
   @Column({ type: 'timestamptz' })
   started_at: Date;
 
@@ -53,6 +62,27 @@ export class CompanySubscription {
 
   @Column({ type: 'timestamptz' })
   current_period_end: Date;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  grace_period_ends_at!: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  scheduled_plan_id!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  scheduled_plan_version_id!: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  scheduled_change_at!: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  last_billed_at!: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  next_billing_at!: Date | null;
+
+  @Column({ type: 'int', default: 1 })
+  state_version: number;
 
   @Column({ default: false })
   cancel_at_period_end: boolean;

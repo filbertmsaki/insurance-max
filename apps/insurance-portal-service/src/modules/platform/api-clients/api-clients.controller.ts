@@ -8,6 +8,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Patch,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -39,8 +40,13 @@ export class ApiClientsController {
     return this.apiClientsService.create({
       name: dto.name,
       companyId: user.companyId,
+      ownerUserId: user.id,
       scopes: dto.scopes,
       description: dto.description,
+      clientType: dto.client_type,
+      environment: dto.environment,
+      ipWhitelist: dto.ip_whitelist,
+      rateLimitPerMinute: dto.rate_limit_per_minute,
     });
   }
 
@@ -61,6 +67,16 @@ export class ApiClientsController {
     return this.apiClientsService.findById(id, user.companyId);
   }
 
+  @Get(':id/audit')
+  @Roles('SUPER_ADMIN', 'OWNER')
+  @ApiOperation({ summary: 'List API client usage audit events' })
+  findAudit(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.apiClientsService.listUsageEvents(id, user.companyId);
+  }
+
   @Post(':id/rotate-secret')
   @Roles('SUPER_ADMIN', 'OWNER')
   @ApiOperation({ summary: 'Rotate API client secret' })
@@ -68,7 +84,25 @@ export class ApiClientsController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.apiClientsService.rotateSecret(id, user.companyId);
+    return this.apiClientsService.rotateSecret(id, user.id, user.companyId);
+  }
+
+  @Patch(':id')
+  @Roles('SUPER_ADMIN', 'OWNER')
+  @ApiOperation({ summary: 'Update API client security policy' })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body()
+    dto: {
+      scopes?: string[];
+      description?: string;
+      ip_whitelist?: string[];
+      rate_limit_per_minute?: number | null;
+      status?: string;
+    },
+  ) {
+    return this.apiClientsService.update(id, user.companyId, dto);
   }
 
   @Delete(':id')
@@ -78,7 +112,8 @@ export class ApiClientsController {
   revoke(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: { reason?: string },
   ) {
-    return this.apiClientsService.revoke(id, user.companyId);
+    return this.apiClientsService.revoke(id, user.companyId, dto.reason);
   }
 }

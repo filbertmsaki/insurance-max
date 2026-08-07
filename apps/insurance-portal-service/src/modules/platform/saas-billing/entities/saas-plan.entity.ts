@@ -46,6 +46,12 @@ export class SaasPlan {
   status: SaasPlanStatus;
 
   @Column({ type: 'uuid', nullable: true })
+  active_version_id!: string | null;
+
+  @Column({ type: 'int', default: 0 })
+  current_version_number: number;
+
+  @Column({ type: 'uuid', nullable: true })
   created_by!: string | null;
 
   @Column({ type: 'uuid', nullable: true })

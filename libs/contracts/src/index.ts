@@ -20,3 +20,4 @@ export * from './regulatory';
 export * from './reporting';
 export * from './analytics';
 export * from './engagement';
+export * from './security';

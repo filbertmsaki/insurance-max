@@ -53,7 +53,7 @@ export class SubscriptionAccessService {
   }
 
   async getEntitlements(companyId: string): Promise<SubscriptionEntitlement[]> {
-    const subscription = await this.getActiveSubscription(companyId);
+    const subscription = await this.getSubscriptionForAccess(companyId);
     const now = new Date();
 
     return this.entitlementRepository.find({
@@ -67,6 +67,35 @@ export class SubscriptionAccessService {
         feature_code: 'ASC',
       },
     });
+  }
+
+  async requireEntitlement(
+    companyId: string,
+    featureCode: string,
+  ): Promise<SubscriptionEntitlement> {
+    const subscription = await this.getSubscriptionForAccess(companyId);
+    const now = new Date();
+    const entitlement = await this.entitlementRepository.findOne({
+      where: {
+        company_id: companyId,
+        subscription_id: subscription.id,
+        feature_code: featureCode,
+        effective_from: LessThanOrEqual(now),
+        effective_to: IsNull(),
+      },
+      order: {
+        created_at: 'DESC',
+      },
+    });
+
+    if (!entitlement) {
+      throw new ForbiddenException({
+        code: 'SUBSCRIPTION_FEATURE_UNAVAILABLE',
+        featureCode,
+      });
+    }
+
+    return entitlement;
   }
 
   async getFeatureValue(
@@ -83,14 +112,32 @@ export class SubscriptionAccessService {
     companyId: string,
     featureCode: string,
   ): Promise<void> {
-    const value = await this.getFeatureValue(companyId, featureCode);
+    const entitlement = await this.requireEntitlement(companyId, featureCode);
+    const value = entitlement.value;
 
     if (value === true || value === 'true' || value === 1 || value === '1') {
       return;
     }
 
-    throw new ForbiddenException(
-      `Subscription feature "${featureCode}" is not enabled`,
-    );
+    throw new ForbiddenException({
+      code: 'SUBSCRIPTION_FEATURE_UNAVAILABLE',
+      featureCode,
+    });
+  }
+
+  private async getSubscriptionForAccess(
+    companyId: string,
+  ): Promise<CompanySubscription> {
+    const subscription = await this.getActiveSubscription(companyId);
+
+    if (subscription.status === SubscriptionStatus.SUSPENDED) {
+      throw new ForbiddenException({
+        code: 'SUBSCRIPTION_UNAVAILABLE',
+        featureCode: null,
+        subscriptionStatus: subscription.status,
+      });
+    }
+
+    return subscription;
   }
 }

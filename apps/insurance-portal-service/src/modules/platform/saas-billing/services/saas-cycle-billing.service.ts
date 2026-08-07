@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { DateTime } from 'luxon';
+import { createHash } from 'crypto';
 import { Repository } from 'typeorm';
 
 import { DecimalUtil } from '../../../shared/finance/decimal.util';
@@ -207,25 +208,28 @@ export class SaasCycleBillingService {
       return existing;
     }
 
-    const usage = await this.snapshotRepository
-      .createQueryBuilder('snapshot')
-      .select('COALESCE(SUM(snapshot.quantity), 0)', 'quantity')
-      .where('snapshot.subscription_id = :subscriptionId', {
-        subscriptionId: subscription.id,
-      })
-      .andWhere('snapshot.period_start = :periodStart', {
-        periodStart: subscription.current_period_start,
-      })
-      .andWhere('snapshot.period_end = :periodEnd', {
-        periodEnd: subscription.current_period_end,
-      })
-      .getRawOne<{ quantity: string }>();
+    const usageSnapshots = await this.snapshotRepository.find({
+      where: {
+        subscription_id: subscription.id,
+        period_start: subscription.current_period_start,
+        period_end: subscription.current_period_end,
+      },
+      order: {
+        metric_code: 'ASC',
+        dimension_key: 'ASC',
+      },
+    });
 
-    const usageAmount = DecimalUtil.money(usage?.quantity ?? 0);
+    const billingSnapshot = this.buildBillingSnapshot(
+      subscription,
+      usageSnapshots,
+    );
+    const usageAmount = billingSnapshot.usage_amount;
     return this.cycleRepository.save(
       this.cycleRepository.create({
         subscription_id: subscription.id,
         company_id: subscription.company_id,
+        plan_version_id: subscription.plan_version_id,
         period_start: subscription.current_period_start,
         period_end: subscription.current_period_end,
         currency: subscription.currency,
@@ -234,9 +238,111 @@ export class SaasCycleBillingService {
         discount_amount: '0.00',
         tax_amount: '0.00',
         total_amount: DecimalUtil.add(subscription.base_price, usageAmount),
+        billing_snapshot: billingSnapshot.snapshot,
+        billing_snapshot_hash: billingSnapshot.hash,
+        state_version: 1,
         status: SaasBillingCycleStatus.CALCULATED,
         calculated_at: new Date(),
       }),
     );
+  }
+
+  private buildBillingSnapshot(
+    subscription: CompanySubscription,
+    usageSnapshots: PlatformUsageSnapshot[],
+  ) {
+    type MeterRateSnapshot = {
+      metric_code: string;
+      included_quantity?: string | number;
+      billing_unit?: string | number;
+      unit_price?: string | number;
+      currency?: string;
+      is_active?: boolean;
+    };
+
+    const planSnapshot =
+      (subscription.plan_snapshot as
+        | {
+            meter_rates?: MeterRateSnapshot[];
+          }
+        | null) ?? null;
+    const meterRates = Array.isArray(planSnapshot?.meter_rates)
+      ? planSnapshot.meter_rates
+      : [];
+
+    const usageByMetric = new Map<string, PlatformUsageSnapshot[]>();
+    for (const snapshot of usageSnapshots) {
+      const current = usageByMetric.get(snapshot.metric_code) ?? [];
+      current.push(snapshot);
+      usageByMetric.set(snapshot.metric_code, current);
+    }
+
+    const meterCharges = meterRates
+      .filter((rate) => rate.is_active !== false)
+      .map((rate) => {
+        const metricSnapshots = usageByMetric.get(rate.metric_code) ?? [];
+        const quantity = metricSnapshots.reduce(
+          (total, snapshot) => total.plus(DecimalUtil.value(snapshot.quantity)),
+          DecimalUtil.value(0),
+        );
+        const included = DecimalUtil.value(rate.included_quantity ?? 0);
+        const billingUnit = DecimalUtil.value(rate.billing_unit ?? 1);
+        const overageQuantity = quantity.greaterThan(included)
+          ? quantity.minus(included)
+          : DecimalUtil.value(0);
+        const billableUnits = billingUnit.eq(0)
+          ? overageQuantity
+          : overageQuantity.div(billingUnit);
+        const chargeAmount = billableUnits.mul(
+          DecimalUtil.value(rate.unit_price ?? 0),
+        );
+
+        return {
+          metric_code: rate.metric_code,
+          quantity: DecimalUtil.quantity(quantity),
+          included_quantity: DecimalUtil.quantity(included),
+          overage_quantity: DecimalUtil.quantity(overageQuantity),
+          billing_unit: DecimalUtil.quantity(billingUnit),
+          billable_units: DecimalUtil.quantity(billableUnits),
+          unit_price: DecimalUtil.quantity(rate.unit_price ?? 0),
+          currency: rate.currency ?? subscription.currency,
+          amount: DecimalUtil.money(chargeAmount),
+        };
+      });
+
+    const usageAmount = meterCharges.reduce(
+      (total, charge) => total.plus(DecimalUtil.value(charge.amount)),
+      DecimalUtil.value(0),
+    );
+
+    const snapshot = {
+      plan_version_id: subscription.plan_version_id,
+      currency: subscription.currency,
+      period: {
+        start: subscription.current_period_start.toISOString(),
+        end: subscription.current_period_end.toISOString(),
+      },
+      base_amount: DecimalUtil.money(subscription.base_price),
+      meter_definitions: meterRates,
+      usage_snapshot: usageSnapshots.map((row) => ({
+        metric_code: row.metric_code,
+        dimension_key: row.dimension_key,
+        quantity: row.quantity,
+        dimensions: row.dimensions ?? {},
+      })),
+      usage_charges: meterCharges,
+      discount_amount: '0.00',
+      tax_amount: '0.00',
+      usage_amount: DecimalUtil.money(usageAmount),
+      total_amount: DecimalUtil.add(subscription.base_price, usageAmount),
+    };
+
+    return {
+      snapshot,
+      usage_amount: DecimalUtil.money(usageAmount),
+      hash: createHash('sha256')
+        .update(JSON.stringify(snapshot))
+        .digest('hex'),
+    };
   }
 }

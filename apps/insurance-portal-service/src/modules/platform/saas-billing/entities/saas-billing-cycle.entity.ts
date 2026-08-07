@@ -43,6 +43,18 @@ export class SaasBillingCycle {
   @Column({ type: 'numeric', precision: 20, scale: 2, default: 0 })
   total_amount: string;
 
+  @Column({ type: 'uuid', nullable: true })
+  plan_version_id!: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  billing_snapshot!: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  billing_snapshot_hash!: string | null;
+
+  @Column({ type: 'int', default: 1 })
+  state_version!: number;
+
   @Column({
     type: 'enum',
     enum: SaasBillingCycleStatus,
