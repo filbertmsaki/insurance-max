@@ -1,4 +1,8 @@
 import {
+  AnyPermissions,
+  TenantScoped,
+} from '@insurance-max/portal-shared';
+import {
   BadRequestException,
   Body,
   Controller,
@@ -20,12 +24,14 @@ import { GenerateScorecardDto } from './dto/generate-scorecard.dto';
 import { RunAnomalyDto } from './dto/run-anomaly.dto';
 import { RunForecastDto } from './dto/run-forecast.dto';
 import { BenchmarkQueryDto } from './dto/benchmark-query.dto';
+import { MetricCompareDto } from './dto/metric-compare.dto';
+import { MetricQueryDto } from './dto/metric-query.dto';
+import { AnalyticsMetricService } from './services/analytics-metric.service';
 import { KpiService } from './services/kpi.service';
 import { ScorecardService } from './services/scorecard.service';
 import { AnomalyService } from './services/anomaly.service';
 import { ForecastService } from './services/forecast.service';
 import { BenchmarkService } from './services/benchmark.service';
-import { TenantScoped } from '@insurance-max/portal-shared';
 
 @ApiTags('Tenant Analytics')
 @ApiBearerAuth()
@@ -33,12 +39,69 @@ import { TenantScoped } from '@insurance-max/portal-shared';
 @TenantScoped()
 export class AnalyticsController {
   constructor(
+    private readonly analyticsMetricService: AnalyticsMetricService,
     private readonly kpiService: KpiService,
     private readonly scorecardService: ScorecardService,
     private readonly anomalyService: AnomalyService,
     private readonly forecastService: ForecastService,
     private readonly benchmarkService: BenchmarkService,
   ) {}
+
+  @Get('metrics')
+  @AnyPermissions(AnalyticsPermissions.READ, 'analytics:metrics:read')
+  @ApiOperation({ summary: 'List registered analytics metric definitions' })
+  getMetrics(@CurrentUser() user: AuthenticatedUser) {
+    return this.analyticsMetricService.listDefinitions(user.permissions ?? []);
+  }
+
+  @Get('metrics/:code')
+  @AnyPermissions(AnalyticsPermissions.READ, 'analytics:metrics:read')
+  @ApiOperation({ summary: 'Get a registered analytics metric definition' })
+  getMetricDefinition(@Param('code') code: string) {
+    return this.analyticsMetricService.getDefinition(code);
+  }
+
+  @Post('query')
+  @AnyPermissions(AnalyticsPermissions.READ, 'analytics:metrics:read')
+  @ApiOperation({ summary: 'Query metric values for a selected period' })
+  queryMetric(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: MetricQueryDto,
+  ) {
+    return this.analyticsMetricService.queryMetric({
+      companyId: this.ensureCompanyId(user),
+      metricCode: dto.metricCode,
+      periodType: dto.periodType,
+      periodStart: dto.periodStart,
+      periodEnd: dto.periodEnd,
+      branchId: dto.branchId ?? null,
+      dimensions: dto.dimensions,
+      valueKind: dto.valueKind,
+      currencyCode: dto.currencyCode ?? null,
+    });
+  }
+
+  @Post('compare')
+  @AnyPermissions(AnalyticsPermissions.READ, 'analytics:metrics:read')
+  @ApiOperation({ summary: 'Compare metric values across two periods' })
+  compareMetric(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: MetricCompareDto,
+  ) {
+    return this.analyticsMetricService.compareMetric({
+      companyId: this.ensureCompanyId(user),
+      metricCode: dto.metricCode,
+      periodType: dto.periodType,
+      periodStart: dto.periodStart,
+      periodEnd: dto.periodEnd,
+      branchId: dto.branchId ?? null,
+      dimensions: dto.dimensions,
+      valueKind: dto.valueKind,
+      currencyCode: dto.currencyCode ?? null,
+      comparePeriodStart: dto.comparePeriodStart,
+      comparePeriodEnd: dto.comparePeriodEnd,
+    });
+  }
 
   @Get('kpis')
   @Permissions(AnalyticsPermissions.READ)

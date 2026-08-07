@@ -66,6 +66,81 @@ export class RegulatoryReturn {
   @Column({ type: 'jsonb', nullable: true })
   metadata!: Record<string, unknown> | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  obligation_instance_id!: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  return_code!: string | null;
+
+  @Column({ type: 'int', default: 1 })
+  version_number!: number;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  report_definition_code!: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  report_definition_version!: number | null;
+
+  @Column({ type: 'varchar', length: 3, nullable: true })
+  currency_code!: string | null;
+
+  @Column({ type: 'jsonb', default: () => "'{}'" })
+  parameters!: Record<string, unknown>;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  parameters_hash!: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  source_cutoff_at!: Date | null;
+
+  @Column({ type: 'bigint', nullable: true })
+  source_projection_sequence!: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  return_snapshot!: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  return_snapshot_hash!: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  validation_results!: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 40, default: 'NOT_CHECKED' })
+  reconciliation_status!: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  reconciliation_summary!: Record<string, unknown> | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  report_job_id!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  artifact_id!: string | null;
+
+  @Column({ type: 'timestamptz', default: () => 'now()' })
+  prepared_at!: Date;
+
+  @Column({ type: 'uuid', nullable: true })
+  submitted_for_review_by!: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  submitted_for_review_at!: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  rejected_by!: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  rejected_at!: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  rejection_reason!: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  supersedes_return_id!: string | null;
+
+  @Column({ type: 'int', default: 1 })
+  state_version!: number;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

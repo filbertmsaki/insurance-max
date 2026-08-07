@@ -7,7 +7,11 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import { ReportFormat, ReportScheduleStatus } from '../enums/reporting.enums';
+import {
+  ReportDeliveryChannel,
+  ReportFormat,
+  ReportScheduleStatus,
+} from '../enums/reporting.enums';
 
 @Entity('report_schedules')
 export class ReportSchedule {
@@ -59,6 +63,46 @@ export class ReportSchedule {
 
   @Column({ type: 'jsonb', nullable: true })
   metadata!: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  report_code!: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  parameter_payload!: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  parameter_hash!: string | null;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  frequency!: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: ReportDeliveryChannel,
+    default: ReportDeliveryChannel.DOWNLOAD,
+  })
+  delivery_channel!: ReportDeliveryChannel;
+
+  @Column({ type: 'int', nullable: true })
+  retention_days!: number | null;
+
+  @Column({ type: 'int', default: 0 })
+  failure_count!: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  last_failure_at!: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  last_failure_reason!: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  verified_smtp_at!: Date | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  run_as_user_id!: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  last_delivery_attempt_at!: Date | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

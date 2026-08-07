@@ -1,6 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { AnyPermissions } from '@insurance-max/portal-shared';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
@@ -8,6 +9,7 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 import { DashboardService } from './dashboard.service';
 import { DashboardQueryDto } from './dto/dashboard-query.dto';
 import { DashboardPermissions } from './dashboard.permissions';
+import { ExecutiveDashboardService } from './executive-dashboard.service';
 import { TenantScoped } from '@insurance-max/portal-shared';
 
 @ApiTags('Tenant Dashboard')
@@ -15,7 +17,10 @@ import { TenantScoped } from '@insurance-max/portal-shared';
 @Controller('tenant/dashboard')
 @TenantScoped()
 export class DashboardController {
-  constructor(private readonly dashboardService: DashboardService) {}
+  constructor(
+    private readonly dashboardService: DashboardService,
+    private readonly executiveDashboardService: ExecutiveDashboardService,
+  ) {}
 
   @Get('capabilities')
   @ApiOperation({
@@ -23,6 +28,18 @@ export class DashboardController {
   })
   getCapabilities(@CurrentUser() user: AuthenticatedUser) {
     return this.dashboardService.getCapabilities(user);
+  }
+
+  @Get('executive')
+  @AnyPermissions('dashboard:overview', 'dashboards:executive:read')
+  @ApiOperation({
+    summary: 'Get the executive metric dashboard built from the metric catalogue',
+  })
+  getExecutive(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: DashboardQueryDto,
+  ) {
+    return this.executiveDashboardService.getExecutive(user, query);
   }
 
   @Get()

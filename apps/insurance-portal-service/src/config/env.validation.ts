@@ -61,19 +61,43 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .min(31)
     .max(1095)
     .default(366),
+  DASHBOARD_MAX_DATE_RANGE_DAYS: Joi.number()
+    .integer()
+    .min(31)
+    .max(1095)
+    .default(1095),
   SAAS_BILLING_ENABLED: Joi.boolean().default(true),
   SAAS_BILLING_CYCLE_CRON: Joi.string().default('0 30 1 * * *'),
   SAAS_INVOICE_DUE_DAYS: Joi.number().integer().min(1).default(14),
   SAAS_PAST_DUE_GRACE_DAYS: Joi.number().integer().min(0).default(7),
   SAAS_USAGE_AGGREGATION_CRON: Joi.string().default('0 15 1 * * *'),
+  REGULATORY_ENABLED: Joi.boolean().default(true),
   REGULATORY_CALENDAR_ENABLED: Joi.boolean().default(true),
   REGULATORY_CALENDAR_GENERATION_CRON: Joi.string().default('0 10 0 * * *'),
   REGULATORY_MONITOR_CRON: Joi.string().default('0 15 0 * * *'),
+  REGULATORY_DUE_MONITOR_CRON: Joi.string().default('0 * * * *'),
+  REGULATORY_MONITOR_BATCH_SIZE: Joi.number().integer().min(1).default(500),
   REGULATORY_WARNING_DAYS: Joi.number().integer().min(1).default(7),
   REGULATORY_DEFAULT_TIMEZONE: Joi.string().default('Africa/Dar_es_Salaam'),
+  REGULATORY_RECONCILIATION_TOLERANCE: Joi.number().min(0).default(0.01),
+  REGULATORY_REQUIRE_SUBMISSION_EVIDENCE: Joi.boolean().default(true),
   PREMIUM_LEVY_DEFAULT_RATE: Joi.number().min(0).max(100).default(1.5),
   PREMIUM_LEVY_AUTO_CALCULATE: Joi.boolean().default(false),
   PREMIUM_LEVY_REQUIRE_ADJUSTMENT_EVIDENCE: Joi.boolean().default(true),
+  REPORTING_ENABLED: Joi.boolean().default(true),
+  REPORTING_QUEUE_ENABLED: Joi.boolean().default(true),
+  REPORTING_PAGE_SIZE: Joi.number().integer().min(1).default(5000),
+  REPORTING_DEFAULT_MAX_ROWS: Joi.number().integer().min(1).default(100000),
+  REPORTING_HARD_MAX_ROWS: Joi.number().integer().min(1).default(1000000),
+  REPORTING_DEFAULT_RETENTION_DAYS: Joi.number().integer().min(1).default(90),
+  REPORTING_MAX_RETENTION_DAYS: Joi.number().integer().min(1).default(3650),
+  REPORTING_DOWNLOAD_TOKEN_MINUTES: Joi.number().integer().min(1).default(10),
+  REPORTING_SCHEDULE_MONITOR_CRON: Joi.string().default('* * * * *'),
+  REPORTING_DELIVERY_MAX_ATTEMPTS: Joi.number().integer().min(1).default(5),
+  REPORTING_DELIVERY_BASE_DELAY_SECONDS: Joi.number()
+    .integer()
+    .min(1)
+    .default(60),
   REPORTS_ENABLED: Joi.boolean().default(true),
   REPORTS_SCHEDULER_CRON: Joi.string().default('0 * * * * *'),
   REPORTS_WORKER_CRON: Joi.string().default('15 * * * * *'),
@@ -172,6 +196,14 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   ANALYTICS_ENABLED: Joi.boolean().default(true),
   ANALYTICS_PROJECTION_BATCH_SIZE: Joi.number().integer().min(1).default(100),
   ANALYTICS_PROJECTION_MAX_ATTEMPTS: Joi.number().integer().min(1).default(8),
+  ANALYTICS_EVENT_CONSUMER_ENABLED: Joi.boolean().default(true),
+  ANALYTICS_CURRENT_LAG_SECONDS: Joi.number().integer().min(0).default(300),
+  ANALYTICS_STALE_LAG_SECONDS: Joi.number().integer().min(0).default(3600),
+  ANALYTICS_REBUILD_ENABLED: Joi.boolean().default(true),
+  ANALYTICS_FORECAST_ENABLED: Joi.boolean().default(true),
+  ANALYTICS_ANOMALY_ENABLED: Joi.boolean().default(true),
+  ANALYTICS_ANOMALY_CRON: Joi.string().default('0 */1 * * *'),
+  ANALYTICS_BENCHMARK_MIN_COMPANIES: Joi.number().integer().min(2).default(5),
 
   JWT_ACCESS_SECRET: Joi.when('APP_ENV', {
     is: 'production',
@@ -278,16 +310,10 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   TIRAMIS_STATUS_SYNC_INCLUDE_PAYLOAD: Joi.boolean().default(true),
   TIRAMIS_PORTAL_OUTBOX_ENABLED: Joi.boolean().default(true),
   TIRAMIS_PORTAL_OUTBOX_BATCH_SIZE: Joi.number().integer().min(1).default(50),
-  TIRAMIS_PORTAL_OUTBOX_MAX_ATTEMPTS: Joi.number()
-    .integer()
-    .min(1)
-    .default(10),
+  TIRAMIS_PORTAL_OUTBOX_MAX_ATTEMPTS: Joi.number().integer().min(1).default(10),
   TIRAMIS_RECONCILIATION_ENABLED: Joi.boolean().default(true),
   TIRAMIS_RECONCILIATION_CRON: Joi.string().default('*/5 * * * *'),
-  TIRAMIS_RECONCILIATION_BATCH_SIZE: Joi.number()
-    .integer()
-    .min(1)
-    .default(50),
+  TIRAMIS_RECONCILIATION_BATCH_SIZE: Joi.number().integer().min(1).default(50),
   TIRAMIS_CALLBACK_OVERDUE_MINUTES: Joi.number().default(10),
   TIRAMIS_PORTAL_TRANSPORT_RETRY_ENABLED: Joi.boolean().default(false),
   TIRAMIS_LEGACY_ROUTES_ENABLED: Joi.boolean().default(true),

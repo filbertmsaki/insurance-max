@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
+import { AnalyticsModule } from '../analytics/analytics.module';
 import { CommissionTransaction } from '../billing-commission/entities/commission-transaction.entity';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
@@ -16,9 +17,11 @@ import { ReinsuranceTreaty } from '../reinsurance/entities/reinsurance-treaty.en
 import { DashboardCacheService } from './dashboard-cache.service';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
+import { ExecutiveDashboardService } from './executive-dashboard.service';
 
 @Module({
   imports: [
+    AnalyticsModule,
     TypeOrmModule.forFeature([
       Quotation,
       Policy,
@@ -35,7 +38,11 @@ import { DashboardService } from './dashboard.service';
     ]),
   ],
   controllers: [DashboardController],
-  providers: [DashboardService, DashboardCacheService],
+  providers: [
+    DashboardService,
+    DashboardCacheService,
+    ExecutiveDashboardService,
+  ],
   exports: [DashboardService],
 })
 export class DashboardModule {}

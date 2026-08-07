@@ -30,6 +30,9 @@ import {
   TriangleAlert,
   RefreshCcw,
   SearchCheck,
+  BarChart3,
+  FileSpreadsheet,
+  Landmark,
 } from 'lucide-react';
 
 export interface NavLeaf {
@@ -337,6 +340,48 @@ export const NAV_NODES: NavNode[] = [
         to: '/finance/journals',
         icon: FileText,
         permission: 'finance-journals:read',
+      },
+    ],
+  },
+  {
+    kind: 'group',
+    label: 'Insights & Compliance',
+    icon: BarChart3,
+    children: [
+      {
+        kind: 'link',
+        label: 'Analytics',
+        to: '/analytics/metrics',
+        icon: BarChart3,
+        anyPermission: ['analytics:metrics:read', 'analytics:read'],
+      },
+      {
+        kind: 'link',
+        label: 'Reports',
+        to: '/reports',
+        icon: FileSpreadsheet,
+        anyPermission: [
+          'reports:definition-read',
+          'reports:run',
+          'reports:job-read',
+          'reports:schedule-read',
+          'reports:definitions:read',
+        ],
+      },
+      {
+        kind: 'link',
+        label: 'Regulatory',
+        to: '/regulatory',
+        icon: Landmark,
+        anyPermission: [
+          'regulatory:calendar-read',
+          'regulatory:return-read',
+          'regulatory:levy-read',
+          'regulatory-authorities:read',
+          'regulatory-obligations:read',
+          'regulatory-returns:read',
+          'regulatory-levies:read',
+        ],
       },
     ],
   },

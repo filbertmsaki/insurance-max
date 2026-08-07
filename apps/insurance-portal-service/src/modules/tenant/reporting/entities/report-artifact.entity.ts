@@ -46,6 +46,30 @@ export class ReportArtifact {
   @Column({ type: 'jsonb', nullable: true })
   metadata!: Record<string, unknown> | null;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  report_code!: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  storage_key!: string | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  file_hash!: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  retention_until!: Date | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  deleted_at!: Date | null;
+
+  @Column({ type: 'bigint', default: 0 })
+  download_count!: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  last_downloaded_at!: Date | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  tenant_scope_hash!: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

@@ -91,6 +91,9 @@ import { FinanceCommissionPaymentsPage } from '@/modules/tenant/finance/pages/Fi
 import { FinanceCommissionPaymentDetailPage } from '@/modules/tenant/finance/pages/FinanceCommissionPaymentDetailPage';
 import { FinanceJournalsPage } from '@/modules/tenant/finance/pages/FinanceJournalsPage';
 import { FinanceJournalDetailPage } from '@/modules/tenant/finance/pages/FinanceJournalDetailPage';
+import { AnalyticsMetricsPage } from '@/modules/tenant/analytics/pages/AnalyticsMetricsPage';
+import { ReportsWorkbenchPage } from '@/modules/tenant/reporting/pages/ReportsWorkbenchPage';
+import { RegulatoryWorkbenchPage } from '@/modules/tenant/regulatory/pages/RegulatoryWorkbenchPage';
 
 export default function App() {
   return (
@@ -117,6 +120,50 @@ export default function App() {
           <Route element={<AppShell />}>
             <Route path="/forbidden" element={<ForbiddenPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+
+            <Route
+              element={
+                <ProtectedRoute
+                  anyPermissions={['analytics:metrics:read', 'analytics:read']}
+                />
+              }
+            >
+              <Route path="/analytics/metrics" element={<AnalyticsMetricsPage />} />
+            </Route>
+
+            <Route
+              element={
+                <ProtectedRoute
+                  anyPermissions={[
+                    'reports:definition-read',
+                    'reports:run',
+                    'reports:job-read',
+                    'reports:schedule-read',
+                    'reports:definitions:read',
+                  ]}
+                />
+              }
+            >
+              <Route path="/reports" element={<ReportsWorkbenchPage />} />
+            </Route>
+
+            <Route
+              element={
+                <ProtectedRoute
+                  anyPermissions={[
+                    'regulatory:calendar-read',
+                    'regulatory:return-read',
+                    'regulatory:levy-read',
+                    'regulatory-authorities:read',
+                    'regulatory-obligations:read',
+                    'regulatory-returns:read',
+                    'regulatory-levies:read',
+                  ]}
+                />
+              }
+            >
+              <Route path="/regulatory" element={<RegulatoryWorkbenchPage />} />
+            </Route>
 
             <Route element={<ProtectedRoute requiredPermission="users:read" />}>
               <Route path="/users" element={<UsersListPage />} />

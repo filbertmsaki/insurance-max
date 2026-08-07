@@ -1,11 +1,13 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { ReportCategory, ReportSensitivity } from '@insurance-max/contracts';
 import { CronExpressionParser } from 'cron-parser';
 import { createHash } from 'crypto';
 import { DateTime } from 'luxon';
@@ -13,7 +15,9 @@ import { IsNull, Repository } from 'typeorm';
 
 import { UsageMeteringService } from '../../../platform/saas-billing/services/usage-metering.service';
 import { MailService } from '../../../shared/mail/mail.service';
+import { ReportAccessAuditEvent } from '../entities/report-access-audit-event.entity';
 import { ReportArtifact } from '../entities/report-artifact.entity';
+import { ReportDeliveryAttempt } from '../entities/report-delivery-attempt.entity';
 import { ReportDefinition } from '../entities/report-definition.entity';
 import { ReportJob } from '../entities/report-job.entity';
 import { ReportSchedule } from '../entities/report-schedule.entity';
@@ -25,6 +29,7 @@ import {
 } from '../enums/reporting.enums';
 import { ReportGeneratorContext } from '../interfaces/report-generator.interface';
 import { ExcelReportWriterService } from './excel-report-writer.service';
+import { ReportParameterValidationService } from './report-parameter-validation.service';
 import { ReportRegistryService } from './report-registry.service';
 
 @Injectable()
@@ -38,7 +43,12 @@ export class ReportScheduleService {
     private readonly jobRepository: Repository<ReportJob>,
     @InjectRepository(ReportArtifact)
     private readonly artifactRepository: Repository<ReportArtifact>,
+    @InjectRepository(ReportDeliveryAttempt)
+    private readonly deliveryAttemptRepository: Repository<ReportDeliveryAttempt>,
+    @InjectRepository(ReportAccessAuditEvent)
+    private readonly accessAuditRepository: Repository<ReportAccessAuditEvent>,
     private readonly registryService: ReportRegistryService,
+    private readonly parameterValidationService: ReportParameterValidationService,
     private readonly excelWriterService: ExcelReportWriterService,
     private readonly usageMeteringService: UsageMeteringService,
     private readonly mailService: MailService,
@@ -47,10 +57,13 @@ export class ReportScheduleService {
 
   async listDefinitions() {
     await this.ensureDefaultDefinitions();
-    return this.definitionRepository.find({
-      where: { enabled: true },
+    const definitions = await this.definitionRepository.find({
+      where: { enabled: true, active: true },
       order: { code: 'ASC' },
     });
+    return definitions.map((definition) =>
+      this.registryService.serializeDefinition(definition),
+    );
   }
 
   listSchedules(companyId: string) {
@@ -89,6 +102,7 @@ export class ReportScheduleService {
       timezone?: string;
       format: ReportFormat;
       recipient_emails?: string[];
+      parameters?: Record<string, unknown>;
       filters?: Record<string, unknown>;
       status?: ReportScheduleStatus;
     },
@@ -97,6 +111,10 @@ export class ReportScheduleService {
     const definition = await this.requireDefinition(dto.definition_id);
     this.registryService.getGenerator(definition);
     this.ensureSupportedFormat(definition, dto.format);
+    const validated = this.parameterValidationService.validate(
+      definition,
+      dto.parameters ?? dto.filters,
+    );
 
     const timezone = dto.timezone ?? this.defaultTimezone();
     const nextRunAt = this.resolveNextRunAt(dto.cron_expression, timezone);
@@ -113,7 +131,10 @@ export class ReportScheduleService {
         timezone,
         format: dto.format,
         recipient_emails: dto.recipient_emails ?? [],
-        filters: dto.filters ?? null,
+        filters: validated.parameters,
+        parameter_payload: validated.parameters,
+        parameter_hash: validated.parameterHash,
+        report_code: definition.code,
         next_run_at: nextRunAt,
       }),
     );
@@ -128,6 +149,7 @@ export class ReportScheduleService {
       timezone: string;
       format: ReportFormat;
       recipient_emails: string[];
+      parameters: Record<string, unknown>;
       filters: Record<string, unknown>;
       status: ReportScheduleStatus;
     }>,
@@ -145,13 +167,25 @@ export class ReportScheduleService {
       await this.assertMailReady(dto.recipient_emails);
     }
 
+    const validatedParameters =
+      dto.parameters || dto.filters
+        ? this.parameterValidationService.validate(
+            definition,
+            dto.parameters ?? dto.filters,
+          )
+        : null;
+
     Object.assign(schedule, {
       name: dto.name?.trim() ?? schedule.name,
       cron_expression: cronExpression,
       timezone,
       format: dto.format ?? schedule.format,
       recipient_emails: dto.recipient_emails ?? schedule.recipient_emails,
-      filters: dto.filters ?? schedule.filters,
+      filters: validatedParameters?.parameters ?? schedule.filters,
+      parameter_payload:
+        validatedParameters?.parameters ?? schedule.parameter_payload,
+      parameter_hash:
+        validatedParameters?.parameterHash ?? schedule.parameter_hash,
       status: dto.status ?? schedule.status,
       next_run_at: this.resolveNextRunAt(cronExpression, timezone),
     });
@@ -171,16 +205,22 @@ export class ReportScheduleService {
     dto: {
       definition_id: string;
       format?: ReportFormat;
+      parameters?: Record<string, unknown>;
       filters?: Record<string, unknown>;
       branch_id?: string | null;
     },
   ) {
     await this.ensureDefaultDefinitions();
     const definition = await this.requireDefinition(dto.definition_id);
+    await this.assertReportAccess(user, definition, 'REPORT_EXECUTION');
     this.registryService.getGenerator(definition);
 
     const format = dto.format ?? definition.default_format;
     this.ensureSupportedFormat(definition, format);
+    const validated = this.parameterValidationService.validate(definition, {
+      ...(dto.parameters ?? dto.filters ?? {}),
+      branch_id: dto.branch_id ?? null,
+    });
 
     return this.jobRepository.save(
       this.jobRepository.create({
@@ -192,12 +232,14 @@ export class ReportScheduleService {
         execution_key: this.buildExecutionKey(
           user.companyId!,
           definition.id,
-          dto.filters ?? null,
+          validated.parameters,
         ),
-        filters: {
-          ...(dto.filters ?? {}),
-          branch_id: dto.branch_id ?? null,
-        },
+        report_code: definition.code,
+        parameter_payload: validated.parameters,
+        parameter_hash: validated.parameterHash,
+        filters: validated.parameters,
+        job_no: this.buildJobNumber(),
+        execution_context: this.buildExecutionContext(user),
         delivery_status: ReportDeliveryStatus.SKIPPED,
       }),
     );
@@ -237,8 +279,27 @@ export class ReportScheduleService {
               requested_by: schedule.created_by,
               status: ReportJobStatus.PENDING,
               format: schedule.format,
+              job_no: this.buildJobNumber(),
+              report_code: definition.code,
               execution_key: executionKey,
+              parameter_payload: schedule.parameter_payload ?? schedule.filters,
+              parameter_hash:
+                schedule.parameter_hash ??
+                this.parameterValidationService.validate(
+                  definition,
+                  schedule.parameter_payload ?? schedule.filters,
+                ).parameterHash,
               filters: schedule.filters,
+              execution_context: {
+                companyId: schedule.company_id,
+                userId: schedule.created_by,
+                branchIds: [],
+                departmentIds: [],
+                permissions: [],
+                timezone: schedule.timezone,
+                locale: 'en',
+                requestedAt: now.toISOString(),
+              },
               delivery_status:
                 schedule.recipient_emails.length > 0
                   ? ReportDeliveryStatus.PENDING
@@ -290,16 +351,26 @@ export class ReportScheduleService {
       companyId: job.company_id,
       requestedBy: job.requested_by,
       filters: job.filters ?? undefined,
+      parameters: job.parameter_payload ?? job.filters ?? undefined,
       format: job.format,
       definition,
+      requestedAt: new Date().toISOString(),
     };
 
     try {
+      job.source_cutoff_at = new Date();
+      job.progress_percent = 10;
+      await this.jobRepository.save(job);
+
       const generated = await generator.generate(context);
       this.ensureMaxRows(
         generated.rows.length,
-        definition.max_rows ?? undefined,
+        definition.maximum_rows ?? definition.max_rows ?? undefined,
       );
+      job.status = ReportJobStatus.GENERATING_ARTIFACT;
+      job.progress_percent = 80;
+      job.row_count = String(generated.rows.length);
+      await this.jobRepository.save(job);
       const artifact = await this.saveArtifact(job, definition, generated);
 
       if (job.schedule_id) {
@@ -307,8 +378,12 @@ export class ReportScheduleService {
           id: job.schedule_id,
         });
         if (schedule?.recipient_emails.length) {
-          await this.deliverArtifact(schedule.recipient_emails, artifact);
-          job.delivery_status = ReportDeliveryStatus.DELIVERED;
+          const deliveryResult = await this.deliverArtifact(
+            job,
+            schedule,
+            artifact,
+          );
+          job.delivery_status = deliveryResult.status;
         } else {
           job.delivery_status = ReportDeliveryStatus.SKIPPED;
         }
@@ -318,6 +393,7 @@ export class ReportScheduleService {
 
       job.artifact_id = artifact.id;
       job.status = ReportJobStatus.COMPLETED;
+      job.progress_percent = 100;
       job.completed_at = new Date();
       await this.jobRepository.save(job);
 
@@ -338,22 +414,55 @@ export class ReportScheduleService {
       job.failed_at = new Date();
       job.error_message =
         error instanceof Error ? error.message : 'Unknown report failure';
+      job.safe_error_message = job.error_message;
+      job.failure_code = 'REPORT_EXECUTION_FAILED';
       await this.jobRepository.save(job);
       throw error;
     }
   }
 
-  async downloadArtifact(companyId: string, artifactId: string) {
+  async downloadArtifact(user: AuthenticatedUser, artifactId: string) {
     const artifact = await this.artifactRepository.findOne({
-      where: { id: artifactId, company_id: companyId },
+      where: { id: artifactId, company_id: user.companyId! },
     });
 
     if (!artifact) {
       throw new NotFoundException('Report artifact was not found');
     }
 
+    const definition = await this.requireDefinition(artifact.definition_id);
+    await this.assertReportAccess(user, definition, 'REPORT_DOWNLOAD', {
+      artifactId: artifact.id,
+      reportCode: artifact.report_code ?? definition.code,
+    });
+
     if (artifact.expires_at && artifact.expires_at < new Date()) {
+      await this.recordAccessAudit({
+        companyId: user.companyId!,
+        userId: user.id,
+        reportCode: artifact.report_code ?? definition.code,
+        artifactId: artifact.id,
+        accessType: 'REPORT_DOWNLOAD',
+        result: 'DENIED',
+      });
       throw new BadRequestException('Report artifact has expired');
+    }
+
+    artifact.download_count = String(
+      Number(artifact.download_count ?? '0') + 1,
+    );
+    artifact.last_downloaded_at = new Date();
+    await this.artifactRepository.save(artifact);
+
+    if (this.isRestrictedDefinition(definition)) {
+      await this.recordAccessAudit({
+        companyId: user.companyId!,
+        userId: user.id,
+        reportCode: artifact.report_code ?? definition.code,
+        artifactId: artifact.id,
+        accessType: 'REPORT_DOWNLOAD',
+        result: 'ALLOWED',
+      });
     }
 
     return artifact;
@@ -374,9 +483,36 @@ export class ReportScheduleService {
           ReportFormat.JSON,
         ],
         enabled: true,
+        active: true,
         feature_code: 'reports.product-performance',
         usage_metric_code: 'reports_generated',
         max_rows: 200000,
+        maximum_rows: 200000,
+        category: ReportCategory.MANAGEMENT,
+        version: 1,
+        sensitivity: ReportSensitivity.INTERNAL,
+        permission: 'reports:run',
+        asynchronous_only: true,
+        parameters: [
+          {
+            key: 'period_start',
+            label: 'Period start',
+            dataType: 'DATE',
+            required: false,
+          },
+          {
+            key: 'period_end',
+            label: 'Period end',
+            dataType: 'DATE',
+            required: false,
+          },
+          {
+            key: 'branch_id',
+            label: 'Branch',
+            dataType: 'UUID',
+            required: false,
+          },
+        ],
       },
     ];
 
@@ -390,6 +526,9 @@ export class ReportScheduleService {
       } else {
         Object.assign(existing, definition);
       }
+
+      existing.definition_hash =
+        this.parameterValidationService.computeDefinitionHash(existing);
 
       await this.definitionRepository.save(existing);
     }
@@ -442,6 +581,7 @@ export class ReportScheduleService {
 
   private defaultTimezone() {
     return (
+      this.configService.get<string>('REPORTING_DEFAULT_TIMEZONE') ??
       this.configService.get<string>('REPORTS_DEFAULT_TIMEZONE') ??
       'Africa/Dar_es_Salaam'
     );
@@ -454,7 +594,8 @@ export class ReportScheduleService {
 
     const requireMailVerification =
       String(
-        this.configService.get<string>('REPORTS_REQUIRE_MAIL_VERIFICATION') ??
+        this.configService.get<string>('REPORTING_REQUIRE_MAIL_VERIFICATION') ??
+          this.configService.get<string>('REPORTS_REQUIRE_MAIL_VERIFICATION') ??
           'true',
       ) === 'true';
 
@@ -485,7 +626,9 @@ export class ReportScheduleService {
 
   private ensureMaxRows(rowCount: number, definitionMaxRows?: number) {
     const configuredMaxRows = Number(
-      this.configService.get<string>('REPORTS_MAX_ROWS') ?? '200000',
+      this.configService.get<string>('REPORTING_DEFAULT_MAX_ROWS') ??
+        this.configService.get<string>('REPORTS_MAX_ROWS') ??
+        '200000',
     );
     const maxRows = definitionMaxRows
       ? Math.min(definitionMaxRows, configuredMaxRows)
@@ -558,18 +701,37 @@ export class ReportScheduleService {
         company_id: job.company_id,
         job_id: job.id,
         definition_id: definition.id,
+        report_code: definition.code,
         format: job.format,
         file_name: `${fileStem}.${extension}`,
         mime_type: mimeType,
         content: contentBuffer.toString('base64'),
         size_bytes: String(contentBuffer.byteLength),
         checksum,
+        file_hash: checksum,
         expires_at: DateTime.utc()
           .plus({
             day: Number(
               this.configService.get<string>(
-                'REPORTS_ARTIFACT_RETENTION_DAYS',
-              ) ?? '30',
+                'REPORTING_DEFAULT_RETENTION_DAYS',
+              ) ??
+                this.configService.get<string>(
+                  'REPORTS_ARTIFACT_RETENTION_DAYS',
+                ) ??
+                '30',
+            ),
+          })
+          .toJSDate(),
+        retention_until: DateTime.utc()
+          .plus({
+            day: Number(
+              this.configService.get<string>(
+                'REPORTING_DEFAULT_RETENTION_DAYS',
+              ) ??
+                this.configService.get<string>(
+                  'REPORTS_ARTIFACT_RETENTION_DAYS',
+                ) ??
+                '30',
             ),
           })
           .toJSDate(),
@@ -579,14 +741,190 @@ export class ReportScheduleService {
   }
 
   private async deliverArtifact(
-    recipients: string[],
+    job: ReportJob,
+    schedule: ReportSchedule,
     artifact: ReportArtifact,
   ) {
-    await this.mailService.sendMail({
-      to: recipients,
-      subject: `Scheduled report ${artifact.file_name}`,
-      text: `A scheduled report was generated: ${artifact.file_name}`,
-      html: `<p>A scheduled report was generated: <strong>${artifact.file_name}</strong></p>`,
-    });
+    let deliveredCount = 0;
+    let failedCount = 0;
+
+    for (const recipient of schedule.recipient_emails) {
+      const attemptNo =
+        (await this.deliveryAttemptRepository.count({
+          where: {
+            report_job_id: job.id,
+            recipient,
+            channel: 'EMAIL',
+          },
+        })) + 1;
+
+      try {
+        await this.mailService.sendMail({
+          to: recipient,
+          subject: `Scheduled report ${artifact.file_name}`,
+          text: `A scheduled report was generated: ${artifact.file_name}`,
+          html: `<p>A scheduled report was generated: <strong>${artifact.file_name}</strong></p>`,
+        });
+
+        await this.deliveryAttemptRepository.save(
+          this.deliveryAttemptRepository.create({
+            report_job_id: job.id,
+            artifact_id: artifact.id,
+            channel: 'EMAIL',
+            recipient,
+            attempt_no: attemptNo,
+            status: 'DELIVERED',
+            completed_at: new Date(),
+            metadata: {
+              schedule_id: schedule.id,
+            },
+          }),
+        );
+        deliveredCount += 1;
+      } catch (error) {
+        const failureMessage =
+          error instanceof Error ? error.message : 'Unknown delivery failure';
+        await this.deliveryAttemptRepository.save(
+          this.deliveryAttemptRepository.create({
+            report_job_id: job.id,
+            artifact_id: artifact.id,
+            channel: 'EMAIL',
+            recipient,
+            attempt_no: attemptNo,
+            status: 'FAILED',
+            failure_code: 'MAIL_DELIVERY_FAILED',
+            failure_message: failureMessage,
+            completed_at: new Date(),
+            metadata: {
+              schedule_id: schedule.id,
+            },
+          }),
+        );
+        failedCount += 1;
+        job.delivery_error = failureMessage;
+      }
+    }
+
+    schedule.last_delivery_attempt_at = new Date();
+    if (failedCount > 0) {
+      schedule.failure_count += 1;
+      schedule.last_failure_at = new Date();
+      schedule.last_failure_reason =
+        job.delivery_error ?? 'Report delivery failed';
+    } else {
+      schedule.failure_count = 0;
+      schedule.last_failure_at = null;
+      schedule.last_failure_reason = null;
+    }
+    await this.scheduleRepository.save(schedule);
+
+    if (failedCount === 0) {
+      return { status: ReportDeliveryStatus.DELIVERED };
+    }
+
+    if (deliveredCount > 0) {
+      return { status: ReportDeliveryStatus.PENDING };
+    }
+
+    return { status: ReportDeliveryStatus.FAILED };
+  }
+
+  private buildExecutionContext(user: AuthenticatedUser) {
+    return {
+      companyId: user.companyId ?? null,
+      userId: user.id,
+      branchIds: user.assignedBranchIds ?? [],
+      departmentIds: user.assignedDepartmentIds ?? [],
+      permissions: user.permissions ?? [],
+      timezone: this.defaultTimezone(),
+      locale: 'en',
+      requestedAt: new Date().toISOString(),
+    };
+  }
+
+  private buildJobNumber() {
+    return `JOB-${DateTime.utc().toFormat('yyyyLLddHHmmssSSS')}`;
+  }
+
+  private async assertReportAccess(
+    user: AuthenticatedUser,
+    definition: ReportDefinition,
+    accessType: string,
+    context?: {
+      artifactId?: string | null;
+      reportCode?: string | null;
+    },
+  ) {
+    const permissions = user.permissions ?? [];
+    const reportCode = context?.reportCode ?? definition.code;
+
+    if (definition.permission && !permissions.includes(definition.permission)) {
+      await this.recordAccessAudit({
+        companyId: user.companyId!,
+        userId: user.id,
+        reportCode,
+        artifactId: context?.artifactId ?? null,
+        accessType,
+        result: 'DENIED',
+      });
+      throw new ForbiddenException('You do not have access to this report');
+    }
+
+    if (
+      this.isRestrictedDefinition(definition) &&
+      !permissions.includes('reports:restricted:read')
+    ) {
+      await this.recordAccessAudit({
+        companyId: user.companyId!,
+        userId: user.id,
+        reportCode,
+        artifactId: context?.artifactId ?? null,
+        accessType,
+        result: 'DENIED',
+      });
+      throw new ForbiddenException('Restricted report permission is required');
+    }
+
+    if (this.isRestrictedDefinition(definition)) {
+      await this.recordAccessAudit({
+        companyId: user.companyId!,
+        userId: user.id,
+        reportCode,
+        artifactId: context?.artifactId ?? null,
+        accessType,
+        result: 'ALLOWED',
+      });
+    }
+  }
+
+  private isRestrictedDefinition(definition: ReportDefinition) {
+    return ([
+      ReportSensitivity.CONFIDENTIAL,
+      ReportSensitivity.RESTRICTED,
+    ] as ReportSensitivity[]).includes(definition.sensitivity);
+  }
+
+  private async recordAccessAudit(input: {
+    companyId: string;
+    userId?: string | null;
+    reportCode?: string | null;
+    artifactId?: string | null;
+    accessType: string;
+    result: string;
+    purpose?: string | null;
+  }) {
+    return this.accessAuditRepository.save(
+      this.accessAuditRepository.create({
+        company_id: input.companyId,
+        user_id: input.userId ?? null,
+        report_code: input.reportCode ?? null,
+        artifact_id: input.artifactId ?? null,
+        access_type: input.accessType,
+        purpose: input.purpose ?? null,
+        ip_address: null,
+        user_agent: null,
+        result: input.result,
+      }),
+    );
   }
 }

@@ -5,10 +5,14 @@ import { ScorecardService } from './services/scorecard.service';
 import { AnomalyService } from './services/anomaly.service';
 import { ForecastService } from './services/forecast.service';
 import { BenchmarkService } from './services/benchmark.service';
+import { AnalyticsMetricService } from './services/analytics-metric.service';
 import { AnalyticsPermissions } from './analytics.permissions';
 
 describe('AnalyticsController', () => {
   let controller: AnalyticsController;
+  let analyticsMetricService: Partial<
+    Record<keyof AnalyticsMetricService, jest.Mock>
+  >;
   let kpiService: Partial<Record<keyof KpiService, jest.Mock>>;
   let scorecardService: Partial<Record<keyof ScorecardService, jest.Mock>>;
   let anomalyService: Partial<Record<keyof AnomalyService, jest.Mock>>;
@@ -21,6 +25,24 @@ describe('AnalyticsController', () => {
   } as any;
 
   beforeEach(async () => {
+    analyticsMetricService = {
+      listDefinitions: jest.fn().mockResolvedValue([
+        { code: 'premium.gross_written', permission: 'analytics:metrics:read' },
+      ]),
+      getDefinition: jest
+        .fn()
+        .mockResolvedValue({ code: 'premium.gross_written' }),
+      queryMetric: jest.fn().mockResolvedValue({
+        definition: { code: 'premium.gross_written' },
+        values: [{ value: '1000.00' }],
+      }),
+      compareMetric: jest.fn().mockResolvedValue({
+        primary: { values: [{ value: '1000.00' }] },
+        comparison: { values: [{ value: '900.00' }] },
+        delta: '100.00',
+      }),
+    } as any;
+
     kpiService = {
       listDefinitions: jest.fn().mockResolvedValue([{ code: 'POLICY_COUNT' }]),
       calculateKpi: jest.fn().mockResolvedValue({ value: '10' }),
@@ -51,6 +73,7 @@ describe('AnalyticsController', () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AnalyticsController],
       providers: [
+        { provide: AnalyticsMetricService, useValue: analyticsMetricService },
         { provide: KpiService, useValue: kpiService },
         { provide: ScorecardService, useValue: scorecardService },
         { provide: AnomalyService, useValue: anomalyService },
@@ -60,6 +83,98 @@ describe('AnalyticsController', () => {
     }).compile();
 
     controller = module.get<AnalyticsController>(AnalyticsController);
+  });
+
+  it('lists metric definitions', async () => {
+    const result = await controller.getMetrics({
+      ...mockUser,
+      permissions: [AnalyticsPermissions.READ, 'analytics:metrics:read'],
+    } as any);
+
+    expect(result).toEqual([
+      { code: 'premium.gross_written', permission: 'analytics:metrics:read' },
+    ]);
+    expect(analyticsMetricService.listDefinitions).toHaveBeenCalledWith([
+      AnalyticsPermissions.READ,
+      'analytics:metrics:read',
+    ]);
+  });
+
+  it('gets a metric definition', async () => {
+    const result =
+      await controller.getMetricDefinition('premium.gross_written');
+
+    expect(result).toEqual({ code: 'premium.gross_written' });
+    expect(analyticsMetricService.getDefinition).toHaveBeenCalledWith(
+      'premium.gross_written',
+    );
+  });
+
+  it('queries a metric', async () => {
+    const dto = {
+      metricCode: 'premium.gross_written',
+      periodType: 'MONTH',
+      periodStart: '2026-08-01',
+      periodEnd: '2026-08-07',
+      branchId: 'branch-id',
+      dimensions: { branch_id: 'branch-id' },
+      valueKind: 'ACTUAL',
+      currencyCode: 'TZS',
+    } as any;
+
+    const result = await controller.queryMetric(mockUser, dto);
+
+    expect(result).toEqual({
+      definition: { code: 'premium.gross_written' },
+      values: [{ value: '1000.00' }],
+    });
+    expect(analyticsMetricService.queryMetric).toHaveBeenCalledWith({
+      companyId: 'company-id',
+      metricCode: 'premium.gross_written',
+      periodType: 'MONTH',
+      periodStart: '2026-08-01',
+      periodEnd: '2026-08-07',
+      branchId: 'branch-id',
+      dimensions: { branch_id: 'branch-id' },
+      valueKind: 'ACTUAL',
+      currencyCode: 'TZS',
+    });
+  });
+
+  it('compares a metric across two periods', async () => {
+    const dto = {
+      metricCode: 'premium.gross_written',
+      periodType: 'MONTH',
+      periodStart: '2026-08-01',
+      periodEnd: '2026-08-07',
+      comparePeriodStart: '2026-07-25',
+      comparePeriodEnd: '2026-07-31',
+      branchId: 'branch-id',
+      dimensions: { branch_id: 'branch-id' },
+      valueKind: 'ACTUAL',
+      currencyCode: 'TZS',
+    } as any;
+
+    const result = await controller.compareMetric(mockUser, dto);
+
+    expect(result).toEqual({
+      primary: { values: [{ value: '1000.00' }] },
+      comparison: { values: [{ value: '900.00' }] },
+      delta: '100.00',
+    });
+    expect(analyticsMetricService.compareMetric).toHaveBeenCalledWith({
+      companyId: 'company-id',
+      metricCode: 'premium.gross_written',
+      periodType: 'MONTH',
+      periodStart: '2026-08-01',
+      periodEnd: '2026-08-07',
+      branchId: 'branch-id',
+      dimensions: { branch_id: 'branch-id' },
+      valueKind: 'ACTUAL',
+      currencyCode: 'TZS',
+      comparePeriodStart: '2026-07-25',
+      comparePeriodEnd: '2026-07-31',
+    });
   });
 
   it('lists KPI definitions', async () => {

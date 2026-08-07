@@ -10,8 +10,10 @@ export interface ReportGeneratorContext {
   branchId?: string | null;
   requestedBy?: string | null;
   filters?: ReportFilters;
+  parameters?: ReportFilters;
   format: ReportFormat;
   definition: ReportDefinition;
+  requestedAt?: string;
 }
 
 export interface GeneratedReportPayload {

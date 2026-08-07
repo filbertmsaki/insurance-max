@@ -5,7 +5,9 @@ import { MailModule } from '../../shared/mail/mail.module';
 import { SaasBillingModule } from '../../platform/saas-billing/saas-billing.module';
 import { User } from '../users/entities/user.entity';
 import { ProductPerformanceSnapshot } from '../regulatory-compliance/entities/product-performance-snapshot.entity';
+import { ReportAccessAuditEvent } from './entities/report-access-audit-event.entity';
 import { ReportArtifact } from './entities/report-artifact.entity';
+import { ReportDeliveryAttempt } from './entities/report-delivery-attempt.entity';
 import { ReportDefinition } from './entities/report-definition.entity';
 import { ReportJob } from './entities/report-job.entity';
 import { ReportSchedule } from './entities/report-schedule.entity';
@@ -16,6 +18,7 @@ import { ReportWorkerJob } from './jobs/report-worker.job';
 import { ReportingController } from './reporting.controller';
 import { ExcelReportWriterService } from './services/excel-report-writer.service';
 import { ReportMailHealthService } from './services/report-mail-health.service';
+import { ReportParameterValidationService } from './services/report-parameter-validation.service';
 import { ReportRegistryService } from './services/report-registry.service';
 import { ReportScheduleService } from './services/report-schedule.service';
 
@@ -27,6 +30,8 @@ import { ReportScheduleService } from './services/report-schedule.service';
       ReportSchedule,
       ReportJob,
       ReportArtifact,
+      ReportDeliveryAttempt,
+      ReportAccessAuditEvent,
       ProductPerformanceSnapshot,
     ]),
     SaasBillingModule,
@@ -36,6 +41,7 @@ import { ReportScheduleService } from './services/report-schedule.service';
   providers: [
     ExcelReportWriterService,
     ReportMailHealthService,
+    ReportParameterValidationService,
     ReportScheduleService,
     ReportSchedulerJob,
     ReportWorkerJob,

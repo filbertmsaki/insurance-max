@@ -1,4 +1,9 @@
 import {
+  ReportCategory,
+  ReportParameterDefinition,
+  ReportSensitivity,
+} from '@insurance-max/contracts';
+import {
   Column,
   CreateDateColumn,
   Entity,
@@ -48,6 +53,33 @@ export class ReportDefinition {
 
   @Column({ type: 'jsonb', nullable: true })
   metadata!: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  category!: ReportCategory | null;
+
+  @Column({ type: 'int', default: 1 })
+  version!: number;
+
+  @Column({ type: 'varchar', length: 40, default: 'INTERNAL' })
+  sensitivity!: ReportSensitivity;
+
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  permission!: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  maximum_rows!: number | null;
+
+  @Column({ type: 'boolean', default: false })
+  asynchronous_only!: boolean;
+
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  parameters!: ReportParameterDefinition[];
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  definition_hash!: string | null;
+
+  @Column({ type: 'boolean', default: true })
+  active!: boolean;
 
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;

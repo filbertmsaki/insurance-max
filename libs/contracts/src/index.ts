@@ -16,3 +16,6 @@ export * from './issuance';
 export * from './policy-transactions';
 export * from './claims';
 export * from './reinsurance';
+export * from './regulatory';
+export * from './reporting';
+export * from './analytics';

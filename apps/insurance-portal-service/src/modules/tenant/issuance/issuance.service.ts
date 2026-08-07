@@ -823,7 +823,7 @@ export class IssuanceService {
     companyId: string,
     quotationId: string,
   ): Promise<IssuableQuotation> {
-    const quotation = (await manager.getRepository(Quotation).findOne({
+    const quotation = await manager.getRepository(Quotation).findOne({
       where: {
         id: quotationId,
         company_id: companyId,
@@ -842,7 +842,7 @@ export class IssuanceService {
         },
         policy_holders: true,
       },
-    })) as IssuableQuotation | null;
+    });
 
     if (!quotation || !quotation.cover_note) {
       throw new BadRequestException(

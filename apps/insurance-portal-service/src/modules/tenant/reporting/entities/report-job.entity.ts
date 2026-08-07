@@ -82,6 +82,36 @@ export class ReportJob {
   @Column({ type: 'jsonb', nullable: true })
   metadata!: Record<string, unknown> | null;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  job_no!: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  report_code!: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  parameter_payload!: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  parameter_hash!: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  source_cutoff_at!: Date | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  execution_context!: Record<string, unknown> | null;
+
+  @Column({ type: 'int', default: 0 })
+  progress_percent!: number;
+
+  @Column({ type: 'bigint', nullable: true })
+  row_count!: string | null;
+
+  @Column({ type: 'varchar', length: 80, nullable: true })
+  failure_code!: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  safe_error_message!: string | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   created_at: Date;
 

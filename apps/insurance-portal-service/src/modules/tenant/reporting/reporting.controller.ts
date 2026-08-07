@@ -56,6 +56,7 @@ export class ReportingController {
       timezone?: string;
       format: ReportFormat;
       recipient_emails?: string[];
+      parameters?: Record<string, unknown>;
       filters?: Record<string, unknown>;
       status?: ReportScheduleStatus;
     },
@@ -90,6 +91,7 @@ export class ReportingController {
     dto: {
       definition_id: string;
       format?: ReportFormat;
+      parameters?: Record<string, unknown>;
       filters?: Record<string, unknown>;
       branch_id?: string | null;
     },
@@ -118,6 +120,6 @@ export class ReportingController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.scheduleService.downloadArtifact(user.companyId!, id);
+    return this.scheduleService.downloadArtifact(user, id);
   }
 }

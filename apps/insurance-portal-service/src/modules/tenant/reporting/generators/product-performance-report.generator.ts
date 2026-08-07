@@ -26,7 +26,7 @@ export class ProductPerformanceReportGenerator implements ReportGenerator {
   async generate(
     context: ReportGeneratorContext,
   ): Promise<GeneratedReportPayload> {
-    const filters = context.filters ?? {};
+    const filters = context.parameters ?? context.filters ?? {};
     const periodStart =
       typeof filters.period_start === 'string' ? filters.period_start : null;
     const periodEnd =
