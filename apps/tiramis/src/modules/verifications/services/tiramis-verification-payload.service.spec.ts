@@ -80,7 +80,7 @@ describe('TiramisVerificationPayloadService motor verification', () => {
         motorRegistrationNumber: 't665csf',
         motorChassisNumber: null,
         companyCode: 'ICC110',
-        systemCode: 'LSYS_ALLIANCE_001',
+        systemCode: 'LSYS_ALLIANCE_003',
       } as any,
       'AIC20260801234353476763',
     );

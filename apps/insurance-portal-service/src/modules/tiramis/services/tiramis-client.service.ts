@@ -1101,19 +1101,17 @@ export class TiramisClientService {
       );
 
       const requiredScopes = this.resolveServiceScopes(pattern);
-      const isSubmission = requiredScopes.includes(TiramisServiceScopes.SUBMIT);
-
       const tenantContext =
         authContext?.scope === 'company' && authContext.companyId
-          ? isSubmission
-            ? await this.buildTiramisReadyTenantContext(authContext)
-            : {
+          ? pattern === TIRAMIS_MESSAGE_PATTERNS.HEALTH
+            ? {
                 companyId: authContext.companyId,
                 branchId: authContext.activeBranchId,
                 branchCode: authContext.activeBranchCode,
                 salePointId: authContext.defaultSalePointId,
                 salePointCode: authContext.defaultSalePointCode,
               }
+            : await this.buildTiramisReadyTenantContext(authContext)
           : undefined;
 
       const serviceToken = this.serviceTokenService.issue(

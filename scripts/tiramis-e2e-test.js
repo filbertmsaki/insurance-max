@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { randomUUID } = require('crypto');
 
 function loadEnv(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -62,6 +63,7 @@ const config = {
     '19900101123456789001',
   nin: process.env.E2E_NIN || '19900101123456789001',
   timeoutMs: Number(process.env.E2E_TIMEOUT_MS || 60000),
+  tiramisEnvironment: process.env.E2E_TIRAMIS_ENV || 'test',
 };
 
 const portalApiBaseUrl = `${config.portalBaseUrl.replace(/\/$/, '')}/api/v1`;
@@ -123,7 +125,7 @@ function unwrapApiData(payload) {
 async function request(name, method, url, body, options = {}) {
   const headers = {
     'Content-Type': 'application/json',
-    'x-correlation-id': `tiramis-e2e-${Date.now()}`,
+    'x-correlation-id': randomUUID(),
     ...(options.auth === false
       ? {}
       : {
@@ -294,8 +296,26 @@ async function testValidation() {
   return response;
 }
 
+async function validateCompanyConfiguration() {
+  logStep('4. Validate active company TIRAMIS configuration');
+
+  const response = await request(
+    'validate-company-configuration',
+    'POST',
+    `${portalApiBaseUrl}/companies/my/tiramis-configurations/${config.tiramisEnvironment}/validate`,
+  );
+
+  assert(
+    'Company TIRAMIS configuration is valid',
+    response.ok && response.data?.valid === true,
+    response.body,
+  );
+
+  return response;
+}
+
 async function testSubmit() {
-  logStep('4. Submit to TIRAMIS through portal');
+  logStep('5. Submit to TIRAMIS through portal');
 
   const response = await request(
     'submit-business-record',
@@ -326,7 +346,7 @@ async function testSubmit() {
 }
 
 async function testDuplicatePrevention() {
-  logStep('5. Duplicate prevention');
+  logStep('6. Duplicate prevention');
 
   const duplicate = await request(
     'duplicate-submit-with-return-existing',
@@ -367,7 +387,7 @@ async function testDuplicatePrevention() {
 }
 
 async function testStatusAndSync() {
-  logStep('6. Status and manual sync');
+  logStep('7. Status and manual sync');
 
   const sync = await request(
     'sync-business-record',
@@ -392,7 +412,7 @@ async function testStatusAndSync() {
 }
 
 async function testAdminMonitoring() {
-  logStep('7. Admin monitoring endpoints');
+  logStep('8. Admin monitoring endpoints');
 
   const adminDashboard = await request(
     'admin-dashboard',
@@ -435,7 +455,7 @@ async function testAdminMonitoring() {
 }
 
 async function testRetryEndpoint() {
-  logStep('8. Retry endpoint check');
+  logStep('9. Retry endpoint check');
 
   const retry = await request(
     'admin-retry-pending',
@@ -527,6 +547,7 @@ async function main() {
     await testPortalHealth();
     await testBusinessDashboard();
     await testValidation();
+    await validateCompanyConfiguration();
     await testSubmit();
     await testDuplicatePrevention();
     await testStatusAndSync();

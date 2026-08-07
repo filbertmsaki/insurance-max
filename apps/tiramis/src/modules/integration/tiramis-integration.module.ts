@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { TiramisConfigModule } from '../config/tiramis-config.module';
 import { TiramisSubmissionsModule } from '../submissions/tiramis-submissions.module';
 import { TiramisIngressRequestEntity } from './entities/tiramis-ingress-request.entity';
 import { TiramisIntegrationController } from './controllers/tiramis-integration.controller';
@@ -9,6 +10,7 @@ import { TiramisIntegrationService } from './services/tiramis-integration.servic
 
 @Module({
   imports: [
+    TiramisConfigModule,
     TiramisSubmissionsModule,
     TypeOrmModule.forFeature([TiramisIngressRequestEntity]),
   ],

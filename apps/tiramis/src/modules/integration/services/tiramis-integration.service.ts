@@ -13,6 +13,7 @@ import { TiramisRequestIdService } from '../../submissions/services/tiramis-requ
 import { TiramisSubmissionService } from '../../submissions/services/tiramis-submission.service';
 import { TiramisTransactionRepository } from '../../submissions/repositories/tiramis-transaction.repository';
 import { TiramisIngressRequestRepository } from '../repositories/tiramis-ingress-request.repository';
+import { TiramisConfigService } from '../../config/services/tiramis-config.service';
 
 @Injectable()
 export class TiramisIntegrationService {
@@ -23,6 +24,7 @@ export class TiramisIntegrationService {
     private readonly submissionService: TiramisSubmissionService,
     private readonly transactionRepository: TiramisTransactionRepository,
     private readonly ingressRequestRepository: TiramisIngressRequestRepository,
+    private readonly tiramisConfigService: TiramisConfigService,
   ) {}
 
   async acceptSubmission(
@@ -41,6 +43,9 @@ export class TiramisIntegrationService {
         'The signed company context does not match the submission source company.',
       );
     }
+
+    const runtimeConfiguration =
+      await this.tiramisConfigService.getActiveRuntimeConfiguration();
 
     const existing = await this.ingressRequestRepository.findByIdempotency({
       sourceCompanyId: envelope.source.companyId,
@@ -68,7 +73,7 @@ export class TiramisIntegrationService {
     const requestId = this.requestIdService.generate('IMX');
 
     const transaction = await this.submissionService.createTransaction({
-      clientConfigurationId: principal.tenant.companyId,
+      clientConfigurationId: runtimeConfiguration.id,
       serviceType,
       sourceService: envelope.source.service,
       sourceCompanyId: envelope.source.companyId,

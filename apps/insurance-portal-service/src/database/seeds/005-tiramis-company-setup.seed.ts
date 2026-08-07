@@ -91,7 +91,15 @@ export default class TiramisCompanySetupSeeder implements Seeder {
   private async correctExistingAllianceReferences(queryRunner: QueryRunner) {
     const wrongRows = await queryRunner.query(
       `
-        SELECT id, name, slug, tira_company_code
+        SELECT
+          id,
+          name,
+          slug,
+          tira_company_code,
+          tira_insurer_company_code,
+          tira_client_code,
+          tira_system_code,
+          tira_system_name
         FROM companies
         WHERE deleted_at IS NULL
           AND (
@@ -101,14 +109,33 @@ export default class TiramisCompanySetupSeeder implements Seeder {
             )
             OR name ILIKE '%ALLIANCE INSURANCE%'
           )
-          AND tira_company_code IS NOT NULL
-          AND tira_company_code <> $1
+          AND (
+            COALESCE(tira_company_code, '') <> $1
+            OR COALESCE(tira_insurer_company_code, '') <> $2
+            OR COALESCE(tira_client_code, '') <> $3
+            OR COALESCE(tira_system_code, '') <> $4
+            OR COALESCE(tira_system_name, '') <> $5
+          )
       `,
-      [ALLIANCE_TENANT.companyCode],
+      [
+        ALLIANCE_TENANT.companyCode,
+        ALLIANCE_TENANT.insurerCompanyCode,
+        ALLIANCE_TENANT.clientCode,
+        ALLIANCE_TENANT.systemCode,
+        ALLIANCE_TENANT.systemName,
+      ],
+    );
+
+    const companyCodeMismatchRows = wrongRows.filter(
+      (row: {
+        tira_company_code: string | null;
+      }) =>
+        row.tira_company_code !== null &&
+        row.tira_company_code !== ALLIANCE_TENANT.companyCode,
     );
 
     if (
-      wrongRows.length > 0 &&
+      companyCodeMismatchRows.length > 0 &&
       environment.SEED_ALLOW_REFERENCE_CORRECTION !== 'true'
     ) {
       throw new Error(
@@ -192,26 +219,11 @@ export default class TiramisCompanySetupSeeder implements Seeder {
             EXCLUDED.identifier_prefix
           ),
           company_type = COALESCE(companies.company_type, EXCLUDED.company_type),
-          tira_company_code = COALESCE(
-            companies.tira_company_code,
-            EXCLUDED.tira_company_code
-          ),
-          tira_insurer_company_code = COALESCE(
-            companies.tira_insurer_company_code,
-            EXCLUDED.tira_insurer_company_code
-          ),
-          tira_client_code = COALESCE(
-            companies.tira_client_code,
-            EXCLUDED.tira_client_code
-          ),
-          tira_system_code = COALESCE(
-            companies.tira_system_code,
-            EXCLUDED.tira_system_code
-          ),
-          tira_system_name = COALESCE(
-            companies.tira_system_name,
-            EXCLUDED.tira_system_name
-          ),
+          tira_company_code = EXCLUDED.tira_company_code,
+          tira_insurer_company_code = EXCLUDED.tira_insurer_company_code,
+          tira_client_code = EXCLUDED.tira_client_code,
+          tira_system_code = EXCLUDED.tira_system_code,
+          tira_system_name = EXCLUDED.tira_system_name,
           settings = COALESCE(companies.settings, '{}'::jsonb)
             || EXCLUDED.settings,
           regulatory_metadata = COALESCE(
