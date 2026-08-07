@@ -595,7 +595,7 @@ export class TiramisClientService {
     try {
       const serviceToken = this.serviceTokenService.issue(
         'tiramis-service',
-        [TiramisServiceScopes.READ],
+        [TiramisServiceScopes.ADMIN],
         {
           tenant: {
             companyId: params.companyId,
@@ -615,7 +615,6 @@ export class TiramisClientService {
           method: 'POST',
           url: '/api/tiramis/configurations/validate-organization',
           data: {
-            companyId: params.companyId,
             environment: params.environment,
             companyCode: params.companyCode,
             systemCode: params.systemCode,

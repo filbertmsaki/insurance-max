@@ -1,13 +1,22 @@
 import { Body, Controller, Post } from '@nestjs/common';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 
 import { ServiceScopes } from '@insurance-max/shared-kernel';
 
 import { TiramisConfigService } from '../services/tiramis-config.service';
 
 class ValidateOrganizationConfigurationDto {
+  @IsIn(['test', 'live'])
   environment!: 'test' | 'live';
+
+  @IsString()
   companyCode!: string;
+
+  @IsString()
   systemCode!: string;
+
+  @IsOptional()
+  @IsString()
   insurerCompanyCode?: string;
 }
 

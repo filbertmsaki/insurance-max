@@ -2459,6 +2459,42 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'reconciliation:read',
+    displayName: 'Read reconciliation batches',
+    description: 'Allow viewing finance reconciliation batches and items',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'reconciliation:create',
+    displayName: 'Create reconciliation batches',
+    description: 'Allow creating finance reconciliation batches',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'reconciliation:import',
+    displayName: 'Import reconciliation statements',
+    description: 'Allow importing reconciliation statement lines',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'reconciliation:match',
+    displayName: 'Match reconciliation items',
+    description: 'Allow matching reconciliation items to payments and receipts',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'reconciliation:approve',
+    displayName: 'Approve reconciliation batches',
+    description: 'Allow approving matched reconciliation batches',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'reconciliation:post',
+    displayName: 'Post reconciliation batches',
+    description: 'Allow posting approved reconciliation batches',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'billing:closing-create',
     displayName: 'Create sales-point closings',
     description: 'Allow creating sales-point closing records',
@@ -2968,6 +3004,21 @@ const PHASE18_GOVERNANCE_PERMISSION_NAMES = [
   'operations:release-read',
 ];
 
+const FINANCE_RECONCILIATION_PERMISSION_NAMES = [
+  'reconciliation:read',
+  'reconciliation:create',
+  'reconciliation:import',
+  'reconciliation:match',
+  'reconciliation:approve',
+  'reconciliation:post',
+];
+
+const COMPANY_TIRAMIS_CONFIGURATION_PERMISSION_NAMES = [
+  'company-tiramis-config:read',
+  'company-tiramis-config:update',
+  'company-tiramis-config:validate',
+];
+
 const roleSeeds: RoleSeed[] = [
   {
     name: 'OWNER',
@@ -3014,6 +3065,8 @@ const roleSeeds: RoleSeed[] = [
       ...REINSURANCE_ADMIN_PERMISSION_NAMES,
       ...PORTAL_ADMIN_PERMISSION_NAMES,
       ...PHASE18_GOVERNANCE_PERMISSION_NAMES,
+      ...FINANCE_RECONCILIATION_PERMISSION_NAMES,
+      ...COMPANY_TIRAMIS_CONFIGURATION_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',
@@ -3159,6 +3212,8 @@ const roleSeeds: RoleSeed[] = [
       ...REINSURANCE_ADMIN_PERMISSION_NAMES,
       ...PORTAL_ADMIN_PERMISSION_NAMES,
       ...PHASE18_GOVERNANCE_PERMISSION_NAMES,
+      ...FINANCE_RECONCILIATION_PERMISSION_NAMES,
+      ...COMPANY_TIRAMIS_CONFIGURATION_PERMISSION_NAMES,
       'view_company_dashboard',
       'manage_company_users',
       'create_company_user',

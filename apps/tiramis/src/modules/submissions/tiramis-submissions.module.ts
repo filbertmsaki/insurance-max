@@ -38,6 +38,9 @@ import { TiramisSubmissionService } from './services/tiramis-submission.service'
     TiramisResubmissionService,
   ],
   exports: [
+    TiramisTransactionRepository,
+    TiramisSubmissionAttemptRepository,
+    TiramisSubmissionEventRepository,
     TiramisRequestIdService,
     TiramisSubmissionService,
     TiramisResubmissionService,

@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 
 export class UpsertCompanyTiramisConfigurationDto {
+  @IsOptional()
   @IsIn(['test', 'live'])
   environment: 'test' | 'live';
 
