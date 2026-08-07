@@ -195,8 +195,8 @@ export class TiramisController {
   })
   @RequireTiramisPermissions(TiramisPermissions.SYNC)
   @Post('local-tracking/:id/sync')
-  syncOneLocalTracking(@Param('id') id: string) {
-    return this.tiramisStatusSyncService.syncOne(id);
+  syncOneLocalTracking(@Param('id') id: string, @Req() req: any) {
+    return this.tiramisStatusSyncService.syncOne(id, this.getAuthContext(req));
   }
 
   @ApiOperation({

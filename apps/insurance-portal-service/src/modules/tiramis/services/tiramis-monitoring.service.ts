@@ -207,13 +207,14 @@ export class TiramisMonitoringService {
 
   async syncOne(
     id: string,
+    authContext?: any,
     scope?: {
       companyId?: string | null;
       canAccessAllCompanies?: boolean;
     },
   ) {
     await this.getSubmissionScoped(id, null, scope);
-    return this.statusSyncService.syncOne(id);
+    return this.statusSyncService.syncOne(id, authContext);
   }
 
   syncAll() {

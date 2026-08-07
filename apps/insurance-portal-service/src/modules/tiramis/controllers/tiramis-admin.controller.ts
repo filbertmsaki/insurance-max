@@ -184,7 +184,11 @@ export class TiramisAdminController {
   @RequireTiramisPermissions(TiramisPermissions.SYNC)
   @Post('submissions/:id/sync')
   syncOne(@Param('id') id: string, @Req() req: any) {
-    return this.tiramisMonitoringService.syncOne(id, this.getScope(req));
+    return this.tiramisMonitoringService.syncOne(
+      id,
+      this.getAuthContext(req),
+      this.getScope(req),
+    );
   }
 
   @ApiOperation({

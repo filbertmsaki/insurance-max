@@ -993,7 +993,7 @@ export class TiramisClientService {
     const response = await firstValueFrom(
       this.httpService.request({
         method: 'POST',
-        url: '/api/v1/internal/tiramis/integration/submissions',
+        url: '/api/internal/tiramis/integration/submissions',
         data: envelope,
         validateStatus: () => true,
         headers: {

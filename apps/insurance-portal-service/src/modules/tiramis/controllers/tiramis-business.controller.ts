@@ -227,6 +227,7 @@ export class TiramisBusinessController {
       requestType: requestType || null,
       sourceCompanyId: scope.companyId,
       canAccessAllCompanies: scope.canAccessAllCompanies,
+      authContext,
     });
   }
 

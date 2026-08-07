@@ -138,7 +138,7 @@ export class TiramisStatusSyncService {
     }
   }
 
-  async syncOne(localTrackingId: string) {
+  async syncOne(localTrackingId: string, authContext?: any) {
     const record = await this.trackingRepository.findById(localTrackingId);
 
     if (!record) {
@@ -163,6 +163,7 @@ export class TiramisStatusSyncService {
       callbackOverdueMinutes: Number(
         environment.TIRAMIS_CALLBACK_OVERDUE_MINUTES || 10,
       ),
+      authContext,
     });
 
     return {
@@ -177,6 +178,7 @@ export class TiramisStatusSyncService {
     requestType?: string | null;
     sourceCompanyId?: string | null;
     canAccessAllCompanies?: boolean;
+    authContext?: any;
   }) {
     const latest = await this.trackingRepository.findLatestByBusinessRecord({
       sourceModule: params.sourceModule,
@@ -196,7 +198,7 @@ export class TiramisStatusSyncService {
       };
     }
 
-    return this.syncOne(latest.id);
+    return this.syncOne(latest.id, params.authContext);
   }
 
   private async syncTrackingRecord(
@@ -204,9 +206,12 @@ export class TiramisStatusSyncService {
     options: {
       automatic: boolean;
       callbackOverdueMinutes: number;
+      authContext?: any;
     },
   ) {
     const statusBefore = record.status;
+    const authContext =
+      options.authContext || this.resolveTrackingAuthContext(record);
 
     const response = await this.tiramisClientService.getStatus({
       transactionId: record.tiramisTransactionId || undefined,
@@ -214,7 +219,7 @@ export class TiramisStatusSyncService {
       businessReference: record.businessReference || undefined,
       includePayload:
         environment.TIRAMIS_STATUS_SYNC_INCLUDE_PAYLOAD !== 'false',
-    });
+    }, authContext);
 
     let updated = await this.trackingRepository.markFinalFromTiramisStatus(
       record.id,
@@ -315,6 +320,27 @@ export class TiramisStatusSyncService {
     const overdueMs = overdueMinutes * 60 * 1000;
 
     return ageMs >= overdueMs;
+  }
+
+  private resolveTrackingAuthContext(
+    record: TiramisSubmissionTrackingEntity,
+  ): any {
+    if (!record.sourceCompanyId) {
+      return undefined;
+    }
+
+    return {
+      id: record.sourceUserId || 'system',
+      email: 'system@internal',
+      scope: 'company',
+      userType: 'COMPANY_USER',
+      sessionId: 'system-status-sync',
+      accessTokenId: 'system-status-sync',
+      authorizationVersion: 0,
+      companyId: record.sourceCompanyId,
+      roles: [],
+      permissions: [],
+    };
   }
 
   private async sendFinalNotifications(
