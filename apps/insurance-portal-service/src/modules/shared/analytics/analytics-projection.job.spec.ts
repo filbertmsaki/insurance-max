@@ -80,4 +80,50 @@ describe('AnalyticsProjectionJob', () => {
       [event.id],
     );
   });
+
+  it('skips malformed claimed rows without invoking handlers', async () => {
+    const manager = {
+      query: jest.fn(),
+    };
+
+    const transactions = jest
+      .fn()
+      .mockImplementationOnce(async (cb: any) => cb(manager));
+
+    const dataSource: Partial<DataSource> = {
+      transaction: transactions,
+    };
+
+    const handler = {
+      aggregateType: AnalyticsAggregateType.POLICY,
+      project: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const registry = new AnalyticsProjectionRegistryService([
+      handler as any,
+    ] as any);
+    const configService: Partial<ConfigService> = {
+      get: jest.fn().mockImplementation((key: string, def: any) => {
+        if (key === 'ANALYTICS_ENABLED') return true;
+        if (key === 'ANALYTICS_PROJECTION_BATCH_SIZE') return 10;
+        return def;
+      }),
+    };
+
+    const job = new AnalyticsProjectionJob(
+      dataSource as DataSource,
+      configService as ConfigService,
+      registry,
+    );
+
+    manager.query.mockResolvedValueOnce([
+      { id: null, aggregate_type: AnalyticsAggregateType.POLICY },
+      { id: 'missing-type', aggregate_type: null },
+    ]);
+
+    await job.process();
+
+    expect(transactions).toHaveBeenCalledTimes(1);
+    expect(handler.project).not.toHaveBeenCalled();
+  });
 });

@@ -44,8 +44,8 @@ export class AnalyticsProjectionJob {
   private async claimBatch(
     batchSize: number,
   ): Promise<AnalyticsProjectionEvent[]> {
-    return this.dataSource.transaction(async (manager) => {
-      const rows = await manager.query(
+    const rows = await this.dataSource.transaction(async (manager) => {
+      return manager.query(
         `
             WITH picked AS (
               SELECT id
@@ -72,9 +72,12 @@ export class AnalyticsProjectionJob {
             `,
         [batchSize],
       );
-
-      return rows;
     });
+
+    return rows.filter(
+      (row: Partial<AnalyticsProjectionEvent> | null | undefined): row is AnalyticsProjectionEvent =>
+        !!row?.id && !!row.aggregate_type,
+    );
   }
 
   private async processOne(event: AnalyticsProjectionEvent): Promise<void> {

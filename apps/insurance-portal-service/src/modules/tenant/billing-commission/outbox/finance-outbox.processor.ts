@@ -47,7 +47,7 @@ export class FinanceOutboxProcessor {
   }
 
   private async claimBatch(batchSize: number): Promise<Array<{ id: string }>> {
-    return this.dataSource.transaction(async (manager) => {
+    const rows = await this.dataSource.transaction(async (manager) => {
       return manager.query(
         `
           WITH picked AS (
@@ -68,11 +68,24 @@ export class FinanceOutboxProcessor {
         [batchSize],
       );
     });
+
+    return rows.filter(
+      (row: { id?: string | null } | null | undefined): row is { id: string } =>
+        typeof row?.id === 'string' && row.id.length > 0,
+    );
   }
 
   private async publishOne(eventId: string): Promise<void> {
+    if (!eventId) {
+      return;
+    }
+
     const repository = this.dataSource.getRepository(FinanceOutboxEvent);
-    const event = await repository.findOneByOrFail({ id: eventId });
+    const event = await repository.findOneBy({ id: eventId });
+
+    if (!event) {
+      return;
+    }
 
     if (event.status === 'PUBLISHED') {
       return;
