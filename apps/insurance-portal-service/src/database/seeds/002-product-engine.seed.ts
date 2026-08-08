@@ -514,7 +514,7 @@ export default class ProductEngineSeeder implements Seeder {
         existing.policy_operative_clause || product.product_name;
       existing.special_conditions = existing.special_conditions ?? '';
       existing.exclusions = existing.exclusions ?? '';
-      existing.allows_cover_text_override = false;
+      existing.allows_cover_text_override = true;
       existing.effective_from = existing.effective_from ?? '2026-01-01';
       existing.effective_to = null;
       existing.is_submission_ready = true;
@@ -553,7 +553,7 @@ export default class ProductEngineSeeder implements Seeder {
         policy_operative_clause: product.product_name,
         special_conditions: '',
         exclusions: '',
-        allows_cover_text_override: false,
+        allows_cover_text_override: true,
         effective_from: '2026-01-01',
         effective_to: null,
         is_submission_ready: true,

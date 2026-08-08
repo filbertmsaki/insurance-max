@@ -51,6 +51,9 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           'client_code',
           'system_code',
           'is_active',
+          'validation_status',
+          'validated_at',
+          'validation_message',
         ]);
 
         await requireColumns(queryRunner, 'tiramis_sale_points', [
@@ -284,6 +287,9 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           base_url,
           callback_url,
           is_active,
+          validation_status,
+          validated_at,
+          validation_message,
           metadata,
           created_at,
           updated_at
@@ -302,7 +308,10 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           NULL,
           NULL,
           true,
-          $10::jsonb,
+          $10::varchar,
+          CASE WHEN $10::varchar = 'VALID' THEN now() ELSE NULL END,
+          $11,
+          $12::jsonb,
           now(),
           now()
         )
@@ -316,6 +325,9 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           system_code = EXCLUDED.system_code,
           system_name = EXCLUDED.system_name,
           is_active = true,
+          validation_status = EXCLUDED.validation_status,
+          validated_at = EXCLUDED.validated_at,
+          validation_message = EXCLUDED.validation_message,
           metadata = COALESCE(
             tiramis_company_configurations.metadata,
             '{}'::jsonb
@@ -332,9 +344,17 @@ export default class TiramisCompanySetupSeeder implements Seeder {
         ALLIANCE_TENANT.clientCode,
         ALLIANCE_TENANT.systemCode,
         ALLIANCE_TENANT.systemName,
+        environment === 'test' ? 'VALID' : 'NOT_VALIDATED',
+        environment === 'test'
+          ? 'Seeded local/test configuration is ready for TIRAMIS sandbox submission.'
+          : 'Live configuration requires validation with production credentials before submission.',
         JSON.stringify({
           seededBy: '005-tiramis-company-setup.seed',
           secretsManagedBy: 'apps/tiramis',
+          readinessPolicy:
+            environment === 'test'
+              ? 'local-test-seed-validated'
+              : 'live-requires-explicit-validation',
         }),
       ],
     );

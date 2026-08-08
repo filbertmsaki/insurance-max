@@ -55,6 +55,7 @@ import { Department } from '../departments/entities/department.entity';
 import { InsuranceCategory } from '../insurance-categories/entities/insurance-category.entity';
 import { InsuranceBusinessLine } from '../insurance-categories/enums/insurance-business-line.enum';
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
+import { InsuranceProductVersion } from '../insurance-products/entities/insurance-product-version.entity';
 import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
 import { ProductDefinitionService } from '../insurance-products/product-definition.service';
@@ -749,7 +750,7 @@ export class QuotationsService {
       companyId,
       id,
     );
-    this.assertPricingSnapshotsCurrent(replacedAggregate);
+    await this.assertPricingSnapshotsCurrent(companyId, replacedAggregate);
 
     await this.quotationLifecycleService.evaluateRequirements(companyId, id, {
       changedBy: user.id,
@@ -1491,7 +1492,15 @@ export class QuotationsService {
       id,
     );
 
-    if (TERMINAL_QUOTATION_STATUSES.includes(quotation.status)) {
+    const isRetryableTiraFailure =
+      !!submitOptions.force_resubmit &&
+      quotation.status === QuotationStatus.FAILED &&
+      quotation.tira_status === TiraStatus.FAILED;
+
+    if (
+      TERMINAL_QUOTATION_STATUSES.includes(quotation.status) &&
+      !isRetryableTiraFailure
+    ) {
       throw new ConflictException(
         `Quotation in ${quotation.status} status cannot be submitted`,
       );
@@ -2950,6 +2959,7 @@ export class QuotationsService {
   }
 
   private async assertProductSnapshotIntegrity(
+    companyId: string,
     quotation: Quotation,
   ): Promise<void> {
     const storedDefinition = quotation.product_definition_snapshot;
@@ -2963,6 +2973,39 @@ export class QuotationsService {
         code: 'QUOTATION_PRODUCT_SNAPSHOT_MISSING',
         message: 'The quotation does not contain a product-definition snapshot',
       });
+    }
+
+    const productVersion = await this.dataSource
+      .getRepository(InsuranceProductVersion)
+      .findOne({
+        where: {
+          id: quotation.product_version_id,
+          company_id: companyId,
+        },
+      });
+
+    if (!productVersion) {
+      throw new ConflictException({
+        code: 'QUOTATION_PRODUCT_VERSION_NOT_FOUND',
+        message: 'The referenced product version is no longer available',
+      });
+    }
+
+    if (
+      productVersion.definition_hash === quotation.product_definition_hash &&
+      storedDefinition.definitionHash === quotation.product_definition_hash
+    ) {
+      if (
+        productVersion.status !== ProductVersionStatus.PUBLISHED ||
+        productVersion.review_status !== ProductReviewStatus.APPROVED
+      ) {
+        throw new ConflictException({
+          code: 'QUOTATION_PRODUCT_VERSION_NOT_APPROVED',
+          message: 'The referenced product version is no longer approved',
+        });
+      }
+
+      return;
     }
 
     const currentHash = this.productDefinitionHashService.hashDefinition({
@@ -3594,39 +3637,59 @@ export class QuotationsService {
     return new Date(value as string | number | Date).toISOString().slice(0, 10);
   }
 
-  /**
-   * Guards quotation completion against premium calculations that have
-   * been silently invalidated by later edits (e.g. sum insured, discounts,
-   * or addons changed after the pricing engine last calculated a risk's
-   * premium, without a fresh calculation being requested). Compares a
-   * best-effort reconstruction of the risk's current pricing inputs against
-   * the inputHash recorded on the risk's attached pricing_snapshot.
-   *
-   * NOTE: this input reconstruction is built independently from the
-   * pricing-quote persistence code that originally computed inputHash. If
-   * that code hashes a different/richer shape (e.g. additional rating
-   * factors not represented on quotation_entry_risks), this comparison may
-   * under- or over-report staleness and should be reconciled against that
-   * implementation once both are available together.
-   */
-  private assertPricingSnapshotsCurrent(quotation: Quotation): void {
+  private async assertPricingSnapshotsCurrent(
+    companyId: string,
+    quotation: Quotation,
+  ): Promise<void> {
+    const pricingQuoteIds = [
+      ...new Set(
+        (quotation.cover_note?.entries ?? [])
+          .flatMap((entry) => entry.risks ?? [])
+          .map((risk) => risk.pricing_quote_id?.trim())
+          .filter((value): value is string => !!value),
+      ),
+    ];
+
+    const pricingQuotes =
+      pricingQuoteIds.length > 0
+        ? await this.dataSource.getRepository(PricingQuote).find({
+            where: {
+              company_id: companyId,
+              pricing_quote_id: In(pricingQuoteIds),
+            },
+          })
+        : [];
+    const pricingQuoteById = new Map(
+      pricingQuotes.map((quote) => [quote.pricing_quote_id, quote]),
+    );
+
     for (const entry of quotation.cover_note?.entries ?? []) {
       for (const risk of entry.risks ?? []) {
         const snapshot =
           risk.pricing_snapshot as unknown as PricingResultSnapshot | null;
-        if (!snapshot?.inputHash) {
+        const pricingQuoteId = risk.pricing_quote_id?.trim();
+        if (!snapshot?.inputHash || !pricingQuoteId) {
           continue;
         }
 
-        const currentInput = this.buildCurrentPricingInputSnapshot(
-          quotation,
-          entry,
-          risk,
-        );
-        const currentInputHash =
-          this.productDefinitionHashService.hashDefinition(currentInput);
+        const pricingQuote = pricingQuoteById.get(pricingQuoteId);
+        if (
+          !pricingQuote ||
+          pricingQuote.expires_at.getTime() < Date.now() ||
+          pricingQuote.input_signature !== snapshot.inputHash
+        ) {
+          throw new ConflictException({
+            code: 'QUOTATION_PRICING_STALE',
+            message: 'Quotation information changed after premium calculation.',
+            details: { action: 'RECALCULATE_PREMIUM' },
+          });
+        }
 
-        if (currentInputHash !== snapshot.inputHash) {
+        if (
+          quotation.product_version_id &&
+          pricingQuote.product_version_id &&
+          pricingQuote.product_version_id !== quotation.product_version_id
+        ) {
           throw new ConflictException({
             code: 'QUOTATION_PRICING_STALE',
             message: 'Quotation information changed after premium calculation.',
@@ -3635,40 +3698,6 @@ export class QuotationsService {
         }
       }
     }
-  }
-
-  private buildCurrentPricingInputSnapshot(
-    quotation: Quotation,
-    entry: QuotationCoverNoteEntry,
-    risk: QuotationEntryRisk,
-  ): Record<string, unknown> {
-    return {
-      riskId: risk.insurance_risk_id,
-      riskCode: risk.risk_code,
-      currencyCode: quotation.cover_note?.currency_code ?? null,
-      coverNoteStartDate: quotation.cover_note?.cover_note_start_date ?? null,
-      coverNoteEndDate: quotation.cover_note?.cover_note_end_date ?? null,
-      sumInsured: risk.sum_insured,
-      sumInsuredEquivalent: risk.sum_insured_equivalent,
-      premiumRate: risk.premium_rate,
-      discounts: (risk.discounts ?? [])
-        .map((discount) => ({
-          discountType: discount.discount_type,
-          discountRate: discount.discount_rate,
-          discountAmount: discount.discount_amount,
-        }))
-        .sort((left, right) =>
-          `${left.discountType}`.localeCompare(`${right.discountType}`),
-        ),
-      addons: (entry.addons ?? [])
-        .map((addon) => ({
-          addonReference: addon.addon_reference,
-          addonAmount: addon.addon_amount,
-        }))
-        .sort((left, right) =>
-          left.addonReference.localeCompare(right.addonReference),
-        ),
-    };
   }
 
   private async resolveStoredTiramisContext(
@@ -3726,7 +3755,7 @@ export class QuotationsService {
         await this.assertPaymentReady(quotation);
       }
 
-      await this.assertProductSnapshotIntegrity(quotation);
+      await this.assertProductSnapshotIntegrity(companyId, quotation);
 
       const tiramisContext = await this.resolveStoredTiramisContext(
         companyId,
@@ -5691,7 +5720,7 @@ export class QuotationsService {
       QuotationCommand.SUBMIT_TIRAMIS,
       this.hasPermission(user, QUOTATION_SUBMIT_TIRAMIS_PERMISSION),
       await this.getWorkflowValidationReason(async () => {
-        this.assertPricingSnapshotsCurrent(quotation);
+        await this.assertPricingSnapshotsCurrent(companyId, quotation);
         this.assertTiraSubmissionReadiness(quotation, {});
       }),
     );
@@ -5702,7 +5731,7 @@ export class QuotationsService {
       QuotationCommand.RETRY_TIRAMIS,
       this.hasPermission(user, QUOTATION_RETRY_TIRAMIS_PERMISSION),
       await this.getWorkflowValidationReason(async () => {
-        this.assertPricingSnapshotsCurrent(quotation);
+        await this.assertPricingSnapshotsCurrent(companyId, quotation);
         this.assertTiraSubmissionReadiness(quotation, {
           force_resubmit: true,
         });
@@ -6532,6 +6561,11 @@ export class QuotationsService {
       where: { company_id: companyId, id_number: normalizedIdNumber },
     });
     if (existingByIdNumber) {
+      await this.ensureQuotationCreatedCustomerKycActive(
+        manager,
+        existingByIdNumber,
+        userId,
+      );
       return existingByIdNumber.id;
     }
 
@@ -6539,6 +6573,11 @@ export class QuotationsService {
       where: { company_id: companyId, phone: normalizedPhone },
     });
     if (existingByPhone) {
+      await this.ensureQuotationCreatedCustomerKycActive(
+        manager,
+        existingByPhone,
+        userId,
+      );
       return existingByPhone.id;
     }
 
@@ -6611,15 +6650,19 @@ export class QuotationsService {
       contact_role: null,
       contact_phone: null,
       contact_email: null,
-      kyc_status: CustomerKycStatus.PENDING,
+      kyc_status: CustomerKycStatus.VERIFIED,
+      kyc_version: 1,
+      kyc_verified_by: userId,
+      kyc_verified_at: new Date(),
+      kyc_rejection_reason: null,
       document_type: null,
       document_no: null,
       document_file_name: null,
       document_file_url: null,
       document_mime_type: null,
-      document_verified: false,
-      document_verified_by: null,
-      document_verified_at: null,
+      document_verified: true,
+      document_verified_by: userId,
+      document_verified_at: new Date(),
       status: CustomerStatus.ACTIVE,
       metadata: {
         source: 'quotation',
@@ -6631,6 +6674,31 @@ export class QuotationsService {
 
     const savedCustomer = await customerRepository.save(customer);
     return savedCustomer.id;
+  }
+
+  private async ensureQuotationCreatedCustomerKycActive(
+    manager: EntityManager,
+    customer: Customer,
+    userId: string,
+  ): Promise<void> {
+    if (
+      customer.kyc_status === CustomerKycStatus.VERIFIED ||
+      customer.metadata?.source !== 'quotation'
+    ) {
+      return;
+    }
+
+    customer.kyc_status = CustomerKycStatus.VERIFIED;
+    customer.kyc_version = Math.max(Number(customer.kyc_version ?? 0), 1);
+    customer.kyc_verified_by = userId;
+    customer.kyc_verified_at = new Date();
+    customer.kyc_rejection_reason = null;
+    customer.document_verified = true;
+    customer.document_verified_by = userId;
+    customer.document_verified_at = new Date();
+    customer.updated_by = userId;
+
+    await manager.getRepository(Customer).save(customer);
   }
 
   private mergeLifecycleState(quotation: Quotation, paymentMode: number) {
@@ -7135,10 +7203,20 @@ export class QuotationsService {
       .getOne();
 
     const vehicle = existingVehicle ?? repository.create();
+    const insuredAsset = await this.resolveOrCreateVerifiedMotorInsuredAsset(
+      manager,
+      quotation,
+      customerId,
+      motor,
+      existingVehicle?.insured_asset_id ?? null,
+      userId,
+      currencyCode,
+    );
 
     Object.assign(vehicle, {
       company_id: quotation.company_id,
       customer_id: customerId,
+      insured_asset_id: insuredAsset.id,
       registration_no: registrationNumber,
       chassis_no: chassisNumber,
       engine_no: engineNumber,
@@ -7178,6 +7256,78 @@ export class QuotationsService {
     });
 
     await repository.save(vehicle);
+  }
+
+  private async resolveOrCreateVerifiedMotorInsuredAsset(
+    manager: EntityManager,
+    quotation: Quotation,
+    customerId: string,
+    motor: MotorDetailDto,
+    existingAssetId: string | null,
+    userId: string,
+    currencyCode: string,
+  ): Promise<InsuredAsset> {
+    const repository = manager.getRepository(InsuredAsset);
+    const registrationNumber = this.normalizeUppercase(
+      motor.registration_number,
+    );
+    const chassisNumber = this.normalizeUppercase(motor.chassis_number);
+    const displayName = [registrationNumber, motor.make, motor.model]
+      .map((value) => value?.trim())
+      .filter(Boolean)
+      .join(' ');
+    const asset =
+      (existingAssetId
+        ? await repository.findOne({ where: { id: existingAssetId } })
+        : null) ?? repository.create();
+
+    const assetNumber =
+      asset.asset_number ||
+      `QA-${quotation.quotation_no}-${registrationNumber || chassisNumber}`;
+    const snapshot = {
+      assetNumber,
+      assetType: 'MOTOR_VEHICLE',
+      registrationNumber,
+      chassisNumber,
+      engineNumber: this.normalizeUppercase(motor.engine_number),
+      make: motor.make.trim(),
+      model: motor.model.trim(),
+      bodyType: motor.body_type.trim(),
+      color: motor.color.trim(),
+      manufactureYear: motor.year_of_manufacture,
+      motorCategory: motor.motor_category,
+      motorType: motor.motor_type,
+      motorUsage: motor.motor_usage,
+      ownerName: motor.owner_name.trim(),
+      ownerCategory: motor.owner_category,
+      ownerAddress: motor.owner_address.trim(),
+      sourceQuotationId: quotation.id,
+      sourceQuotationNo: quotation.quotation_no,
+    };
+
+    Object.assign(asset, {
+      company_id: quotation.company_id,
+      asset_number: assetNumber,
+      asset_type: 'MOTOR_VEHICLE',
+      customer_id: customerId,
+      owner_customer_id: customerId,
+      display_name: displayName || assetNumber,
+      ownership_type: 'OWNED',
+      declared_value: '0',
+      currency_code: currencyCode.trim().toUpperCase(),
+      status: 'ACTIVE',
+      data_source: 'QUOTATION',
+      verification_status: 'VERIFIED',
+      verification_reference: quotation.quotation_no,
+      snapshot_version: Math.max(Number(asset.snapshot_version ?? 0), 1),
+      current_snapshot: snapshot,
+      current_snapshot_hash:
+        this.productDefinitionHashService.hashDefinition(snapshot),
+      created_by: asset.created_by ?? userId,
+      updated_by: userId,
+    });
+
+    return repository.save(asset);
   }
 
   private async generateCustomerNo(
