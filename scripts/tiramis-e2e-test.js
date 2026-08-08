@@ -72,6 +72,7 @@ const config = {
 const portalApiBaseUrl = `${config.portalBaseUrl.replace(/\/$/, '')}/api/v1`;
 
 const results = [];
+let summaryPrinted = false;
 
 function now() {
   return new Date().toISOString();
@@ -267,6 +268,27 @@ async function loginAndGetToken() {
 
   const token = response.data?.access_token;
   assert('Login returned access token', Boolean(token), response.body);
+
+  const scope = response.data?.scope;
+  const hasCompanyContext =
+    Boolean(response.data?.company?.id) ||
+    Boolean(response.data?.activeCompany?.id) ||
+    Boolean(response.data?.user?.company_id) ||
+    Boolean(response.data?.user?.companyId);
+
+  const tenantSessionOk = assert(
+    'Login returned tenant/company-scoped session',
+    scope !== 'platform' || hasCompanyContext,
+    {
+      scope,
+      hint:
+        'Use E2E_AUTH_EMAIL/E2E_AUTH_PASSWORD for a company user with TIRAMIS permissions, not a platform owner session.',
+    },
+  );
+
+  if (!tenantSessionOk) {
+    throw new Error('E2E login did not return a tenant/company-scoped session');
+  }
 
   config.token = token;
 }
@@ -512,6 +534,11 @@ async function testRetryEndpoint() {
 }
 
 function printSummary() {
+  if (summaryPrinted) {
+    return;
+  }
+
+  summaryPrinted = true;
   logStep('E2E Summary');
 
   const passed = results.filter((item) => item.status === 'PASS').length;

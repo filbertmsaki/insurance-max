@@ -42,6 +42,10 @@ export const reinsuranceApi = {
     apiClient
       .post(`/tenant/reinsurance/cessions/${id}/declaration`)
       .then((r) => r.data),
+  submitDeclarationToTiramis: (id: string) =>
+    apiClient
+      .post(`/tenant/reinsurance/declarations/${id}/tiramis`)
+      .then((r) => r.data),
   submitSettlement: (id: string) =>
     apiClient
       .post(`/tenant/reinsurance/settlements/${id}/submit`)

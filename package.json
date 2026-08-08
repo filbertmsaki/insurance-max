@@ -47,6 +47,8 @@
     "db:show:tiramis-compliance": "npm run migration:show:tiramis && npm run migration:show:insurance-portal-service",
     "db:apply:tiramis-compliance": "node scripts/apply-tiramis-compliance-db.js",
     "tiramis:compliance:check": "node scripts/verify-tiramis-compliance.mjs",
+    "tiramis:audit:refresh": "node scripts/generate-tiramis-final-audit.mjs",
+    "tiramis:production:check": "node scripts/check-tiramis-production-readiness.mjs",
     "db:prepare:tiramis:e2e": "node -r ts-node/register -r tsconfig-paths/register scripts/prepare-tiramis-e2e.js",
     "pretest:tiramis:e2e": "npm run db:prepare:tiramis:e2e",
     "test:tiramis:e2e": "node scripts/tiramis-e2e-test.js",

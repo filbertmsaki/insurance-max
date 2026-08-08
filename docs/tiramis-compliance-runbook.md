@@ -75,6 +75,7 @@ Before promoting to live:
 
 ```bash
 npm run tiramis:compliance:check
+npm run tiramis:audit:refresh
 npm run build:tiramis
 npm run build:insurance-portal-service
 npm --prefix apps/insurance-portal-web run build:prod
@@ -100,3 +101,9 @@ When a submission appears stuck:
 - Reference data workbooks have been loaded into `tiramis_lookups`.
 - At least one sandbox submission has passed for each enabled workflow type.
 - Operators know where to review failed, retryable, and overdue callback records.
+
+Use this check against the target live environment file:
+
+```bash
+npm run tiramis:production:check -- --env-file=apps/tiramis/.env --strict
+```

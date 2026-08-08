@@ -8,8 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useTiramisBusinessReadiness } from '@/modules/tenant/tiramis/hooks';
 import { claimsApi } from '../api';
 import {
   claimCustomerName,
@@ -65,6 +67,22 @@ export function ClaimDetailPage() {
   });
 
   const claim = claimQuery.data;
+  const tiramisReadinessQuery = useTiramisBusinessReadiness(
+    id
+      ? {
+          requestType: 'CLAIM_NOTIFICATION',
+          sourceModule: 'claims',
+          sourceRecordId: id,
+        }
+      : undefined,
+    {
+      enabled: Boolean(id && claim),
+    },
+  );
+  const tiramisReadiness = tiramisReadinessQuery.data?.validation;
+  const tiramisErrors = tiramisReadiness?.errors ?? [];
+  const tiramisWarnings = tiramisReadiness?.warnings ?? [];
+  const tiramisBlocked = tiramisReadiness?.isValid === false;
 
   if (claimQuery.isLoading || !claim) {
     return <Skeleton className="h-[640px] w-full" />;
@@ -206,12 +224,47 @@ export function ClaimDetailPage() {
               <Button
                 className="w-full justify-start"
                 variant="outline"
-                disabled={submitTiramisMutation.isPending}
+                disabled={
+                  submitTiramisMutation.isPending ||
+                  tiramisReadinessQuery.isLoading ||
+                  tiramisBlocked
+                }
                 onClick={() => submitTiramisMutation.mutate()}
               >
                 <Send className="mr-2 h-4 w-4" />
                 Submit notification
               </Button>
+              {tiramisReadinessQuery.isLoading ? (
+                <p className="text-xs text-slate-500">
+                  Checking TIRAMIS readiness...
+                </p>
+              ) : tiramisBlocked ? (
+                <Alert variant="destructive">
+                  <AlertTitle>TIRAMIS validation failed</AlertTitle>
+                  <AlertDescription>
+                    <ul className="mt-2 list-disc space-y-1 pl-4">
+                      {tiramisErrors.map((error) => (
+                        <li key={error}>{error}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              ) : tiramisWarnings.length > 0 ? (
+                <Alert variant="warning">
+                  <AlertTitle>TIRAMIS validation warnings</AlertTitle>
+                  <AlertDescription>
+                    <ul className="mt-2 list-disc space-y-1 pl-4">
+                      {tiramisWarnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              ) : tiramisReadiness ? (
+                <p className="text-xs text-emerald-700">
+                  Backend validation passed for this claim notification.
+                </p>
+              ) : null}
               <Button
                 className="w-full justify-start"
                 variant="outline"

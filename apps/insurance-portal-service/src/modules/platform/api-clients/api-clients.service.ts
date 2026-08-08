@@ -172,13 +172,13 @@ export class ApiClientsService {
 
     const now = new Date();
     const normalizedStatus = client.status?.toUpperCase?.() as ApiClientStatus;
-    if (
-      [
-        ApiClientStatus.REVOKED,
-        ApiClientStatus.SUSPENDED,
-        ApiClientStatus.COMPROMISED,
-      ].includes(normalizedStatus)
-    ) {
+    const blockedStatuses: readonly ApiClientStatus[] = [
+      ApiClientStatus.REVOKED,
+      ApiClientStatus.SUSPENDED,
+      ApiClientStatus.COMPROMISED,
+    ];
+
+    if (blockedStatuses.includes(normalizedStatus)) {
       await this.recordUsageEvent(client, 'REJECTED', {
         ...context,
         metadata: { reason: normalizedStatus },

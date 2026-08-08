@@ -137,12 +137,24 @@ function expectFrontendReadiness() {
     'apps/insurance-portal-web/src/modules/tenant/policies/pages/PolicyDetailPage.tsx',
     'readiness=',
   );
+  expectContains(
+    'apps/insurance-portal-web/src/modules/tenant/claims/pages/ClaimDetailPage.tsx',
+    'useTiramisBusinessReadiness',
+  );
+  expectContains(
+    'apps/insurance-portal-web/src/modules/tenant/reinsurance/pages/ReinsuranceWorkbenchPage.tsx',
+    'validateBusiness',
+  );
 }
 
 expectPackageScript('db:apply:tiramis-compliance');
 expectPackageScript('tiramis:compliance:check');
+expectPackageScript('tiramis:audit:refresh');
+expectPackageScript('tiramis:production:check');
 expectFile('scripts/apply-tiramis-compliance-db.js');
 expectFile('scripts/tiramis-e2e-test.js');
+expectFile('scripts/generate-tiramis-final-audit.mjs');
+expectFile('scripts/check-tiramis-production-readiness.mjs');
 expectFile('data/tiramis-reference/Countries.xlsx');
 expectFile('data/tiramis-reference/CURRENCIES.xlsx');
 expectFile('data/tiramis-reference/Regions and Respective Districts -test.xlsx');

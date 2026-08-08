@@ -23,6 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { reinsuranceApi } from '../api';
+import { tiramisApi } from '@/modules/tenant/tiramis/api';
 import type { ReinsuranceRecord } from '../types';
 import {
   formatReinsuranceDate,
@@ -40,6 +41,18 @@ function recordLabel(record: ReinsuranceRecord) {
     record.settlement_no ??
     record.id
   );
+}
+
+function getDeclarationId(record: ReinsuranceRecord): string | null {
+  const declaration = record.declaration;
+
+  if (declaration && typeof declaration === 'object' && 'id' in declaration) {
+    return String(declaration.id);
+  }
+
+  return typeof record.declaration_id === 'string'
+    ? record.declaration_id
+    : null;
 }
 
 export function ReinsuranceWorkbenchPage() {
@@ -67,7 +80,7 @@ export function ReinsuranceWorkbenchPage() {
   });
 
   const actionMutation = useMutation({
-    mutationFn: ({ action, id }: { action: string; id: string }) => {
+    mutationFn: async ({ action, id }: { action: string; id: string }) => {
       const actions: Record<string, (id: string) => Promise<unknown>> = {
         submitTreaty: reinsuranceApi.submitTreaty,
         approveTreaty: reinsuranceApi.approveTreaty,
@@ -76,10 +89,24 @@ export function ReinsuranceWorkbenchPage() {
         approveCession: reinsuranceApi.approveCession,
         applyCession: reinsuranceApi.applyCession,
         createDeclaration: reinsuranceApi.createDeclaration,
+        submitDeclaration: reinsuranceApi.submitDeclarationToTiramis,
         submitSettlement: reinsuranceApi.submitSettlement,
         approveSettlement: reinsuranceApi.approveSettlement,
         paySettlement: reinsuranceApi.paySettlement,
       };
+
+      if (action === 'submitDeclaration') {
+        const readiness = await tiramisApi.validateBusiness({
+          requestType: 'REINSURANCE',
+          sourceModule: 'reinsurance',
+          sourceRecordId: id,
+        });
+
+        if (readiness.validation?.isValid === false) {
+          throw new Error(readiness.validation.errors.join('; '));
+        }
+      }
+
       return actions[action](id);
     },
     onSuccess: () => {
@@ -315,6 +342,33 @@ export function ReinsuranceWorkbenchPage() {
                           >
                             Apply
                           </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              actionMutation.mutate({
+                                action: 'createDeclaration',
+                                id: record.id,
+                              })
+                            }
+                          >
+                            Declare
+                          </Button>
+                          {getDeclarationId(record) ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={actionMutation.isPending}
+                              onClick={() =>
+                                actionMutation.mutate({
+                                  action: 'submitDeclaration',
+                                  id: getDeclarationId(record)!,
+                                })
+                              }
+                            >
+                              TIRAMIS
+                            </Button>
+                          ) : null}
                         </>
                       )}
                       {view === 'settlements' && (
