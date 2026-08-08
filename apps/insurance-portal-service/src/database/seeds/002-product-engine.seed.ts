@@ -1,16 +1,28 @@
 import { environment } from '@insurance-max/shared-config';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { DataSource, Repository } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
 import { RateType } from '@insurance-max/portal-shared/enums/rate-type.enum';
+import { AccessStatus } from '@insurance-max/portal-shared/enums/access-status.enum';
+import {
+  ProductLifecycleStatus,
+  ProductReviewStatus,
+  ProductVersionStatus,
+} from '@insurance-max/contracts';
 import { Company } from '../../modules/platform/companies/entities/company.entity';
+import { CompanyUser } from '../../modules/platform/companies/entities/company-user.entity';
 import { InsuranceBusinessLine } from '../../modules/tenant/insurance-categories/enums/insurance-business-line.enum';
 import { InsuranceCategory } from '../../modules/tenant/insurance-categories/entities/insurance-category.entity';
 import { InsuranceProduct } from '../../modules/tenant/insurance-products/entities/insurance-product.entity';
+import { InsuranceProductVersion } from '../../modules/tenant/insurance-products/entities/insurance-product-version.entity';
 import { InsuranceSubClass } from '../../modules/tenant/insurance-sub-classes/entities/insurance-sub-class.entity';
 import { InsuranceRisk } from '../../modules/tenant/insurance-risks/entities/insurance-risk.entity';
 import { RiskRatingRule } from '../../modules/tenant/risk-rating-rules/entities/risk-rating-rule.entity';
+import { UserCategoryAccess } from '../../modules/tenant/category-access/entities/user-category-access.entity';
+import { UserProductAccess } from '../../modules/tenant/product-access/entities/user-product-access.entity';
+import { User } from '../../modules/tenant/users/entities/user.entity';
 import { roundRate } from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import { normalizeFactorCode, parseRateText } from './rate-text-parser';
 
@@ -152,9 +164,14 @@ export default class ProductEngineSeeder implements Seeder {
       const companyRepo = manager.getRepository(Company);
       const categoryRepo = manager.getRepository(InsuranceCategory);
       const productRepo = manager.getRepository(InsuranceProduct);
+      const productVersionRepo = manager.getRepository(InsuranceProductVersion);
       const subClassRepo = manager.getRepository(InsuranceSubClass);
       const riskRepo = manager.getRepository(InsuranceRisk);
       const ruleRepo = manager.getRepository(RiskRatingRule);
+      const companyUserRepo = manager.getRepository(CompanyUser);
+      const userRepo = manager.getRepository(User);
+      const userCategoryAccessRepo = manager.getRepository(UserCategoryAccess);
+      const userProductAccessRepo = manager.getRepository(UserProductAccess);
 
       const company = await this.getTargetCompany(companyRepo);
       const companyId = company.id;
@@ -181,6 +198,20 @@ export default class ProductEngineSeeder implements Seeder {
         subClassMap,
       );
       await this.seedRules(ruleRepo, companyId, riskMap);
+      await this.ensurePublishedProductVersions(
+        productRepo,
+        productVersionRepo,
+        productMap,
+      );
+      await this.ensureInitialAdminCatalogueAccess(
+        userRepo,
+        companyUserRepo,
+        userCategoryAccessRepo,
+        userProductAccessRepo,
+        companyId,
+        categoryMap,
+        productMap,
+      );
 
       await queryRunner.commitTransaction();
 
@@ -420,6 +451,305 @@ export default class ProductEngineSeeder implements Seeder {
         supports_fleet: supportsFleet,
         tiramis_product_code: tiramisProductCode,
         is_active: true,
+        lifecycle_status: ProductLifecycleStatus.ACTIVE,
+        latest_version_number: 1,
+      }),
+    );
+  }
+
+  private async ensurePublishedProductVersions(
+    productRepo: Repository<InsuranceProduct>,
+    versionRepo: Repository<InsuranceProductVersion>,
+    productMap: Map<string, InsuranceProduct>,
+  ): Promise<void> {
+    for (const product of productMap.values()) {
+      const version = await this.ensurePublishedVersion(versionRepo, product);
+
+      product.lifecycle_status = ProductLifecycleStatus.ACTIVE;
+      product.is_active = true;
+      product.latest_version_number = Math.max(
+        product.latest_version_number ?? 0,
+        1,
+      );
+      product.current_version_id = version.id;
+      product.code_locked_at = product.code_locked_at ?? new Date();
+      product.updated_by = product.updated_by ?? null;
+
+      await productRepo.save(product);
+    }
+  }
+
+  private async ensurePublishedVersion(
+    repo: Repository<InsuranceProductVersion>,
+    product: InsuranceProduct,
+  ): Promise<InsuranceProductVersion> {
+    const existing = await repo.findOne({
+      where: {
+        company_id: product.company_id,
+        product_id: product.id,
+        version_number: 1,
+      },
+    });
+    const publishedAt = existing?.published_at ?? new Date();
+    const payload = this.buildSeedProductVersionPayload(product, publishedAt);
+    const definitionHash = this.hashSeedDefinition(payload);
+
+    if (existing) {
+      existing.status = ProductVersionStatus.PUBLISHED;
+      existing.review_status = ProductReviewStatus.APPROVED;
+      existing.product_name = product.product_name;
+      existing.description = product.description;
+      existing.business_line = product.business_line;
+      existing.supports_fleet = product.supports_fleet;
+      existing.tiramis_product_code = product.tiramis_product_code;
+      existing.cover_note_type =
+        product.business_line === InsuranceBusinessLine.MOTOR ? 3 : 1;
+      existing.default_cover_duration_days = 365;
+      existing.currency_code = 'TZS';
+      existing.cover_note_description =
+        product.description?.trim() || product.product_name;
+      existing.operative_clause =
+        existing.operative_clause || product.product_name;
+      existing.policy_operative_clause =
+        existing.policy_operative_clause || product.product_name;
+      existing.special_conditions = existing.special_conditions ?? '';
+      existing.exclusions = existing.exclusions ?? '';
+      existing.allows_cover_text_override = false;
+      existing.effective_from = existing.effective_from ?? '2026-01-01';
+      existing.effective_to = null;
+      existing.is_submission_ready = true;
+      existing.definition_hash = definitionHash;
+      existing.reviewed_at = existing.reviewed_at ?? publishedAt;
+      existing.published_at = publishedAt;
+      existing.updated_by = existing.updated_by ?? null;
+      existing.metadata = {
+        ...(existing.metadata ?? {}),
+        seeded: true,
+        source: SEED_DATA_FILE_NAME,
+      };
+
+      return repo.save(existing);
+    }
+
+    return repo.save(
+      repo.create({
+        company_id: product.company_id,
+        product_id: product.id,
+        version_number: 1,
+        status: ProductVersionStatus.PUBLISHED,
+        review_status: ProductReviewStatus.APPROVED,
+        product_name: product.product_name,
+        description: product.description,
+        business_line: product.business_line,
+        supports_fleet: product.supports_fleet,
+        tiramis_product_code: product.tiramis_product_code,
+        cover_note_type:
+          product.business_line === InsuranceBusinessLine.MOTOR ? 3 : 1,
+        default_cover_duration_days: 365,
+        currency_code: 'TZS',
+        cover_note_description:
+          product.description?.trim() || product.product_name,
+        operative_clause: product.product_name,
+        policy_operative_clause: product.product_name,
+        special_conditions: '',
+        exclusions: '',
+        allows_cover_text_override: false,
+        effective_from: '2026-01-01',
+        effective_to: null,
+        is_submission_ready: true,
+        definition_hash: definitionHash,
+        reviewed_at: publishedAt,
+        published_at: publishedAt,
+        metadata: {
+          seeded: true,
+          source: SEED_DATA_FILE_NAME,
+        },
+      }),
+    );
+  }
+
+  private buildSeedProductVersionPayload(
+    product: InsuranceProduct,
+    publishedAt: Date,
+  ): Record<string, unknown> {
+    return {
+      productCode: product.product_code,
+      productName: product.product_name,
+      businessLine: product.business_line,
+      supportsFleet: product.supports_fleet,
+      tiramisProductCode: product.tiramis_product_code,
+      currencyCode: 'TZS',
+      coverNoteType:
+        product.business_line === InsuranceBusinessLine.MOTOR ? 3 : 1,
+      defaultCoverDurationDays: 365,
+      effectiveFrom: '2026-01-01',
+      effectiveTo: null,
+      publishedAt: publishedAt.toISOString(),
+      source: SEED_DATA_FILE_NAME,
+    };
+  }
+
+  private hashSeedDefinition(payload: Record<string, unknown>): string {
+    return createHash('sha256')
+      .update(JSON.stringify(this.sortObject(payload)), 'utf8')
+      .digest('hex');
+  }
+
+  private sortObject(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.sortObject(item));
+    }
+
+    if (value && typeof value === 'object') {
+      return Object.keys(value)
+        .sort()
+        .reduce<Record<string, unknown>>((result, key) => {
+          result[key] = this.sortObject((value as Record<string, unknown>)[key]);
+          return result;
+        }, {});
+    }
+
+    return value;
+  }
+
+  private async ensureInitialAdminCatalogueAccess(
+    userRepo: Repository<User>,
+    companyUserRepo: Repository<CompanyUser>,
+    categoryAccessRepo: Repository<UserCategoryAccess>,
+    productAccessRepo: Repository<UserProductAccess>,
+    companyId: string,
+    categoryMap: Map<string, InsuranceCategory>,
+    productMap: Map<string, InsuranceProduct>,
+  ): Promise<void> {
+    const adminEmail =
+      environment.INITIAL_COMPANY_ADMIN_EMAIL ?? 'inocent@alliance.co.tz';
+    const adminUser = await userRepo.findOne({
+      where: { email: adminEmail },
+    });
+
+    if (!adminUser) {
+      console.warn(
+        `[ProductEngineSeeder] Initial admin ${adminEmail} was not found; catalogue access was not granted.`,
+      );
+      return;
+    }
+
+    const membership = await companyUserRepo.findOne({
+      where: {
+        company_id: companyId,
+        user_id: adminUser.id,
+        status: 'active',
+      },
+    });
+
+    if (!membership) {
+      console.warn(
+        `[ProductEngineSeeder] Active company membership for ${adminEmail} was not found; catalogue access was not granted.`,
+      );
+      return;
+    }
+
+    for (const category of categoryMap.values()) {
+      await this.ensureUserCategoryAccess(
+        categoryAccessRepo,
+        companyId,
+        membership.id,
+        category.id,
+        adminUser.id,
+      );
+    }
+
+    for (const product of productMap.values()) {
+      await this.ensureUserProductAccess(
+        productAccessRepo,
+        companyId,
+        membership.id,
+        product.id,
+        adminUser.id,
+      );
+    }
+  }
+
+  private async ensureUserCategoryAccess(
+    repo: Repository<UserCategoryAccess>,
+    companyId: string,
+    companyUserId: string,
+    categoryId: string,
+    actorUserId: string,
+  ): Promise<void> {
+    const existing = await repo.findOne({
+      where: {
+        company_id: companyId,
+        company_user_id: companyUserId,
+        category_id: categoryId,
+      },
+      withDeleted: true,
+    });
+
+    if (existing) {
+      existing.can_view = true;
+      existing.can_create_policy = true;
+      existing.access_status = AccessStatus.ALLOW;
+      existing.is_active = true;
+      existing.deleted_at = null;
+      existing.updated_by = actorUserId;
+      await repo.save(existing);
+      return;
+    }
+
+    await repo.save(
+      repo.create({
+        company_id: companyId,
+        company_user_id: companyUserId,
+        category_id: categoryId,
+        can_view: true,
+        can_create_policy: true,
+        access_status: AccessStatus.ALLOW,
+        is_active: true,
+        created_by: actorUserId,
+        updated_by: actorUserId,
+      }),
+    );
+  }
+
+  private async ensureUserProductAccess(
+    repo: Repository<UserProductAccess>,
+    companyId: string,
+    companyUserId: string,
+    productId: string,
+    actorUserId: string,
+  ): Promise<void> {
+    const existing = await repo.findOne({
+      where: {
+        company_id: companyId,
+        company_user_id: companyUserId,
+        product_id: productId,
+      },
+      withDeleted: true,
+    });
+
+    if (existing) {
+      existing.can_view = true;
+      existing.can_create_policy = true;
+      existing.access_status = AccessStatus.ALLOW;
+      existing.is_active = true;
+      existing.deleted_at = null;
+      existing.updated_by = actorUserId;
+      await repo.save(existing);
+      return;
+    }
+
+    await repo.save(
+      repo.create({
+        company_id: companyId,
+        company_user_id: companyUserId,
+        product_id: productId,
+        can_view: true,
+        can_create_policy: true,
+        access_status: AccessStatus.ALLOW,
+        is_active: true,
+        created_by: actorUserId,
+        updated_by: actorUserId,
       }),
     );
   }
