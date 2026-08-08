@@ -33,6 +33,7 @@ import { ReinsuranceTreatyParticipant } from './entities/reinsurance-treaty-part
 import { ReinsuranceTreatySection } from './entities/reinsurance-treaty-section.entity';
 import { ReinsuranceTreaty } from './entities/reinsurance-treaty.entity';
 import { ReinsuranceCapacityService } from './services/reinsurance-capacity.service';
+import { ReinsuranceAccountingService } from './services/reinsurance-accounting.service';
 import { ReinsuranceDeclarationSyncService } from './services/reinsurance-declaration-sync.service';
 import { ReinsuranceRecoveryService } from './services/reinsurance-recovery.service';
 import { ReinsuranceSettlementService } from './services/reinsurance-settlement.service';
@@ -77,6 +78,7 @@ import { ReinsuranceSettlementService } from './services/reinsurance-settlement.
     ReinsuranceRecoveryService,
     ReinsuranceDeclarationSyncService,
     ReinsuranceCapacityService,
+    ReinsuranceAccountingService,
     ReinsuranceSettlementService,
   ],
   exports: [
@@ -84,6 +86,7 @@ import { ReinsuranceSettlementService } from './services/reinsurance-settlement.
     ReinsuranceRecoveryService,
     ReinsuranceDeclarationSyncService,
     ReinsuranceCapacityService,
+    ReinsuranceAccountingService,
     ReinsuranceSettlementService,
   ],
 })

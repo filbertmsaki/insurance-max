@@ -63,6 +63,9 @@ certificates/
 .tmp
 .release/release-gate.json
 
+# Locally generated/uploaded documents (e2e tests and manual runs write here)
+/uploads/
+
 # Runtime data
 pids
 *.pid

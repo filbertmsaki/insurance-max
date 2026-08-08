@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Branch } from '../branches/entities/branch.entity';
+import { CategoryAccessModule } from '../category-access/category-access.module';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { Department } from '../departments/entities/department.entity';
@@ -14,6 +15,7 @@ import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationEntryRisk } from '../quotations/entities/structured/quotation-entry-risk.entity';
 import { QuotationsModule } from '../quotations/quotations.module';
+import { ProductAccessModule } from '../product-access/product-access.module';
 import { User } from '../users/entities/user.entity';
 import { PolicyPremiumBreakdown } from './entities/policy-premium-breakdown.entity';
 import { PolicyRisk } from './entities/policy-risk.entity';
@@ -27,6 +29,8 @@ import { PoliciesService } from './policies.service';
 @Module({
   imports: [
     QuotationsModule,
+    CategoryAccessModule,
+    ProductAccessModule,
     TypeOrmModule.forFeature([
       Policy,
       PolicyRisk,

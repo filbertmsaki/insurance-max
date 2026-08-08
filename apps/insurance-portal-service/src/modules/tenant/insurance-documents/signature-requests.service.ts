@@ -1,10 +1,16 @@
-import { createHash, randomUUID } from 'node:crypto';
+import {
+  createHash,
+  createHmac,
+  randomUUID,
+  timingSafeEqual,
+} from 'node:crypto';
 
 import {
   BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { Repository } from 'typeorm';
@@ -34,6 +40,7 @@ export class SignatureRequestsService {
     @InjectRepository(DocumentVersion)
     private readonly versionRepository: Repository<DocumentVersion>,
     private readonly storageService: DocumentStorageService,
+    private readonly configService: ConfigService,
   ) {}
 
   listForCompany(companyId: string) {
@@ -154,7 +161,8 @@ export class SignatureRequestsService {
     const issuedTokens = participants.map((participant) => {
       const token = randomUUID();
       participant.access_token_hash = this.hashToken(token);
-      participant.status = participant.status === 'PENDING' ? 'SENT' : participant.status;
+      participant.status =
+        participant.status === 'PENDING' ? 'SENT' : participant.status;
       return {
         participant_id: participant.id,
         name: participant.name,
@@ -164,7 +172,8 @@ export class SignatureRequestsService {
 
     await this.participantRepository.save(participants);
     request.status = 'SENT';
-    request.provider_request_id = request.provider_request_id ?? `internal-${request.id}`;
+    request.provider_request_id =
+      request.provider_request_id ?? `internal-${request.id}`;
     await this.requestRepository.save(request);
 
     await this.addEvent(request.id, 'SENT', user.id, 'USER', null, {
@@ -198,8 +207,11 @@ export class SignatureRequestsService {
       order: { signing_order: 'ASC', created_at: 'ASC' },
     });
 
-    const hasDecline = participants.some((participant) => participant.status === 'DECLINED');
-    const allSigned = participants.length > 0 &&
+    const hasDecline = participants.some(
+      (participant) => participant.status === 'DECLINED',
+    );
+    const allSigned =
+      participants.length > 0 &&
       participants.every((participant) => participant.status === 'SIGNED');
 
     if (hasDecline) {
@@ -211,7 +223,9 @@ export class SignatureRequestsService {
         request.completion_document_version_id =
           await this.createCompletionDocumentVersion(user.companyId!, request);
       }
-    } else if (participants.some((participant) => participant.status === 'SIGNED')) {
+    } else if (
+      participants.some((participant) => participant.status === 'SIGNED')
+    ) {
       request.status = 'PARTIALLY_SIGNED';
     } else {
       request.status = request.status === 'DRAFT' ? 'DRAFT' : 'SENT';
@@ -290,8 +304,7 @@ export class SignatureRequestsService {
       const currentOrder = participant.signing_order ?? 1;
       const earlierPending = participants.some(
         (item) =>
-          (item.signing_order ?? 0) < currentOrder &&
-          item.status !== 'SIGNED',
+          (item.signing_order ?? 0) < currentOrder && item.status !== 'SIGNED',
       );
 
       if (earlierPending) {
@@ -311,10 +324,18 @@ export class SignatureRequestsService {
     } else {
       participant.status = 'DECLINED';
       participant.declined_at = new Date();
-      participant.decline_reason = input.declineReason?.trim() ?? 'No reason provided';
+      participant.decline_reason =
+        input.declineReason?.trim() ?? 'No reason provided';
     }
 
     await this.participantRepository.save(participant);
+    const evidencePayload = await this.buildSignedEvidencePayload({
+      request,
+      participant,
+      decision: input.decision,
+      ipAddress: input.ipAddress ?? null,
+      userAgent: input.userAgent ?? null,
+    });
     await this.evidenceRepository.save(
       this.evidenceRepository.create({
         signature_request_id: request.id,
@@ -322,10 +343,7 @@ export class SignatureRequestsService {
         evidence_type: input.decision === 'SIGN' ? 'SIGNATURE' : 'DECLINE',
         ip_address: input.ipAddress ?? null,
         user_agent: input.userAgent ?? null,
-        payload: {
-          name: participant.name,
-          decision: input.decision,
-        },
+        payload: evidencePayload,
       }),
     );
     await this.addEvent(
@@ -345,6 +363,47 @@ export class SignatureRequestsService {
     );
 
     return this.getPublicParticipant(token);
+  }
+
+  async verifyEvidence(companyId: string, evidenceId: string) {
+    const evidence = await this.evidenceRepository.findOne({
+      where: { id: evidenceId },
+    });
+
+    if (!evidence) {
+      throw new NotFoundException('Signature evidence not found.');
+    }
+
+    const request = await this.requestRepository.findOne({
+      where: { id: evidence.signature_request_id, company_id: companyId },
+    });
+
+    if (!request) {
+      throw new NotFoundException('Signature request not found.');
+    }
+
+    const payload = evidence.payload ?? {};
+    const canonicalPayload = payload.canonicalPayload;
+    const signature = payload.signature;
+
+    if (
+      !canonicalPayload ||
+      typeof canonicalPayload !== 'object' ||
+      typeof signature !== 'string'
+    ) {
+      return {
+        evidence_id: evidence.id,
+        verified: false,
+        reason: 'Signature evidence does not contain a signed payload.',
+      };
+    }
+
+    return {
+      evidence_id: evidence.id,
+      verified: this.verifyHmac(canonicalPayload, signature),
+      algorithm: payload.algorithm ?? 'HMAC-SHA256',
+      payload_hash: payload.payloadHash ?? null,
+    };
   }
 
   private async requireRequest(companyId: string, id: string) {
@@ -372,11 +431,14 @@ export class SignatureRequestsService {
       throw new NotFoundException('Document version not found.');
     }
 
-    const buffer = await this.storageService.read(document.current_version.storage_key);
+    const buffer = await this.storageService.read(
+      document.current_version.storage_key,
+    );
     const stored = await this.storageService.store({
       buffer,
       companyId,
-      fileName: document.current_version.original_file_name ?? document.file_name,
+      fileName:
+        document.current_version.original_file_name ?? document.file_name,
       maximumBytes: this.storageService.maximumBytes(),
       prefix: 'documents/signed',
     });
@@ -431,6 +493,95 @@ export class SignatureRequestsService {
 
   private hashToken(token: string) {
     return createHash('sha256').update(token).digest('hex');
+  }
+
+  private async buildSignedEvidencePayload(params: {
+    request: SignatureRequest;
+    participant: SignatureParticipant;
+    decision: 'SIGN' | 'DECLINE';
+    ipAddress: string | null;
+    userAgent: string | null;
+  }) {
+    const documentVersion = await this.versionRepository.findOne({
+      where: { id: params.request.document_version_id },
+    });
+    const occurredAt = new Date().toISOString();
+    const canonicalPayload = {
+      requestId: params.request.id,
+      requestNo: params.request.request_no,
+      documentId: params.request.document_id,
+      documentVersionId: params.request.document_version_id,
+      documentSha256Hash: documentVersion?.sha256_hash ?? null,
+      participantId: params.participant.id,
+      participantName: params.participant.name,
+      participantType: params.participant.participant_type,
+      participantEmail: params.participant.email,
+      decision: params.decision,
+      ipAddress: params.ipAddress,
+      userAgent: params.userAgent,
+      occurredAt,
+    };
+    const serialized = this.stableStringify(canonicalPayload);
+    const payloadHash = createHash('sha256').update(serialized).digest('hex');
+
+    return {
+      canonicalPayload,
+      payloadHash,
+      algorithm: 'HMAC-SHA256',
+      signature: this.signHmac(canonicalPayload),
+      signedAt: occurredAt,
+    };
+  }
+
+  private signHmac(payload: unknown) {
+    return createHmac('sha256', this.signatureSecret())
+      .update(this.stableStringify(payload))
+      .digest('hex');
+  }
+
+  private verifyHmac(payload: unknown, signature: string) {
+    const expected = this.signHmac(payload);
+    const expectedBuffer = Buffer.from(expected, 'hex');
+    const actualBuffer = Buffer.from(signature, 'hex');
+
+    return (
+      expectedBuffer.length === actualBuffer.length &&
+      timingSafeEqual(expectedBuffer, actualBuffer)
+    );
+  }
+
+  private signatureSecret() {
+    const secret =
+      this.configService.get<string>('SIGNATURE_EVIDENCE_SECRET') ??
+      this.configService.get<string>('JWT_SECRET') ??
+      this.configService.get<string>('AUTH_JWT_SECRET');
+
+    if (!secret) {
+      throw new BadRequestException(
+        'Signature evidence secret is not configured.',
+      );
+    }
+
+    return secret;
+  }
+
+  private stableStringify(value: unknown): string {
+    if (Array.isArray(value)) {
+      return `[${value.map((item) => this.stableStringify(item)).join(',')}]`;
+    }
+
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      return `{${Object.keys(record)
+        .sort()
+        .map(
+          (key) =>
+            `${JSON.stringify(key)}:${this.stableStringify(record[key])}`,
+        )
+        .join(',')}}`;
+    }
+
+    return JSON.stringify(value);
   }
 
   private async addEvent(

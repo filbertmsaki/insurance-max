@@ -3994,6 +3994,11 @@ export default class InitialRbacSeeder implements Seeder {
         defaultAdminRoleName,
         defaultCompany.id,
       );
+      const portalAdminRole = this.requireRole(
+        rolesByScopeAndName,
+        'PORTAL_ADMIN',
+        defaultCompany.id,
+      );
 
       const ownerUser = await this.findUserByIdentity(
         userRepo,
@@ -4042,6 +4047,11 @@ export default class InitialRbacSeeder implements Seeder {
         companyUserRoleRepo,
         membership.id,
         adminRole.id,
+      );
+      await this.ensureMembershipRole(
+        companyUserRoleRepo,
+        membership.id,
+        portalAdminRole.id,
       );
 
       await this.ensureDefaultBranches(

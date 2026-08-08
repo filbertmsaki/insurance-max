@@ -93,10 +93,28 @@ describe('PlatformIntelligenceService', () => {
     ]);
   });
 
-  it('returns a fallback message when rebuilding benchmark snapshots', async () => {
+  it('rebuilds SaaS usage and billing benchmark snapshots', async () => {
+    dataSource.query
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce([{ snapshotCount: 2 }])
+      .mockResolvedValueOnce([{ snapshotCount: 4 }]);
+
     await expect(service.rebuildBenchmarkSnapshots()).resolves.toEqual({
-      message:
-        'Benchmark rebuild is not implemented. Implement platform benchmark aggregation logic before using this route.',
+      message: 'Benchmark snapshots rebuilt',
+      minimumCohortSize: 3,
+      usageSnapshotCount: 2,
+      billingSnapshotCount: 4,
     });
+
+    expect(dataSource.query).toHaveBeenCalledTimes(3);
+    expect(dataSource.query.mock.calls[0][0]).toContain(
+      "metadata ->> 'rebuiltBy'",
+    );
+    expect(dataSource.query.mock.calls[1][0]).toContain(
+      'FROM platform_usage_snapshots snapshot',
+    );
+    expect(dataSource.query.mock.calls[2][0]).toContain(
+      'FROM saas_billing_cycles cycle',
+    );
   });
 });

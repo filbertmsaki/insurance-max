@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import type { ReinsuranceExposureSnapshot } from '@insurance-max/contracts';
@@ -10,7 +15,10 @@ import { ReinsuranceClaimRecovery } from '../entities/reinsurance-claim-recovery
 import { ReinsuranceTreatyEligibilityRule } from '../entities/reinsurance-treaty-eligibility-rule.entity';
 import { ReinsuranceTreatySection } from '../entities/reinsurance-treaty-section.entity';
 import { ReinsuranceTreaty } from '../entities/reinsurance-treaty.entity';
-import { ReinsuranceCessionStatus, TreatyForm } from '../enums/reinsurance.enums';
+import {
+  ReinsuranceCessionStatus,
+  TreatyForm,
+} from '../enums/reinsurance.enums';
 
 const NON_PROPORTIONAL_FORMS: TreatyForm[] = [
   TreatyForm.EXCESS_OF_LOSS,
@@ -86,7 +94,9 @@ export class ReinsuranceCapacityService {
     }
 
     const exposureAmount = Number(params.exposureAmount ?? 0);
-    const isNonProportional = NON_PROPORTIONAL_FORMS.includes(treaty.treaty_form);
+    const isNonProportional = NON_PROPORTIONAL_FORMS.includes(
+      treaty.treaty_form,
+    );
 
     let cededAmountToDate: number;
     let limit: number;
@@ -95,18 +105,28 @@ export class ReinsuranceCapacityService {
       // XOL/CAT-XOL/stop-loss: capacity is tracked against the layer's
       // aggregate/period limit, consumed by admitted recoveries to date.
       limit = Number(
-        section?.aggregate_limit ?? treaty.aggregate_limit ?? section?.treaty_limit ?? 0,
+        section?.aggregate_limit ??
+          treaty.aggregate_limit ??
+          section?.treaty_limit ??
+          0,
       );
-      cededAmountToDate = await this.sumAdmittedRecoveries(treaty.id, section?.id ?? null);
+      cededAmountToDate = await this.sumAdmittedRecoveries(
+        treaty.id,
+        section?.id ?? null,
+      );
     } else {
       // Quota-share/surplus: capacity is tracked against the treaty/section
       // limit, consumed by ceded sum insured on live cessions.
       limit = Number(section?.treaty_limit ?? treaty.total_capacity ?? 0);
-      cededAmountToDate = await this.sumCededSumInsured(treaty.id, section?.id ?? null);
+      cededAmountToDate = await this.sumCededSumInsured(
+        treaty.id,
+        section?.id ?? null,
+      );
     }
 
     const availableCapacity = Math.max(0, limit - cededAmountToDate);
-    const utilizationPercentage = limit > 0 ? (cededAmountToDate / limit) * 100 : 0;
+    const utilizationPercentage =
+      limit > 0 ? (cededAmountToDate / limit) * 100 : 0;
 
     const breachedRuleIds = await this.findBreachedRules(
       treaty.id,
@@ -128,6 +148,29 @@ export class ReinsuranceCapacityService {
       breachedRuleIds,
       evaluatedAt: new Date().toISOString(),
     };
+  }
+
+  async assertCapacityAvailable(
+    user: AuthenticatedUser,
+    params: EvaluateCapacityParams,
+  ): Promise<ReinsuranceExposureSnapshot> {
+    const snapshot = await this.evaluate(user, params);
+    const exposureAmount = Number(params.exposureAmount ?? 0);
+    const availableCapacity = Number(snapshot.availableCapacity ?? 0);
+
+    if (snapshot.breachedRuleIds.length) {
+      throw new ConflictException(
+        'Treaty eligibility rules block this reinsurance cession',
+      );
+    }
+
+    if (exposureAmount > availableCapacity) {
+      throw new ConflictException(
+        'Treaty capacity is insufficient for this reinsurance cession',
+      );
+    }
+
+    return snapshot;
   }
 
   private async sumCededSumInsured(
@@ -186,7 +229,10 @@ export class ReinsuranceCapacityService {
 
     const breached: string[] = [];
     for (const rule of rules) {
-      if (rule.rule_type === 'SUM_INSURED_MAX' && exposureAmount > Number(rule.rule_value)) {
+      if (
+        rule.rule_type === 'SUM_INSURED_MAX' &&
+        exposureAmount > Number(rule.rule_value)
+      ) {
         breached.push(rule.id);
       } else if (
         rule.rule_type === 'CLASS_OF_BUSINESS' &&

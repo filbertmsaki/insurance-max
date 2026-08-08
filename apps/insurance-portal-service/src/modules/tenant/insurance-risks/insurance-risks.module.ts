@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
+import { CategoryAccessModule } from '../category-access/category-access.module';
 import { PricingRuntimeCacheModule } from '../pricing/pricing-runtime-cache.module';
+import { ProductAccessModule } from '../product-access/product-access.module';
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
 import { RiskRequiredFactor } from '../risk-required-factors/entities/risk-required-factor.entity';
 import { RiskRatingRule } from '../risk-rating-rules/entities/risk-rating-rule.entity';
@@ -12,6 +14,8 @@ import { InsuranceRisk } from './entities/insurance-risk.entity';
 @Module({
   imports: [
     PricingRuntimeCacheModule,
+    CategoryAccessModule,
+    ProductAccessModule,
     TypeOrmModule.forFeature([
       InsuranceRisk,
       InsuranceProduct,

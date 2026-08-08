@@ -37,6 +37,7 @@ import {
   Files,
   ListTodo,
   MessagesSquare,
+  ClipboardCheck,
 } from 'lucide-react';
 
 export interface NavLeaf {
@@ -275,6 +276,20 @@ export const NAV_NODES: NavNode[] = [
         icon: Users,
         permission: 'customers:read',
       },
+      {
+        kind: 'link',
+        label: 'Claims',
+        to: '/claims',
+        icon: ClipboardCheck,
+        permission: 'claims:read',
+      },
+      {
+        kind: 'link',
+        label: 'Complaints',
+        to: '/complaints',
+        icon: MessagesSquare,
+        permission: 'complaints:read',
+      },
     ],
   },
   {
@@ -344,6 +359,13 @@ export const NAV_NODES: NavNode[] = [
         to: '/finance/journals',
         icon: FileText,
         permission: 'finance-journals:read',
+      },
+      {
+        kind: 'link',
+        label: 'Reinsurance',
+        to: '/reinsurance',
+        icon: Landmark,
+        permission: 'reinsurance:read',
       },
     ],
   },

@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -13,6 +14,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { CategoryAccessService } from '../category-access/category-access.service';
 import { InsuranceCategoriesService } from './insurance-categories.service';
 import { CreateInsuranceCategoryDto } from './dto/create-insurance-category.dto';
 import { UpdateInsuranceCategoryDto } from './dto/update-insurance-category.dto';
@@ -24,7 +26,10 @@ import { TenantScoped } from '@insurance-max/portal-shared';
 @Controller('insurance-categories')
 @TenantScoped()
 export class InsuranceCategoriesController {
-  constructor(private readonly service: InsuranceCategoriesService) {}
+  constructor(
+    private readonly service: InsuranceCategoriesService,
+    private readonly categoryAccessService: CategoryAccessService,
+  ) {}
 
   @Get()
   @Permissions('insurance-categories:read')
@@ -35,7 +40,19 @@ export class InsuranceCategoriesController {
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: FilterInsuranceCategoryDto,
   ) {
-    return this.service.findAll(user.companyId!, query);
+    const accessibleCategories =
+      await this.categoryAccessService.getAccessibleCategories(
+        user.companyId!,
+        user.companyMembershipId!,
+        user.activeBranchId ?? undefined,
+        user.activeDepartmentId ?? undefined,
+      );
+
+    return this.service.findAll(
+      user.companyId!,
+      query,
+      accessibleCategories.map((category) => category.id),
+    );
   }
 
   @Post()
@@ -55,6 +72,19 @@ export class InsuranceCategoriesController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('categoryId', ParseUUIDPipe) categoryId: string,
   ) {
+    const access = await this.categoryAccessService.resolveAccess(
+      user.companyId!,
+      {
+        category_id: categoryId,
+        company_user_id: user.companyMembershipId!,
+        branch_id: user.activeBranchId ?? undefined,
+        department_id: user.activeDepartmentId ?? undefined,
+      },
+    );
+    if (!access.can_view) {
+      throw new NotFoundException('Insurance category not found');
+    }
+
     return this.service.findOne(user.companyId!, categoryId);
   }
 

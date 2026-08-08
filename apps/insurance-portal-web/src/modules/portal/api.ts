@@ -53,6 +53,22 @@ export interface PortalProfileRecord {
   tira_license_status?: string | null;
 }
 
+export interface PortalPageMeta {
+  page: number;
+  limit: number;
+  total: number;
+  total_pages: number;
+  has_previous_page: boolean;
+  has_next_page: boolean;
+}
+
+export interface PortalPagedResponse<T> {
+  items: T[];
+  meta: PortalPageMeta;
+}
+
+export type PortalBusinessRecord = Record<string, unknown> & { id: string };
+
 function basePath(audience: PortalAudience) {
   return `/${audience}`;
 }
@@ -61,6 +77,22 @@ export const portalApi = {
   getProfile: (audience: PortalAudience) =>
     apiClient
       .get<PortalProfileRecord>(`${basePath(audience)}/profile`)
+      .then((response) => response.data),
+
+  listBusinessRecords: (
+    audience: PortalAudience,
+    resource: string,
+    params?: {
+      search?: string;
+      status?: string;
+      page?: number;
+      limit?: number;
+    },
+  ) =>
+    apiClient
+      .get<
+        PortalPagedResponse<PortalBusinessRecord>
+      >(resource === 'requests' ? '/portal/requests' : `${basePath(audience)}/${resource}`, { params })
       .then((response) => response.data),
 
   listDocuments: (audience: PortalAudience) =>
@@ -120,9 +152,9 @@ export const portalApi = {
 
   listMessageEntries: (audience: PortalAudience, id: string) =>
     apiClient
-      .get<CommunicationMessageRecord[]>(
-        `${basePath(audience)}/messages/${id}/messages`,
-      )
+      .get<
+        CommunicationMessageRecord[]
+      >(`${basePath(audience)}/messages/${id}/messages`)
       .then((response) => response.data),
 
   postMessage: (

@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 
 import { TreatyForm } from '../enums/reinsurance.enums';
 import { ReinsuranceCapacityService } from './reinsurance-capacity.service';
@@ -30,9 +30,7 @@ function makeService(params: {
   const cessionRepository = {
     createQueryBuilder: jest
       .fn()
-      .mockReturnValue(
-        makeQueryBuilder({ total: params.cededTotal ?? '0' }),
-      ),
+      .mockReturnValue(makeQueryBuilder({ total: params.cededTotal ?? '0' })),
   };
 
   const recoveryRepository = {
@@ -137,5 +135,41 @@ describe('ReinsuranceCapacityService.evaluate', () => {
     });
 
     expect(result.breachedRuleIds).toEqual(['rule-1']);
+  });
+
+  it('blocks live cessions when remaining treaty capacity is insufficient', async () => {
+    const { service } = makeService({
+      treaty: {
+        id: 'treaty-1',
+        treaty_form: TreatyForm.QUOTA_SHARE,
+        total_capacity: '1000000.00',
+      },
+      cededTotal: '950000.00',
+    });
+
+    await expect(
+      service.assertCapacityAvailable(user, {
+        treatyId: 'treaty-1',
+        exposureAmount: 60000,
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('allows live cessions when eligibility and capacity pass', async () => {
+    const { service } = makeService({
+      treaty: {
+        id: 'treaty-1',
+        treaty_form: TreatyForm.QUOTA_SHARE,
+        total_capacity: '1000000.00',
+      },
+      cededTotal: '250000.00',
+    });
+
+    const result = await service.assertCapacityAvailable(user, {
+      treatyId: 'treaty-1',
+      exposureAmount: 100000,
+    });
+
+    expect(result.availableCapacity).toBe('750000.00');
   });
 });

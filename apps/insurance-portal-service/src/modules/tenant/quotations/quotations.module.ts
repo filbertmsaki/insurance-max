@@ -10,7 +10,9 @@ import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
 import { Customer } from '../customers/entities/customer.entity';
+import { InsuredAsset } from '../customers/entities/insured-asset.entity';
 import { Department } from '../departments/entities/department.entity';
+import { CategoryAccessModule } from '../category-access/category-access.module';
 import { InsuranceCategory } from '../insurance-categories/entities/insurance-category.entity';
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
 import { InsuranceProductsModule } from '../insurance-products/insurance-products.module';
@@ -30,8 +32,10 @@ import { QuotationMotorDetail } from './entities/structured/quotation-motor-deta
 import { QuotationPolicyHolder } from './entities/structured/quotation-policy-holder.entity';
 import { QuotationRiskDiscount } from './entities/structured/quotation-risk-discount.entity';
 import { QuotationRiskPremiumOverride } from './entities/structured/quotation-risk-premium-override.entity';
+import { QuotationRiskAsset } from './entities/structured/quotation-risk-asset.entity';
 import { QuotationRiskTax } from './entities/structured/quotation-risk-tax.entity';
 import { QuotationSubjectMatter } from './entities/structured/quotation-subject-matter.entity';
+import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
 import { PortalTiraSubmission } from '../tiramis-integration/entities/portal-tira-submission.entity';
 import { PortalTiraSubmissionEvent } from '../tiramis-integration/entities/portal-tira-submission-event.entity';
 import { QuotationPayloadMapper } from './mappers/quotation-payload.mapper';
@@ -45,6 +49,7 @@ import { QuotationLifecycleService } from './services/quotation-lifecycle.servic
 import { QuotationsService } from './quotations.service';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { PricingModule } from '../pricing/pricing.module';
+import { ProductAccessModule } from '../product-access/product-access.module';
 
 @Module({
   imports: [
@@ -57,6 +62,7 @@ import { PricingModule } from '../pricing/pricing.module';
       QuotationEntryRisk,
       QuotationRiskDiscount,
       QuotationRiskPremiumOverride,
+      QuotationRiskAsset,
       QuotationRiskTax,
       QuotationSubjectMatter,
       QuotationEntryAddon,
@@ -69,6 +75,8 @@ import { PricingModule } from '../pricing/pricing.module';
       PortalTiraSubmissionEvent,
       TiramisSubmissionTrackingEntity,
       MotorVehicle,
+      SubjectMatter,
+      InsuredAsset,
       Company,
       Customer,
       Branch,
@@ -83,6 +91,8 @@ import { PricingModule } from '../pricing/pricing.module';
     ]),
     TiramisModule,
     PricingModule,
+    CategoryAccessModule,
+    ProductAccessModule,
     InsuranceProductsModule,
     forwardRef(() => BillingCommissionModule),
   ],

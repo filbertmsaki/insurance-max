@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -22,6 +23,8 @@ import {
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { CategoryAccessService } from '../category-access/category-access.service';
+import { ProductAccessService } from '../product-access/product-access.service';
 import { FilterQuotationDto } from './dto/filter-quotation.dto';
 import {
   CancelQuotationDto,
@@ -46,7 +49,11 @@ import { TenantScoped } from '@insurance-max/portal-shared';
 @Controller('tenant/quotations')
 @TenantScoped()
 export class QuotationsController {
-  constructor(private readonly quotationsService: QuotationsService) {}
+  constructor(
+    private readonly quotationsService: QuotationsService,
+    private readonly categoryAccessService: CategoryAccessService,
+    private readonly productAccessService: ProductAccessService,
+  ) {}
 
   @Post('drafts')
   @Permissions('quotations:create')
@@ -63,7 +70,42 @@ export class QuotationsController {
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: SaveQuotationDraftDto,
   ) {
-    return this.quotationsService.createDraft(user.companyId!, dto, user.id);
+    return this.assertCanCreatePolicyForProduct(
+      user,
+      dto.category_id,
+      dto.product_id,
+    ).then(() =>
+      this.quotationsService.createDraft(user.companyId!, dto, user.id),
+    );
+  }
+
+  private async assertCanCreatePolicyForProduct(
+    user: AuthenticatedUser,
+    categoryId: string,
+    productId: string,
+  ): Promise<void> {
+    const context = {
+      company_user_id: user.companyMembershipId!,
+      branch_id: user.activeBranchId ?? undefined,
+      department_id: user.activeDepartmentId ?? undefined,
+    };
+
+    const [categoryAccess, productAccess] = await Promise.all([
+      this.categoryAccessService.resolveAccess(user.companyId!, {
+        ...context,
+        category_id: categoryId,
+      }),
+      this.productAccessService.resolveAccess(user.companyId!, {
+        ...context,
+        product_id: productId,
+      }),
+    ]);
+
+    if (!categoryAccess.can_create_policy || !productAccess.can_create_policy) {
+      throw new ForbiddenException(
+        'You are not allowed to create policies for this product',
+      );
+    }
   }
 
   @Post()
@@ -77,10 +119,16 @@ export class QuotationsController {
   @ApiCreatedResponse({
     description: 'Quotation created successfully',
   })
-  create(
+  async create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateQuotationDto,
   ) {
+    await this.assertCanCreatePolicyForProduct(
+      user,
+      dto.internal_quotation.category_id,
+      dto.internal_quotation.product_id,
+    );
+
     return this.quotationsService.create(user.companyId!, dto, user);
   }
 
@@ -159,11 +207,17 @@ export class QuotationsController {
   @ApiOkResponse({
     description: 'Quotation draft updated successfully',
   })
-  updateDraft(
+  async updateDraft(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateQuotationDraftDto,
   ) {
+    await this.assertCanCreatePolicyForProduct(
+      user,
+      dto.category_id,
+      dto.product_id,
+    );
+
     return this.quotationsService.updateDraft(user.companyId!, id, dto, user);
   }
 
@@ -282,11 +336,17 @@ export class QuotationsController {
   @ApiOkResponse({
     description: 'Quotation replaced successfully',
   })
-  replace(
+  async replace(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateQuotationDto,
   ) {
+    await this.assertCanCreatePolicyForProduct(
+      user,
+      dto.internal_quotation.category_id,
+      dto.internal_quotation.product_id,
+    );
+
     return this.quotationsService.replace(user.companyId!, id, dto, user);
   }
 
@@ -302,11 +362,17 @@ export class QuotationsController {
   @ApiOkResponse({
     description: 'Quotation finalized successfully',
   })
-  finalize(
+  async finalize(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateQuotationDto,
   ) {
+    await this.assertCanCreatePolicyForProduct(
+      user,
+      dto.internal_quotation.category_id,
+      dto.internal_quotation.product_id,
+    );
+
     return this.quotationsService.finalize(user.companyId!, id, dto, user);
   }
 

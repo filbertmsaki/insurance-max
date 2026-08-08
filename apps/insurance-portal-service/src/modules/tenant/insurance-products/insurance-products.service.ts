@@ -171,7 +171,12 @@ export class InsuranceProductsService {
     });
   }
 
-  async findAll(companyId: string, query: FilterInsuranceProductDto) {
+  async findAll(
+    companyId: string,
+    query: FilterInsuranceProductDto,
+    accessibleProductIds?: string[],
+    accessibleCategoryIds?: string[],
+  ) {
     const {
       page = 1,
       limit = 20,
@@ -202,6 +207,48 @@ export class InsuranceProductsService {
       .leftJoinAndSelect('product.current_version', 'current_version')
       .where('product.company_id = :companyId', { companyId })
       .orderBy(`product.${safeSortBy}`, direction);
+
+    if (accessibleProductIds) {
+      if (!accessibleProductIds.length) {
+        return {
+          data: [],
+          meta: {
+            totalItems: 0,
+            itemCount: 0,
+            itemsPerPage: limit,
+            totalPages: 0,
+            currentPage: page,
+            hasNextPage: false,
+            hasPreviousPage: page > 1,
+          },
+        };
+      }
+
+      qb.andWhere('product.id IN (:...accessibleProductIds)', {
+        accessibleProductIds,
+      });
+    }
+
+    if (accessibleCategoryIds) {
+      if (!accessibleCategoryIds.length) {
+        return {
+          data: [],
+          meta: {
+            totalItems: 0,
+            itemCount: 0,
+            itemsPerPage: limit,
+            totalPages: 0,
+            currentPage: page,
+            hasNextPage: false,
+            hasPreviousPage: page > 1,
+          },
+        };
+      }
+
+      qb.andWhere('product.category_id IN (:...accessibleCategoryIds)', {
+        accessibleCategoryIds,
+      });
+    }
 
     if (search?.trim()) {
       const term = `%${search.trim()}%`;

@@ -23,6 +23,8 @@ import {
   CreateTreatySectionDto,
   EvaluateCapacityDto,
   EvaluateQuotationCapacityDto,
+  GenerateReinsuranceBordereauDto,
+  GenerateReinsurancePremiumAccountDto,
   InviteFacultativeOfferDto,
   RejectReinsuranceSettlementDto,
   RespondFacultativeOfferDto,
@@ -30,6 +32,7 @@ import {
 import { ReinsurancePermissions } from './reinsurance.permissions';
 import { ReinsuranceService } from './reinsurance.service';
 import { ReinsuranceCapacityService } from './services/reinsurance-capacity.service';
+import { ReinsuranceAccountingService } from './services/reinsurance-accounting.service';
 import { ReinsuranceRecoveryService } from './services/reinsurance-recovery.service';
 import { ReinsuranceSettlementService } from './services/reinsurance-settlement.service';
 import { TenantScoped } from '@insurance-max/portal-shared';
@@ -41,6 +44,7 @@ export class ReinsuranceController {
     private readonly reinsuranceService: ReinsuranceService,
     private readonly recoveryService: ReinsuranceRecoveryService,
     private readonly capacityService: ReinsuranceCapacityService,
+    private readonly accountingService: ReinsuranceAccountingService,
     private readonly settlementService: ReinsuranceSettlementService,
   ) {}
 
@@ -253,6 +257,72 @@ export class ReinsuranceController {
       classOfBusiness: query.class_of_business ?? null,
       territory: query.territory ?? null,
     });
+  }
+
+  @Get('bordereaux')
+  @Permissions(ReinsurancePermissions.READ)
+  findBordereaux(@CurrentUser() user: AuthenticatedUser) {
+    return this.accountingService.findBordereaux(user);
+  }
+
+  @Post('bordereaux')
+  @Permissions(ReinsurancePermissions.BORDEREAU_CREATE)
+  generateBordereau(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: GenerateReinsuranceBordereauDto,
+  ) {
+    return this.accountingService.generateBordereau(user, dto);
+  }
+
+  @Post('bordereaux/:id/submit')
+  @Permissions(ReinsurancePermissions.BORDEREAU_SUBMIT)
+  submitBordereau(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.accountingService.submitBordereau(user, id);
+  }
+
+  @Post('bordereaux/:id/approve')
+  @Permissions(ReinsurancePermissions.BORDEREAU_APPROVE)
+  approveBordereau(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.accountingService.approveBordereau(user, id);
+  }
+
+  @Get('premium-accounts')
+  @Permissions(ReinsurancePermissions.READ)
+  findPremiumAccounts(@CurrentUser() user: AuthenticatedUser) {
+    return this.accountingService.findPremiumAccounts(user);
+  }
+
+  @Post('premium-accounts')
+  @Permissions(ReinsurancePermissions.ACCOUNT_CREATE)
+  generatePremiumAccount(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: GenerateReinsurancePremiumAccountDto,
+  ) {
+    return this.accountingService.generatePremiumAccount(user, dto);
+  }
+
+  @Post('premium-accounts/:id/submit')
+  @Permissions(ReinsurancePermissions.ACCOUNT_SUBMIT)
+  submitPremiumAccount(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.accountingService.submitPremiumAccount(user, id);
+  }
+
+  @Post('premium-accounts/:id/confirm')
+  @Permissions(ReinsurancePermissions.ACCOUNT_APPROVE)
+  confirmPremiumAccount(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.accountingService.confirmPremiumAccount(user, id);
   }
 
   @Get('settlements')

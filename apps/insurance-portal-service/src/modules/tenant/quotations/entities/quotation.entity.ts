@@ -37,6 +37,7 @@ import { QuotationType } from '../enums/quotation-type.enum';
 import { QuotationStatusHistory } from './quotation-status-history.entity';
 import { QuotationCoverNote } from './structured/quotation-cover-note.entity';
 import { QuotationPolicyHolder } from './structured/quotation-policy-holder.entity';
+import { QuotationRiskAsset } from './structured/quotation-risk-asset.entity';
 
 @Entity('quotations')
 @Index('IDX_quotations_company_id', ['company_id'])
@@ -216,6 +217,18 @@ export class Quotation {
   @Column({ type: 'jsonb', nullable: true })
   finalization_snapshot: Record<string, unknown> | null;
 
+  @Column({ type: 'jsonb', nullable: true })
+  customer_snapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  customer_snapshot_hash: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  customer_kyc_version: number | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  customer_snapshot_at: Date | null;
+
   @Column({ type: 'varchar', length: 64, nullable: true })
   finalization_hash: string | null;
 
@@ -383,6 +396,9 @@ export class Quotation {
 
   @OneToMany(() => QuotationPolicyHolder, (holder) => holder.quotation)
   policy_holders: QuotationPolicyHolder[];
+
+  @OneToMany(() => QuotationRiskAsset, (asset) => asset.quotation)
+  risk_assets: QuotationRiskAsset[];
 
   @OneToMany(() => QuotationStatusHistory, (history) => history.quotation)
   status_history: QuotationStatusHistory[];

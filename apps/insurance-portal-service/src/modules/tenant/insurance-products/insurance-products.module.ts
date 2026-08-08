@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { InsuranceCategory } from '../insurance-categories/entities/insurance-category.entity';
 import { InsuranceSubClass } from '../insurance-sub-classes/entities/insurance-sub-class.entity';
+import { CategoryAccessModule } from '../category-access/category-access.module';
 import { PricingRuntimeCacheModule } from '../pricing/pricing-runtime-cache.module';
+import { ProductAccessModule } from '../product-access/product-access.module';
 import { InsuranceProductsController } from './insurance-products.controller';
 import { InsuranceProductsService } from './insurance-products.service';
 import { ProductDefinitionService } from './product-definition.service';
@@ -16,6 +18,8 @@ import { ProductVersionSubClass } from './entities/product-version-sub-class.ent
 @Module({
   imports: [
     PricingRuntimeCacheModule,
+    CategoryAccessModule,
+    ProductAccessModule,
     TypeOrmModule.forFeature([
       InsuranceProduct,
       InsuranceCategory,

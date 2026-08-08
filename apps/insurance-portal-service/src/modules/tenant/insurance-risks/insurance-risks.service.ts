@@ -148,7 +148,12 @@ export class InsuranceRisksService {
     }
   }
 
-  async findAll(companyId: string, query: FilterInsuranceRiskDto) {
+  async findAll(
+    companyId: string,
+    query: FilterInsuranceRiskDto,
+    accessibleProductIds?: string[],
+    accessibleCategoryIds?: string[],
+  ) {
     const {
       page = 1,
       limit = 20,
@@ -179,6 +184,48 @@ export class InsuranceRisksService {
       .leftJoinAndSelect('risk.sub_class', 'sub_class')
       .where('risk.company_id = :companyId', { companyId })
       .orderBy(`risk.${safeSortBy}`, direction);
+
+    if (accessibleProductIds) {
+      if (!accessibleProductIds.length) {
+        return {
+          data: [],
+          meta: {
+            totalItems: 0,
+            itemCount: 0,
+            itemsPerPage: limit,
+            totalPages: 0,
+            currentPage: page,
+            hasNextPage: false,
+            hasPreviousPage: page > 1,
+          },
+        };
+      }
+
+      qb.andWhere('risk.product_id IN (:...accessibleProductIds)', {
+        accessibleProductIds,
+      });
+    }
+
+    if (accessibleCategoryIds) {
+      if (!accessibleCategoryIds.length) {
+        return {
+          data: [],
+          meta: {
+            totalItems: 0,
+            itemCount: 0,
+            itemsPerPage: limit,
+            totalPages: 0,
+            currentPage: page,
+            hasNextPage: false,
+            hasPreviousPage: page > 1,
+          },
+        };
+      }
+
+      qb.andWhere('product.category_id IN (:...accessibleCategoryIds)', {
+        accessibleCategoryIds,
+      });
+    }
 
     if (search?.trim()) {
       const term = `%${search.trim()}%`;

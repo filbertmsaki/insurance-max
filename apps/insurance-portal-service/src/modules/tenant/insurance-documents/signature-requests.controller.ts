@@ -109,6 +109,16 @@ export class SignatureRequestsController {
   ) {
     return this.signatureService.reconcile(user, id);
   }
+
+  @Get(':id/evidence/:evidenceId/verify')
+  @Permissions('signatures:read')
+  @ApiOperation({ summary: 'Verify signature evidence cryptographic seal' })
+  verifyEvidence(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('evidenceId', ParseUUIDPipe) evidenceId: string,
+  ) {
+    return this.signatureService.verifyEvidence(user.companyId!, evidenceId);
+  }
 }
 
 @ApiTags('public-signatures')

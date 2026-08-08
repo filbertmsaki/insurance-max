@@ -50,6 +50,7 @@ import { CustomerPolicyHolderType } from '../customers/enums/customer-policy-hol
 import { CustomerType } from '../customers/enums/customer-type.enum';
 import { CustomerStatus } from '../customers/enums/customer-status.enum';
 import { Customer } from '../customers/entities/customer.entity';
+import { InsuredAsset } from '../customers/entities/insured-asset.entity';
 import { Department } from '../departments/entities/department.entity';
 import { InsuranceCategory } from '../insurance-categories/entities/insurance-category.entity';
 import { InsuranceBusinessLine } from '../insurance-categories/enums/insurance-business-line.enum';
@@ -87,6 +88,7 @@ import { QuotationMotorDetail } from './entities/structured/quotation-motor-deta
 import { QuotationPolicyHolder } from './entities/structured/quotation-policy-holder.entity';
 import { QuotationRiskDiscount } from './entities/structured/quotation-risk-discount.entity';
 import { QuotationRiskPremiumOverride } from './entities/structured/quotation-risk-premium-override.entity';
+import { QuotationRiskAsset } from './entities/structured/quotation-risk-asset.entity';
 import { QuotationRiskTax } from './entities/structured/quotation-risk-tax.entity';
 import { QuotationSubjectMatter } from './entities/structured/quotation-subject-matter.entity';
 import { QuotationEntryType } from './enums/quotation-entry-type.enum';
@@ -105,6 +107,7 @@ import { QuotationsRepository } from './repositories/quotations.repository';
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
 import { parseTiramisDateTime } from './utils/tiramis-date.util';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
+import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
 import { PaymentTransaction } from '../billing-commission/entities/payment-transaction.entity';
@@ -1554,7 +1557,7 @@ export class QuotationsService {
           riskWithPricingSnapshot.pricing_snapshot as unknown as PricingResultSnapshot,
         )
       : undefined;
-    const insuredDataContext = this.buildServiceInsuredDataContext(
+    const insuredDataContext = await this.buildServiceInsuredDataContext(
       quotation,
       tiramisPayload,
     );
@@ -3130,10 +3133,10 @@ export class QuotationsService {
     };
   }
 
-  private buildServiceInsuredDataContext(
+  private async buildServiceInsuredDataContext(
     quotation: Quotation,
     outboundPayload: Record<string, unknown>,
-  ): ServiceInsuredDataContext {
+  ): Promise<ServiceInsuredDataContext> {
     const customer = quotation.customer;
 
     if (!customer?.id || !customer.customer_no) {
@@ -3165,10 +3168,15 @@ export class QuotationsService {
       );
     }
 
+    await this.assertVerifiedQuotationRiskAssets(quotation, assetManifest);
+
     const tiramisPolicyHolderHash =
       this.productDefinitionHashService.hashDefinition(
         policyHolderManifest as unknown as Record<string, unknown>,
       );
+    const assetManifestHash = this.productDefinitionHashService.hashDefinition(
+      assetManifest as unknown as Record<string, unknown>,
+    );
 
     return {
       customerId: customer.id,
@@ -3177,12 +3185,35 @@ export class QuotationsService {
       customerKycVersion: Number(customer.kyc_version ?? 0),
       customerSnapshotHash: tiramisPolicyHolderHash,
       tiramisPolicyHolderHash,
-      assetManifestHash: this.productDefinitionHashService.hashDefinition(
-        assetManifest as unknown as Record<string, unknown>,
-      ),
+      assetManifestHash,
       assetCount: assetManifest.length,
       manifestVersion: '8.1',
     };
+  }
+
+  private async assertVerifiedQuotationRiskAssets(
+    quotation: Quotation,
+    assetManifest: Array<Record<string, string | number | null>>,
+  ) {
+    const assets = await this.dataSource
+      .getRepository(QuotationRiskAsset)
+      .find({
+        where: { quotation_id: quotation.id },
+      });
+
+    if (assets.length < assetManifest.length) {
+      throw new ConflictException(
+        'Quotation insured assets must be verified before TIRAMIS submission.',
+      );
+    }
+
+    if (assets.some((asset) => !asset.asset_snapshot_hash?.trim())) {
+      throw new ConflictException(
+        'Quotation contains insured assets without verified snapshots.',
+      );
+    }
+
+    return assets;
   }
 
   private buildServiceQuotationGateContext(
@@ -6862,6 +6893,12 @@ export class QuotationsService {
       header.policy_holders,
       customerId,
     );
+    await this.persistCustomerSnapshot(
+      manager,
+      quotation,
+      header.policy_holders,
+      customerId,
+    );
 
     const entries = this.resolveEntries(payload);
 
@@ -6957,6 +6994,56 @@ export class QuotationsService {
     }
   }
 
+  private async persistCustomerSnapshot(
+    manager: EntityManager,
+    quotation: Quotation,
+    holders: PolicyHolderDto[],
+    customerId: string | null,
+  ) {
+    const primaryHolder = holders[0] ?? null;
+    const customer = customerId
+      ? await manager.getRepository(Customer).findOne({
+          where: { id: customerId, company_id: quotation.company_id },
+        })
+      : null;
+    const snapshot = {
+      quotationId: quotation.id,
+      customerId,
+      customerNumber: customer?.customer_no ?? null,
+      kycStatus: customer?.kyc_status ?? null,
+      kycVersion: Number(customer?.kyc_version ?? 0),
+      policyHolder: primaryHolder
+        ? {
+            name: primaryHolder.policy_holder_name.trim(),
+            birthDate: primaryHolder.policy_holder_birth_date,
+            type: primaryHolder.policy_holder_type,
+            idType: primaryHolder.policy_holder_id_type,
+            idNumber: primaryHolder.policy_holder_id_number
+              .trim()
+              .toUpperCase(),
+            phone: primaryHolder.policy_holder_phone_number.trim(),
+            email: primaryHolder.email_address?.trim().toLowerCase() ?? null,
+          }
+        : null,
+    };
+
+    quotation.customer_snapshot = snapshot;
+    quotation.customer_snapshot_hash =
+      this.productDefinitionHashService.hashDefinition(snapshot);
+    quotation.customer_kyc_version = Number(customer?.kyc_version ?? 0);
+    quotation.customer_snapshot_at = new Date();
+
+    await manager.getRepository(Quotation).update(
+      { id: quotation.id },
+      {
+        customer_snapshot: quotation.customer_snapshot as any,
+        customer_snapshot_hash: quotation.customer_snapshot_hash,
+        customer_kyc_version: quotation.customer_kyc_version,
+        customer_snapshot_at: quotation.customer_snapshot_at,
+      },
+    );
+  }
+
   private async persistEntryChildren(
     manager: EntityManager,
     entry: QuotationCoverNoteEntry,
@@ -6975,6 +7062,7 @@ export class QuotationsService {
       riskByCode,
       userId,
       quotation,
+      customerId,
     );
     await this.persistSubjectMatters(manager, entry, input);
 
@@ -7200,6 +7288,130 @@ export class QuotationsService {
     };
   }
 
+  private async resolveVerifiedAssetForEntryRisk(
+    manager: EntityManager,
+    quotation: Quotation,
+    customerId: string,
+    input: ResolvedEntry,
+    riskIndex: number,
+  ): Promise<InsuredAsset | null> {
+    if (input.motor_dtl) {
+      return this.resolveVerifiedMotorAsset(
+        manager,
+        quotation.company_id,
+        customerId,
+        input.motor_dtl,
+      );
+    }
+
+    const subject =
+      input.subject_matters_covered[riskIndex] ??
+      input.subject_matters_covered[0] ??
+      null;
+
+    if (!subject) {
+      return null;
+    }
+
+    return this.resolveVerifiedSubjectAsset(
+      manager,
+      quotation.company_id,
+      customerId,
+      subject,
+    );
+  }
+
+  private async resolveVerifiedMotorAsset(
+    manager: EntityManager,
+    companyId: string,
+    customerId: string,
+    motor: MotorDetailDto,
+  ): Promise<InsuredAsset | null> {
+    const registrationNumber = this.normalizeUppercase(
+      motor.registration_number,
+    );
+    const chassisNumber = this.normalizeUppercase(motor.chassis_number);
+    const engineNumber = this.normalizeUppercase(motor.engine_number);
+    const vehicle = await manager
+      .getRepository(MotorVehicle)
+      .createQueryBuilder('vehicle')
+      .leftJoinAndSelect('vehicle.insured_asset', 'asset')
+      .where('vehicle.company_id = :companyId', { companyId })
+      .andWhere('vehicle.customer_id = :customerId', { customerId })
+      .andWhere('vehicle.insured_asset_id IS NOT NULL')
+      .andWhere(
+        new Brackets((qb) => {
+          qb.where(
+            'UPPER(TRIM(vehicle.registration_no)) = :registrationNumber',
+            { registrationNumber },
+          )
+            .orWhere('UPPER(TRIM(vehicle.chassis_no)) = :chassisNumber', {
+              chassisNumber,
+            })
+            .orWhere('UPPER(TRIM(vehicle.engine_no)) = :engineNumber', {
+              engineNumber,
+            });
+        }),
+      )
+      .getOne();
+
+    return this.isVerifiedInsuredAsset(vehicle?.insured_asset)
+      ? vehicle.insured_asset
+      : null;
+  }
+
+  private async resolveVerifiedSubjectAsset(
+    manager: EntityManager,
+    companyId: string,
+    customerId: string,
+    subject: SubjectMatterCoveredDto,
+  ): Promise<InsuredAsset | null> {
+    const reference = subject.subject_matter_reference.trim().toUpperCase();
+    const persisted = await manager
+      .getRepository(SubjectMatter)
+      .createQueryBuilder('subject')
+      .leftJoinAndSelect('subject.insured_asset', 'asset')
+      .where('subject.company_id = :companyId', { companyId })
+      .andWhere('subject.customer_id = :customerId', { customerId })
+      .andWhere('subject.insured_asset_id IS NOT NULL')
+      .andWhere('UPPER(TRIM(subject.subject_code)) = :reference', {
+        reference,
+      })
+      .getOne();
+
+    return this.isVerifiedInsuredAsset(persisted?.insured_asset)
+      ? persisted.insured_asset
+      : null;
+  }
+
+  private isVerifiedInsuredAsset(
+    asset: InsuredAsset | null | undefined,
+  ): asset is InsuredAsset {
+    return (
+      !!asset &&
+      asset.status === 'ACTIVE' &&
+      asset.verification_status === 'VERIFIED' &&
+      !!asset.current_snapshot_hash?.trim()
+    );
+  }
+
+  private buildInsuredAssetSnapshot(asset: InsuredAsset) {
+    return {
+      id: asset.id,
+      assetNumber: asset.asset_number,
+      assetType: asset.asset_type,
+      customerId: asset.customer_id,
+      ownerCustomerId: asset.owner_customer_id,
+      displayName: asset.display_name,
+      ownershipType: asset.ownership_type,
+      declaredValue: asset.declared_value,
+      currencyCode: asset.currency_code,
+      verificationStatus: asset.verification_status,
+      verificationReference: asset.verification_reference,
+      snapshotVersion: asset.snapshot_version,
+    };
+  }
+
   private async persistEntryRisks(
     manager: EntityManager,
     entry: QuotationCoverNoteEntry,
@@ -7207,10 +7419,12 @@ export class QuotationsService {
     riskByCode: Map<string, InsuranceRisk>,
     userId: string,
     quotation: Quotation,
+    customerId: string | null,
   ): Promise<void> {
     const riskRepository = manager.getRepository(QuotationEntryRisk);
     const discountRepository = manager.getRepository(QuotationRiskDiscount);
     const taxRepository = manager.getRepository(QuotationRiskTax);
+    const assetRepository = manager.getRepository(QuotationRiskAsset);
 
     for (
       let riskIndex = 0;
@@ -7260,6 +7474,35 @@ export class QuotationsService {
           ),
         }),
       );
+
+      const verifiedAsset = customerId
+        ? await this.resolveVerifiedAssetForEntryRisk(
+            manager,
+            quotation,
+            customerId,
+            input,
+            riskIndex,
+          )
+        : null;
+
+      if (verifiedAsset) {
+        const assetSnapshot =
+          verifiedAsset.current_snapshot ??
+          this.buildInsuredAssetSnapshot(verifiedAsset);
+        await assetRepository.save(
+          assetRepository.create({
+            quotation_id: quotation.id,
+            quotation_risk_id: risk.id,
+            insured_asset_id: verifiedAsset.id,
+            asset_type: verifiedAsset.asset_type,
+            asset_snapshot: assetSnapshot,
+            asset_snapshot_hash:
+              verifiedAsset.current_snapshot_hash ??
+              this.productDefinitionHashService.hashDefinition(assetSnapshot),
+            asset_snapshot_version: verifiedAsset.snapshot_version,
+          }),
+        );
+      }
 
       const discounts = inputRisk.discounts_offered.map((discount, index) =>
         discountRepository.create({

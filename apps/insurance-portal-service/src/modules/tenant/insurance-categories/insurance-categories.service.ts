@@ -79,7 +79,11 @@ export class InsuranceCategoriesService {
     }
   }
 
-  async findAll(companyId: string, query: FilterInsuranceCategoryDto) {
+  async findAll(
+    companyId: string,
+    query: FilterInsuranceCategoryDto,
+    accessibleCategoryIds?: string[],
+  ) {
     const {
       page = 1,
       limit = 20,
@@ -106,6 +110,27 @@ export class InsuranceCategoriesService {
       .createQueryBuilder('cat')
       .where('cat.company_id = :companyId', { companyId })
       .orderBy(`cat.${safeSortBy}`, direction);
+
+    if (accessibleCategoryIds) {
+      if (!accessibleCategoryIds.length) {
+        return {
+          data: [],
+          meta: {
+            totalItems: 0,
+            itemCount: 0,
+            itemsPerPage: limit,
+            totalPages: 0,
+            currentPage: page,
+            hasNextPage: false,
+            hasPreviousPage: page > 1,
+          },
+        };
+      }
+
+      qb.andWhere('cat.id IN (:...accessibleCategoryIds)', {
+        accessibleCategoryIds,
+      });
+    }
 
     if (search?.trim()) {
       const term = `%${search.trim()}%`;

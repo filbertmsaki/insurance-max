@@ -57,9 +57,17 @@ const PORTAL_ADMIN_PERMISSION_NAMES = [
   'customers:read',
 ] as const;
 
-export class Phase18PortalAdminRole1796305200000
-  implements MigrationInterface
-{
+const PORTAL_ADMIN_ASSIGNEE_ROLE_NAMES = [
+  'ADMINISTRATOR',
+  'INSURANCE_ADMIN',
+  'REINSURANCE_ADMIN',
+  'BROKER_ADMIN',
+  'AGENCY_ADMIN',
+  'BANCASSURANCE_ADMIN',
+  'SERVICE_PROVIDER_ADMIN',
+] as const;
+
+export class Phase18PortalAdminRole1796305200000 implements MigrationInterface {
   name = 'Phase18PortalAdminRole1796305200000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -150,6 +158,24 @@ export class Phase18PortalAdminRole1796305200000
         ON CONFLICT DO NOTHING
       `,
       [[...PORTAL_ADMIN_PERMISSION_NAMES]],
+    );
+
+    await queryRunner.query(
+      `
+        INSERT INTO "company_user_roles" ("company_user_id", "role_id")
+        SELECT DISTINCT membership.id, portal_role.id
+        FROM "company_users" membership
+        INNER JOIN "company_user_roles" existing_assignment
+          ON existing_assignment."company_user_id" = membership.id
+        INNER JOIN "roles" existing_role
+          ON existing_role.id = existing_assignment."role_id"
+          AND existing_role.name = ANY($1::text[])
+        INNER JOIN "roles" portal_role
+          ON portal_role.name = 'PORTAL_ADMIN'
+          AND portal_role."company_id" = membership."company_id"
+        ON CONFLICT DO NOTHING
+      `,
+      [[...PORTAL_ADMIN_ASSIGNEE_ROLE_NAMES]],
     );
   }
 

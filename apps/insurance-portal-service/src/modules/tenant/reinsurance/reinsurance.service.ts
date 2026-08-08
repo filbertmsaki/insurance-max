@@ -50,6 +50,7 @@ import {
 import { ReinsuranceTreatyParticipant } from './entities/reinsurance-treaty-participant.entity';
 import { ReinsuranceTreatySection } from './entities/reinsurance-treaty-section.entity';
 import { ReinsuranceTreaty } from './entities/reinsurance-treaty.entity';
+import { ReinsuranceCapacityService } from './services/reinsurance-capacity.service';
 
 @Injectable()
 export class ReinsuranceService {
@@ -95,6 +96,7 @@ export class ReinsuranceService {
     private readonly workItemsService: WorkItemsService,
     private readonly notificationsService: NotificationsService,
     private readonly auditService: AuditService,
+    private readonly capacityService: ReinsuranceCapacityService,
   ) {}
 
   async findTreaties(user: AuthenticatedUser) {
@@ -667,6 +669,17 @@ export class ReinsuranceService {
         grossPremium *
           (grossSumInsured > 0 ? cededSumInsured / grossSumInsured : 0),
       );
+
+      if (dto.treaty_id) {
+        await this.capacityService.assertCapacityAvailable(user, {
+          treatyId: dto.treaty_id,
+          treatySectionId: dto.treaty_section_id ?? null,
+          exposureAmount: cededSumInsured,
+          classOfBusiness: policy.product_id,
+          territory: null,
+        });
+      }
+
       const cessionNo = await this.referenceService.next({
         companyId: user.companyId!,
         documentType: 'POLICY_CESSION',

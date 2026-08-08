@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -13,6 +14,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { CategoryAccessService } from '../category-access/category-access.service';
+import { ProductAccessService } from '../product-access/product-access.service';
 import { InsuranceProductsService } from './insurance-products.service';
 import { ProductDefinitionService } from './product-definition.service';
 import { CreateInsuranceProductDto } from './dto/create-insurance-product.dto';
@@ -30,6 +33,8 @@ export class InsuranceProductsController {
   constructor(
     private readonly service: InsuranceProductsService,
     private readonly definitionService: ProductDefinitionService,
+    private readonly productAccessService: ProductAccessService,
+    private readonly categoryAccessService: CategoryAccessService,
   ) {}
 
   @Get()
@@ -41,7 +46,28 @@ export class InsuranceProductsController {
     @CurrentUser() user: AuthenticatedUser,
     @Query() query: FilterInsuranceProductDto,
   ) {
-    return this.service.findAll(user.companyId!, query);
+    const accessibleProducts =
+      await this.productAccessService.getAccessibleProducts(
+        user.companyId!,
+        user.companyMembershipId!,
+        user.activeBranchId ?? undefined,
+        user.activeDepartmentId ?? undefined,
+        query.category_id,
+      );
+    const accessibleCategories =
+      await this.categoryAccessService.getAccessibleCategories(
+        user.companyId!,
+        user.companyMembershipId!,
+        user.activeBranchId ?? undefined,
+        user.activeDepartmentId ?? undefined,
+      );
+
+    return this.service.findAll(
+      user.companyId!,
+      query,
+      accessibleProducts.map((product) => product.id),
+      accessibleCategories.map((category) => category.id),
+    );
   }
 
   @Post()
@@ -61,7 +87,34 @@ export class InsuranceProductsController {
     @CurrentUser() user: AuthenticatedUser,
     @Param('productId', ParseUUIDPipe) productId: string,
   ) {
-    return this.service.findOne(user.companyId!, productId);
+    const access = await this.productAccessService.resolveAccess(
+      user.companyId!,
+      {
+        product_id: productId,
+        company_user_id: user.companyMembershipId!,
+        branch_id: user.activeBranchId ?? undefined,
+        department_id: user.activeDepartmentId ?? undefined,
+      },
+    );
+    if (!access.can_view) {
+      throw new NotFoundException('Insurance product not found');
+    }
+
+    const product = await this.service.findOne(user.companyId!, productId);
+    const categoryAccess = await this.categoryAccessService.resolveAccess(
+      user.companyId!,
+      {
+        category_id: product.category_id,
+        company_user_id: user.companyMembershipId!,
+        branch_id: user.activeBranchId ?? undefined,
+        department_id: user.activeDepartmentId ?? undefined,
+      },
+    );
+    if (!categoryAccess.can_view) {
+      throw new NotFoundException('Insurance product not found');
+    }
+
+    return product;
   }
 
   @Patch(':productId')

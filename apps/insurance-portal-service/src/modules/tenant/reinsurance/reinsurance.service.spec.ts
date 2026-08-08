@@ -1,6 +1,9 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 
-import { TreatyParticipantStatus, TreatyStatus } from './enums/reinsurance.enums';
+import {
+  TreatyParticipantStatus,
+  TreatyStatus,
+} from './enums/reinsurance.enums';
 import { ReinsuranceService } from './reinsurance.service';
 
 function makeQueryBuilder(overrides: Record<string, any>) {
@@ -19,11 +22,11 @@ function makeService(params: {
   shareRows: Array<{ sectionId: string | null; share: string }>;
 }) {
   const treatyRepository = {
-    createQueryBuilder: jest
-      .fn()
-      .mockReturnValue(
-        makeQueryBuilder({ getOne: jest.fn().mockResolvedValue(params.treaty) }),
-      ),
+    createQueryBuilder: jest.fn().mockReturnValue(
+      makeQueryBuilder({
+        getOne: jest.fn().mockResolvedValue(params.treaty),
+      }),
+    ),
     save: jest.fn().mockImplementation(async (value: any) => value),
   };
 
@@ -60,6 +63,7 @@ function makeService(params: {
     {} as any, // workItemsService
     {} as any, // notificationsService
     {} as any, // auditService
+    {} as any, // capacityService
   );
 
   return { service, treatyRepository, treatyParticipantRepository };

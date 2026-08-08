@@ -1,4 +1,18 @@
-import { BellRing, Files, LayoutGrid, MessageSquareText, ShieldCheck, UserCircle2 } from 'lucide-react';
+import {
+  BadgeDollarSign,
+  BellRing,
+  BriefcaseBusiness,
+  FileQuestion,
+  Files,
+  FileText,
+  HandCoins,
+  LayoutGrid,
+  MessageSquareText,
+  ReceiptText,
+  ShieldCheck,
+  UserCircle2,
+  Users,
+} from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
 
 import { Badge } from '@/components/ui/badge';
@@ -10,28 +24,94 @@ import type { PortalAudience } from '../api';
 const navigationIcons = {
   dashboard: LayoutGrid,
   profile: UserCircle2,
+  quotations: FileText,
+  policies: BriefcaseBusiness,
+  invoices: ReceiptText,
+  receipts: HandCoins,
+  requests: FileQuestion,
+  customers: Users,
+  commissions: BadgeDollarSign,
   documents: Files,
   notifications: BellRing,
   messages: MessageSquareText,
   signatures: ShieldCheck,
 };
 
-export function PortalShell({
-  audience,
-}: {
-  audience: PortalAudience;
-}) {
+export function PortalShell({ audience }: { audience: PortalAudience }) {
   const user = useAuthStore((state) => state.user);
   const company = useAuthStore((state) => state.company);
   const basePath = `/${audience}`;
   const audienceLabel = audience === 'customer' ? 'Customer' : 'Intermediary';
   const items = [
-    { to: `${basePath}/dashboard`, label: 'Dashboard', icon: navigationIcons.dashboard },
-    { to: `${basePath}/profile`, label: 'Profile', icon: navigationIcons.profile },
-    { to: `${basePath}/documents`, label: 'Documents', icon: navigationIcons.documents },
-    { to: `${basePath}/notifications`, label: 'Notifications', icon: navigationIcons.notifications },
-    { to: `${basePath}/messages`, label: 'Messages', icon: navigationIcons.messages },
-    { to: `${basePath}/signatures`, label: 'Signatures', icon: navigationIcons.signatures },
+    {
+      to: `${basePath}/dashboard`,
+      label: 'Dashboard',
+      icon: navigationIcons.dashboard,
+    },
+    {
+      to: `${basePath}/profile`,
+      label: 'Profile',
+      icon: navigationIcons.profile,
+    },
+    {
+      to: `${basePath}/quotations`,
+      label: 'Quotations',
+      icon: navigationIcons.quotations,
+    },
+    {
+      to: `${basePath}/policies`,
+      label: 'Policies',
+      icon: navigationIcons.policies,
+    },
+    {
+      to: `${basePath}/invoices`,
+      label: 'Invoices',
+      icon: navigationIcons.invoices,
+    },
+    {
+      to: `${basePath}/receipts`,
+      label: 'Receipts',
+      icon: navigationIcons.receipts,
+    },
+    {
+      to: `${basePath}/requests`,
+      label: 'Requests',
+      icon: navigationIcons.requests,
+    },
+    ...(audience === 'intermediary'
+      ? [
+          {
+            to: `${basePath}/customers`,
+            label: 'Customers',
+            icon: navigationIcons.customers,
+          },
+          {
+            to: `${basePath}/commissions`,
+            label: 'Commissions',
+            icon: navigationIcons.commissions,
+          },
+        ]
+      : []),
+    {
+      to: `${basePath}/documents`,
+      label: 'Documents',
+      icon: navigationIcons.documents,
+    },
+    {
+      to: `${basePath}/notifications`,
+      label: 'Notifications',
+      icon: navigationIcons.notifications,
+    },
+    {
+      to: `${basePath}/messages`,
+      label: 'Messages',
+      icon: navigationIcons.messages,
+    },
+    {
+      to: `${basePath}/signatures`,
+      label: 'Signatures',
+      icon: navigationIcons.signatures,
+    },
   ];
 
   return (
@@ -44,7 +124,10 @@ export function PortalShell({
           <div className="mt-1 text-xs text-slate-500">
             {company?.name ?? user?.companyName ?? 'Insurance Max'}
           </div>
-          <Badge variant="outline" className="mt-3 border-slate-200 text-slate-600">
+          <Badge
+            variant="outline"
+            className="mt-3 border-slate-200 text-slate-600"
+          >
             Secure self-service
           </Badge>
         </div>
@@ -75,7 +158,9 @@ export function PortalShell({
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="border-b border-slate-200 bg-white px-4 py-4 lg:hidden">
-          <div className="text-sm font-semibold text-slate-950">{audienceLabel} Portal</div>
+          <div className="text-sm font-semibold text-slate-950">
+            {audienceLabel} Portal
+          </div>
           <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
             {items.map((item) => (
               <NavLink

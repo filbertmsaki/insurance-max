@@ -15,6 +15,7 @@ import {
 } from 'class-validator';
 
 import {
+  ReinsuranceBordereauType,
   ReinsuranceCessionType,
   TreatyForm,
   TreatyParticipantRole,
@@ -374,4 +375,54 @@ export class RejectReinsuranceSettlementDto {
   @IsOptional()
   @IsString()
   reason?: string;
+}
+
+export class GenerateReinsuranceBordereauDto {
+  @IsEnum(ReinsuranceBordereauType)
+  bordereau_type: ReinsuranceBordereauType;
+
+  @IsOptional()
+  @IsUUID()
+  treaty_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  participant_company_id?: string;
+
+  @IsDateString()
+  period_from: string;
+
+  @IsDateString()
+  period_to: string;
+
+  @IsString()
+  currency: string;
+}
+
+export class GenerateReinsurancePremiumAccountDto {
+  @IsOptional()
+  @IsUUID()
+  treaty_id?: string;
+
+  @IsUUID()
+  participant_company_id: string;
+
+  @IsOptional()
+  @IsUUID()
+  reinsurance_broker_company_id?: string;
+
+  @IsDateString()
+  period_from: string;
+
+  @IsDateString()
+  period_to: string;
+
+  @IsString()
+  currency: string;
+
+  @IsOptional()
+  tax_amount?: string | number;
+
+  @IsOptional()
+  other_adjustments?: string | number;
 }

@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { PortalShell } from '@/modules/portal/components/PortalShell';
 import { PortalDashboardPage } from '@/modules/portal/pages/PortalDashboardPage';
+import { PortalBusinessListPage } from '@/modules/portal/pages/PortalBusinessListPage';
 import { PortalDocumentsPage } from '@/modules/portal/pages/PortalDocumentsPage';
 import { PortalMessageDetailPage } from '@/modules/portal/pages/PortalMessageDetailPage';
 import { PortalMessagesPage } from '@/modules/portal/pages/PortalMessagesPage';
@@ -76,6 +77,10 @@ import { PoliciesPage } from '@/modules/tenant/policies/pages/PoliciesPage';
 import { PolicyDetailPage } from '@/modules/tenant/policies/pages/PolicyDetailPage';
 import { PolicyCreatePage } from '@/modules/tenant/policies/pages/PolicyCreatePage';
 import { PolicyEditPage } from '@/modules/tenant/policies/pages/PolicyEditPage';
+import { ClaimsPage } from '@/modules/tenant/claims/pages/ClaimsPage';
+import { ClaimDetailPage } from '@/modules/tenant/claims/pages/ClaimDetailPage';
+import { ComplaintsPage } from '@/modules/tenant/complaints/pages/ComplaintsPage';
+import { ComplaintDetailPage } from '@/modules/tenant/complaints/pages/ComplaintDetailPage';
 import { TiramisSubmissionsPage } from '@/modules/tenant/tiramis/pages/TiramisSubmissionsPage';
 import { TiramisSubmissionDetailPage } from '@/modules/tenant/tiramis/pages/TiramisSubmissionDetailPage';
 import { TiramisDashboardPage } from '@/modules/tenant/tiramis/pages/TiramisDashboardPage';
@@ -101,6 +106,7 @@ import { FinanceCommissionPaymentsPage } from '@/modules/tenant/finance/pages/Fi
 import { FinanceCommissionPaymentDetailPage } from '@/modules/tenant/finance/pages/FinanceCommissionPaymentDetailPage';
 import { FinanceJournalsPage } from '@/modules/tenant/finance/pages/FinanceJournalsPage';
 import { FinanceJournalDetailPage } from '@/modules/tenant/finance/pages/FinanceJournalDetailPage';
+import { ReinsuranceWorkbenchPage } from '@/modules/tenant/reinsurance/pages/ReinsuranceWorkbenchPage';
 import { AnalyticsMetricsPage } from '@/modules/tenant/analytics/pages/AnalyticsMetricsPage';
 import { CommunicationsPage } from '@/modules/tenant/engagement/pages/CommunicationsPage';
 import { CommunicationDetailPage } from '@/modules/tenant/engagement/pages/CommunicationDetailPage';
@@ -155,7 +161,10 @@ export default function App() {
               <ProtectedRoute anyPermissions={['portal:customer-access']} />
             }
           >
-            <Route path="/customer" element={<PortalShell audience="customer" />}>
+            <Route
+              path="/customer"
+              element={<PortalShell audience="customer" />}
+            >
               <Route index element={<Navigate to="dashboard" replace />} />
               <Route
                 path="dashboard"
@@ -164,6 +173,51 @@ export default function App() {
               <Route
                 path="profile"
                 element={<PortalProfilePage audience="customer" />}
+              />
+              <Route
+                path="quotations"
+                element={
+                  <PortalBusinessListPage
+                    audience="customer"
+                    resource="quotations"
+                  />
+                }
+              />
+              <Route
+                path="policies"
+                element={
+                  <PortalBusinessListPage
+                    audience="customer"
+                    resource="policies"
+                  />
+                }
+              />
+              <Route
+                path="invoices"
+                element={
+                  <PortalBusinessListPage
+                    audience="customer"
+                    resource="invoices"
+                  />
+                }
+              />
+              <Route
+                path="receipts"
+                element={
+                  <PortalBusinessListPage
+                    audience="customer"
+                    resource="receipts"
+                  />
+                }
+              />
+              <Route
+                path="requests"
+                element={
+                  <PortalBusinessListPage
+                    audience="customer"
+                    resource="requests"
+                  />
+                }
               />
               <Route
                 path="documents"
@@ -211,6 +265,69 @@ export default function App() {
                 element={<PortalProfilePage audience="intermediary" />}
               />
               <Route
+                path="customers"
+                element={
+                  <PortalBusinessListPage
+                    audience="intermediary"
+                    resource="customers"
+                  />
+                }
+              />
+              <Route
+                path="quotations"
+                element={
+                  <PortalBusinessListPage
+                    audience="intermediary"
+                    resource="quotations"
+                  />
+                }
+              />
+              <Route
+                path="policies"
+                element={
+                  <PortalBusinessListPage
+                    audience="intermediary"
+                    resource="policies"
+                  />
+                }
+              />
+              <Route
+                path="invoices"
+                element={
+                  <PortalBusinessListPage
+                    audience="intermediary"
+                    resource="invoices"
+                  />
+                }
+              />
+              <Route
+                path="receipts"
+                element={
+                  <PortalBusinessListPage
+                    audience="intermediary"
+                    resource="receipts"
+                  />
+                }
+              />
+              <Route
+                path="commissions"
+                element={
+                  <PortalBusinessListPage
+                    audience="intermediary"
+                    resource="commissions"
+                  />
+                }
+              />
+              <Route
+                path="requests"
+                element={
+                  <PortalBusinessListPage
+                    audience="intermediary"
+                    resource="requests"
+                  />
+                }
+              />
+              <Route
                 path="documents"
                 element={<PortalDocumentsPage audience="intermediary" />}
               />
@@ -248,7 +365,10 @@ export default function App() {
                 />
               }
             >
-              <Route path="/analytics/metrics" element={<AnalyticsMetricsPage />} />
+              <Route
+                path="/analytics/metrics"
+                element={<AnalyticsMetricsPage />}
+              />
             </Route>
 
             <Route
@@ -288,7 +408,9 @@ export default function App() {
             </Route>
 
             <Route
-              element={<ProtectedRoute requiredPermission="notifications:read" />}
+              element={
+                <ProtectedRoute requiredPermission="notifications:read" />
+              }
             >
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route
@@ -298,7 +420,9 @@ export default function App() {
             </Route>
 
             <Route
-              element={<ProtectedRoute requiredPermission="communications:read" />}
+              element={
+                <ProtectedRoute requiredPermission="communications:read" />
+              }
             >
               <Route path="/communications" element={<CommunicationsPage />} />
               <Route
@@ -493,6 +617,18 @@ export default function App() {
                 path={underwritingPaths.policyEdit(':id')}
                 element={<PolicyEditPage />}
               />
+            </Route>
+            <Route
+              element={<ProtectedRoute requiredPermission="claims:read" />}
+            >
+              <Route path="/claims" element={<ClaimsPage />} />
+              <Route path="/claims/:id" element={<ClaimDetailPage />} />
+            </Route>
+            <Route
+              element={<ProtectedRoute requiredPermission="complaints:read" />}
+            >
+              <Route path="/complaints" element={<ComplaintsPage />} />
+              <Route path="/complaints/:id" element={<ComplaintDetailPage />} />
             </Route>
 
             <Route
@@ -805,6 +941,14 @@ export default function App() {
                 element={<FinanceJournalDetailPage />}
               />
             </Route>
+            <Route
+              element={<ProtectedRoute requiredPermission="reinsurance:read" />}
+            >
+              <Route
+                path="/reinsurance"
+                element={<ReinsuranceWorkbenchPage />}
+              />
+            </Route>
 
             <Route
               element={
@@ -845,62 +989,6 @@ export default function App() {
         </Route>
 
         {/* Legacy route redirects */}
-        <Route
-          path="/billing/invoices"
-          element={<Navigate to="/finance/invoices" replace />}
-        />
-        <Route
-          path="/billing/invoices/new"
-          element={<Navigate to="/finance/invoices" replace />}
-        />
-        <Route
-          path="/billing/invoices/:id"
-          element={<Navigate to="/finance/invoices" replace />}
-        />
-        <Route
-          path="/billing/invoices/:id/edit"
-          element={<Navigate to="/finance/invoices" replace />}
-        />
-        <Route
-          path="/billing/receipts"
-          element={<Navigate to="/finance/receipts" replace />}
-        />
-        <Route
-          path="/billing/receipts/new"
-          element={<Navigate to="/finance/receipts" replace />}
-        />
-        <Route
-          path="/billing/receipts/:id"
-          element={<Navigate to="/finance/receipts" replace />}
-        />
-        <Route
-          path="/billing/receipts/:id/edit"
-          element={<Navigate to="/finance/receipts" replace />}
-        />
-        <Route
-          path="/billing/payment-transactions"
-          element={<Navigate to="/finance/payments" replace />}
-        />
-        <Route
-          path="/billing/payment-transactions/:id"
-          element={<Navigate to="/finance/payments" replace />}
-        />
-        <Route
-          path="/billing/commission-transactions"
-          element={<Navigate to="/finance/commission-accruals" replace />}
-        />
-        <Route
-          path="/billing/commission-transactions/:id"
-          element={<Navigate to="/finance/commission-accruals" replace />}
-        />
-        <Route
-          path="/billing/commission-payments"
-          element={<Navigate to="/finance/commission-payments" replace />}
-        />
-        <Route
-          path="/billing/commission-payments/:id"
-          element={<Navigate to="/finance/commission-payments" replace />}
-        />
         <Route
           path="/quotations"
           element={<Navigate to={underwritingPaths.quotations} replace />}

@@ -31,4 +31,12 @@ export class RetentionController {
   dryRun(@Req() req: ExpressRequest & { user: AuthenticatedUser }) {
     return this.retentionService.dryRun(req.user.companyId ?? null);
   }
+
+  @Post('enforce')
+  @Permissions('retention:enforce')
+  enforce(@Req() req: ExpressRequest & { user: AuthenticatedUser }) {
+    return this.retentionService.enforce(req.user.companyId ?? null, {
+      dryRun: false,
+    });
+  }
 }

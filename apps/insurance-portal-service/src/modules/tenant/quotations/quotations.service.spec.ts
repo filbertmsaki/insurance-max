@@ -18,6 +18,7 @@ import { QuotationTiramisPayloadMapper } from './mappers/quotation-tiramis-paylo
 import { QuotationsRepository } from './repositories/quotations.repository';
 import { QuotationLifecycleService } from './services/quotation-lifecycle.service';
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
+import { QuotationRiskAsset } from './entities/structured/quotation-risk-asset.entity';
 import { QuotationsService } from './quotations.service';
 import { createMotorSingleQuotationPayload } from './testing/quotation-payload.fixture';
 import { AuditService } from '../../shared/audit/audit.service';
@@ -89,23 +90,36 @@ describe('QuotationsService', () => {
   function createServiceFixture(
     overrides?: Partial<Record<string, unknown>> & {
       pricingQuote?: Partial<Record<string, unknown>>;
+      verifiedRiskAssets?: Array<Record<string, unknown>>;
     },
   ) {
-    const createQueryBuilderStub = <T,>(value: T) => ({
+    const createQueryBuilderStub = <T>(value: T) => ({
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       addOrderBy: jest.fn().mockReturnThis(),
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       getOne: jest.fn().mockResolvedValue(value),
-      getMany: jest.fn().mockResolvedValue(
-        Array.isArray(value) ? value : value ? [value] : [],
-      ),
+      getMany: jest
+        .fn()
+        .mockResolvedValue(Array.isArray(value) ? value : value ? [value] : []),
     });
 
     const authoritativePayload = createMotorSingleQuotationPayload();
-    const { pricingQuote: pricingQuoteOverrides, ...quotationOverrides } =
-      overrides ?? {};
+    const {
+      pricingQuote: pricingQuoteOverrides,
+      verifiedRiskAssets: verifiedRiskAssetOverrides,
+      ...quotationOverrides
+    } = overrides ?? {};
+    const verifiedRiskAssets = verifiedRiskAssetOverrides ?? [
+      {
+        id: 'quotation-risk-asset-1',
+        quotation_id: 'quotation-1',
+        quotation_risk_id: 'quotation-risk-1',
+        insured_asset_id: 'asset-1',
+        asset_snapshot_hash: 'asset-snapshot-hash',
+      },
+    ];
     const pricingQuote = {
       pricing_quote_id:
         authoritativePayload.cover_note_dtl.risks_covered?.[0]
@@ -305,15 +319,21 @@ describe('QuotationsService', () => {
           };
         }
 
+        if (entity === QuotationRiskAsset) {
+          return {
+            find: jest.fn().mockResolvedValue(verifiedRiskAssets),
+          };
+        }
+
         if (
           typeof entity === 'function' &&
           'name' in entity &&
           entity.name === 'Invoice'
         ) {
           return {
-            createQueryBuilder: jest.fn().mockReturnValue(
-              createQueryBuilderStub(null),
-            ),
+            createQueryBuilder: jest
+              .fn()
+              .mockReturnValue(createQueryBuilderStub(null)),
             count: jest.fn().mockResolvedValue(0),
           };
         }
@@ -324,9 +344,9 @@ describe('QuotationsService', () => {
           entity.name === 'Receipt'
         ) {
           return {
-            createQueryBuilder: jest.fn().mockReturnValue(
-              createQueryBuilderStub(null),
-            ),
+            createQueryBuilder: jest
+              .fn()
+              .mockReturnValue(createQueryBuilderStub(null)),
             count: jest.fn().mockResolvedValue(0),
           };
         }
@@ -337,9 +357,9 @@ describe('QuotationsService', () => {
           entity.name === 'CommissionTransaction'
         ) {
           return {
-            createQueryBuilder: jest.fn().mockReturnValue(
-              createQueryBuilderStub(null),
-            ),
+            createQueryBuilder: jest
+              .fn()
+              .mockReturnValue(createQueryBuilderStub(null)),
           };
         }
 
@@ -688,6 +708,23 @@ describe('QuotationsService', () => {
         }),
       }),
     );
+  });
+
+  it('blocks TIRAMIS submission when quotation assets are not verified', async () => {
+    const fixture = createServiceFixture({ verifiedRiskAssets: [] });
+
+    await expect(
+      fixture.service.submit(
+        'company-1',
+        fixture.quotation.id,
+        undefined,
+        submitTiramisUser,
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(
+      fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord,
+    ).not.toHaveBeenCalled();
   });
 
   it('exposes a current pricing integration summary on quotation detail responses', async () => {
