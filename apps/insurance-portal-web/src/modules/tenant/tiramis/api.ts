@@ -5,6 +5,8 @@ import type {
 } from '@/modules/shared/api/pagination';
 import type {
   PortalTiramisSubmitPayload,
+  TiramisBusinessValidationPayload,
+  TiramisBusinessValidationResponse,
   TiramisSalePointRecord,
   TenantTiramisSubmissionListParams,
   TiramisDashboardResponse,
@@ -50,6 +52,10 @@ export const tiramisApi = {
   submit: (data: PortalTiramisSubmitPayload) =>
     apiClient
       .post('/tenant/tiramis-submissions/submit', data)
+      .then((r) => r.data),
+  validateBusiness: (data: TiramisBusinessValidationPayload) =>
+    apiClient
+      .post<TiramisBusinessValidationResponse>('/tiramis/business/validate', data)
       .then((r) => r.data),
   /**
    * @deprecated Sales-point CRUD moved to `salePointsApi`

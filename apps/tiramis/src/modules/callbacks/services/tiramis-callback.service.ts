@@ -30,6 +30,33 @@ import { TiramisCallbackReceiptEntity } from '../entities/tiramis-callback-recei
 @Injectable()
 export class TiramisCallbackService {
   private readonly logger = new Logger(TiramisCallbackService.name);
+  private readonly responseHeaderKeys = [
+    'CoverNoteHdr',
+    'MotorCoverNoteHdr',
+    'ReinsuranceHdr',
+    'PolicyHdr',
+    'ClaimNotificationHdr',
+    'ClaimIntimationHdr',
+    'ClaimAssessmentHdr',
+    'DischargeVoucherHdr',
+    'ClaimPaymentHdr',
+    'ClaimRejectionHdr',
+    'VerificationHdr',
+  ];
+
+  private readonly responseDetailKeys = [
+    'CoverNoteDtl',
+    'MotorCoverNoteDtl',
+    'ReinsuranceDtl',
+    'PolicyDtl',
+    'ClaimNotificationDtl',
+    'ClaimIntimationDtl',
+    'ClaimAssessmentDtl',
+    'DischargeVoucherDtl',
+    'ClaimPaymentDtl',
+    'ClaimRejectionDtl',
+    'VerificationDtl',
+  ];
 
   constructor(
     @InjectRepository(TiramisCoverNoteEntity)
@@ -279,13 +306,13 @@ export class TiramisCallbackService {
     }
 
     const content = parsedMessage.content;
-    const requestId = this.getStringValue(content, 'RequestId');
-    const responseId = this.getStringValue(content, 'ResponseId');
-    const responseStatusCode = this.getStringValue(
+    const requestId = this.getResponseValue(content, 'RequestId');
+    const responseId = this.getResponseValue(content, 'ResponseId');
+    const responseStatusCode = this.getResponseValue(
       content,
       'ResponseStatusCode',
     );
-    const responseStatusDesc = this.getStringValue(
+    const responseStatusDesc = this.getResponseValue(
       content,
       'ResponseStatusDesc',
     );
@@ -307,19 +334,19 @@ export class TiramisCallbackService {
       responseId,
       responseStatusCode,
       responseStatusDesc,
-      claimReferenceNumber: this.getOptionalStringValue(
+      claimReferenceNumber: this.getBusinessValue(
         content,
         'ClaimReferenceNumber',
       ),
-      coverNoteReferenceNumber: this.getOptionalStringValue(
+      coverNoteReferenceNumber: this.getBusinessValue(
         content,
         'CoverNoteReferenceNumber',
       ),
-      policyReferenceNumber: this.getOptionalStringValue(
+      policyReferenceNumber: this.getBusinessValue(
         content,
         'PolicyReferenceNumber',
       ),
-      stickerNumber: this.getOptionalStringValue(content, 'StickerNumber'),
+      stickerNumber: this.getBusinessValue(content, 'StickerNumber'),
       rawXml,
       signature: parsedMessage.signature,
       content,
@@ -339,9 +366,15 @@ export class TiramisCallbackService {
       };
     }
 
-    const pfxPaths = await this.tiramisConfigService.getPfxPaths(
-      params.environment,
-    );
+    const configuration = await this.resolveCallbackConfiguration({
+        environment: params.environment,
+        requestId: params.parsedCallback.requestId,
+      });
+
+    const pfxPaths =
+      await this.tiramisConfigService.getPfxPathsForConfiguration(
+        configuration,
+      );
 
     if (!pfxPaths.tiraPublicCertificatePath) {
       return {
@@ -385,6 +418,7 @@ export class TiramisCallbackService {
       statusDesc: params.parsedCallback?.responseStatusDesc || null,
       signature: params.parsedCallback?.signature || null,
       rawXml: params.rawXml || null,
+      payloadHash: params.rawXml ? this.hashPayload(params.rawXml) : null,
       reason: params.reason,
       isProcessed: 0,
     });
@@ -488,9 +522,14 @@ export class TiramisCallbackService {
       acknowledgementPayload,
     );
 
+    const configuration = await this.resolveCallbackConfiguration({
+        environment: params.environment,
+        requestId: params.finalResponse.requestId,
+      });
+
     const pfxPaths =
       await this.tiramisConfigService.getPfxPathsForConfiguration(
-        await this.tiramisConfigService.getActiveRuntimeConfiguration(),
+        configuration,
       );
 
     const signature = this.signatureService.signXmlContent({
@@ -865,11 +904,70 @@ export class TiramisCallbackService {
     return typeof value === 'string' && value.trim() ? value : null;
   }
 
-  private getOptionalStringValue(
+  private getResponseValue(
     content: Record<string, unknown>,
     key: string,
   ): string | null {
-    const value = content[key];
-    return typeof value === 'string' && value.trim() ? value : null;
+    return this.getStringValue(content, key) || this.getNestedStringFromAny(
+      content,
+      this.responseHeaderKeys,
+      key,
+    );
+  }
+
+  private getBusinessValue(
+    content: Record<string, unknown>,
+    key: string,
+  ): string | null {
+    return (
+      this.getStringValue(content, key) ||
+      this.getNestedStringFromAny(content, this.responseDetailKeys, key) ||
+      this.getNestedStringFromAny(content, this.responseHeaderKeys, key)
+    );
+  }
+
+  private getNestedStringFromAny(
+    content: Record<string, unknown>,
+    parentKeys: string[],
+    childKey: string,
+  ): string | null {
+    for (const parentKey of parentKeys) {
+      const parent = content[parentKey];
+
+      if (
+        typeof parent === 'object' &&
+        parent !== null &&
+        !Array.isArray(parent)
+      ) {
+        const value = this.getStringValue(
+          parent as Record<string, unknown>,
+          childKey,
+        );
+
+        if (value) {
+          return value;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private async resolveCallbackConfiguration(params: {
+    environment: string;
+    requestId: string;
+  }) {
+    const transaction =
+      await this.tiramisSubmissionService.getTransactionForNotification({
+        requestId: params.requestId,
+      });
+
+    if (transaction?.clientConfigurationId) {
+      return this.tiramisConfigService.getRuntimeConfigurationById(
+        transaction.clientConfigurationId,
+      );
+    }
+
+    return this.tiramisConfigService.getActiveConfiguration(params.environment);
   }
 }

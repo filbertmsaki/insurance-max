@@ -33,6 +33,18 @@ const tiramisKeys = {
     [...tiramisKeys.all, 'admin-submission', id] as const,
   adminFailed: () => [...tiramisKeys.all, 'admin-failed'] as const,
   adminRetryable: () => [...tiramisKeys.all, 'admin-retryable'] as const,
+  businessReadiness: (params?: {
+    requestType?: string;
+    sourceModule?: string;
+    sourceRecordId?: string;
+  }) =>
+    [
+      ...tiramisKeys.all,
+      'business-readiness',
+      params?.requestType ?? '',
+      params?.sourceModule ?? '',
+      params?.sourceRecordId ?? '',
+    ] as const,
   salePoints: (branchId?: string) =>
     [...tiramisKeys.all, 'sale-points', branchId ?? 'all'] as const,
 };
@@ -197,6 +209,31 @@ export function useTiramisSalePoints(
     queryFn: () => tiramisApi.getSalePoints(branchId),
     enabled: options?.enabled ?? true,
     staleTime: 30_000,
+  });
+}
+
+export function useTiramisBusinessReadiness(
+  params:
+    | {
+        requestType: PortalTiramisSubmitPayload['requestType'];
+        sourceModule: string;
+        sourceRecordId: string;
+        payload?: Record<string, unknown>;
+      }
+    | undefined,
+  options?: {
+    enabled?: boolean;
+  },
+) {
+  return useQuery({
+    queryKey: tiramisKeys.businessReadiness(params),
+    queryFn: () => tiramisApi.validateBusiness(params!),
+    enabled:
+      (options?.enabled ?? true) &&
+      !!params?.requestType &&
+      !!params?.sourceModule &&
+      !!params?.sourceRecordId,
+    staleTime: 10_000,
   });
 }
 

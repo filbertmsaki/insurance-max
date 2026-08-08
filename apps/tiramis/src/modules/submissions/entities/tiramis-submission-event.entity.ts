@@ -41,6 +41,17 @@ export class TiramisSubmissionEventEntity extends BaseEntity {
   @Column({ name: 'raw_payload', type: 'text', nullable: true })
   rawPayload?: string | null;
 
+  @Column({
+    name: 'payload_hash',
+    type: 'varchar',
+    length: 128,
+    nullable: true,
+  })
+  payloadHash?: string | null;
+
+  @Column({ name: 'payload_size_bytes', type: 'int', nullable: true })
+  payloadSizeBytes?: number | null;
+
   @Column({ name: 'error_message', type: 'text', nullable: true })
   errorMessage?: string | null;
 }

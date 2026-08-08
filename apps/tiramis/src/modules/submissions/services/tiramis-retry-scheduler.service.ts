@@ -256,6 +256,7 @@ export class TiramisRetrySchedulerService {
       requestId: attempt.requestId,
       eventType: TIRAMIS_SUBMISSION_EVENT_TYPE.REQUEST_RETRY_SCHEDULED,
       statusDesc: params.errorMessage,
+      errorMessage: params.errorMessage,
       rawPayload: params.rawPayload || null,
     });
   }
@@ -284,6 +285,15 @@ export class TiramisRetrySchedulerService {
       requestId: attempt.requestId,
       eventType: TIRAMIS_SUBMISSION_EVENT_TYPE.REQUEST_RETRY_EXHAUSTED,
       statusDesc: params.errorMessage,
+      errorMessage: params.errorMessage,
+    });
+
+    await this.publishFailureNotification({
+      eventType: 'TIRAMIS_SUBMISSION_FAILED',
+      transaction,
+      attempt,
+      statusDescription: params.errorMessage,
+      errorMessage: params.errorMessage,
     });
 
     this.logger.warn(
@@ -309,41 +319,34 @@ export class TiramisRetrySchedulerService {
         continue;
       }
 
+      const errorMessage =
+        'Final TIRAMIS callback was not received before configured deadline';
+
+      attempt.status = TIRAMIS_ATTEMPT_STATUS.FINAL_CALLBACK_OVERDUE;
       attempt.finalCallbackOverdueNotified = 1;
+      attempt.errorMessage = errorMessage;
+      transaction.status = TIRAMIS_TRANSACTION_STATUS.FAILED;
+      transaction.lastError = errorMessage;
+
       await this.attemptRepository.save(attempt);
+      await this.transactionRepository.save(transaction);
 
       await this.recordEvent({
         transactionId: transaction.id,
         attemptId: attempt.id,
         requestId: attempt.requestId,
         eventType: TIRAMIS_SUBMISSION_EVENT_TYPE.FINAL_CALLBACK_OVERDUE,
-        statusDesc:
-          'Final TIRAMIS callback was not received before configured deadline',
+        statusDesc: errorMessage,
+        errorMessage,
       });
 
-      await this.portalNotificationService.publish({
+      await this.publishFailureNotification({
         eventType: 'TIRAMIS_FINAL_CALLBACK_OVERDUE',
-        sourceService: 'tiramis-service',
-        sourceCompanyId: transaction.sourceCompanyId || null,
-        sourceModule: transaction.sourceModule || null,
-        sourceRecordId: transaction.sourceRecordId || null,
-        businessReference: transaction.businessReference || null,
-        tiramisTransactionId: transaction.id,
-        requestId: attempt.requestId,
-        responseId: null,
-        serviceType: transaction.serviceType || null,
-        rootElement: attempt.rootElement || null,
+        transaction,
+        attempt,
         statusCode: attempt.acknowledgementStatusCode || null,
-        statusDescription:
-          'Final TIRAMIS callback was not received before configured deadline',
-        transactionStatus: transaction.status,
-        attemptStatus: attempt.status,
-        coverNoteReferenceNumber: null,
-        policyReferenceNumber: null,
-        stickerNumber: null,
-        errorMessage:
-          'Final TIRAMIS callback was not received before configured deadline',
-        occurredAt: new Date().toISOString(),
+        statusDescription: errorMessage,
+        errorMessage,
       });
 
       this.logger.warn(
@@ -376,6 +379,7 @@ export class TiramisRetrySchedulerService {
     eventType: string;
     statusCode?: string | null;
     statusDesc?: string | null;
+    errorMessage?: string | null;
     rawPayload?: string | null;
   }) {
     await this.eventRepository.createEvent({
@@ -385,7 +389,40 @@ export class TiramisRetrySchedulerService {
       eventType: params.eventType,
       statusCode: params.statusCode || null,
       statusDesc: params.statusDesc || null,
+      errorMessage: params.errorMessage || null,
       rawPayload: params.rawPayload || null,
+    });
+  }
+
+  private async publishFailureNotification(params: {
+    eventType: 'TIRAMIS_SUBMISSION_FAILED' | 'TIRAMIS_FINAL_CALLBACK_OVERDUE';
+    transaction: any;
+    attempt: any;
+    statusCode?: string | null;
+    statusDescription?: string | null;
+    errorMessage?: string | null;
+  }) {
+    await this.portalNotificationService.publish({
+      eventType: params.eventType,
+      sourceService: 'tiramis-service',
+      sourceCompanyId: params.transaction.sourceCompanyId || null,
+      sourceModule: params.transaction.sourceModule || null,
+      sourceRecordId: params.transaction.sourceRecordId || null,
+      businessReference: params.transaction.businessReference || null,
+      tiramisTransactionId: params.transaction.id,
+      requestId: params.attempt.requestId,
+      responseId: null,
+      serviceType: params.transaction.serviceType || null,
+      rootElement: params.attempt.rootElement || null,
+      statusCode: params.statusCode || null,
+      statusDescription: params.statusDescription || null,
+      transactionStatus: params.transaction.status,
+      attemptStatus: params.attempt.status,
+      coverNoteReferenceNumber: null,
+      policyReferenceNumber: null,
+      stickerNumber: null,
+      errorMessage: params.errorMessage || null,
+      occurredAt: new Date().toISOString(),
     });
   }
 }

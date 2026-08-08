@@ -51,6 +51,9 @@ const config = {
     process.env.INITIAL_OWNER_PASSWORD ||
     'Admin123!',
   requestType: process.env.E2E_REQUEST_TYPE || 'NIN_VERIFICATION',
+  validateOnly:
+    process.env.E2E_VALIDATE_ONLY === 'true' ||
+    process.env.E2E_SKIP_SUBMIT === 'true',
   sourceModule: process.env.E2E_SOURCE_MODULE || 'verifications',
   sourceRecordId:
     process.env.E2E_SOURCE_RECORD_ID ||
@@ -120,6 +123,52 @@ function unwrapApiData(payload) {
   }
 
   return payload;
+}
+
+function loadJsonPayload() {
+  if (process.env.E2E_PAYLOAD_JSON) {
+    return JSON.parse(process.env.E2E_PAYLOAD_JSON);
+  }
+
+  if (process.env.E2E_PAYLOAD_FILE) {
+    const payloadPath = path.resolve(process.cwd(), process.env.E2E_PAYLOAD_FILE);
+    return JSON.parse(fs.readFileSync(payloadPath, 'utf8'));
+  }
+
+  return null;
+}
+
+const configuredPayload = loadJsonPayload();
+
+function buildSubmissionPayload() {
+  if (configuredPayload) {
+    return configuredPayload;
+  }
+
+  switch (config.requestType) {
+    case 'COMPANY_VERIFICATION':
+      return {
+        companyName: process.env.E2E_COMPANY_NAME || 'ACME Insurance Ltd',
+      };
+    case 'COVER_NOTE_VERIFICATION':
+      return {
+        coverNoteReferenceNumber:
+          process.env.E2E_COVER_NOTE_REFERENCE ||
+          process.env.E2E_BUSINESS_REFERENCE ||
+          config.businessReference,
+      };
+    case 'MOTOR_VERIFICATION':
+      return {
+        motorCategory: Number(process.env.E2E_MOTOR_CATEGORY || 1),
+        motorRegistrationNumber:
+          process.env.E2E_MOTOR_REGISTRATION_NUMBER || 'T123ABC',
+      };
+    case 'NIN_VERIFICATION':
+    default:
+      return {
+        nin: config.nin,
+      };
+  }
 }
 
 async function request(name, method, url, body, options = {}) {
@@ -281,9 +330,7 @@ async function testValidation() {
       requestType: config.requestType,
       sourceModule: config.sourceModule,
       sourceRecordId: config.sourceRecordId,
-      payload: {
-        nin: config.nin,
-      },
+      payload: buildSubmissionPayload(),
     },
   );
 
@@ -326,9 +373,7 @@ async function testSubmit() {
       sourceModule: config.sourceModule,
       sourceRecordId: config.sourceRecordId,
       businessReference: config.businessReference,
-      payload: {
-        nin: config.nin,
-      },
+      payload: buildSubmissionPayload(),
       returnExisting: true,
     },
   );
@@ -357,9 +402,7 @@ async function testDuplicatePrevention() {
       sourceModule: config.sourceModule,
       sourceRecordId: config.sourceRecordId,
       businessReference: config.businessReference,
-      payload: {
-        nin: config.nin,
-      },
+      payload: buildSubmissionPayload(),
       returnExisting: true,
     },
   );
@@ -539,6 +582,7 @@ async function main() {
     sourceModule: config.sourceModule,
     sourceRecordId: config.sourceRecordId,
     businessReference: config.businessReference,
+    validateOnly: config.validateOnly,
     token: mask(config.token),
   });
 
@@ -548,6 +592,9 @@ async function main() {
     await testBusinessDashboard();
     await testValidation();
     await validateCompanyConfiguration();
+    if (config.validateOnly) {
+      return;
+    }
     await testSubmit();
     await testDuplicatePrevention();
     await testStatusAndSync();

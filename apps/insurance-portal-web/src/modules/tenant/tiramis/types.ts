@@ -13,7 +13,11 @@ export type TiramisRequestType =
   | 'CLAIM_ASSESSMENT'
   | 'DISCHARGE_VOUCHER'
   | 'CLAIM_PAYMENT'
-  | 'CLAIM_REJECTION';
+  | 'CLAIM_REJECTION'
+  | 'COVER_NOTE_VERIFICATION'
+  | 'MOTOR_VERIFICATION'
+  | 'NIN_VERIFICATION'
+  | 'COMPANY_VERIFICATION';
 
 export interface TiramisSalePointRecord {
   id: string;
@@ -262,6 +266,30 @@ export interface PortalTiramisSubmitPayload {
   source_record_id?: string;
   business_reference: string;
   payload: Record<string, unknown>;
+}
+
+export interface TiramisBusinessValidationPayload {
+  requestType: TiramisRequestType;
+  sourceModule: string;
+  sourceRecordId: string;
+  payload?: Record<string, unknown>;
+}
+
+export interface TiramisBusinessValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  requestType: TiramisRequestType;
+  payload: Record<string, unknown>;
+  sourceCompanyId: string | null;
+  sourceBranchId: string | null;
+  sourceModule: string | null;
+  sourceRecordId: string | null;
+}
+
+export interface TiramisBusinessValidationResponse {
+  success?: boolean;
+  validation: TiramisBusinessValidationResult;
 }
 
 export interface TenantTiramisSubmissionListParams {

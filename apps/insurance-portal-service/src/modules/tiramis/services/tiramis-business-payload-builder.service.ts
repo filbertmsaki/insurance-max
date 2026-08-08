@@ -449,19 +449,17 @@ export class TiramisBusinessPayloadBuilderService {
 
     const startDate =
       this.value(record, 'start_date', 'startDate', 'cover_start_date') ||
-      this.value(record, 'coverNoteStartDate') ||
-      new Date().toISOString();
+      this.value(record, 'coverNoteStartDate');
 
     const endDate =
       this.value(record, 'end_date', 'endDate', 'cover_end_date') ||
-      this.value(record, 'coverNoteEndDate') ||
-      this.addOneYear(startDate);
+      this.value(record, 'coverNoteEndDate');
 
     const basePayload = {
       ...common,
-      coverNoteType: this.numberOrDefault(
+      coverNoteType: this.requiredNumber(
+        'coverNoteType',
         this.value(record, 'cover_note_type', 'coverNoteType'),
-        requestType === TiramisRequestType.NON_MOTOR ? 1 : 3,
       ),
       coverNoteNumber: this.required('coverNoteNumber', coverNoteNumber),
       prevCoverNoteReferenceNumber: this.value(
@@ -470,8 +468,8 @@ export class TiramisBusinessPayloadBuilderService {
         'prevCoverNoteReferenceNumber',
       ),
       salePointCode: this.required('salePointCode', common.salePointCode),
-      coverNoteStartDate: startDate,
-      coverNoteEndDate: endDate,
+      coverNoteStartDate: this.required('coverNoteStartDate', startDate),
+      coverNoteEndDate: this.required('coverNoteEndDate', endDate),
       coverNoteDesc: this.required(
         'coverNoteDesc',
         this.value(record, 'description', 'coverNoteDesc'),
@@ -485,46 +483,50 @@ export class TiramisBusinessPayloadBuilderService {
             'policyOperativeClause',
           ),
       ),
-      paymentMode: this.numberOrDefault(
+      paymentMode: this.requiredNumber(
+        'paymentMode',
         this.value(record, 'payment_mode', 'paymentMode'),
-        1,
       ),
-      currencyCode:
-        this.value(record, 'currency_code', 'currencyCode') || 'TZS',
-      exchangeRate: this.moneyOrDefault(
+      currencyCode: this.required(
+        'currencyCode',
+        this.value(record, 'currency_code', 'currencyCode'),
+      ),
+      exchangeRate: this.requiredMoney(
+        'exchangeRate',
         this.value(record, 'exchange_rate', 'exchangeRate'),
-        '1.00',
       ),
-      totalPremiumExcludingTax: this.moneyOrDefault(
+      totalPremiumExcludingTax: this.requiredMoney(
+        'totalPremiumExcludingTax',
         this.value(
           record,
           'premium_excluding_tax',
           'totalPremiumExcludingTax',
           'basic_premium',
         ),
-        '0.00',
       ),
-      totalPremiumIncludingTax: this.moneyOrDefault(
+      totalPremiumIncludingTax: this.requiredMoney(
+        'totalPremiumIncludingTax',
         this.value(
           record,
           'premium_including_tax',
           'totalPremiumIncludingTax',
           'gross_premium',
         ),
-        '0.00',
       ),
-      commissionPaid: this.moneyOrDefault(
+      commissionPaid: this.optionalMoney(
         this.value(record, 'commission_paid', 'commissionPaid'),
-        '0.00',
       ),
-      commissionRate: this.moneyOrDefault(
+      commissionRate: this.optionalMoney(
         this.value(record, 'commission_rate', 'commissionRate'),
-        '0.00',
       ),
-      officerName:
-        this.value(record, 'officer_name', 'officerName') || 'Portal Officer',
-      officerTitle:
-        this.value(record, 'officer_title', 'officerTitle') || 'Underwriter',
+      officerName: this.required(
+        'officerName',
+        this.value(record, 'officer_name', 'officerName'),
+      ),
+      officerTitle: this.required(
+        'officerTitle',
+        this.value(record, 'officer_title', 'officerTitle'),
+      ),
       productCode: this.required(
         'productCode',
         this.value(record, 'product_code', 'productCode'),
@@ -546,11 +548,11 @@ export class TiramisBusinessPayloadBuilderService {
       ),
       risks: this.toArrayOrDefault(
         this.value(record, 'risks'),
-        this.defaultRisks(record),
+        [this.defaultRisks(record)],
       ),
       subjectMatters: this.toArrayOrDefault(
         this.value(record, 'subject_matters', 'subjectMatters'),
-        this.defaultSubjectMatters(record, coverNoteNumber),
+        [this.defaultSubjectMatter(record, coverNoteNumber)],
       ),
       addons: this.toArrayOrDefault(this.value(record, 'addons'), []),
       policyHolders: this.toArrayOrDefault(
@@ -632,52 +634,44 @@ export class TiramisBusinessPayloadBuilderService {
           'coverNoteNo',
         ),
       ),
-      premiumIncludingTax: this.moneyOrDefault(
+      premiumIncludingTax: this.requiredMoney(
+        'premiumIncludingTax',
         this.value(record, 'premium_including_tax', 'premiumIncludingTax'),
-        '0.00',
       ),
-      currencyCode:
-        this.value(record, 'currency_code', 'currencyCode') || 'TZS',
-      exchangeRate: this.moneyOrDefault(
+      currencyCode: this.required(
+        'currencyCode',
+        this.value(record, 'currency_code', 'currencyCode'),
+      ),
+      exchangeRate: this.requiredMoney(
+        'exchangeRate',
         this.value(record, 'exchange_rate', 'exchangeRate'),
-        '1.00',
       ),
-      authorizingOfficerName:
+      authorizingOfficerName: this.required(
+        'authorizingOfficerName',
         this.value(
           record,
           'authorizing_officer_name',
           'authorizingOfficerName',
         ) ||
-        this.value(record, 'officer_name', 'officerName') ||
-        'Portal Officer',
-      authorizingOfficerTitle:
+          this.value(record, 'officer_name', 'officerName'),
+      ),
+      authorizingOfficerTitle: this.required(
+        'authorizingOfficerTitle',
         this.value(
           record,
           'authorizing_officer_title',
           'authorizingOfficerTitle',
         ) ||
-        this.value(record, 'officer_title', 'officerTitle') ||
-        'Underwriter',
-      reinsuranceCategory: this.numberOrDefault(
-        this.value(record, 'reinsurance_category', 'reinsuranceCategory'),
-        1,
+          this.value(record, 'officer_title', 'officerTitle'),
       ),
-      participants: this.toArrayOrDefault(this.value(record, 'participants'), [
-        {
-          participantCode:
-            this.value(record, 'participant_code', 'participantCode') ||
-            'RE001',
-          participantType: 1,
-          reinsuranceForm: 1,
-          reinsuranceType: 1,
-          reBrokerCode:
-            this.value(record, 're_broker_code', 'reBrokerCode') || '',
-          brokerageCommission: '0.00',
-          reinsuranceCommission: '0.00',
-          premiumShare: '100.00',
-          participationDate: new Date().toISOString(),
-        },
-      ]),
+      reinsuranceCategory: this.requiredNumber(
+        'reinsuranceCategory',
+        this.value(record, 'reinsurance_category', 'reinsuranceCategory'),
+      ),
+      participants: this.requiredArray(
+        'participants',
+        this.value(record, 'participants'),
+      ),
     });
   }
 
@@ -704,22 +698,38 @@ export class TiramisBusinessPayloadBuilderService {
           'coverNoteReferenceNumber',
         ),
       ),
-      claimReportDate:
-        this.value(record, 'claim_report_date', 'claimReportDate') ||
-        new Date().toISOString(),
-      claimFormDullyFilled:
-        this.value(record, 'claim_form_dully_filled', 'claimFormDullyFilled') ||
-        'Y',
-      lossDate:
-        this.value(record, 'loss_date', 'lossDate') || new Date().toISOString(),
-      lossNature: this.value(record, 'loss_nature', 'lossNature') || 'Accident',
-      lossType: this.value(record, 'loss_type', 'lossType') || 'General',
-      lossLocation:
-        this.value(record, 'loss_location', 'lossLocation') || 'Dar es Salaam',
-      officerName:
-        this.value(record, 'officer_name', 'officerName') || 'Claims Officer',
-      officerTitle:
-        this.value(record, 'officer_title', 'officerTitle') || 'Claims Officer',
+      claimReportDate: this.required(
+        'claimReportDate',
+        this.value(record, 'claim_report_date', 'claimReportDate'),
+      ),
+      claimFormDullyFilled: this.required(
+        'claimFormDullyFilled',
+        this.value(record, 'claim_form_dully_filled', 'claimFormDullyFilled'),
+      ),
+      lossDate: this.required(
+        'lossDate',
+        this.value(record, 'loss_date', 'lossDate'),
+      ),
+      lossNature: this.required(
+        'lossNature',
+        this.value(record, 'loss_nature', 'lossNature'),
+      ),
+      lossType: this.required(
+        'lossType',
+        this.value(record, 'loss_type', 'lossType'),
+      ),
+      lossLocation: this.required(
+        'lossLocation',
+        this.value(record, 'loss_location', 'lossLocation'),
+      ),
+      officerName: this.required(
+        'officerName',
+        this.value(record, 'officer_name', 'officerName'),
+      ),
+      officerTitle: this.required(
+        'officerTitle',
+        this.value(record, 'officer_title', 'officerTitle'),
+      ),
     });
   }
 
@@ -738,10 +748,9 @@ export class TiramisBusinessPayloadBuilderService {
           'businessReference',
         ),
       ),
-      claimReferenceNumber: this.value(
-        record,
-        'claim_reference_number',
+      claimReferenceNumber: this.required(
         'claimReferenceNumber',
+        this.value(record, 'claim_reference_number', 'claimReferenceNumber'),
       ),
       coverNoteReferenceNumber: this.required(
         'coverNoteReferenceNumber',
@@ -751,42 +760,47 @@ export class TiramisBusinessPayloadBuilderService {
           'coverNoteReferenceNumber',
         ),
       ),
-      claimIntimationDate:
-        this.value(record, 'claim_intimation_date', 'claimIntimationDate') ||
-        new Date().toISOString(),
-      currencyCode:
-        this.value(record, 'currency_code', 'currencyCode') || 'TZS',
-      exchangeRate: this.moneyOrDefault(
+      claimIntimationDate: this.required(
+        'claimIntimationDate',
+        this.value(record, 'claim_intimation_date', 'claimIntimationDate'),
+      ),
+      currencyCode: this.required(
+        'currencyCode',
+        this.value(record, 'currency_code', 'currencyCode'),
+      ),
+      exchangeRate: this.requiredMoney(
+        'exchangeRate',
         this.value(record, 'exchange_rate', 'exchangeRate'),
-        '1.00',
       ),
-      claimEstimatedAmount: this.moneyOrDefault(
+      claimEstimatedAmount: this.requiredMoney(
+        'claimEstimatedAmount',
         this.value(record, 'claim_estimated_amount', 'claimEstimatedAmount'),
-        '0.00',
       ),
-      claimReserveAmount: this.moneyOrDefault(
+      claimReserveAmount: this.requiredMoney(
+        'claimReserveAmount',
         this.value(record, 'claim_reserve_amount', 'claimReserveAmount'),
-        '0.00',
       ),
-      claimReserveMethod:
-        this.value(record, 'claim_reserve_method', 'claimReserveMethod') ||
-        'Manual',
-      lossAssessmentOption: this.numberOrDefault(
+      claimReserveMethod: this.required(
+        'claimReserveMethod',
+        this.value(record, 'claim_reserve_method', 'claimReserveMethod'),
+      ),
+      lossAssessmentOption: this.requiredNumber(
+        'lossAssessmentOption',
         this.value(record, 'loss_assessment_option', 'lossAssessmentOption'),
-        1,
       ),
-      assessorName:
-        this.value(record, 'assessor_name', 'assessorName') ||
-        'Portal Assessor',
-      assessorIdNumber:
-        this.value(record, 'assessor_id_number', 'assessorIdNumber') || '',
-      assessorIdType: this.numberOrDefault(
+      assessorName: this.required(
+        'assessorName',
+        this.value(record, 'assessor_name', 'assessorName'),
+      ),
+      assessorIdNumber: this.required(
+        'assessorIdNumber',
+        this.value(record, 'assessor_id_number', 'assessorIdNumber'),
+      ),
+      assessorIdType: this.requiredNumber(
+        'assessorIdType',
         this.value(record, 'assessor_id_type', 'assessorIdType'),
-        1,
       ),
-      claimants: this.toArrayOrDefault(this.value(record, 'claimants'), [
-        this.defaultClaimant(record),
-      ]),
+      claimants: this.requiredArray('claimants', this.value(record, 'claimants')),
     });
   }
 
@@ -805,15 +819,13 @@ export class TiramisBusinessPayloadBuilderService {
           'businessReference',
         ),
       ),
-      claimIntimationNumber: this.value(
-        record,
-        'claim_intimation_number',
+      claimIntimationNumber: this.required(
         'claimIntimationNumber',
+        this.value(record, 'claim_intimation_number', 'claimIntimationNumber'),
       ),
-      claimReferenceNumber: this.value(
-        record,
-        'claim_reference_number',
+      claimReferenceNumber: this.required(
         'claimReferenceNumber',
+        this.value(record, 'claim_reference_number', 'claimReferenceNumber'),
       ),
       coverNoteReferenceNumber: this.required(
         'coverNoteReferenceNumber',
@@ -823,46 +835,58 @@ export class TiramisBusinessPayloadBuilderService {
           'coverNoteReferenceNumber',
         ),
       ),
-      assessmentReceivedDate:
+      assessmentReceivedDate: this.required(
+        'assessmentReceivedDate',
         this.value(
           record,
           'assessment_received_date',
           'assessmentReceivedDate',
-        ) || new Date().toISOString(),
-      assessmentReportSummary:
+        ),
+      ),
+      assessmentReportSummary: this.required(
+        'assessmentReportSummary',
         this.value(
           record,
           'assessment_report_summary',
           'assessmentReportSummary',
-        ) || 'Assessment completed',
-      currencyCode:
-        this.value(record, 'currency_code', 'currencyCode') || 'TZS',
-      exchangeRate: this.moneyOrDefault(
+        ),
+      ),
+      currencyCode: this.required(
+        'currencyCode',
+        this.value(record, 'currency_code', 'currencyCode'),
+      ),
+      exchangeRate: this.requiredMoney(
+        'exchangeRate',
         this.value(record, 'exchange_rate', 'exchangeRate'),
-        '1.00',
       ),
-      assessmentAmount: this.moneyOrDefault(
+      assessmentAmount: this.requiredMoney(
+        'assessmentAmount',
         this.value(record, 'assessment_amount', 'assessmentAmount'),
-        '0.00',
       ),
-      approvedClaimAmount: this.moneyOrDefault(
+      approvedClaimAmount: this.requiredMoney(
+        'approvedClaimAmount',
         this.value(record, 'approved_claim_amount', 'approvedClaimAmount'),
-        '0.00',
       ),
-      claimApprovalDate:
-        this.value(record, 'claim_approval_date', 'claimApprovalDate') ||
-        new Date().toISOString(),
-      claimApprovalAuthority:
+      claimApprovalDate: this.required(
+        'claimApprovalDate',
+        this.value(record, 'claim_approval_date', 'claimApprovalDate'),
+      ),
+      claimApprovalAuthority: this.required(
+        'claimApprovalAuthority',
         this.value(
           record,
           'claim_approval_authority',
           'claimApprovalAuthority',
-        ) || 'Claims Manager',
-      isReAssessment:
-        this.value(record, 'is_re_assessment', 'isReAssessment') || 'N',
-      claimants: this.toArrayOrDefault(this.value(record, 'claimants'), [
-        this.defaultClaimant(record),
-      ]),
+        ),
+      ),
+      isReAssessment: this.required(
+        'isReAssessment',
+        this.value(record, 'is_re_assessment', 'isReAssessment'),
+      ),
+      claimants: this.requiredArray(
+        'claimants',
+        this.value(record, 'claimants'),
+      ),
     });
   }
 
@@ -881,15 +905,13 @@ export class TiramisBusinessPayloadBuilderService {
           'businessReference',
         ),
       ),
-      claimAssessmentNumber: this.value(
-        record,
-        'claim_assessment_number',
+      claimAssessmentNumber: this.required(
         'claimAssessmentNumber',
+        this.value(record, 'claim_assessment_number', 'claimAssessmentNumber'),
       ),
-      claimReferenceNumber: this.value(
-        record,
-        'claim_reference_number',
+      claimReferenceNumber: this.required(
         'claimReferenceNumber',
+        this.value(record, 'claim_reference_number', 'claimReferenceNumber'),
       ),
       coverNoteReferenceNumber: this.required(
         'coverNoteReferenceNumber',
@@ -899,33 +921,42 @@ export class TiramisBusinessPayloadBuilderService {
           'coverNoteReferenceNumber',
         ),
       ),
-      dischargeVoucherDate:
-        this.value(record, 'discharge_voucher_date', 'dischargeVoucherDate') ||
-        new Date().toISOString(),
-      currencyCode:
-        this.value(record, 'currency_code', 'currencyCode') || 'TZS',
-      exchangeRate: this.moneyOrDefault(
-        this.value(record, 'exchange_rate', 'exchangeRate'),
-        '1.00',
+      dischargeVoucherDate: this.required(
+        'dischargeVoucherDate',
+        this.value(record, 'discharge_voucher_date', 'dischargeVoucherDate'),
       ),
-      claimOfferCommunicationDate:
+      currencyCode: this.required(
+        'currencyCode',
+        this.value(record, 'currency_code', 'currencyCode'),
+      ),
+      exchangeRate: this.requiredMoney(
+        'exchangeRate',
+        this.value(record, 'exchange_rate', 'exchangeRate'),
+      ),
+      claimOfferCommunicationDate: this.required(
+        'claimOfferCommunicationDate',
         this.value(
           record,
           'claim_offer_communication_date',
           'claimOfferCommunicationDate',
-        ) || new Date().toISOString(),
-      claimOfferAmount: this.moneyOrDefault(
-        this.value(record, 'claim_offer_amount', 'claimOfferAmount'),
-        '0.00',
+        ),
       ),
-      claimantResponseDate:
-        this.value(record, 'claimant_response_date', 'claimantResponseDate') ||
-        new Date().toISOString(),
-      offerAccepted:
-        this.value(record, 'offer_accepted', 'offerAccepted') || 'Y',
-      claimants: this.toArrayOrDefault(this.value(record, 'claimants'), [
-        this.defaultClaimant(record),
-      ]),
+      claimOfferAmount: this.requiredMoney(
+        'claimOfferAmount',
+        this.value(record, 'claim_offer_amount', 'claimOfferAmount'),
+      ),
+      claimantResponseDate: this.required(
+        'claimantResponseDate',
+        this.value(record, 'claimant_response_date', 'claimantResponseDate'),
+      ),
+      offerAccepted: this.required(
+        'offerAccepted',
+        this.value(record, 'offer_accepted', 'offerAccepted'),
+      ),
+      claimants: this.requiredArray(
+        'claimants',
+        this.value(record, 'claimants'),
+      ),
     });
   }
 
@@ -944,15 +975,13 @@ export class TiramisBusinessPayloadBuilderService {
           'businessReference',
         ),
       ),
-      claimReferenceNumber: this.value(
-        record,
-        'claim_reference_number',
+      claimReferenceNumber: this.required(
         'claimReferenceNumber',
+        this.value(record, 'claim_reference_number', 'claimReferenceNumber'),
       ),
-      claimIntimationNumber: this.value(
-        record,
-        'claim_intimation_number',
+      claimIntimationNumber: this.required(
         'claimIntimationNumber',
+        this.value(record, 'claim_intimation_number', 'claimIntimationNumber'),
       ),
       coverNoteReferenceNumber: this.required(
         'coverNoteReferenceNumber',
@@ -962,40 +991,47 @@ export class TiramisBusinessPayloadBuilderService {
           'coverNoteReferenceNumber',
         ),
       ),
-      paymentDate:
-        this.value(record, 'payment_date', 'paymentDate') ||
-        new Date().toISOString(),
-      paidAmount: this.moneyOrDefault(
+      paymentDate: this.required(
+        'paymentDate',
+        this.value(record, 'payment_date', 'paymentDate'),
+      ),
+      paidAmount: this.requiredMoney(
+        'paidAmount',
         this.value(record, 'paid_amount', 'paidAmount'),
-        '0.00',
       ),
-      paymentMode: this.numberOrDefault(
+      paymentMode: this.requiredNumber(
+        'paymentMode',
         this.value(record, 'payment_mode', 'paymentMode'),
-        1,
       ),
-      partiesNotified:
-        this.value(record, 'parties_notified', 'partiesNotified') || 'Y',
-      netPremiumEarned: this.moneyOrDefault(
+      partiesNotified: this.required(
+        'partiesNotified',
+        this.value(record, 'parties_notified', 'partiesNotified'),
+      ),
+      netPremiumEarned: this.requiredMoney(
+        'netPremiumEarned',
         this.value(record, 'net_premium_earned', 'netPremiumEarned'),
-        '0.00',
       ),
-      claimResultedLitigation:
+      claimResultedLitigation: this.required(
+        'claimResultedLitigation',
         this.value(
           record,
           'claim_resulted_litigation',
           'claimResultedLitigation',
-        ) || 'N',
-      litigationReason:
-        this.value(record, 'litigation_reason', 'litigationReason') || '',
-      currencyCode:
-        this.value(record, 'currency_code', 'currencyCode') || 'TZS',
-      exchangeRate: this.moneyOrDefault(
-        this.value(record, 'exchange_rate', 'exchangeRate'),
-        '1.00',
+        ),
       ),
-      claimants: this.toArrayOrDefault(this.value(record, 'claimants'), [
-        this.defaultClaimant(record),
-      ]),
+      litigationReason: this.value(record, 'litigation_reason', 'litigationReason'),
+      currencyCode: this.required(
+        'currencyCode',
+        this.value(record, 'currency_code', 'currencyCode'),
+      ),
+      exchangeRate: this.requiredMoney(
+        'exchangeRate',
+        this.value(record, 'exchange_rate', 'exchangeRate'),
+      ),
+      claimants: this.requiredArray(
+        'claimants',
+        this.value(record, 'claimants'),
+      ),
     });
   }
 
@@ -1014,10 +1050,9 @@ export class TiramisBusinessPayloadBuilderService {
           'businessReference',
         ),
       ),
-      claimReferenceNumber: this.value(
-        record,
-        'claim_reference_number',
+      claimReferenceNumber: this.required(
         'claimReferenceNumber',
+        this.value(record, 'claim_reference_number', 'claimReferenceNumber'),
       ),
       coverNoteReferenceNumber: this.required(
         'coverNoteReferenceNumber',
@@ -1027,12 +1062,14 @@ export class TiramisBusinessPayloadBuilderService {
           'coverNoteReferenceNumber',
         ),
       ),
-      rejectionDate:
-        this.value(record, 'rejection_date', 'rejectionDate') ||
-        new Date().toISOString(),
-      rejectionReason:
-        this.value(record, 'rejection_reason', 'rejectionReason') ||
-        'Claim rejected',
+      rejectionDate: this.required(
+        'rejectionDate',
+        this.value(record, 'rejection_date', 'rejectionDate'),
+      ),
+      rejectionReason: this.required(
+        'rejectionReason',
+        this.value(record, 'rejection_reason', 'rejectionReason'),
+      ),
     });
   }
 
@@ -1183,13 +1220,13 @@ export class TiramisBusinessPayloadBuilderService {
 
   private buildMotorDetail(record: any) {
     return this.cleanObject({
-      motorCategory: this.numberOrDefault(
+      motorCategory: this.requiredNumber(
+        'motorCategory',
         this.value(record, 'motor_category', 'motorCategory'),
-        1,
       ),
-      motorType: this.numberOrDefault(
+      motorType: this.requiredNumber(
+        'motorType',
         this.value(record, 'motor_type', 'motorType'),
-        1,
       ),
       registrationNumber: this.required(
         'registrationNumber',
@@ -1200,51 +1237,67 @@ export class TiramisBusinessPayloadBuilderService {
           'motorRegistrationNumber',
         ),
       ),
-      chassisNumber:
-        this.value(record, 'chassis_no', 'chassisNumber') || 'UNKNOWN-CHASSIS',
-      make: this.value(record, 'make') || 'UNKNOWN',
-      model: this.value(record, 'model') || 'UNKNOWN',
+      chassisNumber: this.required(
+        'chassisNumber',
+        this.value(record, 'chassis_no', 'chassisNumber'),
+      ),
+      make: this.required('make', this.value(record, 'make')),
+      model: this.required('model', this.value(record, 'model')),
       modelNumber: this.value(record, 'model_no', 'modelNumber'),
-      bodyType: this.value(record, 'body_type', 'bodyType') || 'UNKNOWN',
-      color: this.value(record, 'color') || 'UNKNOWN',
-      engineNumber:
-        this.value(record, 'engine_no', 'engineNumber') || 'UNKNOWN-ENGINE',
-      engineCapacity:
-        this.value(record, 'engine_capacity', 'engineCapacity') || '0',
-      fuelUsed: this.value(record, 'fuel_used', 'fuelUsed') || 'PETROL',
-      numberOfAxles: this.numberOrDefault(
+      bodyType: this.required(
+        'bodyType',
+        this.value(record, 'body_type', 'bodyType'),
+      ),
+      color: this.required('color', this.value(record, 'color')),
+      engineNumber: this.required(
+        'engineNumber',
+        this.value(record, 'engine_no', 'engineNumber'),
+      ),
+      engineCapacity: this.required(
+        'engineCapacity',
+        this.value(record, 'engine_capacity', 'engineCapacity'),
+      ),
+      fuelUsed: this.required('fuelUsed', this.value(record, 'fuel_used', 'fuelUsed')),
+      numberOfAxles: this.requiredNumber(
+        'numberOfAxles',
         this.value(record, 'number_of_axles', 'numberOfAxles'),
-        2,
       ),
-      axleDistance: this.value(record, 'axle_distance', 'axleDistance') || '0',
-      sittingCapacity: this.numberOrDefault(
+      axleDistance: this.required(
+        'axleDistance',
+        this.value(record, 'axle_distance', 'axleDistance'),
+      ),
+      sittingCapacity: this.requiredNumber(
+        'sittingCapacity',
         this.value(record, 'sitting_capacity', 'sittingCapacity'),
-        1,
       ),
-      yearOfManufacture: this.numberOrDefault(
+      yearOfManufacture: this.requiredNumber(
+        'yearOfManufacture',
         this.value(
           record,
           'year_of_manufacture',
           'yearOfManufacture',
           'manufacture_year',
         ),
-        new Date().getFullYear(),
       ),
-      tareWeight: this.value(record, 'tare_weight', 'tareWeight') || '0',
-      grossWeight: this.value(record, 'gross_weight', 'grossWeight') || '0',
-      motorUsage: this.numberOrDefault(
+      tareWeight: this.required('tareWeight', this.value(record, 'tare_weight', 'tareWeight')),
+      grossWeight: this.required(
+        'grossWeight',
+        this.value(record, 'gross_weight', 'grossWeight'),
+      ),
+      motorUsage: this.requiredNumber(
+        'motorUsage',
         this.value(record, 'motor_usage', 'motorUsage'),
-        1,
       ),
-      ownerName: this.buildCustomerName(record) || 'Unknown Owner',
-      ownerCategory: this.numberOrDefault(
+      ownerName: this.required('ownerName', this.buildCustomerName(record)),
+      ownerCategory: this.requiredNumber(
+        'ownerCategory',
         this.value(record, 'owner_category', 'ownerCategory'),
-        1,
       ),
-      ownerAddress:
+      ownerAddress: this.required(
+        'ownerAddress',
         this.value(record, 'owner_address', 'ownerAddress') ||
-        this.value(record, 'address') ||
-        'Dar es Salaam',
+          this.value(record, 'address'),
+      ),
     });
   }
 
@@ -1258,21 +1311,22 @@ export class TiramisBusinessPayloadBuilderService {
     const motorDetail = this.buildMotorDetail(record);
 
     return {
-      fleetId:
+      fleetId: this.required(
+        'fleetId',
         this.value(record, 'fleet_no', 'fleetNo') ||
-        this.value(record, 'business_reference', 'businessReference') ||
-        coverNoteNumber,
-      fleetType: this.numberOrDefault(
+          this.value(record, 'business_reference', 'businessReference'),
+      ),
+      fleetType: this.requiredNumber(
+        'fleetType',
         this.value(record, 'fleet_type', 'fleetType'),
-        1,
       ),
-      fleetSize: this.numberOrDefault(
+      fleetSize: this.requiredNumber(
+        'fleetSize',
         this.value(record, 'fleet_size', 'fleetSize'),
-        1,
       ),
-      comprehensiveInsured: this.moneyOrDefault(
+      comprehensiveInsured: this.requiredMoney(
+        'comprehensiveInsured',
         this.value(record, 'sum_insured', 'comprehensiveInsured'),
-        '0.00',
       ),
       items: [
         {
@@ -1288,119 +1342,124 @@ export class TiramisBusinessPayloadBuilderService {
   }
 
   private defaultRisks(record: any) {
-    return [
-      {
-        riskCode:
-          this.value(record, 'risk_code', 'riskCode') || 'SP005001000001',
-        sumInsured: this.moneyOrDefault(
-          this.value(record, 'sum_insured', 'sumInsured'),
-          '0.00',
+    return {
+      riskCode: this.required('riskCode', this.value(record, 'risk_code', 'riskCode')),
+      sumInsured: this.requiredMoney(
+        'sumInsured',
+        this.value(record, 'sum_insured', 'sumInsured'),
+      ),
+      sumInsuredEquivalent: this.requiredMoney(
+        'sumInsuredEquivalent',
+        this.value(record, 'sum_insured_equivalent', 'sumInsuredEquivalent'),
+      ),
+      premiumRate: this.requiredMoney(
+        'premiumRate',
+        this.value(record, 'premium_rate', 'premiumRate'),
+      ),
+      premiumBeforeDiscount: this.requiredMoney(
+        'premiumBeforeDiscount',
+        this.value(record, 'premium_before_discount', 'premiumBeforeDiscount'),
+      ),
+      premiumAfterDiscount: this.requiredMoney(
+        'premiumAfterDiscount',
+        this.value(record, 'premium_after_discount', 'premiumAfterDiscount'),
+      ),
+      premiumExcludingTaxEquivalent: this.requiredMoney(
+        'premiumExcludingTaxEquivalent',
+        this.value(
+          record,
+          'premium_excluding_tax_equivalent',
+          'premiumExcludingTaxEquivalent',
         ),
-        sumInsuredEquivalent: this.moneyOrDefault(
-          this.value(record, 'sum_insured_equivalent', 'sumInsuredEquivalent'),
-          this.value(record, 'sum_insured', 'sumInsured') || '0.00',
-        ),
-        premiumRate: this.moneyOrDefault(
-          this.value(record, 'premium_rate', 'premiumRate'),
-          '0.00',
-        ),
-        premiumBeforeDiscount: this.moneyOrDefault(
-          this.value(
-            record,
-            'premium_before_discount',
-            'premiumBeforeDiscount',
-          ),
-          '0.00',
-        ),
-        premiumAfterDiscount: this.moneyOrDefault(
-          this.value(record, 'premium_after_discount', 'premiumAfterDiscount'),
-          '0.00',
-        ),
-        premiumExcludingTaxEquivalent: this.moneyOrDefault(
-          this.value(
-            record,
-            'premium_excluding_tax_equivalent',
-            'premiumExcludingTaxEquivalent',
-          ),
-          '0.00',
-        ),
-        premiumIncludingTax: this.moneyOrDefault(
-          this.value(record, 'premium_including_tax', 'premiumIncludingTax'),
-          '0.00',
-        ),
-        discounts: [],
-        taxes: [],
-      },
-    ];
+      ),
+      premiumIncludingTax: this.requiredMoney(
+        'premiumIncludingTax',
+        this.value(record, 'premium_including_tax', 'premiumIncludingTax'),
+      ),
+      discounts: [],
+      taxes: this.requiredArray('taxes', this.value(record, 'taxes')),
+    };
   }
 
-  private defaultSubjectMatters(record: any, reference: string) {
-    return [
-      {
-        subjectMatterReference:
-          this.value(
-            record,
-            'subject_matter_reference',
-            'subjectMatterReference',
-          ) || reference,
-        subjectMatterDesc:
-          this.value(record, 'subject_matter_desc', 'subjectMatterDesc') ||
-          this.value(record, 'description') ||
-          'Insured subject matter',
-      },
-    ];
+  private defaultSubjectMatter(record: any, reference: string) {
+    return {
+      subjectMatterReference: this.required(
+        'subjectMatterReference',
+        this.value(record, 'subject_matter_reference', 'subjectMatterReference') ||
+          reference,
+      ),
+      subjectMatterDesc: this.required(
+        'subjectMatterDesc',
+        this.value(record, 'subject_matter_desc', 'subjectMatterDesc') ||
+          this.value(record, 'description'),
+      ),
+    };
   }
 
   private defaultPolicyHolder(record: any) {
     return this.cleanObject({
-      policyHolderName:
-        this.buildCustomerName(record) || 'Unknown Policy Holder',
-      policyHolderBirthDate:
-        this.value(record, 'birth_date', 'dateOfBirth') || '1990-01-01',
-      policyHolderType: this.numberOrDefault(
-        this.value(record, 'policy_holder_type', 'policyHolderType'),
-        1,
+      policyHolderName: this.required(
+        'policyHolderName',
+        this.buildCustomerName(record),
       ),
-      policyHolderIdNumber:
+      policyHolderBirthDate: this.required(
+        'policyHolderBirthDate',
+        this.value(record, 'birth_date', 'dateOfBirth'),
+      ),
+      policyHolderType: this.requiredNumber(
+        'policyHolderType',
+        this.value(record, 'policy_holder_type', 'policyHolderType'),
+      ),
+      policyHolderIdNumber: this.required(
+        'policyHolderIdNumber',
         this.value(record, 'nida_no', 'nidaNo', 'id_number', 'idNumber') ||
-        'UNKNOWN-ID',
-      policyHolderIdType: this.numberOrDefault(
+          this.value(record, 'registration_no', 'registrationNumber'),
+      ),
+      policyHolderIdType: this.requiredNumber(
+        'policyHolderIdType',
         this.value(record, 'policy_holder_id_type', 'policyHolderIdType'),
-        1,
       ),
       gender: this.value(record, 'gender') || '',
-      countryCode: this.value(record, 'country_code', 'countryCode') || 'TZA',
-      region: this.value(record, 'region') || 'Dar es Salaam',
-      district: this.value(record, 'district') || 'Ilala',
+      countryCode: this.required(
+        'countryCode',
+        this.value(record, 'country_code', 'countryCode'),
+      ),
+      region: this.required('region', this.value(record, 'region')),
+      district: this.required('district', this.value(record, 'district')),
       street: this.value(record, 'street') || '',
-      phoneNumber:
+      phoneNumber: this.required(
+        'phoneNumber',
         this.value(record, 'phone_number', 'phoneNumber', 'mobile') ||
-        '255000000000',
+          this.value(record, 'phone'),
+      ),
       fax: this.value(record, 'fax') || '',
-      postalAddress:
+      postalAddress: this.required(
+        'postalAddress',
         this.value(record, 'postal_address', 'postalAddress', 'address') ||
-        'P.O. BOX 000, Dar es Salaam',
-      emailAddress:
-        this.value(record, 'email', 'emailAddress') || 'unknown@example.com',
+          this.value(record, 'postalAddress'),
+      ),
+      emailAddress: this.value(record, 'email', 'emailAddress'),
     });
   }
 
   private defaultClaimant(record: any) {
     return this.cleanObject({
-      claimantName: this.buildCustomerName(record) || 'Unknown Claimant',
-      claimantBirthDate:
+      claimantName: this.required('claimantName', this.buildCustomerName(record)),
+      claimantBirthDate: this.required(
+        'claimantBirthDate',
         this.value(record, 'claimant_birth_date', 'claimantBirthDate') ||
-        this.value(record, 'birth_date', 'dateOfBirth') ||
-        '1990-01-01',
-      claimantCategory: this.numberOrDefault(
+          this.value(record, 'birth_date', 'dateOfBirth'),
+      ),
+      claimantCategory: this.requiredNumber(
+        'claimantCategory',
         this.value(record, 'claimant_category', 'claimantCategory'),
-        1,
       ),
-      claimantType: this.numberOrDefault(
+      claimantType: this.requiredNumber(
+        'claimantType',
         this.value(record, 'claimant_type', 'claimantType'),
-        1,
       ),
-      claimantIdNumber:
+      claimantIdNumber: this.required(
+        'claimantIdNumber',
         this.value(
           record,
           'claimant_id_number',
@@ -1408,30 +1467,37 @@ export class TiramisBusinessPayloadBuilderService {
           'nida_no',
           'nidaNo',
           'id_number',
-        ) || 'UNKNOWN-ID',
-      claimantIdType: this.numberOrDefault(
+        ),
+      ),
+      claimantIdType: this.requiredNumber(
+        'claimantIdType',
         this.value(record, 'claimant_id_type', 'claimantIdType'),
-        1,
       ),
       gender: this.value(record, 'gender') || '',
-      countryCode: this.value(record, 'country_code', 'countryCode') || 'TZA',
-      region: this.value(record, 'region') || 'Dar es Salaam',
-      district: this.value(record, 'district') || 'Ilala',
+      countryCode: this.required(
+        'countryCode',
+        this.value(record, 'country_code', 'countryCode'),
+      ),
+      region: this.required('region', this.value(record, 'region')),
+      district: this.required('district', this.value(record, 'district')),
       street: this.value(record, 'street') || '',
-      claimantPhoneNumber:
+      claimantPhoneNumber: this.required(
+        'claimantPhoneNumber',
         this.value(
           record,
           'claimant_phone_number',
           'claimantPhoneNumber',
           'phone_number',
           'phoneNumber',
-        ) || '255000000000',
+        ) || this.value(record, 'phone'),
+      ),
       claimantFax: this.value(record, 'claimant_fax', 'claimantFax') || '',
-      postalAddress:
+      postalAddress: this.required(
+        'postalAddress',
         this.value(record, 'postal_address', 'postalAddress', 'address') ||
-        'P.O. BOX 000, Dar es Salaam',
-      emailAddress:
-        this.value(record, 'email', 'emailAddress') || 'unknown@example.com',
+          this.value(record, 'postalAddress'),
+      ),
+      emailAddress: this.value(record, 'email', 'emailAddress'),
     });
   }
 
@@ -1480,6 +1546,60 @@ export class TiramisBusinessPayloadBuilderService {
     return value;
   }
 
+  private requiredNumber(label: string, value: any): number {
+    const requiredValue = this.required(label, value);
+    const parsed = Number(requiredValue);
+
+    if (!Number.isFinite(parsed)) {
+      throw new BadRequestException(
+        `Cannot build TIRAMIS payload. Invalid numeric field: ${label}`,
+      );
+    }
+
+    return parsed;
+  }
+
+  private requiredMoney(label: string, value: any): string {
+    const requiredValue = this.required(label, value);
+    const parsed = Number(requiredValue);
+
+    if (!Number.isFinite(parsed)) {
+      throw new BadRequestException(
+        `Cannot build TIRAMIS payload. Invalid money field: ${label}`,
+      );
+    }
+
+    return parsed.toFixed(2);
+  }
+
+  private optionalMoney(value: any): string | null {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+
+    const parsed = Number(value);
+
+    if (!Number.isFinite(parsed)) {
+      throw new BadRequestException(
+        'Cannot build TIRAMIS payload. Invalid money field.',
+      );
+    }
+
+    return parsed.toFixed(2);
+  }
+
+  private requiredArray(label: string, value: any): any[] {
+    const arr = this.toArray(value);
+
+    if (arr.length === 0) {
+      throw new BadRequestException(
+        `Cannot build TIRAMIS payload. Missing required field: ${label}`,
+      );
+    }
+
+    return arr;
+  }
+
   private toArray(value: any): any[] {
     if (!value) {
       return [];
@@ -1513,16 +1633,6 @@ export class TiramisBusinessPayloadBuilderService {
     return arr.length ? arr : defaultValue;
   }
 
-  private numberOrDefault(value: any, defaultValue: number): number {
-    const parsed = Number(value);
-
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-
-    return defaultValue;
-  }
-
   private requiredMotorCategory(value: any): number {
     const category = Number(value);
 
@@ -1542,33 +1652,6 @@ export class TiramisBusinessPayloadBuilderService {
 
     const normalized = String(value).trim();
     return normalized || null;
-  }
-
-  private moneyOrDefault(value: any, defaultValue: string): string {
-    if (value === null || value === undefined || value === '') {
-      return defaultValue;
-    }
-
-    const parsed = Number(value);
-
-    if (Number.isFinite(parsed)) {
-      return parsed.toFixed(2);
-    }
-
-    return String(value);
-  }
-
-  private addOneYear(value: string): string {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-      const now = new Date();
-      now.setFullYear(now.getFullYear() + 1);
-      return now.toISOString();
-    }
-
-    date.setFullYear(date.getFullYear() + 1);
-    return date.toISOString();
   }
 
   private cleanObject<T = any>(value: T): T {

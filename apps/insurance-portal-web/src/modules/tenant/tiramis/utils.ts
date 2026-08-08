@@ -137,13 +137,27 @@ export function buildPolicyTiramisPayload(
     sale_point_id?: string;
   },
 ): PortalTiramisSubmitPayload {
+  const existingPayload = policy.tiramis_payload ?? {};
+  const coverNoteReferenceNumbers = Array.isArray(
+    existingPayload.coverNoteReferenceNumbers,
+  )
+    ? existingPayload.coverNoteReferenceNumbers
+    : policy.cover_note_no
+      ? [policy.cover_note_no]
+      : [];
+
   return buildBasePayload({
     id: policy.id,
     businessReference: policy.policy_no,
     sourceModule: 'policies',
     sourceRecordId: policy.id,
     requestType: inferPolicyRequestType(policy),
-    payload: policy.tiramis_payload ?? {
+    payload: {
+      ...existingPayload,
+      policyNumber: existingPayload.policyNumber ?? policy.policy_no,
+      coverNoteReferenceNumbers,
+      coverNoteTiramisStatus:
+        existingPayload.coverNoteTiramisStatus ?? policy.tiramis_status,
       policyId: policy.id,
       policyNo: policy.policy_no,
       quotationId: policy.quotation_id,

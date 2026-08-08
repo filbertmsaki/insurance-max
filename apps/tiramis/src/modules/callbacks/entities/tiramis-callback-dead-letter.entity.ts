@@ -64,6 +64,14 @@ export class TiramisCallbackDeadLetterEntity extends BaseEntity {
   rawXml?: string | null;
 
   @Column({
+    name: 'payload_hash',
+    type: 'varchar',
+    length: 128,
+    nullable: true,
+  })
+  payloadHash?: string | null;
+
+  @Column({
     name: 'reason',
     type: 'text',
   })

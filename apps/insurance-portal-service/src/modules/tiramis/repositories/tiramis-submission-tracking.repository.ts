@@ -12,6 +12,7 @@ import {
   PENDING_FINAL_TIRAMIS_STATUSES,
   getTiramisFailureMessage,
   isFailureTiramisStatus,
+  isFinalTiramisStatus,
   normalizeTiramisPortalResponse,
   resolveSubmissionStatusFromNormalized,
 } from '../utils/tiramis-response-normalizer.util';
@@ -994,8 +995,14 @@ export class TiramisSubmissionTrackingRepository {
 
   async markFinalFromTiramisStatus(id: string, response: any) {
     const normalized = normalizeTiramisPortalResponse(response);
+    const resolvedStatus = resolveSubmissionStatusFromNormalized(normalized);
 
-    if (!normalized.final.statusCode && !normalized.final.responseId) {
+    if (
+      !normalized.final.statusCode &&
+      !normalized.final.responseId &&
+      !isFinalTiramisStatus(resolvedStatus) &&
+      resolvedStatus !== TiramisSubmissionStatus.CALLBACK_OVERDUE
+    ) {
       return this.markSyncChecked(id, response);
     }
 

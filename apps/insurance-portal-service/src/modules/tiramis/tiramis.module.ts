@@ -11,6 +11,7 @@ import { CompanyTiramisConfigurationController } from './controllers/company-tir
 import { CompanyTiramisConfigurationService } from './services/company-tiramis-configuration.service';
 import { Company } from '../platform/companies/entities/company.entity';
 import { TiramisCompanyConfigurationEntity } from './entities/tiramis-company-configuration.entity';
+import { TiramisLookupEntity } from './entities/tiramis-lookup.entity';
 import { TiramisSalePointEntity } from './entities/tiramis-sale-point.entity';
 import { TiramisAuditLogEntity } from './entities/tiramis-audit-log.entity';
 import { TiramisBusinessRecordEntity } from './entities/tiramis-business-record.entity';
@@ -56,6 +57,7 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
       TiramisNotificationEntity,
       TiramisBusinessRecordEntity,
       TiramisCompanyConfigurationEntity,
+      TiramisLookupEntity,
       TiramisSalePointEntity,
       Quotation,
       Policy,

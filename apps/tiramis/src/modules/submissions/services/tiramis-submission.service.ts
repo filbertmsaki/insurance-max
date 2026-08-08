@@ -757,6 +757,8 @@ export class TiramisSubmissionService {
       statusCode: event.statusCode,
       statusDesc: event.statusDesc,
       errorMessage: event.errorMessage,
+      payloadHash: event.payloadHash,
+      payloadSizeBytes: event.payloadSizeBytes,
       rawPayload: includePayload ? event.rawPayload : undefined,
       createdAt: event.createdAt,
       updatedAt: event.updatedAt,
@@ -862,7 +864,7 @@ export class TiramisSubmissionService {
     rawPayload?: string | null;
     errorMessage?: string | null;
   }) {
-    const event = this.eventRepository.create({
+    return this.eventRepository.createEvent({
       transactionId: params.transactionId,
       attemptId: params.attemptId,
       requestId: params.requestId,
@@ -872,8 +874,6 @@ export class TiramisSubmissionService {
       rawPayload: params.rawPayload || null,
       errorMessage: params.errorMessage || null,
     });
-
-    return this.eventRepository.save(event);
   }
 
   private calculateNextRetryAt(currentRetryCount: number): Date {

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { branchesApi } from '@/modules/tenant/branches/api/branches';
-import { useTiramisSalePoints } from '../hooks';
+import { useTiramisBusinessReadiness, useTiramisSalePoints } from '../hooks';
+import type { PortalTiramisSubmitPayload } from '../types';
 
 const NONE_VALUE = '__none__';
 
@@ -34,6 +36,13 @@ export function TiramisSubmissionDialog(props: {
   description: string;
   initialBranchId?: string | null;
   isPending?: boolean;
+  readiness?: Pick<
+    PortalTiramisSubmitPayload,
+    'requestType' | 'payload'
+  > & {
+    sourceModule: string;
+    sourceRecordId: string;
+  };
   onSubmit: (selection: SubmissionSelection) => void;
 }) {
   const { data: branches = [], isLoading: branchesLoading } = useQuery({
@@ -76,7 +85,13 @@ export function TiramisSubmissionDialog(props: {
   const salePointsQuery = useTiramisSalePoints(branchId || undefined, {
     enabled: props.open,
   });
-  const salePoints = salePointsQuery.data ?? [];
+  const readinessQuery = useTiramisBusinessReadiness(props.readiness, {
+    enabled: props.open && !!props.readiness,
+  });
+  const salePoints = useMemo(
+    () => salePointsQuery.data ?? [],
+    [salePointsQuery.data],
+  );
 
   // Keep the sale point selection in sync with the sale points available for the branch.
   if (props.open) {
@@ -113,6 +128,10 @@ export function TiramisSubmissionDialog(props: {
     salePoints.length > 1 &&
     !salePointId &&
     salePoints.filter((salePoint) => salePoint.isDefault).length !== 1;
+  const readiness = readinessQuery.data?.validation;
+  const readinessErrors = readiness?.errors ?? [];
+  const readinessWarnings = readiness?.warnings ?? [];
+  const readinessBlocking = !!props.readiness && readiness?.isValid === false;
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -214,6 +233,42 @@ export function TiramisSubmissionDialog(props: {
               </p>
             )}
           </div>
+
+          {props.readiness ? (
+            <div className="space-y-2">
+              {readinessQuery.isLoading ? (
+                <p className="text-xs text-slate-500">
+                  Checking TIRAMIS readiness...
+                </p>
+              ) : readinessBlocking ? (
+                <Alert variant="destructive">
+                  <AlertTitle>TIRAMIS validation failed</AlertTitle>
+                  <AlertDescription>
+                    <ul className="mt-2 list-disc space-y-1 pl-4">
+                      {readinessErrors.map((error) => (
+                        <li key={error}>{error}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              ) : readinessWarnings.length > 0 ? (
+                <Alert>
+                  <AlertTitle>TIRAMIS validation warnings</AlertTitle>
+                  <AlertDescription>
+                    <ul className="mt-2 list-disc space-y-1 pl-4">
+                      {readinessWarnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              ) : readiness ? (
+                <p className="text-xs text-emerald-700">
+                  Backend validation passed for this TIRAMIS submission.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <DialogFooter>
@@ -231,7 +286,12 @@ export function TiramisSubmissionDialog(props: {
                 sale_point_id: salePointId || undefined,
               })
             }
-            disabled={props.isPending || requiresExplicitSalePoint}
+            disabled={
+              props.isPending ||
+              requiresExplicitSalePoint ||
+              readinessQuery.isLoading ||
+              readinessBlocking
+            }
           >
             Submit to TIRAMIS
           </Button>

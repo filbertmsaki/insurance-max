@@ -10,6 +10,15 @@ export const TIRAMIS_LOOKUPS = [
   { group: 'POLICY_HOLDER_TYPE', code: '1', label: 'Individual' },
   { group: 'POLICY_HOLDER_TYPE', code: '2', label: 'Corporate' },
 
+  { group: 'IDENTITY_TYPE', code: '1', label: 'National ID' },
+  { group: 'IDENTITY_TYPE', code: '2', label: 'Voter ID' },
+  { group: 'IDENTITY_TYPE', code: '3', label: 'Passport' },
+  { group: 'IDENTITY_TYPE', code: '4', label: 'Driving License' },
+  { group: 'IDENTITY_TYPE', code: '5', label: 'Tax Identification Number' },
+
+  { group: 'GENDER', code: 'M', label: 'Male' },
+  { group: 'GENDER', code: 'F', label: 'Female' },
+
   { group: 'MOTOR_CATEGORY', code: '1', label: 'Motor Vehicle' },
   { group: 'MOTOR_CATEGORY', code: '2', label: 'Motor Cycle' },
 
@@ -24,4 +33,15 @@ export const TIRAMIS_LOOKUPS = [
 
   { group: 'TAX_CODE', code: 'VAT-MAINLAND', label: 'VAT Mainland' },
   { group: 'TAX_CODE', code: 'WITHHOLDING', label: 'Withholding Tax' },
+
+  { group: 'REINSURANCE_CATEGORY', code: '1', label: 'Facultative' },
+  { group: 'REINSURANCE_CATEGORY', code: '2', label: 'Treaty' },
+  { group: 'PARTICIPANT_TYPE', code: '1', label: 'Lead Reinsurer' },
+  { group: 'PARTICIPANT_TYPE', code: '2', label: 'Following Reinsurer' },
+  { group: 'REINSURANCE_FORM', code: '1', label: 'Proportional' },
+  { group: 'REINSURANCE_FORM', code: '2', label: 'Non-Proportional' },
+  { group: 'REINSURANCE_TYPE', code: '1', label: 'Quota Share' },
+  { group: 'REINSURANCE_TYPE', code: '2', label: 'Surplus' },
+  { group: 'LOSS_ASSESSMENT_OPTION', code: '1', label: 'Internal Assessor' },
+  { group: 'LOSS_ASSESSMENT_OPTION', code: '2', label: 'External Assessor' },
 ] as const;

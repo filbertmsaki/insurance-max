@@ -22,6 +22,8 @@ export type NormalizedTiramisPortalResponse = {
     isSuccess: boolean;
   };
   raw: any;
+  transactionStatus: string | null;
+  attemptStatus: string | null;
 };
 
 export const ACTIVE_TIRAMIS_STATUSES = [
@@ -81,6 +83,13 @@ export function normalizeTiramisPortalResponse(
     transaction?.finalResponse ||
     transaction?.latestFinalResponse ||
     tiraResponse?.finalResponse ||
+    null;
+
+  const currentAttempt =
+    response?.currentAttempt ||
+    response?.data?.currentAttempt ||
+    response?.tiramis?.currentAttempt ||
+    transaction?.currentAttempt ||
     null;
 
   const rootElement = firstValue(
@@ -239,6 +248,16 @@ export function normalizeTiramisPortalResponse(
       isSuccess: isTiraSuccessCode(finalStatusCode),
     },
     raw: response,
+    transactionStatus: firstValue(
+      transaction?.status,
+      response?.transactionStatus,
+      response?.data?.transactionStatus,
+    ),
+    attemptStatus: firstValue(
+      currentAttempt?.status,
+      response?.attemptStatus,
+      response?.data?.attemptStatus,
+    ),
   };
 }
 
@@ -249,6 +268,27 @@ export function resolveSubmissionStatusFromNormalized(
     return normalized.final.isSuccess
       ? TiramisSubmissionStatus.FINAL_SUCCESS
       : TiramisSubmissionStatus.FINAL_FAILED;
+  }
+
+  switch (normalized.attemptStatus) {
+    case 'ACK_FAILED':
+      return TiramisSubmissionStatus.ACK_FAILED;
+    case 'FINAL_FAILED':
+      return TiramisSubmissionStatus.FINAL_FAILED;
+    case 'FINAL_SUCCESS':
+      return TiramisSubmissionStatus.FINAL_SUCCESS;
+    case 'FINAL_CALLBACK_OVERDUE':
+      return TiramisSubmissionStatus.CALLBACK_OVERDUE;
+    case 'FAILED':
+      return TiramisSubmissionStatus.FAILED;
+  }
+
+  if (normalized.transactionStatus === 'FAILED') {
+    return TiramisSubmissionStatus.FAILED;
+  }
+
+  if (normalized.transactionStatus === 'SUCCESS') {
+    return TiramisSubmissionStatus.FINAL_SUCCESS;
   }
 
   if (normalized.acknowledgement.statusCode) {
@@ -291,8 +331,25 @@ export function isFinalTiramisStatus(status?: string | null): boolean {
 export function getTiramisFailureMessage(
   normalized: NormalizedTiramisPortalResponse,
 ): string | null {
+  const currentAttempt =
+    normalized.raw?.currentAttempt ||
+    normalized.raw?.data?.currentAttempt ||
+    normalized.raw?.tiramis?.currentAttempt ||
+    null;
+  const transaction =
+    normalized.raw?.transaction ||
+    normalized.raw?.data?.transaction ||
+    normalized.raw?.tiramis?.transaction ||
+    null;
+
   return (
-    normalized.final.statusDesc || normalized.acknowledgement.statusDesc || null
+    normalized.final.statusDesc ||
+    normalized.acknowledgement.statusDesc ||
+    currentAttempt?.errorMessage ||
+    currentAttempt?.lastError ||
+    transaction?.lastError ||
+    normalized.raw?.errorMessage ||
+    null
   );
 }
 

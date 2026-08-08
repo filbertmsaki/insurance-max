@@ -198,7 +198,7 @@ const endpointSeeds = [
   },
   {
     serviceType: 'COVER_NOTE_VERIFICATION',
-    endpointUrl: '/ecovernote/api/covernote/verification/min/v1/request',
+    endpointUrl: '/ecovernote/api/covernote/verification/v1/request',
   },
   {
     serviceType: 'MOTOR_VERIFICATION',

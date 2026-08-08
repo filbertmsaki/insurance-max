@@ -16,6 +16,7 @@ import { PolicyStatusBadge } from '../components/PolicyStatusBadge';
 import { useDeletePolicy, usePolicyDetail } from '../hooks';
 import { useSubmitPolicyToTiramis } from '@/modules/tenant/tiramis/hooks';
 import { TiramisSubmissionDialog } from '@/modules/tenant/tiramis/components/TiramisSubmissionDialog';
+import { buildPolicyTiramisPayload } from '@/modules/tenant/tiramis/utils';
 import { DataTable, type Column } from '@/components/shared/DataTable';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
@@ -58,6 +59,10 @@ export function PolicyDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [nonMotorOpen, setNonMotorOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const tiramisSubmissionPayload = useMemo(
+    () => (policy ? buildPolicyTiramisPayload(policy) : null),
+    [policy],
+  );
 
   const nonMotorColumns: Column<NonMotorPolicyDetailRecord>[] = useMemo(
     () => [
@@ -353,6 +358,18 @@ export function PolicyDetailPage() {
         description="Choose the branch and sale point for this submission. If a unique or default sale point exists, it will be used automatically."
         initialBranchId={policy.branch_id}
         isPending={submitMutation.isPending}
+        readiness={
+          tiramisSubmissionPayload
+            ? {
+                requestType: tiramisSubmissionPayload.requestType,
+                sourceModule:
+                  tiramisSubmissionPayload.source_module || 'policies',
+                sourceRecordId:
+                  tiramisSubmissionPayload.source_record_id || policy.id,
+                payload: tiramisSubmissionPayload.payload,
+              }
+            : undefined
+        }
         onSubmit={(selection) => {
           submitMutation.mutate(selection, {
             onSuccess: (result) => {
