@@ -6992,7 +6992,9 @@ export class QuotationsService {
     const coverNote = await coverNoteRepository.save(
       coverNoteRepository.create({
         quotation_id: quotation.id,
-        cover_note_type: payload.cover_note_hdr.cover_note_type,
+        cover_note_type:
+          productDefinition?.coverNoteType ??
+          payload.cover_note_hdr.cover_note_type,
         sale_point_code: header.sale_point_code.trim().toUpperCase(),
         cover_note_start_date: parseTiramisDateTime(
           header.cover_note_start_date,

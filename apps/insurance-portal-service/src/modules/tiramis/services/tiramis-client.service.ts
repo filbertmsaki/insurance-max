@@ -1245,7 +1245,7 @@ export class TiramisClientService {
 
   private httpPayload(pattern: string, command: Record<string, any>) {
     const payload = command.payload || command;
-    const submissionPatterns = new Set([
+    const submissionPatterns = new Set<string>([
       TIRAMIS_MESSAGE_PATTERNS.SUBMIT_NON_MOTOR,
       TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR,
       TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR_FLEET,

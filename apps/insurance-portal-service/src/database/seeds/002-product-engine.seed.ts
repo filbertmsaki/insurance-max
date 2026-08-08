@@ -502,8 +502,7 @@ export default class ProductEngineSeeder implements Seeder {
       existing.business_line = product.business_line;
       existing.supports_fleet = product.supports_fleet;
       existing.tiramis_product_code = product.tiramis_product_code;
-      existing.cover_note_type =
-        product.business_line === InsuranceBusinessLine.MOTOR ? 3 : 1;
+      existing.cover_note_type = 1;
       existing.default_cover_duration_days = 365;
       existing.currency_code = 'TZS';
       existing.cover_note_description =
@@ -543,8 +542,7 @@ export default class ProductEngineSeeder implements Seeder {
         business_line: product.business_line,
         supports_fleet: product.supports_fleet,
         tiramis_product_code: product.tiramis_product_code,
-        cover_note_type:
-          product.business_line === InsuranceBusinessLine.MOTOR ? 3 : 1,
+        cover_note_type: 1,
         default_cover_duration_days: 365,
         currency_code: 'TZS',
         cover_note_description:
@@ -579,8 +577,7 @@ export default class ProductEngineSeeder implements Seeder {
       supportsFleet: product.supports_fleet,
       tiramisProductCode: product.tiramis_product_code,
       currencyCode: 'TZS',
-      coverNoteType:
-        product.business_line === InsuranceBusinessLine.MOTOR ? 3 : 1,
+      coverNoteType: 1,
       defaultCoverDurationDays: 365,
       effectiveFrom: '2026-01-01',
       effectiveTo: null,
