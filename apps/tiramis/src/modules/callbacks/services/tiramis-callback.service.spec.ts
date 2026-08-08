@@ -94,6 +94,34 @@ describe('TiramisCallbackService', () => {
     expect(parsed.signature).toBe('RESPONSE_SIGNATURE');
   });
 
+  it('parses the direct motor callback format from TIRA', () => {
+    const { service } = createService();
+
+    const parsed = (service as any).parseCallback(`
+      <?xml version="1.0" encoding="UTF-8"?>
+      <TiraMsg>
+        <MotorCoverNoteRefRes>
+          <ResponseId>202607191123294522872</ResponseId>
+          <RequestId>AICCNRR19070658</RequestId>
+          <CoverNoteReferenceNumber>11026-19427-56213</CoverNoteReferenceNumber>
+          <StickerNumber>26001-19481-73513</StickerNumber>
+          <ResponseStatusCode>TIRA001</ResponseStatusCode>
+          <ResponseStatusDesc>Successful</ResponseStatusDesc>
+        </MotorCoverNoteRefRes>
+        <MsgSignature>RESPONSE_SIGNATURE</MsgSignature>
+      </TiraMsg>
+    `);
+
+    expect(parsed.rootName).toBe('MotorCoverNoteRefRes');
+    expect(parsed.requestId).toBe('AICCNRR19070658');
+    expect(parsed.responseId).toBe('202607191123294522872');
+    expect(parsed.responseStatusCode).toBe('TIRA001');
+    expect(parsed.responseStatusDesc).toBe('Successful');
+    expect(parsed.coverNoteReferenceNumber).toBe('11026-19427-56213');
+    expect(parsed.stickerNumber).toBe('26001-19481-73513');
+    expect(parsed.signature).toBe('RESPONSE_SIGNATURE');
+  });
+
   it('signs response acknowledgements with the original transaction configuration', async () => {
     const { service, tiramisConfigService, signatureService } = createService();
 

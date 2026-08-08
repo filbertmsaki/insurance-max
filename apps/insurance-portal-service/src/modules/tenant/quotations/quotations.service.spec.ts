@@ -58,7 +58,7 @@ describe('QuotationsService', () => {
       reviewStatus: 'APPROVED',
       tiramisProductCode: 'SP005001000000',
       supportsFleet: true,
-      coverNoteType: 3,
+      coverNoteType: 1,
       defaultCoverDurationDays: 365,
       currencyCode: 'TZS',
       coverNoteDescription: 'Private motor comprehensive cover',

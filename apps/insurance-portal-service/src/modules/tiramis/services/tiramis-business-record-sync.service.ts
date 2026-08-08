@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { XMLParser } from 'fast-xml-parser';
 
 import { resolveTiramisBusinessRecordMapping } from '../constants/tiramis-business-record-map.constant';
 import { TiramisAuditAction } from '../enums/tiramis-audit-action.enum';
@@ -13,6 +14,10 @@ import { TiramisNotificationService } from './tiramis-notification.service';
 @Injectable()
 export class TiramisBusinessRecordSyncService {
   private readonly logger = new Logger(TiramisBusinessRecordSyncService.name);
+  private readonly xmlParser = new XMLParser({
+    ignoreAttributes: false,
+    trimValues: true,
+  });
 
   constructor(
     private readonly dataSource: DataSource,
@@ -133,6 +138,7 @@ export class TiramisBusinessRecordSyncService {
 
       await this.trackingRepository.markBusinessRecordSynced(tracking.id);
 
+      await this.syncQuotationOutcomeIfNeeded(tracking);
       await this.syncReinsuranceOutcomeIfNeeded(tracking);
 
       await this.auditService.logFromTracking({
@@ -322,5 +328,376 @@ export class TiramisBusinessRecordSyncService {
         [tracking.sourceRecordId],
       );
     }
+  }
+
+  private async syncQuotationOutcomeIfNeeded(
+    tracking: TiramisSubmissionTrackingEntity,
+  ) {
+    if (
+      !this.isQuotationSource(tracking.sourceModule) ||
+      !tracking.sourceRecordId
+    ) {
+      return;
+    }
+
+    const terminalOutcome = this.resolveQuotationTerminalOutcome(tracking);
+
+    if (!terminalOutcome) {
+      return;
+    }
+
+    const rows = await this.dataSource.query(
+      `
+        SELECT
+          id,
+          quotation_status,
+          approval_status,
+          payment_status,
+          tira_status
+        FROM quotations
+        WHERE id = $1
+          AND deleted_at IS NULL
+        LIMIT 1
+      `,
+      [tracking.sourceRecordId],
+    );
+
+    const quotation = rows?.[0];
+
+    if (!quotation) {
+      return;
+    }
+
+    const regulatoryResponse = this.extractRegulatoryResponse(tracking);
+    const statusCode =
+      tracking.finalResponseStatusCode ||
+      tracking.acknowledgementStatusCode ||
+      null;
+    const statusDescription =
+      tracking.finalResponseStatusDesc ||
+      tracking.acknowledgementStatusDesc ||
+      tracking.lastErrorMessage ||
+      null;
+    const tiraRequestId = tracking.tiramisRequestId || null;
+    const tiraResponseId = tracking.finalResponseId || null;
+    const metadata = {
+      source: 'TIRAMIS_STATUS_SYNC',
+      trackingId: tracking.id,
+      tiramisTransactionId: tracking.tiramisTransactionId || null,
+      tiramisStatus: tracking.status,
+      statusCode,
+      statusDescription,
+      regulatoryResponse,
+    };
+
+    await this.dataSource.transaction(async (manager) => {
+      await manager.query(
+        `
+          UPDATE quotations
+          SET
+            quotation_status = $2::quotation_status_enum,
+            tira_status = $3::tira_status_enum,
+            tira_request_id = COALESCE($4, tira_request_id),
+            tira_response_id = COALESCE($5, tira_response_id),
+            tira_response_code = COALESCE($6, tira_response_code),
+            tira_response_description = COALESCE($7, tira_response_description),
+            tira_error_details = $8::jsonb,
+            submission_status_v2 = $9,
+            quotation_stage = CASE
+              WHEN $2::quotation_status_enum = 'CANCELLED'::quotation_status_enum THEN 'CANCELLED'
+              WHEN $2::quotation_status_enum IN ('COMPLETED'::quotation_status_enum, 'FAILED'::quotation_status_enum) THEN 'COMPLETED'
+              ELSE quotation_stage
+            END,
+            workflow_completed_at = COALESCE(workflow_completed_at, now()),
+            workflow_revision = COALESCE(workflow_revision, 0) + 1,
+            state_version = COALESCE(state_version, 0) + 1,
+            updated_at = now()
+          WHERE id = $1
+            AND deleted_at IS NULL
+            AND NOT (
+              quotation_status IN ('COMPLETED', 'CANCELLED')
+              AND tira_status = 'SUCCESS'
+              AND $3::tira_status_enum <> 'SUCCESS'::tira_status_enum
+            )
+        `,
+        [
+          quotation.id,
+          terminalOutcome.quotationStatus,
+          terminalOutcome.tiraStatus,
+          tiraRequestId,
+          tiraResponseId,
+          statusCode,
+          statusDescription,
+          JSON.stringify(metadata),
+          terminalOutcome.submissionStatus,
+        ],
+      );
+
+      if (
+        quotation.quotation_status !== terminalOutcome.quotationStatus ||
+        quotation.tira_status !== terminalOutcome.tiraStatus
+      ) {
+        await manager.query(
+          `
+            INSERT INTO quotation_status_history (
+              quotation_id,
+              previous_quotation_status,
+              new_quotation_status,
+              previous_approval_status,
+              new_approval_status,
+              previous_payment_status,
+              new_payment_status,
+              previous_tira_status,
+              new_tira_status,
+              transition_type,
+              reason,
+              changed_by,
+              changed_by_type,
+              source,
+              request_id,
+              tira_request_id,
+              tira_response_id,
+              metadata,
+              created_at
+            )
+            VALUES (
+              $1, $2, $3, $4, $4, $5, $5, $6, $7, $8, $9,
+              NULL, 'SYSTEM', 'TIRAMIS', $10, $10, $11, $12::jsonb, now()
+            )
+          `,
+          [
+            quotation.id,
+            quotation.quotation_status,
+            terminalOutcome.quotationStatus,
+            quotation.approval_status,
+            quotation.payment_status,
+            quotation.tira_status,
+            terminalOutcome.tiraStatus,
+            terminalOutcome.transitionType,
+            statusDescription,
+            tiraRequestId,
+            tiraResponseId,
+            JSON.stringify(metadata),
+          ],
+        );
+      }
+    });
+  }
+
+  private isQuotationSource(sourceModule?: string | null) {
+    const value = String(sourceModule || '').trim().toLowerCase();
+
+    return [
+      'quotation',
+      'quotations',
+      'tenant.quotations',
+      'tenant-quotations',
+    ].includes(value);
+  }
+
+  private resolveQuotationTerminalOutcome(
+    tracking: TiramisSubmissionTrackingEntity,
+  ):
+    | {
+        quotationStatus: string;
+        tiraStatus: string;
+        submissionStatus: string;
+        transitionType: string;
+      }
+    | null {
+    if (tracking.status === TiramisSubmissionStatus.FINAL_SUCCESS) {
+      const statusDescription = String(
+        tracking.finalResponseStatusDesc || '',
+      )
+        .trim()
+        .toLowerCase();
+      const isCancellation =
+        statusDescription === 'transaction successfully cancelled';
+
+      return {
+        quotationStatus: isCancellation ? 'CANCELLED' : 'COMPLETED',
+        tiraStatus: 'SUCCESS',
+        submissionStatus: 'ACCEPTED',
+        transitionType: isCancellation
+          ? 'MARK_TIRA_CANCELLED'
+          : 'MARK_TIRA_SUCCESSFUL',
+      };
+    }
+
+    if (
+      [
+        TiramisSubmissionStatus.FINAL_FAILED,
+        TiramisSubmissionStatus.ACK_FAILED,
+        TiramisSubmissionStatus.FAILED,
+        TiramisSubmissionStatus.RETRY_EXHAUSTED,
+        TiramisSubmissionStatus.CALLBACK_OVERDUE,
+      ].includes(tracking.status)
+    ) {
+      return {
+        quotationStatus: 'FAILED',
+        tiraStatus: 'FAILED',
+        submissionStatus: 'FAILED',
+        transitionType: 'MARK_TIRA_FAILED',
+      };
+    }
+
+    return null;
+  }
+
+  private extractRegulatoryResponse(
+    tracking: TiramisSubmissionTrackingEntity,
+  ): Record<string, any> | null {
+    const payloads = [
+      tracking.finalResponsePayload,
+      tracking.tiramisResponsePayload,
+      (tracking.tiramisResponsePayload as any)?.finalResponse,
+      (tracking.tiramisResponsePayload as any)?.currentAttempt?.finalResponse,
+      (tracking.tiramisResponsePayload as any)?.currentAttempt?.payloads,
+    ].filter(Boolean);
+
+    for (const payload of payloads) {
+      const parsed = this.extractRegulatoryResponseFromObject(payload);
+
+      if (parsed) {
+        return parsed;
+      }
+    }
+
+    const responseXml =
+      (tracking.finalResponsePayload as any)?.responseXml ||
+      (tracking.tiramisResponsePayload as any)?.responseXml ||
+      (tracking.tiramisResponsePayload as any)?.currentAttempt?.payloads
+        ?.responseXml ||
+      null;
+
+    if (responseXml) {
+      return this.extractRegulatoryResponseFromXml(responseXml);
+    }
+
+    return null;
+  }
+
+  private extractRegulatoryResponseFromObject(
+    payload: any,
+  ): Record<string, any> | null {
+    if (!payload || typeof payload !== 'object') {
+      return null;
+    }
+
+    if (payload.regulatoryResponse) {
+      return payload.regulatoryResponse;
+    }
+
+    const coverNoteReferenceNumber =
+      payload.coverNoteReferenceNumber ||
+      payload.motorCoverNoteReferenceNumber ||
+      payload.CoverNoteReferenceNumber ||
+      payload.MotorCoverNoteReferenceNumber ||
+      payload.coverNote?.coverNoteReferenceNumber ||
+      payload.motorCoverNote?.coverNoteReferenceNumber ||
+      null;
+    const stickerNumber =
+      payload.stickerNumber ||
+      payload.StickerNumber ||
+      payload.coverNote?.stickerNumber ||
+      payload.motorCoverNote?.stickerNumber ||
+      null;
+    const policyReferenceNumber =
+      payload.policyReferenceNumber ||
+      payload.PolicyReferenceNumber ||
+      payload.policy?.policyReferenceNumber ||
+      null;
+
+    if (!coverNoteReferenceNumber && !stickerNumber && !policyReferenceNumber) {
+      return null;
+    }
+
+    return {
+      coverNotes:
+        coverNoteReferenceNumber || stickerNumber
+          ? [
+              {
+                coverNoteReferenceNumber: coverNoteReferenceNumber || null,
+                stickerNumber: stickerNumber || null,
+              },
+            ]
+          : [],
+      policy: policyReferenceNumber
+        ? {
+            policyReferenceNumber,
+          }
+        : null,
+    };
+  }
+
+  private extractRegulatoryResponseFromXml(xml: string): Record<string, any> | null {
+    try {
+      const parsed = this.xmlParser.parse(xml);
+      const values = this.flattenXmlValues(parsed);
+      const contentResponse =
+        values.Content && values.Content.trim().startsWith('<')
+          ? this.extractRegulatoryResponseFromXml(values.Content)
+          : null;
+
+      if (contentResponse) {
+        return contentResponse;
+      }
+
+      const coverNoteReferenceNumber =
+        values.CoverNoteReferenceNumber ||
+        values.MotorCoverNoteReferenceNumber ||
+        null;
+      const stickerNumber = values.StickerNumber || null;
+      const policyReferenceNumber = values.PolicyReferenceNumber || null;
+
+      if (
+        !coverNoteReferenceNumber &&
+        !stickerNumber &&
+        !policyReferenceNumber
+      ) {
+        return null;
+      }
+
+      return {
+        coverNotes:
+          coverNoteReferenceNumber || stickerNumber
+            ? [
+                {
+                  coverNoteReferenceNumber: coverNoteReferenceNumber || null,
+                  stickerNumber: stickerNumber || null,
+                },
+              ]
+            : [],
+        policy: policyReferenceNumber
+          ? {
+              policyReferenceNumber,
+            }
+          : null,
+      };
+    } catch (error) {
+      this.logger.warn(
+        `Failed to parse TIRAMIS final response XML for business sync: ${
+          error instanceof Error ? error.message : error
+        }`,
+      );
+
+      return null;
+    }
+  }
+
+  private flattenXmlValues(value: any, result: Record<string, string> = {}) {
+    if (!value || typeof value !== 'object') {
+      return result;
+    }
+
+    for (const [key, child] of Object.entries(value)) {
+      if (child && typeof child === 'object') {
+        this.flattenXmlValues(child, result);
+      } else if (child !== null && child !== undefined) {
+        result[key] = String(child);
+      }
+    }
+
+    return result;
   }
 }

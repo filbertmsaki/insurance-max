@@ -18,7 +18,7 @@ export class TiramisPayloadValidationService {
     /**
      * TIRA CoverNoteType:
      * 1 = New
-     * 2 = Renewal
+     * 2 = Renew
      * 3 = Endorsement
      *
      * Previous Cover Note Reference is optional for new business,

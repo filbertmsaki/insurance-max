@@ -1,3 +1,5 @@
+import { XMLParser } from 'fast-xml-parser';
+
 import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum';
 
 export type NormalizedTiramisPortalResponse = {
@@ -58,6 +60,7 @@ export const PENDING_FINAL_TIRAMIS_STATUSES = [
 export function normalizeTiramisPortalResponse(
   response: any,
 ): NormalizedTiramisPortalResponse {
+  const xmlValues = extractResponseXmlValues(response);
   const transaction =
     response?.transaction ||
     response?.data?.transaction ||
@@ -91,6 +94,11 @@ export function normalizeTiramisPortalResponse(
     response?.tiramis?.currentAttempt ||
     transaction?.currentAttempt ||
     null;
+  const summary =
+    response?.summary ||
+    response?.data?.summary ||
+    response?.tiramis?.summary ||
+    null;
 
   const rootElement = firstValue(
     response?.rootElement,
@@ -116,6 +124,7 @@ export function normalizeTiramisPortalResponse(
 
   const acknowledgementStatusCode = firstValue(
     acknowledgement?.statusCode,
+    xmlValues.AcknowledgementStatusCode,
     acknowledgement?.acknowledgementStatusCode,
     acknowledgement?.AcknowledgementStatusCode,
     tiraResponse?.acknowledgementStatusCode,
@@ -130,6 +139,7 @@ export function normalizeTiramisPortalResponse(
 
   const acknowledgementStatusDesc = firstValue(
     acknowledgement?.statusDesc,
+    xmlValues.AcknowledgementStatusDesc,
     acknowledgement?.acknowledgementStatusDesc,
     acknowledgement?.AcknowledgementStatusDesc,
     tiraResponse?.acknowledgementStatusDesc,
@@ -151,8 +161,10 @@ export function normalizeTiramisPortalResponse(
 
   const finalStatusCode = firstValue(
     finalResponse?.responseStatusCode,
+    xmlValues.ResponseStatusCode,
     finalResponse?.ResponseStatusCode,
     finalResponse?.statusCode,
+    summary?.finalResponseStatusCode,
     transaction?.finalResponseStatusCode,
     transaction?.responseStatusCode,
     !isAckRoot ? tiraResponse?.responseStatusCode : null,
@@ -163,8 +175,10 @@ export function normalizeTiramisPortalResponse(
 
   const finalStatusDesc = firstValue(
     finalResponse?.responseStatusDesc,
+    xmlValues.ResponseStatusDesc,
     finalResponse?.ResponseStatusDesc,
     finalResponse?.statusDesc,
+    summary?.finalResponseStatusDesc,
     transaction?.finalResponseStatusDesc,
     transaction?.responseStatusDesc,
     !isAckRoot ? tiraResponse?.responseStatusDesc : null,
@@ -175,6 +189,7 @@ export function normalizeTiramisPortalResponse(
 
   const finalResponseId = firstValue(
     finalResponse?.responseId,
+    xmlValues.ResponseId,
     finalResponse?.ResponseId,
     transaction?.finalResponseId,
     transaction?.responseId,
@@ -193,6 +208,8 @@ export function normalizeTiramisPortalResponse(
     ),
     requestId: firstValue(
       response?.requestId,
+      response?.request?.requestId,
+      xmlValues.RequestId,
       response?.tiramisRequestId,
       response?.data?.requestId,
       response?.record?.requestId,
@@ -241,6 +258,7 @@ export function normalizeTiramisPortalResponse(
         finalResponse?.receivedAt,
         finalResponse?.createdAt,
         transaction?.finalResponseReceivedAt,
+        summary?.finalResponseReceivedAt,
         response?.finalResponseReceivedAt,
       ),
       payload:
@@ -361,4 +379,54 @@ function firstValue(...values: any[]): string | null {
   }
 
   return null;
+}
+
+function extractResponseXmlValues(response: any): Record<string, string> {
+  const xml =
+    response?.xml ||
+    response?.data?.xml ||
+    response?.tiramis?.xml ||
+    response?.currentAttempt?.payloads?.responseXml ||
+    response?.data?.currentAttempt?.payloads?.responseXml ||
+    null;
+
+  if (!xml || typeof xml !== 'string') {
+    return {};
+  }
+
+  try {
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      trimValues: true,
+    });
+    const parsed = parser.parse(xml);
+    const values = flattenXmlValues(parsed);
+
+    if (values.Content?.trim().startsWith('<')) {
+      return {
+        ...values,
+        ...flattenXmlValues(parser.parse(values.Content)),
+      };
+    }
+
+    return values;
+  } catch {
+    return {};
+  }
+}
+
+function flattenXmlValues(value: any, result: Record<string, string> = {}) {
+  if (!value || typeof value !== 'object') {
+    return result;
+  }
+
+  for (const [key, child] of Object.entries(value)) {
+    if (child && typeof child === 'object') {
+      flattenXmlValues(child, result);
+    } else if (child !== null && child !== undefined) {
+      result[key] = String(child);
+    }
+  }
+
+  return result;
 }

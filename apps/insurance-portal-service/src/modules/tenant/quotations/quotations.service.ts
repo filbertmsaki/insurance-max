@@ -6860,7 +6860,9 @@ export class QuotationsService {
       },
       cover_note_dtl: {
         ...payload.cover_note_dtl,
-        sale_point_code: salePoint.salePointCode.trim().toUpperCase(),
+        sale_point_code: payload.cover_note_dtl.fleet_hdr
+          ? undefined
+          : salePoint.salePointCode.trim().toUpperCase(),
         fleet_hdr: payload.cover_note_dtl.fleet_hdr
           ? {
               ...payload.cover_note_dtl.fleet_hdr,
@@ -6890,7 +6892,9 @@ export class QuotationsService {
       },
       cover_note_dtl: {
         ...payload.cover_note_dtl,
-        sale_point_code: salePointCode,
+        sale_point_code: payload.cover_note_dtl.fleet_hdr
+          ? undefined
+          : salePointCode,
         fleet_hdr: payload.cover_note_dtl.fleet_hdr
           ? {
               ...payload.cover_note_dtl.fleet_hdr,

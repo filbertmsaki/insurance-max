@@ -43,7 +43,7 @@ function makeVersion(
     business_line: 'MOTOR',
     supports_fleet: false,
     tiramis_product_code: 'MOTOR-COMP',
-    cover_note_type: 3,
+    cover_note_type: 1,
     default_cover_duration_days: 365,
     currency_code: 'TZS',
     cover_note_description: 'Comprehensive motor cover',
