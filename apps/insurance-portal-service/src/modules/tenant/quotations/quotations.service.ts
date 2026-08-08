@@ -4625,6 +4625,25 @@ export class QuotationsService {
     context.risk.premium_after_discount = premiumExcludingTaxEquivalent;
     context.risk.premium_excluding_tax_equivalent =
       premiumExcludingTaxEquivalent;
+    const signedTaxAmount = this.readPricingQuoteNumber(context.quote, [
+      'total_charge_amount',
+      'total_tax_amount',
+      'tax_amount',
+      'totalChargeAmount',
+      'totalTaxAmount',
+      'taxAmount',
+    ]);
+    const signedPremiumIncludingTax = this.readPricingQuoteNumber(
+      context.quote,
+      [
+        'premium_including_tax',
+        'premium_including_tax_equivalent',
+        'final_payable_premium',
+        'premiumIncludingTax',
+        'premiumIncludingTaxEquivalent',
+        'finalPayablePremium',
+      ],
+    );
     const matchedChargeCodes = new Set<string>();
     const authoritativeTaxes: TaxChargedDto[] = chargeSummary.charges.map(
       (charge): TaxChargedDto => {
@@ -4672,14 +4691,87 @@ export class QuotationsService {
               : roundMoney(premiumExcludingTaxEquivalent * tax.tax_rate),
         }),
       );
-    context.risk.taxes_charged = [...authoritativeTaxes, ...preservedTaxes];
-    context.risk.premium_including_tax = roundMoney(
-      premiumExcludingTaxEquivalent +
-        context.risk.taxes_charged.reduce(
-          (sum, charge) => sum + charge.tax_amount,
-          0,
-        ),
+    context.risk.taxes_charged = this.alignTaxesToSignedPricingTotal(
+      [...authoritativeTaxes, ...preservedTaxes],
+      signedTaxAmount,
     );
+    const totalTaxAmount = roundMoney(
+      context.risk.taxes_charged.reduce(
+        (sum, charge) => sum + roundMoney(charge.tax_amount),
+        0,
+      ),
+    );
+    context.risk.premium_including_tax = roundMoney(
+      signedPremiumIncludingTax ??
+        premiumExcludingTaxEquivalent + totalTaxAmount,
+    );
+  }
+
+  private alignTaxesToSignedPricingTotal(
+    taxes: TaxChargedDto[],
+    signedTaxAmount: number | null,
+  ): TaxChargedDto[] {
+    if (signedTaxAmount === null) {
+      return taxes;
+    }
+
+    const targetTaxAmount = roundMoney(signedTaxAmount);
+
+    if (taxes.length === 0) {
+      return targetTaxAmount === 0
+        ? []
+        : [
+            {
+              tax_code: 'VAT-MAINLAND',
+              is_tax_exempted: 'N',
+              tax_exemption_type: null,
+              tax_exemption_reference: null,
+              tax_rate: 0,
+              tax_amount: targetTaxAmount,
+            },
+          ];
+    }
+
+    if (targetTaxAmount === 0) {
+      return taxes.map((tax) => ({
+        ...tax,
+        tax_amount: 0,
+      }));
+    }
+
+    const aligned = taxes.map((tax) => ({
+      ...tax,
+      tax_amount: roundMoney(tax.tax_amount),
+    }));
+    const currentTotal = roundMoney(
+      aligned.reduce((sum, tax) => sum + tax.tax_amount, 0),
+    );
+    const delta = roundMoney(targetTaxAmount - currentTotal);
+
+    if (delta !== 0) {
+      const lastTax = aligned[aligned.length - 1];
+      lastTax.tax_amount = roundMoney(lastTax.tax_amount + delta);
+    }
+
+    return aligned;
+  }
+
+  private readPricingQuoteNumber(
+    quote: PricingQuote,
+    keys: string[],
+  ): number | null {
+    const payload = quote.result_payload || {};
+
+    for (const key of keys) {
+      const value = payload[key];
+      const parsed = this.toStoredNumber(value);
+
+      if (parsed !== null) {
+        return roundMoney(parsed);
+      }
+    }
+
+    return null;
   }
 
   private recalculateAuthoritativeTotals(payload: CreateQuotationDto): void {

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CustomerKycReviewCompatibility1796307000000
-  implements MigrationInterface
-{
+export class CustomerKycReviewCompatibility1796307000000 implements MigrationInterface {
   name = 'CustomerKycReviewCompatibility1796307000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -485,7 +485,9 @@ export class TiramisBusinessRecordSyncService {
   }
 
   private isQuotationSource(sourceModule?: string | null) {
-    const value = String(sourceModule || '').trim().toLowerCase();
+    const value = String(sourceModule || '')
+      .trim()
+      .toLowerCase();
 
     return [
       'quotation',
@@ -497,18 +499,14 @@ export class TiramisBusinessRecordSyncService {
 
   private resolveQuotationTerminalOutcome(
     tracking: TiramisSubmissionTrackingEntity,
-  ):
-    | {
-        quotationStatus: string;
-        tiraStatus: string;
-        submissionStatus: string;
-        transitionType: string;
-      }
-    | null {
+  ): {
+    quotationStatus: string;
+    tiraStatus: string;
+    submissionStatus: string;
+    transitionType: string;
+  } | null {
     if (tracking.status === TiramisSubmissionStatus.FINAL_SUCCESS) {
-      const statusDescription = String(
-        tracking.finalResponseStatusDesc || '',
-      )
+      const statusDescription = String(tracking.finalResponseStatusDesc || '')
         .trim()
         .toLowerCase();
       const isCancellation =
@@ -630,7 +628,9 @@ export class TiramisBusinessRecordSyncService {
     };
   }
 
-  private extractRegulatoryResponseFromXml(xml: string): Record<string, any> | null {
+  private extractRegulatoryResponseFromXml(
+    xml: string,
+  ): Record<string, any> | null {
     try {
       const parsed = this.xmlParser.parse(xml);
       const values = this.flattenXmlValues(parsed);

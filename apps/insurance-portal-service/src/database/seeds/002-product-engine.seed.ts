@@ -601,7 +601,9 @@ export default class ProductEngineSeeder implements Seeder {
       return Object.keys(value)
         .sort()
         .reduce<Record<string, unknown>>((result, key) => {
-          result[key] = this.sortObject((value as Record<string, unknown>)[key]);
+          result[key] = this.sortObject(
+            (value as Record<string, unknown>)[key],
+          );
           return result;
         }, {});
     }

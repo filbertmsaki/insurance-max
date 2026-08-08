@@ -328,6 +328,23 @@ describe('QuotationsService', () => {
         if (
           typeof entity === 'function' &&
           'name' in entity &&
+          entity.name === 'InsuranceProductVersion'
+        ) {
+          return {
+            findOne: jest.fn().mockResolvedValue({
+              id: productDefinitionSnapshot.productVersionId,
+              company_id: 'company-1',
+              product_id: 'product-1',
+              definition_hash: productDefinitionSnapshot.definitionHash,
+              status: 'PUBLISHED',
+              review_status: 'APPROVED',
+            }),
+          };
+        }
+
+        if (
+          typeof entity === 'function' &&
+          'name' in entity &&
           entity.name === 'Invoice'
         ) {
           return {
@@ -1368,6 +1385,57 @@ describe('QuotationsService', () => {
       taxRate: 0.18,
       taxAmount: 18000,
     });
+  });
+
+  it('uses the signed pricing tax total when submitted tax lines are stale', async () => {
+    const fixture = createServiceFixture({
+      pricingQuote: {
+        result_payload: {
+          sum_insured: 10000000,
+          percentage_rate: 0.01,
+          total_charge_amount: 0,
+          premium_including_tax: 100000,
+        },
+      },
+    });
+    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].taxes_charged =
+      [
+        {
+          tax_code: 'VAT-MAINLAND',
+          is_tax_exempted: 'N',
+          tax_exemption_type: null,
+          tax_exemption_reference: null,
+          tax_rate: 0.18,
+          tax_amount: 18000,
+        },
+      ];
+    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_including_tax = 118000;
+    (
+      fixture.pricingChargeService.calculateCharges as jest.Mock
+    ).mockResolvedValueOnce({
+      charges: [],
+      total_charge_amount: 0,
+      taxable_charge_amount: 0,
+      non_taxable_charge_amount: 0,
+      premium_including_charges: 100000,
+    });
+
+    await fixture.service.submit(
+      'company-1',
+      fixture.quotation.id,
+      undefined,
+      submitTiramisUser,
+    );
+
+    const outboundRisk = (
+      fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord as jest.Mock
+    ).mock.calls[0][0].payload.risks[0];
+
+    expect(outboundRisk.taxes[0]).toMatchObject({
+      taxCode: 'VAT-MAINLAND',
+      taxAmount: 0,
+    });
+    expect(outboundRisk.premiumIncludingTax).toBe(100000);
   });
 
   it('prevents a requester from approving their own premium override', async () => {

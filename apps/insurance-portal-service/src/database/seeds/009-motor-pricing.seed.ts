@@ -198,7 +198,10 @@ export default class MotorPricingSeeder implements Seeder {
         version_number: 'DESC',
       },
     });
-    const publishedProductVersionByProductId = new Map<string, InsuranceProductVersion>();
+    const publishedProductVersionByProductId = new Map<
+      string,
+      InsuranceProductVersion
+    >();
     for (const version of productVersions) {
       if (!publishedProductVersionByProductId.has(version.product_id)) {
         publishedProductVersionByProductId.set(version.product_id, version);
@@ -542,7 +545,9 @@ export default class MotorPricingSeeder implements Seeder {
       return Object.keys(value)
         .sort()
         .reduce<Record<string, unknown>>((result, key) => {
-          result[key] = this.sortObject((value as Record<string, unknown>)[key]);
+          result[key] = this.sortObject(
+            (value as Record<string, unknown>)[key],
+          );
           return result;
         }, {});
     }

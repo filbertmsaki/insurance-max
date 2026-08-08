@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class ProductDocumentRequirementVersionCompatibility1796306000000
-  implements MigrationInterface
-{
+export class ProductDocumentRequirementVersionCompatibility1796306000000 implements MigrationInterface {
   name = 'ProductDocumentRequirementVersionCompatibility1796306000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
