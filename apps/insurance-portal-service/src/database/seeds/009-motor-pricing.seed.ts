@@ -1,4 +1,5 @@
 import { environment } from '@insurance-max/shared-config';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { DataSource, In, Repository } from 'typeorm';
@@ -6,6 +7,7 @@ import { Seeder, SeederFactoryManager } from 'typeorm-extension';
 import { RateType } from '@insurance-max/portal-shared/enums/rate-type.enum';
 import { Company } from '../../modules/platform/companies/entities/company.entity';
 import { InsuranceProduct } from '../../modules/tenant/insurance-products/entities/insurance-product.entity';
+import { InsuranceProductVersion } from '../../modules/tenant/insurance-products/entities/insurance-product-version.entity';
 import { InsuranceRisk } from '../../modules/tenant/insurance-risks/entities/insurance-risk.entity';
 import {
   MOTOR_PRODUCT_CODES,
@@ -118,6 +120,7 @@ export default class MotorPricingSeeder implements Seeder {
       const companyRepo = manager.getRepository(Company);
       const productRepo = manager.getRepository(InsuranceProduct);
       const riskRepo = manager.getRepository(InsuranceRisk);
+      const productVersionRepo = manager.getRepository(InsuranceProductVersion);
       const rateBookRepo = manager.getRepository(PricingRateBook);
       const ruleRepo = manager.getRepository(RiskRatingRule);
       const company = await this.getTargetCompany(companyRepo);
@@ -125,6 +128,7 @@ export default class MotorPricingSeeder implements Seeder {
       const synchronizedRules = await this.seedMotorPricing(
         company.id,
         productRepo,
+        productVersionRepo,
         riskRepo,
         rateBookRepo,
         ruleRepo,
@@ -167,6 +171,7 @@ export default class MotorPricingSeeder implements Seeder {
   private async seedMotorPricing(
     companyId: string,
     productRepo: Repository<InsuranceProduct>,
+    productVersionRepo: Repository<InsuranceProductVersion>,
     riskRepo: Repository<InsuranceRisk>,
     rateBookRepo: Repository<PricingRateBook>,
     ruleRepo: Repository<RiskRatingRule>,
@@ -184,6 +189,21 @@ export default class MotorPricingSeeder implements Seeder {
     const productsByCode = new Map(
       products.map((product) => [product.product_code, product]),
     );
+    const productVersions = await productVersionRepo.find({
+      where: {
+        company_id: companyId,
+        product_id: In(products.map((product) => product.id)),
+      },
+      order: {
+        version_number: 'DESC',
+      },
+    });
+    const publishedProductVersionByProductId = new Map<string, InsuranceProductVersion>();
+    for (const version of productVersions) {
+      if (!publishedProductVersionByProductId.has(version.product_id)) {
+        publishedProductVersionByProductId.set(version.product_id, version);
+      }
+    }
     const risks = await riskRepo.find({
       where: {
         company_id: companyId,
@@ -222,6 +242,15 @@ export default class MotorPricingSeeder implements Seeder {
       rateBook.status = PricingRateBookStatus.PUBLISHED;
       rateBook.effective_from = RATE_BOOK_EFFECTIVE_FROM;
       rateBook.effective_to = null;
+      const productVersion =
+        (product.current_version_id
+          ? productVersions.find(
+              (version) => version.id === product.current_version_id,
+            )
+          : null) ?? publishedProductVersionByProductId.get(product.id);
+      rateBook.product_version_id = productVersion?.id ?? null;
+      rateBook.product_definition_hash =
+        productVersion?.definition_hash ?? null;
       rateBook.published_at = new Date(
         `${RATE_BOOK_EFFECTIVE_FROM}T00:00:00.000Z`,
       );
@@ -326,6 +355,60 @@ export default class MotorPricingSeeder implements Seeder {
       const savedRule = await ruleRepo.save(rule);
       desiredRuleIds.add(savedRule.id);
       synchronizedRules += 1;
+    }
+
+    for (const [productCode, rateBook] of rateBooksByProductCode) {
+      const product = productsByCode.get(productCode);
+      if (!product) {
+        continue;
+      }
+
+      const rules = await ruleRepo.find({
+        where: {
+          company_id: companyId,
+          rate_book_id: rateBook.id,
+          is_active: true,
+        },
+        order: {
+          priority: 'ASC',
+          rule_name: 'ASC',
+        },
+      });
+      const definition = {
+        rateBookId: rateBook.id,
+        code: rateBook.code,
+        version: rateBook.version,
+        productId: rateBook.product_id,
+        productVersionId: rateBook.product_version_id,
+        productDefinitionHash: rateBook.product_definition_hash,
+        currencyCode: rateBook.currency_code,
+        effectiveFrom: rateBook.effective_from,
+        effectiveTo: rateBook.effective_to,
+        roundingMode: rateBook.rounding_mode,
+        roundingIncrement: rateBook.rounding_increment,
+        prorationMethod: rateBook.proration_method,
+        calculationVersion: rateBook.calculation_version,
+        requiredFactors: [],
+        rules: rules.map((rule) => ({
+          id: rule.id,
+          riskId: rule.risk_id,
+          ruleName: rule.rule_name,
+          rateType: rule.rate_type,
+          percentageRate: rule.percentage_rate,
+          fixedAmount: rule.fixed_amount,
+          perUnitAmount: rule.per_unit_amount,
+          perUnitFactorCode: rule.per_unit_factor_code,
+          formula: rule.formula,
+          minimumAmount: rule.minimum_amount,
+          maximumAmount: rule.maximum_amount,
+          priority: rule.priority,
+          ruleVersion: rule.rule_version,
+        })),
+        addonRules: [],
+      };
+
+      rateBook.definition_hash = this.hashDefinition(definition);
+      await rateBookRepo.save(rateBook);
     }
 
     const existingMotorRules = await ruleRepo.find({
@@ -442,5 +525,28 @@ export default class MotorPricingSeeder implements Seeder {
     }
 
     return Number(value.toFixed(10));
+  }
+
+  private hashDefinition(payload: Record<string, unknown>): string {
+    return createHash('sha256')
+      .update(JSON.stringify(this.sortObject(payload)), 'utf8')
+      .digest('hex');
+  }
+
+  private sortObject(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.sortObject(item));
+    }
+
+    if (value && typeof value === 'object') {
+      return Object.keys(value)
+        .sort()
+        .reduce<Record<string, unknown>>((result, key) => {
+          result[key] = this.sortObject((value as Record<string, unknown>)[key]);
+          return result;
+        }, {});
+    }
+
+    return value;
   }
 }

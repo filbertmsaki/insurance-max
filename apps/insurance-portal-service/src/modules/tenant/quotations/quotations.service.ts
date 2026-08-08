@@ -22,6 +22,7 @@ import {
 } from 'typeorm';
 import {
   PricingResultSnapshot,
+  PricingRateBookSnapshot,
   ProductDefinitionSnapshot,
   ProductReviewStatus,
   ProductVersionStatus,
@@ -1562,8 +1563,10 @@ export class QuotationsService {
       .flatMap((entry) => entry.risks ?? [])
       .find((risk) => !!risk.pricing_snapshot);
     const pricingContext = riskWithPricingSnapshot?.pricing_snapshot
-      ? this.buildServicePricingContext(
+      ? await this.buildServicePricingContext(
+          companyId,
           riskWithPricingSnapshot.pricing_snapshot as unknown as PricingResultSnapshot,
+          riskWithPricingSnapshot.pricing_quote_id,
         )
       : undefined;
     const insuredDataContext = await this.buildServiceInsuredDataContext(
@@ -3146,19 +3149,85 @@ export class QuotationsService {
    * result actually attached to the risk being submitted, so TIRAMIS can
    * independently re-verify the premium it is being asked to bind against.
    */
-  private buildServicePricingContext(
+  private async buildServicePricingContext(
+    companyId: string,
     snapshot: PricingResultSnapshot,
-  ): ServicePricingContext {
+    pricingQuoteId?: string | null,
+  ): Promise<ServicePricingContext> {
+    const pricingQuote = pricingQuoteId
+      ? await this.dataSource.getRepository(PricingQuote).findOne({
+          where: {
+            company_id: companyId,
+            pricing_quote_id: pricingQuoteId,
+          },
+        })
+      : null;
+    const persistedRateBookSnapshot =
+      pricingQuote?.rate_book_snapshot as PricingRateBookSnapshot | null;
+    const rateBookSnapshot = snapshot.rateBook ?? persistedRateBookSnapshot;
+    const rateBookId =
+      rateBookSnapshot?.rateBookId ?? pricingQuote?.rate_book_id ?? '';
+    const rateBook = rateBookId
+      ? await this.dataSource.getRepository(PricingRateBook).findOne({
+          where: {
+            company_id: companyId,
+            id: rateBookId,
+          },
+        })
+      : null;
+    const matchedRule = rateBookSnapshot?.matchedRule;
+    const resolvedPricingQuoteId =
+      snapshot.pricingQuoteId ?? pricingQuote?.pricing_quote_id ?? '';
+    const rateBookDefinitionHash =
+      rateBookSnapshot?.definitionHash?.trim() ||
+      pricingQuote?.rate_book_definition_hash?.trim() ||
+      rateBook?.definition_hash?.trim() ||
+      '';
+    const matchedRuleId =
+      matchedRule?.ruleId?.trim() || pricingQuote?.matched_rule_id || '';
+    const resultHash =
+      snapshot.resultHash?.trim() || pricingQuote?.result_hash?.trim() || '';
+
+    if (
+      !resolvedPricingQuoteId ||
+      !rateBookId ||
+      !rateBookDefinitionHash ||
+      !matchedRuleId ||
+      !resultHash
+    ) {
+      throw new ConflictException({
+        code: 'TIRAMIS_PRICING_CONTEXT_INCOMPLETE',
+        message:
+          'The quotation pricing quote is missing signed TIRAMIS pricing context data. Recalculate premium and try again.',
+        details: {
+          action: 'RECALCULATE_PREMIUM',
+        },
+      });
+    }
+
     return {
-      pricingQuoteId: snapshot.pricingQuoteId,
-      productVersionId: snapshot.rateBook.productVersionId,
-      productDefinitionHash: snapshot.rateBook.productDefinitionHash,
-      rateBookId: snapshot.rateBook.rateBookId,
-      rateBookCode: snapshot.rateBook.code,
-      rateBookVersion: snapshot.rateBook.version,
-      rateBookDefinitionHash: snapshot.rateBook.definitionHash ?? '',
-      matchedRuleId: snapshot.rateBook.matchedRule.ruleId,
-      matchedRuleVersion: snapshot.rateBook.matchedRule.ruleVersion,
+      pricingQuoteId: resolvedPricingQuoteId,
+      productVersionId:
+        rateBookSnapshot?.productVersionId?.trim() ||
+        pricingQuote?.product_version_id ||
+        rateBook?.product_version_id ||
+        '',
+      productDefinitionHash:
+        rateBookSnapshot?.productDefinitionHash?.trim() ||
+        pricingQuote?.product_definition_hash?.trim() ||
+        rateBook?.product_definition_hash?.trim() ||
+        '',
+      rateBookId,
+      rateBookCode: rateBookSnapshot?.code?.trim() || rateBook?.code || '',
+      rateBookVersion:
+        rateBookSnapshot?.version?.trim() ||
+        pricingQuote?.rate_book_version ||
+        rateBook?.version ||
+        '',
+      rateBookDefinitionHash,
+      matchedRuleId,
+      matchedRuleVersion:
+        matchedRule?.ruleVersion ?? pricingQuote?.matched_rule_version ?? 0,
       riskId: snapshot.riskId,
       riskCode: snapshot.riskCode,
       currencyCode: snapshot.currencyCode,
@@ -7123,6 +7192,17 @@ export class QuotationsService {
     currencyCode: string,
     productDefinition?: ProductDefinitionSnapshot | null,
   ): Promise<void> {
+    if (input.motor_dtl && customerId) {
+      await this.persistMotorVehicle(
+        manager,
+        quotation,
+        customerId,
+        input.motor_dtl,
+        userId,
+        currencyCode,
+      );
+    }
+
     await this.persistEntryRisks(
       manager,
       entry,
@@ -7149,17 +7229,6 @@ export class QuotationsService {
           ...this.mapMotorForPersistence(input.motor_dtl),
         }),
       );
-
-      if (customerId) {
-        await this.persistMotorVehicle(
-          manager,
-          quotation,
-          customerId,
-          input.motor_dtl,
-          userId,
-          currencyCode,
-        );
-      }
     }
   }
 

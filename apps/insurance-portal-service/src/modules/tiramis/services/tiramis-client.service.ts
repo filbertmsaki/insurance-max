@@ -226,8 +226,14 @@ export class TiramisClientService {
       dto.requestType,
     );
 
+    const canonicalIngressEnabled =
+      this.configService.get<string>('TIRAMIS_CANONICAL_INGRESS_ENABLED') ===
+      'true';
+
     const canonicalEnvelope =
-      canonicalRequestType && authContext?.scope === 'company'
+      canonicalIngressEnabled &&
+      canonicalRequestType &&
+      authContext?.scope === 'company'
         ? await this.buildCanonicalEnvelope({
             dto,
             authContext,
@@ -1239,12 +1245,47 @@ export class TiramisClientService {
 
   private httpPayload(pattern: string, command: Record<string, any>) {
     const payload = command.payload || command;
+    const submissionPatterns = new Set([
+      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_NON_MOTOR,
+      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR,
+      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR_FLEET,
+      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_REINSURANCE,
+      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_POLICY,
+      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_NOTIFICATION,
+      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_INTIMATION,
+      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_ASSESSMENT,
+      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_DISCHARGE_VOUCHER,
+      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_PAYMENT,
+      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_REJECTION,
+    ]);
+    const resolvedPayload = submissionPatterns.has(pattern)
+      ? this.stripSignedTenantBodyFields(payload)
+      : payload;
 
     if (pattern === TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR_FLEET) {
-      return { ...payload, isFleet: true };
+      return { ...resolvedPayload, isFleet: true };
     }
 
-    return payload;
+    return resolvedPayload;
+  }
+
+  private stripSignedTenantBodyFields(payload: Record<string, any>) {
+    const {
+      companyCode,
+      systemCode,
+      systemName,
+      clientCode,
+      branchCode,
+      ...body
+    } = payload;
+
+    void companyCode;
+    void systemCode;
+    void systemName;
+    void clientCode;
+    void branchCode;
+
+    return body;
   }
 
   private httpRouteForPattern(pattern: string): { path: string } {
