@@ -11,7 +11,6 @@
     "build:insurance-portal-service": "nest build insurance-portal-service",
     "build:insurance-portal-web": "npm --prefix apps/insurance-portal-web run build",
     "build:all": "npm run build:tiramis && npm run build:insurance-portal-service && npm run build:insurance-portal-web",
-
     "start": "nest start tiramis",
     "start:tiramis": "nest start tiramis",
     "start:insurance-portal-service": "nest start insurance-portal-service",
@@ -20,21 +19,17 @@
     "start:dev:insurance-portal-service": "nest start insurance-portal-service --watch",
     "start:dev:insurance-portal-web": "npm --prefix apps/insurance-portal-web run dev",
     "start:debug": "nest start tiramis --debug --watch",
-
     "start:prod": "node dist/apps/tiramis/apps/tiramis/src/main",
     "start:prod:tiramis": "node dist/apps/tiramis/apps/tiramis/src/main.js",
     "start:prod:insurance-portal-service": "node dist/apps/insurance-portal-service/apps/insurance-portal-service/src/main.js",
     "start:prod:insurance-portal-web": "npm --prefix apps/insurance-portal-web run preview -- --host 0.0.0.0 --port 9092",
-
     "format": "prettier --write \"apps/**/*.{ts,tsx}\" \"libs/**/*.ts\" \"scripts/**/*.mjs\"",
     "format:check": "prettier --check \"apps/**/*.{ts,tsx}\" \"libs/**/*.ts\" \"scripts/**/*.mjs\"",
-
     "lint": "npm run lint:backend",
     "lint:backend": "eslint \"{apps,libs}/**/*.ts\"",
     "lint:backend:fix": "eslint \"{apps,libs}/**/*.ts\" --fix",
     "lint:web": "npm --prefix apps/insurance-portal-web run lint",
     "lint:all": "npm run lint:backend && npm run lint:web",
-
     "test": "npm run test:backend",
     "test:backend": "jest --runInBand --passWithNoTests",
     "test:watch": "jest --watch",
@@ -43,7 +38,6 @@
     "test:all": "npm run test:backend && npm run test:web",
     "stest:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "npm run test:tiramis:e2e",
-
     "migration:generate:tiramis": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d apps/tiramis/src/database/data-source.ts migration:generate apps/tiramis/src/database/migrations/AutoMigration",
     "migration:run:tiramis": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d apps/tiramis/src/database/data-source.ts migration:run",
     "migration:revert:tiramis": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d apps/tiramis/src/database/data-source.ts migration:revert",
@@ -53,7 +47,6 @@
     "db:prepare:tiramis:e2e": "node -r ts-node/register -r tsconfig-paths/register scripts/prepare-tiramis-e2e.js",
     "pretest:tiramis:e2e": "npm run db:prepare:tiramis:e2e",
     "test:tiramis:e2e": "node scripts/tiramis-e2e-test.js",
-
     "migration:generate:insurance-portal-service": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d apps/insurance-portal-service/src/database/data-source.ts migration:generate apps/insurance-portal-service/src/database/migrations/Migration",
     "migration:run:insurance-portal-service": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d apps/insurance-portal-service/src/database/data-source.ts migration:run",
     "migration:revert:insurance-portal-service": "node -r ts-node/register -r tsconfig-paths/register ./node_modules/typeorm/cli.js -d apps/insurance-portal-service/src/database/data-source.ts migration:revert",
@@ -61,7 +54,6 @@
     "seed:insurance-portal-service": "node -r ts-node/register -r tsconfig-paths/register apps/insurance-portal-service/src/database/seeds/run-seed.ts",
     "audit:rate-parsing:insurance-portal-service": "node -r ts-node/register -r tsconfig-paths/register apps/insurance-portal-service/src/database/seeds/scripts/audit-rate-parsing.ts",
     "test:quotations:create": "node -r ts-node/register -r tsconfig-paths/register scripts/create-quotation-smoke.ts",
-
     "phase0:validate:migrations": "node scripts/phase0/validate-migrations.mjs",
     "phase0:validate:env": "node scripts/phase0/validate-env-examples.mjs",
     "phase0:routes:update": "node scripts/phase0/inventory-routes.mjs",
@@ -69,7 +61,6 @@
     "phase0:verify-build": "node scripts/phase0/verify-build-output.mjs",
     "phase0:validate": "npm run phase0:validate:migrations && npm run phase0:validate:env && npm run phase0:routes:check",
     "phase0:verify": "npm run phase0:validate && npm run format:check && npm run lint:all && npm run test:all && npm run build:all && npm run phase0:verify-build",
-
     "phase3:validate:authorization": "node scripts/phase3/validate-authorization.mjs"
   },
   "dependencies": {
@@ -115,6 +106,7 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.21.0",
     "pug": "^3.0.3",
     "qrcode": "^1.5.4",

@@ -63,6 +63,11 @@ import { SignatureRequest } from './entities/signature-request.entity';
     DocumentGenerationService,
     SignatureRequestsService,
   ],
-  exports: [DocumentsService, DocumentTemplatesService, SignatureRequestsService],
+  exports: [
+    DocumentsService,
+    DocumentTemplatesService,
+    SignatureRequestsService,
+    DocumentStorageService,
+  ],
 })
 export class InsuranceDocumentsModule {}

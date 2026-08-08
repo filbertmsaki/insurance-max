@@ -1,6 +1,14 @@
 import { createHash } from 'node:crypto';
 
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
+
+const PAGE_WIDTH = 612;
+const PAGE_HEIGHT = 792;
+const MARGIN = 50;
+const FONT_SIZE = 11;
+const LINE_HEIGHT = 16;
+const TITLE_SIZE = 16;
 
 @Injectable()
 export class DocumentRenderService {
@@ -40,63 +48,73 @@ export class DocumentRenderService {
       .digest('hex');
   }
 
-  renderPdf(params: { title: string; body: string }): Buffer {
-    const contentLines = [
-      params.title,
-      '',
-      ...params.body.split(/\r?\n/),
-    ].slice(0, 45);
+  async renderPdf(params: { title: string; body: string }): Promise<Buffer> {
+    const doc = await PDFDocument.create();
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
+    const maxTextWidth = PAGE_WIDTH - MARGIN * 2;
 
-    const bodyCommands = contentLines
-      .map((line, index) => {
-        const escaped = this.escapePdfText(line);
-        const yOffset = index === 0 ? '0 0 Td' : '0 -16 Td';
-        return `${yOffset} (${escaped}) Tj`;
-      })
-      .join('\n');
+    const wrappedLines = params.body
+      .split(/\r?\n/)
+      .flatMap((line) => this.wrapLine(line, font, FONT_SIZE, maxTextWidth));
 
-    const stream = `BT
-/F1 12 Tf
-50 760 Td
-${bodyCommands}
-ET`;
+    let page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    let cursorY = PAGE_HEIGHT - MARGIN;
 
-    const objects = [
-      '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj',
-      '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj',
-      '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj',
-      '4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj',
-      `5 0 obj << /Length ${Buffer.byteLength(stream, 'utf8')} >> stream
-${stream}
-endstream endobj`,
-    ];
+    page.drawText(params.title, {
+      x: MARGIN,
+      y: cursorY,
+      size: TITLE_SIZE,
+      font: boldFont,
+    });
+    cursorY -= TITLE_SIZE + LINE_HEIGHT;
 
-    let pdf = '%PDF-1.4\n';
-    const offsets: number[] = [0];
+    for (const line of wrappedLines) {
+      if (cursorY < MARGIN) {
+        page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+        cursorY = PAGE_HEIGHT - MARGIN;
+      }
 
-    for (const object of objects) {
-      offsets.push(Buffer.byteLength(pdf, 'utf8'));
-      pdf += `${object}\n`;
+      if (line.length) {
+        page.drawText(line, { x: MARGIN, y: cursorY, size: FONT_SIZE, font });
+      }
+
+      cursorY -= LINE_HEIGHT;
     }
 
-    const xrefOffset = Buffer.byteLength(pdf, 'utf8');
-    pdf += `xref
-0 ${objects.length + 1}
-0000000000 65535 f 
-`;
+    return Buffer.from(await doc.save());
+  }
 
-    for (let index = 1; index < offsets.length; index += 1) {
-      pdf += `${offsets[index].toString().padStart(10, '0')} 00000 n 
-`;
+  private wrapLine(
+    line: string,
+    font: import('pdf-lib').PDFFont,
+    fontSize: number,
+    maxWidth: number,
+  ): string[] {
+    if (!line.length) {
+      return [''];
     }
 
-    pdf += `trailer
-<< /Size ${objects.length + 1} /Root 1 0 R >>
-startxref
-${xrefOffset}
-%%EOF`;
+    const words = line.split(' ');
+    const wrapped: string[] = [];
+    let current = '';
 
-    return Buffer.from(pdf, 'utf8');
+    for (const word of words) {
+      const candidate = current ? `${current} ${word}` : word;
+
+      if (font.widthOfTextAtSize(candidate, fontSize) > maxWidth && current) {
+        wrapped.push(current);
+        current = word;
+      } else {
+        current = candidate;
+      }
+    }
+
+    if (current) {
+      wrapped.push(current);
+    }
+
+    return wrapped;
   }
 
   private validateSchemaNode(
@@ -153,10 +171,6 @@ ${xrefOffset}
 
       return (current as Record<string, unknown>)[segment];
     }, value);
-  }
-
-  private escapePdfText(value: string): string {
-    return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
   }
 
   private stableSerialize(value: unknown): string {

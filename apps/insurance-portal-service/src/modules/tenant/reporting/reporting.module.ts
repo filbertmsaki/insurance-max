@@ -13,10 +13,12 @@ import { ReportJob } from './entities/report-job.entity';
 import { ReportSchedule } from './entities/report-schedule.entity';
 import { ProductPerformanceReportGenerator } from './generators/product-performance-report.generator';
 import { REPORT_GENERATORS } from './interfaces/report-generator.interface';
+import { ProductPerformanceSnapshotJob } from './jobs/product-performance-snapshot.job';
 import { ReportSchedulerJob } from './jobs/report-scheduler.job';
 import { ReportWorkerJob } from './jobs/report-worker.job';
 import { ReportingController } from './reporting.controller';
 import { ExcelReportWriterService } from './services/excel-report-writer.service';
+import { ProductPerformanceSnapshotService } from './services/product-performance-snapshot.service';
 import { ReportMailHealthService } from './services/report-mail-health.service';
 import { ReportParameterValidationService } from './services/report-parameter-validation.service';
 import { ReportRegistryService } from './services/report-registry.service';
@@ -45,6 +47,8 @@ import { ReportScheduleService } from './services/report-schedule.service';
     ReportScheduleService,
     ReportSchedulerJob,
     ReportWorkerJob,
+    ProductPerformanceSnapshotService,
+    ProductPerformanceSnapshotJob,
     ProductPerformanceReportGenerator,
     {
       provide: REPORT_GENERATORS,

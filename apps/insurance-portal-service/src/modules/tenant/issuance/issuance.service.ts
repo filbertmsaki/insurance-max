@@ -29,6 +29,7 @@ import { PolicyStatusHistory } from '../policies/entities/policy-status-history.
 import { PolicyVersion } from '../policies/entities/policy-version.entity';
 import { ProductChannelType } from '../product-distribution/enums/product-channel-type.enum';
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
+import { CertificateGenerationService } from './certificate-generation.service';
 
 type IssuableQuotation = Quotation & {
   customer: Customer | null;
@@ -56,6 +57,7 @@ export class IssuanceService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly hashService: ProductDefinitionHashService,
+    private readonly certificateGenerationService: CertificateGenerationService,
   ) {}
 
   async applyNotification(
@@ -203,6 +205,11 @@ export class IssuanceService {
           reason: regulatoryResponse.statusDescription,
           changed_by: null,
         });
+
+        await this.certificateGenerationService.generateForPolicy(
+          manager,
+          saved,
+        );
       }
 
       return { policy: saved };

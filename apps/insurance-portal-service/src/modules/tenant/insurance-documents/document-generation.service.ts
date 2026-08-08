@@ -86,7 +86,7 @@ export class DocumentGenerationService {
       active.version.template_content,
       input.sourceSnapshot,
     );
-    const pdf = this.renderService.renderPdf({
+    const pdf = await this.renderService.renderPdf({
       title: input.title,
       body: renderedText,
     });

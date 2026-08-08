@@ -1,0 +1,42 @@
+import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
+import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
+import { TenantScoped } from '@insurance-max/portal-shared';
+import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+
+import { CoverNotesService } from './cover-notes.service';
+
+@ApiTags('cover-notes')
+@ApiBearerAuth()
+@Controller('tenant/cover-notes')
+@TenantScoped()
+export class CoverNotesController {
+  constructor(private readonly coverNotesService: CoverNotesService) {}
+
+  @Get()
+  @Permissions('cover-notes:read')
+  @ApiOperation({ summary: 'List cover notes for the current company' })
+  @ApiQuery({ name: 'policy_id', required: false })
+  @ApiQuery({ name: 'quotation_id', required: false })
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('policy_id') policyId?: string,
+    @Query('quotation_id') quotationId?: string,
+  ) {
+    return this.coverNotesService.findAll(user.companyId!, {
+      policyId,
+      quotationId,
+    });
+  }
+
+  @Get(':id')
+  @Permissions('cover-notes:read')
+  @ApiOperation({ summary: 'Get a cover note by ID' })
+  findOne(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.coverNotesService.findOne(user.companyId!, id);
+  }
+}
