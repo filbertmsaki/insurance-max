@@ -49,6 +49,7 @@
     "tiramis:compliance:check": "node scripts/verify-tiramis-compliance.mjs",
     "tiramis:audit:refresh": "node scripts/generate-tiramis-final-audit.mjs",
     "tiramis:production:check": "node scripts/check-tiramis-production-readiness.mjs",
+    "tiramis:e2e:user:prepare": "node -r ts-node/register -r tsconfig-paths/register scripts/prepare-tiramis-e2e-user.ts",
     "db:prepare:tiramis:e2e": "node -r ts-node/register -r tsconfig-paths/register scripts/prepare-tiramis-e2e.js",
     "pretest:tiramis:e2e": "npm run db:prepare:tiramis:e2e",
     "test:tiramis:e2e": "node scripts/tiramis-e2e-test.js",

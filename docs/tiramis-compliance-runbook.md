@@ -51,6 +51,16 @@ Start the portal service, TIRAMIS service, and mock/real sandbox endpoint, then 
 npm run test:tiramis:e2e
 ```
 
+The E2E login must use a company-scoped user. To prepare an existing company
+user with TIRAMIS permissions:
+
+```bash
+E2E_AUTH_EMAIL=company-admin@example.com npm run tiramis:e2e:user:prepare
+```
+
+Then copy `.env.e2e.example` to `.env.e2e`, set that user's password, and run
+the E2E script.
+
 For validation-only sandbox checks:
 
 ```bash
@@ -106,4 +116,12 @@ Use this check against the target live environment file:
 
 ```bash
 npm run tiramis:production:check -- --env-file=apps/tiramis/.env --strict
+```
+
+Use `apps/tiramis/.env.live.example` as the template for a live-only env file.
+The live certificate directory must contain:
+
+```text
+<TIRAMIS_CERTIFICATE_BASE_DIR>/live/clientprivate.pfx
+<TIRAMIS_CERTIFICATE_BASE_DIR>/live/tiramispublic.pfx
 ```
