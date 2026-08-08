@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { EntityManager, In } from 'typeorm';
-import { PolicyTransactionStage, PolicyTransactionType } from '@insurance-max/contracts';
+import {
+  PolicyTransactionStage,
+  PolicyTransactionType,
+} from '@insurance-max/contracts';
 
 import { InsuranceProductVersion } from '../../insurance-products/entities/insurance-product-version.entity';
 import { Policy } from '../../policies/entities/policy.entity';
@@ -51,18 +54,21 @@ export class RenewalEligibilityService {
       });
     }
 
-    const activeRenewal = await manager.getRepository(PolicyTransaction).findOne({
-      where: {
-        source_policy_id: policy.id,
-        transaction_type: PolicyTransactionType.RENEWAL,
-        stage: In(ACTIVE_TRANSACTION_STAGES),
-      },
-    });
+    const activeRenewal = await manager
+      .getRepository(PolicyTransaction)
+      .findOne({
+        where: {
+          source_policy_id: policy.id,
+          transaction_type: PolicyTransactionType.RENEWAL,
+          stage: In(ACTIVE_TRANSACTION_STAGES),
+        },
+      });
 
     if (activeRenewal) {
       blockers.push({
         code: 'RENEWAL_ALREADY_IN_PROGRESS',
-        message: 'An active renewal transaction already exists for this policy.',
+        message:
+          'An active renewal transaction already exists for this policy.',
       });
     }
 
@@ -84,7 +90,8 @@ export class RenewalEligibilityService {
       if (!productVersion) {
         blockers.push({
           code: 'PRODUCT_VERSION_NOT_FOUND',
-          message: 'The product version backing this policy could not be resolved.',
+          message:
+            'The product version backing this policy could not be resolved.',
         });
       } else {
         renewalStartDate = this.addDays(policy.end_date, 1);
@@ -96,7 +103,8 @@ export class RenewalEligibilityService {
     } else {
       blockers.push({
         code: 'PRODUCT_VERSION_MISSING',
-        message: 'The policy has no product version to derive the renewal term from.',
+        message:
+          'The policy has no product version to derive the renewal term from.',
       });
     }
 

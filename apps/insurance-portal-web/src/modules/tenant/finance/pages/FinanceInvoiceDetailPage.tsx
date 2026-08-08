@@ -127,33 +127,77 @@ export function FinanceInvoiceDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/finance/invoices')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/finance/invoices')}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <PageHeader title={invoice.invoice_no} description="Finance invoice detail" />
+        <PageHeader
+          title={invoice.invoice_no}
+          description="Finance invoice detail"
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card><CardContent className="pt-6"><div className="space-y-1"><p className="text-xs text-slate-500">Status</p><FinanceStatusBadge status={invoice.status} /></div></CardContent></Card>
-        <Card><CardContent className="pt-6"><p className="text-xs text-slate-500">Total</p><p className="text-xl font-semibold">{formatMoney(invoice.total_amount, currency)}</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><p className="text-xs text-slate-500">Paid</p><p className="text-xl font-semibold">{formatMoney(invoice.paid_amount, currency)}</p></CardContent></Card>
-        <Card><CardContent className="pt-6"><p className="text-xs text-slate-500">Balance</p><p className="text-xl font-semibold">{formatMoney(invoice.balance_amount, currency)}</p></CardContent></Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-1">
+              <p className="text-xs text-slate-500">Status</p>
+              <FinanceStatusBadge status={invoice.status} />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-xs text-slate-500">Total</p>
+            <p className="text-xl font-semibold">
+              {formatMoney(invoice.total_amount, currency)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-xs text-slate-500">Paid</p>
+            <p className="text-xl font-semibold">
+              {formatMoney(invoice.paid_amount, currency)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-xs text-slate-500">Balance</p>
+            <p className="text-xl font-semibold">
+              {formatMoney(invoice.balance_amount, currency)}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="flex flex-wrap gap-2">
         {invoice.status === 'DRAFT' ? (
-          <Button onClick={() => issueMutation.mutate()} disabled={issueMutation.isPending}>
+          <Button
+            onClick={() => issueMutation.mutate()}
+            disabled={issueMutation.isPending}
+          >
             {issueMutation.isPending ? 'Issuing...' : 'Issue Invoice'}
           </Button>
         ) : null}
         {['DRAFT', 'ISSUED'].includes(invoice.status) ? (
-          <Button variant="outline" onClick={() => voidMutation.mutate()} disabled={voidMutation.isPending}>
+          <Button
+            variant="outline"
+            onClick={() => voidMutation.mutate()}
+            disabled={voidMutation.isPending}
+          >
             Void Invoice
           </Button>
         ) : null}
         {invoice.quotation_id ? (
           <Button variant="outline" asChild>
-            <Link to={`/underwriting/quotations/${invoice.quotation_id}/payment`}>
+            <Link
+              to={`/underwriting/quotations/${invoice.quotation_id}/payment`}
+            >
               Open Quotation Payment
             </Link>
           </Button>
@@ -166,14 +210,28 @@ export function FinanceInvoiceDetailPage() {
         </CardHeader>
         <CardContent>
           <DetailRow label="Customer" value={partyName(invoice.customer)} />
-          <DetailRow label="Quotation" value={invoice.quotation?.quotation_no ?? invoice.quotation_id ?? ' - '} />
-          <DetailRow label="Policy" value={invoice.policy?.policy_no ?? invoice.policy_id ?? ' - '} />
+          <DetailRow
+            label="Quotation"
+            value={
+              invoice.quotation?.quotation_no ?? invoice.quotation_id ?? ' - '
+            }
+          />
+          <DetailRow
+            label="Policy"
+            value={invoice.policy?.policy_no ?? invoice.policy_id ?? ' - '}
+          />
           <DetailRow label="Source" value={invoice.source_type ?? 'MANUAL'} />
           <DetailRow label="Due date" value={invoice.due_date ?? ' - '} />
           <DetailRow label="Issued at" value={formatDate(invoice.issued_at)} />
           <DetailRow label="Voided at" value={formatDate(invoice.voided_at)} />
-          <DetailRow label="Refunded" value={formatMoney(invoice.refunded_amount, currency)} />
-          <DetailRow label="Written off" value={formatMoney(invoice.written_off_amount, currency)} />
+          <DetailRow
+            label="Refunded"
+            value={formatMoney(invoice.refunded_amount, currency)}
+          />
+          <DetailRow
+            label="Written off"
+            value={formatMoney(invoice.written_off_amount, currency)}
+          />
         </CardContent>
       </Card>
 
@@ -190,23 +248,49 @@ export function FinanceInvoiceDetailPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <Label htmlFor="payment-method">Payment method</Label>
-                <Input id="payment-method" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value.toUpperCase())} />
+                <Input
+                  id="payment-method"
+                  value={paymentMethod}
+                  onChange={(event) =>
+                    setPaymentMethod(event.target.value.toUpperCase())
+                  }
+                />
               </div>
               <div>
                 <Label htmlFor="payment-amount">Amount</Label>
-                <Input id="payment-amount" type="number" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} placeholder={invoice.balance_amount} />
+                <Input
+                  id="payment-amount"
+                  type="number"
+                  value={paymentAmount}
+                  onChange={(event) => setPaymentAmount(event.target.value)}
+                  placeholder={invoice.balance_amount}
+                />
               </div>
               <div>
                 <Label htmlFor="payment-reference">Reference</Label>
-                <Input id="payment-reference" value={paymentReference} onChange={(event) => setPaymentReference(event.target.value)} />
+                <Input
+                  id="payment-reference"
+                  value={paymentReference}
+                  onChange={(event) => setPaymentReference(event.target.value)}
+                />
               </div>
               <div>
                 <Label htmlFor="payer-name">Payer name</Label>
-                <Input id="payer-name" value={payerName} onChange={(event) => setPayerName(event.target.value)} placeholder={partyName(invoice.customer)} />
+                <Input
+                  id="payer-name"
+                  value={payerName}
+                  onChange={(event) => setPayerName(event.target.value)}
+                  placeholder={partyName(invoice.customer)}
+                />
               </div>
             </div>
-            <Button onClick={() => recordPaymentMutation.mutate()} disabled={recordPaymentMutation.isPending}>
-              {recordPaymentMutation.isPending ? 'Posting...' : 'Record and Allocate Payment'}
+            <Button
+              onClick={() => recordPaymentMutation.mutate()}
+              disabled={recordPaymentMutation.isPending}
+            >
+              {recordPaymentMutation.isPending
+                ? 'Posting...'
+                : 'Record and Allocate Payment'}
             </Button>
           </CardContent>
         </Card>
@@ -218,14 +302,25 @@ export function FinanceInvoiceDetailPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {(invoice.items ?? []).map((item) => (
-            <div key={item.id} className="rounded-lg border border-slate-200 p-4">
-              <DetailRow label="Description" value={item.description ?? item.item_name ?? ' - '} />
+            <div
+              key={item.id}
+              className="rounded-lg border border-slate-200 p-4"
+            >
+              <DetailRow
+                label="Description"
+                value={item.description ?? item.item_name ?? ' - '}
+              />
               <DetailRow label="Quantity" value={item.quantity ?? ' - '} />
-              <DetailRow label="Total" value={formatMoney(item.total_amount, currency)} />
+              <DetailRow
+                label="Total"
+                value={formatMoney(item.total_amount, currency)}
+              />
             </div>
           ))}
           {(invoice.items ?? []).length === 0 ? (
-            <p className="text-sm text-slate-500">No invoice items available.</p>
+            <p className="text-sm text-slate-500">
+              No invoice items available.
+            </p>
           ) : null}
         </CardContent>
       </Card>
@@ -240,7 +335,11 @@ export function FinanceInvoiceDetailPage() {
             <CardTitle className="text-base">Void Reason</CardTitle>
           </CardHeader>
           <CardContent>
-            <Textarea value={invoice.void_reason} readOnly className="min-h-24" />
+            <Textarea
+              value={invoice.void_reason}
+              readOnly
+              className="min-h-24"
+            />
           </CardContent>
         </Card>
       ) : null}

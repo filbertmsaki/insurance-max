@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class Phase18SecurityGovernanceObservability1796300000000
-  implements MigrationInterface
-{
+export class Phase18SecurityGovernanceObservability1796300000000 implements MigrationInterface {
   name = 'Phase18SecurityGovernanceObservability1796300000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -170,13 +168,23 @@ export class Phase18SecurityGovernanceObservability1796300000000
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_legal_hold_resource_active"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_legal_hold_resource_active"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "legal_holds"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "UQ_data_retention_policy_version"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_data_retention_company_status"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "UQ_data_retention_policy_version"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_data_retention_company_status"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "data_retention_policies"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "UQ_security_policy_profile_version"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_security_policy_company_status"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "UQ_security_policy_profile_version"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_security_policy_company_status"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "security_policy_profiles"`);
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_audit_event_no"`);
     await queryRunner.query(`
@@ -185,7 +193,9 @@ export class Phase18SecurityGovernanceObservability1796300000000
       DROP COLUMN IF EXISTS "previous_event_hash",
       DROP COLUMN IF EXISTS "event_no"
     `);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_user_sessions_family_active"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_user_sessions_family_active"`,
+    );
     await queryRunner.query(`
       ALTER TABLE "user_sessions"
       DROP COLUMN IF EXISTS "security_events",

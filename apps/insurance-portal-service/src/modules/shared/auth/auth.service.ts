@@ -1165,8 +1165,7 @@ export class AuthService {
       userAgent: options.userAgent,
       authenticationStrength:
         options.authenticationStrength ?? AuthenticationStrength.PASSWORD,
-      twoFactorVerifiedAt:
-        options.method === 'two_factor' ? new Date() : null,
+      twoFactorVerifiedAt: options.method === 'two_factor' ? new Date() : null,
     });
 
     let authResponse: ReturnType<

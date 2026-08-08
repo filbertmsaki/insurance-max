@@ -62,7 +62,10 @@ export function CommunicationsPage() {
               onChange={(event) => setSubject(event.target.value)}
             />
           </div>
-          <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
+          <Button
+            onClick={() => createMutation.mutate()}
+            disabled={createMutation.isPending}
+          >
             Create thread
           </Button>
         </CardContent>
@@ -95,13 +98,17 @@ export function CommunicationsPage() {
                     >
                       {thread.thread_no}
                     </Link>
-                    <div className="text-sm text-slate-500">{thread.subject}</div>
+                    <div className="text-sm text-slate-500">
+                      {thread.subject}
+                    </div>
                   </TableCell>
                   <TableCell>{thread.thread_type}</TableCell>
                   <TableCell>
                     {thread.resource_type ?? '-'}
                     {thread.resource_id ? (
-                      <div className="text-xs text-slate-500">{thread.resource_id}</div>
+                      <div className="text-xs text-slate-500">
+                        {thread.resource_id}
+                      </div>
                     ) : null}
                   </TableCell>
                   <TableCell>{formatDateTime(thread.updated_at)}</TableCell>

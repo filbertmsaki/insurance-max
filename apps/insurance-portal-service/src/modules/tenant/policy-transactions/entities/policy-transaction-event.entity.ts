@@ -13,10 +13,7 @@ import type { PolicyTransactionEventType } from '@insurance-max/contracts';
 import { PolicyTransaction } from './policy-transaction.entity';
 
 @Entity('policy_transaction_events')
-@Unique('UQ_policy_transaction_source_event', [
-  'source_event_id',
-  'event_type',
-])
+@Unique('UQ_policy_transaction_source_event', ['source_event_id', 'event_type'])
 @Index('IDX_policy_transaction_events_transaction', [
   'policy_transaction_id',
   'created_at',

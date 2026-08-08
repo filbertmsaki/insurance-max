@@ -204,7 +204,10 @@ export class SaasCycleBillingService {
     }
 
     await this.invoiceRepository.save(invoice);
-    await this.restoreSubscriptionAfterPayment(invoice.subscription_id, user.id);
+    await this.restoreSubscriptionAfterPayment(
+      invoice.subscription_id,
+      user.id,
+    );
     return payment;
   }
 
@@ -259,7 +262,10 @@ export class SaasCycleBillingService {
     );
   }
 
-  async approveInvoiceAdjustment(user: AuthenticatedUser, adjustmentId: string) {
+  async approveInvoiceAdjustment(
+    user: AuthenticatedUser,
+    adjustmentId: string,
+  ) {
     const adjustment = await this.invoiceAdjustmentRepository.findOneBy({
       id: adjustmentId,
     });
@@ -331,7 +337,10 @@ export class SaasCycleBillingService {
 
     await this.invoiceRepository.save(invoice);
     await this.invoiceAdjustmentRepository.save(adjustment);
-    await this.restoreSubscriptionAfterPayment(invoice.subscription_id, user.id);
+    await this.restoreSubscriptionAfterPayment(
+      invoice.subscription_id,
+      user.id,
+    );
 
     return adjustment;
   }
@@ -491,11 +500,9 @@ export class SaasCycleBillingService {
     };
 
     const planSnapshot =
-      (subscription.plan_snapshot as
-        | {
-            meter_rates?: MeterRateSnapshot[];
-          }
-        | null) ?? null;
+      (subscription.plan_snapshot as {
+        meter_rates?: MeterRateSnapshot[];
+      } | null) ?? null;
     const meterRates = Array.isArray(planSnapshot?.meter_rates)
       ? planSnapshot.meter_rates
       : [];
@@ -570,9 +577,7 @@ export class SaasCycleBillingService {
     return {
       snapshot,
       usage_amount: DecimalUtil.money(usageAmount),
-      hash: createHash('sha256')
-        .update(JSON.stringify(snapshot))
-        .digest('hex'),
+      hash: createHash('sha256').update(JSON.stringify(snapshot)).digest('hex'),
     };
   }
 
@@ -593,10 +598,9 @@ export class SaasCycleBillingService {
     });
     if (
       !subscription ||
-      ![
-        SubscriptionStatus.PAST_DUE,
-        SubscriptionStatus.SUSPENDED,
-      ].includes(subscription.status)
+      ![SubscriptionStatus.PAST_DUE, SubscriptionStatus.SUSPENDED].includes(
+        subscription.status,
+      )
     ) {
       return;
     }

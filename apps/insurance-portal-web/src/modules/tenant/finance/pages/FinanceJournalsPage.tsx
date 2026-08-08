@@ -19,13 +19,25 @@ export function FinanceJournalsPage() {
   const columns: Column<FinanceJournalEntry>[] = [
     { key: 'journal_no', header: 'Journal', cell: (row) => row.journal_no },
     { key: 'source_type', header: 'Source', cell: (row) => row.source_type },
-    { key: 'status', header: 'Status', cell: (row) => <FinanceStatusBadge status={row.status} /> },
-    { key: 'description', header: 'Description', cell: (row) => row.description },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (row) => <FinanceStatusBadge status={row.status} />,
+    },
+    {
+      key: 'description',
+      header: 'Description',
+      cell: (row) => row.description,
+    },
     {
       key: 'actions',
       header: 'Action',
       cell: (row) => (
-        <Button size="sm" variant="outline" onClick={() => navigate(`/finance/journals/${row.id}`)}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => navigate(`/finance/journals/${row.id}`)}
+        >
           Open
         </Button>
       ),
@@ -36,7 +48,10 @@ export function FinanceJournalsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Journals" description="Balanced finance journals are immutable; corrections use reversing entries." />
+      <PageHeader
+        title="Journals"
+        description="Balanced finance journals are immutable; corrections use reversing entries."
+      />
       <DataTable
         columns={columns}
         data={rows}

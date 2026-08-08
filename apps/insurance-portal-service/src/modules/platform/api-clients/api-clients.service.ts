@@ -334,10 +334,7 @@ export class ApiClientsService {
       | ApiClientStatus
       | undefined;
 
-    if (
-      nextStatus &&
-      !Object.values(ApiClientStatus).includes(nextStatus)
-    ) {
+    if (nextStatus && !Object.values(ApiClientStatus).includes(nextStatus)) {
       throw new ConflictException('Unsupported API client status.');
     }
 
@@ -357,11 +354,7 @@ export class ApiClientsService {
     return this.findById(client.id, companyId);
   }
 
-  async revoke(
-    id: string,
-    companyId?: string,
-    reason?: string,
-  ): Promise<void> {
+  async revoke(id: string, companyId?: string, reason?: string): Promise<void> {
     const client = await this.findById(id, companyId);
     await this.apiClientRepo.update(client.id, {
       status: ApiClientStatus.REVOKED,
@@ -390,7 +383,9 @@ export class ApiClientsService {
       throw new NotFoundException('API client not found');
     }
 
-    const { clientSecret, displaySecret } = this.generateCredentials(client.key_prefix);
+    const { clientSecret, displaySecret } = this.generateCredentials(
+      client.key_prefix,
+    );
     const secretHash = await hashPassword(clientSecret);
     const graceHours = this.configService.get<number>(
       'API_KEY_ROTATION_GRACE_HOURS',
@@ -415,11 +410,14 @@ export class ApiClientsService {
     return { plainSecret: displaySecret, previousSecretGraceEndsAt };
   }
 
-  private generateCredentials(existingPrefix?: string | null): ApiKeyCredentials {
+  private generateCredentials(
+    existingPrefix?: string | null,
+  ): ApiKeyCredentials {
     const clientId = `iam_${crypto.randomBytes(12).toString('hex')}`;
     const clientSecret = crypto.randomBytes(32).toString('hex');
     const keyPrefix =
-      existingPrefix ?? `IMX_${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+      existingPrefix ??
+      `IMX_${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
     const displaySecret = `${clientId}.${clientSecret}`;
     return { clientId, clientSecret, displaySecret, keyPrefix };
   }

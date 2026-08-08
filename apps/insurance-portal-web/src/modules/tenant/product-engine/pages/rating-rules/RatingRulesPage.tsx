@@ -504,9 +504,7 @@ export function RatingRulesPage({
   const { hasPermission } = useAuthStore();
   const isScoped = !!rateBookId;
   const rateBookEditable =
-    !isScoped ||
-    rateBookStatus === 'DRAFT' ||
-    rateBookStatus === 'REJECTED';
+    !isScoped || rateBookStatus === 'DRAFT' || rateBookStatus === 'REJECTED';
   const canCreate = hasPermission('pricing.manage_rules') && rateBookEditable;
   const canUpdate = hasPermission('pricing.manage_rules') && rateBookEditable;
   const canDelete = hasPermission('pricing.manage_rules') && rateBookEditable;

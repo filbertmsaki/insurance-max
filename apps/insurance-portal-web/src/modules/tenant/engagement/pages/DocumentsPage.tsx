@@ -111,7 +111,10 @@ export function DocumentsPage() {
               id="doc-title"
               value={form.title}
               onChange={(event) =>
-                setForm((current) => ({ ...current, title: event.target.value }))
+                setForm((current) => ({
+                  ...current,
+                  title: event.target.value,
+                }))
               }
               placeholder="Claims estimate"
             />
@@ -141,11 +144,13 @@ export function DocumentsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {['INTERNAL', 'CONFIDENTIAL', 'RESTRICTED', 'PUBLIC'].map((item) => (
-                  <SelectItem key={item} value={item}>
-                    {item}
-                  </SelectItem>
-                ))}
+                {['INTERNAL', 'CONFIDENTIAL', 'RESTRICTED', 'PUBLIC'].map(
+                  (item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ),
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -214,7 +219,9 @@ export function DocumentsPage() {
                 }))
               }
             />
-            <Label htmlFor="doc-intermediary-visible">Visible to intermediary</Label>
+            <Label htmlFor="doc-intermediary-visible">
+              Visible to intermediary
+            </Label>
           </div>
           <div className="flex items-end justify-end">
             <Button
@@ -260,18 +267,25 @@ export function DocumentsPage() {
                         >
                           {document.document_no ?? document.title ?? 'Document'}
                         </Link>
-                        <div className="text-xs text-slate-500">{document.title}</div>
+                        <div className="text-xs text-slate-500">
+                          {document.title}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>{document.document_type ?? 'GENERAL'}</TableCell>
                     <TableCell>
                       {document.owner_type}
                       {document.owner_id ? (
-                        <div className="text-xs text-slate-500">{document.owner_id}</div>
+                        <div className="text-xs text-slate-500">
+                          {document.owner_id}
+                        </div>
                       ) : null}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={statusTone(document.status)}>
+                      <Badge
+                        variant="outline"
+                        className={statusTone(document.status)}
+                      >
                         {document.status}
                       </Badge>
                     </TableCell>
@@ -281,11 +295,14 @@ export function DocumentsPage() {
                     <TableCell className="text-xs text-slate-600">
                       {document.customer_visible ? 'Customer ' : ''}
                       {document.intermediary_visible ? 'Intermediary' : ''}
-                      {!document.customer_visible && !document.intermediary_visible
+                      {!document.customer_visible &&
+                      !document.intermediary_visible
                         ? 'Internal only'
                         : null}
                     </TableCell>
-                    <TableCell>{formatDate(document.retention_until)}</TableCell>
+                    <TableCell>
+                      {formatDate(document.retention_until)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

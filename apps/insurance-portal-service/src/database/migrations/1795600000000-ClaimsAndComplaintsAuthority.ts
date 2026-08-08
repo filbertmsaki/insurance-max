@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class ClaimsAndComplaintsAuthority1795600000000
-  implements MigrationInterface
-{
+export class ClaimsAndComplaintsAuthority1795600000000 implements MigrationInterface {
   name = 'ClaimsAndComplaintsAuthority1795600000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {
@@ -415,7 +413,9 @@ export class ClaimsAndComplaintsAuthority1795600000000
   }
 
   async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_complaint_sla_events_pending"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_complaint_sla_events_pending"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "complaint_sla_events"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "complaint_sla_rules"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "complaint_comments"`);
@@ -476,9 +476,13 @@ export class ClaimsAndComplaintsAuthority1795600000000
     );
     await queryRunner.query(`DROP TABLE IF EXISTS "claim_reserve_movements"`);
 
-    await queryRunner.query(`DROP TABLE IF EXISTS "claim_regulatory_operations"`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "claim_regulatory_operations"`,
+    );
 
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_claim_duplicate_fingerprint"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_claim_duplicate_fingerprint"`,
+    );
     await queryRunner.query(
       `ALTER TABLE "claims" DROP CONSTRAINT IF EXISTS "FK_claim_policy_version"`,
     );

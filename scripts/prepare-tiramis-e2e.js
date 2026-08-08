@@ -3,17 +3,22 @@ require('tsconfig-paths/register');
 
 process.env.NODE_ENV = process.env.NODE_ENV || 'e2e';
 
-const portalDataSource = require('../apps/insurance-portal-service/src/database/data-source')
-  .default;
-const { runAllSeeders } = require('../apps/insurance-portal-service/src/database/seeds');
-const tiramisDataSource = require('../apps/tiramis/src/database/data-source').default;
+const portalDataSource =
+  require('../apps/insurance-portal-service/src/database/data-source').default;
+const {
+  runAllSeeders,
+} = require('../apps/insurance-portal-service/src/database/seeds');
+const tiramisDataSource =
+  require('../apps/tiramis/src/database/data-source').default;
 const {
   runTiramisConfigSeed,
 } = require('../apps/tiramis/src/database/seeders/seed-tiramis-config');
 
 async function getAppliedMigrationCount(dataSource) {
   try {
-    const rows = await dataSource.query('SELECT COUNT(*)::int AS count FROM migrations');
+    const rows = await dataSource.query(
+      'SELECT COUNT(*)::int AS count FROM migrations',
+    );
     return Number(rows?.[0]?.count ?? 0);
   } catch {
     return 0;
@@ -23,7 +28,9 @@ async function getAppliedMigrationCount(dataSource) {
 async function resetMigrations(dataSource, label) {
   const appliedCount = await getAppliedMigrationCount(dataSource);
 
-  console.log(`\n[${label}] resetting schema (${appliedCount} recorded migration(s))`);
+  console.log(
+    `\n[${label}] resetting schema (${appliedCount} recorded migration(s))`,
+  );
   await dataSource.query('DROP SCHEMA IF EXISTS public CASCADE');
   await dataSource.query('CREATE SCHEMA public');
   await dataSource.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
@@ -61,7 +68,9 @@ async function prepareTiramisService() {
 }
 
 async function main() {
-  console.log('Preparing Tiramis E2E databases with a fresh migration reset and seed.');
+  console.log(
+    'Preparing Tiramis E2E databases with a fresh migration reset and seed.',
+  );
 
   await preparePortalService();
   await prepareTiramisService();

@@ -49,23 +49,30 @@ export function FinanceInvoicesPage() {
     {
       key: 'total',
       header: 'Total',
-      cell: (row) => formatMoney(row.total_amount, row.currency ?? row.currency_code),
+      cell: (row) =>
+        formatMoney(row.total_amount, row.currency ?? row.currency_code),
     },
     {
       key: 'paid',
       header: 'Paid',
-      cell: (row) => formatMoney(row.paid_amount, row.currency ?? row.currency_code),
+      cell: (row) =>
+        formatMoney(row.paid_amount, row.currency ?? row.currency_code),
     },
     {
       key: 'balance',
       header: 'Balance',
-      cell: (row) => formatMoney(row.balance_amount, row.currency ?? row.currency_code),
+      cell: (row) =>
+        formatMoney(row.balance_amount, row.currency ?? row.currency_code),
     },
     {
       key: 'actions',
       header: 'Action',
       cell: (row) => (
-        <Button size="sm" variant="outline" onClick={() => navigate(`/finance/invoices/${row.id}`)}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => navigate(`/finance/invoices/${row.id}`)}
+        >
           Open
         </Button>
       ),

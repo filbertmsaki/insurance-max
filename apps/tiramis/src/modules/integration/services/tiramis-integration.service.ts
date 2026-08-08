@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 
 import {
   TiramisIntegrationCommand,
@@ -7,7 +11,10 @@ import {
   type TiramisSubmissionAcceptance,
   type TiramisSubmissionEnvelope,
 } from '@insurance-max/contracts';
-import { ProductDefinitionHashService, RequestContextService } from '@insurance-max/shared-kernel';
+import {
+  ProductDefinitionHashService,
+  RequestContextService,
+} from '@insurance-max/shared-kernel';
 
 import { TiramisRequestIdService } from '../../submissions/services/tiramis-request-id.service';
 import { TiramisSubmissionService } from '../../submissions/services/tiramis-submission.service';
@@ -63,7 +70,7 @@ export class TiramisIntegrationService {
       }
 
       return {
-        ...((existing.acceptancePayload as unknown) as TiramisSubmissionAcceptance),
+        ...(existing.acceptancePayload as unknown as TiramisSubmissionAcceptance),
         duplicate: true,
       };
     }

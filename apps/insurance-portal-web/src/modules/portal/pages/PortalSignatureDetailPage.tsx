@@ -72,17 +72,26 @@ export function PortalSignatureDetailPage({
                     <TableRow key={participant.id}>
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="font-medium text-slate-900">{participant.name}</div>
-                          <div className="text-xs text-slate-500">{participant.email}</div>
+                          <div className="font-medium text-slate-900">
+                            {participant.name}
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            {participant.email}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>{participant.participant_type}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={statusTone(participant.status)}>
+                        <Badge
+                          variant="outline"
+                          className={statusTone(participant.status)}
+                        >
                           {participant.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>{formatDateTime(participant.signed_at)}</TableCell>
+                      <TableCell>
+                        {formatDateTime(participant.signed_at)}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -50,7 +50,7 @@ describe('TiramisIntegrationService', () => {
     return {
       ...withOverrides,
       hashes: { payloadHash, contextHash, envelopeHash },
-    } as TiramisSubmissionEnvelope;
+    };
   }
 
   function makeService(overrides: Record<string, unknown> = {}) {
@@ -88,7 +88,7 @@ describe('TiramisIntegrationService', () => {
       service: new TiramisIntegrationService(
         hashService,
         deps.requestContextService as never,
-        deps.requestIdService as never,
+        deps.requestIdService,
         deps.submissionService as never,
         deps.transactionRepository as never,
         deps.ingressRequestRepository as never,

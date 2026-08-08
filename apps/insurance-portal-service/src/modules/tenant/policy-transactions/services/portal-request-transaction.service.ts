@@ -45,12 +45,16 @@ export class PortalRequestTransactionService {
 
     switch (request.request_type) {
       case PortalRequestType.ENDORSEMENT: {
-        const transaction = await this.endorsementService.create(user, request.policy_id, {
-          effective_date: String(payload.effective_date),
-          endorsement_type_code: String(payload.endorsement_type_code),
-          reason: request.description,
-          idempotency_key: `portal-request:${request.id}`,
-        });
+        const transaction = await this.endorsementService.create(
+          user,
+          request.policy_id,
+          {
+            effective_date: String(payload.effective_date),
+            endorsement_type_code: String(payload.endorsement_type_code),
+            reason: request.description,
+            idempotency_key: `portal-request:${request.id}`,
+          },
+        );
 
         return this.stampResource(request, 'ENDORSEMENT', transaction.id);
       }

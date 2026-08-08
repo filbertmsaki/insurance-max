@@ -55,7 +55,10 @@ export function RegulatoryWorkbenchPage() {
   const [ackMessage, setAckMessage] = useState('');
 
   const selectedReturn = useMemo(() => {
-    return returnsQuery.data?.find((record) => record.id === selectedReturnId) ?? null;
+    return (
+      returnsQuery.data?.find((record) => record.id === selectedReturnId) ??
+      null
+    );
   }, [returnsQuery.data, selectedReturnId]);
 
   const returnDetailQuery = useQuery({
@@ -71,9 +74,15 @@ export function RegulatoryWorkbenchPage() {
   }, [returnsQuery.data, selectedReturnId]);
 
   const refreshRegulatoryViews = () => {
-    queryClient.invalidateQueries({ queryKey: ['phase16', 'regulatory', 'calendar'] });
-    queryClient.invalidateQueries({ queryKey: ['phase16', 'regulatory', 'returns'] });
-    queryClient.invalidateQueries({ queryKey: ['phase16', 'regulatory', 'levies'] });
+    queryClient.invalidateQueries({
+      queryKey: ['phase16', 'regulatory', 'calendar'],
+    });
+    queryClient.invalidateQueries({
+      queryKey: ['phase16', 'regulatory', 'returns'],
+    });
+    queryClient.invalidateQueries({
+      queryKey: ['phase16', 'regulatory', 'levies'],
+    });
     queryClient.invalidateQueries({
       queryKey: ['phase16', 'regulatory', 'return', selectedReturnId],
     });
@@ -85,7 +94,14 @@ export function RegulatoryWorkbenchPage() {
   });
 
   const returnActionMutation = useMutation({
-    mutationFn: async (action: 'validate' | 'reconcile' | 'submit-review' | 'approve' | 'correction') => {
+    mutationFn: async (
+      action:
+        | 'validate'
+        | 'reconcile'
+        | 'submit-review'
+        | 'approve'
+        | 'correction',
+    ) => {
       if (!selectedReturnId) {
         throw new Error('Select a regulatory return first');
       }
@@ -188,14 +204,17 @@ export function RegulatoryWorkbenchPage() {
                       <TableCell>
                         <div className="space-y-1">
                           <p className="font-medium text-slate-900">
-                            {record.definition?.obligation_name ?? record.obligation_reference}
+                            {record.definition?.obligation_name ??
+                              record.obligation_reference}
                           </p>
                           <p className="text-xs text-slate-500">
                             {record.definition?.obligation_code}
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell>{record.authority?.authority_name ?? '—'}</TableCell>
+                      <TableCell>
+                        {record.authority?.authority_name ?? '—'}
+                      </TableCell>
                       <TableCell>
                         {record.period_start} to {record.period_end}
                       </TableCell>
@@ -204,7 +223,9 @@ export function RegulatoryWorkbenchPage() {
                         <Badge variant="outline">{record.status}</Badge>
                       </TableCell>
                       <TableCell>{record.days_remaining ?? '—'}</TableCell>
-                      <TableCell>{record.active_return?.return_no ?? 'Not created'}</TableCell>
+                      <TableCell>
+                        {record.active_return?.return_no ?? 'Not created'}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -237,7 +258,11 @@ export function RegulatoryWorkbenchPage() {
                     {(returnsQuery.data ?? []).map((record) => (
                       <TableRow
                         key={record.id}
-                        className={record.id === selectedReturnId ? 'bg-slate-50' : undefined}
+                        className={
+                          record.id === selectedReturnId
+                            ? 'bg-slate-50'
+                            : undefined
+                        }
                         onClick={() => setSelectedReturnId(record.id)}
                       >
                         <TableCell>
@@ -246,7 +271,9 @@ export function RegulatoryWorkbenchPage() {
                               {record.return_no}
                             </p>
                             <p className="text-xs text-slate-500">
-                              {record.report_definition_code ?? record.return_code ?? 'Registered report'}
+                              {record.report_definition_code ??
+                                record.return_code ??
+                                'Registered report'}
                             </p>
                           </div>
                         </TableCell>
@@ -271,7 +298,9 @@ export function RegulatoryWorkbenchPage() {
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <p className="text-slate-500">Status</p>
-                        <p className="font-medium text-slate-900">{activeReturn.status}</p>
+                        <p className="font-medium text-slate-900">
+                          {activeReturn.status}
+                        </p>
                       </div>
                       <div>
                         <p className="text-slate-500">Reconciliation</p>
@@ -282,7 +311,9 @@ export function RegulatoryWorkbenchPage() {
                       <div>
                         <p className="text-slate-500">Due date</p>
                         <p className="font-medium text-slate-900">
-                          {activeReturn.due_at ?? activeReturn.obligation_instance?.due_at ?? '—'}
+                          {activeReturn.due_at ??
+                            activeReturn.obligation_instance?.due_at ??
+                            '—'}
                         </p>
                       </div>
                       <div>
@@ -297,7 +328,8 @@ export function RegulatoryWorkbenchPage() {
                       <Alert>
                         <AlertTitle>Submitted returns are read-only</AlertTitle>
                         <AlertDescription>
-                          This version is locked for editing. Corrections create version N + 1.
+                          This version is locked for editing. Corrections create
+                          version N + 1.
                         </AlertDescription>
                       </Alert>
                     )}
@@ -305,28 +337,42 @@ export function RegulatoryWorkbenchPage() {
                     <div className="grid gap-2 sm:grid-cols-2">
                       <Button
                         variant="outline"
-                        disabled={returnActionMutation.isPending || activeReturn.read_only}
+                        disabled={
+                          returnActionMutation.isPending ||
+                          activeReturn.read_only
+                        }
                         onClick={() => returnActionMutation.mutate('validate')}
                       >
                         Validate
                       </Button>
                       <Button
                         variant="outline"
-                        disabled={returnActionMutation.isPending || activeReturn.read_only}
+                        disabled={
+                          returnActionMutation.isPending ||
+                          activeReturn.read_only
+                        }
                         onClick={() => returnActionMutation.mutate('reconcile')}
                       >
                         Reconcile
                       </Button>
                       <Button
                         variant="outline"
-                        disabled={returnActionMutation.isPending || activeReturn.read_only}
-                        onClick={() => returnActionMutation.mutate('submit-review')}
+                        disabled={
+                          returnActionMutation.isPending ||
+                          activeReturn.read_only
+                        }
+                        onClick={() =>
+                          returnActionMutation.mutate('submit-review')
+                        }
                       >
                         Submit for review
                       </Button>
                       <Button
                         variant="outline"
-                        disabled={returnActionMutation.isPending || activeReturn.read_only}
+                        disabled={
+                          returnActionMutation.isPending ||
+                          activeReturn.read_only
+                        }
                         onClick={() => returnActionMutation.mutate('approve')}
                       >
                         Approve
@@ -334,7 +380,9 @@ export function RegulatoryWorkbenchPage() {
                       <Button
                         className="sm:col-span-2"
                         disabled={returnActionMutation.isPending}
-                        onClick={() => returnActionMutation.mutate('correction')}
+                        onClick={() =>
+                          returnActionMutation.mutate('correction')
+                        }
                       >
                         Create correction version
                       </Button>
@@ -346,64 +394,91 @@ export function RegulatoryWorkbenchPage() {
                       </p>
                       <div className="mt-4 space-y-3">
                         <div className="space-y-2">
-                          <Label htmlFor="submission-channel">Submission channel</Label>
+                          <Label htmlFor="submission-channel">
+                            Submission channel
+                          </Label>
                           <Input
                             id="submission-channel"
                             value={submissionChannel}
-                            onChange={(event) => setSubmissionChannel(event.target.value)}
+                            onChange={(event) =>
+                              setSubmissionChannel(event.target.value)
+                            }
                             disabled={activeReturn.read_only}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="submission-reference">Submission reference</Label>
+                          <Label htmlFor="submission-reference">
+                            Submission reference
+                          </Label>
                           <Input
                             id="submission-reference"
                             value={submissionReference}
-                            onChange={(event) => setSubmissionReference(event.target.value)}
+                            onChange={(event) =>
+                              setSubmissionReference(event.target.value)
+                            }
                             disabled={activeReturn.read_only}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="evidence-id">Evidence document reference</Label>
+                          <Label htmlFor="evidence-id">
+                            Evidence document reference
+                          </Label>
                           <Input
                             id="evidence-id"
                             value={evidenceDocumentId}
-                            onChange={(event) => setEvidenceDocumentId(event.target.value)}
+                            onChange={(event) =>
+                              setEvidenceDocumentId(event.target.value)
+                            }
                             disabled={activeReturn.read_only}
                           />
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div className="space-y-2">
-                            <Label htmlFor="ack-reference">Acknowledgement reference</Label>
+                            <Label htmlFor="ack-reference">
+                              Acknowledgement reference
+                            </Label>
                             <Input
                               id="ack-reference"
                               value={ackReference}
-                              onChange={(event) => setAckReference(event.target.value)}
+                              onChange={(event) =>
+                                setAckReference(event.target.value)
+                              }
                               disabled={activeReturn.read_only}
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="ack-code">Acknowledgement code</Label>
+                            <Label htmlFor="ack-code">
+                              Acknowledgement code
+                            </Label>
                             <Input
                               id="ack-code"
                               value={ackCode}
-                              onChange={(event) => setAckCode(event.target.value)}
+                              onChange={(event) =>
+                                setAckCode(event.target.value)
+                              }
                               disabled={activeReturn.read_only}
                             />
                           </div>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="ack-message">Acknowledgement message</Label>
+                          <Label htmlFor="ack-message">
+                            Acknowledgement message
+                          </Label>
                           <Input
                             id="ack-message"
                             value={ackMessage}
-                            onChange={(event) => setAckMessage(event.target.value)}
+                            onChange={(event) =>
+                              setAckMessage(event.target.value)
+                            }
                             disabled={activeReturn.read_only}
                           />
                         </div>
                         <Button
                           className="w-full"
-                          disabled={recordSubmissionMutation.isPending || activeReturn.read_only}
+                          disabled={
+                            recordSubmissionMutation.isPending ||
+                            activeReturn.read_only
+                          }
                           onClick={() => recordSubmissionMutation.mutate()}
                         >
                           Record submission
@@ -412,7 +487,9 @@ export function RegulatoryWorkbenchPage() {
                     </div>
 
                     <div className="rounded-lg border border-slate-200 p-4">
-                      <p className="text-sm font-medium text-slate-900">Timeline and versions</p>
+                      <p className="text-sm font-medium text-slate-900">
+                        Timeline and versions
+                      </p>
                       <div className="mt-3 space-y-2">
                         {activeReturn.versions.map((version) => (
                           <div
@@ -435,13 +512,16 @@ export function RegulatoryWorkbenchPage() {
                       <pre className="mt-2 overflow-auto text-xs text-slate-600">
                         {formatJson({
                           validation_results: activeReturn.validation_results,
-                          reconciliation_summary: activeReturn.reconciliation_summary,
+                          reconciliation_summary:
+                            activeReturn.reconciliation_summary,
                         })}
                       </pre>
                     </div>
 
                     <div className="rounded-lg border border-slate-200 p-4">
-                      <p className="text-sm font-medium text-slate-900">Submissions</p>
+                      <p className="text-sm font-medium text-slate-900">
+                        Submissions
+                      </p>
                       <div className="mt-3 space-y-3">
                         {activeReturn.submissions.length > 0 ? (
                           activeReturn.submissions.map((submission) => (
@@ -453,10 +533,13 @@ export function RegulatoryWorkbenchPage() {
                                 <span className="font-medium text-slate-900">
                                   {submission.submission_no}
                                 </span>
-                                <Badge variant="outline">{submission.status}</Badge>
+                                <Badge variant="outline">
+                                  {submission.status}
+                                </Badge>
                               </div>
                               <p className="mt-1 text-slate-600">
-                                {submission.submission_channel} | {submission.submitted_at}
+                                {submission.submission_channel} |{' '}
+                                {submission.submitted_at}
                               </p>
                             </div>
                           ))
@@ -470,8 +553,8 @@ export function RegulatoryWorkbenchPage() {
                   </>
                 ) : (
                   <p className="text-sm text-slate-500">
-                    Select a return to inspect the lifecycle, evidence, versions,
-                    validation, and reconciliation state.
+                    Select a return to inspect the lifecycle, evidence,
+                    versions, validation, and reconciliation state.
                   </p>
                 )}
               </CardContent>
@@ -511,7 +594,8 @@ export function RegulatoryWorkbenchPage() {
                         {assessment.currency_code} {assessment.paid_amount}
                       </TableCell>
                       <TableCell>
-                        {assessment.currency_code} {assessment.outstanding_amount}
+                        {assessment.currency_code}{' '}
+                        {assessment.outstanding_amount}
                       </TableCell>
                       <TableCell>{assessment.reconciliation_status}</TableCell>
                     </TableRow>
@@ -557,8 +641,12 @@ export function RegulatoryWorkbenchPage() {
                       </TableCell>
                       <TableCell>{authority.authority_type}</TableCell>
                       <TableCell>{authority.jurisdiction_code}</TableCell>
-                      <TableCell>{authority.registration_reference ?? '—'}</TableCell>
-                      <TableCell>{authority.submission_channel ?? '—'}</TableCell>
+                      <TableCell>
+                        {authority.registration_reference ?? '—'}
+                      </TableCell>
+                      <TableCell>
+                        {authority.submission_channel ?? '—'}
+                      </TableCell>
                       <TableCell>{authority.contact_email ?? '—'}</TableCell>
                     </TableRow>
                   ))}

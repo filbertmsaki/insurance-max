@@ -69,7 +69,9 @@ const DOC_STAGES: ProductRequirementAppliesTo[] = [
   'CLAIM',
 ];
 
-function toFormValues(version: InsuranceProductVersion): UpsertProductVersionDto {
+function toFormValues(
+  version: InsuranceProductVersion,
+): UpsertProductVersionDto {
   return {
     product_name: version.product_name,
     description: version.description ?? '',
@@ -260,36 +262,37 @@ export function ProductDetailPage() {
               </>
             )}
 
-          {version?.status === 'DRAFT' && version.review_status === 'IN_REVIEW' && (
-            <>
-              {canReview && (
-                <Button
-                  variant="outline"
-                  onClick={() => setRejectOpen(true)}
-                  disabled={rejectVersion.isPending}
-                >
-                  Reject
-                </Button>
-              )}
-              {canReview && (
-                <Button
-                  variant="outline"
-                  onClick={() => returnToDraft.mutate(version.id)}
-                  disabled={returnToDraft.isPending}
-                >
-                  Return to Draft
-                </Button>
-              )}
-              {canPublish && (
-                <Button
-                  onClick={() => publishVersion.mutate(version.id)}
-                  disabled={publishVersion.isPending}
-                >
-                  Publish
-                </Button>
-              )}
-            </>
-          )}
+          {version?.status === 'DRAFT' &&
+            version.review_status === 'IN_REVIEW' && (
+              <>
+                {canReview && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setRejectOpen(true)}
+                    disabled={rejectVersion.isPending}
+                  >
+                    Reject
+                  </Button>
+                )}
+                {canReview && (
+                  <Button
+                    variant="outline"
+                    onClick={() => returnToDraft.mutate(version.id)}
+                    disabled={returnToDraft.isPending}
+                  >
+                    Return to Draft
+                  </Button>
+                )}
+                {canPublish && (
+                  <Button
+                    onClick={() => publishVersion.mutate(version.id)}
+                    disabled={publishVersion.isPending}
+                  >
+                    Publish
+                  </Button>
+                )}
+              </>
+            )}
 
           {version?.status === 'PUBLISHED' && (
             <>
@@ -340,7 +343,9 @@ export function ProductDetailPage() {
         <Tabs defaultValue="wording" className="space-y-4">
           <TabsList>
             <TabsTrigger value="wording">Cover Wording</TabsTrigger>
-            <TabsTrigger value="coverages">Coverages &amp; Benefits</TabsTrigger>
+            <TabsTrigger value="coverages">
+              Coverages &amp; Benefits
+            </TabsTrigger>
             <TabsTrigger value="addons">Add-ons</TabsTrigger>
             <TabsTrigger value="documents">Required Documents</TabsTrigger>
             <TabsTrigger value="subclasses">Subclasses</TabsTrigger>
@@ -353,7 +358,9 @@ export function ProductDetailPage() {
                 <Input {...form.register('product_name')} disabled={readOnly} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">TIRAMIS Product Code</label>
+                <label className="text-sm font-medium">
+                  TIRAMIS Product Code
+                </label>
                 <Input
                   {...form.register('tiramis_product_code')}
                   disabled={readOnly}
@@ -381,7 +388,10 @@ export function ProductDetailPage() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Currency</label>
-                <Input {...form.register('currency_code')} disabled={readOnly} />
+                <Input
+                  {...form.register('currency_code')}
+                  disabled={readOnly}
+                />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Effective From</label>
@@ -403,10 +413,16 @@ export function ProductDetailPage() {
 
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Description</label>
-              <Textarea {...form.register('description')} disabled={readOnly} rows={2} />
+              <Textarea
+                {...form.register('description')}
+                disabled={readOnly}
+                rows={2}
+              />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Cover Note Description</label>
+              <label className="text-sm font-medium">
+                Cover Note Description
+              </label>
               <Textarea
                 {...form.register('cover_note_description')}
                 disabled={readOnly}
@@ -422,7 +438,9 @@ export function ProductDetailPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Policy Operative Clause</label>
+              <label className="text-sm font-medium">
+                Policy Operative Clause
+              </label>
               <Textarea
                 {...form.register('policy_operative_clause')}
                 disabled={readOnly}
@@ -439,7 +457,11 @@ export function ProductDetailPage() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Exclusions</label>
-              <Textarea {...form.register('exclusions')} disabled={readOnly} rows={2} />
+              <Textarea
+                {...form.register('exclusions')}
+                disabled={readOnly}
+                rows={2}
+              />
             </div>
 
             <div className="flex items-center gap-3">
@@ -450,9 +472,7 @@ export function ProductDetailPage() {
                 }
                 disabled={readOnly}
               />
-              <span className="text-sm">
-                Allow quotation wording overrides
-              </span>
+              <span className="text-sm">Allow quotation wording overrides</span>
             </div>
             {product.business_line === 'MOTOR' && (
               <div className="flex items-center gap-3">
@@ -487,7 +507,10 @@ export function ProductDetailPage() {
               </Button>
             )}
             {definitionItems.fields.map((field, index) => (
-              <div key={field.id} className="grid grid-cols-12 gap-2 rounded border p-3">
+              <div
+                key={field.id}
+                className="grid grid-cols-12 gap-2 rounded border p-3"
+              >
                 <Input
                   className="col-span-2"
                   placeholder="Code"
@@ -562,7 +585,10 @@ export function ProductDetailPage() {
               </Button>
             )}
             {addons.fields.map((field, index) => (
-              <div key={field.id} className="grid grid-cols-12 gap-2 rounded border p-3">
+              <div
+                key={field.id}
+                className="grid grid-cols-12 gap-2 rounded border p-3"
+              >
                 <Input
                   className="col-span-2"
                   placeholder="Code"
@@ -634,7 +660,10 @@ export function ProductDetailPage() {
               </Button>
             )}
             {documentRequirements.fields.map((field, index) => (
-              <div key={field.id} className="grid grid-cols-12 gap-2 rounded border p-3">
+              <div
+                key={field.id}
+                className="grid grid-cols-12 gap-2 rounded border p-3"
+              >
                 <Input
                   className="col-span-2"
                   placeholder="Code"
@@ -671,7 +700,9 @@ export function ProductDetailPage() {
                   </SelectContent>
                 </Select>
                 <Select
-                  value={form.watch(`document_requirements.${index}.applies_to`)}
+                  value={form.watch(
+                    `document_requirements.${index}.applies_to`,
+                  )}
                   onValueChange={(v) =>
                     form.setValue(
                       `document_requirements.${index}.applies_to`,
@@ -710,7 +741,10 @@ export function ProductDetailPage() {
             {subClasses.map((sc) => {
               const checked = selectedSubClassIds.includes(sc.id);
               return (
-                <div key={sc.id} className="flex items-center gap-3 rounded border p-2">
+                <div
+                  key={sc.id}
+                  className="flex items-center gap-3 rounded border p-2"
+                >
                   <Checkbox
                     checked={checked}
                     disabled={readOnly}

@@ -204,10 +204,14 @@ export interface WorkItemEventRecord {
 
 export const engagementApi = {
   listDocuments: () =>
-    apiClient.get<DocumentRecord[]>('/tenant/documents').then((response) => response.data),
+    apiClient
+      .get<DocumentRecord[]>('/tenant/documents')
+      .then((response) => response.data),
 
   getDocument: (id: string) =>
-    apiClient.get<DocumentRecord>(`/tenant/documents/${id}`).then((response) => response.data),
+    apiClient
+      .get<DocumentRecord>(`/tenant/documents/${id}`)
+      .then((response) => response.data),
 
   getDocumentVersions: (id: string) =>
     apiClient
@@ -221,7 +225,9 @@ export const engagementApi = {
 
   getDocumentAccessHistory: (id: string) =>
     apiClient
-      .get<DocumentAccessEventRecord[]>(`/tenant/documents/${id}/access-history`)
+      .get<
+        DocumentAccessEventRecord[]
+      >(`/tenant/documents/${id}/access-history`)
       .then((response) => response.data),
 
   createUploadSession: (payload: {
@@ -247,22 +253,32 @@ export const engagementApi = {
     const formData = new FormData();
     formData.append('file', file);
     return apiClient
-      .post<DocumentRecord>(`/tenant/documents/upload-sessions/${token}/complete`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
+      .post<DocumentRecord>(
+        `/tenant/documents/upload-sessions/${token}/complete`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
         },
-      })
+      )
       .then((response) => response.data);
   },
 
   archiveDocument: (id: string) =>
-    apiClient.post(`/tenant/documents/${id}/archive`).then((response) => response.data),
+    apiClient
+      .post(`/tenant/documents/${id}/archive`)
+      .then((response) => response.data),
 
   restoreDocument: (id: string) =>
-    apiClient.post(`/tenant/documents/${id}/restore`).then((response) => response.data),
+    apiClient
+      .post(`/tenant/documents/${id}/restore`)
+      .then((response) => response.data),
 
   rescanDocument: (id: string) =>
-    apiClient.post(`/tenant/documents/${id}/rescan`).then((response) => response.data),
+    apiClient
+      .post(`/tenant/documents/${id}/rescan`)
+      .then((response) => response.data),
 
   generateDocument: (payload: {
     template_code: string;
@@ -276,12 +292,17 @@ export const engagementApi = {
     public_verification_enabled?: boolean;
     idempotency_key: string;
   }) =>
-    apiClient.post<DocumentRecord>('/tenant/documents/generate', payload).then((response) => response.data),
+    apiClient
+      .post<DocumentRecord>('/tenant/documents/generate', payload)
+      .then((response) => response.data),
 
   downloadDocument: async (id: string, fallbackName = 'document') => {
-    const response = await apiClient.get<Blob>(`/tenant/documents/${id}/download`, {
-      responseType: 'blob',
-    });
+    const response = await apiClient.get<Blob>(
+      `/tenant/documents/${id}/download`,
+      {
+        responseType: 'blob',
+      },
+    );
 
     const blob = new Blob([response.data], {
       type:
@@ -303,29 +324,44 @@ export const engagementApi = {
 
   getNotificationUnreadSummary: () =>
     apiClient
-      .get<{ count: number; latest: NotificationRecord[] }>('/tenant/notifications/unread-count')
+      .get<{
+        count: number;
+        latest: NotificationRecord[];
+      }>('/tenant/notifications/unread-count')
       .then((response) => response.data),
 
   markNotificationRead: (id: string) =>
-    apiClient.post(`/tenant/notifications/${id}/read`).then((response) => response.data),
+    apiClient
+      .post(`/tenant/notifications/${id}/read`)
+      .then((response) => response.data),
 
   markNotificationUnread: (id: string) =>
-    apiClient.post(`/tenant/notifications/${id}/unread`).then((response) => response.data),
+    apiClient
+      .post(`/tenant/notifications/${id}/unread`)
+      .then((response) => response.data),
 
   dismissNotification: (id: string) =>
-    apiClient.post(`/tenant/notifications/${id}/dismiss`).then((response) => response.data),
+    apiClient
+      .post(`/tenant/notifications/${id}/dismiss`)
+      .then((response) => response.data),
 
   markAllNotificationsRead: () =>
-    apiClient.post('/tenant/notifications/read-all').then((response) => response.data),
+    apiClient
+      .post('/tenant/notifications/read-all')
+      .then((response) => response.data),
 
   listNotificationPreferences: () =>
     apiClient
       .get<NotificationPreferenceRecord[]>('/tenant/notification-preferences')
       .then((response) => response.data),
 
-  updateNotificationPreferences: (items: Array<Omit<NotificationPreferenceRecord, 'id'>>) =>
+  updateNotificationPreferences: (
+    items: Array<Omit<NotificationPreferenceRecord, 'id'>>,
+  ) =>
     apiClient
-      .put<NotificationPreferenceRecord[]>('/tenant/notification-preferences', { items })
+      .put<
+        NotificationPreferenceRecord[]
+      >('/tenant/notification-preferences', { items })
       .then((response) => response.data),
 
   listDocumentTemplates: () =>
@@ -358,7 +394,10 @@ export const engagementApi = {
     },
   ) =>
     apiClient
-      .post<DocumentTemplateVersionRecord>(`/tenant/document-templates/${id}/versions`, payload)
+      .post<DocumentTemplateVersionRecord>(
+        `/tenant/document-templates/${id}/versions`,
+        payload,
+      )
       .then((response) => response.data),
 
   previewDocumentTemplateVersion: (
@@ -366,10 +405,13 @@ export const engagementApi = {
     source_snapshot?: Record<string, unknown>,
   ) =>
     apiClient
-      .post<{ rendered: string; source_snapshot: Record<string, unknown>; template_hash: string }>(
-        `/tenant/document-template-versions/${id}/preview`,
-        { source_snapshot },
-      )
+      .post<{
+        rendered: string;
+        source_snapshot: Record<string, unknown>;
+        template_hash: string;
+      }>(`/tenant/document-template-versions/${id}/preview`, {
+        source_snapshot,
+      })
       .then((response) => response.data),
 
   submitDocumentTemplateVersion: (id: string) =>
@@ -412,10 +454,10 @@ export const engagementApi = {
     }>;
   }) =>
     apiClient
-      .post<{ request: SignatureRequestRecord; participants: SignatureParticipantRecord[] }>(
-        '/tenant/signature-requests',
-        payload,
-      )
+      .post<{
+        request: SignatureRequestRecord;
+        participants: SignatureParticipantRecord[];
+      }>('/tenant/signature-requests', payload)
       .then((response) => response.data),
 
   getSignatureRequest: (id: string) =>
@@ -427,7 +469,11 @@ export const engagementApi = {
     apiClient
       .post<{
         request: SignatureRequestRecord;
-        issued_tokens: Array<{ participant_id: string; name: string; token: string }>;
+        issued_tokens: Array<{
+          participant_id: string;
+          name: string;
+          token: string;
+        }>;
       }>(`/tenant/signature-requests/${id}/send`)
       .then((response) => response.data),
 
@@ -438,12 +484,16 @@ export const engagementApi = {
 
   cancelSignatureRequest: (id: string, reason: string) =>
     apiClient
-      .post<SignatureRequestRecord>(`/tenant/signature-requests/${id}/cancel`, { reason })
+      .post<SignatureRequestRecord>(`/tenant/signature-requests/${id}/cancel`, {
+        reason,
+      })
       .then((response) => response.data),
 
   reconcileSignatureRequest: (id: string) =>
     apiClient
-      .post<SignatureRequestRecord>(`/tenant/signature-requests/${id}/reconcile`)
+      .post<SignatureRequestRecord>(
+        `/tenant/signature-requests/${id}/reconcile`,
+      )
       .then((response) => response.data),
 
   verifyPublicDocument: (code: string) =>
@@ -458,7 +508,10 @@ export const engagementApi = {
         file_name: string | null;
         mime_type: string | null;
         current_version: number | null;
-      }>(`/documents/verify/${code}`, { skipAuthRefresh: true, suppressErrorToast: true })
+      }>(`/documents/verify/${code}`, {
+        skipAuthRefresh: true,
+        suppressErrorToast: true,
+      })
       .then((response) => response.data),
 
   getPublicSignature: (token: string) =>
@@ -468,12 +521,19 @@ export const engagementApi = {
         participant: SignatureParticipantRecord;
         request: SignatureRequestRecord;
         document: DocumentRecord | null;
-      }>(`/signatures/${token}`, { skipAuthRefresh: true, suppressErrorToast: true })
+      }>(`/signatures/${token}`, {
+        skipAuthRefresh: true,
+        suppressErrorToast: true,
+      })
       .then((response) => response.data),
 
   respondPublicSignature: (
     token: string,
-    payload: { decision: 'SIGN' | 'DECLINE'; decline_reason?: string; name?: string },
+    payload: {
+      decision: 'SIGN' | 'DECLINE';
+      decline_reason?: string;
+      name?: string;
+    },
   ) =>
     apiClient
       .post(`/signatures/${token}/respond`, payload, {
@@ -494,7 +554,10 @@ export const engagementApi = {
     resource_id?: string;
   }) =>
     apiClient
-      .post<CommunicationThreadRecord>('/tenant/communications/threads', payload)
+      .post<CommunicationThreadRecord>(
+        '/tenant/communications/threads',
+        payload,
+      )
       .then((response) => response.data),
 
   getCommunicationThread: (id: string) =>
@@ -504,7 +567,9 @@ export const engagementApi = {
 
   listCommunicationMessages: (id: string) =>
     apiClient
-      .get<CommunicationMessageRecord[]>(`/tenant/communications/threads/${id}/messages`)
+      .get<
+        CommunicationMessageRecord[]
+      >(`/tenant/communications/threads/${id}/messages`)
       .then((response) => response.data),
 
   postCommunicationMessage: (
@@ -519,11 +584,16 @@ export const engagementApi = {
     },
   ) =>
     apiClient
-      .post<CommunicationMessageRecord>(`/tenant/communications/threads/${id}/messages`, payload)
+      .post<CommunicationMessageRecord>(
+        `/tenant/communications/threads/${id}/messages`,
+        payload,
+      )
       .then((response) => response.data),
 
   closeCommunicationThread: (id: string) =>
-    apiClient.post(`/tenant/communications/threads/${id}/close`).then((response) => response.data),
+    apiClient
+      .post(`/tenant/communications/threads/${id}/close`)
+      .then((response) => response.data),
 
   reopenCommunicationThread: (id: string) =>
     apiClient
@@ -538,17 +608,25 @@ export const engagementApi = {
       .then((response) => response.data),
 
   listMyWorkItems: () =>
-    apiClient.get<WorkItemRecord[]>('/tenant/work-items/my').then((response) => response.data),
+    apiClient
+      .get<WorkItemRecord[]>('/tenant/work-items/my')
+      .then((response) => response.data),
 
   listWorkItemQueues: () =>
     apiClient
-      .get<Array<{ queue_code: string; open_count: number; in_progress_count: number }>>(
-        '/tenant/work-items/queues',
-      )
+      .get<
+        Array<{
+          queue_code: string;
+          open_count: number;
+          in_progress_count: number;
+        }>
+      >('/tenant/work-items/queues')
       .then((response) => response.data),
 
   getWorkItem: (id: string) =>
-    apiClient.get<WorkItemRecord>(`/tenant/work-items/${id}`).then((response) => response.data),
+    apiClient
+      .get<WorkItemRecord>(`/tenant/work-items/${id}`)
+      .then((response) => response.data),
 
   getWorkItemTimeline: (id: string) =>
     apiClient
@@ -556,13 +634,19 @@ export const engagementApi = {
       .then((response) => response.data),
 
   claimWorkItem: (id: string) =>
-    apiClient.post(`/tenant/work-items/${id}/claim`).then((response) => response.data),
+    apiClient
+      .post(`/tenant/work-items/${id}/claim`)
+      .then((response) => response.data),
 
   startWorkItem: (id: string) =>
-    apiClient.post(`/tenant/work-items/${id}/start`).then((response) => response.data),
+    apiClient
+      .post(`/tenant/work-items/${id}/start`)
+      .then((response) => response.data),
 
   executeWorkItem: (id: string) =>
-    apiClient.post(`/tenant/work-items/${id}/execute`).then((response) => response.data),
+    apiClient
+      .post(`/tenant/work-items/${id}/execute`)
+      .then((response) => response.data),
 
   commentOnWorkItem: (id: string, comment: string) =>
     apiClient

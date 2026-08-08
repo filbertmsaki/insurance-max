@@ -48,7 +48,10 @@ export class ProposedPolicySnapshotService {
 
   private applyChange(
     target: Record<string, unknown>,
-    change: Pick<PolicyTransactionChange, 'fieldPath' | 'operation' | 'newValue'>,
+    change: Pick<
+      PolicyTransactionChange,
+      'fieldPath' | 'operation' | 'newValue'
+    >,
   ): void {
     const segments = change.fieldPath.split('.').filter(Boolean);
 
@@ -95,7 +98,10 @@ export class ProposedPolicySnapshotService {
 
     for (let index = 0; index < segments.length - 1; index += 1) {
       const next = cursor?.[segments[index]];
-      cursor = next && typeof next === 'object' ? (next as Record<string, unknown>) : undefined;
+      cursor =
+        next && typeof next === 'object'
+          ? (next as Record<string, unknown>)
+          : undefined;
     }
 
     if (cursor) {

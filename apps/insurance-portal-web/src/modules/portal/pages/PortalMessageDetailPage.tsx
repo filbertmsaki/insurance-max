@@ -31,7 +31,8 @@ export function PortalMessageDetailPage({
   });
 
   const postMutation = useMutation({
-    mutationFn: () => portalApi.postMessage(audience, id, { body_text: message }),
+    mutationFn: () =>
+      portalApi.postMessage(audience, id, { body_text: message }),
     onSuccess: () => {
       setMessage('');
       queryClient.invalidateQueries({
@@ -48,7 +49,9 @@ export function PortalMessageDetailPage({
       <PageHeader
         eyebrow="Phase 17"
         title={threadQuery.data?.subject ?? 'Conversation'}
-        description={threadQuery.data?.thread_no ?? 'Portal communication history.'}
+        description={
+          threadQuery.data?.thread_no ?? 'Portal communication history.'
+        }
       />
 
       <Card className="rounded-xl border-slate-200 shadow-sm">
@@ -63,7 +66,10 @@ export function PortalMessageDetailPage({
             />
           ) : (
             (messagesQuery.data ?? []).map((item) => (
-              <div key={item.id} className="rounded-lg border border-slate-200 px-4 py-3">
+              <div
+                key={item.id}
+                className="rounded-lg border border-slate-200 px-4 py-3"
+              >
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-sm font-medium text-slate-900">
                     {item.direction}
@@ -72,7 +78,9 @@ export function PortalMessageDetailPage({
                     {formatDateTime(item.created_at)}
                   </div>
                 </div>
-                <div className="mt-2 text-sm text-slate-700">{item.body_text}</div>
+                <div className="mt-2 text-sm text-slate-700">
+                  {item.body_text}
+                </div>
               </div>
             ))
           )}

@@ -116,9 +116,7 @@ describe('TiramisRetrySchedulerService recovery states', () => {
 
     await (service as any).detectMissingFinalCallbacks();
 
-    expect(attempt.status).toBe(
-      TIRAMIS_ATTEMPT_STATUS.FINAL_CALLBACK_OVERDUE,
-    );
+    expect(attempt.status).toBe(TIRAMIS_ATTEMPT_STATUS.FINAL_CALLBACK_OVERDUE);
     expect(attempt.finalCallbackOverdueNotified).toBe(1);
     expect(transaction.status).toBe(TIRAMIS_TRANSACTION_STATUS.FAILED);
     expect(portalNotificationService.publish).toHaveBeenCalledWith(

@@ -161,9 +161,7 @@ function OverviewTab({ rateBookId }: { rateBookId: string }) {
           <p className="text-sm">{rateBook.product?.product_name ?? '—'}</p>
         </div>
         <div>
-          <p className="text-xs font-medium text-slate-500">
-            Product Version
-          </p>
+          <p className="text-xs font-medium text-slate-500">Product Version</p>
           <p className="font-mono text-xs">
             {rateBook.product_version_id ?? '—'}
           </p>
@@ -173,9 +171,7 @@ function OverviewTab({ rateBookId }: { rateBookId: string }) {
           <p className="text-sm">{rateBook.currency_code ?? '—'}</p>
         </div>
         <div>
-          <p className="text-xs font-medium text-slate-500">
-            Effective Period
-          </p>
+          <p className="text-xs font-medium text-slate-500">Effective Period</p>
           <p className="text-sm">
             {rateBook.effective_from} → {rateBook.effective_to ?? 'open'}
           </p>
@@ -202,15 +198,11 @@ function OverviewTab({ rateBookId }: { rateBookId: string }) {
           </p>
         </div>
         <div>
-          <p className="text-xs font-medium text-slate-500">
-            Proration Method
-          </p>
+          <p className="text-xs font-medium text-slate-500">Proration Method</p>
           <p className="text-sm">{rateBook.proration_method}</p>
         </div>
         <div>
-          <p className="text-xs font-medium text-slate-500">
-            Definition Hash
-          </p>
+          <p className="text-xs font-medium text-slate-500">Definition Hash</p>
           <p className="font-mono text-xs text-slate-500">
             {rateBook.definition_hash
               ? rateBook.definition_hash.slice(0, 16)
@@ -463,17 +455,14 @@ function RequiredFactorsTab({ rateBookId }: { rateBookId: string }) {
 
   const [selectedRiskId, setSelectedRiskId] = useState('');
   const { data: allFactors = [] } = useAllFactors();
-  const { data: requiredFactors = [], isLoading } = useRequiredFactorsByRisk(
-    selectedRiskId,
-  );
+  const { data: requiredFactors = [], isLoading } =
+    useRequiredFactorsByRisk(selectedRiskId);
   const addMutation = useAddRequiredFactor();
   const updateMutation = useUpdateRequiredFactor();
   const removeMutation = useRemoveRequiredFactor();
 
   const [selectedFactorId, setSelectedFactorId] = useState('');
-  const [deleteItem, setDeleteItem] = useState<RiskRequiredFactor | null>(
-    null,
-  );
+  const [deleteItem, setDeleteItem] = useState<RiskRequiredFactor | null>(null);
 
   const assignedIds = new Set(requiredFactors.map((f) => f.factor_id));
   const availableFactors = allFactors.filter((f) => !assignedIds.has(f.id));
@@ -546,9 +535,7 @@ function RequiredFactorsTab({ rateBookId }: { rateBookId: string }) {
                   <TableRow key={rf.id}>
                     <TableCell className="text-sm">
                       {rf.factor.name}{' '}
-                      <span className="text-slate-400">
-                        ({rf.factor.code})
-                      </span>
+                      <span className="text-slate-400">({rf.factor.code})</span>
                     </TableCell>
                     <TableCell>
                       <Checkbox
@@ -563,9 +550,7 @@ function RequiredFactorsTab({ rateBookId }: { rateBookId: string }) {
                         }
                       />
                     </TableCell>
-                    <TableCell className="text-sm">
-                      {rf.sort_order}
-                    </TableCell>
+                    <TableCell className="text-sm">{rf.sort_order}</TableCell>
                     {canManage && (
                       <TableCell>
                         <Button
@@ -589,14 +574,10 @@ function RequiredFactorsTab({ rateBookId }: { rateBookId: string }) {
       {selectedRiskId && canManage && (
         <div className="flex items-end gap-2">
           <div className="space-y-1">
-            <p className="text-xs font-medium text-slate-500">
-              Add Factor
-            </p>
+            <p className="text-xs font-medium text-slate-500">Add Factor</p>
             <Select
               value={selectedFactorId || 'none'}
-              onValueChange={(v) =>
-                setSelectedFactorId(v === 'none' ? '' : v)
-              }
+              onValueChange={(v) => setSelectedFactorId(v === 'none' ? '' : v)}
             >
               <SelectTrigger className="w-64 h-9">
                 <SelectValue placeholder="Select factor…" />
@@ -749,8 +730,10 @@ function AddonPricingTab({
         form.pricing_type === 'PER_UNIT'
           ? form.per_unit_factor_code || null
           : null,
-      minimum_amount: form.minimum_amount !== '' ? Number(form.minimum_amount) : null,
-      maximum_amount: form.maximum_amount !== '' ? Number(form.maximum_amount) : null,
+      minimum_amount:
+        form.minimum_amount !== '' ? Number(form.minimum_amount) : null,
+      maximum_amount:
+        form.maximum_amount !== '' ? Number(form.maximum_amount) : null,
       priority: form.priority,
       is_active: form.is_active,
     };
@@ -979,9 +962,7 @@ function AddonPricingTab({
             {form.pricing_type === 'PER_UNIT' && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">
-                    Per Unit Amount
-                  </label>
+                  <label className="text-sm font-medium">Per Unit Amount</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1134,8 +1115,8 @@ function SimulatorTab({ rateBookId }: { rateBookId: string }) {
       <Alert variant="warning">
         <AlertTitle>Preview only</AlertTitle>
         <AlertDescription>
-          This simulator calls the live premium-calculation engine but does
-          not create a quotation, policy, or any persisted record.
+          This simulator calls the live premium-calculation engine but does not
+          create a quotation, policy, or any persisted record.
         </AlertDescription>
       </Alert>
 

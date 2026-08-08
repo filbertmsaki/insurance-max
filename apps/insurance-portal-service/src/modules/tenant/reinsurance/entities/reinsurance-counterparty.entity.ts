@@ -6,9 +6,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-import {
-  TreatyParticipantRole,
-} from '../enums/reinsurance.enums';
+import { TreatyParticipantRole } from '../enums/reinsurance.enums';
 
 @Entity('reinsurance_counterparties')
 export class ReinsuranceCounterparty {

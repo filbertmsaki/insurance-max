@@ -19,7 +19,10 @@ import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import { PolicyTransactionLifecycleService } from './policy-transaction-lifecycle.service';
 import { PolicyTransactionTiramisPayloadService } from './policy-transaction-tiramis-payload.service';
 
-const FLOW_TO_REQUEST_TYPE: Record<QuotationFlow, 'NON_MOTOR' | 'MOTOR' | 'MOTOR_FLEET'> = {
+const FLOW_TO_REQUEST_TYPE: Record<
+  QuotationFlow,
+  'NON_MOTOR' | 'MOTOR' | 'MOTOR_FLEET'
+> = {
   [QuotationFlow.NON_MOTOR]: 'NON_MOTOR',
   [QuotationFlow.MOTOR_SINGLE]: 'MOTOR',
   [QuotationFlow.MOTOR_FLEET]: 'MOTOR_FLEET',
@@ -124,23 +127,29 @@ export class PolicyTransactionTiramisSubmissionService {
 
     const requestType = await this.resolveRequestType(policy);
 
-    await this.lifecycleService.startSubmission(user.companyId!, transaction.id, {
-      changedBy: user.id,
-    });
-
-    const { submission } = await this.tiramisIntegrationService.submitToTiramis({
-      companyId: user.companyId!,
-      userId: user.id,
-      dto: {
-        requestType,
-        policy_id: policy.id,
-        branch_id: policy.branch_id ?? undefined,
-        source_module: 'policy-transactions',
-        source_record_id: transaction.id,
-        business_reference: transaction.transaction_no,
-        payload,
+    await this.lifecycleService.startSubmission(
+      user.companyId!,
+      transaction.id,
+      {
+        changedBy: user.id,
       },
-    });
+    );
+
+    const { submission } = await this.tiramisIntegrationService.submitToTiramis(
+      {
+        companyId: user.companyId!,
+        userId: user.id,
+        dto: {
+          requestType,
+          policy_id: policy.id,
+          branch_id: policy.branch_id ?? undefined,
+          source_module: 'policy-transactions',
+          source_record_id: transaction.id,
+          business_reference: transaction.transaction_no,
+          payload,
+        },
+      },
+    );
 
     transaction.tiramis_tracking_id = null;
     transaction.tiramis_transaction_id = submission.tiramis_transaction_id;

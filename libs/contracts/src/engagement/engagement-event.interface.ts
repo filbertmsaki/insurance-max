@@ -1,7 +1,4 @@
-import type {
-  DocumentClassification,
-  WorkItemPriority,
-} from '../index';
+import type { DocumentClassification, WorkItemPriority } from '../index';
 
 export interface EngagementEvent {
   eventId: string;

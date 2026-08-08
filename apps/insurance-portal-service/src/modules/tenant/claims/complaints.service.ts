@@ -18,10 +18,7 @@ import { ComplaintStatusHistory } from './entities/complaint-status-history.enti
 import { Complaint } from './entities/complaint.entity';
 import { ComplaintSlaService } from './services/complaint-sla.service';
 
-const NOT_YET_TERMINAL = [
-  ComplaintStatus.CLOSED,
-  ComplaintStatus.CANCELLED,
-];
+const NOT_YET_TERMINAL = [ComplaintStatus.CLOSED, ComplaintStatus.CANCELLED];
 
 @Injectable()
 export class ComplaintsService {
@@ -231,17 +228,11 @@ export class ComplaintsService {
       throw new ConflictException('Only a resolved complaint can be closed');
     }
 
-    return this.transition(
-      complaint,
-      ComplaintStatus.CLOSED,
-      reason,
-      user.id,
-      {
-        closed_by: user.id,
-        closed_at: new Date(),
-        closure_reason: reason.trim(),
-      },
-    );
+    return this.transition(complaint, ComplaintStatus.CLOSED, reason, user.id, {
+      closed_by: user.id,
+      closed_at: new Date(),
+      closure_reason: reason.trim(),
+    });
   }
 
   async reopen(user: AuthenticatedUser, id: string, reason: string) {
@@ -336,12 +327,7 @@ export class ComplaintsService {
 
     complaint.appeal_count = Number(complaint.appeal_count || 0) + 1;
 
-    await this.transition(
-      complaint,
-      ComplaintStatus.APPEALED,
-      reason,
-      user.id,
-    );
+    await this.transition(complaint, ComplaintStatus.APPEALED, reason, user.id);
 
     return appeal;
   }

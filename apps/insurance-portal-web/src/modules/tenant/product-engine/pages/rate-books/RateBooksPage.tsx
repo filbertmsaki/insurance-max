@@ -464,7 +464,10 @@ export function RateBooksPage() {
                   <FormItem>
                     <FormLabel>Name</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="e.g. Motor Standard 2026" />
+                      <Input
+                        {...field}
+                        placeholder="e.g. Motor Standard 2026"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

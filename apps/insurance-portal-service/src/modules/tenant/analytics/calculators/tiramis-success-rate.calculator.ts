@@ -38,8 +38,12 @@ export class TiramisSuccessRateKpiCalculator implements KpiCalculator {
     let totalSuccesses = 0;
 
     for (const row of rows) {
-      const dailyTotal = Number((row as { observationCount?: unknown }).observationCount ?? 0);
-      const dailyRate = Number((row as { metricValue?: unknown }).metricValue ?? 0);
+      const dailyTotal = Number(
+        (row as { observationCount?: unknown }).observationCount ?? 0,
+      );
+      const dailyRate = Number(
+        (row as { metricValue?: unknown }).metricValue ?? 0,
+      );
 
       totalSubmissions += dailyTotal;
       totalSuccesses += (dailyRate / 100) * dailyTotal;

@@ -12,7 +12,10 @@ function renderWithRoutes() {
       <Routes>
         <Route path="/" element={<DefaultLandingPage />} />
         <Route path="/dashboard" element={<div>internal-dashboard</div>} />
-        <Route path="/customer/dashboard" element={<div>customer-dashboard</div>} />
+        <Route
+          path="/customer/dashboard"
+          element={<div>customer-dashboard</div>}
+        />
         <Route
           path="/intermediary/dashboard"
           element={<div>intermediary-dashboard</div>}
@@ -65,7 +68,9 @@ describe('DefaultLandingPage', () => {
 
     renderWithRoutes();
 
-    expect(await screen.findByText('intermediary-dashboard')).toBeInTheDocument();
+    expect(
+      await screen.findByText('intermediary-dashboard'),
+    ).toBeInTheDocument();
   });
 
   it('falls back to the internal dashboard for non-portal users', async () => {

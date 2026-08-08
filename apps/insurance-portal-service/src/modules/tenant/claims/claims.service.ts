@@ -189,7 +189,8 @@ export class ClaimsService {
         policyRiskId: dto.policy_risk_id ?? null,
         lossDate: dto.loss_date,
         lossType: dto.loss_type.trim().toLowerCase(),
-        policeReportNumber: dto.police_report_number?.trim().toLowerCase() ?? null,
+        policeReportNumber:
+          dto.police_report_number?.trim().toLowerCase() ?? null,
         claimantNames: dto.claimants
           .map((claimant) => claimant.full_name.trim().toLowerCase())
           .sort(),
@@ -291,7 +292,8 @@ export class ClaimsService {
         coverage_snapshot: coverage.coverageSnapshot,
         coverage_snapshot_hash: coverage.coverageSnapshotHash,
         incident_snapshot: incidentSnapshot,
-        incident_snapshot_hash: this.hashService.hashDefinition(incidentSnapshot),
+        incident_snapshot_hash:
+          this.hashService.hashDefinition(incidentSnapshot),
         claimant_manifest_hash: this.hashService.hashDefinition({
           claimants: claimantManifest,
         }),
@@ -1417,16 +1419,18 @@ export class ClaimsService {
       );
     }
 
-    const unreversedDisbursement = await this.claimDisbursementRepository.count({
-      where: {
-        claim_id: claim.id,
-        status: In([
-          ClaimDisbursementStatus.REQUESTED,
-          ClaimDisbursementStatus.PROCESSING,
-          ClaimDisbursementStatus.PAID,
-        ]),
+    const unreversedDisbursement = await this.claimDisbursementRepository.count(
+      {
+        where: {
+          claim_id: claim.id,
+          status: In([
+            ClaimDisbursementStatus.REQUESTED,
+            ClaimDisbursementStatus.PROCESSING,
+            ClaimDisbursementStatus.PAID,
+          ]),
+        },
       },
-    });
+    );
 
     if (unreversedDisbursement > 0) {
       throw new ConflictException(

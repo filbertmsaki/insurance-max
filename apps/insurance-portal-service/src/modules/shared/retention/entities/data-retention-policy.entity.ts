@@ -13,9 +13,13 @@ import {
 
 @Entity('data_retention_policies')
 @Index('IDX_data_retention_company_status', ['company_id', 'status'])
-@Index('UQ_data_retention_policy_version', ['company_id', 'policy_code', 'version_number'], {
-  unique: true,
-})
+@Index(
+  'UQ_data_retention_policy_version',
+  ['company_id', 'policy_code', 'version_number'],
+  {
+    unique: true,
+  },
+)
 export class DataRetentionPolicy {
   @PrimaryGeneratedColumn('uuid')
   id: string;

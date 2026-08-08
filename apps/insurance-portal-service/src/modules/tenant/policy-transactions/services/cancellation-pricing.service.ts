@@ -57,10 +57,7 @@ export class CancellationPricingService {
         ),
       });
 
-    const amountDue = Decimal.max(
-      cancellationCharge.minus(refundAmount),
-      0,
-    );
+    const amountDue = Decimal.max(cancellationCharge.minus(refundAmount), 0);
 
     return {
       policyDays,

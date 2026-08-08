@@ -258,9 +258,11 @@ export class EndorsementService {
       );
       const updated = await this.rebuildProposedSnapshot(manager, current);
 
-      const changes = await manager.getRepository(PolicyTransactionChange).find({
-        where: { policy_transaction_id: updated.id },
-      });
+      const changes = await manager
+        .getRepository(PolicyTransactionChange)
+        .find({
+          where: { policy_transaction_id: updated.id },
+        });
 
       if (!changes.length) {
         throw new UnprocessableEntityException(
@@ -291,74 +293,83 @@ export class EndorsementService {
   }
 
   async requestPayment(user: AuthenticatedUser, transactionId: string) {
-    return this.dataSource.transaction(async (manager) => {
-      const transaction = await manager.getRepository(PolicyTransaction).findOne({
-        where: {
-          id: transactionId,
-          company_id: user.companyId!,
-          transaction_type: PolicyTransactionType.ENDORSEMENT,
-        },
-      });
+    return this.dataSource
+      .transaction(async (manager) => {
+        const transaction = await manager
+          .getRepository(PolicyTransaction)
+          .findOne({
+            where: {
+              id: transactionId,
+              company_id: user.companyId!,
+              transaction_type: PolicyTransactionType.ENDORSEMENT,
+            },
+          });
 
-      if (!transaction) {
-        throw new BadRequestException('Endorsement not found');
-      }
+        if (!transaction) {
+          throw new BadRequestException('Endorsement not found');
+        }
 
-      if (
-        transaction.premium_effect !== PolicyTransactionPremiumEffect.DEBIT
-      ) {
-        throw new UnprocessableEntityException(
-          'Only a debit endorsement requires payment.',
+        if (
+          transaction.premium_effect !== PolicyTransactionPremiumEffect.DEBIT
+        ) {
+          throw new UnprocessableEntityException(
+            'Only a debit endorsement requires payment.',
+          );
+        }
+
+        if (
+          transaction.approval_required &&
+          transaction.approval_status !== WorkflowApprovalStatus.APPROVED
+        ) {
+          throw new UnprocessableEntityException(
+            'The endorsement must be approved before payment is requested.',
+          );
+        }
+
+        const endorsement = await manager
+          .getRepository(PolicyEndorsement)
+          .findOne({
+            where: { policy_transaction_id: transaction.id },
+          });
+        const policy = await manager.getRepository(Policy).findOne({
+          where: { id: transaction.source_policy_id },
+        });
+
+        if (!endorsement || !policy) {
+          throw new BadRequestException(
+            'Endorsement or source policy could not be resolved.',
+          );
+        }
+
+        const invoice = await this.invoiceService.createOrReuseInvoice(
+          manager,
+          {
+            companyId: user.companyId!,
+            insurerCompanyId: policy.insurer_company_id,
+            intermediaryCompanyId: policy.intermediary_company_id,
+            customerId: policy.customer_id,
+            branchId: policy.branch_id,
+            transaction,
+            childResourceId: endorsement.id,
+            sourceType: InvoiceSourceType.ENDORSEMENT,
+            amount: transaction.additional_premium,
+            description: `Additional premium for endorsement ${transaction.transaction_no}`,
+            createdBy: user.id,
+          },
         );
-      }
 
-      if (
-        transaction.approval_required &&
-        transaction.approval_status !== WorkflowApprovalStatus.APPROVED
-      ) {
-        throw new UnprocessableEntityException(
-          'The endorsement must be approved before payment is requested.',
-        );
-      }
+        transaction.active_invoice_id = invoice.id;
+        await manager.getRepository(PolicyTransaction).save(transaction);
 
-      const endorsement = await manager.getRepository(PolicyEndorsement).findOne({
-        where: { policy_transaction_id: transaction.id },
-      });
-      const policy = await manager.getRepository(Policy).findOne({
-        where: { id: transaction.source_policy_id },
-      });
-
-      if (!endorsement || !policy) {
-        throw new BadRequestException(
-          'Endorsement or source policy could not be resolved.',
-        );
-      }
-
-      const invoice = await this.invoiceService.createOrReuseInvoice(manager, {
-        companyId: user.companyId!,
-        insurerCompanyId: policy.insurer_company_id,
-        intermediaryCompanyId: policy.intermediary_company_id,
-        customerId: policy.customer_id,
-        branchId: policy.branch_id,
-        transaction,
-        childResourceId: endorsement.id,
-        sourceType: InvoiceSourceType.ENDORSEMENT,
-        amount: transaction.additional_premium,
-        description: `Additional premium for endorsement ${transaction.transaction_no}`,
-        createdBy: user.id,
-      });
-
-      transaction.active_invoice_id = invoice.id;
-      await manager.getRepository(PolicyTransaction).save(transaction);
-
-      return invoice;
-    }).then((invoice) =>
-      this.lifecycleService
-        .markPaymentRequested(user.companyId!, transactionId, {
-          changedBy: user.id,
-        })
-        .then(() => invoice),
-    );
+        return invoice;
+      })
+      .then((invoice) =>
+        this.lifecycleService
+          .markPaymentRequested(user.companyId!, transactionId, {
+            changedBy: user.id,
+          })
+          .then(() => invoice),
+      );
   }
 
   async cancel(user: AuthenticatedUser, transactionId: string, reason: string) {
@@ -369,7 +380,10 @@ export class EndorsementService {
     );
 
     await this.policyRepository.update(
-      { id: transaction.source_policy_id, pending_transaction_id: transaction.id },
+      {
+        id: transaction.source_policy_id,
+        pending_transaction_id: transaction.id,
+      },
       { pending_transaction_id: null },
     );
 
@@ -469,9 +483,7 @@ export class EndorsementService {
         : '0.0000';
     transaction.return_premium =
       pricingSnapshot.premiumEffect === PolicyTransactionPremiumEffect.CREDIT
-        ? DecimalUtil.value(pricingSnapshot.premiumDifference)
-            .abs()
-            .toFixed(4)
+        ? DecimalUtil.value(pricingSnapshot.premiumDifference).abs().toFixed(4)
         : '0.0000';
     transaction.tax_difference = pricingSnapshot.taxDifference;
     transaction.commission_difference = pricingSnapshot.commissionDifference;
@@ -499,10 +511,7 @@ export class EndorsementService {
     currencyCode: string;
     effectiveDate: string;
   } {
-    const source = transaction.source_policy_snapshot as Record<
-      string,
-      unknown
-    >;
+    const source = transaction.source_policy_snapshot;
     const startDate = String(source['startDate'] ?? transaction.effective_date);
     const endDate = String(source['endDate'] ?? transaction.effective_date);
     const remainingFraction = this.remainingPeriodFraction(
@@ -513,8 +522,7 @@ export class EndorsementService {
 
     const sourceTotals = (source['totals'] as Record<string, unknown>) ?? {};
     const proposedTotals =
-      (proposedSnapshot['totals'] as Record<string, unknown>) ??
-      sourceTotals;
+      (proposedSnapshot['totals'] as Record<string, unknown>) ?? sourceTotals;
 
     const oldTotal = DecimalUtil.value(
       (sourceTotals['totalPremium'] as string) ?? '0',
@@ -558,10 +566,7 @@ export class EndorsementService {
     const end = new Date(`${endDate}T00:00:00.000Z`).getTime();
     const effective = new Date(`${effectiveDate}T00:00:00.000Z`).getTime();
 
-    const policyDays = Math.max(
-      Math.floor((end - start) / 86_400_000) + 1,
-      1,
-    );
+    const policyDays = Math.max(Math.floor((end - start) / 86_400_000) + 1, 1);
     const remainingDays = Math.max(
       Math.floor((end - effective) / 86_400_000) + 1,
       0,

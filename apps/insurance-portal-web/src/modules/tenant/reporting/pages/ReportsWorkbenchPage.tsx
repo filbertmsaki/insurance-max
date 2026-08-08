@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, FileSpreadsheet, MailCheck, Play, TimerReset } from 'lucide-react';
+import {
+  Download,
+  FileSpreadsheet,
+  MailCheck,
+  Play,
+  TimerReset,
+} from 'lucide-react';
 
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -133,7 +139,11 @@ type ParameterEditorProps = {
   onChange: (key: string, value: unknown) => void;
 };
 
-function ParameterEditor({ definition, state, onChange }: ParameterEditorProps) {
+function ParameterEditor({
+  definition,
+  state,
+  onChange,
+}: ParameterEditorProps) {
   if (!definition || definition.parameters.length === 0) {
     return (
       <p className="text-sm text-slate-500">
@@ -160,7 +170,9 @@ function ParameterEditor({ definition, state, onChange }: ParameterEditorProps) 
               <Checkbox
                 id={parameter.key}
                 checked={Boolean(value)}
-                onCheckedChange={(checked) => onChange(parameter.key, Boolean(checked))}
+                onCheckedChange={(checked) =>
+                  onChange(parameter.key, Boolean(checked))
+                }
               />
             </div>
           );
@@ -191,7 +203,10 @@ function ParameterEditor({ definition, state, onChange }: ParameterEditorProps) 
 
         if (parameter.dataType === 'DATE_RANGE') {
           const rangeValue =
-            typeof value === 'object' && value !== null && 'from' in value && 'to' in value
+            typeof value === 'object' &&
+            value !== null &&
+            'from' in value &&
+            'to' in value
               ? (value as { from: string; to: string })
               : { from: '', to: '' };
 
@@ -270,18 +285,23 @@ export function ReportsWorkbenchPage() {
   const [selectedJobId, setSelectedJobId] = useState('');
   const [scheduleName, setScheduleName] = useState('Monthly management report');
   const [scheduleCron, setScheduleCron] = useState('0 6 1 * *');
-  const [scheduleTimezone, setScheduleTimezone] = useState('Africa/Dar_es_Salaam');
+  const [scheduleTimezone, setScheduleTimezone] = useState(
+    'Africa/Dar_es_Salaam',
+  );
   const [scheduleFormat, setScheduleFormat] = useState('');
   const [scheduleRecipients, setScheduleRecipients] = useState('');
   const [scheduleRetentionDays, setScheduleRetentionDays] = useState('90');
-  const [scheduleParameters, setScheduleParameters] = useState<ParameterState>({});
+  const [scheduleParameters, setScheduleParameters] = useState<ParameterState>(
+    {},
+  );
   const [mailVerifiedFor, setMailVerifiedFor] = useState('');
   const [downloadMessage, setDownloadMessage] = useState('');
 
   const selectedDefinition = useMemo(() => {
     return (
-      definitionsQuery.data?.find((definition) => definition.id === selectedDefinitionId) ??
-      null
+      definitionsQuery.data?.find(
+        (definition) => definition.id === selectedDefinitionId,
+      ) ?? null
     );
   }, [definitionsQuery.data, selectedDefinitionId]);
 
@@ -312,7 +332,9 @@ export function ReportsWorkbenchPage() {
 
     setRunParameters(createParameterState(selectedDefinition));
     setScheduleParameters(createParameterState(selectedDefinition));
-    setScheduleFormat((current) => current || selectedDefinition.supportedFormats[0] || '');
+    setScheduleFormat(
+      (current) => current || selectedDefinition.supportedFormats[0] || '',
+    );
   }, [selectedDefinition]);
 
   useEffect(() => {
@@ -334,7 +356,9 @@ export function ReportsWorkbenchPage() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['phase16', 'reports', 'jobs'] });
+      queryClient.invalidateQueries({
+        queryKey: ['phase16', 'reports', 'jobs'],
+      });
     },
   });
 
@@ -463,9 +487,13 @@ export function ReportsWorkbenchPage() {
                           </div>
                         </TableCell>
                         <TableCell>{definition.category}</TableCell>
-                        <TableCell>{definition.supportedFormats.join(', ')}</TableCell>
+                        <TableCell>
+                          {definition.supportedFormats.join(', ')}
+                        </TableCell>
                         <TableCell>{definition.sensitivity}</TableCell>
-                        <TableCell>{definition.maximumRows.toLocaleString()}</TableCell>
+                        <TableCell>
+                          {definition.maximumRows.toLocaleString()}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -481,13 +509,22 @@ export function ReportsWorkbenchPage() {
                 {selectedDefinition ? (
                   <>
                     <div className="flex flex-wrap gap-2">
-                      <Badge variant="secondary">{selectedDefinition.code}</Badge>
-                      <Badge variant="outline">v{selectedDefinition.version}</Badge>
-                      <Badge variant="outline">{selectedDefinition.permission}</Badge>
+                      <Badge variant="secondary">
+                        {selectedDefinition.code}
+                      </Badge>
+                      <Badge variant="outline">
+                        v{selectedDefinition.version}
+                      </Badge>
+                      <Badge variant="outline">
+                        {selectedDefinition.permission}
+                      </Badge>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="run-format">Output format</Label>
-                      <Select value={scheduleFormat} onValueChange={setScheduleFormat}>
+                      <Select
+                        value={scheduleFormat}
+                        onValueChange={setScheduleFormat}
+                      >
                         <SelectTrigger id="run-format">
                           <SelectValue />
                         </SelectTrigger>
@@ -504,7 +541,10 @@ export function ReportsWorkbenchPage() {
                       definition={selectedDefinition}
                       state={runParameters}
                       onChange={(key, value) =>
-                        setRunParameters((current) => ({ ...current, [key]: value }))
+                        setRunParameters((current) => ({
+                          ...current,
+                          [key]: value,
+                        }))
                       }
                     />
                     <Button
@@ -513,15 +553,17 @@ export function ReportsWorkbenchPage() {
                       disabled={runReportMutation.isPending}
                     >
                       <Play className="mr-2 h-4 w-4" />
-                      {runReportMutation.isPending ? 'Queueing report...' : 'Run report'}
+                      {runReportMutation.isPending
+                        ? 'Queueing report...'
+                        : 'Run report'}
                     </Button>
                   </>
                 ) : (
                   <Alert>
                     <AlertTitle>Select a registered report</AlertTitle>
                     <AlertDescription>
-                      Parameter forms are generated from the registered schema, so
-                      simple reports do not need handwritten UI.
+                      Parameter forms are generated from the registered schema,
+                      so simple reports do not need handwritten UI.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -552,7 +594,9 @@ export function ReportsWorkbenchPage() {
                     {(jobsQuery.data ?? []).map((job) => (
                       <TableRow
                         key={job.id}
-                        className={job.id === selectedJobId ? 'bg-slate-50' : undefined}
+                        className={
+                          job.id === selectedJobId ? 'bg-slate-50' : undefined
+                        }
                         onClick={() => setSelectedJobId(job.id)}
                       >
                         <TableCell>
@@ -569,7 +613,9 @@ export function ReportsWorkbenchPage() {
                         <TableCell>{job.progress_percent ?? 0}%</TableCell>
                         <TableCell>{job.row_count ?? '—'}</TableCell>
                         <TableCell>{job.format}</TableCell>
-                        <TableCell>{job.artifact_id ? 'Available' : 'Pending'}</TableCell>
+                        <TableCell>
+                          {job.artifact_id ? 'Available' : 'Pending'}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -587,7 +633,9 @@ export function ReportsWorkbenchPage() {
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <p className="text-slate-500">Status</p>
-                        <p className="font-medium text-slate-900">{selectedJob.status}</p>
+                        <p className="font-medium text-slate-900">
+                          {selectedJob.status}
+                        </p>
                       </div>
                       <div>
                         <p className="text-slate-500">Progress</p>
@@ -610,7 +658,9 @@ export function ReportsWorkbenchPage() {
                     </div>
 
                     <div className="rounded-lg border border-slate-200 p-4">
-                      <p className="text-sm font-medium text-slate-900">Parameters</p>
+                      <p className="text-sm font-medium text-slate-900">
+                        Parameters
+                      </p>
                       <pre className="mt-2 overflow-auto text-xs text-slate-600">
                         {formatJson(selectedJob.parameter_payload)}
                       </pre>
@@ -625,12 +675,14 @@ export function ReportsWorkbenchPage() {
                       </pre>
                     </div>
 
-                    {(selectedJob.safe_error_message || selectedJob.failure_code) && (
+                    {(selectedJob.safe_error_message ||
+                      selectedJob.failure_code) && (
                       <Alert variant="warning">
                         <AlertTitle>Failure detail</AlertTitle>
                         <AlertDescription>
-                          {selectedJob.failure_code ?? 'REPORT_ERROR'}: {' '}
-                          {selectedJob.safe_error_message ?? 'No safe error message saved.'}
+                          {selectedJob.failure_code ?? 'REPORT_ERROR'}:{' '}
+                          {selectedJob.safe_error_message ??
+                            'No safe error message saved.'}
                         </AlertDescription>
                       </Alert>
                     )}
@@ -638,7 +690,9 @@ export function ReportsWorkbenchPage() {
                     <Button
                       variant="outline"
                       className="w-full"
-                      disabled={!selectedJob.artifact_id || downloadMutation.isPending}
+                      disabled={
+                        !selectedJob.artifact_id || downloadMutation.isPending
+                      }
                       onClick={() => {
                         if (selectedJob.artifact_id) {
                           downloadMutation.mutate(selectedJob.artifact_id);
@@ -649,13 +703,15 @@ export function ReportsWorkbenchPage() {
                       Download artifact
                     </Button>
                     {downloadMessage && (
-                      <p className="text-xs text-slate-500">{downloadMessage}</p>
+                      <p className="text-xs text-slate-500">
+                        {downloadMessage}
+                      </p>
                     )}
                   </>
                 ) : (
                   <p className="text-sm text-slate-500">
-                    Select a job to inspect progress, context, errors, and artifact
-                    status.
+                    Select a job to inspect progress, context, errors, and
+                    artifact status.
                   </p>
                 )}
               </CardContent>
@@ -686,8 +742,13 @@ export function ReportsWorkbenchPage() {
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="schedule-definition">Registered report</Label>
-                    <Select value={selectedDefinitionId} onValueChange={selectDefinition}>
+                    <Label htmlFor="schedule-definition">
+                      Registered report
+                    </Label>
+                    <Select
+                      value={selectedDefinitionId}
+                      onValueChange={selectDefinition}
+                    >
                       <SelectTrigger id="schedule-definition">
                         <SelectValue placeholder="Select a report" />
                       </SelectTrigger>
@@ -727,16 +788,21 @@ export function ReportsWorkbenchPage() {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="schedule-format">Output format</Label>
-                      <Select value={scheduleFormat} onValueChange={setScheduleFormat}>
+                      <Select
+                        value={scheduleFormat}
+                        onValueChange={setScheduleFormat}
+                      >
                         <SelectTrigger id="schedule-format">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {(selectedDefinition?.supportedFormats ?? []).map((format) => (
-                            <SelectItem key={format} value={format}>
-                              {format}
-                            </SelectItem>
-                          ))}
+                          {(selectedDefinition?.supportedFormats ?? []).map(
+                            (format) => (
+                              <SelectItem key={format} value={format}>
+                                {format}
+                              </SelectItem>
+                            ),
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
@@ -746,7 +812,9 @@ export function ReportsWorkbenchPage() {
                         id="schedule-retention"
                         type="number"
                         value={scheduleRetentionDays}
-                        onChange={(event) => setScheduleRetentionDays(event.target.value)}
+                        onChange={(event) =>
+                          setScheduleRetentionDays(event.target.value)
+                        }
                       />
                     </div>
                   </div>
@@ -757,7 +825,9 @@ export function ReportsWorkbenchPage() {
                       <Input
                         id="schedule-cron"
                         value={scheduleCron}
-                        onChange={(event) => setScheduleCron(event.target.value)}
+                        onChange={(event) =>
+                          setScheduleCron(event.target.value)
+                        }
                       />
                     </div>
                     <div className="space-y-2">
@@ -765,7 +835,9 @@ export function ReportsWorkbenchPage() {
                       <Input
                         id="schedule-timezone"
                         value={scheduleTimezone}
-                        onChange={(event) => setScheduleTimezone(event.target.value)}
+                        onChange={(event) =>
+                          setScheduleTimezone(event.target.value)
+                        }
                       />
                     </div>
                   </div>
@@ -782,8 +854,8 @@ export function ReportsWorkbenchPage() {
                       }}
                     />
                     <p className="text-xs text-slate-500">
-                      When email delivery is selected, SMTP verification must succeed
-                      before the schedule is saved.
+                      When email delivery is selected, SMTP verification must
+                      succeed before the schedule is saved.
                     </p>
                     <Button
                       type="button"
@@ -799,7 +871,9 @@ export function ReportsWorkbenchPage() {
                       }
                     >
                       <MailCheck className="mr-2 h-4 w-4" />
-                      {verifyMailMutation.isPending ? 'Verifying SMTP...' : 'Verify SMTP'}
+                      {verifyMailMutation.isPending
+                        ? 'Verifying SMTP...'
+                        : 'Verify SMTP'}
                     </Button>
                     {mailVerifiedFor && (
                       <p className="text-xs text-emerald-600">
@@ -823,7 +897,9 @@ export function ReportsWorkbenchPage() {
                       </div>
                       <div>
                         <p className="text-slate-500">Format</p>
-                        <p className="font-medium text-slate-900">{scheduleFormat || '—'}</p>
+                        <p className="font-medium text-slate-900">
+                          {scheduleFormat || '—'}
+                        </p>
                       </div>
                       <div>
                         <p className="text-slate-500">Schedule</p>
@@ -848,7 +924,10 @@ export function ReportsWorkbenchPage() {
 
                   <Button
                     className="w-full"
-                    disabled={createScheduleMutation.isPending || !selectedDefinition?.id}
+                    disabled={
+                      createScheduleMutation.isPending ||
+                      !selectedDefinition?.id
+                    }
                     onClick={() => createScheduleMutation.mutate()}
                   >
                     {createScheduleMutation.isPending
@@ -880,12 +959,16 @@ export function ReportsWorkbenchPage() {
                   {(schedulesQuery.data ?? []).map((schedule) => (
                     <TableRow key={schedule.id}>
                       <TableCell>{schedule.name}</TableCell>
-                      <TableCell>{schedule.report_code ?? schedule.definition_id}</TableCell>
+                      <TableCell>
+                        {schedule.report_code ?? schedule.definition_id}
+                      </TableCell>
                       <TableCell>{schedule.status}</TableCell>
                       <TableCell>{schedule.next_run_at ?? 'Pending'}</TableCell>
                       <TableCell>{schedule.failure_count ?? 0}</TableCell>
                       <TableCell>
-                        {schedule.verified_smtp_at ? 'Verified' : 'Not recorded'}
+                        {schedule.verified_smtp_at
+                          ? 'Verified'
+                          : 'Not recorded'}
                       </TableCell>
                     </TableRow>
                   ))}

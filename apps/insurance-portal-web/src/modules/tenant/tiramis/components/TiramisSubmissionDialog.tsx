@@ -36,10 +36,7 @@ export function TiramisSubmissionDialog(props: {
   description: string;
   initialBranchId?: string | null;
   isPending?: boolean;
-  readiness?: Pick<
-    PortalTiramisSubmitPayload,
-    'requestType' | 'payload'
-  > & {
+  readiness?: Pick<PortalTiramisSubmitPayload, 'requestType' | 'payload'> & {
     sourceModule: string;
     sourceRecordId: string;
   };

@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class SourcePolicyIdOnTiramisTransactions1795400000000
-  implements MigrationInterface
-{
+export class SourcePolicyIdOnTiramisTransactions1795400000000 implements MigrationInterface {
   name = 'SourcePolicyIdOnTiramisTransactions1795400000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {

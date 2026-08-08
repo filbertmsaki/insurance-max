@@ -32,7 +32,9 @@ export function NotificationsPage() {
     mutationFn: () => engagementApi.markAllNotificationsRead(),
     onSuccess: () => {
       toast.success('Notifications marked as read');
-      queryClient.invalidateQueries({ queryKey: ['engagement', 'notifications'] });
+      queryClient.invalidateQueries({
+        queryKey: ['engagement', 'notifications'],
+      });
       queryClient.invalidateQueries({
         queryKey: ['engagement', 'notifications', 'summary'],
       });
@@ -87,40 +89,62 @@ export function NotificationsPage() {
                   <TableRow key={notification.id}>
                     <TableCell>
                       <div className="space-y-1">
-                        <div className="font-medium text-slate-900">{notification.title}</div>
-                        <div className="text-sm text-slate-500">{notification.message}</div>
+                        <div className="font-medium text-slate-900">
+                          {notification.title}
+                        </div>
+                        <div className="text-sm text-slate-500">
+                          {notification.message}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={statusTone(notification.priority)}>
+                      <Badge
+                        variant="outline"
+                        className={statusTone(notification.priority)}
+                      >
                         {notification.priority}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={statusTone(derivedState)}>
+                      <Badge
+                        variant="outline"
+                        className={statusTone(derivedState)}
+                      >
                         {derivedState}
                       </Badge>
                     </TableCell>
-                    <TableCell>{formatDateTime(notification.created_at)}</TableCell>
+                    <TableCell>
+                      {formatDateTime(notification.created_at)}
+                    </TableCell>
                     <TableCell className="space-x-2">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() =>
-                          engagementApi.markNotificationRead(notification.id).then(() => {
-                            queryClient.invalidateQueries({
-                              queryKey: ['engagement', 'notifications'],
-                            });
-                            queryClient.invalidateQueries({
-                              queryKey: ['engagement', 'notifications', 'summary'],
-                            });
-                          })
+                          engagementApi
+                            .markNotificationRead(notification.id)
+                            .then(() => {
+                              queryClient.invalidateQueries({
+                                queryKey: ['engagement', 'notifications'],
+                              });
+                              queryClient.invalidateQueries({
+                                queryKey: [
+                                  'engagement',
+                                  'notifications',
+                                  'summary',
+                                ],
+                              });
+                            })
                         }
                       >
                         Read
                       </Button>
                       {openLink ? (
-                        <Button variant="ghost" size="sm" onClick={() => navigate(openLink)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(openLink)}
+                        >
                           Open
                         </Button>
                       ) : null}

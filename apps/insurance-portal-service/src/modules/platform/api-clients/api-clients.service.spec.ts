@@ -70,17 +70,19 @@ describe('ApiClientsService', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn().mockImplementation((key: string, fallback?: unknown) => {
-              const config: Record<string, unknown> = {
-                API_KEYS_ENABLED: true,
-                API_KEY_REQUIRE_IP_ALLOWLIST: true,
-                API_KEY_MAX_IPS_PER_KEY: 1,
-                API_KEY_DEFAULT_RATE_LIMIT_PER_MINUTE: 60,
-                API_KEY_ROTATION_GRACE_HOURS: 24,
-                API_KEY_MAX_VALIDITY_DAYS: 365,
-              };
-              return config[key] ?? fallback;
-            }),
+            get: jest
+              .fn()
+              .mockImplementation((key: string, fallback?: unknown) => {
+                const config: Record<string, unknown> = {
+                  API_KEYS_ENABLED: true,
+                  API_KEY_REQUIRE_IP_ALLOWLIST: true,
+                  API_KEY_MAX_IPS_PER_KEY: 1,
+                  API_KEY_DEFAULT_RATE_LIMIT_PER_MINUTE: 60,
+                  API_KEY_ROTATION_GRACE_HOURS: 24,
+                  API_KEY_MAX_VALIDITY_DAYS: 365,
+                };
+                return config[key] ?? fallback;
+              }),
           },
         },
         {
@@ -143,7 +145,7 @@ describe('ApiClientsService', () => {
       description: null,
       created_at: new Date(),
       updated_at: new Date(),
-    } as ApiClient);
+    });
 
     const client = await service.validateApiKey('iam_client', 'secret', {
       ipAddress: '203.0.113.25',
@@ -191,7 +193,7 @@ describe('ApiClientsService', () => {
       description: null,
       created_at: new Date(),
       updated_at: new Date(),
-    } as ApiClient);
+    });
 
     await expect(
       service.validateApiKey('iam_client', 'secret', {

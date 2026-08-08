@@ -132,7 +132,10 @@ describe('SaasCycleBillingService', () => {
           provide: getRepositoryToken(SaasInvoiceItem),
           useValue: invoiceItemRepository,
         },
-        { provide: getRepositoryToken(SaasPayment), useValue: paymentRepository },
+        {
+          provide: getRepositoryToken(SaasPayment),
+          useValue: paymentRepository,
+        },
         {
           provide: getRepositoryToken(SubscriptionChange),
           useValue: subscriptionChangeRepository,
@@ -140,15 +143,17 @@ describe('SaasCycleBillingService', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn().mockImplementation((key: string, fallback?: unknown) => {
-              const config: Record<string, unknown> = {
-                SAAS_PAST_DUE_GRACE_DAYS: '7',
-                SAAS_AUTO_SUSPEND_ENABLED: true,
-                SAAS_AUTO_RESTORE_AFTER_PAYMENT: true,
-                SAAS_INVOICE_DUE_DAYS: '14',
-              };
-              return config[key] ?? fallback;
-            }),
+            get: jest
+              .fn()
+              .mockImplementation((key: string, fallback?: unknown) => {
+                const config: Record<string, unknown> = {
+                  SAAS_PAST_DUE_GRACE_DAYS: '7',
+                  SAAS_AUTO_SUSPEND_ENABLED: true,
+                  SAAS_AUTO_RESTORE_AFTER_PAYMENT: true,
+                  SAAS_INVOICE_DUE_DAYS: '14',
+                };
+                return config[key] ?? fallback;
+              }),
           },
         },
       ],
@@ -181,7 +186,7 @@ describe('SaasCycleBillingService', () => {
           },
         ],
       },
-    } as CompanySubscription);
+    });
     cycleRepository.findOne.mockResolvedValue(null);
     snapshotRepository.find.mockResolvedValue([
       {
@@ -192,7 +197,8 @@ describe('SaasCycleBillingService', () => {
       },
     ] as PlatformUsageSnapshot[]);
 
-    const cycle = await service.ensureOpenCycleForSubscription('subscription-1');
+    const cycle =
+      await service.ensureOpenCycleForSubscription('subscription-1');
 
     expect(cycle.plan_version_id).toBe('plan-version-1');
     expect(cycle.usage_amount).toBe('10.00');
@@ -267,13 +273,13 @@ describe('SaasCycleBillingService', () => {
       balance_amount: '80.00',
       status: SaasInvoiceStatus.PARTIALLY_PAID,
       metadata: null,
-    } as SaasInvoice);
+    });
     subscriptionRepository.findOneBy.mockResolvedValue({
       id: 'subscription-1',
       company_id: 'company-1',
       plan_version_id: 'plan-version-1',
       status: SubscriptionStatus.ACTIVE,
-    } as CompanySubscription);
+    });
 
     const adjustment = await service.approveInvoiceAdjustment(
       { id: 'user-1' } as any,

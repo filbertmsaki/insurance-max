@@ -8,7 +8,9 @@ function createService(overrides: Record<string, any> = {}) {
     getRuntimeConfigurationById: jest
       .fn()
       .mockResolvedValue({ id: 'config-from-transaction' }),
-    getActiveConfiguration: jest.fn().mockResolvedValue({ id: 'active-config' }),
+    getActiveConfiguration: jest
+      .fn()
+      .mockResolvedValue({ id: 'active-config' }),
     getPfxPathsForConfiguration: jest.fn().mockResolvedValue({
       clientPrivateCertificatePath: 'client.pfx',
       clientPrivateCertificatePassword: 'secret',
@@ -40,14 +42,14 @@ function createService(overrides: Record<string, any> = {}) {
   const service = new TiramisCallbackService(
     {} as any,
     {} as any,
-    deadLetterRepository as any,
+    deadLetterRepository,
     {} as any,
-    tiramisConfigService as any,
-    tiramisSubmissionService as any,
-    { generate: jest.fn().mockReturnValue('ACK-001') } as any,
+    tiramisConfigService,
+    tiramisSubmissionService,
+    { generate: jest.fn().mockReturnValue('ACK-001') },
     new TiramisXmlBuilderService(),
     new TiramisXmlParserService(),
-    signatureService as any,
+    signatureService,
     {} as any,
     {} as any,
   );
@@ -104,9 +106,9 @@ describe('TiramisCallbackService', () => {
       },
     });
 
-    expect(tiramisConfigService.getRuntimeConfigurationById).toHaveBeenCalledWith(
-      'config-from-transaction',
-    );
+    expect(
+      tiramisConfigService.getRuntimeConfigurationById,
+    ).toHaveBeenCalledWith('config-from-transaction');
     expect(tiramisConfigService.getActiveConfiguration).not.toHaveBeenCalled();
     expect(signatureService.signXmlContent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -135,9 +137,9 @@ describe('TiramisCallbackService', () => {
     });
 
     expect(result).toEqual({ isValid: true });
-    expect(tiramisConfigService.getRuntimeConfigurationById).toHaveBeenCalledWith(
-      'config-from-transaction',
-    );
+    expect(
+      tiramisConfigService.getRuntimeConfigurationById,
+    ).toHaveBeenCalledWith('config-from-transaction');
     expect(tiramisConfigService.getActiveConfiguration).not.toHaveBeenCalled();
     expect(signatureService.verifyXmlContent).toHaveBeenCalledWith({
       contentXml: '<CoverNoteRefRes></CoverNoteRefRes>',
@@ -160,9 +162,7 @@ describe('TiramisCallbackService', () => {
     expect(deadLetterRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         rawXml,
-        payloadHash: createHash('sha256')
-          .update(rawXml, 'utf8')
-          .digest('hex'),
+        payloadHash: createHash('sha256').update(rawXml, 'utf8').digest('hex'),
         reason: 'Invalid callback',
       }),
     );

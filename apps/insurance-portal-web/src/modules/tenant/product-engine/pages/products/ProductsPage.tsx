@@ -176,10 +176,16 @@ export function ProductsPage() {
   function onIdentitySubmit(values: IdentityFormValues) {
     if (!editItem) return;
     const patch: Record<string, string> = {};
-    if (!editItem.current_version_id && values.category_id !== editItem.category_id) {
+    if (
+      !editItem.current_version_id &&
+      values.category_id !== editItem.category_id
+    ) {
       patch.category_id = values.category_id;
     }
-    if (!editItem.code_locked_at && values.product_code !== editItem.product_code) {
+    if (
+      !editItem.code_locked_at &&
+      values.product_code !== editItem.product_code
+    ) {
       patch.product_code = values.product_code;
     }
     updateMutation.mutate(
@@ -247,14 +253,18 @@ export function ProductsPage() {
     {
       key: 'review_status',
       header: 'Review',
-      cell: (row) => <ReviewBadge status={row.current_version?.review_status} />,
+      cell: (row) => (
+        <ReviewBadge status={row.current_version?.review_status} />
+      ),
     },
     {
       key: 'submission_ready',
       header: 'Quote-ready',
       cell: (row) =>
         row.current_version?.is_submission_ready ? (
-          <Badge className="bg-green-50 text-green-700 border-green-200">Yes</Badge>
+          <Badge className="bg-green-50 text-green-700 border-green-200">
+            Yes
+          </Badge>
         ) : (
           <span className="text-xs text-slate-400">No</span>
         ),
@@ -405,7 +415,11 @@ export function ProductsPage() {
                       <SelectContent>
                         {categories.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
-                            {c.name} ({c.business_line === 'MOTOR' ? 'Motor' : 'Non-Motor'})
+                            {c.name} (
+                            {c.business_line === 'MOTOR'
+                              ? 'Motor'
+                              : 'Non-Motor'}
+                            )
                           </SelectItem>
                         ))}
                       </SelectContent>

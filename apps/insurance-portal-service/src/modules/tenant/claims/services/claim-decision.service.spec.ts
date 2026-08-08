@@ -78,7 +78,10 @@ describe('ClaimDecisionService.approve', () => {
     const { service } = makeHarness(makeDecision(), makeClaim());
 
     await expect(
-      service.approve({ id: 'maker-user', companyId: 'company-1' } as any, 'decision-1'),
+      service.approve(
+        { id: 'maker-user', companyId: 'company-1' } as any,
+        'decision-1',
+      ),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 

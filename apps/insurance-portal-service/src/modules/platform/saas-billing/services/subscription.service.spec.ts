@@ -95,7 +95,11 @@ describe('SubscriptionService', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: jest.fn().mockImplementation((_key: string, fallback?: unknown) => fallback),
+            get: jest
+              .fn()
+              .mockImplementation(
+                (_key: string, fallback?: unknown) => fallback,
+              ),
           },
         },
         {
@@ -118,15 +122,15 @@ describe('SubscriptionService', () => {
       current_period_end: currentPeriodEnd,
       status: SubscriptionStatus.ACTIVE,
       state_version: 1,
-    } as CompanySubscription);
+    });
     planRepository.findOne.mockResolvedValue({
       id: 'plan-new',
       active_version_id: 'version-new',
-    } as SaasPlan);
+    });
     planVersionRepository.findOneByOrFail.mockResolvedValue({
       id: 'version-new',
       base_price: '75.00',
-    } as SaasPlanVersion);
+    });
 
     const result = await service.schedulePlanChange(
       { id: 'user-1' } as any,
@@ -176,7 +180,7 @@ describe('SubscriptionService', () => {
           value: 10,
         },
       ],
-    } as unknown as SaasPlanVersion);
+    });
 
     const result = await service.applyDueScheduledChanges();
 

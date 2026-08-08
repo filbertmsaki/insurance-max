@@ -87,7 +87,9 @@ export class SecurityPoliciesService {
 
     const policyRequiresTwoFactor =
       policy.requireTwoFactorForAllUsers ||
-      policy.requireTwoFactorForRoles.some((role) => roleNames.includes(role)) ||
+      policy.requireTwoFactorForRoles.some((role) =>
+        roleNames.includes(role),
+      ) ||
       policy.requireTwoFactorForPermissions.some((permission) =>
         permissions.has(permission),
       ) ||
@@ -132,10 +134,10 @@ export class SecurityPoliciesService {
       requireTwoFactorForAllUsers:
         this.configService.get<boolean>('SECURITY_REQUIRE_2FA_FOR_ALL_USERS') ??
         false,
-      requireTwoFactorForRoles: this.readCsvEnv(
-        'SECURITY_REQUIRE_2FA_ROLES',
-        ['ADMINISTRATOR', 'SUPER_ADMIN'],
-      ),
+      requireTwoFactorForRoles: this.readCsvEnv('SECURITY_REQUIRE_2FA_ROLES', [
+        'ADMINISTRATOR',
+        'SUPER_ADMIN',
+      ]),
       requireTwoFactorForPermissions: this.readCsvEnv(
         'SECURITY_REQUIRE_2FA_PERMISSIONS',
         ['security-policies:activate', 'security-policies:approve'],
@@ -148,7 +150,8 @@ export class SecurityPoliciesService {
         this.configService.get<boolean>('AUTH_ALLOW_TRUSTED_DEVICE_BYPASS') ??
         true,
       stepUpMaxAgeMinutes:
-        this.configService.get<number>('SECURITY_STEP_UP_MAX_AGE_MINUTES') ?? 10,
+        this.configService.get<number>('SECURITY_STEP_UP_MAX_AGE_MINUTES') ??
+        10,
     };
   }
 
@@ -178,14 +181,14 @@ export class SecurityPoliciesService {
     root: Record<string, unknown> | null,
     key: string,
   ): boolean | null {
-    return typeof root?.[key] === 'boolean' ? (root[key] as boolean) : null;
+    return typeof root?.[key] === 'boolean' ? root[key] : null;
   }
 
   private readNumber(
     root: Record<string, unknown> | null,
     key: string,
   ): number | null {
-    return typeof root?.[key] === 'number' ? (root[key] as number) : null;
+    return typeof root?.[key] === 'number' ? root[key] : null;
   }
 
   private readStringArray(

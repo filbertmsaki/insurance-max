@@ -8,13 +8,11 @@ const sourceRoot = path.join(cwd, 'apps/insurance-portal-service/src');
 const errors = [];
 
 function walk(directory) {
-  return fs
-    .readdirSync(directory, { withFileTypes: true })
-    .flatMap((entry) => {
-      const fullPath = path.join(directory, entry.name);
+  return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const fullPath = path.join(directory, entry.name);
 
-      return entry.isDirectory() ? walk(fullPath) : [fullPath];
-    });
+    return entry.isDirectory() ? walk(fullPath) : [fullPath];
+  });
 }
 
 const controllerFiles = walk(sourceRoot).filter((file) =>
@@ -33,9 +31,7 @@ const authorizedDecoratorPattern =
 for (const file of controllerFiles) {
   const source = fs.readFileSync(file, 'utf8');
 
-  const publicController = /@Public\(\)[\s\S]{0,200}@Controller/.test(
-    source,
-  );
+  const publicController = /@Public\(\)[\s\S]{0,200}@Controller/.test(source);
 
   const serviceController = /@ServiceEndpoint\(\)[\s\S]{0,200}@Controller/.test(
     source,
@@ -51,12 +47,8 @@ for (const file of controllerFiles) {
   // each handler. Capture that block so those routes aren't flagged.
   const classDeclarationIndex = source.indexOf('export class');
   const classLevelBlock =
-    classDeclarationIndex === -1
-      ? ''
-      : source.slice(0, classDeclarationIndex);
-  const classLevelAuthorized = authorizedDecoratorPattern.test(
-    classLevelBlock,
-  );
+    classDeclarationIndex === -1 ? '' : source.slice(0, classDeclarationIndex);
+  const classLevelAuthorized = authorizedDecoratorPattern.test(classLevelBlock);
 
   if (classLevelAuthorized) {
     continue;

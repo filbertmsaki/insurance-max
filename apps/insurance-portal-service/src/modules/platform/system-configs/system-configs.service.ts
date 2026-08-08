@@ -17,7 +17,9 @@ export class SystemConfigsService {
   }
 
   async findOne(key: string): Promise<SystemConfigEntity> {
-    const config = await this.repository.findOne({ where: { config_key: key } });
+    const config = await this.repository.findOne({
+      where: { config_key: key },
+    });
 
     if (!config) {
       throw new NotFoundException(`System config "${key}" not found`);
@@ -27,7 +29,10 @@ export class SystemConfigsService {
   }
 
   /** Typed read for internal callers — returns `fallback` instead of throwing. */
-  async getValue<T = Record<string, unknown>>(key: string, fallback: T): Promise<T> {
+  async getValue<T = Record<string, unknown>>(
+    key: string,
+    fallback: T,
+  ): Promise<T> {
     const config = await this.repository.findOne({
       where: { config_key: key, is_active: true },
     });
@@ -35,8 +40,13 @@ export class SystemConfigsService {
     return config ? (config.config_value as T) : fallback;
   }
 
-  async upsert(key: string, dto: UpsertSystemConfigDto): Promise<SystemConfigEntity> {
-    const existing = await this.repository.findOne({ where: { config_key: key } });
+  async upsert(
+    key: string,
+    dto: UpsertSystemConfigDto,
+  ): Promise<SystemConfigEntity> {
+    const existing = await this.repository.findOne({
+      where: { config_key: key },
+    });
 
     const record = existing ?? this.repository.create({ config_key: key });
 

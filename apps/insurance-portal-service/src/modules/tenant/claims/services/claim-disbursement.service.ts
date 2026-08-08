@@ -177,14 +177,18 @@ export class ClaimDisbursementService {
       payment.finance_status = 'PAID';
       payment.finance_event_id = `disbursement-paid:${disbursement.id}`;
       payment.payment_method = paymentMethod;
-      payment.payment_reference = providerReference ?? disbursement.disbursement_no;
+      payment.payment_reference =
+        providerReference ?? disbursement.disbursement_no;
       payment.paid_by = user.id;
       payment.paid_at = new Date();
       payment.parties_notified = 'Y';
       await manager.getRepository(ClaimPayment).save(payment);
 
       const oldStatus = claim.status;
-      const newPaidAmount = MoneyUtil.add(claim.paid_amount, payment.paid_amount);
+      const newPaidAmount = MoneyUtil.add(
+        claim.paid_amount,
+        payment.paid_amount,
+      );
       claim.paid_amount = newPaidAmount;
 
       const fullyPaid =

@@ -34,16 +34,28 @@ export function FinanceJournalDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/finance/journals')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/finance/journals')}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <PageHeader title={journal.journal_no} description="Finance journal detail" />
+        <PageHeader
+          title={journal.journal_no}
+          description="Finance journal detail"
+        />
       </div>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Entry</CardTitle></CardHeader>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Entry</CardTitle>
+        </CardHeader>
         <CardContent>
-          <DetailRow label="Status" value={<FinanceStatusBadge status={journal.status} />} />
+          <DetailRow
+            label="Status"
+            value={<FinanceStatusBadge status={journal.status} />}
+          />
           <DetailRow label="Journal date" value={journal.journal_date} />
           <DetailRow label="Source type" value={journal.source_type} />
           <DetailRow label="Source event" value={journal.source_event_id} />
@@ -52,13 +64,27 @@ export function FinanceJournalDetailPage() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Lines</CardTitle></CardHeader>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Lines</CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
           {(journal.lines ?? []).map((line) => (
-            <div key={line.id} className="rounded-lg border border-slate-200 p-4">
-              <DetailRow label="Description" value={line.description ?? ' - '} />
-              <DetailRow label="Debit" value={formatMoney(line.debit, journal.currency_code)} />
-              <DetailRow label="Credit" value={formatMoney(line.credit, journal.currency_code)} />
+            <div
+              key={line.id}
+              className="rounded-lg border border-slate-200 p-4"
+            >
+              <DetailRow
+                label="Description"
+                value={line.description ?? ' - '}
+              />
+              <DetailRow
+                label="Debit"
+                value={formatMoney(line.debit, journal.currency_code)}
+              />
+              <DetailRow
+                label="Credit"
+                value={formatMoney(line.credit, journal.currency_code)}
+              />
             </div>
           ))}
         </CardContent>

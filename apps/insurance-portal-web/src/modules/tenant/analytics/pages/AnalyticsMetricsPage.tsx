@@ -25,7 +25,10 @@ import {
 } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-import { phase16Api, type MetricCompareResponse } from '../../phase16/api/phase16';
+import {
+  phase16Api,
+  type MetricCompareResponse,
+} from '../../phase16/api/phase16';
 
 type MetricFormState = {
   metricCode: string;
@@ -99,7 +102,10 @@ export function AnalyticsMetricsPage() {
   });
 
   const selectedDefinition = useMemo(() => {
-    return definitionsQuery.data?.find((item) => item.code === form.metricCode) ?? null;
+    return (
+      definitionsQuery.data?.find((item) => item.code === form.metricCode) ??
+      null
+    );
   }, [definitionsQuery.data, form.metricCode]);
 
   const latestCompareResult =
@@ -231,7 +237,9 @@ export function AnalyticsMetricsPage() {
                   id="metric-branch"
                   placeholder="Optional branch UUID"
                   value={form.branchId}
-                  onChange={(event) => updateField('branchId', event.target.value)}
+                  onChange={(event) =>
+                    updateField('branchId', event.target.value)
+                  }
                 />
               </div>
             </div>
@@ -243,7 +251,9 @@ export function AnalyticsMetricsPage() {
                   id="metric-period-start"
                   type="date"
                   value={form.periodStart}
-                  onChange={(event) => updateField('periodStart', event.target.value)}
+                  onChange={(event) =>
+                    updateField('periodStart', event.target.value)
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -252,7 +262,9 @@ export function AnalyticsMetricsPage() {
                   id="metric-period-end"
                   type="date"
                   value={form.periodEnd}
-                  onChange={(event) => updateField('periodEnd', event.target.value)}
+                  onChange={(event) =>
+                    updateField('periodEnd', event.target.value)
+                  }
                 />
               </div>
             </div>
@@ -264,7 +276,9 @@ export function AnalyticsMetricsPage() {
                   id="dimension-key"
                   placeholder="branch_id"
                   value={form.dimensionKey}
-                  onChange={(event) => updateField('dimensionKey', event.target.value)}
+                  onChange={(event) =>
+                    updateField('dimensionKey', event.target.value)
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -287,7 +301,8 @@ export function AnalyticsMetricsPage() {
                     Compare prior period
                   </p>
                   <p className="text-xs text-slate-500">
-                    Keep forecasts separate from actuals and compare periods explicitly.
+                    Keep forecasts separate from actuals and compare periods
+                    explicitly.
                   </p>
                 </div>
                 <Button
@@ -350,8 +365,12 @@ export function AnalyticsMetricsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">{selectedDefinition.category}</Badge>
-                  <Badge variant="outline">{selectedDefinition.valueType}</Badge>
+                  <Badge variant="secondary">
+                    {selectedDefinition.category}
+                  </Badge>
+                  <Badge variant="outline">
+                    {selectedDefinition.valueType}
+                  </Badge>
                   <Badge variant="outline">
                     v{selectedDefinition.formulaVersion}
                   </Badge>
@@ -369,7 +388,9 @@ export function AnalyticsMetricsPage() {
                 </div>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
                   <p className="font-medium text-slate-900">Formula</p>
-                  <p className="mt-1">{selectedDefinition.formulaDescription}</p>
+                  <p className="mt-1">
+                    {selectedDefinition.formulaDescription}
+                  </p>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
@@ -398,8 +419,8 @@ export function AnalyticsMetricsPage() {
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Select a metric</AlertTitle>
               <AlertDescription>
-                The explorer builds from the registered metric catalogue, so the same
-                metric contract is reused by dashboards and reporting.
+                The explorer builds from the registered metric catalogue, so the
+                same metric contract is reused by dashboards and reporting.
               </AlertDescription>
             </Alert>
           )}
@@ -446,7 +467,8 @@ export function AnalyticsMetricsPage() {
                   {formatMetricValue(compareMutation.data?.delta ?? null)}
                 </p>
                 <p className="mt-2 text-xs text-slate-500">
-                  Applied filters stay server-scoped for company and branch context.
+                  Applied filters stay server-scoped for company and branch
+                  context.
                 </p>
               </CardContent>
             </Card>
@@ -495,9 +517,12 @@ export function AnalyticsMetricsPage() {
                   ))}
                   {(latestCompareResult?.primary.values ?? []).length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-slate-500">
-                        Run a metric query to view server-scoped values, freshness,
-                        and formula version.
+                      <TableCell
+                        colSpan={5}
+                        className="text-center text-slate-500"
+                      >
+                        Run a metric query to view server-scoped values,
+                        freshness, and formula version.
                       </TableCell>
                     </TableRow>
                   )}

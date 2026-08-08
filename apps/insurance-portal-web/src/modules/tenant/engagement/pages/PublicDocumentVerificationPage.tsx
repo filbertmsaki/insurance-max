@@ -26,30 +26,45 @@ export function PublicDocumentVerificationPage() {
           <CardContent className="space-y-4">
             {query.data ? (
               <>
-                <Badge variant="outline" className={statusTone(query.data.status)}>
+                <Badge
+                  variant="outline"
+                  className={statusTone(query.data.status)}
+                >
                   {query.data.status}
                 </Badge>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <div className="text-xs text-slate-500">Document number</div>
-                    <div className="text-sm font-medium text-slate-900">{query.data.document_no}</div>
+                    <div className="text-xs text-slate-500">
+                      Document number
+                    </div>
+                    <div className="text-sm font-medium text-slate-900">
+                      {query.data.document_no}
+                    </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500">Title</div>
-                    <div className="text-sm font-medium text-slate-900">{query.data.title}</div>
+                    <div className="text-sm font-medium text-slate-900">
+                      {query.data.title}
+                    </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500">Document type</div>
-                    <div className="text-sm font-medium text-slate-900">{query.data.document_type}</div>
+                    <div className="text-sm font-medium text-slate-900">
+                      {query.data.document_type}
+                    </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500">Verified</div>
-                    <div className="text-sm font-medium text-slate-900">{formatDateTime(query.data.verified_at)}</div>
+                    <div className="text-sm font-medium text-slate-900">
+                      {formatDateTime(query.data.verified_at)}
+                    </div>
                   </div>
                 </div>
               </>
             ) : (
-              <div className="text-sm text-slate-500">Verification record not found.</div>
+              <div className="text-sm text-slate-500">
+                Verification record not found.
+              </div>
             )}
           </CardContent>
         </Card>

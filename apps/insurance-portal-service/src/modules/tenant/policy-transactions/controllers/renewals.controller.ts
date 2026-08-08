@@ -32,7 +32,10 @@ export class RenewalsController {
 
   @Post('tenant/renewals/:id/link-quotation')
   @Permissions('renewals:create-offer')
-  @ApiOperation({ summary: 'Link a renewal offer to a quotation created through the normal quotation flow' })
+  @ApiOperation({
+    summary:
+      'Link a renewal offer to a quotation created through the normal quotation flow',
+  })
   linkQuotation(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -74,7 +77,10 @@ export class RenewalsController {
 
   @Post('tenant/policies/:policyId/renewals')
   @Permissions('renewals:create')
-  @ApiOperation({ summary: 'Manually create a renewal offer for a policy ahead of the scheduled job' })
+  @ApiOperation({
+    summary:
+      'Manually create a renewal offer for a policy ahead of the scheduled job',
+  })
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Param('policyId', ParseUUIDPipe) policyId: string,

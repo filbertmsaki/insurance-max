@@ -18,14 +18,30 @@ export function FinanceCommissionPaymentsPage() {
   const rows = query.data?.data ?? [];
   const columns: Column<FinanceCommissionPayment>[] = [
     { key: 'payment_no', header: 'Payment', cell: (row) => row.payment_no },
-    { key: 'status', header: 'Status', cell: (row) => <FinanceStatusBadge status={row.status} /> },
-    { key: 'amount', header: 'Amount', cell: (row) => formatMoney(row.total_amount, row.currency) },
-    { key: 'allocated', header: 'Allocated', cell: (row) => formatMoney(row.allocated_amount, row.currency) },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (row) => <FinanceStatusBadge status={row.status} />,
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      cell: (row) => formatMoney(row.total_amount, row.currency),
+    },
+    {
+      key: 'allocated',
+      header: 'Allocated',
+      cell: (row) => formatMoney(row.allocated_amount, row.currency),
+    },
     {
       key: 'actions',
       header: 'Action',
       cell: (row) => (
-        <Button size="sm" variant="outline" onClick={() => navigate(`/finance/commission-payments/${row.id}`)}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => navigate(`/finance/commission-payments/${row.id}`)}
+        >
           Open
         </Button>
       ),
@@ -36,7 +52,10 @@ export function FinanceCommissionPaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Commission Payments" description="Commission payouts stay linked to accrual balances and journal history." />
+      <PageHeader
+        title="Commission Payments"
+        description="Commission payouts stay linked to accrual balances and journal history."
+      />
       <DataTable
         columns={columns}
         data={rows}

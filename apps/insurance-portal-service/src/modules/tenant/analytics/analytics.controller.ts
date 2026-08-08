@@ -1,7 +1,4 @@
-import {
-  AnyPermissions,
-  TenantScoped,
-} from '@insurance-max/portal-shared';
+import { AnyPermissions, TenantScoped } from '@insurance-max/portal-shared';
 import {
   BadRequestException,
   Body,

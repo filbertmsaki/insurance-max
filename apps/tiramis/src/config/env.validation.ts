@@ -69,10 +69,7 @@ export const tiramisEnvValidationSchema = Joi.object({
     .default('http://127.0.0.1:9090/api/v1/internal/tiramis/events'),
   TIRAMIS_PORTAL_EVENT_OUTBOX_ENABLED: Joi.boolean().default(true),
   TIRAMIS_PORTAL_EVENT_BATCH_SIZE: Joi.number().integer().min(1).default(50),
-  TIRAMIS_PORTAL_EVENT_MAX_ATTEMPTS: Joi.number()
-    .integer()
-    .min(1)
-    .default(12),
+  TIRAMIS_PORTAL_EVENT_MAX_ATTEMPTS: Joi.number().integer().min(1).default(12),
   TIRAMIS_PORTAL_EVENT_BASE_DELAY_SECONDS: Joi.number()
     .integer()
     .min(1)
@@ -97,10 +94,7 @@ export const tiramisEnvValidationSchema = Joi.object({
   TIRAMIS_RETRY_BATCH_SIZE: Joi.number().integer().min(1).default(20),
   TIRAMIS_RETRY_MAX_ATTEMPTS: Joi.number().integer().min(1).default(5),
   TIRAMIS_RETRY_BASE_DELAY_SECONDS: Joi.number().integer().min(1).default(60),
-  TIRAMIS_RETRY_MAX_DELAY_SECONDS: Joi.number()
-    .integer()
-    .min(1)
-    .default(900),
+  TIRAMIS_RETRY_MAX_DELAY_SECONDS: Joi.number().integer().min(1).default(900),
   TIRAMIS_FINAL_CALLBACK_TIMEOUT_MINUTES: Joi.number()
     .integer()
     .min(1)

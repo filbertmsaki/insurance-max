@@ -7,7 +7,10 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { DocumentStatus, type DocumentStatus as DocumentStatusValue } from '@insurance-max/contracts';
+import {
+  DocumentStatus,
+  type DocumentStatus as DocumentStatusValue,
+} from '@insurance-max/contracts';
 
 import { Document } from './document.entity';
 

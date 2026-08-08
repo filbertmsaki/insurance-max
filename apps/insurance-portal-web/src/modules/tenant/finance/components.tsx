@@ -40,13 +40,15 @@ export function formatDate(value?: string | null) {
   return parsed.toLocaleString();
 }
 
-export function partyName(party?: {
-  company_name?: string | null;
-  first_name?: string | null;
-  last_name?: string | null;
-  customer_no?: string | null;
-  name?: string | null;
-} | null) {
+export function partyName(
+  party?: {
+    company_name?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    customer_no?: string | null;
+    name?: string | null;
+  } | null,
+) {
   if (!party) return ' - ';
 
   return (
@@ -114,13 +116,7 @@ export function MetricCard({
   );
 }
 
-export function JsonCard({
-  title,
-  value,
-}: {
-  title: string;
-  value: unknown;
-}) {
+export function JsonCard({ title, value }: { title: string; value: unknown }) {
   return (
     <Card>
       <CardHeader className="pb-2">

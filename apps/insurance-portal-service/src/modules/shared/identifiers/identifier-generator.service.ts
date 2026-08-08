@@ -32,13 +32,15 @@ const POLICY_TRANSACTION_IDENTIFIER_CONSTANT: Record<
   [PolicyTransactionType.RENEWAL]: IDENTIFIER_CONSTANTS.renewal,
 };
 
-const POLICY_TRANSACTION_SEQUENCE_LENGTH: Record<PolicyTransactionType, number> =
-  {
-    [PolicyTransactionType.ENDORSEMENT]: IDENTIFIER_SEQUENCE_LENGTHS.endorsement,
-    [PolicyTransactionType.CANCELLATION]:
-      IDENTIFIER_SEQUENCE_LENGTHS.cancellation,
-    [PolicyTransactionType.RENEWAL]: IDENTIFIER_SEQUENCE_LENGTHS.renewal,
-  };
+const POLICY_TRANSACTION_SEQUENCE_LENGTH: Record<
+  PolicyTransactionType,
+  number
+> = {
+  [PolicyTransactionType.ENDORSEMENT]: IDENTIFIER_SEQUENCE_LENGTHS.endorsement,
+  [PolicyTransactionType.CANCELLATION]:
+    IDENTIFIER_SEQUENCE_LENGTHS.cancellation,
+  [PolicyTransactionType.RENEWAL]: IDENTIFIER_SEQUENCE_LENGTHS.renewal,
+};
 
 interface GeneratedIdentifierRow {
   id: string;

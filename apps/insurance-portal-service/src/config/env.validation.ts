@@ -81,10 +81,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .integer()
     .min(1)
     .default(60),
-  API_KEY_ROTATION_GRACE_HOURS: Joi.number()
-    .integer()
-    .min(1)
-    .default(24),
+  API_KEY_ROTATION_GRACE_HOURS: Joi.number().integer().min(1).default(24),
   API_KEY_MAX_VALIDITY_DAYS: Joi.number().integer().min(1).default(365),
   SECURITY_ENCRYPTION_KEY: Joi.string().allow('').default(''),
   SECURITY_ENCRYPTION_KEY_VERSION: Joi.number().integer().min(1).default(1),
@@ -187,9 +184,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .max(168)
     .default(48),
   DOCUMENTS_ENABLED: Joi.boolean().default(true),
-  DOCUMENT_STORAGE_PROVIDER: Joi.string()
-    .trim()
-    .default('local_private'),
+  DOCUMENT_STORAGE_PROVIDER: Joi.string().trim().default('local_private'),
   DOCUMENT_STORAGE_ROOT: Joi.string().trim().default('./uploads/documents'),
   DOCUMENT_DEFAULT_MAX_BYTES: Joi.number()
     .integer()
@@ -201,9 +196,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .default('application/pdf,image/jpeg,image/png'),
   DOCUMENT_SCAN_ENABLED: Joi.boolean().default(true),
   DOCUMENT_SCAN_REQUIRED: Joi.boolean().default(true),
-  DOCUMENT_QUARANTINE_ROOT: Joi.string()
-    .trim()
-    .default('./uploads/quarantine'),
+  DOCUMENT_QUARANTINE_ROOT: Joi.string().trim().default('./uploads/quarantine'),
   DOCUMENT_DOWNLOAD_TOKEN_MINUTES: Joi.number().integer().min(1).default(10),
   DOCUMENT_PUBLIC_VERIFICATION_ENABLED: Joi.boolean().default(true),
   DOCUMENT_ACCESS_AUDIT_ENABLED: Joi.boolean().default(true),
@@ -250,14 +243,8 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   PORTAL_INTERMEDIARY_FRONTEND_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .default('http://localhost:9092/intermediary'),
-  PORTAL_ACCOUNT_LOCKOUT_ATTEMPTS: Joi.number()
-    .integer()
-    .min(1)
-    .default(5),
-  PORTAL_ACCOUNT_LOCKOUT_MINUTES: Joi.number()
-    .integer()
-    .min(1)
-    .default(15),
+  PORTAL_ACCOUNT_LOCKOUT_ATTEMPTS: Joi.number().integer().min(1).default(5),
+  PORTAL_ACCOUNT_LOCKOUT_MINUTES: Joi.number().integer().min(1).default(15),
   PORTAL_SESSION_IDLE_MINUTES: Joi.number().integer().min(1).default(30),
   PORTAL_REQUIRE_TERMS_ACCEPTANCE: Joi.boolean().default(true),
   PORTAL_UPLOAD_ROOT: Joi.string().trim().default('./uploads'),

@@ -32,7 +32,9 @@ function loadEnv(filePath) {
 }
 
 loadEnv(path.join(process.cwd(), '.env.e2e'));
-loadEnv(path.join(process.cwd(), 'apps', 'insurance-portal-service', '.env.e2e'));
+loadEnv(
+  path.join(process.cwd(), 'apps', 'insurance-portal-service', '.env.e2e'),
+);
 
 const config = {
   portalBaseUrl: process.env.PORTAL_BASE_URL || 'http://localhost:9090',
@@ -132,7 +134,10 @@ function loadJsonPayload() {
   }
 
   if (process.env.E2E_PAYLOAD_FILE) {
-    const payloadPath = path.resolve(process.cwd(), process.env.E2E_PAYLOAD_FILE);
+    const payloadPath = path.resolve(
+      process.cwd(),
+      process.env.E2E_PAYLOAD_FILE,
+    );
     return JSON.parse(fs.readFileSync(payloadPath, 'utf8'));
   }
 
@@ -281,8 +286,7 @@ async function loginAndGetToken() {
     scope !== 'platform' || hasCompanyContext,
     {
       scope,
-      hint:
-        'Use E2E_AUTH_EMAIL/E2E_AUTH_PASSWORD for a company user with TIRAMIS permissions, not a platform owner session.',
+      hint: 'Use E2E_AUTH_EMAIL/E2E_AUTH_PASSWORD for a company user with TIRAMIS permissions, not a platform owner session.',
     },
   );
 
@@ -443,7 +447,11 @@ async function testDuplicatePrevention() {
     )}`,
   );
 
-  assert('Duplicate check endpoint works', duplicateCheck.ok, duplicateCheck.data);
+  assert(
+    'Duplicate check endpoint works',
+    duplicateCheck.ok,
+    duplicateCheck.data,
+  );
 
   return {
     duplicate,

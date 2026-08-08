@@ -17,9 +17,7 @@ export function redactSensitiveFields<T>(
   sensitiveKeys = DEFAULT_SENSITIVE_KEYS,
 ): T {
   if (Array.isArray(value)) {
-    return value.map((item) =>
-      redactSensitiveFields(item, sensitiveKeys),
-    ) as T;
+    return value.map((item) => redactSensitiveFields(item, sensitiveKeys)) as T;
   }
 
   if (!value || typeof value !== 'object') {
@@ -37,7 +35,10 @@ export function redactSensitiveFields<T>(
   ) as T;
 }
 
-export function buildStructuredLog(event: string, payload: Record<string, unknown>) {
+export function buildStructuredLog(
+  event: string,
+  payload: Record<string, unknown>,
+) {
   return JSON.stringify({
     event,
     ...redactSensitiveFields(payload),

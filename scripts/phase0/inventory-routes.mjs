@@ -71,10 +71,7 @@ function backendInventory(root) {
 }
 
 function frontendInventory() {
-  const appFile = path.join(
-    cwd,
-    'apps/insurance-portal-web/src/App.tsx',
-  );
+  const appFile = path.join(cwd, 'apps/insurance-portal-web/src/App.tsx');
 
   const source = fs.readFileSync(appFile, 'utf8');
 
@@ -128,7 +125,5 @@ if (checkOnly) {
 
   fs.writeFileSync(outputFile, serialized);
 
-  console.log(
-    `Route inventory written to ${path.relative(cwd, outputFile)}`,
-  );
+  console.log(`Route inventory written to ${path.relative(cwd, outputFile)}`);
 }

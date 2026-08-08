@@ -6,7 +6,10 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { DocumentLinkType, type DocumentLinkType as DocumentLinkTypeValue } from '@insurance-max/contracts';
+import {
+  DocumentLinkType,
+  type DocumentLinkType as DocumentLinkTypeValue,
+} from '@insurance-max/contracts';
 
 import { Document } from './document.entity';
 

@@ -85,38 +85,69 @@ export function FinanceRefundDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/finance/refunds')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/finance/refunds')}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <PageHeader title={refund.refund_no} description="Finance refund detail" />
+        <PageHeader
+          title={refund.refund_no}
+          description="Finance refund detail"
+        />
       </div>
 
       <div className="flex flex-wrap gap-2">
         {refund.status === 'REQUESTED' ? (
-          <Button onClick={() => approveMutation.mutate()} disabled={approveMutation.isPending}>
+          <Button
+            onClick={() => approveMutation.mutate()}
+            disabled={approveMutation.isPending}
+          >
             Approve Refund
           </Button>
         ) : null}
         {refund.status === 'APPROVED' ? (
-          <Button onClick={() => payMutation.mutate()} disabled={payMutation.isPending}>
+          <Button
+            onClick={() => payMutation.mutate()}
+            disabled={payMutation.isPending}
+          >
             Mark Refund Paid
           </Button>
         ) : null}
         {['REQUESTED', 'APPROVED'].includes(refund.status) ? (
-          <Button variant="outline" onClick={() => cancelMutation.mutate()} disabled={cancelMutation.isPending}>
+          <Button
+            variant="outline"
+            onClick={() => cancelMutation.mutate()}
+            disabled={cancelMutation.isPending}
+          >
             Cancel Refund
           </Button>
         ) : null}
       </div>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Details</CardTitle></CardHeader>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Details</CardTitle>
+        </CardHeader>
         <CardContent>
-          <DetailRow label="Status" value={<FinanceStatusBadge status={refund.status} />} />
-          <DetailRow label="Amount" value={formatMoney(refund.amount, refund.currency_code)} />
+          <DetailRow
+            label="Status"
+            value={<FinanceStatusBadge status={refund.status} />}
+          />
+          <DetailRow
+            label="Amount"
+            value={formatMoney(refund.amount, refund.currency_code)}
+          />
           <DetailRow label="Reason" value={refund.reason} />
-          <DetailRow label="Requested at" value={formatDate(refund.requested_at)} />
-          <DetailRow label="Approved at" value={formatDate(refund.approved_at)} />
+          <DetailRow
+            label="Requested at"
+            value={formatDate(refund.requested_at)}
+          />
+          <DetailRow
+            label="Approved at"
+            value={formatDate(refund.approved_at)}
+          />
           <DetailRow label="Paid at" value={formatDate(refund.paid_at)} />
           <DetailRow label="Failure" value={refund.failure_message ?? ' - '} />
         </CardContent>

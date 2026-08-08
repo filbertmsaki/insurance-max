@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CanonicalPortalIntegration1795300000000
-  implements MigrationInterface
-{
+export class CanonicalPortalIntegration1795300000000 implements MigrationInterface {
   name = 'CanonicalPortalIntegration1795300000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {

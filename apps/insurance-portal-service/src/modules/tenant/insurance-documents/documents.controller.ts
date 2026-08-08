@@ -56,7 +56,9 @@ export class DocumentsController {
 
   @Post()
   @AnyPermissions(DocumentsPermissions.UPLOAD, DocumentsPermissions.REGISTER)
-  @ApiOperation({ summary: 'Register a legacy document record without file content' })
+  @ApiOperation({
+    summary: 'Register a legacy document record without file content',
+  })
   register(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: RegisterDocumentDto,
@@ -154,8 +156,13 @@ export class DocumentsController {
   }
 
   @Post('generate')
-  @AnyPermissions(DocumentsPermissions.UPLOAD, DocumentsPermissions.CREATE_VERSION)
-  @ApiOperation({ summary: 'Generate a document from an active template version' })
+  @AnyPermissions(
+    DocumentsPermissions.UPLOAD,
+    DocumentsPermissions.CREATE_VERSION,
+  )
+  @ApiOperation({
+    summary: 'Generate a document from an active template version',
+  })
   generate(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: GenerateDocumentDto,
@@ -175,8 +182,13 @@ export class DocumentsController {
   }
 
   @Post(':id/create-version')
-  @AnyPermissions(DocumentsPermissions.CREATE_VERSION, DocumentsPermissions.UPLOAD)
-  @ApiOperation({ summary: 'Create a new upload session for a replacement version' })
+  @AnyPermissions(
+    DocumentsPermissions.CREATE_VERSION,
+    DocumentsPermissions.UPLOAD,
+  )
+  @ApiOperation({
+    summary: 'Create a new upload session for a replacement version',
+  })
   createVersion(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -239,7 +251,9 @@ export class DocumentsController {
 
   @Post(':id/rescan')
   @Permissions(DocumentsPermissions.RESCAN)
-  @ApiOperation({ summary: 'Run a new security scan against the current document version' })
+  @ApiOperation({
+    summary: 'Run a new security scan against the current document version',
+  })
   rescan(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,

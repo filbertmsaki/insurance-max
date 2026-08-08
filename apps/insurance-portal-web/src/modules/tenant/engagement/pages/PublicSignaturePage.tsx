@@ -46,25 +46,36 @@ export function PublicSignaturePage() {
           <CardContent className="space-y-4">
             {query.data ? (
               <>
-                <Badge variant="outline" className={statusTone(query.data.request.status)}>
+                <Badge
+                  variant="outline"
+                  className={statusTone(query.data.request.status)}
+                >
                   {query.data.request.status}
                 </Badge>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <div className="text-xs text-slate-500">Signer</div>
-                    <div className="text-sm font-medium text-slate-900">{query.data.participant.name}</div>
+                    <div className="text-sm font-medium text-slate-900">
+                      {query.data.participant.name}
+                    </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500">Request</div>
-                    <div className="text-sm font-medium text-slate-900">{query.data.request.request_no}</div>
+                    <div className="text-sm font-medium text-slate-900">
+                      {query.data.request.request_no}
+                    </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500">Document</div>
-                    <div className="text-sm font-medium text-slate-900">{query.data.document?.title ?? 'Document'}</div>
+                    <div className="text-sm font-medium text-slate-900">
+                      {query.data.document?.title ?? 'Document'}
+                    </div>
                   </div>
                   <div>
                     <div className="text-xs text-slate-500">Expires</div>
-                    <div className="text-sm font-medium text-slate-900">{formatDateTime(query.data.request.expires_at)}</div>
+                    <div className="text-sm font-medium text-slate-900">
+                      {formatDateTime(query.data.request.expires_at)}
+                    </div>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -77,7 +88,9 @@ export function PublicSignaturePage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="public-signature-decline">Decline reason</Label>
+                  <Label htmlFor="public-signature-decline">
+                    Decline reason
+                  </Label>
                   <Textarea
                     id="public-signature-decline"
                     value={declineReason}
@@ -85,14 +98,21 @@ export function PublicSignaturePage() {
                   />
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button onClick={() => respondMutation.mutate('SIGN')}>Sign document</Button>
-                  <Button variant="outline" onClick={() => respondMutation.mutate('DECLINE')}>
+                  <Button onClick={() => respondMutation.mutate('SIGN')}>
+                    Sign document
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => respondMutation.mutate('DECLINE')}
+                  >
                     Decline
                   </Button>
                 </div>
               </>
             ) : (
-              <div className="text-sm text-slate-500">Signature token not found.</div>
+              <div className="text-sm text-slate-500">
+                Signature token not found.
+              </div>
             )}
           </CardContent>
         </Card>

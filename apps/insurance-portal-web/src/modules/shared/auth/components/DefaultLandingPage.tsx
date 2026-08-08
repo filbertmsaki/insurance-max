@@ -4,7 +4,8 @@ import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 
 export function DefaultLandingPage() {
   const permissions = useAuthStore(
-    (state) => state.authorizationContext?.permissions ?? state.user?.permissions ?? [],
+    (state) =>
+      state.authorizationContext?.permissions ?? state.user?.permissions ?? [],
   );
 
   if (permissions.includes('portal:customer-access')) {

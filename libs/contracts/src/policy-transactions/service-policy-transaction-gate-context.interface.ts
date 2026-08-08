@@ -1,4 +1,8 @@
-import type { WorkflowApprovalStatus, WorkflowPaymentStatus, WorkflowSubmissionStatus } from '../quotations/quotation-workflow.enums';
+import type {
+  WorkflowApprovalStatus,
+  WorkflowPaymentStatus,
+  WorkflowSubmissionStatus,
+} from '../quotations/quotation-workflow.enums';
 import type {
   PolicyTransactionPremiumEffect,
   PolicyTransactionStage,

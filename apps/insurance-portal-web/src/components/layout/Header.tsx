@@ -28,7 +28,10 @@ import { OrganizationSwitcher } from './OrganizationSwitcher';
 import { authApi } from '@/modules/shared/auth/api/auth';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { engagementApi } from '@/modules/tenant/engagement/api';
-import { formatDateTime, safeInternalLink } from '@/modules/tenant/engagement/utils';
+import {
+  formatDateTime,
+  safeInternalLink,
+} from '@/modules/tenant/engagement/utils';
 
 // ─── Route → breadcrumb mapping ───────────────────────────────────────────────
 
@@ -103,7 +106,9 @@ export function Header({ onMobileMenuToggle, onOpenCommand }: HeaderProps) {
       queryClient.invalidateQueries({
         queryKey: ['engagement', 'notifications', 'summary'],
       });
-      queryClient.invalidateQueries({ queryKey: ['engagement', 'notifications'] });
+      queryClient.invalidateQueries({
+        queryKey: ['engagement', 'notifications'],
+      });
     },
   });
 
@@ -232,12 +237,16 @@ export function Header({ onMobileMenuToggle, onOpenCommand }: HeaderProps) {
                 className="flex flex-col items-start gap-1 py-3"
               >
                 <div className="flex w-full items-center justify-between gap-3">
-                  <span className="text-sm font-medium text-slate-900">{item.title}</span>
+                  <span className="text-sm font-medium text-slate-900">
+                    {item.title}
+                  </span>
                   <Badge variant="outline" className="text-[10px]">
                     {item.priority}
                   </Badge>
                 </div>
-                <span className="line-clamp-2 text-xs text-slate-500">{item.message}</span>
+                <span className="line-clamp-2 text-xs text-slate-500">
+                  {item.message}
+                </span>
                 <span className="text-[10px] text-slate-400">
                   {formatDateTime(item.created_at)}
                 </span>

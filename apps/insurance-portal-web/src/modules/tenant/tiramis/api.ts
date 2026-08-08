@@ -55,7 +55,10 @@ export const tiramisApi = {
       .then((r) => r.data),
   validateBusiness: (data: TiramisBusinessValidationPayload) =>
     apiClient
-      .post<TiramisBusinessValidationResponse>('/tiramis/business/validate', data)
+      .post<TiramisBusinessValidationResponse>(
+        '/tiramis/business/validate',
+        data,
+      )
       .then((r) => r.data),
   /**
    * @deprecated Sales-point CRUD moved to `salePointsApi`

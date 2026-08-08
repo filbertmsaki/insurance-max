@@ -74,7 +74,8 @@ export class EndorsementPricingService {
       premiumEffect,
       currencyCode: input.currencyCode,
       effectiveDate: input.effectiveDate,
-      calculationMethod: input.calculationMethod ?? 'REMAINING_PERIOD_DIFFERENCE',
+      calculationMethod:
+        input.calculationMethod ?? 'REMAINING_PERIOD_DIFFERENCE',
     };
 
     const pricingResultHashes = [

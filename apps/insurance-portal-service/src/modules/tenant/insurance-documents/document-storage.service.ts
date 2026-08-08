@@ -64,7 +64,9 @@ export class DocumentStorageService {
     const detection = this.detectFile(params.fileName, params.buffer);
 
     if (params.buffer.length > params.maximumBytes) {
-      throw new BadRequestException('The uploaded file exceeds the permitted size.');
+      throw new BadRequestException(
+        'The uploaded file exceeds the permitted size.',
+      );
     }
 
     const allowedMimeTypes = new Set(this.allowedMimeTypes());
@@ -73,7 +75,10 @@ export class DocumentStorageService {
       throw new BadRequestException('The uploaded file type is not allowed.');
     }
 
-    const safeFileName = this.sanitizeFileName(params.fileName, detection.detectedExtension);
+    const safeFileName = this.sanitizeFileName(
+      params.fileName,
+      detection.detectedExtension,
+    );
     const storageKey = join(
       params.prefix,
       params.companyId,
@@ -114,7 +119,10 @@ export class DocumentStorageService {
     }
   }
 
-  private detectFile(fileName: string, buffer: Buffer): {
+  private detectFile(
+    fileName: string,
+    buffer: Buffer,
+  ): {
     detectedExtension: string;
     detectedMimeType: string;
   } {

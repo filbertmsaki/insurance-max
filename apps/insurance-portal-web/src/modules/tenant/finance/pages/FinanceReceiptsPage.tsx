@@ -37,15 +37,36 @@ export function FinanceReceiptsPage() {
 
   const columns: Column<FinanceReceipt>[] = [
     { key: 'receipt_no', header: 'Receipt', cell: (row) => row.receipt_no },
-    { key: 'payer', header: 'Payer', cell: (row) => row.payer_name ?? partyName(row.customer) },
-    { key: 'status', header: 'Status', cell: (row) => <FinanceStatusBadge status={row.status} /> },
-    { key: 'amount', header: 'Amount', cell: (row) => formatMoney(row.amount, row.currency ?? row.currency_code) },
-    { key: 'allocated', header: 'Allocated', cell: (row) => formatMoney(row.allocated_amount, row.currency ?? row.currency_code) },
+    {
+      key: 'payer',
+      header: 'Payer',
+      cell: (row) => row.payer_name ?? partyName(row.customer),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (row) => <FinanceStatusBadge status={row.status} />,
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      cell: (row) => formatMoney(row.amount, row.currency ?? row.currency_code),
+    },
+    {
+      key: 'allocated',
+      header: 'Allocated',
+      cell: (row) =>
+        formatMoney(row.allocated_amount, row.currency ?? row.currency_code),
+    },
     {
       key: 'actions',
       header: 'Action',
       cell: (row) => (
-        <Button size="sm" variant="outline" onClick={() => navigate(`/finance/receipts/${row.id}`)}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => navigate(`/finance/receipts/${row.id}`)}
+        >
           Open
         </Button>
       ),
@@ -56,8 +77,15 @@ export function FinanceReceiptsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Receipts" description="Posted receipts are immutable; corrections use reversals and new postings." />
-      <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search receipts" />
+      <PageHeader
+        title="Receipts"
+        description="Posted receipts are immutable; corrections use reversals and new postings."
+      />
+      <Input
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Search receipts"
+      />
       <DataTable
         columns={columns}
         data={rows}

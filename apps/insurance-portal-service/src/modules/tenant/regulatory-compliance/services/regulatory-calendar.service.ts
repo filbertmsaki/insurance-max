@@ -991,12 +991,14 @@ export class RegulatoryCalendarService {
     const now = DateTime.now();
     for (const record of records) {
       if (
-        ([
-          ContractRegulatoryObligationStatus.COMPLETED,
-          ContractRegulatoryObligationStatus.ACKNOWLEDGED,
-          ContractRegulatoryObligationStatus.WAIVED,
-          ContractRegulatoryObligationStatus.NOT_APPLICABLE,
-        ] as ContractRegulatoryObligationStatus[]).includes(record.status)
+        (
+          [
+            ContractRegulatoryObligationStatus.COMPLETED,
+            ContractRegulatoryObligationStatus.ACKNOWLEDGED,
+            ContractRegulatoryObligationStatus.WAIVED,
+            ContractRegulatoryObligationStatus.NOT_APPLICABLE,
+          ] as ContractRegulatoryObligationStatus[]
+        ).includes(record.status)
       ) {
         continue;
       }
@@ -1075,11 +1077,13 @@ export class RegulatoryCalendarService {
     } else {
       actions.push('OPEN_RETURN');
       if (
-        !([
-          RegulatoryReturnStatus.SUBMITTED,
-          RegulatoryReturnStatus.ACKNOWLEDGED,
-          RegulatoryReturnStatus.ACCEPTED,
-        ] as RegulatoryReturnStatus[]).includes(activeReturn.status)
+        !(
+          [
+            RegulatoryReturnStatus.SUBMITTED,
+            RegulatoryReturnStatus.ACKNOWLEDGED,
+            RegulatoryReturnStatus.ACCEPTED,
+          ] as RegulatoryReturnStatus[]
+        ).includes(activeReturn.status)
       ) {
         actions.push('VALIDATE_RETURN', 'RECONCILE_RETURN', 'SUBMIT_REVIEW');
       }
@@ -1093,11 +1097,13 @@ export class RegulatoryCalendarService {
     }
 
     if (
-      !([
-        ContractRegulatoryObligationStatus.COMPLETED,
-        ContractRegulatoryObligationStatus.ACKNOWLEDGED,
-        ContractRegulatoryObligationStatus.WAIVED,
-      ] as ContractRegulatoryObligationStatus[]).includes(instance.status)
+      !(
+        [
+          ContractRegulatoryObligationStatus.COMPLETED,
+          ContractRegulatoryObligationStatus.ACKNOWLEDGED,
+          ContractRegulatoryObligationStatus.WAIVED,
+        ] as ContractRegulatoryObligationStatus[]
+      ).includes(instance.status)
     ) {
       actions.push('WAIVE', 'MARK_NOT_APPLICABLE');
     }

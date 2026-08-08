@@ -196,10 +196,9 @@ export class DocumentGenerationService {
       this.linkRepository.create({
         company_id: user.companyId!,
         document_id: document.id,
-        link_type:
-          (input.resourceType.toUpperCase() in DocumentLinkType
-            ? input.resourceType.toUpperCase()
-            : DocumentLinkType.COMMUNICATION) as DocumentLink['link_type'],
+        link_type: (input.resourceType.toUpperCase() in DocumentLinkType
+          ? input.resourceType.toUpperCase()
+          : DocumentLinkType.COMMUNICATION) as DocumentLink['link_type'],
         linked_record_type: input.resourceType,
         linked_record_id: input.resourceId,
         customer_visible: input.customerVisible,

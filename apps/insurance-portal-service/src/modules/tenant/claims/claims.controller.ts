@@ -349,11 +349,7 @@ export class ClaimsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: FailDisbursementDto,
   ) {
-    return this.claimDisbursementService.failDisbursement(
-      user,
-      id,
-      dto.reason,
-    );
+    return this.claimDisbursementService.failDisbursement(user, id, dto.reason);
   }
 
   @Post('disbursements/:id/reverse')

@@ -178,12 +178,14 @@ export class CancellationService {
     reason?: string,
   ) {
     return this.dataSource.transaction(async (manager) => {
-      const cancellation = await manager.getRepository(PolicyCancellation).findOne({
-        where: {
-          policy_transaction_id: transactionId,
-          company_id: user.companyId!,
-        },
-      });
+      const cancellation = await manager
+        .getRepository(PolicyCancellation)
+        .findOne({
+          where: {
+            policy_transaction_id: transactionId,
+            company_id: user.companyId!,
+          },
+        });
 
       if (!cancellation) {
         throw new BadRequestException('Cancellation not found');
@@ -208,13 +210,15 @@ export class CancellationService {
 
   async complete(user: AuthenticatedUser, transactionId: string) {
     const transaction = await this.dataSource.transaction(async (manager) => {
-      const transaction = await manager.getRepository(PolicyTransaction).findOne({
-        where: {
-          id: transactionId,
-          company_id: user.companyId!,
-          transaction_type: PolicyTransactionType.CANCELLATION,
-        },
-      });
+      const transaction = await manager
+        .getRepository(PolicyTransaction)
+        .findOne({
+          where: {
+            id: transactionId,
+            company_id: user.companyId!,
+            transaction_type: PolicyTransactionType.CANCELLATION,
+          },
+        });
 
       if (!transaction) {
         throw new BadRequestException('Cancellation not found');
@@ -226,9 +230,11 @@ export class CancellationService {
         );
       }
 
-      const cancellation = await manager.getRepository(PolicyCancellation).findOne({
-        where: { policy_transaction_id: transaction.id },
-      });
+      const cancellation = await manager
+        .getRepository(PolicyCancellation)
+        .findOne({
+          where: { policy_transaction_id: transaction.id },
+        });
 
       if (
         cancellation?.claims_review_required &&
@@ -260,13 +266,15 @@ export class CancellationService {
 
   async requestPayment(user: AuthenticatedUser, transactionId: string) {
     const invoice = await this.dataSource.transaction(async (manager) => {
-      const transaction = await manager.getRepository(PolicyTransaction).findOne({
-        where: {
-          id: transactionId,
-          company_id: user.companyId!,
-          transaction_type: PolicyTransactionType.CANCELLATION,
-        },
-      });
+      const transaction = await manager
+        .getRepository(PolicyTransaction)
+        .findOne({
+          where: {
+            id: transactionId,
+            company_id: user.companyId!,
+            transaction_type: PolicyTransactionType.CANCELLATION,
+          },
+        });
 
       if (!transaction) {
         throw new BadRequestException('Cancellation not found');
@@ -278,9 +286,11 @@ export class CancellationService {
         );
       }
 
-      const cancellation = await manager.getRepository(PolicyCancellation).findOne({
-        where: { policy_transaction_id: transaction.id },
-      });
+      const cancellation = await manager
+        .getRepository(PolicyCancellation)
+        .findOne({
+          where: { policy_transaction_id: transaction.id },
+        });
       const policy = await manager.getRepository(Policy).findOne({
         where: { id: transaction.source_policy_id },
       });
@@ -367,4 +377,3 @@ export class CancellationService {
 function isPositiveAmount(value: string): boolean {
   return Number(value) > 0;
 }
-

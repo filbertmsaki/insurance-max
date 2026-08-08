@@ -85,8 +85,18 @@ describe('ForecastService', () => {
     );
 
     expect(result.points).toEqual([
-      { forecastDate: '2025-02-01', predictedValue: 0, lowerBound: 0, upperBound: 0 },
-      { forecastDate: '2025-02-02', predictedValue: 0, lowerBound: 0, upperBound: 0 },
+      {
+        forecastDate: '2025-02-01',
+        predictedValue: 0,
+        lowerBound: 0,
+        upperBound: 0,
+      },
+      {
+        forecastDate: '2025-02-02',
+        predictedValue: 0,
+        lowerBound: 0,
+        upperBound: 0,
+      },
     ]);
   });
 
@@ -111,7 +121,9 @@ describe('ForecastService', () => {
       observationCount: 1,
       dimensions: null,
     }));
-    (analyticsService.getDailyMetrics as jest.Mock).mockResolvedValue(trainingRows);
+    (analyticsService.getDailyMetrics as jest.Mock).mockResolvedValue(
+      trainingRows,
+    );
 
     const result = await service.runForecast(
       { companyId: 'company-id', id: 'user-id' },
@@ -165,7 +177,9 @@ describe('ForecastService', () => {
       metricDate: `2025-01-0${index + 1}`,
       metricValue: String(value),
     }));
-    (analyticsService.getDailyMetrics as jest.Mock).mockResolvedValue(trainingRows);
+    (analyticsService.getDailyMetrics as jest.Mock).mockResolvedValue(
+      trainingRows,
+    );
 
     const result = await service.runForecast(
       { companyId: 'company-id', id: 'user-id' },

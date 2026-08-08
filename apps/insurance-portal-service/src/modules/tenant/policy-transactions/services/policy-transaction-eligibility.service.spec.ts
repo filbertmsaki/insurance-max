@@ -13,14 +13,22 @@ function makePolicy(overrides: Record<string, unknown> = {}) {
   } as any;
 }
 
-function makeManager(options: {
-  currentVersion?: any;
-  openClaimCount?: number;
-} = {}) {
+function makeManager(
+  options: {
+    currentVersion?: any;
+    openClaimCount?: number;
+  } = {},
+) {
   const policyVersionRepo = {
     findOne: jest.fn().mockResolvedValue(
       options.currentVersion === undefined
-        ? { id: 'version-1', effective_from: '2026-01-01', version_number: 1, policy_snapshot: {}, policy_snapshot_hash: 'hash' }
+        ? {
+            id: 'version-1',
+            effective_from: '2026-01-01',
+            version_number: 1,
+            policy_snapshot: {},
+            policy_snapshot_hash: 'hash',
+          }
         : options.currentVersion,
     ),
   };

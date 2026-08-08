@@ -85,7 +85,10 @@ export class ClaimFinancialProjectionService {
     return row?.total ?? '0.00';
   }
 
-  private async sumPaidExpensePayments(manager: EntityManager, claimId: string) {
+  private async sumPaidExpensePayments(
+    manager: EntityManager,
+    claimId: string,
+  ) {
     const row = await manager
       .getRepository(ClaimPayment)
       .createQueryBuilder('payment')

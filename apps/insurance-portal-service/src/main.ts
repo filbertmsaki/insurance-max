@@ -147,10 +147,7 @@ async function bootstrap() {
         { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
         'access-token',
       )
-      .addApiKey(
-        { type: 'apiKey', name: 'X-Api-Key', in: 'header' },
-        'api-key',
-      )
+      .addApiKey({ type: 'apiKey', name: 'X-Api-Key', in: 'header' }, 'api-key')
       .addTag('auth', 'Authentication & authorization flows')
       .addTag('users', 'User management')
       .addTag('roles', 'Role management')

@@ -43,9 +43,7 @@ import { DataTable, type Column } from '@/components/shared/DataTable';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { StatusBadge } from '@/components/shared/StatusBadge';
-import {
-  apiClientsApi,
-} from '@/modules/platform/api-clients/api/api-clients';
+import { apiClientsApi } from '@/modules/platform/api-clients/api/api-clients';
 import type { ApiClient } from '@/types';
 
 const schema = z.object({

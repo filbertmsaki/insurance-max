@@ -127,9 +127,11 @@ export class RenewalService {
         });
       }
 
-      const currentVersion = await manager.getRepository(PolicyVersion).findOne({
-        where: { policy_id: policy.id, is_current: true },
-      });
+      const currentVersion = await manager
+        .getRepository(PolicyVersion)
+        .findOne({
+          where: { policy_id: policy.id, is_current: true },
+        });
 
       if (!currentVersion) {
         throw new BadRequestException(
@@ -276,9 +278,11 @@ export class RenewalService {
     }
 
     return this.dataSource.transaction(async (manager) => {
-      const transaction = await manager.getRepository(PolicyTransaction).findOne({
-        where: { id: renewal.policy_transaction_id },
-      });
+      const transaction = await manager
+        .getRepository(PolicyTransaction)
+        .findOne({
+          where: { id: renewal.policy_transaction_id },
+        });
 
       if (!transaction) {
         return null;

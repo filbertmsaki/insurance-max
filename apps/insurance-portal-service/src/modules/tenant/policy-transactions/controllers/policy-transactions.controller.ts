@@ -62,7 +62,9 @@ export class PolicyTransactionsController {
 
   @Get(':id/timeline')
   @Permissions('policy-transactions:read')
-  @ApiOperation({ summary: 'List the append-only event timeline for a policy transaction' })
+  @ApiOperation({
+    summary: 'List the append-only event timeline for a policy transaction',
+  })
   timeline(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -75,7 +77,9 @@ export class PolicyTransactionsController {
 
   @Get(':id/pricing')
   @Permissions('policy-transactions:read')
-  @ApiOperation({ summary: 'Get the pricing snapshot for a policy transaction' })
+  @ApiOperation({
+    summary: 'Get the pricing snapshot for a policy transaction',
+  })
   async pricing(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,

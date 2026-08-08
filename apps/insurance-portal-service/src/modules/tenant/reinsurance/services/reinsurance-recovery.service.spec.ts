@@ -1,4 +1,7 @@
-import { ReinsuranceCessionStatus, TreatyForm } from '../enums/reinsurance.enums';
+import {
+  ReinsuranceCessionStatus,
+  TreatyForm,
+} from '../enums/reinsurance.enums';
 import { ReinsuranceRecoveryService } from './reinsurance-recovery.service';
 
 function makeHarness(params: {
@@ -27,24 +30,25 @@ function makeHarness(params: {
           return {
             find: jest
               .fn()
-              .mockImplementation(async ({ where }: any) =>
-                params.participantsByCession[where.cession_id] ?? [],
+              .mockImplementation(
+                async ({ where }: any) =>
+                  params.participantsByCession[where.cession_id] ?? [],
               ),
           };
         case 'ReinsuranceTreaty':
           return {
             findOne: jest
               .fn()
-              .mockImplementation(async ({ where }: any) =>
-                params.treatiesById[where.id] ?? null,
+              .mockImplementation(
+                async ({ where }: any) => params.treatiesById[where.id] ?? null,
               ),
           };
         case 'ReinsuranceTreatySection':
           return {
             findOne: jest
               .fn()
-              .mockImplementation(async ({ where }: any) =>
-                params.sectionsById[where.id] ?? null,
+              .mockImplementation(
+                async ({ where }: any) => params.sectionsById[where.id] ?? null,
               ),
           };
         case 'ReinsuranceClaimRecovery':

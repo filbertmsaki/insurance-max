@@ -77,7 +77,9 @@ export class ApiLoggingInterceptor implements NestInterceptor {
       'unknown';
 
     const route = params.request.originalUrl || params.request.url;
-    const slowThresholdMs = Number(process.env.SLOW_REQUEST_THRESHOLD_MS ?? 2000);
+    const slowThresholdMs = Number(
+      process.env.SLOW_REQUEST_THRESHOLD_MS ?? 2000,
+    );
 
     observabilityMetrics.recordHttpRequest(
       params.request.method,

@@ -67,42 +67,89 @@ export function FinancePaymentDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/finance/payments')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/finance/payments')}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <PageHeader title={payment.transaction_no ?? 'Payment Transaction'} description={payment.provider_reference ?? payment.id} />
+        <PageHeader
+          title={payment.transaction_no ?? 'Payment Transaction'}
+          description={payment.provider_reference ?? payment.id}
+        />
       </div>
 
       <div className="flex flex-wrap gap-2">
         {payment.status === 'SUCCESSFUL' && !payment.receipt_id ? (
-          <Button onClick={() => postReceiptMutation.mutate()} disabled={postReceiptMutation.isPending}>
+          <Button
+            onClick={() => postReceiptMutation.mutate()}
+            disabled={postReceiptMutation.isPending}
+          >
             {postReceiptMutation.isPending ? 'Posting...' : 'Post Receipt'}
           </Button>
         ) : null}
         {payment.receipt_id ? (
-          <Button variant="outline" onClick={() => navigate(`/finance/receipts/${payment.receipt_id}`)}>
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/finance/receipts/${payment.receipt_id}`)}
+          >
             Open Receipt
           </Button>
         ) : null}
         {payment.invoice_id ? (
-          <Button variant="outline" onClick={() => navigate(`/finance/invoices/${payment.invoice_id}`)}>
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/finance/invoices/${payment.invoice_id}`)}
+          >
             Open Invoice
           </Button>
         ) : null}
       </div>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Details</CardTitle></CardHeader>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Details</CardTitle>
+        </CardHeader>
         <CardContent>
-          <DetailRow label="Status" value={<FinanceStatusBadge status={payment.status} />} />
-          <DetailRow label="Provider" value={payment.provider_code ?? payment.provider ?? ' - '} />
-          <DetailRow label="Payment method" value={payment.payment_method ?? ' - '} />
-          <DetailRow label="Amount" value={formatMoney(payment.amount, payment.currency ?? payment.currency_code)} />
+          <DetailRow
+            label="Status"
+            value={<FinanceStatusBadge status={payment.status} />}
+          />
+          <DetailRow
+            label="Provider"
+            value={payment.provider_code ?? payment.provider ?? ' - '}
+          />
+          <DetailRow
+            label="Payment method"
+            value={payment.payment_method ?? ' - '}
+          />
+          <DetailRow
+            label="Amount"
+            value={formatMoney(
+              payment.amount,
+              payment.currency ?? payment.currency_code,
+            )}
+          />
           <DetailRow label="Payer" value={payment.payer_name ?? ' - '} />
-          <DetailRow label="Reference" value={payment.payment_reference ?? payment.provider_reference ?? ' - '} />
-          <DetailRow label="Provider transaction" value={payment.provider_transaction_id ?? ' - '} />
-          <DetailRow label="Received at" value={formatDate(payment.received_at)} />
-          <DetailRow label="Settled at" value={formatDate(payment.settled_at)} />
+          <DetailRow
+            label="Reference"
+            value={
+              payment.payment_reference ?? payment.provider_reference ?? ' - '
+            }
+          />
+          <DetailRow
+            label="Provider transaction"
+            value={payment.provider_transaction_id ?? ' - '}
+          />
+          <DetailRow
+            label="Received at"
+            value={formatDate(payment.received_at)}
+          />
+          <DetailRow
+            label="Settled at"
+            value={formatDate(payment.settled_at)}
+          />
         </CardContent>
       </Card>
     </div>

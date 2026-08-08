@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddAuditHashesToTiramisEvents1783194327692
-  implements MigrationInterface
-{
+export class AddAuditHashesToTiramisEvents1783194327692 implements MigrationInterface {
   name = 'AddAuditHashesToTiramisEvents1783194327692';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

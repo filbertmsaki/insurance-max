@@ -111,11 +111,7 @@ export class SubscriptionService {
     return this.dataSource.transaction(async (manager) => {
       const plan = await this.getPlanEntity(id, manager);
 
-      if (
-        plan.active_version_id &&
-        dto.code &&
-        dto.code.trim() !== plan.code
-      ) {
+      if (plan.active_version_id && dto.code && dto.code.trim() !== plan.code) {
         throw new ConflictException(
           'Published plan codes are immutable. Create a new plan instead.',
         );
@@ -150,7 +146,12 @@ export class SubscriptionService {
         user.id,
       );
 
-      await this.updateVersionSnapshot(manager, plan, editableVersion.id, user.id);
+      await this.updateVersionSnapshot(
+        manager,
+        plan,
+        editableVersion.id,
+        user.id,
+      );
 
       return this.findPlan(plan.id);
     });
@@ -159,12 +160,14 @@ export class SubscriptionService {
   async createPlanVersion(user: AuthenticatedUser, id: string) {
     return this.dataSource.transaction(async (manager) => {
       const plan = await this.getPlanEntity(id, manager);
-      const draftVersion = await manager.getRepository(SaasPlanVersion).findOne({
-        where: {
-          plan_id: plan.id,
-          status: SaasPlanVersionStatus.DRAFT,
-        },
-      });
+      const draftVersion = await manager
+        .getRepository(SaasPlanVersion)
+        .findOne({
+          where: {
+            plan_id: plan.id,
+            status: SaasPlanVersionStatus.DRAFT,
+          },
+        });
 
       if (draftVersion) {
         throw new ConflictException(
@@ -231,10 +234,12 @@ export class SubscriptionService {
       }
 
       if (plan.active_version_id) {
-        await manager.getRepository(SaasPlanVersion).update(plan.active_version_id, {
-          status: SaasPlanVersionStatus.SUPERSEDED,
-          effective_to: new Date(),
-        });
+        await manager
+          .getRepository(SaasPlanVersion)
+          .update(plan.active_version_id, {
+            status: SaasPlanVersionStatus.SUPERSEDED,
+            effective_to: new Date(),
+          });
       }
 
       version.status = SaasPlanVersionStatus.ACTIVE;
@@ -609,17 +614,17 @@ export class SubscriptionService {
   async reactivateSubscription(id: string, changedBy?: string) {
     const subscription = await this.getSubscription(id);
     if (
-      ![
-        SubscriptionStatus.SUSPENDED,
-        SubscriptionStatus.PAST_DUE,
-      ].includes(subscription.status)
+      ![SubscriptionStatus.SUSPENDED, SubscriptionStatus.PAST_DUE].includes(
+        subscription.status,
+      )
     ) {
       return subscription;
     }
 
     const now = DateTime.utc();
     subscription.status =
-      subscription.trial_ends_at && DateTime.fromJSDate(subscription.trial_ends_at) > now
+      subscription.trial_ends_at &&
+      DateTime.fromJSDate(subscription.trial_ends_at) > now
         ? SubscriptionStatus.TRIALING
         : SubscriptionStatus.ACTIVE;
     subscription.suspended_at = null;
@@ -665,7 +670,10 @@ export class SubscriptionService {
     let processed = 0;
 
     for (const subscription of dueSubscriptions) {
-      if (!subscription.scheduled_change_at || subscription.scheduled_change_at > now) {
+      if (
+        !subscription.scheduled_change_at ||
+        subscription.scheduled_change_at > now
+      ) {
         continue;
       }
 
@@ -925,7 +933,9 @@ export class SubscriptionService {
       plan_snapshot_hash: snapshot.hash,
       created_by: options.createdBy,
       approved_by:
-        options.status === SaasPlanVersionStatus.ACTIVE ? options.createdBy : null,
+        options.status === SaasPlanVersionStatus.ACTIVE
+          ? options.createdBy
+          : null,
       approved_at:
         options.status === SaasPlanVersionStatus.ACTIVE ? new Date() : null,
       effective_from:
@@ -943,9 +953,11 @@ export class SubscriptionService {
     userId: string,
   ) {
     const snapshot = await this.buildPlanSnapshot(manager, plan);
-    const version = await manager.getRepository(SaasPlanVersion).findOneByOrFail({
-      id: versionId,
-    });
+    const version = await manager
+      .getRepository(SaasPlanVersion)
+      .findOneByOrFail({
+        id: versionId,
+      });
 
     version.name = plan.name;
     version.description = plan.description;

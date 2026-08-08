@@ -124,9 +124,7 @@ export class ClaimDecisionService {
         );
       }
 
-      if (
-        [decision.created_by, decision.submitted_by].includes(user.id)
-      ) {
+      if ([decision.created_by, decision.submitted_by].includes(user.id)) {
         throw new ForbiddenException({
           code: 'CLAIM_DECISION_MAKER_CHECKER_VIOLATION',
           message: 'The decision creator or submitter cannot approve it',

@@ -1,4 +1,10 @@
-import { IsEnum, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 import { ClaimDecisionType } from '@insurance-max/contracts';
 
 import { ClaimLiabilityStatus } from '../enums/claim.enums';

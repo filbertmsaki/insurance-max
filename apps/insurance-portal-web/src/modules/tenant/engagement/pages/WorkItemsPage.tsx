@@ -55,7 +55,9 @@ export function WorkItemsPage() {
     mutationFn: (id: string) => engagementApi.claimWorkItem(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['engagement', 'work-items'] });
-      queryClient.invalidateQueries({ queryKey: ['engagement', 'work-item-queues'] });
+      queryClient.invalidateQueries({
+        queryKey: ['engagement', 'work-item-queues'],
+      });
     },
   });
 
@@ -70,7 +72,9 @@ export function WorkItemsPage() {
     mutationFn: (id: string) => engagementApi.executeWorkItem(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['engagement', 'work-items'] });
-      queryClient.invalidateQueries({ queryKey: ['engagement', 'work-item-queues'] });
+      queryClient.invalidateQueries({
+        queryKey: ['engagement', 'work-item-queues'],
+      });
     },
   });
 
@@ -100,7 +104,10 @@ export function WorkItemsPage() {
 
       <div className="grid gap-4 md:grid-cols-3">
         {(queuesQuery.data ?? []).slice(0, 3).map((queue) => (
-          <Card key={queue.queue_code} className="rounded-xl border-slate-200 shadow-sm">
+          <Card
+            key={queue.queue_code}
+            className="rounded-xl border-slate-200 shadow-sm"
+          >
             <CardContent className="pt-5">
               <div className="text-xs uppercase tracking-[0.12em] text-slate-500">
                 {queue.queue_code}
@@ -144,21 +151,35 @@ export function WorkItemsPage() {
                     <div className="text-sm text-slate-500">{item.title}</div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={statusTone(item.priority)}>
+                    <Badge
+                      variant="outline"
+                      className={statusTone(item.priority)}
+                    >
                       {item.priority}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={statusTone(item.status)}>
+                    <Badge
+                      variant="outline"
+                      className={statusTone(item.status)}
+                    >
                       {item.status}
                     </Badge>
                   </TableCell>
                   <TableCell>{formatDateTime(item.due_at)}</TableCell>
                   <TableCell className="space-x-2">
-                    <Button variant="ghost" size="sm" onClick={() => claimMutation.mutate(item.id)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => claimMutation.mutate(item.id)}
+                    >
                       Claim
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => startMutation.mutate(item.id)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => startMutation.mutate(item.id)}
+                    >
                       Start
                     </Button>
                     <Button

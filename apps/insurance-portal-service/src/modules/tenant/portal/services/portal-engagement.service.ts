@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
@@ -78,7 +82,9 @@ export class PortalEngagementService {
     });
 
     return this.filterList(
-      documents.filter((document) => this.documentMatchesScope(document, scope)),
+      documents.filter((document) =>
+        this.documentMatchesScope(document, scope),
+      ),
       query,
       (document) =>
         [
@@ -125,7 +131,10 @@ export class PortalEngagementService {
 
     return this.documentsService.download(document.company_id, id, {
       actorId: actor.actorId,
-      actorType: account.actor_type === PortalActorType.CUSTOMER ? 'PORTAL_CUSTOMER' : 'PORTAL_INTERMEDIARY',
+      actorType:
+        account.actor_type === PortalActorType.CUSTOMER
+          ? 'PORTAL_CUSTOMER'
+          : 'PORTAL_INTERMEDIARY',
       accessChannel: 'PORTAL',
       ipAddress: actor.ipAddress ?? null,
       userAgent: actor.userAgent ?? null,
@@ -223,7 +232,10 @@ export class PortalEngagementService {
     return message;
   }
 
-  async listSignatureRequests(account: PortalAccount, query: PortalListQueryDto) {
+  async listSignatureRequests(
+    account: PortalAccount,
+    query: PortalListQueryDto,
+  ) {
     const scope = await this.buildScope(account);
     const documents = await this.documentRepository.find({
       where: this.companyWhere(scope),
@@ -241,10 +253,14 @@ export class PortalEngagementService {
     });
 
     return this.filterList(
-      requests.filter((request) => accessibleDocumentIds.has(request.document_id)),
+      requests.filter((request) =>
+        accessibleDocumentIds.has(request.document_id),
+      ),
       query,
       (request) =>
-        [request.request_no, request.signature_provider, request.status].join(' '),
+        [request.request_no, request.signature_provider, request.status].join(
+          ' ',
+        ),
       (request) => request.status,
     );
   }
@@ -385,11 +401,11 @@ export class PortalEngagementService {
         })
       : [];
 
-      return {
-        actorType: account.actor_type,
-        visibleFlag: 'intermediary_visible',
-        companyIds: null,
-        resourceIds: {
+    return {
+      actorType: account.actor_type,
+      visibleFlag: 'intermediary_visible',
+      companyIds: null,
+      resourceIds: {
         CUSTOMER: new Set(directCustomers.map((item) => item.id)),
         POLICY: new Set(policies.map((item) => item.id)),
         QUOTATION: new Set(quotations.map((item) => item.id)),
@@ -464,7 +480,10 @@ export class PortalEngagementService {
       }
     }
 
-    if (scope.resourceIds.POLICY.has(resourceId) && normalizedType === 'POLICY') {
+    if (
+      scope.resourceIds.POLICY.has(resourceId) &&
+      normalizedType === 'POLICY'
+    ) {
       return true;
     }
 
@@ -475,11 +494,17 @@ export class PortalEngagementService {
       return true;
     }
 
-    if (scope.resourceIds.INVOICE.has(resourceId) && normalizedType === 'INVOICE') {
+    if (
+      scope.resourceIds.INVOICE.has(resourceId) &&
+      normalizedType === 'INVOICE'
+    ) {
       return true;
     }
 
-    if (scope.resourceIds.RECEIPT.has(resourceId) && normalizedType === 'RECEIPT') {
+    if (
+      scope.resourceIds.RECEIPT.has(resourceId) &&
+      normalizedType === 'RECEIPT'
+    ) {
       return true;
     }
 

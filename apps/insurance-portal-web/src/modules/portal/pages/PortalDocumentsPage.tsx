@@ -71,16 +71,25 @@ export function PortalDocumentsPage({
                         <div className="font-medium text-slate-900">
                           {document.title ?? document.document_no ?? 'Document'}
                         </div>
-                        <div className="text-xs text-slate-500">{document.file_name}</div>
+                        <div className="text-xs text-slate-500">
+                          {document.file_name}
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell>{document.document_type ?? document.owner_type}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={statusTone(document.status)}>
+                      {document.document_type ?? document.owner_type}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={statusTone(document.status)}
+                      >
                         {document.status}
                       </Badge>
                     </TableCell>
-                    <TableCell>{document.current_version?.version_number ?? '-'}</TableCell>
+                    <TableCell>
+                      {document.current_version?.version_number ?? '-'}
+                    </TableCell>
                     <TableCell>{formatDateTime(document.created_at)}</TableCell>
                     <TableCell>
                       <Button

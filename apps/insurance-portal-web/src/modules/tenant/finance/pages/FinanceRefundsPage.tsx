@@ -31,14 +31,26 @@ export function FinanceRefundsPage() {
 
   const columns: Column<FinanceRefund>[] = [
     { key: 'refund_no', header: 'Refund', cell: (row) => row.refund_no },
-    { key: 'status', header: 'Status', cell: (row) => <FinanceStatusBadge status={row.status} /> },
-    { key: 'amount', header: 'Amount', cell: (row) => formatMoney(row.amount, row.currency_code) },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (row) => <FinanceStatusBadge status={row.status} />,
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      cell: (row) => formatMoney(row.amount, row.currency_code),
+    },
     { key: 'reason', header: 'Reason', cell: (row) => row.reason },
     {
       key: 'actions',
       header: 'Action',
       cell: (row) => (
-        <Button size="sm" variant="outline" onClick={() => navigate(`/finance/refunds/${row.id}`)}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => navigate(`/finance/refunds/${row.id}`)}
+        >
           Open
         </Button>
       ),
@@ -49,8 +61,15 @@ export function FinanceRefundsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Refunds" description="Refunds follow request, approval, payment, and immutable history." />
-      <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search refunds" />
+      <PageHeader
+        title="Refunds"
+        description="Refunds follow request, approval, payment, and immutable history."
+      />
+      <Input
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Search refunds"
+      />
       <DataTable
         columns={columns}
         data={rows}

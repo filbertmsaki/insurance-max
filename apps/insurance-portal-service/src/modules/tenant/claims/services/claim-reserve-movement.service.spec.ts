@@ -14,7 +14,9 @@ function makeReserve() {
 function makeManager(existing: any = null) {
   const movementRepo = {
     findOne: jest.fn().mockResolvedValue(existing),
-    save: jest.fn().mockImplementation(async (value) => ({ id: 'movement-1', ...value })),
+    save: jest
+      .fn()
+      .mockImplementation(async (value) => ({ id: 'movement-1', ...value })),
   };
 
   return {
@@ -24,7 +26,9 @@ function makeManager(existing: any = null) {
 }
 
 describe('ClaimReserveMovementService', () => {
-  const referenceService = { next: jest.fn().mockResolvedValue('RSM-00001') } as any;
+  const referenceService = {
+    next: jest.fn().mockResolvedValue('RSM-00001'),
+  } as any;
   const service = new ClaimReserveMovementService(referenceService);
 
   it('stores a positive amount for an INCREASE movement', async () => {

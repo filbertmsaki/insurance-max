@@ -17,7 +17,9 @@ export function SignatureRequestDetailPage() {
   const { id = '' } = useParams();
   const queryClient = useQueryClient();
   const [cancelReason, setCancelReason] = useState('No longer required');
-  const [issuedTokens, setIssuedTokens] = useState<Array<{ participant_id: string; name: string; token: string }>>([]);
+  const [issuedTokens, setIssuedTokens] = useState<
+    Array<{ participant_id: string; name: string; token: string }>
+  >([]);
 
   const requestQuery = useQuery({
     queryKey: ['engagement', 'signature-request', id],
@@ -26,8 +28,12 @@ export function SignatureRequestDetailPage() {
   });
 
   const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['engagement', 'signature-request', id] });
-    queryClient.invalidateQueries({ queryKey: ['engagement', 'signature-requests'] });
+    queryClient.invalidateQueries({
+      queryKey: ['engagement', 'signature-request', id],
+    });
+    queryClient.invalidateQueries({
+      queryKey: ['engagement', 'signature-requests'],
+    });
   };
 
   const sendMutation = useMutation({
@@ -70,7 +76,10 @@ export function SignatureRequestDetailPage() {
             <Button variant="outline" onClick={() => remindMutation.mutate()}>
               Remind
             </Button>
-            <Button variant="outline" onClick={() => reconcileMutation.mutate()}>
+            <Button
+              variant="outline"
+              onClick={() => reconcileMutation.mutate()}
+            >
               Reconcile
             </Button>
           </div>
@@ -86,13 +95,19 @@ export function SignatureRequestDetailPage() {
               ['Created', formatDateTime(request.created_at)],
               ['Expires', formatDateTime(request.expires_at)],
             ].map(([label, value]) => (
-              <Card key={label} className="rounded-xl border-slate-200 shadow-sm">
+              <Card
+                key={label}
+                className="rounded-xl border-slate-200 shadow-sm"
+              >
                 <CardContent className="pt-5">
                   <div className="text-xs uppercase tracking-[0.12em] text-slate-500">
                     {label}
                   </div>
                   <div className="mt-2">
-                    <Badge variant="outline" className={statusTone(String(value))}>
+                    <Badge
+                      variant="outline"
+                      className={statusTone(String(value))}
+                    >
                       {value}
                     </Badge>
                   </div>
@@ -107,13 +122,25 @@ export function SignatureRequestDetailPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {(request.participants ?? []).map((participant) => (
-                <div key={participant.id} className="rounded-lg border border-slate-200 p-4">
+                <div
+                  key={participant.id}
+                  className="rounded-lg border border-slate-200 p-4"
+                >
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="font-medium text-slate-900">{participant.name}</div>
-                      <div className="text-xs text-slate-500">{participant.email ?? participant.phone ?? participant.participant_type}</div>
+                      <div className="font-medium text-slate-900">
+                        {participant.name}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {participant.email ??
+                          participant.phone ??
+                          participant.participant_type}
+                      </div>
                     </div>
-                    <Badge variant="outline" className={statusTone(participant.status)}>
+                    <Badge
+                      variant="outline"
+                      className={statusTone(participant.status)}
+                    >
                       {participant.status}
                     </Badge>
                   </div>
@@ -125,13 +152,22 @@ export function SignatureRequestDetailPage() {
           {issuedTokens.length ? (
             <Card className="rounded-xl border-slate-200 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-base">Public signing links</CardTitle>
+                <CardTitle className="text-base">
+                  Public signing links
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {issuedTokens.map((item) => (
-                  <div key={item.participant_id} className="rounded-lg border border-slate-200 p-4 text-sm">
-                    <div className="font-medium text-slate-900">{item.name}</div>
-                    <div className="mt-1 break-all text-slate-600">{window.location.origin}/signatures/respond/{item.token}</div>
+                  <div
+                    key={item.participant_id}
+                    className="rounded-lg border border-slate-200 p-4 text-sm"
+                  >
+                    <div className="font-medium text-slate-900">
+                      {item.name}
+                    </div>
+                    <div className="mt-1 break-all text-slate-600">
+                      {window.location.origin}/signatures/respond/{item.token}
+                    </div>
                   </div>
                 ))}
               </CardContent>
@@ -145,7 +181,11 @@ export function SignatureRequestDetailPage() {
             <CardContent className="space-y-3">
               <div className="space-y-2">
                 <Label htmlFor="cancel-reason">Reason</Label>
-                <Input id="cancel-reason" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
+                <Input
+                  id="cancel-reason"
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                />
               </div>
               <Button variant="outline" onClick={() => cancelMutation.mutate()}>
                 Cancel request

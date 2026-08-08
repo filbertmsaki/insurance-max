@@ -309,7 +309,9 @@ export class ReleaseGateService {
     }
   }
 
-  private async loadMonitoringEvidence(): Promise<ReleaseCheckEvidence<boolean>> {
+  private async loadMonitoringEvidence(): Promise<
+    ReleaseCheckEvidence<boolean>
+  > {
     const checkedAt = new Date().toISOString();
     const observabilityEnabled =
       this.configService.get<boolean>('OBSERVABILITY_ENABLED') ?? true;
@@ -361,7 +363,9 @@ export class ReleaseGateService {
     }
   }
 
-  private async loadFinancialEvidence(): Promise<ReleaseCheckEvidence<boolean>> {
+  private async loadFinancialEvidence(): Promise<
+    ReleaseCheckEvidence<boolean>
+  > {
     const checkedAt = new Date().toISOString();
 
     try {
@@ -522,7 +526,9 @@ export class ReleaseGateService {
           AND COALESCE("reconciliation_status", 'NOT_CHECKED') <> 'IN_BALANCE'
       `);
 
-      const overdueObligations = Number(obligationRow?.overdue_obligations ?? 0);
+      const overdueObligations = Number(
+        obligationRow?.overdue_obligations ?? 0,
+      );
       const blockingReturns = Number(returnRow?.blocking_returns ?? 0);
       const value = overdueObligations === 0 && blockingReturns === 0;
 

@@ -71,7 +71,9 @@ export class EndorsementsController {
 
   @Post('tenant/endorsements/:id/recalculate')
   @Permissions('endorsements:update-draft')
-  @ApiOperation({ summary: 'Rebuild the proposed snapshot and re-price the endorsement' })
+  @ApiOperation({
+    summary: 'Rebuild the proposed snapshot and re-price the endorsement',
+  })
   recalculate(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -81,7 +83,10 @@ export class EndorsementsController {
 
   @Post('tenant/endorsements/:id/complete')
   @Permissions('endorsements:complete')
-  @ApiOperation({ summary: 'Complete an endorsement, evaluating approval/payment requirements' })
+  @ApiOperation({
+    summary:
+      'Complete an endorsement, evaluating approval/payment requirements',
+  })
   complete(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -143,7 +148,9 @@ export class EndorsementsController {
 
   @Post('tenant/endorsements/:id/request-payment')
   @Permissions('endorsements:request-payment')
-  @ApiOperation({ summary: 'Create the additional-premium invoice and request payment' })
+  @ApiOperation({
+    summary: 'Create the additional-premium invoice and request payment',
+  })
   requestPayment(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -153,7 +160,9 @@ export class EndorsementsController {
 
   @Post('tenant/endorsements/:id/submit-tiramis')
   @Permissions('endorsements:submit-tiramis')
-  @ApiOperation({ summary: 'Submit a completed, approved, paid endorsement to TIRAMIS' })
+  @ApiOperation({
+    summary: 'Submit a completed, approved, paid endorsement to TIRAMIS',
+  })
   submitTiramis(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -163,7 +172,9 @@ export class EndorsementsController {
 
   @Post('tenant/endorsements/:id/retry-tiramis')
   @Permissions('endorsements:retry-tiramis')
-  @ApiOperation({ summary: 'Retry a rejected/failed TIRAMIS submission for an endorsement' })
+  @ApiOperation({
+    summary: 'Retry a rejected/failed TIRAMIS submission for an endorsement',
+  })
   retryTiramis(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,

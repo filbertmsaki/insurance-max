@@ -15,9 +15,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * All monetary columns use numeric(20,2) to match every existing reinsurance
  * column (MoneyUtil's 2-decimal convention) — NOT numeric(20,4).
  */
-export class ReinsuranceCapacityAndSettlement1795700000000
-  implements MigrationInterface
-{
+export class ReinsuranceCapacityAndSettlement1795700000000 implements MigrationInterface {
   name = 'ReinsuranceCapacityAndSettlement1795700000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

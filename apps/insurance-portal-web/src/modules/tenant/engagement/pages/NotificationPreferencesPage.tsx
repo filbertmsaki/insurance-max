@@ -70,18 +70,33 @@ export function NotificationPreferencesPage() {
         <CardContent className="grid gap-4 md:grid-cols-4">
           <div className="space-y-2">
             <Label htmlFor="pref-event">Event code</Label>
-            <Input id="pref-event" value={eventCode} onChange={(e) => setEventCode(e.target.value)} />
+            <Input
+              id="pref-event"
+              value={eventCode}
+              onChange={(e) => setEventCode(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="pref-channel">Channel</Label>
-            <Input id="pref-channel" value={channel} onChange={(e) => setChannel(e.target.value)} />
+            <Input
+              id="pref-channel"
+              value={channel}
+              onChange={(e) => setChannel(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="pref-mode">Mode</Label>
-            <Input id="pref-mode" value={mode} onChange={(e) => setMode(e.target.value)} />
+            <Input
+              id="pref-mode"
+              value={mode}
+              onChange={(e) => setMode(e.target.value)}
+            />
           </div>
           <div className="flex items-end">
-            <Button onClick={() => updateMutation.mutate()} disabled={updateMutation.isPending}>
+            <Button
+              onClick={() => updateMutation.mutate()}
+              disabled={updateMutation.isPending}
+            >
               Save preference
             </Button>
           </div>

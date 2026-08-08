@@ -24,10 +24,8 @@ export default registerAs('tiramisClient', () => ({
   portalOutboxMaxAttempts: Number(
     process.env.TIRAMIS_PORTAL_OUTBOX_MAX_ATTEMPTS || 10,
   ),
-  reconciliationEnabled:
-    process.env.TIRAMIS_RECONCILIATION_ENABLED !== 'false',
-  reconciliationCron:
-    process.env.TIRAMIS_RECONCILIATION_CRON || '*/5 * * * *',
+  reconciliationEnabled: process.env.TIRAMIS_RECONCILIATION_ENABLED !== 'false',
+  reconciliationCron: process.env.TIRAMIS_RECONCILIATION_CRON || '*/5 * * * *',
   reconciliationBatchSize: Number(
     process.env.TIRAMIS_RECONCILIATION_BATCH_SIZE || 50,
   ),
@@ -37,6 +35,5 @@ export default registerAs('tiramisClient', () => ({
   portalTransportRetryEnabled:
     process.env.TIRAMIS_PORTAL_TRANSPORT_RETRY_ENABLED === 'true',
   legacyRoutesEnabled: process.env.TIRAMIS_LEGACY_ROUTES_ENABLED !== 'false',
-  legacyWebhookEnabled:
-    process.env.TIRAMIS_LEGACY_WEBHOOK_ENABLED === 'true',
+  legacyWebhookEnabled: process.env.TIRAMIS_LEGACY_WEBHOOK_ENABLED === 'true',
 }));

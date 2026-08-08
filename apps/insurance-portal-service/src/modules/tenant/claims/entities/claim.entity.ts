@@ -176,7 +176,11 @@ export class InsuranceClaim extends TiramisTrackableClaimEntity {
   @Column({ type: 'text', nullable: true })
   closure_reason: string | null;
 
-  @Column({ type: 'varchar', length: 40, default: ClaimStage.NOTIFICATION_PENDING })
+  @Column({
+    type: 'varchar',
+    length: 40,
+    default: ClaimStage.NOTIFICATION_PENDING,
+  })
   claim_stage: ClaimStage;
 
   @Column({
@@ -193,7 +197,11 @@ export class InsuranceClaim extends TiramisTrackableClaimEntity {
   })
   settlement_status: ClaimSettlementStatus;
 
-  @Column({ type: 'varchar', length: 40, default: ClaimFraudStatus.NOT_SCREENED })
+  @Column({
+    type: 'varchar',
+    length: 40,
+    default: ClaimFraudStatus.NOT_SCREENED,
+  })
   fraud_status: ClaimFraudStatus;
 
   @Column({ type: 'uuid', nullable: true })

@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
@@ -18,10 +26,7 @@ export class WorkItemsController {
 
   @Get()
   @Permissions('work-items:read')
-  list(
-    @CurrentUser() user: AuthenticatedUser,
-    @Query('view') view?: string,
-  ) {
+  list(@CurrentUser() user: AuthenticatedUser, @Query('view') view?: string) {
     return this.workItemsService.listForUser(user, view);
   }
 

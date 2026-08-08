@@ -17,15 +17,35 @@ export function FinanceCommissionAccrualsPage() {
 
   const rows = query.data?.data ?? [];
   const columns: Column<FinanceCommissionAccrual>[] = [
-    { key: 'accrual_no', header: 'Accrual', cell: (row) => row.accrual_no ?? row.id.slice(0, 8) },
-    { key: 'status', header: 'Status', cell: (row) => <FinanceStatusBadge status={row.status} /> },
-    { key: 'amount', header: 'Amount', cell: (row) => formatMoney(row.commission_amount) },
-    { key: 'paid', header: 'Paid', cell: (row) => formatMoney(row.paid_amount) },
+    {
+      key: 'accrual_no',
+      header: 'Accrual',
+      cell: (row) => row.accrual_no ?? row.id.slice(0, 8),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (row) => <FinanceStatusBadge status={row.status} />,
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      cell: (row) => formatMoney(row.commission_amount),
+    },
+    {
+      key: 'paid',
+      header: 'Paid',
+      cell: (row) => formatMoney(row.paid_amount),
+    },
     {
       key: 'actions',
       header: 'Action',
       cell: (row) => (
-        <Button size="sm" variant="outline" onClick={() => navigate(`/finance/commission-accruals/${row.id}`)}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => navigate(`/finance/commission-accruals/${row.id}`)}
+        >
           Open
         </Button>
       ),
@@ -36,7 +56,10 @@ export function FinanceCommissionAccrualsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Commission Accruals" description="Accrual amounts come from frozen distribution and pricing snapshots." />
+      <PageHeader
+        title="Commission Accruals"
+        description="Accrual amounts come from frozen distribution and pricing snapshots."
+      />
       <DataTable
         columns={columns}
         data={rows}

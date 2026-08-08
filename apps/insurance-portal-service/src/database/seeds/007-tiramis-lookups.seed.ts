@@ -131,7 +131,10 @@ export default class TiramisLookupsSeeder implements Seeder {
     referenceDir: string,
     lookups: Map<string, TiramisLookupSeed>,
   ) {
-    const workbook = await this.tryLoadWorkbook(referenceDir, 'CURRENCIES.xlsx');
+    const workbook = await this.tryLoadWorkbook(
+      referenceDir,
+      'CURRENCIES.xlsx',
+    );
 
     if (!workbook) {
       return;

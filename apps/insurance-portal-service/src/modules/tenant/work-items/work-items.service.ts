@@ -113,7 +113,10 @@ export class WorkItemsService {
     return item;
   }
 
-  async listForUser(user: AuthenticatedUser, view = 'all'): Promise<WorkItem[]> {
+  async listForUser(
+    user: AuthenticatedUser,
+    view = 'all',
+  ): Promise<WorkItem[]> {
     const scope = this.scopeService.resolve(user);
 
     const queryBuilder = this.workItemRepository
@@ -143,7 +146,9 @@ export class WorkItemsService {
         queryBuilder.andWhere('item.assigned_user_id = :userId', {
           userId: user.id,
         });
-        queryBuilder.andWhere(`item.status IN ('OPEN', 'IN_PROGRESS', 'BLOCKED')`);
+        queryBuilder.andWhere(
+          `item.status IN ('OPEN', 'IN_PROGRESS', 'BLOCKED')`,
+        );
         break;
       case 'unassigned':
         queryBuilder.andWhere('item.assigned_user_id IS NULL');
@@ -157,19 +162,27 @@ export class WorkItemsService {
             });
           }),
         );
-        queryBuilder.andWhere(`item.status IN ('OPEN', 'IN_PROGRESS', 'BLOCKED')`);
+        queryBuilder.andWhere(
+          `item.status IN ('OPEN', 'IN_PROGRESS', 'BLOCKED')`,
+        );
         break;
       case 'due-today':
         queryBuilder.andWhere(`item.due_at::date = CURRENT_DATE`);
-        queryBuilder.andWhere(`item.status IN ('OPEN', 'IN_PROGRESS', 'BLOCKED')`);
+        queryBuilder.andWhere(
+          `item.status IN ('OPEN', 'IN_PROGRESS', 'BLOCKED')`,
+        );
         break;
       case 'overdue':
         queryBuilder.andWhere(`item.due_at < NOW()`);
-        queryBuilder.andWhere(`item.status IN ('OPEN', 'IN_PROGRESS', 'BLOCKED')`);
+        queryBuilder.andWhere(
+          `item.status IN ('OPEN', 'IN_PROGRESS', 'BLOCKED')`,
+        );
         break;
       case 'high-priority':
         queryBuilder.andWhere(`item.priority IN ('HIGH', 'CRITICAL')`);
-        queryBuilder.andWhere(`item.status IN ('OPEN', 'IN_PROGRESS', 'BLOCKED')`);
+        queryBuilder.andWhere(
+          `item.status IN ('OPEN', 'IN_PROGRESS', 'BLOCKED')`,
+        );
         break;
       case 'completed':
         queryBuilder.andWhere(`item.status = 'COMPLETED'`);

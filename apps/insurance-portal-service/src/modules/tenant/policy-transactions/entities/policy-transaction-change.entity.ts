@@ -15,9 +15,7 @@ import type {
 import { PolicyTransaction } from './policy-transaction.entity';
 
 @Entity('policy_transaction_changes')
-@Index('IDX_policy_transaction_changes_transaction', [
-  'policy_transaction_id',
-])
+@Index('IDX_policy_transaction_changes_transaction', ['policy_transaction_id'])
 export class PolicyTransactionChange {
   @PrimaryGeneratedColumn('uuid')
   id: string;

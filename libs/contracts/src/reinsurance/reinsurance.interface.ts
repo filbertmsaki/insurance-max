@@ -1,4 +1,7 @@
-import type { ReinsuranceDirection, ReinsuranceTerritory } from './reinsurance.enums';
+import type {
+  ReinsuranceDirection,
+  ReinsuranceTerritory,
+} from './reinsurance.enums';
 
 export interface ReinsuranceExposureSnapshot {
   treatyId: string | null;

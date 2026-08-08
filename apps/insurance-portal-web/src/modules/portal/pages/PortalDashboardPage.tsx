@@ -40,7 +40,9 @@ export function PortalDashboardPage({
   const unreadNotifications = (notificationsQuery.data ?? []).filter(
     (item) => !item.read_at,
   );
-  const openThreads = (messagesQuery.data ?? []).filter((item) => !item.closed_at);
+  const openThreads = (messagesQuery.data ?? []).filter(
+    (item) => !item.closed_at,
+  );
   const pendingSignatures = (signaturesQuery.data ?? []).filter((item) =>
     ['DRAFT', 'SENT', 'PARTIALLY_SIGNED'].includes(item.status),
   );
@@ -109,10 +111,17 @@ export function PortalDashboardPage({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="font-medium text-slate-900">{item.title}</div>
-                      <div className="mt-1 text-sm text-slate-600">{item.message}</div>
+                      <div className="font-medium text-slate-900">
+                        {item.title}
+                      </div>
+                      <div className="mt-1 text-sm text-slate-600">
+                        {item.message}
+                      </div>
                     </div>
-                    <Badge variant="outline" className={statusTone(item.severity)}>
+                    <Badge
+                      variant="outline"
+                      className={statusTone(item.severity)}
+                    >
                       {item.read_at ? 'READ' : item.severity}
                     </Badge>
                   </div>
@@ -152,7 +161,9 @@ export function PortalDashboardPage({
                   <ProfileItem
                     label="Email"
                     value={
-                      profileQuery.data?.email ?? profileQuery.data?.contact_email ?? 'Not set'
+                      profileQuery.data?.email ??
+                      profileQuery.data?.contact_email ??
+                      'Not set'
                     }
                   />
                   <ProfileItem
@@ -192,7 +203,9 @@ export function PortalDashboardPage({
 function ProfileItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-slate-200 px-4 py-3">
-      <div className="text-xs uppercase tracking-[0.12em] text-slate-500">{label}</div>
+      <div className="text-xs uppercase tracking-[0.12em] text-slate-500">
+        {label}
+      </div>
       <div className="mt-1 text-sm font-medium text-slate-900">{value}</div>
     </div>
   );

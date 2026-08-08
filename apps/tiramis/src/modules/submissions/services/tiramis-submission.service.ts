@@ -63,7 +63,8 @@ export class TiramisSubmissionService {
       sourceModule: params.sourceModule || null,
       sourceRecordId: params.sourceRecordId || null,
       sourcePolicyId: params.policyId ?? null,
-      sourceQuotationId: params.quotationId ?? quotationGate?.quotationId ?? null,
+      sourceQuotationId:
+        params.quotationId ?? quotationGate?.quotationId ?? null,
       sourceWorkflowRevision:
         params.workflowRevision ?? quotationGate?.workflowRevision ?? null,
       businessReference: params.businessReference,

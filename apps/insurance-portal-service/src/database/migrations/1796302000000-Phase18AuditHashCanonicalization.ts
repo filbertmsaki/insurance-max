@@ -23,9 +23,7 @@ type AuditHashRow = {
   reason: string | null;
 };
 
-export class Phase18AuditHashCanonicalization1796302000000
-  implements MigrationInterface
-{
+export class Phase18AuditHashCanonicalization1796302000000 implements MigrationInterface {
   name = 'Phase18AuditHashCanonicalization1796302000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -121,7 +121,11 @@ export class ReinsuranceTreaty {
   @Column({ type: 'uuid', nullable: true })
   program_id: string | null;
 
-  @Column({ type: 'varchar', length: 20, default: ReinsuranceDirection.OUTWARD })
+  @Column({
+    type: 'varchar',
+    length: 20,
+    default: ReinsuranceDirection.OUTWARD,
+  })
   direction: ReinsuranceDirection;
 
   @Column({ type: 'varchar', length: 30, nullable: true })

@@ -235,11 +235,7 @@ async function login(client: AxiosInstance, email: string, password: string) {
   const jwtPayload = decodeJwtPayload(accessToken);
   const companyId =
     response.data.company?.id ||
-    String(
-      jwtPayload?.companyId ||
-        jwtPayload?.company_id ||
-        '',
-    );
+    String(jwtPayload?.companyId || jwtPayload?.company_id || '');
 
   if (!companyId) {
     throw new Error('Could not resolve active company id from login response');
@@ -248,7 +244,8 @@ async function login(client: AxiosInstance, email: string, password: string) {
   return {
     accessToken,
     companyId,
-    companyName: response.data.company?.name || String(jwtPayload?.companyName || ''),
+    companyName:
+      response.data.company?.name || String(jwtPayload?.companyName || ''),
   };
 }
 
@@ -373,7 +370,9 @@ async function fetchRisk(client: AxiosInstance, productId: string) {
   const risk = risks[0];
 
   if (!risk?.risk_code) {
-    throw new Error(`No active risk with risk_code was returned for product ${productId}`);
+    throw new Error(
+      `No active risk with risk_code was returned for product ${productId}`,
+    );
   }
 
   return risk;
@@ -399,10 +398,8 @@ async function createQuotation(
 async function main() {
   const baseUrl =
     process.env.QUOTATION_TEST_BASE_URL || 'http://localhost:9090/api/v1';
-  const email =
-    process.env.QUOTATION_TEST_EMAIL || 'inocent@alliance.co.tz';
-  const password =
-    process.env.QUOTATION_TEST_PASSWORD || 'Admin123!';
+  const email = process.env.QUOTATION_TEST_EMAIL || 'inocent@alliance.co.tz';
+  const password = process.env.QUOTATION_TEST_PASSWORD || 'Admin123!';
 
   const anonymousClient = axios.create({
     baseURL: baseUrl,
@@ -446,13 +443,17 @@ async function main() {
     `[info] Using branch=${branchContext.branch.name || branchContext.branch.id}, salePoint=${branchContext.salePointCode}`,
   );
 
-  const nonMotorPayload = createNonMotorQuotationPayload() as Record<string, any>;
+  const nonMotorPayload = createNonMotorQuotationPayload() as Record<
+    string,
+    any
+  >;
   delete nonMotorPayload.internal_quotation.branch_id;
   delete nonMotorPayload.cover_note_dtl.sale_point_code;
   nonMotorPayload.internal_quotation.insurer_company_id = session.companyId;
   nonMotorPayload.internal_quotation.category_id = nonMotorCategory.id;
   nonMotorPayload.internal_quotation.product_id = nonMotorProduct.id;
-  nonMotorPayload.cover_note_dtl.cover_note_start_date = coverWindow.startDateTime;
+  nonMotorPayload.cover_note_dtl.cover_note_start_date =
+    coverWindow.startDateTime;
   nonMotorPayload.cover_note_dtl.cover_note_end_date = coverWindow.endDateTime;
   nonMotorPayload.cover_note_dtl.cover_note_number =
     uniqueCoverNoteNumber('AICL-NM-');
@@ -466,7 +467,10 @@ async function main() {
     uniqueText('PROP-', 14);
   normalizeStandardCoverNote(nonMotorPayload.cover_note_dtl);
 
-  const motorPayload = createMotorSingleQuotationPayload() as Record<string, any>;
+  const motorPayload = createMotorSingleQuotationPayload() as Record<
+    string,
+    any
+  >;
   delete motorPayload.internal_quotation.branch_id;
   delete motorPayload.cover_note_dtl.sale_point_code;
   motorPayload.internal_quotation.insurer_company_id = session.companyId;
@@ -485,13 +489,20 @@ async function main() {
     uniqueText('VEH-', 14);
   motorPayload.cover_note_dtl.motor_dtl.registration_number =
     uniqueRegistration('T');
-  motorPayload.cover_note_dtl.motor_dtl.chassis_number =
-    uniqueText('CHASSIS', 17);
-  motorPayload.cover_note_dtl.motor_dtl.engine_number =
-    uniqueText('ENGINE', 15);
+  motorPayload.cover_note_dtl.motor_dtl.chassis_number = uniqueText(
+    'CHASSIS',
+    17,
+  );
+  motorPayload.cover_note_dtl.motor_dtl.engine_number = uniqueText(
+    'ENGINE',
+    15,
+  );
   normalizeStandardCoverNote(motorPayload.cover_note_dtl);
 
-  const fleetPayload = createMotorFleetQuotationPayload() as Record<string, any>;
+  const fleetPayload = createMotorFleetQuotationPayload() as Record<
+    string,
+    any
+  >;
   delete fleetPayload.internal_quotation.branch_id;
   delete fleetPayload.cover_note_dtl.fleet_hdr.sale_point_code;
   fleetPayload.internal_quotation.insurer_company_id = session.companyId;
@@ -505,8 +516,7 @@ async function main() {
     fleetProduct.tiramis_product_code ||
     fleetProduct.product_code ||
     fleetPayload.cover_note_dtl.fleet_hdr.product_code;
-  fleetPayload.cover_note_dtl.fleet_hdr.fleet_id =
-    uniqueText('FLEET-', 18);
+  fleetPayload.cover_note_dtl.fleet_hdr.fleet_id = uniqueText('FLEET-', 18);
 
   fleetPayload.cover_note_dtl.fleet_dtls.forEach(
     (entry: Record<string, any>, index: number) => {
@@ -520,10 +530,7 @@ async function main() {
         `F${index + 1}`,
         index,
       );
-      entry.motor_dtl.chassis_number = uniqueText(
-        `FCHASSIS${index + 1}`,
-        17,
-      );
+      entry.motor_dtl.chassis_number = uniqueText(`FCHASSIS${index + 1}`, 17);
       entry.motor_dtl.engine_number = uniqueText(`FENGINE${index + 1}`, 15);
     },
   );

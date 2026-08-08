@@ -127,9 +127,7 @@ export default class TiramisCompanySetupSeeder implements Seeder {
     );
 
     const companyCodeMismatchRows = wrongRows.filter(
-      (row: {
-        tira_company_code: string | null;
-      }) =>
+      (row: { tira_company_code: string | null }) =>
         row.tira_company_code !== null &&
         row.tira_company_code !== ALLIANCE_TENANT.companyCode,
     );

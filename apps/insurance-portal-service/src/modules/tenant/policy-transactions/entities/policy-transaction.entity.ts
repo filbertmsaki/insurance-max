@@ -204,7 +204,10 @@ export class PolicyTransaction {
   @JoinColumn({ name: 'target_policy_version_id' })
   target_policy_version: PolicyVersion | null;
 
-  @OneToMany(() => PolicyTransactionChange, (change) => change.policy_transaction)
+  @OneToMany(
+    () => PolicyTransactionChange,
+    (change) => change.policy_transaction,
+  )
   changes: PolicyTransactionChange[];
 
   @OneToMany(() => PolicyTransactionEvent, (event) => event.policy_transaction)

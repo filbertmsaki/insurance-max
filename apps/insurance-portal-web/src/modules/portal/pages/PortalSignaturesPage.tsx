@@ -74,7 +74,10 @@ export function PortalSignaturesPage({
                     </TableCell>
                     <TableCell>{request.signature_provider}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={statusTone(request.status)}>
+                      <Badge
+                        variant="outline"
+                        className={statusTone(request.status)}
+                      >
                         {request.status}
                       </Badge>
                     </TableCell>

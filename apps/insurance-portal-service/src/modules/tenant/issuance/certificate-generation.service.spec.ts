@@ -27,8 +27,12 @@ function makeHarness(params: {
   risks?: any[];
   quotationFlow?: string | null;
 }) {
-  const { policy, coverNotes = [], risks = [], quotationFlow = 'MOTOR_SINGLE' } =
-    params;
+  const {
+    policy,
+    coverNotes = [],
+    risks = [],
+    quotationFlow = 'MOTOR_SINGLE',
+  } = params;
 
   const documentRepo = {
     create: jest.fn((value) => value),
@@ -53,9 +57,13 @@ function makeHarness(params: {
     find: jest.fn().mockResolvedValue(risks),
   };
   const quotationRepo = {
-    findOne: jest.fn().mockResolvedValue(
-      quotationFlow === null ? null : { id: policy.quotation_id, quotation_flow: quotationFlow },
-    ),
+    findOne: jest
+      .fn()
+      .mockResolvedValue(
+        quotationFlow === null
+          ? null
+          : { id: policy.quotation_id, quotation_flow: quotationFlow },
+      ),
   };
 
   const manager = {
@@ -114,8 +122,14 @@ describe('CertificateGenerationService', () => {
         risk: { risk_name: 'Comprehensive Motor Cover', risk_code: 'MOT-COMP' },
       },
     ];
-    const { service, manager, documentRepo, versionRepo, linkRepo, storageService } =
-      makeHarness({ policy, risks, quotationFlow: 'MOTOR_SINGLE' });
+    const {
+      service,
+      manager,
+      documentRepo,
+      versionRepo,
+      linkRepo,
+      storageService,
+    } = makeHarness({ policy, risks, quotationFlow: 'MOTOR_SINGLE' });
 
     const document = await service.generateForPolicy(manager, policy);
 

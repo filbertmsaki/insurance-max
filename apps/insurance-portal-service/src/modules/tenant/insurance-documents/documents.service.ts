@@ -182,10 +182,9 @@ export class DocumentsService {
       document_type: input.documentType,
       classification: input.classification || DocumentClassification.INTERNAL,
       maximum_bytes: input.maximumBytes ?? this.storageService.maximumBytes(),
-      allowed_mime_types:
-        input.allowedMimeTypes?.length
-          ? input.allowedMimeTypes
-          : this.storageService.allowedMimeTypes(),
+      allowed_mime_types: input.allowedMimeTypes?.length
+        ? input.allowedMimeTypes
+        : this.storageService.allowedMimeTypes(),
       status: 'PENDING',
       upload_token_hash: this.hashToken(token),
       expires_at: new Date(Date.now() + 10 * 60 * 1000),
@@ -441,7 +440,8 @@ export class DocumentsService {
     },
   ) {
     const document = await this.requireForCompany(user.companyId!, id);
-    document.customer_visible = input.customerVisible ?? document.customer_visible;
+    document.customer_visible =
+      input.customerVisible ?? document.customer_visible;
     document.intermediary_visible =
       input.intermediaryVisible ?? document.intermediary_visible;
     document.public_verification_enabled =
@@ -463,11 +463,13 @@ export class DocumentsService {
       },
     });
 
-    const link = existing ?? this.linkRepository.create({
-      company_id: user.companyId!,
-      document_id: id,
-      created_by: user.id,
-    });
+    const link =
+      existing ??
+      this.linkRepository.create({
+        company_id: user.companyId!,
+        document_id: id,
+        created_by: user.id,
+      });
 
     link.link_type =
       (input.linkType as DocumentLinkTypeValue | undefined) ??
@@ -529,7 +531,9 @@ export class DocumentsService {
     const document = await this.requireForCompany(user.companyId!, id);
 
     if (!document.current_version_id) {
-      throw new BadRequestException('Document does not have an uploaded version.');
+      throw new BadRequestException(
+        'Document does not have an uploaded version.',
+      );
     }
 
     const version = await this.versionRepository.findOne({
@@ -591,7 +595,13 @@ export class DocumentsService {
     const document = await this.requireForCompany(companyId, id, true);
 
     if (!document.current_version_id || !document.current_version) {
-      await this.recordAccessEvent(document, null, actor, 'FAILED', 'NO_VERSION');
+      await this.recordAccessEvent(
+        document,
+        null,
+        actor,
+        'FAILED',
+        'NO_VERSION',
+      );
       throw new BadRequestException('Document is not ready for download.');
     }
 
@@ -606,8 +616,15 @@ export class DocumentsService {
       throw new BadRequestException('Document is not currently available.');
     }
 
-    const buffer = await this.storageService.read(document.current_version.storage_key);
-    await this.recordAccessEvent(document, document.current_version, actor, 'SUCCESS');
+    const buffer = await this.storageService.read(
+      document.current_version.storage_key,
+    );
+    await this.recordAccessEvent(
+      document,
+      document.current_version,
+      actor,
+      'SUCCESS',
+    );
 
     return {
       buffer,
@@ -615,7 +632,9 @@ export class DocumentsService {
         document.current_version.original_file_name ??
         document.file_name ??
         `${document.document_no ?? 'document'}.bin`,
-      mimeType: document.current_version.detected_mime_type || 'application/octet-stream',
+      mimeType:
+        document.current_version.detected_mime_type ||
+        'application/octet-stream',
     };
   }
 
@@ -629,7 +648,9 @@ export class DocumentsService {
     });
 
     if (!document || document.status !== DocumentStatus.AVAILABLE) {
-      throw new NotFoundException('Public document verification record not found.');
+      throw new NotFoundException(
+        'Public document verification record not found.',
+      );
     }
 
     return {
@@ -639,11 +660,11 @@ export class DocumentsService {
       status: document.status,
       created_at: document.created_at,
       verified_at: document.verified_at,
-      file_name: document.current_version?.original_file_name ?? document.file_name,
+      file_name:
+        document.current_version?.original_file_name ?? document.file_name,
       mime_type:
         document.current_version?.detected_mime_type ?? document.content_type,
-      current_version:
-        document.current_version?.version_number ?? null,
+      current_version: document.current_version?.version_number ?? null,
     };
   }
 

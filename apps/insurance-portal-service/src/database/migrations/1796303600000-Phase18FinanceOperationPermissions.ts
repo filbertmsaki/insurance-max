@@ -74,9 +74,7 @@ const PERMISSIONS = [
   },
 ] as const;
 
-export class Phase18FinanceOperationPermissions1796303600000
-  implements MigrationInterface
-{
+export class Phase18FinanceOperationPermissions1796303600000 implements MigrationInterface {
   name = 'Phase18FinanceOperationPermissions1796303600000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -137,9 +135,11 @@ export class Phase18FinanceOperationPermissions1796303600000
       ['receipts:allocate'],
     );
 
-    await this.assignByLegacyPermission(queryRunner, 'billing:receipt-reverse', [
-      'receipts:reverse',
-    ]);
+    await this.assignByLegacyPermission(
+      queryRunner,
+      'billing:receipt-reverse',
+      ['receipts:reverse'],
+    );
 
     await this.assignByLegacyPermission(queryRunner, 'billing:update', [
       'refunds:approve',

@@ -7,7 +7,9 @@ import { CommunicationMessage } from './entities/communication-message.entity';
 import { CommunicationThread } from './entities/communication-thread.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CommunicationThread, CommunicationMessage])],
+  imports: [
+    TypeOrmModule.forFeature([CommunicationThread, CommunicationMessage]),
+  ],
   controllers: [CommunicationsController],
   providers: [CommunicationsService],
   exports: [CommunicationsService],

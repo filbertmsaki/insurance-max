@@ -7,6 +7,7 @@ import {
 import { Test, TestingModule } from '@nestjs/testing';
 import { createHash, randomUUID } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
+import { createRequire } from 'module';
 import request, { type Response } from 'supertest';
 import { DataSource, type QueryRunner } from 'typeorm';
 
@@ -28,6 +29,8 @@ process.env.SERVICE_AUTH_SUBJECT ??= 'insurance-portal-service';
 process.env.SERVICE_AUTH_AUDIENCE ??= 'insurance-portal-service';
 process.env.SERVICE_AUTH_ALLOWED_ISSUERS ??= 'insurance-portal-service';
 process.env.DB_LOGGING ??= 'false';
+
+const loadModule = createRequire(__filename);
 
 describe('Portal engagement access (real database)', () => {
   let app: INestApplication;
@@ -245,7 +248,9 @@ describe('Portal engagement access (real database)', () => {
     uploadedBy: string;
   }) {
     const fileName = `${params.title.replace(/\s+/g, '-').toLowerCase()}.pdf`;
-    const buffer = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF');
+    const buffer = Buffer.from(
+      '%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF',
+    );
     const stored = await storageService.store({
       buffer,
       companyId: params.companyId,
@@ -375,12 +380,7 @@ describe('Portal engagement access (real database)', () => {
         'USER', NULL, NULL, NULL, NULL, NULL, false, NULL
       )
       `,
-      [
-        params.companyId,
-        threadId,
-        params.subject,
-        `${params.subject} message`,
-      ],
+      [params.companyId, threadId, params.subject, `${params.subject} message`],
     );
 
     return threadId;
@@ -440,11 +440,7 @@ describe('Portal engagement access (real database)', () => {
       )
       VALUES ($1, 'CREATED', $2, 'USER', NULL, $3)
       `,
-      [
-        signatureRequestId,
-        params.createdBy,
-        JSON.stringify({ seeded: true }),
-      ],
+      [signatureRequestId, params.createdBy, JSON.stringify({ seeded: true })],
     );
 
     return signatureRequestId;
@@ -463,7 +459,7 @@ describe('Portal engagement access (real database)', () => {
   }
 
   beforeAll(async () => {
-    const { AppModule } = require('../../src/app.module');
+    const { AppModule } = loadModule('../../src/app.module');
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -492,30 +488,49 @@ describe('Portal engagement access (real database)', () => {
 
     const queryRunner = dataSource.createQueryRunner();
     try {
-      const { Phase2AuthenticationHardening1794400000000 } = require('../../src/database/migrations/1794400000000-Phase2AuthenticationHardening');
-      const { Phase3AuthorizationAndAudit1794500000000 } = require('../../src/database/migrations/1794500000000-Phase3AuthorizationAndAudit');
-      const { OrganizationContextFoundation1794600000000 } = require('../../src/database/migrations/1794600000000-OrganizationContextFoundation');
-      const { CustomerAndInsuredAssetFoundation1795000000000 } = require('../../src/database/migrations/1795000000000-CustomerAndInsuredAssetFoundation');
-      const { Phase18SecurityGovernanceObservability1796300000000 } = require('../../src/database/migrations/1796300000000-Phase18SecurityGovernanceObservability');
+      const { Phase2AuthenticationHardening1794400000000 } = loadModule(
+        '../../src/database/migrations/1794400000000-Phase2AuthenticationHardening',
+      );
+      const { Phase3AuthorizationAndAudit1794500000000 } = loadModule(
+        '../../src/database/migrations/1794500000000-Phase3AuthorizationAndAudit',
+      );
+      const { OrganizationContextFoundation1794600000000 } = loadModule(
+        '../../src/database/migrations/1794600000000-OrganizationContextFoundation',
+      );
+      const { CustomerAndInsuredAssetFoundation1795000000000 } = loadModule(
+        '../../src/database/migrations/1795000000000-CustomerAndInsuredAssetFoundation',
+      );
+      const { Phase18SecurityGovernanceObservability1796300000000 } =
+        loadModule(
+          '../../src/database/migrations/1796300000000-Phase18SecurityGovernanceObservability',
+        );
       await new Phase2AuthenticationHardening1794400000000().up(queryRunner);
       await new Phase3AuthorizationAndAudit1794500000000().up(queryRunner);
       await new OrganizationContextFoundation1794600000000().up(queryRunner);
-      await new CustomerAndInsuredAssetFoundation1795000000000().up(queryRunner);
+      await new CustomerAndInsuredAssetFoundation1795000000000().up(
+        queryRunner,
+      );
       await new Phase18SecurityGovernanceObservability1796300000000().up(
         queryRunner,
       );
 
       if (!(await tableExists(queryRunner, 'documents'))) {
-        const { ClaimsAndComplaintsAuthority1795600000000 } = require('../../src/database/migrations/1795600000000-ClaimsAndComplaintsAuthority');
+        const { ClaimsAndComplaintsAuthority1795600000000 } = loadModule(
+          '../../src/database/migrations/1795600000000-ClaimsAndComplaintsAuthority',
+        );
         await new ClaimsAndComplaintsAuthority1795600000000().up(queryRunner);
       }
 
       if (!(await tableExists(queryRunner, 'communication_threads'))) {
-        const { EngagementAndSelfService1795900000000 } = require('../../src/database/migrations/1795900000000-EngagementAndSelfService');
+        const { EngagementAndSelfService1795900000000 } = loadModule(
+          '../../src/database/migrations/1795900000000-EngagementAndSelfService',
+        );
         await new EngagementAndSelfService1795900000000().up(queryRunner);
       }
 
-      const { FixDocumentStatusConstraint1796000000000 } = require('../../src/database/migrations/1796000000000-FixDocumentStatusConstraint');
+      const { FixDocumentStatusConstraint1796000000000 } = loadModule(
+        '../../src/database/migrations/1796000000000-FixDocumentStatusConstraint',
+      );
       await new FixDocumentStatusConstraint1796000000000().up(queryRunner);
     } finally {
       await queryRunner.release();
@@ -547,11 +562,7 @@ describe('Portal engagement access (real database)', () => {
       VALUES ($1, $2, 'INDIVIDUAL', 'Engaged', 'CustomerA', $3, 'TZA', 'Dar es Salaam', 'Ilala', 'ACTIVE')
       RETURNING id
       `,
-      [
-        insurerCompanyId,
-        `CUST-EA-${suffix}`,
-        `+25573${suffix.slice(0, 6)}1`,
-      ],
+      [insurerCompanyId, `CUST-EA-${suffix}`, `+25573${suffix.slice(0, 6)}1`],
     );
     customerAId = customerA[0].id;
 
@@ -564,11 +575,7 @@ describe('Portal engagement access (real database)', () => {
       VALUES ($1, $2, 'INDIVIDUAL', 'Engaged', 'CustomerB', $3, 'TZA', 'Dar es Salaam', 'Ilala', 'ACTIVE')
       RETURNING id
       `,
-      [
-        insurerCompanyId,
-        `CUST-EB-${suffix}`,
-        `+25573${suffix.slice(0, 6)}2`,
-      ],
+      [insurerCompanyId, `CUST-EB-${suffix}`, `+25573${suffix.slice(0, 6)}2`],
     );
     customerBId = customerB[0].id;
 
@@ -1017,10 +1024,11 @@ describe('Portal engagement access (real database)', () => {
       .set('Authorization', `Bearer ${customerAToken}`)
       .expect(200);
 
-    const notifications = unwrap<Array<{ id: string; read_at: string | null }>>(
-      listResponse,
+    const notifications =
+      unwrap<Array<{ id: string; read_at: string | null }>>(listResponse);
+    expect(notifications.map((item) => item.id)).toContain(
+      customerANotificationId,
     );
-    expect(notifications.map((item) => item.id)).toContain(customerANotificationId);
 
     const readResponse = await request(app.getHttpServer())
       .post(`/api/v1/customer/notifications/${customerANotificationId}/read`)
@@ -1066,6 +1074,8 @@ describe('Portal engagement access (real database)', () => {
       .expect(200);
 
     const notifications = unwrap<Array<{ id: string }>>(response);
-    expect(notifications.map((item) => item.id)).toContain(brokerANotificationId);
+    expect(notifications.map((item) => item.id)).toContain(
+      brokerANotificationId,
+    );
   });
 });

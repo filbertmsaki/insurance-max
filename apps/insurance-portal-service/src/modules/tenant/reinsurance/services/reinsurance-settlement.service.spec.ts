@@ -35,9 +35,7 @@ function makeHarness(settlement: any) {
   };
 
   const financeJournalService = {
-    postReinsuranceSettlement: jest
-      .fn()
-      .mockResolvedValue({ id: 'journal-1' }),
+    postReinsuranceSettlement: jest.fn().mockResolvedValue({ id: 'journal-1' }),
   };
 
   const manager = {

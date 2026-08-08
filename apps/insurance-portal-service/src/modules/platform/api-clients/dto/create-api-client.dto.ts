@@ -9,10 +9,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import {
-  ApiClientType,
-  DeploymentEnvironment,
-} from '@insurance-max/contracts';
+import { ApiClientType, DeploymentEnvironment } from '@insurance-max/contracts';
 
 export class CreateApiClientDto {
   @ApiProperty({ example: 'Mobile App Integration' })

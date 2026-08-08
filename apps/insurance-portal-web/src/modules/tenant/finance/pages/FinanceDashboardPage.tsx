@@ -60,15 +60,28 @@ export function FinanceDashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard title="Open Invoices" value={invoiceData.length} />
-        <MetricCard title="Outstanding Balance" value={formatMoney(totalOutstanding)} />
-        <MetricCard title="Receipts Posted" value={receiptData.length} hint={formatMoney(totalCollected)} />
-        <MetricCard title="Paid Refunds" value={refundData.filter((item) => item.status === 'PAID').length} hint={formatMoney(totalRefunded)} />
+        <MetricCard
+          title="Outstanding Balance"
+          value={formatMoney(totalOutstanding)}
+        />
+        <MetricCard
+          title="Receipts Posted"
+          value={receiptData.length}
+          hint={formatMoney(totalCollected)}
+        />
+        <MetricCard
+          title="Paid Refunds"
+          value={refundData.filter((item) => item.status === 'PAID').length}
+          hint={formatMoney(totalRefunded)}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardContent className="space-y-3 pt-6">
-            <h2 className="text-base font-semibold text-slate-900">Quick access</h2>
+            <h2 className="text-base font-semibold text-slate-900">
+              Quick access
+            </h2>
             <div className="flex flex-wrap gap-2">
               <Button asChild size="sm">
                 <Link to="/finance/invoices">Invoices</Link>
@@ -91,7 +104,10 @@ export function FinanceDashboardPage() {
             <h2 className="text-base font-semibold text-slate-900">
               Journal coverage
             </h2>
-            <p>{journalData.length} finance journals are currently available for review.</p>
+            <p>
+              {journalData.length} finance journals are currently available for
+              review.
+            </p>
             <p>
               Invoice paid state and quotation payment readiness should now come
               from allocations and posted finance commands, not manual edits.

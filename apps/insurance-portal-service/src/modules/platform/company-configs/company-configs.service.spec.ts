@@ -45,11 +45,15 @@ describe('CompanyConfigsService', () => {
       const { service, repository } = makeHarness();
       repository.findOne.mockResolvedValue(null);
 
-      const result = await service.upsert('company-1', 'RENEWAL_FIRST_NOTICE_DAYS', {
-        config_value: 45,
-        value_type: ConfigValueType.NUMBER,
-        description: 'Days before expiry',
-      });
+      const result = await service.upsert(
+        'company-1',
+        'RENEWAL_FIRST_NOTICE_DAYS',
+        {
+          config_value: 45,
+          value_type: ConfigValueType.NUMBER,
+          description: 'Days before expiry',
+        },
+      );
 
       expect(repository.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -73,10 +77,14 @@ describe('CompanyConfigsService', () => {
       };
       repository.findOne.mockResolvedValue(existing);
 
-      const result = await service.upsert('company-1', 'RENEWAL_FIRST_NOTICE_DAYS', {
-        config_value: 60,
-        value_type: ConfigValueType.NUMBER,
-      });
+      const result = await service.upsert(
+        'company-1',
+        'RENEWAL_FIRST_NOTICE_DAYS',
+        {
+          config_value: 60,
+          value_type: ConfigValueType.NUMBER,
+        },
+      );
 
       expect(repository.create).not.toHaveBeenCalled();
       expect(result).toBe(existing);
@@ -91,9 +99,9 @@ describe('CompanyConfigsService', () => {
       const { service, repository } = makeHarness();
       repository.findOne.mockResolvedValue(null);
 
-      await expect(service.findOne('company-1', 'MISSING')).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.findOne('company-1', 'MISSING'),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 
@@ -102,7 +110,11 @@ describe('CompanyConfigsService', () => {
       const { service, repository } = makeHarness();
       repository.findOne.mockResolvedValue(null);
 
-      const value = await service.getValue('company-1', 'CANCELLATION_DEFAULT_METHOD', 'PRO_RATA');
+      const value = await service.getValue(
+        'company-1',
+        'CANCELLATION_DEFAULT_METHOD',
+        'PRO_RATA',
+      );
 
       expect(value).toBe('PRO_RATA');
     });
@@ -114,7 +126,11 @@ describe('CompanyConfigsService', () => {
         value_type: ConfigValueType.NUMBER,
       });
 
-      const value = await service.getValue('company-1', 'RENEWAL_FIRST_NOTICE_DAYS', 30);
+      const value = await service.getValue(
+        'company-1',
+        'RENEWAL_FIRST_NOTICE_DAYS',
+        30,
+      );
 
       expect(value).toBe(30);
     });
@@ -126,7 +142,11 @@ describe('CompanyConfigsService', () => {
         value_type: ConfigValueType.NUMBER,
       });
 
-      const value = await service.getValue('company-1', 'RENEWAL_FIRST_NOTICE_DAYS', 30);
+      const value = await service.getValue(
+        'company-1',
+        'RENEWAL_FIRST_NOTICE_DAYS',
+        30,
+      );
 
       expect(value).toBe(45);
     });

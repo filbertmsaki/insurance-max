@@ -200,7 +200,10 @@ export class TwoFaService {
     );
   }
 
-  async is2FARequired(userId: string, companyId?: string | null): Promise<boolean> {
+  async is2FARequired(
+    userId: string,
+    companyId?: string | null,
+  ): Promise<boolean> {
     const requirement = await this.getRequirement(userId, companyId);
     return requirement.required;
   }

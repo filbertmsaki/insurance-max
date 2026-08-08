@@ -55,7 +55,9 @@ describe('SystemConfigsService', () => {
     const { service, repository } = makeHarness();
     repository.findOne.mockResolvedValue(null);
 
-    await expect(service.findOne('MISSING')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.findOne('MISSING')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('getValue returns the fallback when inactive or missing', async () => {

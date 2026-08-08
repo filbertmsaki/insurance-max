@@ -22,7 +22,11 @@ export class ReinsuranceProgram {
   @Column({ type: 'int' })
   program_year: number;
 
-  @Column({ type: 'varchar', length: 20, default: ReinsuranceDirection.OUTWARD })
+  @Column({
+    type: 'varchar',
+    length: 20,
+    default: ReinsuranceDirection.OUTWARD,
+  })
   direction: ReinsuranceDirection;
 
   @Column({ type: 'varchar', length: 30, default: 'DRAFT' })

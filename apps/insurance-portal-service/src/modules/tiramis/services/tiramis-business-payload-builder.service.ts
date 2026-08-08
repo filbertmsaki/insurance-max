@@ -546,10 +546,9 @@ export class TiramisBusinessPayloadBuilderService {
         'endorsement_premium_earned',
         'endorsementPremiumEarned',
       ),
-      risks: this.toArrayOrDefault(
-        this.value(record, 'risks'),
-        [this.defaultRisks(record)],
-      ),
+      risks: this.toArrayOrDefault(this.value(record, 'risks'), [
+        this.defaultRisks(record),
+      ]),
       subjectMatters: this.toArrayOrDefault(
         this.value(record, 'subject_matters', 'subjectMatters'),
         [this.defaultSubjectMatter(record, coverNoteNumber)],
@@ -652,8 +651,7 @@ export class TiramisBusinessPayloadBuilderService {
           record,
           'authorizing_officer_name',
           'authorizingOfficerName',
-        ) ||
-          this.value(record, 'officer_name', 'officerName'),
+        ) || this.value(record, 'officer_name', 'officerName'),
       ),
       authorizingOfficerTitle: this.required(
         'authorizingOfficerTitle',
@@ -661,8 +659,7 @@ export class TiramisBusinessPayloadBuilderService {
           record,
           'authorizing_officer_title',
           'authorizingOfficerTitle',
-        ) ||
-          this.value(record, 'officer_title', 'officerTitle'),
+        ) || this.value(record, 'officer_title', 'officerTitle'),
       ),
       reinsuranceCategory: this.requiredNumber(
         'reinsuranceCategory',
@@ -800,7 +797,10 @@ export class TiramisBusinessPayloadBuilderService {
         'assessorIdType',
         this.value(record, 'assessor_id_type', 'assessorIdType'),
       ),
-      claimants: this.requiredArray('claimants', this.value(record, 'claimants')),
+      claimants: this.requiredArray(
+        'claimants',
+        this.value(record, 'claimants'),
+      ),
     });
   }
 
@@ -1019,7 +1019,11 @@ export class TiramisBusinessPayloadBuilderService {
           'claimResultedLitigation',
         ),
       ),
-      litigationReason: this.value(record, 'litigation_reason', 'litigationReason'),
+      litigationReason: this.value(
+        record,
+        'litigation_reason',
+        'litigationReason',
+      ),
       currencyCode: this.required(
         'currencyCode',
         this.value(record, 'currency_code', 'currencyCode'),
@@ -1257,7 +1261,10 @@ export class TiramisBusinessPayloadBuilderService {
         'engineCapacity',
         this.value(record, 'engine_capacity', 'engineCapacity'),
       ),
-      fuelUsed: this.required('fuelUsed', this.value(record, 'fuel_used', 'fuelUsed')),
+      fuelUsed: this.required(
+        'fuelUsed',
+        this.value(record, 'fuel_used', 'fuelUsed'),
+      ),
       numberOfAxles: this.requiredNumber(
         'numberOfAxles',
         this.value(record, 'number_of_axles', 'numberOfAxles'),
@@ -1279,7 +1286,10 @@ export class TiramisBusinessPayloadBuilderService {
           'manufacture_year',
         ),
       ),
-      tareWeight: this.required('tareWeight', this.value(record, 'tare_weight', 'tareWeight')),
+      tareWeight: this.required(
+        'tareWeight',
+        this.value(record, 'tare_weight', 'tareWeight'),
+      ),
       grossWeight: this.required(
         'grossWeight',
         this.value(record, 'gross_weight', 'grossWeight'),
@@ -1343,7 +1353,10 @@ export class TiramisBusinessPayloadBuilderService {
 
   private defaultRisks(record: any) {
     return {
-      riskCode: this.required('riskCode', this.value(record, 'risk_code', 'riskCode')),
+      riskCode: this.required(
+        'riskCode',
+        this.value(record, 'risk_code', 'riskCode'),
+      ),
       sumInsured: this.requiredMoney(
         'sumInsured',
         this.value(record, 'sum_insured', 'sumInsured'),
@@ -1385,8 +1398,11 @@ export class TiramisBusinessPayloadBuilderService {
     return {
       subjectMatterReference: this.required(
         'subjectMatterReference',
-        this.value(record, 'subject_matter_reference', 'subjectMatterReference') ||
-          reference,
+        this.value(
+          record,
+          'subject_matter_reference',
+          'subjectMatterReference',
+        ) || reference,
       ),
       subjectMatterDesc: this.required(
         'subjectMatterDesc',
@@ -1444,7 +1460,10 @@ export class TiramisBusinessPayloadBuilderService {
 
   private defaultClaimant(record: any) {
     return this.cleanObject({
-      claimantName: this.required('claimantName', this.buildCustomerName(record)),
+      claimantName: this.required(
+        'claimantName',
+        this.buildCustomerName(record),
+      ),
       claimantBirthDate: this.required(
         'claimantBirthDate',
         this.value(record, 'claimant_birth_date', 'claimantBirthDate') ||

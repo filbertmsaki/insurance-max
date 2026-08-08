@@ -75,8 +75,9 @@ export class AnalyticsProjectionJob {
     });
 
     return rows.filter(
-      (row: Partial<AnalyticsProjectionEvent> | null | undefined): row is AnalyticsProjectionEvent =>
-        !!row?.id && !!row.aggregate_type,
+      (
+        row: Partial<AnalyticsProjectionEvent> | null | undefined,
+      ): row is AnalyticsProjectionEvent => !!row?.id && !!row.aggregate_type,
     );
   }
 

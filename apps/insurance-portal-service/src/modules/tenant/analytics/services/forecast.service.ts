@@ -170,8 +170,15 @@ export class ForecastService {
 
     const normalizedMethod = String(method ?? '').toUpperCase();
 
-    if (normalizedMethod.includes('LINEAR') || normalizedMethod.includes('REGRESSION')) {
-      return this.forecastLinearRegression(series, forecastDates, trainingPeriodStart);
+    if (
+      normalizedMethod.includes('LINEAR') ||
+      normalizedMethod.includes('REGRESSION')
+    ) {
+      return this.forecastLinearRegression(
+        series,
+        forecastDates,
+        trainingPeriodStart,
+      );
     }
 
     return this.forecastMovingAverage(series, forecastDates);
@@ -200,7 +207,9 @@ export class ForecastService {
     const slope = denominator === 0 ? 0 : numerator / denominator;
     const intercept = meanY - slope * meanT;
 
-    const residuals = t.map((value, index) => values[index] - (intercept + slope * value));
+    const residuals = t.map(
+      (value, index) => values[index] - (intercept + slope * value),
+    );
     const stdDev = this.standardDeviation(residuals);
 
     return forecastDates.map((forecastDate) => {
@@ -210,7 +219,9 @@ export class ForecastService {
       return {
         forecastDate,
         predictedValue: this.round(predicted),
-        lowerBound: this.round(Math.max(0, predicted - BOUND_MULTIPLIER * stdDev)),
+        lowerBound: this.round(
+          Math.max(0, predicted - BOUND_MULTIPLIER * stdDev),
+        ),
         upperBound: this.round(predicted + BOUND_MULTIPLIER * stdDev),
       };
     });
@@ -220,15 +231,22 @@ export class ForecastService {
     series: SeriesPoint[],
     forecastDates: string[],
   ): ForecastPointResult[] {
-    const window = series.slice(-MOVING_AVERAGE_WINDOW).map((point) => point.value);
-    const average = window.reduce((sum, value) => sum + value, 0) / window.length;
-    const stdDev = this.standardDeviation(window.map((value) => value - average));
+    const window = series
+      .slice(-MOVING_AVERAGE_WINDOW)
+      .map((point) => point.value);
+    const average =
+      window.reduce((sum, value) => sum + value, 0) / window.length;
+    const stdDev = this.standardDeviation(
+      window.map((value) => value - average),
+    );
     const predicted = Math.max(0, average);
 
     return forecastDates.map((forecastDate) => ({
       forecastDate,
       predictedValue: this.round(predicted),
-      lowerBound: this.round(Math.max(0, predicted - BOUND_MULTIPLIER * stdDev)),
+      lowerBound: this.round(
+        Math.max(0, predicted - BOUND_MULTIPLIER * stdDev),
+      ),
       upperBound: this.round(predicted + BOUND_MULTIPLIER * stdDev),
     }));
   }
@@ -240,7 +258,8 @@ export class ForecastService {
 
     const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
     const variance =
-      values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
+      values.reduce((sum, value) => sum + (value - mean) ** 2, 0) /
+      values.length;
 
     return Math.sqrt(variance);
   }

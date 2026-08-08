@@ -23,10 +23,7 @@ export class DocumentRenderService {
     this.validateSchemaNode(schema, data, '');
   }
 
-  renderTemplate(
-    template: string,
-    data: Record<string, unknown>,
-  ): string {
+  renderTemplate(template: string, data: Record<string, unknown>): string {
     return template.replace(/{{\s*([a-zA-Z0-9_.-]+)\s*}}/g, (_match, path) => {
       const value = this.getValueByPath(data, path);
 
@@ -184,7 +181,10 @@ export class DocumentRenderService {
       );
 
       return `{${entries
-        .map(([key, item]) => `${JSON.stringify(key)}:${this.stableSerialize(item)}`)
+        .map(
+          ([key, item]) =>
+            `${JSON.stringify(key)}:${this.stableSerialize(item)}`,
+        )
         .join(',')}}`;
     }
 

@@ -56,7 +56,8 @@ export class ReinsuranceSettlementService {
         branch_id: user.activeBranchId ?? null,
         counterparty_company_id: dto.counterparty_company_id,
         settlement_no: settlementNo,
-        settlement_type: dto.settlement_type as ReinsuranceSettlement['settlement_type'],
+        settlement_type:
+          dto.settlement_type as ReinsuranceSettlement['settlement_type'],
         period_from: dto.period_from ?? null,
         period_to: dto.period_to ?? null,
         currency: dto.currency,
@@ -90,7 +91,9 @@ export class ReinsuranceSettlementService {
     const settlement = await this.getForWrite(user, settlementId);
 
     if (settlement.status !== ReinsuranceSettlementStatus.SUBMITTED) {
-      throw new ConflictException('Only a submitted settlement can be approved');
+      throw new ConflictException(
+        'Only a submitted settlement can be approved',
+      );
     }
 
     if (settlement.submitted_by === user.id) {

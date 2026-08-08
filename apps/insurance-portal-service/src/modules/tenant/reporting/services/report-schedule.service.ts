@@ -898,10 +898,12 @@ export class ReportScheduleService {
   }
 
   private isRestrictedDefinition(definition: ReportDefinition) {
-    return ([
-      ReportSensitivity.CONFIDENTIAL,
-      ReportSensitivity.RESTRICTED,
-    ] as ReportSensitivity[]).includes(definition.sensitivity);
+    return (
+      [
+        ReportSensitivity.CONFIDENTIAL,
+        ReportSensitivity.RESTRICTED,
+      ] as ReportSensitivity[]
+    ).includes(definition.sensitivity);
   }
 
   private async recordAccessAudit(input: {

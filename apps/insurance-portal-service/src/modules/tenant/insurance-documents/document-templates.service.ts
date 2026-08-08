@@ -70,7 +70,10 @@ export class DocumentTemplatesService {
 
   async findOne(companyId: string, id: string) {
     const template = await this.templateRepository.findOne({
-      where: [{ id, company_id: companyId }, { id, company_id: IsNull() }],
+      where: [
+        { id, company_id: companyId },
+        { id, company_id: IsNull() },
+      ],
     });
 
     if (!template) {
@@ -100,7 +103,10 @@ export class DocumentTemplatesService {
       sampleData?: Record<string, unknown>;
     },
   ) {
-    const template = await this.findTemplateForCompany(user.companyId!, templateId);
+    const template = await this.findTemplateForCompany(
+      user.companyId!,
+      templateId,
+    );
     const latest = await this.versionRepository.findOne({
       where: { template_id: template.id },
       order: { version_number: 'DESC' },
@@ -132,25 +138,37 @@ export class DocumentTemplatesService {
     versionId: string,
     sourceSnapshot?: Record<string, unknown>,
   ) {
-    const version = await this.requireVersionForCompany(user.companyId!, versionId);
+    const version = await this.requireVersionForCompany(
+      user.companyId!,
+      versionId,
+    );
     const payload = sourceSnapshot ?? version.sample_data ?? {};
     this.renderService.validateVariableSchema(version.variable_schema, payload);
 
     return {
-      rendered: this.renderService.renderTemplate(version.template_content, payload),
+      rendered: this.renderService.renderTemplate(
+        version.template_content,
+        payload,
+      ),
       source_snapshot: payload,
       template_hash: version.template_hash,
     };
   }
 
   async submitApproval(user: AuthenticatedUser, versionId: string) {
-    const version = await this.requireVersionForCompany(user.companyId!, versionId);
+    const version = await this.requireVersionForCompany(
+      user.companyId!,
+      versionId,
+    );
     version.status = 'SUBMITTED';
     return this.versionRepository.save(version);
   }
 
   async approve(user: AuthenticatedUser, versionId: string) {
-    const version = await this.requireVersionForCompany(user.companyId!, versionId);
+    const version = await this.requireVersionForCompany(
+      user.companyId!,
+      versionId,
+    );
     version.status = 'APPROVED';
     version.approved_by = user.id;
     version.approved_at = new Date();
@@ -158,7 +176,10 @@ export class DocumentTemplatesService {
   }
 
   async publish(user: AuthenticatedUser, versionId: string) {
-    const version = await this.requireVersionForCompany(user.companyId!, versionId);
+    const version = await this.requireVersionForCompany(
+      user.companyId!,
+      versionId,
+    );
     if (!['APPROVED', 'PUBLISHED'].includes(version.status)) {
       throw new BadRequestException(
         'Template version must be approved before publishing.',
@@ -180,7 +201,10 @@ export class DocumentTemplatesService {
   }
 
   async retire(user: AuthenticatedUser, versionId: string) {
-    const version = await this.requireVersionForCompany(user.companyId!, versionId);
+    const version = await this.requireVersionForCompany(
+      user.companyId!,
+      versionId,
+    );
     version.status = 'RETIRED';
     await this.versionRepository.save(version);
 
@@ -206,7 +230,9 @@ export class DocumentTemplatesService {
     });
 
     if (!template?.active_version_id) {
-      throw new NotFoundException('Active document template version not found.');
+      throw new NotFoundException(
+        'Active document template version not found.',
+      );
     }
 
     const version = await this.versionRepository.findOne({
@@ -216,7 +242,9 @@ export class DocumentTemplatesService {
     });
 
     if (!version) {
-      throw new NotFoundException('Active document template version not found.');
+      throw new NotFoundException(
+        'Active document template version not found.',
+      );
     }
 
     return {
@@ -227,7 +255,10 @@ export class DocumentTemplatesService {
 
   private async findTemplateForCompany(companyId: string, id: string) {
     const template = await this.templateRepository.findOne({
-      where: [{ id, company_id: companyId }, { id, company_id: IsNull() }],
+      where: [
+        { id, company_id: companyId },
+        { id, company_id: IsNull() },
+      ],
     });
 
     if (!template) {

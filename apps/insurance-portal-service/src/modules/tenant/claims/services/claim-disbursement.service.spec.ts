@@ -9,7 +9,9 @@ function makeHarness(params: {
 }) {
   const disbursementRepo = {
     findOne: jest.fn().mockResolvedValue(params.existingDisbursement ?? null),
-    save: jest.fn().mockImplementation(async (value) => ({ id: 'disb-1', ...value })),
+    save: jest
+      .fn()
+      .mockImplementation(async (value) => ({ id: 'disb-1', ...value })),
   };
 
   const paymentRepo = {
@@ -132,11 +134,19 @@ describe('ClaimDisbursementService', () => {
           paid_amount: '20000.00',
           currency_code: 'TZS',
         },
-        claim: { id: 'claim-1', approved_amount: '50000.00', paid_amount: '0.00' },
+        claim: {
+          id: 'claim-1',
+          approved_amount: '50000.00',
+          paid_amount: '0.00',
+        },
         existingDisbursement: existing,
       });
 
-      const result = await service.requestDisbursement(user, 'payment-1', 'idem-1');
+      const result = await service.requestDisbursement(
+        user,
+        'payment-1',
+        'idem-1',
+      );
 
       expect(result).toBe(existing);
       expect(disbursementRepo.save).not.toHaveBeenCalled();

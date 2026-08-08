@@ -1,11 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const outputPath = path.join(
-  process.cwd(),
-  'docs',
-  'tiramis-final-audit.md',
-);
+const outputPath = path.join(process.cwd(), 'docs', 'tiramis-final-audit.md');
 
 const rows = [
   [

@@ -464,17 +464,16 @@ export class TiramisBusinessValidationService {
 
     this.toArray(payload.fleet?.items).forEach((item, itemIndex) => {
       this.toArray(item?.risks).forEach((risk, riskIndex) => {
-        result.push([
-          `fleet.items[${itemIndex}].risks[${riskIndex}]`,
-          risk,
-        ]);
+        result.push([`fleet.items[${itemIndex}].risks[${riskIndex}]`, risk]);
       });
     });
 
     return result;
   }
 
-  private collectMotorDetails(payload: Record<string, any>): Array<[string, any]> {
+  private collectMotorDetails(
+    payload: Record<string, any>,
+  ): Array<[string, any]> {
     const result: Array<[string, any]> = [];
 
     if (payload.motorDetail) {
@@ -724,14 +723,18 @@ export class TiramisBusinessValidationService {
       value === true ||
       value === 1 ||
       ['1', 'true', 'yes', 'y', 'required'].includes(
-        String(value ?? '').trim().toLowerCase(),
+        String(value ?? '')
+          .trim()
+          .toLowerCase(),
       )
     );
   }
 
   private isApprovedStatus(value: unknown): boolean {
     return ['approved', 'not_required', 'not required'].includes(
-      String(value ?? '').trim().toLowerCase(),
+      String(value ?? '')
+        .trim()
+        .toLowerCase(),
     );
   }
 
@@ -744,7 +747,11 @@ export class TiramisBusinessValidationService {
       'allocated',
       'receipted',
       'completed',
-    ].includes(String(value ?? '').trim().toLowerCase());
+    ].includes(
+      String(value ?? '')
+        .trim()
+        .toLowerCase(),
+    );
   }
 
   private isFinalTiramisSuccess(value: unknown): boolean {
@@ -755,6 +762,10 @@ export class TiramisBusinessValidationService {
       'accepted',
       'tira001',
       '200',
-    ].includes(String(value ?? '').trim().toLowerCase());
+    ].includes(
+      String(value ?? '')
+        .trim()
+        .toLowerCase(),
+    );
   }
 }

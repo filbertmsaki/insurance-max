@@ -29,7 +29,9 @@ export function FinanceReconciliationPage() {
         currency_code: currencyCode,
       }),
     onSuccess: (batch) => {
-      queryClient.invalidateQueries({ queryKey: ['finance', 'reconciliation'] });
+      queryClient.invalidateQueries({
+        queryKey: ['finance', 'reconciliation'],
+      });
       navigate(`/finance/reconciliation/${batch.id}`);
     },
   });
@@ -38,25 +40,50 @@ export function FinanceReconciliationPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Reconciliation" description="Import, match, approve, and post bank or provider statement batches." />
+      <PageHeader
+        title="Reconciliation"
+        description="Import, match, approve, and post bank or provider statement batches."
+      />
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Create Batch</CardTitle></CardHeader>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Create Batch</CardTitle>
+        </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
           <div>
             <Label htmlFor="provider-code">Provider code</Label>
-            <Input id="provider-code" value={providerCode} onChange={(event) => setProviderCode(event.target.value.toUpperCase())} />
+            <Input
+              id="provider-code"
+              value={providerCode}
+              onChange={(event) =>
+                setProviderCode(event.target.value.toUpperCase())
+              }
+            />
           </div>
           <div>
             <Label htmlFor="statement-date">Statement date</Label>
-            <Input id="statement-date" type="date" value={statementDate} onChange={(event) => setStatementDate(event.target.value)} />
+            <Input
+              id="statement-date"
+              type="date"
+              value={statementDate}
+              onChange={(event) => setStatementDate(event.target.value)}
+            />
           </div>
           <div>
             <Label htmlFor="currency-code">Currency</Label>
-            <Input id="currency-code" value={currencyCode} onChange={(event) => setCurrencyCode(event.target.value.toUpperCase())} />
+            <Input
+              id="currency-code"
+              value={currencyCode}
+              onChange={(event) =>
+                setCurrencyCode(event.target.value.toUpperCase())
+              }
+            />
           </div>
           <div className="md:col-span-3">
-            <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending || !statementDate}>
+            <Button
+              onClick={() => createMutation.mutate()}
+              disabled={createMutation.isPending || !statementDate}
+            >
               {createMutation.isPending ? 'Creating...' : 'Create Batch'}
             </Button>
           </div>
@@ -70,12 +97,19 @@ export function FinanceReconciliationPage() {
               <div className="space-y-1">
                 <p className="font-medium text-slate-900">{batch.batch_no}</p>
                 <p className="text-sm text-slate-500">
-                  {batch.provider_code} · {batch.statement_date} · {formatMoney(batch.statement_total, batch.currency_code)}
+                  {batch.provider_code} · {batch.statement_date} ·{' '}
+                  {formatMoney(batch.statement_total, batch.currency_code)}
                 </p>
               </div>
               <div className="flex items-center gap-3">
                 <FinanceStatusBadge status={batch.status} />
-                <Button size="sm" variant="outline" onClick={() => navigate(`/finance/reconciliation/${batch.id}`)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    navigate(`/finance/reconciliation/${batch.id}`)
+                  }
+                >
                   Open
                 </Button>
               </div>

@@ -17,11 +17,7 @@ import { formatDateTime, statusTone } from '@/modules/tenant/engagement/utils';
 
 import { portalApi, type PortalAudience } from '../api';
 
-export function PortalMessagesPage({
-  audience,
-}: {
-  audience: PortalAudience;
-}) {
+export function PortalMessagesPage({ audience }: { audience: PortalAudience }) {
   const basePath = `/${audience}/messages`;
   const messagesQuery = useQuery({
     queryKey: ['portal', audience, 'messages'],
@@ -72,14 +68,18 @@ export function PortalMessagesPage({
                         >
                           {thread.subject}
                         </Link>
-                        <div className="text-xs text-slate-500">{thread.thread_no}</div>
+                        <div className="text-xs text-slate-500">
+                          {thread.thread_no}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>{thread.thread_type}</TableCell>
                     <TableCell>
                       <Badge
                         variant="outline"
-                        className={statusTone(thread.closed_at ? 'CLOSED' : 'OPEN')}
+                        className={statusTone(
+                          thread.closed_at ? 'CLOSED' : 'OPEN',
+                        )}
                       >
                         {thread.closed_at ? 'CLOSED' : 'OPEN'}
                       </Badge>

@@ -18,7 +18,9 @@ import { formatDateTime, statusTone } from '../utils';
 export function DocumentTemplateDetailPage() {
   const { id = '' } = useParams();
   const queryClient = useQueryClient();
-  const [content, setContent] = useState('Policy Number: {{policy.number}}\nCustomer: {{customer.name}}');
+  const [content, setContent] = useState(
+    'Policy Number: {{policy.number}}\nCustomer: {{customer.name}}',
+  );
   const [schema, setSchema] = useState(
     '{\n  "required": ["policy", "customer"],\n  "properties": {\n    "policy": { "required": ["number"] },\n    "customer": { "required": ["name"] }\n  }\n}',
   );
@@ -35,7 +37,8 @@ export function DocumentTemplateDetailPage() {
 
   const previewQuery = useQuery({
     queryKey: ['engagement', 'document-template-preview', previewVersionId],
-    queryFn: () => engagementApi.previewDocumentTemplateVersion(previewVersionId!),
+    queryFn: () =>
+      engagementApi.previewDocumentTemplateVersion(previewVersionId!),
     enabled: Boolean(previewVersionId),
   });
 
@@ -95,7 +98,10 @@ export function DocumentTemplateDetailPage() {
           <Card className="rounded-xl border-slate-200 shadow-sm">
             <CardContent className="space-y-4 pt-6">
               {(template?.versions ?? []).map((version) => (
-                <div key={version.id} className="rounded-lg border border-slate-200 p-4">
+                <div
+                  key={version.id}
+                  className="rounded-lg border border-slate-200 p-4"
+                >
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <div className="font-medium text-slate-900">
@@ -105,19 +111,29 @@ export function DocumentTemplateDetailPage() {
                         {formatDateTime(version.created_at)}
                       </div>
                     </div>
-                    <Badge variant="outline" className={statusTone(version.status)}>
+                    <Badge
+                      variant="outline"
+                      className={statusTone(version.status)}
+                    >
                       {version.status}
                     </Badge>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" onClick={() => setPreviewVersionId(version.id)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setPreviewVersionId(version.id)}
+                    >
                       Preview
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() =>
-                        versionActionMutation.mutate({ action: 'submit', versionId: version.id })
+                        versionActionMutation.mutate({
+                          action: 'submit',
+                          versionId: version.id,
+                        })
                       }
                     >
                       Submit
@@ -126,7 +142,10 @@ export function DocumentTemplateDetailPage() {
                       size="sm"
                       variant="outline"
                       onClick={() =>
-                        versionActionMutation.mutate({ action: 'approve', versionId: version.id })
+                        versionActionMutation.mutate({
+                          action: 'approve',
+                          versionId: version.id,
+                        })
                       }
                     >
                       Approve
@@ -135,7 +154,10 @@ export function DocumentTemplateDetailPage() {
                       size="sm"
                       variant="outline"
                       onClick={() =>
-                        versionActionMutation.mutate({ action: 'publish', versionId: version.id })
+                        versionActionMutation.mutate({
+                          action: 'publish',
+                          versionId: version.id,
+                        })
                       }
                     >
                       Publish
@@ -144,7 +166,10 @@ export function DocumentTemplateDetailPage() {
                       size="sm"
                       variant="outline"
                       onClick={() =>
-                        versionActionMutation.mutate({ action: 'retire', versionId: version.id })
+                        versionActionMutation.mutate({
+                          action: 'retire',
+                          versionId: version.id,
+                        })
                       }
                     >
                       Retire
@@ -164,17 +189,32 @@ export function DocumentTemplateDetailPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="template-content">Template content</Label>
-                <Textarea id="template-content" value={content} onChange={(e) => setContent(e.target.value)} />
+                <Textarea
+                  id="template-content"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="template-schema">Variable schema (JSON)</Label>
-                <Textarea id="template-schema" value={schema} onChange={(e) => setSchema(e.target.value)} />
+                <Textarea
+                  id="template-schema"
+                  value={schema}
+                  onChange={(e) => setSchema(e.target.value)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="template-sample">Sample data (JSON)</Label>
-                <Textarea id="template-sample" value={sampleData} onChange={(e) => setSampleData(e.target.value)} />
+                <Textarea
+                  id="template-sample"
+                  value={sampleData}
+                  onChange={(e) => setSampleData(e.target.value)}
+                />
               </div>
-              <Button onClick={() => createVersionMutation.mutate()} disabled={createVersionMutation.isPending}>
+              <Button
+                onClick={() => createVersionMutation.mutate()}
+                disabled={createVersionMutation.isPending}
+              >
                 Save version
               </Button>
             </CardContent>

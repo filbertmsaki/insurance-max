@@ -30,9 +30,7 @@ const ADMIN_ROLE_NAMES = [
   'SERVICE_PROVIDER_ADMIN',
 ] as const;
 
-export class Phase18OperationalPermissions1796301000000
-  implements MigrationInterface
-{
+export class Phase18OperationalPermissions1796301000000 implements MigrationInterface {
   name = 'Phase18OperationalPermissions1796301000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -993,7 +993,7 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'company-configs:read',
     displayName: 'Read company configs',
-    description: 'Allow viewing a company\'s platform-managed runtime settings',
+    description: "Allow viewing a company's platform-managed runtime settings",
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -1304,7 +1304,8 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'claims:duplicate-review',
     displayName: 'Review possible duplicate claims',
-    description: 'Allow reviewing and overriding possible-duplicate claim flags',
+    description:
+      'Allow reviewing and overriding possible-duplicate claim flags',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -1322,7 +1323,8 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'claim-decisions:approve',
     displayName: 'Approve claim decisions',
-    description: 'Allow approving a claim liability decision (maker-checker enforced)',
+    description:
+      'Allow approving a claim liability decision (maker-checker enforced)',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -1334,7 +1336,8 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'claim-payments:request-disbursement',
     displayName: 'Request claim payment disbursement',
-    description: 'Allow requesting Finance to disburse an approved claim payment',
+    description:
+      'Allow requesting Finance to disburse an approved claim payment',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -1406,7 +1409,8 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'documents:upload',
     displayName: 'Upload documents',
-    description: 'Allow creating secure upload sessions and uploading document files',
+    description:
+      'Allow creating secure upload sessions and uploading document files',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -1472,7 +1476,8 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'documents:register',
     displayName: 'Register documents',
-    description: 'Allow registering an uploaded document in the controlled document registry',
+    description:
+      'Allow registering an uploaded document in the controlled document registry',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -2503,7 +2508,8 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'payments:record-manual',
     displayName: 'Record manual payment transactions',
-    description: 'Allow recording manual payment transactions in finance operations.',
+    description:
+      'Allow recording manual payment transactions in finance operations.',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -2738,7 +2744,8 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'policy-transactions:read',
     displayName: 'View policy transactions',
-    description: 'Allow viewing endorsement, cancellation, and renewal transactions',
+    description:
+      'Allow viewing endorsement, cancellation, and renewal transactions',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -2762,19 +2769,22 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'endorsements:submit-approval',
     displayName: 'Submit endorsements for approval',
-    description: 'Allow submitting a completed endorsement into the approval queue',
+    description:
+      'Allow submitting a completed endorsement into the approval queue',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
     name: 'endorsements:approve',
     displayName: 'Approve endorsements',
-    description: 'Allow approving, rejecting, or requesting changes on an endorsement',
+    description:
+      'Allow approving, rejecting, or requesting changes on an endorsement',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
     name: 'endorsements:request-payment',
     displayName: 'Request endorsement payment',
-    description: 'Allow requesting the additional-premium payment for an endorsement',
+    description:
+      'Allow requesting the additional-premium payment for an endorsement',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -2810,7 +2820,8 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'cancellations:claims-review',
     displayName: 'Review cancellations with open claims',
-    description: 'Allow clearing or blocking a cancellation pending claims review',
+    description:
+      'Allow clearing or blocking a cancellation pending claims review',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -2846,7 +2857,8 @@ const permissionSeeds: PermissionSeed[] = [
   {
     name: 'renewals:create',
     displayName: 'Create renewals',
-    description: 'Allow manually creating a renewal offer ahead of the scheduled job',
+    description:
+      'Allow manually creating a renewal offer ahead of the scheduled job',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {

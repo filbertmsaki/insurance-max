@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { EntityManager, Not } from 'typeorm';
 import { InvoiceSourceType, InvoiceStatus } from '@insurance-max/contracts';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
@@ -19,7 +23,9 @@ export interface PolicyTransactionInvoiceInput {
   /** `PolicyEndorsement.id` or `PolicyCancellation.id` — the id of the
    * child row referenced by `invoices.endorsement_id`/`cancellation_id`. */
   childResourceId: string;
-  sourceType: typeof InvoiceSourceType.ENDORSEMENT | typeof InvoiceSourceType.CANCELLATION;
+  sourceType:
+    | typeof InvoiceSourceType.ENDORSEMENT
+    | typeof InvoiceSourceType.CANCELLATION;
   amount: string;
   description: string;
   createdBy: string;
@@ -61,9 +67,7 @@ export class PolicyTransactionInvoiceService {
     const total = DecimalUtil.value(params.amount);
 
     if (total.lessThanOrEqualTo(0)) {
-      throw new BadRequestException(
-        'Invoice total must be greater than zero.',
-      );
+      throw new BadRequestException('Invoice total must be greater than zero.');
     }
 
     const invoiceNumber = await this.identifierService.generateInvoiceNumber(

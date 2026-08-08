@@ -13,9 +13,7 @@ import { MoneyUtil } from '../../billing-commission/utils/money.util';
 import { ClaimRecoveryStatus } from '../enums/claim.enums';
 import { InsuranceClaim } from '../entities/claim.entity';
 import { ClaimRecovery } from '../entities/claim-recovery.entity';
-import type {
-  CreateClaimRecoveryDto,
-} from '../dto/claim-recovery.dto';
+import type { CreateClaimRecoveryDto } from '../dto/claim-recovery.dto';
 import { ClaimFinancialProjectionService } from './claim-financial-projection.service';
 
 /**
@@ -74,9 +72,7 @@ export class ClaimRecoveryService {
     const recovery = await this.requireRecovery(user.companyId!, recoveryId);
 
     if (recovery.status !== ClaimRecoveryStatus.EXPECTED) {
-      throw new ConflictException(
-        'Only an expected recovery can be requested',
-      );
+      throw new ConflictException('Only an expected recovery can be requested');
     }
 
     recovery.status = ClaimRecoveryStatus.REQUESTED;

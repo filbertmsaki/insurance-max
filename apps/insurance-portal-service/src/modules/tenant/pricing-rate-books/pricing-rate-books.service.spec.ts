@@ -75,7 +75,7 @@ function createServiceFixture(options?: {
     addonRateRuleRepository as any,
     addonDefinitionRepository as any,
     pricingRuntimeCacheService as any,
-    editabilityService as any,
+    editabilityService,
     validationService as any,
     hashService as any,
   );

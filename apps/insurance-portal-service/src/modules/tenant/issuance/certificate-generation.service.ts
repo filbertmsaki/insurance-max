@@ -197,7 +197,8 @@ export class CertificateGenerationService {
     verificationCode: string;
     documentType: InsuranceDocumentType;
   }): Promise<Buffer> {
-    const { policy, coverNotes, risks, verificationCode, documentType } = params;
+    const { policy, coverNotes, risks, verificationCode, documentType } =
+      params;
     const doc = await PDFDocument.create();
     const page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -220,10 +221,7 @@ export class CertificateGenerationService {
     });
     y -= 24;
 
-    const customerSnapshot = (policy.customer_snapshot ?? {}) as Record<
-      string,
-      unknown
-    >;
+    const customerSnapshot = policy.customer_snapshot ?? {};
     const policyHolder =
       (customerSnapshot.policyHolder as Record<string, unknown> | null) ?? null;
 
@@ -231,11 +229,14 @@ export class CertificateGenerationService {
       ['Policy Number', policy.policy_no],
       [
         'Policy Holder',
-        String(
-          policyHolder?.name ?? customerSnapshot.displayName ?? 'N/A',
-        ),
+        String(policyHolder?.name ?? customerSnapshot.displayName ?? 'N/A'),
       ],
-      ['Cover Note Reference', policy.cover_note_no ?? coverNotes[0]?.cover_note_reference_number ?? 'N/A'],
+      [
+        'Cover Note Reference',
+        policy.cover_note_no ??
+          coverNotes[0]?.cover_note_reference_number ??
+          'N/A',
+      ],
       ['Period of Insurance', `${policy.start_date} to ${policy.end_date}`],
       ['Sum Insured', `${policy.currency} ${policy.sum_insured}`],
       ['Total Premium', `${policy.currency} ${policy.total_premium}`],
@@ -249,15 +250,22 @@ export class CertificateGenerationService {
 
     if (risks.length) {
       y -= 10;
-      page.drawText('Covered Risks', { x: MARGIN, y, size: 13, font: boldFont });
+      page.drawText('Covered Risks', {
+        x: MARGIN,
+        y,
+        size: 13,
+        font: boldFont,
+      });
       y -= 20;
 
       for (const risk of risks) {
         const label = risk.risk?.risk_name ?? risk.risk?.risk_code ?? 'Risk';
-        page.drawText(
-          `- ${label}: ${policy.currency} ${risk.sum_insured}`,
-          { x: MARGIN, y, size: 10, font },
-        );
+        page.drawText(`- ${label}: ${policy.currency} ${risk.sum_insured}`, {
+          x: MARGIN,
+          y,
+          size: 10,
+          font,
+        });
         y -= 16;
       }
     }

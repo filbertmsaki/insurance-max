@@ -60,7 +60,10 @@ export class CancellationsController {
 
   @Post('tenant/cancellations/:id/claims-review')
   @Permissions('cancellations:claims-review')
-  @ApiOperation({ summary: 'Record the claims-review decision for a cancellation with open claims' })
+  @ApiOperation({
+    summary:
+      'Record the claims-review decision for a cancellation with open claims',
+  })
   claimsReview(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -76,7 +79,10 @@ export class CancellationsController {
 
   @Post('tenant/cancellations/:id/complete')
   @Permissions('cancellations:complete')
-  @ApiOperation({ summary: 'Complete a cancellation, evaluating approval/payment requirements' })
+  @ApiOperation({
+    summary:
+      'Complete a cancellation, evaluating approval/payment requirements',
+  })
   complete(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -110,7 +116,9 @@ export class CancellationsController {
 
   @Post('tenant/cancellations/:id/request-payment')
   @Permissions('cancellations:request-payment')
-  @ApiOperation({ summary: 'Create the cancellation-charge invoice and request payment' })
+  @ApiOperation({
+    summary: 'Create the cancellation-charge invoice and request payment',
+  })
   requestPayment(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
@@ -120,7 +128,10 @@ export class CancellationsController {
 
   @Post('tenant/cancellations/:id/submit-tiramis')
   @Permissions('cancellations:submit-tiramis')
-  @ApiOperation({ summary: 'Submit a completed, approved cancellation to TIRAMIS (also used to retry after a failed attempt)' })
+  @ApiOperation({
+    summary:
+      'Submit a completed, approved cancellation to TIRAMIS (also used to retry after a failed attempt)',
+  })
   submitTiramis(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,

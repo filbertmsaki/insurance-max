@@ -27,7 +27,10 @@ describe('AnalyticsController', () => {
   beforeEach(async () => {
     analyticsMetricService = {
       listDefinitions: jest.fn().mockResolvedValue([
-        { code: 'premium.gross_written', permission: 'analytics:metrics:read' },
+        {
+          code: 'premium.gross_written',
+          permission: 'analytics:metrics:read',
+        },
       ]),
       getDefinition: jest
         .fn()
@@ -89,7 +92,7 @@ describe('AnalyticsController', () => {
     const result = await controller.getMetrics({
       ...mockUser,
       permissions: [AnalyticsPermissions.READ, 'analytics:metrics:read'],
-    } as any);
+    });
 
     expect(result).toEqual([
       { code: 'premium.gross_written', permission: 'analytics:metrics:read' },
@@ -101,8 +104,9 @@ describe('AnalyticsController', () => {
   });
 
   it('gets a metric definition', async () => {
-    const result =
-      await controller.getMetricDefinition('premium.gross_written');
+    const result = await controller.getMetricDefinition(
+      'premium.gross_written',
+    );
 
     expect(result).toEqual({ code: 'premium.gross_written' });
     expect(analyticsMetricService.getDefinition).toHaveBeenCalledWith(

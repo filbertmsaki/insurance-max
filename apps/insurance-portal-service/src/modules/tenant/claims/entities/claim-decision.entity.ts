@@ -10,7 +10,10 @@ import {
 } from 'typeorm';
 import type { ClaimDecisionType } from '@insurance-max/contracts';
 
-import { ClaimDecisionStatus, ClaimLiabilityStatus } from '../enums/claim.enums';
+import {
+  ClaimDecisionStatus,
+  ClaimLiabilityStatus,
+} from '../enums/claim.enums';
 import { InsuranceClaim } from './claim.entity';
 import { ClaimAssessment } from './claim-assessment.entity';
 

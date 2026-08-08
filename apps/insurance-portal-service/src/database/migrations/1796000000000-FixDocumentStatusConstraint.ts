@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class FixDocumentStatusConstraint1796000000000
-  implements MigrationInterface
-{
+export class FixDocumentStatusConstraint1796000000000 implements MigrationInterface {
   name = 'FixDocumentStatusConstraint1796000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

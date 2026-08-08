@@ -113,10 +113,12 @@ export class AnalyticsMetricService {
     };
   }
 
-  async compareMetric(input: MetricQueryInput & {
-    comparePeriodStart?: string;
-    comparePeriodEnd?: string;
-  }) {
+  async compareMetric(
+    input: MetricQueryInput & {
+      comparePeriodStart?: string;
+      comparePeriodEnd?: string;
+    },
+  ) {
     const primary = await this.queryMetric(input);
 
     const primaryStart = DateTime.fromISO(input.periodStart);
@@ -156,8 +158,8 @@ export class AnalyticsMetricService {
   async getExecutiveDashboard(companyId: string, permissions: string[] = []) {
     await this.ensureDefaultDefinitions();
     const now = DateTime.utc();
-    const monthStart = now.startOf('month').toISODate() ?? now.toISODate()!;
-    const monthEnd = now.endOf('day').toISODate() ?? now.toISODate()!;
+    const monthStart = now.startOf('month').toISODate() ?? now.toISODate();
+    const monthEnd = now.endOf('day').toISODate() ?? now.toISODate();
     const widgetCodes = [
       'policy.issued_count',
       'premium.gross_written',
@@ -180,7 +182,10 @@ export class AnalyticsMetricService {
           };
         }
 
-        if (definition.permission && !permissions.includes(definition.permission)) {
+        if (
+          definition.permission &&
+          !permissions.includes(definition.permission)
+        ) {
           return {
             code: metricCode,
             status: 'UNAVAILABLE',
@@ -203,7 +208,10 @@ export class AnalyticsMetricService {
         return {
           code: metricCode,
           name: definition.name,
-          status: current?.value === null || current === null ? 'NO_DATA' : 'AVAILABLE',
+          status:
+            current?.value === null || current === null
+              ? 'NO_DATA'
+              : 'AVAILABLE',
           data:
             current === null
               ? null
@@ -332,8 +340,12 @@ export class AnalyticsMetricService {
     const builder = this.valueRepository
       .createQueryBuilder('value')
       .where('value.company_id = :companyId', { companyId: input.companyId })
-      .andWhere('value.metric_code = :metricCode', { metricCode: definition.code })
-      .andWhere('value.period_type = :periodType', { periodType: input.periodType })
+      .andWhere('value.metric_code = :metricCode', {
+        metricCode: definition.code,
+      })
+      .andWhere('value.period_type = :periodType', {
+        periodType: input.periodType,
+      })
       .andWhere('value.period_start >= :periodStart', {
         periodStart: input.periodStart,
       })
@@ -351,10 +363,13 @@ export class AnalyticsMetricService {
     }
 
     for (const [key, value] of dimensionEntries) {
-      builder.andWhere(`value.dimensions ->> :dimensionKey_${key} = :dimensionValue_${key}`, {
-        [`dimensionKey_${key}`]: key,
-        [`dimensionValue_${key}`]: value,
-      });
+      builder.andWhere(
+        `value.dimensions ->> :dimensionKey_${key} = :dimensionValue_${key}`,
+        {
+          [`dimensionKey_${key}`]: key,
+          [`dimensionValue_${key}`]: value,
+        },
+      );
     }
 
     return builder.orderBy('value.period_start', 'ASC').getMany();
@@ -391,7 +406,10 @@ export class AnalyticsMetricService {
       input.branchId ?? null,
     ]);
 
-    const freshness = await this.resolveFreshness(input.companyId, definition.code);
+    const freshness = await this.resolveFreshness(
+      input.companyId,
+      definition.code,
+    );
 
     return rows.map((row: Record<string, unknown>) => ({
       metricCode: definition.code,
@@ -539,7 +557,10 @@ export class AnalyticsMetricService {
     return null;
   }
 
-  private calculateDelta(currentValue: string | null, previousValue: string | null) {
+  private calculateDelta(
+    currentValue: string | null,
+    previousValue: string | null,
+  ) {
     if (currentValue === null || previousValue === null) {
       return null;
     }
@@ -582,7 +603,8 @@ export class AnalyticsMetricService {
         value_type: MetricValueType.NUMBER,
         aggregation_type: MetricAggregationType.SUM,
         formula_version: 1,
-        formula_description: 'Sum of policy issued counts from analytics daily rollups.',
+        formula_description:
+          'Sum of policy issued counts from analytics daily rollups.',
         supported_dimensions: ['branch_id'],
         supported_periods: [
           AnalyticsPeriodType.DAY,
@@ -605,7 +627,8 @@ export class AnalyticsMetricService {
         value_type: MetricValueType.MONEY,
         aggregation_type: MetricAggregationType.SUM,
         formula_version: 1,
-        formula_description: 'Sum of posted gross premium values from analytics daily rollups.',
+        formula_description:
+          'Sum of posted gross premium values from analytics daily rollups.',
         supported_dimensions: ['branch_id'],
         supported_periods: [
           AnalyticsPeriodType.DAY,
@@ -628,7 +651,8 @@ export class AnalyticsMetricService {
         value_type: MetricValueType.MONEY,
         aggregation_type: MetricAggregationType.SUM,
         formula_version: 1,
-        formula_description: 'Sum of premium commission amounts from analytics daily rollups.',
+        formula_description:
+          'Sum of premium commission amounts from analytics daily rollups.',
         supported_dimensions: ['branch_id'],
         supported_periods: [
           AnalyticsPeriodType.DAY,
@@ -651,7 +675,8 @@ export class AnalyticsMetricService {
         value_type: MetricValueType.MONEY,
         aggregation_type: MetricAggregationType.SUM,
         formula_version: 1,
-        formula_description: 'Sum of paid claim amounts from analytics daily rollups.',
+        formula_description:
+          'Sum of paid claim amounts from analytics daily rollups.',
         supported_dimensions: ['branch_id'],
         supported_periods: [
           AnalyticsPeriodType.DAY,
@@ -674,7 +699,8 @@ export class AnalyticsMetricService {
         value_type: MetricValueType.MONEY,
         aggregation_type: MetricAggregationType.SUM,
         formula_version: 1,
-        formula_description: 'Sum of ceded premium from analytics daily rollups.',
+        formula_description:
+          'Sum of ceded premium from analytics daily rollups.',
         supported_dimensions: ['branch_id'],
         supported_periods: [
           AnalyticsPeriodType.DAY,
@@ -697,7 +723,8 @@ export class AnalyticsMetricService {
         value_type: MetricValueType.NUMBER,
         aggregation_type: MetricAggregationType.SUM,
         formula_version: 1,
-        formula_description: 'Sum of TIRAMIS submission counts from analytics daily rollups.',
+        formula_description:
+          'Sum of TIRAMIS submission counts from analytics daily rollups.',
         supported_dimensions: ['branch_id'],
         supported_periods: [
           AnalyticsPeriodType.DAY,

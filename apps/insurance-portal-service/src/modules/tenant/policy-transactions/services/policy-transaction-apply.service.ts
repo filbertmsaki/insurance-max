@@ -63,7 +63,9 @@ export class PolicyTransactionApplyService {
         .getRepository(Policy)
         .createQueryBuilder('policy')
         .setLock('pessimistic_write')
-        .where('policy.id = :policyId', { policyId: transaction.source_policy_id })
+        .where('policy.id = :policyId', {
+          policyId: transaction.source_policy_id,
+        })
         .getOne();
 
       if (!policy) {
@@ -99,7 +101,10 @@ export class PolicyTransactionApplyService {
         transaction.return_premium,
       );
       policy.net_premium = policy.total_premium;
-      policy.total_tax = DecimalUtil.add(policy.total_tax, transaction.tax_difference);
+      policy.total_tax = DecimalUtil.add(
+        policy.total_tax,
+        transaction.tax_difference,
+      );
       policy.total_commission = DecimalUtil.add(
         policy.total_commission,
         transaction.commission_difference,
@@ -141,7 +146,9 @@ export class PolicyTransactionApplyService {
         .getRepository(Policy)
         .createQueryBuilder('policy')
         .setLock('pessimistic_write')
-        .where('policy.id = :policyId', { policyId: transaction.source_policy_id })
+        .where('policy.id = :policyId', {
+          policyId: transaction.source_policy_id,
+        })
         .getOne();
 
       if (!policy) {
@@ -160,9 +167,8 @@ export class PolicyTransactionApplyService {
         policyStatus: 'CANCELLED',
         cancellationEffectiveDate: transaction.effective_date,
       };
-      const cancelledSnapshotHash = this.hashService.hashDefinition(
-        cancelledSnapshot,
-      );
+      const cancelledSnapshotHash =
+        this.hashService.hashDefinition(cancelledSnapshot);
 
       const newVersion = await this.createNextVersion(manager, {
         policy,

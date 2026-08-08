@@ -219,7 +219,11 @@ export class CustomerPortalController {
     @Query('unread_only', new DefaultValuePipe(false), ParseBoolPipe)
     unreadOnly: boolean,
   ) {
-    return this.notificationService.findMine(user.companyId!, user.id, unreadOnly);
+    return this.notificationService.findMine(
+      user.companyId!,
+      user.id,
+      unreadOnly,
+    );
   }
 
   @Post('notifications/:id/read')

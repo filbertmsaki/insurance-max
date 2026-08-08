@@ -7,7 +7,11 @@ import {
 } from 'typeorm';
 
 @Entity('legal_holds')
-@Index('IDX_legal_hold_resource_active', ['resource_type', 'resource_id', 'active'])
+@Index('IDX_legal_hold_resource_active', [
+  'resource_type',
+  'resource_id',
+  'active',
+])
 export class LegalHold {
   @PrimaryGeneratedColumn('uuid')
   id: string;

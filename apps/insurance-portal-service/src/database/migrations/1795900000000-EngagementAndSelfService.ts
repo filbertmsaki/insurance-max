@@ -7,9 +7,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * usable, then extends it into the shared engagement layer expected by the
  * next services and frontend workspaces.
  */
-export class EngagementAndSelfService1795900000000
-  implements MigrationInterface
-{
+export class EngagementAndSelfService1795900000000 implements MigrationInterface {
   name = 'EngagementAndSelfService1795900000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -631,22 +629,32 @@ export class EngagementAndSelfService1795900000000
     await queryRunner.query(`DROP TABLE IF EXISTS "signature_events"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "signature_participants"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "signature_requests"`);
-    await queryRunner.query(`DROP TABLE IF EXISTS "document_template_versions"`);
+    await queryRunner.query(
+      `DROP TABLE IF EXISTS "document_template_versions"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "document_templates"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "communication_messages"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "communication_threads"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "work_item_events"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "IDX_work_items_idempotency"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "UQ_work_items_work_item_no"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "IDX_work_items_idempotency"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "UQ_work_items_work_item_no"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "notification_preferences"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "notification_deliveries"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "UQ_tenant_notifications_notification_no"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "UQ_tenant_notifications_notification_no"`,
+    );
     await queryRunner.query(`DROP TABLE IF EXISTS "document_access_events"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "document_security_scans"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "document_upload_sessions"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "document_links"`);
     await queryRunner.query(`DROP TABLE IF EXISTS "document_versions"`);
-    await queryRunner.query(`DROP INDEX IF EXISTS "UQ_documents_verification_code"`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS "UQ_documents_verification_code"`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS "UQ_documents_document_no"`);
   }
 }

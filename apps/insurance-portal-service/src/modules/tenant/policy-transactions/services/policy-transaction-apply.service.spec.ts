@@ -63,17 +63,23 @@ function makeHarness(transaction: any, policy: any, previousVersion: any) {
       where: jest.fn().mockReturnThis(),
       getOne: jest.fn().mockResolvedValue(policy),
     }),
-    save: jest.fn().mockImplementation(async (value) => Object.assign(policy, value)),
+    save: jest
+      .fn()
+      .mockImplementation(async (value) => Object.assign(policy, value)),
   };
   const versionRepo = {
     findOne: jest.fn().mockResolvedValue(previousVersion),
-    save: jest.fn().mockImplementation(async (value) => ({ id: 'version-2', ...value })),
+    save: jest
+      .fn()
+      .mockImplementation(async (value) => ({ id: 'version-2', ...value })),
   };
   const statusHistoryRepo = {
     save: jest.fn().mockResolvedValue(undefined),
   };
   const transactionRepoInManager = {
-    save: jest.fn().mockImplementation(async (value) => Object.assign(transaction, value)),
+    save: jest
+      .fn()
+      .mockImplementation(async (value) => Object.assign(transaction, value)),
   };
 
   const manager = {
@@ -99,11 +105,13 @@ function makeHarness(transaction: any, policy: any, previousVersion: any) {
   } as any;
 
   const lifecycleService = {
-    markApplied: jest.fn().mockImplementation(async (_c, _id, _ctx, eventType) => ({
-      ...transaction,
-      stage: PolicyTransactionStage.APPLIED,
-      eventType,
-    })),
+    markApplied: jest
+      .fn()
+      .mockImplementation(async (_c, _id, _ctx, eventType) => ({
+        ...transaction,
+        stage: PolicyTransactionStage.APPLIED,
+        eventType,
+      })),
   } as any;
 
   const service = new PolicyTransactionApplyService(
@@ -113,13 +121,21 @@ function makeHarness(transaction: any, policy: any, previousVersion: any) {
     lifecycleService,
   );
 
-  return { service, policyRepo, versionRepo, statusHistoryRepo, lifecycleService };
+  return {
+    service,
+    policyRepo,
+    versionRepo,
+    statusHistoryRepo,
+    lifecycleService,
+  };
 }
 
 describe('PolicyTransactionApplyService', () => {
   describe('applyEndorsement', () => {
     it('rejects a transaction that has not reached COMPLETED', async () => {
-      const transaction = makeTransaction({ stage: PolicyTransactionStage.DRAFT });
+      const transaction = makeTransaction({
+        stage: PolicyTransactionStage.DRAFT,
+      });
       const policy = makePolicy();
       const version = makeVersion();
       const { service } = makeHarness(transaction, policy, version);
@@ -144,13 +160,12 @@ describe('PolicyTransactionApplyService', () => {
       const transaction = makeTransaction();
       const policy = makePolicy();
       const previousVersion = makeVersion();
-      const { service, policyRepo, versionRepo, lifecycleService } = makeHarness(
-        transaction,
-        policy,
-        previousVersion,
-      );
+      const { service, policyRepo, versionRepo, lifecycleService } =
+        makeHarness(transaction, policy, previousVersion);
 
-      await service.applyEndorsement('company-1', 'txn-1', { changedBy: 'user-1' });
+      await service.applyEndorsement('company-1', 'txn-1', {
+        changedBy: 'user-1',
+      });
 
       // Previous version superseded.
       expect(previousVersion.is_current).toBe(false);
@@ -185,7 +200,9 @@ describe('PolicyTransactionApplyService', () => {
     });
 
     it('is idempotent once already APPLIED', async () => {
-      const transaction = makeTransaction({ stage: PolicyTransactionStage.APPLIED });
+      const transaction = makeTransaction({
+        stage: PolicyTransactionStage.APPLIED,
+      });
       const policy = makePolicy();
       const version = makeVersion();
       const { service, policyRepo } = makeHarness(transaction, policy, version);

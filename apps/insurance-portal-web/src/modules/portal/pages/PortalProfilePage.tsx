@@ -6,11 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 import { portalApi, type PortalAudience } from '../api';
 
-export function PortalProfilePage({
-  audience,
-}: {
-  audience: PortalAudience;
-}) {
+export function PortalProfilePage({ audience }: { audience: PortalAudience }) {
   const label = audience === 'customer' ? 'Customer' : 'Intermediary';
   const profileQuery = useQuery({
     queryKey: ['portal', audience, 'profile'],
@@ -77,7 +73,10 @@ export function PortalProfilePage({
           ) : (
             <dl className="grid gap-4 md:grid-cols-2">
               {fields.map(([labelText, value]) => (
-                <div key={labelText} className="rounded-lg border border-slate-200 px-4 py-3">
+                <div
+                  key={labelText}
+                  className="rounded-lg border border-slate-200 px-4 py-3"
+                >
                   <dt className="text-xs uppercase tracking-[0.12em] text-slate-500">
                     {labelText}
                   </dt>

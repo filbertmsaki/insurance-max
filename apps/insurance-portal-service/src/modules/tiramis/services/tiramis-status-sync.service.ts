@@ -213,13 +213,16 @@ export class TiramisStatusSyncService {
     const authContext =
       options.authContext || this.resolveTrackingAuthContext(record);
 
-    const response = await this.tiramisClientService.getStatus({
-      transactionId: record.tiramisTransactionId || undefined,
-      requestId: record.tiramisRequestId || undefined,
-      businessReference: record.businessReference || undefined,
-      includePayload:
-        environment.TIRAMIS_STATUS_SYNC_INCLUDE_PAYLOAD !== 'false',
-    }, authContext);
+    const response = await this.tiramisClientService.getStatus(
+      {
+        transactionId: record.tiramisTransactionId || undefined,
+        requestId: record.tiramisRequestId || undefined,
+        businessReference: record.businessReference || undefined,
+        includePayload:
+          environment.TIRAMIS_STATUS_SYNC_INCLUDE_PAYLOAD !== 'false',
+      },
+      authContext,
+    );
 
     let updated = await this.trackingRepository.markFinalFromTiramisStatus(
       record.id,

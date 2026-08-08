@@ -1,8 +1,15 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import { CompanyConfig, ConfigValueType } from './entities/company-config.entity';
+import {
+  CompanyConfig,
+  ConfigValueType,
+} from './entities/company-config.entity';
 import { UpsertCompanyConfigDto } from './dtos/upsert-company-config.dto';
 
 @Injectable()
@@ -51,7 +58,10 @@ export class CompanyConfigsService {
     }
 
     try {
-      this.assertValueMatchesType(config.config_value, config.value_type as ConfigValueType);
+      this.assertValueMatchesType(
+        config.config_value,
+        config.value_type as ConfigValueType,
+      );
       return config.config_value as T;
     } catch {
       return fallback;
@@ -69,10 +79,12 @@ export class CompanyConfigsService {
       where: { company_id: companyId, config_key: key },
     });
 
-    const record = existing ?? this.repository.create({
-      company_id: companyId,
-      config_key: key,
-    });
+    const record =
+      existing ??
+      this.repository.create({
+        company_id: companyId,
+        config_key: key,
+      });
 
     record.config_value = dto.config_value;
     record.value_type = dto.value_type;
@@ -87,21 +99,30 @@ export class CompanyConfigsService {
     await this.repository.remove(config);
   }
 
-  private assertValueMatchesType(value: unknown, valueType: ConfigValueType): void {
+  private assertValueMatchesType(
+    value: unknown,
+    valueType: ConfigValueType,
+  ): void {
     switch (valueType) {
       case ConfigValueType.STRING:
         if (typeof value !== 'string') {
-          throw new BadRequestException('config_value must be a string for value_type STRING');
+          throw new BadRequestException(
+            'config_value must be a string for value_type STRING',
+          );
         }
         return;
       case ConfigValueType.NUMBER:
         if (typeof value !== 'number' || Number.isNaN(value)) {
-          throw new BadRequestException('config_value must be a number for value_type NUMBER');
+          throw new BadRequestException(
+            'config_value must be a number for value_type NUMBER',
+          );
         }
         return;
       case ConfigValueType.BOOLEAN:
         if (typeof value !== 'boolean') {
-          throw new BadRequestException('config_value must be a boolean for value_type BOOLEAN');
+          throw new BadRequestException(
+            'config_value must be a boolean for value_type BOOLEAN',
+          );
         }
         return;
       case ConfigValueType.JSON:

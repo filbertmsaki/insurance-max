@@ -367,9 +367,9 @@ export class TiramisCallbackService {
     }
 
     const configuration = await this.resolveCallbackConfiguration({
-        environment: params.environment,
-        requestId: params.parsedCallback.requestId,
-      });
+      environment: params.environment,
+      requestId: params.parsedCallback.requestId,
+    });
 
     const pfxPaths =
       await this.tiramisConfigService.getPfxPathsForConfiguration(
@@ -523,9 +523,9 @@ export class TiramisCallbackService {
     );
 
     const configuration = await this.resolveCallbackConfiguration({
-        environment: params.environment,
-        requestId: params.finalResponse.requestId,
-      });
+      environment: params.environment,
+      requestId: params.finalResponse.requestId,
+    });
 
     const pfxPaths =
       await this.tiramisConfigService.getPfxPathsForConfiguration(
@@ -908,10 +908,9 @@ export class TiramisCallbackService {
     content: Record<string, unknown>,
     key: string,
   ): string | null {
-    return this.getStringValue(content, key) || this.getNestedStringFromAny(
-      content,
-      this.responseHeaderKeys,
-      key,
+    return (
+      this.getStringValue(content, key) ||
+      this.getNestedStringFromAny(content, this.responseHeaderKeys, key)
     );
   }
 

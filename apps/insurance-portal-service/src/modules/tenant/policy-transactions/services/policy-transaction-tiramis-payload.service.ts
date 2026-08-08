@@ -56,7 +56,9 @@ export class PolicyTransactionTiramisPayloadService {
       prevCoverNoteReferenceNumber: endorsement.previous_cover_note_reference,
       endorsementType: endorsement.tira_endorsement_type,
       endorsementReason: transaction.reason,
-      endorsementPremiumEarned: DecimalUtil.money(transaction.additional_premium),
+      endorsementPremiumEarned: DecimalUtil.money(
+        transaction.additional_premium,
+      ),
     };
   }
 
@@ -86,9 +88,13 @@ export class PolicyTransactionTiramisPayloadService {
     policy: Policy,
   ): Promise<Record<string, unknown>> {
     const [company, actor, quotation, risks] = await Promise.all([
-      this.companyRepository.findOne({ where: { id: policy.insurer_company_id } }),
+      this.companyRepository.findOne({
+        where: { id: policy.insurer_company_id },
+      }),
       transaction.completed_by
-        ? this.userRepository.findOne({ where: { id: transaction.completed_by } })
+        ? this.userRepository.findOne({
+            where: { id: transaction.completed_by },
+          })
         : null,
       policy.quotation_id
         ? this.quotationRepository.findOne({
@@ -109,7 +115,10 @@ export class PolicyTransactionTiramisPayloadService {
 
     return {
       insurerCompanyCode: company?.tira_insurer_company_code ?? null,
-      tranCompanyCode: company?.tira_company_code ?? company?.tira_insurer_company_code ?? null,
+      tranCompanyCode:
+        company?.tira_company_code ??
+        company?.tira_insurer_company_code ??
+        null,
       coverNoteType: coverNote?.cover_note_type ?? null,
       coverNoteNumber: policy.cover_note_no,
       salePointCode: coverNote?.sale_point_code ?? null,
@@ -129,7 +138,7 @@ export class PolicyTransactionTiramisPayloadService {
       commissionRate: coverNote?.commission_rate ?? '0',
       officerName: actor
         ? `${actor.first_name} ${actor.last_name}`.trim()
-        : coverNote?.officer_name ?? null,
+        : (coverNote?.officer_name ?? null),
       officerTitle: actor?.officer_title ?? coverNote?.officer_title ?? null,
       productCode: coverNote?.product_code ?? null,
       risks: riskDtos,
@@ -178,8 +187,10 @@ export class PolicyTransactionTiramisPayloadService {
   }
 
   private buildPolicyHolders(policy: Policy) {
-    const holder = (policy.customer_snapshot as Record<string, unknown> | null)
-      ?.policyHolder as Record<string, unknown> | null | undefined;
+    const holder = policy.customer_snapshot?.policyHolder as
+      | Record<string, unknown>
+      | null
+      | undefined;
 
     if (!holder) {
       return [];

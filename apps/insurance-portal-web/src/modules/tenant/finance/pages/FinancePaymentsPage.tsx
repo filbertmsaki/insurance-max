@@ -36,16 +36,36 @@ export function FinancePaymentsPage() {
   }, [query.data, search]);
 
   const columns: Column<FinancePaymentTransaction>[] = [
-    { key: 'transaction_no', header: 'Transaction', cell: (row) => row.transaction_no ?? row.id.slice(0, 8) },
-    { key: 'provider', header: 'Provider', cell: (row) => row.provider_code ?? row.provider ?? 'MANUAL' },
+    {
+      key: 'transaction_no',
+      header: 'Transaction',
+      cell: (row) => row.transaction_no ?? row.id.slice(0, 8),
+    },
+    {
+      key: 'provider',
+      header: 'Provider',
+      cell: (row) => row.provider_code ?? row.provider ?? 'MANUAL',
+    },
     { key: 'payer', header: 'Payer', cell: (row) => row.payer_name ?? ' - ' },
-    { key: 'status', header: 'Status', cell: (row) => <FinanceStatusBadge status={row.status} /> },
-    { key: 'amount', header: 'Amount', cell: (row) => formatMoney(row.amount, row.currency ?? row.currency_code) },
+    {
+      key: 'status',
+      header: 'Status',
+      cell: (row) => <FinanceStatusBadge status={row.status} />,
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      cell: (row) => formatMoney(row.amount, row.currency ?? row.currency_code),
+    },
     {
       key: 'actions',
       header: 'Action',
       cell: (row) => (
-        <Button size="sm" variant="outline" onClick={() => navigate(`/finance/payments/${row.id}`)}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => navigate(`/finance/payments/${row.id}`)}
+        >
           Open
         </Button>
       ),
@@ -56,8 +76,15 @@ export function FinancePaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Payments" description="Recorded payment transactions do not affect invoice balances until a receipt is posted and allocated." />
-      <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search payments" />
+      <PageHeader
+        title="Payments"
+        description="Recorded payment transactions do not affect invoice balances until a receipt is posted and allocated."
+      />
+      <Input
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        placeholder="Search payments"
+      />
       <DataTable
         columns={columns}
         data={rows}

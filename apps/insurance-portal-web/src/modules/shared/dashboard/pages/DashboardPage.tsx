@@ -100,13 +100,15 @@ export function DashboardPage() {
   const quickLinks = [
     {
       title: 'Analytics Metrics',
-      description: 'Explore formula-backed metrics with freshness and comparisons.',
+      description:
+        'Explore formula-backed metrics with freshness and comparisons.',
       icon: BarChart3,
       to: '/analytics/metrics',
     },
     {
       title: 'Reporting Workbench',
-      description: 'Run registered reports, inspect jobs, and manage schedules.',
+      description:
+        'Run registered reports, inspect jobs, and manage schedules.',
       icon: FileSpreadsheet,
       to: '/reports',
     },
@@ -168,13 +170,15 @@ export function DashboardPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-slate-600">
-                Widgets use the same metric catalogue as analytics and reporting.
-                Disabled or unavailable modules are shown as unavailable instead of zero.
+                Widgets use the same metric catalogue as analytics and
+                reporting. Disabled or unavailable modules are shown as
+                unavailable instead of zero.
               </p>
               <div className="flex flex-wrap gap-2">
                 {executiveWidgets.map((widget) => (
                   <Badge key={widget.code} variant="outline">
-                    {widget.name ?? widget.code}: {widget.freshness?.status ?? widget.status}
+                    {widget.name ?? widget.code}:{' '}
+                    {widget.freshness?.status ?? widget.status}
                   </Badge>
                 ))}
               </div>
@@ -239,7 +243,10 @@ export function DashboardPage() {
         </CardHeader>
         <CardContent className="grid gap-4 lg:grid-cols-3">
           {quickLinks.map((link) => (
-            <Card key={link.to} className="rounded-lg border-slate-200 shadow-none">
+            <Card
+              key={link.to}
+              className="rounded-lg border-slate-200 shadow-none"
+            >
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <link.icon className="h-4 w-4 text-blue-600" />
@@ -260,9 +267,7 @@ export function DashboardPage() {
 
       <Card className="rounded-xl border-slate-200 shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base">
-            Operational baseline
-          </CardTitle>
+          <CardTitle className="text-base">Operational baseline</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">

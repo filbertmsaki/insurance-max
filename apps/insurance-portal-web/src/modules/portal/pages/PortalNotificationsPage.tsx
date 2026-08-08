@@ -85,24 +85,35 @@ export function PortalNotificationsPage({
                     <TableRow key={notification.id}>
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="font-medium text-slate-900">{notification.title}</div>
-                          <div className="text-sm text-slate-600">{notification.message}</div>
+                          <div className="font-medium text-slate-900">
+                            {notification.title}
+                          </div>
+                          <div className="text-sm text-slate-600">
+                            {notification.message}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={statusTone(notification.severity)}>
+                        <Badge
+                          variant="outline"
+                          className={statusTone(notification.severity)}
+                        >
                           {notification.severity}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge
                           variant="outline"
-                          className={statusTone(notification.read_at ? 'READ' : 'UNREAD')}
+                          className={statusTone(
+                            notification.read_at ? 'READ' : 'UNREAD',
+                          )}
                         >
                           {notification.read_at ? 'READ' : 'UNREAD'}
                         </Badge>
                       </TableCell>
-                      <TableCell>{formatDateTime(notification.created_at)}</TableCell>
+                      <TableCell>
+                        {formatDateTime(notification.created_at)}
+                      </TableCell>
                       <TableCell className="space-x-2">
                         {!notification.read_at ? (
                           <Button
@@ -114,7 +125,11 @@ export function PortalNotificationsPage({
                           </Button>
                         ) : null}
                         {deepLink ? (
-                          <Button variant="ghost" size="sm" onClick={() => navigate(deepLink)}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => navigate(deepLink)}
+                          >
                             Open
                           </Button>
                         ) : null}

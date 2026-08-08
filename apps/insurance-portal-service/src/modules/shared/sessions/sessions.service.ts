@@ -269,9 +269,7 @@ export class SessionsService {
       absoluteExpiresAt: string | null;
       revoked: boolean;
       compromisedAt: string | null;
-    }>(
-      `session:${sessionId}`,
-    );
+    }>(`session:${sessionId}`);
 
     if (cached) {
       if (cached.revoked || cached.compromisedAt) {
@@ -376,8 +374,7 @@ export class SessionsService {
       revoked: true,
       revoked_at: new Date(),
       revocation_reason: reason,
-      compromised_at:
-        reason === 'refresh_token_reuse' ? new Date() : undefined,
+      compromised_at: reason === 'refresh_token_reuse' ? new Date() : undefined,
     });
 
     await this.redisService.del(`session:${session.id}`);
@@ -511,9 +508,12 @@ export class SessionsService {
       .delete()
       .from(UserSession)
       .where('expires_at < :now', { now })
-      .orWhere('absolute_expires_at IS NOT NULL AND absolute_expires_at < :now', {
-        now,
-      })
+      .orWhere(
+        'absolute_expires_at IS NOT NULL AND absolute_expires_at < :now',
+        {
+          now,
+        },
+      )
       .orWhere('idle_expires_at IS NOT NULL AND idle_expires_at < :now', {
         now,
       })
@@ -588,13 +588,17 @@ export class SessionsService {
       (value): value is Date => value instanceof Date,
     );
 
-    return candidates.sort((left, right) => left.getTime() - right.getTime())[0];
+    return candidates.sort(
+      (left, right) => left.getTime() - right.getTime(),
+    )[0];
   }
 
-  private isExpired(session: Pick<
-    UserSession,
-    'expires_at' | 'absolute_expires_at' | 'idle_expires_at'
-  >): boolean {
+  private isExpired(
+    session: Pick<
+      UserSession,
+      'expires_at' | 'absolute_expires_at' | 'idle_expires_at'
+    >,
+  ): boolean {
     return (
       this.effectiveExpiry(
         session.absolute_expires_at,
@@ -633,7 +637,11 @@ export class SessionsService {
       (await verifyToken(presentedToken, session.previous_refresh_token_hash));
 
     if (matchedPrevious) {
-      await this.revokeFamily(repository, session.family_id, 'refresh_token_reuse');
+      await this.revokeFamily(
+        repository,
+        session.family_id,
+        'refresh_token_reuse',
+      );
       return;
     }
 

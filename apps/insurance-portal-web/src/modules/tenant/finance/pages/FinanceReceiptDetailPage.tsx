@@ -67,44 +67,94 @@ export function FinanceReceiptDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/finance/receipts')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/finance/receipts')}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <PageHeader title={receipt.receipt_no} description="Finance receipt detail" />
+        <PageHeader
+          title={receipt.receipt_no}
+          description="Finance receipt detail"
+        />
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {['POSTED', 'PARTIALLY_ALLOCATED', 'FULLY_ALLOCATED'].includes(receipt.status) ? (
-          <Button variant="outline" onClick={() => reverseMutation.mutate()} disabled={reverseMutation.isPending}>
+        {['POSTED', 'PARTIALLY_ALLOCATED', 'FULLY_ALLOCATED'].includes(
+          receipt.status,
+        ) ? (
+          <Button
+            variant="outline"
+            onClick={() => reverseMutation.mutate()}
+            disabled={reverseMutation.isPending}
+          >
             Reverse Receipt
           </Button>
         ) : null}
         {receipt.payment_transaction_id ? (
-          <Button variant="outline" onClick={() => navigate(`/finance/payments/${receipt.payment_transaction_id}`)}>
+          <Button
+            variant="outline"
+            onClick={() =>
+              navigate(`/finance/payments/${receipt.payment_transaction_id}`)
+            }
+          >
             Open Payment Transaction
           </Button>
         ) : null}
         {receipt.invoice_id ? (
-          <Button variant="outline" onClick={() => navigate(`/finance/invoices/${receipt.invoice_id}`)}>
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/finance/invoices/${receipt.invoice_id}`)}
+          >
             Open Invoice
           </Button>
         ) : null}
       </div>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Details</CardTitle></CardHeader>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Details</CardTitle>
+        </CardHeader>
         <CardContent>
-          <DetailRow label="Status" value={<FinanceStatusBadge status={receipt.status} />} />
+          <DetailRow
+            label="Status"
+            value={<FinanceStatusBadge status={receipt.status} />}
+          />
           <DetailRow label="Payer" value={receipt.payer_name ?? ' - '} />
-          <DetailRow label="Payment method" value={receipt.payment_method ?? ' - '} />
-          <DetailRow label="Reference" value={receipt.payment_reference ?? ' - '} />
-          <DetailRow label="Provider reference" value={receipt.provider_reference ?? ' - '} />
-          <DetailRow label="Amount" value={formatMoney(receipt.amount, currency)} />
-          <DetailRow label="Allocated" value={formatMoney(receipt.allocated_amount, currency)} />
-          <DetailRow label="Unallocated" value={formatMoney(receipt.unallocated_amount, currency)} />
+          <DetailRow
+            label="Payment method"
+            value={receipt.payment_method ?? ' - '}
+          />
+          <DetailRow
+            label="Reference"
+            value={receipt.payment_reference ?? ' - '}
+          />
+          <DetailRow
+            label="Provider reference"
+            value={receipt.provider_reference ?? ' - '}
+          />
+          <DetailRow
+            label="Amount"
+            value={formatMoney(receipt.amount, currency)}
+          />
+          <DetailRow
+            label="Allocated"
+            value={formatMoney(receipt.allocated_amount, currency)}
+          />
+          <DetailRow
+            label="Unallocated"
+            value={formatMoney(receipt.unallocated_amount, currency)}
+          />
           <DetailRow label="Posted at" value={formatDate(receipt.posted_at)} />
-          <DetailRow label="Reversed at" value={formatDate(receipt.reversed_at)} />
-          <DetailRow label="Reversal reason" value={receipt.reversal_reason ?? ' - '} />
+          <DetailRow
+            label="Reversed at"
+            value={formatDate(receipt.reversed_at)}
+          />
+          <DetailRow
+            label="Reversal reason"
+            value={receipt.reversal_reason ?? ' - '}
+          />
         </CardContent>
       </Card>
     </div>

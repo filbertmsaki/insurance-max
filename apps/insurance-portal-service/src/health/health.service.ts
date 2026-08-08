@@ -158,7 +158,8 @@ export class HealthService {
 
   private async checkQueue(): Promise<HealthCheckResult> {
     const startedAt = Date.now();
-    const queueEnabled = this.configService.get<boolean>('QUEUE_ENABLED') ?? true;
+    const queueEnabled =
+      this.configService.get<boolean>('QUEUE_ENABLED') ?? true;
 
     if (!queueEnabled) {
       return {

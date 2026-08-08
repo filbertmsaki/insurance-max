@@ -64,11 +64,19 @@ export function DocumentTemplatesPage() {
         <CardContent className="grid gap-4 md:grid-cols-4">
           <div className="space-y-2">
             <Label htmlFor="template-code">Code</Label>
-            <Input id="template-code" value={code} onChange={(e) => setCode(e.target.value)} />
+            <Input
+              id="template-code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="template-name">Name</Label>
-            <Input id="template-name" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input
+              id="template-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="template-document-type">Document type</Label>
@@ -79,7 +87,10 @@ export function DocumentTemplatesPage() {
             />
           </div>
           <div className="flex items-end">
-            <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
+            <Button
+              onClick={() => createMutation.mutate()}
+              disabled={createMutation.isPending}
+            >
               Create template
             </Button>
           </div>
@@ -107,11 +118,16 @@ export function DocumentTemplatesPage() {
                     >
                       {template.template_code}
                     </Link>
-                    <div className="text-sm text-slate-500">{template.template_name}</div>
+                    <div className="text-sm text-slate-500">
+                      {template.template_name}
+                    </div>
                   </TableCell>
                   <TableCell>{template.document_type}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={statusTone(template.status)}>
+                    <Badge
+                      variant="outline"
+                      className={statusTone(template.status)}
+                    >
                       {template.status}
                     </Badge>
                   </TableCell>

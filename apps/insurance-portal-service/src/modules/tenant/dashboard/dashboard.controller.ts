@@ -33,7 +33,8 @@ export class DashboardController {
   @Get('executive')
   @AnyPermissions('dashboard:overview', 'dashboards:executive:read')
   @ApiOperation({
-    summary: 'Get the executive metric dashboard built from the metric catalogue',
+    summary:
+      'Get the executive metric dashboard built from the metric catalogue',
   })
   getExecutive(
     @CurrentUser() user: AuthenticatedUser,

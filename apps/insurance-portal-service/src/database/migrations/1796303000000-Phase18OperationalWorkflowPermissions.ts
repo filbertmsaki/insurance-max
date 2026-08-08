@@ -39,11 +39,12 @@ const TIRAMIS_CONFIGURATION_PERMISSIONS = [
   'company-tiramis-config:validate',
 ] as const;
 
-const TIRAMIS_CONFIGURATION_ROLE_NAMES = ['ADMINISTRATOR', 'INSURANCE_ADMIN'] as const;
+const TIRAMIS_CONFIGURATION_ROLE_NAMES = [
+  'ADMINISTRATOR',
+  'INSURANCE_ADMIN',
+] as const;
 
-export class Phase18OperationalWorkflowPermissions1796303000000
-  implements MigrationInterface
-{
+export class Phase18OperationalWorkflowPermissions1796303000000 implements MigrationInterface {
   name = 'Phase18OperationalWorkflowPermissions1796303000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

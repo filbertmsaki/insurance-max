@@ -35,7 +35,9 @@ export class EndorsementTypesController {
 
   @Post()
   @Permissions('endorsements:create')
-  @ApiOperation({ summary: 'Create a governed endorsement type (with its TIRA numeric code)' })
+  @ApiOperation({
+    summary: 'Create a governed endorsement type (with its TIRA numeric code)',
+  })
   create(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateEndorsementTypeDto,

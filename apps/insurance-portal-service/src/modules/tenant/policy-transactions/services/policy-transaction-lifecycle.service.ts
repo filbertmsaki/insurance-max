@@ -105,7 +105,9 @@ export class PolicyTransactionLifecycleService {
           WorkflowApprovalStatus.CHANGES_REQUESTED,
         ];
 
-        if (!submittableApprovalStatuses.includes(transaction.approval_status)) {
+        if (
+          !submittableApprovalStatuses.includes(transaction.approval_status)
+        ) {
           throw new ConflictException(
             `Approval cannot be submitted from ${transaction.approval_status}`,
           );
@@ -454,7 +456,9 @@ export class PolicyTransactionLifecycleService {
           );
         }
 
-        if (transaction.submission_status === WorkflowSubmissionStatus.PROCESSING) {
+        if (
+          transaction.submission_status === WorkflowSubmissionStatus.PROCESSING
+        ) {
           throw new ConflictException(
             'Transaction cannot be cancelled while a TIRAMIS submission is in flight',
           );
@@ -480,7 +484,13 @@ export class PolicyTransactionLifecycleService {
   canSubmit(
     transaction: Pick<
       PolicyTransaction,
-      'stage' | 'approval_status' | 'payment_status' | 'submission_status' | 'approval_required' | 'payment_required' | 'premium_effect'
+      | 'stage'
+      | 'approval_status'
+      | 'payment_status'
+      | 'submission_status'
+      | 'approval_required'
+      | 'payment_required'
+      | 'premium_effect'
     >,
   ): boolean {
     const approvalSatisfied =
@@ -544,7 +554,9 @@ export class PolicyTransactionLifecycleService {
       return;
     }
 
-    if (transaction.approval_status === WorkflowApprovalStatus.CHANGES_REQUESTED) {
+    if (
+      transaction.approval_status === WorkflowApprovalStatus.CHANGES_REQUESTED
+    ) {
       transaction.stage = PolicyTransactionStage.DRAFT;
       return;
     }

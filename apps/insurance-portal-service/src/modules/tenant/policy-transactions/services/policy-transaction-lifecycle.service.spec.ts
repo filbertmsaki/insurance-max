@@ -1,7 +1,4 @@
-import {
-  ForbiddenException,
-  ConflictException,
-} from '@nestjs/common';
+import { ForbiddenException, ConflictException } from '@nestjs/common';
 import {
   PolicyTransactionPremiumEffect,
   PolicyTransactionStage,
@@ -30,7 +27,9 @@ function makeTransaction(overrides: Record<string, unknown> = {}) {
 
 function makeHarness(transaction: any) {
   const transactionRepo = {
-    save: jest.fn().mockImplementation(async (value) => Object.assign(transaction, value)),
+    save: jest
+      .fn()
+      .mockImplementation(async (value) => Object.assign(transaction, value)),
     createQueryBuilder: jest.fn().mockReturnValue({
       setLock: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),

@@ -26,9 +26,15 @@ export function FinanceCommissionPaymentDetailPage() {
   });
 
   const refresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['finance', 'commission-payment', id] });
-    queryClient.invalidateQueries({ queryKey: ['finance', 'commission-payments'] });
-    queryClient.invalidateQueries({ queryKey: ['finance', 'commission-accruals'] });
+    queryClient.invalidateQueries({
+      queryKey: ['finance', 'commission-payment', id],
+    });
+    queryClient.invalidateQueries({
+      queryKey: ['finance', 'commission-payments'],
+    });
+    queryClient.invalidateQueries({
+      queryKey: ['finance', 'commission-accruals'],
+    });
   };
 
   const approveMutation = useMutation({
@@ -76,7 +82,10 @@ export function FinanceCommissionPaymentDetailPage() {
     return (
       <div className="py-24 text-center text-sm text-slate-500">
         <p className="font-medium">Commission payment not found</p>
-        <Button variant="link" onClick={() => navigate('/finance/commission-payments')}>
+        <Button
+          variant="link"
+          onClick={() => navigate('/finance/commission-payments')}
+        >
           Back to commission payments
         </Button>
       </div>
@@ -86,43 +95,86 @@ export function FinanceCommissionPaymentDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/finance/commission-payments')}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate('/finance/commission-payments')}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <PageHeader title={payment.payment_no} description="Finance commission payment detail" />
+        <PageHeader
+          title={payment.payment_no}
+          description="Finance commission payment detail"
+        />
       </div>
 
       <div className="flex flex-wrap gap-2">
         {payment.status === 'DRAFT' ? (
-          <Button onClick={() => approveMutation.mutate()} disabled={approveMutation.isPending}>
+          <Button
+            onClick={() => approveMutation.mutate()}
+            disabled={approveMutation.isPending}
+          >
             Approve Payment
           </Button>
         ) : null}
         {payment.status === 'APPROVED' ? (
-          <Button onClick={() => payMutation.mutate()} disabled={payMutation.isPending}>
+          <Button
+            onClick={() => payMutation.mutate()}
+            disabled={payMutation.isPending}
+          >
             Mark Paid
           </Button>
         ) : null}
         {!['REVERSED', 'CANCELLED'].includes(payment.status) ? (
-          <Button variant="outline" onClick={() => reverseMutation.mutate()} disabled={reverseMutation.isPending}>
+          <Button
+            variant="outline"
+            onClick={() => reverseMutation.mutate()}
+            disabled={reverseMutation.isPending}
+          >
             Reverse Payment
           </Button>
         ) : null}
       </div>
 
       <Card>
-        <CardHeader className="pb-2"><CardTitle className="text-base">Details</CardTitle></CardHeader>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Details</CardTitle>
+        </CardHeader>
         <CardContent>
-          <DetailRow label="Status" value={<FinanceStatusBadge status={payment.status} />} />
+          <DetailRow
+            label="Status"
+            value={<FinanceStatusBadge status={payment.status} />}
+          />
           <DetailRow label="Payment method" value={payment.payment_method} />
-          <DetailRow label="Reference" value={payment.payment_reference ?? ' - '} />
-          <DetailRow label="Total amount" value={formatMoney(payment.total_amount, payment.currency)} />
-          <DetailRow label="Allocated" value={formatMoney(payment.allocated_amount, payment.currency)} />
-          <DetailRow label="Unallocated" value={formatMoney(payment.unallocated_amount, payment.currency)} />
-          <DetailRow label="Approved at" value={formatDate(payment.approved_at)} />
+          <DetailRow
+            label="Reference"
+            value={payment.payment_reference ?? ' - '}
+          />
+          <DetailRow
+            label="Total amount"
+            value={formatMoney(payment.total_amount, payment.currency)}
+          />
+          <DetailRow
+            label="Allocated"
+            value={formatMoney(payment.allocated_amount, payment.currency)}
+          />
+          <DetailRow
+            label="Unallocated"
+            value={formatMoney(payment.unallocated_amount, payment.currency)}
+          />
+          <DetailRow
+            label="Approved at"
+            value={formatDate(payment.approved_at)}
+          />
           <DetailRow label="Paid at" value={formatDate(payment.paid_at)} />
-          <DetailRow label="Reversed at" value={formatDate(payment.reversed_at)} />
-          <DetailRow label="Reversal reason" value={payment.reversal_reason ?? ' - '} />
+          <DetailRow
+            label="Reversed at"
+            value={formatDate(payment.reversed_at)}
+          />
+          <DetailRow
+            label="Reversal reason"
+            value={payment.reversal_reason ?? ' - '}
+          />
         </CardContent>
       </Card>
     </div>

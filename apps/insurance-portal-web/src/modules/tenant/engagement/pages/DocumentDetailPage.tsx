@@ -51,7 +51,9 @@ export function DocumentDetailPage() {
     mutationFn: () => engagementApi.rescanDocument(id),
     onSuccess: () => {
       toast.success('Document rescanned');
-      queryClient.invalidateQueries({ queryKey: ['engagement', 'documents', id] });
+      queryClient.invalidateQueries({
+        queryKey: ['engagement', 'documents', id],
+      });
       queryClient.invalidateQueries({
         queryKey: ['engagement', 'documents', id, 'versions'],
       });
@@ -69,7 +71,9 @@ export function DocumentDetailPage() {
     onSuccess: () => {
       toast.success('Document updated');
       queryClient.invalidateQueries({ queryKey: ['engagement', 'documents'] });
-      queryClient.invalidateQueries({ queryKey: ['engagement', 'documents', id] });
+      queryClient.invalidateQueries({
+        queryKey: ['engagement', 'documents', id],
+      });
     },
   });
 
@@ -80,7 +84,10 @@ export function DocumentDetailPage() {
       <PageHeader
         eyebrow="Phase 17"
         title={document?.document_no ?? 'Document detail'}
-        description={document?.title ?? 'Document metadata, versions, links, and access history.'}
+        description={
+          document?.title ??
+          'Document metadata, versions, links, and access history.'
+        }
         action={
           document ? (
             <>
@@ -125,7 +132,10 @@ export function DocumentDetailPage() {
               ['Created', formatDateTime(document.created_at)],
               ['Retention', formatDate(document.retention_until)],
             ].map(([label, value]) => (
-              <Card key={label} className="rounded-xl border-slate-200 shadow-sm">
+              <Card
+                key={label}
+                className="rounded-xl border-slate-200 shadow-sm"
+              >
                 <CardContent className="pt-5">
                   <div className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500">
                     {label}
@@ -154,7 +164,10 @@ export function DocumentDetailPage() {
                 <CardContent className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <div className="text-xs text-slate-500">Status</div>
-                    <Badge variant="outline" className={statusTone(document.status)}>
+                    <Badge
+                      variant="outline"
+                      className={statusTone(document.status)}
+                    >
                       {document.status}
                     </Badge>
                   </div>
@@ -163,7 +176,8 @@ export function DocumentDetailPage() {
                     <div className="text-sm text-slate-900">
                       {document.customer_visible ? 'Customer ' : ''}
                       {document.intermediary_visible ? 'Intermediary' : ''}
-                      {!document.customer_visible && !document.intermediary_visible
+                      {!document.customer_visible &&
+                      !document.intermediary_visible
                         ? 'Internal only'
                         : null}
                     </div>
@@ -176,7 +190,9 @@ export function DocumentDetailPage() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500">Current version</div>
+                    <div className="text-xs text-slate-500">
+                      Current version
+                    </div>
                     <div className="text-sm text-slate-900">
                       {document.current_version?.version_number ?? 'None'}
                     </div>
@@ -203,13 +219,20 @@ export function DocumentDetailPage() {
                         <TableRow key={version.id}>
                           <TableCell>{version.version_number}</TableCell>
                           <TableCell>
-                            <Badge variant="outline" className={statusTone(version.status)}>
+                            <Badge
+                              variant="outline"
+                              className={statusTone(version.status)}
+                            >
                               {version.status}
                             </Badge>
                           </TableCell>
                           <TableCell>{version.scan_status}</TableCell>
-                          <TableCell>{version.original_file_name ?? '-'}</TableCell>
-                          <TableCell>{formatDateTime(version.uploaded_at)}</TableCell>
+                          <TableCell>
+                            {version.original_file_name ?? '-'}
+                          </TableCell>
+                          <TableCell>
+                            {formatDateTime(version.uploaded_at)}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -236,16 +259,21 @@ export function DocumentDetailPage() {
                           <TableCell>{link.link_type}</TableCell>
                           <TableCell>
                             {link.linked_record_type}
-                            <div className="text-xs text-slate-500">{link.linked_record_id}</div>
+                            <div className="text-xs text-slate-500">
+                              {link.linked_record_id}
+                            </div>
                           </TableCell>
                           <TableCell className="text-xs text-slate-600">
                             {link.customer_visible ? 'Customer ' : ''}
                             {link.intermediary_visible ? 'Intermediary' : ''}
-                            {!link.customer_visible && !link.intermediary_visible
+                            {!link.customer_visible &&
+                            !link.intermediary_visible
                               ? 'Internal only'
                               : null}
                           </TableCell>
-                          <TableCell>{formatDateTime(link.created_at)}</TableCell>
+                          <TableCell>
+                            {formatDateTime(link.created_at)}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -269,11 +297,16 @@ export function DocumentDetailPage() {
                     <TableBody>
                       {(accessHistoryQuery.data ?? []).map((event) => (
                         <TableRow key={event.id}>
-                          <TableCell>{formatDateTime(event.occurred_at)}</TableCell>
+                          <TableCell>
+                            {formatDateTime(event.occurred_at)}
+                          </TableCell>
                           <TableCell>{event.actor_type}</TableCell>
                           <TableCell>{event.access_channel}</TableCell>
                           <TableCell>
-                            <Badge variant="outline" className={statusTone(event.result)}>
+                            <Badge
+                              variant="outline"
+                              className={statusTone(event.result)}
+                            >
                               {event.result}
                             </Badge>
                           </TableCell>

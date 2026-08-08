@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class Phase18SaasApiSecurityFoundation1796100000000
-  implements MigrationInterface
-{
+export class Phase18SaasApiSecurityFoundation1796100000000 implements MigrationInterface {
   name = 'Phase18SaasApiSecurityFoundation1796100000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -46,11 +46,9 @@ function makeManager(params: {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getRawOne: jest
-        .fn()
-        .mockImplementation(async () => ({
-          total: paymentTotals[totalCallIndex++] ?? '0.00',
-        })),
+      getRawOne: jest.fn().mockImplementation(async () => ({
+        total: paymentTotals[totalCallIndex++] ?? '0.00',
+      })),
     }),
   };
 
@@ -61,11 +59,9 @@ function makeManager(params: {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      getRawOne: jest
-        .fn()
-        .mockImplementation(async () => ({
-          total: recoveryTotals[recoveryCallIndex++] ?? '0.00',
-        })),
+      getRawOne: jest.fn().mockImplementation(async () => ({
+        total: recoveryTotals[recoveryCallIndex++] ?? '0.00',
+      })),
     }),
   };
 

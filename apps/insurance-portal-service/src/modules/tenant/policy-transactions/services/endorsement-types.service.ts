@@ -43,7 +43,10 @@ export class EndorsementTypesService {
     });
   }
 
-  async requireActive(companyId: string, code: string): Promise<EndorsementType> {
+  async requireActive(
+    companyId: string,
+    code: string,
+  ): Promise<EndorsementType> {
     const type = await this.findByCode(companyId, code);
 
     if (!type || !type.is_active) {

@@ -79,14 +79,25 @@ export function SignatureRequestsPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="signature-name">Signer name</Label>
-            <Input id="signature-name" value={participantName} onChange={(e) => setParticipantName(e.target.value)} />
+            <Input
+              id="signature-name"
+              value={participantName}
+              onChange={(e) => setParticipantName(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="signature-email">Signer email</Label>
-            <Input id="signature-email" value={participantEmail} onChange={(e) => setParticipantEmail(e.target.value)} />
+            <Input
+              id="signature-email"
+              value={participantEmail}
+              onChange={(e) => setParticipantEmail(e.target.value)}
+            />
           </div>
           <div className="flex items-end">
-            <Button onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
+            <Button
+              onClick={() => createMutation.mutate()}
+              disabled={createMutation.isPending}
+            >
               Create request
             </Button>
           </div>
@@ -117,7 +128,10 @@ export function SignatureRequestsPage() {
                   </TableCell>
                   <TableCell>{request.signature_provider}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={statusTone(request.status)}>
+                    <Badge
+                      variant="outline"
+                      className={statusTone(request.status)}
+                    >
                       {request.status}
                     </Badge>
                   </TableCell>

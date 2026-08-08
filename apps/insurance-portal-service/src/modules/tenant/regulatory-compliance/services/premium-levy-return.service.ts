@@ -247,10 +247,12 @@ export class PremiumLevyReturnService {
     }
 
     if (
-      !([
-        LevyAssessmentStatus.CALCULATED,
-        LevyAssessmentStatus.PENDING_APPROVAL,
-      ] as LevyAssessmentStatus[]).includes(assessment.status)
+      !(
+        [
+          LevyAssessmentStatus.CALCULATED,
+          LevyAssessmentStatus.PENDING_APPROVAL,
+        ] as LevyAssessmentStatus[]
+      ).includes(assessment.status)
     ) {
       throw new BadRequestException('Levy assessment is not awaiting approval');
     }
@@ -295,10 +297,12 @@ export class PremiumLevyReturnService {
     const assessment = await this.getAssessment(companyId, assessmentId);
 
     if (
-      !([
-        LevyAssessmentStatus.APPROVED,
-        LevyAssessmentStatus.PAYMENT_PENDING,
-      ] as LevyAssessmentStatus[]).includes(assessment.status)
+      !(
+        [
+          LevyAssessmentStatus.APPROVED,
+          LevyAssessmentStatus.PAYMENT_PENDING,
+        ] as LevyAssessmentStatus[]
+      ).includes(assessment.status)
     ) {
       throw new BadRequestException(
         'Only approved levy assessments can request payment',

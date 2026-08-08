@@ -48,9 +48,7 @@ export class AdministrativeAmendmentService {
   ) {
     for (const field of PROHIBITED_FIELDS) {
       if (Object.prototype.hasOwnProperty.call(dto, field)) {
-        throw new BadRequestException(
-          `${field} requires an endorsement.`,
-        );
+        throw new BadRequestException(`${field} requires an endorsement.`);
       }
     }
 

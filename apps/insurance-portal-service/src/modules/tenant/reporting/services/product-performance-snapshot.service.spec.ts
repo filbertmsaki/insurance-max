@@ -39,7 +39,9 @@ describe('ProductPerformanceSnapshotService', () => {
     expect(query).toHaveBeenCalledTimes(3);
 
     // DELETE happens before the INSERT, scoped to the company + snapshot date.
-    expect(query.mock.calls[1][0]).toContain('DELETE FROM product_performance_snapshots');
+    expect(query.mock.calls[1][0]).toContain(
+      'DELETE FROM product_performance_snapshots',
+    );
     expect(query.mock.calls[1][1]).toEqual(['company-1', '2026-08-01']);
 
     // Loss ratio = claims_incurred / earned_premium = 30000 / 150000 = 0.2.

@@ -273,15 +273,15 @@ export interface RegulatoryLevyAssessmentRecord {
 
 export const phase16Api = {
   getExecutiveDashboard() {
-    return apiClient.get<ExecutiveDashboardResponse>('/tenant/dashboard/executive').then(
-      (response) => response.data,
-    );
+    return apiClient
+      .get<ExecutiveDashboardResponse>('/tenant/dashboard/executive')
+      .then((response) => response.data);
   },
 
   getMetricDefinitions() {
-    return apiClient.get<MetricDefinition[]>('/tenant/analytics/metrics').then(
-      (response) => response.data,
-    );
+    return apiClient
+      .get<MetricDefinition[]>('/tenant/analytics/metrics')
+      .then((response) => response.data);
   },
 
   getMetricDefinition(code: string) {
@@ -334,19 +334,21 @@ export const phase16Api = {
     parameters?: Record<string, unknown>;
     branch_id?: string | null;
   }) {
-    return apiClient.post('/tenant/reports/run', payload).then((response) => response.data);
+    return apiClient
+      .post('/tenant/reports/run', payload)
+      .then((response) => response.data);
   },
 
   getReportJobs() {
-    return apiClient.get<ReportJobRecord[]>('/tenant/reports/jobs').then(
-      (response) => response.data,
-    );
+    return apiClient
+      .get<ReportJobRecord[]>('/tenant/reports/jobs')
+      .then((response) => response.data);
   },
 
   getReportJob(id: string) {
-    return apiClient.get<ReportJobRecord>(`/tenant/reports/jobs/${id}`).then(
-      (response) => response.data,
-    );
+    return apiClient
+      .get<ReportJobRecord>(`/tenant/reports/jobs/${id}`)
+      .then((response) => response.data);
   },
 
   getSchedules() {
@@ -370,16 +372,17 @@ export const phase16Api = {
   },
 
   testReportMail(recipient: string) {
-    return apiClient.post('/tenant/reports/mail/test', { recipient }).then(
-      (response) => response.data,
-    );
+    return apiClient
+      .post('/tenant/reports/mail/test', { recipient })
+      .then((response) => response.data);
   },
 
   downloadArtifact(id: string) {
     return apiClient
-      .get<{ download_token?: string; downloadUrl?: string }>(
-        `/tenant/reports/artifacts/${id}/download`,
-      )
+      .get<{
+        download_token?: string;
+        downloadUrl?: string;
+      }>(`/tenant/reports/artifacts/${id}/download`)
       .then((response) => response.data);
   },
 
@@ -463,9 +466,9 @@ export const phase16Api = {
 
   getLevyAssessments() {
     return apiClient
-      .get<RegulatoryLevyAssessmentRecord[]>(
-        '/tenant/regulatory/levy-assessments',
-      )
+      .get<
+        RegulatoryLevyAssessmentRecord[]
+      >('/tenant/regulatory/levy-assessments')
       .then((response) => response.data);
   },
 };

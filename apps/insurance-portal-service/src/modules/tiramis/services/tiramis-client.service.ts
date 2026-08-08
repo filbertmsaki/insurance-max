@@ -862,8 +862,9 @@ export class TiramisClientService {
       return null;
     }
 
-    const tenantContext =
-      await this.buildTiramisReadyTenantContext(params.authContext);
+    const tenantContext = await this.buildTiramisReadyTenantContext(
+      params.authContext,
+    );
 
     const context: TiramisSubmissionContext = {
       organization: {
@@ -969,7 +970,8 @@ export class TiramisClientService {
     const sourceService = this.configService.getOrThrow<string>(
       'tiramisClient.sourceService',
     );
-    const tenantContext = await this.buildTiramisReadyTenantContext(authContext);
+    const tenantContext =
+      await this.buildTiramisReadyTenantContext(authContext);
     const serviceToken = this.serviceTokenService.issue(
       'tiramis-service',
       [TiramisServiceScopes.SUBMIT],
@@ -985,7 +987,9 @@ export class TiramisClientService {
         ...(productContext ? { product: productContext } : null),
         ...(pricingContext ? { pricing: pricingContext } : null),
         ...(insuredDataContext ? { insuredData: insuredDataContext } : null),
-        ...(quotationGateContext ? { quotationGate: quotationGateContext } : null),
+        ...(quotationGateContext
+          ? { quotationGate: quotationGateContext }
+          : null),
         ...(financeContext ? { finance: financeContext } : null),
       },
     );
@@ -1044,8 +1048,7 @@ export class TiramisClientService {
     tracking.tiramisRequestId = acceptance.requestId;
     tracking.tiramisServiceType = acceptance.serviceType;
     tracking.tiramisRootElement = acceptance.rootElement;
-    tracking.tiramisResponsePayload =
-      acceptance as unknown as Record<string, unknown>;
+    tracking.tiramisResponsePayload = acceptance;
     tracking.submittedAt = new Date(acceptance.acceptedAt);
     tracking.resourceVersion = acceptance.resourceVersion;
     tracking.correlationId = acceptance.correlationId;

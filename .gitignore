@@ -22,6 +22,9 @@ lerna-debug.log*
 /coverage
 /.nyc_output
 
+# Database backups
+/backups/
+
 # IDEs and editors
 /.idea
 .project
@@ -61,6 +64,7 @@ certificates/
 # temp directory
 .temp
 .tmp
+*.tmp
 .release/release-gate.json
 
 # Locally generated/uploaded documents (e2e tests and manual runs write here)

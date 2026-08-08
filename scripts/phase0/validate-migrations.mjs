@@ -8,10 +8,7 @@ const migrationRoots = [
   'apps/tiramis/src/database/migrations',
 ];
 
-const baselinePath = path.join(
-  cwd,
-  'config/phase0/migration-baseline.json',
-);
+const baselinePath = path.join(cwd, 'config/phase0/migration-baseline.json');
 
 const baseline = fs.existsSync(baselinePath)
   ? JSON.parse(fs.readFileSync(baselinePath, 'utf8'))

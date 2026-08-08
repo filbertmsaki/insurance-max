@@ -29,7 +29,8 @@ export function CommunicationDetailPage() {
   });
 
   const postMutation = useMutation({
-    mutationFn: () => engagementApi.postCommunicationMessage(id, { body_text: message }),
+    mutationFn: () =>
+      engagementApi.postCommunicationMessage(id, { body_text: message }),
     onSuccess: () => {
       toast.success('Message sent');
       setMessage('');
@@ -65,7 +66,9 @@ export function CommunicationDetailPage() {
       <PageHeader
         eyebrow="Phase 17"
         title={threadQuery.data?.thread_no ?? 'Communication thread'}
-        description={threadQuery.data?.subject ?? 'Conversation history and follow-up.'}
+        description={
+          threadQuery.data?.subject ?? 'Conversation history and follow-up.'
+        }
         action={
           <Button variant="outline" onClick={() => closeMutation.mutate()}>
             {threadQuery.data?.closed_at ? 'Reopen thread' : 'Close thread'}
@@ -79,12 +82,21 @@ export function CommunicationDetailPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           {(messagesQuery.data ?? []).map((item) => (
-            <div key={item.id} className="rounded-lg border border-slate-200 p-4">
+            <div
+              key={item.id}
+              className="rounded-lg border border-slate-200 p-4"
+            >
               <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-medium text-slate-900">{item.direction}</div>
-                <div className="text-xs text-slate-500">{formatDateTime(item.created_at)}</div>
+                <div className="text-sm font-medium text-slate-900">
+                  {item.direction}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {formatDateTime(item.created_at)}
+                </div>
               </div>
-              <div className="mt-2 text-sm text-slate-700">{item.body_text}</div>
+              <div className="mt-2 text-sm text-slate-700">
+                {item.body_text}
+              </div>
             </div>
           ))}
         </CardContent>
@@ -95,8 +107,14 @@ export function CommunicationDetailPage() {
           <CardTitle className="text-base">Reply</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Textarea value={message} onChange={(event) => setMessage(event.target.value)} />
-          <Button onClick={() => postMutation.mutate()} disabled={postMutation.isPending}>
+          <Textarea
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+          />
+          <Button
+            onClick={() => postMutation.mutate()}
+            disabled={postMutation.isPending}
+          >
             Send message
           </Button>
         </CardContent>
