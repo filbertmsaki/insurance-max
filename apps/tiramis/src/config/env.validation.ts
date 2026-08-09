@@ -100,20 +100,4 @@ export const tiramisEnvValidationSchema = Joi.object({
     .min(1)
     .default(30),
   TIRAMIS_LEGACY_PORTAL_WEBHOOK_TOKEN_ENABLED: Joi.boolean().default(false),
-
-  SERVICE_AUTH_SECRET: Joi.when('APP_ENV', {
-    is: 'production',
-    then: Joi.string().min(64).required(),
-    otherwise: Joi.string().min(32).required(),
-  }),
-  SERVICE_AUTH_ISSUER: Joi.string().trim().min(1).required(),
-  SERVICE_AUTH_SUBJECT: Joi.string().trim().min(1).required(),
-  SERVICE_AUTH_AUDIENCE: Joi.string().trim().min(1).required(),
-  SERVICE_AUTH_ALLOWED_ISSUERS: Joi.string().trim().min(1).required(),
-  SERVICE_AUTH_TOKEN_EXPIRATION: Joi.string().default('60s'),
-  SERVICE_AUTH_CLOCK_TOLERANCE_SECONDS: Joi.number()
-    .integer()
-    .min(0)
-    .max(30)
-    .default(5),
 });

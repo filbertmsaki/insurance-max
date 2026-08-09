@@ -1,15 +1,18 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
+import { Repository } from 'typeorm';
 
 import {
   HTTP_HEADERS,
   RequestContextService,
-  ServiceTokenService,
 } from '@insurance-max/shared-kernel';
 
 import { TiramisPortalNotificationEventDto } from '../dto/tiramis-portal-notification-event.dto';
+import { TiramisClientConfigurationEntity } from '../../config/entities/tiramis-client-configuration.entity';
+import { TiramisSecretCryptoService } from '../../security/services/tiramis-secret-crypto.service';
 
 @Injectable()
 export class TiramisPortalNotificationService {
@@ -19,7 +22,9 @@ export class TiramisPortalNotificationService {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly requestContextService: RequestContextService,
-    private readonly serviceTokenService: ServiceTokenService,
+    private readonly secretCryptoService: TiramisSecretCryptoService,
+    @InjectRepository(TiramisClientConfigurationEntity)
+    private readonly configurationRepository: Repository<TiramisClientConfigurationEntity>,
   ) {}
 
   async publish(event: TiramisPortalNotificationEventDto): Promise<void> {
@@ -56,10 +61,13 @@ export class TiramisPortalNotificationService {
       'tiramisService.sourceService',
     );
 
-    const serviceToken = this.serviceTokenService.issue(
-      'insurance-portal-service',
-      ['tiramis:notify'],
-    );
+    const apiKey = await this.resolvePortalApiKey();
+    if (!apiKey) {
+      this.logger.warn(
+        `Portal notification skipped for requestId ${event.requestId}: portal webhook API key is not configured`,
+      );
+      return;
+    }
 
     try {
       const response = await firstValueFrom(
@@ -70,7 +78,7 @@ export class TiramisPortalNotificationService {
             'Content-Type': 'application/json',
             Accept: 'application/json',
 
-            Authorization: `Bearer ${serviceToken}`,
+            'X-API-Key': apiKey,
 
             [HTTP_HEADERS.REQUEST_ID]: requestId,
             [HTTP_HEADERS.CORRELATION_ID]: correlationId,
@@ -91,5 +99,22 @@ export class TiramisPortalNotificationService {
         }`,
       );
     }
+  }
+
+  private async resolvePortalApiKey(): Promise<string | null> {
+    const environment =
+      this.configService.get<string>('tiramisService.targetEnvironment') ??
+      'test';
+    const configuration = await this.configurationRepository
+      .createQueryBuilder('configuration')
+      .where('configuration.environment = :environment', { environment })
+      .andWhere('configuration.isActive = 1')
+      .andWhere('configuration.portalWebhookApiKeyEncrypted IS NOT NULL')
+      .orderBy('configuration.updatedAt', 'DESC')
+      .getOne();
+
+    return this.secretCryptoService.decryptIfEncrypted(
+      configuration?.portalWebhookApiKeyEncrypted,
+    );
   }
 }

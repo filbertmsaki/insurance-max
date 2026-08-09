@@ -7,7 +7,9 @@ import {
   RequestTimeoutException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
+import { Repository } from 'typeorm';
 
 import {
   TiramisIntegrationCommand,
@@ -26,7 +28,6 @@ import {
 import {
   HTTP_HEADERS,
   RequestContextService,
-  ServiceTokenService,
 } from '@insurance-max/shared-kernel';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared';
 
@@ -52,7 +53,9 @@ import {
 import { TiramisAuditService } from './tiramis-audit.service';
 import { TiramisBusinessRecordSyncService } from './tiramis-business-record-sync.service';
 import { TiramisEnvelopeService } from './tiramis-envelope.service';
+import { TiramisServiceApiKeyVaultService } from './tiramis-service-api-key-vault.service';
 import { TiramisNotificationService } from './tiramis-notification.service';
+import { TiramisCompanyConfigurationEntity } from '../entities/tiramis-company-configuration.entity';
 import {
   TIRAMIS_MESSAGE_PATTERNS,
   TIRAMIS_SUBMIT_PATTERN_BY_REQUEST_TYPE,
@@ -74,9 +77,11 @@ export class TiramisClientService {
     private readonly businessRecordSyncService: TiramisBusinessRecordSyncService,
     private readonly auditService: TiramisAuditService,
     private readonly notificationService: TiramisNotificationService,
-    private readonly serviceTokenService: ServiceTokenService,
     private readonly organizationContextService: OrganizationContextService,
     private readonly tiramisEnvelopeService: TiramisEnvelopeService,
+    private readonly apiKeyVault: TiramisServiceApiKeyVaultService,
+    @InjectRepository(TiramisCompanyConfigurationEntity)
+    private readonly companyConfigurationRepository: Repository<TiramisCompanyConfigurationEntity>,
   ) {}
 
   async submit(dto: SubmitTiramisDto, authContext?: any) {
@@ -599,22 +604,22 @@ export class TiramisClientService {
     insurerCompanyCode?: string | null;
   }): Promise<{ valid: boolean; message?: string }> {
     try {
-      const serviceToken = this.serviceTokenService.issue(
-        'tiramis-service',
-        [TiramisServiceScopes.ADMIN],
-        {
-          tenant: {
-            companyId: params.companyId,
-          },
-        },
-      );
-
       const requestId = this.requestContextService.getRequestId();
       const correlationId =
         this.requestContextService.getCorrelationId() || requestId;
       const sourceService = this.configService.getOrThrow<string>(
         'tiramisClient.sourceService',
       );
+      const apiKey = await this.resolveApiKey(
+        params.companyId,
+        params.environment,
+      );
+      const serviceContext = this.encodeServiceContext({
+        tenant: {
+          companyId: params.companyId,
+          environment: params.environment,
+        },
+      });
 
       const response = await firstValueFrom(
         this.httpService.request({
@@ -629,9 +634,9 @@ export class TiramisClientService {
           validateStatus: () => true,
           headers: {
             Accept: 'application/json',
-            Authorization: `Bearer ${serviceToken}`,
+            'X-API-Key': apiKey,
+            'X-Service-Context': serviceContext,
             [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
-            'X-Tenant-Company-Id': params.companyId,
             ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
             ...(correlationId
               ? { [HTTP_HEADERS.CORRELATION_ID]: correlationId }
@@ -744,11 +749,9 @@ export class TiramisClientService {
       `Retrying ${tracking.requestType} to tiramis-service using pattern ${pattern}`,
     );
 
-    // This is a system-initiated retry (no live HTTP request/user session),
-    // but TIRAMIS's TiramisTenantContextGuard requires a signed tenant
-    // context on every business call. Reconstruct a minimal company-scoped
-    // context from the tracking record so the retry isn't rejected with
-    // TIRAMIS_TENANT_CONTEXT_REQUIRED.
+    // This is a system-initiated retry (no live HTTP request/user session).
+    // Reconstruct minimal company business context from the tracking record
+    // so TIRAMIS can resolve the correct company/system configuration.
     const retryAuthContext: AuthenticatedUser | undefined =
       tracking.sourceCompanyId
         ? {
@@ -812,7 +815,7 @@ export class TiramisClientService {
   }
 
   /**
-   * Builds the full, signed tenant context for a TIRAMIS submission by
+   * Builds the full company business context for a TIRAMIS submission by
    * resolving the caller's authoritative organization context (company TIRA
    * mapping, active branch, active department, default sales point) instead
    * of trusting whatever the caller's stale JWT claims say. This is the
@@ -978,26 +981,26 @@ export class TiramisClientService {
     );
     const tenantContext =
       await this.buildTiramisReadyTenantContext(authContext);
-    const serviceToken = this.serviceTokenService.issue(
-      'tiramis-service',
-      [TiramisServiceScopes.SUBMIT],
-      {
-        tenant: tenantContext,
-        actor: {
-          userId: authContext.id,
-          companyMembershipId: authContext.companyMembershipId,
-          sessionId: authContext.sessionId,
-          roles: [],
-          permissions: [],
-        },
-        ...(productContext ? { product: productContext } : null),
-        ...(pricingContext ? { pricing: pricingContext } : null),
-        ...(insuredDataContext ? { insuredData: insuredDataContext } : null),
-        ...(quotationGateContext
-          ? { quotationGate: quotationGateContext }
-          : null),
-        ...(financeContext ? { finance: financeContext } : null),
+    const serviceContext = this.encodeServiceContext({
+      tenant: tenantContext,
+      actor: {
+        userId: authContext.id,
+        companyMembershipId: authContext.companyMembershipId,
+        sessionId: authContext.sessionId,
+        roles: [],
+        permissions: [],
       },
+      ...(productContext ? { product: productContext } : null),
+      ...(pricingContext ? { pricing: pricingContext } : null),
+      ...(insuredDataContext ? { insuredData: insuredDataContext } : null),
+      ...(quotationGateContext
+        ? { quotationGate: quotationGateContext }
+        : null),
+      ...(financeContext ? { finance: financeContext } : null),
+    });
+    const apiKey = await this.resolveApiKey(
+      authContext.companyId,
+      tenantContext.environment,
     );
 
     const response = await firstValueFrom(
@@ -1008,9 +1011,9 @@ export class TiramisClientService {
         validateStatus: () => true,
         headers: {
           Accept: 'application/json',
-          Authorization: `Bearer ${serviceToken}`,
+          'X-API-Key': apiKey,
+          'X-Service-Context': serviceContext,
           [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
-          'X-Tenant-Company-Id': authContext.companyId ?? '',
           'X-Actor-User-Id': authContext.id ?? '',
           'X-Actor-Membership-Id': authContext.companyMembershipId ?? '',
           ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
@@ -1082,6 +1085,47 @@ export class TiramisClientService {
     return [TiramisServiceScopes.SUBMIT];
   }
 
+  private encodeServiceContext(context: Record<string, unknown>): string {
+    return Buffer.from(JSON.stringify(context), 'utf8').toString('base64url');
+  }
+
+  private async resolveApiKey(
+    companyId?: string | null,
+    environment?: string | null,
+  ): Promise<string> {
+    if (!companyId) {
+      throw new ConflictException(
+        'A company context is required to resolve the TIRAMIS API key.',
+      );
+    }
+
+    const targetEnvironment =
+      environment ??
+      this.configService.get<string>('tiramisClient.targetEnvironment') ??
+      'test';
+    const configuration = await this.companyConfigurationRepository
+      .createQueryBuilder('configuration')
+      .addSelect('configuration.serviceApiKeyEncrypted')
+      .where('configuration.companyId = :companyId', { companyId })
+      .andWhere('configuration.environment = :environment', {
+        environment: targetEnvironment,
+      })
+      .andWhere('configuration.isActive = true')
+      .getOne();
+
+    const apiKey = this.apiKeyVault.decrypt(
+      configuration?.serviceApiKeyEncrypted,
+    );
+
+    if (!apiKey) {
+      throw new ConflictException(
+        'TIRAMIS API key is not configured for the current company.',
+      );
+    }
+
+    return apiKey;
+  }
+
   private async send(
     pattern: string,
     payload: Record<string, unknown>,
@@ -1123,9 +1167,7 @@ export class TiramisClientService {
             : await this.buildTiramisReadyTenantContext(authContext)
           : undefined;
 
-      const serviceToken = this.serviceTokenService.issue(
-        'tiramis-service',
-        requiredScopes,
+      const serviceContext = this.encodeServiceContext(
         tenantContext
           ? {
               tenant: tenantContext,
@@ -1146,7 +1188,12 @@ export class TiramisClientService {
                 : null),
               ...(financeContext ? { finance: financeContext } : null),
             }
-          : undefined,
+          : {},
+      );
+      const apiKey = await this.resolveApiKey(
+        authContext?.companyId ?? null,
+        (tenantContext as { environment?: string } | undefined)?.environment ??
+          null,
       );
 
       const response = await firstValueFrom(
@@ -1164,11 +1211,10 @@ export class TiramisClientService {
           headers: {
             Accept: 'application/json',
 
-            Authorization: `Bearer ${serviceToken}`,
+            'X-API-Key': apiKey,
+            'X-Service-Context': serviceContext,
 
             [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
-
-            'X-Tenant-Company-Id': authContext?.companyId ?? '',
 
             'X-Actor-User-Id': authContext?.id ?? '',
 

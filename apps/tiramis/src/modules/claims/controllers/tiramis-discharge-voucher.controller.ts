@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
   ApiBody,
   ApiConsumes,
@@ -17,14 +9,12 @@ import {
 
 import { ServiceScopes } from '@insurance-max/shared-kernel';
 
-import { TiramisTenantContextGuard } from '../../../common/guards/tiramis-tenant-context.guard';
 import { CreateDischargeVoucherDto } from '../dto/create-discharge-voucher.dto';
 import { TiramisDischargeVoucherService } from '../services/tiramis-discharge-voucher.service';
 
 @ApiTags('Tiramis Discharge Vouchers')
 @ApiConsumes('application/json')
 @Controller('tiramis/claims/discharge-voucher')
-@UseGuards(TiramisTenantContextGuard)
 export class TiramisDischargeVoucherController {
   constructor(
     private readonly dischargeVoucherService: TiramisDischargeVoucherService,

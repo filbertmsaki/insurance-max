@@ -33,6 +33,7 @@ import { TiramisEnvelopeService } from './services/tiramis-envelope.service';
 import { TiramisMonitoringService } from './services/tiramis-monitoring.service';
 import { TiramisNotificationService } from './services/tiramis-notification.service';
 import { TiramisRetryService } from './services/tiramis-retry.service';
+import { TiramisServiceApiKeyVaultService } from './services/tiramis-service-api-key-vault.service';
 import { TiramisStatusSyncService } from './services/tiramis-status-sync.service';
 import { Customer } from '../tenant/customers/entities/customer.entity';
 import { ClaimAssessment } from '../tenant/claims/entities/claim-assessment.entity';
@@ -102,6 +103,7 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
     TiramisEnvelopeService,
     TiramisRetryService,
     TiramisMonitoringService,
+    TiramisServiceApiKeyVaultService,
     TiramisPermissionGuard,
     TiramisCompanyScopeGuard,
   ],
@@ -124,6 +126,7 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
     TiramisEnvelopeService,
     TiramisRetryService,
     TiramisMonitoringService,
+    TiramisServiceApiKeyVaultService,
     TiramisPermissionGuard,
     TiramisCompanyScopeGuard,
   ],

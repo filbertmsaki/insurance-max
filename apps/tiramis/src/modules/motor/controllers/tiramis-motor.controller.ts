@@ -17,7 +17,6 @@ import {
 
 import { ServiceScopes } from '@insurance-max/shared-kernel';
 
-import { TiramisTenantContextGuard } from '../../../common/guards/tiramis-tenant-context.guard';
 import { TiramisProductContextGuard } from '../../../common/guards/tiramis-product-context.guard';
 import { TiramisPricingContextGuard } from '../../../common/guards/tiramis-pricing-context.guard';
 import { TiramisInsuredDataContextGuard } from '../../../common/guards/tiramis-insured-data-context.guard';
@@ -29,7 +28,6 @@ import { TiramisMotorService } from '../services/tiramis-motor.service';
 @ApiTags('Tiramis Motor Cover Notes')
 @ApiConsumes('application/json')
 @Controller('tiramis/motor')
-@UseGuards(TiramisTenantContextGuard)
 export class TiramisMotorController {
   constructor(private readonly tiramisMotorService: TiramisMotorService) {}
 

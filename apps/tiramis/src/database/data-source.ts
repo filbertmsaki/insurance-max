@@ -12,6 +12,8 @@ import {
 } from '@insurance-max/shared-config';
 
 import { TiramisAccessAuditEntity } from '../modules/audit/entities/tiramis-access-audit.entity';
+import { TiramisApiKeyAuditEntity } from '../modules/api-keys/entities/tiramis-api-key-audit.entity';
+import { TiramisApiKeyEntity } from '../modules/api-keys/entities/tiramis-api-key.entity';
 import { TiramisClientConfigurationEntity } from '../modules/config/entities/tiramis-client-configuration.entity';
 import { TiramisResponseCodeEntity } from '../modules/config/entities/tiramis-response-code.entity';
 import { TiramisServiceEndpointEntity } from '../modules/config/entities/tiramis-service-endpoint.entity';
@@ -102,6 +104,8 @@ export default new DataSource(
       TiramisVerificationRequestEntity,
       TiramisVerificationResponseEntity,
       TiramisAccessAuditEntity,
+      TiramisApiKeyEntity,
+      TiramisApiKeyAuditEntity,
     ],
     migrations: [join(__dirname, 'migrations', '*.{ts,js}')],
   }),

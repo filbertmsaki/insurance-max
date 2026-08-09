@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import {
@@ -11,12 +11,9 @@ import { TiramisVerificationService } from '../services/tiramis-verification.ser
 
 import { ServiceScopes } from '@insurance-max/shared-kernel';
 
-import { TiramisTenantContextGuard } from '../../../common/guards/tiramis-tenant-context.guard';
-
 @ApiTags('Tiramis Verifications')
 @ApiConsumes('application/json')
 @Controller('tiramis/verifications')
-@UseGuards(TiramisTenantContextGuard)
 export class TiramisVerificationsController {
   constructor(
     private readonly tiramisVerificationService: TiramisVerificationService,

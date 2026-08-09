@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 
 import {
   TiramisIntegrationCommand,
@@ -11,10 +7,7 @@ import {
   type TiramisSubmissionAcceptance,
   type TiramisSubmissionEnvelope,
 } from '@insurance-max/contracts';
-import {
-  ProductDefinitionHashService,
-  RequestContextService,
-} from '@insurance-max/shared-kernel';
+import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 
 import { TiramisRequestIdService } from '../../submissions/services/tiramis-request-id.service';
 import { TiramisSubmissionService } from '../../submissions/services/tiramis-submission.service';
@@ -26,7 +19,6 @@ import { TiramisConfigService } from '../../config/services/tiramis-config.servi
 export class TiramisIntegrationService {
   constructor(
     private readonly hashService: ProductDefinitionHashService,
-    private readonly requestContextService: RequestContextService,
     private readonly requestIdService: TiramisRequestIdService,
     private readonly submissionService: TiramisSubmissionService,
     private readonly transactionRepository: TiramisTransactionRepository,
@@ -38,18 +30,6 @@ export class TiramisIntegrationService {
     envelope: TiramisSubmissionEnvelope,
   ): Promise<TiramisSubmissionAcceptance> {
     this.assertEnvelope(envelope);
-
-    const principal = this.requestContextService.getServicePrincipal();
-
-    if (!principal?.tenant?.companyId) {
-      throw new UnauthorizedException('Signed tenant context is required.');
-    }
-
-    if (principal.tenant.companyId !== envelope.source.companyId) {
-      throw new UnauthorizedException(
-        'The signed company context does not match the submission source company.',
-      );
-    }
 
     const runtimeConfiguration =
       await this.tiramisConfigService.getActiveRuntimeConfiguration();

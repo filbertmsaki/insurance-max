@@ -1,16 +1,14 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 
 import { ServiceScopes } from '@insurance-max/shared-kernel';
 
-import { TiramisTenantContextGuard } from '../../../common/guards/tiramis-tenant-context.guard';
 import { TiramisSubmissionStatusQueryDto } from '../dto/tiramis-submission-status-query.dto';
 import { TiramisSubmissionService } from '../services/tiramis-submission.service';
 
 @ApiTags('TIRAMIS Submissions')
 @Controller('tiramis/submissions')
 @ServiceScopes('tiramis:read')
-@UseGuards(TiramisTenantContextGuard)
 export class TiramisSubmissionsController {
   constructor(
     private readonly tiramisSubmissionService: TiramisSubmissionService,

@@ -23,11 +23,6 @@ process.env.AUTH_SECRET_ENCRYPTION_KEY ??=
   'kclGTZzK9BZPtHbqcLGShyEfRqOXJ9SNdb1pFAJnaJs=';
 process.env.AUTH_BACKUP_CODE_PEPPER ??= 'a'.repeat(32);
 process.env.AUTH_DEVICE_TOKEN_PEPPER ??= 'b'.repeat(32);
-process.env.SERVICE_AUTH_SECRET ??= 'c'.repeat(32);
-process.env.SERVICE_AUTH_ISSUER ??= 'insurance-portal-service';
-process.env.SERVICE_AUTH_SUBJECT ??= 'insurance-portal-service';
-process.env.SERVICE_AUTH_AUDIENCE ??= 'insurance-portal-service';
-process.env.SERVICE_AUTH_ALLOWED_ISSUERS ??= 'insurance-portal-service';
 process.env.DB_LOGGING ??= 'false';
 
 const loadModule = createRequire(__filename);

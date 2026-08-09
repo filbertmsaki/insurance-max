@@ -14,11 +14,6 @@ describe('insurance portal environment validation', () => {
     AUTH_SECRET_ENCRYPTION_KEY: 'kclGTZzK9BZPtHbqcLGShyEfRqOXJ9SNdb1pFAJnaJs=',
     AUTH_BACKUP_CODE_PEPPER: 'a'.repeat(32),
     AUTH_DEVICE_TOKEN_PEPPER: 'b'.repeat(32),
-    SERVICE_AUTH_SECRET: 'c'.repeat(32),
-    SERVICE_AUTH_ISSUER: 'insurance-portal-service',
-    SERVICE_AUTH_SUBJECT: 'insurance-portal-service',
-    SERVICE_AUTH_AUDIENCE: 'insurance-portal-service',
-    SERVICE_AUTH_ALLOWED_ISSUERS: 'insurance-portal-service',
   };
 
   it('accepts valid application settings', () => {

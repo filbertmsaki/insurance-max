@@ -101,6 +101,13 @@ export class TiramisClientConfigurationEntity extends BaseEntity {
   tiraPublicCertificatePasswordEncrypted?: string | null;
 
   @Column({
+    name: 'portal_webhook_api_key_encrypted',
+    type: 'text',
+    nullable: true,
+  })
+  portalWebhookApiKeyEncrypted?: string | null;
+
+  @Column({
     name: 'signature_algorithm',
     type: 'varchar',
     length: 100,

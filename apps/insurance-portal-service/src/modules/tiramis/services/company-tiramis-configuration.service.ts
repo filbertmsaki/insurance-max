@@ -6,6 +6,7 @@ import { AuditService } from '../../shared/audit/audit.service';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { TiramisCompanyConfigurationEntity } from '../entities/tiramis-company-configuration.entity';
 import { TiramisClientService } from './tiramis-client.service';
+import { TiramisServiceApiKeyVaultService } from './tiramis-service-api-key-vault.service';
 import { UpsertCompanyTiramisConfigurationDto } from '../dto/upsert-company-tiramis-configuration.dto';
 
 @Injectable()
@@ -17,6 +18,7 @@ export class CompanyTiramisConfigurationService {
     private readonly dataSource: DataSource,
     private readonly tiramisClientService: TiramisClientService,
     private readonly auditService: AuditService,
+    private readonly apiKeyVault: TiramisServiceApiKeyVaultService,
   ) {}
 
   findAll(companyId: string) {
@@ -72,6 +74,9 @@ export class CompanyTiramisConfigurationService {
           systemCode: dto.system_code,
           systemName: dto.system_name ?? null,
           callbackUrl: dto.callback_url ?? null,
+          serviceApiKeyEncrypted: this.apiKeyVault.encrypt(
+            dto.tiramis_service_api_key,
+          ),
           baseUrl: null,
           isActive: dto.is_active ?? true,
           validationStatus: 'NOT_VALIDATED',
@@ -87,6 +92,11 @@ export class CompanyTiramisConfigurationService {
         configuration.systemCode = dto.system_code;
         configuration.systemName = dto.system_name ?? null;
         configuration.callbackUrl = dto.callback_url ?? null;
+        if (dto.tiramis_service_api_key) {
+          configuration.serviceApiKeyEncrypted = this.apiKeyVault.encrypt(
+            dto.tiramis_service_api_key,
+          );
+        }
         configuration.isActive = dto.is_active ?? configuration.isActive;
         configuration.validationStatus = 'NOT_VALIDATED';
         configuration.validatedAt = null;
@@ -115,6 +125,9 @@ export class CompanyTiramisConfigurationService {
             systemCode: saved.systemCode,
             systemName: saved.systemName,
             isActive: saved.isActive,
+            serviceApiKeyMasked: this.apiKeyVault.mask(
+              saved.serviceApiKeyEncrypted,
+            ),
           },
         },
         manager,

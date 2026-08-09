@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
   ApiBody,
   ApiConsumes,
@@ -17,14 +9,12 @@ import {
 
 import { ServiceScopes } from '@insurance-max/shared-kernel';
 
-import { TiramisTenantContextGuard } from '../../../common/guards/tiramis-tenant-context.guard';
 import { CreateReinsuranceDto } from '../dto/create-reinsurance.dto';
 import { TiramisReinsuranceService } from '../services/tiramis-reinsurance.service';
 
 @ApiTags('Tiramis Reinsurance')
 @ApiConsumes('application/json')
 @Controller('tiramis/reinsurance')
-@UseGuards(TiramisTenantContextGuard)
 export class TiramisReinsuranceController {
   constructor(
     private readonly tiramisReinsuranceService: TiramisReinsuranceService,

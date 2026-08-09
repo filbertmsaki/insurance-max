@@ -31,24 +31,6 @@ export interface ServiceActorContext {
   permissions: string[];
 }
 
-export interface ServiceTokenPayload {
-  iss: string;
-  sub: string;
-  aud: string;
-  scopes: string[];
-  jti: string;
-  iat: number;
-  exp: number;
-
-  tenant?: ServiceTenantContext;
-  actor?: ServiceActorContext;
-  product?: ServiceProductContext;
-  pricing?: ServicePricingContext;
-  insuredData?: ServiceInsuredDataContext;
-  quotationGate?: ServiceQuotationGateContext;
-  finance?: ServiceFinanceContext;
-}
-
 export interface ServicePrincipal {
   serviceId: string;
   scopes: string[];

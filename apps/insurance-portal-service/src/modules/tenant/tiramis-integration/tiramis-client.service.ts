@@ -6,14 +6,17 @@ import {
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
+import { Repository } from 'typeorm';
 
 import { unwrapApiResponse } from '@insurance-max/contracts';
 import {
   HTTP_HEADERS,
   RequestContextService,
-  ServiceTokenService,
 } from '@insurance-max/shared-kernel';
+import { TiramisCompanyConfigurationEntity } from '../../tiramis/entities/tiramis-company-configuration.entity';
+import { TiramisServiceApiKeyVaultService } from '../../tiramis/services/tiramis-service-api-key-vault.service';
 
 import { SubmitPortalTiraDto } from './dto/submit-portal-tira.dto';
 
@@ -25,7 +28,9 @@ export class TiramisClientService {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly requestContextService: RequestContextService,
-    private readonly serviceTokenService: ServiceTokenService,
+    private readonly apiKeyVault: TiramisServiceApiKeyVaultService,
+    @InjectRepository(TiramisCompanyConfigurationEntity)
+    private readonly companyConfigurationRepository: Repository<TiramisCompanyConfigurationEntity>,
   ) {}
 
   async submit(params: {
@@ -54,7 +59,7 @@ export class TiramisClientService {
     };
 
     try {
-      return await this.request(pattern, payload);
+      return await this.request(pattern, payload, params.companyId);
     } catch (error: any) {
       this.logger.error(
         `TIRAMIS submit failed for ${params.dto.business_reference}: ${error?.message || 'Unknown error'}`,
@@ -75,10 +80,14 @@ export class TiramisClientService {
       );
     }
 
-    return this.request('tiramis.submission.status', {
-      requestId: params.requestId || null,
-      businessReference: params.businessReference || null,
-    });
+    return this.request(
+      'tiramis.submission.status',
+      {
+        requestId: params.requestId || null,
+        businessReference: params.businessReference || null,
+      },
+      null,
+    );
   }
 
   async getTrace(params: { requestId?: string; businessReference?: string }) {
@@ -88,13 +97,21 @@ export class TiramisClientService {
       );
     }
 
-    return this.request('tiramis.submission.trace', {
-      requestId: params.requestId || null,
-      businessReference: params.businessReference || null,
-    });
+    return this.request(
+      'tiramis.submission.trace',
+      {
+        requestId: params.requestId || null,
+        businessReference: params.businessReference || null,
+      },
+      null,
+    );
   }
 
-  private async request(pattern: string, command: Record<string, unknown>) {
+  private async request(
+    pattern: string,
+    command: Record<string, unknown>,
+    companyId: string | null,
+  ) {
     const route = this.resolveHttpRoute(pattern);
 
     const isQuery =
@@ -110,9 +127,7 @@ export class TiramisClientService {
       'tiramisClient.sourceService',
     );
 
-    const serviceToken = this.serviceTokenService.issue('tiramis-service', [
-      'tiramis:invoke',
-    ]);
+    const apiKey = await this.resolveApiKey(companyId);
 
     const response = await firstValueFrom(
       this.httpService.request({
@@ -129,7 +144,7 @@ export class TiramisClientService {
         headers: {
           Accept: 'application/json',
 
-          Authorization: `Bearer ${serviceToken}`,
+          'X-API-Key': apiKey,
 
           [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
 
@@ -157,6 +172,37 @@ export class TiramisClientService {
     }
 
     return unwrapApiResponse(response.data);
+  }
+
+  private async resolveApiKey(companyId: string | null): Promise<string> {
+    if (!companyId) {
+      throw new BadRequestException(
+        'A company context is required to resolve the TIRAMIS API key',
+      );
+    }
+
+    const environment =
+      this.configService.get<string>('tiramisClient.targetEnvironment') ??
+      'test';
+    const configuration = await this.companyConfigurationRepository
+      .createQueryBuilder('configuration')
+      .addSelect('configuration.serviceApiKeyEncrypted')
+      .where('configuration.companyId = :companyId', { companyId })
+      .andWhere('configuration.environment = :environment', { environment })
+      .andWhere('configuration.isActive = true')
+      .getOne();
+
+    const apiKey = this.apiKeyVault.decrypt(
+      configuration?.serviceApiKeyEncrypted,
+    );
+
+    if (!apiKey) {
+      throw new BadRequestException(
+        'TIRAMIS API key is not configured for the current company',
+      );
+    }
+
+    return apiKey;
   }
 
   private resolveHttpRoute(pattern: string): string {

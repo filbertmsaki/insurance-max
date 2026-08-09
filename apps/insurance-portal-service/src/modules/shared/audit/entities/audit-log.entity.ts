@@ -50,7 +50,7 @@ export enum AuditAction {
 
   COMPANY_SWITCHED = 'auth.company_switched',
 
-  SERVICE_AUTH_FAILURE = 'service_auth.failure',
+  API_KEY_AUTH_FAILURE = 'api_key_auth.failure',
 }
 
 @Entity('audit_logs')

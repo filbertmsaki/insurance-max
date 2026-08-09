@@ -50,6 +50,10 @@ export class UpsertCompanyTiramisConfigurationDto {
   callback_url?: string;
 
   @IsOptional()
+  @IsString()
+  tiramis_service_api_key?: string;
+
+  @IsOptional()
   @IsBoolean()
   is_active?: boolean;
 }

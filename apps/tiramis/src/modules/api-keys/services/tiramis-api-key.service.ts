@@ -1,0 +1,285 @@
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { Repository } from 'typeorm';
+
+import { TiramisApiKeyAuditEntity } from '../entities/tiramis-api-key-audit.entity';
+import { TiramisApiKeyEntity } from '../entities/tiramis-api-key.entity';
+import { CreateTiramisApiKeyDto } from '../dto/create-tiramis-api-key.dto';
+import { UpdateTiramisApiKeyDto } from '../dto/update-tiramis-api-key.dto';
+
+export interface TiramisApiKeyAuthContext {
+  ipAddress?: string | null;
+  requestId?: string | null;
+  method?: string | null;
+  path?: string | null;
+}
+
+export interface TiramisApiKeyPrincipal {
+  id: string;
+  serviceName: string;
+  scopes: string[];
+}
+
+@Injectable()
+export class TiramisApiKeyService {
+  constructor(
+    @InjectRepository(TiramisApiKeyEntity)
+    private readonly apiKeyRepository: Repository<TiramisApiKeyEntity>,
+    @InjectRepository(TiramisApiKeyAuditEntity)
+    private readonly auditRepository: Repository<TiramisApiKeyAuditEntity>,
+  ) {}
+
+  async create(
+    dto: CreateTiramisApiKeyDto,
+  ): Promise<TiramisApiKeyEntity & { apiKey: string }> {
+    const apiKey = this.generateRawKey();
+    const entity = this.apiKeyRepository.create({
+      name: dto.name,
+      serviceName: dto.serviceName,
+      apiKey,
+      keyPrefix: apiKey.slice(0, 18),
+      scopes: dto.scopes ?? [],
+      description: dto.description ?? null,
+      expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
+      isActive: dto.isActive ?? true,
+      revokedAt: null,
+      lastUsedAt: null,
+    });
+
+    const saved = await this.apiKeyRepository.save(entity);
+    await this.audit(saved, 'CREATED', 'SUCCESS', {
+      scopes: saved.scopes ?? [],
+      expiresAt: saved.expiresAt?.toISOString() ?? null,
+    });
+
+    return { ...this.redact(saved), apiKey };
+  }
+
+  async findAll(): Promise<TiramisApiKeyEntity[]> {
+    const rows = await this.apiKeyRepository.find({
+      order: { createdAt: 'DESC' },
+    });
+    return rows.map((row) => this.redact(row));
+  }
+
+  async findById(id: string): Promise<TiramisApiKeyEntity> {
+    const row = await this.apiKeyRepository.findOne({ where: { id } });
+    if (!row) {
+      throw new NotFoundException('API key was not found.');
+    }
+    return this.redact(row);
+  }
+
+  async update(id: string, dto: UpdateTiramisApiKeyDto) {
+    const existing = await this.getExisting(id);
+    await this.apiKeyRepository.update(id, {
+      name: dto.name ?? existing.name,
+      serviceName: dto.serviceName ?? existing.serviceName,
+      scopes: dto.scopes ?? existing.scopes,
+      description:
+        dto.description === undefined ? existing.description : dto.description,
+      expiresAt:
+        dto.expiresAt === undefined
+          ? existing.expiresAt
+          : dto.expiresAt
+            ? new Date(dto.expiresAt)
+            : null,
+      isActive: dto.isActive ?? existing.isActive,
+    });
+
+    await this.audit(existing, 'UPDATED', 'SUCCESS', dto as any);
+    return this.findById(id);
+  }
+
+  async activate(id: string) {
+    const existing = await this.getExisting(id);
+    await this.apiKeyRepository.update(id, {
+      isActive: true,
+      revokedAt: null,
+    });
+    await this.audit(existing, 'ACTIVATED', 'SUCCESS');
+    return this.findById(id);
+  }
+
+  async disable(id: string) {
+    const existing = await this.getExisting(id);
+    await this.apiKeyRepository.update(id, { isActive: false });
+    await this.audit(existing, 'DISABLED', 'SUCCESS');
+    return this.findById(id);
+  }
+
+  async revoke(id: string) {
+    const existing = await this.getExisting(id);
+    await this.apiKeyRepository.update(id, {
+      isActive: false,
+      revokedAt: new Date(),
+    });
+    await this.audit(existing, 'REVOKED', 'SUCCESS');
+  }
+
+  async rotate(id: string): Promise<TiramisApiKeyEntity & { apiKey: string }> {
+    const existing = await this.getExisting(id);
+    const apiKey = this.generateRawKey();
+    await this.apiKeyRepository.update(id, {
+      apiKey,
+      keyPrefix: apiKey.slice(0, 18),
+      revokedAt: null,
+      isActive: true,
+    });
+    await this.audit(existing, 'ROTATED', 'SUCCESS');
+    return { ...(await this.findById(id)), apiKey };
+  }
+
+  async validate(
+    rawKey: string | undefined,
+    _requiredScopes: string[] = [],
+    context: TiramisApiKeyAuthContext = {},
+  ): Promise<TiramisApiKeyPrincipal> {
+    if (!rawKey) {
+      await this.audit(null, 'AUTHENTICATE', 'FAILED', {
+        reason: 'MISSING',
+        ...context,
+      });
+      throw new UnauthorizedException('Missing API key');
+    }
+
+    const row = await this.apiKeyRepository.findOne({
+      where: { apiKey: rawKey },
+      select: {
+        id: true,
+        name: true,
+        apiKey: true,
+        keyPrefix: true,
+        serviceName: true,
+        scopes: true,
+        description: true,
+        isActive: true,
+        expiresAt: true,
+        lastUsedAt: true,
+        revokedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!row || !this.constantTimeEquals(row.apiKey, rawKey)) {
+      await this.audit(null, 'AUTHENTICATE', 'FAILED', {
+        reason: 'INVALID',
+        keyPrefix: rawKey.slice(0, 18),
+        ...context,
+      });
+      throw new UnauthorizedException('Invalid API key');
+    }
+
+    if (row.revokedAt) {
+      await this.audit(row, 'AUTHENTICATE', 'FAILED', {
+        reason: 'REVOKED',
+        ...context,
+      });
+      throw new ForbiddenException('API key has been revoked');
+    }
+
+    if (!row.isActive) {
+      await this.audit(row, 'AUTHENTICATE', 'FAILED', {
+        reason: 'DISABLED',
+        ...context,
+      });
+      throw new ForbiddenException('API key is disabled');
+    }
+
+    if (row.expiresAt && row.expiresAt <= new Date()) {
+      await this.audit(row, 'AUTHENTICATE', 'FAILED', {
+        reason: 'EXPIRED',
+        ...context,
+      });
+      throw new ForbiddenException('API key has expired');
+    }
+
+    const scopes = row.scopes ?? [];
+    await this.apiKeyRepository.update(row.id, { lastUsedAt: new Date() });
+    await this.audit(row, 'AUTHENTICATE', 'SUCCESS', context as any);
+
+    return {
+      id: row.id,
+      serviceName: row.serviceName,
+      scopes,
+    };
+  }
+
+  async listAudit(apiKeyId: string) {
+    return this.auditRepository.find({
+      where: { apiKeyId },
+      order: { createdAt: 'DESC' },
+      take: 200,
+    });
+  }
+
+  private async getExisting(id: string) {
+    const existing = await this.apiKeyRepository.findOne({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        apiKey: true,
+        keyPrefix: true,
+        serviceName: true,
+        scopes: true,
+        description: true,
+        isActive: true,
+        expiresAt: true,
+        lastUsedAt: true,
+        revokedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException('API key was not found.');
+    }
+    return existing;
+  }
+
+  private async audit(
+    apiKey: Pick<TiramisApiKeyEntity, 'id' | 'serviceName'> | null,
+    action: string,
+    outcome: string,
+    metadata: Record<string, unknown> = {},
+  ) {
+    await this.auditRepository.save(
+      this.auditRepository.create({
+        apiKeyId: apiKey?.id ?? null,
+        action,
+        outcome,
+        serviceName: apiKey?.serviceName ?? null,
+        requestId:
+          typeof metadata.requestId === 'string' ? metadata.requestId : null,
+        ipAddress:
+          typeof metadata.ipAddress === 'string' ? metadata.ipAddress : null,
+        metadata,
+      }),
+    );
+  }
+
+  private generateRawKey(): string {
+    return `tms_${randomBytes(32).toString('base64url')}`;
+  }
+
+  private constantTimeEquals(left: string, right: string): boolean {
+    const leftBuffer = Buffer.from(left);
+    const rightBuffer = Buffer.from(right);
+    return (
+      leftBuffer.length === rightBuffer.length &&
+      timingSafeEqual(leftBuffer, rightBuffer)
+    );
+  }
+
+  private redact(entity: TiramisApiKeyEntity): TiramisApiKeyEntity {
+    return { ...entity, apiKey: undefined as unknown as string };
+  }
+}

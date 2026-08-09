@@ -2,7 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 import { TiramisConfigService } from './tiramis-config.service';
 
-describe('TiramisConfigService — cross-company rejection', () => {
+describe('TiramisConfigService organization context resolution', () => {
   const configuration = {
     id: 'config-1',
     environment: 'test',
@@ -34,7 +34,7 @@ describe('TiramisConfigService — cross-company rejection', () => {
     );
   });
 
-  it('rejects when no signed tenant context is present on the service principal', async () => {
+  it('rejects when no organization business context is present', async () => {
     requestContextService.getServicePrincipal.mockReturnValue(undefined);
 
     await expect(
@@ -42,7 +42,7 @@ describe('TiramisConfigService — cross-company rejection', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('rejects when the signed tenant context is missing companyCode/systemCode/environment', async () => {
+  it('rejects when organization context is missing companyCode/systemCode', async () => {
     requestContextService.getServicePrincipal.mockReturnValue({
       serviceId: 'svc-1',
       scopes: [],
@@ -54,7 +54,7 @@ describe('TiramisConfigService — cross-company rejection', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('resolves the configuration scoped to the signed company/system, never a mismatched one', async () => {
+  it('resolves configuration from service business context', async () => {
     requestContextService.getServicePrincipal.mockReturnValue({
       serviceId: 'svc-1',
       scopes: [],
@@ -84,28 +84,26 @@ describe('TiramisConfigService — cross-company rejection', () => {
     );
   });
 
-  it('rejects when the incoming DTO insurerCompanyCode conflicts with the signed tenant context (one company cannot submit under another company’s code)', async () => {
-    requestContextService.getServicePrincipal.mockReturnValue({
-      serviceId: 'svc-1',
-      scopes: [],
-      tenant: {
-        companyId: 'company-a',
+  it('uses incoming DTO organization context when service context is absent', async () => {
+    requestContextService.getServicePrincipal.mockReturnValue(undefined);
+
+    const result = await service.resolveSubmissionContext(
+      {
+        environment: 'test',
         companyCode: 'COMP-A',
         systemCode: 'SYS-A',
-        environment: 'test',
-        insurerCompanyCode: 'INS-A',
+        insurerCompanyCode: 'INS-B-FROM-REQUEST',
       },
-    });
+      'record-1',
+    );
 
-    await expect(
-      service.resolveSubmissionContext(
-        { insurerCompanyCode: 'INS-B-FROM-ANOTHER-COMPANY' },
-        'record-1',
-      ),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(result.dto.insurerCompanyCode).toBe('INS-B-FROM-REQUEST');
+    expect(result.dto.companyCode).toBe('COMP-A');
+    expect(result.dto.systemCode).toBe('SYS-A');
+    expect(result.configuration).toBe(configuration);
   });
 
-  it('overrides the resolved dto with the signed tenant insurerCompanyCode rather than trusting the caller-supplied value', async () => {
+  it('does not reject incoming insurerCompanyCode because it is business context, not authentication', async () => {
     requestContextService.getServicePrincipal.mockReturnValue({
       serviceId: 'svc-1',
       scopes: [],
@@ -119,9 +117,29 @@ describe('TiramisConfigService — cross-company rejection', () => {
     });
 
     const result = await service.resolveSubmissionContext(
-      { insurerCompanyCode: 'INS-A' },
+      { insurerCompanyCode: 'INS-B-FROM-REQUEST' },
       'record-1',
     );
+
+    expect(result.dto.insurerCompanyCode).toBe('INS-B-FROM-REQUEST');
+    expect(result.dto.companyCode).toBe('COMP-A');
+    expect(result.dto.systemCode).toBe('SYS-A');
+  });
+
+  it('uses service context values when the caller does not provide business codes', async () => {
+    requestContextService.getServicePrincipal.mockReturnValue({
+      serviceId: 'svc-1',
+      scopes: [],
+      tenant: {
+        companyId: 'company-a',
+        companyCode: 'COMP-A',
+        systemCode: 'SYS-A',
+        environment: 'test',
+        insurerCompanyCode: 'INS-A',
+      },
+    });
+
+    const result = await service.resolveSubmissionContext({}, 'record-1');
 
     expect(result.dto.insurerCompanyCode).toBe('INS-A');
     expect(result.dto.companyCode).toBe('COMP-A');

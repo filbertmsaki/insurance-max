@@ -7,16 +7,17 @@ import {
 } from '@nestjs/common';
 import { ApiExcludeController } from '@nestjs/swagger';
 
-import { ServiceAuthGuard, ServiceScopes } from '@insurance-max/shared-kernel';
 import { ServiceEndpoint } from '@insurance-max/portal-shared';
+import { RequireApiClientScopes } from '../../platform/api-clients/decorators/require-api-client-scopes.decorator';
+import { ApiKeyGuard } from '../../platform/api-clients/guards/api-key.guard';
 
 import type { TiramisNotificationEventDto } from './dto/tiramis-notification-event.dto';
 import { TiramisIntegrationService } from './tiramis-integration.service';
 
 @ApiExcludeController()
 @ServiceEndpoint()
-@UseGuards(ServiceAuthGuard)
-@ServiceScopes('tiramis:notify')
+@UseGuards(ApiKeyGuard)
+@RequireApiClientScopes('tiramis:notify')
 @Controller('webhooks/tiramis')
 export class TiramisIntegrationWebhookController {
   constructor(

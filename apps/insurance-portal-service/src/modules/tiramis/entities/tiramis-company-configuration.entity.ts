@@ -79,6 +79,14 @@ export class TiramisCompanyConfigurationEntity {
   clientKey!: string | null;
 
   @Column({
+    name: 'service_api_key_encrypted',
+    type: 'text',
+    nullable: true,
+    select: false,
+  })
+  serviceApiKeyEncrypted!: string | null;
+
+  @Column({
     name: 'system_code',
     type: 'varchar',
     length: 100,

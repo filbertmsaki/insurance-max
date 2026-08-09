@@ -17,8 +17,6 @@ import {
   ApiResponseInterceptor,
   ProductDefinitionModule,
   RequestContextModule,
-  ServiceAuthGuard,
-  ServiceAuthModule,
 } from '@insurance-max/shared-kernel';
 
 import applicationConfig from './config/application.config';
@@ -28,6 +26,10 @@ import { tiramisEnvValidationSchema } from './config/env.validation';
 import transportConfig from './config/transport.config';
 import { TiramisAccessAuditEntity } from './modules/audit/entities/tiramis-access-audit.entity';
 import { TiramisAuditModule } from './modules/audit/tiramis-audit.module';
+import { TiramisApiKeyAuditEntity } from './modules/api-keys/entities/tiramis-api-key-audit.entity';
+import { TiramisApiKeyEntity } from './modules/api-keys/entities/tiramis-api-key.entity';
+import { TiramisApiKeyGuard } from './modules/api-keys/guards/tiramis-api-key.guard';
+import { TiramisApiKeysModule } from './modules/api-keys/tiramis-api-keys.module';
 import { TiramisClientConfigurationEntity } from './modules/config/entities/tiramis-client-configuration.entity';
 import { TiramisResponseCodeEntity } from './modules/config/entities/tiramis-response-code.entity';
 import { TiramisServiceEndpointEntity } from './modules/config/entities/tiramis-service-endpoint.entity';
@@ -68,7 +70,7 @@ import { TiramisResponseInterceptor } from './common/interceptors/tiramis-respon
   imports: [
     ScheduleModule.forRoot(),
     RequestContextModule,
-    ServiceAuthModule,
+    TiramisApiKeysModule,
     ProductDefinitionModule,
     SharedConfigModule.forRoot({
       appName: 'tiramis',
@@ -120,6 +122,8 @@ import { TiramisResponseInterceptor } from './common/interceptors/tiramis-respon
               TiramisVerificationRequestEntity,
               TiramisVerificationResponseEntity,
               TiramisAccessAuditEntity,
+              TiramisApiKeyEntity,
+              TiramisApiKeyAuditEntity,
             ],
           },
         ),
@@ -138,7 +142,7 @@ import { TiramisResponseInterceptor } from './common/interceptors/tiramis-respon
 
     {
       provide: APP_GUARD,
-      useClass: ServiceAuthGuard,
+      useClass: TiramisApiKeyGuard,
     },
 
     {

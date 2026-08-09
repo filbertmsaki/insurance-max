@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Param, Post, Put } from '@nestjs/common';
 import { IsIn, IsOptional, IsString } from 'class-validator';
 
 import { ServiceScopes } from '@insurance-max/shared-kernel';
@@ -18,6 +18,11 @@ class ValidateOrganizationConfigurationDto {
   @IsOptional()
   @IsString()
   insurerCompanyCode?: string;
+}
+
+class SetPortalWebhookApiKeyDto {
+  @IsString()
+  apiKey!: string;
 }
 
 @Controller('tiramis/configurations')
@@ -45,5 +50,17 @@ export class TiramisConfigurationValidationController {
       companyCode: configuration.companyCode,
       systemCode: configuration.systemCode,
     };
+  }
+
+  @Put(':configurationId/portal-webhook-api-key')
+  @ServiceScopes('tiramis:admin')
+  setPortalWebhookApiKey(
+    @Param('configurationId') configurationId: string,
+    @Body() dto: SetPortalWebhookApiKeyDto,
+  ) {
+    return this.configService.setPortalWebhookApiKey(
+      configurationId,
+      dto.apiKey,
+    );
   }
 }

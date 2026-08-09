@@ -58,20 +58,20 @@ async function bootstrap() {
       [
         'Tiramis service API documentation.',
         '',
-        'Protected endpoints require a service JWT plus tenant headers.',
-        'For direct Swagger testing, generate a token with `npm run tiramis:token -- --company-id <company-id> --scopes tiramis:verify`.',
+        'Protected endpoints require only `X-API-Key`.',
+        'Tenant/company data may be sent as request business context, but it is not used to authenticate access to TIRAMIS.',
       ].join('\n'),
     )
     .setVersion(configService.get<string>('app.version') || 'v1')
-    .addBearerAuth(
+    .addApiKey(
       {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
+        type: 'apiKey',
+        name: 'X-API-Key',
+        in: 'header',
         description:
-          'Service JWT signed with SERVICE_AUTH_SECRET. Use issuer insurance-portal-service, audience tiramis-service.',
+          'Database-managed TIRAMIS service API key. The raw key is shown only when generated or rotated.',
       },
-      'service-token',
+      'api-key',
     )
     // The generated paths already contain the global prefix. Keep the server
     // URL at the origin so Swagger does not produce /api/api/... URLs.
@@ -81,11 +81,15 @@ async function bootstrap() {
 
   for (const pathItem of Object.values(swaggerDocument.paths)) {
     for (const operation of Object.values(pathItem ?? {})) {
-      if (!operation || typeof operation !== 'object' || !('responses' in operation)) {
+      if (
+        !operation ||
+        typeof operation !== 'object' ||
+        !('responses' in operation)
+      ) {
         continue;
       }
 
-      operation.security ??= [{ 'service-token': [] }];
+      operation.security ??= [{ 'api-key': [] }];
       operation.parameters ??= [];
 
       const parameters = operation.parameters as Array<{
@@ -95,23 +99,6 @@ async function bootstrap() {
         schema?: Record<string, unknown>;
         description?: string;
       }>;
-
-      if (
-        !parameters.some(
-          (parameter) =>
-            parameter.in === 'header' &&
-            parameter.name?.toLowerCase() === 'x-tenant-company-id',
-        )
-      ) {
-        parameters.push({
-          name: 'X-Tenant-Company-Id',
-          in: 'header',
-          required: false,
-          schema: { type: 'string' },
-          description:
-            'Required for tenant-scoped operations. Must match tenant.companyId in the service JWT.',
-        });
-      }
 
       if (
         !parameters.some(

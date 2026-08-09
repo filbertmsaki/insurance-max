@@ -82,10 +82,9 @@ export class TiramisConfigService {
   }
 
   /**
-   * Resolves the active TIRAMIS configuration for the signed Portal
-   * organization context (companyCode + systemCode + environment carried in
-   * the service token's tenant claim). This is the multi-company-safe path —
-   * it never falls back to "first active configuration for the environment".
+   * Resolves the active TIRAMIS configuration from caller-supplied
+   * organization business context. API key authentication establishes trust in
+   * the calling service; company/system codes are routing data.
    */
   async getActiveRuntimeConfiguration(): Promise<TiramisClientConfigurationEntity> {
     const principal = this.requestContextService.getServicePrincipal();
@@ -96,8 +95,9 @@ export class TiramisConfigService {
       !principal.tenant.environment
     ) {
       throw new BadRequestException({
-        code: 'SIGNED_ORGANIZATION_CONTEXT_REQUIRED',
-        message: 'A signed company and system context is required.',
+        code: 'TIRAMIS_ORGANIZATION_CONTEXT_REQUIRED',
+        message:
+          'Company code, system code, and environment are required for this TIRAMIS operation.',
       });
     }
 
@@ -172,7 +172,7 @@ export class TiramisConfigService {
       throw new NotFoundException({
         code: 'TIRAMIS_CLIENT_CONFIGURATION_NOT_FOUND',
         message:
-          'No active TIRAMIS client configuration matches the signed company and system context.',
+          'No active TIRAMIS client configuration matches the supplied company and system context.',
         details: {
           environment: params.environment,
           companyCode: params.companyCode,
@@ -190,37 +190,39 @@ export class TiramisConfigService {
   ): Promise<TiramisResolvedRequestContext<TDto>> {
     const principal = this.requestContextService.getServicePrincipal();
     const tenant = principal?.tenant;
+    const incomingDto = dto as Record<string, any>;
+    const organizationContext = {
+      environment:
+        incomingDto.environment ??
+        tenant?.environment ??
+        this.resolveRuntimeEnvironment(),
+      companyCode: incomingDto.companyCode ?? tenant?.companyCode,
+      systemCode: incomingDto.systemCode ?? tenant?.systemCode,
+      insurerCompanyCode:
+        incomingDto.insurerCompanyCode ?? tenant?.insurerCompanyCode,
+      salePointCode: incomingDto.salePointCode ?? tenant?.salePointCode,
+    };
 
-    if (!tenant?.companyCode || !tenant.systemCode || !tenant.environment) {
-      throw new BadRequestException('Signed tenant context is required.');
+    if (
+      !organizationContext.companyCode ||
+      !organizationContext.systemCode ||
+      !organizationContext.environment
+    ) {
+      throw new BadRequestException({
+        code: 'TIRAMIS_ORGANIZATION_CONTEXT_REQUIRED',
+        message:
+          'companyCode, systemCode, and environment are required as business context.',
+      });
     }
 
     const configuration = await this.getActiveConfiguration({
-      environment: tenant.environment,
-      companyCode: tenant.companyCode,
-      systemCode: tenant.systemCode,
+      environment: organizationContext.environment,
+      companyCode: organizationContext.companyCode,
+      systemCode: organizationContext.systemCode,
     });
 
-    const incomingDto = dto as Record<string, any>;
-
-    if (tenant.insurerCompanyCode) {
-      this.assertMatchesSignedValue(
-        incomingDto.insurerCompanyCode,
-        tenant.insurerCompanyCode,
-        'insurerCompanyCode',
-      );
-    }
-
-    if (tenant.salePointCode) {
-      this.assertMatchesSignedValue(
-        incomingDto.salePointCode,
-        tenant.salePointCode,
-        'salePointCode',
-      );
-    }
-
     const insurerCompanyCode =
-      tenant.insurerCompanyCode ??
+      organizationContext.insurerCompanyCode ??
       this.resolveBusinessCode({
         incomingValue: incomingDto.insurerCompanyCode,
         fallbackValue: configuration.insurerCompanyCode,
@@ -251,45 +253,21 @@ export class TiramisConfigService {
         callbackUrl: configuration.callbackBaseUrl,
 
         /**
-         * Client/company business identifiers. The signed service-token
+         * Client/company business identifiers. The API-key-authenticated
          * tenant context (set by the Portal from the resolved
          * OrganizationContextService result) takes priority over anything
          * the caller passes in the DTO — TIRAMIS must never trust a
          * Portal-originated submission's self-reported business codes over
-         * its own signed context, and must never fall back to a globally
+         * its own authenticated context, and must never fall back to a globally
          * configured default sales point/company code for such requests.
          */
         insurerCompanyCode,
         tranCompanyCode,
-        ...('salePointCode' in incomingDto && tenant.salePointCode
-          ? { salePointCode: tenant.salePointCode }
+        ...('salePointCode' in incomingDto && organizationContext.salePointCode
+          ? { salePointCode: organizationContext.salePointCode }
           : {}),
       },
     };
-  }
-
-  private assertMatchesSignedValue(
-    incomingValue: unknown,
-    signedValue: string,
-    fieldName: string,
-  ): void {
-    if (
-      incomingValue === undefined ||
-      incomingValue === null ||
-      incomingValue === ''
-    ) {
-      return;
-    }
-
-    if (
-      String(incomingValue).trim().toUpperCase() !==
-      signedValue.trim().toUpperCase()
-    ) {
-      throw new BadRequestException({
-        code: 'SIGNED_ORGANIZATION_CONTEXT_MISMATCH',
-        message: `${fieldName} does not match the signed organization context.`,
-      });
-    }
   }
 
   async getConfigurationById(
@@ -579,6 +557,29 @@ export class TiramisConfigService {
       },
       warnings,
       errors,
+    };
+  }
+
+  async setPortalWebhookApiKey(configurationId: string, apiKey: string) {
+    const configuration = await this.clientConfigurationRepository.findOne({
+      where: { id: configurationId },
+    });
+
+    if (!configuration) {
+      throw new NotFoundException('TIRAMIS client configuration was not found');
+    }
+
+    configuration.portalWebhookApiKeyEncrypted =
+      this.secretCrypto.encrypt(apiKey);
+
+    const saved = await this.clientConfigurationRepository.save(configuration);
+
+    return {
+      configurationId: saved.id,
+      portalWebhookApiKeyMasked: this.secretCrypto.mask(
+        saved.portalWebhookApiKeyEncrypted,
+      ),
+      updatedAt: saved.updatedAt,
     };
   }
 

@@ -1,4 +1,4 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException } from '@nestjs/common';
 import {
   TiramisIntegrationCommand,
   TiramisIntegrationSchemaVersion,
@@ -19,6 +19,7 @@ describe('TiramisIntegrationService', () => {
       contractVersion: '1.0',
       command: TiramisIntegrationCommand.SUBMIT,
       requestType: 'MOTOR_COVER_NOTE',
+      environment: 'test',
       idempotencyKey: 'idem-1',
       correlationId: 'corr-1',
       causationId: 'cause-1',
@@ -33,7 +34,44 @@ describe('TiramisIntegrationService', () => {
         quotationId: 'quotation-1',
         workflowRevision: 1,
       },
-      context: { tenant: 'company-1' },
+      context: {
+        organization: {
+          insurerCompanyId: 'company-1',
+          operatingCompanyId: 'company-1',
+          branchId: 'branch-1',
+          branchCode: 'BR-1',
+          departmentId: null,
+          salePointId: 'sale-point-1',
+          salePointCode: 'SP-1',
+          companyMembershipId: 'membership-1',
+        },
+        distribution: {
+          relationshipId: null,
+          distributionChannelId: 'DIRECT',
+          channelType: 'DIRECT',
+          intermediaryCompanyId: null,
+          intermediaryAgentId: null,
+          transactionCompanyCode: 'COMP-A',
+          commissionRate: null,
+          commissionAmount: null,
+        },
+        product: {
+          productId: 'product-1',
+          productVersionId: 'product-version-1',
+          productCode: 'MOTOR',
+          productDefinitionHash: 'hash-1',
+          insuranceCategoryCode: 'MOTOR',
+          insuranceSubClassCode: null,
+          riskCodes: [],
+        },
+        pricing: null,
+        insuredData: null,
+        quotationGate: null,
+        finance: null,
+        policyTransaction: null,
+        claim: null,
+        reinsurance: null,
+      },
       payload: { CoverNote: { CoverNoteNo: 'CN-1' } },
     } as Omit<TiramisSubmissionEnvelope, 'hashes'>;
 
@@ -61,11 +99,6 @@ describe('TiramisIntegrationService', () => {
       currentRequestId: null,
     };
     const deps = {
-      requestContextService: {
-        getServicePrincipal: jest.fn(() => ({
-          tenant: { companyId: 'company-1' },
-        })),
-      },
       requestIdService: { generate: jest.fn(() => 'REQ-1') },
       submissionService: {
         createTransaction: jest.fn(async () => transaction),
@@ -87,7 +120,6 @@ describe('TiramisIntegrationService', () => {
       deps,
       service: new TiramisIntegrationService(
         hashService,
-        deps.requestContextService as never,
         deps.requestIdService,
         deps.submissionService as never,
         deps.transactionRepository as never,
@@ -128,19 +160,14 @@ describe('TiramisIntegrationService', () => {
     expect(deps.ingressRequestRepository.save).toHaveBeenCalled();
   });
 
-  it('rejects a signed tenant context that does not match the envelope source', async () => {
+  it('accepts an envelope regardless of tenant context because API key is the only TIRAMIS auth gate', async () => {
     const envelope = buildEnvelope();
-    const { service } = makeService({
-      requestContextService: {
-        getServicePrincipal: jest.fn(() => ({
-          tenant: { companyId: 'other-company' },
-        })),
-      },
-    });
+    const { service } = makeService();
 
-    await expect(service.acceptSubmission(envelope)).rejects.toBeInstanceOf(
-      UnauthorizedException,
-    );
+    await expect(service.acceptSubmission(envelope)).resolves.toMatchObject({
+      transactionId: 'transaction-1',
+      status: TiramisIntegrationStatus.ACCEPTED_BY_TIRAMIS_SERVICE,
+    });
   });
 
   it('rejects idempotency reuse with a different envelope hash', async () => {

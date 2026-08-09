@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { TiramisHttpModule } from '../../../integrations/tiramis/tiramis-http.module';
+import { ApiClientsModule } from '../../platform/api-clients/api-clients.module';
 import { Branch } from '../branches/entities/branch.entity';
 import { IssuanceModule } from '../issuance/issuance.module';
 import { Policy } from '../policies/entities/policy.entity';
@@ -12,6 +13,7 @@ import { QuotationStatusHistory } from '../quotations/entities/quotation-status-
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationsModule } from '../quotations/quotations.module';
 import { TiramisSalePointEntity } from '../../tiramis/entities/tiramis-sale-point.entity';
+import { TiramisCompanyConfigurationEntity } from '../../tiramis/entities/tiramis-company-configuration.entity';
 import { TiramisModule } from '../../tiramis/tiramis.module';
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
 import { TiramisClientService } from './tiramis-client.service';
@@ -37,8 +39,10 @@ import { TiramisIntegrationService } from './tiramis-integration.service';
       Quotation,
       Branch,
       TiramisSalePointEntity,
+      TiramisCompanyConfigurationEntity,
     ]),
     TiramisHttpModule,
+    ApiClientsModule,
   ],
   controllers: [
     TiramisIntegrationController,
