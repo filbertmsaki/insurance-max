@@ -37,6 +37,7 @@
     "test:all": "npm run test:backend && npm run test:web",
     "test:e2e": "npm run test:tiramis:e2e",
     "test:tiramis:e2e": "node scripts/tiramis-e2e-test.js",
+    "tiramis:token": "node scripts/generate-tiramis-service-token.mjs",
     "pretest:tiramis:e2e": "npm run db:prepare:tiramis:e2e",
     "db:backup": "node scripts/db-maintenance.js backup",
     "db:wipe": "node scripts/db-maintenance.js wipe",

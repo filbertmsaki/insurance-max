@@ -44,14 +44,14 @@ export interface QuotationListItemResponse {
   requires_payment: boolean;
   is_fleet: boolean;
   fleet_id: string | null;
-  currency_code: string;
-  product_code: string;
+  currency_code: string | null;
+  product_code: string | null;
   product_name: string | null;
   customer_name: string | null;
   vehicle_registration_number: string | null;
   vehicle_chassis_number: string | null;
-  cover_note_start_date: string;
-  cover_note_end_date: string;
+  cover_note_start_date: string | null;
+  cover_note_end_date: string | null;
   total_premium_excluding_tax: number;
   total_premium_including_tax: number;
   submitted_at: string | null;
@@ -120,7 +120,7 @@ export class QuotationPayloadMapper {
     quotation: Quotation,
     extra?: QuotationListItemExtra,
   ): QuotationListItemResponse {
-    const coverNote = this.requireCoverNote(quotation);
+    const coverNote = quotation.cover_note ?? null;
     const display = this.quotationDisplayStatusResolver.resolve(quotation);
 
     return {
@@ -139,25 +139,31 @@ export class QuotationPayloadMapper {
       requires_approval: quotation.requires_approval,
       requires_payment: quotation.requires_payment,
       is_fleet: quotation.is_fleet,
-      fleet_id: coverNote.fleet_id,
-      currency_code: coverNote.currency_code,
-      product_code: coverNote.product_code,
+      fleet_id: coverNote?.fleet_id ?? null,
+      currency_code: coverNote?.currency_code ?? null,
+      product_code: coverNote?.product_code ?? null,
       product_name: quotation.product?.product_name ?? null,
       customer_name: extra?.customerName ?? null,
       vehicle_registration_number: extra?.vehicleRegistrationNumber ?? null,
       vehicle_chassis_number: extra?.vehicleChassisNumber ?? null,
-      cover_note_start_date: formatTiramisDateTime(
-        coverNote.cover_note_start_date,
-      ),
-      cover_note_end_date: formatTiramisDateTime(coverNote.cover_note_end_date),
-      total_premium_excluding_tax: this.toNumber(
-        coverNote.total_premium_excluding_tax,
-        'total_premium_excluding_tax',
-      ),
-      total_premium_including_tax: this.toNumber(
-        coverNote.total_premium_including_tax,
-        'total_premium_including_tax',
-      ),
+      cover_note_start_date: coverNote
+        ? formatTiramisDateTime(coverNote.cover_note_start_date)
+        : null,
+      cover_note_end_date: coverNote
+        ? formatTiramisDateTime(coverNote.cover_note_end_date)
+        : null,
+      total_premium_excluding_tax: coverNote
+        ? this.toNumber(
+            coverNote.total_premium_excluding_tax,
+            'total_premium_excluding_tax',
+          )
+        : 0,
+      total_premium_including_tax: coverNote
+        ? this.toNumber(
+            coverNote.total_premium_including_tax,
+            'total_premium_including_tax',
+          )
+        : 0,
       submitted_at: quotation.submitted_at
         ? quotation.submitted_at.toISOString()
         : null,

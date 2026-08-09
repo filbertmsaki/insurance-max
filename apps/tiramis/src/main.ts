@@ -54,15 +54,86 @@ async function bootstrap() {
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle(configService.getOrThrow<string>('app.name'))
-    .setDescription('Tiramis service API documentation')
+    .setDescription(
+      [
+        'Tiramis service API documentation.',
+        '',
+        'Protected endpoints require a service JWT plus tenant headers.',
+        'For direct Swagger testing, generate a token with `npm run tiramis:token -- --company-id <company-id> --scopes tiramis:verify`.',
+      ].join('\n'),
+    )
     .setVersion(configService.get<string>('app.version') || 'v1')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description:
+          'Service JWT signed with SERVICE_AUTH_SECRET. Use issuer insurance-portal-service, audience tiramis-service.',
+      },
+      'service-token',
+    )
     // The generated paths already contain the global prefix. Keep the server
     // URL at the origin so Swagger does not produce /api/api/... URLs.
     .addServer(appBaseUrl)
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+
+  for (const pathItem of Object.values(swaggerDocument.paths)) {
+    for (const operation of Object.values(pathItem ?? {})) {
+      if (!operation || typeof operation !== 'object' || !('responses' in operation)) {
+        continue;
+      }
+
+      operation.security ??= [{ 'service-token': [] }];
+      operation.parameters ??= [];
+
+      const parameters = operation.parameters as Array<{
+        name?: string;
+        in?: string;
+        required?: boolean;
+        schema?: Record<string, unknown>;
+        description?: string;
+      }>;
+
+      if (
+        !parameters.some(
+          (parameter) =>
+            parameter.in === 'header' &&
+            parameter.name?.toLowerCase() === 'x-tenant-company-id',
+        )
+      ) {
+        parameters.push({
+          name: 'X-Tenant-Company-Id',
+          in: 'header',
+          required: false,
+          schema: { type: 'string' },
+          description:
+            'Required for tenant-scoped operations. Must match tenant.companyId in the service JWT.',
+        });
+      }
+
+      if (
+        !parameters.some(
+          (parameter) =>
+            parameter.in === 'header' &&
+            parameter.name?.toLowerCase() === 'x-source-service',
+        )
+      ) {
+        parameters.push({
+          name: 'x-source-service',
+          in: 'header',
+          required: false,
+          schema: { type: 'string', default: 'insurance-portal-service' },
+          description: 'Calling service name for direct service API testing.',
+        });
+      }
+    }
+  }
+
   SwaggerModule.setup('docs', app, swaggerDocument, {
     useGlobalPrefix: true,
+    swaggerOptions: { persistAuthorization: true },
   });
 
   app.connectMicroservice<MicroserviceOptions>({
