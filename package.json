@@ -20,6 +20,7 @@
     "build": "npm run build:all",
     "build:tiramis": "nest build tiramis",
     "tiramis:api-key:create": "node -r ts-node/register -r tsconfig-paths/register scripts/create-tiramis-api-key.ts",
+    "tiramis:api-key:create:production": "node scripts/create-tiramis-api-key.production.js",
     "build:insurance-portal-service": "nest build insurance-portal-service",
     "build:insurance-portal-web": "npm --prefix apps/insurance-portal-web run build",
     "build:all": "npm run build:tiramis && npm run build:insurance-portal-service && npm run build:insurance-portal-web",

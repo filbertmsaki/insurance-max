@@ -65,6 +65,16 @@ cd /opt/apps/tiramis/current
 npm run seed:tiramis:config:production
 ```
 
+Create the service API key after migrations have created `tiramis_api_keys`:
+
+```bash
+cd /opt/apps/tiramis/current
+npm run tiramis:api-key:create:production
+```
+
+The raw key is printed once. Store it in the calling service secret store and
+send it as the `X-API-Key` header.
+
 For manual migration checks on the production release, use the compiled
 production scripts:
 

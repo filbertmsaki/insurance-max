@@ -119,7 +119,7 @@ jobs:
           rm -rf "$RELEASE_DIR"
           rm -f "$ARCHIVE" "$CHECKSUM"
 
-          mkdir -p "$RELEASE_DIR/deploy/tiramis"
+          mkdir -p "$RELEASE_DIR/deploy/tiramis" "$RELEASE_DIR/scripts"
 
           echo "Copying build output"
 
@@ -131,6 +131,9 @@ jobs:
 
           cp deploy/tiramis/ecosystem.config.js \
             "$RELEASE_DIR/deploy/tiramis/ecosystem.config.js"
+
+          cp scripts/create-tiramis-api-key.production.js \
+            "$RELEASE_DIR/scripts/create-tiramis-api-key.production.js"
 
           chmod 750 \
             "$RELEASE_DIR/deploy/tiramis/deploy.sh"
