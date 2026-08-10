@@ -33,6 +33,9 @@ describe('TiramisApiKeyService', () => {
     const created = await service.create({
       name: 'Portal',
       serviceName: 'insurance-portal-service',
+      tenantCompanyCode: 'ICC110',
+      tenantSystemCode: 'LSYS_ALLIANCE_003',
+      tenantEnvironment: 'live',
       scopes: ['tiramis:submit'],
     });
 
@@ -41,6 +44,9 @@ describe('TiramisApiKeyService', () => {
       expect.objectContaining({
         apiKey: created.apiKey,
         serviceName: 'insurance-portal-service',
+        tenantCompanyCode: 'ICC110',
+        tenantSystemCode: 'LSYS_ALLIANCE_003',
+        tenantEnvironment: 'live',
       }),
     );
     expect(apiKeyRepository.save.mock.calls[0][0]).toEqual(
@@ -104,6 +110,9 @@ describe('TiramisApiKeyService', () => {
       apiKey: rawKey,
       serviceName: 'insurance-portal-service',
       scopes: ['tiramis:submit'],
+      tenantCompanyCode: 'ICC110',
+      tenantSystemCode: 'LSYS_ALLIANCE_003',
+      tenantEnvironment: 'live',
       isActive: true,
       revokedAt: null,
       expiresAt: null,
@@ -115,6 +124,9 @@ describe('TiramisApiKeyService', () => {
       id: 'key-id',
       serviceName: 'insurance-portal-service',
       scopes: ['tiramis:submit'],
+      tenantCompanyCode: 'ICC110',
+      tenantSystemCode: 'LSYS_ALLIANCE_003',
+      tenantEnvironment: 'live',
     });
     expect(apiKeyRepository.update).toHaveBeenCalledWith('key-id', {
       lastUsedAt: expect.any(Date),

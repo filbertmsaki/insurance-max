@@ -69,11 +69,16 @@ Create the service API key after migrations have created `tiramis_api_keys`:
 
 ```bash
 cd /opt/apps/tiramis/current
-npm run tiramis:api-key:create:production
+npm run tiramis:api-key:create:production -- \
+  --company-code=ICC110 \
+  --system-code=LSYS_ALLIANCE_003 \
+  --environment=live
 ```
 
 The raw key is printed once. Store it in the calling service secret store and
-send it as the `X-API-Key` header.
+send it as the `X-API-Key` header. Keys created with the three context flags can
+call direct TIRAMIS endpoints without an `X-Service-Context` header; an explicit
+`X-Service-Context` header still overrides the key defaults.
 
 For manual migration checks on the production release, use the compiled
 production scripts:

@@ -26,6 +26,30 @@ export class TiramisApiKeyEntity {
   @Column({ name: 'service_name', type: 'varchar', length: 120 })
   serviceName!: string;
 
+  @Column({
+    name: 'tenant_company_code',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  tenantCompanyCode!: string | null;
+
+  @Column({
+    name: 'tenant_system_code',
+    type: 'varchar',
+    length: 80,
+    nullable: true,
+  })
+  tenantSystemCode!: string | null;
+
+  @Column({
+    name: 'tenant_environment',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+  })
+  tenantEnvironment!: string | null;
+
   @Column({ type: 'simple-array', nullable: true })
   scopes!: string[] | null;
 

@@ -19,6 +19,21 @@ export class UpdateTiramisApiKeyDto {
   serviceName?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  tenantCompanyCode?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  tenantSystemCode?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  tenantEnvironment?: string | null;
+
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
   scopes?: string[];

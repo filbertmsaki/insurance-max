@@ -13,6 +13,9 @@ function readArg(name: string, fallback?: string): string | undefined {
 async function main() {
   const name = readArg('name', 'Insurance Portal Service');
   const serviceName = readArg('service', 'insurance-portal-service');
+  const tenantCompanyCode = readArg('company-code', undefined);
+  const tenantSystemCode = readArg('system-code', undefined);
+  const tenantEnvironment = readArg('environment', undefined);
   const expiresAtValue = readArg('expires-at', undefined);
   const scopes = (
     readArg(
@@ -32,6 +35,9 @@ async function main() {
       repository.create({
         name,
         serviceName,
+        tenantCompanyCode: tenantCompanyCode || null,
+        tenantSystemCode: tenantSystemCode || null,
+        tenantEnvironment: tenantEnvironment || null,
         apiKey,
         keyPrefix: apiKey.slice(0, 18),
         scopes,
@@ -53,6 +59,9 @@ async function main() {
 
     console.log(`API key id: ${saved.id}`);
     console.log(`Service: ${serviceName}`);
+    console.log(`Company code: ${tenantCompanyCode || ''}`);
+    console.log(`System code: ${tenantSystemCode || ''}`);
+    console.log(`Environment: ${tenantEnvironment || ''}`);
     console.log(`Scopes: ${scopes.join(',')}`);
     console.log(`API key: ${apiKey}`);
   } finally {

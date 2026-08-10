@@ -74,20 +74,54 @@ export class TiramisApiKeyGuard implements CanActivate {
     apiKey: {
       serviceName: string;
       scopes: string[];
+      tenantCompanyCode?: string | null;
+      tenantSystemCode?: string | null;
+      tenantEnvironment?: string | null;
     },
   ): ServicePrincipal {
     const context = this.resolveServiceContext(request);
+    const tenant = this.buildTenantContext(context, apiKey);
 
     return {
       serviceId: apiKey.serviceName,
       scopes: apiKey.scopes,
-      tenant: context.tenant,
+      tenant,
       actor: context.actor,
       product: context.product,
       pricing: context.pricing,
       insuredData: context.insuredData,
       quotationGate: context.quotationGate,
       finance: context.finance,
+    };
+  }
+
+  private buildTenantContext(
+    context: Partial<ServicePrincipal>,
+    apiKey: {
+      serviceName: string;
+      tenantCompanyCode?: string | null;
+      tenantSystemCode?: string | null;
+      tenantEnvironment?: string | null;
+    },
+  ): ServicePrincipal['tenant'] {
+    const tenant = context.tenant;
+    const companyCode = tenant?.companyCode ?? apiKey.tenantCompanyCode;
+    const systemCode = tenant?.systemCode ?? apiKey.tenantSystemCode;
+    const environment = tenant?.environment ?? apiKey.tenantEnvironment;
+    const companyId = tenant?.companyId ?? companyCode;
+
+    if (!companyId && !companyCode && !systemCode && !environment) {
+      return undefined;
+    }
+
+    return {
+      companyId: companyId ?? apiKey.serviceName,
+      ...tenant,
+      ...(companyCode ? { companyCode } : {}),
+      ...(systemCode ? { systemCode } : {}),
+      ...(environment === 'test' || environment === 'live'
+        ? { environment }
+        : {}),
     };
   }
 

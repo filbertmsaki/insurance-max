@@ -17,6 +17,24 @@ export class CreateTiramisApiKeyDto {
   @MaxLength(120)
   serviceName!: string;
 
+  @ApiPropertyOptional({ example: 'ICC110' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  tenantCompanyCode?: string | null;
+
+  @ApiPropertyOptional({ example: 'LSYS_ALLIANCE_003' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  tenantSystemCode?: string | null;
+
+  @ApiPropertyOptional({ example: 'live' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  tenantEnvironment?: string | null;
+
   @ApiPropertyOptional({ example: ['tiramis:submit', 'tiramis:read'] })
   @IsOptional()
   @IsArray()

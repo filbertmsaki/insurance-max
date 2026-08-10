@@ -24,6 +24,9 @@ export interface TiramisApiKeyPrincipal {
   id: string;
   serviceName: string;
   scopes: string[];
+  tenantCompanyCode?: string | null;
+  tenantSystemCode?: string | null;
+  tenantEnvironment?: string | null;
 }
 
 @Injectable()
@@ -42,6 +45,9 @@ export class TiramisApiKeyService {
     const entity = this.apiKeyRepository.create({
       name: dto.name,
       serviceName: dto.serviceName,
+      tenantCompanyCode: dto.tenantCompanyCode ?? null,
+      tenantSystemCode: dto.tenantSystemCode ?? null,
+      tenantEnvironment: dto.tenantEnvironment ?? null,
       apiKey,
       keyPrefix: apiKey.slice(0, 18),
       scopes: dto.scopes ?? [],
@@ -81,6 +87,18 @@ export class TiramisApiKeyService {
     await this.apiKeyRepository.update(id, {
       name: dto.name ?? existing.name,
       serviceName: dto.serviceName ?? existing.serviceName,
+      tenantCompanyCode:
+        dto.tenantCompanyCode === undefined
+          ? existing.tenantCompanyCode
+          : dto.tenantCompanyCode,
+      tenantSystemCode:
+        dto.tenantSystemCode === undefined
+          ? existing.tenantSystemCode
+          : dto.tenantSystemCode,
+      tenantEnvironment:
+        dto.tenantEnvironment === undefined
+          ? existing.tenantEnvironment
+          : dto.tenantEnvironment,
       scopes: dto.scopes ?? existing.scopes,
       description:
         dto.description === undefined ? existing.description : dto.description,
@@ -157,6 +175,9 @@ export class TiramisApiKeyService {
         apiKey: true,
         keyPrefix: true,
         serviceName: true,
+        tenantCompanyCode: true,
+        tenantSystemCode: true,
+        tenantEnvironment: true,
         scopes: true,
         description: true,
         isActive: true,
@@ -209,6 +230,9 @@ export class TiramisApiKeyService {
       id: row.id,
       serviceName: row.serviceName,
       scopes,
+      tenantCompanyCode: row.tenantCompanyCode,
+      tenantSystemCode: row.tenantSystemCode,
+      tenantEnvironment: row.tenantEnvironment,
     };
   }
 
@@ -229,6 +253,9 @@ export class TiramisApiKeyService {
         apiKey: true,
         keyPrefix: true,
         serviceName: true,
+        tenantCompanyCode: true,
+        tenantSystemCode: true,
+        tenantEnvironment: true,
         scopes: true,
         description: true,
         isActive: true,
