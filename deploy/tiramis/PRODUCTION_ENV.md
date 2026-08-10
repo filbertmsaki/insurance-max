@@ -65,6 +65,19 @@ cd /opt/apps/tiramis/current
 npm run seed:tiramis:config:production
 ```
 
+For manual migration checks on the production release, use the compiled
+production scripts:
+
+```bash
+cd /opt/apps/tiramis/current
+npm run migration:show:tiramis:production
+npm run migration:run:tiramis:production
+```
+
+Do not use `npm run migration:run:tiramis` on production releases installed
+with `npm ci --omit=dev`; that development script requires `ts-node` and
+`tsconfig-paths`.
+
 The public health URL should return HTTP 200:
 
 ```bash
