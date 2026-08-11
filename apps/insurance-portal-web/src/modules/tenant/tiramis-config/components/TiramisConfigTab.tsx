@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, ShieldCheck, XCircle } from 'lucide-react';
+import { CheckCircle2, KeyRound, ShieldCheck, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -35,7 +35,11 @@ const schema = z.object({
   client_code: z.string().max(60).optional().or(z.literal('')),
   system_code: z.string().min(1, 'Required').max(100),
   system_name: z.string().max(150).optional().or(z.literal('')),
+  base_url: z.string().url('Invalid URL').optional().or(z.literal('')),
+  source_service: z.string().max(100).optional().or(z.literal('')),
   callback_url: z.string().url('Invalid URL').optional().or(z.literal('')),
+  tiramis_service_api_key: z.string().optional().or(z.literal('')),
+  use_as_target_environment: z.boolean().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -84,7 +88,11 @@ function EnvironmentPanel({
       client_code: config?.clientCode ?? '',
       system_code: config?.systemCode ?? '',
       system_name: config?.systemName ?? '',
+      base_url: config?.baseUrl ?? '',
+      source_service: config?.sourceService ?? '',
       callback_url: config?.callbackUrl ?? '',
+      tiramis_service_api_key: '',
+      use_as_target_environment: config?.isTargetEnvironment ?? false,
     },
   });
 
@@ -96,7 +104,12 @@ function EnvironmentPanel({
         client_code: values.client_code || undefined,
         system_code: values.system_code,
         system_name: values.system_name || undefined,
+        base_url: values.base_url || undefined,
+        source_service: values.source_service || undefined,
         callback_url: values.callback_url || undefined,
+        tiramis_service_api_key:
+          values.tiramis_service_api_key || undefined,
+        use_as_target_environment: values.use_as_target_environment,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -142,7 +155,12 @@ function EnvironmentPanel({
               : 'Sandbox TIRAMIS credentials used for testing.'}
           </CardDescription>
         </div>
-        {config && <ValidationBadge status={config.validationStatus} />}
+        <div className="flex flex-col items-end gap-2">
+          {config?.isTargetEnvironment && (
+            <Badge variant="secondary">Active target</Badge>
+          )}
+          {config && <ValidationBadge status={config.validationStatus} />}
+        </div>
       </CardHeader>
       <CardContent>
         {editing ? (
@@ -153,7 +171,7 @@ function EnvironmentPanel({
               )}
               className="space-y-4"
             >
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="company_code"
@@ -235,7 +253,84 @@ function EnvironmentPanel({
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={form.control}
+                  name="base_url"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>TIRAMIS_SERVICE_BASE_URL</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="https://ussdvd.alliance.co.tz/tiramis-api"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="source_service"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>TIRAMIS_SOURCE_SERVICE</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="insurance-portal-service"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="tiramis_service_api_key"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>TIRAMIS Service API Key</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          autoComplete="off"
+                          placeholder={
+                            config?.serviceApiKeyMasked ||
+                            'Paste tms_ API key'
+                          }
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
+              <FormField
+                control={form.control}
+                name="use_as_target_environment"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-md border border-slate-200 p-3">
+                    <div>
+                      <FormLabel>TIRAMIS_TARGET_ENV</FormLabel>
+                      <p className="text-sm text-slate-500">
+                        Overrides TIRAMIS_TARGET_ENV for this company.
+                      </p>
+                    </div>
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-300"
+                        checked={!!field.value}
+                        onChange={(event) =>
+                          field.onChange(event.target.checked)
+                        }
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
               <div className="flex justify-end gap-2">
                 {config && (
                   <Button
@@ -254,7 +349,7 @@ function EnvironmentPanel({
           </Form>
         ) : (
           <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm md:grid-cols-2">
               <div>
                 <span className="text-slate-500">Company Code:</span>{' '}
                 {config?.companyCode}
@@ -270,6 +365,25 @@ function EnvironmentPanel({
               <div>
                 <span className="text-slate-500">System Name:</span>{' '}
                 {config?.systemName ?? '—'}
+              </div>
+              <div>
+                <span className="text-slate-500">Service URL:</span>{' '}
+                {config?.baseUrl ?? 'Global default'}
+              </div>
+              <div>
+                <span className="text-slate-500">Source Service:</span>{' '}
+                {config?.sourceService ?? 'Global default'}
+              </div>
+              <div>
+                <span className="text-slate-500">API Key:</span>{' '}
+                {config?.serviceApiKeyMasked ? (
+                  <span className="inline-flex items-center gap-1">
+                    <KeyRound className="h-3.5 w-3.5" />
+                    {config.serviceApiKeyMasked}
+                  </span>
+                ) : (
+                  'Not configured'
+                )}
               </div>
               {config?.validationMessage && (
                 <div className="col-span-2 text-slate-500">

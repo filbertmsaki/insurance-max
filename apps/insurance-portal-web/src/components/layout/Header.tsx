@@ -68,6 +68,7 @@ const ROUTE_LABELS: [string, string[]][] = [
   ['/underwriting/quotations', ['Underwriting', 'Quotations']],
   ['/underwriting/policies', ['Underwriting', 'Policies']],
   ['/tiramis/submissions', ['TIRAMIS', 'Submissions']],
+  ['/tiramis/configuration', ['TIRAMIS', 'Configuration']],
   ['/underwriting/motor/vehicles', ['Underwriting', 'Motor Vehicles']],
   ['/underwriting/motor/fleets', ['Underwriting', 'Motor Fleets']],
   ['/underwriting/customers', ['Underwriting', 'Customers']],

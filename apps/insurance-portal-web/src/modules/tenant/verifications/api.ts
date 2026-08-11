@@ -22,6 +22,7 @@ export interface VerificationResult {
   registrationNumber: string | null;
   coverNoteReferenceNumber: string | null;
   verifiedRecordDetails: unknown;
+  xml?: string | null;
   respondedAt: string | null;
   fullResponse: Record<string, unknown>;
 }

@@ -93,6 +93,14 @@ export class VerificationsService {
       normalizedVerification?.details ??
       liveResponse.verifiedRecordDetails ??
       null;
+    const xml =
+      liveResponse.xml ??
+      storedPayload.xml ??
+      storedAttempt.responseXml ??
+      storedAttempt.payloads?.responseXml ??
+      storedFinalResponse.rawXml ??
+      storedFinalResponse.xml ??
+      null;
     const responseCode =
       normalizedVerification?.responseCode ??
       tira.statusCode ??
@@ -131,6 +139,7 @@ export class VerificationsService {
       registrationNumber: payload.motorRegistrationNumber ?? null,
       coverNoteReferenceNumber: payload.coverNoteReferenceNumber ?? null,
       verifiedRecordDetails,
+      xml,
       respondedAt: tira.receivedAt ?? new Date().toISOString(),
       fullResponse: {
         success: liveResponse.success === true,
@@ -153,6 +162,7 @@ export class VerificationsService {
             normalizedVerification?.respondedAt ?? tira.receivedAt ?? null,
         },
         verifiedRecordDetails,
+        xml,
       },
     };
   }

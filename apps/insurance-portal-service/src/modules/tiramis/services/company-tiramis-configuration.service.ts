@@ -21,7 +21,32 @@ export class CompanyTiramisConfigurationService {
     private readonly apiKeyVault: TiramisServiceApiKeyVaultService,
   ) {}
 
-  findAll(companyId: string) {
+  async findAll(companyId: string) {
+    const [configs, company] = await Promise.all([
+      this.repository
+        .createQueryBuilder('configuration')
+        .addSelect('configuration.serviceApiKeyEncrypted')
+        .where('configuration.companyId = :companyId', { companyId })
+        .orderBy('configuration.environment', 'ASC')
+        .getMany(),
+      this.dataSource.getRepository(Company).findOne({
+        where: { id: companyId },
+      }),
+    ]);
+    const targetEnvironment =
+      company?.settings?.tiramis_target_environment ?? null;
+
+    return configs.map((configuration) => ({
+      ...configuration,
+      isTargetEnvironment: configuration.environment === targetEnvironment,
+      serviceApiKeyMasked: this.apiKeyVault.mask(
+        configuration.serviceApiKeyEncrypted,
+      ),
+      serviceApiKeyEncrypted: undefined,
+    }));
+  }
+
+  findRaw(companyId: string) {
     return this.repository.find({
       where: { companyId },
       order: { environment: 'ASC' },
@@ -58,6 +83,8 @@ export class CompanyTiramisConfigurationService {
             clientCode: configuration.clientCode,
             systemCode: configuration.systemCode,
             systemName: configuration.systemName,
+            baseUrl: configuration.baseUrl,
+            sourceService: configuration.sourceService,
             isActive: configuration.isActive,
           }
         : null;
@@ -74,10 +101,11 @@ export class CompanyTiramisConfigurationService {
           systemCode: dto.system_code,
           systemName: dto.system_name ?? null,
           callbackUrl: dto.callback_url ?? null,
+          baseUrl: dto.base_url ?? null,
+          sourceService: dto.source_service ?? null,
           serviceApiKeyEncrypted: this.apiKeyVault.encrypt(
             dto.tiramis_service_api_key,
           ),
-          baseUrl: null,
           isActive: dto.is_active ?? true,
           validationStatus: 'NOT_VALIDATED',
           validatedAt: null,
@@ -92,6 +120,8 @@ export class CompanyTiramisConfigurationService {
         configuration.systemCode = dto.system_code;
         configuration.systemName = dto.system_name ?? null;
         configuration.callbackUrl = dto.callback_url ?? null;
+        configuration.baseUrl = dto.base_url ?? null;
+        configuration.sourceService = dto.source_service ?? null;
         if (dto.tiramis_service_api_key) {
           configuration.serviceApiKeyEncrypted = this.apiKeyVault.encrypt(
             dto.tiramis_service_api_key,
@@ -106,6 +136,12 @@ export class CompanyTiramisConfigurationService {
       const saved = await repository.save(configuration);
 
       company.tira_integration_enabled = true;
+      if (dto.use_as_target_environment) {
+        company.settings = {
+          ...(company.settings ?? {}),
+          tiramis_target_environment: dto.environment,
+        };
+      }
       await companyRepository.save(company);
 
       await this.auditService.logCritical(
@@ -124,7 +160,12 @@ export class CompanyTiramisConfigurationService {
             clientCode: saved.clientCode,
             systemCode: saved.systemCode,
             systemName: saved.systemName,
+            baseUrl: saved.baseUrl,
+            sourceService: saved.sourceService,
             isActive: saved.isActive,
+            isTargetEnvironment:
+              company.settings?.tiramis_target_environment ===
+              saved.environment,
             serviceApiKeyMasked: this.apiKeyVault.mask(
               saved.serviceApiKeyEncrypted,
             ),

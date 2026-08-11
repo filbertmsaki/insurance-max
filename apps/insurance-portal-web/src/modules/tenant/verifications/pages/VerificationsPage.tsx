@@ -10,6 +10,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -78,6 +86,274 @@ function DetailValue({ value }: { value: unknown }) {
   return <span>{String(value)}</span>;
 }
 
+type FriendlyField = {
+  label: string;
+  value: string | null;
+};
+
+type FriendlySection = {
+  title: string;
+  fields: FriendlyField[];
+};
+
+const motorDetailOrder = [
+  'RegistrationNumber',
+  'ChassisNumber',
+  'Make',
+  'Model',
+  'ModelNumber',
+  'BodyType',
+  'Color',
+  'EngineNumber',
+  'EngineCapacity',
+  'FuelUsed',
+  'NumberOfAxles',
+  'SittingCapacity',
+  'YearOfManufacture',
+  'TareWeight',
+  'GrossWeight',
+  'MotorUsage',
+  'OwnerName',
+  'OwnerCategory',
+];
+
+const coverNoteDetailOrder = [
+  'CoverNoteTypeDesc',
+  'CoverNoteNumber',
+  'CoverNoteReferenceNumber',
+  'InsurerCompanyCode',
+  'InsurerCompanyName',
+  'TransactionCompanyCode',
+  'TransactionCompanyName',
+  'CoverNoteIssueDate',
+  'CoverNoteStartDate',
+  'CoverNoteEndDate',
+  'CoverNoteDesc',
+  'OperativeClause',
+  'CurrencyCode',
+  'TotalPremiumExcludingTax',
+  'TotalPremiumIncludingTax',
+  'CommisionPaid',
+  'CommisionRate',
+  'ProductCode',
+  'ProductName',
+];
+
+const riskCoveredOrder = [
+  'RiskCode',
+  'RiskName',
+  'SumInsured',
+  'PremiumRate',
+  'PremiumBeforeDiscount',
+  'PremiumAfterDiscount',
+  'PremiumIncludingTax',
+];
+
+const taxChargedOrder = ['TaxCode', 'TaxRate', 'TaxAmount'];
+
+const subjectMatterOrder = [
+  'SubjectMatterReference',
+  'SubjectMatterDesc',
+  'SumInsured',
+  'PremiumRate',
+  'PremiumIncludingTax',
+];
+
+const policyHolderOrder = [
+  'PolicyHolderName',
+  'PolicyHolderBirthDate',
+  'PolicyHolderType',
+  'PolicyHolderIdType',
+  'PolicyHolderIdNumber',
+  'Gender',
+  'CountryCode',
+  'Region',
+  'District',
+  'Street',
+  'Address',
+  'MobileNumber',
+  'EmailAddress',
+];
+
+const addonOrder = [
+  'AddonCode',
+  'AddonName',
+  'AddonDesc',
+  'SumInsured',
+  'PremiumRate',
+  'PremiumIncludingTax',
+];
+
+function directChild(element: Element, tagName: string) {
+  return Array.from(element.children).find((child) => child.tagName === tagName);
+}
+
+function directChildren(element: Element, tagName: string) {
+  return Array.from(element.children).filter(
+    (child) => child.tagName === tagName,
+  );
+}
+
+function directText(element: Element, tagName: string) {
+  const child = directChild(element, tagName);
+  return child?.textContent?.trim() || null;
+}
+
+function fieldsFromElement(element: Element, preferredOrder: string[]) {
+  const ordered = preferredOrder.map((tagName) => ({
+    label: formatLabel(tagName),
+    value: directChild(element, tagName) ? directText(element, tagName) || 'N/A' : null,
+  }));
+  const orderedTags = new Set(preferredOrder);
+  const extra = Array.from(element.children)
+    .filter(
+      (child) => child.children.length === 0 && !orderedTags.has(child.tagName),
+    )
+    .map((child) => ({
+      label: formatLabel(child.tagName),
+      value: child.textContent?.trim() || 'N/A',
+    }));
+
+  return [...ordered, ...extra].filter((field) => field.value !== null);
+}
+
+function sectionsFromChildren(params: {
+  parent: Element;
+  containerTag: string;
+  itemTag: string;
+  title: string;
+  preferredOrder: string[];
+}) {
+  const container = directChild(params.parent, params.containerTag);
+  if (!container) return [];
+
+  return directChildren(container, params.itemTag)
+    .map((item, index) => ({
+      title: `${params.title}${index > 0 ? ` ${index + 1}` : ''}`,
+      fields: fieldsFromElement(item, params.preferredOrder),
+    }))
+    .filter((section) => section.fields.length > 0);
+}
+
+function parseFriendlyXmlDetails(xml: string | null): FriendlySection[] {
+  if (!xml) return [];
+
+  const document = new DOMParser().parseFromString(xml, 'application/xml');
+  if (document.querySelector('parsererror')) return [];
+
+  const sections: FriendlySection[] = [];
+  const verificationDetail = document.querySelector('VerificationDtl');
+  if (verificationDetail) {
+    sections.push({
+      title: 'Vehicle verification details',
+      fields: fieldsFromElement(verificationDetail, motorDetailOrder),
+    });
+  }
+
+  const coverNoteDetail = document.querySelector('CoverNoteDtl');
+  if (coverNoteDetail) {
+    sections.push({
+      title: 'Cover note details',
+      fields: fieldsFromElement(coverNoteDetail, coverNoteDetailOrder),
+    });
+
+    const motorDetail = directChild(coverNoteDetail, 'MotorDtl');
+    if (motorDetail) {
+      sections.push({
+        title: 'Vehicle details',
+        fields: fieldsFromElement(motorDetail, motorDetailOrder),
+      });
+    }
+
+    const riskSections = sectionsFromChildren({
+      parent: coverNoteDetail,
+      containerTag: 'RisksCovered',
+      itemTag: 'RiskCovered',
+      title: 'Risk covered',
+      preferredOrder: riskCoveredOrder,
+    });
+    sections.push(...riskSections);
+
+    riskSections.forEach((_riskSection, index) => {
+      const risksContainer = directChild(coverNoteDetail, 'RisksCovered');
+      const risk = risksContainer
+        ? directChildren(risksContainer, 'RiskCovered')[index]
+        : null;
+      if (!risk) return;
+
+      sections.push(
+        ...sectionsFromChildren({
+          parent: risk,
+          containerTag: 'TaxesCharged',
+          itemTag: 'TaxCharged',
+          title: `Tax charged${index > 0 ? ` for risk ${index + 1}` : ''}`,
+          preferredOrder: taxChargedOrder,
+        }),
+      );
+    });
+
+    sections.push(
+      ...sectionsFromChildren({
+        parent: coverNoteDetail,
+        containerTag: 'SubjectMattersCovered',
+        itemTag: 'SubjectMatter',
+        title: 'Subject matter',
+        preferredOrder: subjectMatterOrder,
+      }),
+      ...sectionsFromChildren({
+        parent: coverNoteDetail,
+        containerTag: 'PolicyHolders',
+        itemTag: 'PolicyHolder',
+        title: 'Policy holder',
+        preferredOrder: policyHolderOrder,
+      }),
+      ...sectionsFromChildren({
+        parent: coverNoteDetail,
+        containerTag: 'CoverNoteAddons',
+        itemTag: 'CoverNoteAddon',
+        title: 'Cover note addon',
+        preferredOrder: addonOrder,
+      }),
+    );
+  }
+
+  return sections.filter((section) => section.fields.length > 0);
+}
+
+function FriendlyDetails({ sections }: { sections: FriendlySection[] }) {
+  return (
+    <div className="space-y-4">
+      {sections.map((section, index) => (
+        <div key={`${section.title}-${index}`}>
+          <p className="mb-2 text-sm font-medium">{section.title}</p>
+          <div className="overflow-hidden rounded-md border border-slate-200">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50 hover:bg-slate-50">
+                  <TableHead className="w-64">Field</TableHead>
+                  <TableHead>Value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {section.fields.map((field) => (
+                  <TableRow key={`${section.title}-${field.label}`}>
+                    <TableCell className="py-3 font-medium text-slate-600">
+                      {field.label}
+                    </TableCell>
+                    <TableCell className="py-3 break-words text-slate-900">
+                      {field.value || '-'}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function getErrorMessage(error: unknown) {
   if (typeof error === 'object' && error !== null) {
     const response = (error as { response?: { data?: { message?: unknown } } })
@@ -99,52 +375,30 @@ function Result({ result }: { result: VerificationResult }) {
   const response = result.verifiedRecordDetails as {
     responseHeader?: Record<string, unknown> | null;
     details?: Record<string, unknown> | null;
+    responseDetails?: Record<string, unknown> | null;
   } | null;
-  const details = response?.details ?? null;
-  const responseId =
-    typeof response?.responseHeader?.ResponseId === 'string'
-      ? response.responseHeader.ResponseId
-      : null;
-  const summaryItems: Array<{
-    label: string;
-    value: string | null | undefined;
-  }> = [
-    {
-      label: 'Type',
-      value: result.verificationType === 'MOTOR' ? 'Motor' : 'Cover Note',
-    },
-    { label: 'Request ID', value: result.requestId },
-    { label: 'Response ID', value: responseId },
-    { label: 'Registration', value: result.registrationNumber },
-    { label: 'Cover note', value: result.coverNoteReferenceNumber },
-    { label: 'Response code', value: result.responseCode },
-    { label: 'Response message', value: result.responseMessage },
-    {
-      label: 'Date and time',
-      value: result.respondedAt
-        ? new Date(result.respondedAt).toLocaleString()
-        : null,
-    },
-  ];
+  const details =
+    response?.details ?? response?.responseDetails ?? result.verifiedRecordDetails;
+  const xml =
+    result.xml ??
+    (typeof result.fullResponse?.xml === 'string'
+      ? result.fullResponse.xml
+      : null);
+  const friendlySections = parseFriendlyXmlDetails(xml);
 
   return (
     <Card>
-      <CardHeader className="flex-row items-center justify-between">
-        <CardTitle>Verification result</CardTitle>
-        <StatusBadge status={result.status} />
+      <CardHeader>
+        <CardTitle>
+          {result.verificationType === 'MOTOR'
+            ? 'Motor verification details'
+            : 'Cover note verification details'}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {summaryItems.map(({ label, value }) => (
-            <div key={label} className="rounded-lg border border-slate-100 p-3">
-              <p className="text-xs text-slate-500">{label}</p>
-              <p className="mt-1 break-words text-sm font-medium text-slate-800">
-                {value || '-'}
-              </p>
-            </div>
-          ))}
-        </div>
-        {details ? (
+        {friendlySections.length > 0 ? (
+          <FriendlyDetails sections={friendlySections} />
+        ) : details ? (
           <div>
             <p className="mb-2 text-sm font-medium">Verified record details</p>
             <DetailValue value={details} />

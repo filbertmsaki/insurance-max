@@ -12,7 +12,10 @@ export interface CompanyTiramisConfiguration {
   systemCode: string | null;
   systemName: string | null;
   baseUrl: string | null;
+  sourceService: string | null;
   callbackUrl: string | null;
+  isTargetEnvironment?: boolean;
+  serviceApiKeyMasked?: string | null;
   isActive: boolean;
   validationStatus: 'NOT_VALIDATED' | 'VALID' | 'INVALID';
   validatedAt: string | null;
@@ -27,8 +30,12 @@ export interface UpsertCompanyTiramisConfigurationDto {
   client_code?: string;
   system_code: string;
   system_name?: string;
+  base_url?: string;
+  source_service?: string;
   callback_url?: string;
+  tiramis_service_api_key?: string;
   is_active?: boolean;
+  use_as_target_environment?: boolean;
 }
 
 export const tiramisConfigApi = {

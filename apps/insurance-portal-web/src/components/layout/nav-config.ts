@@ -474,6 +474,13 @@ export const NAV_NODES: NavNode[] = [
       },
       {
         kind: 'link',
+        label: 'Configuration',
+        to: '/tiramis/configuration',
+        icon: Key,
+        permission: 'company-tiramis-config:read',
+      },
+      {
+        kind: 'link',
         label: 'Dashboard',
         to: '/tiramis/dashboard',
         icon: Radar,

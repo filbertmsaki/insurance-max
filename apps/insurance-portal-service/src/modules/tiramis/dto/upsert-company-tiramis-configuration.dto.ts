@@ -47,6 +47,15 @@ export class UpsertCompanyTiramisConfigurationDto {
 
   @IsOptional()
   @IsUrl({ require_tld: false })
+  base_url?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  source_service?: string;
+
+  @IsOptional()
+  @IsUrl({ require_tld: false })
   callback_url?: string;
 
   @IsOptional()
@@ -56,4 +65,8 @@ export class UpsertCompanyTiramisConfigurationDto {
   @IsOptional()
   @IsBoolean()
   is_active?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  use_as_target_environment?: boolean;
 }

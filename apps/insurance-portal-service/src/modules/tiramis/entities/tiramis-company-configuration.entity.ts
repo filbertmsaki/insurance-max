@@ -111,6 +111,14 @@ export class TiramisCompanyConfigurationEntity {
   baseUrl!: string | null;
 
   @Column({
+    name: 'source_service',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
+  sourceService!: string | null;
+
+  @Column({
     name: 'callback_url',
     type: 'varchar',
     length: 500,

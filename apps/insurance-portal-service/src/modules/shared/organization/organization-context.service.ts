@@ -121,7 +121,9 @@ export class OrganizationContextService {
         })
       : null;
 
-    const environment = this.resolveTiramisEnvironment();
+    const environment = this.resolveTiramisEnvironment(
+      membership.company.settings,
+    );
 
     const configuration = await this.configurationRepository.findOne({
       where: {
@@ -238,7 +240,14 @@ export class OrganizationContextService {
     return context;
   }
 
-  private resolveTiramisEnvironment(): 'test' | 'live' {
+  private resolveTiramisEnvironment(
+    companySettings?: Record<string, unknown> | null,
+  ): 'test' | 'live' {
+    const companyOverride = companySettings?.tiramis_target_environment;
+    if (companyOverride === 'live' || companyOverride === 'test') {
+      return companyOverride;
+    }
+
     const configured = this.configService.get<string>('TIRAMIS_TARGET_ENV');
 
     if (configured === 'live') {

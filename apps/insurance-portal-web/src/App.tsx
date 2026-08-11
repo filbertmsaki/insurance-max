@@ -88,6 +88,7 @@ import { TiramisHealthPage } from '@/modules/tenant/tiramis/pages/TiramisHealthP
 import { TiramisTrackingPage } from '@/modules/tenant/tiramis/pages/TiramisTrackingPage';
 import { TiramisFailedSubmissionsPage } from '@/modules/tenant/tiramis/pages/TiramisFailedSubmissionsPage';
 import { TiramisRetryablePage } from '@/modules/tenant/tiramis/pages/TiramisRetryablePage';
+import { TiramisConfigurationPage } from '@/modules/tenant/tiramis-config/pages/TiramisConfigurationPage';
 import { VerificationsPage } from '@/modules/tenant/verifications/pages/VerificationsPage';
 import { FinanceDashboardPage } from '@/modules/tenant/finance/pages/FinanceDashboardPage';
 import { FinanceInvoicesPage } from '@/modules/tenant/finance/pages/FinanceInvoicesPage';
@@ -967,6 +968,16 @@ export default function App() {
               <Route
                 path="/tiramis/retryable"
                 element={<TiramisRetryablePage />}
+              />
+            </Route>
+            <Route
+              element={
+                <ProtectedRoute requiredPermission="company-tiramis-config:read" />
+              }
+            >
+              <Route
+                path="/tiramis/configuration"
+                element={<TiramisConfigurationPage />}
               />
             </Route>
             <Route

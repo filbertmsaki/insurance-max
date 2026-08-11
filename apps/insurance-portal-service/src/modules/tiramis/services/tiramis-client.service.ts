@@ -607,10 +607,7 @@ export class TiramisClientService {
       const requestId = this.requestContextService.getRequestId();
       const correlationId =
         this.requestContextService.getCorrelationId() || requestId;
-      const sourceService = this.configService.getOrThrow<string>(
-        'tiramisClient.sourceService',
-      );
-      const apiKey = await this.resolveApiKey(
+      const connection = await this.resolveConnectionConfig(
         params.companyId,
         params.environment,
       );
@@ -624,6 +621,7 @@ export class TiramisClientService {
       const response = await firstValueFrom(
         this.httpService.request({
           method: 'POST',
+          baseURL: connection.baseUrl ?? undefined,
           url: '/api/tiramis/configurations/validate-organization',
           data: {
             environment: params.environment,
@@ -634,9 +632,9 @@ export class TiramisClientService {
           validateStatus: () => true,
           headers: {
             Accept: 'application/json',
-            'X-API-Key': apiKey,
+            'X-API-Key': connection.apiKey,
             'X-Service-Context': serviceContext,
-            [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
+            [HTTP_HEADERS.SOURCE_SERVICE]: connection.sourceService,
             ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
             ...(correlationId
               ? { [HTTP_HEADERS.CORRELATION_ID]: correlationId }
@@ -976,9 +974,6 @@ export class TiramisClientService {
       this.requestContextService.getCorrelationId() ||
       requestId ||
       envelope.correlationId;
-    const sourceService = this.configService.getOrThrow<string>(
-      'tiramisClient.sourceService',
-    );
     const tenantContext =
       await this.buildTiramisReadyTenantContext(authContext);
     const serviceContext = this.encodeServiceContext({
@@ -998,7 +993,7 @@ export class TiramisClientService {
         : null),
       ...(financeContext ? { finance: financeContext } : null),
     });
-    const apiKey = await this.resolveApiKey(
+    const connection = await this.resolveConnectionConfig(
       authContext.companyId,
       tenantContext.environment,
     );
@@ -1006,14 +1001,15 @@ export class TiramisClientService {
     const response = await firstValueFrom(
       this.httpService.request({
         method: 'POST',
+        baseURL: connection.baseUrl ?? undefined,
         url: '/api/internal/tiramis/integration/submissions',
         data: envelope,
         validateStatus: () => true,
         headers: {
           Accept: 'application/json',
-          'X-API-Key': apiKey,
+          'X-API-Key': connection.apiKey,
           'X-Service-Context': serviceContext,
-          [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
+          [HTTP_HEADERS.SOURCE_SERVICE]: connection.sourceService,
           'X-Actor-User-Id': authContext.id ?? '',
           'X-Actor-Membership-Id': authContext.companyMembershipId ?? '',
           ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
@@ -1089,10 +1085,14 @@ export class TiramisClientService {
     return Buffer.from(JSON.stringify(context), 'utf8').toString('base64url');
   }
 
-  private async resolveApiKey(
+  private async resolveConnectionConfig(
     companyId?: string | null,
     environment?: string | null,
-  ): Promise<string> {
+  ): Promise<{
+    apiKey: string;
+    baseUrl: string | null;
+    sourceService: string;
+  }> {
     if (!companyId) {
       throw new ConflictException(
         'A company context is required to resolve the TIRAMIS API key.',
@@ -1123,7 +1123,13 @@ export class TiramisClientService {
       );
     }
 
-    return apiKey;
+    return {
+      apiKey,
+      baseUrl: configuration?.baseUrl ?? null,
+      sourceService:
+        configuration?.sourceService ||
+        this.configService.getOrThrow<string>('tiramisClient.sourceService'),
+    };
   }
 
   private async send(
@@ -1148,10 +1154,6 @@ export class TiramisClientService {
 
       const correlationId =
         this.requestContextService.getCorrelationId() || requestId;
-
-      const sourceService = this.configService.getOrThrow<string>(
-        'tiramisClient.sourceService',
-      );
 
       const requiredScopes = this.resolveServiceScopes(pattern);
       const tenantContext =
@@ -1190,7 +1192,7 @@ export class TiramisClientService {
             }
           : {},
       );
-      const apiKey = await this.resolveApiKey(
+      const connection = await this.resolveConnectionConfig(
         authContext?.companyId ?? null,
         (tenantContext as { environment?: string } | undefined)?.environment ??
           null,
@@ -1199,6 +1201,7 @@ export class TiramisClientService {
       const response = await firstValueFrom(
         this.httpService.request({
           method: isQuery ? 'GET' : 'POST',
+          baseURL: connection.baseUrl ?? undefined,
 
           url: route.path,
 
@@ -1211,10 +1214,10 @@ export class TiramisClientService {
           headers: {
             Accept: 'application/json',
 
-            'X-API-Key': apiKey,
+            'X-API-Key': connection.apiKey,
             'X-Service-Context': serviceContext,
 
-            [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
+            [HTTP_HEADERS.SOURCE_SERVICE]: connection.sourceService,
 
             'X-Actor-User-Id': authContext?.id ?? '',
 
