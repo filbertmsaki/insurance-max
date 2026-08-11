@@ -6,6 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
+  ActionMenu,
+  type ActionMenuItem,
+} from '@/components/shared/ActionMenu';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -58,6 +62,14 @@ type PremiumOverrideDecisionDialogState = {
   override: QuotationPreviewPremiumOverride;
   action: 'approve' | 'reject';
   open: boolean;
+};
+
+type WorkflowAction = {
+  label: string;
+  pendingLabel: string;
+  isPending: boolean;
+  disabled: boolean;
+  onClick: () => void;
 };
 
 export function QuotationDetailPage() {
@@ -326,8 +338,104 @@ export function QuotationDetailPage() {
     );
   }
 
+  const submitToTiramis = () => {
+    submitMutation.mutate(undefined, {
+      onSuccess: () => {
+        navigate(
+          underwritingPaths.quotationDetail(preview.overview.quotation_id),
+        );
+      },
+    });
+  };
+
+  const primaryWorkflowAction: WorkflowAction | null = canSubmitForApproval
+    ? {
+        label: 'Submit for Approval',
+        pendingLabel: 'Submitting...',
+        isPending: submitForApprovalMutation.isPending,
+        disabled: hasStalePricing,
+        onClick: () => submitForApprovalMutation.mutate(),
+      }
+    : canRequestPayment
+      ? {
+          label: 'Request Payment',
+          pendingLabel: 'Requesting...',
+          isPending: requestPaymentMutation.isPending,
+          disabled: hasStalePricing,
+          onClick: () => requestPaymentMutation.mutate(),
+        }
+      : canSubmit
+        ? {
+            label: 'Submit to TIRAMIS',
+            pendingLabel: 'Submitting...',
+            isPending: submitMutation.isPending,
+            disabled: hasStalePricing,
+            onClick: submitToTiramis,
+          }
+        : canRetrySubmission
+          ? {
+              label: 'Retry TIRAMIS Submission',
+              pendingLabel: 'Retrying...',
+              isPending: retryTiraMutation.isPending,
+              disabled: hasStalePricing,
+              onClick: () => retryTiraMutation.mutate(),
+            }
+          : null;
+
+  const secondaryWorkflowActions: ActionMenuItem[] = [
+    ...(canSubmitForApproval &&
+    primaryWorkflowAction?.label !== 'Submit for Approval'
+      ? [
+          {
+            label: 'Submit for Approval',
+            onClick: () => submitForApprovalMutation.mutate(),
+            disabled: submitForApprovalMutation.isPending || hasStalePricing,
+          },
+        ]
+      : []),
+    ...(canRequestPayment && primaryWorkflowAction?.label !== 'Request Payment'
+      ? [
+          {
+            label: 'Request Payment',
+            onClick: () => requestPaymentMutation.mutate(),
+            disabled: requestPaymentMutation.isPending || hasStalePricing,
+          },
+        ]
+      : []),
+    ...(canSubmit && primaryWorkflowAction?.label !== 'Submit to TIRAMIS'
+      ? [
+          {
+            label: 'Submit to TIRAMIS',
+            onClick: submitToTiramis,
+            disabled: submitMutation.isPending || hasStalePricing,
+          },
+        ]
+      : []),
+    ...(canRetrySubmission &&
+    primaryWorkflowAction?.label !== 'Retry TIRAMIS Submission'
+      ? [
+          {
+            label: 'Retry TIRAMIS Submission',
+            onClick: () => retryTiraMutation.mutate(),
+            disabled: retryTiraMutation.isPending || hasStalePricing,
+          },
+        ]
+      : []),
+    ...(canCancel
+      ? [
+          {
+            label: 'Cancel Quotation',
+            onClick: () => setCancelDialogOpen(true),
+            disabled: cancelQuotationMutation.isPending,
+            destructive: true,
+            separatorBefore: true,
+          },
+        ]
+      : []),
+  ];
+
   const actionButtons = (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <Button
         variant="outline"
         size="sm"
@@ -336,66 +444,25 @@ export function QuotationDetailPage() {
         <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
         Back to List
       </Button>
-      {canSubmitForApproval ? (
+      {primaryWorkflowAction ? (
         <Button
-          variant="outline"
+          type="button"
           size="sm"
-          disabled={submitForApprovalMutation.isPending || hasStalePricing}
-          onClick={() => submitForApprovalMutation.mutate()}
-        >
-          Submit for Approval
-        </Button>
-      ) : null}
-      {canRequestPayment ? (
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={requestPaymentMutation.isPending || hasStalePricing}
-          onClick={() => requestPaymentMutation.mutate()}
-        >
-          Request Payment
-        </Button>
-      ) : null}
-      {canSubmit ? (
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={submitMutation.isPending || hasStalePricing}
-          onClick={() =>
-            submitMutation.mutate(undefined, {
-              onSuccess: () => {
-                navigate(
-                  underwritingPaths.quotationDetail(
-                    preview.overview.quotation_id,
-                  ),
-                );
-              },
-            })
+          disabled={
+            primaryWorkflowAction.isPending || primaryWorkflowAction.disabled
           }
+          onClick={primaryWorkflowAction.onClick}
         >
-          Submit to TIRAMIS
+          {primaryWorkflowAction.isPending
+            ? primaryWorkflowAction.pendingLabel
+            : primaryWorkflowAction.label}
         </Button>
       ) : null}
-      {canRetrySubmission ? (
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={retryTiraMutation.isPending || hasStalePricing}
-          onClick={() => retryTiraMutation.mutate()}
-        >
-          Retry TIRA Submission
-        </Button>
-      ) : null}
-      {canCancel ? (
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={cancelQuotationMutation.isPending}
-          onClick={() => setCancelDialogOpen(true)}
-        >
-          Cancel Quotation
-        </Button>
-      ) : null}
+      <ActionMenu
+        items={secondaryWorkflowActions}
+        contentClassName="w-52"
+        disabled={secondaryWorkflowActions.every((item) => item.disabled)}
+      />
     </div>
   );
 

@@ -70,6 +70,11 @@ const EDITABLE_STATUSES = new Set([
   'FAILED',
 ]);
 
+const isTiraCompletedQuotation = (quotation: {
+  status: string;
+  tira_status?: string | null;
+}) => quotation.status === 'COMPLETED' || quotation.tira_status === 'SUCCESS';
+
 const STEP_FIELDS: Partial<
   Record<QuotationWizardStepId, (keyof QuotationFormSchemaValues)[]>
 > = {
@@ -473,7 +478,7 @@ export function QuotationWizardPage() {
       return;
     }
 
-    if (sourceQuotation.status !== 'COMPLETED') {
+    if (!isTiraCompletedQuotation(sourceQuotation)) {
       toast.error(
         'Endorsements are only available after the quotation has been completed by TIRAMIS.',
       );
