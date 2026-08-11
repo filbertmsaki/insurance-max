@@ -835,11 +835,15 @@ export class TiramisClientService {
     return result.apiKey;
   }
 
-  async checkTiramisServiceHealth() {
-    return this.send(TIRAMIS_MESSAGE_PATTERNS.HEALTH, {
-      sourceService: 'insurance-portal-service',
-      checkedAt: new Date().toISOString(),
-    });
+  async checkTiramisServiceHealth(authContext?: any) {
+    return this.send(
+      TIRAMIS_MESSAGE_PATTERNS.HEALTH,
+      {
+        sourceService: 'insurance-portal-service',
+        checkedAt: new Date().toISOString(),
+      },
+      authContext,
+    );
   }
 
   async getLocalTrackingById(id: string) {
@@ -1471,6 +1475,10 @@ export class TiramisClientService {
       TIRAMIS_MESSAGE_PATTERNS.SUBMIT_DISCHARGE_VOUCHER,
       TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_PAYMENT,
       TIRAMIS_MESSAGE_PATTERNS.SUBMIT_CLAIM_REJECTION,
+      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_COVER_NOTE_VERIFICATION,
+      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_MOTOR_VERIFICATION,
+      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_NIN_VERIFICATION,
+      TIRAMIS_MESSAGE_PATTERNS.SUBMIT_COMPANY_VERIFICATION,
     ]);
     const resolvedPayload = submissionPatterns.has(pattern)
       ? this.stripSignedTenantBodyFields(payload)
@@ -1490,6 +1498,9 @@ export class TiramisClientService {
       systemName,
       clientCode,
       branchCode,
+      insurerCompanyCode,
+      tranCompanyCode,
+      salePointCode,
       ...body
     } = payload;
 
@@ -1498,6 +1509,9 @@ export class TiramisClientService {
     void systemName;
     void clientCode;
     void branchCode;
+    void insurerCompanyCode;
+    void tranCompanyCode;
+    void salePointCode;
 
     return body;
   }

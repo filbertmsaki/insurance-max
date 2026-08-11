@@ -95,8 +95,10 @@ export class TiramisController {
   })
   @RequireTiramisPermissions(TiramisPermissions.VIEW_TRACKING)
   @Get('service-health')
-  checkTiramisServiceHealth() {
-    return this.tiramisClientService.checkTiramisServiceHealth();
+  checkTiramisServiceHealth(@Req() req: any) {
+    return this.tiramisClientService.checkTiramisServiceHealth(
+      this.getAuthContext(req),
+    );
   }
 
   @ApiOperation({
