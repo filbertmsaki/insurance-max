@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseEnumPipe,
+  Post,
+  Put,
+} from '@nestjs/common';
+import { IsBoolean, IsOptional } from 'class-validator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
@@ -7,6 +16,12 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 
 import { CompanyTiramisConfigurationService } from '../services/company-tiramis-configuration.service';
 import { UpsertCompanyTiramisConfigurationDto } from '../dto/upsert-company-tiramis-configuration.dto';
+
+class ActivateCompanyTiramisEnvironmentDto {
+  @IsOptional()
+  @IsBoolean()
+  confirm_live_activation?: boolean;
+}
 
 @ApiTags('Company TIRA configuration')
 @ApiBearerAuth()
@@ -30,7 +45,8 @@ export class CompanyTiramisConfigurationController {
   @ApiOperation({ summary: "Upsert the current company's TIRA configuration" })
   upsertMyTiramisConfiguration(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('environment') environment: 'test' | 'live',
+    @Param('environment', new ParseEnumPipe({ test: 'test', live: 'live' }))
+    environment: 'test' | 'live',
     @Body() dto: UpsertCompanyTiramisConfigurationDto,
   ) {
     return this.companyTiramisConfigurationService.upsert(
@@ -48,11 +64,51 @@ export class CompanyTiramisConfigurationController {
   })
   validateMyTiramisConfiguration(
     @CurrentUser() user: AuthenticatedUser,
-    @Param('environment') environment: 'test' | 'live',
+    @Param('environment', new ParseEnumPipe({ test: 'test', live: 'live' }))
+    environment: 'test' | 'live',
   ) {
     return this.companyTiramisConfigurationService.validate(
       user.companyId!,
       environment,
+    );
+  }
+
+  @Post(':environment/activate')
+  @TenantScoped()
+  @Permissions('company-tiramis-config:update')
+  @ApiOperation({
+    summary:
+      "Validate and activate the current company's TIRA environment configuration",
+  })
+  activateMyTiramisEnvironment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('environment', new ParseEnumPipe({ test: 'test', live: 'live' }))
+    environment: 'test' | 'live',
+    @Body() dto: ActivateCompanyTiramisEnvironmentDto,
+  ) {
+    return this.companyTiramisConfigurationService.activate(
+      user.companyId!,
+      environment,
+      user.id,
+      { confirmLive: dto.confirm_live_activation },
+    );
+  }
+
+  @Post(':environment/api-key/generate')
+  @TenantScoped()
+  @Permissions('company-tiramis-config:update')
+  @ApiOperation({
+    summary: "Generate or rotate the current company's TIRAMIS service API key",
+  })
+  generateMyTiramisServiceApiKey(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('environment', new ParseEnumPipe({ test: 'test', live: 'live' }))
+    environment: 'test' | 'live',
+  ) {
+    return this.companyTiramisConfigurationService.generateServiceApiKey(
+      user.companyId!,
+      environment,
+      user.id,
     );
   }
 }

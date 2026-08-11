@@ -602,7 +602,27 @@ export class TiramisClientService {
     companyCode: string;
     systemCode: string | null;
     insurerCompanyCode?: string | null;
-  }): Promise<{ valid: boolean; message?: string }> {
+  }): Promise<{
+    valid: boolean;
+    message?: string;
+    configurationId?: string;
+    environment?: string;
+    companyCode?: string;
+    systemCode?: string;
+    baseUrl?: string;
+    apiKey?: { status?: string; masked?: string | null };
+    callback?: {
+      ok?: boolean;
+      configuredUrl?: string;
+      expectedPath?: string;
+      errors?: string[];
+      warnings?: string[];
+    };
+    endpoints?: unknown;
+    certificates?: unknown;
+    warnings?: string[];
+    errors?: string[];
+  }> {
     try {
       const requestId = this.requestContextService.getRequestId();
       const correlationId =
@@ -653,11 +673,39 @@ export class TiramisClientService {
       const result = unwrapApiResponse(response.data) as {
         valid?: boolean;
         message?: string;
+        configurationId?: string;
+        environment?: string;
+        companyCode?: string;
+        systemCode?: string;
+        baseUrl?: string;
+        apiKey?: { status?: string; masked?: string | null };
+        callback?: {
+          ok?: boolean;
+          configuredUrl?: string;
+          expectedPath?: string;
+          errors?: string[];
+          warnings?: string[];
+        };
+        endpoints?: unknown;
+        certificates?: unknown;
+        warnings?: string[];
+        errors?: string[];
       };
 
       return {
         valid: result?.valid === true,
         message: result?.message,
+        configurationId: result?.configurationId,
+        environment: result?.environment,
+        companyCode: result?.companyCode,
+        systemCode: result?.systemCode,
+        baseUrl: result?.baseUrl,
+        apiKey: result?.apiKey,
+        callback: result?.callback,
+        endpoints: result?.endpoints,
+        certificates: result?.certificates,
+        warnings: result?.warnings,
+        errors: result?.errors,
       };
     } catch (error) {
       return {
@@ -668,6 +716,123 @@ export class TiramisClientService {
             : 'Failed to reach the TIRAMIS service for configuration validation.',
       };
     }
+  }
+
+  async rotateOrganizationApiKey(params: {
+    companyId: string;
+    environment: 'test' | 'live';
+    companyCode: string;
+    systemCode: string | null;
+  }): Promise<string> {
+    const requestId = this.requestContextService.getRequestId();
+    const correlationId =
+      this.requestContextService.getCorrelationId() || requestId;
+    const connection = await this.resolveConnectionConfig(
+      params.companyId,
+      params.environment,
+    );
+    const serviceContext = this.encodeServiceContext({
+      tenant: {
+        companyId: params.companyId,
+        environment: params.environment,
+      },
+    });
+    const headers = {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'X-API-Key': connection.apiKey,
+      'X-Service-Context': serviceContext,
+      [HTTP_HEADERS.SOURCE_SERVICE]: connection.sourceService,
+      ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
+      ...(correlationId
+        ? { [HTTP_HEADERS.CORRELATION_ID]: correlationId }
+        : {}),
+    };
+
+    const keysResponse = await firstValueFrom(
+      this.httpService.request({
+        method: 'GET',
+        baseURL: connection.baseUrl ?? undefined,
+        url: '/api/tiramis/api-keys',
+        validateStatus: () => true,
+        headers,
+      }),
+    );
+
+    if (keysResponse.status < 200 || keysResponse.status >= 300) {
+      throw new ConflictException(
+        this.extractTiramisErrorMessage(keysResponse.data) ||
+          'Unable to read TIRAMIS API keys with the current configured key.',
+      );
+    }
+
+    const keys = unwrapApiResponse(keysResponse.data) as Array<{
+      id?: string;
+      serviceName?: string;
+      tenantCompanyCode?: string | null;
+      tenantSystemCode?: string | null;
+      tenantEnvironment?: string | null;
+      revokedAt?: string | null;
+      isActive?: boolean;
+    }>;
+    const existing = keys.find(
+      (key) =>
+        key.id &&
+        key.serviceName === connection.sourceService &&
+        key.tenantCompanyCode === params.companyCode &&
+        key.tenantSystemCode === params.systemCode &&
+        key.tenantEnvironment === params.environment &&
+        key.isActive !== false &&
+        !key.revokedAt,
+    );
+
+    const keyResponse = await firstValueFrom(
+      this.httpService.request({
+        method: 'POST',
+        baseURL: connection.baseUrl ?? undefined,
+        url: existing?.id
+          ? `/api/tiramis/api-keys/${existing.id}/rotate`
+          : '/api/tiramis/api-keys',
+        data: existing?.id
+          ? undefined
+          : {
+              name: `${connection.sourceService} ${params.companyCode} ${params.environment}`,
+              serviceName: connection.sourceService,
+              tenantCompanyCode: params.companyCode,
+              tenantSystemCode: params.systemCode,
+              tenantEnvironment: params.environment,
+              scopes: [
+                'tiramis:admin',
+                'tiramis:submit',
+                'tiramis:prepare',
+                'tiramis:read',
+                'tiramis:verify',
+                'tiramis:retry',
+              ],
+              description: `Managed from insurance portal ${params.environment} configuration.`,
+              isActive: true,
+            },
+        validateStatus: () => true,
+        headers,
+      }),
+    );
+
+    if (keyResponse.status < 200 || keyResponse.status >= 300) {
+      throw new ConflictException(
+        this.extractTiramisErrorMessage(keyResponse.data) ||
+          'Unable to generate a TIRAMIS API key.',
+      );
+    }
+
+    const result = unwrapApiResponse(keyResponse.data) as { apiKey?: string };
+
+    if (!result?.apiKey) {
+      throw new ConflictException(
+        'TIRAMIS did not return the generated API key.',
+      );
+    }
+
+    return result.apiKey;
   }
 
   async checkTiramisServiceHealth() {

@@ -318,6 +318,7 @@ export function ReportsWorkbenchPage() {
 
     if (!selectedDefinitionId) {
       const first = definitionsQuery.data[0];
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedDefinitionId(first.id ?? '');
       setScheduleFormat(first.supportedFormats[0] ?? '');
       setRunParameters(createParameterState(first));
@@ -330,6 +331,7 @@ export function ReportsWorkbenchPage() {
       return;
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRunParameters(createParameterState(selectedDefinition));
     setScheduleParameters(createParameterState(selectedDefinition));
     setScheduleFormat(
@@ -339,6 +341,7 @@ export function ReportsWorkbenchPage() {
 
   useEffect(() => {
     if (!selectedJobId && jobsQuery.data?.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedJobId(jobsQuery.data[0].id);
     }
   }, [jobsQuery.data, selectedJobId]);

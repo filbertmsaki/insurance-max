@@ -69,6 +69,7 @@ export function RegulatoryWorkbenchPage() {
 
   useEffect(() => {
     if (!selectedReturnId && returnsQuery.data?.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedReturnId(returnsQuery.data[0].id);
     }
   }, [returnsQuery.data, selectedReturnId]);

@@ -38,13 +38,32 @@ const schema = z.object({
   base_url: z.string().url('Invalid URL').optional().or(z.literal('')),
   source_service: z.string().max(100).optional().or(z.literal('')),
   callback_url: z.string().url('Invalid URL').optional().or(z.literal('')),
-  tiramis_service_api_key: z.string().optional().or(z.literal('')),
   use_as_target_environment: z.boolean().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
 
 type ApiErrorLike = { response?: { data?: { message?: string } } };
+
+function buildDefaultValues(
+  environment: 'test' | 'live',
+  config?: CompanyTiramisConfiguration,
+): FormValues {
+  return {
+    company_code: config?.companyCode ?? '',
+    insurer_company_code: config?.insurerCompanyCode ?? '',
+    client_code: config?.clientCode ?? '',
+    system_code: config?.systemCode ?? '',
+    system_name: config?.systemName ?? '',
+    base_url: config?.baseUrl ?? config?.effectiveBaseUrl ?? '',
+    source_service:
+      config?.sourceService ?? config?.effectiveSourceService ?? '',
+    callback_url: config?.callbackUrl ?? config?.effectiveCallbackUrl ?? '',
+    use_as_target_environment:
+      config?.isTargetEnvironment ??
+      config?.effectiveTargetEnvironment === environment,
+  };
+}
 
 function ValidationBadge({
   status,
@@ -79,26 +98,25 @@ function EnvironmentPanel({
 }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(!config);
+  const [generatedApiKey, setGeneratedApiKey] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      company_code: config?.companyCode ?? '',
-      insurer_company_code: config?.insurerCompanyCode ?? '',
-      client_code: config?.clientCode ?? '',
-      system_code: config?.systemCode ?? '',
-      system_name: config?.systemName ?? '',
-      base_url: config?.baseUrl ?? '',
-      source_service: config?.sourceService ?? '',
-      callback_url: config?.callbackUrl ?? '',
-      tiramis_service_api_key: '',
-      use_as_target_environment: config?.isTargetEnvironment ?? false,
-    },
+    defaultValues: buildDefaultValues(environment, config),
   });
 
   const saveMutation = useMutation({
-    mutationFn: (values: FormValues) =>
-      tiramisConfigApi.upsertMyConfiguration(environment, {
+    mutationFn: (values: FormValues) => {
+      const confirmed =
+        !values.use_as_target_environment ||
+        environment !== 'live' ||
+        window.confirm('Switch active TIRAMIS environment to LIVE/PRODUCTION?');
+
+      if (!confirmed) {
+        return Promise.reject(new Error('LIVE activation was cancelled'));
+      }
+
+      return tiramisConfigApi.upsertMyConfiguration(environment, {
         company_code: values.company_code,
         insurer_company_code: values.insurer_company_code || undefined,
         client_code: values.client_code || undefined,
@@ -107,10 +125,13 @@ function EnvironmentPanel({
         base_url: values.base_url || undefined,
         source_service: values.source_service || undefined,
         callback_url: values.callback_url || undefined,
-        tiramis_service_api_key:
-          values.tiramis_service_api_key || undefined,
         use_as_target_environment: values.use_as_target_environment,
-      }),
+        confirm_live_activation:
+          values.use_as_target_environment && environment === 'live'
+            ? true
+            : undefined,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ['tiramis-my-configurations'],
@@ -118,10 +139,15 @@ function EnvironmentPanel({
       toast.success(`${environment.toUpperCase()} configuration saved`);
       setEditing(false);
     },
-    onError: (error: ApiErrorLike) =>
+    onError: (error: ApiErrorLike | Error) => {
+      if (error instanceof Error && error.message.includes('cancelled')) {
+        return;
+      }
       toast.error(
-        error?.response?.data?.message ?? 'Unable to save configuration',
-      ),
+        (error as ApiErrorLike)?.response?.data?.message ??
+          'Unable to save configuration',
+      );
+    },
   });
 
   const validateMutation = useMutation({
@@ -142,12 +168,64 @@ function EnvironmentPanel({
       ),
   });
 
+  const activateMutation = useMutation({
+    mutationFn: () => {
+      const confirmed =
+        environment !== 'live' ||
+        window.confirm('Switch active TIRAMIS environment to LIVE/PRODUCTION?');
+
+      if (!confirmed) {
+        return Promise.reject(new Error('LIVE activation was cancelled'));
+      }
+
+      return tiramisConfigApi.activateMyConfiguration(environment, {
+        confirm_live_activation: environment === 'live' ? true : undefined,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['tiramis-my-configurations'],
+      });
+      toast.success(
+        `${environment === 'live' ? 'LIVE/PRODUCTION' : 'TEST/UAT'} is now active`,
+      );
+    },
+    onError: (error: ApiErrorLike | Error) => {
+      if (error instanceof Error && error.message.includes('cancelled')) {
+        return;
+      }
+      toast.error(
+        (error as ApiErrorLike)?.response?.data?.message ??
+          'Unable to switch environment',
+      );
+    },
+  });
+
+  const generateApiKeyMutation = useMutation({
+    mutationFn: () => tiramisConfigApi.generateMyApiKey(environment),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({
+        queryKey: ['tiramis-my-configurations'],
+      });
+      setGeneratedApiKey(result.generatedApiKey ?? null);
+      toast.success(
+        `${environment === 'live' ? 'Live/Production' : 'Test/UAT'} API key generated`,
+      );
+    },
+    onError: (error: ApiErrorLike) =>
+      toast.error(
+        error?.response?.data?.message ?? 'Unable to generate API key',
+      ),
+  });
+
   return (
     <Card>
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <div>
           <CardTitle className="text-base capitalize">
-            {environment} environment
+            {environment === 'live'
+              ? 'Live/Production environment'
+              : 'Test/UAT environment'}
           </CardTitle>
           <CardDescription>
             {environment === 'live'
@@ -156,7 +234,8 @@ function EnvironmentPanel({
           </CardDescription>
         </div>
         <div className="flex flex-col items-end gap-2">
-          {config?.isTargetEnvironment && (
+          {(config?.isTargetEnvironment ||
+            config?.effectiveTargetEnvironment === environment) && (
             <Badge variant="secondary">Active target</Badge>
           )}
           {config && <ValidationBadge status={config.validationStatus} />}
@@ -285,27 +364,17 @@ function EnvironmentPanel({
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="tiramis_service_api_key"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>TIRAMIS Service API Key</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="password"
-                          autoComplete="off"
-                          placeholder={
-                            config?.serviceApiKeyMasked ||
-                            'Paste tms_ API key'
-                          }
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div>
+                  <div className="text-sm font-medium text-slate-700">
+                    TIRAMIS Service API Key
+                  </div>
+                  <div className="mt-2 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600">
+                    <KeyRound className="h-3.5 w-3.5" />
+                    {config?.serviceApiKeyMasked
+                      ? `Current API Key: ${config.serviceApiKeyMasked}`
+                      : `No ${environment === 'live' ? 'Live' : 'Test'} API key configured`}
+                  </div>
+                </div>
               </div>
               <FormField
                 control={form.control}
@@ -313,9 +382,10 @@ function EnvironmentPanel({
                 render={({ field }) => (
                   <FormItem className="flex items-center justify-between rounded-md border border-slate-200 p-3">
                     <div>
-                      <FormLabel>TIRAMIS_TARGET_ENV</FormLabel>
+                      <FormLabel>Target Environment</FormLabel>
                       <p className="text-sm text-slate-500">
-                        Overrides TIRAMIS_TARGET_ENV for this company.
+                        Makes this environment the active portal-to-TIRAMIS
+                        connection for this company.
                       </p>
                     </div>
                     <FormControl>
@@ -368,11 +438,15 @@ function EnvironmentPanel({
               </div>
               <div>
                 <span className="text-slate-500">Service URL:</span>{' '}
-                {config?.baseUrl ?? 'Global default'}
+                {config?.baseUrl ??
+                  config?.effectiveBaseUrl ??
+                  'Global default'}
               </div>
               <div>
                 <span className="text-slate-500">Source Service:</span>{' '}
-                {config?.sourceService ?? 'Global default'}
+                {config?.sourceService ??
+                  config?.effectiveSourceService ??
+                  'Global default'}
               </div>
               <div>
                 <span className="text-slate-500">API Key:</span>{' '}
@@ -385,18 +459,54 @@ function EnvironmentPanel({
                   'Not configured'
                 )}
               </div>
+              <div>
+                <span className="text-slate-500">Key Environment:</span>{' '}
+                {config?.environmentLabel ??
+                  (environment === 'live' ? 'Live/Production' : 'Test/UAT')}
+              </div>
+              <div>
+                <span className="text-slate-500">API Key Status:</span>{' '}
+                {config?.apiKeyStatus ?? 'NOT_CONFIGURED'}
+              </div>
+              <div className="col-span-2">
+                <span className="text-slate-500">
+                  Portal to TIRAMIS Callback:
+                </span>{' '}
+                {config?.serviceCallbackUrl ??
+                  config?.effectiveCallbackUrl ??
+                  config?.callbackUrl ??
+                  'Not configured'}
+                {config?.isActiveCallback ? (
+                  <Badge className="ml-2" variant="secondary">
+                    Active callback
+                  </Badge>
+                ) : null}
+              </div>
               {config?.validationMessage && (
                 <div className="col-span-2 text-slate-500">
                   Last validation message: {config.validationMessage}
                 </div>
               )}
             </div>
+            {generatedApiKey && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+                <div className="font-medium text-amber-900">
+                  New API key, shown once
+                </div>
+                <div className="mt-1 break-all font-mono text-amber-950">
+                  {generatedApiKey}
+                </div>
+              </div>
+            )}
             {canEdit && (
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setEditing(true)}
+                  onClick={() => {
+                    form.reset(buildDefaultValues(environment, config));
+                    setEditing(true);
+                  }}
                 >
                   Edit
                 </Button>
@@ -408,6 +518,31 @@ function EnvironmentPanel({
                   <ShieldCheck className="mr-1.5 h-3.5 w-3.5" />
                   {validateMutation.isPending ? 'Validating…' : 'Validate'}
                 </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => generateApiKeyMutation.mutate()}
+                  disabled={generateApiKeyMutation.isPending}
+                >
+                  <KeyRound className="mr-1.5 h-3.5 w-3.5" />
+                  {generateApiKeyMutation.isPending
+                    ? 'Generating...'
+                    : config?.serviceApiKeyConfigured
+                      ? 'Regenerate API Key'
+                      : 'Generate API Key'}
+                </Button>
+                {!config?.isTargetEnvironment && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => activateMutation.mutate()}
+                    disabled={activateMutation.isPending}
+                  >
+                    {activateMutation.isPending
+                      ? 'Switching...'
+                      : `Switch to ${environment === 'live' ? 'LIVE' : 'TEST'}`}
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -434,19 +569,39 @@ export function TiramisConfigTab({ canEdit }: { canEdit: boolean }) {
 
   const testConfig = configs?.find((c) => c.environment === 'test');
   const liveConfig = configs?.find((c) => c.environment === 'live');
+  const activeConfig = configs?.find((c) => c.isTargetEnvironment);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <EnvironmentPanel
-        environment="test"
-        config={testConfig}
-        canEdit={canEdit}
-      />
-      <EnvironmentPanel
-        environment="live"
-        config={liveConfig}
-        canEdit={canEdit}
-      />
+    <div className="space-y-4">
+      <div className="rounded-md border border-slate-200 bg-white p-4">
+        <div className="text-sm font-medium text-slate-600">
+          Current TIRAMIS Environment
+        </div>
+        <div className="mt-1 text-lg font-semibold text-slate-900">
+          {activeConfig?.environment === 'live'
+            ? 'LIVE / PRODUCTION'
+            : activeConfig?.environment === 'test'
+              ? 'TEST / UAT'
+              : 'Not selected'}
+        </div>
+        {activeConfig?.serviceCallbackUrl ? (
+          <div className="mt-2 text-sm text-slate-600">
+            Active portal to TIRAMIS callback: {activeConfig.serviceCallbackUrl}
+          </div>
+        ) : null}
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <EnvironmentPanel
+          environment="test"
+          config={testConfig}
+          canEdit={canEdit}
+        />
+        <EnvironmentPanel
+          environment="live"
+          config={liveConfig}
+          canEdit={canEdit}
+        />
+      </div>
     </div>
   );
 }

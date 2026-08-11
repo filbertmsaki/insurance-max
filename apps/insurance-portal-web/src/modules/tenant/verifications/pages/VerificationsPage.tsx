@@ -4,7 +4,6 @@ import { useForm } from 'react-hook-form';
 import { Loader2, SearchCheck } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ErrorState, EmptyState } from '@/components/shared/ContentStates';
-import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -185,7 +184,9 @@ const addonOrder = [
 ];
 
 function directChild(element: Element, tagName: string) {
-  return Array.from(element.children).find((child) => child.tagName === tagName);
+  return Array.from(element.children).find(
+    (child) => child.tagName === tagName,
+  );
 }
 
 function directChildren(element: Element, tagName: string) {
@@ -202,7 +203,9 @@ function directText(element: Element, tagName: string) {
 function fieldsFromElement(element: Element, preferredOrder: string[]) {
   const ordered = preferredOrder.map((tagName) => ({
     label: formatLabel(tagName),
-    value: directChild(element, tagName) ? directText(element, tagName) || 'N/A' : null,
+    value: directChild(element, tagName)
+      ? directText(element, tagName) || 'N/A'
+      : null,
   }));
   const orderedTags = new Set(preferredOrder);
   const extra = Array.from(element.children)
@@ -378,7 +381,9 @@ function Result({ result }: { result: VerificationResult }) {
     responseDetails?: Record<string, unknown> | null;
   } | null;
   const details =
-    response?.details ?? response?.responseDetails ?? result.verifiedRecordDetails;
+    response?.details ??
+    response?.responseDetails ??
+    result.verifiedRecordDetails;
   const xml =
     result.xml ??
     (typeof result.fullResponse?.xml === 'string'

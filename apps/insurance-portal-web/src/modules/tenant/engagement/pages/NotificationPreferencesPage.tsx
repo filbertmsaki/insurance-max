@@ -16,7 +16,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-import { engagementApi } from '../api';
+import { engagementApi, type NotificationPreferenceRecord } from '../api';
 
 export function NotificationPreferencesPage() {
   const queryClient = useQueryClient();
@@ -31,9 +31,14 @@ export function NotificationPreferencesPage() {
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      const items = preferencesQuery.data
-        ? preferencesQuery.data.map(({ id: _id, ...item }) => item)
-        : [];
+      const items: Array<Omit<NotificationPreferenceRecord, 'id'>> =
+        preferencesQuery.data
+          ? preferencesQuery.data.map((preference) => {
+              const item = { ...preference };
+              delete (item as { id?: unknown }).id;
+              return item;
+            })
+          : [];
 
       items.push({
         event_code: eventCode,

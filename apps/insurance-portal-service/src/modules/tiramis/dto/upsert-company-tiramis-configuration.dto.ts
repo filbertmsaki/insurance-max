@@ -69,4 +69,8 @@ export class UpsertCompanyTiramisConfigurationDto {
   @IsOptional()
   @IsBoolean()
   use_as_target_environment?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  confirm_live_activation?: boolean;
 }
