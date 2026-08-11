@@ -12,8 +12,15 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import { PolicyStatusBadge } from '../components/PolicyStatusBadge';
-import { useDeletePolicy, usePolicyDetail } from '../hooks';
+import {
+  useDeletePolicy,
+  usePolicyDetail,
+  usePolicyEndorsements,
+  useRetryPolicyEndorsementTiramis,
+  useSubmitPolicyEndorsementToTiramis,
+} from '../hooks';
 import { useSubmitPolicyToTiramis } from '@/modules/tenant/tiramis/hooks';
 import { TiramisSubmissionDialog } from '@/modules/tenant/tiramis/components/TiramisSubmissionDialog';
 import { buildPolicyTiramisPayload } from '@/modules/tenant/tiramis/utils';
@@ -28,6 +35,7 @@ import {
 import { PolicyNonMotorDetailForm } from '@/modules/tenant/non-motor/components/PolicyNonMotorDetailForm';
 import type { NonMotorPolicyDetailRecord } from '@/modules/tenant/non-motor/types';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
+import type { PolicyEndorsementRecord } from '../types';
 
 function Row({
   label,
@@ -44,14 +52,47 @@ function Row({
   );
 }
 
+const RETRYABLE_SUBMISSION_STATUSES = new Set([
+  'FAILED',
+  'REJECTED',
+  'RETRYABLE',
+]);
+
+function canSubmitEndorsementToTiramis(endorsement: PolicyEndorsementRecord) {
+  const approvalSatisfied =
+    !endorsement.approval_required ||
+    endorsement.approval_status === 'APPROVED';
+  const paymentSatisfied =
+    !endorsement.payment_required ||
+    endorsement.premium_effect === 'CREDIT' ||
+    endorsement.payment_status === 'PAID';
+
+  return (
+    endorsement.stage === 'COMPLETED' &&
+    endorsement.submission_status !== 'PROCESSING' &&
+    endorsement.submission_status !== 'ACCEPTED' &&
+    approvalSatisfied &&
+    paymentSatisfied
+  );
+}
+
 export function PolicyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { hasPermission } = useAuthStore();
   const canCreate = hasPermission('non-motor:create');
+  const canViewEndorsements = hasPermission('endorsements:create');
+  const canSubmitEndorsement = hasPermission('endorsements:submit-tiramis');
+  const canRetryEndorsement = hasPermission('endorsements:retry-tiramis');
   const { data: policy, isLoading } = usePolicyDetail(id);
   const deleteMutation = useDeletePolicy();
   const submitMutation = useSubmitPolicyToTiramis(policy);
+  const { data: endorsements = [], isLoading: endorsementsLoading } =
+    usePolicyEndorsements(policy?.id, canViewEndorsements);
+  const submitEndorsementMutation = useSubmitPolicyEndorsementToTiramis(
+    policy?.id,
+  );
+  const retryEndorsementMutation = useRetryPolicyEndorsementTiramis(policy?.id);
   const { data: nonMotorDetails = [] } = useNonMotorPolicyDetails(policy?.id);
   const { data: policyRisks = [] } = useNonMotorPolicyRisks(policy?.id);
   const { data: subjectMatterOptions = [] } = useSubjectMatterOptions();
@@ -94,6 +135,94 @@ export function PolicyDetailPage() {
       },
     ],
     [],
+  );
+
+  const endorsementColumns: Column<PolicyEndorsementRecord>[] = useMemo(
+    () => [
+      {
+        key: 'transaction_no',
+        header: 'Endorsement No.',
+        cell: (row) => row.transaction_no,
+      },
+      {
+        key: 'effective_date',
+        header: 'Effective Date',
+        cell: (row) => row.effective_date,
+      },
+      {
+        key: 'stage',
+        header: 'Stage',
+        cell: (row) => <StatusBadge status={row.stage} />,
+      },
+      {
+        key: 'submission_status',
+        header: 'TIRAMIS',
+        cell: (row) => <StatusBadge status={row.submission_status} />,
+      },
+      {
+        key: 'premium',
+        header: 'Premium Change',
+        cell: (row) =>
+          `${row.currency_code} ${row.net_premium_difference ?? '0'}`,
+      },
+      {
+        key: 'tiramis_request_id',
+        header: 'Request ID',
+        cell: (row) => row.tiramis_request_id ?? ' - ',
+      },
+      {
+        key: 'actions',
+        header: 'Actions',
+        cell: (row) => {
+          const ready = canSubmitEndorsementToTiramis(row);
+          const retryable = RETRYABLE_SUBMISSION_STATUSES.has(
+            row.submission_status,
+          );
+          const canRetry = ready && retryable && canRetryEndorsement;
+          const canSubmit = ready && !retryable && canSubmitEndorsement;
+
+          if (!canRetry && !canSubmit) {
+            return (
+              <span className="text-xs text-slate-500">
+                {row.submission_status === 'PROCESSING'
+                  ? 'Processing'
+                  : row.submission_status === 'ACCEPTED'
+                    ? 'Accepted'
+                    : 'Not available'}
+              </span>
+            );
+          }
+
+          return (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={
+                submitEndorsementMutation.isPending ||
+                retryEndorsementMutation.isPending
+              }
+              onClick={() => {
+                if (canRetry) {
+                  retryEndorsementMutation.mutate(row.id);
+                  return;
+                }
+                submitEndorsementMutation.mutate(row.id);
+              }}
+            >
+              <Play className="mr-1.5 h-3.5 w-3.5" />
+              {canRetry ? 'Retry TIRAMIS' : 'Submit to TIRAMIS'}
+            </Button>
+          );
+        },
+      },
+    ],
+    [
+      canRetryEndorsement,
+      canSubmitEndorsement,
+      retryEndorsementMutation,
+      submitEndorsementMutation,
+    ],
   );
 
   if (isLoading) {
@@ -178,6 +307,7 @@ export function PolicyDetailPage() {
           <TabsTrigger value="breakdown">Premium Breakdown</TabsTrigger>
           <TabsTrigger value="motor">Motor Details</TabsTrigger>
           <TabsTrigger value="nonmotor">Non-Motor Details</TabsTrigger>
+          <TabsTrigger value="endorsements">Endorsements</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="tiramis">TIRAMIS</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
@@ -283,6 +413,19 @@ export function PolicyDetailPage() {
             page={1}
             limit={nonMotorDetails.length || 1}
             total={nonMotorDetails.length}
+            totalPages={1}
+            onPageChange={() => undefined}
+            onLimitChange={() => undefined}
+          />
+        </TabsContent>
+        <TabsContent value="endorsements" className="space-y-4">
+          <DataTable
+            columns={endorsementColumns}
+            data={endorsements}
+            loading={endorsementsLoading}
+            page={1}
+            limit={endorsements.length || 1}
+            total={endorsements.length}
             totalPages={1}
             onPageChange={() => undefined}
             onLimitChange={() => undefined}

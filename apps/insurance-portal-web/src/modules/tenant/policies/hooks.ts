@@ -19,6 +19,8 @@ const policyKeys = {
   all: ['policies'] as const,
   list: (params: PolicyListParams) => ['policies', 'list', params] as const,
   detail: (id: string) => ['policies', 'detail', id] as const,
+  endorsements: (policyId: string) =>
+    ['policies', 'detail', policyId, 'endorsements'] as const,
   risks: (id: string) => ['policies', 'risks', id] as const,
   breakdowns: (id: string) => ['policies', 'breakdowns', id] as const,
   history: (id: string) => ['policies', 'history', id] as const,
@@ -101,6 +103,17 @@ export function usePolicyDetail(id?: string) {
   });
 }
 
+export function usePolicyEndorsements(policyId?: string, enabled = true) {
+  return useQuery({
+    queryKey: policyId
+      ? policyKeys.endorsements(policyId)
+      : policyKeys.endorsements(''),
+    queryFn: () => policiesApi.getEndorsements(policyId!),
+    enabled: !!policyId && enabled,
+    staleTime: 30_000,
+  });
+}
+
 export function useCreatePolicy() {
   const qc = useQueryClient();
   return useMutation({
@@ -124,6 +137,38 @@ export function useUpdatePolicy(id?: string) {
       qc.invalidateQueries({ queryKey: policyKeys.all });
       if (id) qc.setQueryData(policyKeys.detail(id), policy);
       toast.success('Policy updated');
+    },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
+  });
+}
+
+export function useSubmitPolicyEndorsementToTiramis(policyId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (endorsementId: string) =>
+      policiesApi.submitEndorsementToTiramis(endorsementId),
+    onSuccess: () => {
+      if (policyId) {
+        qc.invalidateQueries({ queryKey: policyKeys.endorsements(policyId) });
+        qc.invalidateQueries({ queryKey: policyKeys.detail(policyId) });
+      }
+      toast.success('Endorsement submitted to TIRAMIS');
+    },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
+  });
+}
+
+export function useRetryPolicyEndorsementTiramis(policyId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (endorsementId: string) =>
+      policiesApi.retryEndorsementTiramis(endorsementId),
+    onSuccess: () => {
+      if (policyId) {
+        qc.invalidateQueries({ queryKey: policyKeys.endorsements(policyId) });
+        qc.invalidateQueries({ queryKey: policyKeys.detail(policyId) });
+      }
+      toast.success('Endorsement TIRAMIS submission retried');
     },
     onError: (e) => toast.error(getApiErrorMessage(e)),
   });

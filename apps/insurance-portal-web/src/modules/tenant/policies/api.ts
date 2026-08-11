@@ -11,6 +11,7 @@ import type {
   PolicyRiskRecord,
   PolicyPremiumBreakdownRecord,
   PolicyStatusHistoryRecord,
+  PolicyEndorsementRecord,
 } from './types';
 
 export const policiesApi = {
@@ -45,5 +46,23 @@ export const policiesApi = {
   getHistory: (id: string) =>
     apiClient
       .get<PolicyStatusHistoryRecord[]>(`/tenant/policies/${id}/history`)
+      .then((r) => r.data),
+  getEndorsements: async (
+    policyId: string,
+  ): Promise<PolicyEndorsementRecord[]> => {
+    const response = await apiClient.get<PolicyEndorsementRecord[]>(
+      '/tenant/endorsements',
+    );
+    return response.data.filter(
+      (endorsement) => endorsement.source_policy_id === policyId,
+    );
+  },
+  submitEndorsementToTiramis: (id: string) =>
+    apiClient
+      .post(`/tenant/endorsements/${id}/submit-tiramis`)
+      .then((r) => r.data),
+  retryEndorsementTiramis: (id: string) =>
+    apiClient
+      .post(`/tenant/endorsements/${id}/retry-tiramis`)
       .then((r) => r.data),
 };

@@ -67,6 +67,55 @@ export interface PolicyStatusHistoryRecord extends QuotationStatusHistoryRecord 
   policy_id: string;
 }
 
+export type PolicyTransactionStage =
+  | 'DRAFT'
+  | 'COMPLETED'
+  | 'PENDING_APPROVAL'
+  | 'APPROVED'
+  | 'PAYMENT_PENDING'
+  | 'SUBMISSION_PROCESSING'
+  | 'APPLIED'
+  | 'REJECTED'
+  | 'CANCELLED'
+  | string;
+
+export type PolicyTransactionSubmissionStatus =
+  | 'NOT_READY'
+  | 'READY'
+  | 'PROCESSING'
+  | 'ACCEPTED'
+  | 'REJECTED'
+  | 'FAILED'
+  | 'RETRYABLE'
+  | string;
+
+export interface PolicyEndorsementRecord {
+  id: string;
+  company_id: string;
+  transaction_no: string;
+  transaction_type: 'ENDORSEMENT' | string;
+  stage: PolicyTransactionStage;
+  approval_status: string;
+  payment_status: string;
+  submission_status: PolicyTransactionSubmissionStatus;
+  source_policy_id: string;
+  effective_date: string;
+  reason: string;
+  approval_required: boolean;
+  payment_required: boolean;
+  premium_effect: string;
+  additional_premium: string;
+  return_premium: string;
+  net_premium_difference: string;
+  currency_code: string;
+  tiramis_tracking_id: string | null;
+  tiramis_transaction_id: string | null;
+  tiramis_request_id: string | null;
+  regulatory_response: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PolicyRecord {
   id: string;
   company_id: string;
