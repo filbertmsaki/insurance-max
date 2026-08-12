@@ -260,6 +260,7 @@ export function useRiskPremiumCalculation(
       factorContext,
     );
   }, [
+    form,
     requiredFactors,
     quotationType,
     motor,
@@ -692,6 +693,8 @@ export function useRiskPremiumCalculation(
     // factorValues is intentionally tracked via its stable JSON key so the
     // debounce doesn't restart on every render from a new object identity.
   }, [
+    applicableTaxRuleIds,
+    factorValues,
     form,
     index,
     riskId,
@@ -703,6 +706,7 @@ export function useRiskPremiumCalculation(
     requestedDiscountRate,
     selectedTaxCodes.length,
     taxRulesQuery.isLoading,
+    requiredFactors.length,
     applicableTaxRuleIdsKey,
     currentPricingSignature,
   ]);

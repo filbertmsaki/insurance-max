@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
@@ -113,7 +113,11 @@ export function RegisterPage() {
     },
   });
 
-  const password = form.watch('password');
+  const password =
+    useWatch({
+      control: form.control,
+      name: 'password',
+    }) ?? '';
 
   const mutation = useMutation({
     mutationFn: authApi.register,

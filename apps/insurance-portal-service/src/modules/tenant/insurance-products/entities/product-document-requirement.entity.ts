@@ -44,7 +44,7 @@ export class ProductDocumentRequirement {
   @Column({ default: true })
   is_mandatory: boolean;
 
-  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  @Column({ type: 'jsonb', default: [] })
   accepted_mime_types: string[];
 
   @Column({ type: 'integer', nullable: true })

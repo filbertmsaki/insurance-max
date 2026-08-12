@@ -6,28 +6,48 @@ export class PlatformIntelligenceService {
   constructor(private readonly dataSource: DataSource) {}
 
   async listCompanyHealth() {
-    return this.dataSource.query(
-      `
-      SELECT
-        company.id,
-        company.name,
-        company.tira_company_code AS "companyCode",
-        COUNT(DISTINCT scorecard.id) AS "publishedScorecards",
-        COUNT(DISTINCT finding.id) AS "openAnomalies",
-        COUNT(DISTINCT forecastRun.id) AS "forecastRuns"
-      FROM company
-      LEFT JOIN analytics_scorecard_snapshots scorecard
-        ON scorecard.company_id = company.id
-        AND scorecard.status = 'PUBLISHED'
-      LEFT JOIN analytics_anomaly_findings finding
-        ON finding.company_id = company.id
-        AND finding.status = 'OPEN'
-      LEFT JOIN analytics_forecast_runs forecastRun
-        ON forecastRun.company_id = company.id
-      GROUP BY company.id
-      ORDER BY company.name ASC
-      `,
-    );
+    try {
+      return await this.dataSource.query(
+        `
+        SELECT
+          company.id,
+          company.name,
+          company.tira_company_code AS "companyCode",
+          COUNT(DISTINCT scorecard.id) AS "publishedScorecards",
+          COUNT(DISTINCT finding.id) AS "openAnomalies",
+          COUNT(DISTINCT forecastRun.id) AS "forecastRuns"
+        FROM companies company
+        LEFT JOIN analytics_scorecard_snapshots scorecard
+          ON scorecard.company_id = company.id
+          AND scorecard.status = 'PUBLISHED'
+        LEFT JOIN analytics_anomaly_findings finding
+          ON finding.company_id = company.id
+          AND finding.status = 'OPEN'
+        LEFT JOIN analytics_forecast_runs forecastRun
+          ON forecastRun.company_id = company.id
+        GROUP BY company.id
+        ORDER BY company.name ASC
+        `,
+      );
+    } catch (error) {
+      if (!this.isMissingRelationError(error)) {
+        throw error;
+      }
+
+      return this.dataSource.query(
+        `
+        SELECT
+          company.id,
+          company.name,
+          company.tira_company_code AS "companyCode",
+          0::bigint AS "publishedScorecards",
+          0::bigint AS "openAnomalies",
+          0::bigint AS "forecastRuns"
+        FROM companies company
+        ORDER BY company.name ASC
+        `,
+      );
+    }
   }
 
   async listBenchmarkSnapshots(query: {
@@ -43,7 +63,7 @@ export class PlatformIntelligenceService {
       query.to ?? null,
     ];
 
-    return this.dataSource.query(
+    return this.queryOptional(
       `
       SELECT *
       FROM platform_benchmark_snapshots
@@ -54,6 +74,7 @@ export class PlatformIntelligenceService {
       ORDER BY period_start DESC
       `,
       params,
+      [],
     );
   }
 
@@ -70,13 +91,13 @@ export class PlatformIntelligenceService {
       query.to ?? null,
     ];
 
-    return this.dataSource.query(
+    return this.queryOptional(
       `
       SELECT
         finding.*,
         company.name AS "companyName"
       FROM analytics_anomaly_findings finding
-      LEFT JOIN company ON company.id = finding.company_id
+      LEFT JOIN companies company ON company.id = finding.company_id
       WHERE ($1::uuid IS NULL OR finding.company_id = $1)
         AND ($2::uuid IS NULL OR finding.branch_id = $2)
         AND ($3::date IS NULL OR finding.metric_date >= $3)
@@ -84,6 +105,7 @@ export class PlatformIntelligenceService {
       ORDER BY finding.metric_date DESC, finding.severity DESC
       `,
       params,
+      [],
     );
   }
 
@@ -98,7 +120,7 @@ export class PlatformIntelligenceService {
       query.status ?? null,
     ];
 
-    return this.dataSource.query(
+    return this.queryOptional(
       `
       SELECT
         run.*,
@@ -112,6 +134,7 @@ export class PlatformIntelligenceService {
       ORDER BY run.created_at DESC
       `,
       params,
+      [],
     );
   }
 
@@ -365,5 +388,29 @@ export class PlatformIntelligenceService {
       usageSnapshotCount: Number(usageRows[0]?.snapshotCount ?? 0),
       billingSnapshotCount: Number(billingRows[0]?.snapshotCount ?? 0),
     };
+  }
+
+  private async queryOptional<T>(
+    query: string,
+    params: unknown[] = [],
+    fallback: T,
+  ): Promise<T> {
+    try {
+      return await this.dataSource.query(query, params);
+    } catch (error) {
+      if (this.isMissingRelationError(error)) {
+        return fallback;
+      }
+
+      throw error;
+    }
+  }
+
+  private isMissingRelationError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    return 'code' in error && error.code === '42P01';
   }
 }

@@ -77,9 +77,8 @@ export class ProductTaxRule {
   maximum_charge_amount: string | null;
 
   @Column({
-    type: 'enum',
-    enum: ProductCalculationBase,
-    enumName: 'product_calculation_base_enum',
+    type: 'varchar',
+    length: 30,
     default: ProductCalculationBase.BASIC_PREMIUM,
   })
   calculation_base: ProductCalculationBase;
@@ -91,9 +90,8 @@ export class ProductTaxRule {
   effective_to: string;
 
   @Column({
-    type: 'enum',
-    enum: ProductRuleStatus,
-    enumName: 'product_rule_status_enum',
+    type: 'varchar',
+    length: 20,
     default: ProductRuleStatus.ACTIVE,
   })
   status: ProductRuleStatus;

@@ -33,6 +33,18 @@ export async function requireColumns(
   tableName: string,
   columns: string[],
 ): Promise<void> {
+  const tableRows = await queryRunner.query(
+    `SELECT to_regclass($1) AS table_name`,
+    [`public.${tableName}`],
+  );
+  const resolvedTableName = tableRows[0]?.table_name as string | null;
+
+  if (!resolvedTableName) {
+    throw new Error(
+      `[seed-validation] Required table "${tableName}" does not exist in schema "public". Run the insurance portal migrations before seeding.`,
+    );
+  }
+
   const rows = await queryRunner.query(
     `
       SELECT column_name

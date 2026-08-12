@@ -52,9 +52,8 @@ export class InsuranceProduct {
   description: string | null;
 
   @Column({
-    type: 'enum',
-    enum: InsuranceBusinessLine,
-    enumName: 'insurance_business_line_enum',
+    type: 'varchar',
+    length: 20,
     default: InsuranceBusinessLine.NON_MOTOR,
   })
   business_line: InsuranceBusinessLine;

@@ -42,9 +42,8 @@ export class ProductDistributionChannel {
   sub_class_id: string | null;
 
   @Column({
-    type: 'enum',
-    enum: ProductChannelType,
-    enumName: 'product_channel_type_enum',
+    type: 'varchar',
+    length: 20,
   })
   channel_type: ProductChannelType;
 
@@ -73,9 +72,8 @@ export class ProductDistributionChannel {
   effective_to: string;
 
   @Column({
-    type: 'enum',
-    enum: ProductRuleStatus,
-    enumName: 'product_rule_status_enum',
+    type: 'varchar',
+    length: 20,
     default: ProductRuleStatus.ACTIVE,
   })
   status: ProductRuleStatus;

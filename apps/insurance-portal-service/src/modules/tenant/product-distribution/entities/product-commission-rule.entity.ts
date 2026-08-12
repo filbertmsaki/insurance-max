@@ -44,9 +44,8 @@ export class ProductCommissionRule {
   risk_id: string | null;
 
   @Column({
-    type: 'enum',
-    enum: ProductChannelType,
-    enumName: 'product_channel_type_enum',
+    type: 'varchar',
+    length: 20,
   })
   channel_type: ProductChannelType;
 
@@ -70,9 +69,8 @@ export class ProductCommissionRule {
   maximum_commission: string | null;
 
   @Column({
-    type: 'enum',
-    enum: ProductCalculationBase,
-    enumName: 'product_calculation_base_enum',
+    type: 'varchar',
+    length: 30,
     default: ProductCalculationBase.GROSS_PREMIUM,
   })
   calculation_base: ProductCalculationBase;
@@ -84,9 +82,8 @@ export class ProductCommissionRule {
   effective_to: string;
 
   @Column({
-    type: 'enum',
-    enum: ProductRuleStatus,
-    enumName: 'product_rule_status_enum',
+    type: 'varchar',
+    length: 20,
     default: ProductRuleStatus.ACTIVE,
   })
   status: ProductRuleStatus;

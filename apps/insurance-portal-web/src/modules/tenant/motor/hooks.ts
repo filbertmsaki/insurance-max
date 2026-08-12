@@ -54,8 +54,8 @@ export function useMotorVehiclesList() {
     staleTime: 30_000,
   });
 
-  const all = data?.data ?? [];
   const filtered = useMemo(() => {
+    const all = data?.data ?? [];
     const term = search.toLowerCase();
     return all.filter((item) => {
       const matchesSearch =
@@ -77,7 +77,7 @@ export function useMotorVehiclesList() {
         customerId === 'all' ? true : item.customer_id === customerId;
       return matchesSearch && matchesStatus && matchesCustomer;
     });
-  }, [all, customerId, search, status]);
+  }, [customerId, data?.data, search, status]);
 
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -192,8 +192,8 @@ export function useMotorFleetsList() {
     staleTime: 30_000,
   });
 
-  const all = data?.data ?? [];
   const filtered = useMemo(() => {
+    const all = data?.data ?? [];
     const term = search.toLowerCase();
     return all.filter((item) => {
       const matchesSearch =
@@ -212,7 +212,7 @@ export function useMotorFleetsList() {
         customerId === 'all' ? true : item.customer_id === customerId;
       return matchesSearch && matchesStatus && matchesCustomer;
     });
-  }, [all, customerId, search, status]);
+  }, [customerId, data?.data, search, status]);
 
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / limit));

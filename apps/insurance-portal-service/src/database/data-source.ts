@@ -42,16 +42,22 @@ const database = readDatabaseEnv('DB', {
   ssl: false,
 });
 
+const runtimeExtension = __filename.endsWith('.ts') ? 'ts' : 'js';
+
 const AppDataSource = new DataSource(
   createDataSourceOptions(database, {
-    entities: ['apps/insurance-portal-service/src/**/*.entity{.ts,.js}'],
+    entities: [
+      `apps/insurance-portal-service/src/**/*.entity.${runtimeExtension}`,
+    ],
     migrations: [
-      'apps/insurance-portal-service/src/database/migrations/*{.ts,.js}',
+      `apps/insurance-portal-service/src/database/migrations/*.${runtimeExtension}`,
     ],
     migrationsTableName: 'migrations',
-    seeds: ['apps/insurance-portal-service/src/database/seeds/*.seed.ts'],
+    seeds: [
+      `apps/insurance-portal-service/src/database/seeds/*.seed.${runtimeExtension}`,
+    ],
     factories: [
-      'apps/insurance-portal-service/src/database/factories/*.factory{.ts,.js}',
+      `apps/insurance-portal-service/src/database/factories/*.factory.${runtimeExtension}`,
     ],
   } as Partial<DataSourceOptions & SeederOptions>),
 );

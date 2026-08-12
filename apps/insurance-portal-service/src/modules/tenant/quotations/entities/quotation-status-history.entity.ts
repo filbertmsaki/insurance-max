@@ -24,65 +24,57 @@ export class QuotationStatusHistory {
   quotation_id: string;
 
   @Column({
-    type: 'enum',
-    enum: QuotationStatus,
-    enumName: 'quotation_status_enum',
+    type: 'varchar',
+    length: 30,
     nullable: true,
   })
   previous_quotation_status: QuotationStatus | null;
 
   @Column({
-    type: 'enum',
-    enum: QuotationStatus,
-    enumName: 'quotation_status_enum',
+    type: 'varchar',
+    length: 30,
     nullable: true,
   })
   new_quotation_status: QuotationStatus | null;
 
   @Column({
-    type: 'enum',
-    enum: ApprovalStatus,
-    enumName: 'approval_status_enum',
+    type: 'varchar',
+    length: 30,
     nullable: true,
   })
   previous_approval_status: ApprovalStatus | null;
 
   @Column({
-    type: 'enum',
-    enum: ApprovalStatus,
-    enumName: 'approval_status_enum',
+    type: 'varchar',
+    length: 30,
     nullable: true,
   })
   new_approval_status: ApprovalStatus | null;
 
   @Column({
-    type: 'enum',
-    enum: PaymentStatus,
-    enumName: 'payment_status_enum',
+    type: 'varchar',
+    length: 30,
     nullable: true,
   })
   previous_payment_status: PaymentStatus | null;
 
   @Column({
-    type: 'enum',
-    enum: PaymentStatus,
-    enumName: 'payment_status_enum',
+    type: 'varchar',
+    length: 30,
     nullable: true,
   })
   new_payment_status: PaymentStatus | null;
 
   @Column({
-    type: 'enum',
-    enum: TiraStatus,
-    enumName: 'tira_status_enum',
+    type: 'varchar',
+    length: 30,
     nullable: true,
   })
   previous_tira_status: TiraStatus | null;
 
   @Column({
-    type: 'enum',
-    enum: TiraStatus,
-    enumName: 'tira_status_enum',
+    type: 'varchar',
+    length: 30,
     nullable: true,
   })
   new_tira_status: TiraStatus | null;

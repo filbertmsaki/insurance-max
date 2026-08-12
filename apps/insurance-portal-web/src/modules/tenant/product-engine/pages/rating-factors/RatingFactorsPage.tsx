@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -235,7 +235,10 @@ export function RatingFactorsPage() {
     },
   });
 
-  const watchedDataType = form.watch('data_type');
+  const watchedDataType = useWatch({
+    control: form.control,
+    name: 'data_type',
+  });
   const showOptions =
     watchedDataType === 'SELECT' || watchedDataType === 'MULTI_SELECT';
 

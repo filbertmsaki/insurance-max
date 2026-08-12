@@ -1,11 +1,66 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
+type KpiDefinitionRow = {
+  id: string;
+  code: string;
+  calculator_key?: string;
+  calculatorKey?: string;
+};
+
+type ScorecardTemplateItemRow = {
+  id: string;
+  code: string;
+  weight?: number | string | null;
+  kpiDefinitionId: string;
+  targetValue?: number | string | null;
+  defaultTarget?: number | string | null;
+  warningThreshold?: number | string | null;
+  defaultWarningThreshold?: number | string | null;
+  criticalThreshold?: number | string | null;
+  defaultCriticalThreshold?: number | string | null;
+};
+
+type DailyMetricRow = {
+  metricDate: string | Date;
+  metricValue: number | string | null;
+  observationCount?: number | string | null;
+  dimensions?: Record<string, unknown> | null;
+};
+
+type AnomalyFindingRow = {
+  id: string;
+  rule_id: string;
+  metric_date: string;
+};
+
+type AnomalyRuleRow = {
+  id: string;
+  metric_code: string;
+};
+
+type ForecastDefinitionRow = {
+  id: string;
+  method?: string | null;
+  metric_code?: string | null;
+  metricCode?: string | null;
+};
+
+type ForecastRunRow = {
+  id: string;
+};
+
+type ForecastPointRow = {
+  id: string;
+  forecast_date: string;
+  predicted_value: number | string;
+};
+
 @Injectable()
 export class AnalyticsService {
   constructor(private readonly dataSource: DataSource) {}
 
-  async listKpiDefinitions() {
+  async listKpiDefinitions(): Promise<KpiDefinitionRow[]> {
     return this.dataSource.query(
       `
       SELECT
@@ -14,41 +69,104 @@ export class AnalyticsService {
         name,
         description,
         category,
-        calculator_key AS "calculatorKey",
+        code AS "calculatorKey",
         value_type AS "valueType",
-        direction,
-        applicable_company_types AS "applicableCompanyTypes",
-        default_target AS "defaultTarget",
-        default_warning_threshold AS "defaultWarningThreshold",
-        default_critical_threshold AS "defaultCriticalThreshold",
-        effective_from AS "effectiveFrom",
-        effective_to AS "effectiveTo",
-        is_active AS "isActive",
-        metadata
-      FROM analytics_kpi_definitions
-      WHERE is_active = true
+        CASE
+          WHEN aggregation_type = 'AVERAGE' THEN 'higher-is-better'
+          ELSE 'higher-is-better'
+        END AS direction,
+        '[]'::jsonb AS "applicableCompanyTypes",
+        NULL::numeric AS "defaultTarget",
+        NULL::numeric AS "defaultWarningThreshold",
+        NULL::numeric AS "defaultCriticalThreshold",
+        NULL::date AS "effectiveFrom",
+        NULL::date AS "effectiveTo",
+        true AS "isActive",
+        jsonb_build_object(
+          'source',
+          'analytics_metric_definitions',
+          'aggregationType',
+          aggregation_type,
+          'permission',
+          permission,
+          'supportedDimensions',
+          supported_dimensions,
+          'supportedPeriods',
+          supported_periods
+        ) AS metadata
+      FROM analytics_metric_definitions
       ORDER BY category, code
       `,
     );
   }
 
-  async getKpiDefinition(code: string) {
+  async getKpiDefinition(code: string): Promise<KpiDefinitionRow | null> {
     const definitions = await this.dataSource.query(
       `
       SELECT
-        *
-      FROM analytics_kpi_definitions
+        id,
+        code,
+        name,
+        description,
+        category,
+        code AS calculator_key,
+        code AS "calculatorKey",
+        value_type,
+        value_type AS "valueType",
+        CASE
+          WHEN aggregation_type = 'AVERAGE' THEN 'higher-is-better'
+          ELSE 'higher-is-better'
+        END AS direction,
+        '[]'::jsonb AS applicable_company_types,
+        '[]'::jsonb AS "applicableCompanyTypes",
+        NULL::numeric AS default_target,
+        NULL::numeric AS "defaultTarget",
+        NULL::numeric AS default_warning_threshold,
+        NULL::numeric AS "defaultWarningThreshold",
+        NULL::numeric AS default_critical_threshold,
+        NULL::numeric AS "defaultCriticalThreshold",
+        NULL::date AS effective_from,
+        NULL::date AS "effectiveFrom",
+        NULL::date AS effective_to,
+        NULL::date AS "effectiveTo",
+        true AS is_active,
+        true AS "isActive",
+        jsonb_build_object(
+          'source',
+          'analytics_metric_definitions',
+          'aggregationType',
+          aggregation_type,
+          'permission',
+          permission,
+          'supportedDimensions',
+          supported_dimensions,
+          'supportedPeriods',
+          supported_periods
+        ) AS metadata,
+        aggregation_type,
+        formula_version,
+        formula_description,
+        supported_dimensions,
+        supported_periods,
+        permission,
+        sensitive,
+        target_supported,
+        forecast_supported,
+        benchmark_supported
+      FROM analytics_metric_definitions
       WHERE code = $1
       LIMIT 1
       `,
       [code],
     );
 
-    return definitions[0] ?? null;
+    return (definitions as KpiDefinitionRow[])[0] ?? null;
   }
 
-  async listScorecardTemplates(companyId: string) {
-    return this.dataSource.query(
+  async listScorecardTemplates(
+    companyId: string,
+  ): Promise<Record<string, unknown>[]> {
+    return this.queryOptional(
       `
       SELECT
         id,
@@ -67,11 +185,14 @@ export class AnalyticsService {
       ORDER BY name
       `,
       [companyId],
+      [],
     );
   }
 
-  async getScorecardTemplateItems(templateId: string) {
-    return this.dataSource.query(
+  async getScorecardTemplateItems(
+    templateId: string,
+  ): Promise<ScorecardTemplateItemRow[]> {
+    return this.queryOptional(
       `
       SELECT
         item.id,
@@ -100,6 +221,7 @@ export class AnalyticsService {
       ORDER BY item.display_order ASC
       `,
       [templateId],
+      [] as ScorecardTemplateItemRow[],
     );
   }
 
@@ -109,7 +231,7 @@ export class AnalyticsService {
     metricCode: string;
     from?: string;
     to?: string;
-  }) {
+  }): Promise<DailyMetricRow[]> {
     const queryParams: Array<string | null> = [
       params.companyId,
       params.metricCode,
@@ -128,7 +250,7 @@ export class AnalyticsService {
 
     queryParams.push(params.branchId ?? null);
 
-    return this.dataSource.query(
+    return this.queryOptional(
       `
       SELECT
         metric_date AS "metricDate",
@@ -143,6 +265,7 @@ export class AnalyticsService {
       ORDER BY metric_date ASC
       `,
       queryParams,
+      [] as DailyMetricRow[],
     );
   }
 
@@ -151,7 +274,7 @@ export class AnalyticsService {
     branchId?: string | null,
     from?: string,
     to?: string,
-  ) {
+  ): Promise<AnomalyFindingRow[]> {
     const params: Array<string | null> = [
       companyId,
       branchId ?? null,
@@ -159,7 +282,7 @@ export class AnalyticsService {
       to ?? null,
     ];
 
-    return this.dataSource.query(
+    return this.queryOptional(
       `
       SELECT *
       FROM analytics_anomaly_findings
@@ -170,11 +293,12 @@ export class AnalyticsService {
       ORDER BY metric_date DESC, severity DESC
       `,
       params,
+      [] as AnomalyFindingRow[],
     );
   }
 
-  async listAnomalyRules(companyId: string) {
-    return this.dataSource.query(
+  async listAnomalyRules(companyId: string): Promise<AnomalyRuleRow[]> {
+    return this.queryOptional(
       `
       SELECT *
       FROM analytics_anomaly_rules
@@ -183,6 +307,7 @@ export class AnalyticsService {
       ORDER BY name
       `,
       [companyId],
+      [] as AnomalyRuleRow[],
     );
   }
 
@@ -190,8 +315,8 @@ export class AnalyticsService {
     ruleId: string,
     companyId: string,
     metricDate: string,
-  ) {
-    return this.dataSource.query(
+  ): Promise<AnomalyFindingRow[]> {
+    return this.queryOptional(
       `
       SELECT *
       FROM analytics_anomaly_findings
@@ -201,6 +326,7 @@ export class AnalyticsService {
       LIMIT 1
       `,
       [ruleId, companyId, metricDate],
+      [] as AnomalyFindingRow[],
     );
   }
 
@@ -220,8 +346,8 @@ export class AnalyticsService {
     status: string;
     explanation: string;
     evidence: Record<string, unknown>;
-  }) {
-    const rows = await this.dataSource.query(
+  }): Promise<AnomalyFindingRow | undefined> {
+    const rows = await this.queryOptional(
       `
       INSERT INTO analytics_anomaly_findings (
         company_id,
@@ -259,13 +385,16 @@ export class AnalyticsService {
         finding.explanation,
         finding.evidence,
       ],
+      [] as AnomalyFindingRow[],
     );
 
     return rows[0];
   }
 
-  async listForecastDefinitions(companyId: string) {
-    return this.dataSource.query(
+  async listForecastDefinitions(
+    companyId: string,
+  ): Promise<ForecastDefinitionRow[]> {
+    return this.queryOptional(
       `
       SELECT *
       FROM analytics_forecast_definitions
@@ -274,11 +403,14 @@ export class AnalyticsService {
       ORDER BY name
       `,
       [companyId],
+      [] as ForecastDefinitionRow[],
     );
   }
 
-  async getForecastDefinition(definitionId: string) {
-    const rows = await this.dataSource.query(
+  async getForecastDefinition(
+    definitionId: string,
+  ): Promise<ForecastDefinitionRow | null> {
+    const rows = await this.queryOptional(
       `
       SELECT *
       FROM analytics_forecast_definitions
@@ -286,6 +418,7 @@ export class AnalyticsService {
       LIMIT 1
       `,
       [definitionId],
+      [] as ForecastDefinitionRow[],
     );
 
     return rows[0] ?? null;
@@ -303,8 +436,8 @@ export class AnalyticsService {
     selectedMethod: string;
     status: string;
     createdBy: string;
-  }) {
-    const rows = await this.dataSource.query(
+  }): Promise<ForecastRunRow> {
+    const rows = await this.queryOptional(
       `
       INSERT INTO analytics_forecast_runs (
         company_id,
@@ -334,6 +467,7 @@ export class AnalyticsService {
         run.status,
         run.createdBy,
       ],
+      [] as ForecastRunRow[],
     );
 
     return rows[0];
@@ -347,7 +481,7 @@ export class AnalyticsService {
       lowerBound?: number | null;
       upperBound?: number | null;
     }>,
-  ) {
+  ): Promise<ForecastPointRow[]> {
     const values = points
       .map(
         (point, index) =>
@@ -369,7 +503,7 @@ export class AnalyticsService {
       return [];
     }
 
-    return this.dataSource.query(
+    return this.queryOptional(
       `
       INSERT INTO analytics_forecast_points (
         forecast_run_id,
@@ -381,6 +515,7 @@ export class AnalyticsService {
       RETURNING *
       `,
       params,
+      [] as ForecastPointRow[],
     );
   }
 
@@ -409,7 +544,7 @@ export class AnalyticsService {
       conditions.push('period_end <= $4');
     }
 
-    return this.dataSource.query(
+    return this.queryOptional(
       `
       SELECT *
       FROM platform_benchmark_snapshots
@@ -417,6 +552,7 @@ export class AnalyticsService {
       ORDER BY period_start DESC
       `,
       params,
+      [],
     );
   }
 
@@ -437,7 +573,7 @@ export class AnalyticsService {
     minimumCohortSize: number;
     metadata?: Record<string, unknown>;
   }) {
-    const rows = await this.dataSource.query(
+    const rows = await this.queryOptional(
       `
       INSERT INTO platform_benchmark_snapshots (
         metric_code,
@@ -475,8 +611,33 @@ export class AnalyticsService {
         snapshot.minimumCohortSize,
         snapshot.metadata ?? {},
       ],
+      [],
     );
 
     return rows[0];
+  }
+
+  private async queryOptional<T>(
+    query: string,
+    params: unknown[] = [],
+    fallback: T,
+  ): Promise<T> {
+    try {
+      return await this.dataSource.query(query, params);
+    } catch (error) {
+      if (this.isMissingRelationError(error)) {
+        return fallback;
+      }
+
+      throw error;
+    }
+  }
+
+  private isMissingRelationError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+
+    return 'code' in error && error.code === '42P01';
   }
 }

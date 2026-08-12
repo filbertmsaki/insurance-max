@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import type { UseFormReturn } from 'react-hook-form';
+import { useCallback, useEffect } from 'react';
+import { useWatch, type UseFormReturn } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import {
   FormControl,
@@ -71,9 +71,16 @@ const MANUFACTURE_YEAR_OPTIONS = Array.from(
 );
 
 export function MotorDetailsStep({ form, vehicleOptions }: Props) {
-  const mode = form.watch('motor_mode');
+  const mode = useWatch({
+    control: form.control,
+    name: 'motor_mode',
+  });
+  const selectedVehicleId = useWatch({
+    control: form.control,
+    name: 'motor.vehicle_id',
+  });
   const selectedVehicle = vehicleOptions.find(
-    (v) => v.id === form.watch('motor.vehicle_id'),
+    (v) => v.id === selectedVehicleId,
   );
 
   function resolveMotorCategoryCode(vehicle: MotorVehicleRecord) {
@@ -97,7 +104,7 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
     return resolvedCode;
   }
 
-  function fillFromExisting(vehicle: MotorVehicleRecord) {
+  const fillFromExisting = useCallback((vehicle: MotorVehicleRecord) => {
     const metadata = vehicle.metadata ?? {};
     form.setValue('motor.vehicle_id', vehicle.id, {
       shouldDirty: true,
@@ -274,7 +281,7 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
       shouldTouch: true,
       shouldValidate: true,
     });
-  }
+  }, [form]);
 
   useEffect(() => {
     if (mode !== 'existing' || !selectedVehicle) {
@@ -282,7 +289,7 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
     }
 
     fillFromExisting(selectedVehicle);
-  }, [mode, selectedVehicle?.id]);
+  }, [fillFromExisting, mode, selectedVehicle]);
 
   return (
     <>

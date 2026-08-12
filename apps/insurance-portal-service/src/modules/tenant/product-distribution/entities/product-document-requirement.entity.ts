@@ -14,11 +14,11 @@ import { InsuranceProduct } from '../../insurance-products/entities/insurance-pr
 import { InsuranceRisk } from '../../insurance-risks/entities/insurance-risk.entity';
 import { ProductRuleStatus } from '../enums/product-rule-status.enum';
 
-@Entity('product_document_requirements')
-@Index('IDX_pdr_company_id', ['company_id'])
-@Index('IDX_pdr_product_id', ['product_id'])
-@Index('IDX_pdr_risk_id', ['risk_id'])
-@Index('IDX_pdr_status', ['status'])
+@Entity('product_distribution_document_requirements')
+@Index('IDX_pddr_company_id', ['company_id'])
+@Index('IDX_pddr_product_id', ['product_id'])
+@Index('IDX_pddr_risk_id', ['risk_id'])
+@Index('IDX_pddr_status', ['status'])
 export class ProductDocumentRequirement {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -51,9 +51,8 @@ export class ProductDocumentRequirement {
   is_required_before_claim: boolean;
 
   @Column({
-    type: 'enum',
-    enum: ProductRuleStatus,
-    enumName: 'product_rule_status_enum',
+    type: 'varchar',
+    length: 20,
     default: ProductRuleStatus.ACTIVE,
   })
   status: ProductRuleStatus;

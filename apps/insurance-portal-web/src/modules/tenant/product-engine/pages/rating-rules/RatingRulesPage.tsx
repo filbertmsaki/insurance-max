@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useMemo, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -221,7 +221,10 @@ function ConditionsPanel({
       logical_operator: 'AND',
     },
   });
-  const watchedOp = condForm.watch('operator');
+  const watchedOp = useWatch({
+    control: condForm.control,
+    name: 'operator',
+  });
   const isBetween = watchedOp === 'BETWEEN';
 
   function addCondition(values: ConditionFormValues) {
@@ -509,15 +512,13 @@ export function RatingRulesPage({
   const canUpdate = hasPermission('pricing.manage_rules') && rateBookEditable;
   const canDelete = hasPermission('pricing.manage_rules') && rateBookEditable;
 
-  const [selectedProductId, setSelectedProductId] = useState(productId ?? '');
+  const [unscopedSelectedProductId, setUnscopedSelectedProductId] =
+    useState('');
   const [selectedRiskId, setSelectedRiskId] = useState('');
   const [expandedRuleIds, setExpandedRuleIds] = useState<Set<string>>(
     new Set(),
   );
-
-  useEffect(() => {
-    if (productId) setSelectedProductId(productId);
-  }, [productId]);
+  const selectedProductId = productId ?? unscopedSelectedProductId;
 
   const { data: products = [] } = useAllActiveProducts();
   const { data: risks = [] } = useRisksByProduct({
@@ -568,7 +569,10 @@ export function RatingRulesPage({
     },
   });
 
-  const watchedRateType = form.watch('rate_type');
+  const watchedRateType = useWatch({
+    control: form.control,
+    name: 'rate_type',
+  });
 
   function openCreate() {
     setEditRule(null);
@@ -732,7 +736,7 @@ export function RatingRulesPage({
             <Select
               value={selectedProductId || 'none'}
               onValueChange={(v) => {
-                setSelectedProductId(v === 'none' ? '' : v);
+                setUnscopedSelectedProductId(v === 'none' ? '' : v);
                 setSelectedRiskId('');
               }}
             >

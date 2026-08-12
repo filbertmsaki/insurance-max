@@ -9,7 +9,7 @@ import { createHash, randomUUID } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { createRequire } from 'module';
 import request, { type Response } from 'supertest';
-import { DataSource, type QueryRunner } from 'typeorm';
+import { DataSource } from 'typeorm';
 
 import { hashPassword } from '@insurance-max/portal-shared/utils/hash.util';
 import { CompaniesService } from '../../src/modules/platform/companies/companies.service';
@@ -441,18 +441,6 @@ describe('Portal engagement access (real database)', () => {
     return signatureRequestId;
   }
 
-  async function tableExists(
-    queryRunner: QueryRunner,
-    tableName: string,
-  ): Promise<boolean> {
-    const rows = await queryRunner.query(
-      `SELECT to_regclass($1) AS table_name`,
-      [`public.${tableName}`],
-    );
-
-    return Boolean(rows[0]?.table_name);
-  }
-
   beforeAll(async () => {
     const { AppModule } = loadModule('../../src/app.module');
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -480,56 +468,6 @@ describe('Portal engagement access (real database)', () => {
     sessionsService = app.get(SessionsService);
     companiesService = app.get(CompaniesService);
     await dataSource.runMigrations();
-
-    const queryRunner = dataSource.createQueryRunner();
-    try {
-      const { Phase2AuthenticationHardening1794400000000 } = loadModule(
-        '../../src/database/migrations/1794400000000-Phase2AuthenticationHardening',
-      );
-      const { Phase3AuthorizationAndAudit1794500000000 } = loadModule(
-        '../../src/database/migrations/1794500000000-Phase3AuthorizationAndAudit',
-      );
-      const { OrganizationContextFoundation1794600000000 } = loadModule(
-        '../../src/database/migrations/1794600000000-OrganizationContextFoundation',
-      );
-      const { CustomerAndInsuredAssetFoundation1795000000000 } = loadModule(
-        '../../src/database/migrations/1795000000000-CustomerAndInsuredAssetFoundation',
-      );
-      const { Phase18SecurityGovernanceObservability1796300000000 } =
-        loadModule(
-          '../../src/database/migrations/1796300000000-Phase18SecurityGovernanceObservability',
-        );
-      await new Phase2AuthenticationHardening1794400000000().up(queryRunner);
-      await new Phase3AuthorizationAndAudit1794500000000().up(queryRunner);
-      await new OrganizationContextFoundation1794600000000().up(queryRunner);
-      await new CustomerAndInsuredAssetFoundation1795000000000().up(
-        queryRunner,
-      );
-      await new Phase18SecurityGovernanceObservability1796300000000().up(
-        queryRunner,
-      );
-
-      if (!(await tableExists(queryRunner, 'documents'))) {
-        const { ClaimsAndComplaintsAuthority1795600000000 } = loadModule(
-          '../../src/database/migrations/1795600000000-ClaimsAndComplaintsAuthority',
-        );
-        await new ClaimsAndComplaintsAuthority1795600000000().up(queryRunner);
-      }
-
-      if (!(await tableExists(queryRunner, 'communication_threads'))) {
-        const { EngagementAndSelfService1795900000000 } = loadModule(
-          '../../src/database/migrations/1795900000000-EngagementAndSelfService',
-        );
-        await new EngagementAndSelfService1795900000000().up(queryRunner);
-      }
-
-      const { FixDocumentStatusConstraint1796000000000 } = loadModule(
-        '../../src/database/migrations/1796000000000-FixDocumentStatusConstraint',
-      );
-      await new FixDocumentStatusConstraint1796000000000().up(queryRunner);
-    } finally {
-      await queryRunner.release();
-    }
 
     const insurer = await dataSource.query(
       `SELECT id FROM companies WHERE company_type = 'INSURANCE_COMPANY' LIMIT 1`,

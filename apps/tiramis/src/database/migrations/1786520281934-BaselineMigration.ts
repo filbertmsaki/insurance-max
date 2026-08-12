@@ -1,9 +1,34 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AutoMigration1783079722020 implements MigrationInterface {
-  name = 'AutoMigration1783079722020';
+export class BaselineMigration1786520281934 implements MigrationInterface {
+  name = 'BaselineMigration1786520281934';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_access_audit_logs" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "request_id" character varying(128), "correlation_id" character varying(128), "calling_service" character varying(100) NOT NULL, "actor_user_id" character varying(100), "tenant_company_id" character varying(100), "service_scopes" text, "method" character varying(20) NOT NULL, "path" character varying(255) NOT NULL, "status_code" integer NOT NULL, "allowed" boolean NOT NULL, "denial_reason" text, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_690f6cf0f89bf685d0cb98b0bcc" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_57d991591f5a0d76c94e766de9" ON "tiramis_access_audit_logs" ("request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_ed70d559ed64565517ef4d5aa2" ON "tiramis_access_audit_logs" ("tenant_company_id", "created_at") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_api_key_audit_logs" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "api_key_id" uuid, "action" character varying(60) NOT NULL, "outcome" character varying(30) NOT NULL, "service_name" character varying(120), "request_id" character varying(128), "ip_address" character varying(80), "metadata" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_b60bebbbbbdaaa9d611ad889e55" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_tiramis_api_key_audit_key_created" ON "tiramis_api_key_audit_logs" ("api_key_id", "created_at") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_api_keys" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "name" character varying(120) NOT NULL, "api_key" character varying(255) NOT NULL, "key_prefix" character varying(24), "service_name" character varying(120) NOT NULL, "tenant_company_code" character varying(50), "tenant_system_code" character varying(80), "tenant_environment" character varying(20), "scopes" text, "description" text, "is_active" boolean NOT NULL DEFAULT true, "expires_at" TIMESTAMP WITH TIME ZONE, "last_used_at" TIMESTAMP WITH TIME ZONE, "revoked_at" TIMESTAMP WITH TIME ZONE, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_680c81abc92c9c57d9def6b014a" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "IDX_tiramis_api_keys_api_key" ON "tiramis_api_keys" ("api_key") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_tiramis_api_keys_service_name" ON "tiramis_api_keys" ("service_name") `,
+    );
     await queryRunner.query(
       `CREATE TABLE "tiramis_service_endpoints" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "client_configuration_id" uuid NOT NULL, "service_type" character varying(80) NOT NULL, "endpoint_url" character varying(500) NOT NULL, "http_method" character varying(10) NOT NULL DEFAULT 'POST', "content_type" character varying(50) NOT NULL DEFAULT 'application/xml', "is_active" integer NOT NULL DEFAULT '1', CONSTRAINT "PK_7190cfb2c78292addcae0ded32e" PRIMARY KEY ("id"))`,
     );
@@ -11,7 +36,7 @@ export class AutoMigration1783079722020 implements MigrationInterface {
       `CREATE UNIQUE INDEX "IDX_bb05af80f05d76970291c523b2" ON "tiramis_service_endpoints" ("client_configuration_id", "service_type") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "tiramis_client_configurations" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "environment" character varying(30) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "client_code" character varying(100) NOT NULL, "client_key" character varying(255) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "sale_point_code" character varying(12), "tran_company_code" character varying(6), "base_url" character varying(500) NOT NULL, "callback_base_url" character varying(500) NOT NULL, "client_private_certificate_path" character varying(500), "client_private_certificate_password" character varying(255), "tira_public_certificate_path" character varying(500), "tira_public_certificate_password" character varying(255), "signature_algorithm" character varying(100), "is_active" integer NOT NULL DEFAULT '1', CONSTRAINT "PK_1afd82c9aef589bbf5852a681bf" PRIMARY KEY ("id"))`,
+      `CREATE TABLE "tiramis_client_configurations" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "environment" character varying(30) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "client_code" character varying(100) NOT NULL, "client_key" character varying(255) NOT NULL, "client_key_encrypted" text, "insurer_company_code" character varying(6) NOT NULL, "sale_point_code" character varying(12), "tran_company_code" character varying(6), "base_url" character varying(500) NOT NULL, "callback_base_url" character varying(500) NOT NULL, "client_private_certificate_path" character varying(500), "client_private_certificate_password" character varying(255), "client_private_certificate_password_encrypted" text, "tira_public_certificate_path" character varying(500), "tira_public_certificate_password" character varying(255), "tira_public_certificate_password_encrypted" text, "portal_webhook_api_key_encrypted" text, "signature_algorithm" character varying(100), "is_active" integer NOT NULL DEFAULT '1', CONSTRAINT "PK_1afd82c9aef589bbf5852a681bf" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "IDX_30da4e184a5906a438a5866412" ON "tiramis_client_configurations" ("environment", "company_code", "system_code") `,
@@ -26,7 +51,19 @@ export class AutoMigration1783079722020 implements MigrationInterface {
       `CREATE UNIQUE INDEX "IDX_b4c102f9abaebe8f528684f573" ON "tiramis_response_codes" ("code") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "tiramis_transactions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "client_configuration_id" character varying NOT NULL, "service_type" character varying(80) NOT NULL, "source_module" character varying(80), "source_record_id" character varying(100), "business_reference" character varying(100) NOT NULL, "status" character varying(50) NOT NULL DEFAULT 'PENDING', "original_request_id" character varying(50), "current_request_id" character varying(50), "successful_request_id" character varying(50), "total_attempts" integer NOT NULL DEFAULT '0', "last_attempt_at" TIMESTAMP, "successful_at" TIMESTAMP, "last_error" text, CONSTRAINT "PK_f5e674d89dbfa357ab58d5690f6" PRIMARY KEY ("id"))`,
+      `CREATE TABLE "tiramis_transactions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "schema_version" character varying(100), "contract_version" character varying(20), "command" character varying(40), "request_type" character varying(80), "canonical_status" character varying(60), "idempotency_key" character varying(180), "correlation_id" uuid, "causation_id" uuid, "resource_version" integer NOT NULL DEFAULT '1', "envelope" jsonb, "payload_hash" character varying(64), "context_hash" character varying(64), "envelope_hash" character varying(64), "client_configuration_id" character varying NOT NULL, "service_type" character varying(80) NOT NULL, "source_service" character varying(100), "source_module" character varying(80), "source_record_id" character varying(100), "source_policy_id" character varying(100), "source_company_id" character varying(100), "source_user_id" character varying(100), "source_branch_id" character varying(100), "source_department_id" character varying(100), "source_sale_point_id" character varying(100), "source_sale_point_code" character varying(50), "source_company_membership_id" character varying(100), "source_product_id" character varying(100), "source_product_version_id" character varying(100), "source_product_version_number" integer, "source_product_code" character varying(50), "source_tiramis_product_code" character varying(50), "source_product_definition_hash" character varying(64), "source_pricing_quote_id" character varying(50), "source_rate_book_id" character varying(100), "source_rate_book_code" character varying(50), "source_rate_book_version" character varying(30), "source_rate_book_definition_hash" character varying(64), "source_rating_rule_id" character varying(100), "source_rating_rule_code" character varying(50), "source_rating_rule_version" integer, "source_pricing_input_hash" character varying(64), "source_pricing_result_hash" character varying(64), "source_calculation_version" character varying(30), "source_customer_id" character varying(100), "source_customer_number" character varying(50), "source_customer_kyc_status" character varying(30), "source_customer_kyc_version" integer, "source_customer_snapshot_hash" character varying(64), "source_tiramis_policy_holder_hash" character varying(64), "source_asset_manifest_hash" character varying(64), "source_asset_count" integer, "source_quotation_id" character varying(100), "source_quotation_number" character varying(100), "source_workflow_revision" integer, "source_quotation_stage" character varying(40), "source_approval_status" character varying(40), "source_payment_status" character varying(40), "source_finalization_hash" character varying(64), "source_workflow_gate_hash" character varying(64), "source_invoice_id" character varying(100), "source_invoice_number" character varying(100), "source_invoice_status" character varying(40), "source_allocated_amount" numeric(20,4), "source_invoice_balance_amount" numeric(20,4), "source_payment_gate_hash" character varying(64), "source_commission_accrual_id" character varying(100), "source_commission_rate" numeric(18,10), "source_commission_amount" numeric(20,4), "business_reference" character varying(100) NOT NULL, "status" character varying(50) NOT NULL DEFAULT 'PENDING', "original_request_id" character varying(50), "current_request_id" character varying(50), "successful_request_id" character varying(50), "total_attempts" integer NOT NULL DEFAULT '0', "last_attempt_at" TIMESTAMP, "successful_at" TIMESTAMP, "last_error" text, CONSTRAINT "PK_f5e674d89dbfa357ab58d5690f6" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_22ff35f2d3783535cfd40747ec" ON "tiramis_transactions" ("idempotency_key") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_d8aff4cf798f96036a4cc9cb4c" ON "tiramis_transactions" ("request_type") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_d893bbc983487f84140efff97a" ON "tiramis_transactions" ("source_workflow_gate_hash") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_982efa76930e67b45c1c707361" ON "tiramis_transactions" ("source_quotation_id") `,
     );
     await queryRunner.query(
       `CREATE INDEX "IDX_cb6df03892211d01fbb617dcd5" ON "tiramis_transactions" ("successful_request_id") `,
@@ -38,7 +75,7 @@ export class AutoMigration1783079722020 implements MigrationInterface {
       `CREATE INDEX "IDX_624602f3aeb151074eeb841d4e" ON "tiramis_transactions" ("business_reference") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "tiramis_submission_attempts" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "attempt_no" integer NOT NULL, "request_id" character varying(50) NOT NULL, "previous_request_id" character varying(50), "root_element" character varying(80) NOT NULL, "resubmission_reason" character varying(255), "status" character varying(50) NOT NULL DEFAULT 'PENDING', "request_xml" text, "request_signature" text, "acknowledgement_id" character varying(50), "acknowledgement_status_code" character varying(20), "acknowledgement_status_desc" character varying(255), "acknowledgement_xml" text, "ack_received_at" TIMESTAMP, "response_id" character varying(50), "response_status_code" character varying(20), "response_status_desc" character varying(255), "response_xml" text, "response_signature" text, "final_response_received_at" TIMESTAMP, "response_acknowledgement_id" character varying(50), "response_ack_status_code" character varying(20), "response_ack_status_desc" character varying(255), "response_ack_xml" text, "response_ack_sent_at" TIMESTAMP, "sent_at" TIMESTAMP, "error_message" text, CONSTRAINT "PK_ca73df8a7ecbbf4da6a0dc83ee3" PRIMARY KEY ("id"))`,
+      `CREATE TABLE "tiramis_submission_attempts" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "attempt_no" integer NOT NULL, "request_id" character varying(50) NOT NULL, "previous_request_id" character varying(50), "root_element" character varying(80) NOT NULL, "resubmission_reason" character varying(255), "status" character varying(50) NOT NULL DEFAULT 'PENDING', "request_xml" text, "request_signature" text, "acknowledgement_id" character varying(50), "acknowledgement_status_code" character varying(20), "acknowledgement_status_desc" character varying(255), "acknowledgement_xml" text, "ack_received_at" TIMESTAMP, "response_id" character varying(50), "response_status_code" character varying(20), "response_status_desc" character varying(255), "response_xml" text, "response_signature" text, "final_response_received_at" TIMESTAMP, "response_acknowledgement_id" character varying(50), "response_ack_status_code" character varying(20), "response_ack_status_desc" character varying(255), "response_ack_xml" text, "response_ack_sent_at" TIMESTAMP, "sent_at" TIMESTAMP, "error_message" text, "retry_count" integer NOT NULL DEFAULT '0', "max_retries" integer NOT NULL DEFAULT '5', "is_retryable" integer NOT NULL DEFAULT '0', "next_retry_at" TIMESTAMP WITH TIME ZONE, "last_retry_at" TIMESTAMP WITH TIME ZONE, "final_callback_deadline_at" TIMESTAMP WITH TIME ZONE, "final_callback_overdue_notified" integer NOT NULL DEFAULT '0', CONSTRAINT "PK_ca73df8a7ecbbf4da6a0dc83ee3" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "IDX_4dc803eae48f834f1a2c86f3f2" ON "tiramis_submission_attempts" ("transaction_id", "attempt_no") `,
@@ -125,6 +162,42 @@ export class AutoMigration1783079722020 implements MigrationInterface {
       `CREATE INDEX "IDX_ef91a562e37611260a4ef9bab3" ON "tiramis_claim_notifications" ("request_id") `,
     );
     await queryRunner.query(
+      `CREATE TABLE "tiramis_claims" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(100) NOT NULL, "claim_type" character varying(50) NOT NULL, "service_type" character varying(80) NOT NULL, "root_element" character varying(100) NOT NULL, "company_code" character varying(20) NOT NULL, "system_code" character varying(30) NOT NULL, "callback_url" character varying(500) NOT NULL, "insurer_company_code" character varying(20) NOT NULL, "tran_company_code" character varying(20), "claim_notification_number" character varying(100), "claim_intimation_number" character varying(100), "claim_assessment_number" character varying(100), "discharge_voucher_number" character varying(100), "claim_payment_number" character varying(100), "claim_rejection_number" character varying(100), "claim_reference_number" character varying(100), "cover_note_reference_number" character varying(100), "assessment_received_date" TIMESTAMP WITH TIME ZONE, "assessment_report_summary" text, "assessment_amount" numeric(36,2), "approved_claim_amount" numeric(36,2), "claim_approval_date" TIMESTAMP WITH TIME ZONE, "claim_approval_authority" character varying(150), "is_reassessment" character varying(1), "claim_intimation_date" TIMESTAMP WITH TIME ZONE, "payment_date" TIMESTAMP WITH TIME ZONE, "currency_code" character varying(3), "exchange_rate" numeric(36,2), "paid_amount" numeric(36,2), "payment_mode" character varying(1), "parties_notified" character varying(1), "net_premium_earned" numeric(36,2), "claim_resulted_litigation" character varying(1), "litigation_reason" text, "rejection_date" TIMESTAMP WITH TIME ZONE, "rejection_reason" text, "claim_amount" numeric(36,2), "final_response_id" character varying(100), "final_response_status_code" character varying(20), "final_response_status_desc" character varying(255), "final_response_received_at" TIMESTAMP WITH TIME ZONE, "final_response_payload" jsonb, "claim_estimated_amount" numeric(36,2), "claim_reserve_amount" numeric(36,2), "claim_reserve_method" character varying(150), "loss_assessment_option" integer, "assessor_name" character varying(150), "assessor_id_number" character varying(100), "assessor_id_type" integer, "claimants" jsonb, "claim_report_date" TIMESTAMP WITH TIME ZONE, "claim_form_dully_filled" character varying(1), "loss_date" TIMESTAMP WITH TIME ZONE, "loss_nature" character varying(255), "loss_type" character varying(255), "loss_location" character varying(255), "officer_name" character varying(150), "officer_title" character varying(150), "raw_data" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, CONSTRAINT "PK_19388dba1214983d091e41cdb1b" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_95c9e1a391ee0a6f5f16ae748f" ON "tiramis_claims" ("cover_note_reference_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_734cce3264ac51b294ec485162" ON "tiramis_claims" ("claim_reference_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_eaa32dd0a1cdd473b70907a74b" ON "tiramis_claims" ("claim_rejection_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_5843207ddd4ee629fa6a5ae3f1" ON "tiramis_claims" ("claim_payment_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_3e85a124d8069a690e4fb3f6da" ON "tiramis_claims" ("discharge_voucher_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_6192fa82a8e64866e32c50f405" ON "tiramis_claims" ("claim_assessment_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_b6083b3b209724b06a510506c0" ON "tiramis_claims" ("claim_intimation_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_920a382537bbc56f1f4b203a8f" ON "tiramis_claims" ("claim_notification_number") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_c1b4d96cb327710787e81d3f57" ON "tiramis_claims" ("claim_type") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_a0ee04494a171591b837f61ddf" ON "tiramis_claims" ("request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_2c921a11589f92909fddf3577f" ON "tiramis_claims" ("transaction_id") `,
+    );
+    await queryRunner.query(
       `CREATE TABLE "tiramis_cover_note_discounts" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "cover_note_risk_id" uuid NOT NULL, "discount_type" integer, "discount_rate" numeric(10,5), "discount_amount" numeric(36,2), CONSTRAINT "PK_b9ad010380bbf9c0451da225f41" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
@@ -170,7 +243,7 @@ export class AutoMigration1783079722020 implements MigrationInterface {
       `CREATE INDEX "IDX_f1668fa99143f254f1fa37b512" ON "tiramis_motor_details" ("registration_number") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "tiramis_policies" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "policy_number" character varying(50) NOT NULL, "policy_reference_number" character varying(50), "policy_operative_clause" text NOT NULL, "special_conditions" text NOT NULL, "exclusions" text, CONSTRAINT "PK_bdd8463043f86e46d8ddc57ce4e" PRIMARY KEY ("id"))`,
+      `CREATE TABLE "tiramis_policies" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "policy_number" character varying(50) NOT NULL, "policy_reference_number" character varying(50), "policy_operative_clause" text NOT NULL, "special_conditions" text NOT NULL, "exclusions" text, "final_response_id" character varying(100), "final_response_status_code" character varying(20), "final_response_status_desc" character varying(255), "final_response_received_at" TIMESTAMP WITH TIME ZONE, "final_response_payload" jsonb, CONSTRAINT "PK_bdd8463043f86e46d8ddc57ce4e" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE INDEX "IDX_59222b8dfaa334df47fa7e0dc1" ON "tiramis_policies" ("policy_reference_number") `,
@@ -191,7 +264,7 @@ export class AutoMigration1783079722020 implements MigrationInterface {
       `CREATE TABLE "tiramis_reinsurance_participants" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "reinsurance_id" uuid NOT NULL, "participant_code" character varying(50) NOT NULL, "participant_type" integer NOT NULL, "reinsurance_form" integer NOT NULL, "reinsurance_type" integer NOT NULL, "re_broker_code" character varying(50), "brokerage_commission" numeric(36,2) NOT NULL, "reinsurance_commission" numeric(36,2) NOT NULL, "premium_share" numeric(36,2) NOT NULL, "participation_date" TIMESTAMP NOT NULL, CONSTRAINT "PK_e423899eef33793bce6eee231c0" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "tiramis_reinsurances" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, "premium_including_tax" numeric(36,2) NOT NULL, "currency_code" character varying(3) NOT NULL, "exchange_rate" numeric(36,2) NOT NULL, "authorizing_officer_name" character varying(100) NOT NULL, "authorizing_officer_title" character varying(100) NOT NULL, "reinsurance_category" integer NOT NULL, CONSTRAINT "PK_aca18bfa6efa360da39e7e24606" PRIMARY KEY ("id"))`,
+      `CREATE TABLE "tiramis_reinsurances" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "current_attempt_id" uuid, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "callback_url" character varying(250) NOT NULL, "insurer_company_code" character varying(6) NOT NULL, "cover_note_reference_number" character varying(50) NOT NULL, "premium_including_tax" numeric(36,2) NOT NULL, "currency_code" character varying(3) NOT NULL, "exchange_rate" numeric(36,2) NOT NULL, "authorizing_officer_name" character varying(100) NOT NULL, "authorizing_officer_title" character varying(100) NOT NULL, "reinsurance_category" integer NOT NULL, "final_response_id" character varying(100), "final_response_status_code" character varying(20), "final_response_status_desc" character varying(255), "final_response_received_at" TIMESTAMP WITH TIME ZONE, "final_response_payload" jsonb, CONSTRAINT "PK_aca18bfa6efa360da39e7e24606" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE INDEX "IDX_45ca52c2c56f54cc415ed08530" ON "tiramis_reinsurances" ("cover_note_reference_number") `,
@@ -200,7 +273,7 @@ export class AutoMigration1783079722020 implements MigrationInterface {
       `CREATE INDEX "IDX_8abe31a833399c670a07d5094a" ON "tiramis_reinsurances" ("request_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "tiramis_submission_events" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "attempt_id" uuid NOT NULL, "event_type" character varying(80) NOT NULL, "request_id" character varying(50) NOT NULL, "status_code" character varying(20), "status_desc" character varying(255), "raw_payload" text, "error_message" text, CONSTRAINT "PK_6411d6f53cb33e0724c09919a52" PRIMARY KEY ("id"))`,
+      `CREATE TABLE "tiramis_submission_events" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid NOT NULL, "attempt_id" uuid NOT NULL, "event_type" character varying(80) NOT NULL, "request_id" character varying(50) NOT NULL, "status_code" character varying(20), "status_desc" character varying(255), "raw_payload" text, "payload_hash" character varying(128), "payload_size_bytes" integer, "error_message" text, CONSTRAINT "PK_6411d6f53cb33e0724c09919a52" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE INDEX "IDX_e4f1d438672c5a2fafe105f436" ON "tiramis_submission_events" ("event_type") `,
@@ -218,7 +291,7 @@ export class AutoMigration1783079722020 implements MigrationInterface {
       `CREATE INDEX "IDX_ecf4fb980e0610219e2ac14cc3" ON "tiramis_verification_responses" ("request_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "tiramis_verification_requests" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid, "attempt_id" uuid, "verification_type" character varying(50) NOT NULL, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "cover_note_reference_number" character varying(50), "sticker_number" character varying(50), "motor_registration_number" character varying(50), "motor_chassis_number" character varying(100), "nin" character varying(50), "incorporation_certificate_number" character varying(50), "raw_request_xml" text, "request_signature" text, "status" character varying(50) NOT NULL DEFAULT 'PENDING', CONSTRAINT "PK_a07af1c0f402fadd94a7271a104" PRIMARY KEY ("id"))`,
+      `CREATE TABLE "tiramis_verification_requests" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "transaction_id" uuid, "attempt_id" uuid, "verification_type" character varying(50) NOT NULL, "request_id" character varying(50) NOT NULL, "company_code" character varying(6) NOT NULL, "system_code" character varying(50) NOT NULL, "motor_category" integer, "cover_note_reference_number" character varying(50), "sticker_number" character varying(50), "motor_registration_number" character varying(50), "motor_chassis_number" character varying(100), "nin" character varying(50), "incorporation_certificate_number" character varying(50), "raw_request_xml" text, "request_signature" text, "status" character varying(50) NOT NULL DEFAULT 'PENDING', CONSTRAINT "PK_a07af1c0f402fadd94a7271a104" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE INDEX "IDX_23cf64081b0c321a8de3b5a333" ON "tiramis_verification_requests" ("incorporation_certificate_number") `,
@@ -395,7 +468,7 @@ export class AutoMigration1783079722020 implements MigrationInterface {
       `ALTER TABLE "tiramis_submission_events" DROP CONSTRAINT "FK_8238d53e7c441e3f794cd47af35"`,
     );
     await queryRunner.query(
-      `ALTER TABLE "tiramis_reinsurances" DROP CONSTRAINT IF EXISTS "FK_da7c414fd4ff1c93568facadceb"`,
+      `ALTER TABLE "tiramis_reinsurances" DROP CONSTRAINT "FK_da7c414fd4ff1c93568facadceb"`,
     );
     await queryRunner.query(
       `ALTER TABLE "tiramis_reinsurances" DROP CONSTRAINT "FK_3b10bce6fb832263d9b556af8c4"`,
@@ -598,6 +671,40 @@ export class AutoMigration1783079722020 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE "tiramis_cover_note_taxes"`);
     await queryRunner.query(`DROP TABLE "tiramis_cover_note_discounts"`);
     await queryRunner.query(
+      `DROP INDEX "public"."IDX_2c921a11589f92909fddf3577f"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_a0ee04494a171591b837f61ddf"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_c1b4d96cb327710787e81d3f57"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_920a382537bbc56f1f4b203a8f"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_b6083b3b209724b06a510506c0"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_6192fa82a8e64866e32c50f405"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_3e85a124d8069a690e4fb3f6da"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_5843207ddd4ee629fa6a5ae3f1"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_eaa32dd0a1cdd473b70907a74b"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_734cce3264ac51b294ec485162"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_95c9e1a391ee0a6f5f16ae748f"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_claims"`);
+    await queryRunner.query(
       `DROP INDEX "public"."IDX_ef91a562e37611260a4ef9bab3"`,
     );
     await queryRunner.query(
@@ -677,6 +784,18 @@ export class AutoMigration1783079722020 implements MigrationInterface {
     await queryRunner.query(
       `DROP INDEX "public"."IDX_cb6df03892211d01fbb617dcd5"`,
     );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_982efa76930e67b45c1c707361"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_d893bbc983487f84140efff97a"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_d8aff4cf798f96036a4cc9cb4c"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_22ff35f2d3783535cfd40747ec"`,
+    );
     await queryRunner.query(`DROP TABLE "tiramis_transactions"`);
     await queryRunner.query(
       `DROP INDEX "public"."IDX_b4c102f9abaebe8f528684f573"`,
@@ -693,5 +812,23 @@ export class AutoMigration1783079722020 implements MigrationInterface {
       `DROP INDEX "public"."IDX_bb05af80f05d76970291c523b2"`,
     );
     await queryRunner.query(`DROP TABLE "tiramis_service_endpoints"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_tiramis_api_keys_service_name"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_tiramis_api_keys_api_key"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_api_keys"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_tiramis_api_key_audit_key_created"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_api_key_audit_logs"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_ed70d559ed64565517ef4d5aa2"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_57d991591f5a0d76c94e766de9"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_access_audit_logs"`);
   }
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Copy, Eye, Plus } from 'lucide-react';
@@ -131,7 +131,11 @@ export function RateBooksPage() {
     },
   });
 
-  const selectedProductId = form.watch('product_id');
+  const selectedProductId =
+    useWatch({
+      control: form.control,
+      name: 'product_id',
+    }) ?? '';
   const { data: versions = [] } = useProductVersions(selectedProductId || '');
   const publishedVersions = useMemo(
     () => versions.filter((v) => v.status === 'PUBLISHED'),

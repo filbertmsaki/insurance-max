@@ -5,6 +5,10 @@ import { AnalyticsService } from './analytics.service';
 export class AnomalyService {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
+  private toMetricDate(value: string | Date): string {
+    return value instanceof Date ? value.toISOString().slice(0, 10) : value;
+  }
+
   async listFindings(
     companyId: string,
     query: { branchId?: string | null; from?: string; to?: string },
@@ -50,6 +54,7 @@ export class AnomalyService {
     }
 
     const latest = metrics[metrics.length - 1];
+    const latestMetricDate = this.toMetricDate(latest.metricDate);
     const average =
       metrics.reduce((sum, row) => sum + Number(row.metricValue ?? 0), 0) /
       metrics.length;
@@ -69,7 +74,7 @@ export class AnomalyService {
         existing.find(
           (entry: any) =>
             entry.rule_id === params.ruleId &&
-            entry.metric_date === latest?.metricDate,
+            entry.metric_date === latestMetricDate,
         ),
       );
 
@@ -81,7 +86,7 @@ export class AnomalyService {
       await this.analyticsService.listAnomalyFindingsByRuleAndDate(
         params.ruleId,
         user.companyId,
-        latest.metricDate,
+        latestMetricDate,
       );
 
     if (existingByRule) {
@@ -93,7 +98,7 @@ export class AnomalyService {
       branchId: params.branchId ?? null,
       ruleId: params.ruleId,
       metricCode,
-      metricDate: latest?.metricDate ?? params.from,
+      metricDate: latestMetricDate || params.from,
       dimensionKey: 'default',
       dimensions: {},
       observedValue: observed,

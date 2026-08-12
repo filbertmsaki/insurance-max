@@ -166,9 +166,8 @@ export class Quotation {
   channel_type: ProductChannelType;
 
   @Column({
-    type: 'enum',
-    enum: QuotationStatus,
-    enumName: 'quotation_status_enum',
+    type: 'varchar',
+    length: 30,
     name: 'quotation_status',
     default: QuotationStatus.DRAFT,
   })
@@ -239,25 +238,22 @@ export class Quotation {
   workflow_completed_at: Date | null;
 
   @Column({
-    type: 'enum',
-    enum: ApprovalStatus,
-    enumName: 'approval_status_enum',
+    type: 'varchar',
+    length: 30,
     default: ApprovalStatus.NOT_REQUIRED,
   })
   approval_status: ApprovalStatus;
 
   @Column({
-    type: 'enum',
-    enum: PaymentStatus,
-    enumName: 'payment_status_enum',
+    type: 'varchar',
+    length: 30,
     default: PaymentStatus.NOT_REQUIRED,
   })
   payment_status: PaymentStatus;
 
   @Column({
-    type: 'enum',
-    enum: TiraStatus,
-    enumName: 'tira_status_enum',
+    type: 'varchar',
+    length: 30,
     default: TiraStatus.NOT_SUBMITTED,
   })
   tira_status: TiraStatus;

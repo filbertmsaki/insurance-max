@@ -1,6 +1,198 @@
-import { DataSource } from 'typeorm';
+import {
+  AnalyticsPeriodType,
+  MetricAggregationType,
+  MetricValueType,
+} from '@insurance-max/contracts';
+import { DataSource, QueryRunner } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
-import { Company } from '../../modules/platform/companies/entities/company.entity';
+
+type MetricSeedDefinition = {
+  code: string;
+  name: string;
+  description: string;
+  category: string;
+  valueType: MetricValueType;
+  aggregationType: MetricAggregationType;
+  formulaVersion: number;
+  formulaDescription: string;
+  supportedDimensions: string[];
+  supportedPeriods: AnalyticsPeriodType[];
+  permission: string;
+  sensitive: boolean;
+  targetSupported: boolean;
+  forecastSupported: boolean;
+  benchmarkSupported: boolean;
+};
+
+const METRIC_DEFINITIONS: MetricSeedDefinition[] = [
+  {
+    code: 'policy.issued_count',
+    name: 'Policies issued',
+    description: 'Count of issued policies in the selected period.',
+    category: 'POLICIES',
+    valueType: MetricValueType.NUMBER,
+    aggregationType: MetricAggregationType.SUM,
+    formulaVersion: 1,
+    formulaDescription:
+      'Sum of policy issued counts from analytics daily rollups.',
+    supportedDimensions: ['branch_id'],
+    supportedPeriods: [
+      AnalyticsPeriodType.DAY,
+      AnalyticsPeriodType.WEEK,
+      AnalyticsPeriodType.MONTH,
+      AnalyticsPeriodType.QUARTER,
+      AnalyticsPeriodType.YEAR,
+    ],
+    permission: 'analytics:metrics:read',
+    sensitive: false,
+    targetSupported: true,
+    forecastSupported: false,
+    benchmarkSupported: true,
+  },
+  {
+    code: 'premium.gross_written',
+    name: 'Gross written premium',
+    description: 'Gross written premium aggregated from premium facts.',
+    category: 'FINANCE',
+    valueType: MetricValueType.MONEY,
+    aggregationType: MetricAggregationType.SUM,
+    formulaVersion: 1,
+    formulaDescription:
+      'Sum of posted gross premium values from analytics daily rollups.',
+    supportedDimensions: ['branch_id'],
+    supportedPeriods: [
+      AnalyticsPeriodType.DAY,
+      AnalyticsPeriodType.WEEK,
+      AnalyticsPeriodType.MONTH,
+      AnalyticsPeriodType.QUARTER,
+      AnalyticsPeriodType.YEAR,
+    ],
+    permission: 'analytics:metrics:read',
+    sensitive: false,
+    targetSupported: true,
+    forecastSupported: false,
+    benchmarkSupported: true,
+  },
+  {
+    code: 'premium.commission',
+    name: 'Commission amount',
+    description: 'Commission amount aggregated from premium facts.',
+    category: 'FINANCE',
+    valueType: MetricValueType.MONEY,
+    aggregationType: MetricAggregationType.SUM,
+    formulaVersion: 1,
+    formulaDescription:
+      'Sum of premium commission amounts from analytics daily rollups.',
+    supportedDimensions: ['branch_id'],
+    supportedPeriods: [
+      AnalyticsPeriodType.DAY,
+      AnalyticsPeriodType.WEEK,
+      AnalyticsPeriodType.MONTH,
+      AnalyticsPeriodType.QUARTER,
+      AnalyticsPeriodType.YEAR,
+    ],
+    permission: 'analytics:metrics:read',
+    sensitive: false,
+    targetSupported: true,
+    forecastSupported: false,
+    benchmarkSupported: true,
+  },
+  {
+    code: 'claim.paid_amount',
+    name: 'Claims paid amount',
+    description: 'Paid claim amount aggregated from claim facts.',
+    category: 'CLAIMS',
+    valueType: MetricValueType.MONEY,
+    aggregationType: MetricAggregationType.SUM,
+    formulaVersion: 1,
+    formulaDescription:
+      'Sum of paid claim amounts from analytics daily rollups.',
+    supportedDimensions: ['branch_id'],
+    supportedPeriods: [
+      AnalyticsPeriodType.DAY,
+      AnalyticsPeriodType.WEEK,
+      AnalyticsPeriodType.MONTH,
+      AnalyticsPeriodType.QUARTER,
+      AnalyticsPeriodType.YEAR,
+    ],
+    permission: 'analytics:metrics:read',
+    sensitive: true,
+    targetSupported: true,
+    forecastSupported: false,
+    benchmarkSupported: true,
+  },
+  {
+    code: 'reinsurance.ceded_premium',
+    name: 'Ceded premium',
+    description: 'Ceded premium aggregated from reinsurance facts.',
+    category: 'REINSURANCE',
+    valueType: MetricValueType.MONEY,
+    aggregationType: MetricAggregationType.SUM,
+    formulaVersion: 1,
+    formulaDescription: 'Sum of ceded premium from analytics daily rollups.',
+    supportedDimensions: ['branch_id'],
+    supportedPeriods: [
+      AnalyticsPeriodType.DAY,
+      AnalyticsPeriodType.WEEK,
+      AnalyticsPeriodType.MONTH,
+      AnalyticsPeriodType.QUARTER,
+      AnalyticsPeriodType.YEAR,
+    ],
+    permission: 'analytics:metrics:read',
+    sensitive: true,
+    targetSupported: true,
+    forecastSupported: false,
+    benchmarkSupported: true,
+  },
+  {
+    code: 'tiramis.submission_count',
+    name: 'TIRAMIS submissions',
+    description: 'Number of TIRAMIS submissions recorded in the period.',
+    category: 'TIRAMIS',
+    valueType: MetricValueType.NUMBER,
+    aggregationType: MetricAggregationType.SUM,
+    formulaVersion: 1,
+    formulaDescription:
+      'Sum of TIRAMIS submission counts from analytics daily rollups.',
+    supportedDimensions: ['branch_id'],
+    supportedPeriods: [
+      AnalyticsPeriodType.DAY,
+      AnalyticsPeriodType.WEEK,
+      AnalyticsPeriodType.MONTH,
+      AnalyticsPeriodType.QUARTER,
+      AnalyticsPeriodType.YEAR,
+    ],
+    permission: 'analytics:metrics:read',
+    sensitive: false,
+    targetSupported: true,
+    forecastSupported: false,
+    benchmarkSupported: true,
+  },
+  {
+    code: 'tiramis.success_rate',
+    name: 'TIRAMIS success rate',
+    description: 'Submission success rate percentage for TIRAMIS traffic.',
+    category: 'TIRAMIS',
+    valueType: MetricValueType.PERCENTAGE,
+    aggregationType: MetricAggregationType.AVERAGE,
+    formulaVersion: 1,
+    formulaDescription:
+      'Average success-rate percentage from analytics daily rollups for the selected period.',
+    supportedDimensions: ['branch_id'],
+    supportedPeriods: [
+      AnalyticsPeriodType.DAY,
+      AnalyticsPeriodType.WEEK,
+      AnalyticsPeriodType.MONTH,
+      AnalyticsPeriodType.QUARTER,
+      AnalyticsPeriodType.YEAR,
+    ],
+    permission: 'analytics:metrics:read',
+    sensitive: false,
+    targetSupported: true,
+    forecastSupported: false,
+    benchmarkSupported: true,
+  },
+];
 
 export default class AnalyticsDefinitionsSeeder implements Seeder {
   public async run(
@@ -14,297 +206,131 @@ export default class AnalyticsDefinitionsSeeder implements Seeder {
     await queryRunner.startTransaction();
 
     try {
-      const targetCompanyCode =
-        process.env.SEED_TARGET_COMPANY_CODE ?? 'ICC110';
+      const hasMetricDefinitionsTable = await this.hasTable(
+        queryRunner,
+        'analytics_metric_definitions',
+      );
 
-      const company = await queryRunner.manager.getRepository(Company).findOne({
-        where: {
-          tira_company_code: targetCompanyCode,
-        },
-      });
-
-      if (!company) {
-        throw new Error(
-          `[AnalyticsDefinitionsSeeder] Seed target company not found (${targetCompanyCode})`,
+      if (!hasMetricDefinitionsTable) {
+        console.log(
+          '[AnalyticsDefinitionsSeeder] Skipping analytics seed because analytics_metric_definitions does not exist',
         );
+        await queryRunner.commitTransaction();
+        return;
       }
 
-      await queryRunner.query(
-        `
-        INSERT INTO analytics_kpi_definitions (
-          code,
-          name,
-          description,
-          category,
-          calculator_key,
-          value_type,
-          direction,
-          applicable_company_types,
-          default_target,
-          default_warning_threshold,
-          default_critical_threshold,
-          effective_from,
-          is_active,
-          metadata
-        )
-        SELECT $1::varchar,$2::varchar,$3::text,$4::varchar,$5::varchar,$6::varchar,$7::varchar,$8::jsonb,$9::numeric,$10::numeric,$11::numeric,$12::date,$13::boolean,$14::jsonb
-        WHERE NOT EXISTS (
-          SELECT 1 FROM analytics_kpi_definitions
+      for (const definition of METRIC_DEFINITIONS) {
+        await queryRunner.query(
+          `
+          UPDATE analytics_metric_definitions
+          SET
+            name = $2::varchar,
+            description = $3::text,
+            category = $4::varchar,
+            value_type = $5::varchar,
+            aggregation_type = $6::varchar,
+            formula_version = $7::int,
+            formula_description = $8::text,
+            numerator_metric_code = NULL,
+            denominator_metric_code = NULL,
+            supported_dimensions = $9::jsonb,
+            supported_periods = $10::jsonb,
+            permission = $11::varchar,
+            sensitive = $12::boolean,
+            target_supported = $13::boolean,
+            forecast_supported = $14::boolean,
+            benchmark_supported = $15::boolean,
+            updated_at = now()
           WHERE code = $1::varchar
-            AND effective_from = $12::date
-        )
-        `,
-        [
-          'policy.issued_count',
-          'Issued Policies',
-          'Total number of policies issued during the period',
-          'Policy',
-          'policy.issued_count',
-          'number',
-          'higher-is-better',
-          JSON.stringify(['insurance_company', 'broker']),
-          100,
-          80,
-          50,
-          new Date().toISOString().split('T')[0],
-          true,
-          JSON.stringify({ unit: 'count' }),
-        ],
-      );
+          `,
+          [
+            definition.code,
+            definition.name,
+            definition.description,
+            definition.category,
+            definition.valueType,
+            definition.aggregationType,
+            definition.formulaVersion,
+            definition.formulaDescription,
+            JSON.stringify(definition.supportedDimensions),
+            JSON.stringify(definition.supportedPeriods),
+            definition.permission,
+            definition.sensitive,
+            definition.targetSupported,
+            definition.forecastSupported,
+            definition.benchmarkSupported,
+          ],
+        );
 
-      await queryRunner.query(
-        `
-        INSERT INTO analytics_kpi_definitions (
-          code,
-          name,
-          description,
-          category,
-          calculator_key,
-          value_type,
-          direction,
-          applicable_company_types,
-          default_target,
-          default_warning_threshold,
-          default_critical_threshold,
-          effective_from,
-          is_active,
-          metadata
-        )
-        SELECT $1::varchar,$2::varchar,$3::text,$4::varchar,$5::varchar,$6::varchar,$7::varchar,$8::jsonb,$9::numeric,$10::numeric,$11::numeric,$12::date,$13::boolean,$14::jsonb
-        WHERE NOT EXISTS (
-          SELECT 1 FROM analytics_kpi_definitions
-          WHERE code = $1::varchar
-            AND effective_from = $12::date
-        )
-        `,
-        [
-          'premium.gross_written',
-          'Gross Written Premium',
-          'Total premiums written for the selected period',
-          'Premium',
-          'premium.gross_written',
-          'currency',
-          'higher-is-better',
-          JSON.stringify(['insurance_company', 'broker']),
-          1000000,
-          700000,
-          300000,
-          new Date().toISOString().split('T')[0],
-          true,
-          JSON.stringify({ currency: 'NGN' }),
-        ],
-      );
-
-      await queryRunner.query(
-        `
-        INSERT INTO analytics_kpi_definitions (
-          code,
-          name,
-          description,
-          category,
-          calculator_key,
-          value_type,
-          direction,
-          applicable_company_types,
-          default_target,
-          default_warning_threshold,
-          default_critical_threshold,
-          effective_from,
-          is_active,
-          metadata
-        )
-        SELECT $1::varchar,$2::varchar,$3::text,$4::varchar,$5::varchar,$6::varchar,$7::varchar,$8::jsonb,$9::numeric,$10::numeric,$11::numeric,$12::date,$13::boolean,$14::jsonb
-        WHERE NOT EXISTS (
-          SELECT 1 FROM analytics_kpi_definitions
-          WHERE code = $1::varchar
-            AND effective_from = $12::date
-        )
-        `,
-        [
-          'tiramis.success_rate',
-          'TIRAMIS Success Rate',
-          'Percentage of successful TIRAMIS integrations',
-          'TIRAMIS',
-          'tiramis.success_rate',
-          'percentage',
-          'higher-is-better',
-          JSON.stringify(['insurance_company', 'broker']),
-          98,
-          95,
-          90,
-          new Date().toISOString().split('T')[0],
-          true,
-          JSON.stringify({ unit: 'percent' }),
-        ],
-      );
-
-      await queryRunner.query(
-        `
-        INSERT INTO analytics_scorecard_templates (
-          company_id,
-          code,
-          name,
-          applicable_company_types,
-          is_default,
-          is_active,
-          created_by,
-          created_at,
-          updated_at
-        )
-        SELECT $1::uuid,$2::varchar,$3::varchar,$4::jsonb,$5::boolean,$6::boolean,$7::uuid,now(),now()
-        WHERE NOT EXISTS (
-          SELECT 1 FROM analytics_scorecard_templates
-          WHERE code = $2::varchar
-            AND company_id = $1::uuid
-        )
-        `,
-        [
-          company.id,
-          'executive-analytics',
-          'Executive Analytics Scorecard',
-          JSON.stringify(['insurance_company', 'broker']),
-          true,
-          true,
-          company.id,
-        ],
-      );
-
-      await queryRunner.query(
-        `
-        INSERT INTO analytics_scorecard_template_items (
-          template_id,
-          kpi_definition_id,
-          display_order,
-          weight,
-          target_value,
-          warning_threshold,
-          critical_threshold,
-          is_required,
-          created_at
-        )
-        SELECT template.id, kpi.id, item.order_index, item.weight, item.target, item.warning, item.critical, true, now()
-        FROM analytics_scorecard_templates template
-        CROSS JOIN (VALUES
-          (1, 'policy.issued_count', 0.4, 100, 80, 50),
-          (2, 'premium.gross_written', 0.35, 1000000, 700000, 300000),
-          (3, 'tiramis.success_rate', 0.25, 98, 95, 90)
-        ) AS item(order_index, kpi_code, weight, target, warning, critical)
-        JOIN analytics_kpi_definitions kpi
-          ON kpi.code = item.kpi_code
-        WHERE template.code = $1
-          AND template.company_id = $2
-          AND NOT EXISTS (
-            SELECT 1 FROM analytics_scorecard_template_items
-            WHERE template_id = template.id
-              AND kpi_definition_id = kpi.id
+        await queryRunner.query(
+          `
+          INSERT INTO analytics_metric_definitions (
+            code,
+            name,
+            description,
+            category,
+            value_type,
+            aggregation_type,
+            formula_version,
+            formula_description,
+            numerator_metric_code,
+            denominator_metric_code,
+            supported_dimensions,
+            supported_periods,
+            permission,
+            sensitive,
+            target_supported,
+            forecast_supported,
+            benchmark_supported,
+            created_at,
+            updated_at
           )
-        `,
-        ['executive-analytics', company.id],
-      );
-
-      await queryRunner.query(
-        `
-        INSERT INTO analytics_anomaly_rules (
-          company_id,
-          code,
-          name,
-          metric_code,
-          method,
-          severity,
-          lookback_periods,
-          minimum_observations,
-          configuration,
-          dimension_filter,
-          is_active,
-          created_by,
-          created_at,
-          updated_at
-        )
-        SELECT $1::uuid,$2::varchar,$3::varchar,$4::varchar,$5::varchar,$6::varchar,$7::int,$8::int,$9::jsonb,$10::jsonb,$11::boolean,$12::uuid,now(),now()
-        WHERE NOT EXISTS (
-          SELECT 1 FROM analytics_anomaly_rules
-          WHERE code = $2::varchar
-            AND company_id = $1::uuid
-        )
-        `,
-        [
-          company.id,
-          'tiramis-success-drop',
-          'TIRAMIS Success Rate Drop',
-          'tiramis.success_rate',
-          'moving-average',
-          'MEDIUM',
-          14,
-          5,
-          JSON.stringify({ thresholdPercent: 15 }),
-          JSON.stringify({}),
-          true,
-          company.id,
-        ],
-      );
-
-      await queryRunner.query(
-        `
-        INSERT INTO analytics_forecast_definitions (
-          company_id,
-          code,
-          name,
-          metric_code,
-          method,
-          frequency,
-          history_periods,
-          horizon_periods,
-          season_length,
-          gap_strategy,
-          configuration,
-          is_active,
-          created_by,
-          created_at,
-          updated_at
-        )
-        SELECT $1::uuid,$2::varchar,$3::varchar,$4::varchar,$5::varchar,$6::varchar,$7::int,$8::int,$9::int,$10::varchar,$11::jsonb,$12::boolean,$13::uuid,now(),now()
-        WHERE NOT EXISTS (
-          SELECT 1 FROM analytics_forecast_definitions
-          WHERE code = $2::varchar
-            AND company_id = $1::uuid
-        )
-        `,
-        [
-          company.id,
-          'policy-issuance-trend',
-          'Policy Issuance Trend',
-          'policy.issued_count',
-          'linear-regression',
-          'DAILY',
-          90,
-          30,
-          7,
-          'ZERO',
-          JSON.stringify({ seasonality: 'weekly' }),
-          true,
-          company.id,
-        ],
-      );
+          SELECT
+            $1::varchar,
+            $2::varchar,
+            $3::text,
+            $4::varchar,
+            $5::varchar,
+            $6::varchar,
+            $7::int,
+            $8::text,
+            NULL,
+            NULL,
+            $9::jsonb,
+            $10::jsonb,
+            $11::varchar,
+            $12::boolean,
+            $13::boolean,
+            $14::boolean,
+            $15::boolean,
+            now(),
+            now()
+          
+          WHERE NOT EXISTS (
+            SELECT 1
+            FROM analytics_metric_definitions
+            WHERE code = $1::varchar
+          )
+          `,
+          [
+            definition.code,
+            definition.name,
+            definition.description,
+            definition.category,
+            definition.valueType,
+            definition.aggregationType,
+            definition.formulaVersion,
+            definition.formulaDescription,
+            JSON.stringify(definition.supportedDimensions),
+            JSON.stringify(definition.supportedPeriods),
+            definition.permission,
+            definition.sensitive,
+            definition.targetSupported,
+            definition.forecastSupported,
+            definition.benchmarkSupported,
+          ],
+        );
+      }
 
       await queryRunner.commitTransaction();
     } catch (error) {
@@ -314,5 +340,24 @@ export default class AnalyticsDefinitionsSeeder implements Seeder {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  private async hasTable(
+    queryRunner: QueryRunner,
+    tableName: string,
+  ): Promise<boolean> {
+    const result = await queryRunner.query(
+      `
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = $1
+      ) AS "exists"
+      `,
+      [tableName],
+    );
+
+    return Boolean(result[0]?.exists);
   }
 }

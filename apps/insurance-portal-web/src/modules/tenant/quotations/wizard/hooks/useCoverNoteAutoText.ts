@@ -57,7 +57,7 @@ export function useCoverNoteAutoText({
       }
       coverNoteDescGeneratedRef.current = generatedCoverNoteDesc;
     }
-  }, [generatedCoverNoteDesc, isHydrating]);
+  }, [form, generatedCoverNoteDesc, isHydrating]);
 
   useEffect(() => {
     if (isHydrating || generatedOperativeClause === null) return;
@@ -75,7 +75,7 @@ export function useCoverNoteAutoText({
       }
       operativeClauseGeneratedRef.current = generatedOperativeClause;
     }
-  }, [generatedOperativeClause, isHydrating]);
+  }, [form, generatedOperativeClause, isHydrating]);
 
   const resetCoverNoteDescToDefault = () => {
     if (generatedCoverNoteDesc === null) return;

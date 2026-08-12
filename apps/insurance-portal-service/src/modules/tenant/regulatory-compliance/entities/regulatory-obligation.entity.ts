@@ -68,7 +68,7 @@ export class RegulatoryObligation {
   @Column({ type: 'uuid', nullable: true })
   active_levy_assessment_id!: string | null;
 
-  @Column({ type: 'int', array: true, default: () => 'ARRAY[]::integer[]' })
+  @Column({ type: 'int', array: true, default: [] })
   warning_sent_days!: number[];
 
   @Column({ type: 'timestamptz', nullable: true })

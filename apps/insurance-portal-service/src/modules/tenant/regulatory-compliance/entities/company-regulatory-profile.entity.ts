@@ -36,7 +36,7 @@ export class CompanyRegulatoryProfile {
   })
   levy_frequency: RegulatoryFrequency;
 
-  @Column({ type: 'numeric', precision: 18, scale: 10, default: 1.5 })
+  @Column({ type: 'numeric', precision: 18, scale: 10 })
   levy_rate: string;
 
   @Column({ type: 'jsonb', nullable: true })

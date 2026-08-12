@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
+const { spawn } = require('child_process');
 
 function loadEnv(filePath) {
   if (!fs.existsSync(filePath)) {
@@ -75,6 +76,7 @@ const portalApiBaseUrl = `${config.portalBaseUrl.replace(/\/$/, '')}/api/v1`;
 
 const results = [];
 let summaryPrinted = false;
+const managedProcesses = [];
 
 function now() {
   return new Date().toISOString();
@@ -104,6 +106,12 @@ function logPass(message) {
 
 function logFail(message) {
   console.log(`FAIL ${message}`);
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 function saveResult(name, status, data, error) {
@@ -233,6 +241,83 @@ async function request(name, method, url, body, options = {}) {
       data: null,
       error,
     };
+  }
+}
+
+async function isReachable(url) {
+  try {
+    const response = await fetch(url, { method: 'GET' });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+function npmExecutable() {
+  return process.platform === 'win32' ? 'npm.cmd' : 'npm';
+}
+
+function startManagedService(name, script, logPrefix) {
+  const outputDir = path.join(process.cwd(), 'tmp');
+
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  const stdout = fs.openSync(path.join(outputDir, `${logPrefix}.out.log`), 'a');
+  const stderr = fs.openSync(path.join(outputDir, `${logPrefix}.err.log`), 'a');
+
+  const child = spawn(npmExecutable(), ['run', script], {
+    cwd: process.cwd(),
+    env: process.env,
+    stdio: ['ignore', stdout, stderr],
+    windowsHide: true,
+  });
+
+  managedProcesses.push({ child, name });
+  return child;
+}
+
+async function ensureLocalServicesRunning() {
+  const serviceChecks = [
+    {
+      name: 'insurance-portal-service',
+      script: 'start:insurance-portal-service',
+      logPrefix: 'insurance-portal-service-e2e',
+      healthUrl: `${config.portalBaseUrl.replace(/\/$/, '')}/api/health/live`,
+    },
+    {
+      name: 'tiramis',
+      script: 'start:tiramis',
+      logPrefix: 'tiramis-e2e',
+      healthUrl: `${config.tiramisServiceBaseUrl.replace(/\/$/, '')}/health/live`,
+    },
+  ];
+
+  for (const service of serviceChecks) {
+    if (await isReachable(service.healthUrl)) {
+      continue;
+    }
+
+    console.log(`Starting local ${service.name} for E2E validation...`);
+    startManagedService(service.name, service.script, service.logPrefix);
+
+    let ready = false;
+
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      await wait(1000);
+
+      if (await isReachable(service.healthUrl)) {
+        ready = true;
+        break;
+      }
+    }
+
+    if (!ready) {
+      throw new Error(
+        `Timed out waiting for ${service.name} to become reachable at ${service.healthUrl}`,
+      );
+    }
   }
 }
 
@@ -541,6 +626,20 @@ async function testRetryEndpoint() {
   return retry;
 }
 
+function stopManagedProcesses() {
+  for (const { child, name } of managedProcesses.reverse()) {
+    if (child.exitCode !== null || child.killed) {
+      continue;
+    }
+
+    try {
+      child.kill('SIGTERM');
+    } catch (error) {
+      console.warn(`Unable to stop ${name}: ${error.message || error}`);
+    }
+  }
+}
+
 function printSummary() {
   if (summaryPrinted) {
     return;
@@ -622,12 +721,15 @@ async function main() {
   });
 
   try {
+    await ensureLocalServicesRunning();
     await loginAndGetToken();
     await testPortalHealth();
     await testBusinessDashboard();
     await testValidation();
     await validateCompanyConfiguration();
     if (config.validateOnly) {
+      await testAdminMonitoring();
+      await testRetryEndpoint();
       return;
     }
     await testSubmit();
@@ -636,6 +738,7 @@ async function main() {
     await testAdminMonitoring();
     await testRetryEndpoint();
   } finally {
+    stopManagedProcesses();
     printSummary();
   }
 }

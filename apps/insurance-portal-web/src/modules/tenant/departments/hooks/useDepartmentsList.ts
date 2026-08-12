@@ -34,9 +34,9 @@ export function useDepartmentsList() {
     staleTime: 30_000,
   });
 
-  const allDepartments = data?.data ?? [];
-
   const filtered = useMemo(() => {
+    const allDepartments = data?.data ?? [];
+
     return allDepartments.filter((dept) => {
       const statusMatches = status === 'all' ? true : dept.status === status;
       const branchMatches =
@@ -45,7 +45,7 @@ export function useDepartmentsList() {
           : (dept.branch_id ?? dept.branch?.id ?? '') === branchId;
       return statusMatches && branchMatches && matchesSearch(dept, search);
     });
-  }, [allDepartments, branchId, search, status]);
+  }, [branchId, data?.data, search, status]);
 
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / limit));

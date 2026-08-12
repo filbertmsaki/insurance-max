@@ -94,7 +94,7 @@ export class ScorecardService {
         status,
         generated_by,
         generated_at
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,now())
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,now())
       RETURNING *
       `,
       [

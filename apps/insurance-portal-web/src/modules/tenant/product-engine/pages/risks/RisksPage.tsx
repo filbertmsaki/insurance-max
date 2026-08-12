@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -422,7 +422,11 @@ export function RisksPage() {
     },
   });
 
-  const watchedProduct = form.watch('product_id');
+  const watchedProduct =
+    useWatch({
+      control: form.control,
+      name: 'product_id',
+    }) ?? '';
   const { data: formSubClasses = [] } = useSubClassesByProduct(watchedProduct);
 
   function openCreate() {

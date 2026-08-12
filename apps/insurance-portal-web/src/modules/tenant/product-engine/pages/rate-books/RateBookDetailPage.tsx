@@ -368,9 +368,9 @@ function OverviewTab({ rateBookId }: { rateBookId: string }) {
 
 function RisksTab({ rateBookId }: { rateBookId: string }) {
   const { data: rateBook } = useRateBook(rateBookId);
-  const rules = rateBook?.rules ?? [];
 
   const risksById = useMemo(() => {
+    const rules = rateBook?.rules ?? [];
     const map = new Map<
       string,
       { risk_id: string; risk_code: string; risk_name: string; count: number }
@@ -389,7 +389,7 @@ function RisksTab({ rateBookId }: { rateBookId: string }) {
       }
     }
     return Array.from(map.values());
-  }, [rules]);
+  }, [rateBook?.rules]);
 
   return (
     <div className="rounded-lg border border-slate-200 overflow-hidden">
@@ -436,9 +436,9 @@ function RequiredFactorsTab({ rateBookId }: { rateBookId: string }) {
   const { hasPermission } = useAuthStore();
   const canManage = hasPermission('rating-factors:create');
   const { data: rateBook } = useRateBook(rateBookId);
-  const rules = rateBook?.rules ?? [];
 
   const risks = useMemo(() => {
+    const rules = rateBook?.rules ?? [];
     const map = new Map<string, { id: string; label: string }>();
     for (const rule of rules) {
       if (!map.has(rule.risk_id)) {
@@ -451,7 +451,7 @@ function RequiredFactorsTab({ rateBookId }: { rateBookId: string }) {
       }
     }
     return Array.from(map.values());
-  }, [rules]);
+  }, [rateBook?.rules]);
 
   const [selectedRiskId, setSelectedRiskId] = useState('');
   const { data: allFactors = [] } = useAllFactors();
@@ -1070,8 +1070,8 @@ function AddonPricingTab({
 
 function SimulatorTab({ rateBookId }: { rateBookId: string }) {
   const { data: rateBook } = useRateBook(rateBookId);
-  const rules = rateBook?.rules ?? [];
   const risks = useMemo(() => {
+    const rules = rateBook?.rules ?? [];
     const map = new Map<string, { id: string; code: string; name: string }>();
     for (const rule of rules) {
       if (!map.has(rule.risk_id)) {
@@ -1083,7 +1083,7 @@ function SimulatorTab({ rateBookId }: { rateBookId: string }) {
       }
     }
     return Array.from(map.values());
-  }, [rules]);
+  }, [rateBook?.rules]);
 
   const [selectedRiskId, setSelectedRiskId] = useState('');
   const [factorValues, setFactorValues] = useState<PricingFactorValues>({});

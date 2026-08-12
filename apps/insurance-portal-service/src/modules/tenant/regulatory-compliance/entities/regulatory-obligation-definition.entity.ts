@@ -41,7 +41,7 @@ export class RegulatoryObligationDefinition {
   @Column({ type: 'jsonb' })
   due_date_rule: Record<string, unknown>;
 
-  @Column({ type: 'int', array: true, default: () => 'ARRAY[30,14,7,1]' })
+  @Column({ type: 'int', array: true, default: [30, 14, 7, 1] })
   warning_days: number[];
 
   @Column({ type: 'varchar', length: 100, nullable: true })

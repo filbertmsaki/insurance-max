@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { Loader2, SearchCheck } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { ErrorState, EmptyState } from '@/components/shared/ContentStates';
@@ -476,6 +476,10 @@ export function VerificationsPage() {
     },
   ];
   const pending = motor.formState.isSubmitting || cover.formState.isSubmitting;
+  const motorCategory = useWatch({
+    control: motor.control,
+    name: 'motorCategory',
+  });
 
   async function submitMotor(values: MotorVerificationForm) {
     setError(null);
@@ -543,7 +547,7 @@ export function VerificationsPage() {
                 <div>
                   <Label>Motor category</Label>
                   <Select
-                    value={motor.watch('motorCategory')}
+                    value={motorCategory}
                     onValueChange={(value) =>
                       motor.setValue('motorCategory', value as '1' | '2')
                     }

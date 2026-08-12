@@ -29,6 +29,7 @@ function parseArgs(argv) {
     app: 'all',
     seed: false,
     confirmProduction: false,
+    skipBackup: false,
   };
 
   for (const arg of argv.slice(3)) {
@@ -38,6 +39,8 @@ function parseArgs(argv) {
       options.seed = true;
     } else if (arg === '--confirm-production') {
       options.confirmProduction = true;
+    } else if (arg === '--skip-backup') {
+      options.skipBackup = true;
     } else if (arg === '--help' || arg === '-h') {
       options.action = 'help';
     } else {
@@ -51,7 +54,7 @@ function parseArgs(argv) {
 function usage() {
   console.log(`
 Usage:
-  node scripts/db-maintenance.js <action> [--app=all|tiramis|insurance-portal-service] [--seed] [--confirm-production]
+  node scripts/db-maintenance.js <action> [--app=all|tiramis|insurance-portal-service] [--seed] [--confirm-production] [--skip-backup]
 
 Actions:
   backup        Create a PostgreSQL backup only.
@@ -63,6 +66,9 @@ Actions:
 
 Production wipes require:
   --confirm-production
+
+Local-only bypass:
+  --skip-backup    Skip pg_dump when destructive actions run in non-production.
 `);
 }
 
@@ -159,6 +165,12 @@ function assertDestructiveAllowed(config, options) {
   if (isProduction(config) && !options.confirmProduction) {
     throw new Error(
       'Refusing to wipe a Production database without --confirm-production.',
+    );
+  }
+
+  if (isProduction(config) && options.skipBackup) {
+    throw new Error(
+      'Refusing to skip backups for a Production database wipe/reset.',
     );
   }
 }
@@ -264,6 +276,7 @@ async function wipeSchema(config) {
   try {
     await client.query(`DROP SCHEMA IF EXISTS ${schema} CASCADE`);
     await client.query(`CREATE SCHEMA ${schema}`);
+    await client.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
     await client.query(
       `GRANT ALL ON SCHEMA ${schema} TO ${quoteIdentifier(config.username)}`,
     );
@@ -322,9 +335,12 @@ async function runForApp(app, options) {
 
     await checkConnection(config);
 
-    const backup = runPgDump(config);
-
-    console.log(`Backup created and verified: ${backup}`);
+    if (!options.skipBackup) {
+      const backup = runPgDump(config);
+      console.log(`Backup created and verified: ${backup}`);
+    } else {
+      console.log('Backup skipped by --skip-backup for local reset.');
+    }
 
     if (options.action === 'backup') {
       return;

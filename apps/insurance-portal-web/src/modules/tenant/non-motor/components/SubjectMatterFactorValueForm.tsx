@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,7 +53,11 @@ export function SubjectMatterFactorValueForm({
     },
   });
 
-  const factorId = form.watch('factor_id');
+  const factorId =
+    useWatch({
+      control: form.control,
+      name: 'factor_id',
+    }) ?? '';
   const selectedFactor = useMemo(
     () => factors.find((factor) => factor.id === factorId) ?? null,
     [factorId, factors],

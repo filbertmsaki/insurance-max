@@ -223,7 +223,8 @@ export function QuotationWizardPage() {
     error: sourceQuotationError,
   } = useQuotationDetail(sourceId);
   const { data: customerOptions = [] } = useQuotationCustomers();
-  const [stepId, setStepId] = useState<QuotationWizardStepId>('cover-note');
+  const [selectedStepId, setSelectedStepId] =
+    useState<QuotationWizardStepId | null>(null);
   const [completedSteps, setCompletedSteps] = useState<QuotationWizardStepId[]>(
     [],
   );
@@ -268,11 +269,30 @@ export function QuotationWizardPage() {
     name: 'nonMotor.items',
   });
 
-  const quotationFlow = form.watch('quotation_flow');
-  const categoryId = form.watch('category_id');
-  const productId = form.watch('product_id');
-  const customerId = form.watch('customer_id');
-  const policyholderMode = form.watch('policyholder_mode');
+  const quotationFlow = useWatch({
+    control: form.control,
+    name: 'quotation_flow',
+  });
+  const categoryId = useWatch({
+    control: form.control,
+    name: 'category_id',
+  });
+  const productId = useWatch({
+    control: form.control,
+    name: 'product_id',
+  });
+  const customerId = useWatch({
+    control: form.control,
+    name: 'customer_id',
+  });
+  const policyholderMode = useWatch({
+    control: form.control,
+    name: 'policyholder_mode',
+  });
+  const policyholderCustomerType = useWatch({
+    control: form.control,
+    name: 'policyholder.customer_type',
+  });
   const watchedRisks = useWatch({
     control: form.control,
     name: 'risks',
@@ -321,7 +341,7 @@ export function QuotationWizardPage() {
     policyholderMode === 'existing' && selectedCustomer
       ? (selectedCustomer.policy_holder_type ??
         (selectedCustomer.customer_type === 'CORPORATE' ? 2 : 1))
-      : form.watch('policyholder.customer_type') === 'CORPORATE'
+      : policyholderCustomerType === 'CORPORATE'
         ? 2
         : 1;
   const salePointCode = usesPrefilledQuotation
@@ -343,15 +363,20 @@ export function QuotationWizardPage() {
     () => getWizardStepsForFlow(quotationFlowForQueries),
     [quotationFlowForQueries],
   );
+  const hydratedStepId =
+    quotationContext?.current_wizard_step &&
+    steps.some((step) => step.id === quotationContext.current_wizard_step)
+      ? (quotationContext.current_wizard_step as QuotationWizardStepId)
+      : null;
+  const stepId =
+    selectedStepId && steps.some((step) => step.id === selectedStepId)
+      ? selectedStepId
+      : (hydratedStepId ?? steps[0]?.id ?? 'cover-note');
   const editOptionsReady =
     !usesPrefilledQuotation ||
     !quotationContext ||
     (categoryOptions.some((option) => option.id === savedCategoryId) &&
       productOptions.some((option) => option.id === savedProductId));
-
-  useEffect(() => {
-    setDraftId(id ?? null);
-  }, [id]);
 
   useEffect(() => {
     if (companyId) {
@@ -389,8 +414,6 @@ export function QuotationWizardPage() {
       });
     }
   }, [form, loggedInOfficerName, loggedInOfficerTitle, usesPrefilledQuotation]);
-
-  useEffect(() => {}, [form, usesPrefilledQuotation]);
 
   useEffect(() => {
     if (!quotationContext || hasHydratedEditRef.current || !editOptionsReady) {
@@ -435,14 +458,10 @@ export function QuotationWizardPage() {
       insurer_company_id:
         quotationContext.internal_quotation.insurer_company_id,
     });
-    if (
-      quotationContext.current_wizard_step &&
-      steps.some((step) => step.id === quotationContext.current_wizard_step)
-    ) {
-      setStepId(quotationContext.current_wizard_step as QuotationWizardStepId);
-    }
     hasHydratedEditRef.current = true;
-    setIsEditHydrating(false);
+    queueMicrotask(() => {
+      setIsEditHydrating(false);
+    });
   }, [
     categoryOptions,
     editOptionsReady,
@@ -485,12 +504,6 @@ export function QuotationWizardPage() {
       navigate(underwritingPaths.quotationDetail(sourceId), { replace: true });
     }
   }, [isEndorsementMode, navigate, sourceId, sourceQuotation]);
-
-  useEffect(() => {
-    if (!steps.some((step) => step.id === stepId)) {
-      setStepId(steps[0]?.id ?? 'cover-note');
-    }
-  }, [stepId, steps]);
 
   useEffect(() => {
     form.setValue(
@@ -635,9 +648,9 @@ export function QuotationWizardPage() {
       setCompletedSteps((previous) =>
         previous.includes(stepId) ? previous : [...previous, stepId],
       );
-      setStepId(nextStep);
+      setSelectedStepId(nextStep);
     },
-    [form, stepId],
+    [completedSteps, form, stepId, steps],
   );
 
   const goNext = useCallback(async () => {
@@ -652,7 +665,7 @@ export function QuotationWizardPage() {
     const currentIndex = steps.findIndex((step) => step.id === stepId);
     const previous = steps[currentIndex - 1];
     if (previous) {
-      setStepId(previous.id);
+      setSelectedStepId(previous.id);
     }
   }, [stepId, steps]);
 
@@ -791,7 +804,7 @@ export function QuotationWizardPage() {
     [
       activeDraftId,
       createDraftMutation,
-      existingQuotation?.updated_at,
+      existingQuotation,
       form,
       hasPersistedDraft,
       id,
@@ -861,7 +874,7 @@ export function QuotationWizardPage() {
     activeDraftId,
     customerOptions,
     defaultSalePointCode,
-    existingQuotation?.updated_at,
+    existingQuotation,
     finalizeMutation,
     form,
     navigate,
@@ -1160,7 +1173,7 @@ export function QuotationWizardPage() {
                     productOptions={productOptions}
                     riskOptions={riskOptions}
                     riskCount={riskFieldArray.fields.length}
-                    onEditStep={setStepId}
+                    onEditStep={setSelectedStepId}
                   />
                 )}
               </form>

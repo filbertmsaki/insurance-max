@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -144,16 +144,16 @@ export function ProductDetailPage() {
     null,
   );
 
-  useEffect(() => {
-    if (!selectedVersionId && versions.length) {
-      const draft = versions.find((v) => v.status === 'DRAFT');
-      setSelectedVersionId(draft?.id ?? versions[0].id);
-    }
-  }, [versions, selectedVersionId]);
+  const effectiveSelectedVersionId =
+    selectedVersionId && versions.some((item) => item.id === selectedVersionId)
+      ? selectedVersionId
+      : (versions.find((item) => item.status === 'DRAFT')?.id ??
+        versions[0]?.id ??
+        null);
 
   const { data: version } = useProductVersion(
     productId ?? '',
-    selectedVersionId ?? '',
+    effectiveSelectedVersionId ?? '',
   );
 
   const createVersion = useCreateProductVersion(productId ?? '');
@@ -186,8 +186,38 @@ export function ProductDetailPage() {
     name: 'document_requirements',
   });
 
-  const selectedSubClassIds = form.watch('sub_class_ids') ?? [];
-  const defaultSubClassId = form.watch('default_sub_class_id');
+  const selectedSubClassIds =
+    useWatch({
+      control: form.control,
+      name: 'sub_class_ids',
+    }) ?? [];
+  const defaultSubClassId = useWatch({
+    control: form.control,
+    name: 'default_sub_class_id',
+  });
+  const allowsCoverTextOverride = useWatch({
+    control: form.control,
+    name: 'allows_cover_text_override',
+  });
+  const supportsFleet = useWatch({
+    control: form.control,
+    name: 'supports_fleet',
+  });
+  const definitionItemValues =
+    useWatch({
+      control: form.control,
+      name: 'definition_items',
+    }) ?? [];
+  const addonValues =
+    useWatch({
+      control: form.control,
+      name: 'addons',
+    }) ?? [];
+  const documentRequirementValues =
+    useWatch({
+      control: form.control,
+      name: 'document_requirements',
+    }) ?? [];
 
   const canSave = canUpdate && !readOnly;
 
@@ -221,7 +251,7 @@ export function ProductDetailPage() {
       {/* Version selector + lifecycle actions */}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border p-4">
         <Select
-          value={selectedVersionId ?? undefined}
+          value={effectiveSelectedVersionId ?? undefined}
           onValueChange={setSelectedVersionId}
         >
           <SelectTrigger className="w-56">
@@ -466,7 +496,7 @@ export function ProductDetailPage() {
 
             <div className="flex items-center gap-3">
               <Switch
-                checked={form.watch('allows_cover_text_override')}
+                checked={allowsCoverTextOverride}
                 onCheckedChange={(v) =>
                   form.setValue('allows_cover_text_override', v)
                 }
@@ -477,7 +507,7 @@ export function ProductDetailPage() {
             {product.business_line === 'MOTOR' && (
               <div className="flex items-center gap-3">
                 <Switch
-                  checked={form.watch('supports_fleet')}
+                  checked={supportsFleet}
                   onCheckedChange={(v) => form.setValue('supports_fleet', v)}
                   disabled={readOnly}
                 />
@@ -518,7 +548,7 @@ export function ProductDetailPage() {
                   {...form.register(`definition_items.${index}.code`)}
                 />
                 <Select
-                  value={form.watch(`definition_items.${index}.item_type`)}
+                  value={definitionItemValues[index]?.item_type}
                   onValueChange={(v) =>
                     form.setValue(
                       `definition_items.${index}.item_type`,
@@ -618,7 +648,7 @@ export function ProductDetailPage() {
                 />
                 <div className="col-span-1 flex items-center">
                   <Checkbox
-                    checked={form.watch(`addons.${index}.is_optional`)}
+                    checked={addonValues[index]?.is_optional}
                     onCheckedChange={(v) =>
                       form.setValue(`addons.${index}.is_optional`, !!v)
                     }
@@ -677,9 +707,7 @@ export function ProductDetailPage() {
                   {...form.register(`document_requirements.${index}.name`)}
                 />
                 <Select
-                  value={form.watch(
-                    `document_requirements.${index}.requirement_type`,
-                  )}
+                  value={documentRequirementValues[index]?.requirement_type}
                   onValueChange={(v) =>
                     form.setValue(
                       `document_requirements.${index}.requirement_type`,
@@ -700,9 +728,7 @@ export function ProductDetailPage() {
                   </SelectContent>
                 </Select>
                 <Select
-                  value={form.watch(
-                    `document_requirements.${index}.applies_to`,
-                  )}
+                  value={documentRequirementValues[index]?.applies_to}
                   onValueChange={(v) =>
                     form.setValue(
                       `document_requirements.${index}.applies_to`,
