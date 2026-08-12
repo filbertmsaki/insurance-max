@@ -25,6 +25,7 @@ import type {
   QuotationPreviewSubjectMatter,
   QuotationPreviewTiramisSubmission,
 } from '../types';
+import { getFriendlyTiramisStatus } from '../utils/quotationWorkflowLabels';
 
 function displayValue(value: unknown) {
   if (value === null || value === undefined) return 'N/A';
@@ -1390,79 +1391,102 @@ export function TiramisSubmissionPreview({
   if (!tiramis)
     return <EmptyState text="No TIRAMIS submission information available." />;
 
+  const friendlyStatus = getFriendlyTiramisStatus(tiramis);
+
   return (
-    <SectionCard title="TIRAMIS Submission Information">
-      <KeyValueGrid
-        items={[
-          {
-            label: 'Submission Status',
-            value: displayValue(tiramis.submission_status),
-          },
-          { label: 'Request ID', value: displayValue(tiramis.request_id) },
-          {
-            label: 'Submission Attempt',
-            value: displayValue(tiramis.submission_attempt_number),
-          },
-          {
-            label: 'Date Submitted',
-            value: formatDateTime(tiramis.date_submitted),
-          },
-          { label: 'Submitted By', value: displayValue(tiramis.submitted_by) },
-          {
-            label: 'Environment',
-            value: displayValue(tiramis.tiramis_environment),
-          },
-          {
-            label: 'Last Submission Error',
-            value: displayValue(tiramis.last_submission_error),
-          },
-          {
-            label: 'Next Retry Time',
-            value: formatDateTime(tiramis.next_retry_time),
-          },
-          {
-            label: 'Acknowledgement ID',
-            value: displayValue(tiramis.acknowledgement_id),
-          },
-          {
-            label: 'Acknowledgement Status Code',
-            value: displayValue(tiramis.acknowledgement_status_code),
-          },
-          {
-            label: 'Acknowledgement Description',
-            value: displayValue(tiramis.acknowledgement_status_description),
-          },
-          {
-            label: 'Acknowledgement Received',
-            value: formatDateTime(tiramis.acknowledgement_received_date),
-          },
-          {
-            label: 'Callback Received Status',
-            value: displayValue(tiramis.callback_received_status),
-          },
-          {
-            label: 'Callback Received Date',
-            value: formatDateTime(tiramis.callback_received_date),
-          },
-          { label: 'Response ID', value: displayValue(tiramis.response_id) },
-          {
-            label: 'Response Status Code',
-            value: displayValue(tiramis.response_status_code),
-          },
-          {
-            label: 'Response Description',
-            value: displayValue(tiramis.response_status_description),
-          },
-          {
-            label: 'TIRAMIS Cover Note Reference',
-            value: displayValue(tiramis.cover_note_reference_number),
-          },
-          {
-            label: 'Sticker Number',
-            value: displayValue(tiramis.sticker_number),
-          },
-        ]}
-      />
+    <SectionCard title="Issuance">
+      <div className="space-y-4">
+        <KeyValueGrid
+          items={[
+            {
+              label: 'Status',
+              value: friendlyStatus,
+            },
+            {
+              label: 'Cover Note Reference',
+              value: displayValue(tiramis.cover_note_reference_number),
+            },
+            {
+              label: 'Sticker Number',
+              value: displayValue(tiramis.sticker_number),
+            },
+            {
+              label: 'Submitted',
+              value: formatDateTime(tiramis.date_submitted),
+            },
+            {
+              label: 'Last Issue',
+              value: displayValue(tiramis.last_submission_error),
+            },
+            {
+              label: 'Next Retry',
+              value: formatDateTime(tiramis.next_retry_time),
+            },
+          ]}
+        />
+
+        <details className="rounded-lg border border-slate-200 bg-white p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-slate-900">
+            Integration Details
+          </summary>
+          <div className="mt-4">
+            <KeyValueGrid
+              items={[
+                {
+                  label: 'Submission Status',
+                  value: displayValue(tiramis.submission_status),
+                },
+                { label: 'Request ID', value: displayValue(tiramis.request_id) },
+                {
+                  label: 'Submission Attempt',
+                  value: displayValue(tiramis.submission_attempt_number),
+                },
+                {
+                  label: 'Submitted By',
+                  value: displayValue(tiramis.submitted_by),
+                },
+                {
+                  label: 'Environment',
+                  value: displayValue(tiramis.tiramis_environment),
+                },
+                {
+                  label: 'Acknowledgement ID',
+                  value: displayValue(tiramis.acknowledgement_id),
+                },
+                {
+                  label: 'Acknowledgement Status Code',
+                  value: displayValue(tiramis.acknowledgement_status_code),
+                },
+                {
+                  label: 'Acknowledgement Description',
+                  value: displayValue(tiramis.acknowledgement_status_description),
+                },
+                {
+                  label: 'Acknowledgement Received',
+                  value: formatDateTime(tiramis.acknowledgement_received_date),
+                },
+                {
+                  label: 'Callback Received Status',
+                  value: displayValue(tiramis.callback_received_status),
+                },
+                {
+                  label: 'Callback Received Date',
+                  value: formatDateTime(tiramis.callback_received_date),
+                },
+                { label: 'Response ID', value: displayValue(tiramis.response_id) },
+                {
+                  label: 'Response Status Code',
+                  value: displayValue(tiramis.response_status_code),
+                },
+                {
+                  label: 'Response Description',
+                  value: displayValue(tiramis.response_status_description),
+                },
+              ]}
+            />
+          </div>
+        </details>
+      </div>
     </SectionCard>
   );
 }

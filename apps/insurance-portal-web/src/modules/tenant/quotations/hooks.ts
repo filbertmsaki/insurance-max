@@ -301,6 +301,7 @@ export function useCreateQuotationDraft() {
     }: {
       values: QuotationFormSchemaValues;
       currentWizardStep?: string | null;
+      silent?: boolean;
     }) =>
       quotationsApi.createDraft(
         buildQuotationDraftPayload(
@@ -308,7 +309,7 @@ export function useCreateQuotationDraft() {
           currentWizardStep,
         ) satisfies QuotationDraftRecordPayload,
       ),
-    onSuccess: (quotation) => {
+    onSuccess: (quotation, variables) => {
       queryClient.invalidateQueries({ queryKey: quotationKeys.all });
       queryClient.setQueryData(quotationKeys.detail(quotation.id), quotation);
       queryClient.setQueryData(
@@ -318,7 +319,9 @@ export function useCreateQuotationDraft() {
       queryClient.invalidateQueries({
         queryKey: quotationKeys.workflow(quotation.id),
       });
-      toast.success('Quotation draft saved');
+      if (!variables.silent) {
+        toast.success('Quotation draft saved');
+      }
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });
@@ -338,12 +341,13 @@ export function useUpdateQuotationDraft() {
       values: QuotationFormSchemaValues;
       currentWizardStep?: string | null;
       expectedUpdatedAt?: string;
+      silent?: boolean;
     }) =>
       quotationsApi.updateDraft(id, {
         ...buildQuotationDraftPayload(values, currentWizardStep),
         expected_updated_at: expectedUpdatedAt,
       } satisfies QuotationDraftUpdatePayload),
-    onSuccess: (quotation) => {
+    onSuccess: (quotation, variables) => {
       queryClient.invalidateQueries({ queryKey: quotationKeys.all });
       queryClient.setQueryData(quotationKeys.detail(quotation.id), quotation);
       queryClient.setQueryData(
@@ -353,7 +357,9 @@ export function useUpdateQuotationDraft() {
       queryClient.invalidateQueries({
         queryKey: quotationKeys.workflow(quotation.id),
       });
-      toast.success('Quotation draft updated');
+      if (!variables.silent) {
+        toast.success('Quotation draft updated');
+      }
     },
     onError: (error) => toast.error(getApiErrorMessage(error)),
   });

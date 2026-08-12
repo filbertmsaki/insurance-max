@@ -19,13 +19,13 @@ export interface QuotationWizardStepDef {
 const ALL_STEPS: Record<QuotationWizardStepId, QuotationWizardStepDef> = {
   'cover-note': {
     id: 'cover-note',
-    label: 'Quotation setup',
-    description: 'Choose the flow, product, branch, and cover period',
+    label: 'Customer & Cover',
+    description: 'Select the customer, product, and cover period',
   },
   'fleet-setup': {
     id: 'fleet-setup',
-    label: 'Quotation setup',
-    description: 'Set up the fleet, product, branch, and cover period',
+    label: 'Customer & Cover',
+    description: 'Select the customer, fleet product, and cover period',
   },
   policyholder: {
     id: 'policyholder',
@@ -34,8 +34,8 @@ const ALL_STEPS: Record<QuotationWizardStepId, QuotationWizardStepDef> = {
   },
   'risk-premium': {
     id: 'risk-premium',
-    label: 'Risk details',
-    description: 'Add insured risks, subject matter, and values',
+    label: 'Risk & Premium',
+    description: 'Add insured risks and calculate premium',
   },
   addons: {
     id: 'addons',
@@ -44,8 +44,8 @@ const ALL_STEPS: Record<QuotationWizardStepId, QuotationWizardStepDef> = {
   },
   motor: {
     id: 'motor',
-    label: 'Vehicle details',
-    description: 'Complete the vehicle and ownership information',
+    label: 'Motor/Risk & Premium',
+    description: 'Complete vehicle details and calculate premium',
   },
   'fleet-vehicles': {
     id: 'fleet-vehicles',
@@ -54,7 +54,7 @@ const ALL_STEPS: Record<QuotationWizardStepId, QuotationWizardStepDef> = {
   },
   summary: {
     id: 'summary',
-    label: 'Review & complete',
+    label: 'Review & Complete',
     description: 'Check the quotation before completing the draft',
   },
 };
@@ -71,16 +71,9 @@ export function getWizardStepsForFlow(
 ): QuotationWizardStepDef[] {
   const ids: QuotationWizardStepId[] =
     flow === 'NON_MOTOR'
-      ? ['cover-note', 'policyholder', 'risk-premium', 'addons', 'summary']
+      ? ['cover-note', 'risk-premium', 'summary']
       : flow === 'MOTOR_SINGLE'
-        ? [
-            'cover-note',
-            'policyholder',
-            'motor',
-            'risk-premium',
-            'addons',
-            'summary',
-          ]
+        ? ['cover-note', 'motor', 'summary']
         : ['fleet-setup', 'policyholder', 'fleet-vehicles', 'summary'];
   return ids.map((id) => ALL_STEPS[id]);
 }

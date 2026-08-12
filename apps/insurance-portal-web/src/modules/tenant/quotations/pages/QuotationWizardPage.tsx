@@ -99,6 +99,8 @@ const STEP_FIELDS: Partial<
     'officer_name',
     'officer_title',
     'payment_mode_tira',
+    'customer_id',
+    'policyholder',
   ],
   'fleet-setup': [
     'category_id',
@@ -122,11 +124,36 @@ const STEP_FIELDS: Partial<
     'fleet',
   ],
   policyholder: ['customer_id', 'policyholder'],
-  'risk-premium': ['risks', 'nonMotor'],
+  'risk-premium': ['risks', 'nonMotor', 'addons'],
   addons: ['addons'],
-  motor: ['motor_mode', 'motor'],
+  motor: ['motor_mode', 'motor', 'risks', 'addons'],
   'fleet-vehicles': ['fleet'],
 };
+
+function normalizeWizardStepForFlow(
+  step: string | null | undefined,
+  availableSteps: { id: QuotationWizardStepId }[],
+): QuotationWizardStepId | null {
+  if (!step) return null;
+  const direct = availableSteps.find((candidate) => candidate.id === step);
+  if (direct) return direct.id;
+
+  const legacyStepMap: Partial<
+    Record<QuotationWizardStepId, QuotationWizardStepId>
+  > = {
+    policyholder: 'cover-note',
+    addons: availableSteps.some((candidate) => candidate.id === 'motor')
+      ? 'motor'
+      : 'risk-premium',
+    'risk-premium': availableSteps.some((candidate) => candidate.id === 'motor')
+      ? 'motor'
+      : 'risk-premium',
+  };
+  const mapped = legacyStepMap[step as QuotationWizardStepId];
+  return mapped && availableSteps.some((candidate) => candidate.id === mapped)
+    ? mapped
+    : null;
+}
 
 const DEFAULT_VALUES: QuotationFormSchemaValues = {
   insurer_company_id: '',
@@ -228,7 +255,10 @@ export function QuotationWizardPage() {
   const [completedSteps, setCompletedSteps] = useState<QuotationWizardStepId[]>(
     [],
   );
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [autosaveError, setAutosaveError] = useState<string | null>(null);
   const hasHydratedEditRef = useRef(false);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isEditHydrating, setIsEditHydrating] = useState(
     usesPrefilledQuotation,
   );
@@ -300,6 +330,9 @@ export function QuotationWizardPage() {
   const watchedFleetItems = useWatch({
     control: form.control,
     name: 'fleet.items',
+  });
+  const watchedFormValues = useWatch({
+    control: form.control,
   });
   const quotationContext =
     (isEditMode ? existingQuotation : null) ??
@@ -458,6 +491,13 @@ export function QuotationWizardPage() {
       insurer_company_id:
         quotationContext.internal_quotation.insurer_company_id,
     });
+    const restoredStep = normalizeWizardStepForFlow(
+      quotationContext.current_wizard_step,
+      steps,
+    );
+    if (restoredStep) {
+      setSelectedStepId(restoredStep);
+    }
     hasHydratedEditRef.current = true;
     queueMicrotask(() => {
       setIsEditHydrating(false);
@@ -772,7 +812,7 @@ export function QuotationWizardPage() {
   }
 
   const saveDraftSnapshot = useCallback(
-    async (currentWizardStep?: QuotationWizardStepId) => {
+    async (currentWizardStep?: QuotationWizardStepId, silent = false) => {
       const values = form.getValues();
 
       try {
@@ -782,13 +822,22 @@ export function QuotationWizardPage() {
               values,
               currentWizardStep,
               expectedUpdatedAt: existingQuotation?.updated_at,
+              silent,
             })
           : await createDraftMutation.mutateAsync({
               values,
               currentWizardStep,
+              silent,
             });
 
         setDraftId(quotation.id);
+        setLastSavedAt(
+          new Date().toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+        );
+        setAutosaveError(null);
 
         if (!id) {
           navigate(underwritingPaths.quotationWizardEdit(quotation.id), {
@@ -798,6 +847,7 @@ export function QuotationWizardPage() {
 
         return quotation;
       } catch {
+        setAutosaveError('Autosave failed');
         return null;
       }
     },
@@ -812,6 +862,32 @@ export function QuotationWizardPage() {
       updateDraftMutation,
     ],
   );
+
+  useEffect(() => {
+    if (!startGateComplete || isEditHydrating || !companyId) return;
+
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+
+    autosaveTimerRef.current = setTimeout(() => {
+      void saveDraftSnapshot(stepId, true);
+    }, 1200);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
+    };
+  }, [
+    companyId,
+    form,
+    isEditHydrating,
+    saveDraftSnapshot,
+    startGateComplete,
+    stepId,
+    watchedFormValues,
+  ]);
 
   const completeQuotation = useCallback(async () => {
     const valid = await form.trigger(undefined, { shouldFocus: true });
@@ -915,14 +991,24 @@ export function QuotationWizardPage() {
     () =>
       !loadingQuotation ? (
         <div className="flex items-center justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={goBack}
-            disabled={isFirstStep}
-          >
-            Back
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={goBack}
+              disabled={isFirstStep}
+            >
+              Back
+            </Button>
+            <span className="text-xs text-slate-500">
+              {autosaveError ??
+                (isSaving
+                  ? 'Saving...'
+                  : lastSavedAt
+                    ? `Saved ${lastSavedAt}`
+                    : 'Saved')}
+            </span>
+          </div>
           <div className="flex gap-2">
             <Button
               type="button"
@@ -931,14 +1017,6 @@ export function QuotationWizardPage() {
               disabled={isSaving}
             >
               Delete Draft
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void saveDraftSnapshot(stepId)}
-              disabled={isSaving || !companyId}
-            >
-              {isSaving ? 'Saving...' : 'Save Draft'}
             </Button>
             {isLastStep ? (
               <Button
@@ -957,6 +1035,7 @@ export function QuotationWizardPage() {
         </div>
       ) : null,
     [
+      autosaveError,
       companyId,
       completeQuotation,
       deleteDraft,
@@ -965,9 +1044,8 @@ export function QuotationWizardPage() {
       isFirstStep,
       isLastStep,
       isSaving,
+      lastSavedAt,
       loadingQuotation,
-      saveDraftSnapshot,
-      stepId,
     ],
   );
 
@@ -1084,9 +1162,10 @@ export function QuotationWizardPage() {
             currentStep={stepId}
             completedSteps={completedSteps}
             errorSteps={errorSteps}
-            onStepClick={(nextStep) =>
-              void goToStep(nextStep as QuotationWizardStepId)
-            }
+            onStepClick={(nextStep) => {
+              const normalized = normalizeWizardStepForFlow(nextStep, steps);
+              if (normalized) void goToStep(normalized);
+            }}
           />
 
           <div className="mt-3 border-t border-slate-100 pt-4 sm:mt-4">
@@ -1096,20 +1175,26 @@ export function QuotationWizardPage() {
                 onSubmit={(event) => event.preventDefault()}
               >
                 {stepId === 'cover-note' && (
-                  <CoverNoteSetupStep
-                    form={form}
-                    categoryOptions={categoryOptions}
-                    productOptions={productOptions}
-                    isHydrating={isEditHydrating}
-                    showFlowSelector={false}
-                    isEndorsementMode={isEndorsementMode}
-                    enforceFreshCoverPeriod={!usesPrefilledQuotation}
-                    title={
-                      isEndorsementMode
-                        ? 'Step 1. Endorsement Details'
-                        : 'Step 1. Cover Note Setup'
-                    }
-                  />
+                  <>
+                    <CoverNoteSetupStep
+                      form={form}
+                      categoryOptions={categoryOptions}
+                      productOptions={productOptions}
+                      isHydrating={isEditHydrating}
+                      showFlowSelector={false}
+                      isEndorsementMode={isEndorsementMode}
+                      enforceFreshCoverPeriod={!usesPrefilledQuotation}
+                      title={
+                        isEndorsementMode
+                          ? 'Customer & Cover'
+                          : 'Customer & Cover'
+                      }
+                    />
+                    <PolicyholderStep
+                      form={form}
+                      customerOptions={customerOptions}
+                    />
+                  </>
                 )}
 
                 {stepId === 'fleet-setup' && (
@@ -1129,27 +1214,39 @@ export function QuotationWizardPage() {
                 )}
 
                 {stepId === 'risk-premium' && (
-                  <RiskPremiumStep
-                    form={form}
-                    riskOptions={riskOptions}
-                    fieldArray={riskFieldArray}
-                    flow={quotationFlow}
-                    subjectMatterFieldArray={nonMotorFieldArray}
-                    onRemoveRisk={removeRisk}
-                    onAddRisk={addRisk}
-                    factorContext={quotationFactorContext}
-                  />
-                )}
-
-                {stepId === 'addons' && (
-                  <AddOnsStep form={form} fieldArray={addonFieldArray} />
+                  <>
+                    <RiskPremiumStep
+                      form={form}
+                      riskOptions={riskOptions}
+                      fieldArray={riskFieldArray}
+                      flow={quotationFlow}
+                      subjectMatterFieldArray={nonMotorFieldArray}
+                      onRemoveRisk={removeRisk}
+                      onAddRisk={addRisk}
+                      factorContext={quotationFactorContext}
+                    />
+                    <AddOnsStep form={form} fieldArray={addonFieldArray} />
+                  </>
                 )}
 
                 {stepId === 'motor' && (
-                  <MotorDetailsStep
-                    form={form}
-                    vehicleOptions={vehicleOptions}
-                  />
+                  <>
+                    <MotorDetailsStep
+                      form={form}
+                      vehicleOptions={vehicleOptions}
+                    />
+                    <RiskPremiumStep
+                      form={form}
+                      riskOptions={riskOptions}
+                      fieldArray={riskFieldArray}
+                      flow={quotationFlow}
+                      subjectMatterFieldArray={nonMotorFieldArray}
+                      onRemoveRisk={removeRisk}
+                      onAddRisk={addRisk}
+                      factorContext={quotationFactorContext}
+                    />
+                    <AddOnsStep form={form} fieldArray={addonFieldArray} />
+                  </>
                 )}
 
                 {stepId === 'fleet-vehicles' && (
@@ -1173,7 +1270,13 @@ export function QuotationWizardPage() {
                     productOptions={productOptions}
                     riskOptions={riskOptions}
                     riskCount={riskFieldArray.fields.length}
-                    onEditStep={setSelectedStepId}
+                    onEditStep={(nextStep) => {
+                      const normalized = normalizeWizardStepForFlow(
+                        nextStep,
+                        steps,
+                      );
+                      setSelectedStepId(normalized ?? nextStep);
+                    }}
                   />
                 )}
               </form>

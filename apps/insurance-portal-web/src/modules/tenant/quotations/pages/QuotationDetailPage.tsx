@@ -46,12 +46,15 @@ import {
   useSubmitQuotationForApproval,
   useSubmitQuotation,
   useRejectQuotationPremiumOverride,
+  useTransitionQuotationStatus,
 } from '../hooks';
 import type {
   QuotationPreviewPremiumOverride,
   QuotationPreviewRisk,
   QuotationWorkflowBlockingReason,
+  QuotationStatusTransitionAction,
 } from '../types';
+import { getFriendlyWorkflowLabel } from '../utils/quotationWorkflowLabels';
 type PremiumOverrideRequestDialogState = {
   risk: QuotationPreviewRisk;
   open: boolean;
@@ -72,6 +75,18 @@ type WorkflowAction = {
   onClick: () => void;
 };
 
+type ApprovalDialogState = {
+  action: Extract<
+    QuotationStatusTransitionAction,
+    'APPROVE' | 'REQUEST_CHANGES' | 'REJECT_APPROVAL'
+  >;
+  title: string;
+  description: string;
+  reasonRequired: boolean;
+  open: boolean;
+};
+
+
 export function QuotationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -85,11 +100,15 @@ export function QuotationDetailPage() {
   const requestPaymentMutation = useRequestQuotationPayment(id);
   const retryTiraMutation = useRetryQuotationTira(id);
   const cancelQuotationMutation = useCancelQuotation(id);
+  const transitionStatusMutation = useTransitionQuotationStatus(id);
   const requestPremiumOverrideMutation = useRequestQuotationPremiumOverride(id);
   const approvePremiumOverrideMutation = useApproveQuotationPremiumOverride(id);
   const rejectPremiumOverrideMutation = useRejectQuotationPremiumOverride(id);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
+  const [approvalDialog, setApprovalDialog] =
+    useState<ApprovalDialogState | null>(null);
+  const [approvalReason, setApprovalReason] = useState('');
   const [premiumOverrideRequestDialog, setPremiumOverrideRequestDialog] =
     useState<PremiumOverrideRequestDialogState | null>(null);
   const [premiumOverrideDecisionDialog, setPremiumOverrideDecisionDialog] =
@@ -112,6 +131,10 @@ export function QuotationDetailPage() {
     workflow?.availableCommands.REQUEST_PAYMENT ?? false;
   const canRetrySubmission = workflow?.availableCommands.RETRY_TIRAMIS ?? false;
   const canCancel = workflow?.availableCommands.CANCEL ?? false;
+  const canApproveQuotation = workflow?.availableCommands.APPROVE ?? false;
+  const canRequestQuotationChanges =
+    workflow?.availableCommands.REQUEST_CHANGES ?? false;
+  const canRejectQuotation = workflow?.availableCommands.REJECT ?? false;
   const canManagePremiumOverrides =
     !submittedAt &&
     !!quotationStatus &&
@@ -177,6 +200,46 @@ export function QuotationDetailPage() {
 
     setPremiumOverrideDecisionDialog(null);
     setOverrideDecisionReason('');
+  };
+
+  const openApprovalDialog = (
+    action: ApprovalDialogState['action'],
+    options: Pick<
+      ApprovalDialogState,
+      'title' | 'description' | 'reasonRequired'
+    >,
+  ) => {
+    setApprovalReason('');
+    setApprovalDialog({
+      action,
+      open: true,
+      ...options,
+    });
+  };
+
+  const closeApprovalDialog = () => {
+    if (transitionStatusMutation.isPending) {
+      return;
+    }
+
+    setApprovalDialog(null);
+    setApprovalReason('');
+  };
+
+  const handleApprovalDecision = () => {
+    if (!approvalDialog) return;
+    const trimmedReason = approvalReason.trim();
+    if (approvalDialog.reasonRequired && !trimmedReason) return;
+
+    transitionStatusMutation.mutate(
+      {
+        action: approvalDialog.action,
+        reason: trimmedReason || undefined,
+      },
+      {
+        onSuccess: () => closeApprovalDialog(),
+      },
+    );
   };
 
   const handlePremiumOverrideRequest = () => {
@@ -323,7 +386,6 @@ export function QuotationDetailPage() {
           candidate.message === reason.message,
       ) === index,
   );
-
   if (!preview) {
     return (
       <div className="py-24 text-center text-slate-500">
@@ -338,6 +400,11 @@ export function QuotationDetailPage() {
     );
   }
 
+  const friendlyWorkflowLabel = getFriendlyWorkflowLabel(
+    workflow,
+    preview.overview.display_label,
+  );
+
   const submitToTiramis = () => {
     submitMutation.mutate(undefined, {
       onSuccess: () => {
@@ -348,9 +415,23 @@ export function QuotationDetailPage() {
     });
   };
 
-  const primaryWorkflowAction: WorkflowAction | null = canSubmitForApproval
+  const primaryWorkflowAction: WorkflowAction | null = canApproveQuotation
     ? {
-        label: 'Submit for Approval',
+        label: 'Approve',
+        pendingLabel: 'Approving...',
+        isPending: transitionStatusMutation.isPending,
+        disabled: hasStalePricing,
+        onClick: () =>
+          openApprovalDialog('APPROVE', {
+            title: 'Approve Quotation',
+            description:
+              'Approve this quotation so it can continue to payment or issuance.',
+            reasonRequired: false,
+          }),
+      }
+    : canSubmitForApproval
+    ? {
+        label: 'Complete Quotation',
         pendingLabel: 'Submitting...',
         isPending: submitForApprovalMutation.isPending,
         disabled: hasStalePricing,
@@ -366,7 +447,7 @@ export function QuotationDetailPage() {
         }
       : canSubmit
         ? {
-            label: 'Submit to TIRAMIS',
+            label: 'Issue Cover',
             pendingLabel: 'Submitting...',
             isPending: submitMutation.isPending,
             disabled: hasStalePricing,
@@ -374,7 +455,7 @@ export function QuotationDetailPage() {
           }
         : canRetrySubmission
           ? {
-              label: 'Retry TIRAMIS Submission',
+              label: 'Retry Issue Cover',
               pendingLabel: 'Retrying...',
               isPending: retryTiraMutation.isPending,
               disabled: hasStalePricing,
@@ -383,13 +464,34 @@ export function QuotationDetailPage() {
           : null;
 
   const secondaryWorkflowActions: ActionMenuItem[] = [
-    ...(canSubmitForApproval &&
-    primaryWorkflowAction?.label !== 'Submit for Approval'
+    ...(canRequestQuotationChanges
       ? [
           {
-            label: 'Submit for Approval',
-            onClick: () => submitForApprovalMutation.mutate(),
-            disabled: submitForApprovalMutation.isPending || hasStalePricing,
+            label: 'Request Changes',
+            onClick: () =>
+              openApprovalDialog('REQUEST_CHANGES', {
+                title: 'Request Changes',
+                description:
+                  'Send this quotation back for correction before it can continue.',
+                reasonRequired: true,
+              }),
+            disabled: transitionStatusMutation.isPending,
+          },
+        ]
+      : []),
+    ...(canRejectQuotation
+      ? [
+          {
+            label: 'Reject',
+            onClick: () =>
+              openApprovalDialog('REJECT_APPROVAL', {
+                title: 'Reject Quotation',
+                description:
+                  'Reject this quotation and record the reason for audit history.',
+                reasonRequired: true,
+              }),
+            disabled: transitionStatusMutation.isPending,
+            destructive: true,
           },
         ]
       : []),
@@ -402,22 +504,23 @@ export function QuotationDetailPage() {
           },
         ]
       : []),
-    ...(canSubmit && primaryWorkflowAction?.label !== 'Submit to TIRAMIS'
+    ...(canSubmit && primaryWorkflowAction?.label !== 'Issue Cover'
       ? [
           {
-            label: 'Submit to TIRAMIS',
+            label: 'Issue Cover',
             onClick: submitToTiramis,
             disabled: submitMutation.isPending || hasStalePricing,
           },
         ]
       : []),
     ...(canRetrySubmission &&
-    primaryWorkflowAction?.label !== 'Retry TIRAMIS Submission'
+    primaryWorkflowAction?.label !== 'Retry Issue Cover'
       ? [
           {
-            label: 'Retry TIRAMIS Submission',
+            label: 'Technical Retry',
             onClick: () => retryTiraMutation.mutate(),
             disabled: retryTiraMutation.isPending || hasStalePricing,
+            separatorBefore: true,
           },
         ]
       : []),
@@ -486,7 +589,10 @@ export function QuotationDetailPage() {
               <PaymentStatusBadge status={paymentStatus} />
             </div>
             <p className="text-sm text-slate-500">
-              {preview.cover_note.cover_note_number ?? 'Preview'}
+              {friendlyWorkflowLabel}
+              {preview.cover_note.cover_note_number
+                ? ` - ${preview.cover_note.cover_note_number}`
+                : ''}
             </p>
           </div>
         </div>
@@ -654,6 +760,70 @@ export function QuotationDetailPage() {
               {cancelQuotationMutation.isPending
                 ? 'Cancelling...'
                 : 'Cancel Quotation'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={approvalDialog?.open ?? false}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeApprovalDialog();
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{approvalDialog?.title}</DialogTitle>
+            <DialogDescription>{approvalDialog?.description}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <label
+              htmlFor="quotation-approval-reason"
+              className="text-sm font-medium text-slate-700"
+            >
+              Reason {approvalDialog?.reasonRequired ? '*' : ''}
+            </label>
+            <Textarea
+              id="quotation-approval-reason"
+              rows={4}
+              value={approvalReason}
+              onChange={(event) => setApprovalReason(event.target.value)}
+              placeholder="Add a note for the quotation history"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeApprovalDialog}
+              disabled={transitionStatusMutation.isPending}
+            >
+              Close
+            </Button>
+            <Button
+              type="button"
+              variant={
+                approvalDialog?.action === 'REJECT_APPROVAL'
+                  ? 'destructive'
+                  : 'default'
+              }
+              onClick={handleApprovalDecision}
+              disabled={
+                transitionStatusMutation.isPending ||
+                (approvalDialog?.reasonRequired && !approvalReason.trim())
+              }
+            >
+              {transitionStatusMutation.isPending
+                ? 'Processing...'
+                : approvalDialog?.action === 'APPROVE'
+                  ? 'Approve'
+                  : approvalDialog?.action === 'REQUEST_CHANGES'
+                    ? 'Request Changes'
+                    : 'Reject'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { CustomerStatusBadge } from '@/modules/tenant/customers/components/CustomerStatusBadge';
+import { Combobox } from '@/components/ui/combobox';
 import {
   CUSTOMER_GENDER_OPTIONS,
   CUSTOMER_ID_TYPE_OPTIONS,
@@ -222,6 +223,24 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
     (option) =>
       option.appliesTo === 'BOTH' || option.appliesTo === customerType,
   );
+  const customerSearchOptions = customerOptions.map((customer) => {
+    const searchText = [
+      getCustomerDisplayName(customer),
+      customer.customer_no,
+      customer.phone,
+      customer.email,
+      customer.id_number,
+      customer.registration_no,
+      customer.tin,
+    ]
+      .filter(Boolean)
+      .join(' | ');
+
+    return {
+      value: customer.id,
+      label: `${getCustomerDisplayName(customer)} (${customer.customer_no}) ${searchText}`,
+    };
+  });
 
   function handleCustomerTypeChange(nextType: 'INDIVIDUAL' | 'CORPORATE') {
     form.setValue('policyholder.customer_type', nextType);
@@ -272,27 +291,16 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
             render={({ field }) => (
               <WizardFormItem>
                 <FormLabel>Existing Customer (required)</FormLabel>
-                <Select
-                  value={toSelectValue(field.value)}
-                  onValueChange={(value) =>
-                    field.onChange(fromSelectValue(value))
-                  }
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Search or select a customer" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
-                    {customerOptions.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {getCustomerDisplayName(customer)} (
-                        {customer.customer_no})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormControl>
+                  <Combobox
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    options={customerSearchOptions}
+                    placeholder="Search or select a customer"
+                    searchPlaceholder="Name, phone, email, customer no, ID, registration, TIN"
+                    emptyText="No matching customer found."
+                  />
+                </FormControl>
                 <FormMessage />
               </WizardFormItem>
             )}
