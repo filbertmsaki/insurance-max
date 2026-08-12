@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { customerFormSchema, getCustomerDefaultValues } from '../schemas';
+import { LocationReferenceSelects } from '@/modules/platform/reference-data/components/LocationReferenceSelects';
 import {
   CUSTOMER_DOCUMENT_TYPE_OPTIONS,
   CUSTOMER_GENDER_OPTIONS,
@@ -62,6 +63,10 @@ export function CustomerForm({
     control: form.control,
     name: 'id_type',
   });
+  const country = useWatch({ control: form.control, name: 'country' });
+  const countryCode = useWatch({ control: form.control, name: 'country_code' });
+  const region = useWatch({ control: form.control, name: 'region' });
+  const district = useWatch({ control: form.control, name: 'district' });
 
   const selectedIdField = getCustomerIdFieldName(customerType, idType);
   const selectedIdFieldName = selectedIdField;
@@ -151,19 +156,6 @@ export function CustomerForm({
                       ))}
                     </SelectContent>
                   </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="country_code"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Country Code</FormLabel>
-                  <FormControl>
-                    <Input placeholder="TZA" {...field} />
-                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -467,45 +459,41 @@ export function CustomerForm({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="country"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Country</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Tanzania" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="region"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Region</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Dar es Salaam" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="district"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>District</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ilala" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="md:col-span-2">
+              <LocationReferenceSelects
+                country={country}
+                countryCode={countryCode}
+                region={region}
+                district={district}
+                errors={{
+                  country: form.formState.errors.country?.message,
+                  region: form.formState.errors.region?.message,
+                  district: form.formState.errors.district?.message,
+                }}
+                onCountryChange={(nextCountry, nextCode) => {
+                  form.setValue('country', nextCountry, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                  form.setValue('country_code', nextCode, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                }}
+                onRegionChange={(nextRegion) =>
+                  form.setValue('region', nextRegion, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+                onDistrictChange={(nextDistrict) =>
+                  form.setValue('district', nextDistrict, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+              />
+            </div>
             <FormField
               control={form.control}
               name="ward"

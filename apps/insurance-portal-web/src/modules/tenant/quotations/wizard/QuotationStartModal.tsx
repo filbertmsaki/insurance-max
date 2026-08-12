@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useReferenceCurrencies } from '@/modules/platform/reference-data/hooks';
 import {
   useIntermediaryCompanyOptions,
   useQuotationCategories,
@@ -110,7 +111,10 @@ export function QuotationStartModal({
   const [channelType, setChannelType] = useState<
     (typeof CHANNEL_TYPES)[number] | ''
   >('');
-  const [currency, setCurrency] = useState('');
+  const [currency, setCurrency] = useState('TZS');
+  const { data: referenceCurrencies = [] } = useReferenceCurrencies({
+    is_active: true,
+  });
   const [tranCompanyId, setTranCompanyId] = useState('');
   const [dateRangeDays, setDateRangeDays] = useState<
     CoverNoteDateRangeValue | ''
@@ -177,7 +181,7 @@ export function QuotationStartModal({
         setCategoryId('');
         setProductId('');
         setChannelType('');
-        setCurrency('');
+        setCurrency('TZS');
         setTranCompanyId('');
         setDateRangeDays('');
         setValidFrom('');
@@ -434,7 +438,10 @@ export function QuotationStartModal({
                 <SelectValue placeholder="Select currency" />
               </SelectTrigger>
               <SelectContent>
-                {CURRENCY_OPTIONS.map((option) => (
+                {(referenceCurrencies.length
+                  ? referenceCurrencies.map((item) => item.code)
+                  : CURRENCY_OPTIONS
+                ).map((option) => (
                   <SelectItem key={option} value={option}>
                     {option}
                   </SelectItem>

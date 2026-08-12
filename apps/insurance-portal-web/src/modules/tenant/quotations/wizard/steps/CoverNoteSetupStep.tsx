@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useReferenceCurrencies } from '@/modules/platform/reference-data/hooks';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -10,13 +18,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { WizardFormItem } from '../components/WizardFormItem';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useIntermediaryCompanyOptions } from '../../hooks';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { StepSection } from '../components/StepSection';
@@ -95,6 +96,9 @@ export function CoverNoteSetupStep({
   const validFrom = form.watch('valid_from');
   const quotationFlow = form.watch('quotation_flow');
   const currency = form.watch('currency');
+  const { data: currencies = [] } = useReferenceCurrencies({
+    is_active: true,
+  });
   const coverNoteType = form.watch('cover_note_type');
   const channelType = form.watch('channel_type');
   const productId = form.watch('product_id');
@@ -679,9 +683,23 @@ export function CoverNoteSetupStep({
           render={({ field }) => (
             <WizardFormItem>
               <FormLabel>Currency (required)</FormLabel>
-              <FormControl>
-                <Input {...field} readOnly />
-              </FormControl>
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {(currencies.length
+                    ? currencies
+                    : [{ id: 'TZS', code: 'TZS', name: 'Tanzanian Shilling' }]
+                  ).map((item) => (
+                    <SelectItem key={item.id} value={item.code}>
+                      {item.code} - {item.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <FormMessage />
             </WizardFormItem>
           )}

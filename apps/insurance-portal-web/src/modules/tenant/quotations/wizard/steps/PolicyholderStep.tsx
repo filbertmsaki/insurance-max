@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { CustomerStatusBadge } from '@/modules/tenant/customers/components/CustomerStatusBadge';
 import { Combobox } from '@/components/ui/combobox';
+import { LocationReferenceSelects } from '@/modules/platform/reference-data/components/LocationReferenceSelects';
 import {
   CUSTOMER_GENDER_OPTIONS,
   CUSTOMER_ID_TYPE_OPTIONS,
@@ -219,6 +220,10 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
 
   const customerType = form.watch('policyholder.customer_type');
   const currentIdType = form.watch('policyholder.id_type');
+  const policyholderCountry = form.watch('policyholder.country');
+  const policyholderCountryCode = form.watch('policyholder.country_code');
+  const policyholderRegion = form.watch('policyholder.region');
+  const policyholderDistrict = form.watch('policyholder.district');
   const idFieldOptions = CUSTOMER_ID_TYPE_OPTIONS.filter(
     (option) =>
       option.appliesTo === 'BOTH' || option.appliesTo === customerType,
@@ -515,49 +520,44 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
             )}
           />
 
-          <FormField
-            control={form.control}
-            name={fieldName('country_code')}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Country Code (ISO alpha-3, required)</FormLabel>
-                <FormControl>
-                  <Input
-                    maxLength={3}
-                    {...field}
-                    value={field.value as string}
-                  />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={fieldName('region')}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Region (required)</FormLabel>
-                <FormControl>
-                  <Input {...field} value={field.value as string} />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={fieldName('district')}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>District (required)</FormLabel>
-                <FormControl>
-                  <Input {...field} value={field.value as string} />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
+          <div className="md:col-span-2">
+            <LocationReferenceSelects
+              country={policyholderCountry}
+              countryCode={policyholderCountryCode}
+              region={policyholderRegion}
+              district={policyholderDistrict}
+              errors={{
+                country:
+                  form.formState.errors.policyholder?.country?.message,
+                region:
+                  form.formState.errors.policyholder?.region?.message,
+                district:
+                  form.formState.errors.policyholder?.district?.message,
+              }}
+              onCountryChange={(country, code) => {
+                form.setValue('policyholder.country', country, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+                form.setValue('policyholder.country_code', code, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+              }}
+              onRegionChange={(region) =>
+                form.setValue('policyholder.region', region, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+              }
+              onDistrictChange={(district) =>
+                form.setValue('policyholder.district', district, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+              }
+            />
+          </div>
           <FormField
             control={form.control}
             name={fieldName('street')}

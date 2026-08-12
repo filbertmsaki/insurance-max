@@ -255,10 +255,7 @@ export function QuotationWizardPage() {
   const [completedSteps, setCompletedSteps] = useState<QuotationWizardStepId[]>(
     [],
   );
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
-  const [autosaveError, setAutosaveError] = useState<string | null>(null);
   const hasHydratedEditRef = useRef(false);
-  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isEditHydrating, setIsEditHydrating] = useState(
     usesPrefilledQuotation,
   );
@@ -330,9 +327,6 @@ export function QuotationWizardPage() {
   const watchedFleetItems = useWatch({
     control: form.control,
     name: 'fleet.items',
-  });
-  const watchedFormValues = useWatch({
-    control: form.control,
   });
   const quotationContext =
     (isEditMode ? existingQuotation : null) ??
@@ -831,14 +825,6 @@ export function QuotationWizardPage() {
             });
 
         setDraftId(quotation.id);
-        setLastSavedAt(
-          new Date().toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
-        );
-        setAutosaveError(null);
-
         if (!id) {
           navigate(underwritingPaths.quotationWizardEdit(quotation.id), {
             replace: true,
@@ -847,7 +833,6 @@ export function QuotationWizardPage() {
 
         return quotation;
       } catch {
-        setAutosaveError('Autosave failed');
         return null;
       }
     },
@@ -862,32 +847,6 @@ export function QuotationWizardPage() {
       updateDraftMutation,
     ],
   );
-
-  useEffect(() => {
-    if (!startGateComplete || isEditHydrating || !companyId) return;
-
-    if (autosaveTimerRef.current) {
-      clearTimeout(autosaveTimerRef.current);
-    }
-
-    autosaveTimerRef.current = setTimeout(() => {
-      void saveDraftSnapshot(stepId, true);
-    }, 1200);
-
-    return () => {
-      if (autosaveTimerRef.current) {
-        clearTimeout(autosaveTimerRef.current);
-      }
-    };
-  }, [
-    companyId,
-    form,
-    isEditHydrating,
-    saveDraftSnapshot,
-    startGateComplete,
-    stepId,
-    watchedFormValues,
-  ]);
 
   const completeQuotation = useCallback(async () => {
     const valid = await form.trigger(undefined, { shouldFocus: true });
@@ -925,7 +884,7 @@ export function QuotationWizardPage() {
     let quotationId = activeDraftId;
 
     if (!quotationId) {
-      const draft = await saveDraftSnapshot(stepId);
+      const draft = await saveDraftSnapshot(stepId, true);
       if (!draft) {
         return;
       }
@@ -1000,14 +959,9 @@ export function QuotationWizardPage() {
             >
               Back
             </Button>
-            <span className="text-xs text-slate-500">
-              {autosaveError ??
-                (isSaving
-                  ? 'Saving...'
-                  : lastSavedAt
-                    ? `Saved ${lastSavedAt}`
-                    : 'Saved')}
-            </span>
+            {isSaving && (
+              <span className="text-xs text-slate-500">Saving...</span>
+            )}
           </div>
           <div className="flex gap-2">
             <Button
@@ -1035,7 +989,6 @@ export function QuotationWizardPage() {
         </div>
       ) : null,
     [
-      autosaveError,
       companyId,
       completeQuotation,
       deleteDraft,
@@ -1044,7 +997,6 @@ export function QuotationWizardPage() {
       isFirstStep,
       isLastStep,
       isSaving,
-      lastSavedAt,
       loadingQuotation,
     ],
   );

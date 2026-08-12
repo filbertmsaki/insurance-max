@@ -63,6 +63,10 @@ function optionalEnv(name: string, fallback: string): string {
 const appUrl = mustEnv('APP_URL');
 const globalPrefix = mustEnv('APP_GLOBAL_PREFIX');
 
+function defaultCallbackUrl(environmentName: 'test' | 'live') {
+  return buildUrl(appUrl, globalPrefix, 'tiramis', 'callbacks', environmentName);
+}
+
 function encryptSecret(plainText: string): string {
   if (!plainText) {
     return plainText;
@@ -113,12 +117,9 @@ const configurations: ConfigurationSeed[] = [
     salePointCode: 'SP500',
     tranCompanyCode: 'ICC110',
     baseUrl: mustEnv('TIRAMIS_TEST_BASE_URL'),
-    callbackBaseUrl: buildUrl(
-      appUrl,
-      globalPrefix,
-      'tiramis',
-      'callbacks',
-      'test',
+    callbackBaseUrl: optionalEnv(
+      'TIRAMIS_TEST_CALLBACK_URL',
+      defaultCallbackUrl('test'),
     ),
     clientPrivateCertificatePath: getClientPrivateCertificatePath('test'),
     tiraPublicCertificatePath: getTiraPublicCertificatePath('test'),
@@ -138,12 +139,9 @@ const configurations: ConfigurationSeed[] = [
     salePointCode: 'SP500',
     tranCompanyCode: 'ICC110',
     baseUrl: mustEnv('TIRAMIS_LIVE_BASE_URL'),
-    callbackBaseUrl: buildUrl(
-      appUrl,
-      globalPrefix,
-      'tiramis',
-      'callbacks',
-      'live',
+    callbackBaseUrl: optionalEnv(
+      'TIRAMIS_LIVE_CALLBACK_URL',
+      defaultCallbackUrl('live'),
     ),
     clientPrivateCertificatePath: getClientPrivateCertificatePath('live'),
     tiraPublicCertificatePath: getTiraPublicCertificatePath('live'),

@@ -1492,6 +1492,8 @@ export class TiramisClientService {
   }
 
   private stripSignedTenantBodyFields(payload: Record<string, any>) {
+    // callbackUrl/callback_url are resolved server-side from company config and must not be
+    // overridable by tenant-supplied payload data before we attach our own webhook URL.
     const {
       companyCode,
       systemCode,
@@ -1501,6 +1503,8 @@ export class TiramisClientService {
       insurerCompanyCode,
       tranCompanyCode,
       salePointCode,
+      callbackUrl,
+      callback_url,
       ...body
     } = payload;
 
@@ -1512,6 +1516,8 @@ export class TiramisClientService {
     void insurerCompanyCode;
     void tranCompanyCode;
     void salePointCode;
+    void callbackUrl;
+    void callback_url;
 
     return body;
   }

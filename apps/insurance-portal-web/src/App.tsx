@@ -42,6 +42,7 @@ import { CustomerCreatePage } from '@/modules/tenant/customers/pages/CustomerCre
 import { CustomerEditPage } from '@/modules/tenant/customers/pages/CustomerEditPage';
 import { RolesPage } from '@/modules/platform/roles/pages/RolesPage';
 import { PermissionsPage } from '@/modules/platform/permissions/pages/PermissionsPage';
+import { ReferenceDataPage } from '@/modules/platform/reference-data/pages/ReferenceDataPage';
 import { DevicesPage } from '@/modules/shared/devices/pages/DevicesPage';
 import { SessionsPage } from '@/modules/shared/sessions/pages/SessionsPage';
 import { ApiClientsPage } from '@/modules/platform/api-clients/pages/ApiClientsPage';
@@ -529,6 +530,11 @@ export default function App() {
 
             <Route path="/devices" element={<DevicesPage />} />
             <Route path="/sessions" element={<SessionsPage />} />
+            <Route
+              element={<ProtectedRoute anyRole={['OWNER', 'SUPER_ADMIN']} />}
+            >
+              <Route path="/reference-data" element={<ReferenceDataPage />} />
+            </Route>
             <Route
               element={<ProtectedRoute anyRole={['SUPER_ADMIN', 'OWNER']} />}
             >

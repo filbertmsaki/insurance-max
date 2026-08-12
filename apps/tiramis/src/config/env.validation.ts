@@ -60,6 +60,12 @@ export const tiramisEnvValidationSchema = Joi.object({
   TIRAMIS_LIVE_BASE_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .required(),
+  TIRAMIS_TEST_CALLBACK_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .optional(),
+  TIRAMIS_LIVE_CALLBACK_URL: Joi.string()
+    .uri({ scheme: ['http', 'https'] })
+    .optional(),
 
   TIRAMIS_TCP_HOST: Joi.string().default('0.0.0.0'),
   TIRAMIS_TCP_PORT: Joi.number().default(4001),

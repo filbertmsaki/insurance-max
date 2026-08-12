@@ -12,12 +12,14 @@ import TiramisLookupsSeeder from './007-tiramis-lookups.seed';
 import AllianceCustomerVehiclesSeeder from './008-alliance-customer-vehicles.seed';
 import MotorPricingSeeder from './009-motor-pricing.seed';
 import AnalyticsDefinitionsSeeder from './010-analytics.seed';
+import ReferenceDataSeeder from './011-reference-data.seed';
 
 const productionSeeders = [
   PlatformIdpSeeder,
   InitialRbacSeeder,
   TiramisCompanySetupSeeder,
   TiramisLookupsSeeder,
+  ReferenceDataSeeder,
   ProductEngineSeeder,
   RatingFactorsSeeder,
   RiskFactorLinkSeeder,
