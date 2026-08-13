@@ -748,8 +748,99 @@ export class QuotationPayloadValidator {
     path: string,
     errors: string[],
   ): void {
+    this.validateMotorRequiredString(
+      motor.registration_number,
+      `${path}.registration_number`,
+      errors,
+      /^[A-Z0-9-]{3,50}$/,
+      'must contain 3 to 50 uppercase letters, digits or hyphens without spaces',
+    );
+    this.validateMotorRequiredString(
+      motor.chassis_number,
+      `${path}.chassis_number`,
+      errors,
+      /^[A-Z0-9-]{6,100}$/,
+      'must contain 6 to 100 uppercase letters, digits or hyphens without spaces',
+    );
+    this.validateMotorRequiredString(motor.make, `${path}.make`, errors);
+    this.validateMotorRequiredString(motor.model, `${path}.model`, errors);
+    this.validateMotorRequiredString(
+      motor.body_type,
+      `${path}.body_type`,
+      errors,
+    );
+    this.validateMotorRequiredString(motor.color, `${path}.color`, errors);
+    this.validateMotorRequiredString(
+      motor.engine_number,
+      `${path}.engine_number`,
+      errors,
+      /^[A-Z0-9-]{3,100}$/,
+      'must contain 3 to 100 uppercase letters, digits or hyphens without spaces',
+    );
+    this.validateMotorRequiredString(
+      motor.fuel_used,
+      `${path}.fuel_used`,
+      errors,
+    );
+    this.validateMotorRequiredString(
+      motor.owner_name,
+      `${path}.owner_name`,
+      errors,
+    );
+    this.validateMotorRequiredString(
+      motor.owner_address,
+      `${path}.owner_address`,
+      errors,
+    );
+
+    const engineCapacity = Number(motor.engine_capacity);
+    if (
+      !motor.engine_capacity?.trim() ||
+      !Number.isFinite(engineCapacity) ||
+      engineCapacity <= 0
+    ) {
+      errors.push(`${path}.engine_capacity must be a positive number`);
+    }
+
+    const nextYear = new Date().getUTCFullYear() + 1;
+    if (motor.year_of_manufacture > nextYear) {
+      errors.push(
+        `${path}.year_of_manufacture cannot be later than ${nextYear}`,
+      );
+    }
+
+    if (motor.axle_distance <= 0) {
+      errors.push(`${path}.axle_distance must be greater than zero`);
+    }
+
+    if (motor.tare_weight <= 0) {
+      errors.push(`${path}.tare_weight must be greater than zero`);
+    }
+
+    if (motor.gross_weight <= 0) {
+      errors.push(`${path}.gross_weight must be greater than zero`);
+    }
+
     if (motor.gross_weight < motor.tare_weight) {
       errors.push(`${path}.gross_weight cannot be less than tare_weight`);
+    }
+  }
+
+  private validateMotorRequiredString(
+    value: string | null | undefined,
+    path: string,
+    errors: string[],
+    pattern?: RegExp,
+    patternMessage?: string,
+  ): void {
+    const normalized = value?.trim();
+    if (!normalized) {
+      errors.push(`${path} is required`);
+      return;
+    }
+
+    if (pattern && !pattern.test(normalized)) {
+      errors.push(`${path} ${patternMessage ?? 'has an invalid format'}`);
     }
   }
 

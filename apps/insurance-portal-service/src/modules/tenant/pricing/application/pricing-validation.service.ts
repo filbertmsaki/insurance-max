@@ -54,12 +54,12 @@ export class PricingValidationService {
   }
 
   assertPricingConfigurationAvailable(risk: InsuranceRisk): void {
-    if (!isMotorProductCode(risk.product?.product_code ?? null)) {
+    if (!risk.product?.product_code?.trim()) {
       throw new ConflictException({
         status: 'CONFIGURATION_ERROR',
         code: 'RATING_CONFIGURATION_NOT_AVAILABLE',
         message:
-          'Rating configuration is currently available for Motor products only in this phase',
+          'Rating configuration is not available for the selected product',
         product_id: risk.product_id,
         product_code: risk.product?.product_code ?? null,
         risk_id: risk.id,
@@ -73,6 +73,10 @@ export class PricingValidationService {
     factorValues: PricingFactorValues,
     effectiveDate?: string | null,
   ): void {
+    if (!isMotorProductCode(risk.product?.product_code ?? null)) {
+      return;
+    }
+
     const constraint = deriveMotorSelectionConstraint(risk.risk_name);
     if (!constraint) {
       return;

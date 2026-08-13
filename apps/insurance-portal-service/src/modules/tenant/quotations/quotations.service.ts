@@ -4011,6 +4011,7 @@ export class QuotationsService {
             quotation_type: payload.internal_quotation.quotation_type,
             currency_code: header.currency_code,
             exchange_rate: header.exchange_rate,
+            discount: this.buildPricingDiscountRequest(risk),
           },
           user.id,
           user,
@@ -4066,6 +4067,7 @@ export class QuotationsService {
             quotation_type: payload.internal_quotation.quotation_type,
             currency_code: header.currency_code,
             exchange_rate: header.exchange_rate,
+            discount: this.buildPricingDiscountRequest(risk),
           },
           user.id,
           user,
@@ -4130,6 +4132,31 @@ export class QuotationsService {
     }
 
     return factors;
+  }
+
+  private buildPricingDiscountRequest(
+    risk: RiskCoveredDto,
+  ): { rate?: number; fixed_amount?: number } | undefined {
+    const discounts = risk.discounts_offered ?? [];
+    const rate = roundMoney(
+      discounts.reduce(
+        (sum, discount) => sum + Math.max(0, discount.discount_rate ?? 0),
+        0,
+      ),
+    );
+
+    if (rate > 0) {
+      return { rate };
+    }
+
+    const fixedAmount = roundMoney(
+      discounts.reduce(
+        (sum, discount) => sum + Math.max(0, discount.discount_amount ?? 0),
+        0,
+      ),
+    );
+
+    return fixedAmount > 0 ? { fixed_amount: fixedAmount } : undefined;
   }
 
   private shouldIncludeSumInsuredForPricing(
