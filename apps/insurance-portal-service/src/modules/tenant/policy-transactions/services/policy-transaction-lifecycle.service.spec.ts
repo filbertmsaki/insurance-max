@@ -128,6 +128,7 @@ describe('PolicyTransactionLifecycleService', () => {
           payment_required: true,
           premium_effect: PolicyTransactionPremiumEffect.CREDIT,
           payment_status: WorkflowPaymentStatus.NOT_REQUESTED,
+          submission_status: WorkflowSubmissionStatus.READY,
         }),
       );
 
@@ -141,6 +142,7 @@ describe('PolicyTransactionLifecycleService', () => {
           payment_required: true,
           premium_effect: PolicyTransactionPremiumEffect.DEBIT,
           payment_status: WorkflowPaymentStatus.PAID,
+          submission_status: WorkflowSubmissionStatus.READY,
         }),
       );
 

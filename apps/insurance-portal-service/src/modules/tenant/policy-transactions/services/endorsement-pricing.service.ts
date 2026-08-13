@@ -13,6 +13,7 @@ export interface RemainingPeriodPricingResult {
   fullTermPremium: string;
   earnedBeforeEffectiveDate: string;
   taxAmount: string;
+  chargeAmount: string;
   commissionAmount: string;
   resultHash: string;
 }
@@ -51,6 +52,9 @@ export class EndorsementPricingService {
     const taxDifference = DecimalUtil.value(input.newPricing.taxAmount).minus(
       DecimalUtil.value(input.oldPricing.taxAmount),
     );
+    const chargeDifference = DecimalUtil.value(
+      input.newPricing.chargeAmount,
+    ).minus(DecimalUtil.value(input.oldPricing.chargeAmount));
     const commissionDifference = DecimalUtil.value(
       input.newPricing.commissionAmount,
     ).minus(DecimalUtil.value(input.oldPricing.commissionAmount));
@@ -68,7 +72,7 @@ export class EndorsementPricingService {
       remainingNewPremium: newPayable.toFixed(4),
       premiumDifference: difference.toFixed(4),
       taxDifference: taxDifference.toFixed(4),
-      chargeDifference: '0.0000',
+      chargeDifference: chargeDifference.toFixed(4),
       commissionDifference: commissionDifference.toFixed(4),
       customerPayableDifference: difference.toFixed(4),
       premiumEffect,

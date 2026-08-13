@@ -10,7 +10,18 @@ export const underwritingPaths = {
   quotationPayment: (id: string) => `/underwriting/quotations/${id}/payment`,
   policies: '/underwriting/policies',
   policyDetail: (id: string) => `/underwriting/policies/${id}`,
-  policyCreate: '/underwriting/policies/new',
+  policyEndorsementCreate: (policyId: string) =>
+    `/underwriting/policies/${policyId}/endorsements/new`,
+  policyEndorsementEdit: (policyId: string, endorsementId: string) =>
+    `/underwriting/policies/${policyId}/endorsements/${endorsementId}`,
+  policyCancellationCreate: (policyId: string) =>
+    `/underwriting/policies/${policyId}/cancellations/new`,
+  policyCancellationDetail: (policyId: string, cancellationId: string) =>
+    `/underwriting/policies/${policyId}/cancellations/${cancellationId}`,
+  policyRenewalCreate: (policyId: string) =>
+    `/underwriting/policies/${policyId}/renewals/new`,
+  policyRenewalDetail: (policyId: string, renewalId: string) =>
+    `/underwriting/policies/${policyId}/renewals/${renewalId}`,
   policyEdit: (id: string) => `/underwriting/policies/${id}/edit`,
   submissions: '/underwriting/submissions',
   submissionDetail: (id: string) => `/underwriting/submissions/${id}`,

@@ -23,11 +23,43 @@ import { RenewalService } from '../services/renewal.service';
 export class RenewalsController {
   constructor(private readonly renewalService: RenewalService) {}
 
+  @Get('tenant/policies/:policyId/renewal-eligibility')
+  @Permissions('renewals:create')
+  @ApiOperation({ summary: 'Check whether a policy can be renewed' })
+  eligibility(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('policyId', ParseUUIDPipe) policyId: string,
+  ) {
+    return this.renewalService.getEligibility(user, policyId);
+  }
+
   @Get('tenant/renewals')
   @Permissions('renewals:read')
   @ApiOperation({ summary: 'List renewal offers for the current company' })
   findAll(@CurrentUser() user: AuthenticatedUser) {
     return this.renewalService.findAll(user.companyId!);
+  }
+
+  @Get('tenant/renewals/:id/context')
+  @Permissions('renewals:read')
+  @ApiOperation({
+    summary: 'Get a renewal with its source policy and quotation',
+  })
+  context(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.renewalService.findContext(user.companyId!, id);
+  }
+
+  @Post('tenant/renewals/:id/create-offer')
+  @Permissions('renewals:create-offer')
+  @ApiOperation({ summary: 'Create the prefilled renewal quotation' })
+  createOffer(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.renewalService.createRenewalOffer(user, id);
   }
 
   @Post('tenant/renewals/:id/link-quotation')

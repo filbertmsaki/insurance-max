@@ -1,10 +1,11 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   Param,
+  ParseIntPipe,
   ParseUUIDPipe,
   Patch,
   Post,
@@ -14,9 +15,6 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
-import { CategoryAccessService } from '../category-access/category-access.service';
-import { ProductAccessService } from '../product-access/product-access.service';
-import { CreatePolicyDto } from './dto/create-policy.dto';
 import { FilterPolicyDto } from './dto/filter-policy.dto';
 import { UpdatePolicyDto } from './dto/update-policy.dto';
 import { PoliciesService } from './policies.service';
@@ -27,55 +25,20 @@ import { TenantScoped } from '@insurance-max/portal-shared';
 @Controller('tenant/policies')
 @TenantScoped()
 export class PoliciesController {
-  constructor(
-    private readonly policiesService: PoliciesService,
-    private readonly categoryAccessService: CategoryAccessService,
-    private readonly productAccessService: ProductAccessService,
-  ) {}
+  constructor(private readonly policiesService: PoliciesService) {}
 
   @Post()
   @Permissions('policies:create')
-  @ApiOperation({ summary: 'Create a policy' })
-  async create(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: CreatePolicyDto,
-  ) {
-    await this.assertCanCreatePolicyForProduct(
-      user,
-      dto.category_id,
-      dto.product_id,
+  @ApiOperation({
+    summary:
+      'Manual policy creation is disabled; policies originate from successful TIRAMIS quotation issuance',
+  })
+  create() {
+    throw new ConflictException(
+      'Manual policy creation is disabled. ' +
+        'Complete and issue a quotation through TIRAMIS; ' +
+        'the policy will be created automatically after final success.',
     );
-
-    return this.policiesService.createForUser(user, dto);
-  }
-
-  private async assertCanCreatePolicyForProduct(
-    user: AuthenticatedUser,
-    categoryId: string,
-    productId: string,
-  ): Promise<void> {
-    const context = {
-      company_user_id: user.companyMembershipId!,
-      branch_id: user.activeBranchId ?? undefined,
-      department_id: user.activeDepartmentId ?? undefined,
-    };
-
-    const [categoryAccess, productAccess] = await Promise.all([
-      this.categoryAccessService.resolveAccess(user.companyId!, {
-        ...context,
-        category_id: categoryId,
-      }),
-      this.productAccessService.resolveAccess(user.companyId!, {
-        ...context,
-        product_id: productId,
-      }),
-    ]);
-
-    if (!categoryAccess.can_create_policy || !productAccess.can_create_policy) {
-      throw new ForbiddenException(
-        'You are not allowed to create policies for this product',
-      );
-    }
   }
 
   @Get()
@@ -86,6 +49,43 @@ export class PoliciesController {
     @Query() query: FilterPolicyDto,
   ) {
     return this.policiesService.findAllForUser(user, query);
+  }
+
+  @Get(':id/current-version')
+  @Permissions('policies:read')
+  @ApiOperation({ summary: 'Get the current policy version snapshot' })
+  findCurrentVersion(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.policiesService.findCurrentVersionForUser(user, id);
+  }
+
+  @Get(':id/versions')
+  @Permissions('policies:read')
+  @ApiOperation({ summary: 'List immutable policy versions' })
+  versions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.policiesService.listVersionsForUser(user, id);
+  }
+
+  @Get(':id/versions/:fromVersion/compare/:toVersion')
+  @Permissions('policies:read')
+  @ApiOperation({ summary: 'Compare immutable policy versions' })
+  compareVersions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('fromVersion', ParseIntPipe) fromVersion: number,
+    @Param('toVersion', ParseIntPipe) toVersion: number,
+  ) {
+    return this.policiesService.compareVersionsForUser(
+      user,
+      id,
+      fromVersion,
+      toVersion,
+    );
   }
 
   @Get(':id')

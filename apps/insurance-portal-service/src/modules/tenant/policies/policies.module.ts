@@ -25,6 +25,7 @@ import { PolicyVersion } from './entities/policy-version.entity';
 import { Policy } from './entities/policy.entity';
 import { PoliciesController } from './policies.controller';
 import { PoliciesService } from './policies.service';
+import { PolicyVersionDiffService } from './services/policy-version-diff.service';
 
 @Module({
   imports: [
@@ -55,7 +56,7 @@ import { PoliciesService } from './policies.service';
     ]),
   ],
   controllers: [PoliciesController],
-  providers: [PoliciesService],
+  providers: [PoliciesService, PolicyVersionDiffService],
   exports: [PoliciesService],
 })
 export class PoliciesModule {}

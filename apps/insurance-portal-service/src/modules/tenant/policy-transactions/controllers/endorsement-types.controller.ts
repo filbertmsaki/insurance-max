@@ -27,10 +27,10 @@ export class EndorsementTypesController {
   constructor(private readonly service: EndorsementTypesService) {}
 
   @Get()
-  @Permissions('policy-transactions:read')
+  @Permissions('endorsements:create')
   @ApiOperation({ summary: 'List configured endorsement types' })
   findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.service.findAll(user.companyId!, true);
+    return this.service.findAll(user.companyId!, false);
   }
 
   @Post()

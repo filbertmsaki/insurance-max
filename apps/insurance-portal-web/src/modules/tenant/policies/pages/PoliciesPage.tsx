@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Eye, Pencil, Trash2, RotateCcw } from 'lucide-react';
+import { Search, Eye, Pencil, Trash2, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -89,27 +89,31 @@ export function PoliciesPage() {
           >
             <Eye className="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(underwritingPaths.policyEdit(row.id))}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDeleteItem(row)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setRestoreItem(row)}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </Button>
+          {!row.issued_by_system && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(underwritingPaths.policyEdit(row.id))}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setDeleteItem(row)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setRestoreItem(row)}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
       ),
     },
@@ -119,13 +123,7 @@ export function PoliciesPage() {
     <div>
       <PageHeader
         title="Policies"
-        description="Create and manage policy records"
-        action={
-          <Button onClick={() => navigate(underwritingPaths.policyCreate)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Policy
-          </Button>
-        }
+        description="Policies issued automatically after successful TIRAMIS new-business transactions"
       />
 
       <div className="mb-4 flex flex-wrap gap-3">
@@ -144,13 +142,17 @@ export function PoliciesPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
-            {['DRAFT', 'ACTIVE', 'CANCELLED', 'EXPIRED', 'LAPSED'].map(
-              (item) => (
-                <SelectItem key={item} value={item}>
-                  {item}
-                </SelectItem>
-              ),
-            )}
+            {[
+              'COVER_NOTE_ISSUED',
+              'ACTIVE',
+              'CANCELLED',
+              'EXPIRED',
+              'LAPSED',
+            ].map((item) => (
+              <SelectItem key={item} value={item}>
+                {item}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={customerId} onValueChange={setCustomerId}>

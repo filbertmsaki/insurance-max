@@ -76,7 +76,9 @@ import { QuotationWizardPage } from '@/modules/tenant/quotations/pages/Quotation
 import { QuotationPaymentPage } from '@/modules/tenant/quotations/pages/QuotationPaymentPage';
 import { PoliciesPage } from '@/modules/tenant/policies/pages/PoliciesPage';
 import { PolicyDetailPage } from '@/modules/tenant/policies/pages/PolicyDetailPage';
-import { PolicyCreatePage } from '@/modules/tenant/policies/pages/PolicyCreatePage';
+import { PolicyEndorsementPage } from '@/modules/tenant/policies/pages/PolicyEndorsementPage';
+import { PolicyCancellationPage } from '@/modules/tenant/policies/pages/PolicyCancellationPage';
+import { PolicyRenewalPage } from '@/modules/tenant/policies/pages/PolicyRenewalPage';
 import { PolicyEditPage } from '@/modules/tenant/policies/pages/PolicyEditPage';
 import { ClaimsPage } from '@/modules/tenant/claims/pages/ClaimsPage';
 import { ClaimDetailPage } from '@/modules/tenant/claims/pages/ClaimDetailPage';
@@ -567,10 +569,6 @@ export default function App() {
                 path={underwritingPaths.quotationWizard}
                 element={<QuotationWizardPage />}
               />
-              <Route
-                path={underwritingPaths.quotationEndorsement(':sourceId')}
-                element={<QuotationWizardPage />}
-              />
             </Route>
             <Route
               element={
@@ -610,19 +608,68 @@ export default function App() {
               />
             </Route>
             <Route
-              element={<ProtectedRoute requiredPermission="policies:create" />}
-            >
-              <Route
-                path={underwritingPaths.policyCreate}
-                element={<PolicyCreatePage />}
-              />
-            </Route>
-            <Route
               element={<ProtectedRoute requiredPermission="policies:update" />}
             >
               <Route
                 path={underwritingPaths.policyEdit(':id')}
                 element={<PolicyEditPage />}
+              />
+            </Route>
+            <Route
+              element={
+                <ProtectedRoute requiredPermission="endorsements:create" />
+              }
+            >
+              <Route
+                path={underwritingPaths.policyEndorsementCreate(':policyId')}
+                element={<PolicyEndorsementPage />}
+              />
+            </Route>
+            <Route
+              element={
+                <ProtectedRoute requiredPermission="endorsements:update-draft" />
+              }
+            >
+              <Route
+                path={underwritingPaths.policyEndorsementEdit(
+                  ':policyId',
+                  ':endorsementId',
+                )}
+                element={<PolicyEndorsementPage />}
+              />
+            </Route>
+            <Route
+              element={
+                <ProtectedRoute requiredPermission="cancellations:create" />
+              }
+            >
+              <Route
+                path={underwritingPaths.policyCancellationCreate(':policyId')}
+                element={<PolicyCancellationPage />}
+              />
+            </Route>
+            <Route
+              element={
+                <ProtectedRoute requiredPermission="cancellations:read" />
+              }
+            >
+              <Route
+                path={underwritingPaths.policyCancellationDetail(
+                  ':policyId',
+                  ':cancellationId',
+                )}
+                element={<PolicyCancellationPage />}
+              />
+            </Route>
+            <Route
+              element={<ProtectedRoute requiredPermission="renewals:read" />}
+            >
+              <Route
+                path={underwritingPaths.policyRenewalDetail(
+                  ':policyId',
+                  ':renewalId',
+                )}
+                element={<PolicyRenewalPage />}
               />
             </Route>
             <Route
@@ -1029,7 +1076,11 @@ export default function App() {
         />
         <Route
           path="/policies/new"
-          element={<Navigate to={underwritingPaths.policyCreate} replace />}
+          element={<Navigate to={underwritingPaths.policies} replace />}
+        />
+        <Route
+          path="/underwriting/policies/new"
+          element={<Navigate to={underwritingPaths.policies} replace />}
         />
         <Route
           path="/policies/:id"

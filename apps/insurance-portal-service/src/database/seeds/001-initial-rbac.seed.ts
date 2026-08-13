@@ -206,12 +206,14 @@ const POLICY_TRANSACTION_PERMISSION_NAMES = [
   'endorsements:submit-tiramis',
   'endorsements:retry-tiramis',
   'endorsements:cancel',
+  'cancellations:read',
   'cancellations:create',
   'cancellations:complete',
   'cancellations:claims-review',
   'cancellations:approve',
   'cancellations:request-payment',
   'cancellations:submit-tiramis',
+  'cancellations:retry-tiramis',
   'cancellations:cancel',
   'renewals:read',
   'renewals:create',
@@ -222,6 +224,11 @@ const POLICY_TRANSACTION_PERMISSION_NAMES = [
   'renewals:cancel',
   'policy-versions:read',
   'policy-versions:read-sensitive',
+];
+
+const POLICY_TRANSACTION_SUPPORT_PERMISSION_NAMES = [
+  'endorsements:reconcile',
+  'cancellations:reconcile',
 ];
 
 const PHASE2_GENERAL_USER_PERMISSION_NAMES = [
@@ -2800,9 +2807,22 @@ const permissionSeeds: PermissionSeed[] = [
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
+    name: 'endorsements:reconcile',
+    displayName: 'Reconcile endorsements',
+    description:
+      'Allow inspecting and repairing safe endorsement issuance inconsistencies',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
     name: 'endorsements:cancel',
     displayName: 'Cancel endorsements',
     description: 'Allow cancelling a draft endorsement',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'cancellations:read',
+    displayName: 'View cancellations',
+    description: 'Allow viewing policy cancellation transactions',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -2840,6 +2860,20 @@ const permissionSeeds: PermissionSeed[] = [
     name: 'cancellations:submit-tiramis',
     displayName: 'Submit cancellations to TIRAMIS',
     description: 'Allow submitting a ready cancellation to the regulator',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'cancellations:retry-tiramis',
+    displayName: 'Retry cancellation TIRAMIS submissions',
+    description:
+      'Allow retrying failed or retryable cancellation submissions to TIRAMIS',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'cancellations:reconcile',
+    displayName: 'Reconcile cancellations',
+    description:
+      'Allow inspecting and repairing safe cancellation issuance inconsistencies',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {
@@ -3085,6 +3119,15 @@ const permissionSeeds: PermissionSeed[] = [
   },
 ];
 
+const ALL_COMPANY_PERMISSION_NAMES = permissionSeeds
+  .filter((permission) => permission.scopes.includes('default_company'))
+  .map((permission) => permission.name);
+
+const FULL_COMPANY_PERMISSION_ROLE_NAMES = new Set([
+  'ADMINISTRATOR',
+  'INSURANCE_ADMIN',
+]);
+
 const PORTAL_ADMIN_PERMISSION_NAMES = [
   'portal:account-read',
   'portal:account-invite',
@@ -3215,6 +3258,7 @@ const roleSeeds: RoleSeed[] = [
       ...ANALYTICS_ADMIN_PERMISSION_NAMES,
       ...PHASE2_ADMIN_PERMISSION_NAMES,
       ...POLICY_TRANSACTION_PERMISSION_NAMES,
+      ...POLICY_TRANSACTION_SUPPORT_PERMISSION_NAMES,
       ...CLAIMS_ADMIN_PERMISSION_NAMES,
       ...REINSURANCE_ADMIN_PERMISSION_NAMES,
       ...PORTAL_ADMIN_PERMISSION_NAMES,
@@ -3374,6 +3418,7 @@ const roleSeeds: RoleSeed[] = [
       ...DASHBOARD_ADMIN_PERMISSION_NAMES,
       ...PHASE2_ADMIN_PERMISSION_NAMES,
       ...POLICY_TRANSACTION_PERMISSION_NAMES,
+      ...POLICY_TRANSACTION_SUPPORT_PERMISSION_NAMES,
       ...CLAIMS_ADMIN_PERMISSION_NAMES,
       ...REINSURANCE_ADMIN_PERMISSION_NAMES,
       ...PORTAL_ADMIN_PERMISSION_NAMES,
@@ -4213,8 +4258,14 @@ export default class InitialRbacSeeder implements Seeder {
           ['OWNER', 'SUPER_ADMIN', 'ADMINISTRATOR'].includes(definition.name) ||
           definition.name.endsWith('_ADMIN');
 
+        const sourcePermissionNames = FULL_COMPANY_PERMISSION_ROLE_NAMES.has(
+          definition.name,
+        )
+          ? ALL_COMPANY_PERMISSION_NAMES
+          : definition.permissionNames;
+
         const permissionNames = [
-          ...new Set(withPricingPermissionAliases(definition.permissionNames)),
+          ...new Set(withPricingPermissionAliases(sourcePermissionNames)),
         ];
 
         role.permissions = permissionNames.map((permissionName) => {

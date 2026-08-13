@@ -98,6 +98,7 @@ describe('TiramisIntegrationService callback handling', () => {
       { applyIssuedPolicyIfRenewal: jest.fn().mockResolvedValue(null) } as any,
       {} as any, // policyTransactionLifecycleService
       {} as any, // policyTransactionApplyService
+      {} as any, // policyTransactionRegulatoryOutcomeService
     );
 
     return {
@@ -169,5 +170,154 @@ describe('TiramisIntegrationService callback handling', () => {
     expect(
       fixture.quotationLifecycleService.markTiraCancelled,
     ).not.toHaveBeenCalled();
+  });
+
+  it('does not apply a policy transaction from an acknowledgement event', async () => {
+    const transaction = {
+      id: 'txn-1',
+      company_id: 'company-1',
+      transaction_type: 'ENDORSEMENT',
+    } as any;
+    const policyTransactionRepository = {
+      findOne: jest.fn().mockResolvedValue(transaction),
+    };
+    const lifecycleService = {
+      markSubmissionAccepted: jest.fn().mockResolvedValue(undefined),
+      markSubmissionRejected: jest.fn().mockResolvedValue(undefined),
+      markSubmissionFailed: jest.fn().mockResolvedValue(undefined),
+    };
+    const applyService = {
+      applyEndorsement: jest.fn().mockResolvedValue(undefined),
+      applyCancellation: jest.fn().mockResolvedValue(undefined),
+    };
+    const regulatoryOutcomeService = {
+      captureFinalSuccess: jest.fn().mockResolvedValue({
+        transaction,
+      }),
+      captureFinalRejection: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new TiramisIntegrationService(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      policyTransactionRepository as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      lifecycleService as any,
+      applyService as any,
+      regulatoryOutcomeService as any,
+    );
+
+    await (service as any).updateLinkedPolicyTransaction(
+      {
+        company_id: 'company-1',
+        source_module: 'policy-transactions',
+        source_record_id: 'txn-1',
+        status: PortalTiraSubmissionStatus.SUBMITTED_TO_TIRAMIS,
+      },
+      {
+        eventType: 'TIRAMIS_RESPONSE_ACK_SENT',
+        requestId: 'REQ-1',
+      },
+      null,
+    );
+
+    expect(lifecycleService.markSubmissionAccepted).not.toHaveBeenCalled();
+    expect(regulatoryOutcomeService.captureFinalSuccess).not.toHaveBeenCalled();
+    expect(applyService.applyEndorsement).not.toHaveBeenCalled();
+  });
+
+  it('applies a policy transaction only after final TIRAMIS success', async () => {
+    const transaction = {
+      id: 'txn-1',
+      company_id: 'company-1',
+      transaction_type: 'ENDORSEMENT',
+    } as any;
+    const policyTransactionRepository = {
+      findOne: jest.fn().mockResolvedValue(transaction),
+    };
+    const lifecycleService = {
+      markSubmissionAccepted: jest.fn().mockResolvedValue(undefined),
+      markSubmissionRejected: jest.fn().mockResolvedValue(undefined),
+      markSubmissionFailed: jest.fn().mockResolvedValue(undefined),
+    };
+    const applyService = {
+      applyEndorsement: jest.fn().mockResolvedValue(undefined),
+      applyCancellation: jest.fn().mockResolvedValue(undefined),
+    };
+    const regulatoryOutcomeService = {
+      captureFinalSuccess: jest.fn().mockResolvedValue({
+        transaction,
+      }),
+      captureFinalRejection: jest.fn().mockResolvedValue(undefined),
+    };
+    const service = new TiramisIntegrationService(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      policyTransactionRepository as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      lifecycleService as any,
+      applyService as any,
+      regulatoryOutcomeService as any,
+    );
+
+    await (service as any).updateLinkedPolicyTransaction(
+      {
+        company_id: 'company-1',
+        source_module: 'policy-transactions',
+        source_record_id: 'txn-1',
+        status: PortalTiraSubmissionStatus.COMPLETED,
+        tiramis_transaction_id: 'TX-1',
+        tiramis_request_id: 'REQ-1',
+      },
+      {
+        eventType: 'TIRAMIS_FINAL_SUCCESS',
+        requestId: 'REQ-1',
+        tiramisTransactionId: 'TX-1',
+        coverNoteReferenceNumber: 'CN-NEW',
+        regulatoryResponse: {
+          success: true,
+          requestId: 'REQ-1',
+          responseId: 'RESP-1',
+          transactionId: 'TX-1',
+          responsePayloadHash: 'hash',
+          coverNotes: [
+            {
+              coverNoteReferenceNumber: 'CN-NEW',
+            },
+          ],
+        },
+      },
+      { id: 'tracking-1' },
+    );
+
+    expect(regulatoryOutcomeService.captureFinalSuccess).toHaveBeenCalled();
+    expect(lifecycleService.markSubmissionAccepted).toHaveBeenCalled();
+    expect(applyService.applyEndorsement).toHaveBeenCalledWith(
+      'company-1',
+      'txn-1',
+    );
   });
 });

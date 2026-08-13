@@ -4,7 +4,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import {
@@ -15,6 +15,8 @@ import {
   PolicyTransactionPremiumEffect,
   PolicyTransactionType,
   WorkflowApprovalStatus,
+  WorkflowPaymentStatus,
+  WorkflowSubmissionStatus,
 } from '@insurance-max/contracts';
 
 import { IdentifierGeneratorService } from '../../../shared/identifiers/identifier-generator.service';
@@ -26,10 +28,7 @@ import { PolicyTransactionEvent } from '../entities/policy-transaction-event.ent
 import { PolicyEndorsement } from '../entities/policy-endorsement.entity';
 import { PolicyTransactionEligibilityService } from './policy-transaction-eligibility.service';
 import { ProposedPolicySnapshotService } from './proposed-policy-snapshot.service';
-import {
-  EndorsementPricingService,
-  type RemainingPeriodPricingResult,
-} from './endorsement-pricing.service';
+import { EndorsementRepricingService } from './endorsement-repricing.service';
 import { PolicyTransactionLifecycleService } from './policy-transaction-lifecycle.service';
 import { EndorsementTypesService } from './endorsement-types.service';
 import { PolicyTransactionInvoiceService } from './policy-transaction-invoice.service';
@@ -46,7 +45,7 @@ export interface RecordEndorsementChangeInput {
   operation: PolicyTransactionChangeType;
   field_path: string;
   resource_id?: string | null;
-  old_value: unknown;
+  old_value?: unknown;
   new_value: unknown;
   is_material?: boolean;
   requires_repricing?: boolean;
@@ -60,6 +59,66 @@ const APPROVAL_TRIGGER_CATEGORIES: PolicyChangeCategory[] = [
   PolicyChangeCategory.ASSET,
   PolicyChangeCategory.COVER_PERIOD,
   PolicyChangeCategory.RISK,
+  PolicyChangeCategory.SUM_INSURED,
+  PolicyChangeCategory.COVER,
+  PolicyChangeCategory.ADDON,
+  PolicyChangeCategory.EXCLUSION,
+  PolicyChangeCategory.SPECIAL_CONDITION,
+];
+
+interface EndorsementFieldRule {
+  pattern: RegExp;
+  category: PolicyChangeCategory;
+  material: boolean;
+  repricing: boolean;
+  regulatory: boolean;
+}
+
+const ENDORSEMENT_FIELD_RULES: EndorsementFieldRule[] = [
+  {
+    pattern:
+      /^policyHolders\.\d+\.(name|birthDate|type|idType|idNumber|gender|countryCode|region|district|street|phone|fax|postalAddress|email)$/,
+    category: PolicyChangeCategory.POLICYHOLDER,
+    material: true,
+    repricing: true,
+    regulatory: true,
+  },
+  {
+    pattern: /^cover\.(startDate|endDate)$/,
+    category: PolicyChangeCategory.COVER_PERIOD,
+    material: true,
+    repricing: true,
+    regulatory: true,
+  },
+  {
+    pattern:
+      /^entries\.\d+\.motor\.(motorCategory|motorType|registrationNumber|chassisNumber|make|model|modelNumber|bodyType|color|engineNumber|engineCapacity|fuelUsed|numberOfAxles|axleDistance|sittingCapacity|yearOfManufacture|tareWeight|grossWeight|motorUsage|ownerName|ownerCategory|ownerAddress)$/,
+    category: PolicyChangeCategory.ASSET,
+    material: true,
+    repricing: true,
+    regulatory: true,
+  },
+  {
+    pattern: /^entries\.\d+\.subjectMatters\.\d+\.(reference|description)$/,
+    category: PolicyChangeCategory.ASSET,
+    material: true,
+    repricing: true,
+    regulatory: true,
+  },
+  {
+    pattern: /^entries\.\d+\.risks\.\d+\.sumInsured$/,
+    category: PolicyChangeCategory.SUM_INSURED,
+    material: true,
+    repricing: true,
+    regulatory: true,
+  },
+  {
+    pattern: /^entries\.\d+\.(coverNoteDescription|operativeClause)$/,
+    category: PolicyChangeCategory.COVER,
+    material: true,
+    repricing: false,
+    regulatory: true,
+  },
 ];
 
 @Injectable()
@@ -76,13 +135,71 @@ export class EndorsementService {
     private readonly endorsementRepository: Repository<PolicyEndorsement>,
     private readonly eligibilityService: PolicyTransactionEligibilityService,
     private readonly snapshotService: ProposedPolicySnapshotService,
-    private readonly pricingService: EndorsementPricingService,
+    private readonly repricingService: EndorsementRepricingService,
     private readonly lifecycleService: PolicyTransactionLifecycleService,
     private readonly endorsementTypesService: EndorsementTypesService,
     private readonly identifierService: IdentifierGeneratorService,
     private readonly hashService: ProductDefinitionHashService,
     private readonly invoiceService: PolicyTransactionInvoiceService,
   ) {}
+
+  async getEligibility(
+    user: AuthenticatedUser,
+    policyId: string,
+    effectiveDate?: string,
+  ) {
+    const policy = await this.policyRepository.findOne({
+      where: {
+        id: policyId,
+        company_id: user.companyId!,
+      },
+    });
+
+    if (!policy) {
+      throw new BadRequestException('Policy not found');
+    }
+
+    const result = await this.dataSource.transaction((manager) =>
+      this.eligibilityService.validate(
+        manager,
+        policy,
+        PolicyTransactionType.ENDORSEMENT,
+        effectiveDate,
+      ),
+    );
+
+    const currentVersion = result.currentVersion;
+
+    return {
+      eligible: result.eligible,
+      blockers: result.blockers,
+      policy: {
+        id: policy.id,
+        policy_no: policy.policy_no,
+        policy_status: policy.policy_status,
+        quotation_id: policy.quotation_id,
+        start_date: policy.start_date,
+        end_date: policy.end_date,
+        currency: policy.currency,
+        pending_transaction_id: policy.pending_transaction_id,
+        cover_note_no: policy.cover_note_no,
+        tira_status: policy.tira_status,
+      },
+      current_version: currentVersion
+        ? {
+            id: currentVersion.id,
+            version_number: currentVersion.version_number,
+            version_type: currentVersion.version_type,
+            effective_from: currentVersion.effective_from,
+            effective_to: currentVersion.effective_to,
+            regulatory_reference: currentVersion.regulatory_reference,
+            snapshot_schema_version: Number(
+              currentVersion.policy_snapshot?.['schemaVersion'] ?? 1,
+            ),
+          }
+        : null,
+    };
+  }
 
   async create(
     user: AuthenticatedUser,
@@ -134,6 +251,16 @@ export class EndorsementService {
         dto.endorsement_type_code,
       );
 
+      const previousCoverNoteReference =
+        eligibility.currentVersion!.regulatory_reference ??
+        policy.cover_note_no;
+
+      if (!previousCoverNoteReference) {
+        throw new UnprocessableEntityException(
+          'The current policy version does not contain a regulatory cover-note reference.',
+        );
+      }
+
       const transactionNo =
         await this.identifierService.generatePolicyTransactionNumber(
           PolicyTransactionType.ENDORSEMENT,
@@ -165,7 +292,7 @@ export class EndorsementService {
         endorsement_type_code: typeConfig.code,
         endorsement_type_name: typeConfig.name,
         tira_endorsement_type: typeConfig.tira_endorsement_type,
-        previous_cover_note_reference: policy.cover_note_no ?? '',
+        previous_cover_note_reference: previousCoverNoteReference,
         requires_new_cover_note: typeConfig.requires_new_cover_note,
       });
 
@@ -198,30 +325,107 @@ export class EndorsementService {
         transactionId,
       );
 
+      const rule = this.resolveChangeRule(dto.field_path);
+
+      if (dto.category !== rule.category) {
+        throw new BadRequestException(
+          `Field "${dto.field_path}" belongs to category ${rule.category}, not ${dto.category}.`,
+        );
+      }
+
+      const repository = manager.getRepository(PolicyTransactionChange);
+      const sourceValue = this.snapshotService.readValue(
+        transaction.source_policy_snapshot,
+        dto.field_path,
+      );
+      const existing = await repository.findOne({
+        where: {
+          company_id: user.companyId!,
+          policy_transaction_id: transaction.id,
+          field_path: dto.field_path,
+        },
+      });
+
+      if (
+        dto.operation !== PolicyTransactionChangeType.REMOVE &&
+        this.snapshotService.sameValue(sourceValue, dto.new_value)
+      ) {
+        if (existing) {
+          await repository.remove(existing);
+          await manager.getRepository(PolicyTransactionEvent).save({
+            company_id: transaction.company_id,
+            policy_transaction_id: transaction.id,
+            event_type: PolicyTransactionEventType.CHANGE_ADDED,
+            actor_type: 'USER',
+            actor_id: user.id,
+            from_stage: transaction.stage,
+            to_stage: transaction.stage,
+            metadata: {
+              action: 'REVERTED_TO_SOURCE',
+              fieldPath: dto.field_path,
+              category: rule.category,
+            },
+          });
+        }
+
+        return this.rebuildProposedSnapshot(manager, transaction);
+      }
+
+      if (
+        dto.operation === PolicyTransactionChangeType.REMOVE &&
+        sourceValue === undefined
+      ) {
+        if (existing) {
+          await repository.remove(existing);
+        }
+
+        return this.rebuildProposedSnapshot(manager, transaction);
+      }
+
+      const operation =
+        dto.operation === PolicyTransactionChangeType.REMOVE
+          ? PolicyTransactionChangeType.REMOVE
+          : sourceValue === undefined
+            ? PolicyTransactionChangeType.ADD
+            : PolicyTransactionChangeType.MODIFY;
+      const newValue =
+        operation === PolicyTransactionChangeType.REMOVE ? null : dto.new_value;
       const changeSnapshot = {
-        category: dto.category,
-        operation: dto.operation,
+        category: rule.category,
+        operation,
         fieldPath: dto.field_path,
-        oldValue: dto.old_value,
-        newValue: dto.new_value,
+        oldValue: sourceValue ?? null,
+        newValue,
       };
 
-      await manager.getRepository(PolicyTransactionChange).save({
-        company_id: user.companyId!,
-        policy_transaction_id: transaction.id,
-        category: dto.category,
-        operation: dto.operation,
-        field_path: dto.field_path,
-        resource_id: dto.resource_id ?? null,
-        old_value: dto.old_value,
-        new_value: dto.new_value,
-        is_material: dto.is_material ?? true,
-        requires_repricing: dto.requires_repricing ?? true,
-        requires_regulatory_submission:
-          dto.requires_regulatory_submission ?? true,
-        change_hash: this.hashService.hashDefinition(changeSnapshot),
-        created_by: user.id,
-      });
+      let change = existing;
+
+      if (change) {
+        change.category = rule.category;
+        change.operation = operation;
+        change.new_value = newValue;
+        change.is_material = rule.material;
+        change.requires_repricing = rule.repricing;
+        change.requires_regulatory_submission = rule.regulatory;
+        change.change_hash = this.hashService.hashDefinition(changeSnapshot);
+        change = await repository.save(change);
+      } else {
+        change = await repository.save({
+          company_id: user.companyId!,
+          policy_transaction_id: transaction.id,
+          category: rule.category,
+          operation,
+          field_path: dto.field_path,
+          resource_id: dto.resource_id ?? null,
+          old_value: sourceValue ?? null,
+          new_value: newValue,
+          is_material: rule.material,
+          requires_repricing: rule.repricing,
+          requires_regulatory_submission: rule.regulatory,
+          change_hash: this.hashService.hashDefinition(changeSnapshot),
+          created_by: user.id,
+        });
+      }
 
       await manager.getRepository(PolicyTransactionEvent).save({
         company_id: transaction.company_id,
@@ -231,7 +435,12 @@ export class EndorsementService {
         actor_id: user.id,
         from_stage: transaction.stage,
         to_stage: transaction.stage,
-        metadata: { fieldPath: dto.field_path, category: dto.category },
+        metadata: {
+          action: existing ? 'UPDATED' : 'ADDED',
+          changeId: change.id,
+          fieldPath: dto.field_path,
+          category: rule.category,
+        },
       });
 
       return this.rebuildProposedSnapshot(manager, transaction);
@@ -266,21 +475,52 @@ export class EndorsementService {
 
       if (!changes.length) {
         throw new UnprocessableEntityException(
-          'At least one material change is required to complete an endorsement.',
+          'At least one policy change is required to complete an endorsement.',
         );
       }
 
-      const requiresApproval = changes.some(
+      if (!updated.pricing_snapshot || !updated.pricing_snapshot_hash) {
+        throw new UnprocessableEntityException(
+          'The endorsement must be priced before completion.',
+        );
+      }
+
+      if (
+        !updated.proposed_policy_snapshot ||
+        !updated.proposed_policy_snapshot_hash
+      ) {
+        throw new UnprocessableEntityException(
+          'The proposed policy snapshot is missing.',
+        );
+      }
+
+      const pricing = updated.pricing_snapshot;
+      const pricingApprovalRequired =
+        pricing['pricingApprovalRequired'] === true;
+      const materialApprovalRequired = changes.some(
         (change) =>
           change.is_material &&
           APPROVAL_TRIGGER_CATEGORIES.includes(change.category),
       );
+      const requiresApproval =
+        materialApprovalRequired || pricingApprovalRequired;
+      const requiresPayment =
+        updated.premium_effect === PolicyTransactionPremiumEffect.DEBIT &&
+        DecimalUtil.value(updated.additional_premium).greaterThan(0);
 
       updated.approval_required = requiresApproval;
-      updated.payment_required =
-        updated.premium_effect === PolicyTransactionPremiumEffect.DEBIT;
+      updated.payment_required = requiresPayment;
+      updated.approval_status = requiresApproval
+        ? WorkflowApprovalStatus.NOT_EVALUATED
+        : WorkflowApprovalStatus.NOT_REQUIRED;
+      updated.payment_status = requiresPayment
+        ? WorkflowPaymentStatus.NOT_REQUESTED
+        : WorkflowPaymentStatus.NOT_REQUIRED;
+      updated.submission_status = WorkflowSubmissionStatus.NOT_READY;
       updated.completed_by = user.id;
       updated.completed_at = new Date();
+      updated.state_version = Number(updated.state_version || 1) + 1;
+      updated.last_command = 'COMPLETE_ENDORSEMENT';
 
       return manager.getRepository(PolicyTransaction).save(updated);
     });
@@ -288,7 +528,11 @@ export class EndorsementService {
     return this.lifecycleService.evaluateRequirements(
       user.companyId!,
       transaction.id,
-      { changedBy: user.id },
+      {
+        changedBy: user.id,
+        changedByType: 'USER',
+        reason: 'Endorsement completed after authoritative pricing',
+      },
     );
   }
 
@@ -390,8 +634,49 @@ export class EndorsementService {
     return transaction;
   }
 
-  findAll(companyId: string, policyId?: string) {
-    return this.transactionRepository.find({
+  async getContext(companyId: string, transactionId: string) {
+    const transaction = await this.transactionRepository.findOne({
+      where: {
+        id: transactionId,
+        company_id: companyId,
+        transaction_type: PolicyTransactionType.ENDORSEMENT,
+      },
+    });
+
+    if (!transaction) {
+      throw new BadRequestException('Endorsement not found');
+    }
+
+    const endorsement = await this.endorsementRepository.findOne({
+      where: {
+        company_id: companyId,
+        policy_transaction_id: transaction.id,
+      },
+    });
+
+    const changes = await this.changeRepository.find({
+      where: {
+        company_id: companyId,
+        policy_transaction_id: transaction.id,
+      },
+      order: {
+        created_at: 'ASC',
+      },
+    });
+
+    return {
+      transaction,
+      endorsement,
+      changes,
+      source_policy_snapshot: transaction.source_policy_snapshot,
+      proposed_policy_snapshot:
+        transaction.proposed_policy_snapshot ??
+        transaction.source_policy_snapshot,
+    };
+  }
+
+  async findAll(companyId: string, policyId?: string) {
+    const transactions = await this.transactionRepository.find({
       where: policyId
         ? {
             company_id: companyId,
@@ -403,6 +688,36 @@ export class EndorsementService {
             transaction_type: PolicyTransactionType.ENDORSEMENT,
           },
       order: { created_at: 'DESC' },
+    });
+
+    if (!transactions.length) {
+      return [];
+    }
+
+    const endorsements = await this.endorsementRepository.find({
+      where: {
+        company_id: companyId,
+        policy_transaction_id: In(transactions.map((item) => item.id)),
+      },
+    });
+    const map = new Map(
+      endorsements.map((item) => [item.policy_transaction_id, item]),
+    );
+
+    return transactions.map((transaction) => {
+      const endorsement = map.get(transaction.id);
+
+      return {
+        ...transaction,
+        endorsement_type_code: endorsement?.endorsement_type_code ?? null,
+        endorsement_type_name: endorsement?.endorsement_type_name ?? null,
+        tira_endorsement_type: endorsement?.tira_endorsement_type ?? null,
+        previous_cover_note_reference:
+          endorsement?.previous_cover_note_reference ?? null,
+        replacement_cover_note_reference:
+          endorsement?.replacement_cover_note_reference ?? null,
+        requires_new_cover_note: endorsement?.requires_new_cover_note ?? false,
+      };
     });
   }
 
@@ -427,13 +742,16 @@ export class EndorsementService {
     companyId: string,
     transactionId: string,
   ) {
-    const transaction = await manager.getRepository(PolicyTransaction).findOne({
-      where: {
-        id: transactionId,
-        company_id: companyId,
-        transaction_type: PolicyTransactionType.ENDORSEMENT,
-      },
-    });
+    const transaction = await manager
+      .getRepository(PolicyTransaction)
+      .createQueryBuilder('transaction')
+      .setLock('pessimistic_write')
+      .where('transaction.id = :transactionId', { transactionId })
+      .andWhere('transaction.company_id = :companyId', { companyId })
+      .andWhere('transaction.transaction_type = :type', {
+        type: PolicyTransactionType.ENDORSEMENT,
+      })
+      .getOne();
 
     if (!transaction) {
       throw new BadRequestException('Endorsement not found');
@@ -448,12 +766,27 @@ export class EndorsementService {
     return transaction;
   }
 
+  private resolveChangeRule(fieldPath: string): EndorsementFieldRule {
+    const rule = ENDORSEMENT_FIELD_RULES.find((item) =>
+      item.pattern.test(fieldPath),
+    );
+
+    if (!rule) {
+      throw new BadRequestException(
+        `Field "${fieldPath}" is not editable through endorsement.`,
+      );
+    }
+
+    return rule;
+  }
+
   private async rebuildProposedSnapshot(
     manager: EntityManager,
     transaction: PolicyTransaction,
   ) {
     const changes = await manager.getRepository(PolicyTransactionChange).find({
       where: { policy_transaction_id: transaction.id },
+      order: { created_at: 'ASC' },
     });
 
     const { snapshot, snapshotHash } = this.snapshotService.build(
@@ -468,8 +801,13 @@ export class EndorsementService {
     transaction.proposed_policy_snapshot = snapshot;
     transaction.proposed_policy_snapshot_hash = snapshotHash;
 
-    const pricing = this.computeRemainingPeriodPricing(transaction, snapshot);
-    const pricingSnapshot = this.pricingService.compare(pricing);
+    const repriced = await this.repricingService.reprice(
+      manager,
+      transaction,
+      transaction.source_policy_snapshot,
+      snapshot,
+    );
+    const pricingSnapshot = repriced.snapshot;
 
     transaction.pricing_snapshot = pricingSnapshot as unknown as Record<
       string,
@@ -490,88 +828,5 @@ export class EndorsementService {
     transaction.net_premium_difference = pricingSnapshot.premiumDifference;
 
     return manager.getRepository(PolicyTransaction).save(transaction);
-  }
-
-  /**
-   * Remaining-period old-vs-new pricing (§13.12). A full re-run through the
-   * per-risk rating engine (`pricing/application/pricing-engine.service.ts`)
-   * requires reconstructing each risk's original rating-factor input from
-   * the frozen snapshot, which is a larger integration left for a follow-up
-   * pass. In the meantime this derives both figures from the snapshot's own
-   * already-computed totals, pro-rated over the remaining period, so the
-   * DEBIT/CREDIT/NONE mechanics and gating behave correctly end-to-end.
-   */
-  private computeRemainingPeriodPricing(
-    transaction: PolicyTransaction,
-    proposedSnapshot: Record<string, unknown>,
-  ): {
-    sourcePolicyPremium: string;
-    oldPricing: RemainingPeriodPricingResult;
-    newPricing: RemainingPeriodPricingResult;
-    currencyCode: string;
-    effectiveDate: string;
-  } {
-    const source = transaction.source_policy_snapshot;
-    const startDate = String(source['startDate'] ?? transaction.effective_date);
-    const endDate = String(source['endDate'] ?? transaction.effective_date);
-    const remainingFraction = this.remainingPeriodFraction(
-      startDate,
-      endDate,
-      transaction.effective_date,
-    );
-
-    const sourceTotals = (source['totals'] as Record<string, unknown>) ?? {};
-    const proposedTotals =
-      (proposedSnapshot['totals'] as Record<string, unknown>) ?? sourceTotals;
-
-    const oldTotal = DecimalUtil.value(
-      (sourceTotals['totalPremium'] as string) ?? '0',
-    );
-    const newTotal = DecimalUtil.value(
-      (proposedTotals['totalPremium'] as string) ?? oldTotal.toString(),
-    );
-
-    const oldRemaining = oldTotal.mul(remainingFraction);
-    const newRemaining = newTotal.mul(remainingFraction);
-
-    const build = (
-      fullTerm: string,
-      remaining: string,
-    ): RemainingPeriodPricingResult => ({
-      finalPayablePremium: remaining,
-      fullTermPremium: fullTerm,
-      earnedBeforeEffectiveDate: DecimalUtil.value(fullTerm)
-        .minus(remaining)
-        .toFixed(4),
-      taxAmount: '0.0000',
-      commissionAmount: '0.0000',
-      resultHash: this.hashService.hashDefinition({ fullTerm, remaining }),
-    });
-
-    return {
-      sourcePolicyPremium: oldTotal.toFixed(4),
-      oldPricing: build(oldTotal.toFixed(4), oldRemaining.toFixed(4)),
-      newPricing: build(newTotal.toFixed(4), newRemaining.toFixed(4)),
-      currencyCode: transaction.currency_code,
-      effectiveDate: transaction.effective_date,
-    };
-  }
-
-  private remainingPeriodFraction(
-    startDate: string,
-    endDate: string,
-    effectiveDate: string,
-  ): number {
-    const start = new Date(`${startDate}T00:00:00.000Z`).getTime();
-    const end = new Date(`${endDate}T00:00:00.000Z`).getTime();
-    const effective = new Date(`${effectiveDate}T00:00:00.000Z`).getTime();
-
-    const policyDays = Math.max(Math.floor((end - start) / 86_400_000) + 1, 1);
-    const remainingDays = Math.max(
-      Math.floor((end - effective) / 86_400_000) + 1,
-      0,
-    );
-
-    return remainingDays / policyDays;
   }
 }

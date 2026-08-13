@@ -34,6 +34,17 @@ import { PolicyVersion } from './policy-version.entity';
   unique: true,
   where: 'deleted_at IS NULL',
 })
+@Index(
+  'UQ_policies_issued_quotation_revision',
+  ['company_id', 'quotation_id', 'source_quotation_revision'],
+  {
+    unique: true,
+    where:
+      'quotation_id IS NOT NULL ' +
+      'AND source_quotation_revision IS NOT NULL ' +
+      'AND deleted_at IS NULL',
+  },
+)
 export class Policy {
   @PrimaryGeneratedColumn('uuid')
   id: string;

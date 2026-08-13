@@ -133,7 +133,10 @@ export class ReferenceDataController {
 
   @Patch(':kind/:id/activate')
   @Roles('OWNER', 'SUPER_ADMIN')
-  activate(@Param('kind') kind: string, @Param('id', ParseUUIDPipe) id: string) {
+  activate(
+    @Param('kind') kind: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
     return this.service.setActive(kind, id, true);
   }
 

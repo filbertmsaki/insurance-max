@@ -1,16 +1,12 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import {
   IsDateString,
   IsEnum,
   IsNotEmpty,
-  IsOptional,
   IsString,
   MaxLength,
 } from 'class-validator';
-import {
-  CancellationMethod,
-  CancellationReasonType,
-} from '@insurance-max/contracts';
+import { CancellationReasonType } from '@insurance-max/contracts';
 
 export class CreateCancellationDto {
   @ApiProperty()
@@ -26,11 +22,6 @@ export class CreateCancellationDto {
   @IsNotEmpty()
   @MaxLength(2000)
   reason: string;
-
-  @ApiPropertyOptional({ enum: CancellationMethod })
-  @IsOptional()
-  @IsEnum(CancellationMethod)
-  requested_method?: CancellationMethod;
 
   @ApiProperty()
   @IsString()

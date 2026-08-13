@@ -51,6 +51,8 @@ import { Receipt } from '../entities/receipt.entity';
 import { FinanceJournalService } from './finance-journal.service';
 import { FinanceOutboxService } from './finance-outbox.service';
 import { InvoiceBalanceService } from './invoice-balance.service';
+import { PolicyTransactionPaymentProjectionService } from './policy-transaction-payment-projection.service';
+import { PolicyTransactionRefundProjectionService } from '../../policy-transactions/services/policy-transaction-refund-projection.service';
 import { QuotationPaymentProjectionService } from './quotation-payment-projection.service';
 import { ReceiptBalanceService } from './receipt-balance.service';
 import { ReceiptAllocationStatus } from '../enums/finance-status.enums';
@@ -66,6 +68,8 @@ export class FinanceCommandService {
     private readonly journalService: FinanceJournalService,
     private readonly outboxService: FinanceOutboxService,
     private readonly quotationPaymentProjectionService: QuotationPaymentProjectionService,
+    private readonly policyTransactionPaymentProjectionService: PolicyTransactionPaymentProjectionService,
+    private readonly policyTransactionRefundProjectionService: PolicyTransactionRefundProjectionService,
     @InjectRepository(Invoice)
     private readonly invoiceRepository: Repository<Invoice>,
     @InjectRepository(PaymentTransaction)
@@ -83,6 +87,24 @@ export class FinanceCommandService {
     @InjectRepository(CommissionPaymentItem)
     private readonly commissionPaymentItemRepository: Repository<CommissionPaymentItem>,
   ) {}
+
+  private async publishInvoiceBalanceProjections(
+    manager: EntityManager,
+    invoiceId: string,
+    sourceEventId: string,
+  ) {
+    await this.quotationPaymentProjectionService.publishInvoiceBalance(
+      manager,
+      invoiceId,
+      sourceEventId,
+    );
+
+    await this.policyTransactionPaymentProjectionService.publishInvoiceBalance(
+      manager,
+      invoiceId,
+      sourceEventId,
+    );
+  }
 
   async issue(
     user: AuthenticatedUser,
@@ -571,7 +593,7 @@ export class FinanceCommandService {
       invoice.id,
     );
     await this.receiptBalanceService.recalculate(manager, receipt.id);
-    await this.quotationPaymentProjectionService.publishInvoiceBalance(
+    await this.publishInvoiceBalanceProjections(
       manager,
       savedInvoice.id,
       allocation.id,
@@ -614,7 +636,7 @@ export class FinanceCommandService {
         manager,
         allocation.receipt_id,
       );
-      await this.quotationPaymentProjectionService.publishInvoiceBalance(
+      await this.publishInvoiceBalanceProjections(
         manager,
         allocation.invoice_id,
         allocation.id,
@@ -696,7 +718,7 @@ export class FinanceCommandService {
 
       for (const invoiceId of affectedInvoiceIds) {
         await this.invoiceBalanceService.recalculate(manager, invoiceId);
-        await this.quotationPaymentProjectionService.publishInvoiceBalance(
+        await this.publishInvoiceBalanceProjections(
           manager,
           invoiceId,
           receipt.id,
@@ -863,7 +885,7 @@ export class FinanceCommandService {
 
       if (saved.invoice_id) {
         await this.invoiceBalanceService.recalculate(manager, saved.invoice_id);
-        await this.quotationPaymentProjectionService.publishInvoiceBalance(
+        await this.publishInvoiceBalanceProjections(
           manager,
           saved.invoice_id,
           saved.id,
@@ -902,6 +924,11 @@ export class FinanceCommandService {
           });
         }
       }
+
+      await this.policyTransactionRefundProjectionService.publish(
+        manager,
+        saved.id,
+      );
 
       return saved;
     });

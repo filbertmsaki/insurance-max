@@ -35,6 +35,15 @@ export interface CancellationPricingResult {
 @Injectable()
 export class CancellationPricingService {
   calculate(input: CancellationPricingInput): CancellationPricingResult {
+    if (
+      input.cancellationEffectiveDate < input.policyStartDate ||
+      input.cancellationEffectiveDate > input.policyEndDate
+    ) {
+      throw new Error(
+        'Cancellation effective date must be inside the policy period.',
+      );
+    }
+
     const policyDays = this.inclusiveDays(
       input.policyStartDate,
       input.policyEndDate,
@@ -46,7 +55,7 @@ export class CancellationPricingService {
     const remainingDays = Math.max(policyDays - daysOnRisk, 0);
     const grossPremium = DecimalUtil.value(input.grossWrittenPremium);
 
-    const { earnedPremium, unearnedPremium, cancellationCharge, refundAmount } =
+    const { earnedPremium, unearnedPremium, cancellationCharge } =
       this.applyMethod(input.cancellationMethod, {
         grossPremium,
         policyDays,
@@ -57,7 +66,9 @@ export class CancellationPricingService {
         ),
       });
 
-    const amountDue = Decimal.max(cancellationCharge.minus(refundAmount), 0);
+    const netSettlement = unearnedPremium.minus(cancellationCharge);
+    const refundAmount = Decimal.max(netSettlement, 0);
+    const amountDue = Decimal.max(netSettlement.negated(), 0);
 
     return {
       policyDays,
@@ -84,7 +95,6 @@ export class CancellationPricingService {
     earnedPremium: Decimal;
     unearnedPremium: Decimal;
     cancellationCharge: Decimal;
-    refundAmount: Decimal;
   } {
     const { grossPremium, policyDays, daysOnRisk, configuredCharge } = params;
 
@@ -94,7 +104,6 @@ export class CancellationPricingService {
           earnedPremium: new Decimal(0),
           unearnedPremium: grossPremium,
           cancellationCharge: new Decimal(0),
-          refundAmount: grossPremium,
         };
       }
 
@@ -103,7 +112,6 @@ export class CancellationPricingService {
           earnedPremium: grossPremium,
           unearnedPremium: new Decimal(0),
           cancellationCharge: configuredCharge,
-          refundAmount: new Decimal(0),
         };
       }
 
@@ -121,16 +129,10 @@ export class CancellationPricingService {
           grossPremium.minus(earnedPremium),
           0,
         );
-        const refundAmount = Decimal.max(
-          unearnedPremium.minus(configuredCharge),
-          0,
-        );
-
         return {
           earnedPremium,
           unearnedPremium,
           cancellationCharge: configuredCharge,
-          refundAmount,
         };
       }
 
@@ -149,16 +151,10 @@ export class CancellationPricingService {
           grossPremium.minus(earnedPremium),
           0,
         );
-        const refundAmount = Decimal.max(
-          unearnedPremium.minus(configuredCharge),
-          0,
-        );
-
         return {
           earnedPremium,
           unearnedPremium,
           cancellationCharge: configuredCharge,
-          refundAmount,
         };
       }
     }

@@ -63,6 +63,21 @@ export class PolicyCancellation {
   @Column({ type: 'numeric', precision: 20, scale: 4, default: 0 })
   amount_due: string;
 
+  @Column({ type: 'int', nullable: true })
+  tira_endorsement_type: number | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  previous_cover_note_reference: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  cancellation_cover_note_reference: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  rule_snapshot: Record<string, unknown> | null;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  rule_snapshot_hash: string | null;
+
   @Column({ type: 'boolean', default: false })
   claims_review_required: boolean;
 

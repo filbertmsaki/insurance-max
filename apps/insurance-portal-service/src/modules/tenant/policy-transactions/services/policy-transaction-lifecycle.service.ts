@@ -493,24 +493,21 @@ export class PolicyTransactionLifecycleService {
       | 'premium_effect'
     >,
   ): boolean {
-    const approvalSatisfied =
-      !transaction.approval_required ||
-      transaction.approval_status === WorkflowApprovalStatus.APPROVED;
+    if (transaction.stage !== PolicyTransactionStage.COMPLETED) {
+      return false;
+    }
 
-    // Credit transactions never gate on payment — a refund/credit is only
-    // created after regulatory acceptance (§13.14).
-    const paymentSatisfied =
-      !transaction.payment_required ||
-      transaction.premium_effect === PolicyTransactionPremiumEffect.CREDIT ||
-      transaction.payment_status === WorkflowPaymentStatus.PAID;
+    if (!this.requirementsSatisfied(transaction)) {
+      return false;
+    }
 
-    return (
-      transaction.stage === PolicyTransactionStage.COMPLETED &&
-      transaction.submission_status !== WorkflowSubmissionStatus.PROCESSING &&
-      transaction.submission_status !== WorkflowSubmissionStatus.ACCEPTED &&
-      approvalSatisfied &&
-      paymentSatisfied
-    );
+    const retryableStatuses: WorkflowSubmissionStatus[] = [
+      WorkflowSubmissionStatus.READY,
+      WorkflowSubmissionStatus.FAILED,
+      WorkflowSubmissionStatus.RETRYABLE,
+    ];
+
+    return retryableStatuses.includes(transaction.submission_status);
   }
 
   private async updatePaymentStatus(
@@ -558,19 +555,42 @@ export class PolicyTransactionLifecycleService {
       transaction.approval_status === WorkflowApprovalStatus.CHANGES_REQUESTED
     ) {
       transaction.stage = PolicyTransactionStage.DRAFT;
+      transaction.submission_status = WorkflowSubmissionStatus.NOT_READY;
       return;
     }
 
     if (transaction.approval_status === WorkflowApprovalStatus.REJECTED) {
       transaction.stage = PolicyTransactionStage.REJECTED;
+      transaction.submission_status = WorkflowSubmissionStatus.REJECTED;
       return;
     }
 
-    transaction.stage = this.canSubmit(transaction)
-      ? PolicyTransactionStage.COMPLETED
-      : transaction.stage === PolicyTransactionStage.DRAFT
-        ? PolicyTransactionStage.COMPLETED
-        : transaction.stage;
+    transaction.stage = PolicyTransactionStage.COMPLETED;
+    transaction.submission_status = this.requirementsSatisfied(transaction)
+      ? WorkflowSubmissionStatus.READY
+      : WorkflowSubmissionStatus.NOT_READY;
+  }
+
+  private requirementsSatisfied(
+    transaction: Pick<
+      PolicyTransaction,
+      | 'approval_required'
+      | 'approval_status'
+      | 'payment_required'
+      | 'payment_status'
+      | 'premium_effect'
+    >,
+  ): boolean {
+    const approvalSatisfied =
+      !transaction.approval_required ||
+      transaction.approval_status === WorkflowApprovalStatus.APPROVED;
+
+    const paymentSatisfied =
+      !transaction.payment_required ||
+      transaction.premium_effect === PolicyTransactionPremiumEffect.CREDIT ||
+      transaction.payment_status === WorkflowPaymentStatus.PAID;
+
+    return approvalSatisfied && paymentSatisfied;
   }
 
   private async withLockedTransaction(

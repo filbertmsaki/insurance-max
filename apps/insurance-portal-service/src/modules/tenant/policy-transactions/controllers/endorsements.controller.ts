@@ -5,6 +5,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
@@ -13,9 +14,11 @@ import { TenantScoped } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import { CreateEndorsementDto } from '../dto/create-endorsement.dto';
+import { EndorsementEligibilityQueryDto } from '../dto/endorsement-eligibility-query.dto';
 import { RecordEndorsementChangeDto } from '../dto/record-endorsement-change.dto';
 import { ReasonDto } from '../dto/reason.dto';
 import { EndorsementService } from '../services/endorsement.service';
+import { EndorsementReconciliationService } from '../services/endorsement-reconciliation.service';
 import { PolicyTransactionLifecycleService } from '../services/policy-transaction-lifecycle.service';
 import { PolicyTransactionTiramisSubmissionService } from '../services/policy-transaction-tiramis-submission.service';
 
@@ -28,7 +31,25 @@ export class EndorsementsController {
     private readonly endorsementService: EndorsementService,
     private readonly lifecycleService: PolicyTransactionLifecycleService,
     private readonly submissionService: PolicyTransactionTiramisSubmissionService,
+    private readonly reconciliationService: EndorsementReconciliationService,
   ) {}
+
+  @Get('tenant/policies/:policyId/endorsement-eligibility')
+  @Permissions('endorsements:create')
+  @ApiOperation({
+    summary: 'Check whether the current issued policy can be endorsed',
+  })
+  eligibility(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('policyId', ParseUUIDPipe) policyId: string,
+    @Query() query: EndorsementEligibilityQueryDto,
+  ) {
+    return this.endorsementService.getEligibility(
+      user,
+      policyId,
+      query.effective_date,
+    );
+  }
 
   @Post('tenant/policies/:policyId/endorsements')
   @Permissions('endorsements:create')
@@ -44,8 +65,24 @@ export class EndorsementsController {
   @Get('tenant/endorsements')
   @Permissions('endorsements:create')
   @ApiOperation({ summary: 'List endorsements for the current company' })
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.endorsementService.findAll(user.companyId!);
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('policy_id') policyId?: string,
+  ) {
+    return this.endorsementService.findAll(user.companyId!, policyId);
+  }
+
+  @Get('tenant/endorsements/:id/context')
+  @Permissions('endorsements:update-draft')
+  @ApiOperation({
+    summary:
+      'Load the endorsement draft, current source snapshot and recorded changes',
+  })
+  context(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.endorsementService.getContext(user.companyId!, id);
   }
 
   @Get('tenant/endorsements/:id')
@@ -171,7 +208,7 @@ export class EndorsementsController {
   }
 
   @Post('tenant/endorsements/:id/retry-tiramis')
-  @Permissions('endorsements:retry-tiramis')
+  @Permissions('endorsements:reconcile')
   @ApiOperation({
     summary: 'Retry a rejected/failed TIRAMIS submission for an endorsement',
   })
@@ -180,6 +217,28 @@ export class EndorsementsController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.submissionService.submitEndorsement(user, id);
+  }
+
+  @Get('tenant/endorsements/:id/reconciliation')
+  @Permissions('endorsements:reconcile')
+  @ApiOperation({ summary: 'Inspect endorsement issuance consistency' })
+  reconciliation(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.reconciliationService.inspect(user.companyId!, id);
+  }
+
+  @Post('tenant/endorsements/:id/reconcile')
+  @Permissions('endorsements:reconcile')
+  @ApiOperation({
+    summary: 'Repair safe post-issuance endorsement inconsistencies',
+  })
+  reconcile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.reconciliationService.reconcile(user.companyId!, id);
   }
 
   @Post('tenant/endorsements/:id/cancel')

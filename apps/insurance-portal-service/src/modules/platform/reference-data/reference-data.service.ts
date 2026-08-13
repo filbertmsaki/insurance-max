@@ -83,11 +83,16 @@ export class ReferenceDataService {
         id,
       );
     }
-    if (dto.name !== undefined) country.name = this.cleanRequired(dto.name, 'name');
+    if (dto.name !== undefined)
+      country.name = this.cleanRequired(dto.name, 'name');
     if (dto.iso2_code !== undefined)
-      country.iso2_code = this.cleanOptional(dto.iso2_code)?.toUpperCase() ?? null;
+      country.iso2_code =
+        this.cleanOptional(dto.iso2_code)?.toUpperCase() ?? null;
     if (dto.iso3_code !== undefined)
-      country.iso3_code = this.cleanRequired(dto.iso3_code, 'iso3_code').toUpperCase();
+      country.iso3_code = this.cleanRequired(
+        dto.iso3_code,
+        'iso3_code',
+      ).toUpperCase();
     if (dto.phone_code !== undefined)
       country.phone_code = this.cleanOptional(dto.phone_code);
     if (dto.is_active !== undefined) country.is_active = dto.is_active;
@@ -123,7 +128,8 @@ export class ReferenceDataService {
 
   async createRegion(dto: CreateRegionDto) {
     await this.assertCountryExists(dto.country_id);
-    const code = this.cleanOptional(dto.code) ?? this.cleanRequired(dto.name, 'name');
+    const code =
+      this.cleanOptional(dto.code) ?? this.cleanRequired(dto.name, 'name');
     await this.assertRegionUnique(dto.country_id, code, dto.name);
     return this.regions.save(
       this.regions.create({
@@ -184,7 +190,8 @@ export class ReferenceDataService {
 
   async createDistrict(dto: CreateDistrictDto) {
     await this.assertRegionExists(dto.region_id);
-    const code = this.cleanOptional(dto.code) ?? this.cleanRequired(dto.name, 'name');
+    const code =
+      this.cleanOptional(dto.code) ?? this.cleanRequired(dto.name, 'name');
     await this.assertDistrictUnique(dto.region_id, code, dto.name);
     return this.districts.save(
       this.districts.create({
@@ -243,10 +250,12 @@ export class ReferenceDataService {
   async updateCurrency(id: string, dto: UpdateCurrencyDto) {
     const currency = await this.getCurrency(id);
     if (dto.code) await this.assertCurrencyUnique(dto.code, id);
-    if (dto.name !== undefined) currency.name = this.cleanRequired(dto.name, 'name');
+    if (dto.name !== undefined)
+      currency.name = this.cleanRequired(dto.name, 'name');
     if (dto.code !== undefined)
       currency.code = this.cleanRequired(dto.code, 'code').toUpperCase();
-    if (dto.symbol !== undefined) currency.symbol = this.cleanOptional(dto.symbol);
+    if (dto.symbol !== undefined)
+      currency.symbol = this.cleanOptional(dto.symbol);
     if (dto.is_active !== undefined) currency.is_active = dto.is_active;
     return this.currencies.save(currency);
   }

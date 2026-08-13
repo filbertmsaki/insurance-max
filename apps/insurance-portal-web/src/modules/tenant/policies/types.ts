@@ -89,6 +89,47 @@ export type PolicyTransactionSubmissionStatus =
   | 'RETRYABLE'
   | string;
 
+export type EndorsementPremiumEffect = 'NONE' | 'DEBIT' | 'CREDIT';
+
+export interface EndorsementRiskPricing {
+  entryIndex: number;
+  riskIndex: number;
+  quotationRiskId: string | null;
+  insuranceRiskId: string;
+  sourcePricingQuoteId: string;
+  sumInsured: string;
+  finalPayablePremium: string;
+  premiumExcludingTax: string;
+  taxAmount: string;
+  chargeAmount: string;
+  discountApprovalRequired: boolean;
+  loadingApprovalRequired: boolean;
+  resultHash: string;
+  factors: Record<string, string | number | boolean>;
+}
+
+export interface EndorsementPricingSnapshot {
+  sourcePolicyPremium: string;
+  revisedFullTermPremium: string;
+  earnedPremiumBeforeChange: string;
+  remainingOldPremium: string;
+  remainingNewPremium: string;
+  premiumDifference: string;
+  taxDifference: string;
+  chargeDifference: string;
+  commissionDifference: string;
+  customerPayableDifference: string;
+  premiumEffect: EndorsementPremiumEffect;
+  currencyCode: string;
+  effectiveDate: string;
+  calculationMethod: string;
+  pricingResultHashes: string[];
+  sourceRiskPricing: EndorsementRiskPricing[];
+  proposedRiskPricing: EndorsementRiskPricing[];
+  pricingApprovalRequired: boolean;
+  snapshotHash: string;
+}
+
 export interface PolicyEndorsementRecord {
   id: string;
   company_id: string;
@@ -103,17 +144,253 @@ export interface PolicyEndorsementRecord {
   reason: string;
   approval_required: boolean;
   payment_required: boolean;
-  premium_effect: string;
+  premium_effect: EndorsementPremiumEffect;
+  additional_premium: string;
+  return_premium: string;
+  net_premium_difference: string;
+  tax_difference: string;
+  commission_difference: string;
+  currency_code: string;
+  pricing_snapshot: EndorsementPricingSnapshot | null;
+  pricing_snapshot_hash: string | null;
+  active_invoice_id: string | null;
+  previous_cover_note_reference: string | null;
+  replacement_cover_note_reference: string | null;
+  tiramis_tracking_id: string | null;
+  tiramis_transaction_id: string | null;
+  tiramis_request_id: string | null;
+  target_policy_id: string | null;
+  target_policy_version_id: string | null;
+  regulatory_response: Record<string, unknown> | null;
+  regulatory_response_hash: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EndorsementEligibilityBlocker {
+  code: string;
+  message: string;
+}
+
+export interface EndorsementEligibility {
+  eligible: boolean;
+  blockers: EndorsementEligibilityBlocker[];
+  policy: {
+    id: string;
+    policy_no: string;
+    policy_status: string;
+    quotation_id: string | null;
+    start_date: string;
+    end_date: string;
+    currency: string;
+    pending_transaction_id: string | null;
+    cover_note_no: string | null;
+    tira_status: string;
+  };
+  current_version: {
+    id: string;
+    version_number: number;
+    version_type: string;
+    effective_from: string;
+    effective_to: string;
+    regulatory_reference: string | null;
+    snapshot_schema_version: number;
+  } | null;
+}
+
+export type CancellationReasonType =
+  | 'CUSTOMER_REQUEST'
+  | 'NON_PAYMENT'
+  | 'DUPLICATE_POLICY'
+  | 'RISK_NO_LONGER_EXISTS'
+  | 'MATERIAL_MISREPRESENTATION'
+  | 'FRAUD'
+  | 'POLICY_REPLACEMENT'
+  | 'OTHER';
+
+export interface CancellationEligibility extends EndorsementEligibility {
+  claimsReviewRequired: boolean;
+}
+
+export interface CreateCancellationPayload {
+  effective_date: string;
+  reason_type: CancellationReasonType;
+  reason: string;
+  idempotency_key: string;
+}
+
+export interface PolicyCancellationRecord {
+  id: string;
+  company_id: string;
+  transaction_no: string;
+  transaction_type: 'CANCELLATION' | string;
+  stage: PolicyTransactionStage;
+  approval_status: string;
+  payment_status: string;
+  submission_status: PolicyTransactionSubmissionStatus;
+  source_policy_id: string;
+  effective_date: string;
+  reason: string;
+  approval_required: boolean;
+  payment_required: boolean;
+  premium_effect: EndorsementPremiumEffect;
   additional_premium: string;
   return_premium: string;
   net_premium_difference: string;
   currency_code: string;
-  tiramis_tracking_id: string | null;
-  tiramis_transaction_id: string | null;
+  pricing_snapshot: Record<string, unknown> | null;
+  active_invoice_id: string | null;
   tiramis_request_id: string | null;
+  target_policy_id: string | null;
+  target_policy_version_id: string | null;
   regulatory_response: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface PolicyCancellationDetail {
+  id: string;
+  reason_type: CancellationReasonType;
+  cancellation_method: string;
+  requested_effective_date: string;
+  policy_days: number;
+  days_on_risk: number;
+  remaining_days: number;
+  gross_written_premium: string;
+  earned_premium: string;
+  unearned_premium: string;
+  cancellation_charge: string;
+  refund_amount: string;
+  amount_due: string;
+  claims_review_required: boolean;
+  claims_review_status: string;
+  previous_cover_note_reference: string | null;
+  cancellation_cover_note_reference: string | null;
+}
+
+export interface CancellationContext {
+  transaction: PolicyCancellationRecord;
+  cancellation: PolicyCancellationDetail;
+}
+
+export interface RenewalEligibility {
+  eligible: boolean;
+  blockers: EndorsementEligibilityBlocker[];
+  renewalStartDate: string | null;
+  renewalEndDate: string | null;
+  renewalProductVersionId: string | null;
+  renewalProductDefinitionHash: string | null;
+  currentVersion: {
+    id: string;
+    version_number: number;
+    version_type: string;
+    regulatory_reference: string | null;
+  } | null;
+}
+
+export interface PolicyRenewalRecord {
+  id: string;
+  company_id: string;
+  policy_transaction_id: string;
+  renewal_no: string;
+  renewal_status: string;
+  renewal_start_date: string;
+  renewal_end_date: string;
+  offer_expires_at: string | null;
+  source_cover_note_reference: string;
+  renewal_quotation_id: string | null;
+  renewed_policy_id: string | null;
+  customer_accepted_at: string | null;
+  customer_declined_at: string | null;
+  decline_reason: string | null;
+  created_at: string;
+}
+
+export interface RenewalContext {
+  renewal: PolicyRenewalRecord;
+  transaction: {
+    id: string;
+    stage: PolicyTransactionStage;
+    source_policy_id: string;
+    source_policy_version_id: string;
+    target_policy_id: string | null;
+  } | null;
+  source_policy: PolicyRecord | null;
+  renewal_quotation: {
+    id: string;
+    quotation_no: string;
+    status: string;
+    quotation_stage?: string;
+    payment_status?: string;
+    payment_status_v2?: string;
+    submission_status_v2?: string;
+  } | null;
+}
+
+export interface EndorsementTypeRecord {
+  id: string;
+  company_id: string;
+  code: string;
+  name: string;
+  tira_endorsement_type: number | null;
+  requires_new_cover_note: boolean;
+  is_active: boolean;
+}
+
+export interface PolicyTransactionChangeRecord {
+  id: string;
+  company_id: string;
+  policy_transaction_id: string;
+  category: string;
+  operation: 'ADD' | 'MODIFY' | 'REMOVE';
+  field_path: string;
+  resource_id: string | null;
+  old_value: unknown;
+  new_value: unknown;
+  is_material: boolean;
+  requires_repricing: boolean;
+  requires_regulatory_submission: boolean;
+  change_hash: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface EndorsementContext {
+  transaction: PolicyEndorsementRecord & {
+    source_policy_version_id: string;
+    source_policy_version_no: number;
+    source_policy_snapshot: Record<string, unknown>;
+    source_policy_snapshot_hash: string;
+    proposed_policy_snapshot: Record<string, unknown> | null;
+    proposed_policy_snapshot_hash: string | null;
+  };
+  endorsement: {
+    id: string;
+    endorsement_type_code: string;
+    endorsement_type_name: string;
+    tira_endorsement_type: number | null;
+    previous_cover_note_reference: string;
+    replacement_cover_note_reference: string | null;
+    requires_new_cover_note: boolean;
+  } | null;
+  changes: PolicyTransactionChangeRecord[];
+  source_policy_snapshot: Record<string, unknown>;
+  proposed_policy_snapshot: Record<string, unknown>;
+}
+
+export interface CreateEndorsementPayload {
+  effective_date: string;
+  endorsement_type_code: string;
+  reason: string;
+  idempotency_key: string;
+}
+
+export interface RecordEndorsementChangePayload {
+  category: 'POLICYHOLDER' | 'COVER_PERIOD' | 'ASSET' | 'SUM_INSURED' | 'COVER';
+  operation: 'ADD' | 'MODIFY' | 'REMOVE';
+  field_path: string;
+  resource_id?: string;
+  new_value: unknown;
 }
 
 export interface PolicyRecord {
@@ -126,15 +403,23 @@ export interface PolicyRecord {
   created_by: string | null;
   customer_id: string;
   quotation_id: string | null;
+  source_quotation_revision: number | null;
+  source_finalization_hash: string | null;
   proposal_id: string | null;
   category_id: string;
   product_id: string;
+  product_version_id: string | null;
   sub_class_id: string | null;
   policy_no: string;
   cover_note_no: string | null;
   external_policy_no: string | null;
+  policy_reference_number: string | null;
   channel_type: ProductChannelType;
   policy_status: PolicyStatus;
+  pending_transaction_id: string | null;
+  regulatory_sync_status: string;
+  source_cover_note_count: number;
+  issued_by_system: boolean;
   start_date: string;
   end_date: string;
   issue_date: string;
@@ -180,6 +465,34 @@ export interface PolicyRecord {
   risks?: PolicyRiskRecord[];
   premium_breakdowns?: PolicyPremiumBreakdownRecord[];
   status_history?: PolicyStatusHistoryRecord[];
+}
+
+export interface PolicyVersionRecord {
+  id: string;
+  company_id: string;
+  policy_id: string;
+  version_number: number;
+  version_type: string;
+  status: string;
+  effective_from: string;
+  effective_to: string;
+  policy_snapshot: Record<string, unknown>;
+  policy_snapshot_hash: string;
+  pricing_snapshot: Record<string, unknown>;
+  pricing_result_hash: string;
+  customer_snapshot: Record<string, unknown>;
+  customer_snapshot_hash: string;
+  asset_manifest: Record<string, unknown>;
+  asset_manifest_hash: string;
+  tiramis_tracking_id: string | null;
+  policy_transaction_id: string | null;
+  supersedes_version_id: string | null;
+  superseded_at: string | null;
+  is_current: boolean;
+  regulatory_reference: string | null;
+  effective_transaction_date: string | null;
+  created_by: string | null;
+  created_at: string;
 }
 
 export interface PolicyListParams {

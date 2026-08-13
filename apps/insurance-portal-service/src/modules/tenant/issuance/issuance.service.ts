@@ -8,17 +8,24 @@ import { DataSource, EntityManager } from 'typeorm';
 
 import { TiramisNotificationEventDto } from '../tiramis-integration/dto/tiramis-notification-event.dto';
 import { PortalTiraSubmission } from '../tiramis-integration/entities/portal-tira-submission.entity';
+import { PortalTiraSubmissionStatus } from '../tiramis-integration/enums/portal-tira-submission-status.enum';
 import { CoverNote } from '../cover-notes/entities/cover-note.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationCalculationBase } from '../quotations/enums/quotation-calculation-base.enum';
 import { QuotationPremiumItemType } from '../quotations/enums/quotation-premium-item-type.enum';
+import { QuotationStatus } from '../quotations/enums/quotation-status.enum';
+import { TiraStatus } from '../quotations/enums/tira-status.enum';
+import { QuotationEntryAddon } from '../quotations/entities/structured/quotation-entry-addon.entity';
+import { QuotationEntryAddonTax } from '../quotations/entities/structured/quotation-entry-addon-tax.entity';
 import { QuotationEntryRisk } from '../quotations/entities/structured/quotation-entry-risk.entity';
 import { QuotationCoverNote } from '../quotations/entities/structured/quotation-cover-note.entity';
 import { QuotationCoverNoteEntry } from '../quotations/entities/structured/quotation-cover-note-entry.entity';
 import { QuotationMotorDetail } from '../quotations/entities/structured/quotation-motor-detail.entity';
 import { QuotationPolicyHolder } from '../quotations/entities/structured/quotation-policy-holder.entity';
+import { QuotationRiskAsset } from '../quotations/entities/structured/quotation-risk-asset.entity';
 import { QuotationRiskDiscount } from '../quotations/entities/structured/quotation-risk-discount.entity';
+import { QuotationRiskPremiumOverride } from '../quotations/entities/structured/quotation-risk-premium-override.entity';
 import { QuotationRiskTax } from '../quotations/entities/structured/quotation-risk-tax.entity';
 import { QuotationSubjectMatter } from '../quotations/entities/structured/quotation-subject-matter.entity';
 import { Policy } from '../policies/entities/policy.entity';
@@ -31,23 +38,30 @@ import { ProductChannelType } from '../product-distribution/enums/product-channe
 import { TiramisSubmissionTrackingEntity } from '../../tiramis/entities/tiramis-submission-tracking.entity';
 import { CertificateGenerationService } from './certificate-generation.service';
 
+type IssuableRisk = QuotationEntryRisk & {
+  discounts: QuotationRiskDiscount[];
+  taxes: QuotationRiskTax[];
+  premium_overrides: QuotationRiskPremiumOverride[];
+};
+
+type IssuableAddon = QuotationEntryAddon & {
+  taxes: QuotationEntryAddonTax[];
+};
+
+type IssuableEntry = QuotationCoverNoteEntry & {
+  motor_detail: QuotationMotorDetail | null;
+  subject_matters: QuotationSubjectMatter[];
+  risks: IssuableRisk[];
+  addons: IssuableAddon[];
+};
+
 type IssuableQuotation = Quotation & {
   customer: Customer | null;
   cover_note: QuotationCoverNote & {
-    entries: Array<
-      QuotationCoverNoteEntry & {
-        motor_detail: QuotationMotorDetail | null;
-        subject_matters: QuotationSubjectMatter[];
-        risks: Array<
-          QuotationEntryRisk & {
-            discounts: QuotationRiskDiscount[];
-            taxes: QuotationRiskTax[];
-          }
-        >;
-      }
-    >;
+    entries: IssuableEntry[];
   };
   policy_holders: QuotationPolicyHolder[];
+  risk_assets: QuotationRiskAsset[];
 };
 
 @Injectable()
@@ -70,6 +84,20 @@ export class IssuanceService {
     const regulatoryResponse = payload.regulatoryResponse;
 
     if (!regulatoryResponse?.success) {
+      return null;
+    }
+
+    const isFinalSuccess =
+      submission.status === PortalTiraSubmissionStatus.COMPLETED ||
+      payload.eventType === 'TIRAMIS_FINAL_SUCCESS' ||
+      payload.eventType === 'TIRAMIS_RESPONSE_ACK_SENT';
+
+    if (!isFinalSuccess) {
+      this.logger.debug(
+        `Skipping policy issuance for submission ${submission.id}: ` +
+          `TIRAMIS has not reached final success yet`,
+      );
+
       return null;
     }
 
@@ -128,6 +156,11 @@ export class IssuanceService {
         submission.company_id,
         submission.quotation_id!,
       );
+
+      if (!quotation) {
+        return null;
+      }
+
       const tracking = await this.resolveTrackingOrThrow(manager, submission);
       const coverNotes = await this.createOrUpdateCoverNotes(
         manager,
@@ -139,6 +172,7 @@ export class IssuanceService {
       const policy = await this.createOrReuseIssuedPolicy(
         manager,
         submission,
+        tracking,
         quotation,
         regulatoryResponse,
         coverNotes,
@@ -255,7 +289,7 @@ export class IssuanceService {
       );
 
       const customerSnapshot = this.buildCustomerSnapshot(quotation);
-      const assetSnapshot = this.buildAssetSnapshot(entry);
+      const assetSnapshot = this.buildAssetSnapshot(entry, quotation);
       const pricingSnapshot = this.buildEntryPricingSnapshot(entry);
       const distributionSnapshot = this.buildDistributionSnapshot(quotation);
       const persisted = existing.find(
@@ -366,6 +400,7 @@ export class IssuanceService {
   private async createOrReuseIssuedPolicy(
     manager: EntityManager,
     submission: PortalTiraSubmission,
+    tracking: TiramisSubmissionTrackingEntity,
     quotation: IssuableQuotation,
     regulatoryResponse: RegulatoryFinalResponse,
     coverNotes: CoverNote[],
@@ -448,12 +483,12 @@ export class IssuanceService {
           retention_amount: '0',
           ceded_sum_insured: '0',
           ceded_premium: '0',
-          tira_status: 'SUBMITTED',
+          tira_status: 'SUCCESS',
           tira_portal_transaction_id: submission.id,
           tiramis_transaction_id:
             submission.tiramis_transaction_id ??
             regulatoryResponse.transactionId,
-          tiramis_submission_tracking_id: null,
+          tiramis_submission_tracking_id: tracking.id,
           tiramis_status: submission.status,
           tiramis_request_id:
             submission.tiramis_request_id ?? regulatoryResponse.requestId,
@@ -489,18 +524,33 @@ export class IssuanceService {
         'COVER_NOTE_ISSUED',
       );
       await this.createPolicyChildren(manager, policy, quotation);
-      await this.createPolicyVersion(
+      const version = await this.createPolicyVersion(
         manager,
         policy,
         quotation,
         coverNotes,
-        submission,
+        tracking,
       );
+
+      policy.active_version_id = version.id;
+      policy.current_version_no = version.version_number;
+      policy = await policyRepository.save(policy);
     } else {
       policy.cover_note_no =
         policy.cover_note_no ??
         coverNotes[0]?.cover_note_reference_number ??
         null;
+      policy.tira_status = 'SUCCESS';
+      policy.tiramis_submission_tracking_id =
+        policy.tiramis_submission_tracking_id ?? tracking.id;
+      policy.tiramis_transaction_id =
+        policy.tiramis_transaction_id ??
+        submission.tiramis_transaction_id ??
+        regulatoryResponse.transactionId;
+      policy.tiramis_request_id =
+        policy.tiramis_request_id ??
+        submission.tiramis_request_id ??
+        regulatoryResponse.requestId;
       policy.regulatory_sync_status = 'IN_SYNC';
       policy.regulatory_response_payload =
         regulatoryResponse as unknown as Record<string, unknown>;
@@ -508,6 +558,20 @@ export class IssuanceService {
       policy.source_cover_note_count = coverNotes.length;
       policy.state_version = Number(policy.state_version || 1) + 1;
       policy = await policyRepository.save(policy);
+
+      const version = await this.createPolicyVersion(
+        manager,
+        policy,
+        quotation,
+        coverNotes,
+        tracking,
+      );
+
+      if (policy.active_version_id !== version.id) {
+        policy.active_version_id = version.id;
+        policy.current_version_no = version.version_number;
+        policy = await policyRepository.save(policy);
+      }
     }
 
     await this.linkPolicyToCoverNotes(manager, policy, coverNotes);
@@ -634,7 +698,7 @@ export class IssuanceService {
     policy: Policy,
     quotation: IssuableQuotation,
     coverNotes: CoverNote[],
-    submission: PortalTiraSubmission,
+    tracking: TiramisSubmissionTrackingEntity,
   ) {
     const repository = manager.getRepository(PolicyVersion);
     const existing = await repository.findOne({
@@ -645,32 +709,43 @@ export class IssuanceService {
     });
 
     if (existing) {
+      let changed = false;
+
+      if (!existing.is_current) {
+        existing.is_current = true;
+        changed = true;
+      }
+
+      if (existing.tiramis_tracking_id !== tracking.id) {
+        existing.tiramis_tracking_id = tracking.id;
+        changed = true;
+      }
+
+      if (
+        !existing.regulatory_reference &&
+        coverNotes[0]?.cover_note_reference_number
+      ) {
+        existing.regulatory_reference =
+          coverNotes[0].cover_note_reference_number;
+        changed = true;
+      }
+
+      if (changed) {
+        return repository.save(existing);
+      }
+
       return existing;
     }
 
     const customerSnapshot = this.buildCustomerSnapshot(quotation);
     const pricingSnapshot = this.buildQuotationPricingSnapshot(quotation);
     const assetManifest = this.buildAssetManifest(quotation);
-    const policySnapshot = {
-      policyNo: policy.policy_no,
-      quotationId: quotation.id,
-      workflowRevision: quotation.workflow_revision,
-      coverNotes: coverNotes.map((item) => ({
-        id: item.id,
-        coverNoteNumber: item.cover_note_number,
-        coverNoteReferenceNumber: item.cover_note_reference_number,
-        stickerNumber: item.sticker_number,
-      })),
-      policyStatus: policy.policy_status,
-      issueDate: policy.issue_date,
-      startDate: policy.start_date,
-      endDate: policy.end_date,
-      totals: {
-        sumInsured: policy.sum_insured,
-        totalPremium: policy.total_premium,
-        totalCommission: policy.total_commission,
-      },
-    };
+    const policySnapshot = this.buildPolicyContractSnapshot(
+      policy,
+      quotation,
+      coverNotes,
+      tracking,
+    );
 
     return repository.save({
       company_id: policy.company_id,
@@ -688,7 +763,9 @@ export class IssuanceService {
       customer_snapshot_hash: this.hashService.hashDefinition(customerSnapshot),
       asset_manifest: assetManifest,
       asset_manifest_hash: this.hashService.hashDefinition(assetManifest),
-      tiramis_tracking_id: null,
+      tiramis_tracking_id: tracking.id,
+      regulatory_reference: coverNotes[0]?.cover_note_reference_number ?? null,
+      is_current: true,
       created_by: policy.created_by,
     });
   }
@@ -829,7 +906,18 @@ export class IssuanceService {
     manager: EntityManager,
     companyId: string,
     quotationId: string,
-  ): Promise<IssuableQuotation> {
+  ): Promise<IssuableQuotation | null> {
+    await manager.query(
+      `
+        SELECT id
+        FROM quotations
+        WHERE id = $1
+          AND company_id = $2
+        FOR UPDATE
+      `,
+      [quotationId, companyId],
+    );
+
     const quotation = await manager.getRepository(Quotation).findOne({
       where: {
         id: quotationId,
@@ -837,23 +925,52 @@ export class IssuanceService {
       },
       relations: {
         customer: true,
+        policy_holders: true,
+        risk_assets: true,
         cover_note: {
           entries: {
             motor_detail: true,
             subject_matters: true,
+            addons: {
+              taxes: true,
+            },
             risks: {
               discounts: true,
               taxes: true,
+              premium_overrides: true,
             },
           },
         },
-        policy_holders: true,
       },
     });
 
     if (!quotation || !quotation.cover_note) {
       throw new BadRequestException(
         'Quotation or quotation cover-note details were not found.',
+      );
+    }
+
+    if (
+      quotation.status !== QuotationStatus.COMPLETED ||
+      quotation.tira_status !== TiraStatus.SUCCESS
+    ) {
+      this.logger.warn(
+        `Skipping policy issuance for quotation ${quotation.id}: ` +
+          `quotation lifecycle is ${quotation.status}/${quotation.tira_status}`,
+      );
+
+      return null;
+    }
+
+    if (!quotation.finalization_hash) {
+      throw new BadRequestException(
+        'Policy issuance requires a finalized quotation snapshot.',
+      );
+    }
+
+    if (!quotation.product_definition_hash) {
+      throw new BadRequestException(
+        'Issued policy requires a frozen product-definition snapshot.',
       );
     }
 
@@ -901,81 +1018,225 @@ export class IssuanceService {
     );
   }
 
+  private buildPolicyHolderSnapshot(holder: QuotationPolicyHolder) {
+    return {
+      id: holder.id,
+      customerId: holder.customer_id,
+      sequenceNo: holder.sequence_no,
+      name: holder.policy_holder_name,
+      birthDate: holder.policy_holder_birth_date,
+      type: holder.policy_holder_type,
+      idType: holder.policy_holder_id_type,
+      idNumber: holder.policy_holder_id_number,
+      gender: holder.gender,
+      countryCode: holder.country_code,
+      region: holder.region,
+      district: holder.district,
+      street: holder.street,
+      phone: holder.policy_holder_phone_number,
+      fax: holder.policy_holder_fax,
+      postalAddress: holder.postal_address,
+      email: holder.email_address,
+    };
+  }
+
   private buildCustomerSnapshot(quotation: IssuableQuotation) {
-    const primaryHolder = [...(quotation.policy_holders ?? [])].sort(
+    const holders = [...(quotation.policy_holders ?? [])].sort(
       (left, right) => left.sequence_no - right.sequence_no,
-    )[0];
+    );
+    const primaryHolder = holders[0] ?? null;
+    const customer = quotation.customer;
 
     return {
+      schemaVersion: 2,
+      quotationId: quotation.id,
       customerId: quotation.customer_id,
-      customerNumber: quotation.customer?.customer_no ?? null,
+      customerNumber: customer?.customer_no ?? null,
+      customerType: customer?.customer_type ?? null,
       displayName:
-        quotation.customer?.display_name ??
-        primaryHolder?.policy_holder_name ??
-        null,
+        customer?.display_name ?? primaryHolder?.policy_holder_name ?? null,
+      quotationCustomerSnapshot: quotation.customer_snapshot ?? null,
+      quotationCustomerSnapshotHash: quotation.customer_snapshot_hash ?? null,
+      quotationCustomerSnapshotAt: quotation.customer_snapshot_at ?? null,
+      kyc: {
+        status:
+          quotation.customer_snapshot &&
+          typeof quotation.customer_snapshot === 'object'
+            ? (quotation.customer_snapshot['kycStatus'] ?? null)
+            : (customer?.kyc_status ?? null),
+        version:
+          quotation.customer_kyc_version ?? Number(customer?.kyc_version ?? 0),
+      },
       policyHolder: primaryHolder
+        ? this.buildPolicyHolderSnapshot(primaryHolder)
+        : null,
+      policyHolders: holders.map((holder) =>
+        this.buildPolicyHolderSnapshot(holder),
+      ),
+      internalCustomer: customer
         ? {
-            id: primaryHolder.id,
-            name: primaryHolder.policy_holder_name,
-            birthDate: primaryHolder.policy_holder_birth_date,
-            phone: primaryHolder.policy_holder_phone_number,
-            email: primaryHolder.email_address,
-            countryCode: primaryHolder.country_code,
-            region: primaryHolder.region,
-            district: primaryHolder.district,
+            id: customer.id,
+            customerNo: customer.customer_no,
+            customerType: customer.customer_type,
+            displayName: customer.display_name,
+            firstName: customer.first_name,
+            middleName: customer.middle_name,
+            lastName: customer.last_name,
+            gender: customer.gender,
+            dateOfBirth: customer.date_of_birth,
+            nationality: customer.nationality,
+            companyName: customer.company_name,
+            registrationNo: customer.registration_no,
+            incorporationCertificateNo: customer.incorporation_certificate_no,
+            tin: customer.tin,
+            vrn: customer.vrn,
+            policyHolderType: customer.policy_holder_type,
+            idType: customer.id_type,
+            idNumber: customer.id_number,
+            nidaNo: customer.nida_no,
+            voterNo: customer.voter_no,
+            passportNo: customer.passport_no,
+            drivingLicenseNo: customer.driving_license_no,
+            zanidNo: customer.zanid_no,
+            phone: customer.phone,
+            alternatePhone: customer.alternate_phone,
+            fax: customer.fax,
+            email: customer.email,
+            country: customer.country,
+            countryCode: customer.country_code,
+            region: customer.region,
+            district: customer.district,
+            ward: customer.ward,
+            street: customer.street,
+            postalAddress: customer.postal_address,
+            contactName: customer.contact_name,
+            contactRole: customer.contact_role,
+            contactPhone: customer.contact_phone,
+            contactEmail: customer.contact_email,
+            kycStatus: customer.kyc_status,
+            kycVersion: customer.kyc_version,
+            status: customer.status,
           }
         : null,
     };
   }
 
-  private buildAssetSnapshot(
-    entry: QuotationCoverNoteEntry & {
-      motor_detail: QuotationMotorDetail | null;
-      subject_matters: QuotationSubjectMatter[];
-      risks: QuotationEntryRisk[];
-    },
-  ) {
+  private buildMotorSnapshot(motor: QuotationMotorDetail | null) {
+    if (!motor) {
+      return null;
+    }
+
     return {
+      id: motor.id,
+      motorCategory: motor.motor_category,
+      motorType: motor.motor_type,
+      registrationNumber: motor.registration_number,
+      chassisNumber: motor.chassis_number,
+      make: motor.make,
+      model: motor.model,
+      modelNumber: motor.model_number,
+      bodyType: motor.body_type,
+      color: motor.color,
+      engineNumber: motor.engine_number,
+      engineCapacity: motor.engine_capacity,
+      fuelUsed: motor.fuel_used,
+      numberOfAxles: motor.number_of_axles,
+      axleDistance: motor.axle_distance,
+      sittingCapacity: motor.sitting_capacity,
+      yearOfManufacture: motor.year_of_manufacture,
+      tareWeight: motor.tare_weight,
+      grossWeight: motor.gross_weight,
+      motorUsage: motor.motor_usage,
+      ownerName: motor.owner_name,
+      ownerCategory: motor.owner_category,
+      ownerAddress: motor.owner_address,
+    };
+  }
+
+  private findRiskAsset(
+    quotation: IssuableQuotation,
+    quotationRiskId: string,
+  ): QuotationRiskAsset | null {
+    return (
+      quotation.risk_assets?.find(
+        (item) => item.quotation_risk_id === quotationRiskId,
+      ) ?? null
+    );
+  }
+
+  private buildAssetSnapshot(
+    entry: IssuableEntry,
+    quotation: IssuableQuotation,
+  ) {
+    const subjectMatters = [...(entry.subject_matters ?? [])].sort(
+      (left, right) => left.sequence_no - right.sequence_no,
+    );
+    const risks = [...(entry.risks ?? [])].sort(
+      (left, right) => left.sequence_no - right.sequence_no,
+    );
+
+    return {
+      schemaVersion: 2,
       entryId: entry.id,
       entryNumber: entry.entry_number,
       entryType: entry.entry_type,
       fleetEntry: entry.fleet_entry,
       coverNoteNumber: entry.cover_note_number,
-      description: entry.cover_note_desc,
-      motor: entry.motor_detail
-        ? {
-            registrationNumber: entry.motor_detail.registration_number,
-            chassisNumber: entry.motor_detail.chassis_number,
-            make: entry.motor_detail.make,
-            model: entry.motor_detail.model,
-            usage: entry.motor_detail.motor_usage,
-            ownerName: entry.motor_detail.owner_name,
-          }
-        : null,
-      subjectMatters: entry.subject_matters.map((subject) => ({
+      previousCoverNoteReferenceNumber: entry.prev_cover_note_reference_number,
+      coverNoteDescription: entry.cover_note_desc,
+      operativeClause: entry.operative_clause,
+      endorsement: {
+        type: entry.endorsement_type,
+        reason: entry.endorsement_reason,
+        premiumEarned: entry.endorsement_premium_earned,
+      },
+      motor: this.buildMotorSnapshot(entry.motor_detail),
+      subjectMatters: subjectMatters.map((subject) => ({
         id: subject.id,
+        sequenceNo: subject.sequence_no,
         reference: subject.subject_matter_reference,
         description: subject.subject_matter_desc,
       })),
-      riskCodes: entry.risks.map((risk) => risk.risk_code),
+      risks: risks.map((risk) => {
+        const insuredAsset = this.findRiskAsset(quotation, risk.id);
+
+        return {
+          quotationRiskId: risk.id,
+          insuranceRiskId: risk.insurance_risk_id,
+          sequenceNo: risk.sequence_no,
+          riskCode: risk.risk_code,
+          sumInsured: risk.sum_insured,
+          insuredAsset: insuredAsset
+            ? {
+                insuredAssetId: insuredAsset.insured_asset_id,
+                assetType: insuredAsset.asset_type,
+                snapshotVersion: insuredAsset.asset_snapshot_version,
+                snapshotHash: insuredAsset.asset_snapshot_hash,
+                snapshot: insuredAsset.asset_snapshot,
+              }
+            : null,
+        };
+      }),
     };
   }
 
-  private buildEntryPricingSnapshot(
-    entry: QuotationCoverNoteEntry & {
-      risks: Array<
-        QuotationEntryRisk & {
-          discounts: QuotationRiskDiscount[];
-          taxes: QuotationRiskTax[];
-        }
-      >;
-    },
-  ) {
+  private buildEntryPricingSnapshot(entry: IssuableEntry) {
+    const risks = [...(entry.risks ?? [])].sort(
+      (left, right) => left.sequence_no - right.sequence_no,
+    );
+    const addons = [...(entry.addons ?? [])].sort(
+      (left, right) => left.sequence_no - right.sequence_no,
+    );
+
     return {
+      schemaVersion: 2,
       entryId: entry.id,
+      entryNumber: entry.entry_number,
       coverNoteNumber: entry.cover_note_number,
-      risks: entry.risks.map((risk) => ({
+      risks: risks.map((risk) => ({
         id: risk.id,
+        insuranceRiskId: risk.insurance_risk_id,
+        sequenceNo: risk.sequence_no,
         riskCode: risk.risk_code,
         pricingQuoteId: risk.pricing_quote_id,
         pricingResultHash: risk.pricing_result_hash,
@@ -987,37 +1248,106 @@ export class IssuanceService {
         premiumAfterDiscount: risk.premium_after_discount,
         premiumExcludingTaxEquivalent: risk.premium_excluding_tax_equivalent,
         premiumIncludingTax: risk.premium_including_tax,
-        discounts: risk.discounts.map((discount) => ({
-          discountType: discount.discount_type,
-          discountRate: discount.discount_rate,
-          discountAmount: discount.discount_amount,
-          approvedRate: discount.approved_rate,
-          approvedAmount: discount.approved_amount,
-        })),
-        taxes: risk.taxes.map((tax) => ({
-          taxCode: tax.tax_code,
-          taxRate: tax.tax_rate,
-          taxAmount: tax.tax_amount,
-        })),
+        discounts: [...(risk.discounts ?? [])]
+          .sort((left, right) => left.sequence_no - right.sequence_no)
+          .map((discount) => ({
+            id: discount.id,
+            sequenceNo: discount.sequence_no,
+            discountType: discount.discount_type,
+            discountRate: discount.discount_rate,
+            discountAmount: discount.discount_amount,
+            requestReasonCode: discount.request_reason_code,
+            requestComment: discount.request_comment,
+            effectiveFrom: discount.effective_from,
+            effectiveTo: discount.effective_to,
+            requestedBy: discount.requested_by,
+            requestedAt: discount.requested_at,
+            maxPermittedRate: discount.max_permitted_rate,
+            maxPermittedAmount: discount.max_permitted_amount,
+            approvalRequired: discount.approval_required,
+            approvalStatus: discount.approval_status,
+            approvedRate: discount.approved_rate,
+            approvedAmount: discount.approved_amount,
+            approvedBy: discount.approved_by,
+            approvalDate: discount.approval_date,
+            rejectionReason: discount.rejection_reason,
+          })),
+        premiumOverrides: [...(risk.premium_overrides ?? [])]
+          .sort((left, right) => left.sequence_no - right.sequence_no)
+          .map((override) => ({
+            id: override.id,
+            sequenceNo: override.sequence_no,
+            originalCalculatedPremium: override.original_calculated_premium,
+            proposedPremium: override.proposed_premium,
+            differenceAmount: override.difference_amount,
+            differencePercentage: override.difference_percentage,
+            overrideReason: override.override_reason,
+            supportingNotes: override.supporting_notes,
+            requestedBy: override.requested_by,
+            requestedAt: override.requested_at,
+            approvalStatus: override.approval_status,
+            approvedBy: override.approved_by,
+            approvedAt: override.approved_at,
+            rejectionReason: override.rejection_reason,
+          })),
+        taxes: [...(risk.taxes ?? [])]
+          .sort((left, right) => left.sequence_no - right.sequence_no)
+          .map((tax) => ({
+            id: tax.id,
+            sequenceNo: tax.sequence_no,
+            taxCode: tax.tax_code,
+            isTaxExempted: tax.is_tax_exempted,
+            taxExemptionType: tax.tax_exemption_type,
+            taxExemptionReference: tax.tax_exemption_reference,
+            taxRate: tax.tax_rate,
+            taxAmount: tax.tax_amount,
+          })),
+      })),
+      addons: addons.map((addon) => ({
+        id: addon.id,
+        sequenceNo: addon.sequence_no,
+        reference: addon.addon_reference,
+        description: addon.addon_desc,
+        amount: addon.addon_amount,
+        premiumRate: addon.addon_premium_rate,
+        premiumExcludingTax: addon.premium_excluding_tax,
+        premiumExcludingTaxEquivalent: addon.premium_excluding_tax_equivalent,
+        premiumIncludingTax: addon.premium_including_tax,
+        taxes: [...(addon.taxes ?? [])]
+          .sort((left, right) => left.sequence_no - right.sequence_no)
+          .map((tax) => ({
+            id: tax.id,
+            sequenceNo: tax.sequence_no,
+            taxCode: tax.tax_code,
+            isTaxExempted: tax.is_tax_exempted,
+            taxExemptionType: tax.tax_exemption_type,
+            taxExemptionReference: tax.tax_exemption_reference,
+            taxRate: tax.tax_rate,
+            taxAmount: tax.tax_amount,
+          })),
       })),
     };
   }
 
   private buildQuotationPricingSnapshot(quotation: IssuableQuotation) {
+    const entries = [...(quotation.cover_note.entries ?? [])].sort(
+      (left, right) => left.entry_number - right.entry_number,
+    );
+
     return {
+      schemaVersion: 2,
       quotationId: quotation.id,
       workflowRevision: quotation.workflow_revision,
       currencyCode: quotation.cover_note.currency_code,
       exchangeRate: quotation.cover_note.exchange_rate,
+      exchangeRateSnapshot: quotation.cover_note.exchange_rate_snapshot,
       totalPremiumExcludingTax:
         quotation.cover_note.total_premium_excluding_tax,
       totalPremiumIncludingTax:
         quotation.cover_note.total_premium_including_tax,
       commissionPaid: quotation.cover_note.commission_paid,
       commissionRate: quotation.cover_note.commission_rate,
-      entries: quotation.cover_note.entries.map((entry) =>
-        this.buildEntryPricingSnapshot(entry),
-      ),
+      entries: entries.map((entry) => this.buildEntryPricingSnapshot(entry)),
     };
   }
 
@@ -1039,12 +1369,118 @@ export class IssuanceService {
   }
 
   private buildAssetManifest(quotation: IssuableQuotation) {
+    const entries = [...(quotation.cover_note.entries ?? [])].sort(
+      (left, right) => left.entry_number - right.entry_number,
+    );
+
     return {
+      schemaVersion: 2,
       quotationId: quotation.id,
-      entryCount: quotation.cover_note.entries.length,
-      entries: quotation.cover_note.entries.map((entry) =>
-        this.buildAssetSnapshot(entry),
+      quotationFlow: quotation.quotation_flow,
+      isFleet: quotation.is_fleet,
+      entryCount: entries.length,
+      entries: entries.map((entry) =>
+        this.buildAssetSnapshot(entry, quotation),
       ),
+    };
+  }
+
+  private buildPolicyContractSnapshot(
+    policy: Policy,
+    quotation: IssuableQuotation,
+    coverNotes: CoverNote[],
+    tracking: TiramisSubmissionTrackingEntity,
+  ) {
+    const entries = [...(quotation.cover_note.entries ?? [])]
+      .sort((left, right) => left.entry_number - right.entry_number)
+      .map((entry) => ({
+        ...this.buildAssetSnapshot(entry, quotation),
+        pricing: this.buildEntryPricingSnapshot(entry),
+      }));
+
+    return {
+      schemaVersion: 2,
+      policyId: policy.id,
+      policyNo: policy.policy_no,
+      policyStatus: policy.policy_status,
+      policyReferenceNumber: policy.policy_reference_number,
+      coverNoteNo: policy.cover_note_no,
+      issueDate: policy.issue_date,
+      startDate: policy.start_date,
+      endDate: policy.end_date,
+      currency: policy.currency,
+      quotationId: quotation.id,
+      workflowRevision: quotation.workflow_revision,
+      source: {
+        quotationId: quotation.id,
+        quotationNo: quotation.quotation_no,
+        quotationType: quotation.quotation_type,
+        quotationFlow: quotation.quotation_flow,
+        isFleet: quotation.is_fleet,
+        workflowRevision: quotation.workflow_revision,
+        finalizationHash: quotation.finalization_hash,
+        finalizationSnapshot: quotation.finalization_snapshot,
+        customerSnapshotHash: quotation.customer_snapshot_hash,
+        workflowGateHash: quotation.workflow_gate_hash,
+        productDefinitionHash: quotation.product_definition_hash,
+      },
+      product: {
+        categoryId: quotation.category_id,
+        productId: quotation.product_id,
+        subClassId: quotation.sub_class_id,
+        productVersionId: quotation.product_version_id,
+        productDefinitionHash: quotation.product_definition_hash,
+        definition: quotation.product_definition_snapshot ?? null,
+      },
+      cover: {
+        coverNoteType: quotation.cover_note.cover_note_type,
+        salePointCode: quotation.cover_note.sale_point_code,
+        startDate: quotation.cover_note.cover_note_start_date,
+        endDate: quotation.cover_note.cover_note_end_date,
+        paymentMode: quotation.cover_note.payment_mode,
+        currencyCode: quotation.cover_note.currency_code,
+        exchangeRate: quotation.cover_note.exchange_rate,
+        exchangeRateSnapshot: quotation.cover_note.exchange_rate_snapshot,
+        officerName: quotation.cover_note.officer_name,
+        officerTitle: quotation.cover_note.officer_title,
+        productCode: quotation.cover_note.product_code,
+      },
+      customer: this.buildCustomerSnapshot(quotation),
+      policyHolder: this.buildCustomerSnapshot(quotation).policyHolder,
+      policyHolders: this.buildCustomerSnapshot(quotation).policyHolders,
+      entries,
+      assetManifest: this.buildAssetManifest(quotation),
+      pricing: this.buildQuotationPricingSnapshot(quotation),
+      totals: {
+        sumInsured: policy.sum_insured,
+        basicPremium: policy.basic_premium,
+        totalDiscount: policy.total_discount,
+        totalTax: policy.total_tax,
+        totalCharges: policy.total_charges,
+        totalCommission: policy.total_commission,
+        totalPremium: policy.total_premium,
+        netPremium: policy.net_premium,
+      },
+      coverNotes: coverNotes.map((item) => ({
+        id: item.id,
+        coverNoteNumber: item.cover_note_number,
+        coverNoteReferenceNumber: item.cover_note_reference_number,
+        stickerNumber: item.sticker_number,
+      })),
+      regulatory: {
+        trackingId: tracking.id,
+        requestId: policy.tiramis_request_id,
+        tiramisTransactionId: policy.tiramis_transaction_id,
+        portalSubmissionId: policy.tira_portal_transaction_id,
+        serviceType: policy.tiramis_service_type,
+        rootElement: policy.tiramis_root_element,
+        finalResponseId: policy.tiramis_final_response_id,
+        finalResponseStatusCode: policy.tiramis_final_response_status_code,
+        finalResponseStatusDescription:
+          policy.tiramis_final_response_status_desc,
+        currentCoverNoteReference: coverNotes[0]?.cover_note_reference_number,
+        regulatoryResponseHash: policy.regulatory_response_hash,
+      },
     };
   }
 

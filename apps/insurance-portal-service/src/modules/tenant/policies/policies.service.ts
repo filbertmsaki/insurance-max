@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
   DataSource,
+  In,
   ObjectLiteral,
   QueryFailedError,
   Repository,
@@ -40,7 +41,9 @@ import { UpdatePolicyDto } from './dto/update-policy.dto';
 import { PolicyPremiumBreakdown } from './entities/policy-premium-breakdown.entity';
 import { PolicyRisk } from './entities/policy-risk.entity';
 import { PolicyStatusHistory } from './entities/policy-status-history.entity';
+import { PolicyVersion } from './entities/policy-version.entity';
 import { Policy } from './entities/policy.entity';
+import { PolicyVersionDiffService } from './services/policy-version-diff.service';
 
 type NumericLike = number | string | null | undefined;
 
@@ -106,6 +109,7 @@ export class PoliciesService {
     private readonly userRepository: Repository<User>,
     private readonly dataAccessScopeService: DataAccessScopeService,
     private readonly quotationLifecycleService: QuotationLifecycleService,
+    private readonly policyVersionDiffService: PolicyVersionDiffService,
   ) {}
 
   private isDuplicateEntryError(error: unknown): boolean {
@@ -257,6 +261,18 @@ export class PoliciesService {
     });
     if (!policy) throw new NotFoundException('Policy not found');
     return policy;
+  }
+
+  private assertGenericMutationAllowed(policy: Policy): void {
+    if (!policy.issued_by_system) {
+      return;
+    }
+
+    throw new ConflictException(
+      'System-issued policies cannot be edited or deleted directly. ' +
+        'Use policy transactions such as endorsement, renewal, ' +
+        'cancellation, or administrative amendment.',
+    );
   }
 
   private async findScopedPolicyEntity(
@@ -781,6 +797,91 @@ export class PoliciesService {
     return this.findScopedPolicyEntity(user, id, false);
   }
 
+  async findCurrentVersionForUser(user: AuthenticatedUser, id: string) {
+    const policy = await this.findScopedPolicyEntity(user, id, false);
+
+    const repository = this.dataSource.getRepository(PolicyVersion);
+
+    if (policy.active_version_id) {
+      const active = await repository.findOne({
+        where: {
+          id: policy.active_version_id,
+          company_id: policy.company_id,
+          policy_id: policy.id,
+        },
+      });
+
+      if (active) {
+        return active;
+      }
+    }
+
+    return repository.findOne({
+      where: {
+        company_id: policy.company_id,
+        policy_id: policy.id,
+        is_current: true,
+      },
+      order: {
+        version_number: 'DESC',
+      },
+    });
+  }
+
+  async listVersionsForUser(user: AuthenticatedUser, policyId: string) {
+    await this.findScopedPolicyEntity(user, policyId, false);
+
+    return this.dataSource.getRepository(PolicyVersion).find({
+      where: {
+        company_id: user.companyId!,
+        policy_id: policyId,
+      },
+      order: {
+        version_number: 'DESC',
+      },
+    });
+  }
+
+  async compareVersionsForUser(
+    user: AuthenticatedUser,
+    policyId: string,
+    fromVersion: number,
+    toVersion: number,
+  ) {
+    await this.findScopedPolicyEntity(user, policyId, false);
+
+    const versions = await this.dataSource.getRepository(PolicyVersion).find({
+      where: {
+        company_id: user.companyId!,
+        policy_id: policyId,
+        version_number: In([fromVersion, toVersion]),
+      },
+    });
+    const from = versions.find((item) => item.version_number === fromVersion);
+    const to = versions.find((item) => item.version_number === toVersion);
+
+    if (!from || !to) {
+      throw new NotFoundException('Policy version was not found.');
+    }
+
+    return {
+      from: {
+        id: from.id,
+        version_number: from.version_number,
+        version_type: from.version_type,
+      },
+      to: {
+        id: to.id,
+        version_number: to.version_number,
+        version_type: to.version_type,
+      },
+      changes: this.policyVersionDiffService.compare(
+        from.policy_snapshot,
+        to.policy_snapshot,
+      ),
+    };
+  }
+
   async update(
     companyId: string,
     id: string,
@@ -788,6 +889,8 @@ export class PoliciesService {
     userId: string,
   ): Promise<Policy> {
     const policy = await this.ensurePolicyOwnership(companyId, id);
+    this.assertGenericMutationAllowed(policy);
+
     const merged = { ...policy, ...dto } as CreatePolicyDto;
     await this.validateScope(companyId, merged);
     const oldStatus = policy.policy_status;
@@ -924,6 +1027,8 @@ export class PoliciesService {
 
   async remove(companyId: string, id: string): Promise<void> {
     const policy = await this.ensurePolicyOwnership(companyId, id);
+    this.assertGenericMutationAllowed(policy);
+
     await this.dataSource.transaction(async (manager) => {
       await manager
         .getRepository(PolicyRisk)

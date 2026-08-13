@@ -6,6 +6,7 @@ import { Company } from '../../platform/companies/entities/company.entity';
 import { Customer } from '../customers/entities/customer.entity';
 import { WorkItemsModule } from '../work-items/work-items.module';
 import { Policy } from '../policies/entities/policy.entity';
+import { PolicyTransactionsModule } from '../policy-transactions/policy-transactions.module';
 import { ProductCommissionRule } from '../product-distribution/entities/product-commission-rule.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationsModule } from '../quotations/quotations.module';
@@ -43,6 +44,7 @@ import { CommissionAccrualService } from './services/commission-accrual.service'
 import { PaymentPayloadRedactionService } from './services/payment-payload-redaction.service';
 import { PaymentProviderRegistry } from './services/payment-provider.registry';
 import { PaymentTransactionProviderService } from './services/payment-transaction-provider.service';
+import { PolicyTransactionPaymentProjectionService } from './services/policy-transaction-payment-projection.service';
 import { ProviderWebhookService } from './services/provider-webhook.service';
 import { QuotationInvoiceService } from './services/quotation-invoice.service';
 import { QuotationPaymentEventService } from './services/quotation-payment-event.service';
@@ -55,6 +57,7 @@ import { ReceiptBalanceService } from './services/receipt-balance.service';
     SharedModule,
     WorkItemsModule,
     forwardRef(() => QuotationsModule),
+    forwardRef(() => PolicyTransactionsModule),
     TypeOrmModule.forFeature([
       Company,
       Customer,
@@ -107,6 +110,7 @@ import { ReceiptBalanceService } from './services/receipt-balance.service';
     QuotationInvoiceService,
     QuotationPaymentEventService,
     QuotationPaymentProjectionService,
+    PolicyTransactionPaymentProjectionService,
   ],
   exports: [
     BillingCommissionService,
@@ -127,6 +131,7 @@ import { ReceiptBalanceService } from './services/receipt-balance.service';
     QuotationInvoiceService,
     QuotationPaymentEventService,
     QuotationPaymentProjectionService,
+    PolicyTransactionPaymentProjectionService,
   ],
 })
 export class BillingCommissionModule {}

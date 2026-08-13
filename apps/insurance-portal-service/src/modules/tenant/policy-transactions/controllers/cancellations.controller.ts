@@ -5,6 +5,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
@@ -14,6 +15,7 @@ import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/
 
 import { CreateCancellationDto } from '../dto/create-cancellation.dto';
 import { ClaimsReviewDto } from '../dto/claims-review.dto';
+import { EndorsementEligibilityQueryDto } from '../dto/endorsement-eligibility-query.dto';
 import { ReasonDto } from '../dto/reason.dto';
 import { CancellationService } from '../services/cancellation.service';
 import { PolicyTransactionLifecycleService } from '../services/policy-transaction-lifecycle.service';
@@ -30,6 +32,23 @@ export class CancellationsController {
     private readonly submissionService: PolicyTransactionTiramisSubmissionService,
   ) {}
 
+  @Get('tenant/policies/:policyId/cancellation-eligibility')
+  @Permissions('cancellations:create')
+  @ApiOperation({
+    summary: 'Check whether the current issued policy can be cancelled',
+  })
+  eligibility(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('policyId', ParseUUIDPipe) policyId: string,
+    @Query() query: EndorsementEligibilityQueryDto,
+  ) {
+    return this.cancellationService.getEligibility(
+      user,
+      policyId,
+      query.effective_date,
+    );
+  }
+
   @Post('tenant/policies/:policyId/cancellations')
   @Permissions('cancellations:create')
   @ApiOperation({ summary: 'Request cancellation of an active policy' })
@@ -42,20 +61,30 @@ export class CancellationsController {
   }
 
   @Get('tenant/cancellations')
-  @Permissions('cancellations:create')
+  @Permissions('cancellations:read')
   @ApiOperation({ summary: 'List cancellations for the current company' })
   findAll(@CurrentUser() user: AuthenticatedUser) {
     return this.cancellationService.findAll(user.companyId!);
   }
 
   @Get('tenant/cancellations/:id')
-  @Permissions('cancellations:create')
+  @Permissions('cancellations:read')
   @ApiOperation({ summary: 'Get a cancellation by ID' })
   findOne(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.cancellationService.findOne(user.companyId!, id);
+  }
+
+  @Get('tenant/cancellations/:id/context')
+  @Permissions('cancellations:read')
+  @ApiOperation({ summary: 'Get a cancellation transaction with detail row' })
+  context(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.cancellationService.findContext(user.companyId!, id);
   }
 
   @Post('tenant/cancellations/:id/claims-review')

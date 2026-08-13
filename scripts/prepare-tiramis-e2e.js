@@ -2,6 +2,7 @@ require('ts-node/register');
 require('tsconfig-paths/register');
 
 const { createCipheriv, createHash, randomBytes } = require('crypto');
+const { hashPassword } = require('@insurance-max/portal-shared/utils/hash.util');
 
 process.env.NODE_ENV = process.env.NODE_ENV || 'e2e';
 
@@ -104,6 +105,38 @@ function encryptPortalApiKey(apiKey) {
   ].join(':');
 }
 
+function encryptTiramisSecret(plainText) {
+  const rawKey = process.env.TIRAMIS_SECRET_ENCRYPTION_KEY;
+
+  if (!rawKey) {
+    throw new Error(
+      'TIRAMIS_SECRET_ENCRYPTION_KEY is required to encrypt the TIRAMIS portal webhook API key.',
+    );
+  }
+
+  const key = Buffer.from(rawKey, 'base64');
+
+  if (key.length !== 32) {
+    throw new Error('TIRAMIS_SECRET_ENCRYPTION_KEY must be a base64 32-byte key.');
+  }
+
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([
+    cipher.update(plainText, 'utf8'),
+    cipher.final(),
+  ]);
+  const tag = cipher.getAuthTag();
+
+  return [
+    'enc',
+    'v1',
+    iv.toString('base64'),
+    tag.toString('base64'),
+    encrypted.toString('base64'),
+  ].join(':');
+}
+
 async function provisionLocalPortalApiKey() {
   await portalDataSource.initialize();
   await tiramisDataSource.initialize();
@@ -187,6 +220,83 @@ async function provisionLocalPortalApiKey() {
       WHERE slug = $1
       `,
       [ALLIANCE_TENANT.slug],
+    );
+
+    const portalWebhookClientId =
+      process.env.E2E_PORTAL_WEBHOOK_CLIENT_ID ||
+      'iam_tiramis_portal_webhook_local';
+    const portalWebhookClientSecret =
+      process.env.E2E_PORTAL_WEBHOOK_CLIENT_SECRET ||
+      'local-tiramis-portal-webhook-secret';
+    const portalWebhookApiKey = `${portalWebhookClientId}.${portalWebhookClientSecret}`;
+    const portalWebhookSecretHash = await hashPassword(
+      portalWebhookClientSecret,
+    );
+
+    await portalDataSource.query(
+      `
+      INSERT INTO api_clients (
+        company_id,
+        name,
+        client_id,
+        key_prefix,
+        client_secret_hash,
+        scopes,
+        status,
+        client_type,
+        environment,
+        description,
+        ip_whitelist,
+        rate_limit_per_minute,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        NULL,
+        'TIRAMIS Portal Webhook Local E2E',
+        $1,
+        'IMX_TIRAMIS',
+        $2,
+        ARRAY['tiramis:notify'],
+        'ACTIVE',
+        'INTERNAL_SERVICE',
+        'DEVELOPMENT',
+        'Auto-provisioned during scripts/prepare-tiramis-e2e.js',
+        $3::jsonb,
+        120,
+        now(),
+        now()
+      )
+      ON CONFLICT (client_id)
+      DO UPDATE SET
+        client_secret_hash = EXCLUDED.client_secret_hash,
+        scopes = EXCLUDED.scopes,
+        status = EXCLUDED.status,
+        client_type = EXCLUDED.client_type,
+        environment = EXCLUDED.environment,
+        ip_whitelist = EXCLUDED.ip_whitelist,
+        updated_at = now()
+      `,
+      [
+        portalWebhookClientId,
+        portalWebhookSecretHash,
+        JSON.stringify(['127.0.0.1', '::1']),
+      ],
+    );
+
+    await tiramisDataSource.query(
+      `
+      UPDATE tiramis_client_configurations
+      SET
+        portal_webhook_api_key_encrypted = $1,
+        updated_at = now()
+      WHERE environment = 'test'
+        AND company_code = $2
+      `,
+      [
+        encryptTiramisSecret(portalWebhookApiKey),
+        ALLIANCE_TENANT.companyCode,
+      ],
     );
   } finally {
     if (portalDataSource.isInitialized) {

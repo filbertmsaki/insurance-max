@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select,
   SelectContent,
@@ -100,6 +101,8 @@ export function CoverNoteSetupStep({
     is_active: true,
   });
   const coverNoteType = form.watch('cover_note_type');
+  const isRenewalMode = coverNoteType === '2';
+  const lockRegulatoryRenewalFields = isEndorsementMode || isRenewalMode;
   const channelType = form.watch('channel_type');
   const productId = form.watch('product_id');
   const requiresStandardCoverNoteFields = quotationFlow !== 'MOTOR_FLEET';
@@ -463,6 +466,16 @@ export function CoverNoteSetupStep({
 
   return (
     <>
+      {isRenewalMode && (
+        <Alert>
+          <AlertTitle>Policy Renewal</AlertTitle>
+          <AlertDescription>
+            This quotation is renewing an existing policy. Current product
+            configuration and current pricing rules will be used for the new
+            insurance period.
+          </AlertDescription>
+        </Alert>
+      )}
       <StepSection
         title={title}
         first={firstSection}
@@ -778,7 +791,7 @@ export function CoverNoteSetupStep({
               <FormLabel>Cover Note Type (required)</FormLabel>
               <Select
                 value={toSelectValue(field.value)}
-                disabled={isEndorsementMode}
+                disabled={lockRegulatoryRenewalFields}
                 onValueChange={(value) => {
                   field.onChange(fromSelectValue(value));
                   if (value === SELECT_NONE_VALUE) {
@@ -805,9 +818,9 @@ export function CoverNoteSetupStep({
                   ))}
                 </SelectContent>
               </Select>
-              {isEndorsementMode ? (
+              {lockRegulatoryRenewalFields ? (
                 <p className="text-xs text-slate-500">
-                  Endorsement mode is fixed from the completed quotation.
+                  This regulatory value is fixed by the source transaction.
                 </p>
               ) : null}
             </WizardFormItem>
@@ -822,7 +835,7 @@ export function CoverNoteSetupStep({
               <WizardFormItem>
                 <FormLabel>Previous Cover Note Reference (required)</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input {...field} disabled={lockRegulatoryRenewalFields} />
                 </FormControl>
                 <FormMessage />
               </WizardFormItem>

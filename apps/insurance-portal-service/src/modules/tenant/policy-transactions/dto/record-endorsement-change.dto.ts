@@ -33,23 +33,39 @@ export class RecordEndorsementChangeDto {
   @IsUUID()
   resource_id?: string;
 
-  @ApiProperty()
-  old_value: unknown;
+  @ApiPropertyOptional({
+    description:
+      'Informational only. Backend resolves the authoritative original value.',
+  })
+  @IsOptional()
+  old_value?: unknown;
 
   @ApiProperty()
   new_value: unknown;
 
-  @ApiPropertyOptional({ default: true })
+  @ApiPropertyOptional({
+    default: true,
+    description:
+      'Informational only. Backend resolves whether the change is material.',
+  })
   @IsOptional()
   @IsBoolean()
   is_material?: boolean;
 
-  @ApiPropertyOptional({ default: true })
+  @ApiPropertyOptional({
+    default: true,
+    description:
+      'Informational only. Backend resolves whether repricing is required.',
+  })
   @IsOptional()
   @IsBoolean()
   requires_repricing?: boolean;
 
-  @ApiPropertyOptional({ default: true })
+  @ApiPropertyOptional({
+    default: true,
+    description:
+      'Informational only. Backend resolves whether regulatory submission is required.',
+  })
   @IsOptional()
   @IsBoolean()
   requires_regulatory_submission?: boolean;

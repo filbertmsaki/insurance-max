@@ -1,7 +1,11 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ProductDefinitionModule } from '@insurance-max/shared-kernel';
 
 import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-generator.service';
+import { CompanyConfigsModule } from '../../platform/company-configs/company-configs.module';
+import { InsuranceProductsModule } from '../insurance-products/insurance-products.module';
+import { QuotationsModule } from '../quotations/quotations.module';
 import { InsuranceClaim } from '../claims/entities/claim.entity';
 import { Company } from '../../platform/companies/entities/company.entity';
 import { User } from '../users/entities/user.entity';
@@ -15,7 +19,13 @@ import { Quotation } from '../quotations/entities/quotation.entity';
 import { PortalServiceRequest } from '../portal/entities/portal-service-request.entity';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { InvoiceItem } from '../billing-commission/entities/invoice-item.entity';
+import { FinanceRefund } from '../billing-commission/entities/finance-refund.entity';
+import { Receipt } from '../billing-commission/entities/receipt.entity';
+import { ReceiptAllocation } from '../billing-commission/entities/receipt-allocation.entity';
+import { PricingModule } from '../pricing/pricing.module';
+import { PricingQuote } from '../pricing/entities/pricing-quote.entity';
 import { TiramisIntegrationModule } from '../tiramis-integration/tiramis-integration.module';
+import { DocumentLink } from '../insurance-documents/entities/document-link.entity';
 
 import { EndorsementType } from './entities/endorsement-type.entity';
 import { PolicyTransaction } from './entities/policy-transaction.entity';
@@ -28,6 +38,7 @@ import { PolicyRenewal } from './entities/policy-renewal.entity';
 import { PolicyTransactionEligibilityService } from './services/policy-transaction-eligibility.service';
 import { ProposedPolicySnapshotService } from './services/proposed-policy-snapshot.service';
 import { EndorsementPricingService } from './services/endorsement-pricing.service';
+import { EndorsementRepricingService } from './services/endorsement-repricing.service';
 import { CancellationPricingService } from './services/cancellation-pricing.service';
 import { RenewalEligibilityService } from './services/renewal-eligibility.service';
 import { PolicyTransactionLifecycleService } from './services/policy-transaction-lifecycle.service';
@@ -41,6 +52,12 @@ import { PolicyTransactionInvoiceService } from './services/policy-transaction-i
 import { PolicyTransactionApplyService } from './services/policy-transaction-apply.service';
 import { PolicyTransactionTiramisPayloadService } from './services/policy-transaction-tiramis-payload.service';
 import { PolicyTransactionTiramisSubmissionService } from './services/policy-transaction-tiramis-submission.service';
+import { PolicyTransactionRegulatoryOutcomeService } from './services/policy-transaction-regulatory-outcome.service';
+import { PolicyTransactionReturnPremiumService } from './services/policy-transaction-return-premium.service';
+import { EndorsementReconciliationService } from './services/endorsement-reconciliation.service';
+import { PolicyTransactionRefundProjectionService } from './services/policy-transaction-refund-projection.service';
+import { PolicyCancellationConfigService } from './services/policy-cancellation-config.service';
+import { RenewalQuotationFactoryService } from './services/renewal-quotation-factory.service';
 
 import { PolicyTransactionsController } from './controllers/policy-transactions.controller';
 import { EndorsementsController } from './controllers/endorsements.controller';
@@ -51,6 +68,11 @@ import { AdministrativeAmendmentController } from './controllers/administrative-
 
 @Module({
   imports: [
+    PricingModule,
+    CompanyConfigsModule,
+    ProductDefinitionModule,
+    InsuranceProductsModule,
+    forwardRef(() => QuotationsModule),
     TypeOrmModule.forFeature([
       PolicyTransaction,
       PolicyTransactionChange,
@@ -64,12 +86,17 @@ import { AdministrativeAmendmentController } from './controllers/administrative-
       PolicyPremiumBreakdown,
       PolicyStatusHistory,
       PolicyVersion,
+      PricingQuote,
       InsuranceProductVersion,
       InsuranceClaim,
       Quotation,
       PortalServiceRequest,
       Invoice,
       InvoiceItem,
+      FinanceRefund,
+      Receipt,
+      ReceiptAllocation,
+      DocumentLink,
       Company,
       User,
     ]),
@@ -88,6 +115,7 @@ import { AdministrativeAmendmentController } from './controllers/administrative-
     PolicyTransactionEligibilityService,
     ProposedPolicySnapshotService,
     EndorsementPricingService,
+    EndorsementRepricingService,
     CancellationPricingService,
     RenewalEligibilityService,
     PolicyTransactionLifecycleService,
@@ -101,6 +129,12 @@ import { AdministrativeAmendmentController } from './controllers/administrative-
     PolicyTransactionApplyService,
     PolicyTransactionTiramisPayloadService,
     PolicyTransactionTiramisSubmissionService,
+    PolicyTransactionRegulatoryOutcomeService,
+    PolicyTransactionReturnPremiumService,
+    EndorsementReconciliationService,
+    PolicyTransactionRefundProjectionService,
+    PolicyCancellationConfigService,
+    RenewalQuotationFactoryService,
   ],
   exports: [
     PolicyTransactionLifecycleService,
@@ -112,6 +146,10 @@ import { AdministrativeAmendmentController } from './controllers/administrative-
     EndorsementTypesService,
     PolicyTransactionApplyService,
     PolicyTransactionTiramisSubmissionService,
+    PolicyTransactionRegulatoryOutcomeService,
+    PolicyTransactionReturnPremiumService,
+    EndorsementReconciliationService,
+    PolicyTransactionRefundProjectionService,
   ],
 })
 export class PolicyTransactionsModule {}

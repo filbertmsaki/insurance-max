@@ -13,14 +13,49 @@ import { API_MAX_LIST_LIMIT } from '@/modules/shared/api/limits';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { policiesApi } from './api';
 import { buildPolicyPayload, type PolicyFormSchemaValues } from './schemas';
-import type { PolicyListParams, PolicyRecord } from './types';
+import type {
+  CreateCancellationPayload,
+  CreateEndorsementPayload,
+  PolicyListParams,
+  PolicyRecord,
+  RecordEndorsementChangePayload,
+} from './types';
 
 const policyKeys = {
   all: ['policies'] as const,
   list: (params: PolicyListParams) => ['policies', 'list', params] as const,
   detail: (id: string) => ['policies', 'detail', id] as const,
+  currentVersion: (id: string) =>
+    ['policies', 'detail', id, 'current-version'] as const,
+  versions: (id: string) => ['policies', 'detail', id, 'versions'] as const,
+  endorsementEligibility: (id: string, effectiveDate?: string) =>
+    [
+      'policies',
+      'detail',
+      id,
+      'endorsement-eligibility',
+      effectiveDate,
+    ] as const,
+  cancellationEligibility: (id: string, effectiveDate?: string) =>
+    [
+      'policies',
+      'detail',
+      id,
+      'cancellation-eligibility',
+      effectiveDate,
+    ] as const,
+  cancellationContext: (id: string) =>
+    ['policies', 'cancellation-context', id] as const,
+  renewalEligibility: (id: string) =>
+    ['policies', 'detail', id, 'renewal-eligibility'] as const,
+  renewalContext: (id: string) => ['policies', 'renewal-context', id] as const,
+  endorsementTypes: ['policies', 'endorsement-types'] as const,
+  endorsementContext: (id: string) =>
+    ['policies', 'endorsement-context', id] as const,
   endorsements: (policyId: string) =>
     ['policies', 'detail', policyId, 'endorsements'] as const,
+  endorsementReconciliation: (id: string) =>
+    ['policies', 'endorsement-reconciliation', id] as const,
   risks: (id: string) => ['policies', 'risks', id] as const,
   breakdowns: (id: string) => ['policies', 'breakdowns', id] as const,
   history: (id: string) => ['policies', 'history', id] as const,
@@ -103,6 +138,57 @@ export function usePolicyDetail(id?: string) {
   });
 }
 
+export function usePolicyCurrentVersion(id?: string) {
+  return useQuery({
+    queryKey: id
+      ? policyKeys.currentVersion(id)
+      : policyKeys.currentVersion(''),
+    queryFn: () => policiesApi.getCurrentVersion(id!),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+}
+
+export function usePolicyVersions(id?: string) {
+  return useQuery({
+    queryKey: id ? policyKeys.versions(id) : policyKeys.versions(''),
+    queryFn: () => policiesApi.getPolicyVersions(id!),
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+}
+
+export function useEndorsementReconciliation(
+  endorsementId?: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: endorsementId
+      ? policyKeys.endorsementReconciliation(endorsementId)
+      : policyKeys.endorsementReconciliation(''),
+    queryFn: () => policiesApi.getEndorsementReconciliation(endorsementId!),
+    enabled: !!endorsementId && enabled,
+    staleTime: 15_000,
+  });
+}
+
+export function useReconcileEndorsement(endorsementId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => policiesApi.reconcileEndorsement(endorsementId!),
+    onSuccess: () => {
+      if (endorsementId) {
+        qc.invalidateQueries({
+          queryKey: policyKeys.endorsementReconciliation(endorsementId),
+        });
+      }
+      qc.invalidateQueries({ queryKey: policyKeys.all });
+      toast.success('Endorsement reconciliation completed');
+    },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
+  });
+}
+
 export function usePolicyEndorsements(policyId?: string, enabled = true) {
   return useQuery({
     queryKey: policyId
@@ -111,6 +197,251 @@ export function usePolicyEndorsements(policyId?: string, enabled = true) {
     queryFn: () => policiesApi.getEndorsements(policyId!),
     enabled: !!policyId && enabled,
     staleTime: 30_000,
+  });
+}
+
+export function useEndorsementEligibility(
+  policyId?: string,
+  effectiveDate?: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: policyId
+      ? policyKeys.endorsementEligibility(policyId, effectiveDate)
+      : policyKeys.endorsementEligibility('', effectiveDate),
+    queryFn: () =>
+      policiesApi.getEndorsementEligibility(policyId!, effectiveDate),
+    enabled: !!policyId && enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useCancellationEligibility(
+  policyId?: string,
+  effectiveDate?: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: policyId
+      ? policyKeys.cancellationEligibility(policyId, effectiveDate)
+      : policyKeys.cancellationEligibility('', effectiveDate),
+    queryFn: () =>
+      policiesApi.getCancellationEligibility(policyId!, effectiveDate),
+    enabled: !!policyId && enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useCreateCancellation(policyId?: string) {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: CreateCancellationPayload) =>
+      policiesApi.createCancellation(policyId!, payload),
+    onSuccess: (cancellation) => {
+      if (policyId) {
+        qc.invalidateQueries({ queryKey: policyKeys.detail(policyId) });
+        qc.invalidateQueries({
+          queryKey: policyKeys.cancellationEligibility(policyId),
+        });
+      }
+      qc.setQueryData(
+        policyKeys.cancellationContext(cancellation.id),
+        cancellation,
+      );
+      toast.success('Cancellation draft created');
+    },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
+  });
+}
+
+export function useRenewalEligibility(policyId?: string, enabled = true) {
+  return useQuery({
+    queryKey: policyId
+      ? policyKeys.renewalEligibility(policyId)
+      : policyKeys.renewalEligibility(''),
+    queryFn: () => policiesApi.getRenewalEligibility(policyId!),
+    enabled: !!policyId && enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useCreateRenewal(policyId?: string) {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => policiesApi.createRenewal(policyId!),
+    onSuccess: () => {
+      if (policyId) {
+        qc.invalidateQueries({ queryKey: policyKeys.detail(policyId) });
+        qc.invalidateQueries({
+          queryKey: policyKeys.renewalEligibility(policyId),
+        });
+      }
+      toast.success('Renewal candidate created');
+    },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
+  });
+}
+
+export function useRenewalContext(renewalId?: string) {
+  return useQuery({
+    queryKey: renewalId
+      ? policyKeys.renewalContext(renewalId)
+      : policyKeys.renewalContext(''),
+    queryFn: () => policiesApi.getRenewalContext(renewalId!),
+    enabled: !!renewalId,
+    staleTime: 15_000,
+  });
+}
+
+export function useCancellationContext(cancellationId?: string) {
+  return useQuery({
+    queryKey: cancellationId
+      ? policyKeys.cancellationContext(cancellationId)
+      : policyKeys.cancellationContext(''),
+    queryFn: () => policiesApi.getCancellationContext(cancellationId!),
+    enabled: !!cancellationId,
+    staleTime: 15_000,
+    refetchInterval: (query) => {
+      const status = query.state.data?.transaction?.submission_status;
+
+      return ['PROCESSING', 'SUBMITTED'].includes(String(status))
+        ? 3000
+        : false;
+    },
+  });
+}
+
+export function useCompleteCancellation(cancellationId?: string) {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => policiesApi.completeCancellation(cancellationId!),
+    onSuccess: () => {
+      if (cancellationId) {
+        qc.invalidateQueries({
+          queryKey: policyKeys.cancellationContext(cancellationId),
+        });
+      }
+      toast.success('Cancellation completed');
+    },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
+  });
+}
+
+export function useIssueCancellation(policyId?: string) {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (cancellationId: string) =>
+      policiesApi.submitCancellationToTiramis(cancellationId),
+    onSuccess: (_data, cancellationId) => {
+      qc.invalidateQueries({
+        queryKey: policyKeys.cancellationContext(cancellationId),
+      });
+
+      if (policyId) {
+        qc.invalidateQueries({ queryKey: policyKeys.detail(policyId) });
+        qc.invalidateQueries({ queryKey: policyKeys.currentVersion(policyId) });
+        qc.invalidateQueries({ queryKey: policyKeys.versions(policyId) });
+      }
+      toast.success('Cancellation issuance started');
+    },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
+  });
+}
+
+export function useEndorsementTypes() {
+  return useQuery({
+    queryKey: policyKeys.endorsementTypes,
+    queryFn: () => policiesApi.getEndorsementTypes(),
+    staleTime: 60_000,
+  });
+}
+
+export function useEndorsementContext(endorsementId?: string) {
+  return useQuery({
+    queryKey: endorsementId
+      ? policyKeys.endorsementContext(endorsementId)
+      : policyKeys.endorsementContext(''),
+    queryFn: () => policiesApi.getEndorsementContext(endorsementId!),
+    enabled: !!endorsementId,
+    staleTime: 15_000,
+    refetchInterval: (query) => {
+      const submissionStatus = query.state.data?.transaction?.submission_status;
+
+      if (['PROCESSING', 'SUBMITTED'].includes(String(submissionStatus))) {
+        return 3000;
+      }
+
+      return false;
+    },
+  });
+}
+
+export function useIssueEndorsement() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: (endorsementId: string) =>
+      policiesApi.submitEndorsementToTiramis(endorsementId),
+    onSuccess: (_data, endorsementId) => {
+      qc.invalidateQueries({
+        queryKey: policyKeys.endorsementContext(endorsementId),
+      });
+    },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
+  });
+}
+
+export function useCreateEndorsement(policyId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateEndorsementPayload) =>
+      policiesApi.createEndorsement(policyId!, payload),
+    onSuccess: (endorsement) => {
+      if (policyId) {
+        qc.invalidateQueries({ queryKey: policyKeys.endorsements(policyId) });
+        qc.invalidateQueries({ queryKey: policyKeys.detail(policyId) });
+      }
+      qc.setQueryData(policyKeys.endorsementContext(endorsement.id), undefined);
+      toast.success('Endorsement draft created');
+    },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
+  });
+}
+
+export function useRecordEndorsementChange(endorsementId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: RecordEndorsementChangePayload) =>
+      policiesApi.recordEndorsementChange(endorsementId!, payload),
+    onSuccess: () => {
+      if (endorsementId) {
+        qc.invalidateQueries({
+          queryKey: policyKeys.endorsementContext(endorsementId),
+        });
+      }
+      toast.success('Change saved');
+    },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
+  });
+}
+
+export function useRecalculateEndorsement(endorsementId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => policiesApi.recalculateEndorsement(endorsementId!),
+    onSuccess: () => {
+      if (endorsementId) {
+        qc.invalidateQueries({
+          queryKey: policyKeys.endorsementContext(endorsementId),
+        });
+      }
+      toast.success('Endorsement recalculated');
+    },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
   });
 }
 
@@ -151,8 +482,11 @@ export function useSubmitPolicyEndorsementToTiramis(policyId?: string) {
       if (policyId) {
         qc.invalidateQueries({ queryKey: policyKeys.endorsements(policyId) });
         qc.invalidateQueries({ queryKey: policyKeys.detail(policyId) });
+        qc.invalidateQueries({
+          queryKey: policyKeys.currentVersion(policyId),
+        });
       }
-      toast.success('Endorsement submitted to TIRAMIS');
+      toast.success('Endorsement issuance started');
     },
     onError: (e) => toast.error(getApiErrorMessage(e)),
   });
@@ -167,8 +501,11 @@ export function useRetryPolicyEndorsementTiramis(policyId?: string) {
       if (policyId) {
         qc.invalidateQueries({ queryKey: policyKeys.endorsements(policyId) });
         qc.invalidateQueries({ queryKey: policyKeys.detail(policyId) });
+        qc.invalidateQueries({
+          queryKey: policyKeys.currentVersion(policyId),
+        });
       }
-      toast.success('Endorsement TIRAMIS submission retried');
+      toast.success('Endorsement issuance retried');
     },
     onError: (e) => toast.error(getApiErrorMessage(e)),
   });

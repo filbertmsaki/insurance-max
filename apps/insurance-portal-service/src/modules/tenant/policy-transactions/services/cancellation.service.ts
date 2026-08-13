@@ -4,14 +4,14 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
+import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
-  CancellationMethod,
   CancellationReasonType,
   InvoiceSourceType,
   PolicyTransactionEventType,
+  PolicyTransactionPremiumEffect,
   PolicyTransactionType,
 } from '@insurance-max/contracts';
 
@@ -24,12 +24,12 @@ import { PolicyTransactionEligibilityService } from './policy-transaction-eligib
 import { CancellationPricingService } from './cancellation-pricing.service';
 import { PolicyTransactionLifecycleService } from './policy-transaction-lifecycle.service';
 import { PolicyTransactionInvoiceService } from './policy-transaction-invoice.service';
+import { PolicyCancellationConfigService } from './policy-cancellation-config.service';
 
 export interface CreateCancellationInput {
   effective_date: string;
   reason_type: CancellationReasonType;
   reason: string;
-  requested_method?: CancellationMethod;
   idempotency_key: string;
 }
 
@@ -47,9 +47,68 @@ export class CancellationService {
     private readonly pricingService: CancellationPricingService,
     private readonly lifecycleService: PolicyTransactionLifecycleService,
     private readonly identifierService: IdentifierGeneratorService,
-    private readonly configService: ConfigService,
     private readonly invoiceService: PolicyTransactionInvoiceService,
+    private readonly cancellationConfigService: PolicyCancellationConfigService,
+    private readonly hashService: ProductDefinitionHashService,
   ) {}
+
+  async getEligibility(
+    user: AuthenticatedUser,
+    policyId: string,
+    effectiveDate?: string,
+  ) {
+    const policy = await this.policyRepository.findOne({
+      where: {
+        id: policyId,
+        company_id: user.companyId!,
+      },
+    });
+
+    if (!policy) {
+      throw new BadRequestException('Policy not found');
+    }
+
+    const result = await this.dataSource.transaction((manager) =>
+      this.eligibilityService.validate(
+        manager,
+        policy,
+        PolicyTransactionType.CANCELLATION,
+        effectiveDate,
+      ),
+    );
+    const currentVersion = result.currentVersion;
+
+    return {
+      eligible: result.eligible,
+      blockers: result.blockers,
+      claimsReviewRequired: result.claimsReviewRequired,
+      policy: {
+        id: policy.id,
+        policy_no: policy.policy_no,
+        policy_status: policy.policy_status,
+        quotation_id: policy.quotation_id,
+        start_date: policy.start_date,
+        end_date: policy.end_date,
+        currency: policy.currency,
+        pending_transaction_id: policy.pending_transaction_id,
+        cover_note_no: policy.cover_note_no,
+        tira_status: policy.tira_status,
+      },
+      current_version: currentVersion
+        ? {
+            id: currentVersion.id,
+            version_number: currentVersion.version_number,
+            version_type: currentVersion.version_type,
+            effective_from: currentVersion.effective_from,
+            effective_to: currentVersion.effective_to,
+            regulatory_reference: currentVersion.regulatory_reference,
+            snapshot_schema_version: Number(
+              currentVersion.policy_snapshot?.['schemaVersion'] ?? 1,
+            ),
+          }
+        : null,
+    };
+  }
 
   async create(
     user: AuthenticatedUser,
@@ -98,15 +157,91 @@ export class CancellationService {
 
       // Cancellation method is always resolved from configuration — never
       // taken verbatim from the requesting client (§13.17).
-      const cancellationMethod = this.resolveCancellationMethod();
+      const rule = await this.cancellationConfigService.resolve(
+        user.companyId!,
+        dto.reason_type,
+      );
+      const currentVersion = eligibility.currentVersion!;
+      const previousCoverNoteReference =
+        currentVersion.regulatory_reference ?? policy.cover_note_no;
+
+      if (!previousCoverNoteReference) {
+        throw new UnprocessableEntityException(
+          'The current TIRAMIS cover-note reference is missing.',
+        );
+      }
 
       const pricing = this.pricingService.calculate({
         policyStartDate: policy.start_date,
         policyEndDate: policy.end_date,
         cancellationEffectiveDate: dto.effective_date,
         grossWrittenPremium: policy.total_premium,
-        cancellationMethod,
+        cancellationMethod: rule.cancellationMethod,
+        cancellationCharge: rule.cancellationCharge,
+        minimumRetainedPremium: rule.minimumRetainedPremium,
       });
+      const premiumEffect =
+        Number(pricing.refundAmount) > 0
+          ? PolicyTransactionPremiumEffect.CREDIT
+          : Number(pricing.amountDue) > 0
+            ? PolicyTransactionPremiumEffect.DEBIT
+            : PolicyTransactionPremiumEffect.NONE;
+      const ruleSnapshot = {
+        cancellationMethod: rule.cancellationMethod,
+        cancellationCharge: rule.cancellationCharge,
+        minimumRetainedPremium: rule.minimumRetainedPremium,
+        tiraEndorsementType: rule.tiraEndorsementType,
+        requireApproval: rule.requireApproval,
+      };
+      const pricingSnapshot = {
+        schemaVersion: 1,
+        calculationType: 'POLICY_CANCELLATION',
+        policyStartDate: policy.start_date,
+        policyEndDate: policy.end_date,
+        effectiveDate: dto.effective_date,
+        policyDays: pricing.policyDays,
+        daysOnRisk: pricing.daysOnRisk,
+        remainingDays: pricing.remainingDays,
+        grossWrittenPremium: policy.total_premium,
+        earnedPremium: pricing.earnedPremium,
+        unearnedPremium: pricing.unearnedPremium,
+        cancellationCharge: pricing.cancellationCharge,
+        refundAmount: pricing.refundAmount,
+        amountDue: pricing.amountDue,
+        premiumEffect,
+        rule: ruleSnapshot,
+        sourcePolicyVersionPricingSnapshot: currentVersion.pricing_snapshot,
+        sourcePolicyVersionPricingHash: currentVersion.pricing_result_hash,
+      };
+      const pricingSnapshotHash =
+        this.hashService.hashDefinition(pricingSnapshot);
+      const proposedPolicySnapshot = JSON.parse(
+        JSON.stringify(currentVersion.policy_snapshot),
+      ) as Record<string, unknown>;
+
+      proposedPolicySnapshot['policyStatus'] = 'CANCELLED';
+      proposedPolicySnapshot['cancellation'] = {
+        reasonType: dto.reason_type,
+        reason: dto.reason.trim(),
+        effectiveDate: dto.effective_date,
+        method: rule.cancellationMethod,
+        earnedPremium: pricing.earnedPremium,
+        unearnedPremium: pricing.unearnedPremium,
+        cancellationCharge: pricing.cancellationCharge,
+        refundAmount: pricing.refundAmount,
+        amountDue: pricing.amountDue,
+        previousCoverNoteReference,
+      };
+
+      const cover = proposedPolicySnapshot['cover'];
+
+      if (cover && typeof cover === 'object' && !Array.isArray(cover)) {
+        (cover as Record<string, unknown>)['endDate'] = dto.effective_date;
+      }
+
+      const proposedPolicySnapshotHash = this.hashService.hashDefinition(
+        proposedPolicySnapshot,
+      );
 
       const transactionNo =
         await this.identifierService.generatePolicyTransactionNumber(
@@ -120,25 +255,35 @@ export class CancellationService {
         transaction_no: transactionNo,
         transaction_type: PolicyTransactionType.CANCELLATION,
         source_policy_id: policy.id,
-        source_policy_version_id: eligibility.currentVersion!.id,
-        source_policy_version_no: eligibility.currentVersion!.version_number,
-        source_policy_snapshot: eligibility.currentVersion!.policy_snapshot,
-        source_policy_snapshot_hash:
-          eligibility.currentVersion!.policy_snapshot_hash,
+        source_policy_version_id: currentVersion.id,
+        source_policy_version_no: currentVersion.version_number,
+        source_policy_snapshot: currentVersion.policy_snapshot,
+        source_policy_snapshot_hash: currentVersion.policy_snapshot_hash,
+        proposed_policy_snapshot: proposedPolicySnapshot,
+        proposed_policy_snapshot_hash: proposedPolicySnapshotHash,
         effective_date: dto.effective_date,
         reason: dto.reason.trim(),
         requested_by: user.id,
         currency_code: policy.currency,
         idempotency_key: dto.idempotency_key,
+        premium_effect: premiumEffect,
         return_premium: pricing.refundAmount,
         additional_premium: pricing.amountDue,
+        net_premium_difference:
+          Number(pricing.amountDue) > 0
+            ? pricing.amountDue
+            : Number(pricing.refundAmount) > 0
+              ? `-${pricing.refundAmount}`
+              : '0.0000',
+        pricing_snapshot: pricingSnapshot,
+        pricing_snapshot_hash: pricingSnapshotHash,
       });
 
       await manager.getRepository(PolicyCancellation).save({
         company_id: user.companyId!,
         policy_transaction_id: transaction.id,
         reason_type: dto.reason_type,
-        cancellation_method: cancellationMethod,
+        cancellation_method: rule.cancellationMethod,
         requested_effective_date: dto.effective_date,
         policy_days: pricing.policyDays,
         days_on_risk: pricing.daysOnRisk,
@@ -153,6 +298,11 @@ export class CancellationService {
         claims_review_status: eligibility.claimsReviewRequired
           ? 'PENDING'
           : 'NOT_REQUIRED',
+        tira_endorsement_type: rule.tiraEndorsementType,
+        previous_cover_note_reference: previousCoverNoteReference,
+        cancellation_cover_note_reference: null,
+        rule_snapshot: ruleSnapshot,
+        rule_snapshot_hash: this.hashService.hashDefinition(ruleSnapshot),
       });
 
       policy.pending_transaction_id = transaction.id;
@@ -245,9 +395,18 @@ export class CancellationService {
         );
       }
 
+      if (
+        cancellation?.claims_review_required &&
+        cancellation.claims_review_status === 'BLOCKED'
+      ) {
+        throw new UnprocessableEntityException(
+          'Claims review blocked this cancellation.',
+        );
+      }
+
       transaction.approval_required =
-        Boolean(cancellation?.claims_review_required) ||
-        isPositiveAmount(transaction.return_premium);
+        Boolean(cancellation?.rule_snapshot?.['requireApproval'] ?? true) ||
+        Boolean(cancellation?.claims_review_required);
       transaction.payment_required = isPositiveAmount(
         transaction.additional_premium,
       );
@@ -362,15 +521,23 @@ export class CancellationService {
     return transaction;
   }
 
-  private resolveCancellationMethod(): CancellationMethod {
-    const configured = this.configService.get<string>(
-      'CANCELLATION_DEFAULT_METHOD',
-    );
+  async findContext(companyId: string, id: string) {
+    const transaction = await this.findOne(companyId, id);
+    const cancellation = await this.cancellationRepository.findOne({
+      where: {
+        company_id: companyId,
+        policy_transaction_id: transaction.id,
+      },
+    });
 
-    return (
-      Object.values(CancellationMethod).find((value) => value === configured) ??
-      CancellationMethod.PRO_RATA
-    );
+    if (!cancellation) {
+      throw new BadRequestException('Cancellation details not found');
+    }
+
+    return {
+      transaction,
+      cancellation,
+    };
   }
 }
 

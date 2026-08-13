@@ -2,12 +2,14 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, IsNull, LessThanOrEqual, Repository } from 'typeorm';
+import { DataSource, In, LessThanOrEqual, Repository } from 'typeorm';
+import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
   PolicyTransactionEventType,
   PolicyTransactionStage,
   PolicyTransactionType,
+  PolicyVersionType,
   RenewalLifecycleStatus,
 } from '@insurance-max/contracts';
 
@@ -20,6 +22,7 @@ import { PolicyTransactionEvent } from '../entities/policy-transaction-event.ent
 import { PolicyRenewal } from '../entities/policy-renewal.entity';
 import { RenewalEligibilityService } from './renewal-eligibility.service';
 import { PolicyTransactionLifecycleService } from './policy-transaction-lifecycle.service';
+import { RenewalQuotationFactoryService } from './renewal-quotation-factory.service';
 
 const ACTIVE_RENEWAL_STAGES = [
   RenewalLifecycleStatus.ELIGIBLE,
@@ -47,7 +50,43 @@ export class RenewalService {
     private readonly lifecycleService: PolicyTransactionLifecycleService,
     private readonly identifierService: IdentifierGeneratorService,
     private readonly configService: ConfigService,
+    private readonly quotationFactory: RenewalQuotationFactoryService,
+    private readonly hashService: ProductDefinitionHashService,
   ) {}
+
+  async getEligibility(user: AuthenticatedUser, policyId: string) {
+    const policy = await this.policyRepository.findOne({
+      where: {
+        id: policyId,
+        company_id: user.companyId!,
+      },
+    });
+
+    if (!policy) {
+      throw new BadRequestException('Policy not found');
+    }
+
+    const result = await this.dataSource.transaction((manager) =>
+      this.eligibilityService.validate(manager, policy),
+    );
+
+    return {
+      eligible: result.eligible,
+      blockers: result.blockers,
+      renewalStartDate: result.renewalStartDate,
+      renewalEndDate: result.renewalEndDate,
+      renewalProductVersionId: result.renewalProductVersionId,
+      renewalProductDefinitionHash: result.renewalProductDefinitionHash,
+      currentVersion: result.currentVersion
+        ? {
+            id: result.currentVersion.id,
+            version_number: result.currentVersion.version_number,
+            version_type: result.currentVersion.version_type,
+            regulatory_reference: result.currentVersion.regulatory_reference,
+          }
+        : null,
+    };
+  }
 
   @Cron(process.env.RENEWAL_ELIGIBILITY_CRON || '0 1 * * *')
   async createEligibleRenewals() {
@@ -127,11 +166,7 @@ export class RenewalService {
         });
       }
 
-      const currentVersion = await manager
-        .getRepository(PolicyVersion)
-        .findOne({
-          where: { policy_id: policy.id, is_current: true },
-        });
+      const currentVersion = eligibility.currentVersion;
 
       if (!currentVersion) {
         throw new BadRequestException(
@@ -175,8 +210,12 @@ export class RenewalService {
         renewal_status: RenewalLifecycleStatus.ELIGIBLE,
         renewal_start_date: eligibility.renewalStartDate!,
         renewal_end_date: eligibility.renewalEndDate!,
-        source_cover_note_reference: policy.cover_note_no ?? '',
+        source_cover_note_reference:
+          currentVersion.regulatory_reference ?? policy.cover_note_no ?? '',
       });
+
+      policy.pending_transaction_id = transaction.id;
+      await manager.getRepository(Policy).save(policy);
 
       await manager.getRepository(PolicyTransactionEvent).save({
         company_id: policy.company_id,
@@ -189,6 +228,69 @@ export class RenewalService {
 
       return renewal;
     });
+  }
+
+  async createRenewalOffer(user: AuthenticatedUser, renewalId: string) {
+    const renewal = await this.requireRenewal(user.companyId!, renewalId);
+
+    if (renewal.renewal_quotation_id) {
+      const quotation = await this.dataSource.getRepository(Quotation).findOne({
+        where: {
+          id: renewal.renewal_quotation_id,
+          company_id: user.companyId!,
+        },
+      });
+
+      if (quotation) {
+        return quotation;
+      }
+    }
+
+    const transaction = await this.transactionRepository.findOne({
+      where: {
+        id: renewal.policy_transaction_id,
+        company_id: user.companyId!,
+      },
+    });
+
+    if (!transaction) {
+      throw new BadRequestException('Renewal transaction not found');
+    }
+
+    const [policy, version] = await Promise.all([
+      this.policyRepository.findOne({
+        where: {
+          id: transaction.source_policy_id,
+          company_id: user.companyId!,
+        },
+      }),
+      this.dataSource.getRepository(PolicyVersion).findOne({
+        where: {
+          id: transaction.source_policy_version_id,
+          company_id: user.companyId!,
+        },
+      }),
+    ]);
+
+    if (!policy || !version) {
+      throw new BadRequestException(
+        'Source policy or version could not be resolved.',
+      );
+    }
+
+    const quotation = await this.quotationFactory.create(user, {
+      policy,
+      version,
+      renewalStartDate: renewal.renewal_start_date,
+      renewalEndDate: renewal.renewal_end_date,
+      previousCoverNoteReference: renewal.source_cover_note_reference,
+    });
+
+    renewal.renewal_quotation_id = quotation.id;
+    renewal.renewal_status = RenewalLifecycleStatus.OFFER_DRAFT;
+    await this.renewalRepository.save(renewal);
+
+    return quotation;
   }
 
   /**
@@ -243,6 +345,29 @@ export class RenewalService {
 
   async accept(user: AuthenticatedUser, renewalId: string) {
     const renewal = await this.requireRenewal(user.companyId!, renewalId);
+    const transaction = await this.transactionRepository.findOne({
+      where: { id: renewal.policy_transaction_id, company_id: user.companyId! },
+    });
+
+    if (!transaction) {
+      throw new BadRequestException('Renewal transaction not found');
+    }
+
+    const policy = await this.policyRepository.findOne({
+      where: { id: transaction.source_policy_id, company_id: user.companyId! },
+    });
+
+    if (
+      !policy ||
+      policy.active_version_id !== transaction.source_policy_version_id
+    ) {
+      throw new BadRequestException({
+        code: 'RENEWAL_SOURCE_POLICY_CHANGED',
+        message:
+          'The source policy changed after this renewal offer was prepared.',
+      });
+    }
+
     renewal.renewal_status = RenewalLifecycleStatus.CUSTOMER_ACCEPTED;
     renewal.customer_accepted_at = new Date();
 
@@ -278,36 +403,105 @@ export class RenewalService {
     }
 
     return this.dataSource.transaction(async (manager) => {
+      const lockedRenewal = await manager
+        .getRepository(PolicyRenewal)
+        .createQueryBuilder('renewal')
+        .setLock('pessimistic_write')
+        .where('renewal.id = :id', { id: renewal.id })
+        .getOneOrFail();
+
+      if (
+        lockedRenewal.renewal_status === RenewalLifecycleStatus.RENEWED &&
+        lockedRenewal.renewed_policy_id === newPolicy.id
+      ) {
+        return lockedRenewal;
+      }
+
+      if (
+        lockedRenewal.renewed_policy_id &&
+        lockedRenewal.renewed_policy_id !== newPolicy.id
+      ) {
+        throw new BadRequestException({
+          code: 'RENEWAL_ALREADY_ISSUED_TO_DIFFERENT_POLICY',
+          message: 'This renewal already produced another policy.',
+        });
+      }
+
+      if (!newPolicy.issued_by_system || newPolicy.tira_status !== 'SUCCESS') {
+        throw new BadRequestException(
+          'Renewed policy is not a successful TIRAMIS-issued policy.',
+        );
+      }
+
       const transaction = await manager
         .getRepository(PolicyTransaction)
-        .findOne({
-          where: { id: renewal.policy_transaction_id },
+        .findOneOrFail({
+          where: { id: lockedRenewal.policy_transaction_id },
+        });
+      const oldPolicy = await manager
+        .getRepository(Policy)
+        .createQueryBuilder('policy')
+        .setLock('pessimistic_write')
+        .where('policy.id = :policyId', {
+          policyId: transaction.source_policy_id,
+        })
+        .getOneOrFail();
+      const persistedNewPolicy = await manager
+        .getRepository(Policy)
+        .findOneOrFail({ where: { id: newPolicy.id } });
+
+      oldPolicy.renewed_to_policy_id = persistedNewPolicy.id;
+      oldPolicy.renewal_status = RenewalLifecycleStatus.RENEWED;
+      oldPolicy.pending_transaction_id = null;
+      await manager.getRepository(Policy).save(oldPolicy);
+
+      persistedNewPolicy.renewed_from_policy_id = oldPolicy.id;
+      await manager.getRepository(Policy).save(persistedNewPolicy);
+
+      if (persistedNewPolicy.active_version_id) {
+        const version = await manager.getRepository(PolicyVersion).findOne({
+          where: { id: persistedNewPolicy.active_version_id },
         });
 
-      if (!transaction) {
-        return null;
+        if (version) {
+          const snapshot = JSON.parse(
+            JSON.stringify(version.policy_snapshot),
+          ) as Record<string, unknown>;
+
+          snapshot['renewal'] = {
+            renewalId: lockedRenewal.id,
+            renewalNo: lockedRenewal.renewal_no,
+            renewedFromPolicyId: oldPolicy.id,
+            renewedFromPolicyNo: oldPolicy.policy_no,
+            previousCoverNoteReference:
+              lockedRenewal.source_cover_note_reference,
+          };
+          version.version_type = PolicyVersionType.RENEWAL;
+          version.policy_snapshot = snapshot;
+          version.policy_snapshot_hash =
+            this.hashService.hashDefinition(snapshot);
+          await manager.getRepository(PolicyVersion).save(version);
+        }
       }
 
-      const oldPolicy = await manager.getRepository(Policy).findOne({
-        where: { id: transaction.source_policy_id },
-      });
-
-      if (oldPolicy) {
-        oldPolicy.renewed_to_policy_id = newPolicy.id;
-        oldPolicy.renewal_status = RenewalLifecycleStatus.RENEWED;
-        oldPolicy.pending_transaction_id = null;
-        await manager.getRepository(Policy).save(oldPolicy);
-      }
-
-      newPolicy.renewed_from_policy_id = transaction.source_policy_id;
-      await manager.getRepository(Policy).save(newPolicy);
-
-      renewal.renewed_policy_id = newPolicy.id;
-      renewal.renewal_status = RenewalLifecycleStatus.RENEWED;
-      await manager.getRepository(PolicyRenewal).save(renewal);
+      lockedRenewal.renewed_policy_id = persistedNewPolicy.id;
+      lockedRenewal.renewal_status = RenewalLifecycleStatus.RENEWED;
+      await manager.getRepository(PolicyRenewal).save(lockedRenewal);
 
       transaction.stage = PolicyTransactionStage.APPLIED;
-      transaction.target_policy_id = newPolicy.id;
+      transaction.target_policy_id = persistedNewPolicy.id;
+      transaction.target_policy_version_id =
+        persistedNewPolicy.active_version_id;
+      transaction.tiramis_transaction_id =
+        persistedNewPolicy.tiramis_transaction_id;
+      transaction.tiramis_request_id = persistedNewPolicy.tiramis_request_id;
+      transaction.tiramis_tracking_id =
+        persistedNewPolicy.tiramis_submission_tracking_id;
+      transaction.regulatory_response =
+        persistedNewPolicy.regulatory_response_payload;
+      transaction.regulatory_response_hash =
+        persistedNewPolicy.regulatory_response_hash;
+      transaction.last_command = 'RENEWAL_POLICY_ISSUED';
       await manager.getRepository(PolicyTransaction).save(transaction);
 
       await manager.getRepository(PolicyTransactionEvent).save({
@@ -315,11 +509,19 @@ export class RenewalService {
         policy_transaction_id: transaction.id,
         event_type: PolicyTransactionEventType.RENEWAL_POLICY_ISSUED,
         actor_type: 'SYSTEM',
-        to_stage: transaction.stage,
-        metadata: { newPolicyId: newPolicy.id },
+        from_stage: PolicyTransactionStage.SUBMISSION_PROCESSING,
+        to_stage: PolicyTransactionStage.APPLIED,
+        metadata: {
+          sourcePolicyId: oldPolicy.id,
+          sourcePolicyNo: oldPolicy.policy_no,
+          renewedPolicyId: persistedNewPolicy.id,
+          renewedPolicyNo: persistedNewPolicy.policy_no,
+          previousCoverNoteReference: lockedRenewal.source_cover_note_reference,
+          newCoverNoteReference: persistedNewPolicy.cover_note_no,
+        },
       });
 
-      return renewal;
+      return lockedRenewal;
     });
   }
 
@@ -342,13 +544,12 @@ export class RenewalService {
       await this.renewalRepository.save(renewal);
     }
 
-    const expiredPolicies = await this.policyRepository.find({
-      where: {
-        policy_status: 'ACTIVE',
-        end_date: LessThanOrEqual(now.toISOString().slice(0, 10)),
-        renewed_to_policy_id: IsNull(),
-      },
-    });
+    const today = new Date().toISOString().slice(0, 10);
+    const expiredPolicies = await this.policyRepository
+      .createQueryBuilder('policy')
+      .where('policy.policy_status = :status', { status: 'ACTIVE' })
+      .andWhere('policy.end_date < :today', { today })
+      .getMany();
 
     for (const policy of expiredPolicies) {
       policy.policy_status = 'EXPIRED';
@@ -367,6 +568,30 @@ export class RenewalService {
       where: { company_id: companyId },
       order: { created_at: 'DESC' },
     });
+  }
+
+  async findContext(companyId: string, renewalId: string) {
+    const renewal = await this.requireRenewal(companyId, renewalId);
+    const transaction = await this.transactionRepository.findOne({
+      where: { id: renewal.policy_transaction_id, company_id: companyId },
+    });
+    const sourcePolicy = transaction
+      ? await this.policyRepository.findOne({
+          where: { id: transaction.source_policy_id, company_id: companyId },
+        })
+      : null;
+    const quotation = renewal.renewal_quotation_id
+      ? await this.dataSource.getRepository(Quotation).findOne({
+          where: { id: renewal.renewal_quotation_id, company_id: companyId },
+        })
+      : null;
+
+    return {
+      renewal,
+      transaction,
+      source_policy: sourcePolicy,
+      renewal_quotation: quotation,
+    };
   }
 
   private async requireRenewal(companyId: string, id: string) {

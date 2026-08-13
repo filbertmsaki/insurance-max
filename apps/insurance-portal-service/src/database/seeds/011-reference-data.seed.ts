@@ -76,7 +76,9 @@ export default class ReferenceDataSeeder implements Seeder {
           ? await this.loadRegions(referenceDir)
           : ([] as RegionSeed[]);
 
-        for (const country of countries.length ? countries : FALLBACK_COUNTRIES) {
+        for (const country of countries.length
+          ? countries
+          : FALLBACK_COUNTRIES) {
           await qr.query(
             `
             INSERT INTO reference_countries (
@@ -159,7 +161,9 @@ export default class ReferenceDataSeeder implements Seeder {
           }
         }
 
-        for (const currency of currencies.length ? currencies : FALLBACK_CURRENCIES) {
+        for (const currency of currencies.length
+          ? currencies
+          : FALLBACK_CURRENCIES) {
           await qr.query(
             `
             INSERT INTO reference_currencies (
@@ -211,7 +215,10 @@ export default class ReferenceDataSeeder implements Seeder {
   }
 
   private async loadCurrencies(referenceDir: string): Promise<CurrencySeed[]> {
-    const workbook = await this.tryLoadWorkbook(referenceDir, 'CURRENCIES.xlsx');
+    const workbook = await this.tryLoadWorkbook(
+      referenceDir,
+      'CURRENCIES.xlsx',
+    );
     if (!workbook) return FALLBACK_CURRENCIES;
 
     const rows: CurrencySeed[] = [];

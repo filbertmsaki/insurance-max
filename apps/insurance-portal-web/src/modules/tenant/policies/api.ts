@@ -12,6 +12,18 @@ import type {
   PolicyPremiumBreakdownRecord,
   PolicyStatusHistoryRecord,
   PolicyEndorsementRecord,
+  PolicyCancellationRecord,
+  CancellationContext,
+  RenewalContext,
+  RenewalEligibility,
+  PolicyVersionRecord,
+  CancellationEligibility,
+  CreateCancellationPayload,
+  EndorsementEligibility,
+  EndorsementTypeRecord,
+  CreateEndorsementPayload,
+  EndorsementContext,
+  RecordEndorsementChangePayload,
 } from './types';
 
 export const policiesApi = {
@@ -25,6 +37,24 @@ export const policiesApi = {
   },
   getById: (id: string) =>
     apiClient.get<PolicyRecord>(`/tenant/policies/${id}`).then((r) => r.data),
+  getCurrentVersion: (id: string) =>
+    apiClient
+      .get<PolicyVersionRecord | null>(`/tenant/policies/${id}/current-version`)
+      .then((r) => r.data),
+  getPolicyVersions: (id: string) =>
+    apiClient
+      .get<PolicyVersionRecord[]>(`/tenant/policies/${id}/versions`)
+      .then((r) => r.data),
+  comparePolicyVersions: (
+    policyId: string,
+    fromVersion: number,
+    toVersion: number,
+  ) =>
+    apiClient
+      .get(
+        `/tenant/policies/${policyId}/versions/${fromVersion}/compare/${toVersion}`,
+      )
+      .then((r) => r.data),
   create: (data: PolicyPayload) =>
     apiClient.post<PolicyRecord>('/tenant/policies', data).then((r) => r.data),
   update: (id: string, data: Partial<PolicyPayload>) =>
@@ -52,11 +82,148 @@ export const policiesApi = {
   ): Promise<PolicyEndorsementRecord[]> => {
     const response = await apiClient.get<PolicyEndorsementRecord[]>(
       '/tenant/endorsements',
+      {
+        params: {
+          policy_id: policyId,
+        },
+      },
     );
-    return response.data.filter(
-      (endorsement) => endorsement.source_policy_id === policyId,
-    );
+    return response.data;
   },
+  getEndorsementEligibility: (policyId: string, effectiveDate?: string) =>
+    apiClient
+      .get<EndorsementEligibility>(
+        `/tenant/policies/${policyId}/endorsement-eligibility`,
+        {
+          params: effectiveDate
+            ? {
+                effective_date: effectiveDate,
+              }
+            : undefined,
+        },
+      )
+      .then((response) => response.data),
+  getCancellationEligibility: (policyId: string, effectiveDate?: string) =>
+    apiClient
+      .get<CancellationEligibility>(
+        `/tenant/policies/${policyId}/cancellation-eligibility`,
+        {
+          params: effectiveDate
+            ? {
+                effective_date: effectiveDate,
+              }
+            : undefined,
+        },
+      )
+      .then((response) => response.data),
+  createCancellation: (policyId: string, payload: CreateCancellationPayload) =>
+    apiClient
+      .post<PolicyCancellationRecord>(
+        `/tenant/policies/${policyId}/cancellations`,
+        payload,
+      )
+      .then((response) => response.data),
+  getCancellation: (id: string) =>
+    apiClient
+      .get<PolicyCancellationRecord>(`/tenant/cancellations/${id}`)
+      .then((response) => response.data),
+  getCancellationContext: (id: string) =>
+    apiClient
+      .get<CancellationContext>(`/tenant/cancellations/${id}/context`)
+      .then((response) => response.data),
+  completeCancellation: (id: string) =>
+    apiClient
+      .post(`/tenant/cancellations/${id}/complete`)
+      .then((response) => response.data),
+  requestCancellationPayment: (id: string) =>
+    apiClient
+      .post(`/tenant/cancellations/${id}/request-payment`)
+      .then((response) => response.data),
+  submitCancellationApproval: (id: string) =>
+    apiClient
+      .post(`/tenant/cancellations/${id}/submit-approval`)
+      .then((response) => response.data),
+  approveCancellation: (id: string) =>
+    apiClient
+      .post(`/tenant/cancellations/${id}/approve`)
+      .then((response) => response.data),
+  submitCancellationToTiramis: (id: string) =>
+    apiClient
+      .post(`/tenant/cancellations/${id}/submit-tiramis`)
+      .then((response) => response.data),
+  getRenewalEligibility: (policyId: string) =>
+    apiClient
+      .get<RenewalEligibility>(
+        `/tenant/policies/${policyId}/renewal-eligibility`,
+      )
+      .then((response) => response.data),
+  createRenewal: (policyId: string) =>
+    apiClient
+      .post(`/tenant/policies/${policyId}/renewals`)
+      .then((response) => response.data),
+  getRenewalContext: (renewalId: string) =>
+    apiClient
+      .get<RenewalContext>(`/tenant/renewals/${renewalId}/context`)
+      .then((response) => response.data),
+  createRenewalOffer: (renewalId: string) =>
+    apiClient
+      .post(`/tenant/renewals/${renewalId}/create-offer`)
+      .then((response) => response.data),
+  sendRenewalOffer: (renewalId: string) =>
+    apiClient
+      .post(`/tenant/renewals/${renewalId}/send-offer`)
+      .then((response) => response.data),
+  acceptRenewal: (renewalId: string) =>
+    apiClient
+      .post(`/tenant/renewals/${renewalId}/accept`)
+      .then((response) => response.data),
+  declineRenewal: (renewalId: string, reason: string) =>
+    apiClient
+      .post(`/tenant/renewals/${renewalId}/decline`, { reason })
+      .then((response) => response.data),
+  getEndorsementTypes: () =>
+    apiClient
+      .get<EndorsementTypeRecord[]>('/tenant/endorsement-types')
+      .then((response) => response.data),
+  createEndorsement: (policyId: string, payload: CreateEndorsementPayload) =>
+    apiClient
+      .post<PolicyEndorsementRecord>(
+        `/tenant/policies/${policyId}/endorsements`,
+        payload,
+      )
+      .then((response) => response.data),
+  getEndorsementContext: (endorsementId: string) =>
+    apiClient
+      .get<EndorsementContext>(`/tenant/endorsements/${endorsementId}/context`)
+      .then((response) => response.data),
+  recordEndorsementChange: (
+    endorsementId: string,
+    payload: RecordEndorsementChangePayload,
+  ) =>
+    apiClient
+      .post(`/tenant/endorsements/${endorsementId}/changes`, payload)
+      .then((response) => response.data),
+  recalculateEndorsement: (endorsementId: string) =>
+    apiClient
+      .post(`/tenant/endorsements/${endorsementId}/recalculate`)
+      .then((response) => response.data),
+  completeEndorsement: (endorsementId: string) =>
+    apiClient
+      .post(`/tenant/endorsements/${endorsementId}/complete`)
+      .then((response) => response.data),
+  submitEndorsementApproval: (endorsementId: string) =>
+    apiClient
+      .post(`/tenant/endorsements/${endorsementId}/submit-approval`)
+      .then((response) => response.data),
+  requestEndorsementPayment: (endorsementId: string) =>
+    apiClient
+      .post<{
+        id: string;
+        invoice_no: string;
+        status: string;
+        total_amount: string;
+      }>(`/tenant/endorsements/${endorsementId}/request-payment`)
+      .then((response) => response.data),
   submitEndorsementToTiramis: (id: string) =>
     apiClient
       .post(`/tenant/endorsements/${id}/submit-tiramis`)
@@ -65,4 +232,10 @@ export const policiesApi = {
     apiClient
       .post(`/tenant/endorsements/${id}/retry-tiramis`)
       .then((r) => r.data),
+  getEndorsementReconciliation: (id: string) =>
+    apiClient
+      .get(`/tenant/endorsements/${id}/reconciliation`)
+      .then((r) => r.data),
+  reconcileEndorsement: (id: string) =>
+    apiClient.post(`/tenant/endorsements/${id}/reconcile`).then((r) => r.data),
 };

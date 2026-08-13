@@ -64,7 +64,13 @@ const appUrl = mustEnv('APP_URL');
 const globalPrefix = mustEnv('APP_GLOBAL_PREFIX');
 
 function defaultCallbackUrl(environmentName: 'test' | 'live') {
-  return buildUrl(appUrl, globalPrefix, 'tiramis', 'callbacks', environmentName);
+  return buildUrl(
+    appUrl,
+    globalPrefix,
+    'tiramis',
+    'callbacks',
+    environmentName,
+  );
 }
 
 function encryptSecret(plainText: string): string {

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Pencil, Play, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Ban, Pencil, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
@@ -16,9 +17,15 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { PolicyStatusBadge } from '../components/PolicyStatusBadge';
 import {
   useDeletePolicy,
+  useCancellationEligibility,
+  useEndorsementEligibility,
+  usePolicyCurrentVersion,
   usePolicyDetail,
   usePolicyEndorsements,
+  useCreateRenewal,
+  usePolicyVersions,
   useRetryPolicyEndorsementTiramis,
+  useRenewalEligibility,
   useSubmitPolicyEndorsementToTiramis,
 } from '../hooks';
 import { useSubmitPolicyToTiramis } from '@/modules/tenant/tiramis/hooks';
@@ -52,27 +59,25 @@ function Row({
   );
 }
 
+function asObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function arrayCount(value: unknown): string {
+  return Array.isArray(value) ? String(value.length) : '0';
+}
+
 const RETRYABLE_SUBMISSION_STATUSES = new Set([
   'FAILED',
-  'REJECTED',
   'RETRYABLE',
 ]);
 
-function canSubmitEndorsementToTiramis(endorsement: PolicyEndorsementRecord) {
-  const approvalSatisfied =
-    !endorsement.approval_required ||
-    endorsement.approval_status === 'APPROVED';
-  const paymentSatisfied =
-    !endorsement.payment_required ||
-    endorsement.premium_effect === 'CREDIT' ||
-    endorsement.payment_status === 'PAID';
-
+function canIssueEndorsement(endorsement: PolicyEndorsementRecord) {
   return (
     endorsement.stage === 'COMPLETED' &&
-    endorsement.submission_status !== 'PROCESSING' &&
-    endorsement.submission_status !== 'ACCEPTED' &&
-    approvalSatisfied &&
-    paymentSatisfied
+    endorsement.submission_status === 'READY'
   );
 }
 
@@ -81,6 +86,9 @@ export function PolicyDetailPage() {
   const navigate = useNavigate();
   const { hasPermission } = useAuthStore();
   const canCreate = hasPermission('non-motor:create');
+  const canCreateEndorsement = hasPermission('endorsements:create');
+  const canCreateCancellation = hasPermission('cancellations:create');
+  const canCreateRenewal = hasPermission('renewals:create');
   const canViewEndorsements = hasPermission('endorsements:create');
   const canSubmitEndorsement = hasPermission('endorsements:submit-tiramis');
   const canRetryEndorsement = hasPermission('endorsements:retry-tiramis');
@@ -89,6 +97,21 @@ export function PolicyDetailPage() {
   const submitMutation = useSubmitPolicyToTiramis(policy);
   const { data: endorsements = [], isLoading: endorsementsLoading } =
     usePolicyEndorsements(policy?.id, canViewEndorsements);
+  const { data: eligibility } = useEndorsementEligibility(
+    policy?.id,
+    undefined,
+    canCreateEndorsement,
+  );
+  const { data: cancellationEligibility } = useCancellationEligibility(
+    policy?.id,
+    undefined,
+    canCreateCancellation,
+  );
+  const { data: renewalEligibility } = useRenewalEligibility(
+    policy?.id,
+    canCreateRenewal,
+  );
+  const createRenewalMutation = useCreateRenewal(policy?.id);
   const submitEndorsementMutation = useSubmitPolicyEndorsementToTiramis(
     policy?.id,
   );
@@ -97,6 +120,9 @@ export function PolicyDetailPage() {
   const { data: policyRisks = [] } = useNonMotorPolicyRisks(policy?.id);
   const { data: subjectMatterOptions = [] } = useSubjectMatterOptions();
   const createNonMotorMutation = useCreateNonMotorPolicyDetail();
+  const { data: currentVersion, isLoading: currentVersionLoading } =
+    usePolicyCurrentVersion(policy?.id);
+  const { data: versions = [] } = usePolicyVersions(policy?.id);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [nonMotorOpen, setNonMotorOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
@@ -104,6 +130,21 @@ export function PolicyDetailPage() {
     () => (policy ? buildPolicyTiramisPayload(policy) : null),
     [policy],
   );
+  const contractEntries = Array.isArray(
+    currentVersion?.policy_snapshot?.['entries'],
+  )
+    ? (currentVersion?.policy_snapshot?.['entries'] as Record<
+        string,
+        unknown
+      >[])
+    : [];
+  const canStartCancellation =
+    canCreateCancellation &&
+    cancellationEligibility?.eligible &&
+    !['CANCELLED', 'EXPIRED', 'LAPSED'].includes(policy?.policy_status ?? '') &&
+    !policy?.pending_transaction_id;
+  const canStartRenewal =
+    canCreateRenewal && renewalEligibility?.eligible && !policy?.pending_transaction_id;
 
   const nonMotorColumns: Column<NonMotorPolicyDetailRecord>[] = useMemo(
     () => [
@@ -174,11 +215,12 @@ export function PolicyDetailPage() {
         key: 'actions',
         header: 'Actions',
         cell: (row) => {
-          const ready = canSubmitEndorsementToTiramis(row);
+          const ready = canIssueEndorsement(row);
           const retryable = RETRYABLE_SUBMISSION_STATUSES.has(
             row.submission_status,
           );
-          const canRetry = ready && retryable && canRetryEndorsement;
+          const canRetry =
+            row.stage === 'COMPLETED' && retryable && canRetryEndorsement;
           const canSubmit = ready && !retryable && canSubmitEndorsement;
 
           if (!canRetry && !canSubmit) {
@@ -211,7 +253,7 @@ export function PolicyDetailPage() {
               }}
             >
               <Play className="mr-1.5 h-3.5 w-3.5" />
-              {canRetry ? 'Retry TIRAMIS' : 'Submit to TIRAMIS'}
+              {canRetry ? 'Retry Issuance' : 'Issue Endorsement'}
             </Button>
           );
         },
@@ -272,6 +314,46 @@ export function PolicyDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
+          {canCreateEndorsement && eligibility?.eligible && (
+            <Button
+              onClick={() =>
+                navigate(underwritingPaths.policyEndorsementCreate(policy.id))
+              }
+            >
+              Create Endorsement
+            </Button>
+          )}
+          {canStartCancellation && (
+            <Button
+              variant="destructive"
+              onClick={() =>
+                navigate(underwritingPaths.policyCancellationCreate(policy.id))
+              }
+            >
+              <Ban className="mr-1.5 h-3.5 w-3.5" />
+              Cancel Policy
+            </Button>
+          )}
+          {canStartRenewal && (
+            <Button
+              variant="outline"
+              disabled={createRenewalMutation.isPending}
+              onClick={() =>
+                createRenewalMutation.mutate(undefined, {
+                  onSuccess: (renewal: { id: string }) =>
+                    navigate(
+                      underwritingPaths.policyRenewalDetail(
+                        policy.id,
+                        renewal.id,
+                      ),
+                    ),
+                })
+              }
+            >
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+              Renew Policy
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -281,28 +363,34 @@ export function PolicyDetailPage() {
             <Play className="mr-1.5 h-3.5 w-3.5" />
             Submit to TIRAMIS
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(underwritingPaths.policyEdit(policy.id))}
-          >
-            <Pencil className="mr-1.5 h-3.5 w-3.5" />
-            Edit
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-            Delete
-          </Button>
+          {!policy.issued_by_system && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate(underwritingPaths.policyEdit(policy.id))}
+              >
+                <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                Edit
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                Delete
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="contract">Contract Version</TabsTrigger>
+          <TabsTrigger value="versions">Versions</TabsTrigger>
           <TabsTrigger value="risks">Risks</TabsTrigger>
           <TabsTrigger value="breakdown">Premium Breakdown</TabsTrigger>
           <TabsTrigger value="motor">Motor Details</TabsTrigger>
@@ -346,8 +434,205 @@ export function PolicyDetailPage() {
                 label="Premium"
                 value={`${policy.currency} ${policy.total_premium}`}
               />
+              <Row
+                label="Issuance Source"
+                value={
+                  policy.issued_by_system
+                    ? 'TIRAMIS final success'
+                    : 'Legacy/manual record'
+                }
+              />
+              <Row label="Source Quotation" value={policy.quotation_id} />
+              <Row label="Cover Note" value={policy.cover_note_no} />
+              <Row
+                label="Regulatory Sync"
+                value={policy.regulatory_sync_status}
+              />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="contract" className="space-y-4">
+          {currentVersionLoading ? (
+            <Skeleton className="h-52 w-full" />
+          ) : !currentVersion ? (
+            <Card>
+              <CardContent className="pt-6 text-sm text-slate-500">
+                Current policy version is not available.
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {(() => {
+                const snapshot = currentVersion.policy_snapshot;
+                const source = asObject(snapshot?.source);
+                const product = asObject(snapshot?.product);
+                const regulatory = asObject(snapshot?.regulatory);
+                const totals = asObject(snapshot?.totals);
+
+                return (
+                  <>
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">
+                          Current Contract Version
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <Row
+                          label="Version"
+                          value={currentVersion.version_number}
+                        />
+                        <Row
+                          label="Version Type"
+                          value={currentVersion.version_type}
+                        />
+                        <Row label="Status" value={currentVersion.status} />
+                        <Row
+                          label="Current"
+                          value={currentVersion.is_current ? 'Yes' : 'No'}
+                        />
+                        <Row
+                          label="Effective Period"
+                          value={`${currentVersion.effective_from} to ${currentVersion.effective_to}`}
+                        />
+                        <Row
+                          label="Snapshot Schema"
+                          value={String(snapshot?.schemaVersion ?? 1)}
+                        />
+                        <Row
+                          label="Snapshot Hash"
+                          value={currentVersion.policy_snapshot_hash}
+                        />
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">
+                          Issuance Source
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <Row
+                          label="Quotation"
+                          value={String(
+                            source?.quotationNo ?? policy.quotation_id ?? '-',
+                          )}
+                        />
+                        <Row
+                          label="Quotation Revision"
+                          value={String(
+                            source?.workflowRevision ??
+                              policy.source_quotation_revision ??
+                              '-',
+                          )}
+                        />
+                        <Row
+                          label="Product Version"
+                          value={String(
+                            product?.productVersionId ??
+                              policy.product_version_id ??
+                              '-',
+                          )}
+                        />
+                        <Row
+                          label="Policy Holders"
+                          value={arrayCount(snapshot?.policyHolders)}
+                        />
+                        <Row
+                          label="Insured Entries"
+                          value={arrayCount(snapshot?.entries)}
+                        />
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base">
+                          Regulatory Record
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <Row
+                          label="Cover Note"
+                          value={String(
+                            regulatory?.currentCoverNoteReference ??
+                              currentVersion.regulatory_reference ??
+                              policy.cover_note_no ??
+                              '-',
+                          )}
+                        />
+                        <Row
+                          label="TIRAMIS Request"
+                          value={String(
+                            regulatory?.requestId ??
+                              policy.tiramis_request_id ??
+                              '-',
+                          )}
+                        />
+                        <Row
+                          label="TIRAMIS Transaction"
+                          value={String(
+                            regulatory?.tiramisTransactionId ??
+                              policy.tiramis_transaction_id ??
+                              '-',
+                          )}
+                        />
+                        <Row
+                          label="Total Sum Insured"
+                          value={`${policy.currency} ${String(
+                            totals?.sumInsured ?? policy.sum_insured,
+                          )}`}
+                        />
+                        <Row
+                          label="Total Premium"
+                          value={`${policy.currency} ${String(
+                            totals?.totalPremium ?? policy.total_premium,
+                          )}`}
+                        />
+                      </CardContent>
+                    </Card>
+                  </>
+                );
+              })()}
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="versions" className="space-y-4">
+          {versions.map((version) => (
+            <Card key={version.id}>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-semibold">
+                      Policy Version {version.version_number}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      {version.version_type}
+                    </p>
+                  </div>
+                  {version.is_current && <Badge>Current</Badge>}
+                </div>
+                <div className="mt-4 space-y-2">
+                  <Row label="Effective From" value={version.effective_from} />
+                  <Row label="Effective To" value={version.effective_to} />
+                  <Row
+                    label="Cover Note"
+                    value={version.regulatory_reference ?? '-'}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          {versions.length === 0 && (
+            <Card>
+              <CardContent className="pt-6 text-sm text-slate-500">
+                No policy versions are available.
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="risks" className="space-y-4">
@@ -390,12 +675,62 @@ export function PolicyDetailPage() {
         </TabsContent>
 
         <TabsContent value="motor" className="space-y-4">
-          <Card>
-            <CardContent className="pt-6 text-sm text-slate-500">
-              Motor details will surface here once motor-linked policy risks are
-              added.
-            </CardContent>
-          </Card>
+          {contractEntries
+            .filter((entry) => Boolean(asObject(entry.motor)))
+            .map((entry) => {
+              const motor = asObject(entry.motor);
+
+              if (!motor) {
+                return null;
+              }
+
+              return (
+                <Card key={String(entry.entryId)}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">
+                      {String(
+                        motor.registrationNumber ?? `Motor ${entry.entryNumber}`,
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Row
+                      label="Registration"
+                      value={String(motor.registrationNumber ?? '-')}
+                    />
+                    <Row
+                      label="Chassis"
+                      value={String(motor.chassisNumber ?? '-')}
+                    />
+                    <Row
+                      label="Engine"
+                      value={String(motor.engineNumber ?? '-')}
+                    />
+                    <Row label="Make" value={String(motor.make ?? '-')} />
+                    <Row label="Model" value={String(motor.model ?? '-')} />
+                    <Row
+                      label="Body Type"
+                      value={String(motor.bodyType ?? '-')}
+                    />
+                    <Row
+                      label="Manufacture Year"
+                      value={String(motor.yearOfManufacture ?? '-')}
+                    />
+                    <Row label="Usage" value={String(motor.motorUsage ?? '-')} />
+                    <Row label="Owner" value={String(motor.ownerName ?? '-')} />
+                  </CardContent>
+                </Card>
+              );
+            })}
+
+          {contractEntries.filter((entry) => Boolean(asObject(entry.motor)))
+            .length === 0 && (
+            <Card>
+              <CardContent className="pt-6 text-sm text-slate-500">
+                This policy does not contain a motor asset.
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
         <TabsContent value="nonmotor" className="space-y-4">
           {canCreate && (
@@ -419,6 +754,18 @@ export function PolicyDetailPage() {
           />
         </TabsContent>
         <TabsContent value="endorsements" className="space-y-4">
+          {canCreateEndorsement && eligibility && !eligibility.eligible && (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="font-medium">Endorsement unavailable</p>
+                {eligibility.blockers.map((blocker) => (
+                  <p key={blocker.code} className="mt-1 text-sm text-slate-500">
+                    {blocker.message}
+                  </p>
+                ))}
+              </CardContent>
+            </Card>
+          )}
           <DataTable
             columns={endorsementColumns}
             data={endorsements}

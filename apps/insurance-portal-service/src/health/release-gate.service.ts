@@ -457,14 +457,91 @@ export class ReleaseGateService {
         FROM "tiramis_submission_tracking"
       `);
 
+      const [endorsementIntegrityRow] = await this.dataSource.query(`
+        SELECT
+          COUNT(*) FILTER (
+            WHERE pt."transaction_type" = 'ENDORSEMENT'
+              AND pt."submission_status" = 'ACCEPTED'
+              AND pt."stage" <> 'APPLIED'
+          )::int AS accepted_not_applied,
+          COUNT(*) FILTER (
+            WHERE pt."transaction_type" = 'ENDORSEMENT'
+              AND pt."stage" = 'APPLIED'
+              AND pt."target_policy_version_id" IS NULL
+          )::int AS applied_without_version,
+          COUNT(*) FILTER (
+            WHERE pt."transaction_type" = 'ENDORSEMENT'
+              AND pt."stage" = 'APPLIED'
+              AND p."active_version_id" IS DISTINCT FROM pt."target_policy_version_id"
+          )::int AS active_version_mismatch,
+          COUNT(*) FILTER (
+            WHERE pt."transaction_type" = 'ENDORSEMENT'
+              AND pt."stage" = 'APPLIED'
+              AND pe."requires_new_cover_note" = true
+              AND pe."replacement_cover_note_reference" IS NULL
+          )::int AS missing_replacement_cover_notes
+        FROM "policy_transactions" pt
+        LEFT JOIN "policies" p
+          ON p."id" = pt."source_policy_id"
+        LEFT JOIN "policy_endorsements" pe
+          ON pe."policy_transaction_id" = pt."id"
+      `);
+
+      const [policyVersionRow] = await this.dataSource.query(`
+        SELECT
+          COUNT(*) FILTER (
+            WHERE p."issued_by_system" = true
+              AND p."active_version_id" IS NULL
+          )::int AS issued_without_active_version,
+          COUNT(*) FILTER (
+            WHERE current_versions."current_count" > 1
+          )::int AS multiple_current_versions
+        FROM "policies" p
+        LEFT JOIN (
+          SELECT
+            "policy_id",
+            COUNT(*) FILTER (WHERE "is_current" = true)::int AS current_count
+          FROM "policy_versions"
+          GROUP BY "policy_id"
+        ) current_versions
+          ON current_versions."policy_id" = p."id"
+        WHERE p."deleted_at" IS NULL
+      `);
+
       const enabledCompanies = Number(configRow?.enabled_companies ?? 0);
       const readyCompanies = Number(configRow?.ready_companies ?? 0);
       const blockingSubmissions = Number(
         submissionRow?.blocking_submissions ?? 0,
       );
+      const acceptedNotApplied = Number(
+        endorsementIntegrityRow?.accepted_not_applied ?? 0,
+      );
+      const appliedWithoutVersion = Number(
+        endorsementIntegrityRow?.applied_without_version ?? 0,
+      );
+      const activeVersionMismatch = Number(
+        endorsementIntegrityRow?.active_version_mismatch ?? 0,
+      );
+      const missingReplacementCoverNotes = Number(
+        endorsementIntegrityRow?.missing_replacement_cover_notes ?? 0,
+      );
+      const issuedWithoutActiveVersion = Number(
+        policyVersionRow?.issued_without_active_version ?? 0,
+      );
+      const multipleCurrentVersions = Number(
+        policyVersionRow?.multiple_current_versions ?? 0,
+      );
+      const policyIntegrityPassed =
+        acceptedNotApplied === 0 &&
+        appliedWithoutVersion === 0 &&
+        activeVersionMismatch === 0 &&
+        missingReplacementCoverNotes === 0 &&
+        issuedWithoutActiveVersion === 0 &&
+        multipleCurrentVersions === 0;
       const value =
-        enabledCompanies === 0 ||
-        (enabledCompanies === readyCompanies && blockingSubmissions === 0);
+        (enabledCompanies === 0 || enabledCompanies === readyCompanies) &&
+        blockingSubmissions === 0 &&
+        policyIntegrityPassed;
 
       return {
         value,
@@ -476,14 +553,24 @@ export class ReleaseGateService {
             ? 'Some TIRAMIS-enabled companies are not fully validated.'
             : blockingSubmissions > 0
               ? 'There are blocking TIRAMIS submission failures.'
-              : enabledCompanies === 0
-                ? 'No company currently requires TIRAMIS release evidence.'
-                : null,
+              : !policyIntegrityPassed
+                ? 'Policy or endorsement integrity checks are failing.'
+                : enabledCompanies === 0
+                  ? 'No company currently requires TIRAMIS release evidence.'
+                  : null,
         details: {
           environment,
           enabledCompanies,
           readyCompanies,
           blockingSubmissions,
+          policyIntegrity: {
+            acceptedNotApplied,
+            appliedWithoutVersion,
+            activeVersionMismatch,
+            missingReplacementCoverNotes,
+            issuedWithoutActiveVersion,
+            multipleCurrentVersions,
+          },
         },
       };
     } catch (error) {

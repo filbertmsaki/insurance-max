@@ -17,6 +17,43 @@ export interface ProposedPolicySnapshotResult {
 export class ProposedPolicySnapshotService {
   constructor(private readonly hashService: ProductDefinitionHashService) {}
 
+  readValue(snapshot: Record<string, unknown>, fieldPath: string): unknown {
+    const segments = fieldPath.split('.').filter(Boolean);
+
+    if (!segments.length) {
+      throw new BadRequestException(
+        'A policy snapshot field path is required.',
+      );
+    }
+
+    let cursor: unknown = snapshot;
+
+    for (const segment of segments) {
+      if (
+        cursor === null ||
+        cursor === undefined ||
+        typeof cursor !== 'object'
+      ) {
+        return undefined;
+      }
+
+      cursor = (cursor as Record<string, unknown>)[segment];
+    }
+
+    return cursor;
+  }
+
+  sameValue(left: unknown, right: unknown): boolean {
+    return (
+      this.hashService.hashDefinition({
+        value: left === undefined ? null : left,
+      }) ===
+      this.hashService.hashDefinition({
+        value: right === undefined ? null : right,
+      })
+    );
+  }
+
   build(
     sourceSnapshot: Record<string, unknown>,
     changes: Pick<

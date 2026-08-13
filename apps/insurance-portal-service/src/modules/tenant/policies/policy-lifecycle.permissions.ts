@@ -15,14 +15,18 @@ export const PolicyLifecyclePermissions = {
   ENDORSEMENT_REQUEST_PAYMENT: 'endorsements:request-payment',
   ENDORSEMENT_SUBMIT_TIRAMIS: 'endorsements:submit-tiramis',
   ENDORSEMENT_RETRY_TIRAMIS: 'endorsements:retry-tiramis',
+  ENDORSEMENT_RECONCILE: 'endorsements:reconcile',
   ENDORSEMENT_CANCEL: 'endorsements:cancel',
 
+  CANCELLATION_READ: 'cancellations:read',
   CANCELLATION_CREATE: 'cancellations:create',
   CANCELLATION_COMPLETE: 'cancellations:complete',
   CANCELLATION_CLAIMS_REVIEW: 'cancellations:claims-review',
   CANCELLATION_APPROVE: 'cancellations:approve',
   CANCELLATION_REQUEST_PAYMENT: 'cancellations:request-payment',
   CANCELLATION_SUBMIT_TIRAMIS: 'cancellations:submit-tiramis',
+  CANCELLATION_RETRY_TIRAMIS: 'cancellations:retry-tiramis',
+  CANCELLATION_RECONCILE: 'cancellations:reconcile',
   CANCELLATION_CANCEL: 'cancellations:cancel',
 
   RENEWAL_READ: 'renewals:read',

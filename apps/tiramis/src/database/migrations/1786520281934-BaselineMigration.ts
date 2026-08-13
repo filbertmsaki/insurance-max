@@ -5,6 +5,9 @@ export class BaselineMigration1786520281934 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+    if (await queryRunner.hasTable('tiramis_access_audit_logs')) {
+      return;
+    }
     await queryRunner.query(
       `CREATE TABLE "tiramis_access_audit_logs" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "request_id" character varying(128), "correlation_id" character varying(128), "calling_service" character varying(100) NOT NULL, "actor_user_id" character varying(100), "tenant_company_id" character varying(100), "service_scopes" text, "method" character varying(20) NOT NULL, "path" character varying(255) NOT NULL, "status_code" integer NOT NULL, "allowed" boolean NOT NULL, "denial_reason" text, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_690f6cf0f89bf685d0cb98b0bcc" PRIMARY KEY ("id"))`,
     );

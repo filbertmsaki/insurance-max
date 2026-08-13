@@ -6,6 +6,11 @@ function makePolicy(overrides: Record<string, unknown> = {}) {
     id: 'policy-1',
     company_id: 'company-1',
     policy_status: 'ACTIVE',
+    issued_by_system: true,
+    quotation_id: 'quotation-1',
+    tira_status: 'SUCCESS',
+    active_version_id: 'version-1',
+    cover_note_no: 'CN-001',
     pending_transaction_id: null,
     start_date: '2026-01-01',
     end_date: '2026-12-31',
@@ -24,9 +29,12 @@ function makeManager(
       options.currentVersion === undefined
         ? {
             id: 'version-1',
+            company_id: 'company-1',
+            policy_id: 'policy-1',
             effective_from: '2026-01-01',
             version_number: 1,
-            policy_snapshot: {},
+            regulatory_reference: 'CN-001',
+            policy_snapshot: { schemaVersion: 2 },
             policy_snapshot_hash: 'hash',
           }
         : options.currentVersion,
@@ -58,7 +66,9 @@ describe('PolicyTransactionEligibilityService', () => {
     );
 
     expect(result.eligible).toBe(false);
-    expect(result.blockers.map((b) => b.code)).toContain('POLICY_NOT_ACTIVE');
+    expect(result.blockers.map((b) => b.code)).toContain(
+      'POLICY_STATUS_NOT_ELIGIBLE',
+    );
   });
 
   it('blocks a policy that already has an active transaction', async () => {
@@ -94,9 +104,12 @@ describe('PolicyTransactionEligibilityService', () => {
       makeManager({
         currentVersion: {
           id: 'version-1',
+          company_id: 'company-1',
+          policy_id: 'policy-1',
           effective_from: '2026-08-01',
           version_number: 2,
-          policy_snapshot: {},
+          regulatory_reference: 'CN-001',
+          policy_snapshot: { schemaVersion: 2 },
           policy_snapshot_hash: 'hash',
         },
       }),

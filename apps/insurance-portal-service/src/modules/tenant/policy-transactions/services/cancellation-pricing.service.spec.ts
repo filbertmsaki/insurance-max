@@ -47,6 +47,35 @@ describe('CancellationPricingService', () => {
 
       expect(Number(result.refundAmount)).toBeGreaterThanOrEqual(0);
     });
+
+    it('offsets cancellation charge against unearned premium', () => {
+      const result = service.calculate({
+        policyStartDate: '2026-01-01',
+        policyEndDate: '2026-12-31',
+        cancellationEffectiveDate: '2026-12-20',
+        grossWrittenPremium: '1000000',
+        cancellationMethod: CancellationMethod.PRO_RATA,
+        cancellationCharge: '100000',
+      });
+
+      expect(result.refundAmount).toBe('0.0000');
+      expect(Number(result.amountDue)).toBeGreaterThan(0);
+      expect(Number(result.amountDue)).toBeLessThan(100000);
+    });
+  });
+
+  it('SHORT_PERIOD applies the configured charge through the net settlement', () => {
+    const result = service.calculate({
+      policyStartDate: '2026-01-01',
+      policyEndDate: '2026-12-31',
+      cancellationEffectiveDate: '2026-07-01',
+      grossWrittenPremium: '365000.00',
+      cancellationMethod: CancellationMethod.SHORT_PERIOD,
+      cancellationCharge: '10000',
+    });
+
+    expect(result.unearnedPremium).toBe('183000.0000');
+    expect(result.refundAmount).toBe('173000.0000');
   });
 
   it('FULL_REFUND returns the entire gross premium and no charge', () => {
@@ -73,6 +102,7 @@ describe('CancellationPricingService', () => {
     });
 
     expect(result.refundAmount).toBe('0.0000');
+    expect(result.amountDue).toBe('10000.0000');
     expect(result.cancellationCharge).toBe('10000.0000');
   });
 

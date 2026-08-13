@@ -3,6 +3,7 @@ import {
   PolicyTransactionEventType,
   PolicyTransactionStage,
   PolicyTransactionType,
+  WorkflowSubmissionStatus,
 } from '@insurance-max/contracts';
 import { PolicyTransactionApplyService } from './policy-transaction-apply.service';
 
@@ -12,7 +13,9 @@ function makeTransaction(overrides: Record<string, unknown> = {}) {
     company_id: 'company-1',
     transaction_type: PolicyTransactionType.ENDORSEMENT,
     stage: PolicyTransactionStage.COMPLETED,
+    submission_status: WorkflowSubmissionStatus.ACCEPTED,
     source_policy_id: 'policy-1',
+    source_policy_version_id: 'version-1',
     source_policy_version_no: 1,
     effective_date: '2026-06-01',
     additional_premium: '5000.00',
@@ -37,6 +40,7 @@ function makePolicy(overrides: Record<string, unknown> = {}) {
     total_tax: '18000.00',
     total_commission: '10000.00',
     current_version_no: 1,
+    active_version_id: 'version-1',
     end_date: '2026-12-31',
     ...overrides,
   } as any;
@@ -76,7 +80,45 @@ function makeHarness(transaction: any, policy: any, previousVersion: any) {
   const statusHistoryRepo = {
     save: jest.fn().mockResolvedValue(undefined),
   };
+  const endorsementRepo = {
+    findOne: jest.fn().mockResolvedValue({
+      id: 'endorsement-1',
+      company_id: 'company-1',
+      policy_transaction_id: 'txn-1',
+      endorsement_type_code: 'ADD_RISK',
+      tira_endorsement_type: 'Add Risk',
+      previous_cover_note_reference: 'CN-OLD',
+      replacement_cover_note_reference: 'CN-NEW',
+    }),
+  };
+  const cancellationRepo = {
+    findOne: jest.fn().mockResolvedValue({
+      id: 'cancellation-1',
+      company_id: 'company-1',
+      policy_transaction_id: 'txn-1',
+      reason_type: 'CUSTOMER_REQUEST',
+      cancellation_method: 'PRO_RATA',
+      policy_days: 365,
+      days_on_risk: 152,
+      earned_premium: '41643.8356',
+      unearned_premium: '58356.1644',
+      cancellation_charge: '0.0000',
+      refund_amount: '58356.1644',
+      amount_due: '0.0000',
+      previous_cover_note_reference: 'CN-OLD',
+      cancellation_cover_note_reference: 'CN-CANCEL',
+    }),
+  };
+  const eventRepo = {
+    save: jest.fn().mockResolvedValue(undefined),
+  };
   const transactionRepoInManager = {
+    createQueryBuilder: jest.fn().mockReturnValue({
+      setLock: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getOne: jest.fn().mockResolvedValue(transaction),
+    }),
     save: jest
       .fn()
       .mockImplementation(async (value) => Object.assign(transaction, value)),
@@ -87,7 +129,10 @@ function makeHarness(transaction: any, policy: any, previousVersion: any) {
       if (entity?.name === 'Policy') return policyRepo;
       if (entity?.name === 'PolicyVersion') return versionRepo;
       if (entity?.name === 'PolicyStatusHistory') return statusHistoryRepo;
+      if (entity?.name === 'PolicyEndorsement') return endorsementRepo;
+      if (entity?.name === 'PolicyCancellation') return cancellationRepo;
       if (entity?.name === 'PolicyTransaction') return transactionRepoInManager;
+      if (entity?.name === 'PolicyTransactionEvent') return eventRepo;
       throw new Error(`Unexpected entity ${entity?.name}`);
     },
   };
@@ -114,11 +159,16 @@ function makeHarness(transaction: any, policy: any, previousVersion: any) {
       })),
   } as any;
 
+  const returnPremiumService = {
+    createRequests: jest.fn().mockResolvedValue([]),
+  } as any;
+
   const service = new PolicyTransactionApplyService(
     dataSource,
     transactionRepository,
     hashService,
     lifecycleService,
+    returnPremiumService,
   );
 
   return {
@@ -126,7 +176,9 @@ function makeHarness(transaction: any, policy: any, previousVersion: any) {
     policyRepo,
     versionRepo,
     statusHistoryRepo,
+    eventRepo,
     lifecycleService,
+    returnPremiumService,
   };
 }
 
@@ -135,6 +187,7 @@ describe('PolicyTransactionApplyService', () => {
     it('rejects a transaction that has not reached COMPLETED', async () => {
       const transaction = makeTransaction({
         stage: PolicyTransactionStage.DRAFT,
+        submission_status: WorkflowSubmissionStatus.NOT_READY,
       });
       const policy = makePolicy();
       const version = makeVersion();
@@ -160,8 +213,14 @@ describe('PolicyTransactionApplyService', () => {
       const transaction = makeTransaction();
       const policy = makePolicy();
       const previousVersion = makeVersion();
-      const { service, policyRepo, versionRepo, lifecycleService } =
-        makeHarness(transaction, policy, previousVersion);
+      const {
+        service,
+        policyRepo,
+        versionRepo,
+        eventRepo,
+        lifecycleService,
+        returnPremiumService,
+      } = makeHarness(transaction, policy, previousVersion);
 
       await service.applyEndorsement('company-1', 'txn-1', {
         changedBy: 'user-1',
@@ -176,7 +235,17 @@ describe('PolicyTransactionApplyService', () => {
         expect.objectContaining({
           version_number: 2,
           version_type: 'ENDORSEMENT',
-          policy_snapshot: transaction.proposed_policy_snapshot,
+          policy_snapshot: expect.objectContaining({
+            policyStatus: 'ACTIVE',
+            totals: expect.objectContaining({
+              totalPremium: '105000.00',
+              totalTax: '18900.00',
+            }),
+            regulatory: expect.objectContaining({
+              previousCoverNoteReference: 'CN-OLD',
+              currentCoverNoteReference: 'CN-NEW',
+            }),
+          }),
           supersedes_version_id: 'version-1',
           is_current: true,
         }),
@@ -187,21 +256,26 @@ describe('PolicyTransactionApplyService', () => {
         expect.objectContaining({
           total_premium: '105000.00',
           current_version_no: 2,
+          active_version_id: 'version-2',
           pending_transaction_id: null,
         }),
       );
 
-      expect(lifecycleService.markApplied).toHaveBeenCalledWith(
-        'company-1',
-        'txn-1',
-        { changedBy: 'user-1' },
-        PolicyTransactionEventType.POLICY_VERSION_APPLIED,
+      expect(eventRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: PolicyTransactionEventType.POLICY_VERSION_APPLIED,
+          from_stage: PolicyTransactionStage.COMPLETED,
+          to_stage: PolicyTransactionStage.APPLIED,
+        }),
       );
+      expect(returnPremiumService.createRequests).toHaveBeenCalled();
+      expect(lifecycleService.markApplied).not.toHaveBeenCalled();
     });
 
     it('is idempotent once already APPLIED', async () => {
       const transaction = makeTransaction({
         stage: PolicyTransactionStage.APPLIED,
+        target_policy_version_id: 'version-2',
       });
       const policy = makePolicy();
       const version = makeVersion();
@@ -209,9 +283,7 @@ describe('PolicyTransactionApplyService', () => {
 
       await service.applyEndorsement('company-1', 'txn-1');
 
-      // Still re-applies (caller-level idempotency is out of scope here) but
-      // must not throw on an already-applied transaction.
-      expect(policyRepo.save).toHaveBeenCalled();
+      expect(policyRepo.save).not.toHaveBeenCalled();
     });
   });
 
@@ -220,11 +292,18 @@ describe('PolicyTransactionApplyService', () => {
       const transaction = makeTransaction({
         transaction_type: PolicyTransactionType.CANCELLATION,
         reason: 'Customer requested cancellation',
+        proposed_policy_snapshot: { schemaVersion: 2, cover: {} },
       });
       const policy = makePolicy();
       const previousVersion = makeVersion();
-      const { service, policyRepo, statusHistoryRepo, lifecycleService } =
-        makeHarness(transaction, policy, previousVersion);
+      const {
+        service,
+        policyRepo,
+        statusHistoryRepo,
+        eventRepo,
+        lifecycleService,
+        returnPremiumService,
+      } = makeHarness(transaction, policy, previousVersion);
 
       await service.applyCancellation('company-1', 'txn-1', {
         changedBy: 'user-2',
@@ -247,12 +326,21 @@ describe('PolicyTransactionApplyService', () => {
         }),
       );
 
-      expect(lifecycleService.markApplied).toHaveBeenCalledWith(
-        'company-1',
-        'txn-1',
-        { changedBy: 'user-2' },
-        PolicyTransactionEventType.CANCELLATION_APPLIED,
+      expect(eventRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: PolicyTransactionEventType.CANCELLATION_APPLIED,
+          from_stage: PolicyTransactionStage.COMPLETED,
+          to_stage: PolicyTransactionStage.APPLIED,
+        }),
       );
+      expect(returnPremiumService.createRequests).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ id: 'txn-1' }),
+        expect.objectContaining({ id: 'policy-1' }),
+        'cancellation-1',
+        'CANCELLATION',
+      );
+      expect(lifecycleService.markApplied).not.toHaveBeenCalled();
     });
 
     it('does not duplicate status history if the policy is already CANCELLED', async () => {

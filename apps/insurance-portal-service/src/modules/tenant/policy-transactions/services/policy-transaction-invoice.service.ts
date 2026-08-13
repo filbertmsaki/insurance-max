@@ -61,6 +61,29 @@ export class PolicyTransactionInvoiceService {
     });
 
     if (existing) {
+      if (
+        existing.pricing_result_hash !==
+        params.transaction.pricing_snapshot_hash
+      ) {
+        throw new ConflictException({
+          code: 'ENDORSEMENT_INVOICE_PRICING_MISMATCH',
+          message:
+            'An invoice already exists for a different endorsement pricing result.',
+        });
+      }
+
+      if (
+        !DecimalUtil.value(existing.total_amount).equals(
+          DecimalUtil.value(params.amount),
+        )
+      ) {
+        throw new ConflictException({
+          code: 'ENDORSEMENT_INVOICE_AMOUNT_MISMATCH',
+          message:
+            'The existing endorsement invoice amount no longer matches the transaction.',
+        });
+      }
+
       return existing;
     }
 
@@ -79,7 +102,16 @@ export class PolicyTransactionInvoiceService {
       transactionId: params.transaction.id,
       transactionNo: params.transaction.transaction_no,
       transactionType: params.transaction.transaction_type,
+      sourcePolicyId: params.transaction.source_policy_id,
+      sourcePolicyVersionId: params.transaction.source_policy_version_id,
+      sourcePolicyVersionNo: params.transaction.source_policy_version_no,
       stateVersion: params.transaction.state_version,
+      effectiveDate: params.transaction.effective_date,
+      premiumEffect: params.transaction.premium_effect,
+      additionalPremium: params.transaction.additional_premium,
+      pricingSnapshotHash: params.transaction.pricing_snapshot_hash,
+      proposedPolicySnapshotHash:
+        params.transaction.proposed_policy_snapshot_hash,
     };
     const sourceSnapshotHash = this.hashService.hashDefinition(sourceSnapshot);
 
@@ -117,6 +149,7 @@ export class PolicyTransactionInvoiceService {
         written_off_amount: '0.0000',
         balance_amount: total.toFixed(4),
         status: InvoiceStatus.DRAFT,
+        pricing_result_hash: params.transaction.pricing_snapshot_hash,
         source_snapshot: sourceSnapshot,
         source_snapshot_hash: sourceSnapshotHash,
         balance_revision: 1,

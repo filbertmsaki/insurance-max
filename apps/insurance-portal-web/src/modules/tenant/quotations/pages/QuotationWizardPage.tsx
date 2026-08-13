@@ -489,11 +489,11 @@ export function QuotationWizardPage() {
       quotationContext.current_wizard_step,
       steps,
     );
-    if (restoredStep) {
-      setSelectedStepId(restoredStep);
-    }
     hasHydratedEditRef.current = true;
     queueMicrotask(() => {
+      if (restoredStep) {
+        setSelectedStepId(restoredStep);
+      }
       setIsEditHydrating(false);
     });
   }, [
