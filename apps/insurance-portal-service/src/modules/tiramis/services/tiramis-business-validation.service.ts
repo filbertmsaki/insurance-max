@@ -27,6 +27,12 @@ export class TiramisBusinessValidationService {
       sourceCompanyId: params.sourceCompanyId || null,
       errors,
     });
+    await this.validateNoOverlappingCover({
+      requestType: params.requestType,
+      payload,
+      sourceCompanyId: params.sourceCompanyId || null,
+      errors,
+    });
 
     return {
       isValid: errors.length === 0,
@@ -54,6 +60,7 @@ export class TiramisBusinessValidationService {
     if (!validation.isValid) {
       throw new BadRequestException({
         success: false,
+        message: validation.errors,
         errors: validation.errors,
         requestType: params.requestType,
       });
@@ -353,6 +360,163 @@ export class TiramisBusinessValidationService {
       'assessorIdentityType',
       errors,
     );
+  }
+
+  /**
+   * A vehicle (matched by Registration Number or Chassis Number) may not
+   * have two active/issued covers whose insurance periods overlap. A new
+   * cover is only allowed to start strictly after any existing cover for
+   * the same vehicle ends. Checked against all covers/policies for the
+   * company, including those issued from other quotations.
+   */
+  private async validateNoOverlappingCover(params: {
+    requestType: TiramisRequestType;
+    payload: Record<string, any>;
+    sourceCompanyId: string | null;
+    errors: string[];
+  }) {
+    if (!this.dataSource) {
+      return;
+    }
+
+    const { requestType, payload, sourceCompanyId, errors } = params;
+
+    if (
+      ![TiramisRequestType.MOTOR, TiramisRequestType.MOTOR_FLEET].includes(
+        requestType,
+      )
+    ) {
+      return;
+    }
+
+    if (!sourceCompanyId) {
+      return;
+    }
+
+    const startDate = payload.coverNoteStartDate;
+    const endDate = payload.coverNoteEndDate;
+
+    if (this.isBlank(startDate) || this.isBlank(endDate)) {
+      return;
+    }
+
+    const currentCoverNoteNumber = this.isBlank(payload.coverNoteNumber)
+      ? null
+      : String(payload.coverNoteNumber).trim();
+
+    for (const [path, motor] of this.collectMotorDetails(payload)) {
+      const registrationNumber = this.isBlank(motor?.registrationNumber)
+        ? null
+        : String(motor.registrationNumber).trim();
+      const chassisNumber = this.isBlank(motor?.chassisNumber)
+        ? null
+        : String(motor.chassisNumber).trim();
+
+      if (!registrationNumber && !chassisNumber) {
+        continue;
+      }
+
+      const conflict = await this.findOverlappingCoverNote({
+        companyId: sourceCompanyId,
+        registrationNumber,
+        chassisNumber,
+        startDate,
+        endDate,
+        excludeCoverNoteNumber: currentCoverNoteNumber,
+      });
+
+      if (conflict) {
+        const vehicleLabel = registrationNumber || chassisNumber;
+        const existingReference =
+          conflict.cover_note_reference_number || conflict.cover_note_number;
+
+        errors.push(
+          `${path}: vehicle ${vehicleLabel} already has an active cover ` +
+            `(${existingReference}) for the period ${this.formatDate(conflict.start_date)} to ` +
+            `${this.formatDate(conflict.end_date)}, which overlaps the requested cover period ` +
+            `${this.formatDate(startDate)} to ${this.formatDate(endDate)}. A new cover can only start ` +
+            `after the existing cover expires.`,
+        );
+      }
+    }
+  }
+
+  private async findOverlappingCoverNote(params: {
+    companyId: string;
+    registrationNumber: string | null;
+    chassisNumber: string | null;
+    startDate: string;
+    endDate: string;
+    excludeCoverNoteNumber: string | null;
+  }): Promise<Record<string, any> | null> {
+    const vehicleConditions: string[] = [];
+    const values: unknown[] = [
+      params.companyId,
+      params.startDate,
+      params.endDate,
+    ];
+
+    if (params.registrationNumber) {
+      values.push(params.registrationNumber);
+      vehicleConditions.push(
+        `lower(qmd.registration_number) = lower($${values.length})`,
+      );
+    }
+
+    if (params.chassisNumber) {
+      values.push(params.chassisNumber);
+      vehicleConditions.push(
+        `lower(qmd.chassis_number) = lower($${values.length})`,
+      );
+    }
+
+    if (vehicleConditions.length === 0) {
+      return null;
+    }
+
+    let excludeClause = '';
+    if (params.excludeCoverNoteNumber) {
+      values.push(params.excludeCoverNoteNumber);
+      excludeClause = `AND cn.cover_note_number <> $${values.length}`;
+    }
+
+    const rows = await this.dataSource!.query(
+      `
+        SELECT
+          cn.id,
+          cn.cover_note_number,
+          cn.cover_note_reference_number,
+          cn.start_date,
+          cn.end_date,
+          cn.status
+        FROM cover_notes cn
+        JOIN quotation_cover_note_entries qcne ON qcne.id = cn.quotation_entry_id
+        JOIN quotation_motor_details qmd ON qmd.entry_id = qcne.id
+        WHERE cn.company_id = $1
+          AND cn.deleted_at IS NULL
+          AND cn.status NOT IN ('REJECTED', 'CANCELLED', 'EXPIRED')
+          AND cn.start_date <= $3::date
+          AND cn.end_date >= $2::date
+          AND (${vehicleConditions.join(' OR ')})
+          ${excludeClause}
+        ORDER BY cn.start_date ASC
+        LIMIT 1
+      `,
+      values,
+    );
+
+    return rows?.[0] || null;
+  }
+
+  private formatDate(value: unknown): string {
+    if (this.isBlank(value)) {
+      return '';
+    }
+
+    const text = String(value);
+    const isoMatch = text.match(/^\d{4}-\d{2}-\d{2}/);
+
+    return isoMatch ? isoMatch[0] : text;
   }
 
   private validateWorkflowRules(

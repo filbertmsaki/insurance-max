@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { CONFIG } = require('../config/mock-config');
 const { getTag } = require('../utils/xml.util');
 
@@ -79,6 +80,39 @@ function buildReference(prefix, requestId) {
   }
 
   return `${safePrefix}-${Date.now()}`;
+}
+
+/**
+ * Generates a unique numeric reference in the same "NNNNN-NNNNN-NNNNN"
+ * pattern TIRA itself uses for real cover note references and sticker
+ * numbers (e.g. "11025-19963-92620"). Deterministic per seed (so retries
+ * of the same request reproduce the same reference) but distinct across
+ * requests, unlike a hardcoded static default.
+ */
+function buildDigitGroupReference(seed, groupSizes = [5, 5, 5]) {
+  const hash = crypto
+    .createHash('sha256')
+    .update(String(seed ?? Date.now()))
+    .digest('hex');
+
+  let digits = BigInt(`0x${hash}`).toString();
+  const totalDigits = groupSizes.reduce((sum, size) => sum + size, 0);
+
+  while (digits.length < totalDigits) {
+    digits += digits;
+  }
+
+  digits = digits.slice(0, totalDigits);
+
+  const groups = [];
+  let offset = 0;
+
+  for (const size of groupSizes) {
+    groups.push(digits.slice(offset, offset + size));
+    offset += size;
+  }
+
+  return groups.join('-');
 }
 
 function firstValue(...values) {
@@ -199,7 +233,7 @@ function resolveMockResponseData(params = {}) {
       overrides.coverNoteReferenceNumber,
       RUNTIME_RESPONSE_CONFIG.coverNoteReferenceNumber,
       CONFIG.defaultCoverNoteReferenceNumber,
-      buildReference(CONFIG.coverNoteRefPrefix, requestId),
+      buildDigitGroupReference(`cover-note:${requestId}`),
     ),
     motorCoverNoteReferenceNumber: firstValue(
       overrides.motorCoverNoteReferenceNumber,
@@ -208,13 +242,13 @@ function resolveMockResponseData(params = {}) {
       RUNTIME_RESPONSE_CONFIG.coverNoteReferenceNumber,
       CONFIG.defaultMotorCoverNoteReferenceNumber,
       CONFIG.defaultCoverNoteReferenceNumber,
-      buildReference(CONFIG.motorCoverNoteRefPrefix, requestId),
+      buildDigitGroupReference(`motor-cover-note:${requestId}`),
     ),
     stickerNumber: firstValue(
       overrides.stickerNumber,
       RUNTIME_RESPONSE_CONFIG.stickerNumber,
       CONFIG.defaultStickerNumber,
-      buildReference(CONFIG.stickerPrefix, requestId),
+      buildDigitGroupReference(`sticker:${requestId}`),
     ),
     policyReferenceNumber: firstValue(
       overrides.policyReferenceNumber,

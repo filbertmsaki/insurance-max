@@ -1284,12 +1284,13 @@ export class TiramisClientService {
       .andWhere('configuration.isActive = true')
       .getOne();
 
-    let apiKey = this.apiKeyVault.decrypt(configuration?.serviceApiKeyEncrypted);
+    let apiKey = this.apiKeyVault.decrypt(
+      configuration?.serviceApiKeyEncrypted,
+    );
 
     if (!apiKey && options?.allowBootstrapFallback) {
       apiKey =
-        this.configService.get<string>('tiramisClient.bootstrapApiKey') ??
-        null;
+        this.configService.get<string>('tiramisClient.bootstrapApiKey') ?? null;
     }
 
     if (!apiKey) {

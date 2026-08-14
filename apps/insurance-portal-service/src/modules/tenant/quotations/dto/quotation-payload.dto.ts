@@ -347,10 +347,16 @@ export class MotorDetailDto {
   @Min(1)
   motor_type: number;
 
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
   @IsString()
   @MaxLength(50)
   registration_number: string;
 
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
   @IsString()
   @MaxLength(100)
   chassis_number: string;

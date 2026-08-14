@@ -142,17 +142,20 @@ const CONFIG = {
   responseUseRequestId:
     process.env.MOCK_RESPONSE_USE_REQUEST_ID !== 'false',
 
+  // No hardcoded fallback here on purpose: leaving this unset lets
+  // resolveMockResponseData() generate a unique per-request reference
+  // (same "NNNNN-NNNNN-NNNNN" pattern real TIRA uses) instead of every
+  // submission colliding on the same static value. Set this env var only
+  // if a test genuinely needs a fixed, repeatable reference number.
   defaultCoverNoteReferenceNumber:
-    process.env.MOCK_DEFAULT_COVER_NOTE_REFERENCE_NUMBER ||
-    '11025-19963-92620',
+    process.env.MOCK_DEFAULT_COVER_NOTE_REFERENCE_NUMBER || null,
 
   defaultMotorCoverNoteReferenceNumber:
     process.env.MOCK_DEFAULT_MOTOR_COVER_NOTE_REFERENCE_NUMBER ||
     process.env.MOCK_DEFAULT_COVER_NOTE_REFERENCE_NUMBER ||
-    '11025-19963-92620',
+    null,
 
-  defaultStickerNumber:
-    process.env.MOCK_DEFAULT_STICKER_NUMBER || '25001-19917-40920',
+  defaultStickerNumber: process.env.MOCK_DEFAULT_STICKER_NUMBER || null,
 
   coverNoteRefPrefix: process.env.MOCK_COVER_NOTE_REF_PREFIX || 'CN',
 

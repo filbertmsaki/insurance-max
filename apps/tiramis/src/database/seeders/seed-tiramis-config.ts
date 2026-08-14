@@ -661,9 +661,7 @@ async function seedBootstrapApiKey(activeDataSource = dataSource) {
     return;
   }
 
-  const apiKeyRepository = activeDataSource.getRepository(
-    TiramisApiKeyEntity,
-  );
+  const apiKeyRepository = activeDataSource.getRepository(TiramisApiKeyEntity);
 
   const existing = await apiKeyRepository
     .createQueryBuilder('apiKey')

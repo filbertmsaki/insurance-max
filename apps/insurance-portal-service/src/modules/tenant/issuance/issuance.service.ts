@@ -298,6 +298,12 @@ export class IssuanceService {
       const persisted = existing.find(
         (item) => item.quotation_entry_id === entry.id,
       );
+      const primaryRisk = [...(entry.risks ?? [])].sort(
+        (left, right) => left.sequence_no - right.sequence_no,
+      )[0];
+      const insuredAsset = primaryRisk
+        ? this.findRiskAsset(quotation, primaryRisk.id)
+        : null;
 
       const issuedAt = new Date();
       const coverNoteUnsigned = {
@@ -321,7 +327,8 @@ export class IssuanceService {
         quotation_id: quotation.id,
         quotation_entry_id: entry.id,
         policy_id: persisted?.policy_id ?? null,
-        insured_asset_id: persisted?.insured_asset_id ?? null,
+        insured_asset_id:
+          insuredAsset?.insured_asset_id ?? persisted?.insured_asset_id ?? null,
         tiramis_tracking_id: tracking.id,
         tiramis_transaction_id:
           submission.tiramis_transaction_id ??
