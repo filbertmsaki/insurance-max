@@ -395,8 +395,8 @@ export class TiramisBusinessRecordSyncService {
         `
           UPDATE quotations
           SET
-            quotation_status = $2::quotation_status_enum,
-            tira_status = $3::tira_status_enum,
+            quotation_status = $2,
+            tira_status = $3,
             tira_request_id = COALESCE($4, tira_request_id),
             tira_response_id = COALESCE($5, tira_response_id),
             tira_response_code = COALESCE($6, tira_response_code),
@@ -404,8 +404,8 @@ export class TiramisBusinessRecordSyncService {
             tira_error_details = $8::jsonb,
             submission_status_v2 = $9,
             quotation_stage = CASE
-              WHEN $2::quotation_status_enum = 'CANCELLED'::quotation_status_enum THEN 'CANCELLED'
-              WHEN $2::quotation_status_enum IN ('COMPLETED'::quotation_status_enum, 'FAILED'::quotation_status_enum) THEN 'COMPLETED'
+              WHEN $2 = 'CANCELLED' THEN 'CANCELLED'
+              WHEN $2 IN ('COMPLETED', 'FAILED') THEN 'COMPLETED'
               ELSE quotation_stage
             END,
             workflow_completed_at = COALESCE(workflow_completed_at, now()),
@@ -417,7 +417,7 @@ export class TiramisBusinessRecordSyncService {
             AND NOT (
               quotation_status IN ('COMPLETED', 'CANCELLED')
               AND tira_status = 'SUCCESS'
-              AND $3::tira_status_enum <> 'SUCCESS'::tira_status_enum
+              AND $3 <> 'SUCCESS'
             )
         `,
         [

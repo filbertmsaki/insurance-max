@@ -118,6 +118,9 @@ export class IssuanceService {
         'NON_MOTOR_COVER_NOTE',
         'MOTOR_COVER_NOTE',
         'MOTOR_FLEET_COVER_NOTE',
+        'COVER_NOTE_NON_MOTOR',
+        'MOTOR_COVER_NOTE_NON_FLEET',
+        'MOTOR_COVER_NOTE_FLEET',
       ].includes(requestType)
     ) {
       return this.applyCoverNoteIssuance(

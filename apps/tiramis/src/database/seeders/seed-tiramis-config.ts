@@ -10,6 +10,7 @@ import dataSource from '../data-source';
 import { TiramisClientConfigurationEntity } from '../../modules/config/entities/tiramis-client-configuration.entity';
 import { TiramisResponseCodeEntity } from '../../modules/config/entities/tiramis-response-code.entity';
 import { TiramisServiceEndpointEntity } from '../../modules/config/entities/tiramis-service-endpoint.entity';
+import { TiramisApiKeyEntity } from '../../modules/api-keys/entities/tiramis-api-key.entity';
 
 type EnvironmentName = 'live' | 'test';
 
@@ -649,6 +650,50 @@ async function seedResponseCodes(activeDataSource = dataSource) {
   }
 }
 
+async function seedBootstrapApiKey(activeDataSource = dataSource) {
+  const bootstrapApiKey = environment.TIRAMIS_BOOTSTRAP_API_KEY?.trim();
+
+  if (!bootstrapApiKey) {
+    console.log(
+      '[seed-tiramis-bootstrap-api-key] TIRAMIS_BOOTSTRAP_API_KEY is not set — skipping. ' +
+        'Self-service TIRAMIS API key generation will fail with a 409 until this is seeded.',
+    );
+    return;
+  }
+
+  const apiKeyRepository = activeDataSource.getRepository(
+    TiramisApiKeyEntity,
+  );
+
+  const existing = await apiKeyRepository
+    .createQueryBuilder('apiKey')
+    .addSelect('apiKey.apiKey')
+    .where('apiKey.apiKey = :apiKey', { apiKey: bootstrapApiKey })
+    .getOne();
+
+  if (existing) {
+    console.log(
+      '[seed-tiramis-bootstrap-api-key] Bootstrap API key already seeded, skipping.',
+    );
+    return;
+  }
+
+  const entity = apiKeyRepository.create({
+    name: 'Bootstrap Admin Key',
+    apiKey: bootstrapApiKey,
+    keyPrefix: bootstrapApiKey.slice(0, 18),
+    serviceName: 'insurance-portal-service-bootstrap',
+    scopes: ['tiramis:admin'],
+    description:
+      'Deterministically seeded bootstrap key used by insurance-portal-service ' +
+      'to provision the first per-company TIRAMIS API key.',
+    isActive: true,
+  });
+
+  await apiKeyRepository.save(entity);
+  console.log('[seed-tiramis-bootstrap-api-key] Bootstrap API key seeded.');
+}
+
 export async function runTiramisConfigSeed(
   activeDataSource = dataSource,
 ): Promise<void> {
@@ -661,6 +706,7 @@ export async function runTiramisConfigSeed(
   try {
     await seedClientConfigurations(activeDataSource);
     await seedResponseCodes(activeDataSource);
+    await seedBootstrapApiKey(activeDataSource);
 
     console.log(
       'Seeded Tiramis client configurations, service endpoints, and response codes.',

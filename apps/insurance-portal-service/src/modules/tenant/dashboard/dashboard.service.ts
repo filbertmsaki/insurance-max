@@ -256,6 +256,23 @@ export class DashboardService {
     );
   }
 
+  async getCommissions(user: AuthenticatedUser, query: DashboardQueryDto) {
+    return this.dashboardCacheService.getOrSet(
+      'commissions',
+      user,
+      query,
+      async () => {
+        const { scope, period } = this.resolveContext(user, query);
+
+        return {
+          context: this.buildContext(scope, query, period),
+          ...(await this.buildCommissions(scope, query, period)),
+          generated_at: new Date().toISOString(),
+        };
+      },
+    );
+  }
+
   async getTiramis(user: AuthenticatedUser, query: DashboardQueryDto) {
     return this.dashboardCacheService.getOrSet(
       'tiramis',
@@ -1996,6 +2013,12 @@ export class DashboardService {
         label: 'Finance',
         path: '/tenant/dashboard/finance',
         enabled: sections.finance,
+      },
+      {
+        id: 'commissions',
+        label: 'Commissions',
+        path: '/tenant/dashboard/commissions',
+        enabled: sections.commissions,
       },
       {
         id: 'tiramis',

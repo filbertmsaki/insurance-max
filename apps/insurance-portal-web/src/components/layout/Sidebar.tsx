@@ -18,6 +18,12 @@ import {
 } from '@/components/ui/tooltip';
 import { NAV_NODES, type NavLeaf, type NavGroup } from './nav-config';
 
+function isLeafActive(pathname: string, to: string) {
+  if (pathname === to) return true;
+  if (pathname.startsWith(to + '/')) return true;
+  return false;
+}
+
 // ─── Visibility helpers ───────────────────────────────────────────────────────
 
 function useNavFilter() {
@@ -48,9 +54,7 @@ interface LeafItemProps {
 
 function LeafItem({ leaf, collapsed, indented = false }: LeafItemProps) {
   const { pathname } = useLocation();
-  const isActive =
-    pathname === leaf.to ||
-    (leaf.to !== '/dashboard' && pathname.startsWith(leaf.to + '/'));
+  const isActive = isLeafActive(pathname, leaf.to);
 
   const linkClass = cn(
     'flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-150 outline-none',
@@ -97,11 +101,7 @@ function GroupItem({ group, collapsed, onExpandSidebar }: GroupItemProps) {
   const { visibleChildren } = useNavFilter();
 
   const children = visibleChildren(group);
-  const hasActive = children.some(
-    (c) =>
-      pathname === c.to ||
-      (c.to !== '/dashboard' && pathname.startsWith(c.to + '/')),
-  );
+  const hasActive = children.some((c) => isLeafActive(pathname, c.to));
 
   const [isOpen, setIsOpen] = useState(hasActive);
 

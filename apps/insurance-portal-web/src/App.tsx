@@ -361,6 +361,7 @@ export default function App() {
           <Route element={<AppShell />}>
             <Route path="/forbidden" element={<ForbiddenPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/dashboard/:tab" element={<DashboardPage />} />
 
             <Route
               element={

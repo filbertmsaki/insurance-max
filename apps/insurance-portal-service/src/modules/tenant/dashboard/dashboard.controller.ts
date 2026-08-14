@@ -91,6 +91,18 @@ export class DashboardController {
     return this.dashboardService.getFinance(user, query);
   }
 
+  @Get('commissions')
+  @Permissions(DashboardPermissions.COMMISSIONS)
+  @ApiOperation({
+    summary: 'Get commission dashboard information',
+  })
+  getCommissions(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: DashboardQueryDto,
+  ) {
+    return this.dashboardService.getCommissions(user, query);
+  }
+
   @Get('tiramis')
   @Permissions(DashboardPermissions.TIRAMIS)
   @ApiOperation({

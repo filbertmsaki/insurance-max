@@ -730,6 +730,7 @@ export class TiramisClientService {
     const connection = await this.resolveConnectionConfig(
       params.companyId,
       params.environment,
+      { allowBootstrapFallback: true },
     );
     const serviceContext = this.encodeServiceContext({
       tenant: {
@@ -1257,6 +1258,7 @@ export class TiramisClientService {
   private async resolveConnectionConfig(
     companyId?: string | null,
     environment?: string | null,
+    options?: { allowBootstrapFallback?: boolean },
   ): Promise<{
     apiKey: string;
     baseUrl: string | null;
@@ -1282,9 +1284,13 @@ export class TiramisClientService {
       .andWhere('configuration.isActive = true')
       .getOne();
 
-    const apiKey = this.apiKeyVault.decrypt(
-      configuration?.serviceApiKeyEncrypted,
-    );
+    let apiKey = this.apiKeyVault.decrypt(configuration?.serviceApiKeyEncrypted);
+
+    if (!apiKey && options?.allowBootstrapFallback) {
+      apiKey =
+        this.configService.get<string>('tiramisClient.bootstrapApiKey') ??
+        null;
+    }
 
     if (!apiKey) {
       throw new ConflictException(

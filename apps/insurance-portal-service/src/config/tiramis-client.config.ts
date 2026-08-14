@@ -15,6 +15,8 @@ export default registerAs('tiramisClient', () => ({
   sourceService:
     process.env.TIRAMIS_SOURCE_SERVICE || 'insurance-portal-service',
 
+  bootstrapApiKey: process.env.TIRAMIS_BOOTSTRAP_API_KEY || null,
+
   maxRedirects: 0,
 
   portalOutboxEnabled: process.env.TIRAMIS_PORTAL_OUTBOX_ENABLED !== 'false',

@@ -911,10 +911,21 @@ export class TiramisIntegrationService {
     const isPolicySource = this.isPolicySource(sourceModule);
     const isQuotationSource = this.isQuotationSource(sourceModule);
 
+    let quotationId =
+      isQuotationSource && sourceRecordId ? sourceRecordId : null;
+
+    if (!quotationId && !isPolicySource && payload.businessReference) {
+      const quotation = await this.findQuotationByBusinessReference(
+        payload.businessReference,
+        companyId,
+      );
+      quotationId = quotation?.id ?? null;
+    }
+
     const submission = this.submissionRepository.create({
       company_id: companyId,
       policy_id: isPolicySource && sourceRecordId ? sourceRecordId : null,
-      quotation_id: isQuotationSource && sourceRecordId ? sourceRecordId : null,
+      quotation_id: quotationId,
       source_module: sourceModule,
       source_record_id: sourceRecordId,
       business_reference: payload.businessReference || null,
@@ -1574,6 +1585,20 @@ export class TiramisIntegrationService {
       }
     }
 
+    const businessReference =
+      submission.business_reference || payload.businessReference || null;
+
+    if (!this.isPolicySource(sourceModule) && businessReference) {
+      const quotation = await this.findQuotationByBusinessReference(
+        businessReference,
+        submission.company_id,
+      );
+
+      if (quotation) {
+        return quotation;
+      }
+    }
+
     return null;
   }
 
@@ -1609,7 +1634,36 @@ export class TiramisIntegrationService {
       }
     }
 
+    if (!this.isPolicySource(sourceModule) && payload.businessReference) {
+      const quotation = await this.findQuotationByBusinessReference(
+        payload.businessReference,
+      );
+
+      if (quotation) {
+        return quotation.company_id;
+      }
+    }
+
     return ZERO_UUID;
+  }
+
+  /**
+   * Cover-note submissions tag sourceModule with the domain that submitted
+   * them (e.g. "motor", "non_motor", "reinsurance"), not "quotation" — so
+   * isQuotationSource() never matches for these. businessReference always
+   * carries the quotation_no, which is the one link every such submission
+   * reliably carries back from TIRAMIS.
+   */
+  private async findQuotationByBusinessReference(
+    businessReference: string,
+    companyId?: string | null,
+  ): Promise<Quotation | null> {
+    return this.quotationRepository.findOne({
+      where: {
+        quotation_no: businessReference,
+        ...(companyId ? { company_id: companyId } : {}),
+      },
+    });
   }
 
   private normalizeTiramisSubmitResponse(response: any) {

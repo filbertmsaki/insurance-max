@@ -14,6 +14,8 @@ import {
 import { TiramisAccessAuditEntity } from '../modules/audit/entities/tiramis-access-audit.entity';
 import { TiramisApiKeyAuditEntity } from '../modules/api-keys/entities/tiramis-api-key-audit.entity';
 import { TiramisApiKeyEntity } from '../modules/api-keys/entities/tiramis-api-key.entity';
+import { TiramisCallbackReceiptEntity } from '../modules/callbacks/entities/tiramis-callback-receipt.entity';
+import { TiramisCallbackDeadLetterEntity } from '../modules/callbacks/entities/tiramis-callback-dead-letter.entity';
 import { TiramisClientConfigurationEntity } from '../modules/config/entities/tiramis-client-configuration.entity';
 import { TiramisResponseCodeEntity } from '../modules/config/entities/tiramis-response-code.entity';
 import { TiramisServiceEndpointEntity } from '../modules/config/entities/tiramis-service-endpoint.entity';
@@ -106,6 +108,8 @@ export default new DataSource(
       TiramisAccessAuditEntity,
       TiramisApiKeyEntity,
       TiramisApiKeyAuditEntity,
+      TiramisCallbackReceiptEntity,
+      TiramisCallbackDeadLetterEntity,
     ],
     migrations: [join(__dirname, 'migrations', '*.{ts,js}')],
   }),
