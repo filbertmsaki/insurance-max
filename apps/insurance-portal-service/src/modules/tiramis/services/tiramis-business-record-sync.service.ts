@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { XMLParser } from 'fast-xml-parser';
 
 import { resolveTiramisBusinessRecordMapping } from '../constants/tiramis-business-record-map.constant';
@@ -10,6 +11,10 @@ import { TiramisSubmissionStatus } from '../enums/tiramis-submission-status.enum
 import { TiramisSubmissionTrackingRepository } from '../repositories/tiramis-submission-tracking.repository';
 import { TiramisAuditService } from './tiramis-audit.service';
 import { TiramisNotificationService } from './tiramis-notification.service';
+import { IssuanceService } from '../../tenant/issuance/issuance.service';
+import { PortalTiraSubmission } from '../../tenant/tiramis-integration/entities/portal-tira-submission.entity';
+import { PortalTiraSubmissionStatus } from '../../tenant/tiramis-integration/enums/portal-tira-submission-status.enum';
+import type { TiramisNotificationEventDto } from '../../tenant/tiramis-integration/dto/tiramis-notification-event.dto';
 
 @Injectable()
 export class TiramisBusinessRecordSyncService {
@@ -24,6 +29,9 @@ export class TiramisBusinessRecordSyncService {
     private readonly trackingRepository: TiramisSubmissionTrackingRepository,
     private readonly auditService: TiramisAuditService,
     private readonly notificationService: TiramisNotificationService,
+    private readonly issuanceService: IssuanceService,
+    @InjectRepository(PortalTiraSubmission)
+    private readonly portalSubmissionRepository: Repository<PortalTiraSubmission>,
   ) {}
 
   async syncFromTracking(
@@ -390,53 +398,60 @@ export class TiramisBusinessRecordSyncService {
       regulatoryResponse,
     };
 
-    await this.dataSource.transaction(async (manager) => {
-      await manager.query(
-        `
-          UPDATE quotations
-          SET
-            quotation_status = $2,
-            tira_status = $3,
-            tira_request_id = COALESCE($4, tira_request_id),
-            tira_response_id = COALESCE($5, tira_response_id),
-            tira_response_code = COALESCE($6, tira_response_code),
-            tira_response_description = COALESCE($7, tira_response_description),
-            tira_error_details = $8::jsonb,
-            submission_status_v2 = $9,
-            quotation_stage = CASE
-              WHEN $2::varchar = 'CANCELLED' THEN 'CANCELLED'
-              WHEN $2::varchar IN ('COMPLETED', 'FAILED') THEN 'COMPLETED'
-              ELSE quotation_stage
-            END,
-            workflow_completed_at = COALESCE(workflow_completed_at, now()),
-            workflow_revision = COALESCE(workflow_revision, 0) + 1,
-            state_version = COALESCE(state_version, 0) + 1,
-            updated_at = now()
-          WHERE id = $1
-            AND deleted_at IS NULL
-            AND NOT (
-              quotation_status IN ('COMPLETED', 'CANCELLED')
-              AND tira_status = 'SUCCESS'
-              AND $3::varchar <> 'SUCCESS'
-            )
-        `,
-        [
-          quotation.id,
-          terminalOutcome.quotationStatus,
-          terminalOutcome.tiraStatus,
-          tiraRequestId,
-          tiraResponseId,
-          statusCode,
-          statusDescription,
-          JSON.stringify(metadata),
-          terminalOutcome.submissionStatus,
-        ],
-      );
+    const alreadyAtTargetStatus =
+      quotation.quotation_status === terminalOutcome.quotationStatus &&
+      quotation.tira_status === terminalOutcome.tiraStatus;
 
-      if (
-        quotation.quotation_status !== terminalOutcome.quotationStatus ||
-        quotation.tira_status !== terminalOutcome.tiraStatus
-      ) {
+    // Skip entirely (no workflow_revision/state_version/updated_at bump) when
+    // this call would be a pure no-op repeat — otherwise workflow_revision
+    // keeps incrementing on every redundant sync (cron re-poll, retry,
+    // manual resync), and createOrReuseIssuedPolicy's reuse lookup keys off
+    // that exact revision, so a repeat call would fail to find the policy it
+    // already issued and create a duplicate instead of reusing it.
+    if (!alreadyAtTargetStatus) {
+      await this.dataSource.transaction(async (manager) => {
+        await manager.query(
+          `
+            UPDATE quotations
+            SET
+              quotation_status = $2,
+              tira_status = $3,
+              tira_request_id = COALESCE($4, tira_request_id),
+              tira_response_id = COALESCE($5, tira_response_id),
+              tira_response_code = COALESCE($6, tira_response_code),
+              tira_response_description = COALESCE($7, tira_response_description),
+              tira_error_details = $8::jsonb,
+              submission_status_v2 = $9,
+              quotation_stage = CASE
+                WHEN $2::varchar = 'CANCELLED' THEN 'CANCELLED'
+                WHEN $2::varchar IN ('COMPLETED', 'FAILED') THEN 'COMPLETED'
+                ELSE quotation_stage
+              END,
+              workflow_completed_at = COALESCE(workflow_completed_at, now()),
+              workflow_revision = COALESCE(workflow_revision, 0) + 1,
+              state_version = COALESCE(state_version, 0) + 1,
+              updated_at = now()
+            WHERE id = $1
+              AND deleted_at IS NULL
+              AND NOT (
+                quotation_status IN ('COMPLETED', 'CANCELLED')
+                AND tira_status = 'SUCCESS'
+                AND $3::varchar <> 'SUCCESS'
+              )
+          `,
+          [
+            quotation.id,
+            terminalOutcome.quotationStatus,
+            terminalOutcome.tiraStatus,
+            tiraRequestId,
+            tiraResponseId,
+            statusCode,
+            statusDescription,
+            JSON.stringify(metadata),
+            terminalOutcome.submissionStatus,
+          ],
+        );
+
         await manager.query(
           `
             INSERT INTO quotation_status_history (
@@ -480,8 +495,172 @@ export class TiramisBusinessRecordSyncService {
             JSON.stringify(metadata),
           ],
         );
+      });
+    }
+
+    // The webhook-driven path (TiramisIntegrationService.handleTiramisNotification)
+    // calls IssuanceService directly. This raw-SQL sync path is the OTHER way a
+    // quotation can reach COMPLETED/SUCCESS (cron polling, retries, manual
+    // resync) and previously had no equivalent call, so quotations processed
+    // here never got a cover note or policy. Must run after the transaction
+    // above commits, since issuance re-reads the quotation's committed status.
+    if (
+      terminalOutcome.quotationStatus === 'COMPLETED' &&
+      terminalOutcome.tiraStatus === 'SUCCESS'
+    ) {
+      await this.triggerPolicyIssuanceIfNeeded(tracking, regulatoryResponse);
+    }
+  }
+
+  private async triggerPolicyIssuanceIfNeeded(
+    tracking: TiramisSubmissionTrackingEntity,
+    regulatoryResponse: Record<string, any> | null,
+  ) {
+    if (!tracking.quotationId && !tracking.sourceRecordId) {
+      return;
+    }
+
+    try {
+      const submission = await this.findOrCreatePortalSubmission(tracking);
+
+      const payload: TiramisNotificationEventDto = {
+        eventType: 'TIRAMIS_FINAL_SUCCESS',
+        sourceService: tracking.sourceModule,
+        sourceCompanyId: tracking.sourceCompanyId,
+        sourceModule: tracking.sourceModule,
+        sourceRecordId: tracking.sourceRecordId,
+        businessReference: tracking.businessReference,
+        tiramisTransactionId: tracking.tiramisTransactionId,
+        requestId: tracking.tiramisRequestId || tracking.id,
+        responseId: tracking.finalResponseId,
+        serviceType: tracking.tiramisServiceType,
+        rootElement: tracking.tiramisRootElement,
+        statusCode: tracking.finalResponseStatusCode,
+        statusDescription: tracking.finalResponseStatusDesc,
+        regulatoryResponse: {
+          transactionId: tracking.tiramisTransactionId || '',
+          requestId: tracking.tiramisRequestId || tracking.id,
+          responseId: tracking.finalResponseId || '',
+          requestType: tracking.requestType,
+          responseRoot: tracking.tiramisRootElement || '',
+          success: true,
+          statusCode: tracking.finalResponseStatusCode || '',
+          statusDescription: tracking.finalResponseStatusDesc || '',
+          coverNotes: regulatoryResponse?.coverNotes ?? [],
+          policy: regulatoryResponse?.policy ?? null,
+          signatureVerified: false,
+          // Deliberately undefined (not ''): IssuanceService falls back to
+          // hashing the payload itself when this is absent.
+          responsePayloadHash: undefined as unknown as string,
+          receivedAt: (
+            tracking.finalResponseReceivedAt || new Date()
+          ).toISOString(),
+        },
+        errorMessage: tracking.lastErrorMessage,
+        occurredAt: (
+          tracking.finalResponseReceivedAt || new Date()
+        ).toISOString(),
+      };
+
+      const result = await this.issuanceService.applyNotification(
+        submission,
+        payload,
+      );
+
+      if (result?.policy) {
+        this.logger.log(
+          `Issued policy ${result.policy.id} for quotation ${
+            tracking.quotationId || tracking.sourceRecordId
+          } via status-sync path (tracking ${tracking.id})`,
+        );
       }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to trigger policy issuance from status sync for tracking ${tracking.id}: ${
+          error instanceof Error ? error.message : error
+        }`,
+      );
+    }
+  }
+
+  private async findOrCreatePortalSubmission(
+    tracking: TiramisSubmissionTrackingEntity,
+  ): Promise<PortalTiraSubmission> {
+    const existing = await this.findExistingPortalSubmission(tracking);
+
+    if (existing) {
+      return existing;
+    }
+
+    const quotationId =
+      tracking.quotationId ||
+      (this.isQuotationSource(tracking.sourceModule)
+        ? tracking.sourceRecordId
+        : null);
+
+    const submission = this.portalSubmissionRepository.create({
+      company_id: tracking.sourceCompanyId!,
+      quotation_id: quotationId,
+      source_module: tracking.sourceModule,
+      source_record_id: tracking.sourceRecordId,
+      business_reference: tracking.businessReference,
+      request_type: tracking.requestType,
+      service_type: tracking.tiramisServiceType,
+      root_element: tracking.tiramisRootElement,
+      tiramis_transaction_id: tracking.tiramisTransactionId,
+      tiramis_request_id: tracking.tiramisRequestId,
+      tiramis_response_id: tracking.finalResponseId,
+      status: PortalTiraSubmissionStatus.FINAL_SUCCESS,
+      status_code: tracking.finalResponseStatusCode,
+      status_description: tracking.finalResponseStatusDesc,
+      last_error: tracking.lastErrorMessage,
+      last_payload:
+        (tracking.finalResponsePayload as Record<string, unknown>) ||
+        (tracking.tiramisResponsePayload as Record<string, unknown>) ||
+        null,
+      submitted_at: tracking.submittedAt || tracking.createdAt,
+      last_event_at: new Date(),
+      completed_at: tracking.finalResponseReceivedAt || new Date(),
     });
+
+    return this.portalSubmissionRepository.save(submission);
+  }
+
+  private async findExistingPortalSubmission(
+    tracking: TiramisSubmissionTrackingEntity,
+  ): Promise<PortalTiraSubmission | null> {
+    if (tracking.tiramisTransactionId) {
+      const byTransaction = await this.portalSubmissionRepository.findOne({
+        where: { tiramis_transaction_id: tracking.tiramisTransactionId },
+      });
+
+      if (byTransaction) {
+        return byTransaction;
+      }
+    }
+
+    if (tracking.tiramisRequestId) {
+      const byRequest = await this.portalSubmissionRepository.findOne({
+        where: { tiramis_request_id: tracking.tiramisRequestId },
+      });
+
+      if (byRequest) {
+        return byRequest;
+      }
+    }
+
+    if (tracking.quotationId) {
+      const byQuotation = await this.portalSubmissionRepository.findOne({
+        where: { quotation_id: tracking.quotationId },
+        order: { created_at: 'DESC' },
+      });
+
+      if (byQuotation) {
+        return byQuotation;
+      }
+    }
+
+    return null;
   }
 
   private isQuotationSource(sourceModule?: string | null) {

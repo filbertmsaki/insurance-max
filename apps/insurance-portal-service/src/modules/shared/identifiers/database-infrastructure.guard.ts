@@ -16,9 +16,7 @@ import { DataSource } from 'typeorm';
 export class DatabaseInfrastructureGuard implements OnApplicationBootstrap {
   private readonly logger = new Logger(DatabaseInfrastructureGuard.name);
 
-  private static readonly REQUIRED_RELATIONS = [
-    'pricing_quote_identifier_seq',
-  ];
+  private static readonly REQUIRED_RELATIONS = ['pricing_quote_identifier_seq'];
 
   constructor(private readonly dataSource: DataSource) {}
 

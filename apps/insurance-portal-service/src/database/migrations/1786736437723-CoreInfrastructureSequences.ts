@@ -26,9 +26,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Currently backs: IdentifierGeneratorService.generatePricingQuoteId()
  * (modules/shared/identifiers/identifier-generator.service.ts).
  */
-export class CoreInfrastructureSequences1786736437723
-  implements MigrationInterface
-{
+export class CoreInfrastructureSequences1786736437723 implements MigrationInterface {
   name = 'CoreInfrastructureSequences1786736437723';
 
   async up(queryRunner: QueryRunner) {

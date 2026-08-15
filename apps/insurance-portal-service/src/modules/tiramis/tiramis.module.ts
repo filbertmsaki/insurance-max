@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { TiramisHttpModule } from '../../integrations/tiramis/tiramis-http.module';
+import { IssuanceModule } from '../tenant/issuance/issuance.module';
+import { PortalTiraSubmission } from '../tenant/tiramis-integration/entities/portal-tira-submission.entity';
 import { TiramisCompanyScopeGuard } from './auth/tiramis-company-scope.guard';
 import { TiramisPermissionGuard } from './auth/tiramis-permission.guard';
 import { TiramisAdminController } from './controllers/tiramis-admin.controller';
@@ -75,8 +77,10 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
       NonMotorPolicyDetail,
       ReinsuranceDeclaration,
       Company,
+      PortalTiraSubmission,
     ]),
     TiramisHttpModule,
+    IssuanceModule,
   ],
   controllers: [
     TiramisController,

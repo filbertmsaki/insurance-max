@@ -19,12 +19,11 @@ import { Company } from '../../../platform/companies/entities/company.entity';
  * never silently drop it from a regenerated baseline.
  */
 @Entity('identifier_sequences')
-@Index('UQ_identifier_sequences_scope', [
-  'company_id',
-  'identifier_type',
-  'sequence_date',
-  'sequence_time_bucket',
-], { unique: true })
+@Index(
+  'UQ_identifier_sequences_scope',
+  ['company_id', 'identifier_type', 'sequence_date', 'sequence_time_bucket'],
+  { unique: true },
+)
 @Index('IDX_identifier_sequences_company_type', [
   'company_id',
   'identifier_type',

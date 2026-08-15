@@ -1249,7 +1249,7 @@ export function DashboardPage() {
     }
 
     return availableTabs[0]?.id ?? 'overview';
-  }, [availableTabs, routeTabParam]);
+  }, [availableTabs, routeTabParam, capabilities]);
 
   const sectionQuery = useQuery({
     queryKey: ['tenant-dashboard', 'section', resolvedActiveTab, filters],
