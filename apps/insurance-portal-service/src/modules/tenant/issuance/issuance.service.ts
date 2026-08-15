@@ -1024,7 +1024,7 @@ export class IssuanceService {
             entry.motor_detail.chassis_number.trim().toUpperCase(),
       ) ??
       (references.length === totalEntries ? references[index] : null) ??
-      (references.length === 1 ? references[0] : null)
+      (references.length === 1 && totalEntries === 1 ? references[0] : null)
     );
   }
 

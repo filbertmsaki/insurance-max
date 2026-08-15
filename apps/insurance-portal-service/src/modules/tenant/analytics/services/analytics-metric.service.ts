@@ -12,12 +12,14 @@ import {
   MetricAggregationType,
   MetricValueType,
 } from '@insurance-max/contracts';
+import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { DateTime } from 'luxon';
 import { DataSource, Repository } from 'typeorm';
 
 import { AnalyticsProjectionCheckpoint } from '../../../shared/analytics/entities/analytics-projection-checkpoint.entity';
 import { AnalyticsMetricDefinitionEntity } from '../entities/analytics-metric-definition.entity';
 import { AnalyticsMetricValueEntity } from '../entities/analytics-metric-value.entity';
+import { ExecutiveMetricsSourceService } from './executive-metrics-source.service';
 
 type RegisteredMetricSeed = {
   code: string;
@@ -64,6 +66,7 @@ export class AnalyticsMetricService {
     private readonly checkpointRepository: Repository<AnalyticsProjectionCheckpoint>,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
+    private readonly executiveMetricsSourceService: ExecutiveMetricsSourceService,
   ) {}
 
   async listDefinitions(permissions: string[] = []) {
@@ -155,8 +158,9 @@ export class AnalyticsMetricService {
     };
   }
 
-  async getExecutiveDashboard(companyId: string, permissions: string[] = []) {
+  async getExecutiveDashboard(user: AuthenticatedUser) {
     await this.ensureDefaultDefinitions();
+    const permissions = user.permissions ?? [];
     const now = DateTime.utc();
     const monthStart = now.startOf('month').toISODate() ?? now.toISODate();
     const monthEnd = now.endOf('day').toISODate() ?? now.toISODate();
@@ -194,8 +198,43 @@ export class AnalyticsMetricService {
           };
         }
 
+        if (this.executiveMetricsSourceService.supports(metricCode)) {
+          const live = await this.executiveMetricsSourceService.compute(
+            metricCode,
+            user,
+            monthStart,
+            monthEnd,
+          );
+
+          const calculatedAt = new Date().toISOString();
+
+          return {
+            code: metricCode,
+            name: definition.name,
+            status: live === null ? 'NO_DATA' : 'AVAILABLE',
+            data:
+              live === null
+                ? null
+                : {
+                    value: live.value,
+                    unit: definition.value_type,
+                    periodStart: monthStart,
+                    periodEnd: monthEnd,
+                    formulaVersion: definition.formula_version,
+                  },
+            freshness:
+              live === null
+                ? null
+                : {
+                    status: AnalyticsDataFreshness.CURRENT,
+                    lastProjectedAt: calculatedAt,
+                    reason: null,
+                  },
+          };
+        }
+
         const result = await this.queryMetric({
-          companyId,
+          companyId: user.companyId!,
           metricCode,
           periodType: AnalyticsPeriodType.MONTH,
           periodStart: monthStart,

@@ -1,13 +1,10 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class BaselineMigration1786520281934 implements MigrationInterface {
-  name = 'BaselineMigration1786520281934';
+export class BaselineMigration1786736413397 implements MigrationInterface {
+  name = 'BaselineMigration1786736413397';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
-    if (await queryRunner.hasTable('tiramis_access_audit_logs')) {
-      return;
-    }
     await queryRunner.query(
       `CREATE TABLE "tiramis_access_audit_logs" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "request_id" character varying(128), "correlation_id" character varying(128), "calling_service" character varying(100) NOT NULL, "actor_user_id" character varying(100), "tenant_company_id" character varying(100), "service_scopes" text, "method" character varying(20) NOT NULL, "path" character varying(255) NOT NULL, "status_code" integer NOT NULL, "allowed" boolean NOT NULL, "denial_reason" text, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_690f6cf0f89bf685d0cb98b0bcc" PRIMARY KEY ("id"))`,
     );
@@ -31,6 +28,30 @@ export class BaselineMigration1786520281934 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "IDX_tiramis_api_keys_service_name" ON "tiramis_api_keys" ("service_name") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_callback_receipts" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "environment" character varying(30) NOT NULL, "request_id" character varying(100) NOT NULL, "response_id" character varying(100) NOT NULL, "root_name" character varying(100) NOT NULL, "response_status_code" character varying(50) NOT NULL, "response_status_desc" character varying(255) NOT NULL, "payload_hash" character varying(128), "signature_verified" integer NOT NULL DEFAULT '0', "processing_status" character varying(30) NOT NULL DEFAULT 'PROCESSING', "receive_count" integer NOT NULL DEFAULT '1', "last_received_at" TIMESTAMP, "acknowledgement_id" character varying(100), "acknowledgement_status_code" character varying(50), "acknowledgement_status_desc" character varying(255), "acknowledgement_xml" text, "last_error" text, CONSTRAINT "PK_b21b4d95691a2274c0530ff6d7e" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_5f1b7cb556f55106a52e7fe557" ON "tiramis_callback_receipts" ("response_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_9d04fbd695db84ddb854e22433" ON "tiramis_callback_receipts" ("request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "IDX_3d47fe0170e905c75128be484e" ON "tiramis_callback_receipts" ("environment", "request_id", "response_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_callback_dead_letters" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "environment" character varying(30) NOT NULL, "root_name" character varying(100), "request_id" character varying(100), "response_id" character varying(100), "status_code" character varying(50), "status_desc" character varying(255), "signature" text, "raw_xml" text, "payload_hash" character varying(128), "reason" text NOT NULL, "is_processed" integer NOT NULL DEFAULT '0', CONSTRAINT "PK_4546f305a48135e2b32c66de2d4" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_536da6213691648da1ce558d08" ON "tiramis_callback_dead_letters" ("response_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_7e6c943c33b0e794d421c3d7cc" ON "tiramis_callback_dead_letters" ("request_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_747e5985888d2cb63d0360fea6" ON "tiramis_callback_dead_letters" ("environment") `,
     );
     await queryRunner.query(
       `CREATE TABLE "tiramis_service_endpoints" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "client_configuration_id" uuid NOT NULL, "service_type" character varying(80) NOT NULL, "endpoint_url" character varying(500) NOT NULL, "http_method" character varying(10) NOT NULL DEFAULT 'POST', "content_type" character varying(50) NOT NULL DEFAULT 'application/xml', "is_active" integer NOT NULL DEFAULT '1', CONSTRAINT "PK_7190cfb2c78292addcae0ded32e" PRIMARY KEY ("id"))`,
@@ -815,6 +836,26 @@ export class BaselineMigration1786520281934 implements MigrationInterface {
       `DROP INDEX "public"."IDX_bb05af80f05d76970291c523b2"`,
     );
     await queryRunner.query(`DROP TABLE "tiramis_service_endpoints"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_747e5985888d2cb63d0360fea6"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_7e6c943c33b0e794d421c3d7cc"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_536da6213691648da1ce558d08"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_callback_dead_letters"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_3d47fe0170e905c75128be484e"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_9d04fbd695db84ddb854e22433"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_5f1b7cb556f55106a52e7fe557"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_callback_receipts"`);
     await queryRunner.query(
       `DROP INDEX "public"."IDX_tiramis_api_keys_service_name"`,
     );

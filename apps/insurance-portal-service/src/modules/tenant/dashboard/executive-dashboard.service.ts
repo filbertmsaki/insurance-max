@@ -20,10 +20,7 @@ export class ExecutiveDashboardService {
       user,
       query,
       async () => {
-        return this.analyticsMetricService.getExecutiveDashboard(
-          user.companyId!,
-          user.permissions ?? [],
-        );
+        return this.analyticsMetricService.getExecutiveDashboard(user);
       },
     );
   }

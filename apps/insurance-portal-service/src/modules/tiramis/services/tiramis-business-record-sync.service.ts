@@ -404,8 +404,8 @@ export class TiramisBusinessRecordSyncService {
             tira_error_details = $8::jsonb,
             submission_status_v2 = $9,
             quotation_stage = CASE
-              WHEN $2 = 'CANCELLED' THEN 'CANCELLED'
-              WHEN $2 IN ('COMPLETED', 'FAILED') THEN 'COMPLETED'
+              WHEN $2::varchar = 'CANCELLED' THEN 'CANCELLED'
+              WHEN $2::varchar IN ('COMPLETED', 'FAILED') THEN 'COMPLETED'
               ELSE quotation_stage
             END,
             workflow_completed_at = COALESCE(workflow_completed_at, now()),
@@ -417,7 +417,7 @@ export class TiramisBusinessRecordSyncService {
             AND NOT (
               quotation_status IN ('COMPLETED', 'CANCELLED')
               AND tira_status = 'SUCCESS'
-              AND $3 <> 'SUCCESS'
+              AND $3::varchar <> 'SUCCESS'
             )
         `,
         [

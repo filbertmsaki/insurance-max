@@ -101,6 +101,7 @@ const DASHBOARD_ADMIN_PERMISSION_NAMES = [
   'dashboard:claims',
   'dashboard:reinsurance',
   'dashboard:export',
+  'dashboards:executive:read',
 ];
 
 const DASHBOARD_GENERAL_USER_PERMISSION_NAMES = [
@@ -118,6 +119,7 @@ const DASHBOARD_VIEWER_PERMISSION_NAMES = [
 
 const ANALYTICS_ADMIN_PERMISSION_NAMES = [
   'analytics:read',
+  'analytics:metrics:read',
   'analytics:executive-dashboard',
   'analytics:scorecard-read',
   'analytics:scorecard-generate',
@@ -769,6 +771,20 @@ const permissionSeeds: PermissionSeed[] = [
     name: 'dashboard:export',
     displayName: 'Export dashboard reports',
     description: 'Allow exporting dashboard and management reports',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'dashboards:executive:read',
+    displayName: 'View executive dashboard',
+    description:
+      'Allow viewing the executive metric dashboard built from the metric catalogue',
+    scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
+  },
+  {
+    name: 'analytics:metrics:read',
+    displayName: 'Read metric catalogue values',
+    description:
+      'Allow reading metric catalogue definitions and computed metric values',
     scopes: GLOBAL_AND_DEFAULT_COMPANY_SCOPES,
   },
   {

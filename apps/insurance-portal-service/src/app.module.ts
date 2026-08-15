@@ -43,6 +43,7 @@ import { HealthModule } from './health/health.module';
 import { InsurancePortalServiceModule } from './modules/insurance-portal-service.module';
 import { TiramisModule } from './modules/tiramis/tiramis.module';
 import { OrganizationModule } from './modules/shared/organization/organization.module';
+import { DatabaseInfrastructureGuard } from './modules/shared/identifiers/database-infrastructure.guard';
 
 @Module({
   imports: [
@@ -99,6 +100,7 @@ import { OrganizationModule } from './modules/shared/organization/organization.m
   controllers: [AppController],
   providers: [
     AppService,
+    DatabaseInfrastructureGuard,
 
     {
       provide: APP_GUARD,

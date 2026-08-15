@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class BaselineMigration1786521549518 implements MigrationInterface {
-  name = 'BaselineMigration1786521549518';
+export class BaselineMigration1786736437722 implements MigrationInterface {
+  name = 'BaselineMigration1786736437722';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
@@ -136,6 +136,39 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "IDX_tiramis_sale_points_company_id" ON "tiramis_sale_points" ("company_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "tiramis_notifications" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "type" character varying(100) NOT NULL, "correlation_id" character varying(150), "event_key" character varying(180), "dedupe_key" character varying(255), "channel" character varying(40) NOT NULL DEFAULT 'IN_APP', "delivery_status" character varying(40) NOT NULL DEFAULT 'PENDING', "delivery_attempts" integer NOT NULL DEFAULT '0', "last_delivery_attempt_at" TIMESTAMP WITH TIME ZONE, "delivered_at" TIMESTAMP WITH TIME ZONE, "delivery_error_message" text, "severity" character varying(30) NOT NULL DEFAULT 'WARNING', "title" character varying(255) NOT NULL, "message" text NOT NULL, "request_type" character varying(80), "source_company_id" uuid, "source_user_id" uuid, "source_module" character varying(100), "source_record_id" character varying(150), "business_reference" character varying(150), "local_tracking_id" uuid, "tiramis_transaction_id" uuid, "tiramis_request_id" character varying(100), "status" character varying(80), "error_message" text, "is_read" boolean NOT NULL DEFAULT false, "read_at" TIMESTAMP WITH TIME ZONE, "read_by_user_id" uuid, "dismissed_at" TIMESTAMP WITH TIME ZONE, "dismissed_by_user_id" uuid, "expires_at" TIMESTAMP WITH TIME ZONE, "metadata" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_f124c350e0bf2003986bd7c0dca" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_239dae46f7ccee665b466dadb5" ON "tiramis_notifications" ("created_at") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_63a278be9de80a2038d26f1816" ON "tiramis_notifications" ("is_read") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_b0a40f07f8b5f84b69bea17db8" ON "tiramis_notifications" ("local_tracking_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_51b42a7add6bcc3dd6619321df" ON "tiramis_notifications" ("business_reference") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_9751d6b9f5875135eb9023d96a" ON "tiramis_notifications" ("source_record_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_b3f28c61c3417d220a279219dc" ON "tiramis_notifications" ("source_module") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_3b53010f93bb915f08ac223e0c" ON "tiramis_notifications" ("source_user_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_e2722912fd72b62d3b446023d6" ON "tiramis_notifications" ("source_company_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_3803f6fc072e1d2f3af11b6e87" ON "tiramis_notifications" ("severity") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_033ea7c1f6d324492b3e4446f0" ON "tiramis_notifications" ("type") `,
     );
     await queryRunner.query(
       `CREATE TABLE "tiramis_lookups" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "group_code" character varying(80) NOT NULL, "code" character varying(50) NOT NULL, "label" character varying(150) NOT NULL, "description" text, "metadata" jsonb, "is_active" boolean NOT NULL DEFAULT true, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_dca82ff8dd24231b27d82924955" PRIMARY KEY ("id"))`,
@@ -630,6 +663,9 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `CREATE TABLE "policies" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "insurer_company_id" uuid NOT NULL, "intermediary_company_id" uuid, "branch_id" uuid, "department_id" uuid, "created_by" uuid, "customer_id" uuid NOT NULL, "quotation_id" uuid, "source_quotation_revision" integer, "source_finalization_hash" character varying(64), "proposal_id" uuid, "category_id" uuid NOT NULL, "product_id" uuid NOT NULL, "product_version_id" uuid, "product_definition_hash" character varying(64), "sub_class_id" uuid, "policy_no" character varying(50) NOT NULL, "cover_note_no" character varying(50), "external_policy_no" character varying(50), "channel_type" "public"."policy_channel_type_enum" NOT NULL, "policy_status" character varying(20) NOT NULL DEFAULT 'DRAFT', "policy_reference_number" character varying(100), "regulatory_sync_status" character varying(40) NOT NULL DEFAULT 'PENDING', "source_cover_note_count" integer NOT NULL DEFAULT '0', "issued_by_system" boolean NOT NULL DEFAULT false, "start_date" date NOT NULL, "end_date" date NOT NULL, "issue_date" date NOT NULL, "activated_at" TIMESTAMP WITH TIME ZONE, "rejected_at" TIMESTAMP WITH TIME ZONE, "currency" character varying(10) NOT NULL DEFAULT 'TZS', "customer_snapshot" jsonb, "customer_snapshot_hash" character varying(64), "pricing_snapshot" jsonb, "pricing_result_hash" character varying(64), "distribution_snapshot" jsonb, "distribution_snapshot_hash" character varying(64), "sum_insured" numeric(18,2) NOT NULL DEFAULT '0', "basic_premium" numeric(18,2) NOT NULL DEFAULT '0', "total_discount" numeric(18,2) NOT NULL DEFAULT '0', "total_tax" numeric(18,2) NOT NULL DEFAULT '0', "total_charges" numeric(18,2) NOT NULL DEFAULT '0', "total_commission" numeric(18,2) NOT NULL DEFAULT '0', "total_premium" numeric(18,2) NOT NULL DEFAULT '0', "net_premium" numeric(18,2) NOT NULL DEFAULT '0', "reinsurance_required" boolean NOT NULL DEFAULT false, "reinsurance_status" character varying(20) NOT NULL DEFAULT 'NOT_REQUIRED', "retention_amount" numeric(18,2) NOT NULL DEFAULT '0', "ceded_sum_insured" numeric(18,2) NOT NULL DEFAULT '0', "ceded_premium" numeric(18,2) NOT NULL DEFAULT '0', "tira_status" character varying(20) NOT NULL DEFAULT 'PENDING', "tira_portal_transaction_id" character varying(100), "tiramis_transaction_id" character varying(100), "tiramis_submission_tracking_id" uuid, "current_version_no" integer NOT NULL DEFAULT '1', "renewed_from_policy_id" uuid, "renewed_to_policy_id" uuid, "active_version_id" uuid, "pending_transaction_id" uuid, "last_endorsement_date" date, "cancellation_effective_date" date, "renewal_status" character varying(40) NOT NULL DEFAULT 'NOT_STARTED', "tiramis_status" character varying(50), "tiramis_request_id" character varying(100), "tiramis_service_type" character varying(80), "tiramis_root_element" character varying(100), "tiramis_acknowledgement_status_code" character varying(20), "tiramis_acknowledgement_status_desc" character varying(255), "tiramis_final_response_id" character varying(100), "tiramis_final_response_status_code" character varying(20), "tiramis_final_response_status_desc" character varying(255), "tiramis_last_error_message" text, "tiramis_last_synced_at" TIMESTAMP WITH TIME ZONE, "tiramis_payload" jsonb, "regulatory_response_payload" jsonb, "regulatory_response_hash" character varying(64), "state_version" integer NOT NULL DEFAULT '1', "metadata" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, CONSTRAINT "PK_603e09f183df0108d8695c57e28" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
+      `CREATE UNIQUE INDEX "UQ_policies_issued_quotation_revision" ON "policies" ("company_id", "quotation_id", "source_quotation_revision") WHERE quotation_id IS NOT NULL AND source_quotation_revision IS NOT NULL AND deleted_at IS NULL`,
+    );
+    await queryRunner.query(
       `CREATE UNIQUE INDEX "IDX_policies_company_policy_no" ON "policies" ("company_id", "policy_no") WHERE deleted_at IS NULL`,
     );
     await queryRunner.query(
@@ -658,39 +694,6 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "IDX_tiramis_business_records_company" ON "tiramis_business_records" ("company_id") `,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "tiramis_notifications" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "type" character varying(100) NOT NULL, "correlation_id" character varying(150), "event_key" character varying(180), "dedupe_key" character varying(255), "channel" character varying(40) NOT NULL DEFAULT 'IN_APP', "delivery_status" character varying(40) NOT NULL DEFAULT 'PENDING', "delivery_attempts" integer NOT NULL DEFAULT '0', "last_delivery_attempt_at" TIMESTAMP WITH TIME ZONE, "delivered_at" TIMESTAMP WITH TIME ZONE, "delivery_error_message" text, "severity" character varying(30) NOT NULL DEFAULT 'WARNING', "title" character varying(255) NOT NULL, "message" text NOT NULL, "request_type" character varying(80), "source_company_id" uuid, "source_user_id" uuid, "source_module" character varying(100), "source_record_id" character varying(150), "business_reference" character varying(150), "local_tracking_id" uuid, "tiramis_transaction_id" uuid, "tiramis_request_id" character varying(100), "status" character varying(80), "error_message" text, "is_read" boolean NOT NULL DEFAULT false, "read_at" TIMESTAMP WITH TIME ZONE, "read_by_user_id" uuid, "dismissed_at" TIMESTAMP WITH TIME ZONE, "dismissed_by_user_id" uuid, "expires_at" TIMESTAMP WITH TIME ZONE, "metadata" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_f124c350e0bf2003986bd7c0dca" PRIMARY KEY ("id"))`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_239dae46f7ccee665b466dadb5" ON "tiramis_notifications" ("created_at") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_63a278be9de80a2038d26f1816" ON "tiramis_notifications" ("is_read") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_b0a40f07f8b5f84b69bea17db8" ON "tiramis_notifications" ("local_tracking_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_51b42a7add6bcc3dd6619321df" ON "tiramis_notifications" ("business_reference") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_9751d6b9f5875135eb9023d96a" ON "tiramis_notifications" ("source_record_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_b3f28c61c3417d220a279219dc" ON "tiramis_notifications" ("source_module") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_3b53010f93bb915f08ac223e0c" ON "tiramis_notifications" ("source_user_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_e2722912fd72b62d3b446023d6" ON "tiramis_notifications" ("source_company_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_3803f6fc072e1d2f3af11b6e87" ON "tiramis_notifications" ("severity") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_033ea7c1f6d324492b3e4446f0" ON "tiramis_notifications" ("type") `,
     );
     await queryRunner.query(
       `CREATE TABLE "tiramis_audit_logs" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "action" character varying(100) NOT NULL, "correlation_id" character varying(150), "event_key" character varying(180), "severity" character varying(30) NOT NULL DEFAULT 'INFO', "request_type" character varying(80), "source_service" character varying(100) NOT NULL DEFAULT 'insurance-portal-service', "source_company_id" uuid, "source_user_id" uuid, "actor_user_type" character varying(50), "actor_email" character varying(150), "source_module" character varying(100), "source_record_id" character varying(150), "business_reference" character varying(150), "local_tracking_id" uuid, "tiramis_transaction_id" uuid, "tiramis_request_id" character varying(100), "status_before" character varying(80), "status_after" character varying(80), "success" boolean NOT NULL DEFAULT true, "error_message" text, "ip_address" character varying(100), "user_agent" text, "http_method" character varying(20), "endpoint" character varying(255), "duration_ms" integer, "metadata" jsonb, "request_payload_snapshot" jsonb, "response_payload_snapshot" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_ec77462b3a1f09c735c76a4b3b1" PRIMARY KEY ("id"))`,
@@ -732,13 +735,13 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `CREATE TABLE "work_item_events" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "work_item_id" uuid NOT NULL, "event_type" character varying(30) NOT NULL, "actor_id" uuid, "actor_type" character varying(30) NOT NULL DEFAULT 'USER', "comment" text, "metadata" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_fefa3ff72ea36f6ed7e325a1965" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "notification_preferences" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "user_id" uuid NOT NULL, "event_code" character varying(120) NOT NULL, "channel" character varying(20) NOT NULL, "mode" character varying(20) NOT NULL DEFAULT 'INHERIT', "quiet_hours_from" character varying(5), "quiet_hours_to" character varying(5), "marketing_consent" boolean NOT NULL DEFAULT false, "transactional_required" boolean NOT NULL DEFAULT false, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_e94e2b543f2f218ee68e4f4fad2" PRIMARY KEY ("id"))`,
-    );
-    await queryRunner.query(
       `CREATE TABLE "tenant_notifications" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "notification_no" character varying(100), "branch_id" uuid, "recipient_user_id" uuid, "recipient_role" character varying(100), "type" character varying(50) NOT NULL, "channel" character varying(20) NOT NULL DEFAULT 'IN_APP', "priority" character varying(20) NOT NULL DEFAULT 'NORMAL', "severity" character varying(20) NOT NULL DEFAULT 'INFO', "status" character varying(30) NOT NULL DEFAULT 'CREATED', "title" character varying(180) NOT NULL, "message" text NOT NULL, "resource_type" character varying(80), "resource_id" uuid, "action_url" character varying(255), "deep_link" character varying(255), "idempotency_key" character varying(180), "metadata" jsonb, "read_at" TIMESTAMP WITH TIME ZONE, "dismissed_at" TIMESTAMP WITH TIME ZONE, "expires_at" TIMESTAMP WITH TIME ZONE, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_af51a126a42071668e0f9374b23" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE INDEX "IDX_tenant_notification_user" ON "tenant_notifications" ("company_id", "recipient_user_id", "read_at") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "notification_preferences" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "user_id" uuid NOT NULL, "event_code" character varying(120) NOT NULL, "channel" character varying(20) NOT NULL, "mode" character varying(20) NOT NULL DEFAULT 'INHERIT', "quiet_hours_from" character varying(5), "quiet_hours_to" character varying(5), "marketing_consent" boolean NOT NULL DEFAULT false, "transactional_required" boolean NOT NULL DEFAULT false, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_e94e2b543f2f218ee68e4f4fad2" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE TABLE "portal_tira_submission_events" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "submission_id" uuid NOT NULL, "company_id" uuid NOT NULL, "tiramis_transaction_id" character varying(100), "request_id" character varying(100) NOT NULL, "response_id" character varying(100), "event_type" character varying(100) NOT NULL, "status_code" character varying(50), "status_description" character varying(255), "error_message" text, "payload" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_ffff990a5b7e6b6acf71a019ea3" PRIMARY KEY ("id"))`,
@@ -957,12 +960,6 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `CREATE TABLE "regulatory_return_submissions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "regulatory_return_id" uuid NOT NULL, "submission_no" character varying(100) NOT NULL, "submission_channel" character varying(50) NOT NULL, "submission_reference" character varying(150), "status" character varying(40) NOT NULL DEFAULT 'SUBMISSION_PROCESSING', "submitted_payload_hash" character varying(64) NOT NULL, "acknowledgement_reference" character varying(150), "acknowledgement_code" character varying(50), "acknowledgement_message" text, "submitted_by" uuid NOT NULL, "submitted_at" TIMESTAMP WITH TIME ZONE NOT NULL, "acknowledged_at" TIMESTAMP WITH TIME ZONE, "rejected_at" TIMESTAMP WITH TIME ZONE, "evidence_document_id" uuid, "metadata" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_390ce5808f54fb9c525d91f1581" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
-      `CREATE TYPE "public"."regulatory_obligations_status_enum" AS ENUM('UPCOMING', 'DUE', 'IN_PROGRESS', 'PREPARATION_IN_PROGRESS', 'SUBMITTED_FOR_APPROVAL', 'PENDING_REVIEW', 'APPROVED', 'SUBMITTED', 'ACKNOWLEDGED', 'ACCEPTED', 'REJECTED', 'OVERDUE', 'WAIVED', 'NOT_APPLICABLE', 'COMPLETED', 'CANCELLED')`,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "regulatory_obligations" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "template_id" uuid, "return_definition_id" uuid, "code" character varying(80) NOT NULL, "name" character varying(160) NOT NULL, "period_start" date NOT NULL, "period_end" date NOT NULL, "due_at" TIMESTAMP WITH TIME ZONE NOT NULL, "status" "public"."regulatory_obligations_status_enum" NOT NULL DEFAULT 'UPCOMING', "return_id" uuid, "metadata" jsonb, "definition_id" uuid, "obligation_reference" character varying(100), "assigned_user_id" uuid, "assigned_role_id" uuid, "active_return_id" uuid, "active_levy_assessment_id" uuid, "warning_sent_days" integer array NOT NULL DEFAULT '{}', "completed_at" TIMESTAMP WITH TIME ZONE, "waived_by" uuid, "waived_at" TIMESTAMP WITH TIME ZONE, "waiver_reason" text, "state_version" integer NOT NULL DEFAULT '1', "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_6bf47954a342a7f43f30b676997" PRIMARY KEY ("id"))`,
-    );
-    await queryRunner.query(
       `CREATE TYPE "public"."regulatory_return_definitions_frequency_enum" AS ENUM('MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL', 'ANNUAL', 'EVENT_DRIVEN', 'AD_HOC')`,
     );
     await queryRunner.query(
@@ -972,13 +969,10 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `CREATE TABLE "regulatory_return_attachments" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "return_id" uuid NOT NULL, "company_id" uuid NOT NULL, "file_name" character varying(160) NOT NULL, "evidence_type" character varying(120), "storage_path" character varying(255), "mime_type" character varying(120), "uploaded_by" uuid, "uploaded_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "metadata" jsonb, CONSTRAINT "PK_db43e1e1cee8b3899c6d0b716f6" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "regulatory_obligation_definitions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "authority_profile_id" uuid NOT NULL, "obligation_code" character varying(80) NOT NULL, "obligation_name" character varying(250) NOT NULL, "obligation_type" character varying(40) NOT NULL, "frequency" character varying(40) NOT NULL, "effective_from" date NOT NULL, "effective_to" date, "due_date_rule" jsonb NOT NULL, "warning_days" integer array NOT NULL DEFAULT '{30,14,7,1}', "report_code" character varying(100), "requires_approval" boolean NOT NULL DEFAULT true, "requires_submission_evidence" boolean NOT NULL DEFAULT true, "requires_reconciliation" boolean NOT NULL DEFAULT true, "active" boolean NOT NULL DEFAULT true, "version_number" integer NOT NULL DEFAULT '1', "definition_snapshot" jsonb NOT NULL, "definition_snapshot_hash" character varying(64) NOT NULL, "created_by" uuid NOT NULL, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_bda1012b8c7e9f6eeb5fa692caf" PRIMARY KEY ("id"))`,
+      `CREATE TYPE "public"."regulatory_obligations_status_enum" AS ENUM('UPCOMING', 'DUE', 'IN_PROGRESS', 'PREPARATION_IN_PROGRESS', 'SUBMITTED_FOR_APPROVAL', 'PENDING_REVIEW', 'APPROVED', 'SUBMITTED', 'ACKNOWLEDGED', 'ACCEPTED', 'REJECTED', 'OVERDUE', 'WAIVED', 'NOT_APPLICABLE', 'COMPLETED', 'CANCELLED')`,
     );
     await queryRunner.query(
-      `CREATE TABLE "regulatory_levy_rules" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "authority_profile_id" uuid NOT NULL, "levy_code" character varying(80) NOT NULL, "levy_name" character varying(200) NOT NULL, "basis_type" character varying(50) NOT NULL, "rate_type" character varying(30) NOT NULL, "rate_value" numeric(18,10) NOT NULL, "minimum_amount" numeric(20,4), "maximum_amount" numeric(20,4), "currency_code" character varying(3), "effective_from" date NOT NULL, "effective_to" date, "calculation_configuration" jsonb NOT NULL, "version_number" integer NOT NULL DEFAULT '1', "rule_snapshot" jsonb NOT NULL, "rule_snapshot_hash" character varying(64) NOT NULL, "active" boolean NOT NULL DEFAULT true, "created_by" uuid NOT NULL, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_977ad4119512b1514e438b4f486" PRIMARY KEY ("id"))`,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "regulatory_levy_assessments" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "obligation_instance_id" uuid, "levy_rule_id" uuid NOT NULL, "assessment_no" character varying(100) NOT NULL, "period_start" date NOT NULL, "period_end" date NOT NULL, "status" character varying(50) NOT NULL DEFAULT 'DRAFT', "basis_amount" numeric(20,4) NOT NULL, "rate_value" numeric(18,10) NOT NULL, "assessed_amount" numeric(20,4) NOT NULL, "paid_amount" numeric(20,4) NOT NULL DEFAULT '0', "outstanding_amount" numeric(20,4) NOT NULL, "currency_code" character varying(3) NOT NULL, "source_report_code" character varying(100), "source_report_job_id" uuid, "calculation_snapshot" jsonb NOT NULL, "calculation_snapshot_hash" character varying(64) NOT NULL, "active_invoice_id" uuid, "finance_payment_reference" character varying(150), "reconciliation_status" character varying(40) NOT NULL DEFAULT 'NOT_CHECKED', "prepared_by" uuid NOT NULL, "approved_by" uuid, "approved_at" TIMESTAMP WITH TIME ZONE, "state_version" integer NOT NULL DEFAULT '1', "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_62782101b63b65e4b79233629f9" PRIMARY KEY ("id"))`,
+      `CREATE TABLE "regulatory_obligations" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "template_id" uuid, "return_definition_id" uuid, "code" character varying(80) NOT NULL, "name" character varying(160) NOT NULL, "period_start" date NOT NULL, "period_end" date NOT NULL, "due_at" TIMESTAMP WITH TIME ZONE NOT NULL, "status" "public"."regulatory_obligations_status_enum" NOT NULL DEFAULT 'UPCOMING', "return_id" uuid, "metadata" jsonb, "definition_id" uuid, "obligation_reference" character varying(100), "assigned_user_id" uuid, "assigned_role_id" uuid, "active_return_id" uuid, "active_levy_assessment_id" uuid, "warning_sent_days" integer array NOT NULL DEFAULT '{}', "completed_at" TIMESTAMP WITH TIME ZONE, "waived_by" uuid, "waived_at" TIMESTAMP WITH TIME ZONE, "waiver_reason" text, "state_version" integer NOT NULL DEFAULT '1', "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_6bf47954a342a7f43f30b676997" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE TYPE "public"."regulatory_obligation_templates_frequency_enum" AS ENUM('MONTHLY', 'QUARTERLY', 'SEMI_ANNUAL', 'ANNUAL', 'EVENT_DRIVEN', 'AD_HOC')`,
@@ -996,19 +990,28 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `CREATE TABLE "regulatory_obligation_instances" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "definition_id" uuid NOT NULL, "obligation_reference" character varying(100) NOT NULL, "period_start" date NOT NULL, "period_end" date NOT NULL, "due_at" TIMESTAMP WITH TIME ZONE NOT NULL, "status" character varying(50) NOT NULL DEFAULT 'UPCOMING', "assigned_user_id" uuid, "assigned_role_id" uuid, "active_return_id" uuid, "active_levy_assessment_id" uuid, "warning_sent_days" integer array NOT NULL DEFAULT '{}', "completed_at" TIMESTAMP WITH TIME ZONE, "waived_by" uuid, "waived_at" TIMESTAMP WITH TIME ZONE, "waiver_reason" text, "state_version" integer NOT NULL DEFAULT '1', "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_68bbb19d299fd72b274ae5d0ab3" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
+      `CREATE TABLE "regulatory_obligation_definitions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "authority_profile_id" uuid NOT NULL, "obligation_code" character varying(80) NOT NULL, "obligation_name" character varying(250) NOT NULL, "obligation_type" character varying(40) NOT NULL, "frequency" character varying(40) NOT NULL, "effective_from" date NOT NULL, "effective_to" date, "due_date_rule" jsonb NOT NULL, "warning_days" integer array NOT NULL DEFAULT '{30,14,7,1}', "report_code" character varying(100), "requires_approval" boolean NOT NULL DEFAULT true, "requires_submission_evidence" boolean NOT NULL DEFAULT true, "requires_reconciliation" boolean NOT NULL DEFAULT true, "active" boolean NOT NULL DEFAULT true, "version_number" integer NOT NULL DEFAULT '1', "definition_snapshot" jsonb NOT NULL, "definition_snapshot_hash" character varying(64) NOT NULL, "created_by" uuid NOT NULL, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_bda1012b8c7e9f6eeb5fa692caf" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "regulatory_levy_rules" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "authority_profile_id" uuid NOT NULL, "levy_code" character varying(80) NOT NULL, "levy_name" character varying(200) NOT NULL, "basis_type" character varying(50) NOT NULL, "rate_type" character varying(30) NOT NULL, "rate_value" numeric(18,10) NOT NULL, "minimum_amount" numeric(20,4), "maximum_amount" numeric(20,4), "currency_code" character varying(3), "effective_from" date NOT NULL, "effective_to" date, "calculation_configuration" jsonb NOT NULL, "version_number" integer NOT NULL DEFAULT '1', "rule_snapshot" jsonb NOT NULL, "rule_snapshot_hash" character varying(64) NOT NULL, "active" boolean NOT NULL DEFAULT true, "created_by" uuid NOT NULL, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_977ad4119512b1514e438b4f486" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
       `CREATE TABLE "regulatory_ledger_entries" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "source_type" character varying(80) NOT NULL, "source_id" uuid NOT NULL, "source_event_key" character varying(180) NOT NULL, "entry_type" character varying(40) NOT NULL, "authority_profile_id" uuid, "obligation_instance_id" uuid, "regulatory_return_id" uuid, "levy_assessment_id" uuid, "period_start" date, "period_end" date, "currency_code" character varying(3), "debit_amount" numeric(20,4) NOT NULL DEFAULT '0', "credit_amount" numeric(20,4) NOT NULL DEFAULT '0', "running_balance" numeric(20,4), "entry_snapshot" jsonb NOT NULL DEFAULT '{}', "entry_snapshot_hash" character varying(64) NOT NULL, "reversal_of_entry_id" uuid, "created_by" uuid, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_11806561f8fbfd76e75d946bc6f" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "regulatory_authority_profiles" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "authority_code" character varying(50) NOT NULL, "authority_name" character varying(200) NOT NULL, "authority_type" character varying(50) NOT NULL, "jurisdiction_code" character varying(20) NOT NULL, "registration_reference" character varying(100), "submission_channel" character varying(50), "submission_endpoint" character varying(500), "contact_email" character varying(255), "contact_phone" character varying(50), "active" boolean NOT NULL DEFAULT true, "metadata" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_d0218aaeba1fad04a2810e4d83c" PRIMARY KEY ("id"))`,
+      `CREATE TABLE "regulatory_levy_assessments" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "obligation_instance_id" uuid, "levy_rule_id" uuid NOT NULL, "assessment_no" character varying(100) NOT NULL, "period_start" date NOT NULL, "period_end" date NOT NULL, "status" character varying(50) NOT NULL DEFAULT 'DRAFT', "basis_amount" numeric(20,4) NOT NULL, "rate_value" numeric(18,10) NOT NULL, "assessed_amount" numeric(20,4) NOT NULL, "paid_amount" numeric(20,4) NOT NULL DEFAULT '0', "outstanding_amount" numeric(20,4) NOT NULL, "currency_code" character varying(3) NOT NULL, "source_report_code" character varying(100), "source_report_job_id" uuid, "calculation_snapshot" jsonb NOT NULL, "calculation_snapshot_hash" character varying(64) NOT NULL, "active_invoice_id" uuid, "finance_payment_reference" character varying(150), "reconciliation_status" character varying(40) NOT NULL DEFAULT 'NOT_CHECKED', "prepared_by" uuid NOT NULL, "approved_by" uuid, "approved_at" TIMESTAMP WITH TIME ZONE, "state_version" integer NOT NULL DEFAULT '1', "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_62782101b63b65e4b79233629f9" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
-      `CREATE TABLE "product_performance_snapshots" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "branch_id" uuid, "product_id" uuid NOT NULL, "currency" character varying(10) NOT NULL DEFAULT 'TZS', "snapshot_date" date NOT NULL, "period_start" date NOT NULL, "period_end" date NOT NULL, "gross_written_premium" numeric(20,2) NOT NULL DEFAULT '0', "earned_premium" numeric(20,2) NOT NULL DEFAULT '0', "premium_collected" numeric(20,2) NOT NULL DEFAULT '0', "claims_incurred" numeric(20,2) NOT NULL DEFAULT '0', "claims_paid" numeric(20,2) NOT NULL DEFAULT '0', "outstanding_reserve" numeric(20,2) NOT NULL DEFAULT '0', "ceded_premium" numeric(20,2) NOT NULL DEFAULT '0', "commissions" numeric(20,2) NOT NULL DEFAULT '0', "policies_count" integer NOT NULL DEFAULT '0', "claims_count" integer NOT NULL DEFAULT '0', "loss_ratio" numeric(18,6), "metadata" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_af191619f0e9332445d95a4e48d" PRIMARY KEY ("id"))`,
+      `CREATE TABLE "regulatory_authority_profiles" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "authority_code" character varying(50) NOT NULL, "authority_name" character varying(200) NOT NULL, "authority_type" character varying(50) NOT NULL, "jurisdiction_code" character varying(20) NOT NULL, "registration_reference" character varying(100), "submission_channel" character varying(50), "submission_endpoint" character varying(500), "contact_email" character varying(255), "contact_phone" character varying(50), "active" boolean NOT NULL DEFAULT true, "metadata" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_d0218aaeba1fad04a2810e4d83c" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE TYPE "public"."premium_levy_returns_status_enum" AS ENUM('DRAFT', 'CALCULATED', 'SUBMITTED', 'STATEMENT_RECEIVED', 'CONFIRMED', 'CONTROL_NUMBER_RECEIVED', 'PAID', 'REJECTED', 'REOPENED')`,
     );
     await queryRunner.query(
       `CREATE TABLE "premium_levy_returns" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "regulatory_return_id" uuid, "levy_no" character varying(60) NOT NULL, "status" "public"."premium_levy_returns_status_enum" NOT NULL DEFAULT 'DRAFT', "period_start" date NOT NULL, "period_end" date NOT NULL, "currency" character varying(10) NOT NULL DEFAULT 'TZS', "levy_rate" numeric(18,10) NOT NULL DEFAULT '0', "gross_premium" numeric(20,2) NOT NULL DEFAULT '0', "adjustments_amount" numeric(20,2) NOT NULL DEFAULT '0', "levy_amount" numeric(20,2) NOT NULL DEFAULT '0', "billed_amount" numeric(20,2) NOT NULL DEFAULT '0', "paid_amount" numeric(20,2) NOT NULL DEFAULT '0', "statement_received_at" TIMESTAMP WITH TIME ZONE, "statement_due_at" TIMESTAMP WITH TIME ZONE, "control_number" character varying(80), "control_number_received_at" TIMESTAMP WITH TIME ZONE, "payment_due_at" TIMESTAMP WITH TIME ZONE, "paid_at" TIMESTAMP WITH TIME ZONE, "prepared_by" uuid, "confirmed_by" uuid, "notes" text, "metadata" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, CONSTRAINT "UQ_7d8da86c6e8744b73a20fae42fe" UNIQUE ("levy_no"), CONSTRAINT "PK_ad40c5ea43c6a8a7bcfa6998ef0" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "product_performance_snapshots" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "branch_id" uuid, "product_id" uuid NOT NULL, "currency" character varying(10) NOT NULL DEFAULT 'TZS', "snapshot_date" date NOT NULL, "period_start" date NOT NULL, "period_end" date NOT NULL, "gross_written_premium" numeric(20,2) NOT NULL DEFAULT '0', "earned_premium" numeric(20,2) NOT NULL DEFAULT '0', "premium_collected" numeric(20,2) NOT NULL DEFAULT '0', "claims_incurred" numeric(20,2) NOT NULL DEFAULT '0', "claims_paid" numeric(20,2) NOT NULL DEFAULT '0', "outstanding_reserve" numeric(20,2) NOT NULL DEFAULT '0', "ceded_premium" numeric(20,2) NOT NULL DEFAULT '0', "commissions" numeric(20,2) NOT NULL DEFAULT '0', "policies_count" integer NOT NULL DEFAULT '0', "claims_count" integer NOT NULL DEFAULT '0', "loss_ratio" numeric(18,6), "metadata" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_af191619f0e9332445d95a4e48d" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE TYPE "public"."premium_levy_return_lines_line_type_enum" AS ENUM('GROSS_WRITTEN_PREMIUM', 'REINSURANCE_PREMIUM_RECEIVED', 'FOREIGN_FACULTATIVE_DEDUCTION', 'MINIMUM_DEPOSIT_PREMIUM', 'ADJUSTMENT')`,
@@ -1089,36 +1092,6 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `CREATE INDEX "IDX_pdc_insurer_company_id" ON "product_distribution_channels" ("insurer_company_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "branch_product_access" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "branch_id" uuid NOT NULL, "product_id" uuid NOT NULL, "can_view" boolean NOT NULL DEFAULT true, "can_create_policy" boolean NOT NULL DEFAULT false, "access_status" character varying NOT NULL DEFAULT 'ALLOW', "is_active" boolean NOT NULL DEFAULT true, "created_by" character varying, "updated_by" character varying, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, CONSTRAINT "UQ_branch_product_access_company_branch_product" UNIQUE ("company_id", "branch_id", "product_id"), CONSTRAINT "PK_00f392c54b0912c9a1960e923d4" PRIMARY KEY ("id"))`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_branch_product_access_product_id" ON "branch_product_access" ("product_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_branch_product_access_branch_id" ON "branch_product_access" ("branch_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_branch_product_access_company_id" ON "branch_product_access" ("company_id") `,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "user_product_access" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "company_user_id" uuid NOT NULL, "product_id" uuid NOT NULL, "can_view" boolean NOT NULL DEFAULT true, "can_create_policy" boolean NOT NULL DEFAULT false, "access_status" character varying NOT NULL DEFAULT 'ALLOW', "is_active" boolean NOT NULL DEFAULT true, "created_by" character varying, "updated_by" character varying, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, CONSTRAINT "UQ_user_product_access_company_user_product" UNIQUE ("company_id", "company_user_id", "product_id"), CONSTRAINT "PK_2b6e2d9b8f3b07335af556a17c0" PRIMARY KEY ("id"))`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_user_product_access_product_id" ON "user_product_access" ("product_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_user_product_access_company_user_id" ON "user_product_access" ("company_user_id") `,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_user_product_access_company_id" ON "user_product_access" ("company_id") `,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "product_addon_rate_rules" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "rate_book_id" uuid NOT NULL, "product_version_id" uuid NOT NULL, "addon_definition_id" uuid NOT NULL, "rule_code" character varying(50) NOT NULL, "pricing_type" character varying(30) NOT NULL, "percentage_rate" numeric(18,10), "fixed_amount" numeric(20,4), "per_unit_amount" numeric(20,4), "per_unit_factor_code" character varying(100), "minimum_amount" numeric(20,4), "maximum_amount" numeric(20,4), "effective_from" date, "effective_to" date, "priority" integer NOT NULL DEFAULT '100', "is_active" boolean NOT NULL DEFAULT true, "addon_snapshot" jsonb NOT NULL, "created_by" uuid, "updated_by" uuid, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, CONSTRAINT "UQ_addon_rate_rule_code" UNIQUE ("rate_book_id", "rule_code"), CONSTRAINT "PK_7d2c77581deb5001851b437bfe3" PRIMARY KEY ("id"))`,
-    );
-    await queryRunner.query(
-      `CREATE INDEX "IDX_addon_rate_rules_resolution" ON "product_addon_rate_rules" ("company_id", "rate_book_id", "addon_definition_id", "is_active", "priority") `,
-    );
-    await queryRunner.query(
       `CREATE TYPE "public"."product_commission_type_enum" AS ENUM('PERCENTAGE', 'FIXED', 'TIERED')`,
     );
     await queryRunner.query(
@@ -1140,6 +1113,18 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `CREATE INDEX "IDX_pcr_insurer_company_id" ON "product_commission_rules" ("insurer_company_id") `,
     );
     await queryRunner.query(
+      `CREATE TABLE "user_product_access" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "company_user_id" uuid NOT NULL, "product_id" uuid NOT NULL, "can_view" boolean NOT NULL DEFAULT true, "can_create_policy" boolean NOT NULL DEFAULT false, "access_status" character varying NOT NULL DEFAULT 'ALLOW', "is_active" boolean NOT NULL DEFAULT true, "created_by" character varying, "updated_by" character varying, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, CONSTRAINT "UQ_user_product_access_company_user_product" UNIQUE ("company_id", "company_user_id", "product_id"), CONSTRAINT "PK_2b6e2d9b8f3b07335af556a17c0" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_user_product_access_product_id" ON "user_product_access" ("product_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_user_product_access_company_user_id" ON "user_product_access" ("company_user_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_user_product_access_company_id" ON "user_product_access" ("company_id") `,
+    );
+    await queryRunner.query(
       `CREATE TABLE "department_product_access" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "department_id" uuid NOT NULL, "product_id" uuid NOT NULL, "can_view" boolean NOT NULL DEFAULT true, "can_create_policy" boolean NOT NULL DEFAULT false, "access_status" character varying NOT NULL DEFAULT 'ALLOW', "is_active" boolean NOT NULL DEFAULT true, "created_by" character varying, "updated_by" character varying, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, CONSTRAINT "UQ_dept_product_access_company_dept_product" UNIQUE ("company_id", "department_id", "product_id"), CONSTRAINT "PK_6f863211ed90c0051c77f164bc1" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
@@ -1150,6 +1135,24 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE INDEX "IDX_dept_product_access_company_id" ON "department_product_access" ("company_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "branch_product_access" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "branch_id" uuid NOT NULL, "product_id" uuid NOT NULL, "can_view" boolean NOT NULL DEFAULT true, "can_create_policy" boolean NOT NULL DEFAULT false, "access_status" character varying NOT NULL DEFAULT 'ALLOW', "is_active" boolean NOT NULL DEFAULT true, "created_by" character varying, "updated_by" character varying, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP, CONSTRAINT "UQ_branch_product_access_company_branch_product" UNIQUE ("company_id", "branch_id", "product_id"), CONSTRAINT "PK_00f392c54b0912c9a1960e923d4" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_branch_product_access_product_id" ON "branch_product_access" ("product_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_branch_product_access_branch_id" ON "branch_product_access" ("branch_id") `,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_branch_product_access_company_id" ON "branch_product_access" ("company_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "product_addon_rate_rules" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "rate_book_id" uuid NOT NULL, "product_version_id" uuid NOT NULL, "addon_definition_id" uuid NOT NULL, "rule_code" character varying(50) NOT NULL, "pricing_type" character varying(30) NOT NULL, "percentage_rate" numeric(18,10), "fixed_amount" numeric(20,4), "per_unit_amount" numeric(20,4), "per_unit_factor_code" character varying(100), "minimum_amount" numeric(20,4), "maximum_amount" numeric(20,4), "effective_from" date, "effective_to" date, "priority" integer NOT NULL DEFAULT '100', "is_active" boolean NOT NULL DEFAULT true, "addon_snapshot" jsonb NOT NULL, "created_by" uuid, "updated_by" uuid, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, CONSTRAINT "UQ_addon_rate_rule_code" UNIQUE ("rate_book_id", "rule_code"), CONSTRAINT "PK_7d2c77581deb5001851b437bfe3" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_addon_rate_rules_resolution" ON "product_addon_rate_rules" ("company_id", "rate_book_id", "addon_definition_id", "is_active", "priority") `,
     );
     await queryRunner.query(
       `CREATE TABLE "pricing_quotes" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "pricing_quote_id" character varying(30) NOT NULL, "sequence_no" bigint NOT NULL, "quote_scope" character varying NOT NULL, "calculation_status" character varying NOT NULL DEFAULT 'CALCULATED', "calculated_by" uuid, "product_id" uuid, "risk_id" uuid, "quotation_type" character varying(50), "currency_code" character varying(10), "rate_book_id" uuid, "rate_book_version" character varying(30), "matched_rule_id" uuid, "matched_rule_version" integer, "base_premium" numeric(20,4) NOT NULL DEFAULT '0', "minimum_premium_adjustment" numeric(20,4) NOT NULL DEFAULT '0', "maximum_premium_adjustment" numeric(20,4) NOT NULL DEFAULT '0', "gross_premium" numeric(20,4) NOT NULL DEFAULT '0', "final_premium" numeric(20,4) NOT NULL DEFAULT '0', "expires_at" TIMESTAMP WITH TIME ZONE NOT NULL, "calculated_at" TIMESTAMP WITH TIME ZONE NOT NULL, "input_signature" character varying(64) NOT NULL, "product_version_id" uuid, "product_definition_hash" character varying(64), "rate_book_definition_hash" character varying(64), "result_hash" character varying(64), "rate_book_snapshot" jsonb, "pricing_result_snapshot" jsonb, "input_payload" jsonb NOT NULL, "factor_payload" jsonb, "result_payload" jsonb NOT NULL, "warning_messages" jsonb, "context_payload" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, CONSTRAINT "UQ_b14202f5c0af5732eadc353f52d" UNIQUE ("sequence_no"), CONSTRAINT "PK_167d93ffe460bac19974ff996c9" PRIMARY KEY ("id"))`,
@@ -1167,7 +1170,7 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `CREATE INDEX "IDX_pricing_quotes_company_id" ON "pricing_quotes" ("company_id") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "policy_cancellations" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "policy_transaction_id" uuid NOT NULL, "reason_type" character varying(50) NOT NULL, "cancellation_method" character varying(40) NOT NULL, "requested_effective_date" date NOT NULL, "approved_effective_date" date, "policy_days" integer NOT NULL, "days_on_risk" integer NOT NULL, "remaining_days" integer NOT NULL, "gross_written_premium" numeric(20,4) NOT NULL, "earned_premium" numeric(20,4) NOT NULL, "unearned_premium" numeric(20,4) NOT NULL, "cancellation_charge" numeric(20,4) NOT NULL DEFAULT '0', "refund_amount" numeric(20,4) NOT NULL DEFAULT '0', "amount_due" numeric(20,4) NOT NULL DEFAULT '0', "claims_review_required" boolean NOT NULL DEFAULT false, "claims_review_status" character varying(30) NOT NULL DEFAULT 'NOT_REQUIRED', "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "REL_36720ec14d42a354bbbd398548" UNIQUE ("policy_transaction_id"), CONSTRAINT "PK_e5f55f60c4980843e66b142baa3" PRIMARY KEY ("id"))`,
+      `CREATE TABLE "policy_cancellations" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "policy_transaction_id" uuid NOT NULL, "reason_type" character varying(50) NOT NULL, "cancellation_method" character varying(40) NOT NULL, "requested_effective_date" date NOT NULL, "approved_effective_date" date, "policy_days" integer NOT NULL, "days_on_risk" integer NOT NULL, "remaining_days" integer NOT NULL, "gross_written_premium" numeric(20,4) NOT NULL, "earned_premium" numeric(20,4) NOT NULL, "unearned_premium" numeric(20,4) NOT NULL, "cancellation_charge" numeric(20,4) NOT NULL DEFAULT '0', "refund_amount" numeric(20,4) NOT NULL DEFAULT '0', "amount_due" numeric(20,4) NOT NULL DEFAULT '0', "tira_endorsement_type" integer, "previous_cover_note_reference" character varying(100), "cancellation_cover_note_reference" character varying(100), "rule_snapshot" jsonb, "rule_snapshot_hash" character varying(64), "claims_review_required" boolean NOT NULL DEFAULT false, "claims_review_status" character varying(30) NOT NULL DEFAULT 'NOT_REQUIRED', "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "REL_36720ec14d42a354bbbd398548" UNIQUE ("policy_transaction_id"), CONSTRAINT "PK_e5f55f60c4980843e66b142baa3" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE TABLE "endorsement_types" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "code" character varying(50) NOT NULL, "name" character varying(150) NOT NULL, "tira_endorsement_type" integer, "requires_new_cover_note" boolean NOT NULL DEFAULT true, "is_active" boolean NOT NULL DEFAULT true, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "UQ_endorsement_type_code" UNIQUE ("company_id", "code"), CONSTRAINT "PK_aa3415a30ab028dd39144747fc0" PRIMARY KEY ("id"))`,
@@ -1503,7 +1506,13 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `CREATE UNIQUE INDEX "UQ_financial_reversal_no" ON "financial_reversals" ("company_id", "reversal_no") `,
     );
     await queryRunner.query(
-      `CREATE TABLE "finance_refunds" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "refund_no" character varying(80) NOT NULL, "customer_id" uuid, "invoice_id" uuid, "receipt_id" uuid, "payment_transaction_id" uuid, "status" character varying(30) NOT NULL DEFAULT 'REQUESTED', "payment_method" character varying(40) NOT NULL, "amount" numeric(20,4) NOT NULL, "currency_code" character varying(3) NOT NULL, "reason" text NOT NULL, "requested_by" uuid NOT NULL, "requested_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "approved_by" uuid, "approved_at" TIMESTAMP WITH TIME ZONE, "provider_refund_id" character varying(180), "paid_by" uuid, "paid_at" TIMESTAMP WITH TIME ZONE, "failed_at" TIMESTAMP WITH TIME ZONE, "failure_message" text, "idempotency_key" character varying(180) NOT NULL, "refund_hash" character varying(64), "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_96cfeb8d76ea4f38850f90bcadf" PRIMARY KEY ("id"))`,
+      `CREATE TABLE "finance_refunds" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "refund_no" character varying(80) NOT NULL, "customer_id" uuid, "invoice_id" uuid, "receipt_id" uuid, "payment_transaction_id" uuid, "status" character varying(30) NOT NULL DEFAULT 'REQUESTED', "payment_method" character varying(40) NOT NULL, "amount" numeric(20,4) NOT NULL, "currency_code" character varying(3) NOT NULL, "reason" text NOT NULL, "requested_by" uuid NOT NULL, "requested_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "approved_by" uuid, "approved_at" TIMESTAMP WITH TIME ZONE, "provider_refund_id" character varying(180), "paid_by" uuid, "paid_at" TIMESTAMP WITH TIME ZONE, "failed_at" TIMESTAMP WITH TIME ZONE, "failure_message" text, "idempotency_key" character varying(180) NOT NULL, "refund_hash" character varying(64), "source_type" character varying(40), "source_record_id" uuid, "policy_id" uuid, "endorsement_id" uuid, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_96cfeb8d76ea4f38850f90bcadf" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "UQ_finance_refund_source_receipt_invoice" ON "finance_refunds" ("company_id", "source_type", "source_record_id", "receipt_id", "invoice_id") WHERE source_type IS NOT NULL AND source_record_id IS NOT NULL AND receipt_id IS NOT NULL AND invoice_id IS NOT NULL`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_finance_refunds_source" ON "finance_refunds" ("company_id", "source_type", "source_record_id") `,
     );
     await queryRunner.query(
       `CREATE UNIQUE INDEX "UQ_finance_refund_number_entity" ON "finance_refunds" ("company_id", "refund_no") `,
@@ -1695,12 +1704,6 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `CREATE TABLE "subscription_entitlements" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "subscription_id" uuid NOT NULL, "company_id" uuid NOT NULL, "feature_code" character varying(100) NOT NULL, "value_type" "public"."subscription_entitlements_value_type_enum" NOT NULL, "value" jsonb NOT NULL, "source" character varying(30) NOT NULL DEFAULT 'PLAN', "effective_from" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "effective_to" TIMESTAMP WITH TIME ZONE, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_b3d4ec58e764e58b90c02770d43" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
-      `CREATE TYPE "public"."subscription_changes_change_type_enum" AS ENUM('CREATED', 'UPGRADE', 'DOWNGRADE', 'RENEWAL', 'PLAN_CHANGED', 'REACTIVATION', 'SUSPENDED', 'UNSUSPENSION', 'CANCELLED', 'RESUMED', 'MANUAL_ADJUSTMENT')`,
-    );
-    await queryRunner.query(
-      `CREATE TABLE "subscription_changes" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "subscription_id" uuid NOT NULL, "company_id" uuid NOT NULL, "change_type" "public"."subscription_changes_change_type_enum" NOT NULL, "old_plan_version_id" uuid, "new_plan_version_id" uuid, "effective_at" TIMESTAMP WITH TIME ZONE NOT NULL, "change_summary" jsonb, "changed_by" uuid, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_2fb5544fa5ee64a8f11ba29746f" PRIMARY KEY ("id"))`,
-    );
-    await queryRunner.query(
       `CREATE TYPE "public"."saas_plans_billing_interval_enum" AS ENUM('MONTHLY', 'QUARTERLY', 'YEARLY')`,
     );
     await queryRunner.query(
@@ -1708,6 +1711,12 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE TABLE "saas_plans" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "code" character varying(60) NOT NULL, "name" character varying(150) NOT NULL, "description" text, "applicable_company_types" jsonb NOT NULL DEFAULT '[]', "billing_interval" "public"."saas_plans_billing_interval_enum" NOT NULL, "currency" character varying(10) NOT NULL DEFAULT 'TZS', "base_price" numeric(20,2) NOT NULL DEFAULT '0', "trial_days" integer NOT NULL DEFAULT '0', "status" "public"."saas_plans_status_enum" NOT NULL DEFAULT 'DRAFT', "active_version_id" uuid, "current_version_number" integer NOT NULL DEFAULT '0', "created_by" uuid, "updated_by" uuid, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, CONSTRAINT "UQ_ee5374051982b5e9a0610c78707" UNIQUE ("code"), CONSTRAINT "PK_7828a0c1b0c60456fdd27e9c31c" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE TYPE "public"."subscription_changes_change_type_enum" AS ENUM('CREATED', 'UPGRADE', 'DOWNGRADE', 'RENEWAL', 'PLAN_CHANGED', 'REACTIVATION', 'SUSPENDED', 'UNSUSPENSION', 'CANCELLED', 'RESUMED', 'MANUAL_ADJUSTMENT')`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "subscription_changes" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "subscription_id" uuid NOT NULL, "company_id" uuid NOT NULL, "change_type" "public"."subscription_changes_change_type_enum" NOT NULL, "old_plan_version_id" uuid, "new_plan_version_id" uuid, "effective_at" TIMESTAMP WITH TIME ZONE NOT NULL, "change_summary" jsonb, "changed_by" uuid, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_2fb5544fa5ee64a8f11ba29746f" PRIMARY KEY ("id"))`,
     );
     await queryRunner.query(
       `CREATE TYPE "public"."saas_plan_versions_status_enum" AS ENUM('DRAFT', 'APPROVED', 'ACTIVE', 'SUPERSEDED', 'RETIRED')`,
@@ -1771,6 +1780,45 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     );
     await queryRunner.query(
       `CREATE TABLE "company_subscriptions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "plan_id" uuid NOT NULL, "plan_version_id" uuid, "subscription_no" character varying(60) NOT NULL, "status" "public"."company_subscriptions_status_enum" NOT NULL DEFAULT 'TRIALING', "billing_interval" "public"."company_subscriptions_billing_interval_enum" NOT NULL, "currency" character varying(10) NOT NULL DEFAULT 'TZS', "base_price" numeric(20,2) NOT NULL DEFAULT '0', "plan_snapshot" jsonb, "plan_snapshot_hash" character varying(64), "started_at" TIMESTAMP WITH TIME ZONE NOT NULL, "trial_ends_at" TIMESTAMP WITH TIME ZONE, "current_period_start" TIMESTAMP WITH TIME ZONE NOT NULL, "current_period_end" TIMESTAMP WITH TIME ZONE NOT NULL, "grace_period_ends_at" TIMESTAMP WITH TIME ZONE, "scheduled_plan_id" uuid, "scheduled_plan_version_id" uuid, "scheduled_change_at" TIMESTAMP WITH TIME ZONE, "last_billed_at" TIMESTAMP WITH TIME ZONE, "next_billing_at" TIMESTAMP WITH TIME ZONE, "state_version" integer NOT NULL DEFAULT '1', "cancel_at_period_end" boolean NOT NULL DEFAULT false, "cancelled_at" TIMESTAMP WITH TIME ZONE, "suspended_at" TIMESTAMP WITH TIME ZONE, "suspension_reason" text, "created_by" uuid, "updated_by" uuid, "metadata" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, CONSTRAINT "UQ_b8eed62ff62795c513070d0c3f0" UNIQUE ("subscription_no"), CONSTRAINT "PK_2dad37af4a389c2878c9b67a050" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "reference_countries" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "name" character varying(120) NOT NULL, "iso2_code" character varying(2), "iso3_code" character varying(3) NOT NULL, "phone_code" character varying(20), "is_active" boolean NOT NULL DEFAULT true, "metadata" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, CONSTRAINT "PK_4fd76cd945f8d9ba40892139aea" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "UQ_reference_countries_name" ON "reference_countries" ("name") WHERE deleted_at IS NULL`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "UQ_reference_countries_iso3" ON "reference_countries" ("iso3_code") WHERE deleted_at IS NULL`,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "reference_districts" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "region_id" uuid NOT NULL, "code" character varying(80) NOT NULL, "name" character varying(120) NOT NULL, "is_active" boolean NOT NULL DEFAULT true, "metadata" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, CONSTRAINT "PK_fd72654150eefdac31d65527367" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "UQ_reference_districts_region_name" ON "reference_districts" ("region_id", "name") WHERE deleted_at IS NULL`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "UQ_reference_districts_region_code" ON "reference_districts" ("region_id", "code") WHERE deleted_at IS NULL`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_reference_districts_region" ON "reference_districts" ("region_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "reference_regions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "country_id" uuid NOT NULL, "code" character varying(80) NOT NULL, "name" character varying(120) NOT NULL, "is_active" boolean NOT NULL DEFAULT true, "metadata" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, CONSTRAINT "PK_6e88cec367970377bd3c9eb6559" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "UQ_reference_regions_country_name" ON "reference_regions" ("country_id", "name") WHERE deleted_at IS NULL`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "UQ_reference_regions_country_code" ON "reference_regions" ("country_id", "code") WHERE deleted_at IS NULL`,
+    );
+    await queryRunner.query(
+      `CREATE INDEX "IDX_reference_regions_country" ON "reference_regions" ("country_id") `,
+    );
+    await queryRunner.query(
+      `CREATE TABLE "reference_currencies" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "name" character varying(120) NOT NULL, "code" character varying(10) NOT NULL, "symbol" character varying(12), "is_active" boolean NOT NULL DEFAULT true, "metadata" jsonb, "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), "deleted_at" TIMESTAMP WITH TIME ZONE, CONSTRAINT "PK_1ac5e4e4154e9e8d60375e8657d" PRIMARY KEY ("id"))`,
+    );
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX "UQ_reference_currencies_code" ON "reference_currencies" ("code") WHERE deleted_at IS NULL`,
     );
     await queryRunner.query(
       `CREATE TABLE "company_configs" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "company_id" uuid NOT NULL, "config_key" character varying(100) NOT NULL, "config_value" text NOT NULL, "value_type" character varying(20) NOT NULL DEFAULT 'string', "description" text, "is_active" boolean NOT NULL DEFAULT true, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "UQ_company_configs_company_key" UNIQUE ("company_id", "config_key"), CONSTRAINT "PK_726c503e5e9ae894378b0977353" PRIMARY KEY ("id"))`,
@@ -2406,36 +2454,6 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `ALTER TABLE "product_distribution_channels" ADD CONSTRAINT "FK_439f18e95971eb848dbc9a67bf4" FOREIGN KEY ("sub_class_id") REFERENCES "insurance_sub_classes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
-      `ALTER TABLE "branch_product_access" ADD CONSTRAINT "FK_e77032483d75e0df1d26f77ec1a" FOREIGN KEY ("company_id") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "branch_product_access" ADD CONSTRAINT "FK_a101c9b496c8a509aef7f2c31fe" FOREIGN KEY ("branch_id") REFERENCES "branches"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "branch_product_access" ADD CONSTRAINT "FK_03b7dd6f3868cf6557b5197c652" FOREIGN KEY ("product_id") REFERENCES "insurance_products"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "user_product_access" ADD CONSTRAINT "FK_1b2cd620b283a8128a41ff39d3f" FOREIGN KEY ("company_id") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "user_product_access" ADD CONSTRAINT "FK_37a7feb04885329eacb521e1b0b" FOREIGN KEY ("company_user_id") REFERENCES "company_users"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "user_product_access" ADD CONSTRAINT "FK_cf454357d25f042cb0587e3a571" FOREIGN KEY ("product_id") REFERENCES "insurance_products"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "product_addon_rate_rules" ADD CONSTRAINT "FK_743bdf2dd3bfce084e3a31817f5" FOREIGN KEY ("company_id") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "product_addon_rate_rules" ADD CONSTRAINT "FK_7ca1fce0531282bb2c2fda3ba7f" FOREIGN KEY ("rate_book_id") REFERENCES "pricing_rate_books"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "product_addon_rate_rules" ADD CONSTRAINT "FK_7c8213b246d76b32a2d78abcc28" FOREIGN KEY ("product_version_id") REFERENCES "insurance_product_versions"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "product_addon_rate_rules" ADD CONSTRAINT "FK_facaaba7a698fd3dee15c8f35ac" FOREIGN KEY ("addon_definition_id") REFERENCES "product_addon_definitions"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
-    );
-    await queryRunner.query(
       `ALTER TABLE "product_commission_rules" ADD CONSTRAINT "FK_f89ba50e7a6c9e2769a3def3ed4" FOREIGN KEY ("insurer_company_id") REFERENCES "companies"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
@@ -2451,6 +2469,15 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `ALTER TABLE "product_commission_rules" ADD CONSTRAINT "FK_fa8f782a0909c544bd580f03c47" FOREIGN KEY ("risk_id") REFERENCES "insurance_risks"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
+      `ALTER TABLE "user_product_access" ADD CONSTRAINT "FK_1b2cd620b283a8128a41ff39d3f" FOREIGN KEY ("company_id") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "user_product_access" ADD CONSTRAINT "FK_37a7feb04885329eacb521e1b0b" FOREIGN KEY ("company_user_id") REFERENCES "company_users"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "user_product_access" ADD CONSTRAINT "FK_cf454357d25f042cb0587e3a571" FOREIGN KEY ("product_id") REFERENCES "insurance_products"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
       `ALTER TABLE "department_product_access" ADD CONSTRAINT "FK_04731489c704d60c971054e8cbe" FOREIGN KEY ("company_id") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
@@ -2458,6 +2485,27 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     );
     await queryRunner.query(
       `ALTER TABLE "department_product_access" ADD CONSTRAINT "FK_4d0e7913b0a22e42b57e930b29b" FOREIGN KEY ("product_id") REFERENCES "insurance_products"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "branch_product_access" ADD CONSTRAINT "FK_e77032483d75e0df1d26f77ec1a" FOREIGN KEY ("company_id") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "branch_product_access" ADD CONSTRAINT "FK_a101c9b496c8a509aef7f2c31fe" FOREIGN KEY ("branch_id") REFERENCES "branches"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "branch_product_access" ADD CONSTRAINT "FK_03b7dd6f3868cf6557b5197c652" FOREIGN KEY ("product_id") REFERENCES "insurance_products"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "product_addon_rate_rules" ADD CONSTRAINT "FK_743bdf2dd3bfce084e3a31817f5" FOREIGN KEY ("company_id") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "product_addon_rate_rules" ADD CONSTRAINT "FK_7ca1fce0531282bb2c2fda3ba7f" FOREIGN KEY ("rate_book_id") REFERENCES "pricing_rate_books"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "product_addon_rate_rules" ADD CONSTRAINT "FK_7c8213b246d76b32a2d78abcc28" FOREIGN KEY ("product_version_id") REFERENCES "insurance_product_versions"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "product_addon_rate_rules" ADD CONSTRAINT "FK_facaaba7a698fd3dee15c8f35ac" FOREIGN KEY ("addon_definition_id") REFERENCES "product_addon_definitions"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
       `ALTER TABLE "pricing_quotes" ADD CONSTRAINT "FK_f08d2fd9be1fb1cdffd6d00152b" FOREIGN KEY ("company_id") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
@@ -2925,6 +2973,12 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `ALTER TABLE "devices" ADD CONSTRAINT "FK_5e9bee993b4ce35c3606cda194c" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
+      `ALTER TABLE "reference_districts" ADD CONSTRAINT "FK_2e10fc9f52c9758330a532ef1b3" FOREIGN KEY ("region_id") REFERENCES "reference_regions"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "reference_regions" ADD CONSTRAINT "FK_cc488c558cf1cfc953cd35ae66a" FOREIGN KEY ("country_id") REFERENCES "reference_countries"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`,
+    );
+    await queryRunner.query(
       `ALTER TABLE "company_configs" ADD CONSTRAINT "FK_210a999928c188ba9191e11bd47" FOREIGN KEY ("company_id") REFERENCES "companies"("id") ON DELETE CASCADE ON UPDATE NO ACTION`,
     );
     await queryRunner.query(
@@ -2945,9 +2999,80 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "permission_role" ADD CONSTRAINT "FK_633d504f6120c3e07ad0c9c141b" FOREIGN KEY ("permissions_id") REFERENCES "permissions"("id") ON DELETE NO ACTION ON UPDATE NO ACTION`,
     );
+
+    // These two tables now have TypeORM entities (IdentifierSequence,
+    // GeneratedIdentifier) so future `migration:generate` runs will see them
+    // automatically. They're still created explicitly here since this
+    // baseline predates those entities.
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS "identifier_sequences" (
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+        "company_id" uuid NOT NULL,
+        "identifier_type" varchar(50) NOT NULL,
+        "sequence_date" varchar(20) NOT NULL,
+        "sequence_time_bucket" varchar(20) NOT NULL DEFAULT '',
+        "current_value" integer NOT NULL DEFAULT 0,
+        "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+        "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+        CONSTRAINT "PK_identifier_sequences" PRIMARY KEY ("id"),
+        CONSTRAINT "FK_identifier_sequences_company"
+          FOREIGN KEY ("company_id") REFERENCES "companies"("id")
+          ON DELETE CASCADE ON UPDATE NO ACTION
+      )
+    `);
+    await queryRunner.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS "UQ_identifier_sequences_scope"
+      ON "identifier_sequences" (
+        "company_id",
+        "identifier_type",
+        "sequence_date",
+        "sequence_time_bucket"
+      )
+    `);
+    await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_identifier_sequences_company_type"
+      ON "identifier_sequences" ("company_id", "identifier_type")
+    `);
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS "generated_identifiers" (
+        "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
+        "identifier_type" varchar(50) NOT NULL,
+        "identifier_value" varchar(150) NOT NULL,
+        "company_id" uuid NOT NULL,
+        "related_entity_type" varchar(80) NULL,
+        "related_entity_id" uuid NULL,
+        "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+        CONSTRAINT "PK_generated_identifiers" PRIMARY KEY ("id"),
+        CONSTRAINT "UQ_generated_identifiers_value"
+          UNIQUE ("identifier_value"),
+        CONSTRAINT "FK_generated_identifiers_company"
+          FOREIGN KEY ("company_id") REFERENCES "companies"("id")
+          ON DELETE CASCADE ON UPDATE NO ACTION
+      )
+    `);
+    await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_generated_identifiers_company_type"
+      ON "generated_identifiers" ("company_id", "identifier_type")
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+      DROP INDEX IF EXISTS "IDX_generated_identifiers_company_type"
+    `);
+    await queryRunner.query(`
+      DROP TABLE IF EXISTS "generated_identifiers"
+    `);
+    await queryRunner.query(`
+      DROP INDEX IF EXISTS "IDX_identifier_sequences_company_type"
+    `);
+    await queryRunner.query(`
+      DROP INDEX IF EXISTS "UQ_identifier_sequences_scope"
+    `);
+    await queryRunner.query(`
+      DROP TABLE IF EXISTS "identifier_sequences"
+    `);
+
     await queryRunner.query(
       `ALTER TABLE "permission_role" DROP CONSTRAINT "FK_633d504f6120c3e07ad0c9c141b"`,
     );
@@ -2968,6 +3093,12 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     );
     await queryRunner.query(
       `ALTER TABLE "company_configs" DROP CONSTRAINT "FK_210a999928c188ba9191e11bd47"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "reference_regions" DROP CONSTRAINT "FK_cc488c558cf1cfc953cd35ae66a"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "reference_districts" DROP CONSTRAINT "FK_2e10fc9f52c9758330a532ef1b3"`,
     );
     await queryRunner.query(
       `ALTER TABLE "devices" DROP CONSTRAINT "FK_5e9bee993b4ce35c3606cda194c"`,
@@ -3435,6 +3566,27 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `ALTER TABLE "pricing_quotes" DROP CONSTRAINT "FK_f08d2fd9be1fb1cdffd6d00152b"`,
     );
     await queryRunner.query(
+      `ALTER TABLE "product_addon_rate_rules" DROP CONSTRAINT "FK_facaaba7a698fd3dee15c8f35ac"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "product_addon_rate_rules" DROP CONSTRAINT "FK_7c8213b246d76b32a2d78abcc28"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "product_addon_rate_rules" DROP CONSTRAINT "FK_7ca1fce0531282bb2c2fda3ba7f"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "product_addon_rate_rules" DROP CONSTRAINT "FK_743bdf2dd3bfce084e3a31817f5"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "branch_product_access" DROP CONSTRAINT "FK_03b7dd6f3868cf6557b5197c652"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "branch_product_access" DROP CONSTRAINT "FK_a101c9b496c8a509aef7f2c31fe"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "branch_product_access" DROP CONSTRAINT "FK_e77032483d75e0df1d26f77ec1a"`,
+    );
+    await queryRunner.query(
       `ALTER TABLE "department_product_access" DROP CONSTRAINT "FK_4d0e7913b0a22e42b57e930b29b"`,
     );
     await queryRunner.query(
@@ -3442,6 +3594,15 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     );
     await queryRunner.query(
       `ALTER TABLE "department_product_access" DROP CONSTRAINT "FK_04731489c704d60c971054e8cbe"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "user_product_access" DROP CONSTRAINT "FK_cf454357d25f042cb0587e3a571"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "user_product_access" DROP CONSTRAINT "FK_37a7feb04885329eacb521e1b0b"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE "user_product_access" DROP CONSTRAINT "FK_1b2cd620b283a8128a41ff39d3f"`,
     );
     await queryRunner.query(
       `ALTER TABLE "product_commission_rules" DROP CONSTRAINT "FK_fa8f782a0909c544bd580f03c47"`,
@@ -3457,36 +3618,6 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     );
     await queryRunner.query(
       `ALTER TABLE "product_commission_rules" DROP CONSTRAINT "FK_f89ba50e7a6c9e2769a3def3ed4"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "product_addon_rate_rules" DROP CONSTRAINT "FK_facaaba7a698fd3dee15c8f35ac"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "product_addon_rate_rules" DROP CONSTRAINT "FK_7c8213b246d76b32a2d78abcc28"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "product_addon_rate_rules" DROP CONSTRAINT "FK_7ca1fce0531282bb2c2fda3ba7f"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "product_addon_rate_rules" DROP CONSTRAINT "FK_743bdf2dd3bfce084e3a31817f5"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "user_product_access" DROP CONSTRAINT "FK_cf454357d25f042cb0587e3a571"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "user_product_access" DROP CONSTRAINT "FK_37a7feb04885329eacb521e1b0b"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "user_product_access" DROP CONSTRAINT "FK_1b2cd620b283a8128a41ff39d3f"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "branch_product_access" DROP CONSTRAINT "FK_03b7dd6f3868cf6557b5197c652"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "branch_product_access" DROP CONSTRAINT "FK_a101c9b496c8a509aef7f2c31fe"`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "branch_product_access" DROP CONSTRAINT "FK_e77032483d75e0df1d26f77ec1a"`,
     );
     await queryRunner.query(
       `ALTER TABLE "product_distribution_channels" DROP CONSTRAINT "FK_439f18e95971eb848dbc9a67bf4"`,
@@ -4107,6 +4238,37 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `DROP INDEX "public"."IDX_company_configs_is_active"`,
     );
     await queryRunner.query(`DROP TABLE "company_configs"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."UQ_reference_currencies_code"`,
+    );
+    await queryRunner.query(`DROP TABLE "reference_currencies"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_reference_regions_country"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."UQ_reference_regions_country_code"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."UQ_reference_regions_country_name"`,
+    );
+    await queryRunner.query(`DROP TABLE "reference_regions"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_reference_districts_region"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."UQ_reference_districts_region_code"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."UQ_reference_districts_region_name"`,
+    );
+    await queryRunner.query(`DROP TABLE "reference_districts"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."UQ_reference_countries_iso3"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."UQ_reference_countries_name"`,
+    );
+    await queryRunner.query(`DROP TABLE "reference_countries"`);
     await queryRunner.query(`DROP TABLE "company_subscriptions"`);
     await queryRunner.query(
       `DROP TYPE "public"."company_subscriptions_billing_interval_enum"`,
@@ -4144,14 +4306,14 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     await queryRunner.query(
       `DROP TYPE "public"."saas_plan_versions_status_enum"`,
     );
+    await queryRunner.query(`DROP TABLE "subscription_changes"`);
+    await queryRunner.query(
+      `DROP TYPE "public"."subscription_changes_change_type_enum"`,
+    );
     await queryRunner.query(`DROP TABLE "saas_plans"`);
     await queryRunner.query(`DROP TYPE "public"."saas_plans_status_enum"`);
     await queryRunner.query(
       `DROP TYPE "public"."saas_plans_billing_interval_enum"`,
-    );
-    await queryRunner.query(`DROP TABLE "subscription_changes"`);
-    await queryRunner.query(
-      `DROP TYPE "public"."subscription_changes_change_type_enum"`,
     );
     await queryRunner.query(`DROP TABLE "subscription_entitlements"`);
     await queryRunner.query(
@@ -4269,6 +4431,10 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     await queryRunner.query(`DROP TABLE "finance_reconciliation_batches"`);
     await queryRunner.query(
       `DROP INDEX "public"."UQ_finance_refund_number_entity"`,
+    );
+    await queryRunner.query(`DROP INDEX "public"."IDX_finance_refunds_source"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."UQ_finance_refund_source_receipt_invoice"`,
     );
     await queryRunner.query(`DROP TABLE "finance_refunds"`);
     await queryRunner.query(`DROP INDEX "public"."UQ_financial_reversal_no"`);
@@ -4465,6 +4631,20 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     );
     await queryRunner.query(`DROP TABLE "pricing_quotes"`);
     await queryRunner.query(
+      `DROP INDEX "public"."IDX_addon_rate_rules_resolution"`,
+    );
+    await queryRunner.query(`DROP TABLE "product_addon_rate_rules"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_branch_product_access_company_id"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_branch_product_access_branch_id"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_branch_product_access_product_id"`,
+    );
+    await queryRunner.query(`DROP TABLE "branch_product_access"`);
+    await queryRunner.query(
       `DROP INDEX "public"."IDX_dept_product_access_company_id"`,
     );
     await queryRunner.query(
@@ -4474,6 +4654,16 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `DROP INDEX "public"."IDX_dept_product_access_product_id"`,
     );
     await queryRunner.query(`DROP TABLE "department_product_access"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_user_product_access_company_id"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_user_product_access_company_user_id"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_user_product_access_product_id"`,
+    );
+    await queryRunner.query(`DROP TABLE "user_product_access"`);
     await queryRunner.query(`DROP INDEX "public"."IDX_pcr_insurer_company_id"`);
     await queryRunner.query(
       `DROP INDEX "public"."IDX_pcr_intermediary_company_id"`,
@@ -4485,30 +4675,6 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     await queryRunner.query(
       `DROP TYPE "public"."product_commission_type_enum"`,
     );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_addon_rate_rules_resolution"`,
-    );
-    await queryRunner.query(`DROP TABLE "product_addon_rate_rules"`);
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_user_product_access_company_id"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_user_product_access_company_user_id"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_user_product_access_product_id"`,
-    );
-    await queryRunner.query(`DROP TABLE "user_product_access"`);
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_branch_product_access_company_id"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_branch_product_access_branch_id"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_branch_product_access_product_id"`,
-    );
-    await queryRunner.query(`DROP TABLE "branch_product_access"`);
     await queryRunner.query(`DROP INDEX "public"."IDX_pdc_insurer_company_id"`);
     await queryRunner.query(
       `DROP INDEX "public"."IDX_pdc_intermediary_company_id"`,
@@ -4549,13 +4715,16 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     await queryRunner.query(
       `DROP TYPE "public"."premium_levy_return_lines_line_type_enum"`,
     );
+    await queryRunner.query(`DROP TABLE "product_performance_snapshots"`);
     await queryRunner.query(`DROP TABLE "premium_levy_returns"`);
     await queryRunner.query(
       `DROP TYPE "public"."premium_levy_returns_status_enum"`,
     );
-    await queryRunner.query(`DROP TABLE "product_performance_snapshots"`);
     await queryRunner.query(`DROP TABLE "regulatory_authority_profiles"`);
+    await queryRunner.query(`DROP TABLE "regulatory_levy_assessments"`);
     await queryRunner.query(`DROP TABLE "regulatory_ledger_entries"`);
+    await queryRunner.query(`DROP TABLE "regulatory_levy_rules"`);
+    await queryRunner.query(`DROP TABLE "regulatory_obligation_definitions"`);
     await queryRunner.query(`DROP TABLE "regulatory_obligation_instances"`);
     await queryRunner.query(`DROP TABLE "regulatory_obligation_templates"`);
     await queryRunner.query(
@@ -4567,17 +4736,14 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     await queryRunner.query(
       `DROP TYPE "public"."regulatory_obligation_templates_frequency_enum"`,
     );
-    await queryRunner.query(`DROP TABLE "regulatory_levy_assessments"`);
-    await queryRunner.query(`DROP TABLE "regulatory_levy_rules"`);
-    await queryRunner.query(`DROP TABLE "regulatory_obligation_definitions"`);
+    await queryRunner.query(`DROP TABLE "regulatory_obligations"`);
+    await queryRunner.query(
+      `DROP TYPE "public"."regulatory_obligations_status_enum"`,
+    );
     await queryRunner.query(`DROP TABLE "regulatory_return_attachments"`);
     await queryRunner.query(`DROP TABLE "regulatory_return_definitions"`);
     await queryRunner.query(
       `DROP TYPE "public"."regulatory_return_definitions_frequency_enum"`,
-    );
-    await queryRunner.query(`DROP TABLE "regulatory_obligations"`);
-    await queryRunner.query(
-      `DROP TYPE "public"."regulatory_obligations_status_enum"`,
     );
     await queryRunner.query(`DROP TABLE "regulatory_return_submissions"`);
     await queryRunner.query(`DROP TABLE "regulatory_returns"`);
@@ -4697,11 +4863,11 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     await queryRunner.query(`DROP INDEX "public"."IDX_ptse_event_type"`);
     await queryRunner.query(`DROP INDEX "public"."IDX_ptse_created_at"`);
     await queryRunner.query(`DROP TABLE "portal_tira_submission_events"`);
+    await queryRunner.query(`DROP TABLE "notification_preferences"`);
     await queryRunner.query(
       `DROP INDEX "public"."IDX_tenant_notification_user"`,
     );
     await queryRunner.query(`DROP TABLE "tenant_notifications"`);
-    await queryRunner.query(`DROP TABLE "notification_preferences"`);
     await queryRunner.query(`DROP TABLE "work_item_events"`);
     await queryRunner.query(
       `DROP INDEX "public"."IDX_work_items_company_status"`,
@@ -4736,37 +4902,6 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     );
     await queryRunner.query(`DROP TABLE "tiramis_audit_logs"`);
     await queryRunner.query(
-      `DROP INDEX "public"."IDX_033ea7c1f6d324492b3e4446f0"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_3803f6fc072e1d2f3af11b6e87"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_e2722912fd72b62d3b446023d6"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_3b53010f93bb915f08ac223e0c"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_b3f28c61c3417d220a279219dc"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_9751d6b9f5875135eb9023d96a"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_51b42a7add6bcc3dd6619321df"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_b0a40f07f8b5f84b69bea17db8"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_63a278be9de80a2038d26f1816"`,
-    );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_239dae46f7ccee665b466dadb5"`,
-    );
-    await queryRunner.query(`DROP TABLE "tiramis_notifications"`);
-    await queryRunner.query(
       `DROP INDEX "public"."IDX_tiramis_business_records_company"`,
     );
     await queryRunner.query(
@@ -4791,6 +4926,9 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
     );
     await queryRunner.query(
       `DROP INDEX "public"."IDX_policies_company_policy_no"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."UQ_policies_issued_quotation_revision"`,
     );
     await queryRunner.query(`DROP TABLE "policies"`);
     await queryRunner.query(`DROP TYPE "public"."policy_channel_type_enum"`);
@@ -5084,6 +5222,37 @@ export class BaselineMigration1786521549518 implements MigrationInterface {
       `DROP INDEX "public"."UQ_tiramis_lookups_group_code"`,
     );
     await queryRunner.query(`DROP TABLE "tiramis_lookups"`);
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_033ea7c1f6d324492b3e4446f0"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_3803f6fc072e1d2f3af11b6e87"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_e2722912fd72b62d3b446023d6"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_3b53010f93bb915f08ac223e0c"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_b3f28c61c3417d220a279219dc"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_9751d6b9f5875135eb9023d96a"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_51b42a7add6bcc3dd6619321df"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_b0a40f07f8b5f84b69bea17db8"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_63a278be9de80a2038d26f1816"`,
+    );
+    await queryRunner.query(
+      `DROP INDEX "public"."IDX_239dae46f7ccee665b466dadb5"`,
+    );
+    await queryRunner.query(`DROP TABLE "tiramis_notifications"`);
     await queryRunner.query(
       `DROP INDEX "public"."IDX_tiramis_sale_points_company_id"`,
     );

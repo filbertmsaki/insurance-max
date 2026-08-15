@@ -905,7 +905,8 @@ export class TiramisIntegrationService {
       return existing;
     }
 
-    const companyId = await this.resolveCompanyId(payload);
+    const matchingTracking = await this.findMatchingLocalTracking(payload);
+    const companyId = await this.resolveCompanyId(payload, matchingTracking);
     const sourceModule = payload.sourceModule || payload.sourceService || null;
     const sourceRecordId = payload.sourceRecordId || null;
     const isPolicySource = this.isPolicySource(sourceModule);
@@ -913,6 +914,15 @@ export class TiramisIntegrationService {
 
     let quotationId =
       isQuotationSource && sourceRecordId ? sourceRecordId : null;
+
+    if (
+      !quotationId &&
+      !isPolicySource &&
+      matchingTracking?.sourceModule === 'quotations' &&
+      matchingTracking.sourceRecordId
+    ) {
+      quotationId = matchingTracking.sourceRecordId;
+    }
 
     if (!quotationId && !isPolicySource && payload.businessReference) {
       const quotation = await this.findQuotationByBusinessReference(
@@ -1602,9 +1612,16 @@ export class TiramisIntegrationService {
     return null;
   }
 
-  private async resolveCompanyId(payload: TiramisNotificationEventDto) {
+  private async resolveCompanyId(
+    payload: TiramisNotificationEventDto,
+    matchingTracking?: TiramisSubmissionTrackingEntity | null,
+  ) {
     if (payload.sourceCompanyId) {
       return payload.sourceCompanyId;
+    }
+
+    if (matchingTracking?.sourceCompanyId) {
+      return matchingTracking.sourceCompanyId;
     }
 
     const sourceModule = payload.sourceModule || payload.sourceService || '';
