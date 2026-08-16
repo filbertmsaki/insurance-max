@@ -10,14 +10,16 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 
-import { buildUrl } from '@insurance-max/shared-config';
+import { buildUrl, readLoggerEnv } from '@insurance-max/shared-config';
 import { bindRequestContext } from '@insurance-max/shared-kernel';
 
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  const loggerEnv = readLoggerEnv();
+
   const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log', 'debug'],
+    logger: loggerEnv.enabled ? loggerEnv.levels : false,
     rawBody: true,
   });
 

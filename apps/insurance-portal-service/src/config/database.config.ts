@@ -8,6 +8,6 @@ export default createDatabaseConfigFactory('insurancePortalDatabase', 'DB', {
   password: 'root',
   database: 'insurance_portal_db',
   synchronize: false,
-  logging: true,
+  logging: false,
   ssl: false,
 });

@@ -4,13 +4,17 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { buildUrl } from '@insurance-max/shared-config';
+import { buildUrl, readLoggerEnv } from '@insurance-max/shared-config';
 import { bindRequestContext } from '@insurance-max/shared-kernel';
 
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const loggerEnv = readLoggerEnv();
+
+  const app = await NestFactory.create(AppModule, {
+    logger: loggerEnv.enabled ? loggerEnv.levels : false,
+  });
   app.enableShutdownHooks();
   bindRequestContext(app);
 

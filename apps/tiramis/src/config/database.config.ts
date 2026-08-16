@@ -8,6 +8,6 @@ export default createDatabaseConfigFactory('tiramisDatabase', 'DB', {
   password: '',
   database: 'alliance_db',
   synchronize: false,
-  logging: true,
+  logging: false,
   ssl: false,
 });

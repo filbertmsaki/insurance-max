@@ -288,7 +288,9 @@ export function useCreateCancellation(policyId?: string) {
 
 export function usePolicyRenewals(policyId?: string, enabled = true) {
   return useQuery({
-    queryKey: policyId ? policyKeys.renewals(policyId) : policyKeys.renewals(''),
+    queryKey: policyId
+      ? policyKeys.renewals(policyId)
+      : policyKeys.renewals(''),
     queryFn: () => policiesApi.getPolicyRenewals(policyId!),
     enabled: !!policyId && enabled,
     staleTime: 30_000,
