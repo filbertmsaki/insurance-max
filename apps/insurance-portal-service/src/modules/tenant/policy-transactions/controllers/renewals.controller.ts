@@ -5,6 +5,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
@@ -36,8 +37,11 @@ export class RenewalsController {
   @Get('tenant/renewals')
   @Permissions('renewals:read')
   @ApiOperation({ summary: 'List renewal offers for the current company' })
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.renewalService.findAll(user.companyId!);
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('policy_id') policyId?: string,
+  ) {
+    return this.renewalService.findAll(user.companyId!, policyId);
   }
 
   @Get('tenant/renewals/:id/context')

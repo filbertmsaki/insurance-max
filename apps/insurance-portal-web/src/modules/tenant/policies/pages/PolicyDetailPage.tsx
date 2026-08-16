@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Ban, Pencil, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
@@ -19,9 +20,12 @@ import {
   useDeletePolicy,
   useCancellationEligibility,
   useEndorsementEligibility,
+  usePendingPolicyTransaction,
+  usePolicyCancellations,
   usePolicyCurrentVersion,
   usePolicyDetail,
   usePolicyEndorsements,
+  usePolicyRenewals,
   useCreateRenewal,
   usePolicyVersions,
   useRetryPolicyEndorsementTiramis,
@@ -42,7 +46,11 @@ import {
 import { PolicyNonMotorDetailForm } from '@/modules/tenant/non-motor/components/PolicyNonMotorDetailForm';
 import type { NonMotorPolicyDetailRecord } from '@/modules/tenant/non-motor/types';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
-import type { PolicyEndorsementRecord } from '../types';
+import type {
+  PolicyCancellationRecord,
+  PolicyEndorsementRecord,
+  PolicyRenewalRecord,
+} from '../types';
 
 function Row({
   label,
@@ -89,7 +97,10 @@ export function PolicyDetailPage() {
   const canCreateEndorsement = hasPermission('endorsements:create');
   const canCreateCancellation = hasPermission('cancellations:create');
   const canCreateRenewal = hasPermission('renewals:create');
+  const canViewRenewals = hasPermission('renewals:read');
+  const canViewCancellations = hasPermission('cancellations:read');
   const canViewEndorsements = hasPermission('endorsements:create');
+  const canViewPendingTransaction = hasPermission('policy-transactions:read');
   const canSubmitEndorsement = hasPermission('endorsements:submit-tiramis');
   const canRetryEndorsement = hasPermission('endorsements:retry-tiramis');
   const { data: policy, isLoading } = usePolicyDetail(id);
@@ -110,6 +121,14 @@ export function PolicyDetailPage() {
   const { data: renewalEligibility } = useRenewalEligibility(
     policy?.id,
     canCreateRenewal,
+  );
+  const { data: renewals = [], isLoading: renewalsLoading } =
+    usePolicyRenewals(policy?.id, canViewRenewals);
+  const { data: cancellations = [], isLoading: cancellationsLoading } =
+    usePolicyCancellations(policy?.id, canViewCancellations);
+  const { data: pendingTransaction } = usePendingPolicyTransaction(
+    policy?.pending_transaction_id,
+    canViewPendingTransaction,
   );
   const createRenewalMutation = useCreateRenewal(policy?.id);
   const submitEndorsementMutation = useSubmitPolicyEndorsementToTiramis(
@@ -138,13 +157,51 @@ export function PolicyDetailPage() {
         unknown
       >[])
     : [];
-  const canStartCancellation =
-    canCreateCancellation &&
-    cancellationEligibility?.eligible &&
-    !['CANCELLED', 'EXPIRED', 'LAPSED'].includes(policy?.policy_status ?? '') &&
-    !policy?.pending_transaction_id;
-  const canStartRenewal =
-    canCreateRenewal && renewalEligibility?.eligible && !policy?.pending_transaction_id;
+  const endorsementBlockedReason = !eligibility?.eligible
+    ? (eligibility?.blockers?.[0]?.message ??
+      'This policy is not currently eligible for a new endorsement.')
+    : null;
+  const cancellationBlockedReason = ['CANCELLED', 'EXPIRED', 'LAPSED'].includes(
+    policy?.policy_status ?? '',
+  )
+    ? 'This policy is already cancelled, expired, or lapsed.'
+    : !cancellationEligibility?.eligible
+      ? (cancellationEligibility?.blockers?.[0]?.message ??
+        'This policy is not currently eligible for cancellation.')
+      : null;
+  const renewalBlockedReason = !renewalEligibility?.eligible
+    ? (renewalEligibility?.blockers?.[0]?.message ??
+      'This policy is not currently eligible for renewal.')
+    : null;
+
+  const pendingRenewalMatch =
+    pendingTransaction?.transaction_type === 'RENEWAL'
+      ? renewals.find(
+          (renewal) => renewal.policy_transaction_id === pendingTransaction.id,
+        )
+      : undefined;
+  const pendingTransactionLabel =
+    pendingTransaction?.transaction_type === 'ENDORSEMENT'
+      ? 'Continue Pending Endorsement'
+      : pendingTransaction?.transaction_type === 'CANCELLATION'
+        ? 'View Pending Cancellation'
+        : pendingTransaction?.transaction_type === 'RENEWAL'
+          ? 'View Pending Renewal'
+          : null;
+  const pendingTransactionHref =
+    policy && pendingTransaction?.transaction_type === 'ENDORSEMENT'
+      ? underwritingPaths.policyEndorsementEdit(policy.id, pendingTransaction.id)
+      : policy && pendingTransaction?.transaction_type === 'CANCELLATION'
+        ? underwritingPaths.policyCancellationDetail(
+            policy.id,
+            pendingTransaction.id,
+          )
+        : policy && pendingRenewalMatch
+          ? underwritingPaths.policyRenewalDetail(
+              policy.id,
+              pendingRenewalMatch.id,
+            )
+          : null;
 
   const nonMotorColumns: Column<NonMotorPolicyDetailRecord>[] = useMemo(
     () => [
@@ -267,6 +324,97 @@ export function PolicyDetailPage() {
     ],
   );
 
+  const renewalColumns: Column<PolicyRenewalRecord>[] = useMemo(
+    () => [
+      {
+        key: 'renewal_no',
+        header: 'Renewal No.',
+        cell: (row) => row.renewal_no,
+      },
+      {
+        key: 'renewal_period',
+        header: 'Renewal Period',
+        cell: (row) => `${row.renewal_start_date} - ${row.renewal_end_date}`,
+      },
+      {
+        key: 'renewal_status',
+        header: 'Status',
+        cell: (row) => <StatusBadge status={row.renewal_status} />,
+      },
+      {
+        key: 'offer_expires_at',
+        header: 'Offer Expires',
+        cell: (row) => row.offer_expires_at ?? ' - ',
+      },
+      {
+        key: 'actions',
+        header: '',
+        cell: (row) => (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              navigate(
+                underwritingPaths.policyRenewalDetail(policy!.id, row.id),
+              )
+            }
+          >
+            View
+          </Button>
+        ),
+      },
+    ],
+    [navigate, policy],
+  );
+
+  const cancellationColumns: Column<PolicyCancellationRecord>[] = useMemo(
+    () => [
+      {
+        key: 'transaction_no',
+        header: 'Cancellation No.',
+        cell: (row) => row.transaction_no,
+      },
+      {
+        key: 'effective_date',
+        header: 'Effective Date',
+        cell: (row) => row.effective_date,
+      },
+      {
+        key: 'stage',
+        header: 'Stage',
+        cell: (row) => <StatusBadge status={row.stage} />,
+      },
+      {
+        key: 'reason',
+        header: 'Reason',
+        cell: (row) => row.reason,
+      },
+      {
+        key: 'actions',
+        header: '',
+        cell: (row) => (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              navigate(
+                underwritingPaths.policyCancellationDetail(
+                  policy!.id,
+                  row.id,
+                ),
+              )
+            }
+          >
+            View
+          </Button>
+        ),
+      },
+    ],
+    [navigate, policy],
+  );
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -314,8 +462,10 @@ export function PolicyDetailPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          {canCreateEndorsement && eligibility?.eligible && (
+          {canCreateEndorsement && (
             <Button
+              disabled={!!endorsementBlockedReason}
+              title={endorsementBlockedReason ?? undefined}
               onClick={() =>
                 navigate(underwritingPaths.policyEndorsementCreate(policy.id))
               }
@@ -323,9 +473,11 @@ export function PolicyDetailPage() {
               Create Endorsement
             </Button>
           )}
-          {canStartCancellation && (
+          {canCreateCancellation && (
             <Button
               variant="destructive"
+              disabled={!!cancellationBlockedReason}
+              title={cancellationBlockedReason ?? undefined}
               onClick={() =>
                 navigate(underwritingPaths.policyCancellationCreate(policy.id))
               }
@@ -334,10 +486,11 @@ export function PolicyDetailPage() {
               Cancel Policy
             </Button>
           )}
-          {canStartRenewal && (
+          {canCreateRenewal && (
             <Button
               variant="outline"
-              disabled={createRenewalMutation.isPending}
+              disabled={!!renewalBlockedReason || createRenewalMutation.isPending}
+              title={renewalBlockedReason ?? undefined}
               onClick={() =>
                 createRenewalMutation.mutate(undefined, {
                   onSuccess: (renewal: { id: string }) =>
@@ -386,6 +539,38 @@ export function PolicyDetailPage() {
         </div>
       </div>
 
+      {policy.pending_transaction_id &&
+        (canCreateEndorsement || canCreateCancellation || canCreateRenewal) && (
+          <Alert>
+            <AlertTitle>Policy transaction in progress</AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p>
+                This policy already has an active endorsement, cancellation,
+                or renewal being processed. New endorsements, cancellations,
+                and renewals are disabled until it completes or is cancelled.
+              </p>
+              {pendingTransactionHref ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => navigate(pendingTransactionHref)}
+                >
+                  {pendingTransactionLabel}
+                </Button>
+              ) : canViewPendingTransaction ? (
+                <p className="text-xs text-slate-500">
+                  Loading the pending transaction...
+                </p>
+              ) : (
+                <p className="text-xs text-slate-500">
+                  Check the Endorsements, Cancellations, or Renewals tab below
+                  to find and complete it.
+                </p>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -396,6 +581,8 @@ export function PolicyDetailPage() {
           <TabsTrigger value="motor">Motor Details</TabsTrigger>
           <TabsTrigger value="nonmotor">Non-Motor Details</TabsTrigger>
           <TabsTrigger value="endorsements">Endorsements</TabsTrigger>
+          <TabsTrigger value="renewals">Renewals</TabsTrigger>
+          <TabsTrigger value="cancellations">Cancellations</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="tiramis">TIRAMIS</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
@@ -776,6 +963,56 @@ export function PolicyDetailPage() {
             totalPages={1}
             onPageChange={() => undefined}
             onLimitChange={() => undefined}
+          />
+        </TabsContent>
+        <TabsContent value="renewals" className="space-y-4">
+          {canCreateRenewal && renewalEligibility && !renewalEligibility.eligible && (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="font-medium">Renewal unavailable</p>
+                {renewalEligibility.blockers.map((blocker) => (
+                  <p key={blocker.code} className="mt-1 text-sm text-slate-500">
+                    {blocker.message}
+                  </p>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+          <DataTable
+            columns={renewalColumns}
+            data={renewals}
+            loading={renewalsLoading}
+            page={1}
+            limit={renewals.length || 1}
+            total={renewals.length}
+            totalPages={1}
+            onPageChange={() => undefined}
+            onLimitChange={() => undefined}
+            emptyMessage="No renewals have been started for this policy yet"
+          />
+        </TabsContent>
+        <TabsContent value="cancellations" className="space-y-4">
+          {canCreateCancellation && cancellationBlockedReason && (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="font-medium">Cancellation unavailable</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {cancellationBlockedReason}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          <DataTable
+            columns={cancellationColumns}
+            data={cancellations}
+            loading={cancellationsLoading}
+            page={1}
+            limit={cancellations.length || 1}
+            total={cancellations.length}
+            totalPages={1}
+            onPageChange={() => undefined}
+            onLimitChange={() => undefined}
+            emptyMessage="No cancellations have been started for this policy yet"
           />
         </TabsContent>
         <TabsContent value="billing" className="space-y-4">

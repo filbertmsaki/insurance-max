@@ -273,6 +273,12 @@ export interface CancellationContext {
   cancellation: PolicyCancellationDetail;
 }
 
+export interface PolicyTransactionSummary {
+  id: string;
+  transaction_type: 'ENDORSEMENT' | 'CANCELLATION' | 'RENEWAL' | string;
+  stage: string;
+}
+
 export interface RenewalEligibility {
   eligible: boolean;
   blockers: EndorsementEligibilityBlocker[];
@@ -335,6 +341,23 @@ export interface EndorsementTypeRecord {
   tira_endorsement_type: number | null;
   requires_new_cover_note: boolean;
   is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateEndorsementTypePayload {
+  code: string;
+  name: string;
+  tira_endorsement_type?: number | null;
+  requires_new_cover_note?: boolean;
+  is_active?: boolean;
+}
+
+export interface UpdateEndorsementTypePayload {
+  name?: string;
+  tira_endorsement_type?: number | null;
+  requires_new_cover_note?: boolean;
+  is_active?: boolean;
 }
 
 export interface PolicyTransactionChangeRecord {

@@ -16,9 +16,11 @@ import { buildPolicyPayload, type PolicyFormSchemaValues } from './schemas';
 import type {
   CreateCancellationPayload,
   CreateEndorsementPayload,
+  CreateEndorsementTypePayload,
   PolicyListParams,
   PolicyRecord,
   RecordEndorsementChangePayload,
+  UpdateEndorsementTypePayload,
 } from './types';
 
 const policyKeys = {
@@ -46,9 +48,15 @@ const policyKeys = {
     ] as const,
   cancellationContext: (id: string) =>
     ['policies', 'cancellation-context', id] as const,
+  cancellations: (policyId: string) =>
+    ['policies', 'detail', policyId, 'cancellations'] as const,
+  pendingTransaction: (id: string) =>
+    ['policy-transactions', 'detail', id] as const,
   renewalEligibility: (id: string) =>
     ['policies', 'detail', id, 'renewal-eligibility'] as const,
   renewalContext: (id: string) => ['policies', 'renewal-context', id] as const,
+  renewals: (policyId: string) =>
+    ['policies', 'detail', policyId, 'renewals'] as const,
   endorsementTypes: ['policies', 'endorsement-types'] as const,
   endorsementContext: (id: string) =>
     ['policies', 'endorsement-context', id] as const,
@@ -200,6 +208,29 @@ export function usePolicyEndorsements(policyId?: string, enabled = true) {
   });
 }
 
+export function usePolicyCancellations(policyId?: string, enabled = true) {
+  return useQuery({
+    queryKey: policyId
+      ? policyKeys.cancellations(policyId)
+      : policyKeys.cancellations(''),
+    queryFn: () => policiesApi.getPolicyCancellations(policyId!),
+    enabled: !!policyId && enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function usePendingPolicyTransaction(
+  transactionId?: string | null,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: policyKeys.pendingTransaction(transactionId ?? ''),
+    queryFn: () => policiesApi.getPolicyTransaction(transactionId!),
+    enabled: !!transactionId && enabled,
+    staleTime: 30_000,
+  });
+}
+
 export function useEndorsementEligibility(
   policyId?: string,
   effectiveDate?: string,
@@ -255,6 +286,15 @@ export function useCreateCancellation(policyId?: string) {
   });
 }
 
+export function usePolicyRenewals(policyId?: string, enabled = true) {
+  return useQuery({
+    queryKey: policyId ? policyKeys.renewals(policyId) : policyKeys.renewals(''),
+    queryFn: () => policiesApi.getPolicyRenewals(policyId!),
+    enabled: !!policyId && enabled,
+    staleTime: 30_000,
+  });
+}
+
 export function useRenewalEligibility(policyId?: string, enabled = true) {
   return useQuery({
     queryKey: policyId
@@ -277,6 +317,7 @@ export function useCreateRenewal(policyId?: string) {
         qc.invalidateQueries({
           queryKey: policyKeys.renewalEligibility(policyId),
         });
+        qc.invalidateQueries({ queryKey: policyKeys.renewals(policyId) });
       }
       toast.success('Renewal candidate created');
     },
@@ -357,6 +398,37 @@ export function useEndorsementTypes() {
     queryKey: policyKeys.endorsementTypes,
     queryFn: () => policiesApi.getEndorsementTypes(),
     staleTime: 60_000,
+  });
+}
+
+export function useCreateEndorsementType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateEndorsementTypePayload) =>
+      policiesApi.createEndorsementType(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: policyKeys.endorsementTypes });
+      toast.success('Endorsement type created');
+    },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
+  });
+}
+
+export function useUpdateEndorsementType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: UpdateEndorsementTypePayload;
+    }) => policiesApi.updateEndorsementType(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: policyKeys.endorsementTypes });
+      toast.success('Endorsement type updated');
+    },
+    onError: (e) => toast.error(getApiErrorMessage(e)),
   });
 }
 

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Ban, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Select,
@@ -18,6 +19,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import {
+  useCancellationEligibility,
   useCreateEndorsement,
   useEndorsementContext,
   useEndorsementEligibility,
@@ -43,6 +45,30 @@ function asObject(value: unknown): Record<string, unknown> | null {
 
 function asArray(value: unknown): Record<string, unknown>[] {
   return Array.isArray(value) ? (value as Record<string, unknown>[]) : [];
+}
+
+function premiumEffectLabel(effect: string | null | undefined): string {
+  switch (effect) {
+    case 'DEBIT':
+      return 'Type 1 · Increasing Premium Charged';
+    case 'CREDIT':
+      return 'Type 2 · Decreasing Premium Charged';
+    default:
+      return 'Type 3 · Cover Details Change';
+  }
+}
+
+function premiumEffectBadgeVariant(
+  effect: string | null | undefined,
+): 'warning' | 'success' | 'muted' {
+  switch (effect) {
+    case 'DEBIT':
+      return 'warning';
+    case 'CREDIT':
+      return 'success';
+    default:
+      return 'muted';
+  }
 }
 
 function displayValue(value: unknown): string {
@@ -113,6 +139,14 @@ export function PolicyEndorsementPage() {
     effectiveDate || undefined,
   );
   const { data: endorsementTypes = [] } = useEndorsementTypes();
+  const canCreateCancellation = hasPermission('cancellations:create');
+  const { data: cancellationEligibility } = useCancellationEligibility(
+    policyId,
+    undefined,
+    canCreateCancellation,
+  );
+  const canStartCancellation =
+    canCreateCancellation && cancellationEligibility?.eligible;
   const { data: context, refetch: refetchContext } =
     useEndorsementContext(endorsementId);
   const canUseReconciliation = hasPermission('endorsements:reconcile');
@@ -317,8 +351,22 @@ export function PolicyEndorsementPage() {
 
       {step === 1 && (
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 flex flex-row items-start justify-between gap-3">
             <CardTitle className="text-base">Endorsement Details</CardTitle>
+            {canStartCancellation && (
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-red-600"
+                onClick={() =>
+                  navigate(underwritingPaths.policyCancellationCreate(policy.id))
+                }
+              >
+                <Ban className="mr-1.5 h-3.5 w-3.5" />
+                Need to cancel this policy instead? Cancel Policy →
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             {eligibility && !eligibility.eligible && (
@@ -604,8 +652,11 @@ export function PolicyEndorsementPage() {
 
           {pricing && (
             <Card>
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-2 flex flex-row items-center justify-between gap-3">
                 <CardTitle className="text-base">Premium Comparison</CardTitle>
+                <Badge variant={premiumEffectBadgeVariant(pricing.premiumEffect)}>
+                  {premiumEffectLabel(pricing.premiumEffect)}
+                </Badge>
               </CardHeader>
               <CardContent className="space-y-3">
                 <Row

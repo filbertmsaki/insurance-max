@@ -32,7 +32,6 @@ import {
   useQuotationCategories,
   useQuotationCurrentCompanyId,
   useQuotationCustomers,
-  useQuotationDetail,
   useQuotationEditDetail,
   useQuotationProducts,
   useQuotationRisks,
@@ -69,11 +68,6 @@ const EDITABLE_STATUSES = new Set([
   'REJECTED',
   'FAILED',
 ]);
-
-const isTiraCompletedQuotation = (quotation: {
-  status: string;
-  tira_status?: string | null;
-}) => quotation.status === 'COMPLETED' || quotation.tira_status === 'SUCCESS';
 
 const STEP_FIELDS: Partial<
   Record<QuotationWizardStepId, (keyof QuotationFormSchemaValues)[]>
@@ -222,11 +216,10 @@ function findFirstErrorMessage(node: unknown): string | null {
 
 export function QuotationWizardPage() {
   const navigate = useNavigate();
-  const { id, sourceId } = useParams<{ id?: string; sourceId?: string }>();
+  const { id } = useParams<{ id?: string }>();
   const isEditMode = Boolean(id);
-  const isEndorsementMode = Boolean(sourceId && !isEditMode);
   const [draftId, setDraftId] = useState<string | null>(id ?? null);
-  const usesPrefilledQuotation = isEditMode || isEndorsementMode;
+  const usesPrefilledQuotation = isEditMode;
   const defaultSalePointCode = useAuthStore(
     (state) => state.user?.defaultSalePointCode ?? '',
   );
@@ -244,11 +237,6 @@ export function QuotationWizardPage() {
     isLoading: loadingQuotation,
     error,
   } = useQuotationEditDetail(id);
-  const {
-    data: sourceQuotation,
-    isLoading: loadingSourceQuotation,
-    error: sourceQuotationError,
-  } = useQuotationDetail(sourceId);
   const { data: customerOptions = [] } = useQuotationCustomers();
   const [selectedStepId, setSelectedStepId] =
     useState<QuotationWizardStepId | null>(null);
@@ -328,9 +316,7 @@ export function QuotationWizardPage() {
     control: form.control,
     name: 'fleet.items',
   });
-  const quotationContext =
-    (isEditMode ? existingQuotation : null) ??
-    (isEndorsementMode ? sourceQuotation : null);
+  const quotationContext = isEditMode ? existingQuotation : null;
   const savedCategoryId =
     quotationContext?.internal_quotation.category_id ?? '';
   const savedProductId = quotationContext?.internal_quotation.product_id ?? '';
@@ -412,21 +398,14 @@ export function QuotationWizardPage() {
   }, [companyId, form]);
 
   useEffect(() => {
-    if (isEditMode || isEndorsementMode || !companyId) return;
+    if (isEditMode || !companyId) return;
     form.reset({
       ...DEFAULT_VALUES,
       insurer_company_id: companyId,
       officer_name: loggedInOfficerName,
       officer_title: loggedInOfficerTitle,
     });
-  }, [
-    companyId,
-    form,
-    isEditMode,
-    isEndorsementMode,
-    loggedInOfficerName,
-    loggedInOfficerTitle,
-  ]);
+  }, [companyId, form, isEditMode, loggedInOfficerName, loggedInOfficerTitle]);
 
   useEffect(() => {
     if (usesPrefilledQuotation) return;
@@ -457,29 +436,19 @@ export function QuotationWizardPage() {
       ...DEFAULT_VALUES,
       ...quotationRecordToFormValues(quotationContext),
       ...(draftSnapshot ?? {}),
-      status: isEndorsementMode ? 'DRAFT' : quotationContext.status,
-      cover_note_type: isEndorsementMode
-        ? '3'
-        : (quotationContext.cover_note_hdr.cover_note_type?.toString() as
-            | '1'
-            | '2'
-            | '3'),
-      prev_cover_note_reference: isEndorsementMode
-        ? (quotationContext.cover_note_dtl.cover_note_number ??
-          quotationContext.quotation_no)
-        : (quotationContext.cover_note_dtl.prev_cover_note_reference_number ??
-          ''),
-      endorsement_type: isEndorsementMode
-        ? ''
-        : ((quotationContext.cover_note_dtl.endorsement_type != null
-            ? String(quotationContext.cover_note_dtl.endorsement_type)
-            : '') as '1' | '2' | '3' | '4' | ''),
-      endorsement_reason: isEndorsementMode
-        ? ''
-        : (quotationContext.cover_note_dtl.endorsement_reason ?? ''),
-      endorsement_premium_earned: isEndorsementMode
-        ? ''
-        : quotationContext.cover_note_dtl.endorsement_premium_earned != null
+      status: quotationContext.status,
+      cover_note_type: quotationContext.cover_note_hdr.cover_note_type?.toString() as
+        | '1'
+        | '2'
+        | '3',
+      prev_cover_note_reference:
+        quotationContext.cover_note_dtl.prev_cover_note_reference_number ?? '',
+      endorsement_type: (quotationContext.cover_note_dtl.endorsement_type != null
+        ? String(quotationContext.cover_note_dtl.endorsement_type)
+        : '') as '1' | '2' | '3' | '4' | '',
+      endorsement_reason: quotationContext.cover_note_dtl.endorsement_reason ?? '',
+      endorsement_premium_earned:
+        quotationContext.cover_note_dtl.endorsement_premium_earned != null
           ? String(quotationContext.cover_note_dtl.endorsement_premium_earned)
           : '',
       insurer_company_id:
@@ -499,7 +468,6 @@ export function QuotationWizardPage() {
   }, [
     categoryOptions,
     editOptionsReady,
-    isEndorsementMode,
     quotationContext,
     form,
     productOptions,
@@ -525,19 +493,6 @@ export function QuotationWizardPage() {
       replace: true,
     });
   }, [isEditMode, navigate, quotationContext]);
-
-  useEffect(() => {
-    if (!isEndorsementMode || !sourceQuotation || !sourceId) {
-      return;
-    }
-
-    if (!isTiraCompletedQuotation(sourceQuotation)) {
-      toast.error(
-        'Endorsements are only available after the quotation has been completed by TIRAMIS.',
-      );
-      navigate(underwritingPaths.quotationDetail(sourceId), { replace: true });
-    }
-  }, [isEndorsementMode, navigate, sourceId, sourceQuotation]);
 
   useEffect(() => {
     form.setValue(
@@ -1012,36 +967,10 @@ export function QuotationWizardPage() {
     );
   }
 
-  if (isEndorsementMode && loadingSourceQuotation) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-96 w-full" />
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="space-y-4 py-12 text-center text-sm text-red-600">
         <p>Could not load this quotation for editing: {String(error)}</p>
-        <Button
-          variant="outline"
-          onClick={() => navigate(underwritingPaths.quotations)}
-        >
-          Back to Quotations
-        </Button>
-      </div>
-    );
-  }
-
-  if (isEndorsementMode && sourceQuotationError) {
-    return (
-      <div className="space-y-4 py-12 text-center text-sm text-red-600">
-        <p>
-          Could not load the quotation for endorsement:{' '}
-          {String(sourceQuotationError)}
-        </p>
         <Button
           variant="outline"
           onClick={() => navigate(underwritingPaths.quotations)}
@@ -1074,7 +1003,7 @@ export function QuotationWizardPage() {
         onClose={() => setChangeSetupInitial(null)}
       />
       <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-6">
-        {!isEditMode && !isEndorsementMode && isFirstStep ? (
+        {!isEditMode && isFirstStep ? (
           <div className="flex justify-end">
             <Button
               type="button"
@@ -1085,27 +1014,6 @@ export function QuotationWizardPage() {
               Change quotation setup
             </Button>
           </div>
-        ) : null}
-
-        {isEndorsementMode && sourceQuotation ? (
-          <section className="rounded-[28px] border border-cyan-200/80 bg-[linear-gradient(135deg,_#ecfeff,_#f0fdfa_55%,_#ffffff)] p-5 shadow-[0_18px_45px_-32px_rgba(8,145,178,0.7)]">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-800">
-              Endorsement mode
-            </p>
-            <h2 className="mt-2 text-xl font-semibold text-slate-900">
-              Starting from quotation {sourceQuotation.quotation_no}
-            </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-cyan-950/80">
-              The original flow, customer, product, and vehicle details were
-              carried into this endorsement so you can focus on the actual
-              change instead of rebuilding the quotation from scratch.
-            </p>
-            <p className="mt-3 text-sm font-medium text-cyan-900">
-              Previous cover note:{' '}
-              {sourceQuotation.cover_note_dtl.cover_note_number ??
-                sourceQuotation.quotation_no}
-            </p>
-          </section>
         ) : null}
 
         <div className="rounded-[5px] border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
@@ -1134,13 +1042,8 @@ export function QuotationWizardPage() {
                       productOptions={productOptions}
                       isHydrating={isEditHydrating}
                       showFlowSelector={false}
-                      isEndorsementMode={isEndorsementMode}
                       enforceFreshCoverPeriod={!usesPrefilledQuotation}
-                      title={
-                        isEndorsementMode
-                          ? 'Customer & Cover'
-                          : 'Customer & Cover'
-                      }
+                      title="Customer & Cover"
                     />
                     <PolicyholderStep
                       form={form}

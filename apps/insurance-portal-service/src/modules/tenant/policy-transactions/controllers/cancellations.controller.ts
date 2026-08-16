@@ -63,8 +63,11 @@ export class CancellationsController {
   @Get('tenant/cancellations')
   @Permissions('cancellations:read')
   @ApiOperation({ summary: 'List cancellations for the current company' })
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.cancellationService.findAll(user.companyId!);
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('policy_id') policyId?: string,
+  ) {
+    return this.cancellationService.findAll(user.companyId!, policyId);
   }
 
   @Get('tenant/cancellations/:id')

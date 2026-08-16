@@ -563,11 +563,23 @@ export class RenewalService {
     }
   }
 
-  findAll(companyId: string) {
-    return this.renewalRepository.find({
-      where: { company_id: companyId },
-      order: { created_at: 'DESC' },
-    });
+  findAll(companyId: string, policyId?: string) {
+    const query = this.renewalRepository
+      .createQueryBuilder('renewal')
+      .where('renewal.company_id = :companyId', { companyId })
+      .orderBy('renewal.created_at', 'DESC');
+
+    if (policyId) {
+      query
+        .innerJoin(
+          PolicyTransaction,
+          'transaction',
+          'transaction.id = renewal.policy_transaction_id',
+        )
+        .andWhere('transaction.source_policy_id = :policyId', { policyId });
+    }
+
+    return query.getMany();
   }
 
   async findContext(companyId: string, renewalId: string) {

@@ -3,8 +3,6 @@ export const underwritingPaths = {
   quotationCreate: '/underwriting/quotations/new',
   quotationWizard: '/underwriting/quotations/wizard',
   quotationWizardEdit: (id: string) => `/underwriting/quotations/${id}/wizard`,
-  quotationEndorsement: (sourceId: string) =>
-    `/underwriting/quotations/${sourceId}/endorsement`,
   quotationDetail: (id: string) => `/underwriting/quotations/${id}`,
   quotationEdit: (id: string) => `/underwriting/quotations/${id}/edit`,
   quotationPayment: (id: string) => `/underwriting/quotations/${id}/payment`,

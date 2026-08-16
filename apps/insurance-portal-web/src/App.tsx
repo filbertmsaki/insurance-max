@@ -77,6 +77,7 @@ import { QuotationPaymentPage } from '@/modules/tenant/quotations/pages/Quotatio
 import { PoliciesPage } from '@/modules/tenant/policies/pages/PoliciesPage';
 import { PolicyDetailPage } from '@/modules/tenant/policies/pages/PolicyDetailPage';
 import { PolicyEndorsementPage } from '@/modules/tenant/policies/pages/PolicyEndorsementPage';
+import { EndorsementTypesPage } from '@/modules/tenant/policies/pages/EndorsementTypesPage';
 import { PolicyCancellationPage } from '@/modules/tenant/policies/pages/PolicyCancellationPage';
 import { PolicyRenewalPage } from '@/modules/tenant/policies/pages/PolicyRenewalPage';
 import { PolicyEditPage } from '@/modules/tenant/policies/pages/PolicyEditPage';
@@ -624,6 +625,10 @@ export default function App() {
               <Route
                 path={underwritingPaths.policyEndorsementCreate(':policyId')}
                 element={<PolicyEndorsementPage />}
+              />
+              <Route
+                path="/endorsement-types"
+                element={<EndorsementTypesPage />}
               />
             </Route>
             <Route

@@ -14,6 +14,8 @@ import type {
   PolicyEndorsementRecord,
   PolicyCancellationRecord,
   CancellationContext,
+  PolicyRenewalRecord,
+  PolicyTransactionSummary,
   RenewalContext,
   RenewalEligibility,
   PolicyVersionRecord,
@@ -21,6 +23,8 @@ import type {
   CreateCancellationPayload,
   EndorsementEligibility,
   EndorsementTypeRecord,
+  CreateEndorsementTypePayload,
+  UpdateEndorsementTypePayload,
   CreateEndorsementPayload,
   EndorsementContext,
   RecordEndorsementChangePayload,
@@ -127,6 +131,16 @@ export const policiesApi = {
     apiClient
       .get<PolicyCancellationRecord>(`/tenant/cancellations/${id}`)
       .then((response) => response.data),
+  getPolicyCancellations: (policyId: string) =>
+    apiClient
+      .get<PolicyCancellationRecord[]>('/tenant/cancellations', {
+        params: { policy_id: policyId },
+      })
+      .then((response) => response.data),
+  getPolicyTransaction: (id: string) =>
+    apiClient
+      .get<PolicyTransactionSummary>(`/tenant/policy-transactions/${id}`)
+      .then((response) => response.data),
   getCancellationContext: (id: string) =>
     apiClient
       .get<CancellationContext>(`/tenant/cancellations/${id}/context`)
@@ -157,6 +171,12 @@ export const policiesApi = {
         `/tenant/policies/${policyId}/renewal-eligibility`,
       )
       .then((response) => response.data),
+  getPolicyRenewals: (policyId: string) =>
+    apiClient
+      .get<PolicyRenewalRecord[]>('/tenant/renewals', {
+        params: { policy_id: policyId },
+      })
+      .then((response) => response.data),
   createRenewal: (policyId: string) =>
     apiClient
       .post(`/tenant/policies/${policyId}/renewals`)
@@ -184,6 +204,14 @@ export const policiesApi = {
   getEndorsementTypes: () =>
     apiClient
       .get<EndorsementTypeRecord[]>('/tenant/endorsement-types')
+      .then((response) => response.data),
+  createEndorsementType: (payload: CreateEndorsementTypePayload) =>
+    apiClient
+      .post<EndorsementTypeRecord>('/tenant/endorsement-types', payload)
+      .then((response) => response.data),
+  updateEndorsementType: (id: string, payload: UpdateEndorsementTypePayload) =>
+    apiClient
+      .patch<EndorsementTypeRecord>(`/tenant/endorsement-types/${id}`, payload)
       .then((response) => response.data),
   createEndorsement: (policyId: string, payload: CreateEndorsementPayload) =>
     apiClient

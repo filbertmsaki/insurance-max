@@ -130,6 +130,13 @@ export const NAV_NODES: NavNode[] = [
       },
       {
         kind: 'link',
+        label: 'Endorsement Types',
+        to: '/endorsement-types',
+        icon: ShieldCheck,
+        permission: 'endorsements:create',
+      },
+      {
+        kind: 'link',
         label: 'My Company',
         to: '/my-company',
         icon: Building2,
