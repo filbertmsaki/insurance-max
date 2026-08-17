@@ -450,6 +450,10 @@ rollback_to_release() {
         die "Rollback target has no backend entry file."
 
 
+    [[ -f "${target_release}/REVISION" ]] || \
+        die "Rollback target has no REVISION file: ${target_release}"
+
+
     local target_sha
 
 
@@ -467,6 +471,16 @@ rollback_to_release() {
     mv -Tf \
         "${CURRENT_LINK}.next" \
         "${CURRENT_LINK}"
+
+
+    local active_release
+
+
+    active_release="$(current_release_path || true)"
+
+
+    [[ "${active_release}" == "${target_release}" ]] || \
+        die "Rollback current symlink verification failed: expected ${target_release}, got ${active_release}"
 
 
     restart_pm2 \
@@ -845,7 +859,9 @@ perform_deploy() {
         if [[ "${switched}" == "true" ]]; then
 
 
-            if [[ -n "${previous_release}" && -d "${previous_release}" ]]; then
+            if [[ -n "${previous_release}" \
+                && -d "${previous_release}" \
+                && -f "${previous_release}/${APP_ENTRY}" ]]; then
 
 
                 warn "Restoring previous application release: ${previous_release}"
@@ -893,7 +909,7 @@ perform_deploy() {
             else
 
 
-                warn "No previous release exists."
+                warn "No previous release exists, or it is missing a valid backend entry file: ${previous_release}"
 
 
                 warn "Removing current symlink and stopping ${APP_NAME}."
@@ -1030,6 +1046,15 @@ perform_deploy() {
     # --------------------------------------------------------
 
     if ! health_check; then
+
+        warn "New release failed readiness check."
+
+        "${PM2_BIN}" \
+            logs \
+            "${APP_NAME}" \
+            --lines 120 \
+            --nostream \
+            || true
 
         return 1
 

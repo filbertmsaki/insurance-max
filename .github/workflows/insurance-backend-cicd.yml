@@ -866,6 +866,58 @@ jobs:
 
 
       # -------------------------------------------------------
+      # Verify backend release archive
+      #
+      # Fail here, before upload, if the compiled entry file or
+      # data source are missing from the packaged archive.
+      # -------------------------------------------------------
+
+      - name: Verify backend release archive
+
+        shell: bash
+
+        env:
+          ARCHIVE: ${{ steps.package.outputs.archive_path }}
+
+        run: |
+          set -Eeuo pipefail
+
+          echo "Checking backend archive..."
+
+          tar -tzf "${ARCHIVE}" \
+            | grep -Fxq \
+              './dist/apps/insurance-portal-service/apps/insurance-portal-service/src/main.js'
+
+          tar -tzf "${ARCHIVE}" \
+            | grep -Fxq \
+              './dist/apps/insurance-portal-service/apps/insurance-portal-service/src/database/data-source.js'
+
+          echo
+          echo "Backend artifact structure: OK"
+
+
+      # -------------------------------------------------------
+      # Display backend artifact structure
+      # -------------------------------------------------------
+
+      - name: Display backend artifact structure
+
+        shell: bash
+
+        env:
+          ARCHIVE: ${{ steps.package.outputs.archive_path }}
+
+        run: |
+          set -Eeuo pipefail
+
+          echo "Compiled application files:"
+
+          tar -tzf "${ARCHIVE}" \
+            | grep 'insurance-portal-service/src/main.js\|database/data-source.js' \
+            || true
+
+
+      # -------------------------------------------------------
       # Upload immutable release artifact
       # -------------------------------------------------------
 
