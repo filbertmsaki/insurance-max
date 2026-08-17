@@ -1,0 +1,141 @@
+name: Insurance Deployment Preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-server-preflight:
+    name: Backend Server Preflight
+
+    runs-on: ubuntu-latest
+
+    environment:
+      name: insurance-backend-production
+
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          test -n "$DEPLOY_PORT"
+          test -n "$DEPLOY_SSH_KEY"
+          test -n "$DEPLOY_KNOWN_HOSTS"
+
+          install -d -m 700 ~/.ssh
+
+          printf '%s\n' "$DEPLOY_SSH_KEY" \
+            > ~/.ssh/id_ed25519
+
+          chmod 600 ~/.ssh/id_ed25519
+
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" \
+            > ~/.ssh/known_hosts
+
+          chmod 600 ~/.ssh/known_hosts
+
+
+      - name: Test SSH
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          ssh \
+            -o BatchMode=yes \
+            -o ConnectTimeout=10 \
+            -p "$DEPLOY_PORT" \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            '
+              set -e
+
+              echo "=================================="
+              echo "Insurance Max Deployment Preflight"
+              echo "=================================="
+
+              echo
+              echo "User:"
+              whoami
+
+              echo
+              echo "Hostname:"
+              hostname
+
+              echo
+              echo "Node:"
+              node --version
+
+              echo
+              echo "NPM:"
+              npm --version
+
+              echo
+              echo "PM2:"
+              pm2 --version
+
+              echo
+              echo "Node path:"
+              command -v node
+
+              echo
+              echo "NPM path:"
+              command -v npm
+
+              echo
+              echo "PM2 path:"
+              command -v pm2
+
+              echo
+              echo "Backend directory:"
+              ls -ld /opt/apps/insurance-max/prod/backend
+
+              echo
+              echo "Checking write permission..."
+
+              touch /opt/apps/insurance-max/prod/backend/tmp/github-preflight
+
+              rm /opt/apps/insurance-max/prod/backend/tmp/github-preflight
+
+              echo
+              echo "Write permission: OK"
+
+              echo
+              echo "Backend environment file:"
+
+              if [ -f /opt/apps/insurance-max/prod/backend/shared/.env ]; then
+                echo "FOUND"
+              else
+                echo "MISSING"
+                exit 1
+              fi
+
+              echo
+              echo "PostgreSQL connectivity:"
+
+              pg_isready \
+                -h 127.0.0.1 \
+                -p 5432
+
+              echo
+              echo "Redis connectivity:"
+
+              redis-cli \
+                -h 127.0.0.1 \
+                -p 6379 \
+                ping
+
+              echo
+              echo "Preflight completed successfully."
+            '
