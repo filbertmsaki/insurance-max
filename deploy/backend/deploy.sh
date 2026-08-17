@@ -257,7 +257,12 @@ write_pm2_config() {
 
     local release_sha="$1"
 
-    local tmp_file="${ECOSYSTEM_FILE}.tmp.$$"
+    # The temporary file must keep the .cjs suffix so that
+    # `node --check` treats it as CommonJS. A trailing
+    # ".tmp.$$" makes Node see an unknown extension and the
+    # module.exports syntax check fails.
+
+    local tmp_file="${ECOSYSTEM_FILE}.tmp.$$.cjs"
 
 
     cat > "${tmp_file}" <<EOF_PM2
@@ -317,9 +322,22 @@ EOF_PM2
 
     # Validate JavaScript before replacing existing config.
 
-    "${NODE_BIN}" \
-        --check \
-        "${tmp_file}" >/dev/null
+    if ! "${NODE_BIN}" --check "${tmp_file}" >/dev/null; then
+
+        warn "Generated PM2 ecosystem configuration is invalid."
+
+        # Dump the generated file so the offending interpolated
+        # value is visible in the deployment log. This file
+        # contains no secrets.
+
+        warn "Generated configuration was:"
+
+        cat -n "${tmp_file}" >&2
+
+        rm -f "${tmp_file}"
+
+        die "PM2 ecosystem syntax validation failed."
+    fi
 
 
     mv -f \
@@ -329,6 +347,9 @@ EOF_PM2
 
     chmod 0640 \
         "${ECOSYSTEM_FILE}"
+
+
+    log "PM2 ecosystem configuration prepared successfully."
 }
 
 
