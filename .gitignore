@@ -49,6 +49,13 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 .env.local
+!*.env.example
+
+# Deployment production secrets
+deploy/**/.env
+deploy/**/.env.production
+deploy/**/.env.local
+
 apps/**/.env
 apps/**/.env.*
 !apps/**/.env.example
