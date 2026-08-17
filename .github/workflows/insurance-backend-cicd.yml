@@ -884,13 +884,23 @@ jobs:
 
           echo "Checking backend archive..."
 
-          tar -tzf "${ARCHIVE}" \
-            | grep -Fxq \
-              './dist/apps/insurance-portal-service/apps/insurance-portal-service/src/main.js'
+          ARCHIVE_LIST="$RUNNER_TEMP/backend-archive-list.txt"
 
-          tar -tzf "${ARCHIVE}" \
-            | grep -Fxq \
-              './dist/apps/insurance-portal-service/apps/insurance-portal-service/src/database/data-source.js'
+          tar -tzf "$ARCHIVE" > "$ARCHIVE_LIST"
+
+          echo
+          echo "Checking main.js..."
+
+          grep -Fx \
+            './dist/apps/insurance-portal-service/apps/insurance-portal-service/src/main.js' \
+            "$ARCHIVE_LIST"
+
+          echo
+          echo "Checking TypeORM data-source.js..."
+
+          grep -Fx \
+            './dist/apps/insurance-portal-service/apps/insurance-portal-service/src/database/data-source.js' \
+            "$ARCHIVE_LIST"
 
           echo
           echo "Backend artifact structure: OK"
