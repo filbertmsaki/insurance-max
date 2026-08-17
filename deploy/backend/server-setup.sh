@@ -3,11 +3,12 @@
 set -Eeuo pipefail
 
 # ============================================================
-# Insurance Max - Backend Server Initial Setup
+# Insurance Max
+# Backend Server Initial Setup
 #
-# This script is ONLY for the initial server preparation.
+# Run only once when preparing an Ubuntu server.
 #
-# Normal GitHub Actions deployments will NOT require sudo.
+# Normal GitHub Actions deployments will not require sudo.
 # ============================================================
 
 DEPLOY_USER="${DEPLOY_USER:-insurance-deploy}"
@@ -23,25 +24,32 @@ echo "================================================"
 
 
 # ------------------------------------------------------------
-# 1. Must run as root/sudo
+# Must run as root
 # ------------------------------------------------------------
 
 if [[ "${EUID}" -ne 0 ]]; then
-    echo "ERROR: Run this script using sudo/root."
+
+    echo "ERROR: This initial setup must run as root/sudo."
+
     echo
     echo "Example:"
     echo
-    echo "sudo bash deploy/backend/server-setup.sh"
+    echo "sudo DEPLOY_USER=insurance-deploy \\"
+    echo "BASE_DIR=/opt/apps/insurance-max/prod/backend \\"
+    echo "bash server-setup.sh"
+
     exit 1
 fi
 
 
 # ------------------------------------------------------------
-# 2. Verify deployment user
+# Verify deployment user
 # ------------------------------------------------------------
 
 if ! id "${DEPLOY_USER}" >/dev/null 2>&1; then
+
     echo "ERROR: Deployment user '${DEPLOY_USER}' does not exist."
+
     exit 1
 fi
 
@@ -49,14 +57,11 @@ echo "[OK] Deployment user exists."
 
 
 # ------------------------------------------------------------
-# 3. Install required server packages
-#
-# Node.js and PM2 are NOT installed here because we already
-# manage those separately.
+# Install required system packages
 # ------------------------------------------------------------
 
 echo
-echo "Installing required system packages..."
+echo "Installing required packages..."
 
 apt-get update
 
@@ -73,7 +78,7 @@ apt-get install -y \
 
 
 # ------------------------------------------------------------
-# 4. Create application directory structure
+# Create directories
 # ------------------------------------------------------------
 
 echo
@@ -123,7 +128,7 @@ install -d \
 
 
 # ------------------------------------------------------------
-# 5. Create secure production environment file
+# Secure shared environment file
 # ------------------------------------------------------------
 
 ENV_FILE="${BASE_DIR}/shared/.env"
@@ -131,7 +136,7 @@ ENV_FILE="${BASE_DIR}/shared/.env"
 if [[ ! -f "${ENV_FILE}" ]]; then
 
     echo
-    echo "Creating production environment file..."
+    echo "Creating ${ENV_FILE}"
 
     install \
         -o "${DEPLOY_USER}" \
@@ -143,7 +148,7 @@ if [[ ! -f "${ENV_FILE}" ]]; then
 else
 
     echo
-    echo "Production .env already exists."
+    echo "${ENV_FILE} already exists."
 
     chown "${DEPLOY_USER}:${DEPLOY_USER}" "${ENV_FILE}"
 
@@ -153,11 +158,11 @@ fi
 
 
 # ------------------------------------------------------------
-# 6. Correct directory ownership
+# Ownership
 # ------------------------------------------------------------
 
 echo
-echo "Setting application ownership..."
+echo "Setting ownership..."
 
 chown -R \
     "${DEPLOY_USER}:${DEPLOY_USER}" \
@@ -165,7 +170,7 @@ chown -R \
 
 
 # ------------------------------------------------------------
-# 7. Secure important directories
+# Permissions
 # ------------------------------------------------------------
 
 chmod 0755 "${BASE_DIR}"
@@ -182,12 +187,12 @@ chmod 0600 "${ENV_FILE}"
 
 
 # ------------------------------------------------------------
-# 8. Display final structure
+# Display structure
 # ------------------------------------------------------------
 
 echo
 echo "================================================"
-echo " Backend directory structure"
+echo " Backend structure"
 echo "================================================"
 
 find "${BASE_DIR}" \
@@ -197,23 +202,23 @@ find "${BASE_DIR}" \
 
 echo
 echo "================================================"
-echo " Backend server setup complete"
+echo " Insurance Max Backend Server Setup Complete"
 echo "================================================"
 
 echo
-echo "Application directory:"
+echo "Backend:"
 echo "${BASE_DIR}"
 
 echo
-echo "Release directory:"
+echo "Releases:"
 echo "${BASE_DIR}/releases"
 
 echo
-echo "Shared files:"
+echo "Shared:"
 echo "${BASE_DIR}/shared"
 
 echo
-echo "Environment file:"
+echo "Environment:"
 echo "${BASE_DIR}/shared/.env"
 
 echo
@@ -221,10 +226,6 @@ echo "Logs:"
 echo "${BASE_DIR}/logs"
 
 echo
-echo "Next:"
-echo "1. Verify Node.js 22"
-echo "2. Verify npm"
-echo "3. Verify PM2"
-echo "4. Configure shared/.env"
-echo "5. Configure GitHub Actions SSH deployment"
+echo "Temporary deployments:"
+echo "${BASE_DIR}/tmp"
 echo

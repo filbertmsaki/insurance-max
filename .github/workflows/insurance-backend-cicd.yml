@@ -1,0 +1,1562 @@
+name: Insurance Max - Backend CI/CD
+
+# ============================================================
+# Insurance Max Backend CI/CD
+#
+# Backend:
+#   apps/insurance-portal-service
+#
+# Runner:
+#   GitHub-hosted Ubuntu
+#
+# Deployment:
+#   GitHub Actions -> SSH/SCP -> Ubuntu Server -> PM2
+#
+# No Docker
+# No Docker Compose
+# No self-hosted GitHub runner
+# ============================================================
+
+on:
+  # ----------------------------------------------------------
+  # Production branch
+  # ----------------------------------------------------------
+  push:
+    branches:
+      - main
+
+    paths:
+      - "apps/insurance-portal-service/**"
+      - "libs/**"
+      - "scripts/**"
+
+      - "package.json"
+      - "package-lock.json"
+
+      - "nest-cli.json"
+
+      - "tsconfig.json"
+      - "tsconfig.build.json"
+
+      - "deploy/backend/**"
+
+      - ".github/workflows/insurance-backend-cicd.yml"
+
+  # ----------------------------------------------------------
+  # Pull requests run CI only.
+  #
+  # They DO NOT deploy production.
+  # ----------------------------------------------------------
+  pull_request:
+    branches:
+      - main
+
+    paths:
+      - "apps/insurance-portal-service/**"
+      - "libs/**"
+      - "scripts/**"
+
+      - "package.json"
+      - "package-lock.json"
+
+      - "nest-cli.json"
+
+      - "tsconfig.json"
+      - "tsconfig.build.json"
+
+      - "deploy/backend/**"
+
+      - ".github/workflows/insurance-backend-cicd.yml"
+
+  # ----------------------------------------------------------
+  # Allow manual deployment from GitHub Actions UI.
+  # ----------------------------------------------------------
+  workflow_dispatch:
+
+
+# ============================================================
+# DEFAULT PERMISSIONS
+#
+# Workflow only needs repository read access.
+# ============================================================
+
+permissions:
+  contents: read
+
+
+# ============================================================
+# GLOBAL ENVIRONMENT
+# ============================================================
+
+env:
+  NODE_VERSION: "22"
+
+  # ----------------------------------------------------------
+  # CI PostgreSQL
+  #
+  # These credentials exist only inside the temporary
+  # GitHub-hosted runner.
+  #
+  # They are NOT production credentials.
+  # ----------------------------------------------------------
+
+  CI_DB_HOST: "127.0.0.1"
+  CI_DB_PORT: "5432"
+
+  CI_DB_USERNAME: "insurance_ci"
+  CI_DB_PASSWORD: "insurance_ci_password"
+
+  CI_DB_DATABASE: "insurance_portal_ci"
+
+  # ----------------------------------------------------------
+  # CI Redis
+  # ----------------------------------------------------------
+
+  CI_REDIS_HOST: "127.0.0.1"
+  CI_REDIS_PORT: "6379"
+
+
+# ============================================================
+# JOBS
+# ============================================================
+
+jobs:
+
+  # ==========================================================
+  # JOB 1
+  #
+  # CI / BUILD
+  #
+  # This job:
+  #
+  #   1. Checks out source
+  #   2. Installs Node.js 22
+  #   3. npm ci
+  #   4. Installs PostgreSQL directly
+  #   5. Installs Redis directly
+  #   6. Creates CI database
+  #   7. Runs backend lint
+  #   8. Runs backend tests
+  #   9. Runs TypeORM migrations
+  #  10. Builds insurance-portal-service
+  #  11. Packages immutable release
+  #  12. Uploads artifact
+  #
+  # ==========================================================
+
+  ci:
+
+    name: Backend CI & Build
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 30
+
+
+    steps:
+
+      # -------------------------------------------------------
+      # Checkout repository
+      # -------------------------------------------------------
+
+      - name: Checkout repository
+
+        uses: actions/checkout@v7
+
+        with:
+          fetch-depth: 1
+
+          # Deployment does not need Git credentials after
+          # checkout.
+          persist-credentials: false
+
+
+      # -------------------------------------------------------
+      # Node.js
+      # -------------------------------------------------------
+
+      - name: Setup Node.js
+
+        uses: actions/setup-node@v7
+
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+          cache: npm
+
+          cache-dependency-path: package-lock.json
+
+
+      # -------------------------------------------------------
+      # Display versions
+      # -------------------------------------------------------
+
+      - name: Display build environment
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+          echo "========================================"
+          echo " Insurance Max Backend CI"
+          echo "========================================"
+
+          echo
+          echo "Node:"
+          node --version
+
+          echo
+          echo "npm:"
+          npm --version
+
+          echo
+          echo "Commit:"
+          echo "${GITHUB_SHA}"
+
+          echo
+          echo "Branch / Ref:"
+          echo "${GITHUB_REF}"
+
+          echo
+          echo "Runner:"
+          uname -a
+
+
+      # -------------------------------------------------------
+      # Install project dependencies
+      # -------------------------------------------------------
+
+      - name: Install project dependencies
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+          npm ci \
+            --no-audit \
+            --no-fund
+
+
+      # -------------------------------------------------------
+      # PostgreSQL + Redis
+      #
+      # IMPORTANT:
+      #
+      # We intentionally DO NOT use:
+      #
+      # services:
+      #   postgres:
+      #   redis:
+      #
+      # because GitHub service containers use containers.
+      #
+      # Instead PostgreSQL and Redis are installed directly
+      # into the GitHub-hosted Ubuntu runner.
+      # -------------------------------------------------------
+
+      - name: Install PostgreSQL and Redis
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+          sudo apt-get update
+
+          sudo DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y \
+              postgresql \
+              postgresql-client \
+              redis-server
+
+
+      # -------------------------------------------------------
+      # Start PostgreSQL
+      # -------------------------------------------------------
+
+      - name: Start PostgreSQL
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+          sudo systemctl start postgresql
+
+          echo "Waiting for PostgreSQL..."
+
+          for attempt in {1..30}; do
+
+            if pg_isready \
+              -h "${CI_DB_HOST}" \
+              -p "${CI_DB_PORT}"
+            then
+
+              echo "PostgreSQL is ready."
+
+              exit 0
+
+            fi
+
+            echo "PostgreSQL not ready. Attempt ${attempt}/30"
+
+            sleep 2
+
+          done
+
+          echo "PostgreSQL failed to start."
+
+          exit 1
+
+
+      # -------------------------------------------------------
+      # Create CI PostgreSQL user + DB
+      # -------------------------------------------------------
+
+      - name: Create CI PostgreSQL database
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+          echo "Creating CI PostgreSQL role..."
+
+          sudo -u postgres \
+            psql \
+            --set ON_ERROR_STOP=1 \
+            --command "
+              CREATE ROLE ${CI_DB_USERNAME}
+              LOGIN
+              PASSWORD '${CI_DB_PASSWORD}';
+            "
+
+
+          echo "Creating CI PostgreSQL database..."
+
+          sudo -u postgres \
+            createdb \
+            --owner="${CI_DB_USERNAME}" \
+            "${CI_DB_DATABASE}"
+
+
+          echo "Testing CI database..."
+
+          PGPASSWORD="${CI_DB_PASSWORD}" \
+          psql \
+            -h "${CI_DB_HOST}" \
+            -p "${CI_DB_PORT}" \
+            -U "${CI_DB_USERNAME}" \
+            -d "${CI_DB_DATABASE}" \
+            --set ON_ERROR_STOP=1 \
+            --command "SELECT current_database(), current_user;"
+
+
+      # -------------------------------------------------------
+      # Start Redis
+      # -------------------------------------------------------
+
+      - name: Start Redis
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+          sudo systemctl start redis-server
+
+          echo "Waiting for Redis..."
+
+          for attempt in {1..30}; do
+
+            if redis-cli \
+              -h "${CI_REDIS_HOST}" \
+              -p "${CI_REDIS_PORT}" \
+              ping \
+              | grep -q "PONG"
+            then
+
+              echo "Redis is ready."
+
+              exit 0
+
+            fi
+
+            echo "Redis not ready. Attempt ${attempt}/30"
+
+            sleep 2
+
+          done
+
+          echo "Redis failed to start."
+
+          exit 1
+
+
+      # -------------------------------------------------------
+      # Prepare CI application environment
+      #
+      # We start from your real backend .env.example and only
+      # replace values that must point to the temporary CI
+      # database/Redis.
+      #
+      # This means new application variables added to your
+      # .env.example automatically remain available to CI.
+      # -------------------------------------------------------
+
+      - name: Prepare backend CI environment
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+          ENV_FILE="apps/insurance-portal-service/.env"
+
+          ENV_EXAMPLE="apps/insurance-portal-service/.env.example"
+
+
+          if [[ ! -f "${ENV_EXAMPLE}" ]]; then
+
+            echo "ERROR: Missing:"
+            echo "${ENV_EXAMPLE}"
+
+            exit 1
+
+          fi
+
+
+          cp \
+            "${ENV_EXAMPLE}" \
+            "${ENV_FILE}"
+
+
+          # --------------------------------------------------
+          # Helper for safely replacing simple CI values.
+          # --------------------------------------------------
+
+          set_env() {
+
+            local key="$1"
+
+            local value="$2"
+
+
+            if grep -q "^${key}=" "${ENV_FILE}"; then
+
+              sed -i \
+                "s|^${key}=.*|${key}=${value}|" \
+                "${ENV_FILE}"
+
+            else
+
+              printf '%s=%s\n' \
+                "${key}" \
+                "${value}" \
+                >> "${ENV_FILE}"
+
+            fi
+          }
+
+
+          # --------------------------------------------------
+          # Application
+          # --------------------------------------------------
+
+          set_env APP_ENV test
+
+          set_env APP_HOST 127.0.0.1
+
+          set_env APP_PORT 9090
+
+          set_env APP_URL http://127.0.0.1:9090
+
+          set_env APP_FRONTEND_URL http://127.0.0.1:9092
+
+
+          # --------------------------------------------------
+          # PostgreSQL
+          # --------------------------------------------------
+
+          set_env DB_TYPE postgres
+
+          set_env DB_HOST "${CI_DB_HOST}"
+
+          set_env DB_PORT "${CI_DB_PORT}"
+
+          set_env DB_USERNAME "${CI_DB_USERNAME}"
+
+          set_env DB_PASSWORD "${CI_DB_PASSWORD}"
+
+          set_env DB_DATABASE "${CI_DB_DATABASE}"
+
+          set_env DB_NAME "${CI_DB_DATABASE}"
+
+          set_env DB_SCHEMA public
+
+          set_env DB_SYNCHRONIZE false
+
+          set_env DB_LOGGING false
+
+          set_env DB_SSL false
+
+
+          # --------------------------------------------------
+          # Redis
+          # --------------------------------------------------
+
+          set_env REDIS_HOST "${CI_REDIS_HOST}"
+
+          set_env REDIS_PORT "${CI_REDIS_PORT}"
+
+          set_env REDIS_PASSWORD ""
+
+          set_env REDIS_DB 0
+
+
+          # --------------------------------------------------
+          # Avoid external communication during CI.
+          # --------------------------------------------------
+
+          set_env MAIL_ENABLED false
+
+          set_env TIRAMIS_STATUS_SYNC_ENABLED false
+
+          set_env TIRAMIS_RETRY_ENABLED false
+
+          set_env TIRAMIS_NOTIFICATION_ENABLED false
+
+
+          # --------------------------------------------------
+          # CI build metadata
+          # --------------------------------------------------
+
+          set_env APP_RELEASE_SHA "${GITHUB_SHA}"
+
+          set_env APP_RELEASE_VERSION "${GITHUB_RUN_NUMBER}"
+
+          set_env APP_BUILT_AT "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+
+          echo "CI environment prepared."
+
+          # IMPORTANT:
+          #
+          # Do NOT cat the .env file here.
+          #
+          # Even CI environment files should not be dumped into
+          # logs unnecessarily.
+
+
+      # -------------------------------------------------------
+      # Backend lint
+      #
+      # Exact script from your root package.json:
+      #
+      # npm run lint:backend
+      # -------------------------------------------------------
+
+      - name: Lint backend
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+          npm run lint:backend
+
+
+      # -------------------------------------------------------
+      # Backend tests
+      #
+      # Exact script from your package.json:
+      #
+      # jest --runInBand --passWithNoTests
+      # -------------------------------------------------------
+
+      - name: Run backend tests
+
+        shell: bash
+
+        env:
+          NODE_ENV: test
+
+        run: |
+          set -Eeuo pipefail
+
+          npm run test:backend
+
+
+      # -------------------------------------------------------
+      # TypeORM migration validation
+      #
+      # Exact project command:
+      #
+      # migration:run:insurance-portal-service
+      #
+      # This executes your TypeScript data source against a real
+      # PostgreSQL instance.
+      # -------------------------------------------------------
+
+      - name: Run backend database migrations
+
+        shell: bash
+
+        env:
+          NODE_ENV: test
+
+        run: |
+          set -Eeuo pipefail
+
+          npm run migration:run:insurance-portal-service
+
+
+      # -------------------------------------------------------
+      # Verify migrations are now applied
+      # -------------------------------------------------------
+
+      - name: Show backend migration status
+
+        shell: bash
+
+        env:
+          NODE_ENV: test
+
+        run: |
+          set -Eeuo pipefail
+
+          npm run migration:show:insurance-portal-service
+
+
+      # -------------------------------------------------------
+      # Build Insurance Portal Service
+      #
+      # Exact project command:
+      #
+      # nest build insurance-portal-service
+      # -------------------------------------------------------
+
+      - name: Build Insurance Portal backend
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+          npm run build:insurance-portal-service
+
+
+      # -------------------------------------------------------
+      # Verify expected compiled application
+      #
+      # This path was verified against your project.
+      # -------------------------------------------------------
+
+      - name: Verify backend build
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+          APP_ENTRY="dist/apps/insurance-portal-service/apps/insurance-portal-service/src/main.js"
+
+          DATA_SOURCE="dist/apps/insurance-portal-service/apps/insurance-portal-service/src/database/data-source.js"
+
+
+          echo "Checking backend entry..."
+
+          if [[ ! -f "${APP_ENTRY}" ]]; then
+
+            echo "ERROR: Compiled backend entry was not created:"
+            echo "${APP_ENTRY}"
+
+            exit 1
+
+          fi
+
+
+          echo "Checking compiled TypeORM data source..."
+
+          if [[ ! -f "${DATA_SOURCE}" ]]; then
+
+            echo "ERROR: Compiled TypeORM data source was not created:"
+            echo "${DATA_SOURCE}"
+
+            exit 1
+
+          fi
+
+
+          echo
+          echo "Backend build verified."
+
+
+      # -------------------------------------------------------
+      # Package immutable deployment artifact
+      #
+      # We DO NOT send:
+      #
+      # - source repository
+      # - .git
+      # - development node_modules
+      # - production .env
+      #
+      # We send only:
+      #
+      # - compiled backend
+      # - package.json
+      # - package-lock.json
+      # - build metadata
+      #
+      # node_modules is installed on the target server using:
+      #
+      # npm ci --omit=dev
+      #
+      # -------------------------------------------------------
+
+      - name: Package backend release
+
+        id: package
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+
+          PACKAGE_DIR="${RUNNER_TEMP}/insurance-backend-package"
+
+          ARCHIVE_NAME="insurance-backend-${GITHUB_SHA}.tar.gz"
+
+          ARCHIVE_PATH="${RUNNER_TEMP}/${ARCHIVE_NAME}"
+
+
+          rm -rf \
+            "${PACKAGE_DIR}"
+
+
+          mkdir -p \
+            "${PACKAGE_DIR}/dist/apps"
+
+
+          # --------------------------------------------------
+          # Compiled Insurance Portal backend
+          # --------------------------------------------------
+
+          cp -a \
+            dist/apps/insurance-portal-service \
+            "${PACKAGE_DIR}/dist/apps/"
+
+
+          # --------------------------------------------------
+          # Production dependency manifests
+          # --------------------------------------------------
+
+          cp \
+            package.json \
+            package-lock.json \
+            "${PACKAGE_DIR}/"
+
+
+          # --------------------------------------------------
+          # Build metadata
+          # --------------------------------------------------
+
+          cat > "${PACKAGE_DIR}/BUILD_INFO.json" <<EOF
+          {
+            "service": "insurance-portal-service",
+            "commit": "${GITHUB_SHA}",
+            "repository": "${GITHUB_REPOSITORY}",
+            "runId": "${GITHUB_RUN_ID}",
+            "runNumber": "${GITHUB_RUN_NUMBER}",
+            "runAttempt": "${GITHUB_RUN_ATTEMPT}",
+            "builtAt": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+            "nodeVersion": "$(node --version)",
+            "npmVersion": "$(npm --version)"
+          }
+          EOF
+
+
+          # --------------------------------------------------
+          # Build tar.gz
+          # --------------------------------------------------
+
+          tar \
+            -C "${PACKAGE_DIR}" \
+            -czf "${ARCHIVE_PATH}" \
+            .
+
+
+          # --------------------------------------------------
+          # Generate artifact SHA256
+          # --------------------------------------------------
+
+          (
+            cd "${RUNNER_TEMP}"
+
+            sha256sum \
+              "${ARCHIVE_NAME}" \
+              > "${ARCHIVE_NAME}.sha256"
+          )
+
+
+          echo "Archive: ${ARCHIVE_PATH}"
+
+          echo
+          echo "Archive size:"
+
+          du -h \
+            "${ARCHIVE_PATH}"
+
+
+          echo
+          echo "Archive SHA256:"
+
+          cat \
+            "${ARCHIVE_PATH}.sha256"
+
+
+          # --------------------------------------------------
+          # Outputs for following step
+          # --------------------------------------------------
+
+          echo "archive_name=${ARCHIVE_NAME}" \
+            >> "${GITHUB_OUTPUT}"
+
+          echo "archive_path=${ARCHIVE_PATH}" \
+            >> "${GITHUB_OUTPUT}"
+
+
+      # -------------------------------------------------------
+      # Upload immutable release artifact
+      # -------------------------------------------------------
+
+      - name: Upload backend build artifact
+
+        uses: actions/upload-artifact@v7
+
+        with:
+          name: insurance-backend-${{ github.sha }}
+
+          path: |
+            ${{ steps.package.outputs.archive_path }}
+            ${{ steps.package.outputs.archive_path }}.sha256
+
+          if-no-files-found: error
+
+          retention-days: 14
+
+
+
+  # ==========================================================
+  # JOB 2
+  #
+  # PRODUCTION DEPLOYMENT
+  #
+  # Runs ONLY for:
+  #
+  # - push to main
+  # - manual workflow_dispatch
+  #
+  # Pull requests never reach this job.
+  # ==========================================================
+
+  deploy-production:
+
+    name: Deploy Backend Production
+
+    needs:
+      - ci
+
+
+    # --------------------------------------------------------
+    # Never deploy Pull Requests.
+    # --------------------------------------------------------
+
+    if: >
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch'
+
+
+    runs-on: ubuntu-latest
+
+
+    timeout-minutes: 20
+
+
+    # --------------------------------------------------------
+    # GitHub Environment
+    #
+    # Secrets and production server variables belong here.
+    # --------------------------------------------------------
+
+    environment:
+      name: insurance-backend-production
+
+
+    # --------------------------------------------------------
+    # Prevent two production backend deployments from running
+    # simultaneously.
+    #
+    # A newer deployment waits instead of cancelling an active
+    # deployment.
+    # --------------------------------------------------------
+
+    concurrency:
+
+      group: insurance-max-backend-production
+
+      cancel-in-progress: false
+
+
+    # --------------------------------------------------------
+    # Server variables
+    #
+    # GitHub Environment variables can override the defaults.
+    #
+    # This allows backend and frontend to use:
+    #
+    # - same server
+    # OR
+    # - different servers
+    #
+    # without changing this workflow.
+    # --------------------------------------------------------
+
+    env:
+
+      DEPLOY_USER: ${{ vars.DEPLOY_USER || 'insurance-deploy' }}
+
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+
+
+      BASE_DIR: ${{ vars.BASE_DIR || '/opt/apps/insurance-max/prod/backend' }}
+
+
+      APP_NAME: ${{ vars.APP_NAME || 'insurance-max-prod-api' }}
+
+      APP_PORT: ${{ vars.APP_PORT || '9090' }}
+
+
+      HEALTH_URL: ${{ vars.HEALTH_URL || 'http://127.0.0.1:9090/api/v1/health/ready' }}
+
+
+      KEEP_RELEASES: ${{ vars.KEEP_RELEASES || '5' }}
+
+
+      # Optional external HTTPS health endpoint.
+      #
+      # Example:
+      #
+      # https://api.insurance.example.co.tz/api/v1/health/ready
+      #
+      PUBLIC_HEALTH_URL: ${{ vars.PUBLIC_HEALTH_URL }}
+
+
+      # ------------------------------------------------------
+      # Secrets
+      # ------------------------------------------------------
+
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+
+
+    steps:
+
+      # -------------------------------------------------------
+      # Checkout only to obtain the exact deploy.sh belonging
+      # to the same Git commit.
+      # -------------------------------------------------------
+
+      - name: Checkout deployment files
+
+        uses: actions/checkout@v7
+
+        with:
+          fetch-depth: 1
+
+          persist-credentials: false
+
+
+      # -------------------------------------------------------
+      # Download build produced by CI job
+      # -------------------------------------------------------
+
+      - name: Download backend artifact
+
+        uses: actions/download-artifact@v8
+
+        with:
+          name: insurance-backend-${{ github.sha }}
+
+          path: ${{ runner.temp }}/backend-artifact
+
+
+      # -------------------------------------------------------
+      # Verify artifact locally before touching production
+      # -------------------------------------------------------
+
+      - name: Verify backend artifact checksum
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+          cd "${RUNNER_TEMP}/backend-artifact"
+
+          echo "Downloaded artifact:"
+
+          ls -lah
+
+
+          CHECKSUM_FILE="$(
+            find . \
+              -maxdepth 1 \
+              -type f \
+              -name '*.sha256' \
+              -print \
+              -quit
+          )"
+
+
+          if [[ -z "${CHECKSUM_FILE}" ]]; then
+
+            echo "ERROR: Artifact checksum file is missing."
+
+            exit 1
+
+          fi
+
+
+          sha256sum \
+            --check \
+            "${CHECKSUM_FILE}"
+
+
+      # -------------------------------------------------------
+      # Validate production configuration
+      # -------------------------------------------------------
+
+      - name: Validate deployment configuration
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+
+          [[ -n "${DEPLOY_HOST}" ]] || {
+            echo "ERROR: DEPLOY_HOST is not configured."
+            exit 1
+          }
+
+
+          [[ -n "${DEPLOY_SSH_KEY}" ]] || {
+            echo "ERROR: DEPLOY_SSH_KEY is not configured."
+            exit 1
+          }
+
+
+          [[ -n "${DEPLOY_KNOWN_HOSTS}" ]] || {
+            echo "ERROR: DEPLOY_KNOWN_HOSTS is not configured."
+            exit 1
+          }
+
+
+          [[ "${DEPLOY_PORT}" =~ ^[0-9]+$ ]] || {
+            echo "ERROR: DEPLOY_PORT must be numeric."
+            exit 1
+          }
+
+
+          [[ "${APP_PORT}" =~ ^[0-9]+$ ]] || {
+            echo "ERROR: APP_PORT must be numeric."
+            exit 1
+          }
+
+
+          [[ "${KEEP_RELEASES}" =~ ^[0-9]+$ ]] || {
+            echo "ERROR: KEEP_RELEASES must be numeric."
+            exit 1
+          }
+
+
+          [[ "${BASE_DIR}" == /* ]] || {
+            echo "ERROR: BASE_DIR must be an absolute Linux path."
+            exit 1
+          }
+
+
+          echo "Deployment configuration validated."
+
+
+      # -------------------------------------------------------
+      # Configure SSH
+      # -------------------------------------------------------
+
+      - name: Configure deployment SSH
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+
+          install \
+            -d \
+            -m 700 \
+            "${HOME}/.ssh"
+
+
+          printf '%s\n' \
+            "${DEPLOY_SSH_KEY}" \
+            > "${HOME}/.ssh/id_ed25519"
+
+
+          chmod 600 \
+            "${HOME}/.ssh/id_ed25519"
+
+
+          printf '%s\n' \
+            "${DEPLOY_KNOWN_HOSTS}" \
+            > "${HOME}/.ssh/known_hosts"
+
+
+          chmod 600 \
+            "${HOME}/.ssh/known_hosts"
+
+
+          # --------------------------------------------------
+          # Validate private key format without displaying it.
+          # --------------------------------------------------
+
+          ssh-keygen \
+            -y \
+            -f "${HOME}/.ssh/id_ed25519" \
+            >/dev/null
+
+
+          echo "SSH configuration ready."
+
+
+      # -------------------------------------------------------
+      # SSH connectivity test
+      # -------------------------------------------------------
+
+      - name: Test deployment server connection
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+
+          ssh \
+            -i "${HOME}/.ssh/id_ed25519" \
+            -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "
+              echo 'SSH connection successful.'
+
+              echo
+
+              echo 'Remote user:'
+              whoami
+
+              echo
+
+              echo 'Node:'
+              node --version
+
+              echo
+
+              echo 'npm:'
+              npm --version
+
+              echo
+
+              echo 'PM2:'
+              pm2 --version
+            "
+
+
+      # -------------------------------------------------------
+      # Verify server directories before upload
+      # -------------------------------------------------------
+
+      - name: Verify backend deployment directory
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+
+          printf -v REMOTE_CHECK \
+            'test -d %q && test -d %q && test -d %q && test -w %q' \
+            "${BASE_DIR}" \
+            "${BASE_DIR}/releases" \
+            "${BASE_DIR}/tmp" \
+            "${BASE_DIR}/tmp"
+
+
+          ssh \
+            -i "${HOME}/.ssh/id_ed25519" \
+            -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "${REMOTE_CHECK}"
+
+
+          echo "Deployment directory is ready."
+
+
+      # -------------------------------------------------------
+      # Generate deployment release ID
+      # -------------------------------------------------------
+
+      - name: Generate release information
+
+        id: release
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+
+          SHORT_SHA="${GITHUB_SHA:0:12}"
+
+
+          RELEASE_ID="${SHORT_SHA}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+
+
+          ARCHIVE_NAME="insurance-backend-${GITHUB_SHA}.tar.gz"
+
+
+          LOCAL_ARCHIVE="${RUNNER_TEMP}/backend-artifact/${ARCHIVE_NAME}"
+
+
+          REMOTE_ARCHIVE="${BASE_DIR}/tmp/backend-${RELEASE_ID}.tar.gz"
+
+
+          REMOTE_DEPLOY_SCRIPT="${BASE_DIR}/tmp/deploy-backend-${RELEASE_ID}.sh"
+
+
+          [[ -f "${LOCAL_ARCHIVE}" ]] || {
+            echo "ERROR: Local release archive was not found:"
+            echo "${LOCAL_ARCHIVE}"
+
+            exit 1
+          }
+
+
+          echo "release_id=${RELEASE_ID}" \
+            >> "${GITHUB_OUTPUT}"
+
+          echo "local_archive=${LOCAL_ARCHIVE}" \
+            >> "${GITHUB_OUTPUT}"
+
+          echo "remote_archive=${REMOTE_ARCHIVE}" \
+            >> "${GITHUB_OUTPUT}"
+
+          echo "remote_deploy_script=${REMOTE_DEPLOY_SCRIPT}" \
+            >> "${GITHUB_OUTPUT}"
+
+
+          echo "Release ID:"
+          echo "${RELEASE_ID}"
+
+
+      # -------------------------------------------------------
+      # Upload application artifact
+      # -------------------------------------------------------
+
+      - name: Upload backend release to server
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+
+          scp \
+            -i "${HOME}/.ssh/id_ed25519" \
+            -P "${DEPLOY_PORT}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${{ steps.release.outputs.local_archive }}" \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:${{ steps.release.outputs.remote_archive }}"
+
+
+      # -------------------------------------------------------
+      # Upload deploy.sh
+      # -------------------------------------------------------
+
+      - name: Upload backend deployment script
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+
+          scp \
+            -i "${HOME}/.ssh/id_ed25519" \
+            -P "${DEPLOY_PORT}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "deploy/backend/deploy.sh" \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:${{ steps.release.outputs.remote_deploy_script }}"
+
+
+      # -------------------------------------------------------
+      # Verify transfer integrity on server
+      # -------------------------------------------------------
+
+      - name: Verify uploaded artifact
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+
+          LOCAL_SHA="$(
+            sha256sum \
+              "${{ steps.release.outputs.local_archive }}" \
+              | awk '{print $1}'
+          )"
+
+
+          printf -v REMOTE_HASH_COMMAND \
+            'sha256sum %q | awk "{print \\$1}"' \
+            "${{ steps.release.outputs.remote_archive }}"
+
+
+          REMOTE_SHA="$(
+            ssh \
+              -i "${HOME}/.ssh/id_ed25519" \
+              -p "${DEPLOY_PORT}" \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=yes \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "${REMOTE_HASH_COMMAND}"
+          )"
+
+
+          if [[ "${LOCAL_SHA}" != "${REMOTE_SHA}" ]]; then
+
+            echo "ERROR: Uploaded backend artifact checksum mismatch."
+
+            exit 1
+
+          fi
+
+
+          echo "Uploaded artifact checksum verified."
+
+
+      # -------------------------------------------------------
+      # Execute Phase 3 deploy.sh
+      # -------------------------------------------------------
+
+      - name: Deploy Insurance Max backend
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+
+          RELEASE_ID="${{ steps.release.outputs.release_id }}"
+
+          REMOTE_ARCHIVE="${{ steps.release.outputs.remote_archive }}"
+
+          REMOTE_DEPLOY_SCRIPT="${{ steps.release.outputs.remote_deploy_script }}"
+
+
+          # --------------------------------------------------
+          # Build a safely escaped remote command.
+          # --------------------------------------------------
+
+          printf -v REMOTE_COMMAND \
+            'RELEASE_SHA=%q RELEASE_ID=%q ARCHIVE_FILE=%q BASE_DIR=%q APP_NAME=%q APP_PORT=%q HEALTH_URL=%q KEEP_RELEASES=%q bash %q deploy' \
+            "${GITHUB_SHA}" \
+            "${RELEASE_ID}" \
+            "${REMOTE_ARCHIVE}" \
+            "${BASE_DIR}" \
+            "${APP_NAME}" \
+            "${APP_PORT}" \
+            "${HEALTH_URL}" \
+            "${KEEP_RELEASES}" \
+            "${REMOTE_DEPLOY_SCRIPT}"
+
+
+          echo "Starting production backend deployment..."
+
+          echo "Release:"
+          echo "${RELEASE_ID}"
+
+
+          # --------------------------------------------------
+          # Do not stop immediately because we want to remove
+          # the temporary deploy script even if deployment
+          # fails.
+          # --------------------------------------------------
+
+          set +e
+
+
+          ssh \
+            -i "${HOME}/.ssh/id_ed25519" \
+            -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "${REMOTE_COMMAND}"
+
+
+          DEPLOY_EXIT_CODE=$?
+
+
+          set -e
+
+
+          # --------------------------------------------------
+          # Clean temporary deployment script.
+          #
+          # deploy.sh itself removes the release archive after
+          # success.
+          # --------------------------------------------------
+
+          printf -v CLEANUP_COMMAND \
+            'rm -f -- %q' \
+            "${REMOTE_DEPLOY_SCRIPT}"
+
+
+          ssh \
+            -i "${HOME}/.ssh/id_ed25519" \
+            -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "${CLEANUP_COMMAND}" \
+            || true
+
+
+          if [[ "${DEPLOY_EXIT_CODE}" -ne 0 ]]; then
+
+            echo "ERROR: Backend deployment failed."
+
+            echo "Phase 3 deploy.sh attempted automatic application rollback."
+
+            exit "${DEPLOY_EXIT_CODE}"
+
+          fi
+
+
+          echo "Backend deployment completed successfully."
+
+
+      # -------------------------------------------------------
+      # Verify PM2 after deployment
+      # -------------------------------------------------------
+
+      - name: Verify PM2 backend process
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+
+          printf -v REMOTE_PM2_CHECK \
+            'pm2 describe %q >/dev/null && pm2 status %q' \
+            "${APP_NAME}" \
+            "${APP_NAME}"
+
+
+          ssh \
+            -i "${HOME}/.ssh/id_ed25519" \
+            -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "${REMOTE_PM2_CHECK}"
+
+
+      # -------------------------------------------------------
+      # Optional external health check
+      #
+      # Internal readiness was already checked by deploy.sh.
+      #
+      # This verifies Nginx / DNS / TLS too when configured.
+      # -------------------------------------------------------
+
+      - name: Verify public backend health
+
+        if: ${{ env.PUBLIC_HEALTH_URL != '' }}
+
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+
+          echo "Checking external backend health..."
+
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --location \
+            --max-time 15 \
+            --retry 3 \
+            --retry-delay 3 \
+            "${PUBLIC_HEALTH_URL}" \
+            >/dev/null
+
+
+          echo "Public backend health check passed."
+
+
+      # -------------------------------------------------------
+      # Deployment summary
+      # -------------------------------------------------------
+
+      - name: Create deployment summary
+
+        if: success()
+
+        shell: bash
+
+        run: |
+          {
+            echo "## Insurance Max Backend Deployment"
+            echo
+            echo "| Item | Value |"
+            echo "|---|---|"
+            echo "| Service | insurance-portal-service |"
+            echo "| Environment | Production |"
+            echo "| PM2 | ${APP_NAME} |"
+            echo "| Port | ${APP_PORT} |"
+            echo "| Commit | \`${GITHUB_SHA}\` |"
+            echo "| Release | \`${{ steps.release.outputs.release_id }}\` |"
+            echo "| Runner | GitHub-hosted Ubuntu |"
+            echo "| Docker | Not used |"
+            echo "| Deployment | SSH/SCP |"
+            echo "| Status | Successful |"
+          } >> "${GITHUB_STEP_SUMMARY}"

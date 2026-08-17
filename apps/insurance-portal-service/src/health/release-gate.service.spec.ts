@@ -102,6 +102,29 @@ describe('ReleaseGateService', () => {
           return [{ blocking_submissions: 0 }];
         }
 
+        if (sql.includes('policy_transactions')) {
+          return [
+            {
+              accepted_not_applied: 0,
+              applied_without_version: 0,
+              active_version_mismatch: 0,
+              missing_replacement_cover_notes: 0,
+            },
+          ];
+        }
+
+        if (
+          sql.includes('FROM "policies" p') &&
+          sql.includes('current_versions')
+        ) {
+          return [
+            {
+              issued_without_active_version: 0,
+              multiple_current_versions: 0,
+            },
+          ];
+        }
+
         if (sql.includes('regulatory_obligation_instances')) {
           return [{ overdue_obligations: 0 }];
         }

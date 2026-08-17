@@ -341,15 +341,47 @@ restart_pm2() {
     local release_sha="$1"
 
 
+    log "Preparing PM2 application: ${APP_NAME}"
+
+
     write_pm2_config \
         "${release_sha}"
 
 
-    "${PM2_BIN}" \
-        startOrReload \
-        "${ECOSYSTEM_FILE}" \
-        --only "${APP_NAME}" \
-        --update-env
+    # --------------------------------------------------------
+    # Application already exists
+    # --------------------------------------------------------
+
+    if "${PM2_BIN}" describe "${APP_NAME}" >/dev/null 2>&1; then
+
+
+        log "Reloading existing PM2 application..."
+
+
+        "${PM2_BIN}" \
+            reload \
+            "${ECOSYSTEM_FILE}" \
+            --only "${APP_NAME}" \
+            --update-env
+
+
+    # --------------------------------------------------------
+    # First deployment
+    # --------------------------------------------------------
+
+    else
+
+
+        log "Starting PM2 application for the first time..."
+
+
+        "${PM2_BIN}" \
+            start \
+            "${ECOSYSTEM_FILE}" \
+            --only "${APP_NAME}"
+
+
+    fi
 }
 
 
