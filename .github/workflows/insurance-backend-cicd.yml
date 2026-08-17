@@ -569,27 +569,6 @@ jobs:
 
 
       # -------------------------------------------------------
-      # Backend tests
-      #
-      # Exact script from your package.json:
-      #
-      # jest --runInBand --passWithNoTests
-      # -------------------------------------------------------
-
-      - name: Run backend tests
-
-        shell: bash
-
-        env:
-          NODE_ENV: test
-
-        run: |
-          set -Eeuo pipefail
-
-          npm run test:backend
-
-
-      # -------------------------------------------------------
       # TypeORM migration validation
       #
       # Exact project command:
@@ -598,6 +577,14 @@ jobs:
       #
       # This executes your TypeScript data source against a real
       # PostgreSQL instance.
+      #
+      # IMPORTANT:
+      #
+      # This MUST run before the test suite. Several specs boot
+      # the real AppModule against this database, and
+      # DatabaseInfrastructureGuard fails startup if
+      # infrastructure objects (e.g. pricing_quote_identifier_seq
+      # from CoreInfrastructureSequences) do not exist yet.
       # -------------------------------------------------------
 
       - name: Run backend database migrations
@@ -628,6 +615,54 @@ jobs:
           set -Eeuo pipefail
 
           npm run migration:show:insurance-portal-service
+
+
+      # -------------------------------------------------------
+      # Seed reference/baseline data
+      #
+      # Exact project command:
+      #
+      # db:seed
+      #
+      # Real-database specs (e.g. portal-engagement.spec.ts) look
+      # up seeded reference rows such as the baseline
+      # INSURANCE_COMPANY record and fail with
+      # "Cannot read properties of undefined" if this has not run.
+      # -------------------------------------------------------
+
+      - name: Seed backend baseline data
+
+        shell: bash
+
+        env:
+          NODE_ENV: test
+          APP_ENV: test
+
+        run: |
+          set -Eeuo pipefail
+
+          npm run db:seed -- --app=insurance-portal-service --skip-backup
+
+
+      # -------------------------------------------------------
+      # Backend tests
+      #
+      # Exact script from your package.json:
+      #
+      # jest --runInBand --passWithNoTests
+      # -------------------------------------------------------
+
+      - name: Run backend tests
+
+        shell: bash
+
+        env:
+          NODE_ENV: test
+
+        run: |
+          set -Eeuo pipefail
+
+          npm run test:backend
 
 
       # -------------------------------------------------------
