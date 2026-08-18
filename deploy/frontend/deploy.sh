@@ -662,7 +662,8 @@ log "Installing build dependencies"
 cd "${RELEASE_DIR}"
 
 
-npm ci \
+NODE_ENV=development npm ci \
+    --include=dev \
     --no-audit \
     --no-fund
 
@@ -681,7 +682,7 @@ then
     echo "Using frontend package build script."
 
 
-    npm \
+    NODE_ENV=development npm \
         --prefix "${APP_RELATIVE_DIR}" \
         run build
 
