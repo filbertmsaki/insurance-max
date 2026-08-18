@@ -1478,7 +1478,7 @@ NODE_SERVER
 log "Generating ${PM2_CONFIG}"
 
 
-PM2_CONFIG_TMP="${PM2_CONFIG}.tmp.$$"
+PM2_CONFIG_TMP="${SHARED_DIR}/ecosystem.config.tmp.$$.cjs"
 
 
 cat > "${PM2_CONFIG_TMP}" <<EOF_PM2
