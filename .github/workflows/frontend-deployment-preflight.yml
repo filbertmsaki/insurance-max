@@ -1,22 +1,6 @@
 name: Insurance Frontend Deployment Preflight
 
 on:
-  push:
-    branches:
-      - main
-
-    paths:
-      - 'apps/insurance-portal-web/**'
-      - 'libs/**'
-      - 'packages/**'
-      - 'tools/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'nx.json'
-      - 'tsconfig*.json'
-      - 'deploy/frontend/**'
-      - '.github/workflows/frontend-deployment-preflight.yml'
-
   workflow_dispatch:
 
 permissions:
