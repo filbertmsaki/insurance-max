@@ -11,6 +11,7 @@ import type { ServicePrincipal } from '@insurance-max/contracts';
 import {
   PUBLIC_SERVICE_ENDPOINT,
   RequestContextService,
+  SERVICE_SCOPES,
 } from '@insurance-max/shared-kernel';
 
 import { TiramisApiKeyService } from '../services/tiramis-api-key.service';
@@ -41,9 +42,15 @@ export class TiramisApiKeyGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<Request>();
 
+    const requiredScopes =
+      this.reflector.getAllAndOverride<string[]>(SERVICE_SCOPES, [
+        context.getHandler(),
+        context.getClass(),
+      ]) ?? [];
+
     const principal = await this.apiKeyService.validate(
       this.resolveApiKey(request),
-      [],
+      requiredScopes,
       {
         ipAddress: request.ip,
         method: request.method,

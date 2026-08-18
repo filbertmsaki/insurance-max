@@ -156,7 +156,7 @@ export class TiramisApiKeyService {
 
   async validate(
     rawKey: string | undefined,
-    _requiredScopes: string[] = [],
+    requiredScopes: string[] = [],
     context: TiramisApiKeyAuthContext = {},
   ): Promise<TiramisApiKeyPrincipal> {
     if (!rawKey) {
@@ -223,6 +223,22 @@ export class TiramisApiKeyService {
     }
 
     const scopes = row.scopes ?? [];
+
+    if (requiredScopes.length) {
+      const missingScopes = requiredScopes.filter(
+        (scope) => !scopes.includes(scope),
+      );
+
+      if (missingScopes.length) {
+        await this.audit(row, 'AUTHENTICATE', 'FAILED', {
+          reason: 'MISSING_SCOPE',
+          missingScopes,
+          ...context,
+        });
+        throw new ForbiddenException('API key is missing required scopes');
+      }
+    }
+
     await this.apiKeyRepository.update(row.id, { lastUsedAt: new Date() });
     await this.audit(row, 'AUTHENTICATE', 'SUCCESS', context as any);
 
