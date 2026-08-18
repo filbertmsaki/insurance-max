@@ -1,0 +1,142 @@
+name: Insurance Backend Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_id:
+        description: 'Release ID to rollback to. Leave empty to use previous-release.'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: insurance-max-backend-production
+  cancel-in-progress: false
+
+jobs:
+
+  rollback:
+
+    name: Rollback Backend Production
+
+    runs-on: ubuntu-latest
+
+    environment:
+      name: insurance-backend-production
+
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER || 'insurance-deploy' }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+
+      BASE_DIR: ${{ vars.BASE_DIR || '/opt/apps/insurance-max/prod/backend' }}
+      APP_NAME: ${{ vars.APP_NAME || 'insurance-max-prod-api' }}
+      APP_PORT: ${{ vars.APP_PORT || '9090' }}
+      HEALTH_URL: ${{ vars.HEALTH_URL || 'http://127.0.0.1:9090/api/v1/health/ready' }}
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+
+      - name: Configure SSH
+        shell: bash
+
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+
+        run: |
+          set -Eeuo pipefail
+
+          install -d -m 700 ~/.ssh
+
+          printf '%s\n' "$DEPLOY_SSH_KEY" \
+            > ~/.ssh/id_ed25519
+
+          chmod 600 ~/.ssh/id_ed25519
+
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" \
+            > ~/.ssh/known_hosts
+
+          chmod 600 ~/.ssh/known_hosts
+
+
+      - name: Upload deployment script
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+          REMOTE_SCRIPT="${BASE_DIR}/tmp/backend-rollback-${GITHUB_RUN_ID}.sh"
+
+          scp \
+            -i "$HOME/.ssh/id_ed25519" \
+            -P "$DEPLOY_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            deploy/backend/deploy.sh \
+            "$DEPLOY_USER@$DEPLOY_HOST:$REMOTE_SCRIPT"
+
+          echo "REMOTE_SCRIPT=$REMOTE_SCRIPT" \
+            >> "$GITHUB_ENV"
+
+
+      - name: Rollback backend
+        shell: bash
+
+        env:
+          RELEASE_ID: ${{ inputs.release_id }}
+
+        run: |
+          set -Eeuo pipefail
+
+          if [[ -n "$RELEASE_ID" ]]; then
+
+            printf -v COMMAND \
+              'BASE_DIR=%q APP_NAME=%q APP_PORT=%q HEALTH_URL=%q bash %q rollback %q' \
+              "$BASE_DIR" \
+              "$APP_NAME" \
+              "$APP_PORT" \
+              "$HEALTH_URL" \
+              "$REMOTE_SCRIPT" \
+              "$RELEASE_ID"
+
+          else
+
+            printf -v COMMAND \
+              'BASE_DIR=%q APP_NAME=%q APP_PORT=%q HEALTH_URL=%q bash %q rollback' \
+              "$BASE_DIR" \
+              "$APP_NAME" \
+              "$APP_PORT" \
+              "$HEALTH_URL" \
+              "$REMOTE_SCRIPT"
+
+          fi
+
+
+          ssh \
+            -i "$HOME/.ssh/id_ed25519" \
+            -p "$DEPLOY_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "$COMMAND"
+
+
+      - name: Cleanup
+        if: always()
+        shell: bash
+
+        run: |
+          ssh \
+            -i "$HOME/.ssh/id_ed25519" \
+            -p "$DEPLOY_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            "rm -f '$REMOTE_SCRIPT'" \
+            || true

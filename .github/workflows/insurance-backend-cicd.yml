@@ -884,13 +884,42 @@ jobs:
 
           echo "Checking backend archive..."
 
-          tar -tzf "${ARCHIVE}" \
-            | grep -Fxq \
-              './dist/apps/insurance-portal-service/apps/insurance-portal-service/src/main.js'
+          ARCHIVE_LIST="$RUNNER_TEMP/backend-archive-list.txt"
 
-          tar -tzf "${ARCHIVE}" \
-            | grep -Fxq \
-              './dist/apps/insurance-portal-service/apps/insurance-portal-service/src/database/data-source.js'
+          tar -tzf "$ARCHIVE" > "$ARCHIVE_LIST"
+
+          MAIN_FILE='./dist/apps/insurance-portal-service/apps/insurance-portal-service/src/main.js'
+          DATA_SOURCE_FILE='./dist/apps/insurance-portal-service/apps/insurance-portal-service/src/database/data-source.js'
+
+          echo
+          echo "Archive size:"
+          ls -lh "$ARCHIVE"
+
+          echo
+          echo "Checking backend entry point..."
+
+          if grep -Fx "$MAIN_FILE" "$ARCHIVE_LIST"; then
+            echo "main.js: FOUND"
+          else
+            echo "ERROR: main.js is missing."
+            echo
+            echo "main.js files actually packaged:"
+            grep '/main.js$' "$ARCHIVE_LIST" || true
+            exit 1
+          fi
+
+          echo
+          echo "Checking TypeORM data source..."
+
+          if grep -Fx "$DATA_SOURCE_FILE" "$ARCHIVE_LIST"; then
+            echo "data-source.js: FOUND"
+          else
+            echo "ERROR: data-source.js is missing."
+            echo
+            echo "data-source.js files actually packaged:"
+            grep '/data-source.js$' "$ARCHIVE_LIST" || true
+            exit 1
+          fi
 
           echo
           echo "Backend artifact structure: OK"

@@ -67,6 +67,8 @@ async function bootstrap() {
     return origins;
   })();
 
+  const isHttps = appBaseUrl.startsWith('https://');
+
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -75,6 +77,11 @@ async function bootstrap() {
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", 'data:', 'validator.swagger.io'],
           scriptSrc: ["'self'", "'unsafe-inline'"],
+          // Only force HTTP->HTTPS upgrades when the app is actually served
+          // over HTTPS. Otherwise browsers rewrite Swagger asset requests to
+          // https:// on plain-HTTP deployments (e.g. bare IP:port), which
+          // fails with ERR_SSL_PROTOCOL_ERROR since no TLS is listening there.
+          ...(isHttps ? {} : { upgradeInsecureRequests: null }),
         },
       },
       crossOriginEmbedderPolicy: false,
