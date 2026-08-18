@@ -668,6 +668,19 @@ NODE_ENV=development npm ci \
     --no-fund
 
 
+if [[ -f "${APP_RELATIVE_DIR}/package-lock.json" ]]; then
+
+    echo "Installing app-local dependencies for ${APP_RELATIVE_DIR}"
+
+    NODE_ENV=development npm ci \
+        --prefix "${APP_RELATIVE_DIR}" \
+        --include=dev \
+        --no-audit \
+        --no-fund
+
+fi
+
+
 # ------------------------------------------------------------
 # Build frontend
 # ------------------------------------------------------------
