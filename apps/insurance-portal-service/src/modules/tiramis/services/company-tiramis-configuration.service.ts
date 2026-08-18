@@ -62,7 +62,17 @@ export class CompanyTiramisConfigurationService {
     dto: UpsertCompanyTiramisConfigurationDto,
     actorId: string,
   ) {
-    return this.dataSource.transaction(async (manager) => {
+    // The configuration (including the API key) is written and committed
+    // in its own transaction first. Activation, when requested, validates
+    // against TIRAMIS afterwards: validateOrganizationConfiguration reads
+    // the configuration through a separate, non-transactional connection,
+    // so calling it before this write commits means it can never see the
+    // key that was just saved (READ COMMITTED isolation) and activation
+    // fails every time with "TIRAMIS API key is not configured", even
+    // though the key was provided and about to be saved. Committing first
+    // also means a failed live-activation no longer discards the
+    // configuration the user just entered.
+    const saved = await this.dataSource.transaction(async (manager) => {
       const companyRepository = manager.getRepository(Company);
       const repository = manager.getRepository(
         TiramisCompanyConfigurationEntity,
@@ -140,20 +150,6 @@ export class CompanyTiramisConfigurationService {
       const saved = await repository.save(configuration);
 
       company.tira_integration_enabled = true;
-      if (dto.use_as_target_environment) {
-        await this.assertEnvironmentCanBeActivated({
-          companyId,
-          environment: dto.environment,
-          companyCode: saved.companyCode,
-          systemCode: saved.systemCode,
-          insurerCompanyCode: saved.insurerCompanyCode,
-          confirmLive: dto.confirm_live_activation,
-        });
-        company.settings = {
-          ...(company.settings ?? {}),
-          tiramis_target_environment: dto.environment,
-        };
-      }
       await companyRepository.save(company);
 
       await this.auditService.logCritical(
@@ -175,9 +171,6 @@ export class CompanyTiramisConfigurationService {
             baseUrl: saved.baseUrl,
             sourceService: saved.sourceService,
             isActive: saved.isActive,
-            isTargetEnvironment:
-              company.settings?.tiramis_target_environment ===
-              saved.environment,
             serviceApiKeyMasked: this.apiKeyVault.mask(
               saved.serviceApiKeyEncrypted,
             ),
@@ -186,10 +179,79 @@ export class CompanyTiramisConfigurationService {
         manager,
       );
 
+      return saved;
+    });
+
+    if (!dto.use_as_target_environment) {
+      const company = await this.dataSource
+        .getRepository(Company)
+        .findOne({ where: { id: companyId } });
+
       return this.toResponse(
         saved,
-        company.settings?.tiramis_target_environment === saved.environment,
+        company?.settings?.tiramis_target_environment === saved.environment,
       );
+    }
+
+    return this.activateSavedConfiguration(companyId, saved, actorId, {
+      confirmLive: dto.confirm_live_activation,
+    });
+  }
+
+  private async activateSavedConfiguration(
+    companyId: string,
+    saved: TiramisCompanyConfigurationEntity,
+    actorId: string,
+    options: { confirmLive?: boolean },
+  ) {
+    const validation = await this.assertEnvironmentCanBeActivated({
+      companyId,
+      environment: saved.environment as 'test' | 'live',
+      companyCode: saved.companyCode,
+      systemCode: saved.systemCode,
+      insurerCompanyCode: saved.insurerCompanyCode,
+      confirmLive: options.confirmLive,
+    });
+
+    return this.dataSource.transaction(async (manager) => {
+      const companyRepository = manager.getRepository(Company);
+
+      const company = await companyRepository.findOne({
+        where: { id: companyId },
+      });
+
+      if (!company) {
+        throw new NotFoundException('Company was not found.');
+      }
+
+      const previousEnvironment =
+        company.settings?.tiramis_target_environment ?? null;
+      company.tira_integration_enabled = true;
+      company.settings = {
+        ...(company.settings ?? {}),
+        tiramis_target_environment: saved.environment,
+      };
+      await companyRepository.save(company);
+
+      await this.auditService.logCritical(
+        {
+          userId: actorId,
+          companyId,
+          action: 'tiramis.company_configuration.environment_activated',
+          eventCategory: 'organization',
+          resource: 'tiramis_company_configuration',
+          resourceId: saved.id,
+          beforeState: { environment: previousEnvironment },
+          afterState: {
+            environment: saved.environment,
+            validation,
+            serviceCallbackUrl: this.resolveCallbackUrl(saved),
+          },
+        },
+        manager,
+      );
+
+      return this.toResponse(saved, true);
     });
   }
 
@@ -241,65 +303,18 @@ export class CompanyTiramisConfigurationService {
     actorId: string,
     options: { confirmLive?: boolean } = {},
   ) {
-    return this.dataSource.transaction(async (manager) => {
-      const companyRepository = manager.getRepository(Company);
-      const configurationRepository = manager.getRepository(
-        TiramisCompanyConfigurationEntity,
+    const configuration = await this.repository.findOne({
+      where: { companyId, environment, isActive: true },
+    });
+
+    if (!configuration) {
+      throw new NotFoundException(
+        'Active TIRAMIS configuration was not found.',
       );
-      const [company, configuration] = await Promise.all([
-        companyRepository.findOne({ where: { id: companyId } }),
-        configurationRepository.findOne({
-          where: { companyId, environment, isActive: true },
-        }),
-      ]);
+    }
 
-      if (!company) {
-        throw new NotFoundException('Company was not found.');
-      }
-
-      if (!configuration) {
-        throw new NotFoundException(
-          'Active TIRAMIS configuration was not found.',
-        );
-      }
-
-      const validation = await this.assertEnvironmentCanBeActivated({
-        companyId,
-        environment,
-        companyCode: configuration.companyCode,
-        systemCode: configuration.systemCode,
-        insurerCompanyCode: configuration.insurerCompanyCode,
-        confirmLive: options.confirmLive,
-      });
-
-      const previousEnvironment =
-        company.settings?.tiramis_target_environment ?? null;
-      company.tira_integration_enabled = true;
-      company.settings = {
-        ...(company.settings ?? {}),
-        tiramis_target_environment: environment,
-      };
-      await companyRepository.save(company);
-
-      await this.auditService.logCritical(
-        {
-          userId: actorId,
-          companyId,
-          action: 'tiramis.company_configuration.environment_activated',
-          eventCategory: 'organization',
-          resource: 'tiramis_company_configuration',
-          resourceId: configuration.id,
-          beforeState: { environment: previousEnvironment },
-          afterState: {
-            environment,
-            validation,
-            serviceCallbackUrl: this.resolveCallbackUrl(configuration),
-          },
-        },
-        manager,
-      );
-
-      return this.toResponse(configuration, true);
+    return this.activateSavedConfiguration(companyId, configuration, actorId, {
+      confirmLive: options.confirmLive,
     });
   }
 
