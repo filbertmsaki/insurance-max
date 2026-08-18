@@ -40,7 +40,7 @@ jobs:
 
     timeout-minutes: 40
 
-    environment: frontend-production
+    environment: insurance-frontend-production
 
 
     env:
