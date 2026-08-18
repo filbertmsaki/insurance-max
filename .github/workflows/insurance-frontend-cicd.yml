@@ -58,9 +58,9 @@ jobs:
 
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
 
-      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
 
-      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
 
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
 
@@ -103,13 +103,13 @@ jobs:
 
 
           [[ -n "${DEPLOY_PORT}" ]] || {
-            echo "DEPLOY_PORT secret is missing"
+            echo "DEPLOY_PORT variable is missing"
             exit 1
           }
 
 
           [[ -n "${DEPLOY_USER}" ]] || {
-            echo "DEPLOY_USER secret is missing"
+            echo "DEPLOY_USER variable is missing"
             exit 1
           }
 
