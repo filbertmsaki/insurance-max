@@ -2,7 +2,7 @@ import 'reflect-metadata';
 
 import { config as loadEnv } from 'dotenv';
 import { existsSync } from 'fs';
-import { join } from 'path';
+import { join, resolve, sep } from 'path';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { SeederOptions } from 'typeorm-extension';
 
@@ -44,21 +44,20 @@ const database = readDatabaseEnv('DB', {
 
 const runtimeExtension = __filename.endsWith('.ts') ? 'ts' : 'js';
 
+// __dirname is .../src/database both when running from TypeScript source
+// and from the compiled dist output, so globs built from it resolve
+// correctly regardless of process.cwd() or which environment runs them.
+// glob patterns must use forward slashes even on Windows, so the path
+// is normalized rather than joined with the platform separator.
+const srcRoot = resolve(__dirname, '..').split(sep).join('/');
+
 const AppDataSource = new DataSource(
   createDataSourceOptions(database, {
-    entities: [
-      `apps/insurance-portal-service/src/**/*.entity.${runtimeExtension}`,
-    ],
-    migrations: [
-      `apps/insurance-portal-service/src/database/migrations/*.${runtimeExtension}`,
-    ],
+    entities: [`${srcRoot}/**/*.entity.${runtimeExtension}`],
+    migrations: [`${srcRoot}/database/migrations/*.${runtimeExtension}`],
     migrationsTableName: 'migrations',
-    seeds: [
-      `apps/insurance-portal-service/src/database/seeds/*.seed.${runtimeExtension}`,
-    ],
-    factories: [
-      `apps/insurance-portal-service/src/database/factories/*.factory.${runtimeExtension}`,
-    ],
+    seeds: [`${srcRoot}/database/seeds/*.seed.${runtimeExtension}`],
+    factories: [`${srcRoot}/database/factories/*.factory.${runtimeExtension}`],
   } as Partial<DataSourceOptions & SeederOptions>),
 );
 
