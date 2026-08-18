@@ -28,7 +28,11 @@
         "assets": [
           {
             "include": "**/*.pug",
-            "outDir": "dist/apps/insurance-portal-service"
+            "outDir": "dist/apps/insurance-portal-service/apps/insurance-portal-service/src"
+          },
+          {
+            "include": "database/seeds/data/*.json",
+            "outDir": "dist/apps/insurance-portal-service/apps/insurance-portal-service/src"
           }
         ],
         "watchAssets": true,
