@@ -135,6 +135,9 @@ jobs:
           cp scripts/create-tiramis-api-key.production.js \
             "$RELEASE_DIR/scripts/create-tiramis-api-key.production.js"
 
+          cp scripts/db-maintenance.js \
+            "$RELEASE_DIR/scripts/db-maintenance.js"
+
           chmod 750 \
             "$RELEASE_DIR/deploy/tiramis/deploy.sh"
 
