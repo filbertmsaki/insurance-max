@@ -1,0 +1,616 @@
+name: Insurance Max - Frontend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+    paths:
+      - 'apps/insurance-portal-web/**'
+      - 'libs/**'
+      - 'packages/**'
+      - 'tools/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'nx.json'
+      - 'tsconfig*.json'
+      - 'deploy/frontend/**'
+      - '.github/workflows/deploy-frontend-prod.yml'
+
+  workflow_dispatch:
+
+
+permissions:
+  contents: read
+
+
+concurrency:
+  group: insurance-max-prod-frontend
+
+  cancel-in-progress: false
+
+
+jobs:
+
+  deploy:
+
+    name: Deploy frontend
+
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 40
+
+    environment: frontend-production
+
+
+    env:
+
+      REMOTE_BASE_DIR: /opt/apps/insurance-max/prod/frontend
+
+      APP_RELATIVE_DIR: apps/insurance-portal-web
+
+      PM2_APP_NAME: insurance-max-prod-web
+
+      APP_PORT: '9290'
+
+      NGINX_PORT: '9092'
+
+
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+
+
+    steps:
+
+
+      # -------------------------------------------------------
+      # Checkout
+      # -------------------------------------------------------
+
+      - name: Checkout repository
+
+        uses: actions/checkout@v6
+
+        with:
+
+          persist-credentials: false
+
+
+      # -------------------------------------------------------
+      # Validate repository/deployment files
+      # -------------------------------------------------------
+
+      - name: Validate deployment inputs
+
+        shell: bash
+
+        run: |
+
+          set -Eeuo pipefail
+
+
+          [[ -n "${DEPLOY_HOST}" ]] || {
+            echo "DEPLOY_HOST secret is missing"
+            exit 1
+          }
+
+
+          [[ -n "${DEPLOY_PORT}" ]] || {
+            echo "DEPLOY_PORT secret is missing"
+            exit 1
+          }
+
+
+          [[ -n "${DEPLOY_USER}" ]] || {
+            echo "DEPLOY_USER secret is missing"
+            exit 1
+          }
+
+
+          [[ -n "${DEPLOY_SSH_KEY}" ]] || {
+            echo "DEPLOY_SSH_KEY secret is missing"
+            exit 1
+          }
+
+
+          [[ -n "${DEPLOY_KNOWN_HOSTS}" ]] || {
+            echo "DEPLOY_KNOWN_HOSTS secret is missing"
+            exit 1
+          }
+
+
+          [[ -f package.json ]] || {
+            echo "package.json missing"
+            exit 1
+          }
+
+
+          [[ -f package-lock.json ]] || {
+            echo "package-lock.json missing"
+            exit 1
+          }
+
+
+          [[ -d "${APP_RELATIVE_DIR}" ]] || {
+            echo "${APP_RELATIVE_DIR} missing"
+            exit 1
+          }
+
+
+          [[ -f "${APP_RELATIVE_DIR}/package.json" ]] || {
+            echo "${APP_RELATIVE_DIR}/package.json missing"
+            exit 1
+          }
+
+
+          [[ -f deploy/frontend/deploy.sh ]] || {
+            echo "deploy/frontend/deploy.sh missing"
+            exit 1
+          }
+
+
+          bash -n deploy/frontend/deploy.sh
+
+
+      # -------------------------------------------------------
+      # Release ID
+      # -------------------------------------------------------
+
+      - name: Generate release ID
+
+        id: release
+
+        shell: bash
+
+        run: |
+
+          set -Eeuo pipefail
+
+
+          timestamp="$(date -u +'%Y%m%d%H%M%S')"
+
+
+          short_sha="${GITHUB_SHA:0:12}"
+
+
+          release_id="${timestamp}-${short_sha}-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+
+
+          archive_name="frontend-${release_id}.tar.gz"
+
+
+          remote_archive="${REMOTE_BASE_DIR}/tmp/${archive_name}"
+
+
+          remote_script="${REMOTE_BASE_DIR}/tmp/deploy-${release_id}.sh"
+
+
+          echo "release_id=${release_id}" >> "${GITHUB_OUTPUT}"
+
+
+          echo "archive_name=${archive_name}" >> "${GITHUB_OUTPUT}"
+
+
+          echo "remote_archive=${remote_archive}" >> "${GITHUB_OUTPUT}"
+
+
+          echo "remote_script=${remote_script}" >> "${GITHUB_OUTPUT}"
+
+
+      # -------------------------------------------------------
+      # Package source
+      #
+      # Production build happens on the server because
+      # .env.production lives there.
+      # -------------------------------------------------------
+
+      - name: Create source archive
+
+        shell: bash
+
+        run: |
+
+          set -Eeuo pipefail
+
+
+          archive="${RUNNER_TEMP}/${{ steps.release.outputs.archive_name }}"
+
+
+          tar \
+            --exclude='./.git' \
+            --exclude='./node_modules' \
+            --exclude='*/node_modules' \
+            --exclude='*/dist' \
+            --exclude='./coverage' \
+            --exclude='*/coverage' \
+            --exclude='*/.env' \
+            --exclude='*/.env.*' \
+            --exclude='*.log' \
+            -czf "${archive}" \
+            .
+
+
+          test -s "${archive}"
+
+
+          echo
+          echo "Created release archive:"
+          echo "${archive}"
+
+
+          du -h "${archive}"
+
+
+      # -------------------------------------------------------
+      # SSH
+      # -------------------------------------------------------
+
+      - name: Configure SSH
+
+        shell: bash
+
+        run: |
+
+          set -Eeuo pipefail
+
+
+          install \
+            -d \
+            -m 0700 \
+            "${HOME}/.ssh"
+
+
+          printf '%s\n' \
+            "${DEPLOY_SSH_KEY}" \
+            > "${HOME}/.ssh/insurance-max-deploy"
+
+
+          chmod 0600 \
+            "${HOME}/.ssh/insurance-max-deploy"
+
+
+          printf '%s\n' \
+            "${DEPLOY_KNOWN_HOSTS}" \
+            > "${HOME}/.ssh/known_hosts"
+
+
+          chmod 0600 \
+            "${HOME}/.ssh/known_hosts"
+
+
+      # -------------------------------------------------------
+      # Server preflight
+      # -------------------------------------------------------
+
+      - name: Server preflight
+
+        shell: bash
+
+        run: |
+
+          set -Eeuo pipefail
+
+
+          ssh \
+            -i "${HOME}/.ssh/insurance-max-deploy" \
+            -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "BASE_DIR='${REMOTE_BASE_DIR}' bash -s" <<'REMOTE'
+
+          set -Eeuo pipefail
+
+
+          echo "========================================"
+          echo " Frontend Server Preflight"
+          echo "========================================"
+
+
+          echo
+          echo "User:"
+          whoami
+
+
+          echo
+          echo "Host:"
+          hostname
+
+
+          echo
+          echo "Node:"
+          node -v
+
+
+          echo
+          echo "npm:"
+          npm -v
+
+
+          echo
+          echo "PM2:"
+          pm2 -v
+
+
+          echo
+          echo "Checking directories..."
+
+
+          test -d "${BASE_DIR}"
+
+          test -d "${BASE_DIR}/releases"
+
+          test -d "${BASE_DIR}/shared"
+
+          test -d "${BASE_DIR}/shared/deployment"
+
+          test -d "${BASE_DIR}/logs"
+
+          test -d "${BASE_DIR}/tmp"
+
+
+          echo
+          echo "Checking write permissions..."
+
+
+          test -w "${BASE_DIR}/releases"
+
+          test -w "${BASE_DIR}/shared"
+
+          test -w "${BASE_DIR}/logs"
+
+          test -w "${BASE_DIR}/tmp"
+
+
+          echo
+          echo "Checking frontend environment..."
+
+
+          test -f "${BASE_DIR}/shared/.env.production"
+
+          test -r "${BASE_DIR}/shared/.env.production"
+
+
+          echo
+          echo "Frontend server preflight passed."
+
+          REMOTE
+
+
+      # -------------------------------------------------------
+      # Upload
+      # -------------------------------------------------------
+
+      - name: Upload release and deployment script
+
+        shell: bash
+
+        run: |
+
+          set -Eeuo pipefail
+
+
+          echo "Uploading source release..."
+
+
+          scp \
+            -i "${HOME}/.ssh/insurance-max-deploy" \
+            -P "${DEPLOY_PORT}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${RUNNER_TEMP}/${{ steps.release.outputs.archive_name }}" \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:${{ steps.release.outputs.remote_archive }}"
+
+
+          echo
+          echo "Uploading deployment script..."
+
+
+          scp \
+            -i "${HOME}/.ssh/insurance-max-deploy" \
+            -P "${DEPLOY_PORT}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            deploy/frontend/deploy.sh \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:${{ steps.release.outputs.remote_script }}"
+
+
+      # -------------------------------------------------------
+      # Deploy
+      # -------------------------------------------------------
+
+      - name: Deploy frontend
+
+        shell: bash
+
+        run: |
+
+          set -Eeuo pipefail
+
+
+          remote_script="${{ steps.release.outputs.remote_script }}"
+
+
+          remote_archive="${{ steps.release.outputs.remote_archive }}"
+
+
+          release_id="${{ steps.release.outputs.release_id }}"
+
+
+          set +e
+
+
+          ssh \
+            -i "${HOME}/.ssh/insurance-max-deploy" \
+            -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "chmod 0700 '${remote_script}' && \
+             DEPLOY_USER='${DEPLOY_USER}' \
+             BASE_DIR='${REMOTE_BASE_DIR}' \
+             APP_RELATIVE_DIR='${APP_RELATIVE_DIR}' \
+             PM2_APP_NAME='${PM2_APP_NAME}' \
+             APP_PORT='${APP_PORT}' \
+             NGINX_PORT='${NGINX_PORT}' \
+             bash '${remote_script}' \
+             '${remote_archive}' \
+             '${release_id}' \
+             '${GITHUB_SHA}'"
+
+
+          deploy_status=$?
+
+
+          set -e
+
+
+          if [[ ${deploy_status} -ne 0 ]]; then
+
+            echo
+            echo "========================================"
+            echo " Deployment Failed"
+            echo "========================================"
+
+            echo
+            echo "Collecting diagnostics..."
+
+
+            ssh \
+              -i "${HOME}/.ssh/insurance-max-deploy" \
+              -p "${DEPLOY_PORT}" \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=yes \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "echo '=== CURRENT RELEASE ==='; \
+               readlink -f '${REMOTE_BASE_DIR}/current' || true; \
+               echo; \
+               echo '=== PM2 ==='; \
+               pm2 status '${PM2_APP_NAME}' || true; \
+               echo; \
+               echo '=== FRONTEND ERROR LOG ==='; \
+               tail -n 100 '${REMOTE_BASE_DIR}/logs/error.log' || true; \
+               echo; \
+               echo '=== FRONTEND OUTPUT LOG ==='; \
+               tail -n 100 '${REMOTE_BASE_DIR}/logs/out.log' || true; \
+               echo; \
+               echo '=== PORTS ==='; \
+               ss -lntp | grep -E ':${APP_PORT}|:${NGINX_PORT}' || true" \
+              || true
+
+
+            exit "${deploy_status}"
+
+          fi
+
+
+      # -------------------------------------------------------
+      # Final verification
+      # -------------------------------------------------------
+
+      - name: Final live verification
+
+        shell: bash
+
+        run: |
+
+          set -Eeuo pipefail
+
+
+          ssh \
+            -i "${HOME}/.ssh/insurance-max-deploy" \
+            -p "${DEPLOY_PORT}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "EXPECTED_RELEASE='${{ steps.release.outputs.release_id }}' \
+             NGINX_PORT='${NGINX_PORT}' \
+             PM2_APP_NAME='${PM2_APP_NAME}' \
+             bash -s" <<'REMOTE'
+
+          set -Eeuo pipefail
+
+
+          echo
+          echo "Checking Nginx frontend..."
+
+
+          body="$(
+            curl \
+              --fail \
+              --silent \
+              --show-error \
+              "http://127.0.0.1:${NGINX_PORT}/health"
+          )"
+
+
+          echo "${body}"
+
+
+          [[ "${body}" == *"\"release\":\"${EXPECTED_RELEASE}\""* ]]
+
+
+          echo
+          echo "PM2 status:"
+
+
+          pm2 status \
+            "${PM2_APP_NAME}"
+
+
+          echo
+          echo "Current release:"
+
+
+          readlink -f \
+            /opt/apps/insurance-max/prod/frontend/current
+
+          REMOTE
+
+
+      # -------------------------------------------------------
+      # Cleanup
+      # -------------------------------------------------------
+
+      - name: Remote temporary-file cleanup
+
+        if: always()
+
+        shell: bash
+
+        run: |
+
+          set +e
+
+
+          if [[ -f "${HOME}/.ssh/insurance-max-deploy" ]]; then
+
+            ssh \
+              -i "${HOME}/.ssh/insurance-max-deploy" \
+              -p "${DEPLOY_PORT}" \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=yes \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "rm -f \
+                '${{ steps.release.outputs.remote_archive }}' \
+                '${{ steps.release.outputs.remote_script }}'" \
+              || true
+
+          fi
+
+
+          rm -f \
+            "${HOME}/.ssh/insurance-max-deploy" \
+            || true
+
+
+          rm -f \
+            "${RUNNER_TEMP}/${{ steps.release.outputs.archive_name }}" \
+            || true
