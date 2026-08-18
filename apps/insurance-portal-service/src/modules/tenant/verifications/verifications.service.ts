@@ -72,7 +72,7 @@ export class VerificationsService {
         forceResubmit: stalePending,
         returnExisting: !stalePending,
       },
-      { companyId: user.companyId, userId: user.id },
+      user,
     );
     const liveResponse = result?.tiramis ?? {};
     const tira = liveResponse.tira ?? {};
