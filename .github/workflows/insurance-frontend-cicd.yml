@@ -205,51 +205,7 @@ jobs:
 
 
       # -------------------------------------------------------
-      # Package source
-      #
-      # Production build happens on the server because
-      # .env.production lives there.
-      # -------------------------------------------------------
-
-      - name: Create source archive
-
-        shell: bash
-
-        run: |
-
-          set -Eeuo pipefail
-
-
-          archive="${RUNNER_TEMP}/${{ steps.release.outputs.archive_name }}"
-
-
-          tar \
-            --exclude='./.git' \
-            --exclude='./node_modules' \
-            --exclude='*/node_modules' \
-            --exclude='*/dist' \
-            --exclude='./coverage' \
-            --exclude='*/coverage' \
-            --exclude='*/.env' \
-            --exclude='*/.env.*' \
-            --exclude='*.log' \
-            -czf "${archive}" \
-            .
-
-
-          test -s "${archive}"
-
-
-          echo
-          echo "Created release archive:"
-          echo "${archive}"
-
-
-          du -h "${archive}"
-
-
-      # -------------------------------------------------------
-      # SSH
+      # SSH (needed early to fetch .env.production for the build)
       # -------------------------------------------------------
 
       - name: Configure SSH
@@ -283,6 +239,125 @@ jobs:
 
           chmod 0600 \
             "${HOME}/.ssh/known_hosts"
+
+
+      # -------------------------------------------------------
+      # Build frontend on the runner
+      #
+      # The runner has far more RAM than the production server,
+      # which was OOMing on `tsc -b && vite build`. The build
+      # still needs the server-managed .env.production (it is
+      # not committed to the repo), so it's fetched over SSH,
+      # used only in-memory on the runner, and removed again
+      # once the build finishes.
+      # -------------------------------------------------------
+
+      - name: Set up Node.js
+
+        uses: actions/setup-node@v4
+
+        with:
+
+          node-version: '22'
+
+
+      - name: Fetch production environment file
+
+        shell: bash
+
+        run: |
+
+          set -Eeuo pipefail
+
+
+          scp \
+            -i "${HOME}/.ssh/insurance-max-deploy" \
+            -P "${DEPLOY_PORT}" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:${REMOTE_BASE_DIR}/shared/.env.production" \
+            "${APP_RELATIVE_DIR}/.env.production"
+
+
+      - name: Install frontend dependencies
+
+        shell: bash
+
+        run: |
+
+          set -Eeuo pipefail
+
+
+          npm ci \
+            --prefix "${APP_RELATIVE_DIR}" \
+            --include=dev \
+            --no-audit \
+            --no-fund
+
+
+      - name: Build frontend
+
+        shell: bash
+
+        run: |
+
+          set -Eeuo pipefail
+
+
+          npm \
+            --prefix "${APP_RELATIVE_DIR}" \
+            run build
+
+
+      - name: Remove production environment file from runner
+
+        if: always()
+
+        shell: bash
+
+        run: |
+
+          rm -f "${APP_RELATIVE_DIR}/.env.production"
+
+
+      # -------------------------------------------------------
+      # Package source (including the prebuilt dist)
+      # -------------------------------------------------------
+
+      - name: Create source archive
+
+        shell: bash
+
+        run: |
+
+          set -Eeuo pipefail
+
+
+          archive="${RUNNER_TEMP}/${{ steps.release.outputs.archive_name }}"
+
+
+          tar \
+            --exclude='./.git' \
+            --exclude='./node_modules' \
+            --exclude='*/node_modules' \
+            --exclude='./coverage' \
+            --exclude='*/coverage' \
+            --exclude='*/.env' \
+            --exclude='*/.env.*' \
+            --exclude='*.log' \
+            -czf "${archive}" \
+            .
+
+
+          test -s "${archive}"
+
+
+          echo
+          echo "Created release archive:"
+          echo "${archive}"
+
+
+          du -h "${archive}"
 
 
       # -------------------------------------------------------

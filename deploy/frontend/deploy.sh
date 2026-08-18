@@ -653,67 +653,78 @@ ln -s \
 
 
 # ------------------------------------------------------------
-# Install dependencies
+# Install dependencies / build frontend
+#
+# If the release archive already ships a prebuilt dist/ (built
+# on the CI runner, which has far more RAM than this server),
+# skip installing and building here entirely. Otherwise fall
+# back to building locally (e.g. manual/legacy releases).
 # ------------------------------------------------------------
-
-log "Installing build dependencies"
-
 
 cd "${RELEASE_DIR}"
 
 
-NODE_ENV=development npm ci \
-    --include=dev \
-    --no-audit \
-    --no-fund
+if [[ -d "${FRONTEND_DIR}/dist" ]]; then
 
+    log "Prebuilt frontend dist found in release, skipping local build"
 
-if [[ -f "${APP_RELATIVE_DIR}/package-lock.json" ]]; then
+else
 
-    echo "Installing app-local dependencies for ${APP_RELATIVE_DIR}"
+    log "No prebuilt dist found, installing build dependencies"
+
 
     NODE_ENV=development npm ci \
-        --prefix "${APP_RELATIVE_DIR}" \
         --include=dev \
         --no-audit \
         --no-fund
 
-fi
+
+    if [[ -f "${APP_RELATIVE_DIR}/package-lock.json" ]]; then
+
+        echo "Installing app-local dependencies for ${APP_RELATIVE_DIR}"
+
+        NODE_ENV=development npm ci \
+            --prefix "${APP_RELATIVE_DIR}" \
+            --include=dev \
+            --no-audit \
+            --no-fund
+
+    fi
 
 
-# ------------------------------------------------------------
-# Build frontend
-# ------------------------------------------------------------
-
-log "Building Insurance Max frontend"
+    log "Building Insurance Max frontend"
 
 
-if node -e \
-    "const p=require('./${APP_RELATIVE_DIR}/package.json'); process.exit(p.scripts && p.scripts.build ? 0 : 1)"
-then
+    if node -e \
+        "const p=require('./${APP_RELATIVE_DIR}/package.json'); process.exit(p.scripts && p.scripts.build ? 0 : 1)"
+    then
 
-    echo "Using frontend package build script."
-
-
-    NODE_ENV=development npm \
-        --prefix "${APP_RELATIVE_DIR}" \
-        run build
+        echo "Using frontend package build script."
 
 
-elif node -e \
-    "const p=require('./package.json'); process.exit(p.scripts && p.scripts['build:frontend'] ? 0 : 1)"
-then
-
-    echo "Using root build:frontend script."
-
-
-    npm run build:frontend
+        NODE_ENV=development \
+        NODE_OPTIONS="--max-old-space-size=${BUILD_NODE_MAX_OLD_SPACE_MB:-1536}" \
+        npm \
+            --prefix "${APP_RELATIVE_DIR}" \
+            run build
 
 
-else
+    elif node -e \
+        "const p=require('./package.json'); process.exit(p.scripts && p.scripts['build:frontend'] ? 0 : 1)"
+    then
 
-    fail \
-        "No frontend build script found."
+        echo "Using root build:frontend script."
+
+
+        npm run build:frontend
+
+
+    else
+
+        fail \
+            "No frontend build script found."
+
+    fi
 
 fi
 
