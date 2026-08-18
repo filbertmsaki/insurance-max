@@ -38,6 +38,7 @@ const schema = z.object({
   base_url: z.string().url('Invalid URL').optional().or(z.literal('')),
   source_service: z.string().max(100).optional().or(z.literal('')),
   callback_url: z.string().url('Invalid URL').optional().or(z.literal('')),
+  tiramis_service_api_key: z.string().max(500).optional().or(z.literal('')),
   use_as_target_environment: z.boolean().optional(),
 });
 
@@ -59,6 +60,7 @@ function buildDefaultValues(
     source_service:
       config?.sourceService ?? config?.effectiveSourceService ?? '',
     callback_url: config?.callbackUrl ?? config?.effectiveCallbackUrl ?? '',
+    tiramis_service_api_key: '',
     use_as_target_environment:
       config?.isTargetEnvironment ??
       config?.effectiveTargetEnvironment === environment,
@@ -125,6 +127,7 @@ function EnvironmentPanel({
         base_url: values.base_url || undefined,
         source_service: values.source_service || undefined,
         callback_url: values.callback_url || undefined,
+        tiramis_service_api_key: values.tiramis_service_api_key || undefined,
         use_as_target_environment: values.use_as_target_environment,
         confirm_live_activation:
           values.use_as_target_environment && environment === 'live'
@@ -364,17 +367,32 @@ function EnvironmentPanel({
                     </FormItem>
                   )}
                 />
-                <div>
-                  <div className="text-sm font-medium text-slate-700">
-                    TIRAMIS Service API Key
-                  </div>
-                  <div className="mt-2 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600">
-                    <KeyRound className="h-3.5 w-3.5" />
-                    {config?.serviceApiKeyMasked
-                      ? `Current API Key: ${config.serviceApiKeyMasked}`
-                      : `No ${environment === 'live' ? 'Live' : 'Test'} API key configured`}
-                  </div>
-                </div>
+                <FormField
+                  control={form.control}
+                  name="tiramis_service_api_key"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>TIRAMIS Service API Key</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          autoComplete="off"
+                          placeholder={
+                            config?.serviceApiKeyMasked
+                              ? `Current: ${config.serviceApiKeyMasked} (leave blank to keep)`
+                              : `Paste the ${environment === 'live' ? 'Live' : 'Test'} API key`
+                          }
+                          {...field}
+                        />
+                      </FormControl>
+                      <p className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500">
+                        <KeyRound className="h-3.5 w-3.5" />
+                        Leave blank to keep the current key unchanged.
+                      </p>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
               <FormField
                 control={form.control}
