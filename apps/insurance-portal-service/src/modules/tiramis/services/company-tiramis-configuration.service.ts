@@ -195,6 +195,7 @@ export class CompanyTiramisConfigurationService {
 
     return this.activateSavedConfiguration(companyId, saved, actorId, {
       confirmLive: dto.confirm_live_activation,
+      forceActivation: dto.force_activation,
     });
   }
 
@@ -202,7 +203,7 @@ export class CompanyTiramisConfigurationService {
     companyId: string,
     saved: TiramisCompanyConfigurationEntity,
     actorId: string,
-    options: { confirmLive?: boolean },
+    options: { confirmLive?: boolean; forceActivation?: boolean },
   ) {
     const validation = await this.assertEnvironmentCanBeActivated({
       companyId,
@@ -211,7 +212,9 @@ export class CompanyTiramisConfigurationService {
       systemCode: saved.systemCode,
       insurerCompanyCode: saved.insurerCompanyCode,
       confirmLive: options.confirmLive,
+      forceActivation: options.forceActivation,
     });
+    const forced = options.forceActivation && !validation.valid;
 
     return this.dataSource.transaction(async (manager) => {
       const companyRepository = manager.getRepository(Company);
@@ -237,7 +240,9 @@ export class CompanyTiramisConfigurationService {
         {
           userId: actorId,
           companyId,
-          action: 'tiramis.company_configuration.environment_activated',
+          action: forced
+            ? 'tiramis.company_configuration.environment_activated_forced_despite_invalid_validation'
+            : 'tiramis.company_configuration.environment_activated',
           eventCategory: 'organization',
           resource: 'tiramis_company_configuration',
           resourceId: saved.id,
@@ -245,6 +250,7 @@ export class CompanyTiramisConfigurationService {
           afterState: {
             environment: saved.environment,
             validation,
+            forced,
             serviceCallbackUrl: this.resolveCallbackUrl(saved),
           },
         },
@@ -301,7 +307,7 @@ export class CompanyTiramisConfigurationService {
     companyId: string,
     environment: 'test' | 'live',
     actorId: string,
-    options: { confirmLive?: boolean } = {},
+    options: { confirmLive?: boolean; forceActivation?: boolean } = {},
   ) {
     const configuration = await this.repository.findOne({
       where: { companyId, environment, isActive: true },
@@ -315,6 +321,7 @@ export class CompanyTiramisConfigurationService {
 
     return this.activateSavedConfiguration(companyId, configuration, actorId, {
       confirmLive: options.confirmLive,
+      forceActivation: options.forceActivation,
     });
   }
 
@@ -436,6 +443,7 @@ export class CompanyTiramisConfigurationService {
     systemCode: string | null;
     insurerCompanyCode?: string | null;
     confirmLive?: boolean;
+    forceActivation?: boolean;
   }) {
     if (params.environment === 'live' && params.confirmLive !== true) {
       throw new BadRequestException(
@@ -452,7 +460,7 @@ export class CompanyTiramisConfigurationService {
         insurerCompanyCode: params.insurerCompanyCode,
       });
 
-    if (!validation.valid) {
+    if (!validation.valid && !params.forceActivation) {
       throw new BadRequestException({
         message:
           validation.message ||

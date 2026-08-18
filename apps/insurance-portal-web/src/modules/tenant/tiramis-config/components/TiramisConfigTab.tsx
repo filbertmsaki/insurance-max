@@ -44,7 +44,16 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-type ApiErrorLike = { response?: { data?: { message?: string } } };
+type ApiErrorLike = {
+  response?: { data?: { error?: { message?: string }; message?: string } };
+};
+
+function getApiErrorMessage(error: ApiErrorLike | Error): string | undefined {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return error.response?.data?.error?.message ?? error.response?.data?.message;
+}
 
 function buildDefaultValues(
   environment: 'test' | 'live',
@@ -108,7 +117,13 @@ function EnvironmentPanel({
   });
 
   const saveMutation = useMutation({
-    mutationFn: (values: FormValues) => {
+    mutationFn: ({
+      values,
+      force,
+    }: {
+      values: FormValues;
+      force?: boolean;
+    }) => {
       const confirmed =
         !values.use_as_target_environment ||
         environment !== 'live' ||
@@ -133,6 +148,8 @@ function EnvironmentPanel({
           values.use_as_target_environment && environment === 'live'
             ? true
             : undefined,
+        force_activation:
+          values.use_as_target_environment && force ? true : undefined,
       });
     },
     onSuccess: () => {
@@ -142,14 +159,22 @@ function EnvironmentPanel({
       toast.success(`${environment.toUpperCase()} configuration saved`);
       setEditing(false);
     },
-    onError: (error: ApiErrorLike | Error) => {
+    onError: (error: ApiErrorLike | Error, variables) => {
       if (error instanceof Error && error.message.includes('cancelled')) {
         return;
       }
-      toast.error(
-        (error as ApiErrorLike)?.response?.data?.message ??
-          'Unable to save configuration',
-      );
+      const message = getApiErrorMessage(error) ?? 'Unable to save configuration';
+      if (
+        variables.values.use_as_target_environment &&
+        !variables.force &&
+        window.confirm(
+          `${message}\n\nSave the configuration and force this environment active anyway despite the validation error?`,
+        )
+      ) {
+        saveMutation.mutate({ values: variables.values, force: true });
+        return;
+      }
+      toast.error(message);
     },
   });
 
@@ -172,7 +197,7 @@ function EnvironmentPanel({
   });
 
   const activateMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (force?: boolean) => {
       const confirmed =
         environment !== 'live' ||
         window.confirm('Switch active TIRAMIS environment to LIVE/PRODUCTION?');
@@ -183,6 +208,7 @@ function EnvironmentPanel({
 
       return tiramisConfigApi.activateMyConfiguration(environment, {
         confirm_live_activation: environment === 'live' ? true : undefined,
+        force_activation: force ? true : undefined,
       });
     },
     onSuccess: () => {
@@ -193,14 +219,22 @@ function EnvironmentPanel({
         `${environment === 'live' ? 'LIVE/PRODUCTION' : 'TEST/UAT'} is now active`,
       );
     },
-    onError: (error: ApiErrorLike | Error) => {
+    onError: (error: ApiErrorLike | Error, force) => {
       if (error instanceof Error && error.message.includes('cancelled')) {
         return;
       }
-      toast.error(
-        (error as ApiErrorLike)?.response?.data?.message ??
-          'Unable to switch environment',
-      );
+      const message =
+        getApiErrorMessage(error) ?? 'Unable to switch environment';
+      if (
+        !force &&
+        window.confirm(
+          `${message}\n\nForce this environment active anyway despite the validation error?`,
+        )
+      ) {
+        activateMutation.mutate(true);
+        return;
+      }
+      toast.error(message);
     },
   });
 
@@ -249,7 +283,7 @@ function EnvironmentPanel({
           <Form {...form}>
             <form
               onSubmit={form.handleSubmit((values) =>
-                saveMutation.mutate(values),
+                saveMutation.mutate({ values }),
               )}
               className="space-y-4"
             >
@@ -553,7 +587,7 @@ function EnvironmentPanel({
                   <Button
                     size="sm"
                     variant="secondary"
-                    onClick={() => activateMutation.mutate()}
+                    onClick={() => activateMutation.mutate(undefined)}
                     disabled={activateMutation.isPending}
                   >
                     {activateMutation.isPending

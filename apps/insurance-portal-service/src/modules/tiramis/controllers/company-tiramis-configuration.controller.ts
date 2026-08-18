@@ -21,6 +21,10 @@ class ActivateCompanyTiramisEnvironmentDto {
   @IsOptional()
   @IsBoolean()
   confirm_live_activation?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  force_activation?: boolean;
 }
 
 @ApiTags('Company TIRA configuration')
@@ -90,7 +94,10 @@ export class CompanyTiramisConfigurationController {
       user.companyId!,
       environment,
       user.id,
-      { confirmLive: dto.confirm_live_activation },
+      {
+        confirmLive: dto.confirm_live_activation,
+        forceActivation: dto.force_activation,
+      },
     );
   }
 

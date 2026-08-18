@@ -52,6 +52,7 @@ export interface UpsertCompanyTiramisConfigurationDto {
   is_active?: boolean;
   use_as_target_environment?: boolean;
   confirm_live_activation?: boolean;
+  force_activation?: boolean;
 }
 
 export const tiramisConfigApi = {
@@ -83,7 +84,10 @@ export const tiramisConfigApi = {
 
   activateMyConfiguration: (
     environment: 'test' | 'live',
-    data: { confirm_live_activation?: boolean } = {},
+    data: {
+      confirm_live_activation?: boolean;
+      force_activation?: boolean;
+    } = {},
   ) =>
     apiClient
       .post<CompanyTiramisConfiguration>(

@@ -73,4 +73,8 @@ export class UpsertCompanyTiramisConfigurationDto {
   @IsOptional()
   @IsBoolean()
   confirm_live_activation?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  force_activation?: boolean;
 }
