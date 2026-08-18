@@ -279,6 +279,21 @@ jobs:
             "${APP_RELATIVE_DIR}/.env.production"
 
 
+      - name: Install root dependencies
+
+        shell: bash
+
+        run: |
+
+          set -Eeuo pipefail
+
+
+          npm ci \
+            --include=dev \
+            --no-audit \
+            --no-fund
+
+
       - name: Install frontend dependencies
 
         shell: bash
