@@ -1,0 +1,886 @@
+name: Insurance Frontend Deployment Preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-server-preflight:
+    name: Frontend Server Preflight
+
+    runs-on: ubuntu-latest
+
+    environment:
+      name: insurance-frontend-production
+
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
+
+    steps:
+
+      # ======================================================
+      # Validate and configure SSH
+      # ======================================================
+
+      - name: Configure SSH
+        shell: bash
+
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+
+        run: |
+          set -Eeuo pipefail
+
+          echo "=========================================="
+          echo " Validating Deployment Configuration"
+          echo "=========================================="
+
+          if [ -z "$DEPLOY_HOST" ]; then
+            echo "ERROR: DEPLOY_HOST is missing."
+            exit 1
+          fi
+
+          if [ -z "$DEPLOY_USER" ]; then
+            echo "ERROR: DEPLOY_USER is missing."
+            exit 1
+          fi
+
+          if [ -z "$DEPLOY_PORT" ]; then
+            echo "ERROR: DEPLOY_PORT is missing."
+            exit 1
+          fi
+
+          if [ -z "$DEPLOY_SSH_KEY" ]; then
+            echo "ERROR: DEPLOY_SSH_KEY is missing."
+            exit 1
+          fi
+
+          if [ -z "$DEPLOY_KNOWN_HOSTS" ]; then
+            echo "ERROR: DEPLOY_KNOWN_HOSTS is missing."
+            exit 1
+          fi
+
+          echo "DEPLOY_HOST: configured"
+          echo "DEPLOY_USER: configured"
+          echo "DEPLOY_PORT: configured"
+          echo "DEPLOY_SSH_KEY: configured"
+          echo "DEPLOY_KNOWN_HOSTS: configured"
+
+          echo
+          echo "Creating SSH configuration..."
+
+          install -d -m 700 ~/.ssh
+
+          printf '%s\n' "$DEPLOY_SSH_KEY" \
+            > ~/.ssh/id_ed25519
+
+          chmod 600 ~/.ssh/id_ed25519
+
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" \
+            > ~/.ssh/known_hosts
+
+          chmod 600 ~/.ssh/known_hosts
+
+          echo
+          echo "Validating private key..."
+
+          ssh-keygen \
+            -y \
+            -f ~/.ssh/id_ed25519 \
+            > /dev/null
+
+          echo "SSH private key: VALID"
+
+          echo
+          echo "SSH configuration completed."
+
+
+      # ======================================================
+      # Test raw SSH connectivity
+      # ======================================================
+
+      - name: Test SSH Connection
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+          echo "=========================================="
+          echo " Testing SSH Connection"
+          echo "=========================================="
+
+          ssh \
+            -i ~/.ssh/id_ed25519 \
+            -o BatchMode=yes \
+            -o ConnectTimeout=10 \
+            -o StrictHostKeyChecking=yes \
+            -p "$DEPLOY_PORT" \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            '
+              set -Eeuo pipefail
+
+              echo
+              echo "SSH connection successful."
+
+              echo
+              echo "Connected user:"
+              whoami
+
+              echo
+              echo "Hostname:"
+              hostname
+            '
+
+
+      # ======================================================
+      # Full frontend server preflight
+      # ======================================================
+
+      - name: Frontend Server Preflight
+        shell: bash
+
+        run: |
+          set -Eeuo pipefail
+
+          ssh \
+            -i ~/.ssh/id_ed25519 \
+            -o BatchMode=yes \
+            -o ConnectTimeout=10 \
+            -o StrictHostKeyChecking=yes \
+            -p "$DEPLOY_PORT" \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            '
+              set -Eeuo pipefail
+
+              BASE_DIR="/opt/apps/insurance-max/prod/frontend"
+
+              RELEASES_DIR="$BASE_DIR/releases"
+
+              SHARED_DIR="$BASE_DIR/shared"
+
+              LOGS_DIR="$BASE_DIR/logs"
+
+              TMP_DIR="$BASE_DIR/tmp"
+
+              BACKUPS_DIR="$BASE_DIR/backups"
+
+              DEPLOYMENT_DIR="$BASE_DIR/shared/deployment"
+
+              ENV_FILE="$BASE_DIR/shared/.env.production"
+
+              CURRENT_LINK="$BASE_DIR/current"
+
+              APP_PORT="9290"
+
+              NGINX_PORT="9092"
+
+              PM2_APP_NAME="insurance-max-prod-web"
+
+
+              echo "=========================================="
+              echo " Insurance Max Frontend Preflight"
+              echo "=========================================="
+
+
+              # ----------------------------------------------
+              # User
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " Deployment User"
+              echo "------------------------------------------"
+
+              echo
+              echo "User:"
+              whoami
+
+              echo
+              echo "User ID:"
+              id
+
+              if [ "$(whoami)" != "insurance-deploy" ]; then
+
+                echo
+                echo "ERROR:"
+                echo "Deployment must run as insurance-deploy."
+
+                exit 1
+
+              fi
+
+              echo
+              echo "Deployment user: OK"
+
+
+              # ----------------------------------------------
+              # Host
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " Server"
+              echo "------------------------------------------"
+
+              echo
+              echo "Hostname:"
+              hostname
+
+              echo
+              echo "Kernel:"
+              uname -a
+
+
+              # ----------------------------------------------
+              # Node
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " Node.js"
+              echo "------------------------------------------"
+
+              if ! command -v node >/dev/null 2>&1; then
+
+                echo "ERROR: Node.js is not installed."
+
+                exit 1
+
+              fi
+
+              echo
+              echo "Node version:"
+              node --version
+
+              echo
+              echo "Node path:"
+              command -v node
+
+
+              NODE_MAJOR="$(
+                node -p "process.versions.node.split(\".\")[0]"
+              )"
+
+
+              if [ "$NODE_MAJOR" -lt 22 ]; then
+
+                echo
+                echo "ERROR:"
+                echo "Node.js 22 or newer is required."
+
+                exit 1
+
+              fi
+
+              echo
+              echo "Node.js: OK"
+
+
+              # ----------------------------------------------
+              # NPM
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " NPM"
+              echo "------------------------------------------"
+
+              if ! command -v npm >/dev/null 2>&1; then
+
+                echo "ERROR: npm is not installed."
+
+                exit 1
+
+              fi
+
+              echo
+              echo "NPM version:"
+              npm --version
+
+              echo
+              echo "NPM path:"
+              command -v npm
+
+              echo
+              echo "NPM: OK"
+
+
+              # ----------------------------------------------
+              # PM2
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " PM2"
+              echo "------------------------------------------"
+
+              if ! command -v pm2 >/dev/null 2>&1; then
+
+                echo "ERROR: PM2 is not installed."
+
+                exit 1
+
+              fi
+
+              echo
+              echo "PM2 version:"
+              pm2 --version
+
+              echo
+              echo "PM2 path:"
+              command -v pm2
+
+              echo
+              echo "PM2 home:"
+              echo "${PM2_HOME:-$HOME/.pm2}"
+
+              echo
+              echo "PM2: OK"
+
+
+              # ----------------------------------------------
+              # Required commands
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " Required Deployment Commands"
+              echo "------------------------------------------"
+
+              REQUIRED_COMMANDS="
+              curl
+              tar
+              gzip
+              git
+              rsync
+              flock
+              find
+              awk
+              grep
+              sed
+              "
+
+              for command_name in $REQUIRED_COMMANDS
+              do
+
+                if ! command -v "$command_name" >/dev/null 2>&1; then
+
+                  echo
+                  echo "ERROR:"
+                  echo "$command_name is not installed."
+
+                  exit 1
+
+                fi
+
+                echo "$command_name: $(command -v "$command_name")"
+
+              done
+
+              echo
+              echo "Required deployment commands: OK"
+
+
+              # ----------------------------------------------
+              # Base directory
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " Frontend Directory"
+              echo "------------------------------------------"
+
+              echo
+              echo "Base directory:"
+              ls -ld "$BASE_DIR"
+
+              if [ ! -d "$BASE_DIR" ]; then
+
+                echo
+                echo "ERROR:"
+                echo "Frontend directory does not exist."
+
+                exit 1
+
+              fi
+
+
+              # ----------------------------------------------
+              # Directory structure
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " Frontend Directory Structure"
+              echo "------------------------------------------"
+
+              REQUIRED_DIRS="
+              $RELEASES_DIR
+              $SHARED_DIR
+              $LOGS_DIR
+              $TMP_DIR
+              $BACKUPS_DIR
+              $DEPLOYMENT_DIR
+              "
+
+              for directory in $REQUIRED_DIRS
+              do
+
+                echo
+                echo "Checking:"
+                echo "$directory"
+
+                if [ ! -d "$directory" ]; then
+
+                  echo
+                  echo "ERROR:"
+                  echo "Directory is missing:"
+                  echo "$directory"
+
+                  exit 1
+
+                fi
+
+                ls -ld "$directory"
+
+              done
+
+              echo
+              echo "Frontend directory structure: OK"
+
+
+              # ----------------------------------------------
+              # Write permissions
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " Write Permissions"
+              echo "------------------------------------------"
+
+              for directory in \
+                "$RELEASES_DIR" \
+                "$SHARED_DIR" \
+                "$LOGS_DIR" \
+                "$TMP_DIR" \
+                "$BACKUPS_DIR" \
+                "$DEPLOYMENT_DIR"
+              do
+
+                TEST_FILE="$directory/.github-preflight-$$"
+
+                echo
+                echo "Testing:"
+                echo "$directory"
+
+                touch "$TEST_FILE"
+
+                rm "$TEST_FILE"
+
+                echo "Write permission: OK"
+
+              done
+
+
+              # ----------------------------------------------
+              # Production environment
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " Production Environment"
+              echo "------------------------------------------"
+
+              echo
+              echo "Environment file:"
+              echo "$ENV_FILE"
+
+              if [ ! -f "$ENV_FILE" ]; then
+
+                echo
+                echo "ERROR:"
+                echo "Production environment file is missing."
+
+                exit 1
+
+              fi
+
+
+              if [ ! -r "$ENV_FILE" ]; then
+
+                echo
+                echo "ERROR:"
+                echo "Production environment file is not readable."
+
+                exit 1
+
+              fi
+
+
+              ENV_OWNER="$(
+                stat -c "%U" "$ENV_FILE"
+              )"
+
+              ENV_GROUP="$(
+                stat -c "%G" "$ENV_FILE"
+              )"
+
+              ENV_MODE="$(
+                stat -c "%a" "$ENV_FILE"
+              )"
+
+
+              echo
+              echo "Owner:"
+              echo "$ENV_OWNER"
+
+              echo
+              echo "Group:"
+              echo "$ENV_GROUP"
+
+              echo
+              echo "Permissions:"
+              echo "$ENV_MODE"
+
+
+              if [ "$ENV_OWNER" != "insurance-deploy" ]; then
+
+                echo
+                echo "ERROR:"
+                echo "Environment file owner is incorrect."
+
+                exit 1
+
+              fi
+
+
+              if [ "$ENV_MODE" != "600" ]; then
+
+                echo
+                echo "ERROR:"
+                echo "Expected .env.production permissions: 600"
+
+                exit 1
+
+              fi
+
+
+              echo
+              echo ".env.production: OK"
+
+              echo
+              echo "NOTE:"
+              echo "Environment file contents are intentionally not displayed."
+
+
+              # ----------------------------------------------
+              # Nginx
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " Nginx"
+              echo "------------------------------------------"
+
+              if ! command -v nginx >/dev/null 2>&1; then
+
+                echo
+                echo "ERROR:"
+                echo "Nginx is not installed."
+
+                exit 1
+
+              fi
+
+              echo
+              echo "Nginx version:"
+              nginx -v 2>&1
+
+
+              echo
+              echo "Checking Nginx process..."
+
+
+              if pgrep nginx >/dev/null 2>&1; then
+
+                echo "Nginx process: RUNNING"
+
+              else
+
+                echo
+                echo "ERROR:"
+                echo "Nginx is not running."
+
+                exit 1
+
+              fi
+
+
+              # ----------------------------------------------
+              # Nginx port 9092
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " Nginx Frontend Port"
+              echo "------------------------------------------"
+
+              echo
+              echo "Expected Nginx port:"
+              echo "$NGINX_PORT"
+
+
+              if ss -lnt | grep -q ":${NGINX_PORT} "; then
+
+                echo
+                echo "Port ${NGINX_PORT}: LISTENING"
+
+              else
+
+                echo
+                echo "ERROR:"
+                echo "Nginx frontend port ${NGINX_PORT} is not listening."
+
+                exit 1
+
+              fi
+
+
+              # ----------------------------------------------
+              # Internal frontend port
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " Frontend Runtime Port"
+              echo "------------------------------------------"
+
+              echo
+              echo "Expected PM2 frontend port:"
+              echo "$APP_PORT"
+
+
+              if ss -lnt | grep -q ":${APP_PORT} "; then
+
+                echo
+                echo "Port ${APP_PORT}: LISTENING"
+                echo "Frontend may already be deployed."
+
+              else
+
+                echo
+                echo "Port ${APP_PORT}: NOT LISTENING"
+                echo "This is normal before the first frontend deployment."
+
+              fi
+
+
+              # ----------------------------------------------
+              # Existing frontend PM2 process
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " Frontend PM2 Process"
+              echo "------------------------------------------"
+
+
+              if pm2 describe "$PM2_APP_NAME" >/dev/null 2>&1; then
+
+                echo
+                echo "PM2 frontend process exists."
+
+                pm2 status "$PM2_APP_NAME"
+
+              else
+
+                echo
+                echo "PM2 frontend process:"
+                echo "NOT CREATED YET"
+
+                echo
+                echo "This is normal before the first frontend deployment."
+
+              fi
+
+
+              # ----------------------------------------------
+              # Current release
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " Current Frontend Release"
+              echo "------------------------------------------"
+
+
+              if [ -L "$CURRENT_LINK" ]; then
+
+                echo
+                echo "Current release:"
+                readlink -f "$CURRENT_LINK"
+
+              else
+
+                echo
+                echo "Current release:"
+                echo "NOT DEPLOYED YET"
+
+                echo
+                echo "This is normal before the first deployment."
+
+              fi
+
+
+              # ----------------------------------------------
+              # Existing release metadata
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " Deployment Metadata"
+              echo "------------------------------------------"
+
+
+              if [ -f "$DEPLOYMENT_DIR/current-release" ]; then
+
+                echo
+                echo "Current release metadata:"
+
+                CURRENT_META="$(
+                  cat "$DEPLOYMENT_DIR/current-release"
+                )"
+
+                echo "${CURRENT_META:-EMPTY}"
+
+              else
+
+                echo
+                echo "ERROR:"
+                echo "current-release metadata file missing."
+
+                exit 1
+
+              fi
+
+
+              if [ -f "$DEPLOYMENT_DIR/previous-release" ]; then
+
+                echo
+                echo "Previous release metadata:"
+
+                PREVIOUS_META="$(
+                  cat "$DEPLOYMENT_DIR/previous-release"
+                )"
+
+                echo "${PREVIOUS_META:-EMPTY}"
+
+              else
+
+                echo
+                echo "ERROR:"
+                echo "previous-release metadata file missing."
+
+                exit 1
+
+              fi
+
+
+              # ----------------------------------------------
+              # Disk space
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " Disk Space"
+              echo "------------------------------------------"
+
+              df -h "$BASE_DIR"
+
+
+              AVAILABLE_KB="$(
+                df -Pk "$BASE_DIR" \
+                | awk "NR==2 {print \$4}"
+              )"
+
+
+              MIN_FREE_KB=$((2 * 1024 * 1024))
+
+
+              if [ "$AVAILABLE_KB" -lt "$MIN_FREE_KB" ]; then
+
+                echo
+                echo "ERROR:"
+                echo "Less than 2 GB free disk space."
+
+                exit 1
+
+              fi
+
+
+              echo
+              echo "Disk space: OK"
+
+
+              # ----------------------------------------------
+              # PM2 process overview
+              # ----------------------------------------------
+
+              echo
+              echo "------------------------------------------"
+              echo " PM2 Process List"
+              echo "------------------------------------------"
+
+              pm2 list
+
+
+              # ----------------------------------------------
+              # Final result
+              # ----------------------------------------------
+
+              echo
+              echo "=========================================="
+              echo " FRONTEND PREFLIGHT SUCCESSFUL"
+              echo "=========================================="
+
+              echo
+              echo "SSH authentication: OK"
+
+              echo "Deployment user: OK"
+
+              echo "Node.js: OK"
+
+              echo "NPM: OK"
+
+              echo "PM2: OK"
+
+              echo "Frontend directories: OK"
+
+              echo "Write permissions: OK"
+
+              echo ".env.production: OK"
+
+              echo "Nginx: OK"
+
+              echo "Nginx port 9092: OK"
+
+              echo
+              echo "Server is ready for frontend deployment."
+            '
+
+
+      # ======================================================
+      # Clean private key from runner
+      # ======================================================
+
+      - name: Cleanup SSH
+        if: always()
+        shell: bash
+
+        run: |
+          rm -f ~/.ssh/id_ed25519
