@@ -94,11 +94,13 @@ export function Header({ onMobileMenuToggle, onOpenCommand }: HeaderProps) {
   const { user, profile, refreshToken, logout } = useAuthStore();
   const crumbs = useBreadcrumb();
   const queryClient = useQueryClient();
+  const isCompanyScoped = user?.scope === 'company';
 
   const notificationsSummaryQuery = useQuery({
     queryKey: ['engagement', 'notifications', 'summary'],
     queryFn: engagementApi.getNotificationUnreadSummary,
     staleTime: 30_000,
+    enabled: isCompanyScoped,
   });
 
   const markNotificationReadMutation = useMutation({

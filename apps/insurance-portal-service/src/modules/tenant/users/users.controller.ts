@@ -35,7 +35,6 @@ import { AuthenticatedAccess } from '@insurance-max/portal-shared/decorators/aut
 @ApiTags('Users')
 @ApiBearerAuth('access-token')
 @Controller('users')
-@TenantScoped()
 export class UsersController {
   constructor(
     private readonly usersService: UsersService,
@@ -77,6 +76,7 @@ export class UsersController {
   }
 
   @Post()
+  @TenantScoped()
   @Permissions('users:create')
   @ApiOperation({ summary: 'Create a new user' })
   @ApiResponse({ status: 201, description: 'User created successfully' })
@@ -95,6 +95,7 @@ export class UsersController {
   }
 
   @Get()
+  @TenantScoped()
   @Permissions('users:read')
   @ApiOperation({ summary: 'Get all users' })
   async findAll(
@@ -108,6 +109,7 @@ export class UsersController {
   }
 
   @Get(':id')
+  @TenantScoped()
   @Permissions('users:read')
   @ApiOperation({ summary: 'Get user by ID' })
   findOne(
@@ -118,6 +120,7 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @TenantScoped()
   @Permissions('users:update')
   @ApiOperation({ summary: 'Update user information' })
   update(
@@ -133,6 +136,7 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @TenantScoped()
   @Roles('ADMINISTRATOR')
   @Permissions('users:delete')
   @ApiOperation({ summary: 'Delete a user (company administrator only)' })
@@ -148,6 +152,7 @@ export class UsersController {
   }
 
   @Post(':userId/roles/:roleId')
+  @TenantScoped()
   @Roles('ADMINISTRATOR')
   @Permissions('users:assign-role')
   @ApiOperation({
@@ -167,6 +172,7 @@ export class UsersController {
   }
 
   @Delete(':userId/roles/:roleId')
+  @TenantScoped()
   @Roles('ADMINISTRATOR')
   @Permissions('users:revoke-role')
   @ApiOperation({
