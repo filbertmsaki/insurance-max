@@ -35,8 +35,7 @@ export interface PlatformTiramisConfiguration {
   updatedAt: string;
 }
 
-export interface GeneratedPlatformTiramisApiKeyResponse
-  extends PlatformTiramisConfiguration {
+export interface GeneratedPlatformTiramisApiKeyResponse extends PlatformTiramisConfiguration {
   generatedApiKey?: string;
 }
 
