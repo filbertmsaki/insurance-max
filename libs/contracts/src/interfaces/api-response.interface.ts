@@ -2,7 +2,6 @@ export const API_CONTRACT_VERSION = '1.0' as const;
 
 export const REQUEST_ID_HEADER = 'x-request-id' as const;
 export const CORRELATION_ID_HEADER = 'x-correlation-id' as const;
-export const SOURCE_SERVICE_HEADER = 'x-source-service' as const;
 export const IDEMPOTENCY_KEY_HEADER = 'x-idempotency-key' as const;
 
 export interface ApiResponseMeta {

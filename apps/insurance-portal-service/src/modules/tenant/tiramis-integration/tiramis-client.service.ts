@@ -123,10 +123,6 @@ export class TiramisClientService {
     const correlationId =
       this.requestContextService.getCorrelationId() || requestId;
 
-    const sourceService = this.configService.getOrThrow<string>(
-      'tiramisClient.sourceService',
-    );
-
     const apiKey = await this.resolveApiKey(companyId);
 
     const response = await firstValueFrom(
@@ -145,8 +141,6 @@ export class TiramisClientService {
           Accept: 'application/json',
 
           'X-API-Key': apiKey,
-
-          [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
 
           ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
 

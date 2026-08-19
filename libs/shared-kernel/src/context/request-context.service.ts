@@ -24,10 +24,6 @@ export class RequestContextService {
     return this.getContext()?.correlationId;
   }
 
-  getSourceService(): string | undefined {
-    return this.getContext()?.sourceService;
-  }
-
   setServicePrincipal(principal: ServicePrincipal): void {
     const context = this.storage.getStore();
 

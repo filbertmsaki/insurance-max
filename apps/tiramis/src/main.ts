@@ -94,31 +94,6 @@ async function bootstrap() {
       }
 
       operation.security ??= [{ 'api-key': [] }];
-      operation.parameters ??= [];
-
-      const parameters = operation.parameters as Array<{
-        name?: string;
-        in?: string;
-        required?: boolean;
-        schema?: Record<string, unknown>;
-        description?: string;
-      }>;
-
-      if (
-        !parameters.some(
-          (parameter) =>
-            parameter.in === 'header' &&
-            parameter.name?.toLowerCase() === 'x-source-service',
-        )
-      ) {
-        parameters.push({
-          name: 'x-source-service',
-          in: 'header',
-          required: false,
-          schema: { type: 'string', default: 'insurance-portal-service' },
-          description: 'Calling service name for direct service API testing.',
-        });
-      }
     }
   }
 

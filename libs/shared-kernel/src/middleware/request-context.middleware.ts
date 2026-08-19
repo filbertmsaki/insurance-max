@@ -26,13 +26,8 @@ export class RequestContextMiddleware implements NestMiddleware {
       requestId,
     );
 
-    const sourceService = this.readHeader(
-      request.headers[HTTP_HEADERS.SOURCE_SERVICE],
-    );
-
     request.requestId = requestId;
     request.correlationId = correlationId;
-    request.sourceService = sourceService;
 
     response.setHeader(HTTP_HEADERS.REQUEST_ID, requestId);
     response.setHeader(HTTP_HEADERS.CORRELATION_ID, correlationId);
@@ -41,7 +36,6 @@ export class RequestContextMiddleware implements NestMiddleware {
       {
         requestId,
         correlationId,
-        sourceService,
         startedAt: Date.now(),
       },
       next,

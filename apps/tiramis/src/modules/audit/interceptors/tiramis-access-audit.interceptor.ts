@@ -57,10 +57,7 @@ export class TiramisAccessAuditInterceptor implements NestInterceptor {
             correlationId:
               (request.headers['x-correlation-id'] as string | undefined) ??
               null,
-            callingService:
-              (request.headers['x-source-service'] as string | undefined) ??
-              principal?.serviceId ??
-              'unknown',
+            callingService: principal?.serviceId ?? 'unknown',
             actorUserId: principal?.actor?.userId ?? null,
             tenantCompanyId: principal?.tenant?.companyId ?? null,
             serviceScopes: requiredScopes.length

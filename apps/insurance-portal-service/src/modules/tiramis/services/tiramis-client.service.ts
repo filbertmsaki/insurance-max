@@ -655,7 +655,6 @@ export class TiramisClientService {
             Accept: 'application/json',
             'X-API-Key': connection.apiKey,
             'X-Service-Context': serviceContext,
-            [HTTP_HEADERS.SOURCE_SERVICE]: connection.sourceService,
             ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
             ...(correlationId
               ? { [HTTP_HEADERS.CORRELATION_ID]: correlationId }
@@ -744,7 +743,6 @@ export class TiramisClientService {
       'Content-Type': 'application/json',
       'X-API-Key': connection.apiKey,
       'X-Service-Context': serviceContext,
-      [HTTP_HEADERS.SOURCE_SERVICE]: connection.sourceService,
       ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
       ...(correlationId
         ? { [HTTP_HEADERS.CORRELATION_ID]: correlationId }
@@ -878,7 +876,6 @@ export class TiramisClientService {
       'Content-Type': 'application/json',
       'X-API-Key': connection.apiKey,
       'X-Service-Context': serviceContext,
-      [HTTP_HEADERS.SOURCE_SERVICE]: connection.sourceService,
       ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
       ...(correlationId
         ? { [HTTP_HEADERS.CORRELATION_ID]: correlationId }
@@ -1275,7 +1272,6 @@ export class TiramisClientService {
           Accept: 'application/json',
           'X-API-Key': connection.apiKey,
           'X-Service-Context': serviceContext,
-          [HTTP_HEADERS.SOURCE_SERVICE]: connection.sourceService,
           'X-Actor-User-Id': authContext.id ?? '',
           'X-Actor-Membership-Id': authContext.companyMembershipId ?? '',
           ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
@@ -1488,8 +1484,6 @@ export class TiramisClientService {
 
             'X-API-Key': connection.apiKey,
             'X-Service-Context': serviceContext,
-
-            [HTTP_HEADERS.SOURCE_SERVICE]: connection.sourceService,
 
             'X-Actor-User-Id': authContext?.id ?? '',
 

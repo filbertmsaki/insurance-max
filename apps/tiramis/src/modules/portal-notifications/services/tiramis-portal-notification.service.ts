@@ -57,10 +57,6 @@ export class TiramisPortalNotificationService {
     const correlationId =
       this.requestContextService.getCorrelationId() || requestId;
 
-    const sourceService = this.configService.getOrThrow<string>(
-      'tiramisService.sourceService',
-    );
-
     const apiKey = await this.resolvePortalApiKey();
     if (!apiKey) {
       this.logger.warn(
@@ -82,7 +78,6 @@ export class TiramisPortalNotificationService {
 
             [HTTP_HEADERS.REQUEST_ID]: requestId,
             [HTTP_HEADERS.CORRELATION_ID]: correlationId,
-            [HTTP_HEADERS.SOURCE_SERVICE]: sourceService,
           },
         }),
       );

@@ -34,7 +34,6 @@ export default registerAs('tiramisService', () => {
       process.env.INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS || 5000,
     ),
 
-    sourceService: process.env.TIRAMIS_SOURCE_SERVICE || 'tiramis-service',
     portalEventUrl:
       process.env.INSURANCE_PORTAL_EVENT_URL?.trim() ||
       'http://127.0.0.1:9090/api/v1/internal/tiramis/events',

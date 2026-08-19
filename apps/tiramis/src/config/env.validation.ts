@@ -89,7 +89,6 @@ export const tiramisEnvValidationSchema = Joi.object({
     .default('http://localhost:9090/api/v1/webhooks/tiramis/notifications'),
   INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS: Joi.number().default(5000),
 
-  TIRAMIS_SOURCE_SERVICE: Joi.string().trim().min(1).default('tiramis-service'),
   TIRAMIS_HTTP_TIMEOUT_MS: Joi.number()
     .integer()
     .min(1000)

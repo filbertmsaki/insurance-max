@@ -99,7 +99,6 @@ export class ApiLoggingInterceptor implements NestInterceptor {
       path: route,
       statusCode: params.statusCode,
       durationMs: params.durationMs,
-      sourceService: params.request.sourceService || null,
     });
 
     if (params.statusCode >= 500) {
