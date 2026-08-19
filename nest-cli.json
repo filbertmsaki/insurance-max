@@ -33,6 +33,10 @@
           {
             "include": "database/seeds/data/*.json",
             "outDir": "dist/apps/insurance-portal-service/apps/insurance-portal-service/src"
+          },
+          {
+            "include": "database/seeds/tiramis-reference/*.xlsx",
+            "outDir": "dist/apps/insurance-portal-service/apps/insurance-portal-service/src"
           }
         ],
         "watchAssets": true,

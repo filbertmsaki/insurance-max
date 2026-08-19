@@ -90,6 +90,7 @@ export default class TiramisLookupsSeeder implements Seeder {
   private resolveReferenceDataDir(): string | null {
     const candidates = [
       process.env.TIRAMIS_REFERENCE_DATA_DIR,
+      path.resolve(__dirname, 'tiramis-reference'),
       path.resolve(process.cwd(), 'data', 'tiramis-reference'),
       path.resolve(process.cwd(), 'docs', 'tiramis-reference'),
     ].filter(Boolean) as string[];
