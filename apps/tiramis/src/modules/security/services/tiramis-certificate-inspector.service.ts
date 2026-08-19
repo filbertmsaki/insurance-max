@@ -68,23 +68,23 @@ export class TiramisCertificateInspectorService {
     };
   }
 
+  /**
+   * Certificate expiry alone is not asserted here — a calendar-lapsed
+   * certificate does not affect signature correctness, since
+   * TiramisSignatureService verifies via Node's crypto.verify(), which
+   * never checks notBefore/notAfter. Callers that care about expiry (e.g.
+   * configuration validation) should surface `isExpired` from the returned
+   * result as a warning, not treat it as a hard failure.
+   */
   assertCertificateHealthy(params: {
     certificatePath?: string | null;
     password?: string | null;
     label: string;
   }) {
-    const result = this.inspectCertificate({
+    return this.inspectCertificate({
       certificatePath: params.certificatePath,
       password: params.password,
     });
-
-    if (result.isExpired) {
-      throw new BadRequestException(
-        `${params.label} certificate has expired on ${result.validTo}`,
-      );
-    }
-
-    return result;
   }
 
   private loadCertificate(params: {

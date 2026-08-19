@@ -18,6 +18,10 @@ class ValidateOrganizationConfigurationDto {
   @IsOptional()
   @IsString()
   insurerCompanyCode?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  allowExpiredCertificates?: boolean;
 }
 
 class SetPortalWebhookApiKeyDto {
@@ -83,8 +87,10 @@ export class TiramisConfigurationValidationController {
       systemCode: dto.systemCode,
     });
 
-    const security =
-      await this.configService.validateConfigurationSecurity(configuration);
+    const security = await this.configService.validateConfigurationSecurity(
+      configuration,
+      { allowExpiredCertificates: dto.allowExpiredCertificates },
+    );
 
     return {
       valid: security.ok,

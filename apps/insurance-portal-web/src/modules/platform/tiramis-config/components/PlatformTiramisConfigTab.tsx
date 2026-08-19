@@ -112,6 +112,8 @@ function EnvironmentPanel({
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(!config);
   const [generatedApiKey, setGeneratedApiKey] = useState<string | null>(null);
+  const [allowExpiredCertificates, setAllowExpiredCertificates] =
+    useState(false);
   const queryKey = ['platform-tiramis-configurations', companyId];
 
   const form = useForm<FormValues>({
@@ -187,7 +189,9 @@ function EnvironmentPanel({
 
   const validateMutation = useMutation({
     mutationFn: () =>
-      platformTiramisConfigApi.validateConfiguration(companyId, environment),
+      platformTiramisConfigApi.validateConfiguration(companyId, environment, {
+        allow_expired_certificates: allowExpiredCertificates,
+      }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey });
       if (result.valid) {
@@ -593,6 +597,17 @@ function EnvironmentPanel({
                 </div>
               </div>
             )}
+            <label className="flex w-fit items-center gap-2 text-xs text-slate-600">
+              <input
+                type="checkbox"
+                className="h-3.5 w-3.5 rounded border-slate-300"
+                checked={allowExpiredCertificates}
+                onChange={(event) =>
+                  setAllowExpiredCertificates(event.target.checked)
+                }
+              />
+              Allow validation to pass with an expired certificate
+            </label>
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"

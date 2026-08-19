@@ -583,9 +583,11 @@ export class TiramisConfigService {
 
   async validateConfigurationSecurity(
     configuration: TiramisClientConfigurationEntity,
+    options?: { allowExpiredCertificates?: boolean },
   ) {
     const errors: string[] = [];
     const warnings: string[] = [];
+    const allowExpiredCertificates = options?.allowExpiredCertificates ?? false;
 
     const clientKey = this.getClientKey(configuration);
 
@@ -634,7 +636,14 @@ export class TiramisConfigService {
           password: this.getClientPrivateCertificatePassword(configuration),
         });
 
-        if (clientCertificate.isExpiringSoon) {
+        if (clientCertificate.isExpired) {
+          const message = `Client private certificate has expired on ${clientCertificate.validTo}`;
+          if (allowExpiredCertificates) {
+            warnings.push(message);
+          } else {
+            errors.push(message);
+          }
+        } else if (clientCertificate.isExpiringSoon) {
           warnings.push(
             `Client private certificate is expiring soon: ${clientCertificate.validTo}`,
           );
@@ -652,7 +661,14 @@ export class TiramisConfigService {
           password: this.getTiraPublicCertificatePassword(configuration),
         });
 
-        if (tiraCertificate.isExpiringSoon) {
+        if (tiraCertificate.isExpired) {
+          const message = `TIRA public certificate has expired on ${tiraCertificate.validTo}`;
+          if (allowExpiredCertificates) {
+            warnings.push(message);
+          } else {
+            errors.push(message);
+          }
+        } else if (tiraCertificate.isExpiringSoon) {
           warnings.push(
             `TIRA public certificate is expiring soon: ${tiraCertificate.validTo}`,
           );

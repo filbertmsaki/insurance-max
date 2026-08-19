@@ -29,6 +29,12 @@ class ActivateCompanyTiramisEnvironmentDto {
   force_activation?: boolean;
 }
 
+class ValidateCompanyTiramisEnvironmentDto {
+  @IsOptional()
+  @IsBoolean()
+  allow_expired_certificates?: boolean;
+}
+
 /**
  * Platform-operator-managed TIRAMIS connection setup for a specific company.
  * Company admins get zero-touch, read-only visibility only (see
@@ -79,10 +85,12 @@ export class PlatformTiramisConfigurationController {
     @Param('companyId', ParseUUIDPipe) companyId: string,
     @Param('environment', new ParseEnumPipe({ test: 'test', live: 'live' }))
     environment: 'test' | 'live',
+    @Body() dto: ValidateCompanyTiramisEnvironmentDto,
   ) {
     return this.companyTiramisConfigurationService.validate(
       companyId,
       environment,
+      { allowExpiredCertificates: dto.allow_expired_certificates },
     );
   }
 

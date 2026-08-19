@@ -83,13 +83,20 @@ export const platformTiramisConfigApi = {
       )
       .then((r) => r.data),
 
-  validateConfiguration: (companyId: string, environment: 'test' | 'live') =>
+  validateConfiguration: (
+    companyId: string,
+    environment: 'test' | 'live',
+    data: {
+      allow_expired_certificates?: boolean;
+    } = {},
+  ) =>
     apiClient
       .post<{
         valid: boolean;
         message?: string;
       }>(
         `/platform/companies/${companyId}/tiramis-configurations/${environment}/validate`,
+        data,
       )
       .then((r) => r.data),
 

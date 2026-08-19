@@ -603,6 +603,7 @@ export class TiramisClientService {
     companyCode: string;
     systemCode: string | null;
     insurerCompanyCode?: string | null;
+    allowExpiredCertificates?: boolean;
   }): Promise<{
     valid: boolean;
     message?: string;
@@ -649,6 +650,7 @@ export class TiramisClientService {
             companyCode: params.companyCode,
             systemCode: params.systemCode,
             insurerCompanyCode: params.insurerCompanyCode ?? null,
+            allowExpiredCertificates: params.allowExpiredCertificates ?? false,
           },
           validateStatus: () => true,
           headers: {

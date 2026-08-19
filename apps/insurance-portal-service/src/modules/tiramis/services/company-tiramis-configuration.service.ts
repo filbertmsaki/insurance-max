@@ -296,7 +296,11 @@ export class CompanyTiramisConfigurationService {
     });
   }
 
-  async validate(companyId: string, environment: 'test' | 'live') {
+  async validate(
+    companyId: string,
+    environment: 'test' | 'live',
+    options?: { allowExpiredCertificates?: boolean },
+  ) {
     const configuration = await this.repository.findOne({
       where: { companyId, environment, isActive: true },
     });
@@ -315,6 +319,7 @@ export class CompanyTiramisConfigurationService {
           companyCode: configuration.companyCode,
           systemCode: configuration.systemCode,
           insurerCompanyCode: configuration.insurerCompanyCode,
+          allowExpiredCertificates: options?.allowExpiredCertificates,
         });
 
       configuration.validationStatus = result.valid ? 'VALID' : 'INVALID';
