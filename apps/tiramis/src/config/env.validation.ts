@@ -106,11 +106,4 @@ export const tiramisEnvValidationSchema = Joi.object({
     .min(1)
     .default(30),
   TIRAMIS_LEGACY_PORTAL_WEBHOOK_TOKEN_ENABLED: Joi.boolean().default(false),
-
-  // 'audit' logs scope violations without blocking (safe default while
-  // existing API keys are backfilled with scopes); 'enforce' actually
-  // denies requests whose API key lacks a required @ServiceScopes() scope.
-  TIRAMIS_SCOPE_ENFORCEMENT_MODE: Joi.string()
-    .valid('audit', 'enforce')
-    .default('audit'),
 });
