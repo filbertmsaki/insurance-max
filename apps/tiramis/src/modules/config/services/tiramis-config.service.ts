@@ -353,6 +353,13 @@ export class TiramisConfigService {
       required: true,
     });
 
+    const salePointCode = this.resolveBusinessCode({
+      incomingValue: organizationContext.salePointCode,
+      fallbackValue: configuration.salePointCode,
+      fieldName: 'salePointCode',
+      required: false,
+    });
+
     return {
       configuration,
       dto: {
@@ -379,9 +386,7 @@ export class TiramisConfigService {
          */
         insurerCompanyCode,
         tranCompanyCode,
-        ...('salePointCode' in incomingDto && organizationContext.salePointCode
-          ? { salePointCode: organizationContext.salePointCode }
-          : {}),
+        ...(salePointCode ? { salePointCode } : {}),
       },
     };
   }
