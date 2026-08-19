@@ -1,5 +1,5 @@
 import { Body, Controller, Param, Post, Put } from '@nestjs/common';
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString } from 'class-validator';
 
 import { ServiceScopes } from '@insurance-max/shared-kernel';
 
@@ -23,6 +23,51 @@ class ValidateOrganizationConfigurationDto {
 class SetPortalWebhookApiKeyDto {
   @IsString()
   apiKey!: string;
+}
+
+class UpsertClientConfigurationDto {
+  @IsIn(['test', 'live'])
+  environment!: 'test' | 'live';
+
+  @IsString()
+  companyCode!: string;
+
+  @IsString()
+  systemCode!: string;
+
+  @IsString()
+  insurerCompanyCode!: string;
+
+  @IsString()
+  clientCode!: string;
+
+  @IsOptional()
+  @IsString()
+  clientKey?: string;
+
+  @IsOptional()
+  @IsString()
+  salePointCode?: string;
+
+  @IsOptional()
+  @IsString()
+  tranCompanyCode?: string;
+
+  @IsOptional()
+  @IsString()
+  baseUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  callbackBaseUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  signatureAlgorithm?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }
 
 @Controller('tiramis/configurations')
@@ -62,5 +107,26 @@ export class TiramisConfigurationValidationController {
       configurationId,
       dto.apiKey,
     );
+  }
+
+  @Put()
+  @ServiceScopes('tiramis:admin')
+  async upsertClientConfiguration(@Body() dto: UpsertClientConfigurationDto) {
+    const configuration =
+      await this.configService.upsertClientConfiguration(dto);
+
+    return {
+      id: configuration.id,
+      environment: configuration.environment,
+      companyCode: configuration.companyCode,
+      systemCode: configuration.systemCode,
+      insurerCompanyCode: configuration.insurerCompanyCode,
+      clientCode: configuration.clientCode,
+      salePointCode: configuration.salePointCode,
+      tranCompanyCode: configuration.tranCompanyCode,
+      baseUrl: configuration.baseUrl,
+      callbackBaseUrl: configuration.callbackBaseUrl,
+      isActive: configuration.isActive,
+    };
   }
 }

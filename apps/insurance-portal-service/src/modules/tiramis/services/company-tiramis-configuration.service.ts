@@ -182,6 +182,41 @@ export class CompanyTiramisConfigurationService {
       return saved;
     });
 
+    // Ensure TIRAMIS's own ClientConfiguration (the TIRA-issued
+    // clientCode/clientKey/baseUrl/callbackBaseUrl) exists/updates to match
+    // — this is what lets a platform admin link a company entirely through
+    // this one form, with no seeder or manual DB work on the TIRAMIS side.
+    // Runs after commit (not inside the transaction above) since it's an
+    // outbound network call, not something that should hold a DB lock.
+    try {
+      // saved.baseUrl/saved.callbackUrl are a DIFFERENT concept (which
+      // TIRAMIS instance the *portal* calls) from TIRAMIS's own
+      // ClientConfiguration baseUrl/callbackBaseUrl (which TIRA gateway
+      // *TIRAMIS* calls, and where it tells TIRA to send callbacks) — they
+      // must never be conflated. There is currently no per-company override
+      // field for the TIRA gateway URL, so this always lets TIRAMIS apply
+      // its own environment default (TIRAMIS_TEST/LIVE_BASE_URL,
+      // TIRAMIS_TEST/LIVE_CALLBACK_URL).
+      await this.tiramisClientService.upsertClientConfiguration({
+        companyId,
+        environment: saved.environment as 'test' | 'live',
+        companyCode: saved.companyCode,
+        systemCode: saved.systemCode!,
+        insurerCompanyCode: saved.insurerCompanyCode ?? saved.companyCode,
+        clientCode: saved.clientCode ?? saved.companyCode,
+        clientKey: dto.client_key,
+      });
+    } catch (error) {
+      saved.validationStatus = 'INVALID';
+      saved.validatedAt = new Date();
+      saved.validationMessage =
+        error instanceof Error
+          ? `Failed to link this company to TIRAMIS: ${error.message}`
+          : 'Failed to link this company to TIRAMIS.';
+      await this.repository.save(saved);
+      throw error;
+    }
+
     if (!dto.use_as_target_environment) {
       const company = await this.dataSource
         .getRepository(Company)
@@ -472,14 +507,16 @@ export class CompanyTiramisConfigurationService {
     return validation;
   }
 
+  /**
+   * This is a portal-local display field only — it is NOT the same concept
+   * as TIRAMIS's own ClientConfiguration.callbackBaseUrl (where TIRAMIS
+   * tells TIRA to send callbacks) or INSURANCE_PORTAL_WEBHOOK_URL (where
+   * TIRAMIS pushes async notifications to the portal). Neither of those
+   * env vars belongs in this fallback — if nothing was explicitly entered
+   * here, there simply isn't a portal-local override configured.
+   */
   private resolveCallbackUrl(configuration: TiramisCompanyConfigurationEntity) {
-    return (
-      configuration.callbackUrl?.trim() ||
-      this.configService.get<string>('TIRAMIS_CALLBACK_URL')?.trim() ||
-      this.configService.get<string>('TIRA_CALLBACK_URL')?.trim() ||
-      this.configService.get<string>('INSURANCE_PORTAL_WEBHOOK_URL')?.trim() ||
-      null
-    );
+    return configuration.callbackUrl?.trim() || null;
   }
 
   private resolveBaseUrl(configuration: TiramisCompanyConfigurationEntity) {

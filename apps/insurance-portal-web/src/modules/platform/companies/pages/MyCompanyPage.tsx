@@ -706,9 +706,7 @@ export function MyCompanyPage() {
         </TabsContent>
 
         <TabsContent value="tiramis" className="mt-4">
-          <TiramisConfigTab
-            canEdit={hasPermission('company-tiramis-config:update')}
-          />
+          <TiramisConfigTab />
         </TabsContent>
       </Tabs>
 

@@ -16,6 +16,7 @@ import {
   Users,
   X,
   Check,
+  Link2,
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -53,6 +54,7 @@ import {
   FormDescription,
 } from '@/components/ui/form';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
+import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import {
   useCompany,
   useUpdateCompany,
@@ -64,6 +66,7 @@ import {
   companiesApi,
   type UpdateCompanyDto,
 } from '@/modules/platform/companies/api/companies';
+import { PlatformTiramisConfigTab } from '@/modules/platform/tiramis-config/components/PlatformTiramisConfigTab';
 
 // ─── Schema ──────────────────────────────────────────────────────────────────
 
@@ -608,6 +611,8 @@ function EditCompanyDialog({
 export function CompanyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { hasPermission } = useAuthStore();
+  const canViewTiramis = hasPermission('company-tiramis-config:read');
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -740,6 +745,12 @@ export function CompanyDetailPage() {
             <Settings className="mr-1.5 h-3.5 w-3.5" />
             Settings
           </TabsTrigger>
+          {canViewTiramis && (
+            <TabsTrigger value="tiramis">
+              <Link2 className="mr-1.5 h-3.5 w-3.5" />
+              TIRAMIS
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="profile" className="space-y-4 mt-4">
@@ -938,6 +949,12 @@ export function CompanyDetailPage() {
         <TabsContent value="users" className="mt-4">
           <CompanyUsersTab companyId={company.id} />
         </TabsContent>
+
+        {canViewTiramis && (
+          <TabsContent value="tiramis" className="mt-4">
+            <PlatformTiramisConfigTab companyId={company.id} />
+          </TabsContent>
+        )}
       </Tabs>
 
       {editOpen && (

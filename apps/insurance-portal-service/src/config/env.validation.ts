@@ -353,6 +353,12 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   TIRAMIS_SERVICE_BASE_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .default('http://127.0.0.1:9091'),
+  // Dedicated encryption key for TIRAMIS service API keys stored in
+  // tiramis_company_configurations. Optional: when unset, falls back to
+  // deriving from JWT_ACCESS_SECRET for backward compatibility with
+  // already-encrypted values, but a dedicated secret should be set so this
+  // purpose doesn't share a key with token signing.
+  TIRAMIS_SERVICE_API_KEY_ENCRYPTION_KEY: Joi.string().optional(),
   TIRAMIS_TARGET_ENV: Joi.string().valid('test', 'live').default('test'),
   TIRAMIS_SOURCE_SERVICE: Joi.string()
     .trim()

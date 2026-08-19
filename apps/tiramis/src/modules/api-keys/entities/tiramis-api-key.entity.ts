@@ -3,13 +3,20 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
+import { TiramisClientConfigurationEntity } from '../../config/entities/tiramis-client-configuration.entity';
+
 @Entity({ name: 'tiramis_api_keys' })
 @Index('IDX_tiramis_api_keys_service_name', ['serviceName'])
 @Index('IDX_tiramis_api_keys_api_key', ['apiKey'], { unique: true })
+@Index('IDX_tiramis_api_keys_client_configuration_id', [
+  'clientConfigurationId',
+])
 export class TiramisApiKeyEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -49,6 +56,24 @@ export class TiramisApiKeyEntity {
     nullable: true,
   })
   tenantEnvironment!: string | null;
+
+  /**
+   * Root trusted link from this API key to its owning TIRAMIS client
+   * configuration. Nullable during the migration window while existing
+   * keys are backfilled from tenantCompanyCode/tenantSystemCode/
+   * tenantEnvironment; new code should resolve configuration through this
+   * relation rather than by re-matching the free-text tenant columns above.
+   */
+  @Column({
+    name: 'client_configuration_id',
+    type: 'uuid',
+    nullable: true,
+  })
+  clientConfigurationId!: string | null;
+
+  @ManyToOne(() => TiramisClientConfigurationEntity, { nullable: true })
+  @JoinColumn({ name: 'client_configuration_id' })
+  clientConfiguration?: TiramisClientConfigurationEntity | null;
 
   @Column({ type: 'simple-array', nullable: true })
   scopes!: string[] | null;

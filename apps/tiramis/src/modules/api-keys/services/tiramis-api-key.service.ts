@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -12,6 +13,7 @@ import { TiramisApiKeyAuditEntity } from '../entities/tiramis-api-key-audit.enti
 import { TiramisApiKeyEntity } from '../entities/tiramis-api-key.entity';
 import { CreateTiramisApiKeyDto } from '../dto/create-tiramis-api-key.dto';
 import { UpdateTiramisApiKeyDto } from '../dto/update-tiramis-api-key.dto';
+import { TiramisClientConfigurationEntity } from '../../config/entities/tiramis-client-configuration.entity';
 
 export interface TiramisApiKeyAuthContext {
   ipAddress?: string | null;
@@ -27,6 +29,7 @@ export interface TiramisApiKeyPrincipal {
   tenantCompanyCode?: string | null;
   tenantSystemCode?: string | null;
   tenantEnvironment?: string | null;
+  clientConfigurationId?: string | null;
 }
 
 @Injectable()
@@ -36,11 +39,19 @@ export class TiramisApiKeyService {
     private readonly apiKeyRepository: Repository<TiramisApiKeyEntity>,
     @InjectRepository(TiramisApiKeyAuditEntity)
     private readonly auditRepository: Repository<TiramisApiKeyAuditEntity>,
+    @InjectRepository(TiramisClientConfigurationEntity)
+    private readonly clientConfigurationRepository: Repository<TiramisClientConfigurationEntity>,
   ) {}
 
   async create(
     dto: CreateTiramisApiKeyDto,
   ): Promise<TiramisApiKeyEntity & { apiKey: string }> {
+    const clientConfigurationId = await this.resolveClientConfigurationId({
+      tenantCompanyCode: dto.tenantCompanyCode ?? null,
+      tenantSystemCode: dto.tenantSystemCode ?? null,
+      tenantEnvironment: dto.tenantEnvironment ?? null,
+    });
+
     const apiKey = this.generateRawKey();
     const entity = this.apiKeyRepository.create({
       name: dto.name,
@@ -48,6 +59,7 @@ export class TiramisApiKeyService {
       tenantCompanyCode: dto.tenantCompanyCode ?? null,
       tenantSystemCode: dto.tenantSystemCode ?? null,
       tenantEnvironment: dto.tenantEnvironment ?? null,
+      clientConfigurationId,
       apiKey,
       keyPrefix: apiKey.slice(0, 18),
       scopes: dto.scopes ?? [],
@@ -84,21 +96,40 @@ export class TiramisApiKeyService {
 
   async update(id: string, dto: UpdateTiramisApiKeyDto) {
     const existing = await this.getExisting(id);
+
+    const tenantCompanyCode =
+      dto.tenantCompanyCode === undefined
+        ? existing.tenantCompanyCode
+        : dto.tenantCompanyCode;
+    const tenantSystemCode =
+      dto.tenantSystemCode === undefined
+        ? existing.tenantSystemCode
+        : dto.tenantSystemCode;
+    const tenantEnvironment =
+      dto.tenantEnvironment === undefined
+        ? existing.tenantEnvironment
+        : dto.tenantEnvironment;
+
+    const tenantChanged =
+      tenantCompanyCode !== existing.tenantCompanyCode ||
+      tenantSystemCode !== existing.tenantSystemCode ||
+      tenantEnvironment !== existing.tenantEnvironment;
+
+    const clientConfigurationId = tenantChanged
+      ? await this.resolveClientConfigurationId({
+          tenantCompanyCode,
+          tenantSystemCode,
+          tenantEnvironment,
+        })
+      : existing.clientConfigurationId;
+
     await this.apiKeyRepository.update(id, {
       name: dto.name ?? existing.name,
       serviceName: dto.serviceName ?? existing.serviceName,
-      tenantCompanyCode:
-        dto.tenantCompanyCode === undefined
-          ? existing.tenantCompanyCode
-          : dto.tenantCompanyCode,
-      tenantSystemCode:
-        dto.tenantSystemCode === undefined
-          ? existing.tenantSystemCode
-          : dto.tenantSystemCode,
-      tenantEnvironment:
-        dto.tenantEnvironment === undefined
-          ? existing.tenantEnvironment
-          : dto.tenantEnvironment,
+      tenantCompanyCode,
+      tenantSystemCode,
+      tenantEnvironment,
+      clientConfigurationId,
       scopes: dto.scopes ?? existing.scopes,
       description:
         dto.description === undefined ? existing.description : dto.description,
@@ -178,6 +209,7 @@ export class TiramisApiKeyService {
         tenantCompanyCode: true,
         tenantSystemCode: true,
         tenantEnvironment: true,
+        clientConfigurationId: true,
         scopes: true,
         description: true,
         isActive: true,
@@ -233,6 +265,7 @@ export class TiramisApiKeyService {
       tenantCompanyCode: row.tenantCompanyCode,
       tenantSystemCode: row.tenantSystemCode,
       tenantEnvironment: row.tenantEnvironment,
+      clientConfigurationId: row.clientConfigurationId,
     };
   }
 
@@ -256,6 +289,7 @@ export class TiramisApiKeyService {
         tenantCompanyCode: true,
         tenantSystemCode: true,
         tenantEnvironment: true,
+        clientConfigurationId: true,
         scopes: true,
         description: true,
         isActive: true,
@@ -291,6 +325,54 @@ export class TiramisApiKeyService {
         metadata,
       }),
     );
+  }
+
+  /**
+   * Resolves the ClientConfiguration an API key's tenant fields should be
+   * bound to, at key-creation/update time rather than leaving it to be
+   * discovered (or silently unmatched) at first request time. Fails fast
+   * if a tenant triple is provided but doesn't correspond to any active
+   * configuration — a key that will never resolve a configuration should
+   * never be minted in the first place.
+   */
+  private async resolveClientConfigurationId(tenant: {
+    tenantCompanyCode: string | null;
+    tenantSystemCode: string | null;
+    tenantEnvironment: string | null;
+  }): Promise<string | null> {
+    const { tenantCompanyCode, tenantSystemCode, tenantEnvironment } = tenant;
+
+    if (!tenantCompanyCode && !tenantSystemCode && !tenantEnvironment) {
+      return null;
+    }
+
+    if (!tenantCompanyCode || !tenantSystemCode || !tenantEnvironment) {
+      throw new BadRequestException({
+        code: 'TIRAMIS_ORGANIZATION_CONTEXT_REQUIRED',
+        message:
+          'tenantCompanyCode, tenantSystemCode, and tenantEnvironment must all be provided together.',
+      });
+    }
+
+    const configuration = await this.clientConfigurationRepository.findOne({
+      where: {
+        companyCode: tenantCompanyCode,
+        systemCode: tenantSystemCode,
+        environment: tenantEnvironment,
+        isActive: 1,
+      },
+    });
+
+    if (!configuration) {
+      throw new NotFoundException({
+        code: 'TIRAMIS_CLIENT_CONFIGURATION_NOT_FOUND',
+        message:
+          'No active TIRAMIS client configuration matches the supplied company, system, and environment.',
+        details: { tenantCompanyCode, tenantSystemCode, tenantEnvironment },
+      });
+    }
+
+    return configuration.id;
   }
 
   private generateRawKey(): string {

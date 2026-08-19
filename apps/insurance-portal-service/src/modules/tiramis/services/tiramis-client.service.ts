@@ -836,6 +836,101 @@ export class TiramisClientService {
     return result.apiKey;
   }
 
+  /**
+   * Creates or updates the ClientConfiguration TIRAMIS resolves API keys
+   * against for this company/environment — the TIRA-issued clientCode/
+   * clientKey/baseUrl/callbackBaseUrl. Uses the bootstrap key like
+   * rotateOrganizationApiKey, since this must work even before any
+   * company-specific key exists yet.
+   */
+  async upsertClientConfiguration(params: {
+    companyId: string;
+    environment: 'test' | 'live';
+    companyCode: string;
+    systemCode: string;
+    insurerCompanyCode: string;
+    clientCode: string;
+    clientKey?: string;
+    salePointCode?: string | null;
+    tranCompanyCode?: string | null;
+    /** Omit to use TIRAMIS's own platform default for this environment. */
+    baseUrl?: string;
+    /** Omit to use TIRAMIS's own platform default for this environment. */
+    callbackBaseUrl?: string;
+  }): Promise<{ baseUrl: string; callbackBaseUrl: string }> {
+    const requestId = this.requestContextService.getRequestId();
+    const correlationId =
+      this.requestContextService.getCorrelationId() || requestId;
+    const connection = await this.resolveConnectionConfig(
+      params.companyId,
+      params.environment,
+      { allowBootstrapFallback: true },
+    );
+    const serviceContext = this.encodeServiceContext({
+      tenant: {
+        companyId: params.companyId,
+        environment: params.environment,
+      },
+    });
+    const headers = {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'X-API-Key': connection.apiKey,
+      'X-Service-Context': serviceContext,
+      [HTTP_HEADERS.SOURCE_SERVICE]: connection.sourceService,
+      ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
+      ...(correlationId
+        ? { [HTTP_HEADERS.CORRELATION_ID]: correlationId }
+        : {}),
+    };
+
+    const response = await firstValueFrom(
+      this.httpService.request({
+        method: 'PUT',
+        baseURL: connection.baseUrl ?? undefined,
+        url: '/api/tiramis/configurations',
+        data: {
+          environment: params.environment,
+          companyCode: params.companyCode,
+          systemCode: params.systemCode,
+          insurerCompanyCode: params.insurerCompanyCode,
+          clientCode: params.clientCode,
+          clientKey: params.clientKey,
+          salePointCode: params.salePointCode ?? undefined,
+          tranCompanyCode: params.tranCompanyCode ?? undefined,
+          baseUrl: params.baseUrl,
+          callbackBaseUrl: params.callbackBaseUrl,
+          isActive: true,
+        },
+        validateStatus: () => true,
+        headers,
+      }),
+    );
+
+    if (response.status < 200 || response.status >= 300) {
+      throw new ConflictException(
+        this.extractTiramisErrorMessage(response.data) ||
+          'Unable to link this company to TIRAMIS.',
+      );
+    }
+
+    const result = unwrapApiResponse(response.data) as {
+      baseUrl?: string;
+      callbackBaseUrl?: string;
+    };
+
+    if (!result?.baseUrl || !result?.callbackBaseUrl) {
+      throw new ConflictException(
+        'TIRAMIS did not return the effective base/callback URL.',
+      );
+    }
+
+    return {
+      baseUrl: result.baseUrl,
+      callbackBaseUrl: result.callbackBaseUrl,
+    };
+  }
+
   async checkTiramisServiceHealth(authContext?: any) {
     return this.send(
       TIRAMIS_MESSAGE_PATTERNS.HEALTH,

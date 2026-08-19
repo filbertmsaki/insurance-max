@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   createCipheriv,
@@ -10,6 +14,8 @@ import {
 @Injectable()
 export class TiramisServiceApiKeyVaultService {
   private readonly prefix = 'enc:v1:aes-256-gcm';
+  private readonly logger = new Logger(TiramisServiceApiKeyVaultService.name);
+  private warnedAboutFallbackKey = false;
 
   constructor(private readonly configService: ConfigService) {}
 
@@ -66,6 +72,24 @@ export class TiramisServiceApiKeyVaultService {
   }
 
   private key(): Buffer {
+    const dedicatedKey = this.configService.get<string>(
+      'TIRAMIS_SERVICE_API_KEY_ENCRYPTION_KEY',
+    );
+
+    if (dedicatedKey) {
+      return createHash('sha256').update(dedicatedKey, 'utf8').digest();
+    }
+
+    if (!this.warnedAboutFallbackKey) {
+      this.warnedAboutFallbackKey = true;
+      this.logger.warn(
+        'TIRAMIS_SERVICE_API_KEY_ENCRYPTION_KEY is not set — falling back to ' +
+          'deriving the TIRAMIS service API key encryption key from ' +
+          'JWT_ACCESS_SECRET. Set a dedicated key so this purpose does not ' +
+          'share a secret with access-token signing.',
+      );
+    }
+
     return createHash('sha256')
       .update(
         this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),

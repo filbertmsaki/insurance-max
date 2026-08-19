@@ -35,6 +35,16 @@ export class UpsertCompanyTiramisConfigurationDto {
   @MaxLength(60)
   client_code?: string;
 
+  /**
+   * The TIRA-issued client secret for this company/environment. Optional on
+   * update (blank keeps the existing value on both sides); required the
+   * first time a company/environment is linked to TIRAMIS.
+   */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  client_key?: string;
+
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)

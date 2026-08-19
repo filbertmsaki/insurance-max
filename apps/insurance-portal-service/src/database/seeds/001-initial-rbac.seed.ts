@@ -3261,6 +3261,7 @@ const roleSeeds: RoleSeed[] = [
       'audit:read',
       'audit:read-all',
       'audit:export',
+      ...COMPANY_TIRAMIS_CONFIGURATION_PERMISSION_NAMES,
       ...PHASE18_GOVERNANCE_PERMISSION_NAMES,
     ],
   },

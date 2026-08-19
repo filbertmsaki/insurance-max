@@ -14,6 +14,7 @@ import {
 } from '@insurance-max/shared-kernel';
 
 import { TiramisApiKeyService } from '../services/tiramis-api-key.service';
+import { AuthenticatedTiramisContext } from '../../../common/interfaces/authenticated-tiramis-context.interface';
 
 @Injectable()
 export class TiramisApiKeyGuard implements CanActivate {
@@ -53,12 +54,43 @@ export class TiramisApiKeyGuard implements CanActivate {
     );
 
     const servicePrincipal = this.buildServicePrincipal(request, principal);
+    const tiramisContext = this.buildAuthenticatedContext(
+      principal,
+      servicePrincipal,
+    );
+
     (
-      request as Request & { servicePrincipal: ServicePrincipal }
+      request as Request & {
+        servicePrincipal: ServicePrincipal;
+        tiramisContext: AuthenticatedTiramisContext;
+      }
     ).servicePrincipal = servicePrincipal;
+    (
+      request as Request & { tiramisContext: AuthenticatedTiramisContext }
+    ).tiramisContext = tiramisContext;
     this.requestContextService.setServicePrincipal(servicePrincipal);
 
     return true;
+  }
+
+  private buildAuthenticatedContext(
+    apiKey: {
+      id: string;
+      serviceName: string;
+      scopes: string[];
+    },
+    servicePrincipal: ServicePrincipal,
+  ): AuthenticatedTiramisContext {
+    return {
+      apiKeyId: apiKey.id,
+      serviceName: apiKey.serviceName,
+      scopes: apiKey.scopes,
+      companyCode: servicePrincipal.tenant?.companyCode ?? null,
+      systemCode: servicePrincipal.tenant?.systemCode ?? null,
+      environment: servicePrincipal.tenant?.environment ?? null,
+      clientConfigurationId:
+        servicePrincipal.tenant?.clientConfigurationId ?? null,
+    };
   }
 
   private resolveApiKey(request: Request): string | undefined {
@@ -80,7 +112,7 @@ export class TiramisApiKeyGuard implements CanActivate {
     },
   ): ServicePrincipal {
     const context = this.resolveServiceContext(request);
-    const tenant = this.buildTenantContext(context, apiKey);
+    const tenant = this.buildTenantContext(apiKey);
 
     return {
       serviceId: apiKey.serviceName,
@@ -95,33 +127,37 @@ export class TiramisApiKeyGuard implements CanActivate {
     };
   }
 
-  private buildTenantContext(
-    context: Partial<ServicePrincipal>,
-    apiKey: {
-      serviceName: string;
-      tenantCompanyCode?: string | null;
-      tenantSystemCode?: string | null;
-      tenantEnvironment?: string | null;
-    },
-  ): ServicePrincipal['tenant'] {
-    const tenant = context.tenant;
-    const companyCode = tenant?.companyCode ?? apiKey.tenantCompanyCode;
-    const systemCode = tenant?.systemCode ?? apiKey.tenantSystemCode;
-    const environment = tenant?.environment ?? apiKey.tenantEnvironment;
-    const companyId = tenant?.companyId ?? companyCode;
+  /**
+   * Tenant identity is authenticated routing data and must be sourced
+   * exclusively from the validated API key — never from the caller-supplied,
+   * unsigned X-Service-Context header. Allowing the header to override the
+   * key's own tenantCompanyCode/tenantSystemCode/tenantEnvironment would let
+   * an authenticated client impersonate another client's configuration.
+   */
+  private buildTenantContext(apiKey: {
+    serviceName: string;
+    tenantCompanyCode?: string | null;
+    tenantSystemCode?: string | null;
+    tenantEnvironment?: string | null;
+    clientConfigurationId?: string | null;
+  }): ServicePrincipal['tenant'] {
+    const companyCode = apiKey.tenantCompanyCode;
+    const systemCode = apiKey.tenantSystemCode;
+    const environment = apiKey.tenantEnvironment;
+    const clientConfigurationId = apiKey.clientConfigurationId;
 
-    if (!companyId && !companyCode && !systemCode && !environment) {
+    if (!companyCode && !systemCode && !environment && !clientConfigurationId) {
       return undefined;
     }
 
     return {
-      companyId: companyId ?? apiKey.serviceName,
-      ...tenant,
+      companyId: companyCode ?? apiKey.serviceName,
       ...(companyCode ? { companyCode } : {}),
       ...(systemCode ? { systemCode } : {}),
       ...(environment === 'test' || environment === 'live'
         ? { environment }
         : {}),
+      ...(clientConfigurationId ? { clientConfigurationId } : {}),
     };
   }
 

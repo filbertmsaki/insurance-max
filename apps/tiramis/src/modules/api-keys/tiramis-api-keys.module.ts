@@ -5,10 +5,15 @@ import { TiramisApiKeysController } from './controllers/tiramis-api-keys.control
 import { TiramisApiKeyAuditEntity } from './entities/tiramis-api-key-audit.entity';
 import { TiramisApiKeyEntity } from './entities/tiramis-api-key.entity';
 import { TiramisApiKeyService } from './services/tiramis-api-key.service';
+import { TiramisClientConfigurationEntity } from '../config/entities/tiramis-client-configuration.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([TiramisApiKeyEntity, TiramisApiKeyAuditEntity]),
+    TypeOrmModule.forFeature([
+      TiramisApiKeyEntity,
+      TiramisApiKeyAuditEntity,
+      TiramisClientConfigurationEntity,
+    ]),
   ],
   controllers: [TiramisApiKeysController],
   providers: [TiramisApiKeyService],

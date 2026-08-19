@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -7,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
+import type { ServicePrincipal } from '@insurance-max/contracts';
 import { RequestContextService } from '@insurance-max/shared-kernel';
 
 import { TiramisClientConfigurationEntity } from '../entities/tiramis-client-configuration.entity';
@@ -50,8 +52,43 @@ export interface TiramisResolvedRequestContext<TDto> {
   dto: TDto & TiramisResolvedRequestDtoFields;
 }
 
+export interface UpsertTiramisClientConfigurationParams {
+  environment: 'test' | 'live';
+  companyCode: string;
+  systemCode: string;
+  insurerCompanyCode: string;
+  clientCode: string;
+  /** The TIRA-issued client secret. Optional on update — omitted keeps the
+   * existing encrypted value; required when creating a new configuration. */
+  clientKey?: string;
+  salePointCode?: string | null;
+  tranCompanyCode?: string | null;
+  /** Defaults to the platform's TIRAMIS_TEST_BASE_URL/TIRAMIS_LIVE_BASE_URL
+   * for this environment when omitted — every company in an environment
+   * talks to the same TIRA gateway, so this only needs overriding if a
+   * company genuinely has a distinct endpoint. */
+  baseUrl?: string;
+  /** Defaults to TIRAMIS_TEST_CALLBACK_URL/TIRAMIS_LIVE_CALLBACK_URL (falling
+   * back to INSURANCE_PORTAL_WEBHOOK_URL) when omitted. */
+  callbackBaseUrl?: string;
+  signatureAlgorithm?: string | null;
+  isActive?: boolean;
+}
+
 @Injectable()
 export class TiramisConfigService {
+  /**
+   * Caches the resolved ClientConfiguration per request (keyed by the
+   * request's ServicePrincipal instance, which the API key guard creates
+   * fresh per request). Avoids re-querying the same configuration row every
+   * time getActiveRuntimeConfiguration/resolveSubmissionContext is called
+   * during a single request's lifecycle.
+   */
+  private readonly configurationCache = new WeakMap<
+    ServicePrincipal,
+    Promise<TiramisClientConfigurationEntity>
+  >();
+
   constructor(
     @InjectRepository(TiramisClientConfigurationEntity)
     private readonly clientConfigurationRepository: Repository<TiramisClientConfigurationEntity>,
@@ -88,12 +125,104 @@ export class TiramisConfigService {
    */
   async getActiveRuntimeConfiguration(): Promise<TiramisClientConfigurationEntity> {
     const principal = this.requestContextService.getServicePrincipal();
+    return this.resolveConfigurationForPrincipal(principal);
+  }
+
+  /**
+   * Resolves the ClientConfiguration bound to the current request's
+   * authenticated tenant context, reusing a per-request cache so multiple
+   * calls within the same request (e.g. resolveSubmissionContext followed
+   * by getActiveRuntimeConfiguration) don't issue duplicate queries.
+   */
+  private resolveConfigurationForPrincipal(
+    principal: ServicePrincipal | undefined,
+  ): Promise<TiramisClientConfigurationEntity> {
+    if (!principal) {
+      throw new BadRequestException({
+        code: 'TIRAMIS_ORGANIZATION_CONTEXT_REQUIRED',
+        message:
+          'Company code, system code, and environment are required for this TIRAMIS operation.',
+      });
+    }
+
+    const cached = this.configurationCache.get(principal);
+    if (cached) {
+      return cached;
+    }
+
+    const tenant = principal.tenant;
+    const resolution = tenant?.clientConfigurationId
+      ? this.resolveConfigurationByIdForTenant(
+          tenant.clientConfigurationId,
+          tenant,
+        )
+      : this.resolveConfigurationByTenantTriple(tenant);
+
+    this.configurationCache.set(principal, resolution);
+    return resolution;
+  }
+
+  /**
+   * Resolves configuration by the FK the API key is bound to, then
+   * cross-checks it against the key's own free-text tenant fields (where
+   * present). A test API key must never resolve a live configuration, and
+   * vice versa — this guards against a stale/incorrect
+   * clientConfigurationId (e.g. a bad manual edit or backfill) silently
+   * pointing an authenticated key at the wrong environment or company.
+   */
+  private async resolveConfigurationByIdForTenant(
+    clientConfigurationId: string,
+    tenant: ServicePrincipal['tenant'],
+  ): Promise<TiramisClientConfigurationEntity> {
+    const configuration = await this.getConfigurationById(
+      clientConfigurationId,
+    );
+
+    if (!configuration.isActive) {
+      throw new NotFoundException({
+        code: 'TIRAMIS_CLIENT_CONFIGURATION_NOT_FOUND',
+        message:
+          'The TIRAMIS client configuration for this API key is inactive.',
+      });
+    }
 
     if (
-      !principal?.tenant?.companyCode ||
-      !principal.tenant.systemCode ||
-      !principal.tenant.environment
+      tenant?.environment &&
+      configuration.environment !== tenant.environment
     ) {
+      throw new ForbiddenException({
+        code: 'TIRAMIS_ENVIRONMENT_MISMATCH',
+        message:
+          'The API key environment does not match its configured TIRAMIS environment.',
+      });
+    }
+
+    if (
+      tenant?.companyCode &&
+      configuration.companyCode !== tenant.companyCode
+    ) {
+      throw new ForbiddenException({
+        code: 'TIRAMIS_ENVIRONMENT_MISMATCH',
+        message:
+          'The API key company code does not match its configured TIRAMIS configuration.',
+      });
+    }
+
+    if (tenant?.systemCode && configuration.systemCode !== tenant.systemCode) {
+      throw new ForbiddenException({
+        code: 'TIRAMIS_ENVIRONMENT_MISMATCH',
+        message:
+          'The API key system code does not match its configured TIRAMIS configuration.',
+      });
+    }
+
+    return configuration;
+  }
+
+  private resolveConfigurationByTenantTriple(
+    tenant: ServicePrincipal['tenant'],
+  ): Promise<TiramisClientConfigurationEntity> {
+    if (!tenant?.companyCode || !tenant.systemCode || !tenant.environment) {
       throw new BadRequestException({
         code: 'TIRAMIS_ORGANIZATION_CONTEXT_REQUIRED',
         message:
@@ -102,9 +231,9 @@ export class TiramisConfigService {
     }
 
     return this.getActiveConfiguration({
-      environment: principal.tenant.environment,
-      companyCode: principal.tenant.companyCode,
-      systemCode: principal.tenant.systemCode,
+      environment: tenant.environment,
+      companyCode: tenant.companyCode,
+      systemCode: tenant.systemCode,
     });
   }
 
@@ -191,35 +320,22 @@ export class TiramisConfigService {
     const principal = this.requestContextService.getServicePrincipal();
     const tenant = principal?.tenant;
     const incomingDto = dto as Record<string, any>;
+
+    /**
+     * companyCode/systemCode/environment are authenticated routing data
+     * resolved from the API-key-bound tenant context via
+     * resolveConfigurationForPrincipal — they must never be accepted from
+     * the caller's DTO, as that would let one authenticated client resolve
+     * another client's configuration.
+     */
     const organizationContext = {
-      environment:
-        incomingDto.environment ??
-        tenant?.environment ??
-        this.resolveRuntimeEnvironment(),
-      companyCode: incomingDto.companyCode ?? tenant?.companyCode,
-      systemCode: incomingDto.systemCode ?? tenant?.systemCode,
       insurerCompanyCode:
         incomingDto.insurerCompanyCode ?? tenant?.insurerCompanyCode,
       salePointCode: incomingDto.salePointCode ?? tenant?.salePointCode,
     };
 
-    if (
-      !organizationContext.companyCode ||
-      !organizationContext.systemCode ||
-      !organizationContext.environment
-    ) {
-      throw new BadRequestException({
-        code: 'TIRAMIS_ORGANIZATION_CONTEXT_REQUIRED',
-        message:
-          'companyCode, systemCode, and environment are required as business context.',
-      });
-    }
-
-    const configuration = await this.getActiveConfiguration({
-      environment: organizationContext.environment,
-      companyCode: organizationContext.companyCode,
-      systemCode: organizationContext.systemCode,
-    });
+    const configuration =
+      await this.resolveConfigurationForPrincipal(principal);
 
     const insurerCompanyCode =
       organizationContext.insurerCompanyCode ??
@@ -558,6 +674,108 @@ export class TiramisConfigService {
       warnings,
       errors,
     };
+  }
+
+  /**
+   * Creates or updates the ClientConfiguration a company/environment's
+   * TIRA-issued credentials live in. This is the one piece of data that
+   * genuinely can't be self-generated by the platform — companyCode/
+   * systemCode/clientCode/clientKey are issued by TIRA itself — so a
+   * platform admin enters them once here, after which API key minting,
+   * validation, and activation all work without any further seeder/DB work.
+   */
+  async upsertClientConfiguration(
+    params: UpsertTiramisClientConfigurationParams,
+  ): Promise<TiramisClientConfigurationEntity> {
+    let configuration = await this.clientConfigurationRepository.findOne({
+      where: {
+        environment: params.environment,
+        companyCode: params.companyCode,
+        systemCode: params.systemCode,
+      },
+    });
+
+    if (!configuration && !params.clientKey) {
+      throw new BadRequestException({
+        code: 'TIRAMIS_CLIENT_KEY_REQUIRED',
+        message:
+          'clientKey is required when creating a new TIRAMIS client configuration.',
+      });
+    }
+
+    if (!configuration) {
+      configuration = this.clientConfigurationRepository.create({
+        environment: params.environment,
+        companyCode: params.companyCode,
+        systemCode: params.systemCode,
+      });
+    }
+
+    configuration.insurerCompanyCode = params.insurerCompanyCode;
+    configuration.clientCode = params.clientCode;
+    configuration.salePointCode = params.salePointCode ?? null;
+    configuration.tranCompanyCode = params.tranCompanyCode ?? null;
+    configuration.baseUrl =
+      params.baseUrl?.trim() || this.resolveDefaultBaseUrl(params.environment);
+    configuration.callbackBaseUrl =
+      params.callbackBaseUrl?.trim() ||
+      this.resolveDefaultCallbackUrl(params.environment);
+    if (params.signatureAlgorithm !== undefined) {
+      configuration.signatureAlgorithm = params.signatureAlgorithm;
+    }
+    configuration.isActive = params.isActive === false ? 0 : 1;
+
+    if (params.clientKey) {
+      // The clientKey column is NOT NULL for legacy compatibility, but the
+      // real secret only ever lives in the encrypted column — never store
+      // the TIRA-issued secret in plaintext here.
+      configuration.clientKey = '(encrypted)';
+      configuration.clientKeyEncrypted = this.secretCrypto.encrypt(
+        params.clientKey,
+      );
+    }
+
+    return this.clientConfigurationRepository.save(configuration);
+  }
+
+  private resolveDefaultBaseUrl(environment: 'test' | 'live'): string {
+    const configured =
+      environment === 'live'
+        ? this.configService.get<string>('tiramisService.liveBaseUrl')
+        : this.configService.get<string>('tiramisService.testBaseUrl');
+
+    if (!configured) {
+      throw new BadRequestException({
+        code: 'TIRAMIS_BASE_URL_REQUIRED',
+        message: `No baseUrl was provided and no platform default is configured for the ${environment} environment (set TIRAMIS_${environment.toUpperCase()}_BASE_URL).`,
+      });
+    }
+
+    return configured;
+  }
+
+  /**
+   * callbackBaseUrl is embedded in outbound requests to TIRA, telling it
+   * where to POST its async callback — TIRAMIS's own public base URL
+   * (this service's TiramisCallbackController), not the portal's webhook.
+   * Defaults to TIRAMIS_{TEST,LIVE}_CALLBACK_URL if set, else this
+   * service's own APP_URL (the same host serving this request).
+   */
+  private resolveDefaultCallbackUrl(environment: 'test' | 'live'): string {
+    const configured =
+      (environment === 'live'
+        ? this.configService.get<string>('tiramisService.liveCallbackUrl')
+        : this.configService.get<string>('tiramisService.testCallbackUrl')) ||
+      this.configService.get<string>('tiramisService.url');
+
+    if (!configured) {
+      throw new BadRequestException({
+        code: 'TIRAMIS_CALLBACK_URL_REQUIRED',
+        message: `No callbackBaseUrl was provided and no platform default is configured for the ${environment} environment (set TIRAMIS_${environment.toUpperCase()}_CALLBACK_URL or APP_URL).`,
+      });
+    }
+
+    return configured;
   }
 
   async setPortalWebhookApiKey(configurationId: string, apiKey: string) {

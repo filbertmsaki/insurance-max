@@ -18,6 +18,10 @@ export default registerAs('tiramisService', () => {
 
     liveBaseUrl: normalizeBaseUrl(process.env.TIRAMIS_LIVE_BASE_URL || ''),
 
+    testCallbackUrl: process.env.TIRAMIS_TEST_CALLBACK_URL?.trim() || '',
+
+    liveCallbackUrl: process.env.TIRAMIS_LIVE_CALLBACK_URL?.trim() || '',
+
     requestTimeoutMs: Number(process.env.TIRAMIS_HTTP_TIMEOUT_MS || 60000),
 
     logPayloads: process.env.TIRAMIS_LOG_PAYLOADS === 'true',

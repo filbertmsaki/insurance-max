@@ -10,6 +10,7 @@ import { TiramisAdminController } from './controllers/tiramis-admin.controller';
 import { TiramisBusinessController } from './controllers/tiramis-business.controller';
 import { TiramisController } from './controllers/tiramis.controller';
 import { CompanyTiramisConfigurationController } from './controllers/company-tiramis-configuration.controller';
+import { PlatformTiramisConfigurationController } from './controllers/platform-tiramis-configuration.controller';
 import { CompanyTiramisConfigurationService } from './services/company-tiramis-configuration.service';
 import { Company } from '../platform/companies/entities/company.entity';
 import { TiramisCompanyConfigurationEntity } from './entities/tiramis-company-configuration.entity';
@@ -87,6 +88,7 @@ import { ReinsuranceDeclaration } from '../tenant/reinsurance/entities/reinsuran
     TiramisBusinessController,
     TiramisAdminController,
     CompanyTiramisConfigurationController,
+    PlatformTiramisConfigurationController,
   ],
   providers: [
     TiramisClientService,

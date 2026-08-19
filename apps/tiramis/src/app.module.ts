@@ -29,6 +29,7 @@ import { TiramisAuditModule } from './modules/audit/tiramis-audit.module';
 import { TiramisApiKeyAuditEntity } from './modules/api-keys/entities/tiramis-api-key-audit.entity';
 import { TiramisApiKeyEntity } from './modules/api-keys/entities/tiramis-api-key.entity';
 import { TiramisApiKeyGuard } from './modules/api-keys/guards/tiramis-api-key.guard';
+import { TiramisScopeGuard } from './modules/api-keys/guards/tiramis-scope.guard';
 import { TiramisApiKeysModule } from './modules/api-keys/tiramis-api-keys.module';
 import { TiramisClientConfigurationEntity } from './modules/config/entities/tiramis-client-configuration.entity';
 import { TiramisResponseCodeEntity } from './modules/config/entities/tiramis-response-code.entity';
@@ -143,6 +144,11 @@ import { TiramisResponseInterceptor } from './common/interceptors/tiramis-respon
     {
       provide: APP_GUARD,
       useClass: TiramisApiKeyGuard,
+    },
+
+    {
+      provide: APP_GUARD,
+      useClass: TiramisScopeGuard,
     },
 
     {

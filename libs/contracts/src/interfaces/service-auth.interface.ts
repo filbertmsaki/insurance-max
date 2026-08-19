@@ -10,6 +10,7 @@ export interface ServiceTenantContext {
   insurerCompanyCode?: string | null;
   systemCode?: string | null;
   clientCode?: string | null;
+  clientConfigurationId?: string | null;
 
   branchId?: string | null;
   branchCode?: string | null;

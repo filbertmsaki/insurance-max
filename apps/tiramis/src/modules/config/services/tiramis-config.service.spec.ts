@@ -84,23 +84,58 @@ describe('TiramisConfigService organization context resolution', () => {
     );
   });
 
-  it('uses incoming DTO organization context when service context is absent', async () => {
+  it('never trusts incoming DTO organization context when there is no authenticated principal', async () => {
     requestContextService.getServicePrincipal.mockReturnValue(undefined);
+
+    await expect(
+      service.resolveSubmissionContext(
+        {
+          environment: 'test',
+          companyCode: 'COMP-A',
+          systemCode: 'SYS-A',
+          insurerCompanyCode: 'INS-B-FROM-REQUEST',
+        },
+        'record-1',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(clientConfigurationRepository.findOne).not.toHaveBeenCalled();
+  });
+
+  it('never trusts incoming DTO companyCode/systemCode/environment even when a principal is present', async () => {
+    requestContextService.getServicePrincipal.mockReturnValue({
+      serviceId: 'svc-1',
+      scopes: [],
+      tenant: {
+        companyId: 'company-a',
+        companyCode: 'COMP-A',
+        systemCode: 'SYS-A',
+        environment: 'test',
+        insurerCompanyCode: 'INS-A',
+      },
+    });
 
     const result = await service.resolveSubmissionContext(
       {
-        environment: 'test',
-        companyCode: 'COMP-A',
-        systemCode: 'SYS-A',
-        insurerCompanyCode: 'INS-B-FROM-REQUEST',
+        environment: 'live',
+        companyCode: 'COMP-OTHER-CLIENT',
+        systemCode: 'SYS-OTHER-CLIENT',
       },
       'record-1',
     );
 
-    expect(result.dto.insurerCompanyCode).toBe('INS-B-FROM-REQUEST');
     expect(result.dto.companyCode).toBe('COMP-A');
     expect(result.dto.systemCode).toBe('SYS-A');
     expect(result.configuration).toBe(configuration);
+    expect(clientConfigurationRepository.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          environment: 'test',
+          companyCode: 'COMP-A',
+          systemCode: 'SYS-A',
+        }),
+      }),
+    );
   });
 
   it('does not reject incoming insurerCompanyCode because it is business context, not authentication', async () => {
