@@ -301,6 +301,7 @@ export class UsersService {
         is_two_factor_enabled: true,
         failed_login_attempts: true,
         locked_until: true,
+        authorization_version: true,
       },
       relations: { roles: { permissions: true }, permissions: true },
     });
