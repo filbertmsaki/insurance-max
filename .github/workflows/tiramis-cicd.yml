@@ -1,42 +1,275 @@
-name: Deploy TIRAMIS Production
+name: Insurance Max - Tiramis CI/CD
+
+# ============================================================
+# Insurance Max Tiramis CI/CD
+#
+# App:
+#   apps/tiramis
+#
+# Build runner:
+#   GitHub-hosted Ubuntu
+#
+# Deploy runner:
+#   Self-hosted (tiramis-self-hosted-runner)
+#
+# This file merges what used to be two separate workflows
+# (tiramis-ci.yml + tiramis-deploy-production.yml) into one,
+# without changing what either job does.
+#
+# Trigger behavior (unchanged from the two-file setup):
+#
+#   - push to main          -> build, test, package, then deploy
+#                               the artifact produced by that
+#                               same run
+#   - pull_request           -> build, test, package only
+#                               (never deploys)
+#   - workflow_dispatch,
+#     run_id left blank      -> build, test, package only
+#                               (mirrors the old TIRAMIS CI
+#                               manual run - no deploy)
+#   - workflow_dispatch,
+#     run_id filled in       -> deploy only, redeploying the
+#                               exact artifact from that earlier
+#                               successful run without rebuilding
+#                               (mirrors the old TIRAMIS Deploy
+#                               Production manual run)
+# ============================================================
 
 on:
-  workflow_run:
-    workflows:
-      - TIRAMIS CI
-    types:
-      - completed
+  push:
     branches:
       - main
+    paths:
+      - 'apps/tiramis/**'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'nest-cli.json'
+      - 'tsconfig.json'
+      - 'tsconfig.build.json'
+      - 'eslint.config.mjs'
+      - 'deploy/tiramis/**'
+      - '.github/workflows/tiramis-cicd.yml'
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apps/tiramis/**'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'nest-cli.json'
+      - 'tsconfig.json'
+      - 'tsconfig.build.json'
+      - 'eslint.config.mjs'
+      - 'deploy/tiramis/**'
+      - '.github/workflows/tiramis-cicd.yml'
 
   workflow_dispatch:
     inputs:
       run_id:
-        description: Successful TIRAMIS CI workflow run ID to deploy
-        required: true
+        description: >-
+          Optional: run ID of a previous successful "Insurance Max - Tiramis CI/CD"
+          run to redeploy without rebuilding. Leave blank to build, test,
+          package (no deploy).
+        required: false
         type: string
+        default: ''
 
 permissions:
   contents: read
   actions: read
 
-concurrency:
-  group: tiramis-production
-  cancel-in-progress: false
-
 jobs:
+  # ==========================================================
+  # JOB 1
+  #
+  # Build, test, package.
+  #
+  # Skipped only when this run is an explicit redeploy of a
+  # previous run (workflow_dispatch with run_id set) - that
+  # path deploys an already-built artifact and never rebuilds.
+  # ==========================================================
+  validate-and-package:
+    name: Validate and package TIRAMIS
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'workflow_dispatch' && inputs.run_id == '')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    concurrency:
+      group: tiramis-ci-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Validate required files
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          required_files=(
+            package.json
+            package-lock.json
+            nest-cli.json
+            tsconfig.json
+            deploy/tiramis/deploy.sh
+            deploy/tiramis/ecosystem.config.js
+          )
+
+          for file in "${required_files[@]}"; do
+            test -f "$file" || {
+              echo "Required file is missing: $file"
+              exit 1
+            }
+          done
+
+          bash -n deploy/tiramis/deploy.sh
+          node --check deploy/tiramis/ecosystem.config.js
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint -- --max-warnings=0
+
+      - name: Run unit tests
+        run: npx jest apps/tiramis --runInBand --passWithNoTests
+
+      - name: Build TIRAMIS
+        run: npm run build:tiramis
+
+      - name: Validate build output
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          test -f dist/apps/tiramis/apps/tiramis/src/main.js
+          test -f dist/apps/tiramis/apps/tiramis/src/database/data-source.js
+
+      - name: Build production release artifact
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          RELEASE_DIR="$RUNNER_TEMP/tiramis-release"
+          ARCHIVE="$RUNNER_TEMP/tiramis-release.tar.gz"
+          CHECKSUM="$RUNNER_TEMP/tiramis-release.tar.gz.sha256"
+
+          echo "Preparing release directory"
+
+          rm -rf "$RELEASE_DIR"
+          rm -f "$ARCHIVE" "$CHECKSUM"
+
+          mkdir -p "$RELEASE_DIR/deploy/tiramis" "$RELEASE_DIR/scripts"
+
+          echo "Copying build output"
+
+          cp -a dist "$RELEASE_DIR/dist"
+          cp package.json package-lock.json "$RELEASE_DIR/"
+
+          cp deploy/tiramis/deploy.sh \
+            "$RELEASE_DIR/deploy/tiramis/deploy.sh"
+
+          cp deploy/tiramis/ecosystem.config.js \
+            "$RELEASE_DIR/deploy/tiramis/ecosystem.config.js"
+
+          cp scripts/create-tiramis-api-key.production.js \
+            "$RELEASE_DIR/scripts/create-tiramis-api-key.production.js"
+
+          cp scripts/db-maintenance.js \
+            "$RELEASE_DIR/scripts/db-maintenance.js"
+
+          chmod 750 \
+            "$RELEASE_DIR/deploy/tiramis/deploy.sh"
+
+          printf '%s\n' "$GITHUB_SHA" \
+            > "$RELEASE_DIR/REVISION"
+
+          printf '%s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            > "$RELEASE_DIR/BUILT_AT"
+
+          echo "Creating archive"
+
+          tar -C "$RELEASE_DIR" \
+            -czf "$ARCHIVE" .
+
+          test -f "$ARCHIVE"
+
+          echo "Creating portable checksum"
+
+          (
+            cd "$RUNNER_TEMP"
+
+            sha256sum tiramis-release.tar.gz \
+              > tiramis-release.tar.gz.sha256
+          )
+
+          test -f "$CHECKSUM"
+
+          echo "Validating generated checksum"
+
+          (
+            cd "$RUNNER_TEMP"
+            sha256sum --check tiramis-release.tar.gz.sha256
+          )
+
+          echo "Release artifact created successfully"
+
+          ls -lh "$ARCHIVE" "$CHECKSUM"
+
+          echo "Checksum content:"
+          cat "$CHECKSUM"
+
+      - name: Upload production artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiramis-release-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/tiramis-release.tar.gz
+            ${{ runner.temp }}/tiramis-release.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+  # ==========================================================
+  # JOB 2
+  #
+  # Deploy to production.
+  #
+  # Runs for:
+  #   - push to main, after validate-and-package succeeds in
+  #     this same run
+  #   - workflow_dispatch with run_id set, deploying that other
+  #     run's artifact instead (validate-and-package is skipped)
+  #
+  # Never runs for pull_request, and never runs for a plain
+  # workflow_dispatch with no run_id (that path is build-only).
+  # ==========================================================
   deploy:
     name: Deploy TIRAMIS to production
-
+    needs: validate-and-package
     if: >-
-      ${{
-        (
-          github.event_name == 'workflow_run' &&
-          github.event.workflow_run.conclusion == 'success' &&
-          github.event.workflow_run.event == 'push'
-        ) ||
-        github.event_name == 'workflow_dispatch'
-      }}
+      always() &&
+      (
+        (github.event_name == 'push' && needs.validate-and-package.result == 'success') ||
+        (github.event_name == 'workflow_dispatch' && inputs.run_id != '')
+      )
 
     runs-on:
       - self-hosted
@@ -46,6 +279,10 @@ jobs:
 
     environment: production
     timeout-minutes: 30
+
+    concurrency:
+      group: tiramis-production
+      cancel-in-progress: false
 
     env:
       BASE_DIR: /opt/apps/tiramis
@@ -68,17 +305,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
-          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
-          WORKFLOW_RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          CURRENT_SHA: ${{ github.sha }}
           INPUT_RUN_ID: ${{ inputs.run_id }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -Eeuo pipefail
 
-          if [[ "$EVENT_NAME" == 'workflow_run' ]]; then
-            RUN_ID="$WORKFLOW_RUN_ID"
-            SHA="$WORKFLOW_RUN_SHA"
-          else
+          if [[ "$EVENT_NAME" == 'push' ]]; then
+            # Deploying the artifact this same run just built - no
+            # cross-run lookup needed.
+            RUN_ID="$CURRENT_RUN_ID"
+            SHA="$CURRENT_SHA"
+          elif [[ "$EVENT_NAME" == 'workflow_dispatch' && -n "$INPUT_RUN_ID" ]]; then
             RUN_ID="$INPUT_RUN_ID"
 
             RUN_JSON="$(curl -fsSL \
@@ -120,7 +359,7 @@ jobs:
               exit 1
             }
 
-            [[ "$WORKFLOW_NAME" == 'TIRAMIS CI' ]] || {
+            [[ "$WORKFLOW_NAME" == 'Insurance Max - Tiramis CI/CD' ]] || {
               echo "Refusing deployment: run belongs to '$WORKFLOW_NAME'."
               exit 1
             }
@@ -130,6 +369,9 @@ jobs:
               echo "Refusing deployment: unsupported event '$RUN_EVENT'."
               exit 1
             }
+          else
+            echo "Refusing deployment: unsupported trigger '$EVENT_NAME' without an explicit run_id."
+            exit 1
           fi
 
           test -n "$RUN_ID"
