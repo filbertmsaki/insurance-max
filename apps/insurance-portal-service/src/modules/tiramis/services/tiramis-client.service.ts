@@ -2,6 +2,7 @@ import { HttpService } from '@nestjs/axios';
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
   Injectable,
   Logger,
   RequestTimeoutException,
@@ -1519,6 +1520,13 @@ export class TiramisClientService {
 
       return unwrapApiResponse(response.data);
     } catch (error: unknown) {
+      if (error instanceof HttpException) {
+        // Raised locally (e.g. org-readiness checks, missing API key) before
+        // any request reached TIRAMIS - rethrow as-is instead of relabeling
+        // it as a downstream TIRAMIS_SERVICE_REQUEST_FAILED.
+        throw error;
+      }
+
       const requestError = error as {
         code?: string;
         name?: string;

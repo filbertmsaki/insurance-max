@@ -155,6 +155,28 @@ describe('TiramisApiKeyService', () => {
     }
   });
 
+  it('rejects a key that is missing a required scope', async () => {
+    const rawKey = 'tms_test';
+    const { service, apiKeyRepository } = createService();
+    apiKeyRepository.findOne.mockResolvedValue({
+      id: 'key-id',
+      apiKey: rawKey,
+      serviceName: 'insurance-portal-service',
+      scopes: ['tiramis:submit'],
+      tenantCompanyCode: 'ICC110',
+      tenantSystemCode: 'LSYS_ALLIANCE_003',
+      tenantEnvironment: 'live',
+      isActive: true,
+      revokedAt: null,
+      expiresAt: null,
+    });
+
+    await expect(
+      service.validate(rawKey, ['tiramis:admin']),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(apiKeyRepository.update).not.toHaveBeenCalled();
+  });
+
   it('returns a service principal and records last use for a valid key', async () => {
     const rawKey = 'tms_test';
     const { service, apiKeyRepository } = createService();
