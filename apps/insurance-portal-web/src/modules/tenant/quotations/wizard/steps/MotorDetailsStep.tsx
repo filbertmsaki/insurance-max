@@ -20,6 +20,7 @@ import {
   createEmptyMotorDetails,
   type QuotationFormSchemaValues,
 } from '../../schemas';
+import { normalizeMotorTextInput } from '../../utils/motorText';
 import {
   MOTOR_CATEGORY_OPTIONS,
   MOTOR_TYPE_OPTIONS,
@@ -131,32 +132,44 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
         shouldValidate: true,
       },
     );
-    form.setValue('motor.registration_no', vehicle.registration_no ?? '', {
+    form.setValue(
+      'motor.registration_no',
+      normalizeMotorTextInput(vehicle.registration_no),
+      {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      },
+    );
+    form.setValue(
+      'motor.chassis_no',
+      normalizeMotorTextInput(vehicle.chassis_no),
+      {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      },
+    );
+    form.setValue(
+      'motor.engine_no',
+      normalizeMotorTextInput(vehicle.engine_no),
+      {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      },
+    );
+    form.setValue('motor.make', normalizeMotorTextInput(vehicle.make), {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
-    form.setValue('motor.chassis_no', vehicle.chassis_no ?? '', {
+    form.setValue('motor.model', normalizeMotorTextInput(vehicle.model), {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
-    form.setValue('motor.engine_no', vehicle.engine_no ?? '', {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true,
-    });
-    form.setValue('motor.make', vehicle.make ?? '', {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true,
-    });
-    form.setValue('motor.model', vehicle.model ?? '', {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true,
-    });
-    form.setValue('motor.model_no', vehicle.model_no ?? '', {
+    form.setValue('motor.model_no', normalizeMotorTextInput(vehicle.model_no), {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
@@ -374,8 +387,14 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
 
         {mode === 'existing' && selectedVehicle && (
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-            <p>Registration: {selectedVehicle.registration_no ?? '—'}</p>
-            <p>Chassis: {selectedVehicle.chassis_no ?? '—'}</p>
+            <p>
+              Registration:{' '}
+              {normalizeMotorTextInput(selectedVehicle.registration_no) || '-'}
+            </p>
+            <p>
+              Chassis:{' '}
+              {normalizeMotorTextInput(selectedVehicle.chassis_no) || '-'}
+            </p>
             <p>Year: {selectedVehicle.manufacture_year ?? '—'}</p>
           </div>
         )}
@@ -501,7 +520,15 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
               <WizardFormItem>
                 <FormLabel>Registration Number (required)</FormLabel>
                 <FormControl>
-                  <Input {...field} value={field.value} />
+                  <Input
+                    {...field}
+                    value={field.value}
+                    onChange={(event) =>
+                      field.onChange(
+                        normalizeMotorTextInput(event.target.value),
+                      )
+                    }
+                  />
                 </FormControl>
                 <FormMessage />
               </WizardFormItem>
@@ -514,7 +541,15 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
               <WizardFormItem>
                 <FormLabel>Chassis Number (required)</FormLabel>
                 <FormControl>
-                  <Input {...field} value={field.value} />
+                  <Input
+                    {...field}
+                    value={field.value}
+                    onChange={(event) =>
+                      field.onChange(
+                        normalizeMotorTextInput(event.target.value),
+                      )
+                    }
+                  />
                 </FormControl>
                 <FormMessage />
               </WizardFormItem>
@@ -527,7 +562,15 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
               <WizardFormItem>
                 <FormLabel>Engine Number (required)</FormLabel>
                 <FormControl>
-                  <Input {...field} value={field.value} />
+                  <Input
+                    {...field}
+                    value={field.value}
+                    onChange={(event) =>
+                      field.onChange(
+                        normalizeMotorTextInput(event.target.value),
+                      )
+                    }
+                  />
                 </FormControl>
                 <FormMessage />
               </WizardFormItem>
@@ -540,7 +583,15 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
               <WizardFormItem>
                 <FormLabel>Make (required)</FormLabel>
                 <FormControl>
-                  <Input {...field} value={field.value} />
+                  <Input
+                    {...field}
+                    value={field.value}
+                    onChange={(event) =>
+                      field.onChange(
+                        normalizeMotorTextInput(event.target.value),
+                      )
+                    }
+                  />
                 </FormControl>
                 <FormMessage />
               </WizardFormItem>
@@ -553,7 +604,15 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
               <WizardFormItem>
                 <FormLabel>Model (required)</FormLabel>
                 <FormControl>
-                  <Input {...field} value={field.value} />
+                  <Input
+                    {...field}
+                    value={field.value}
+                    onChange={(event) =>
+                      field.onChange(
+                        normalizeMotorTextInput(event.target.value),
+                      )
+                    }
+                  />
                 </FormControl>
                 <FormMessage />
               </WizardFormItem>
@@ -566,7 +625,15 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
               <WizardFormItem>
                 <FormLabel>Model Number (optional)</FormLabel>
                 <FormControl>
-                  <Input {...field} value={field.value} />
+                  <Input
+                    {...field}
+                    value={field.value}
+                    onChange={(event) =>
+                      field.onChange(
+                        normalizeMotorTextInput(event.target.value),
+                      )
+                    }
+                  />
                 </FormControl>
               </WizardFormItem>
             )}

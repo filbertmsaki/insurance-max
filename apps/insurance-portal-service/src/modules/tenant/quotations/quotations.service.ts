@@ -107,6 +107,7 @@ import { QuotationPreviewMapper } from './mappers/quotation-preview.mapper';
 import { QuotationTiramisPayloadMapper } from './mappers/quotation-tiramis-payload.mapper';
 import { QuotationsRepository } from './repositories/quotations.repository';
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
+import { normalizeMotorTextValue } from './utils/motor-text.util';
 import { parseTiramisDateTime } from './utils/tiramis-date.util';
 import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { SubjectMatter } from '../non-motor/entities/subject-matter.entity';
@@ -7323,11 +7324,13 @@ export class QuotationsService {
     currencyCode: string,
   ): Promise<void> {
     const repository = manager.getRepository(MotorVehicle);
-    const registrationNumber = this.normalizeUppercase(
-      motor.registration_number,
-    );
-    const chassisNumber = this.normalizeUppercase(motor.chassis_number);
-    const engineNumber = this.normalizeUppercase(motor.engine_number);
+    const registrationNumber =
+      normalizeMotorTextValue(motor.registration_number) ?? '';
+    const chassisNumber = normalizeMotorTextValue(motor.chassis_number) ?? '';
+    const engineNumber = normalizeMotorTextValue(motor.engine_number) ?? '';
+    const make = normalizeMotorTextValue(motor.make) ?? '';
+    const model = normalizeMotorTextValue(motor.model) ?? '';
+    const modelNumber = normalizeMotorTextValue(motor.model_number);
 
     const existingVehicle = await repository
       .createQueryBuilder('vehicle')
@@ -7371,8 +7374,8 @@ export class QuotationsService {
       registration_no: registrationNumber,
       chassis_no: chassisNumber,
       engine_no: engineNumber,
-      make: motor.make.trim(),
-      model: motor.model.trim(),
+      make,
+      model,
       body_type: motor.body_type.trim(),
       color: motor.color.trim(),
       manufacture_year: motor.year_of_manufacture,
@@ -7382,7 +7385,7 @@ export class QuotationsService {
         ? Number(motor.engine_capacity)
         : null,
       fuel_type: motor.fuel_used.trim(),
-      model_no: motor.model_number?.trim() ?? null,
+      model_no: modelNumber,
       number_of_axles: motor.number_of_axles,
       axle_distance: this.numeric(motor.axle_distance, 2),
       tare_weight: this.numeric(motor.tare_weight, 2),
@@ -7419,11 +7422,13 @@ export class QuotationsService {
     currencyCode: string,
   ): Promise<InsuredAsset> {
     const repository = manager.getRepository(InsuredAsset);
-    const registrationNumber = this.normalizeUppercase(
-      motor.registration_number,
-    );
-    const chassisNumber = this.normalizeUppercase(motor.chassis_number);
-    const displayName = [registrationNumber, motor.make, motor.model]
+    const registrationNumber =
+      normalizeMotorTextValue(motor.registration_number) ?? '';
+    const chassisNumber = normalizeMotorTextValue(motor.chassis_number) ?? '';
+    const engineNumber = normalizeMotorTextValue(motor.engine_number) ?? '';
+    const make = normalizeMotorTextValue(motor.make) ?? '';
+    const model = normalizeMotorTextValue(motor.model) ?? '';
+    const displayName = [registrationNumber, make, model]
       .map((value) => value?.trim())
       .filter(Boolean)
       .join(' ');
@@ -7440,9 +7445,9 @@ export class QuotationsService {
       assetType: 'MOTOR_VEHICLE',
       registrationNumber,
       chassisNumber,
-      engineNumber: this.normalizeUppercase(motor.engine_number),
-      make: motor.make.trim(),
-      model: motor.model.trim(),
+      engineNumber,
+      make,
+      model,
       bodyType: motor.body_type.trim(),
       color: motor.color.trim(),
       manufactureYear: motor.year_of_manufacture,
@@ -7628,11 +7633,10 @@ export class QuotationsService {
     customerId: string,
     motor: MotorDetailDto,
   ): Promise<InsuredAsset | null> {
-    const registrationNumber = this.normalizeUppercase(
-      motor.registration_number,
-    );
-    const chassisNumber = this.normalizeUppercase(motor.chassis_number);
-    const engineNumber = this.normalizeUppercase(motor.engine_number);
+    const registrationNumber =
+      normalizeMotorTextValue(motor.registration_number) ?? '';
+    const chassisNumber = normalizeMotorTextValue(motor.chassis_number) ?? '';
+    const engineNumber = normalizeMotorTextValue(motor.engine_number) ?? '';
     const vehicle = await manager
       .getRepository(MotorVehicle)
       .createQueryBuilder('vehicle')
@@ -7958,14 +7962,15 @@ export class QuotationsService {
     return {
       motor_category: motor.motor_category,
       motor_type: motor.motor_type,
-      registration_number: motor.registration_number.trim().toUpperCase(),
-      chassis_number: motor.chassis_number.trim().toUpperCase(),
-      make: motor.make.trim(),
-      model: motor.model.trim(),
-      model_number: motor.model_number?.trim() ?? null,
+      registration_number:
+        normalizeMotorTextValue(motor.registration_number) ?? '',
+      chassis_number: normalizeMotorTextValue(motor.chassis_number) ?? '',
+      make: normalizeMotorTextValue(motor.make) ?? '',
+      model: normalizeMotorTextValue(motor.model) ?? '',
+      model_number: normalizeMotorTextValue(motor.model_number),
       body_type: motor.body_type.trim(),
       color: motor.color.trim(),
-      engine_number: motor.engine_number.trim().toUpperCase(),
+      engine_number: normalizeMotorTextValue(motor.engine_number) ?? '',
       engine_capacity: motor.engine_capacity.trim(),
       fuel_used: motor.fuel_used.trim(),
       number_of_axles: motor.number_of_axles,

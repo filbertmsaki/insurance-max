@@ -114,12 +114,12 @@ describe('quotation payload builders', () => {
       ...createEmptyMotorDetails(),
       motor_category_code: '1',
       motor_type_code: '1',
-      registration_no: 'T123ABC',
-      chassis_no: 'CHS-001',
-      engine_no: 'ENG-001',
-      make: 'Toyota',
-      model: 'Hiace',
-      model_no: 'GDH201',
+      registration_no: '   t123abc   ',
+      chassis_no: '  chs-001 ',
+      engine_no: ' eng-001  ',
+      make: ' Toyota ',
+      model: 'Land   Cruiser',
+      model_no: ' gdh201 ',
       body_type: 'Minibus',
       color: 'White',
       manufacture_year: '2022',
@@ -145,6 +145,11 @@ describe('quotation payload builders', () => {
     expect(payload.cover_note_dtl.motor_dtl?.registration_number).toBe(
       'T123ABC',
     );
+    expect(payload.cover_note_dtl.motor_dtl?.chassis_number).toBe('CHS-001');
+    expect(payload.cover_note_dtl.motor_dtl?.engine_number).toBe('ENG-001');
+    expect(payload.cover_note_dtl.motor_dtl?.make).toBe('TOYOTA');
+    expect(payload.cover_note_dtl.motor_dtl?.model).toBe('LAND CRUISER');
+    expect(payload.cover_note_dtl.motor_dtl?.model_number).toBe('GDH201');
     expect(payload.cover_note_dtl.policy_holders?.[0].policy_holder_name).toBe(
       'ABC Logistics Company Limited',
     );
@@ -183,14 +188,14 @@ describe('quotation payload builders', () => {
     values.fleet.items[0].motor_dtl = {
       motor_category: '1',
       motor_type: '1',
-      registration_number: 'T123ABC',
-      chassis_number: 'CHS-001',
-      make: 'Toyota',
-      model: 'Hiace',
-      model_number: 'GDH201',
+      registration_number: '  t123abc ',
+      chassis_number: ' chs-001 ',
+      make: ' Toyota ',
+      model: 'Land   Cruiser',
+      model_number: ' gdh201 ',
       body_type: 'Minibus',
       color: 'White',
-      engine_number: 'ENG-001',
+      engine_number: ' eng-001 ',
       engine_capacity: '2755',
       fuel_used: 'Diesel',
       number_of_axles: '2',
@@ -216,6 +221,21 @@ describe('quotation payload builders', () => {
     expect(
       payload.cover_note_dtl.fleet_dtls?.[0].motor_dtl.registration_number,
     ).toBe('T123ABC');
+    expect(
+      payload.cover_note_dtl.fleet_dtls?.[0].motor_dtl.chassis_number,
+    ).toBe('CHS-001');
+    expect(payload.cover_note_dtl.fleet_dtls?.[0].motor_dtl.engine_number).toBe(
+      'ENG-001',
+    );
+    expect(payload.cover_note_dtl.fleet_dtls?.[0].motor_dtl.make).toBe(
+      'TOYOTA',
+    );
+    expect(payload.cover_note_dtl.fleet_dtls?.[0].motor_dtl.model).toBe(
+      'LAND CRUISER',
+    );
+    expect(payload.cover_note_dtl.fleet_dtls?.[0].motor_dtl.model_number).toBe(
+      'GDH201',
+    );
     expect(
       payload.cover_note_dtl.fleet_dtls?.[0].risks_covered[0].pricing_quote_id,
     ).toBe('PQ-2026-00000002');

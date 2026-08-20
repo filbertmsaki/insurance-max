@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { createBrowserSafeId } from '@/lib/ids';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
@@ -116,10 +117,7 @@ export function PolicyCancellationPage() {
         effective_date: effectiveDate,
         reason_type: reasonType,
         reason,
-        idempotency_key:
-          typeof crypto !== 'undefined' && 'randomUUID' in crypto
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random()}`,
+        idempotency_key: createBrowserSafeId(),
       },
       {
         onSuccess: (created) =>

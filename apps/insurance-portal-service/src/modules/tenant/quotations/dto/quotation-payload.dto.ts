@@ -20,6 +20,7 @@ import {
 import { ProductChannelType } from '../../product-distribution/enums/product-channel-type.enum';
 import { QuotationFlow } from '../enums/quotation-flow.enum';
 import { QuotationType } from '../enums/quotation-type.enum';
+import { normalizeMotorTextValue } from '../utils/motor-text.util';
 
 export class InternalQuotationDto {
   @IsUUID()
@@ -348,28 +349,37 @@ export class MotorDetailDto {
   motor_type: number;
 
   @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim().toUpperCase() : value,
+    typeof value === 'string' ? (normalizeMotorTextValue(value) ?? '') : value,
   )
   @IsString()
   @MaxLength(50)
   registration_number: string;
 
   @Transform(({ value }) =>
-    typeof value === 'string' ? value.trim().toUpperCase() : value,
+    typeof value === 'string' ? (normalizeMotorTextValue(value) ?? '') : value,
   )
   @IsString()
   @MaxLength(100)
   chassis_number: string;
 
+  @Transform(({ value }) =>
+    typeof value === 'string' ? (normalizeMotorTextValue(value) ?? '') : value,
+  )
   @IsString()
   @MaxLength(100)
   make: string;
 
+  @Transform(({ value }) =>
+    typeof value === 'string' ? (normalizeMotorTextValue(value) ?? '') : value,
+  )
   @IsString()
   @MaxLength(100)
   model: string;
 
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? normalizeMotorTextValue(value) : value,
+  )
   @IsString()
   @MaxLength(100)
   model_number: string | null;
@@ -382,6 +392,9 @@ export class MotorDetailDto {
   @MaxLength(50)
   color: string;
 
+  @Transform(({ value }) =>
+    typeof value === 'string' ? (normalizeMotorTextValue(value) ?? '') : value,
+  )
   @IsString()
   @MaxLength(100)
   engine_number: string;

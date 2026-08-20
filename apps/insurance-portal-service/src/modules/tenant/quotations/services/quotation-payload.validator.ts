@@ -16,6 +16,7 @@ import {
 } from '../dto/quotation-payload.dto';
 import { QuotationFlow } from '../enums/quotation-flow.enum';
 import { QuotationType } from '../enums/quotation-type.enum';
+import { normalizeMotorTextValue } from '../utils/motor-text.util';
 
 interface EntryFinancialTotals {
   premiumExcludingTax: number;
@@ -52,6 +53,7 @@ export class QuotationPayloadValidator {
       });
     }
 
+    this.normalizeMotorFields(payload);
     this.validateRootStructure(payload, errors);
 
     if (payload.internal_quotation && payload.cover_note_dtl) {
@@ -833,7 +835,7 @@ export class QuotationPayloadValidator {
     pattern?: RegExp,
     patternMessage?: string,
   ): void {
-    const normalized = value?.trim();
+    const normalized = normalizeMotorTextValue(value) ?? '';
     if (!normalized) {
       errors.push(`${path} is required`);
       return;
@@ -842,6 +844,28 @@ export class QuotationPayloadValidator {
     if (pattern && !pattern.test(normalized)) {
       errors.push(`${path} ${patternMessage ?? 'has an invalid format'}`);
     }
+  }
+
+  private normalizeMotorFields(payload: CreateQuotationDto): void {
+    if (payload.cover_note_dtl?.motor_dtl) {
+      this.normalizeMotorDetail(payload.cover_note_dtl.motor_dtl);
+    }
+
+    payload.cover_note_dtl?.fleet_dtls?.forEach((entry) => {
+      if (entry.motor_dtl) {
+        this.normalizeMotorDetail(entry.motor_dtl);
+      }
+    });
+  }
+
+  private normalizeMotorDetail(motor: MotorDetailDto): void {
+    motor.registration_number =
+      normalizeMotorTextValue(motor.registration_number) ?? '';
+    motor.chassis_number = normalizeMotorTextValue(motor.chassis_number) ?? '';
+    motor.engine_number = normalizeMotorTextValue(motor.engine_number) ?? '';
+    motor.make = normalizeMotorTextValue(motor.make) ?? '';
+    motor.model = normalizeMotorTextValue(motor.model) ?? '';
+    motor.model_number = normalizeMotorTextValue(motor.model_number);
   }
 
   private validatePolicyHolders(

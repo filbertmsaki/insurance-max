@@ -28,6 +28,7 @@ import { isPaginatedPayload, normalizePaginatedResponse } from './pagination';
 import { serializeQueryParameters } from './query-serializer';
 
 import { parseApiError } from '@/lib/api-error';
+import { createBrowserSafeId } from '@/lib/ids';
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -46,16 +47,7 @@ declare module 'axios' {
 }
 
 function createRequestId(): string {
-  if (
-    typeof crypto !== 'undefined' &&
-    typeof crypto.randomUUID === 'function'
-  ) {
-    return crypto.randomUUID();
-  }
-
-  return [Date.now().toString(36), Math.random().toString(36).slice(2)].join(
-    '-',
-  );
+  return createBrowserSafeId();
 }
 
 function unwrapResponse(response: AxiosResponse): AxiosResponse {

@@ -41,6 +41,10 @@ import {
   buildFleetRiskPricingSignature,
   buildSingleRiskPricingSignature,
 } from './wizard/utils/pricingStaleness';
+import {
+  normalizeMotorTextInput,
+  normalizeMotorTextValue,
+} from './utils/motorText';
 
 const optionalText = z
   .string()
@@ -711,14 +715,14 @@ function validateFleet(
     }
 
     const registration =
-      normalizeText(item.motor_dtl.registration_number) ??
-      normalizeText(item.registration_no);
+      normalizeMotorTextValue(item.motor_dtl.registration_number) ??
+      normalizeMotorTextValue(item.registration_no);
     const chassis =
-      normalizeText(item.motor_dtl.chassis_number) ??
-      normalizeText(item.chassis_no);
+      normalizeMotorTextValue(item.motor_dtl.chassis_number) ??
+      normalizeMotorTextValue(item.chassis_no);
     const engine =
-      normalizeText(item.motor_dtl.engine_number) ??
-      normalizeText(item.engine_no);
+      normalizeMotorTextValue(item.motor_dtl.engine_number) ??
+      normalizeMotorTextValue(item.engine_no);
 
     if (registration) {
       const previous = seenRegistration.get(registration);
@@ -1419,6 +1423,14 @@ export function buildMotorSingleQuotationPayload(
     context.salePointCode,
     context.productCode,
   );
+  const registrationNumber = normalizeMotorTextInput(
+    values.motor.registration_no,
+  );
+  const chassisNumber = normalizeMotorTextInput(values.motor.chassis_no);
+  const engineNumber = normalizeMotorTextInput(values.motor.engine_no);
+  const make = normalizeMotorTextInput(values.motor.make);
+  const model = normalizeMotorTextInput(values.motor.model);
+  const modelNumber = normalizeMotorTextValue(values.motor.model_no);
 
   return {
     internal_quotation: {
@@ -1441,11 +1453,11 @@ export function buildMotorSingleQuotationPayload(
       subject_matters_covered: [
         {
           subject_matter_reference:
-            normalizeText(values.motor.registration_no) ??
-            values.motor.chassis_no,
+            normalizeMotorTextValue(values.motor.registration_no) ??
+            normalizeMotorTextValue(values.motor.chassis_no) ??
+            '',
           subject_matter_desc:
-            `${values.motor.make} ${values.motor.model}`.trim() ||
-            'Motor vehicle',
+            [make, model].filter(Boolean).join(' ') || 'Motor vehicle',
         },
       ],
       motor_dtl: {
@@ -1453,14 +1465,14 @@ export function buildMotorSingleQuotationPayload(
           values.motor.motor_category_code,
         ),
         motor_type: normalizePositiveNumber(values.motor.motor_type_code),
-        registration_number: values.motor.registration_no,
-        chassis_number: values.motor.chassis_no,
-        make: values.motor.make,
-        model: values.motor.model,
-        model_number: normalizeText(values.motor.model_no),
+        registration_number: registrationNumber,
+        chassis_number: chassisNumber,
+        make,
+        model,
+        model_number: modelNumber,
         body_type: values.motor.body_type,
         color: values.motor.color,
-        engine_number: values.motor.engine_no,
+        engine_number: engineNumber,
         engine_capacity: values.motor.cubic_capacity,
         fuel_used: values.motor.fuel_type,
         number_of_axles: normalizePositiveNumber(values.motor.number_of_axles),
@@ -1495,6 +1507,16 @@ export function buildMotorFleetQuotationPayload(
     context.existingCustomer,
   );
   const fleetItems = values.fleet.items.map((item, index) => {
+    const registrationNumber = normalizeMotorTextInput(
+      item.motor_dtl.registration_number,
+    );
+    const chassisNumber = normalizeMotorTextInput(
+      item.motor_dtl.chassis_number,
+    );
+    const engineNumber = normalizeMotorTextInput(item.motor_dtl.engine_number);
+    const make = normalizeMotorTextInput(item.motor_dtl.make);
+    const model = normalizeMotorTextInput(item.motor_dtl.model);
+    const modelNumber = normalizeMotorTextValue(item.motor_dtl.model_number);
     const taxMappedAddons = item.cover_note_addons.map((addon) => ({
       addon_reference: addon.addon_reference,
       addon_desc: addon.addon_desc,
@@ -1579,14 +1601,14 @@ export function buildMotorFleetQuotationPayload(
       motor_dtl: {
         motor_category: normalizePositiveNumber(item.motor_dtl.motor_category),
         motor_type: normalizePositiveNumber(item.motor_dtl.motor_type),
-        registration_number: item.motor_dtl.registration_number,
-        chassis_number: item.motor_dtl.chassis_number,
-        make: item.motor_dtl.make,
-        model: item.motor_dtl.model,
-        model_number: normalizeText(item.motor_dtl.model_number),
+        registration_number: registrationNumber,
+        chassis_number: chassisNumber,
+        make,
+        model,
+        model_number: modelNumber,
         body_type: item.motor_dtl.body_type,
         color: item.motor_dtl.color,
-        engine_number: item.motor_dtl.engine_number,
+        engine_number: engineNumber,
         engine_capacity: item.motor_dtl.engine_capacity,
         fuel_used: item.motor_dtl.fuel_used,
         number_of_axles: normalizePositiveNumber(
@@ -2044,12 +2066,12 @@ export function quotationRecordToFormValues(
       ...createEmptyMotorDetails(),
       motor_category_code: String(motor.motor_category) as '' | '1' | '2',
       motor_type_code: String(motor.motor_type) as '' | '1' | '2',
-      registration_no: motor.registration_number,
-      chassis_no: motor.chassis_number,
-      engine_no: motor.engine_number,
-      make: motor.make,
-      model: motor.model,
-      model_no: motor.model_number ?? '',
+      registration_no: normalizeMotorTextInput(motor.registration_number),
+      chassis_no: normalizeMotorTextInput(motor.chassis_number),
+      engine_no: normalizeMotorTextInput(motor.engine_number),
+      make: normalizeMotorTextInput(motor.make),
+      model: normalizeMotorTextInput(motor.model),
+      model_no: normalizeMotorTextInput(motor.model_number),
       body_type: motor.body_type,
       color: motor.color,
       manufacture_year: String(motor.year_of_manufacture),
@@ -2194,14 +2216,18 @@ export function quotationRecordToFormValues(
         motor_dtl: {
           motor_category: String(item.motor_dtl.motor_category),
           motor_type: String(item.motor_dtl.motor_type),
-          registration_number: item.motor_dtl.registration_number,
-          chassis_number: item.motor_dtl.chassis_number,
-          make: item.motor_dtl.make,
-          model: item.motor_dtl.model,
-          model_number: item.motor_dtl.model_number ?? '',
+          registration_number: normalizeMotorTextInput(
+            item.motor_dtl.registration_number,
+          ),
+          chassis_number: normalizeMotorTextInput(
+            item.motor_dtl.chassis_number,
+          ),
+          make: normalizeMotorTextInput(item.motor_dtl.make),
+          model: normalizeMotorTextInput(item.motor_dtl.model),
+          model_number: normalizeMotorTextInput(item.motor_dtl.model_number),
           body_type: item.motor_dtl.body_type,
           color: item.motor_dtl.color,
-          engine_number: item.motor_dtl.engine_number,
+          engine_number: normalizeMotorTextInput(item.motor_dtl.engine_number),
           engine_capacity: item.motor_dtl.engine_capacity,
           fuel_used: item.motor_dtl.fuel_used,
           number_of_axles: String(item.motor_dtl.number_of_axles),

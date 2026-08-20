@@ -16,6 +16,7 @@ import {
   useAllActiveProducts,
   useRisksByProduct,
 } from '@/modules/tenant/product-engine/hooks';
+import { createBrowserSafeId } from '@/lib/ids';
 import { getApiErrorMessage } from '@/lib/api-error';
 import type { RiskPremiumResult } from '@/types/product-engine';
 import {
@@ -77,7 +78,7 @@ export function CalculatorPage() {
     setEntries((previous) => [
       ...previous,
       {
-        id: crypto.randomUUID(),
+        id: createBrowserSafeId(),
         risk_id: selectedRisk.id,
         risk_name: selectedRisk.risk_name,
         risk_code: selectedRisk.risk_code,

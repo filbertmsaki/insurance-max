@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { createBrowserSafeId } from '@/lib/ids';
 import {
   FormControl,
   FormField,
@@ -49,6 +50,7 @@ import {
   createEmptyRiskTaxRow,
   type QuotationFormSchemaValues,
 } from '../../schemas';
+import { normalizeMotorTextInput } from '../../utils/motorText';
 import { StepSection } from '../components/StepSection';
 import { WizardFormItem } from '../components/WizardFormItem';
 import {
@@ -352,7 +354,7 @@ function FleetVehicleEditor({
                 size="sm"
                 onClick={() =>
                   riskArray.append({
-                    client_ref: crypto.randomUUID(),
+                    client_ref: createBrowserSafeId(),
                     risk_id: '',
                     risk_code: '',
                     sum_insured: '',
@@ -1124,7 +1126,14 @@ function FleetVehicleEditor({
               <WizardFormItem>
                 <FormLabel>Registration Number</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input
+                    {...field}
+                    onChange={(event) =>
+                      field.onChange(
+                        normalizeMotorTextInput(event.target.value),
+                      )
+                    }
+                  />
                 </FormControl>
                 <FormMessage />
               </WizardFormItem>
@@ -1137,7 +1146,14 @@ function FleetVehicleEditor({
               <WizardFormItem>
                 <FormLabel>Chassis Number</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input
+                    {...field}
+                    onChange={(event) =>
+                      field.onChange(
+                        normalizeMotorTextInput(event.target.value),
+                      )
+                    }
+                  />
                 </FormControl>
                 <FormMessage />
               </WizardFormItem>
@@ -1150,7 +1166,14 @@ function FleetVehicleEditor({
               <WizardFormItem>
                 <FormLabel>Make</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input
+                    {...field}
+                    onChange={(event) =>
+                      field.onChange(
+                        normalizeMotorTextInput(event.target.value),
+                      )
+                    }
+                  />
                 </FormControl>
               </WizardFormItem>
             )}
@@ -1162,7 +1185,14 @@ function FleetVehicleEditor({
               <WizardFormItem>
                 <FormLabel>Model</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input
+                    {...field}
+                    onChange={(event) =>
+                      field.onChange(
+                        normalizeMotorTextInput(event.target.value),
+                      )
+                    }
+                  />
                 </FormControl>
               </WizardFormItem>
             )}
@@ -1174,7 +1204,14 @@ function FleetVehicleEditor({
               <WizardFormItem>
                 <FormLabel>Model Number</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input
+                    {...field}
+                    onChange={(event) =>
+                      field.onChange(
+                        normalizeMotorTextInput(event.target.value),
+                      )
+                    }
+                  />
                 </FormControl>
               </WizardFormItem>
             )}
@@ -1210,7 +1247,14 @@ function FleetVehicleEditor({
               <WizardFormItem>
                 <FormLabel>Engine Number</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input
+                    {...field}
+                    onChange={(event) =>
+                      field.onChange(
+                        normalizeMotorTextInput(event.target.value),
+                      )
+                    }
+                  />
                 </FormControl>
               </WizardFormItem>
             )}

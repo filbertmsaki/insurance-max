@@ -3,6 +3,7 @@ import { ProductChannelType } from '../../product-distribution/enums/product-cha
 import { CreateQuotationDto } from '../dto/quotation-payload.dto';
 import { QuotationFlow } from '../enums/quotation-flow.enum';
 import { QuotationType } from '../enums/quotation-type.enum';
+import { createMotorSingleQuotationPayload } from '../testing/quotation-payload.fixture';
 import { QuotationPayloadValidator } from './quotation-payload.validator';
 
 describe('QuotationPayloadValidator', () => {
@@ -93,6 +94,37 @@ describe('QuotationPayloadValidator', () => {
     tax.tax_amount = 0;
     tax.tax_exemption_type = null;
     tax.tax_exemption_reference = null;
+
+    expect(() => validator.assertValid(payload)).toThrow(BadRequestException);
+  });
+
+  it('normalizes single motor detail text before validation', () => {
+    const payload = createMotorSingleQuotationPayload();
+    payload.cover_note_dtl.risks_covered![0].discounts_offered = [];
+
+    payload.cover_note_dtl.motor_dtl!.registration_number = '   t123abc   ';
+    payload.cover_note_dtl.motor_dtl!.chassis_number = '  mockchassis123456 ';
+    payload.cover_note_dtl.motor_dtl!.engine_number = ' mockengine123 ';
+    payload.cover_note_dtl.motor_dtl!.make = ' Toyota ';
+    payload.cover_note_dtl.motor_dtl!.model = 'Land   Cruiser';
+    payload.cover_note_dtl.motor_dtl!.model_number = ' gdh201 ';
+
+    expect(() => validator.assertValid(payload)).not.toThrow();
+    expect(payload.cover_note_dtl.motor_dtl).toMatchObject({
+      registration_number: 'T123ABC',
+      chassis_number: 'MOCKCHASSIS123456',
+      engine_number: 'MOCKENGINE123',
+      make: 'TOYOTA',
+      model: 'LAND CRUISER',
+      model_number: 'GDH201',
+    });
+  });
+
+  it('treats whitespace-only required motor text as empty', () => {
+    const payload = createMotorSingleQuotationPayload();
+    payload.cover_note_dtl.risks_covered![0].discounts_offered = [];
+
+    payload.cover_note_dtl.motor_dtl!.make = '   ';
 
     expect(() => validator.assertValid(payload)).toThrow(BadRequestException);
   });
