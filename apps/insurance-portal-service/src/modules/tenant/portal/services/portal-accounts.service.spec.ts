@@ -62,6 +62,7 @@ describe('PortalAccountsService', () => {
       [Role, repos.role ?? mockRepo()],
       [Branch, repos.branch ?? mockRepo()],
       [BranchUser, repos.branchUser ?? mockRepo()],
+      [Customer, repos.customer ?? mockRepo()],
       [PortalAccount, repos.portalAccount ?? mockRepo()],
     ]);
 
@@ -157,6 +158,47 @@ describe('PortalAccountsService', () => {
           [PortalActorType.INTERMEDIARY],
         ),
       ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('serializes customer auto-provisioning for concurrent requests from the same user', async () => {
+      const customer = {
+        id: 'customer-id',
+        company_id: 'company-id',
+        user_id: 'user-id',
+      };
+      const account = {
+        id: 'account-id',
+        company_id: 'company-id',
+        user_id: 'user-id',
+        customer_id: 'customer-id',
+        actor_type: PortalActorType.CUSTOMER,
+        status: PortalAccountStatus.ACTIVE,
+      };
+      const manager = buildManager({
+        user: mockRepo({
+          findOne: jest.fn().mockResolvedValue({ id: 'user-id' }),
+        }),
+        customer: mockRepo({
+          findOne: jest.fn().mockResolvedValue(customer),
+        }),
+        portalAccount: mockRepo({
+          findOne: jest.fn().mockResolvedValue(account),
+          save: jest.fn().mockImplementation((value: any) => value),
+        }),
+      });
+      dataSource.transaction.mockImplementation((callback: any) =>
+        callback(manager),
+      );
+
+      await service.findActiveForUser(
+        { id: 'user-id', scope: 'customer', permissions: [] } as any,
+        [PortalActorType.CUSTOMER],
+      );
+
+      expect(manager.query).toHaveBeenCalledWith(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+        ['customer-portal:user-id'],
+      );
     });
   });
 

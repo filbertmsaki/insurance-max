@@ -642,6 +642,14 @@ export class PortalAccountsService {
     }
 
     return this.dataSource.transaction(async (manager) => {
+      // Customer portal pages issue several protected requests in parallel.
+      // Serialize auto-provisioning for this user so every request after the
+      // first one observes and reuses the same customer and portal account.
+      await manager.query(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+        [`customer-portal:${user.id}`],
+      );
+
       const customerRepository = manager.getRepository(Customer);
       const portalUser = await manager.getRepository(User).findOne({
         where: { id: user.id },
