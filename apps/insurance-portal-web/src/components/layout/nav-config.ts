@@ -69,6 +69,13 @@ export const NAV_NODES: NavNode[] = [
     icon: LayoutDashboard,
   },
   {
+    kind: 'link',
+    label: 'Customer Portal',
+    to: '/customer/dashboard',
+    icon: User,
+    allowedScopes: ['company'],
+  },
+  {
     kind: 'group',
     label: 'User Management',
     icon: Users,
@@ -495,6 +502,7 @@ export const NAV_NODES: NavNode[] = [
         to: '/tiramis/configuration',
         icon: Key,
         permission: 'company-tiramis-config:read',
+        allowedScopes: ['company'],
       },
       {
         kind: 'link',

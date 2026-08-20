@@ -77,7 +77,7 @@ describe('PortalGuard', () => {
     const context = createContext({
       id: 'user-id',
       companyId: 'company-id',
-      permissions: [PortalPermissions.CUSTOMER_ACCESS],
+      permissions: [],
     });
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
@@ -89,7 +89,7 @@ describe('PortalGuard', () => {
     );
   });
 
-  it('rejects a portal account when its portal permission is missing', async () => {
+  it('does not require a customer portal permission', async () => {
     reflector.getAllAndOverride = jest
       .fn()
       .mockReturnValue([PortalActorType.CUSTOMER]);
@@ -108,7 +108,7 @@ describe('PortalGuard', () => {
           permissions: [],
         }),
       ),
-    ).rejects.toThrow(ForbiddenException);
+    ).resolves.toBe(true);
   });
 
   it('requires the intermediary permission for intermediary accounts', async () => {

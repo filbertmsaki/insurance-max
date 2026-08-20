@@ -42,7 +42,7 @@ describe('DefaultLandingPage', () => {
         userType: 'CUSTOMER',
         companyId: 'company-1',
         roles: [],
-        permissions: ['portal:customer-access'],
+        permissions: [],
       },
       authorizationContext: null,
     });

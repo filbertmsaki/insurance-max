@@ -16,13 +16,10 @@ import { PortalAccountsService } from '../services/portal-accounts.service';
 
 /**
  * Verifies: authenticated JWT user + active company context + active portal
- * account + allowed actor type + the portal permission matching that actor
- * type. Fails closed - a handler that forgets @PortalActors(...) is rejected
- * rather than treated as "any actor allowed". The permission check matters
- * because the shared portal controller serves both actor types behind a
- * single @PortalActors(CUSTOMER, INTERMEDIARY) declaration - without it,
- * revoking a user's portal role would not immediately block their access
- * while an active portal_accounts record still exists.
+ * account + allowed actor type. Customer self-service access does not depend
+ * on a special permission; intermediary access still does because that portal
+ * exposes portfolio-wide business data. Fails closed - a handler that forgets
+ * @PortalActors(...) is rejected rather than treated as "any actor allowed".
  */
 @Injectable()
 export class PortalGuard implements CanActivate {
@@ -62,14 +59,15 @@ export class PortalGuard implements CanActivate {
       actors,
     );
 
-    const requiredPermission =
-      account.actor_type === PortalActorType.CUSTOMER
-        ? PortalPermissions.CUSTOMER_ACCESS
-        : PortalPermissions.INTERMEDIARY_ACCESS;
+    if (account.actor_type === PortalActorType.CUSTOMER) {
+      request.portalAccount = account;
+
+      return true;
+    }
 
     const permissions = new Set(user.permissions ?? []);
 
-    if (!permissions.has(requiredPermission)) {
+    if (!permissions.has(PortalPermissions.INTERMEDIARY_ACCESS)) {
       throw new ForbiddenException('Portal permission has been revoked');
     }
 

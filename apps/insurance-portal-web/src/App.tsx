@@ -163,7 +163,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route
             element={
-              <ProtectedRoute anyPermissions={['portal:customer-access']} />
+              <ProtectedRoute allowedScopes={['company']} />
             }
           >
             <Route
@@ -1038,7 +1038,10 @@ export default function App() {
             </Route>
             <Route
               element={
-                <ProtectedRoute requiredPermission="company-tiramis-config:read" />
+                <ProtectedRoute
+                  requiredPermission="company-tiramis-config:read"
+                  allowedScopes={['company']}
+                />
               }
             >
               <Route

@@ -19,8 +19,6 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
-import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
 import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
@@ -37,21 +35,18 @@ import { PortalListQueryDto } from '../dto/portal-query.dto';
 import { PortalAccount } from '../entities/portal-account.entity';
 import { PortalActorType } from '../enums/portal.enums';
 import { PortalGuard } from '../guards/portal.guard';
-import { PortalPermissions } from '../portal.permissions';
 import { PortalBusinessAccessService } from '../services/portal-business-access.service';
 import { PortalDashboardService } from '../services/portal-dashboard.service';
 import { PortalEngagementService } from '../services/portal-engagement.service';
 import { PortalNotificationService } from '../services/portal-notification.service';
 
-// Every route in this controller requires the same single permission, so
-// PermissionsGuard + @Permissions() are applied once at class level rather
-// than repeated per method (unlike PortalAdminController, whose routes each
-// need a different permission).
+// Customer self-service access is authentication-based. PortalGuard still
+// resolves the linked portal/customer account and every data read/write below
+// remains scoped to that ownership context on the backend.
 @ApiTags('Customer portal')
 @ApiBearerAuth('access-token')
 @Controller({ path: 'customer', version: '1' })
-@UseGuards(AuthGuard('jwt'), TenantGuard, PermissionsGuard, PortalGuard)
-@Permissions(PortalPermissions.CUSTOMER_ACCESS)
+@UseGuards(AuthGuard('jwt'), TenantGuard, PortalGuard)
 @PortalActors(PortalActorType.CUSTOMER)
 export class CustomerPortalController {
   constructor(
