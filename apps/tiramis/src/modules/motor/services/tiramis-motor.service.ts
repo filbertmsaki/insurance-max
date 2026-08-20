@@ -16,6 +16,7 @@ import { TiramisSignatureService } from '../../messaging/services/tiramis-signat
 import { TiramisXmlBuilderService } from '../../messaging/services/tiramis-xml-builder.service';
 import { TiramisXmlParserService } from '../../messaging/services/tiramis-xml-parser.service';
 import { TiramisPayloadValidationService } from '../../shared/services/tiramis-payload-validation.service';
+import { TiramisCoverPeriodService } from '../../shared/services/tiramis-cover-period.service';
 import { TiramisProductWordingValidationService } from '../../../common/services/tiramis-product-wording-validation.service';
 import { TiramisRequestIdService } from '../../submissions/services/tiramis-request-id.service';
 import { TiramisSourceMetadataDto } from '../../submissions/dto/tiramis-source-metadata.dto';
@@ -42,6 +43,7 @@ export class TiramisMotorService {
     private readonly httpClient: TiramisHttpClientService,
     private readonly payloadValidator: TiramisPayloadValidationService,
     private readonly productWordingValidator: TiramisProductWordingValidationService,
+    private readonly coverPeriodService: TiramisCoverPeriodService,
   ) {}
 
   async createDraft(
@@ -60,6 +62,7 @@ export class TiramisMotorService {
             )
           ).dto;
 
+    this.normalizeCoverPeriod(resolvedDto);
     this.validateMotorPayload(resolvedDto);
 
     const requestId =
@@ -306,6 +309,12 @@ export class TiramisMotorService {
     const serviceType = dto.isFleet
       ? 'MOTOR_COVER_NOTE_FLEET'
       : 'MOTOR_COVER_NOTE_NON_FLEET';
+
+    // Re-check against a fresh server timestamp immediately before building
+    // and signing the outbound XML.
+    this.normalizeCoverPeriod(resolvedDto);
+    coverNote.coverNoteStartDate = new Date(resolvedDto.coverNoteStartDate);
+    coverNote.coverNoteEndDate = new Date(resolvedDto.coverNoteEndDate);
 
     const payload = this.motorPayloadService.buildMotorCoverNotePayload({
       dto: resolvedDto,
@@ -574,6 +583,18 @@ export class TiramisMotorService {
           ? Math.min(parsedLimit, 100)
           : 50,
     };
+  }
+
+  private normalizeCoverPeriod(
+    dto: CreateMotorCoverNoteDto & Partial<TiramisResolvedRequestDtoFields>,
+  ) {
+    const period = this.coverPeriodService.normalize(
+      dto.coverNoteStartDate,
+      dto.coverNoteEndDate,
+    );
+
+    dto.coverNoteStartDate = period.startDateTime;
+    dto.coverNoteEndDate = period.endDateTime;
   }
 
   private validateMotorPayload(

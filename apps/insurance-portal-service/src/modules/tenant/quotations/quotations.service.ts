@@ -105,6 +105,7 @@ import { TiraStatus } from './enums/tira-status.enum';
 import { QuotationPayloadMapper } from './mappers/quotation-payload.mapper';
 import { QuotationPreviewMapper } from './mappers/quotation-preview.mapper';
 import { QuotationTiramisPayloadMapper } from './mappers/quotation-tiramis-payload.mapper';
+import { normalizeQuotationCoverPeriod } from './utils/quotation-cover-period.util';
 import { QuotationsRepository } from './repositories/quotations.repository';
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
 import { normalizeMotorTextValue } from './utils/motor-text.util';
@@ -3788,6 +3789,7 @@ export class QuotationsService {
         companyId,
         quotation,
       );
+      await this.correctPersistedQuotationCoverPeriod(quotation);
       const payload = this.payloadMapper.toAuthoritativePayload(quotation);
       await this.validateAuthoritativePricing(
         companyId,
@@ -7059,6 +7061,7 @@ export class QuotationsService {
     userId: string,
     exchangeRateSnapshot: ExchangeRateSnapshot | null,
   ): Promise<void> {
+    this.correctPayloadCoverPeriod(payload);
     const header = this.resolveHeader(payload);
     const fleetHeader = payload.cover_note_dtl.fleet_hdr;
     const coverNoteRepository = manager.getRepository(QuotationCoverNote);
@@ -7984,6 +7987,58 @@ export class QuotationsService {
       owner_category: motor.owner_category,
       owner_address: motor.owner_address.trim(),
     };
+  }
+
+  private correctPayloadCoverPeriod(payload: CreateQuotationDto): void {
+    const header = this.resolveHeader(payload);
+    const period = normalizeQuotationCoverPeriod(
+      header.cover_note_start_date,
+      header.cover_note_end_date,
+    );
+
+    if (
+      payload.internal_quotation.quotation_flow === QuotationFlow.MOTOR_FLEET
+    ) {
+      payload.cover_note_dtl.fleet_hdr!.cover_note_start_date =
+        period.startDateTime;
+      payload.cover_note_dtl.fleet_hdr!.cover_note_end_date =
+        period.endDateTime;
+      return;
+    }
+
+    payload.cover_note_dtl.cover_note_start_date = period.startDateTime;
+    payload.cover_note_dtl.cover_note_end_date = period.endDateTime;
+  }
+
+  private async correctPersistedQuotationCoverPeriod(
+    quotation: Quotation,
+  ): Promise<void> {
+    const coverNote = quotation.cover_note;
+
+    if (!coverNote) {
+      throw new BadRequestException(
+        'Quotation cover-note information was not found',
+      );
+    }
+
+    const period = normalizeQuotationCoverPeriod(
+      coverNote.cover_note_start_date,
+      coverNote.cover_note_end_date,
+    );
+
+    if (!period.adjusted) {
+      return;
+    }
+
+    await this.dataSource
+      .getRepository(QuotationCoverNote)
+      .update(coverNote.id, {
+        cover_note_start_date: period.startDate,
+        cover_note_end_date: period.endDate,
+      });
+
+    coverNote.cover_note_start_date = period.startDate;
+    coverNote.cover_note_end_date = period.endDate;
   }
 
   private resolveHeader(payload: CreateQuotationDto): ResolvedHeader {

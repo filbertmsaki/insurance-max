@@ -10,7 +10,10 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { TiramisConfigService } from '../../config/services/tiramis-config.service';
 import { TiramisPortalNotificationService } from '../../portal-notifications/services/tiramis-portal-notification.service';
 import { TiramisHttpClientService } from '../../messaging/services/tiramis-http-client.service';
+import { TiramisSignatureService } from '../../messaging/services/tiramis-signature.service';
+import { TiramisXmlBuilderService } from '../../messaging/services/tiramis-xml-builder.service';
 import { TiramisXmlParserService } from '../../messaging/services/tiramis-xml-parser.service';
+import { TiramisCoverPeriodService } from '../../shared/services/tiramis-cover-period.service';
 import {
   TIRAMIS_ATTEMPT_STATUS,
   TIRAMIS_SUBMISSION_EVENT_TYPE,
@@ -32,6 +35,9 @@ export class TiramisRetrySchedulerService {
     private readonly tiramisConfigService: TiramisConfigService,
     private readonly httpClient: TiramisHttpClientService,
     private readonly xmlParser: TiramisXmlParserService,
+    private readonly xmlBuilder: TiramisXmlBuilderService,
+    private readonly signatureService: TiramisSignatureService,
+    private readonly coverPeriodService: TiramisCoverPeriodService,
     private readonly portalNotificationService: TiramisPortalNotificationService,
   ) {}
 
@@ -164,9 +170,51 @@ export class TiramisRetrySchedulerService {
         configuration,
       );
 
+    let requestXml = attempt.requestXml;
+    let requestSignature = attempt.requestSignature || '';
+
+    if (this.isCoverNoteService(transaction.serviceType)) {
+      const pfxPaths =
+        await this.tiramisConfigService.getPfxPathsForConfiguration(
+          configuration,
+        );
+      const normalizedRequest = this.coverPeriodService.normalizeRequestXml(
+        attempt.requestXml,
+      );
+      const callbackUrl =
+        this.tiramisConfigService.getTiraCallbackUrlForConfiguration(
+          configuration,
+        );
+      const requestWithCallback = this.replaceXmlElement(
+        normalizedRequest.xml,
+        'CallBackUrl',
+        callbackUrl,
+      );
+      const parsedRequest =
+        this.xmlParser.parseTiraMessage(requestWithCallback);
+
+      if (!parsedRequest.contentXml) {
+        throw new BadRequestException(
+          'Cannot retry attempt because signed request content is missing',
+        );
+      }
+
+      requestSignature = this.signatureService.signXmlContent({
+        contentXml: parsedRequest.contentXml,
+        privateKeyPfxPath: pfxPaths.clientPrivateCertificatePath!,
+        privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
+      });
+      requestXml = this.xmlBuilder.buildSignedTiraMessageFromContent({
+        contentXml: parsedRequest.contentXml,
+        signature: requestSignature,
+      });
+    }
+
     attempt.retryCount = Number(attempt.retryCount || 0) + 1;
     attempt.lastRetryAt = new Date();
     attempt.status = TIRAMIS_ATTEMPT_STATUS.SENT;
+    attempt.requestXml = requestXml;
+    attempt.requestSignature = requestSignature;
 
     await this.attemptRepository.save(attempt);
 
@@ -182,7 +230,7 @@ export class TiramisRetrySchedulerService {
       const response = await this.httpClient.postXml({
         url: endpoint,
         headers,
-        xml: attempt.requestXml,
+        xml: requestXml,
       });
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -420,6 +468,25 @@ export class TiramisRetrySchedulerService {
     );
 
     return new Date(Date.now() + delaySeconds * 1000);
+  }
+
+  private replaceXmlElement(
+    xml: string,
+    elementName: string,
+    value: string,
+  ): string {
+    return xml.replace(
+      new RegExp(`(<${elementName}[^>]*>)[^<]*(</${elementName}>)`, 'gi'),
+      `$1${value}$2`,
+    );
+  }
+
+  private isCoverNoteService(serviceType: string): boolean {
+    return [
+      'COVER_NOTE_NON_MOTOR',
+      'MOTOR_COVER_NOTE_NON_FLEET',
+      'MOTOR_COVER_NOTE_FLEET',
+    ].includes(serviceType);
   }
 
   private async recordEvent(params: {

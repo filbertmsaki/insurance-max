@@ -204,6 +204,13 @@ describe('QuotationsService', () => {
       },
       company_id: 'company-1',
       cover_note: {
+        id: 'cover-note-1',
+        cover_note_start_date: new Date(
+          authoritativePayload.cover_note_dtl.cover_note_start_date!,
+        ),
+        cover_note_end_date: new Date(
+          authoritativePayload.cover_note_dtl.cover_note_end_date!,
+        ),
         sale_point_code:
           authoritativePayload.cover_note_dtl.sale_point_code ?? 'SP502',
         payment_mode: 1,
@@ -437,6 +444,7 @@ describe('QuotationsService', () => {
 
         return {
           find: jest.fn().mockResolvedValue([]),
+          update: jest.fn().mockResolvedValue(undefined),
         };
       }),
       query: jest.fn().mockResolvedValue([]),

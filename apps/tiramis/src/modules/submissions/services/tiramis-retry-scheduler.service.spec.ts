@@ -28,6 +28,9 @@ function createService() {
     {} as any,
     {} as any,
     {} as any,
+    {} as any,
+    {} as any,
+    {} as any,
     portalNotificationService as any,
   );
 

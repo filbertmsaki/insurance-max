@@ -15,6 +15,7 @@ import { TiramisRequestIdService } from './services/tiramis-request-id.service';
 import { TiramisRetrySchedulerService } from './services/tiramis-retry-scheduler.service';
 import { TiramisResubmissionService } from './services/tiramis-resubmission.service';
 import { TiramisSubmissionService } from './services/tiramis-submission.service';
+import { TiramisCoverPeriodService } from '../shared/services/tiramis-cover-period.service';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { TiramisSubmissionService } from './services/tiramis-submission.service'
     TiramisRetrySchedulerService,
     TiramisSubmissionService,
     TiramisResubmissionService,
+    TiramisCoverPeriodService,
   ],
   exports: [
     TiramisTransactionRepository,

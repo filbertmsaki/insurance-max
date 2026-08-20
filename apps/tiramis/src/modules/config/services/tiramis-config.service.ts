@@ -539,6 +539,12 @@ export class TiramisConfigService {
     );
   }
 
+  getTiraCallbackUrlForConfiguration(
+    configuration: TiramisClientConfigurationEntity,
+  ): string {
+    return this.resolveTiraCallbackUrl(configuration);
+  }
+
   async getResponseCode(
     code: string,
   ): Promise<TiramisResponseCodeEntity | null> {

@@ -16,6 +16,7 @@ import { TiramisRequestIdService } from '../../submissions/services/tiramis-requ
 import { TiramisSourceMetadataDto } from '../../submissions/dto/tiramis-source-metadata.dto';
 import { TiramisSubmissionService } from '../../submissions/services/tiramis-submission.service';
 import { TiramisPayloadValidationService } from '../../shared/services/tiramis-payload-validation.service';
+import { TiramisCoverPeriodService } from '../../shared/services/tiramis-cover-period.service';
 import { TiramisProductWordingValidationService } from '../../../common/services/tiramis-product-wording-validation.service';
 import { CreateCoverNoteDto } from '../dto/create-cover-note.dto';
 import { TiramisCoverNoteRepository } from '../repositories/tiramis-cover-note.repository';
@@ -38,6 +39,7 @@ export class TiramisCoverNoteService {
     private readonly httpClient: TiramisHttpClientService,
     private readonly payloadValidator: TiramisPayloadValidationService,
     private readonly productWordingValidator: TiramisProductWordingValidationService,
+    private readonly coverPeriodService: TiramisCoverPeriodService,
   ) {}
 
   async createDraft(
@@ -56,6 +58,7 @@ export class TiramisCoverNoteService {
             )
           ).dto;
 
+    this.normalizeCoverPeriod(resolvedDto);
     this.validateNonMotorPayload(resolvedDto);
 
     const requestId =
@@ -282,6 +285,12 @@ export class TiramisCoverNoteService {
       sourceMetadata,
     );
 
+    // Re-check against a fresh server timestamp immediately before building
+    // and signing the outbound XML.
+    this.normalizeCoverPeriod(resolvedDto);
+    coverNote.coverNoteStartDate = new Date(resolvedDto.coverNoteStartDate);
+    coverNote.coverNoteEndDate = new Date(resolvedDto.coverNoteEndDate);
+
     const payload = this.payloadService.buildFromDto({
       dto: resolvedDto,
       requestId: coverNote.requestId,
@@ -475,6 +484,18 @@ export class TiramisCoverNoteService {
     }
 
     this.payloadValidator.validateSignedPricingMatch(dto.risks || []);
+  }
+
+  private normalizeCoverPeriod(
+    dto: CreateCoverNoteDto & Partial<TiramisResolvedRequestDtoFields>,
+  ) {
+    const period = this.coverPeriodService.normalize(
+      dto.coverNoteStartDate,
+      dto.coverNoteEndDate,
+    );
+
+    dto.coverNoteStartDate = period.startDateTime;
+    dto.coverNoteEndDate = period.endDateTime;
   }
 
   private maskTiraHeaders(
