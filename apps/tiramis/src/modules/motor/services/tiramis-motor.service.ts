@@ -119,6 +119,9 @@ export class TiramisMotorService {
       endorsementType: resolvedDto.endorsementType || null,
       endorsementReason: resolvedDto.endorsementReason || null,
       endorsementPremiumEarned: resolvedDto.endorsementPremiumEarned || null,
+      ...(resolvedDto.isFleet
+        ? {}
+        : this.mapCoverNoteCollections(resolvedDto, null)),
       policyHolders: resolvedDto.policyHolders.map((holder) => ({
         policyHolderName: holder.policyHolderName,
         policyHolderBirthDate: holder.policyHolderBirthDate
@@ -152,6 +155,10 @@ export class TiramisMotorService {
 
       const savedFleet = await this.motorRepository.saveFleet(fleet);
 
+      const fleetRisks: any[] = [];
+      const fleetSubjectMatters: any[] = [];
+      const fleetAddons: any[] = [];
+
       for (const item of resolvedDto.fleet.items) {
         const fleetItem = this.motorRepository.createFleetItem({
           motorFleetId: savedFleet.id,
@@ -170,6 +177,27 @@ export class TiramisMotorService {
         const savedFleetItem =
           await this.motorRepository.saveFleetItem(fleetItem);
 
+        const itemCollections = this.mapCoverNoteCollections(
+          {
+            risks:
+              item.risks && item.risks.length > 0
+                ? item.risks
+                : resolvedDto.risks || [],
+            subjectMatters:
+              item.subjectMatters && item.subjectMatters.length > 0
+                ? item.subjectMatters
+                : resolvedDto.subjectMatters || [],
+            addons:
+              item.addons && item.addons.length > 0
+                ? item.addons
+                : resolvedDto.addons || [],
+          },
+          savedFleetItem.id,
+        );
+        fleetRisks.push(...itemCollections.risks);
+        fleetSubjectMatters.push(...itemCollections.subjectMatters);
+        fleetAddons.push(...itemCollections.addons);
+
         const motorDetail = this.motorRepository.createMotorDetail({
           coverNoteId: savedCoverNote.id,
           motorFleetItemId: savedFleetItem.id,
@@ -178,6 +206,11 @@ export class TiramisMotorService {
 
         await this.motorRepository.saveMotorDetail(motorDetail);
       }
+
+      savedCoverNote.risks = fleetRisks;
+      savedCoverNote.subjectMatters = fleetSubjectMatters;
+      savedCoverNote.addons = fleetAddons;
+      await this.coverNoteRepository.save(savedCoverNote);
     }
 
     if (!resolvedDto.isFleet && resolvedDto.motorDetail) {
@@ -193,6 +226,60 @@ export class TiramisMotorService {
     return {
       transaction,
       coverNote: savedCoverNote,
+    };
+  }
+
+  private mapCoverNoteCollections(
+    dto: Pick<CreateMotorCoverNoteDto, 'risks' | 'subjectMatters' | 'addons'>,
+    motorFleetItemId: string | null,
+  ) {
+    return {
+      risks: (dto.risks || []).map((risk) => ({
+        motorFleetItemId,
+        riskCode: risk.riskCode,
+        sumInsured: risk.sumInsured,
+        sumInsuredEquivalent: risk.sumInsuredEquivalent,
+        premiumRate: risk.premiumRate,
+        premiumBeforeDiscount: risk.premiumBeforeDiscount,
+        premiumAfterDiscount: risk.premiumAfterDiscount,
+        premiumExcludingTaxEquivalent: risk.premiumExcludingTaxEquivalent,
+        premiumIncludingTax: risk.premiumIncludingTax,
+        discounts: (risk.discounts || []).map((discount) => ({
+          discountType: discount.discountType || null,
+          discountRate: discount.discountRate || null,
+          discountAmount: discount.discountAmount || null,
+        })),
+        taxes: (risk.taxes || []).map((tax) => ({
+          taxCode: tax.taxCode,
+          isTaxExempted: tax.isTaxExempted || 'N',
+          taxExemptionType: tax.taxExemptionType || null,
+          taxExemptionReference: tax.taxExemptionReference || null,
+          taxRate: tax.taxRate,
+          taxAmount: tax.taxAmount,
+        })),
+      })) as any,
+      subjectMatters: (dto.subjectMatters || []).map((subject) => ({
+        subjectMatterReference: subject.subjectMatterReference,
+        subjectMatterDesc: subject.subjectMatterDesc,
+      })) as any,
+      addons: (dto.addons || []).map((addon) => ({
+        motorFleetItemId,
+        addonReference: addon.addonReference,
+        addonDesc: addon.addonDesc,
+        addonAmount: addon.addonAmount,
+        addonPremiumRate: addon.addonPremiumRate,
+        premiumExcludingTax: addon.premiumExcludingTax,
+        premiumExcludingTaxEquivalent: addon.premiumExcludingTaxEquivalent,
+        premiumIncludingTax: addon.premiumIncludingTax,
+        taxes: (addon.taxes || []).map((tax) => ({
+          taxCode: tax.taxCode,
+          isTaxExempted: tax.isTaxExempted || 'N',
+          taxExemptionType: tax.taxExemptionType || null,
+          taxExemptionReference: tax.taxExemptionReference || null,
+          taxRate: tax.taxRate,
+          taxAmount: tax.taxAmount,
+        })),
+      })) as any,
     };
   }
 
