@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { isUUID } from 'class-validator';
 
 import {
   TiramisConfigService,
@@ -434,11 +439,59 @@ export class TiramisMotorService {
   }
 
   async findFleetByCoverNoteId(coverNoteId: string) {
-    return this.motorRepository.findFleetByCoverNoteId(coverNoteId);
+    return this.findCompleteSubmissionSnapshot(coverNoteId);
   }
 
   async findMotorDetailsByCoverNoteId(coverNoteId: string) {
-    return this.motorRepository.findMotorDetailsByCoverNoteId(coverNoteId);
+    return this.findCompleteSubmissionSnapshot(coverNoteId);
+  }
+
+  private async findCompleteSubmissionSnapshot(identifier: string) {
+    const coverNote = await this.resolveCoverNote(identifier);
+
+    if (!coverNote) {
+      throw new NotFoundException('TIRAMIS motor cover note not found');
+    }
+
+    const [fullCoverNote, fleet, motorDetails, submission] = await Promise.all([
+      this.coverNoteRepository.findById(coverNote.id),
+      this.motorRepository.findFleetByCoverNoteId(coverNote.id),
+      this.motorRepository.findMotorDetailsByCoverNoteId(coverNote.id),
+      this.tiramisSubmissionService.getSubmissionTrace({
+        transactionId: coverNote.transactionId,
+        includePayload: true,
+      }),
+    ]);
+
+    return {
+      coverNote: fullCoverNote,
+      motorDetails,
+      fleet,
+      submission,
+    };
+  }
+
+  private async resolveCoverNote(identifier: string) {
+    let coverNote = isUUID(identifier)
+      ? await this.coverNoteRepository.findById(identifier)
+      : null;
+
+    coverNote ||= await this.coverNoteRepository.findByRequestId(identifier);
+    coverNote ||=
+      await this.coverNoteRepository.findByCoverNoteNumber(identifier);
+    coverNote ||=
+      await this.coverNoteRepository.findByCoverNoteReferenceNumber(identifier);
+
+    if (coverNote) {
+      return coverNote;
+    }
+
+    const attempt =
+      await this.tiramisSubmissionService.findAttemptByRequestId(identifier);
+
+    return attempt
+      ? this.coverNoteRepository.findByTransactionId(attempt.transactionId)
+      : null;
   }
 
   private validateMotorPayload(

@@ -75,12 +75,18 @@ export class TiramisMotorController {
   }
 
   @ServiceScopes('tiramis:read')
+  @ApiOperation({
+    summary: 'Get the complete motor fleet submission snapshot',
+  })
   @Get('cover-note/:coverNoteId/fleet')
   findFleetByCoverNoteId(@Param('coverNoteId') coverNoteId: string) {
     return this.tiramisMotorService.findFleetByCoverNoteId(coverNoteId);
   }
 
   @ServiceScopes('tiramis:read')
+  @ApiOperation({
+    summary: 'Get the complete motor cover-note submission snapshot',
+  })
   @Get('cover-note/:coverNoteId/details')
   findMotorDetailsByCoverNoteId(@Param('coverNoteId') coverNoteId: string) {
     return this.tiramisMotorService.findMotorDetailsByCoverNoteId(coverNoteId);

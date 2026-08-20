@@ -48,6 +48,12 @@ export class TiramisCoverNoteRepository {
     });
   }
 
+  findByTransactionId(transactionId: string) {
+    return this.repository.findOne({
+      where: { transactionId },
+    });
+  }
+
   findByCoverNoteReferenceNumber(coverNoteReferenceNumber: string) {
     return this.repository.findOne({
       where: { coverNoteReferenceNumber },
