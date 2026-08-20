@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
 import { Repository } from 'typeorm';
+import { randomUUID } from 'crypto';
 
 import {
   TiramisIntegrationCommand,
@@ -145,6 +146,9 @@ export class TiramisClientService {
       sourceRecordId: command.sourceRecordId,
       businessReference: command.businessReference,
       forceResubmit: !!dto.forceResubmit,
+      // A user-triggered resubmission is a new TIRAMIS submission attempt,
+      // not an idempotent replay of an earlier force-resubmit request.
+      resubmissionId: dto.forceResubmit ? randomUUID() : null,
     });
 
     if (!dto.forceResubmit) {

@@ -48,6 +48,7 @@ export function buildTiramisIdempotencyKey(params: {
   sourceRecordId?: string | null;
   businessReference?: string | null;
   forceResubmit?: boolean;
+  resubmissionId?: string | null;
 }) {
   return digest(
     [
@@ -57,6 +58,7 @@ export function buildTiramisIdempotencyKey(params: {
       params.sourceRecordId || '',
       params.businessReference || '',
       params.forceResubmit ? 'force' : 'normal',
+      params.forceResubmit ? params.resubmissionId || '' : '',
     ].join('|'),
   );
 }
