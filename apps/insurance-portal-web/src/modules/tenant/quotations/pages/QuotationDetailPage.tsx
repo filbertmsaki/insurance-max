@@ -51,7 +51,6 @@ import {
 import type {
   QuotationPreviewPremiumOverride,
   QuotationPreviewRisk,
-  QuotationWorkflowBlockingReason,
   QuotationStatusTransitionAction,
 } from '../types';
 import { getFriendlyWorkflowLabel } from '../utils/quotationWorkflowLabels';
@@ -378,14 +377,6 @@ export function QuotationDetailPage() {
     );
   }
 
-  const workflowBlockingReasons = (workflow?.blockingReasons ?? []).filter(
-    (reason, index, collection) =>
-      collection.findIndex(
-        (candidate) =>
-          candidate.code === reason.code &&
-          candidate.message === reason.message,
-      ) === index,
-  );
   if (!preview) {
     return (
       <div className="py-24 text-center text-slate-500">
@@ -598,21 +589,6 @@ export function QuotationDetailPage() {
         </div>
         {actionButtons}
       </div>
-
-      {!workflowLoading && workflowBlockingReasons.length > 0 ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          <p className="font-medium">Workflow blockers</p>
-          <ul className="mt-2 space-y-1">
-            {workflowBlockingReasons.map(
-              (reason: QuotationWorkflowBlockingReason) => (
-                <li key={`${reason.code}:${reason.message}`}>
-                  {reason.message}
-                </li>
-              ),
-            )}
-          </ul>
-        </div>
-      ) : null}
 
       <Tabs defaultValue={tabs[0]} className="space-y-4">
         <TabsList className="h-auto flex-wrap gap-1">
