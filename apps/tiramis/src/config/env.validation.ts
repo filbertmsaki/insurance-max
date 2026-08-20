@@ -105,4 +105,8 @@ export const tiramisEnvValidationSchema = Joi.object({
     .min(1)
     .default(30),
   TIRAMIS_LEGACY_PORTAL_WEBHOOK_TOKEN_ENABLED: Joi.boolean().default(false),
+  // Directory for tiramis_callback_error.log. Must be a path that survives
+  // deploys (e.g. /opt/apps/tiramis/shared) — PM2's cwd is a per-release
+  // directory that gets replaced on every release. Defaults to cwd for local dev.
+  TIRAMIS_CALLBACK_ERROR_LOG_DIR: Joi.string().optional(),
 });

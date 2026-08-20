@@ -1,8 +1,11 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'crypto';
+import { appendFile } from 'fs/promises';
+import { join } from 'path';
 import { Repository } from 'typeorm';
 import type { RegulatoryFinalResponse } from '@insurance-max/contracts';
+import { environment } from '@insurance-max/shared-config';
 
 import { TiramisConfigService } from '../../config/services/tiramis-config.service';
 import { TiramisCoverNoteEntity } from '../../cover-notes/entities/tiramis-cover-note.entity';
@@ -30,6 +33,14 @@ import { TiramisCallbackReceiptEntity } from '../entities/tiramis-callback-recei
 @Injectable()
 export class TiramisCallbackService {
   private readonly logger = new Logger(TiramisCallbackService.name);
+  // Defaults to cwd for local dev; PM2 runs the app from a per-release
+  // directory that gets replaced on every deploy, so production must set
+  // TIRAMIS_CALLBACK_ERROR_LOG_DIR to a persistent path (e.g. the shared dir)
+  // or this file resets on every release.
+  private readonly callbackErrorLogPath = join(
+    environment.TIRAMIS_CALLBACK_ERROR_LOG_DIR || process.cwd(),
+    'tiramis_callback_error.log',
+  );
   private readonly responseHeaderKeys = [
     'CoverNoteHdr',
     'MotorCoverNoteHdr',
@@ -424,6 +435,41 @@ export class TiramisCallbackService {
     });
 
     await this.deadLetterRepository.save(deadLetter);
+
+    await this.logCallbackErrorToFile({
+      environment: params.environment,
+      reason: params.reason,
+      parsedCallback: params.parsedCallback,
+    });
+  }
+
+  private async logCallbackErrorToFile(params: {
+    environment: string;
+    reason: string;
+    parsedCallback?: ParsedTiramisCallbackDto;
+  }) {
+    const entry = {
+      timestamp: new Date().toISOString(),
+      environment: params.environment,
+      requestId: params.parsedCallback?.requestId || null,
+      responseId: params.parsedCallback?.responseId || null,
+      rootName: params.parsedCallback?.rootName || null,
+      statusCode: params.parsedCallback?.responseStatusCode || null,
+      statusDesc: params.parsedCallback?.responseStatusDesc || null,
+      reason: params.reason,
+    };
+
+    try {
+      await appendFile(
+        this.callbackErrorLogPath,
+        `${JSON.stringify(entry)}\n`,
+        'utf8',
+      );
+    } catch (error: any) {
+      this.logger.warn(
+        `Could not write to ${this.callbackErrorLogPath}: ${error?.message || 'Unknown error'}`,
+      );
+    }
   }
 
   private async updateBusinessRecords(
@@ -632,6 +678,14 @@ export class TiramisCallbackService {
       };
     }
 
+    await this.logCallbackErrorToFile({
+      environment: params.environment,
+      parsedCallback: params.parsedCallback,
+      reason:
+        existingReceipt.lastError ||
+        `Callback receipt for requestId ${params.parsedCallback.requestId} is stuck in status ${existingReceipt.processingStatus}`,
+    });
+
     const failedAck = await this.buildAcknowledgement({
       environment: params.environment,
       parsedCallback: params.parsedCallback,
@@ -733,6 +787,14 @@ export class TiramisCallbackService {
           },
         };
       }
+
+      await this.logCallbackErrorToFile({
+        environment: params.environment,
+        parsedCallback: params.parsedCallback,
+        reason:
+          existingReceipt.lastError ||
+          `Callback receipt for requestId ${params.parsedCallback.requestId} is stuck in status ${existingReceipt.processingStatus}`,
+      });
 
       return {
         receipt: existingReceipt,

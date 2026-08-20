@@ -24,6 +24,7 @@ real production `.env` file.
     .env
     deploy.sh
     ecosystem.config.js
+    tiramis_callback_error.log
 ```
 
 ```bash
@@ -44,6 +45,10 @@ find /opt/apps/tiramis/certificates -type f -exec chmod 640 {} \;
 - `DB_LOGGING=false`
 - `DB_SSL=true` when the production database requires TLS
 - `TIRAMIS_CERTIFICATE_BASE_DIR=/opt/apps/tiramis/certificates`
+- `TIRAMIS_CALLBACK_ERROR_LOG_DIR=/opt/apps/tiramis/shared` — required so
+  `tiramis_callback_error.log` survives deploys; PM2's `cwd`
+  (`/opt/apps/tiramis/current`) is a symlink into a per-release directory that
+  gets replaced on every release
 - `TIRAMIS_SECRET_ENCRYPTION_KEY` must be a base64 encoded 32-byte key
 
 Generate the encryption key once:
