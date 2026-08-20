@@ -586,6 +586,45 @@ export class QuotationLifecycleService {
     );
   }
 
+  async markTiraAcknowledged(
+    companyId: string,
+    quotationId: string,
+    context: QuotationLifecycleContext = {},
+  ) {
+    return this.withLockedQuotation(
+      companyId,
+      quotationId,
+      async (manager, quotation) => {
+        if (
+          quotation.tira_status === TiraStatus.SUCCESS ||
+          quotation.tira_status === TiraStatus.REJECTED
+        ) {
+          return quotation;
+        }
+
+        if (
+          quotation.status === QuotationStatus.CANCELLED ||
+          quotation.status === QuotationStatus.EXPIRED
+        ) {
+          return quotation;
+        }
+
+        const previous = this.snapshot(quotation);
+        quotation.status = QuotationStatus.COMPLETED;
+        quotation.tira_status = TiraStatus.SUBMITTED;
+        this.applyTiraMetadata(quotation, context);
+
+        return this.persistTransition(
+          manager,
+          quotation,
+          previous,
+          'MARK_TIRA_ACKNOWLEDGED',
+          context,
+        );
+      },
+    );
+  }
+
   async markTiraSuccessful(
     companyId: string,
     quotationId: string,

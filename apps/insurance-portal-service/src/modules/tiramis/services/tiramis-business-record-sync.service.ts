@@ -283,7 +283,6 @@ export class TiramisBusinessRecordSyncService {
       TiramisSubmissionStatus.ACK_FAILED,
       TiramisSubmissionStatus.FAILED,
       TiramisSubmissionStatus.RETRY_EXHAUSTED,
-      TiramisSubmissionStatus.CALLBACK_OVERDUE,
     ].includes(status as TiramisSubmissionStatus);
   }
 
@@ -691,12 +690,28 @@ export class TiramisBusinessRecordSyncService {
     }
 
     if (
+      tracking.acknowledgementStatusCode === 'TIRA001' &&
+      [
+        TiramisSubmissionStatus.ACK_ACCEPTED,
+        TiramisSubmissionStatus.ACKNOWLEDGED,
+        TiramisSubmissionStatus.PENDING_FINAL,
+        TiramisSubmissionStatus.CALLBACK_OVERDUE,
+      ].includes(tracking.status)
+    ) {
+      return {
+        quotationStatus: 'COMPLETED',
+        tiraStatus: 'SUBMITTED',
+        submissionStatus: 'ACCEPTED',
+        transitionType: 'MARK_TIRA_ACKNOWLEDGED',
+      };
+    }
+
+    if (
       [
         TiramisSubmissionStatus.FINAL_FAILED,
         TiramisSubmissionStatus.ACK_FAILED,
         TiramisSubmissionStatus.FAILED,
         TiramisSubmissionStatus.RETRY_EXHAUSTED,
-        TiramisSubmissionStatus.CALLBACK_OVERDUE,
       ].includes(tracking.status)
     ) {
       return {

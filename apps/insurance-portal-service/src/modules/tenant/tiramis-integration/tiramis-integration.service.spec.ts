@@ -65,6 +65,7 @@ describe('TiramisIntegrationService callback handling', () => {
 
     const quotationLifecycleService = {
       markTiraProcessing: jest.fn().mockResolvedValue(undefined),
+      markTiraAcknowledged: jest.fn().mockResolvedValue(undefined),
       markTiraSuccessful: jest.fn().mockResolvedValue(undefined),
       markTiraCancelled: jest.fn().mockResolvedValue(undefined),
       markTiraRejected: jest.fn().mockResolvedValue(undefined),
@@ -169,6 +170,52 @@ describe('TiramisIntegrationService callback handling', () => {
     );
     expect(
       fixture.quotationLifecycleService.markTiraCancelled,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('keeps an acknowledged quotation completed while waiting for callback', async () => {
+    const fixture = createFixture();
+
+    await fixture.service.handleTiramisNotification({
+      eventType: 'TIRAMIS_ACK_RECEIVED',
+      requestId: 'REQ-1',
+      statusCode: 'TIRA001',
+      statusDescription: 'Successful',
+      occurredAt: '2026-07-24T10:20:00.000Z',
+    });
+
+    expect(
+      fixture.quotationLifecycleService.markTiraAcknowledged,
+    ).toHaveBeenCalledWith(
+      'company-1',
+      'quotation-1',
+      expect.objectContaining({
+        tiraRequestId: 'REQ-1',
+        metadata: expect.objectContaining({ statusCode: 'TIRA001' }),
+      }),
+    );
+    expect(
+      fixture.quotationLifecycleService.markTiraFailed,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('treats callback overdue as a warning after successful acknowledgement', async () => {
+    const fixture = createFixture();
+
+    await fixture.service.handleTiramisNotification({
+      eventType: 'TIRAMIS_FINAL_CALLBACK_OVERDUE',
+      requestId: 'REQ-1',
+      statusCode: 'TIRA001',
+      statusDescription: 'Final callback is overdue after 10 minutes',
+      errorMessage: 'Final callback is overdue after 10 minutes',
+      occurredAt: '2026-07-24T10:30:00.000Z',
+    });
+
+    expect(
+      fixture.quotationLifecycleService.markTiraAcknowledged,
+    ).toHaveBeenCalled();
+    expect(
+      fixture.quotationLifecycleService.markTiraFailed,
     ).not.toHaveBeenCalled();
   });
 

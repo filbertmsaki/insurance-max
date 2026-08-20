@@ -447,7 +447,9 @@ export class TiramisRetrySchedulerService {
       attempt.status = TIRAMIS_ATTEMPT_STATUS.FINAL_CALLBACK_OVERDUE;
       attempt.finalCallbackOverdueNotified = 1;
       attempt.errorMessage = errorMessage;
-      transaction.status = TIRAMIS_TRANSACTION_STATUS.FAILED;
+      // TIRA already accepted this request. A missing callback is an overdue
+      // asynchronous response, not a failed submission.
+      transaction.status = TIRAMIS_TRANSACTION_STATUS.PROCESSING;
       transaction.lastError = errorMessage;
 
       await this.attemptRepository.save(attempt);

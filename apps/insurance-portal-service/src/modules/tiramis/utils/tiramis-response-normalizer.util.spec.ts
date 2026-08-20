@@ -6,7 +6,7 @@ import {
 } from './tiramis-response-normalizer.util';
 
 describe('tiramis response normalizer', () => {
-  it('maps terminal callback-overdue attempt status without a final response', () => {
+  it('maps callback overdue as a waiting warning without a final response', () => {
     const normalized = normalizeTiramisPortalResponse({
       transaction: {
         id: 'txn-1',

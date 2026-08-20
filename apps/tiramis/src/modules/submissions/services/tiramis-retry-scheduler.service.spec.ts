@@ -220,12 +220,12 @@ describe('TiramisRetrySchedulerService recovery states', () => {
 
     expect(attempt.status).toBe(TIRAMIS_ATTEMPT_STATUS.FINAL_CALLBACK_OVERDUE);
     expect(attempt.finalCallbackOverdueNotified).toBe(1);
-    expect(transaction.status).toBe(TIRAMIS_TRANSACTION_STATUS.FAILED);
+    expect(transaction.status).toBe(TIRAMIS_TRANSACTION_STATUS.PROCESSING);
     expect(portalNotificationService.publish).toHaveBeenCalledWith(
       expect.objectContaining({
         eventType: 'TIRAMIS_FINAL_CALLBACK_OVERDUE',
         statusCode: 'TIRA001',
-        transactionStatus: TIRAMIS_TRANSACTION_STATUS.FAILED,
+        transactionStatus: TIRAMIS_TRANSACTION_STATUS.PROCESSING,
         attemptStatus: TIRAMIS_ATTEMPT_STATUS.FINAL_CALLBACK_OVERDUE,
       }),
     );

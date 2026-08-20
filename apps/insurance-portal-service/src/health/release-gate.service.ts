@@ -450,8 +450,7 @@ export class ReleaseGateService {
             WHERE "status" IN (
               'FAILED',
               'FINAL_FAILED',
-              'RETRY_EXHAUSTED',
-              'CALLBACK_OVERDUE'
+              'RETRY_EXHAUSTED'
             )
           )::int AS blocking_submissions
         FROM "tiramis_submission_tracking"

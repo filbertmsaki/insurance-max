@@ -1056,7 +1056,6 @@ export class TiramisIntegrationService {
     if (
       tracking.status === TiramisSubmissionStatus.FINAL_FAILED ||
       tracking.status === TiramisSubmissionStatus.FAILED ||
-      tracking.status === TiramisSubmissionStatus.CALLBACK_OVERDUE ||
       tracking.status === TiramisSubmissionStatus.ACK_FAILED
     ) {
       tracking.failedAt = tracking.failedAt || occurredAt;
@@ -1286,6 +1285,20 @@ export class TiramisIntegrationService {
 
     switch (payload.eventType) {
       case 'TIRAMIS_ACK_RECEIVED':
+        if (payload.statusCode === 'TIRA001') {
+          await this.quotationLifecycleService.markTiraAcknowledged(
+            submission.company_id,
+            quotation.id,
+            context,
+          );
+          break;
+        }
+        await this.quotationLifecycleService.markTiraProcessing(
+          submission.company_id,
+          quotation.id,
+          context,
+        );
+        break;
       case 'TIRAMIS_FINAL_RESPONSE_RECEIVED':
         await this.quotationLifecycleService.markTiraProcessing(
           submission.company_id,
@@ -1311,9 +1324,15 @@ export class TiramisIntegrationService {
         break;
       case 'TIRAMIS_ACK_FAILED':
       case 'TIRAMIS_FINAL_FAILED':
-      case 'TIRAMIS_FINAL_CALLBACK_OVERDUE':
       case 'TIRAMIS_SUBMISSION_FAILED':
         await this.quotationLifecycleService.markTiraFailed(
+          submission.company_id,
+          quotation.id,
+          context,
+        );
+        break;
+      case 'TIRAMIS_FINAL_CALLBACK_OVERDUE':
+        await this.quotationLifecycleService.markTiraAcknowledged(
           submission.company_id,
           quotation.id,
           context,
@@ -1332,7 +1351,6 @@ export class TiramisIntegrationService {
             PortalTiraSubmissionStatus.FAILED,
             PortalTiraSubmissionStatus.ACK_FAILED,
             PortalTiraSubmissionStatus.FINAL_FAILED,
-            PortalTiraSubmissionStatus.FINAL_CALLBACK_OVERDUE,
           ].includes(submission.status)
         ) {
           await this.quotationLifecycleService.markTiraFailed(

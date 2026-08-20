@@ -551,7 +551,6 @@ export class TiramisSubmissionTrackingRepository {
         statuses: [
           TiramisSubmissionStatus.RETRY_PENDING,
           TiramisSubmissionStatus.FAILED,
-          TiramisSubmissionStatus.CALLBACK_OVERDUE,
         ],
       })
       .andWhere(
@@ -987,6 +986,8 @@ export class TiramisSubmissionTrackingRepository {
           params?.response || tracking?.tiramisResponsePayload || null,
         lastSyncedAt: new Date(),
         syncAttempts: (tracking?.syncAttempts || 0) + 1,
+        isRetryable: false,
+        nextRetryAt: null,
       },
     );
 

@@ -118,6 +118,33 @@ describe('QuotationLifecycleService cancellation callbacks', () => {
     );
   });
 
+  it('keeps a TIRA001 acknowledged quotation completed while awaiting callback', async () => {
+    const fixture = createFixture();
+
+    await fixture.service.markTiraAcknowledged('company-1', 'quotation-1', {
+      changedByType: 'SYSTEM',
+      source: 'TIRAMIS',
+      reason: 'Final callback is overdue after 10 minutes',
+      requestId: 'REQ-1',
+      tiraRequestId: 'REQ-1',
+      metadata: {
+        statusCode: 'TIRA001',
+        callbackStatus: 'OVERDUE',
+      },
+    });
+
+    expect(fixture.quotation.status).toBe(QuotationStatus.COMPLETED);
+    expect(fixture.quotation.tira_status).toBe(TiraStatus.SUBMITTED);
+    expect(fixture.quotation.tira_request_id).toBe('REQ-1');
+    expect(fixture.historyRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transition_type: 'MARK_TIRA_ACKNOWLEDGED',
+        new_quotation_status: QuotationStatus.COMPLETED,
+        new_tira_status: TiraStatus.SUBMITTED,
+      }),
+    );
+  });
+
   it('ignores duplicate cancellation callbacks without creating another history row', async () => {
     const fixture = createFixture({
       status: QuotationStatus.CANCELLED,

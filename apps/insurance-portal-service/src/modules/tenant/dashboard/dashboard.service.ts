@@ -879,7 +879,6 @@ export class DashboardService {
           TiramisSubmissionStatus.ACK_FAILED,
           TiramisSubmissionStatus.FINAL_FAILED,
           TiramisSubmissionStatus.RETRY_EXHAUSTED,
-          TiramisSubmissionStatus.CALLBACK_OVERDUE,
           TiramisSubmissionStatus.FAILED,
         ],
       })
@@ -904,7 +903,6 @@ export class DashboardService {
           TiramisSubmissionStatus.ACK_FAILED,
           TiramisSubmissionStatus.FINAL_FAILED,
           TiramisSubmissionStatus.RETRY_EXHAUSTED,
-          TiramisSubmissionStatus.CALLBACK_OVERDUE,
           TiramisSubmissionStatus.FAILED,
         ],
       })
@@ -985,7 +983,6 @@ export class DashboardService {
             TiramisSubmissionStatus.ACK_FAILED,
             TiramisSubmissionStatus.FINAL_FAILED,
             TiramisSubmissionStatus.RETRY_EXHAUSTED,
-            TiramisSubmissionStatus.CALLBACK_OVERDUE,
             TiramisSubmissionStatus.FAILED,
           ],
         })

@@ -319,7 +319,6 @@ export class TiramisRetryService {
       TiramisSubmissionStatus.FINAL_FAILED,
       TiramisSubmissionStatus.FAILED,
       TiramisSubmissionStatus.RETRY_EXHAUSTED,
-      TiramisSubmissionStatus.CALLBACK_OVERDUE,
     ].includes(status as TiramisSubmissionStatus);
   }
 }

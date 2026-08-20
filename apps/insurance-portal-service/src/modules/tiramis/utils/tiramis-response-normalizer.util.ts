@@ -38,6 +38,7 @@ export const ACTIVE_TIRAMIS_STATUSES = [
   TiramisSubmissionStatus.RETRY_PENDING,
   TiramisSubmissionStatus.RETRYING,
   TiramisSubmissionStatus.FINAL_SUCCESS,
+  TiramisSubmissionStatus.CALLBACK_OVERDUE,
 ];
 
 export const FAILED_TIRAMIS_STATUSES = [
@@ -45,7 +46,6 @@ export const FAILED_TIRAMIS_STATUSES = [
   TiramisSubmissionStatus.FINAL_FAILED,
   TiramisSubmissionStatus.FAILED,
   TiramisSubmissionStatus.RETRY_EXHAUSTED,
-  TiramisSubmissionStatus.CALLBACK_OVERDUE,
 ];
 
 export const PENDING_FINAL_TIRAMIS_STATUSES = [
