@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { isUUID } from 'class-validator';
 import { Repository } from 'typeorm';
 
 import { TiramisMotorDetailEntity } from '../entities/tiramis-motor-detail.entity';
@@ -54,19 +55,36 @@ export class TiramisMotorRepository {
   }
 
   findFleetByCoverNoteId(coverNoteId: string) {
-    return this.fleetRepository.findOne({
-      where: { coverNoteId },
-      relations: {
-        items: {
-          motorDetails: true,
-        },
-      },
-    });
+    const query = this.fleetRepository
+      .createQueryBuilder('fleet')
+      .innerJoin('fleet.coverNote', 'coverNote')
+      .leftJoinAndSelect('fleet.items', 'items')
+      .leftJoinAndSelect('items.motorDetails', 'motorDetails')
+      .where(
+        '(coverNote.coverNoteNumber = :coverNoteId OR coverNote.coverNoteReferenceNumber = :coverNoteId)',
+        { coverNoteId },
+      );
+
+    if (isUUID(coverNoteId)) {
+      query.orWhere('coverNote.id = :coverNoteId', { coverNoteId });
+    }
+
+    return query.getOne();
   }
 
   findMotorDetailsByCoverNoteId(coverNoteId: string) {
-    return this.motorDetailRepository.find({
-      where: { coverNoteId },
-    });
+    const query = this.motorDetailRepository
+      .createQueryBuilder('motorDetail')
+      .innerJoin('motorDetail.coverNote', 'coverNote')
+      .where(
+        '(coverNote.coverNoteNumber = :coverNoteId OR coverNote.coverNoteReferenceNumber = :coverNoteId)',
+        { coverNoteId },
+      );
+
+    if (isUUID(coverNoteId)) {
+      query.orWhere('coverNote.id = :coverNoteId', { coverNoteId });
+    }
+
+    return query.getMany();
   }
 }
