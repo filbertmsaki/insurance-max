@@ -442,6 +442,31 @@ export class TiramisMotorService {
     return this.findCompleteSubmissionSnapshot(coverNoteId);
   }
 
+  async listSubmittedCoverNotes(page?: string, limit?: string) {
+    const result = await this.coverNoteRepository.findSubmittedByInsuranceType({
+      insuranceType: 'MOTOR',
+      ...this.normalizePagination(page, limit),
+    });
+
+    const coverNoteIds = result.items.map((coverNote) => coverNote.id);
+    const [motorDetails, fleets] = await Promise.all([
+      this.motorRepository.findMotorDetailsByCoverNoteIds(coverNoteIds),
+      this.motorRepository.findFleetsByCoverNoteIds(coverNoteIds),
+    ]);
+
+    return {
+      ...result,
+      items: result.items.map((coverNote) => ({
+        ...coverNote,
+        motorDetails: motorDetails.filter(
+          (detail) => detail.coverNoteId === coverNote.id,
+        ),
+        fleet:
+          fleets.find((fleet) => fleet.coverNoteId === coverNote.id) || null,
+      })),
+    };
+  }
+
   async findMotorDetailsByCoverNoteId(coverNoteId: string) {
     return this.findCompleteSubmissionSnapshot(coverNoteId);
   }
@@ -492,6 +517,19 @@ export class TiramisMotorService {
     return attempt
       ? this.coverNoteRepository.findByTransactionId(attempt.transactionId)
       : null;
+  }
+
+  private normalizePagination(page?: string, limit?: string) {
+    const parsedPage = Number.parseInt(page || '1', 10);
+    const parsedLimit = Number.parseInt(limit || '50', 10);
+
+    return {
+      page: Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1,
+      limit:
+        Number.isFinite(parsedLimit) && parsedLimit > 0
+          ? Math.min(parsedLimit, 100)
+          : 50,
+    };
   }
 
   private validateMotorPayload(

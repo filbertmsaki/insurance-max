@@ -76,6 +76,18 @@ export class TiramisCoverNotesController {
     return this.tiramisCoverNoteService.submit(dto);
   }
 
+  @ApiOperation({ summary: 'List non-motor cover notes submitted to TIRA' })
+  @ApiQuery({ name: 'page', required: false, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, example: 50 })
+  @ServiceScopes('tiramis:read')
+  @Get()
+  listSubmittedCoverNotes(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.tiramisCoverNoteService.listSubmittedCoverNotes(page, limit);
+  }
+
   @ServiceScopes('tiramis:read')
   @Get(':id')
   findById(@Param('id') id: string) {

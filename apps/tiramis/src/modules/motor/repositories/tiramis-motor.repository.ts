@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { isUUID } from 'class-validator';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 import { TiramisMotorDetailEntity } from '../entities/tiramis-motor-detail.entity';
 import { TiramisMotorFleetItemEntity } from '../entities/tiramis-motor-fleet-item.entity';
@@ -86,5 +86,30 @@ export class TiramisMotorRepository {
     }
 
     return query.getMany();
+  }
+
+  findMotorDetailsByCoverNoteIds(coverNoteIds: string[]) {
+    if (coverNoteIds.length === 0) {
+      return Promise.resolve([]);
+    }
+
+    return this.motorDetailRepository.find({
+      where: { coverNoteId: In(coverNoteIds) },
+    });
+  }
+
+  findFleetsByCoverNoteIds(coverNoteIds: string[]) {
+    if (coverNoteIds.length === 0) {
+      return Promise.resolve([]);
+    }
+
+    return this.fleetRepository.find({
+      where: { coverNoteId: In(coverNoteIds) },
+      relations: {
+        items: {
+          motorDetails: true,
+        },
+      },
+    });
   }
 }

@@ -425,6 +425,20 @@ export class TiramisCoverNoteService {
     return coverNote;
   }
 
+  listSubmittedCoverNotes(page?: string, limit?: string) {
+    const parsedPage = Number.parseInt(page || '1', 10);
+    const parsedLimit = Number.parseInt(limit || '50', 10);
+
+    return this.coverNoteRepository.findSubmittedByInsuranceType({
+      insuranceType: 'NON_MOTOR',
+      page: Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1,
+      limit:
+        Number.isFinite(parsedLimit) && parsedLimit > 0
+          ? Math.min(parsedLimit, 100)
+          : 50,
+    });
+  }
+
   async findByRequestId(requestId: string) {
     const coverNote = await this.coverNoteRepository.findByRequestId(requestId);
 

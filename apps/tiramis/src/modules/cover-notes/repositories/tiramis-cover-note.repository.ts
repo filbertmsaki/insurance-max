@@ -59,4 +59,71 @@ export class TiramisCoverNoteRepository {
       where: { coverNoteReferenceNumber },
     });
   }
+
+  async findSubmittedByInsuranceType(params: {
+    insuranceType: 'MOTOR' | 'NON_MOTOR';
+    page: number;
+    limit: number;
+  }) {
+    const query = this.repository
+      .createQueryBuilder('coverNote')
+      .leftJoin('coverNote.transaction', 'transaction')
+      .leftJoin('coverNote.currentAttempt', 'currentAttempt')
+      .leftJoinAndSelect('coverNote.risks', 'risks')
+      .leftJoinAndSelect('risks.discounts', 'riskDiscounts')
+      .leftJoinAndSelect('risks.taxes', 'riskTaxes')
+      .leftJoinAndSelect('coverNote.subjectMatters', 'subjectMatters')
+      .leftJoinAndSelect('coverNote.policyHolders', 'policyHolders')
+      .leftJoinAndSelect('coverNote.addons', 'addons')
+      .leftJoinAndSelect('addons.taxes', 'addonTaxes')
+      .select('coverNote')
+      .addSelect([
+        'transaction.id',
+        'transaction.status',
+        'transaction.serviceType',
+        'transaction.businessReference',
+        'transaction.currentRequestId',
+        'transaction.successfulRequestId',
+        'transaction.totalAttempts',
+        'transaction.lastAttemptAt',
+        'transaction.successfulAt',
+        'transaction.lastError',
+        'currentAttempt.id',
+        'currentAttempt.requestId',
+        'currentAttempt.attemptNo',
+        'currentAttempt.status',
+        'currentAttempt.sentAt',
+        'currentAttempt.acknowledgementStatusCode',
+        'currentAttempt.acknowledgementStatusDesc',
+        'currentAttempt.responseStatusCode',
+        'currentAttempt.responseStatusDesc',
+        'currentAttempt.finalResponseReceivedAt',
+      ])
+      .where('coverNote.insuranceType = :insuranceType', {
+        insuranceType: params.insuranceType,
+      })
+      .andWhere(
+        `EXISTS (
+          SELECT 1
+          FROM tiramis_submission_attempts submittedAttempt
+          WHERE submittedAttempt.transaction_id = "coverNote"."transaction_id"
+            AND submittedAttempt.sent_at IS NOT NULL
+        )`,
+      )
+      .orderBy('coverNote.createdAt', 'DESC')
+      .skip((params.page - 1) * params.limit)
+      .take(params.limit);
+
+    const [items, total] = await query.getManyAndCount();
+
+    return {
+      items,
+      meta: {
+        page: params.page,
+        limit: params.limit,
+        total,
+        totalPages: Math.ceil(total / params.limit),
+      },
+    };
+  }
 }
