@@ -1608,7 +1608,6 @@ export class TiramisClientService {
       branchCode,
       insurerCompanyCode,
       tranCompanyCode,
-      salePointCode,
       callbackUrl,
       callback_url,
       ...body
@@ -1621,7 +1620,6 @@ export class TiramisClientService {
     void branchCode;
     void insurerCompanyCode;
     void tranCompanyCode;
-    void salePointCode;
     void callbackUrl;
     void callback_url;
 
@@ -1808,9 +1806,31 @@ export class TiramisClientService {
     }
 
     if (Array.isArray(validationErrors)) {
-      return validationErrors.map((item) => String(item));
+      return validationErrors.map((item) =>
+        this.stringifyValidationError(item),
+      );
     }
 
-    return [String(validationErrors)];
+    return [this.stringifyValidationError(validationErrors)];
+  }
+
+  private stringifyValidationError(value: unknown): string {
+    if (typeof value === 'string') {
+      return value;
+    }
+
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+
+      if (typeof record.message === 'string') {
+        return record.message;
+      }
+
+      if (typeof record.error === 'string') {
+        return record.error;
+      }
+    }
+
+    return String(value);
   }
 }

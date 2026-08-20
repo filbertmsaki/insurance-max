@@ -34,8 +34,21 @@ describe('TiramisClientService', () => {
     });
 
     expect(payload).toEqual({
+      salePointCode: 'SP500',
       coverNoteNumber: 'CN-001',
     });
+  });
+
+  it('extracts readable validation messages from nested error objects', () => {
+    const service = createService();
+
+    expect(
+      service.extractValidationErrors({
+        error: {
+          errors: [{ message: 'salePointCode is required' }],
+        },
+      }),
+    ).toEqual(['salePointCode is required']);
   });
 
   it('keeps non-submission payloads unchanged', () => {
