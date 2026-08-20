@@ -99,6 +99,8 @@ export class CompanyTiramisConfigurationService {
             systemName: configuration.systemName,
             baseUrl: configuration.baseUrl,
             sourceService: configuration.sourceService,
+            allowExpiredCertificates:
+              configuration.allowExpiredCertificates ?? false,
             isActive: configuration.isActive,
           }
         : null;
@@ -117,6 +119,7 @@ export class CompanyTiramisConfigurationService {
           callbackUrl: dto.callback_url ?? null,
           baseUrl: dto.base_url ?? null,
           sourceService: dto.source_service ?? null,
+          allowExpiredCertificates: dto.allow_expired_certificates ?? false,
           serviceApiKeyEncrypted: this.apiKeyVault.encrypt(
             dto.tiramis_service_api_key,
           ),
@@ -136,6 +139,10 @@ export class CompanyTiramisConfigurationService {
         configuration.callbackUrl = dto.callback_url ?? null;
         configuration.baseUrl = dto.base_url ?? null;
         configuration.sourceService = dto.source_service ?? null;
+        configuration.allowExpiredCertificates =
+          dto.allow_expired_certificates ??
+          configuration.allowExpiredCertificates ??
+          false;
         if (dto.tiramis_service_api_key) {
           configuration.serviceApiKeyEncrypted = this.apiKeyVault.encrypt(
             dto.tiramis_service_api_key,
@@ -170,6 +177,7 @@ export class CompanyTiramisConfigurationService {
             systemName: saved.systemName,
             baseUrl: saved.baseUrl,
             sourceService: saved.sourceService,
+            allowExpiredCertificates: saved.allowExpiredCertificates,
             isActive: saved.isActive,
             serviceApiKeyMasked: this.apiKeyVault.mask(
               saved.serviceApiKeyEncrypted,
@@ -246,6 +254,7 @@ export class CompanyTiramisConfigurationService {
       companyCode: saved.companyCode,
       systemCode: saved.systemCode,
       insurerCompanyCode: saved.insurerCompanyCode,
+      allowExpiredCertificates: saved.allowExpiredCertificates,
       confirmLive: options.confirmLive,
       forceActivation: options.forceActivation,
     });
@@ -312,6 +321,10 @@ export class CompanyTiramisConfigurationService {
     }
 
     try {
+      const allowExpiredCertificates =
+        options?.allowExpiredCertificates ??
+        configuration.allowExpiredCertificates ??
+        false;
       const result =
         await this.tiramisClientService.validateOrganizationConfiguration({
           companyId,
@@ -319,12 +332,15 @@ export class CompanyTiramisConfigurationService {
           companyCode: configuration.companyCode,
           systemCode: configuration.systemCode,
           insurerCompanyCode: configuration.insurerCompanyCode,
-          allowExpiredCertificates: options?.allowExpiredCertificates,
+          allowExpiredCertificates,
         });
 
       configuration.validationStatus = result.valid ? 'VALID' : 'INVALID';
       configuration.validatedAt = new Date();
-      configuration.validationMessage = result.message ?? null;
+      configuration.validationMessage = this.buildStoredValidationMessage(
+        result,
+        allowExpiredCertificates,
+      );
 
       await this.repository.save(configuration);
 
@@ -482,6 +498,7 @@ export class CompanyTiramisConfigurationService {
     companyCode: string;
     systemCode: string | null;
     insurerCompanyCode?: string | null;
+    allowExpiredCertificates?: boolean;
     confirmLive?: boolean;
     forceActivation?: boolean;
   }) {
@@ -498,6 +515,7 @@ export class CompanyTiramisConfigurationService {
         companyCode: params.companyCode,
         systemCode: params.systemCode,
         insurerCompanyCode: params.insurerCompanyCode,
+        allowExpiredCertificates: params.allowExpiredCertificates,
       });
 
     if (!validation.valid && !params.forceActivation) {
@@ -548,5 +566,63 @@ export class CompanyTiramisConfigurationService {
         'tiramisClient.targetEnvironment',
       ) ?? 'test'
     );
+  }
+
+  private buildStoredValidationMessage(
+    result: {
+      valid: boolean;
+      message?: string;
+      warnings?: string[];
+      certificates?: unknown;
+    },
+    allowExpiredCertificates: boolean,
+  ): string | null {
+    const warnings = result.warnings ?? [];
+    const tiraPublicCertificate = this.extractTiraPublicCertificate(
+      result.certificates,
+    );
+
+    if (!result.valid) {
+      return result.message ?? null;
+    }
+
+    if (
+      allowExpiredCertificates &&
+      tiraPublicCertificate?.isExpired &&
+      tiraPublicCertificate.validTo
+    ) {
+      return `Configuration validated with warning: TIRA public certificate expired on ${tiraPublicCertificate.validTo}, but expiry validation was explicitly allowed.`;
+    }
+
+    if (warnings.length > 0) {
+      return `Configuration validated with warning: ${warnings.join('; ')}`;
+    }
+
+    return result.message ?? null;
+  }
+
+  private extractTiraPublicCertificate(certificates: unknown): {
+    isExpired?: boolean;
+    validTo?: string;
+  } | null {
+    if (!certificates || typeof certificates !== 'object') {
+      return null;
+    }
+
+    const tiraPublic = (certificates as { tiraPublic?: unknown }).tiraPublic;
+
+    if (!tiraPublic || typeof tiraPublic !== 'object') {
+      return null;
+    }
+
+    const certificate = tiraPublic as {
+      isExpired?: boolean;
+      validTo?: string;
+    };
+
+    return {
+      isExpired: certificate.isExpired,
+      validTo: certificate.validTo,
+    };
   }
 }

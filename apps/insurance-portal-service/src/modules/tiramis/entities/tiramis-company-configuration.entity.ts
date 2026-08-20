@@ -126,6 +126,13 @@ export class TiramisCompanyConfigurationEntity {
   })
   callbackUrl!: string | null;
 
+  @Column({
+    name: 'allow_expired_certificates',
+    type: 'boolean',
+    default: false,
+  })
+  allowExpiredCertificates!: boolean;
+
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
 

@@ -637,12 +637,9 @@ export class TiramisConfigService {
         });
 
         if (clientCertificate.isExpired) {
-          const message = `Client private certificate has expired on ${clientCertificate.validTo}`;
-          if (allowExpiredCertificates) {
-            warnings.push(message);
-          } else {
-            errors.push(message);
-          }
+          errors.push(
+            `Client private certificate has expired on ${clientCertificate.validTo}`,
+          );
         } else if (clientCertificate.isExpiringSoon) {
           warnings.push(
             `Client private certificate is expiring soon: ${clientCertificate.validTo}`,
@@ -662,11 +659,15 @@ export class TiramisConfigService {
         });
 
         if (tiraCertificate.isExpired) {
-          const message = `TIRA public certificate has expired on ${tiraCertificate.validTo}`;
+          const message = `TIRA public certificate expired on ${tiraCertificate.validTo}`;
           if (allowExpiredCertificates) {
-            warnings.push(message);
+            warnings.push(
+              `${message}, but expiry validation was explicitly allowed.`,
+            );
           } else {
-            errors.push(message);
+            errors.push(
+              `TIRA public certificate has expired on ${tiraCertificate.validTo}`,
+            );
           }
         } else if (tiraCertificate.isExpiringSoon) {
           warnings.push(

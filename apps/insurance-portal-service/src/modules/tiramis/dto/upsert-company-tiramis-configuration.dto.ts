@@ -73,6 +73,11 @@ export class UpsertCompanyTiramisConfigurationDto {
   tiramis_service_api_key?: string;
 
   @IsOptional()
+  @Transform(({ value, obj }) => value ?? obj.allowExpiredCertificates)
+  @IsBoolean()
+  allow_expired_certificates?: boolean;
+
+  @IsOptional()
   @IsBoolean()
   is_active?: boolean;
 

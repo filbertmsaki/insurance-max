@@ -100,6 +100,10 @@ function EnvironmentPanel({
               <span className="text-slate-500">API Key Status:</span>{' '}
               {config.apiKeyStatus ?? 'NOT_CONFIGURED'}
             </div>
+            <div>
+              <span className="text-slate-500">Expired Cert Override:</span>{' '}
+              {config.allowExpiredCertificates ? 'Enabled' : 'Disabled'}
+            </div>
             <div className="col-span-2">
               <span className="text-slate-500">
                 Callback URL (portal note, not TIRA's actual config):
@@ -122,8 +126,8 @@ function EnvironmentPanel({
           </div>
         ) : (
           <p className="py-6 text-center text-sm text-slate-400">
-            Not yet configured. Contact your platform administrator to link
-            this environment to TIRAMIS.
+            Not yet configured. Contact your platform administrator to link this
+            environment to TIRAMIS.
           </p>
         )}
       </CardContent>

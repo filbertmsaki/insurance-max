@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post, Put } from '@nestjs/common';
+import { Body, Controller, Logger, Param, Post, Put } from '@nestjs/common';
 import { IsBoolean, IsIn, IsOptional, IsString } from 'class-validator';
 
 import { ServiceScopes } from '@insurance-max/shared-kernel';
@@ -76,6 +76,10 @@ class UpsertClientConfigurationDto {
 
 @Controller('tiramis/configurations')
 export class TiramisConfigurationValidationController {
+  private readonly logger = new Logger(
+    TiramisConfigurationValidationController.name,
+  );
+
   constructor(private readonly configService: TiramisConfigService) {}
 
   @Post('validate-organization')
@@ -92,14 +96,40 @@ export class TiramisConfigurationValidationController {
       { allowExpiredCertificates: dto.allowExpiredCertificates },
     );
 
+    if (
+      dto.allowExpiredCertificates === true &&
+      security.certificates?.tiraPublic?.isExpired
+    ) {
+      this.logger.warn(
+        `TIRAMIS certificate expiry validation bypassed for company ${configuration.companyCode}. Certificate expired at ${security.certificates.tiraPublic.validTo}. Environment: ${configuration.environment}.`,
+      );
+    }
+
     return {
       valid: security.ok,
-      message: security.ok
-        ? 'TIRAMIS organization configuration is valid.'
-        : security.errors.join('; '),
+      message: this.buildValidationMessage(
+        security,
+        dto.allowExpiredCertificates === true,
+      ),
       configurationId: configuration.id,
+      environment: configuration.environment,
       companyCode: configuration.companyCode,
       systemCode: configuration.systemCode,
+      baseUrl: configuration.baseUrl,
+      apiKey: {
+        status: security.clientKeyMasked ? 'ACTIVE' : 'MISSING',
+        masked: security.clientKeyMasked,
+      },
+      callback: {
+        ok: Boolean(configuration.callbackBaseUrl),
+        configuredUrl: configuration.callbackBaseUrl,
+        expectedPath: null,
+        errors: [],
+        warnings: [],
+      },
+      certificates: security.certificates,
+      warnings: security.warnings,
+      errors: security.errors,
     };
   }
 
@@ -134,5 +164,38 @@ export class TiramisConfigurationValidationController {
       callbackBaseUrl: configuration.callbackBaseUrl,
       isActive: configuration.isActive,
     };
+  }
+
+  private buildValidationMessage(
+    security: {
+      ok: boolean;
+      errors: string[];
+      warnings: string[];
+      certificates: {
+        tiraPublic: {
+          isExpired?: boolean;
+          validTo?: string;
+        } | null;
+      };
+    },
+    allowExpiredCertificates: boolean,
+  ) {
+    if (!security.ok) {
+      return security.errors.join('; ');
+    }
+
+    if (
+      allowExpiredCertificates &&
+      security.certificates.tiraPublic?.isExpired &&
+      security.certificates.tiraPublic.validTo
+    ) {
+      return `TIRAMIS organization configuration is valid. The TIRA public certificate expired on ${security.certificates.tiraPublic.validTo}, but certificate expiry validation is explicitly allowed for this configuration.`;
+    }
+
+    if (security.warnings.length > 0) {
+      return `TIRAMIS organization configuration is valid with warnings: ${security.warnings.join('; ')}`;
+    }
+
+    return 'TIRAMIS organization configuration is valid.';
   }
 }

@@ -8,6 +8,7 @@ import {
   Post,
   Put,
 } from '@nestjs/common';
+import { Transform } from 'class-transformer';
 import { IsBoolean, IsOptional } from 'class-validator';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
@@ -31,6 +32,7 @@ class ActivateCompanyTiramisEnvironmentDto {
 
 class ValidateCompanyTiramisEnvironmentDto {
   @IsOptional()
+  @Transform(({ value, obj }) => value ?? obj.allowExpiredCertificates)
   @IsBoolean()
   allow_expired_certificates?: boolean;
 }

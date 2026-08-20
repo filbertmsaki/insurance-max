@@ -15,6 +15,7 @@ export interface PlatformTiramisConfiguration {
   baseUrl: string | null;
   sourceService: string | null;
   callbackUrl: string | null;
+  allowExpiredCertificates: boolean;
   effectiveCallbackUrl?: string | null;
   effectiveBaseUrl?: string | null;
   effectiveSourceService?: string | null;
@@ -52,6 +53,7 @@ export interface UpsertPlatformTiramisConfigurationDto {
   source_service?: string;
   callback_url?: string;
   tiramis_service_api_key?: string;
+  allow_expired_certificates?: boolean;
   is_active?: boolean;
   use_as_target_environment?: boolean;
   confirm_live_activation?: boolean;
@@ -94,6 +96,8 @@ export const platformTiramisConfigApi = {
       .post<{
         valid: boolean;
         message?: string;
+        warnings?: string[];
+        errors?: string[];
       }>(
         `/platform/companies/${companyId}/tiramis-configurations/${environment}/validate`,
         data,

@@ -40,6 +40,7 @@ const schema = z.object({
   source_service: z.string().max(100).optional().or(z.literal('')),
   callback_url: z.string().url('Invalid URL').optional().or(z.literal('')),
   tiramis_service_api_key: z.string().max(500).optional().or(z.literal('')),
+  allow_expired_certificates: z.boolean().optional(),
   use_as_target_environment: z.boolean().optional(),
 });
 
@@ -72,6 +73,7 @@ function buildDefaultValues(
       config?.sourceService ?? config?.effectiveSourceService ?? '',
     callback_url: config?.callbackUrl ?? config?.effectiveCallbackUrl ?? '',
     tiramis_service_api_key: '',
+    allow_expired_certificates: config?.allowExpiredCertificates ?? false,
     use_as_target_environment:
       config?.isTargetEnvironment ??
       config?.effectiveTargetEnvironment === environment,
@@ -112,8 +114,6 @@ function EnvironmentPanel({
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(!config);
   const [generatedApiKey, setGeneratedApiKey] = useState<string | null>(null);
-  const [allowExpiredCertificates, setAllowExpiredCertificates] =
-    useState(false);
   const queryKey = ['platform-tiramis-configurations', companyId];
 
   const form = useForm<FormValues>({
@@ -151,8 +151,9 @@ function EnvironmentPanel({
           base_url: values.base_url || undefined,
           source_service: values.source_service || undefined,
           callback_url: values.callback_url || undefined,
-          tiramis_service_api_key:
-            values.tiramis_service_api_key || undefined,
+          tiramis_service_api_key: values.tiramis_service_api_key || undefined,
+          allow_expired_certificates:
+            values.allow_expired_certificates ?? false,
           use_as_target_environment: values.use_as_target_environment,
           confirm_live_activation:
             values.use_as_target_environment && environment === 'live'
@@ -172,7 +173,8 @@ function EnvironmentPanel({
       if (error instanceof Error && error.message.includes('cancelled')) {
         return;
       }
-      const message = getApiErrorMessage(error) ?? 'Unable to save configuration';
+      const message =
+        getApiErrorMessage(error) ?? 'Unable to save configuration';
       if (
         variables.values.use_as_target_environment &&
         !variables.force &&
@@ -189,13 +191,15 @@ function EnvironmentPanel({
 
   const validateMutation = useMutation({
     mutationFn: () =>
-      platformTiramisConfigApi.validateConfiguration(companyId, environment, {
-        allow_expired_certificates: allowExpiredCertificates,
-      }),
+      platformTiramisConfigApi.validateConfiguration(companyId, environment),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey });
-      if (result.valid) {
-        toast.success('Configuration validated successfully');
+      if (result.valid && result.warnings?.length) {
+        toast.warning(
+          result.message ?? 'Configuration validated with warnings',
+        );
+      } else if (result.valid) {
+        toast.success(result.message ?? 'Configuration validated successfully');
       } else {
         toast.error(result.message ?? 'Configuration failed validation');
       }
@@ -293,9 +297,11 @@ function EnvironmentPanel({
         {editing ? (
           <Form {...form}>
             <form
-              onSubmit={form.handleSubmit((values) =>
-                saveMutation.mutate({ values }),
-              )}
+              onSubmit={(event) => {
+                void form.handleSubmit((values) => {
+                  saveMutation.mutate({ values });
+                })(event);
+              }}
               className="space-y-4"
             >
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -398,7 +404,9 @@ function EnvironmentPanel({
                   name="callback_url"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Callback URL (optional, informational)</FormLabel>
+                      <FormLabel>
+                        Callback URL (optional, informational)
+                      </FormLabel>
                       <FormControl>
                         <Input placeholder="https://…" {...field} />
                       </FormControl>
@@ -423,10 +431,10 @@ function EnvironmentPanel({
                         />
                       </FormControl>
                       <p className="mt-1 text-xs text-slate-500">
-                        Where the portal sends its own requests to the
-                        TIRAMIS service — leave blank to use the platform
-                        default. Unrelated to which TIRA gateway TIRAMIS
-                        itself connects to.
+                        Where the portal sends its own requests to the TIRAMIS
+                        service — leave blank to use the platform default.
+                        Unrelated to which TIRA gateway TIRAMIS itself connects
+                        to.
                       </p>
                       <FormMessage />
                     </FormItem>
@@ -485,6 +493,32 @@ function EnvironmentPanel({
                       <p className="text-sm text-slate-500">
                         Makes this environment the active portal-to-TIRAMIS
                         connection for this company.
+                      </p>
+                    </div>
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-300"
+                        checked={!!field.value}
+                        onChange={(event) =>
+                          field.onChange(event.target.checked)
+                        }
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="allow_expired_certificates"
+                render={({ field }) => (
+                  <FormItem className="flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 p-3">
+                    <div>
+                      <FormLabel>Allow Expired TIRA Certificate</FormLabel>
+                      <p className="text-sm text-amber-900">
+                        Only bypasses the TIRA public certificate expiry-date
+                        check for this environment. Use temporarily while
+                        waiting for certificate renewal.
                       </p>
                     </div>
                     <FormControl>
@@ -567,6 +601,10 @@ function EnvironmentPanel({
                 <span className="text-slate-500">API Key Status:</span>{' '}
                 {config?.apiKeyStatus ?? 'NOT_CONFIGURED'}
               </div>
+              <div>
+                <span className="text-slate-500">Expired Cert Override:</span>{' '}
+                {config?.allowExpiredCertificates ? 'Enabled' : 'Disabled'}
+              </div>
               <div className="col-span-2">
                 <span className="text-slate-500">
                   Callback URL (portal note, not TIRA's actual config):
@@ -597,17 +635,6 @@ function EnvironmentPanel({
                 </div>
               </div>
             )}
-            <label className="flex w-fit items-center gap-2 text-xs text-slate-600">
-              <input
-                type="checkbox"
-                className="h-3.5 w-3.5 rounded border-slate-300"
-                checked={allowExpiredCertificates}
-                onChange={(event) =>
-                  setAllowExpiredCertificates(event.target.checked)
-                }
-              />
-              Allow validation to pass with an expired certificate
-            </label>
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
@@ -665,11 +692,7 @@ function EnvironmentPanel({
  * configuration, key generation/rotation, validation, and environment
  * activation, acting on behalf of the company.
  */
-export function PlatformTiramisConfigTab({
-  companyId,
-}: {
-  companyId: string;
-}) {
+export function PlatformTiramisConfigTab({ companyId }: { companyId: string }) {
   const { data: configs, isLoading } = useQuery({
     queryKey: ['platform-tiramis-configurations', companyId],
     queryFn: () => platformTiramisConfigApi.getConfigurations(companyId),

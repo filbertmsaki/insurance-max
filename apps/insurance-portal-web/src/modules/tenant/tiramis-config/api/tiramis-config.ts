@@ -15,6 +15,7 @@ export interface CompanyTiramisConfiguration {
   baseUrl: string | null;
   sourceService: string | null;
   callbackUrl: string | null;
+  allowExpiredCertificates: boolean;
   effectiveCallbackUrl?: string | null;
   effectiveBaseUrl?: string | null;
   effectiveSourceService?: string | null;

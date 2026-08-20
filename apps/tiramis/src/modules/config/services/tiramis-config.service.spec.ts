@@ -182,3 +182,193 @@ describe('TiramisConfigService organization context resolution', () => {
     expect(result.configuration).toBe(configuration);
   });
 });
+
+describe('TiramisConfigService certificate validation', () => {
+  const baseConfiguration = {
+    id: 'config-1',
+    environment: 'live',
+    companyCode: 'ICC110',
+    systemCode: 'LSYS_ALLIANCE_003',
+    clientCode: 'ICC110',
+    clientKey: '(encrypted)',
+    clientKeyEncrypted: 'enc-client-key',
+    clientPrivateCertificatePath: 'client.pfx',
+    clientPrivateCertificatePassword: null,
+    clientPrivateCertificatePasswordEncrypted: null,
+    tiraPublicCertificatePath: 'tira.cer',
+    tiraPublicCertificatePassword: null,
+    tiraPublicCertificatePasswordEncrypted: null,
+  };
+
+  function createService() {
+    const certificateInspector = {
+      assertCertificateHealthy: jest.fn(),
+    };
+    const secretCrypto = {
+      decryptIfEncrypted: jest.fn((value) =>
+        value ? `decrypted:${String(value)}` : null,
+      ),
+      mask: jest.fn((value) => (value ? '***masked***' : null)),
+    };
+
+    const service = new (TiramisConfigService as any)(
+      { findOne: jest.fn() },
+      {},
+      {},
+      secretCrypto,
+      certificateInspector,
+      { get: jest.fn() },
+      { getServicePrincipal: jest.fn() },
+    ) as TiramisConfigService;
+
+    return { service, certificateInspector };
+  }
+
+  it('accepts healthy certificates regardless of allowExpiredCertificates', async () => {
+    const { service, certificateInspector } = createService();
+    certificateInspector.assertCertificateHealthy
+      .mockReturnValueOnce({
+        validTo: '2026-12-31T00:00:00.000Z',
+        isExpired: false,
+        isExpiringSoon: false,
+      })
+      .mockReturnValueOnce({
+        validTo: '2026-12-31T00:00:00.000Z',
+        isExpired: false,
+        isExpiringSoon: false,
+      });
+
+    const result = await service.validateConfigurationSecurity(
+      baseConfiguration as any,
+      { allowExpiredCertificates: false },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('rejects an expired TIRA public certificate when the override is disabled', async () => {
+    const { service, certificateInspector } = createService();
+    certificateInspector.assertCertificateHealthy
+      .mockReturnValueOnce({
+        validTo: '2026-12-31T00:00:00.000Z',
+        isExpired: false,
+        isExpiringSoon: false,
+      })
+      .mockReturnValueOnce({
+        validTo: '2026-03-03T18:50:06.000Z',
+        isExpired: true,
+        isExpiringSoon: false,
+      });
+
+    const result = await service.validateConfigurationSecurity(
+      baseConfiguration as any,
+      { allowExpiredCertificates: false },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain(
+      'TIRA public certificate has expired on 2026-03-03T18:50:06.000Z',
+    );
+  });
+
+  it('accepts an expired TIRA public certificate with a warning when the override is enabled', async () => {
+    const { service, certificateInspector } = createService();
+    certificateInspector.assertCertificateHealthy
+      .mockReturnValueOnce({
+        validTo: '2026-12-31T00:00:00.000Z',
+        isExpired: false,
+        isExpiringSoon: false,
+      })
+      .mockReturnValueOnce({
+        validTo: '2026-03-03T18:50:06.000Z',
+        isExpired: true,
+        isExpiringSoon: false,
+      });
+
+    const result = await service.validateConfigurationSecurity(
+      baseConfiguration as any,
+      { allowExpiredCertificates: true },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings).toContain(
+      'TIRA public certificate expired on 2026-03-03T18:50:06.000Z, but expiry validation was explicitly allowed.',
+    );
+  });
+
+  it('still rejects an expired client private certificate even when the override is enabled', async () => {
+    const { service, certificateInspector } = createService();
+    certificateInspector.assertCertificateHealthy
+      .mockReturnValueOnce({
+        validTo: '2026-03-03T18:50:06.000Z',
+        isExpired: true,
+        isExpiringSoon: false,
+      })
+      .mockReturnValueOnce({
+        validTo: '2026-12-31T00:00:00.000Z',
+        isExpired: false,
+        isExpiringSoon: false,
+      });
+
+    const result = await service.validateConfigurationSecurity(
+      baseConfiguration as any,
+      { allowExpiredCertificates: true },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain(
+      'Client private certificate has expired on 2026-03-03T18:50:06.000Z',
+    );
+  });
+
+  it('rejects a corrupted TIRA public certificate even when the override is enabled', async () => {
+    const { service, certificateInspector } = createService();
+    certificateInspector.assertCertificateHealthy
+      .mockReturnValueOnce({
+        validTo: '2026-12-31T00:00:00.000Z',
+        isExpired: false,
+        isExpiringSoon: false,
+      })
+      .mockImplementationOnce(() => {
+        throw new BadRequestException('TIRA public certificate is invalid');
+      });
+
+    const result = await service.validateConfigurationSecurity(
+      baseConfiguration as any,
+      { allowExpiredCertificates: true },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain('TIRA public certificate is invalid');
+  });
+
+  it('rejects a missing client key regardless of allowExpiredCertificates', async () => {
+    const { service, certificateInspector } = createService();
+    certificateInspector.assertCertificateHealthy
+      .mockReturnValueOnce({
+        validTo: '2026-12-31T00:00:00.000Z',
+        isExpired: false,
+        isExpiringSoon: false,
+      })
+      .mockReturnValueOnce({
+        validTo: '2026-12-31T00:00:00.000Z',
+        isExpired: false,
+        isExpiringSoon: false,
+      });
+
+    const result = await service.validateConfigurationSecurity(
+      {
+        ...baseConfiguration,
+        clientKey: null,
+        clientKeyEncrypted: null,
+      } as any,
+      { allowExpiredCertificates: true },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain('ClientKey is missing');
+  });
+});
