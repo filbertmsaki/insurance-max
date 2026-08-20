@@ -44,8 +44,12 @@ export class TiramisBusinessPayloadBuilderService {
       );
     }
 
-    const context = await this.resolveBuilderContext({
-      record: null,
+    const quotationContextRecord = await this.findQuotationContextRecord({
+      sourceModule: params.sourceModule,
+      sourceRecordId: params.sourceRecordId,
+    });
+    const overrideContext = await this.resolveBuilderContext({
+      record: quotationContextRecord,
       sourceCompanyId: params.sourceCompanyId,
       sourceBranchId: params.sourceBranchId,
     });
@@ -57,8 +61,8 @@ export class TiramisBusinessPayloadBuilderService {
     ) {
       return {
         payload: this.cleanObject({
-          ...this.buildCommonPayload(context),
           ...params.overridePayload,
+          ...this.buildCommonPayload(overrideContext),
         }),
         source: 'override_payload_with_tiramis_context',
       };
@@ -74,22 +78,19 @@ export class TiramisBusinessPayloadBuilderService {
       });
     }
 
-    const resolvedContext =
-      record === null
-        ? context
-        : await this.resolveBuilderContext({
-            record,
-            sourceCompanyId: params.sourceCompanyId,
-            sourceBranchId: params.sourceBranchId,
-          });
+    const context = await this.resolveBuilderContext({
+      record,
+      sourceCompanyId: params.sourceCompanyId,
+      sourceBranchId: params.sourceBranchId,
+    });
 
     const storedPayload = this.extractStoredPayload(record, params.requestType);
 
     if (storedPayload) {
       return {
         payload: this.cleanObject({
-          ...this.buildCommonPayload(resolvedContext),
           ...storedPayload,
+          ...this.buildCommonPayload(context),
         }),
         source: 'stored_json_payload_with_tiramis_context',
       };
@@ -103,86 +104,80 @@ export class TiramisBusinessPayloadBuilderService {
           payload: this.buildCoverNotePayload(
             record,
             params.requestType,
-            resolvedContext,
+            context,
           ),
           source: 'auto_cover_note_builder',
         };
 
       case TiramisRequestType.REINSURANCE:
         return {
-          payload: this.buildReinsurancePayload(record, resolvedContext),
+          payload: this.buildReinsurancePayload(record, context),
           source: 'auto_reinsurance_builder',
         };
 
       case TiramisRequestType.POLICY:
         return {
-          payload: this.buildPolicyPayload(record, resolvedContext),
+          payload: this.buildPolicyPayload(record, context),
           source: 'auto_policy_builder',
         };
 
       case TiramisRequestType.CLAIM_NOTIFICATION:
         return {
-          payload: this.buildClaimNotificationPayload(record, resolvedContext),
+          payload: this.buildClaimNotificationPayload(record, context),
           source: 'auto_claim_notification_builder',
         };
 
       case TiramisRequestType.CLAIM_INTIMATION:
         return {
-          payload: this.buildClaimIntimationPayload(record, resolvedContext),
+          payload: this.buildClaimIntimationPayload(record, context),
           source: 'auto_claim_intimation_builder',
         };
 
       case TiramisRequestType.CLAIM_ASSESSMENT:
         return {
-          payload: this.buildClaimAssessmentPayload(record, resolvedContext),
+          payload: this.buildClaimAssessmentPayload(record, context),
           source: 'auto_claim_assessment_builder',
         };
 
       case TiramisRequestType.DISCHARGE_VOUCHER:
         return {
-          payload: this.buildDischargeVoucherPayload(record, resolvedContext),
+          payload: this.buildDischargeVoucherPayload(record, context),
           source: 'auto_discharge_voucher_builder',
         };
 
       case TiramisRequestType.CLAIM_PAYMENT:
         return {
-          payload: this.buildClaimPaymentPayload(record, resolvedContext),
+          payload: this.buildClaimPaymentPayload(record, context),
           source: 'auto_claim_payment_builder',
         };
 
       case TiramisRequestType.CLAIM_REJECTION:
         return {
-          payload: this.buildClaimRejectionPayload(record, resolvedContext),
+          payload: this.buildClaimRejectionPayload(record, context),
           source: 'auto_claim_rejection_builder',
         };
 
       case TiramisRequestType.COVER_NOTE_VERIFICATION:
         return {
-          payload: this.buildCoverNoteVerificationPayload(
-            record,
-            resolvedContext,
-          ),
+          payload: this.buildCoverNoteVerificationPayload(record, context),
           source: 'auto_cover_note_verification_builder',
         };
 
       case TiramisRequestType.MOTOR_VERIFICATION:
         return {
-          payload: this.buildMotorVerificationPayload(record, resolvedContext),
+          payload: this.buildMotorVerificationPayload(record, context),
           source: 'auto_motor_verification_builder',
         };
 
       case TiramisRequestType.NIN_VERIFICATION:
         return {
-          payload: this.buildNinVerificationPayload(record, resolvedContext),
+          payload: this.buildNinVerificationPayload(record, context),
           source: 'auto_nin_verification_builder',
         };
 
       case TiramisRequestType.COMPANY_VERIFICATION:
         return {
-          payload: this.buildCompanyVerificationPayload(
-            record,
-            resolvedContext,
-          ),
+          payload: this.buildCompanyVerificationPayload(record, context),
           source: 'auto_company_verification_builder',
         };
 
@@ -191,7 +186,7 @@ export class TiramisBusinessPayloadBuilderService {
           payload: this.buildFallbackPayload(
             record,
             params.requestType,
-            resolvedContext,
+            context,
           ),
           source: 'auto_record_fallback_builder',
         };
@@ -215,6 +210,46 @@ export class TiramisBusinessPayloadBuilderService {
       throw new NotFoundException(
         `Business record not found in ${params.tableName}`,
       );
+    }
+
+    return rows[0];
+  }
+
+  private async findQuotationContextRecord(params: {
+    sourceModule: string;
+    sourceRecordId?: string | null;
+  }): Promise<any | null> {
+    const sourceModule = params.sourceModule.trim().toLowerCase();
+
+    if (
+      !params.sourceRecordId ||
+      ![
+        'quotation',
+        'quotations',
+        'tenant.quotations',
+        'tenant-quotations',
+      ].includes(sourceModule)
+    ) {
+      return null;
+    }
+
+    const rows = await this.dataSource.query(
+      `
+        SELECT
+          company_id,
+          branch_id,
+          insurer_company_id,
+          intermediary_company_id
+        FROM quotations
+        WHERE id = $1
+          AND deleted_at IS NULL
+        LIMIT 1
+      `,
+      [params.sourceRecordId],
+    );
+
+    if (!rows?.[0]) {
+      throw new NotFoundException('Quotation not found');
     }
 
     return rows[0];
@@ -277,6 +312,15 @@ export class TiramisBusinessPayloadBuilderService {
       branchId,
       record: params.record,
     });
+    const intermediaryCompanyCode = await this.resolveIntermediaryCompanyCode(
+      params.record,
+    );
+    const insurerCompanyCode =
+      config?.insurer_company_code ||
+      company?.tira_insurer_company_code ||
+      company?.tira_company_code ||
+      this.value(params.record, 'insurer_company_code', 'insurerCompanyCode') ||
+      null;
 
     return {
       companyId,
@@ -296,28 +340,8 @@ export class TiramisBusinessPayloadBuilderService {
         company?.tira_system_name ||
         this.value(params.record, 'system_name', 'systemName') ||
         null,
-      insurerCompanyCode:
-        config?.insurer_company_code ||
-        company?.tira_insurer_company_code ||
-        company?.tira_company_code ||
-        this.value(
-          params.record,
-          'insurer_company_code',
-          'insurerCompanyCode',
-        ) ||
-        null,
-      tranCompanyCode:
-        config?.tran_company_code ||
-        this.value(params.record, 'tran_company_code', 'tranCompanyCode') ||
-        config?.insurer_company_code ||
-        company?.tira_insurer_company_code ||
-        company?.tira_company_code ||
-        this.value(
-          params.record,
-          'insurer_company_code',
-          'insurerCompanyCode',
-        ) ||
-        null,
+      insurerCompanyCode,
+      tranCompanyCode: intermediaryCompanyCode || insurerCompanyCode,
       clientCode:
         config?.client_code ||
         company?.tira_client_code ||
@@ -330,6 +354,59 @@ export class TiramisBusinessPayloadBuilderService {
         this.value(params.record, 'callback_url', 'callbackUrl') ||
         null,
     };
+  }
+
+  private async resolveIntermediaryCompanyCode(
+    record?: any,
+  ): Promise<string | null> {
+    const intermediaryCompanyId = this.value(
+      record,
+      'intermediary_company_id',
+      'intermediaryCompanyId',
+    );
+
+    if (!intermediaryCompanyId) {
+      return null;
+    }
+
+    const rows = await this.dataSource.query(
+      `
+        SELECT
+          company_type,
+          tira_company_code,
+          tira_client_code,
+          regulatory_metadata
+        FROM companies
+        WHERE id = $1
+          AND deleted_at IS NULL
+          AND status = 'active'
+        LIMIT 1
+      `,
+      [intermediaryCompanyId],
+    );
+    const intermediary = rows?.[0];
+
+    if (
+      !intermediary ||
+      !['AGENCY', 'BROKER'].includes(intermediary.company_type)
+    ) {
+      return null;
+    }
+
+    const companyCode =
+      intermediary.tira_company_code ||
+      intermediary.regulatory_metadata?.tiraCompanyCode ||
+      intermediary.tira_client_code ||
+      intermediary.regulatory_metadata?.clientCode ||
+      null;
+
+    if (!companyCode) {
+      throw new BadRequestException(
+        `Active ${intermediary.company_type} intermediary is missing its TIRA company code`,
+      );
+    }
+
+    return companyCode;
   }
 
   private async resolveSalePointCode(params: {
