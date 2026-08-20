@@ -2,6 +2,7 @@ import { Transform, TransformFnParams } from 'class-transformer';
 import {
   IsEmail,
   IsNotEmpty,
+  IsOptional,
   MinLength,
   IsString,
   IsStrongPassword,
@@ -78,9 +79,12 @@ export class RegisterDto {
   })
   phone: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
     if (typeof value !== 'string') return value;
     return value.trim().toLowerCase();
   })
@@ -88,5 +92,5 @@ export class RegisterDto {
     message:
       'Company slug must use lowercase letters, numbers, and hyphens only',
   })
-  company_slug: string;
+  company_slug?: string;
 }

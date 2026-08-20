@@ -47,10 +47,9 @@ export class AuthorizationGuard implements CanActivate {
       ]) ?? [];
 
     const allowedScopes =
-      this.reflector.getAllAndOverride<Array<'platform' | 'company'>>(
-        ACCESS_SCOPES_KEY,
-        [context.getHandler(), context.getClass()],
-      ) ?? [];
+      this.reflector.getAllAndOverride<
+        Array<'platform' | 'company' | 'customer'>
+      >(ACCESS_SCOPES_KEY, [context.getHandler(), context.getClass()]) ?? [];
 
     const hasRequirements =
       requiredPermissions.length > 0 ||

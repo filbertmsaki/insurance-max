@@ -15,7 +15,7 @@ export const PermissionAssignmentScope = {
 export type PermissionAssignmentScope =
   (typeof PermissionAssignmentScope)[keyof typeof PermissionAssignmentScope];
 
-export type ApplicationAccessScope = 'platform' | 'company';
+export type ApplicationAccessScope = 'platform' | 'company' | 'customer';
 
 export type PermissionEvaluationMode = 'all' | 'any';
 

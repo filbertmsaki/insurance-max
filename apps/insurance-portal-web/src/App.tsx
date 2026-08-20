@@ -161,94 +161,85 @@ export default function App() {
 
         {/* Authenticated routes */}
         <Route element={<ProtectedRoute />}>
-          <Route
-            element={
-              <ProtectedRoute allowedScopes={['company']} />
-            }
-          >
+          <Route path="/customer" element={<PortalShell audience="customer" />}>
+            <Route index element={<Navigate to="dashboard" replace />} />
             <Route
-              path="/customer"
-              element={<PortalShell audience="customer" />}
-            >
-              <Route index element={<Navigate to="dashboard" replace />} />
-              <Route
-                path="dashboard"
-                element={<PortalDashboardPage audience="customer" />}
-              />
-              <Route
-                path="profile"
-                element={<PortalProfilePage audience="customer" />}
-              />
-              <Route
-                path="quotations"
-                element={
-                  <PortalBusinessListPage
-                    audience="customer"
-                    resource="quotations"
-                  />
-                }
-              />
-              <Route
-                path="policies"
-                element={
-                  <PortalBusinessListPage
-                    audience="customer"
-                    resource="policies"
-                  />
-                }
-              />
-              <Route
-                path="invoices"
-                element={
-                  <PortalBusinessListPage
-                    audience="customer"
-                    resource="invoices"
-                  />
-                }
-              />
-              <Route
-                path="receipts"
-                element={
-                  <PortalBusinessListPage
-                    audience="customer"
-                    resource="receipts"
-                  />
-                }
-              />
-              <Route
-                path="requests"
-                element={
-                  <PortalBusinessListPage
-                    audience="customer"
-                    resource="requests"
-                  />
-                }
-              />
-              <Route
-                path="documents"
-                element={<PortalDocumentsPage audience="customer" />}
-              />
-              <Route
-                path="notifications"
-                element={<PortalNotificationsPage audience="customer" />}
-              />
-              <Route
-                path="messages"
-                element={<PortalMessagesPage audience="customer" />}
-              />
-              <Route
-                path="messages/:id"
-                element={<PortalMessageDetailPage audience="customer" />}
-              />
-              <Route
-                path="signatures"
-                element={<PortalSignaturesPage audience="customer" />}
-              />
-              <Route
-                path="signatures/:id"
-                element={<PortalSignatureDetailPage audience="customer" />}
-              />
-            </Route>
+              path="dashboard"
+              element={<PortalDashboardPage audience="customer" />}
+            />
+            <Route
+              path="profile"
+              element={<PortalProfilePage audience="customer" />}
+            />
+            <Route
+              path="quotations"
+              element={
+                <PortalBusinessListPage
+                  audience="customer"
+                  resource="quotations"
+                />
+              }
+            />
+            <Route
+              path="policies"
+              element={
+                <PortalBusinessListPage
+                  audience="customer"
+                  resource="policies"
+                />
+              }
+            />
+            <Route
+              path="invoices"
+              element={
+                <PortalBusinessListPage
+                  audience="customer"
+                  resource="invoices"
+                />
+              }
+            />
+            <Route
+              path="receipts"
+              element={
+                <PortalBusinessListPage
+                  audience="customer"
+                  resource="receipts"
+                />
+              }
+            />
+            <Route
+              path="requests"
+              element={
+                <PortalBusinessListPage
+                  audience="customer"
+                  resource="requests"
+                />
+              }
+            />
+            <Route
+              path="documents"
+              element={<PortalDocumentsPage audience="customer" />}
+            />
+            <Route
+              path="notifications"
+              element={<PortalNotificationsPage audience="customer" />}
+            />
+            <Route
+              path="messages"
+              element={<PortalMessagesPage audience="customer" />}
+            />
+            <Route
+              path="messages/:id"
+              element={<PortalMessageDetailPage audience="customer" />}
+            />
+            <Route
+              path="signatures"
+              element={<PortalSignaturesPage audience="customer" />}
+            />
+            <Route
+              path="signatures/:id"
+              element={<PortalSignatureDetailPage audience="customer" />}
+            />
           </Route>
 
           <Route

@@ -11,7 +11,7 @@ export type UserType =
   | 'COMPANY_USER';
 
 export type UserStatus = 'active' | 'inactive' | 'suspended' | 'locked';
-export type AuthScope = 'platform' | 'company';
+export type AuthScope = 'platform' | 'company' | 'customer';
 export type SortOrder = 'ASC' | 'DESC';
 
 export const PLATFORM_USER_TYPES: UserType[] = ['SUPER_ADMIN', 'OWNER'];

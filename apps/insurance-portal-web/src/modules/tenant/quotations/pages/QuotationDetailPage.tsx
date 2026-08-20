@@ -92,8 +92,7 @@ export function QuotationDetailPage() {
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const currentUserId = useAuthStore((state) => state.user?.id ?? null);
   const { data: preview, isLoading } = useQuotationPreview(id);
-  const { data: workflow, isLoading: workflowLoading } =
-    useQuotationWorkflow(id);
+  const { data: workflow } = useQuotationWorkflow(id);
   const submitMutation = useSubmitQuotation(id);
   const submitForApprovalMutation = useSubmitQuotationForApproval(id);
   const requestPaymentMutation = useRequestQuotationPayment(id);

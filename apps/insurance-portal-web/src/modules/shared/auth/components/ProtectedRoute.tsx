@@ -19,7 +19,7 @@ interface ProtectedRouteProps {
   allRoles?: string[];
   anyRoles?: string[];
 
-  allowedScopes?: Array<'platform' | 'company'>;
+  allowedScopes?: Array<'platform' | 'company' | 'customer'>;
 }
 
 export function ProtectedRoute({

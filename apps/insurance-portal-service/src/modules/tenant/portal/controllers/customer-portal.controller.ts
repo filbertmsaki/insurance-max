@@ -19,7 +19,6 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import {
@@ -46,7 +45,7 @@ import { PortalNotificationService } from '../services/portal-notification.servi
 @ApiTags('Customer portal')
 @ApiBearerAuth('access-token')
 @Controller({ path: 'customer', version: '1' })
-@UseGuards(AuthGuard('jwt'), TenantGuard, PortalGuard)
+@UseGuards(AuthGuard('jwt'), PortalGuard)
 @PortalActors(PortalActorType.CUSTOMER)
 export class CustomerPortalController {
   constructor(
@@ -210,12 +209,13 @@ export class CustomerPortalController {
   @Get('notifications')
   @ApiOperation({ summary: 'List customer portal notifications' })
   notifications(
+    @CurrentPortalAccount() account: PortalAccount,
     @CurrentUser() user: AuthenticatedUser,
     @Query('unread_only', new DefaultValuePipe(false), ParseBoolPipe)
     unreadOnly: boolean,
   ) {
     return this.notificationService.findMine(
-      user.companyId!,
+      account.company_id,
       user.id,
       unreadOnly,
     );
@@ -224,10 +224,11 @@ export class CustomerPortalController {
   @Post('notifications/:id/read')
   @ApiOperation({ summary: 'Mark a customer portal notification as read' })
   markNotificationRead(
+    @CurrentPortalAccount() account: PortalAccount,
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.notificationService.markRead(user.companyId!, user.id, id);
+    return this.notificationService.markRead(account.company_id, user.id, id);
   }
 
   @Get('messages')

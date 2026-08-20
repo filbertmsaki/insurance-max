@@ -12,6 +12,7 @@ import { createHash, randomBytes } from 'crypto';
 
 import { buildUrl } from '@insurance-max/shared-config';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
+import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { hashPassword } from '@insurance-max/portal-shared/utils/hash.util';
 
 import { AuditService } from '../../../shared/audit/audit.service';
@@ -25,6 +26,9 @@ import { Role } from '../../../platform/roles/entities/role.entity';
 import { BranchUser } from '../../branches/entities/branch-user.entity';
 import { Branch } from '../../branches/entities/branch.entity';
 import { Customer } from '../../customers/entities/customer.entity';
+import { CustomerKycStatus } from '../../customers/enums/customer-kyc-status.enum';
+import { CustomerStatus } from '../../customers/enums/customer-status.enum';
+import { CustomerType } from '../../customers/enums/customer-type.enum';
 import { User, UserStatus, UserType } from '../../users/entities/user.entity';
 
 import {
@@ -63,8 +67,7 @@ export class PortalAccountsService {
    * protected customer/intermediary request.
    */
   async findActiveForUser(
-    userId: string,
-    companyId: string,
+    user: AuthenticatedUser,
     actors?: PortalActorType[],
   ): Promise<PortalAccount> {
     if (!actors || actors.length === 0) {
@@ -73,30 +76,32 @@ export class PortalAccountsService {
       );
     }
 
-    const account = await this.accountRepository.findOne({
-      where: {
-        user_id: userId,
-        company_id: companyId,
-        status: PortalAccountStatus.ACTIVE,
-        actor_type: In(actors),
-      },
-      relations: {
-        customer: true,
-        intermediary_company: true,
-      },
-    });
+    if (actors.includes(PortalActorType.INTERMEDIARY) && user.companyId) {
+      const intermediaryAccount = await this.accountRepository.findOne({
+        where: {
+          user_id: user.id,
+          company_id: user.companyId,
+          status: PortalAccountStatus.ACTIVE,
+          actor_type: In(actors),
+        },
+        relations: {
+          customer: true,
+          intermediary_company: true,
+        },
+      });
 
-    if (!account) {
+      if (intermediaryAccount) {
+        return this.touchLastAccess(intermediaryAccount);
+      }
+    }
+
+    if (!actors.includes(PortalActorType.CUSTOMER)) {
       throw new ForbiddenException('Active portal access is required');
     }
 
-    // last_accessed_at is informational; don't block the request if it fails.
-    account.last_accessed_at = new Date();
-    await this.accountRepository.update(account.id, {
-      last_accessed_at: account.last_accessed_at,
-    });
+    const account = await this.ensureCustomerPortalAccess(user);
 
-    return account;
+    return this.touchLastAccess(account);
   }
 
   /** Invite an existing customer belonging to the authenticated company. */
@@ -179,6 +184,18 @@ export class PortalAccountsService {
       lastName: customer.last_name,
       invitedBy,
     });
+  }
+
+  private async touchLastAccess(
+    account: PortalAccount,
+  ): Promise<PortalAccount> {
+    // last_accessed_at is informational; don't block the request if it fails.
+    account.last_accessed_at = new Date();
+    await this.accountRepository.update(account.id, {
+      last_accessed_at: account.last_accessed_at,
+    });
+
+    return account;
   }
 
   /**
@@ -381,6 +398,8 @@ export class PortalAccountsService {
         membership.id,
       );
 
+      await this.linkInvitationCustomerToUser(manager, invitation, user);
+
       const account = await this.activatePortalAccount(
         manager,
         invitation,
@@ -474,6 +493,8 @@ export class PortalAccountsService {
         invitation.company_id,
         membership.id,
       );
+
+      await this.linkInvitationCustomerToUser(manager, invitation, user);
 
       const account = await this.activatePortalAccount(
         manager,
@@ -595,6 +616,348 @@ export class PortalAccountsService {
     });
 
     return saved;
+  }
+
+  private async ensureCustomerPortalAccess(
+    user: AuthenticatedUser,
+  ): Promise<PortalAccount> {
+    const existingAccount = await this.accountRepository.findOne({
+      where: {
+        user_id: user.id,
+        actor_type: PortalActorType.CUSTOMER,
+        status: PortalAccountStatus.ACTIVE,
+      },
+      relations: {
+        customer: true,
+        intermediary_company: true,
+      },
+      order: {
+        last_accessed_at: 'DESC',
+        created_at: 'ASC',
+      },
+    });
+
+    if (existingAccount) {
+      return existingAccount;
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      const customerRepository = manager.getRepository(Customer);
+      const portalUser = await manager.getRepository(User).findOne({
+        where: { id: user.id },
+      });
+
+      if (!portalUser) {
+        throw new NotFoundException('Authenticated user not found');
+      }
+
+      const linkedCustomer = await customerRepository.findOne({
+        where: { user_id: user.id },
+      });
+
+      if (linkedCustomer) {
+        return this.ensureActiveCustomerPortalAccount(
+          manager,
+          linkedCustomer,
+          user.id,
+        );
+      }
+
+      const insurer = await this.resolveSelfServiceInsurerCompany(manager);
+      const matchedCustomer = await this.findVerifiedExistingCustomer(
+        manager,
+        insurer.id,
+        portalUser,
+      );
+
+      const customer =
+        matchedCustomer ??
+        (await customerRepository.save(
+          customerRepository.create({
+            company_id: insurer.id,
+            user_id: user.id,
+            customer_no: await this.generateCustomerNo(manager, insurer.id),
+            customer_type: CustomerType.INDIVIDUAL,
+            first_name: portalUser.first_name ?? null,
+            last_name: portalUser.last_name ?? null,
+            display_name:
+              [portalUser.first_name, portalUser.last_name]
+                .filter(Boolean)
+                .join(' ')
+                .trim() || null,
+            phone: portalUser.phone,
+            email: portalUser.email,
+            country: 'Tanzania',
+            country_code: 'TZA',
+            region: 'Unspecified',
+            district: 'Unspecified',
+            kyc_status: CustomerKycStatus.PENDING,
+            status: CustomerStatus.ACTIVE,
+            data_source: 'SELF_SERVICE',
+            metadata: {
+              auto_provisioned: true,
+              source: 'customer_portal',
+            },
+          }),
+        ));
+
+      if (matchedCustomer) {
+        await this.assignCustomerToUser(manager, matchedCustomer, user.id);
+      }
+
+      const freshCustomer =
+        matchedCustomer ??
+        (await customerRepository.findOneOrFail({
+          where: { id: customer.id },
+        }));
+
+      const account = await this.ensureActiveCustomerPortalAccount(
+        manager,
+        freshCustomer,
+        user.id,
+      );
+
+      account.customer = freshCustomer;
+
+      return account;
+    });
+  }
+
+  private async ensureActiveCustomerPortalAccount(
+    manager: EntityManager,
+    customer: Customer,
+    userId: string,
+  ): Promise<PortalAccount> {
+    const accountRepository = manager.getRepository(PortalAccount);
+    const existingAccount = await accountRepository.findOne({
+      where: {
+        company_id: customer.company_id,
+        user_id: userId,
+        actor_type: PortalActorType.CUSTOMER,
+      },
+      withDeleted: true,
+      relations: {
+        customer: true,
+        intermediary_company: true,
+      },
+    });
+
+    if (existingAccount) {
+      if (
+        existingAccount.customer_id &&
+        existingAccount.customer_id !== customer.id
+      ) {
+        throw new ConflictException(
+          'Portal access is linked to a different customer profile',
+        );
+      }
+
+      if (existingAccount.status === PortalAccountStatus.CLOSED) {
+        throw new ForbiddenException('Customer portal access has been closed');
+      }
+
+      if (existingAccount.status === PortalAccountStatus.SUSPENDED) {
+        throw new ForbiddenException(
+          'Customer portal access has been suspended',
+        );
+      }
+
+      if (existingAccount.status !== PortalAccountStatus.ACTIVE) {
+        existingAccount.status = PortalAccountStatus.ACTIVE;
+        existingAccount.activated_at =
+          existingAccount.activated_at ?? new Date();
+      }
+
+      existingAccount.deleted_at = null;
+      existingAccount.customer_id = customer.id;
+      existingAccount.accepted_terms_at =
+        existingAccount.accepted_terms_at ?? new Date();
+      existingAccount.accepted_privacy_at =
+        existingAccount.accepted_privacy_at ?? new Date();
+      existingAccount.customer = customer;
+
+      return accountRepository.save(existingAccount);
+    }
+
+    return accountRepository.save(
+      accountRepository.create({
+        company_id: customer.company_id,
+        user_id: userId,
+        actor_type: PortalActorType.CUSTOMER,
+        customer_id: customer.id,
+        intermediary_company_id: null,
+        status: PortalAccountStatus.ACTIVE,
+        activated_at: new Date(),
+        accepted_terms_at: new Date(),
+        accepted_privacy_at: new Date(),
+        created_by: userId,
+        metadata: {
+          auto_provisioned: true,
+          source: 'customer_portal',
+        },
+      }),
+    );
+  }
+
+  private async linkInvitationCustomerToUser(
+    manager: EntityManager,
+    invitation: PortalInvitation,
+    user: User,
+  ): Promise<void> {
+    if (
+      invitation.actor_type !== PortalActorType.CUSTOMER ||
+      !invitation.customer_id
+    ) {
+      return;
+    }
+
+    const customerRepository = manager.getRepository(Customer);
+    const customer = await customerRepository.findOne({
+      where: { id: invitation.customer_id, company_id: invitation.company_id },
+    });
+
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    await this.assignCustomerToUser(manager, customer, user.id);
+  }
+
+  private async assignCustomerToUser(
+    manager: EntityManager,
+    customer: Customer,
+    userId: string,
+  ): Promise<void> {
+    const customerRepository = manager.getRepository(Customer);
+
+    const existingLinkedCustomer = await customerRepository.findOne({
+      where: { user_id: userId },
+    });
+
+    if (existingLinkedCustomer && existingLinkedCustomer.id !== customer.id) {
+      throw new ConflictException(
+        'This user is already linked to a different customer profile',
+      );
+    }
+
+    if (customer.user_id && customer.user_id !== userId) {
+      throw new ConflictException(
+        'This customer profile is already linked to another user',
+      );
+    }
+
+    if (customer.user_id === userId) {
+      return;
+    }
+
+    customer.user_id = userId;
+    await customerRepository.save(customer);
+  }
+
+  private async findVerifiedExistingCustomer(
+    manager: EntityManager,
+    companyId: string,
+    user: User,
+  ): Promise<Customer | null> {
+    if (
+      !user.is_email_verified ||
+      !user.is_phone_verified ||
+      !user.email ||
+      !user.phone
+    ) {
+      return null;
+    }
+
+    return manager
+      .getRepository(Customer)
+      .createQueryBuilder('customer')
+      .where('customer.company_id = :companyId', { companyId })
+      .andWhere('customer.user_id IS NULL')
+      .andWhere('customer.deleted_at IS NULL')
+      .andWhere('LOWER(customer.email) = :email', {
+        email: user.email.trim().toLowerCase(),
+      })
+      .andWhere('customer.phone = :phone', {
+        phone: user.phone.trim(),
+      })
+      .orderBy('customer.created_at', 'ASC')
+      .getOne();
+  }
+
+  private async resolveSelfServiceInsurerCompany(
+    manager: EntityManager,
+  ): Promise<Company> {
+    const companies = await manager.getRepository(Company).find({
+      where: {
+        company_type: CompanyType.INSURANCE_COMPANY,
+        status: 'active',
+      },
+      order: {
+        created_at: 'ASC',
+      },
+    });
+
+    const preferred = companies.filter((company) => {
+      const settings = company.settings ?? {};
+      const metadata = company.metadata ?? {};
+
+      return (
+        settings.allow_self_registration === true ||
+        settings['default_b2c_insurer'] === true ||
+        metadata['default_b2c_insurer'] === true
+      );
+    });
+
+    const explicitlyDefault =
+      preferred.find(
+        (company) =>
+          company.settings?.['default_b2c_insurer'] === true ||
+          company.metadata?.['default_b2c_insurer'] === true,
+      ) ?? null;
+
+    if (explicitlyDefault) {
+      return explicitlyDefault;
+    }
+
+    if (preferred.length > 0) {
+      return preferred[0];
+    }
+
+    if (companies.length === 1) {
+      return companies[0];
+    }
+
+    throw new ForbiddenException(
+      'No self-service insurer company is configured for customer portal onboarding',
+    );
+  }
+
+  private async generateCustomerNo(
+    manager: EntityManager,
+    companyId: string,
+  ): Promise<string> {
+    const year = new Date().getFullYear();
+    const prefix = `CUST-${year}-`;
+    const lockKey = `${companyId}:${prefix}:${year}`;
+
+    await manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+      lockKey,
+    ]);
+
+    const lastCustomer = await manager
+      .getRepository(Customer)
+      .createQueryBuilder('customer')
+      .where('customer.company_id = :companyId', { companyId })
+      .andWhere('customer.customer_no LIKE :prefix', { prefix: `${prefix}%` })
+      .orderBy('customer.customer_no', 'DESC')
+      .limit(1)
+      .getOne();
+
+    const next = lastCustomer?.customer_no
+      ? Number(lastCustomer.customer_no.substring(prefix.length)) + 1
+      : 1;
+
+    return `${prefix}${String(next).padStart(6, '0')}`;
   }
 
   /**

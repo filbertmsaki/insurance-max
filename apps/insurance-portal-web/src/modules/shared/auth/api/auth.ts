@@ -11,7 +11,7 @@ export const authApi = {
     email: string;
     phone: string;
     password: string;
-    company_slug: string;
+    company_slug?: string;
   }) => apiClient.post('/auth/register', data).then((r) => r.data),
 
   forgotPassword: (email: string) =>

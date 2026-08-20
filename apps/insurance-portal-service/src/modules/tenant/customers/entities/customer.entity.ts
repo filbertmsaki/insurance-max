@@ -33,12 +33,19 @@ import { CustomerType } from '../enums/customer-type.enum';
 })
 @Index('IDX_customers_company_status', ['company_id', 'status'])
 @Index('IDX_customers_company_customer_type', ['company_id', 'customer_type'])
+@Index('UQ_customers_user_id', ['user_id'], {
+  unique: true,
+  where: 'user_id IS NOT NULL AND deleted_at IS NULL',
+})
 export class Customer {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column({ type: 'uuid' })
   company_id: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  user_id: string | null;
 
   @Column({ length: 30 })
   customer_no: string;
@@ -255,6 +262,10 @@ export class Customer {
   @ManyToOne(() => Company, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'company_id' })
   company: Company;
+
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'user_id' })
+  user: User | null;
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'document_verified_by' })

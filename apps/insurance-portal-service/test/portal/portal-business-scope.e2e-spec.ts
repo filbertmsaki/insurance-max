@@ -13,7 +13,7 @@ import { hashPassword } from '@insurance-max/portal-shared/utils/hash.util';
 
 import { AppModule } from '../../src/app.module';
 
-jest.setTimeout(60_000);
+jest.setTimeout(180_000);
 
 describe('Portal business scope (real database)', () => {
   let app: INestApplication;

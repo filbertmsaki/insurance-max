@@ -250,12 +250,13 @@ export class IntermediaryPortalController {
   @Get('notifications')
   @ApiOperation({ summary: 'List intermediary portal notifications' })
   notifications(
+    @CurrentPortalAccount() account: PortalAccount,
     @CurrentUser() user: AuthenticatedUser,
     @Query('unread_only', new DefaultValuePipe(false), ParseBoolPipe)
     unreadOnly: boolean,
   ) {
     return this.notificationService.findMine(
-      user.companyId!,
+      account.company_id,
       user.id,
       unreadOnly,
     );
@@ -264,10 +265,11 @@ export class IntermediaryPortalController {
   @Post('notifications/:id/read')
   @ApiOperation({ summary: 'Mark an intermediary portal notification as read' })
   markNotificationRead(
+    @CurrentPortalAccount() account: PortalAccount,
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.notificationService.markRead(user.companyId!, user.id, id);
+    return this.notificationService.markRead(account.company_id, user.id, id);
   }
 
   @Get('messages')

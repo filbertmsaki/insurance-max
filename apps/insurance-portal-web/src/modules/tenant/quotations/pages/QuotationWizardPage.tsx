@@ -950,7 +950,6 @@ export function QuotationWizardPage() {
     [
       companyId,
       completeQuotation,
-      deleteDraft,
       goBack,
       goNext,
       isFirstStep,

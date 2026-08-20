@@ -29,7 +29,7 @@ export function canAccessRoute(
     anyPermission?: string[];
     requiredRole?: string;
     anyRole?: string[];
-    allowedScopes?: Array<'platform' | 'company'>;
+    allowedScopes?: Array<'platform' | 'company' | 'customer'>;
   },
 ): boolean {
   if (!user) return false;

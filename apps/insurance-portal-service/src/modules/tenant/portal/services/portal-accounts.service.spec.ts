@@ -115,19 +115,47 @@ describe('PortalAccountsService', () => {
   });
 
   describe('findActiveForUser', () => {
-    it('rejects when no active account is found', async () => {
-      accountRepository.findOne.mockResolvedValue(null);
-
+    it('rejects when no actor types are supplied', async () => {
       await expect(
-        service.findActiveForUser('user-id', 'company-id', [
-          PortalActorType.CUSTOMER,
-        ]),
+        service.findActiveForUser({ id: 'user-id' } as any, undefined),
       ).rejects.toThrow(ForbiddenException);
     });
 
-    it('rejects when no actor types are supplied', async () => {
+    it('loads an active standalone customer portal account without company context', async () => {
+      accountRepository.findOne.mockResolvedValue({
+        id: 'account-id',
+        user_id: 'user-id',
+        actor_type: PortalActorType.CUSTOMER,
+        status: PortalAccountStatus.ACTIVE,
+      });
+
+      const result = await service.findActiveForUser(
+        {
+          id: 'user-id',
+          scope: 'customer',
+          permissions: [],
+        } as any,
+        [PortalActorType.CUSTOMER],
+      );
+
+      expect(result).toMatchObject({
+        id: 'account-id',
+        actor_type: PortalActorType.CUSTOMER,
+      });
+    });
+
+    it('rejects intermediary-only access without an active company-scoped account', async () => {
+      accountRepository.findOne.mockResolvedValue(null);
+
       await expect(
-        service.findActiveForUser('user-id', 'company-id', undefined),
+        service.findActiveForUser(
+          {
+            id: 'user-id',
+            scope: 'customer',
+            permissions: [],
+          } as any,
+          [PortalActorType.INTERMEDIARY],
+        ),
       ).rejects.toThrow(ForbiddenException);
     });
   });

@@ -47,7 +47,12 @@ const registerSchema = z.object({
   password: strongPassword,
   company_slug: z
     .string()
-    .regex(/^[a-z0-9-]+$/, 'Lowercase letters, numbers and hyphens only'),
+    .trim()
+    .refine(
+      (value) => value.length === 0 || /^[a-z0-9-]+$/.test(value),
+      'Lowercase letters, numbers and hyphens only',
+    )
+    .optional(),
 });
 
 type RegisterForm = z.infer<typeof registerSchema>;
@@ -137,8 +142,8 @@ export function RegisterPage() {
             <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
             <h2 className="text-xl font-semibold">Check your email</h2>
             <p className="text-slate-500 text-sm">
-              We've sent a verification link to your email address. Please click
-              the link to activate your account.
+              Your account has been created. Use the verification link in your
+              email if one is required for your environment.
             </p>
             <Link to="/login" className="text-blue-600 hover:underline text-sm">
               Back to sign in
@@ -161,7 +166,8 @@ export function RegisterPage() {
           <CardHeader>
             <CardTitle>Create an account</CardTitle>
             <CardDescription>
-              Register your company and admin account
+              Sign up for customer self-service, or enter a company slug to join
+              an existing insurer workspace
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -208,7 +214,7 @@ export function RegisterPage() {
                       <FormControl>
                         <Input
                           type="email"
-                          placeholder="you@company.com"
+                          placeholder="you@example.com"
                           {...field}
                         />
                       </FormControl>
@@ -238,8 +244,11 @@ export function RegisterPage() {
                     <FormItem>
                       <FormLabel>Company slug</FormLabel>
                       <FormControl>
-                        <Input placeholder="my-company" {...field} />
+                        <Input placeholder="Optional: my-company" {...field} />
                       </FormControl>
+                      <p className="text-xs text-slate-500">
+                        Leave blank for an independent customer account.
+                      </p>
                       <FormMessage />
                     </FormItem>
                   )}

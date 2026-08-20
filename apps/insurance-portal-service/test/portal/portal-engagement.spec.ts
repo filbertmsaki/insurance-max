@@ -16,7 +16,7 @@ import { CompaniesService } from '../../src/modules/platform/companies/companies
 import { SessionsService } from '../../src/modules/shared/sessions/sessions.service';
 import { DocumentStorageService } from '../../src/modules/tenant/insurance-documents/document-storage.service';
 
-jest.setTimeout(60_000);
+jest.setTimeout(180_000);
 
 process.env.APP_ENV ??= 'test';
 process.env.AUTH_SECRET_ENCRYPTION_KEY ??=

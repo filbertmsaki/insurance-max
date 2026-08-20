@@ -1,6 +1,6 @@
 import { CompanyType } from '../enums/company-type.enum';
 
-export type AuthScope = 'platform' | 'company';
+export type AuthScope = 'platform' | 'company' | 'customer';
 
 export type UserType =
   | 'SUPER_ADMIN'

@@ -49,7 +49,7 @@ export interface NavLeaf {
   permission?: string;
   anyPermission?: string[];
   anyRole?: string[];
-  allowedScopes?: Array<'platform' | 'company'>;
+  allowedScopes?: Array<'platform' | 'company' | 'customer'>;
 }
 
 export interface NavGroup {
@@ -73,7 +73,6 @@ export const NAV_NODES: NavNode[] = [
     label: 'Customer Portal',
     to: '/customer/dashboard',
     icon: User,
-    allowedScopes: ['company'],
   },
   {
     kind: 'group',

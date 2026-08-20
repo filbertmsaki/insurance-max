@@ -120,6 +120,29 @@ type PlatformAccessContext = {
   authorizationVersion: number;
 };
 
+type CustomerAccessContext = {
+  scope: 'customer';
+  userType: UserType;
+  roles: string[];
+  permissions: string[];
+  authorizationVersion: number;
+};
+
+type CompanyLoginAccessContext = {
+  scope: 'company';
+  activeCompany: CompanySummary;
+  companies: CompanySummary[];
+};
+
+type CustomerLoginAccessContext = {
+  scope: 'customer';
+  companies: [];
+};
+
+type LoginAccessContext =
+  | CompanyLoginAccessContext
+  | CustomerLoginAccessContext;
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -471,8 +494,7 @@ export class AuthService {
       await this.devicesService.trustDevice(device.id, user.id);
     }
 
-    let company: CompanySummary | undefined;
-    let companies: CompanySummary[] = [];
+    let accessContext: LoginAccessContext | undefined;
 
     if (payload.scope === 'company') {
       if (!payload.companyId) {
@@ -484,30 +506,37 @@ export class AuthService {
         payload.companyId,
       );
 
-      company = {
-        companyId: companyContext.companyId,
-        companyName: companyContext.companyName,
-        companySlug: companyContext.companySlug,
-        companyType: companyContext.companyType,
-        membershipId: companyContext.membershipId,
-        isDefault: companyContext.isDefault,
-        roles: companyContext.roles,
-        permissions: companyContext.permissions,
-        activeBranchId: companyContext.activeBranchId,
-        activeBranchCode: companyContext.activeBranchCode,
-        activeBranchName: companyContext.activeBranchName,
-        defaultSalePointId: companyContext.defaultSalePointId,
-        defaultSalePointCode: companyContext.defaultSalePointCode,
-        defaultSalePointName: companyContext.defaultSalePointName,
-        assignedBranchIds: companyContext.assignedBranchIds,
-        activeDepartmentId: companyContext.activeDepartmentId,
-        activeDepartmentCode: companyContext.activeDepartmentCode,
-        activeDepartmentName: companyContext.activeDepartmentName,
-        assignedDepartmentIds: companyContext.assignedDepartmentIds,
-        authorizationVersion: companyContext.authorizationVersion,
+      accessContext = {
+        scope: 'company',
+        activeCompany: {
+          companyId: companyContext.companyId,
+          companyName: companyContext.companyName,
+          companySlug: companyContext.companySlug,
+          companyType: companyContext.companyType,
+          membershipId: companyContext.membershipId,
+          isDefault: companyContext.isDefault,
+          roles: companyContext.roles,
+          permissions: companyContext.permissions,
+          activeBranchId: companyContext.activeBranchId,
+          activeBranchCode: companyContext.activeBranchCode,
+          activeBranchName: companyContext.activeBranchName,
+          defaultSalePointId: companyContext.defaultSalePointId,
+          defaultSalePointCode: companyContext.defaultSalePointCode,
+          defaultSalePointName: companyContext.defaultSalePointName,
+          assignedBranchIds: companyContext.assignedBranchIds,
+          activeDepartmentId: companyContext.activeDepartmentId,
+          activeDepartmentCode: companyContext.activeDepartmentCode,
+          activeDepartmentName: companyContext.activeDepartmentName,
+          assignedDepartmentIds: companyContext.assignedDepartmentIds,
+          authorizationVersion: companyContext.authorizationVersion,
+        },
+        companies: await this.companiesService.listUserCompanies(user.id),
       };
-
-      companies = await this.companiesService.listUserCompanies(user.id);
+    } else if (payload.scope === 'customer') {
+      accessContext = {
+        scope: 'customer',
+        companies: [],
+      };
     }
 
     return this.issueAuthenticatedSession(user, {
@@ -515,8 +544,7 @@ export class AuthService {
       ip,
       userAgent,
       method: 'two_factor',
-      company,
-      companies,
+      accessContext,
       authenticationStrength: this.resolveAuthenticationStrength(
         'two_factor',
         true,
@@ -555,6 +583,7 @@ export class AuthService {
 
       let authResponse: ReturnType<
         | typeof this.generatePlatformAuthResponse
+        | typeof this.generateCustomerAuthResponse
         | typeof this.generateCompanyAuthResponse
       >;
 
@@ -564,6 +593,13 @@ export class AuthService {
         authResponse = this.generatePlatformAuthResponse(
           user,
           this.buildPlatformAccessContext(user),
+          sessionId,
+          newRefreshJti,
+        );
+      } else if (payload.scope === 'customer') {
+        authResponse = this.generateCustomerAuthResponse(
+          user,
+          this.buildCustomerAccessContext(user),
           sessionId,
           newRefreshJti,
         );
@@ -814,44 +850,86 @@ export class AuthService {
   // ── Register ────────────────────────────────────────────────────────────────
 
   async register(registerDto: RegisterDto) {
-    const normalizedSlug = this.normalizeCompanySlug(registerDto.company_slug);
-    const company =
-      await this.companiesService.findActiveCompanyBySlug(normalizedSlug);
+    if (registerDto.company_slug) {
+      const normalizedSlug = this.normalizeCompanySlug(
+        registerDto.company_slug,
+      );
+      const company =
+        await this.companiesService.findActiveCompanyBySlug(normalizedSlug);
 
-    if (!company) throw new NotFoundException('Company not found');
+      if (!company) throw new NotFoundException('Company not found');
 
-    const defaultBranch = await this.companiesService.getDefaultActiveBranch(
-      company.id,
-    );
-    if (!defaultBranch) {
-      throw new NotFoundException('Company has no active branch');
+      const defaultBranch = await this.companiesService.getDefaultActiveBranch(
+        company.id,
+      );
+      if (!defaultBranch) {
+        throw new NotFoundException('Company has no active branch');
+      }
+
+      const creationResult = await this.usersService.createForCompany(
+        company.id,
+        {
+          first_name: registerDto.first_name,
+          last_name: registerDto.last_name,
+          phone: registerDto.phone,
+          email: registerDto.email,
+          password: registerDto.password,
+          officer_title: 'Underwriter',
+          branch_ids: [defaultBranch.id],
+          active_branch_id: defaultBranch.id,
+        },
+      );
+
+      const createdUser =
+        'user' in creationResult ? creationResult.user : creationResult;
+      const companyContext = await this.companiesService.getMembershipContext(
+        createdUser.id,
+        company.id,
+      );
+
+      await this.auditService.log({
+        userId: createdUser.id,
+        action: AuditAction.REGISTER,
+        metadata: { companyId: company.id, mode: 'company' },
+      });
+
+      return {
+        message: 'Registered successfully',
+        user: {
+          id: createdUser.id,
+          user_no: createdUser.user_no,
+          first_name: createdUser.first_name,
+          last_name: createdUser.last_name,
+          phone: createdUser.phone,
+          email: createdUser.email,
+          status: createdUser.status,
+          user_type: createdUser.user_type,
+        },
+        company: {
+          id: company.id,
+          name: company.name,
+          slug: company.slug,
+          membership_id: companyContext.membershipId,
+          roles: companyContext.roles,
+          permissions: companyContext.permissions,
+        },
+      };
     }
 
-    const creationResult = await this.usersService.createForCompany(
-      company.id,
-      {
-        first_name: registerDto.first_name,
-        last_name: registerDto.last_name,
-        phone: registerDto.phone,
-        email: registerDto.email,
-        password: registerDto.password,
-        officer_title: 'Underwriter',
-        branch_ids: [defaultBranch.id],
-        active_branch_id: defaultBranch.id,
-      },
-    );
-
-    const createdUser =
-      'user' in creationResult ? creationResult.user : creationResult;
-    const companyContext = await this.companiesService.getMembershipContext(
-      createdUser.id,
-      company.id,
-    );
+    const createdUser = await this.usersService.createStandaloneUser({
+      first_name: registerDto.first_name,
+      last_name: registerDto.last_name,
+      phone: registerDto.phone,
+      email: registerDto.email,
+      password: registerDto.password,
+      user_type: 'CUSTOMER',
+      officer_title: 'Customer',
+    });
 
     await this.auditService.log({
       userId: createdUser.id,
       action: AuditAction.REGISTER,
-      metadata: { companyId: company.id },
+      metadata: { mode: 'standalone-customer' },
     });
 
     return {
@@ -866,14 +944,7 @@ export class AuthService {
         status: createdUser.status,
         user_type: createdUser.user_type,
       },
-      company: {
-        id: company.id,
-        name: company.name,
-        slug: company.slug,
-        membership_id: companyContext.membershipId,
-        roles: companyContext.roles,
-        permissions: companyContext.permissions,
-      },
+      company: null,
     };
   }
 
@@ -1087,19 +1158,17 @@ export class AuthService {
       ipAddress: options.ip,
     });
 
-    let company: CompanySummary | undefined;
-    let companies: CompanySummary[] = [];
+    let accessContext: LoginAccessContext | undefined;
 
     if (!this.isPlatformUser(user)) {
-      const resolved = await this.resolveSingleActiveCompanyForLogin(user.id);
-
-      company = resolved.activeCompany;
-      companies = resolved.companies;
+      accessContext = await this.resolveLoginAccessContext(user.id);
     }
 
     const twoFactorRequirement = await this.twoFaService.getRequirement(
       user.id,
-      company?.companyId,
+      accessContext?.scope === 'company'
+        ? accessContext.activeCompany.companyId
+        : undefined,
     );
 
     if (twoFactorRequirement.required && !twoFactorRequirement.enrolled) {
@@ -1120,7 +1189,14 @@ export class AuthService {
       (await this.devicesService.isTrusted(user.id, options.deviceToken));
 
     if (twoFactorRequirement.required && !deviceTrusted) {
-      return this.build2FATempResponse(user, device.id, company?.companyId);
+      return this.build2FATempResponse(
+        user,
+        device.id,
+        accessContext?.scope ?? 'platform',
+        accessContext?.scope === 'company'
+          ? accessContext.activeCompany.companyId
+          : undefined,
+      );
     }
 
     return this.issueAuthenticatedSession(user, {
@@ -1128,8 +1204,7 @@ export class AuthService {
       ip: options.ip,
       userAgent: options.userAgent,
       method: options.method,
-      company,
-      companies,
+      accessContext,
       twoFactorBypassedByTrustedDevice: deviceTrusted,
       authenticationStrength: this.resolveAuthenticationStrength(
         options.method,
@@ -1145,8 +1220,7 @@ export class AuthService {
       ip?: string;
       userAgent?: string;
       method: string;
-      company?: CompanySummary;
-      companies?: CompanySummary[];
+      accessContext?: LoginAccessContext;
       twoFactorBypassedByTrustedDevice?: boolean;
       authenticationStrength?: AuthenticationStrength;
     },
@@ -1170,6 +1244,7 @@ export class AuthService {
 
     let authResponse: ReturnType<
       | typeof this.generatePlatformAuthResponse
+      | typeof this.generateCustomerAuthResponse
       | typeof this.generateCompanyAuthResponse
     >;
 
@@ -1180,21 +1255,29 @@ export class AuthService {
         session.id,
       );
     } else {
-      if (!options.company) {
-        throw new ForbiddenException('Company context is unavailable.');
+      if (!options.accessContext) {
+        throw new ForbiddenException('Access context is unavailable.');
       }
 
-      const companyContext = await this.companiesService.setActiveMembership(
-        user.id,
-        options.company.companyId,
-      );
+      if (options.accessContext.scope === 'customer') {
+        authResponse = this.generateCustomerAuthResponse(
+          user,
+          this.buildCustomerAccessContext(user),
+          session.id,
+        );
+      } else {
+        const companyContext = await this.companiesService.setActiveMembership(
+          user.id,
+          options.accessContext.activeCompany.companyId,
+        );
 
-      authResponse = this.generateCompanyAuthResponse(
-        user,
-        companyContext,
-        options.companies ?? [],
-        session.id,
-      );
+        authResponse = this.generateCompanyAuthResponse(
+          user,
+          companyContext,
+          options.accessContext.companies,
+          session.id,
+        );
+      }
     }
 
     await this.sessionsService.bindRefreshToken(
@@ -1209,7 +1292,7 @@ export class AuthService {
       userAgent: options.userAgent,
       metadata: {
         method: options.method,
-        scope: this.isPlatformUser(user) ? 'platform' : 'company',
+        scope: authResponse.scope,
         sessionId: session.id,
         deviceId: options.deviceId,
         trustedDeviceBypass: options.twoFactorBypassedByTrustedDevice ?? false,
@@ -1224,6 +1307,7 @@ export class AuthService {
   private async build2FATempResponse(
     user: User,
     deviceId: string,
+    scope: AuthScope,
     companyId?: string,
   ) {
     const challengeId = randomUUID();
@@ -1237,7 +1321,7 @@ export class AuthService {
       {
         sub: user.id,
         email: user.email,
-        scope: this.isPlatformUser(user) ? 'platform' : 'company',
+        scope,
         userType: user.user_type as UserType,
         companyId,
         deviceId,
@@ -1330,6 +1414,70 @@ export class AuthService {
         user_type: user.user_type,
         roles: platformContext.roles,
         permissions: platformContext.permissions,
+        isTwoFactorEnabled: user.is_two_factor_enabled,
+      },
+    };
+  }
+
+  private generateCustomerAuthResponse(
+    user: User,
+    customerContext: CustomerAccessContext,
+    sessionId: string,
+    refreshJti?: string,
+  ) {
+    const jti = refreshJti ?? randomUUID();
+    const accessJti = randomUUID();
+    const accessToken = this.jwtService.sign<AccessTokenPayload>(
+      {
+        sub: user.id,
+        email: user.email,
+        scope: 'customer',
+        userType: customerContext.userType,
+        roles: customerContext.roles,
+        permissions: customerContext.permissions,
+        authorizationVersion: customerContext.authorizationVersion,
+        type: 'access',
+        iss: this.configService.get('jwt.issuer', 'insurance-idp.tz'),
+        aud: this.configService.get('jwt.audience', 'insurance-platform'),
+        sessionId,
+        jti: accessJti,
+      },
+      {
+        secret: this.getAccessTokenSecret(),
+        expiresIn: this.getAccessTokenExpiration(),
+      },
+    );
+
+    const refreshToken = this.jwtService.sign<RefreshTokenPayload>(
+      {
+        sub: user.id,
+        scope: 'customer',
+        userType: customerContext.userType,
+        sessionId,
+        type: 'refresh',
+        jti,
+      },
+      {
+        secret: this.getRefreshTokenSecret(),
+        expiresIn: this.getRefreshTokenExpiration(),
+      },
+    );
+
+    return {
+      scope: 'customer' as const,
+      access_token: accessToken,
+      access_expires_at: this.getTokenExpiryTimestamp(accessToken),
+      refresh_token: refreshToken,
+      refresh_expires_at: this.getTokenExpiryTimestamp(refreshToken),
+      companies: [],
+      user: {
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        user_type: user.user_type,
+        roles: customerContext.roles,
+        permissions: customerContext.permissions,
         isTwoFactorEnabled: user.is_two_factor_enabled,
       },
     };
@@ -1492,6 +1640,33 @@ export class AuthService {
   }
 
   private buildPlatformAccessContext(user: User): PlatformAccessContext {
+    const authorization = this.collectDirectUserAuthorization(user);
+
+    return {
+      scope: 'platform',
+      userType: user.user_type as UserType,
+      roles: authorization.roles,
+      permissions: authorization.permissions,
+      authorizationVersion: user.authorization_version ?? 0,
+    };
+  }
+
+  private buildCustomerAccessContext(user: User): CustomerAccessContext {
+    const authorization = this.collectDirectUserAuthorization(user);
+
+    return {
+      scope: 'customer',
+      userType: user.user_type as UserType,
+      roles: authorization.roles,
+      permissions: authorization.permissions,
+      authorizationVersion: user.authorization_version ?? 0,
+    };
+  }
+
+  private collectDirectUserAuthorization(user: User): {
+    roles: string[];
+    permissions: string[];
+  } {
     const permissions = new Set<string>();
     user.permissions?.forEach((p) => p?.name && permissions.add(p.name));
     user.roles?.forEach((r) =>
@@ -1499,24 +1674,21 @@ export class AuthService {
     );
 
     return {
-      scope: 'platform',
-      userType: user.user_type as UserType,
       roles: user.roles?.map((r) => r.name) ?? [],
       permissions: Array.from(permissions),
-      authorizationVersion: user.authorization_version ?? 0,
     };
   }
 
-  private async resolveSingleActiveCompanyForLogin(userId: string): Promise<{
-    activeCompany: CompanySummary;
-    companies: CompanySummary[];
-  }> {
+  private async resolveLoginAccessContext(
+    userId: string,
+  ): Promise<LoginAccessContext> {
     const companies = await this.companiesService.listUserCompanies(userId);
 
     if (companies.length === 0) {
-      throw new ForbiddenException(
-        'No active company is assigned to your account. Please contact an administrator.',
-      );
+      return {
+        scope: 'customer',
+        companies: [],
+      };
     }
 
     if (companies.length > 1) {
@@ -1525,7 +1697,11 @@ export class AuthService {
       );
     }
 
-    return { activeCompany: companies[0], companies };
+    return {
+      scope: 'company',
+      activeCompany: companies[0],
+      companies,
+    };
   }
 
   private getTokenExpiryTimestamp(token: string): number {

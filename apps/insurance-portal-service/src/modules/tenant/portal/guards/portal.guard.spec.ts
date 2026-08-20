@@ -53,17 +53,17 @@ describe('PortalGuard', () => {
     ).rejects.toThrow(ForbiddenException);
   });
 
-  it('rejects a request without authenticated company context', async () => {
+  it('rejects a request without an authenticated user id', async () => {
     reflector.getAllAndOverride = jest
       .fn()
       .mockReturnValue([PortalActorType.CUSTOMER]);
 
     await expect(
-      guard.canActivate(createContext({ id: 'user-id', companyId: null })),
+      guard.canActivate(createContext({ companyId: null })),
     ).rejects.toThrow(UnauthorizedException);
   });
 
-  it('loads an active customer portal account', async () => {
+  it('loads an active customer portal account for a standalone user', async () => {
     reflector.getAllAndOverride = jest
       .fn()
       .mockReturnValue([PortalActorType.CUSTOMER]);
@@ -76,15 +76,18 @@ describe('PortalGuard', () => {
 
     const context = createContext({
       id: 'user-id',
-      companyId: 'company-id',
       permissions: [],
+      scope: 'customer',
     });
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
 
     expect(accountsService.findActiveForUser).toHaveBeenCalledWith(
-      'user-id',
-      'company-id',
+      {
+        id: 'user-id',
+        permissions: [],
+        scope: 'customer',
+      },
       [PortalActorType.CUSTOMER],
     );
   });
@@ -104,8 +107,8 @@ describe('PortalGuard', () => {
       guard.canActivate(
         createContext({
           id: 'user-id',
-          companyId: 'company-id',
           permissions: [],
+          scope: 'customer',
         }),
       ),
     ).resolves.toBe(true);
@@ -128,6 +131,7 @@ describe('PortalGuard', () => {
           id: 'user-id',
           companyId: 'company-id',
           permissions: [PortalPermissions.CUSTOMER_ACCESS],
+          scope: 'company',
         }),
       ),
     ).rejects.toThrow(ForbiddenException);

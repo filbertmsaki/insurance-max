@@ -238,6 +238,47 @@ export class UsersService {
     });
   }
 
+  async createStandaloneUser(params: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string;
+    password: string;
+    user_type?: string;
+    officer_title?: string;
+  }): Promise<User> {
+    const existingByEmail = await this.userRepository.findOne({
+      where: { email: params.email },
+    });
+    const existingByPhone = await this.userRepository.findOne({
+      where: { phone: params.phone },
+    });
+
+    if (existingByEmail || existingByPhone) {
+      throw new ConflictException(
+        existingByEmail?.email === params.email
+          ? 'Email already exists'
+          : 'Phone number already exists',
+      );
+    }
+
+    const hashedPassword = await hashPassword(params.password);
+    const user = this.userRepository.create({
+      user_no: await this.generateUserNo(),
+      first_name: params.first_name,
+      last_name: params.last_name,
+      email: params.email,
+      phone: params.phone,
+      password: hashedPassword,
+      status: 'active',
+      user_type: params.user_type ?? 'CUSTOMER',
+      officer_title: params.officer_title ?? 'Customer',
+      is_email_verified: true,
+    });
+
+    return this.userRepository.save(user);
+  }
+
   private async findProfileInCompanyWithManager(
     id: string,
     companyId: string,

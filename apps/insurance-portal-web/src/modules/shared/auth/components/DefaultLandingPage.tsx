@@ -13,7 +13,10 @@ export function DefaultLandingPage() {
     return <Navigate to="/intermediary/dashboard" replace />;
   }
 
-  if (user?.scope === 'company' && user.userType === 'CUSTOMER') {
+  if (
+    user?.scope === 'customer' ||
+    (user?.scope === 'company' && user.userType === 'CUSTOMER')
+  ) {
     return <Navigate to="/customer/dashboard" replace />;
   }
 

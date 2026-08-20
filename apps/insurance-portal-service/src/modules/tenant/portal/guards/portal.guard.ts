@@ -47,17 +47,13 @@ export class PortalGuard implements CanActivate {
 
     const user = request.user;
 
-    if (!user?.id || !user.companyId) {
+    if (!user?.id) {
       throw new UnauthorizedException(
-        'Authenticated portal company context is required',
+        'Authenticated portal access is required',
       );
     }
 
-    const account = await this.accountsService.findActiveForUser(
-      user.id,
-      user.companyId,
-      actors,
-    );
+    const account = await this.accountsService.findActiveForUser(user, actors);
 
     if (account.actor_type === PortalActorType.CUSTOMER) {
       request.portalAccount = account;

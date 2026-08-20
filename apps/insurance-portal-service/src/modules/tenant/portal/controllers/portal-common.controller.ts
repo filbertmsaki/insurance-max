@@ -28,7 +28,6 @@ import { memoryStorage } from 'multer';
 
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { AuthenticatedAccess } from '@insurance-max/portal-shared/decorators/authorization.decorator';
-import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { RawResponse } from '@insurance-max/shared-kernel';
 
@@ -52,7 +51,7 @@ import { PortalRequestsService } from '../services/portal-requests.service';
 @ApiTags('Portal requests and notifications')
 @ApiBearerAuth('access-token')
 @Controller({ path: 'portal', version: '1' })
-@UseGuards(AuthGuard('jwt'), TenantGuard, PortalGuard)
+@UseGuards(AuthGuard('jwt'), PortalGuard)
 @PortalActors(PortalActorType.CUSTOMER, PortalActorType.INTERMEDIARY)
 export class PortalCommonController {
   constructor(
@@ -251,12 +250,13 @@ export class PortalCommonController {
   @Get('notifications')
   @ApiOperation({ summary: 'List portal notifications' })
   notifications(
+    @CurrentPortalAccount() account: PortalAccount,
     @CurrentUser() user: AuthenticatedUser,
     @Query('unread_only', new DefaultValuePipe(false), ParseBoolPipe)
     unreadOnly: boolean,
   ) {
     return this.notificationService.findMine(
-      user.companyId!,
+      account.company_id,
       user.id,
       unreadOnly,
     );
@@ -266,9 +266,10 @@ export class PortalCommonController {
   @AuthenticatedAccess()
   @ApiOperation({ summary: 'Mark a portal notification as read' })
   markRead(
+    @CurrentPortalAccount() account: PortalAccount,
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.notificationService.markRead(user.companyId!, user.id, id);
+    return this.notificationService.markRead(account.company_id, user.id, id);
   }
 }

@@ -96,6 +96,7 @@ describe('AuthService', () => {
             lockAccount: jest.fn(),
             findByEmail: jest.fn(),
             markPhoneVerified: jest.fn(),
+            createStandaloneUser: jest.fn(),
             updateVerificationToken: jest.fn(),
             markEmailVerified: jest.fn(),
             findByVerificationToken: jest.fn(),
@@ -337,6 +338,24 @@ describe('AuthService', () => {
       expect(result).not.toHaveProperty('requires2FA');
       expect(sessionsService.create).toHaveBeenCalled();
       expect(result).toHaveProperty('access_token');
+    });
+  });
+
+  describe('customer-scope authentication', () => {
+    it('issues a customer-scope session when a valid user has no active companies', async () => {
+      usersService.findByEmailForAuth.mockResolvedValue({ ...mockUser } as any);
+      companiesService.listUserCompanies.mockResolvedValueOnce([]);
+
+      const result = await service.login({
+        email: mockUser.email,
+        password: 'StrongPassword@2026',
+      });
+
+      expect(result).toMatchObject({
+        scope: 'customer',
+        companies: [],
+      });
+      expect(sessionsService.create).toHaveBeenCalled();
     });
   });
 

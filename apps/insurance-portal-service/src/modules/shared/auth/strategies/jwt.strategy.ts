@@ -17,7 +17,7 @@ type JwtAccessPayload = {
   sub: string;
   jti: string;
   email: string;
-  scope?: 'platform' | 'company';
+  scope?: 'platform' | 'company' | 'customer';
   userType?: string;
   companyId?: string;
   companyType?: string;
@@ -125,6 +125,37 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         id: user.id,
         email: user.email,
         scope: 'platform',
+        userType: user.user_type,
+        sessionId: payload.sessionId,
+        accessTokenId: payload.jti,
+        roles: user.roles?.map((r) => r.name) ?? [],
+        permissions: Array.from(permissions),
+        authorizationVersion: user.authorization_version ?? 0,
+      };
+    }
+
+    if (payload.scope === 'customer') {
+      const permissions = new Set<string>();
+      user.permissions?.forEach((p) => p?.name && permissions.add(p.name));
+      user.roles?.forEach((role) =>
+        role.permissions?.forEach((p) => p?.name && permissions.add(p.name)),
+      );
+
+      if (
+        payload.authorizationVersion !== undefined &&
+        payload.authorizationVersion !== (user.authorization_version ?? 0)
+      ) {
+        throw new UnauthorizedException({
+          code: 'AUTHORIZATION_CONTEXT_CHANGED',
+          message:
+            'Your permissions have changed. Please sign in again to continue.',
+        });
+      }
+
+      return {
+        id: user.id,
+        email: user.email,
+        scope: 'customer',
         userType: user.user_type,
         sessionId: payload.sessionId,
         accessTokenId: payload.jti,

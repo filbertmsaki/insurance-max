@@ -52,6 +52,24 @@ describe('DefaultLandingPage', () => {
     expect(await screen.findByText('customer-dashboard')).toBeInTheDocument();
   });
 
+  it('routes standalone customer-scope users to the customer dashboard', async () => {
+    useAuthStore.setState({
+      user: {
+        id: 'user-standalone',
+        email: 'standalone@example.com',
+        scope: 'customer',
+        userType: 'CUSTOMER',
+        roles: [],
+        permissions: [],
+      },
+      authorizationContext: null,
+    });
+
+    renderWithRoutes();
+
+    expect(await screen.findByText('customer-dashboard')).toBeInTheDocument();
+  });
+
   it('routes intermediary portal users to the intermediary dashboard', async () => {
     useAuthStore.setState({
       user: {
