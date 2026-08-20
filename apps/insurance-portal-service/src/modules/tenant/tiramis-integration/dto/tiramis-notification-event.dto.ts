@@ -25,6 +25,8 @@ export interface TiramisNotificationEventDto {
   policyReferenceNumber?: string | null;
   stickerNumber?: string | null;
   regulatoryResponse?: RegulatoryFinalResponse | null;
+  requestPayload?: Record<string, unknown> | null;
+  responsePayload?: Record<string, unknown> | null;
 
   errorMessage?: string | null;
   occurredAt?: string | null;

@@ -7,6 +7,7 @@ import { TiramisRetrySchedulerService } from './tiramis-retry-scheduler.service'
 function createService() {
   const attemptRepository = {
     save: jest.fn(async (entity) => entity),
+    findById: jest.fn(),
     findRetryableDueAttempts: jest.fn(),
     findFinalCallbackOverdueAttempts: jest.fn(),
   };
@@ -20,18 +21,62 @@ function createService() {
   const portalNotificationService = {
     publish: jest.fn(),
   };
+  const tiramisConfigService = {
+    getRuntimeConfigurationById: jest
+      .fn()
+      .mockResolvedValue({ id: 'config-1' }),
+    getFullEndpointUrlForConfiguration: jest
+      .fn()
+      .mockResolvedValue('https://tira.example.test/submit'),
+    getRequestHeadersForConfiguration: jest.fn().mockResolvedValue({}),
+    getPfxPathsForConfiguration: jest.fn().mockResolvedValue({
+      clientPrivateCertificatePath: 'client.pfx',
+      clientPrivateCertificatePassword: 'secret',
+    }),
+    isSuccessResponse: jest.fn().mockResolvedValue(true),
+  };
+  const httpClient = {
+    postXml: jest.fn().mockResolvedValue({
+      statusCode: 200,
+      rawXml: '<Acknowledgement/>',
+    }),
+  };
+  const xmlParser = {
+    parseTiraMessage: jest.fn().mockReturnValue({
+      contentXml:
+        '<MotorCoverNoteReq><RequestId>REQ-2</RequestId></MotorCoverNoteReq>',
+    }),
+    extractAcknowledgement: jest.fn().mockReturnValue({
+      ok: true,
+      acknowledgementId: 'ACK-2',
+      statusCode: 'TIRA001',
+      statusDesc: 'Successful',
+    }),
+  };
+  const xmlBuilder = {
+    buildSignedTiraMessageFromContent: jest
+      .fn()
+      .mockReturnValue('<SignedRequest/>'),
+  };
+  const signatureService = {
+    signXmlContent: jest.fn().mockReturnValue('signature-2'),
+  };
+  const resubmissionService = {
+    prepareResubmission: jest.fn(),
+  };
 
   const service = new TiramisRetrySchedulerService(
     attemptRepository as any,
     eventRepository as any,
     transactionRepository as any,
-    {} as any,
-    {} as any,
-    {} as any,
-    {} as any,
-    {} as any,
+    tiramisConfigService as any,
+    httpClient as any,
+    xmlParser as any,
+    xmlBuilder as any,
+    signatureService as any,
     {} as any,
     portalNotificationService as any,
+    resubmissionService as any,
   );
 
   return {
@@ -40,10 +85,64 @@ function createService() {
     eventRepository,
     transactionRepository,
     portalNotificationService,
+    resubmissionService,
+    httpClient,
   };
 }
 
 describe('TiramisRetrySchedulerService recovery states', () => {
+  it('creates a new request ID and preserves the prior attempt on manual retry', async () => {
+    const {
+      service,
+      attemptRepository,
+      transactionRepository,
+      resubmissionService,
+      httpClient,
+    } = createService();
+    const priorAttempt = {
+      id: 'attempt-1',
+      transactionId: 'txn-1',
+      requestId: 'REQ-1',
+      rootElement: 'ClaimReq',
+      requestXml: '<ClaimReq><RequestId>REQ-1</RequestId></ClaimReq>',
+      retryCount: 0,
+      maxRetries: 5,
+    };
+    const retryAttempt = {
+      id: 'attempt-2',
+      transactionId: 'txn-1',
+      requestId: 'REQ-2',
+      previousRequestId: 'REQ-1',
+      rootElement: 'ClaimReq',
+    };
+    const transaction = {
+      id: 'txn-1',
+      clientConfigurationId: 'config-1',
+      serviceType: 'CLAIM_NOTIFICATION',
+    };
+    attemptRepository.findById.mockResolvedValue(priorAttempt);
+    transactionRepository.findById.mockResolvedValue(transaction);
+    resubmissionService.prepareResubmission.mockResolvedValue(retryAttempt);
+
+    const result = await service.retryAttemptManually('attempt-1');
+
+    expect(resubmissionService.prepareResubmission).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transactionId: 'txn-1',
+        reason: 'Retry after request REQ-1',
+      }),
+    );
+    expect(httpClient.postXml).toHaveBeenCalledWith(
+      expect.objectContaining({ xml: '<SignedRequest/>' }),
+    );
+    expect(result).toMatchObject({
+      attemptId: 'attempt-2',
+      requestId: 'REQ-2',
+      previousRequestId: 'REQ-1',
+    });
+    expect(priorAttempt.requestId).toBe('REQ-1');
+  });
+
   it('notifies the portal when retry attempts are exhausted', async () => {
     const {
       service,

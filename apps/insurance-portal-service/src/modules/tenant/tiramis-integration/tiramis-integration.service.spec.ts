@@ -172,6 +172,68 @@ describe('TiramisIntegrationService callback handling', () => {
     ).not.toHaveBeenCalled();
   });
 
+  it('matches a delayed callback to the exact historical request attempt', async () => {
+    const fixture = createFixture();
+    const historicalAttempt = {
+      ...fixture.submission,
+      id: 'submission-old',
+      tiramis_request_id: 'REQ-OLD',
+      tiramis_transaction_id: 'TX-OLD',
+    };
+    const latestAttempt = {
+      ...fixture.submission,
+      id: 'submission-latest',
+      tiramis_request_id: 'REQ-LATEST',
+      tiramis_transaction_id: 'TX-LATEST',
+    };
+
+    fixture.submissionRepository.findOne.mockImplementation(
+      async ({ where }: any) => {
+        if (where?.tiramis_request_id === 'REQ-OLD') {
+          return historicalAttempt;
+        }
+
+        if (where?.tiramis_transaction_id === 'TX-LATEST') {
+          return latestAttempt;
+        }
+
+        return null;
+      },
+    );
+
+    const matched = await (fixture.service as any).findExistingSubmission({
+      requestId: 'REQ-OLD',
+      tiramisTransactionId: 'TX-LATEST',
+      sourceCompanyId: 'company-1',
+      sourceRecordId: 'quotation-1',
+      businessReference: 'BUS-1',
+    });
+
+    expect(matched).toBe(historicalAttempt);
+    expect(fixture.submissionRepository.findOne).toHaveBeenCalledTimes(1);
+    expect(fixture.submissionRepository.findOne).toHaveBeenCalledWith({
+      where: { tiramis_request_id: 'REQ-OLD' },
+    });
+  });
+
+  it('does not attach an unknown callback to the latest quotation attempt', async () => {
+    const fixture = createFixture();
+    fixture.submissionRepository.findOne.mockResolvedValue(null);
+
+    const matched = await (fixture.service as any).findExistingSubmission({
+      requestId: 'REQ-UNKNOWN',
+      sourceCompanyId: 'company-1',
+      sourceRecordId: 'quotation-1',
+      businessReference: 'BUS-1',
+    });
+
+    expect(matched).toBeNull();
+    expect(fixture.submissionRepository.findOne).toHaveBeenCalledTimes(1);
+    expect(fixture.submissionRepository.findOne).toHaveBeenCalledWith({
+      where: { tiramis_request_id: 'REQ-UNKNOWN' },
+    });
+  });
+
   it('does not apply a policy transaction from an acknowledgement event', async () => {
     const transaction = {
       id: 'txn-1',

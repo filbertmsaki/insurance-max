@@ -649,17 +649,6 @@ export class TiramisBusinessRecordSyncService {
       }
     }
 
-    if (tracking.quotationId) {
-      const byQuotation = await this.portalSubmissionRepository.findOne({
-        where: { quotation_id: tracking.quotationId },
-        order: { created_at: 'DESC' },
-      });
-
-      if (byQuotation) {
-        return byQuotation;
-      }
-    }
-
     return null;
   }
 

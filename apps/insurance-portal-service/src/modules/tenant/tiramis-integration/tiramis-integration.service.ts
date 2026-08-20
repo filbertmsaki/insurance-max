@@ -106,34 +106,32 @@ export class TiramisIntegrationService {
       );
     }
 
-    const requestId =
-      existing?.tiramis_request_id ||
-      dto.requestId ||
-      (await this.identifierGeneratorService.generateRequestId(
-        params.companyId,
-      ));
+    // Every outbound attempt has its own identity. Never reuse the request ID
+    // (or the submission row) from a failed attempt: delayed callbacks must
+    // remain attributable to the exact historical attempt that sent them.
+    const requestId = await this.identifierGeneratorService.generateRequestId(
+      params.companyId,
+    );
 
     dto.requestId = requestId;
 
     const sourceRecordId =
       dto.source_record_id || dto.policy_id || dto.quotation_id || null;
 
-    const submission =
-      existing ||
-      this.submissionRepository.create({
-        company_id: params.companyId,
-        policy_id: dto.policy_id || null,
-        quotation_id: dto.quotation_id || null,
-        source_module: dto.source_module || null,
-        source_record_id: sourceRecordId,
-        business_reference: dto.business_reference,
-        request_type: dto.requestType,
-        status: PortalTiraSubmissionStatus.SUBMITTED_TO_TIRAMIS,
-        submitted_at: new Date(),
-        last_event_at: new Date(),
-        last_payload: resolvedPayload,
-        tiramis_request_id: requestId,
-      });
+    const submission = this.submissionRepository.create({
+      company_id: params.companyId,
+      policy_id: dto.policy_id || null,
+      quotation_id: dto.quotation_id || null,
+      source_module: dto.source_module || null,
+      source_record_id: sourceRecordId,
+      business_reference: dto.business_reference,
+      request_type: dto.requestType,
+      status: PortalTiraSubmissionStatus.SUBMITTED_TO_TIRAMIS,
+      submitted_at: new Date(),
+      last_event_at: new Date(),
+      last_payload: resolvedPayload,
+      tiramis_request_id: requestId,
+    });
 
     submission.request_type = dto.requestType;
     submission.status = PortalTiraSubmissionStatus.SUBMITTED_TO_TIRAMIS;
@@ -157,6 +155,7 @@ export class TiramisIntegrationService {
       serviceType: dto.requestType,
       statusCode: null,
       statusDescription: 'Portal submitted request to TIRAMIS service',
+      requestPayload: resolvedPayload,
       errorMessage: null,
       occurredAt: new Date().toISOString(),
     });
@@ -208,6 +207,7 @@ export class TiramisIntegrationService {
         rootElement: updatedSubmission.root_element,
         statusCode: updatedSubmission.status_code,
         statusDescription: updatedSubmission.status_description,
+        responsePayload: tiramisResponse as Record<string, unknown>,
         errorMessage: null,
         occurredAt: new Date().toISOString(),
       });
@@ -966,18 +966,9 @@ export class TiramisIntegrationService {
   private async findExistingSubmission(
     payload: TiramisNotificationEventDto,
   ): Promise<PortalTiraSubmission | null> {
-    if (payload.tiramisTransactionId) {
-      const byTransaction = await this.submissionRepository.findOne({
-        where: {
-          tiramis_transaction_id: payload.tiramisTransactionId,
-        },
-      });
-
-      if (byTransaction) {
-        return byTransaction;
-      }
-    }
-
+    // RequestId identifies the exact immutable attempt. It must take
+    // precedence over the transaction/current quotation reference so a late
+    // callback for an older attempt updates that older attempt's history.
     if (payload.requestId) {
       const byRequest = await this.submissionRepository.findOne({
         where: {
@@ -990,29 +981,15 @@ export class TiramisIntegrationService {
       }
     }
 
-    if (payload.businessReference && payload.sourceCompanyId) {
-      const byBusinessReference = await this.submissionRepository.findOne({
+    if (payload.tiramisTransactionId) {
+      const byTransaction = await this.submissionRepository.findOne({
         where: {
-          company_id: payload.sourceCompanyId,
-          business_reference: payload.businessReference,
+          tiramis_transaction_id: payload.tiramisTransactionId,
         },
       });
 
-      if (byBusinessReference) {
-        return byBusinessReference;
-      }
-    }
-
-    if (payload.sourceCompanyId && payload.sourceRecordId) {
-      const bySource = await this.submissionRepository.findOne({
-        where: {
-          company_id: payload.sourceCompanyId,
-          source_record_id: payload.sourceRecordId,
-        },
-      });
-
-      if (bySource) {
-        return bySource;
+      if (byTransaction) {
+        return byTransaction;
       }
     }
 
@@ -1100,6 +1077,16 @@ export class TiramisIntegrationService {
   private async findMatchingLocalTracking(
     payload: TiramisNotificationEventDto,
   ): Promise<TiramisSubmissionTrackingEntity | null> {
+    if (payload.requestId) {
+      const byRequest = await this.localTrackingRepository.findByRequestId(
+        payload.requestId,
+      );
+
+      if (byRequest) {
+        return byRequest;
+      }
+    }
+
     if (payload.tiramisTransactionId) {
       const byTransaction =
         await this.localTrackingRepository.findByTransactionId(
@@ -1108,16 +1095,6 @@ export class TiramisIntegrationService {
 
       if (byTransaction) {
         return byTransaction;
-      }
-    }
-
-    if (payload.requestId) {
-      const byRequest = await this.localTrackingRepository.findByRequestId(
-        payload.requestId,
-      );
-
-      if (byRequest) {
-        return byRequest;
       }
     }
 

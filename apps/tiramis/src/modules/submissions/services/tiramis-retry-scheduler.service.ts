@@ -22,6 +22,7 @@ import {
 import { TiramisSubmissionAttemptRepository } from '../repositories/tiramis-submission-attempt.repository';
 import { TiramisSubmissionEventRepository } from '../repositories/tiramis-submission-event.repository';
 import { TiramisTransactionRepository } from '../repositories/tiramis-transaction.repository';
+import { TiramisResubmissionService } from './tiramis-resubmission.service';
 
 @Injectable()
 export class TiramisRetrySchedulerService {
@@ -39,6 +40,7 @@ export class TiramisRetrySchedulerService {
     private readonly signatureService: TiramisSignatureService,
     private readonly coverPeriodService: TiramisCoverPeriodService,
     private readonly portalNotificationService: TiramisPortalNotificationService,
+    private readonly resubmissionService: TiramisResubmissionService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE)
@@ -110,13 +112,15 @@ export class TiramisRetrySchedulerService {
       );
     }
 
-    await this.sendRetryAttempt(attempt, transaction);
+    const retryAttempt = await this.sendRetryAttempt(attempt, transaction);
 
     return {
-      attemptId: attempt.id,
+      attemptId: retryAttempt.id,
       transactionId: transaction.id,
-      status: attempt.status,
-      retryCount: attempt.retryCount,
+      requestId: retryAttempt.requestId,
+      previousRequestId: retryAttempt.previousRequestId,
+      status: retryAttempt.status,
+      retryCount: retryAttempt.retryCount,
     };
   }
 
@@ -170,17 +174,26 @@ export class TiramisRetrySchedulerService {
         configuration,
       );
 
-    let requestXml = attempt.requestXml;
-    let requestSignature = attempt.requestSignature || '';
+    const retryAttempt = await this.resubmissionService.prepareResubmission({
+      transactionId: transaction.id,
+      rootElement: attempt.rootElement,
+      reason: `Retry after request ${attempt.requestId}`,
+      requestIdPrefix: 'AIC',
+    });
+
+    if (!retryAttempt) {
+      throw new BadRequestException('Unable to create a new retry attempt');
+    }
+
+    let requestXml = this.replaceXmlElement(
+      attempt.requestXml,
+      'RequestId',
+      retryAttempt.requestId,
+    );
 
     if (this.isCoverNoteService(transaction.serviceType)) {
-      const pfxPaths =
-        await this.tiramisConfigService.getPfxPathsForConfiguration(
-          configuration,
-        );
-      const normalizedRequest = this.coverPeriodService.normalizeRequestXml(
-        attempt.requestXml,
-      );
+      const normalizedRequest =
+        this.coverPeriodService.normalizeRequestXml(requestXml);
       const callbackUrl =
         this.tiramisConfigService.getTiraCallbackUrlForConfiguration(
           configuration,
@@ -190,40 +203,46 @@ export class TiramisRetrySchedulerService {
         'CallBackUrl',
         callbackUrl,
       );
-      const parsedRequest =
-        this.xmlParser.parseTiraMessage(requestWithCallback);
-
-      if (!parsedRequest.contentXml) {
-        throw new BadRequestException(
-          'Cannot retry attempt because signed request content is missing',
-        );
-      }
-
-      requestSignature = this.signatureService.signXmlContent({
-        contentXml: parsedRequest.contentXml,
-        privateKeyPfxPath: pfxPaths.clientPrivateCertificatePath!,
-        privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
-      });
-      requestXml = this.xmlBuilder.buildSignedTiraMessageFromContent({
-        contentXml: parsedRequest.contentXml,
-        signature: requestSignature,
-      });
+      requestXml = requestWithCallback;
     }
 
-    attempt.retryCount = Number(attempt.retryCount || 0) + 1;
-    attempt.lastRetryAt = new Date();
-    attempt.status = TIRAMIS_ATTEMPT_STATUS.SENT;
-    attempt.requestXml = requestXml;
-    attempt.requestSignature = requestSignature;
+    const pfxPaths =
+      await this.tiramisConfigService.getPfxPathsForConfiguration(
+        configuration,
+      );
+    const parsedRequest = this.xmlParser.parseTiraMessage(requestXml);
 
-    await this.attemptRepository.save(attempt);
+    if (!parsedRequest.contentXml) {
+      throw new BadRequestException(
+        'Cannot retry attempt because signed request content is missing',
+      );
+    }
+
+    const requestSignature = this.signatureService.signXmlContent({
+      contentXml: parsedRequest.contentXml,
+      privateKeyPfxPath: pfxPaths.clientPrivateCertificatePath!,
+      privateKeyPfxPassword: pfxPaths.clientPrivateCertificatePassword,
+    });
+    requestXml = this.xmlBuilder.buildSignedTiraMessageFromContent({
+      contentXml: parsedRequest.contentXml,
+      signature: requestSignature,
+    });
+
+    retryAttempt.retryCount = Number(attempt.retryCount || 0) + 1;
+    retryAttempt.maxRetries = Number(attempt.maxRetries || 5);
+    retryAttempt.lastRetryAt = new Date();
+    retryAttempt.status = TIRAMIS_ATTEMPT_STATUS.SENT;
+    retryAttempt.requestXml = requestXml;
+    retryAttempt.requestSignature = requestSignature;
+
+    await this.attemptRepository.save(retryAttempt);
 
     await this.recordEvent({
       transactionId: transaction.id,
-      attemptId: attempt.id,
-      requestId: attempt.requestId,
+      attemptId: retryAttempt.id,
+      requestId: retryAttempt.requestId,
       eventType: TIRAMIS_SUBMISSION_EVENT_TYPE.REQUEST_RETRY_SENT,
-      statusDesc: `Retry ${attempt.retryCount}/${attempt.maxRetries}`,
+      statusDesc: `Retry ${retryAttempt.retryCount}/${retryAttempt.maxRetries}`,
     });
 
     try {
@@ -235,13 +254,13 @@ export class TiramisRetrySchedulerService {
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         await this.rescheduleRetry({
-          attempt,
+          attempt: retryAttempt,
           transaction,
           errorMessage: `TIRAMIS HTTP retry error: ${response.statusCode}`,
           rawPayload: response.rawXml,
         });
 
-        return;
+        return retryAttempt;
       }
 
       const acknowledgement = this.xmlParser.extractAcknowledgement(
@@ -250,7 +269,7 @@ export class TiramisRetrySchedulerService {
 
       if (!acknowledgement.ok) {
         await this.rescheduleRetry({
-          attempt,
+          attempt: retryAttempt,
           transaction,
           errorMessage:
             acknowledgement.error ||
@@ -258,50 +277,53 @@ export class TiramisRetrySchedulerService {
           rawPayload: response.rawXml,
         });
 
-        return;
+        return retryAttempt;
       }
 
       const isSuccess = await this.tiramisConfigService.isSuccessResponse(
         acknowledgement.statusCode!,
       );
 
-      attempt.acknowledgementId = acknowledgement.acknowledgementId || null;
-      attempt.acknowledgementStatusCode = acknowledgement.statusCode || null;
-      attempt.acknowledgementStatusDesc = acknowledgement.statusDesc || null;
-      attempt.acknowledgementXml = response.rawXml;
-      attempt.ackReceivedAt = new Date();
-      attempt.isRetryable = 0;
-      attempt.nextRetryAt = null;
+      retryAttempt.acknowledgementId =
+        acknowledgement.acknowledgementId || null;
+      retryAttempt.acknowledgementStatusCode =
+        acknowledgement.statusCode || null;
+      retryAttempt.acknowledgementStatusDesc =
+        acknowledgement.statusDesc || null;
+      retryAttempt.acknowledgementXml = response.rawXml;
+      retryAttempt.ackReceivedAt = new Date();
+      retryAttempt.isRetryable = 0;
+      retryAttempt.nextRetryAt = null;
 
       if (isSuccess) {
-        attempt.status = TIRAMIS_ATTEMPT_STATUS.ACK_SUCCESS;
+        retryAttempt.status = TIRAMIS_ATTEMPT_STATUS.ACK_SUCCESS;
 
         const callbackTimeoutMinutes = Number(
           environment.TIRAMIS_FINAL_CALLBACK_TIMEOUT_MINUTES || 30,
         );
 
-        attempt.finalCallbackDeadlineAt = new Date(
+        retryAttempt.finalCallbackDeadlineAt = new Date(
           Date.now() + callbackTimeoutMinutes * 60 * 1000,
         );
 
         transaction.status = TIRAMIS_TRANSACTION_STATUS.PROCESSING;
         transaction.lastError = null;
       } else {
-        attempt.status = TIRAMIS_ATTEMPT_STATUS.ACK_FAILED;
-        attempt.finalCallbackDeadlineAt = null;
+        retryAttempt.status = TIRAMIS_ATTEMPT_STATUS.ACK_FAILED;
+        retryAttempt.finalCallbackDeadlineAt = null;
 
         transaction.status = TIRAMIS_TRANSACTION_STATUS.FAILED;
         transaction.lastError =
           acknowledgement.statusDesc || 'TIRAMIS acknowledgement failed';
       }
 
-      await this.attemptRepository.save(attempt);
+      await this.attemptRepository.save(retryAttempt);
       await this.transactionRepository.save(transaction);
 
       await this.recordEvent({
         transactionId: transaction.id,
-        attemptId: attempt.id,
-        requestId: attempt.requestId,
+        attemptId: retryAttempt.id,
+        requestId: retryAttempt.requestId,
         eventType: TIRAMIS_SUBMISSION_EVENT_TYPE.ACK_RECEIVED,
         statusCode: acknowledgement.statusCode || null,
         statusDesc: acknowledgement.statusDesc || null,
@@ -309,13 +331,15 @@ export class TiramisRetrySchedulerService {
       });
     } catch (error: any) {
       await this.rescheduleRetry({
-        attempt,
+        attempt: retryAttempt,
         transaction,
         errorMessage:
           error?.message || 'Retry failed while sending request to TIRAMIS',
         rawPayload: error?.response?.data || null,
       });
     }
+
+    return retryAttempt;
   }
 
   private async rescheduleRetry(params: {
