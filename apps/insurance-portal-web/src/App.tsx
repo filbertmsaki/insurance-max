@@ -478,7 +478,14 @@ export default function App() {
               <Route path="/regulatory" element={<RegulatoryWorkbenchPage />} />
             </Route>
 
-            <Route element={<ProtectedRoute requiredPermission="users:read" />}>
+            <Route
+              element={
+                <ProtectedRoute
+                  requiredPermission="users:read"
+                  allowedScopes={['company']}
+                />
+              }
+            >
               <Route path="/users" element={<UsersListPage />} />
               <Route path="/users/:id" element={<UserDetailPage />} />
             </Route>

@@ -94,12 +94,24 @@ describe('QuotationsService', () => {
     },
   ) {
     const createQueryBuilderStub = <T>(value: T) => ({
+      innerJoin: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       addOrderBy: jest.fn().mockReturnThis(),
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       getOne: jest.fn().mockResolvedValue(value),
+      getCount: jest
+        .fn()
+        .mockResolvedValue(
+          typeof value === 'number'
+            ? value
+            : Array.isArray(value)
+              ? value.length
+              : value
+                ? 1
+                : 0,
+        ),
       getMany: jest
         .fn()
         .mockResolvedValue(Array.isArray(value) ? value : value ? [value] : []),
@@ -224,6 +236,7 @@ describe('QuotationsService', () => {
       findOne: jest.fn().mockResolvedValue(pricingQuote),
       find: jest.fn().mockResolvedValue([pricingQuote]),
       update: jest.fn().mockResolvedValue(undefined),
+      softDelete: jest.fn().mockResolvedValue({ affected: 1 }),
       createQueryBuilder: jest.fn().mockReturnValue({
         setLock: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
@@ -304,6 +317,14 @@ describe('QuotationsService', () => {
         if (
           typeof entity === 'function' &&
           'name' in entity &&
+          entity.name === 'Quotation'
+        ) {
+          return quotationRepositoryMock;
+        }
+
+        if (
+          typeof entity === 'function' &&
+          'name' in entity &&
           entity.name === 'PricingQuote'
         ) {
           return quotationRepositoryMock;
@@ -372,6 +393,40 @@ describe('QuotationsService', () => {
           typeof entity === 'function' &&
           'name' in entity &&
           entity.name === 'CommissionTransaction'
+        ) {
+          return {
+            createQueryBuilder: jest
+              .fn()
+              .mockReturnValue(createQueryBuilderStub(null)),
+          };
+        }
+
+        if (
+          typeof entity === 'function' &&
+          'name' in entity &&
+          entity.name === 'PaymentTransaction'
+        ) {
+          return {
+            createQueryBuilder: jest
+              .fn()
+              .mockReturnValue(createQueryBuilderStub(null)),
+          };
+        }
+
+        if (
+          typeof entity === 'function' &&
+          'name' in entity &&
+          entity.name === 'PortalTiraSubmission'
+        ) {
+          return {
+            count: jest.fn().mockResolvedValue(0),
+          };
+        }
+
+        if (
+          typeof entity === 'function' &&
+          'name' in entity &&
+          entity.name === 'TiramisSubmissionTrackingEntity'
         ) {
           return {
             createQueryBuilder: jest
@@ -725,6 +780,58 @@ describe('QuotationsService', () => {
         }),
       }),
     );
+  });
+
+  it('allows deletion of an unsubmitted quotation even when it is no longer in draft status', async () => {
+    const fixture = createServiceFixture({
+      status: QuotationStatus.READY_FOR_SUBMISSION,
+      approval_status: ApprovalStatus.APPROVED,
+      payment_status: PaymentStatus.REQUESTED,
+      approval_submitted_at: new Date('2026-07-01T08:00:00.000Z'),
+      payment_requested_at: new Date('2026-07-02T08:00:00.000Z'),
+      status_history: [
+        {
+          id: 'history-1',
+          new_status: QuotationStatus.READY_FOR_SUBMISSION,
+        },
+      ],
+    });
+
+    await expect(
+      fixture.service.removeDraftForUser(
+        {
+          id: 'user-1',
+          companyId: 'company-1',
+          permissions: ['quotations:delete-draft'],
+        } as any,
+        fixture.quotation.id,
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(fixture.quotationRepositoryMock.softDelete).toHaveBeenCalledWith({
+      id: fixture.quotation.id,
+      company_id: 'company-1',
+    });
+  });
+
+  it('still blocks deletion when the quotation has already been submitted to TIRA', async () => {
+    const fixture = createServiceFixture({
+      tira_status: TiraStatus.SUBMITTED,
+      submitted_at: new Date('2026-07-03T08:00:00.000Z'),
+    });
+
+    await expect(
+      fixture.service.removeDraftForUser(
+        {
+          id: 'user-1',
+          companyId: 'company-1',
+          permissions: ['quotations:delete-draft'],
+        } as any,
+        fixture.quotation.id,
+      ),
+    ).rejects.toThrow('A submitted quotation cannot be deleted');
+
+    expect(fixture.quotationRepositoryMock.softDelete).not.toHaveBeenCalled();
   });
 
   it('blocks TIRAMIS submission when quotation assets are not verified', async () => {

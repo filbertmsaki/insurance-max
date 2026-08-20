@@ -49,6 +49,7 @@ export interface NavLeaf {
   permission?: string;
   anyPermission?: string[];
   anyRole?: string[];
+  allowedScopes?: Array<'platform' | 'company'>;
 }
 
 export interface NavGroup {
@@ -78,6 +79,7 @@ export const NAV_NODES: NavNode[] = [
         to: '/users',
         icon: User,
         permission: 'users:read',
+        allowedScopes: ['company'],
       },
       {
         kind: 'link',

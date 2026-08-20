@@ -29,9 +29,17 @@ export function canAccessRoute(
     anyPermission?: string[];
     requiredRole?: string;
     anyRole?: string[];
+    allowedScopes?: Array<'platform' | 'company'>;
   },
 ): boolean {
   if (!user) return false;
+
+  if (
+    options?.allowedScopes?.length &&
+    !options.allowedScopes.includes(user.scope)
+  ) {
+    return false;
+  }
 
   if (
     options?.requiredPermission &&

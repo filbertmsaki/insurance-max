@@ -34,6 +34,7 @@ function useNavFilter() {
       requiredPermission: leaf.permission,
       anyPermission: leaf.anyPermission,
       anyRole: leaf.anyRole,
+      allowedScopes: leaf.allowedScopes,
     });
   }
 

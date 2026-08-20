@@ -149,22 +149,28 @@ export function QuotationsPage() {
               {
                 label: 'View quotation',
                 icon: <Eye className="h-4 w-4" />,
-                onClick: () =>
-                  navigate(underwritingPaths.quotationDetail(row.id)),
+                onClick: () => {
+                  void navigate(underwritingPaths.quotationDetail(row.id));
+                },
               },
               {
                 label: 'Edit quotation',
                 icon: <Pencil className="h-4 w-4" />,
-                onClick: () =>
-                  navigate(underwritingPaths.quotationWizardEdit(row.id)),
+                onClick: () => {
+                  void navigate(underwritingPaths.quotationWizardEdit(row.id));
+                },
               },
-              {
-                label: 'Delete quotation',
-                icon: <Trash2 className="h-4 w-4" />,
-                destructive: true,
-                separatorBefore: true,
-                onClick: () => setDeleteItem(row),
-              },
+              ...(row.tira_status === 'NOT_SUBMITTED'
+                ? [
+                    {
+                      label: 'Delete quotation',
+                      icon: <Trash2 className="h-4 w-4" />,
+                      destructive: true,
+                      separatorBefore: true,
+                      onClick: () => setDeleteItem(row),
+                    },
+                  ]
+                : []),
             ]}
           />
         </div>
@@ -178,7 +184,11 @@ export function QuotationsPage() {
         title="Quotations"
         description="Create and manage quotations using the normalized backend quotation flow."
         action={
-          <Button onClick={() => navigate(underwritingPaths.quotationWizard)}>
+          <Button
+            onClick={() => {
+              void navigate(underwritingPaths.quotationWizard);
+            }}
+          >
             <Plus className="mr-2 h-4 w-4" />
             Create Quotation
           </Button>
@@ -273,15 +283,18 @@ export function QuotationsPage() {
         open={!!deleteItem}
         onOpenChange={(open) => !open && setDeleteItem(null)}
         title="Delete Quotation"
-        description="This permanently removes the draft quotation from the current company workspace."
+        description="This permanently removes the unsubmitted quotation from the current company workspace."
         confirmLabel="Delete"
         loading={deleteMutation.isPending}
-        onConfirm={() =>
-          deleteItem &&
+        onConfirm={() => {
+          if (!deleteItem) {
+            return;
+          }
+
           deleteMutation.mutate(deleteItem.id, {
             onSuccess: () => setDeleteItem(null),
-          })
-        }
+          });
+        }}
       />
     </div>
   );

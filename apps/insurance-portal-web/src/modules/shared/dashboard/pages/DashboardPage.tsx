@@ -50,7 +50,7 @@ import { sessionsApi } from '@/modules/shared/sessions/api/sessions';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { phase16Api } from '@/modules/tenant/phase16/api/phase16';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
-import { usersApi } from '@/modules/tenant/users/api/users';
+import { companiesApi } from '@/modules/platform/companies/api/companies';
 
 function formatMetricValue(
   value: string | number | null | undefined,
@@ -1080,9 +1080,9 @@ function SectionContent({
 
 function PlatformDashboardPage() {
   const { user } = useAuthStore();
-  const { data: users, isLoading: usersLoading } = useQuery({
-    queryKey: ['users', { page: 1, limit: 1 }],
-    queryFn: () => usersApi.getUsers({ page: 1, limit: 1 }),
+  const { data: companies, isLoading: companiesLoading } = useQuery({
+    queryKey: ['companies'],
+    queryFn: companiesApi.getCompanies,
   });
   const { data: sessions, isLoading: sessionsLoading } = useQuery({
     queryKey: ['sessions'],
@@ -1105,17 +1105,11 @@ function PlatformDashboardPage() {
 
   const platformActions: ShortcutAction[] = [
     {
-      key: 'users',
-      title: 'Users and access',
-      description: 'Review platform users, sessions, devices, and access.',
-      to: '/users',
-      badge: `${users?.pagination?.total ?? 0} users`,
-    },
-    {
       key: 'companies',
       title: 'Companies',
       description: 'Manage onboarded companies and inspect tenant setup.',
       to: '/companies',
+      badge: `${companies?.length ?? 0} companies`,
     },
     {
       key: 'api-clients',
@@ -1155,10 +1149,10 @@ function PlatformDashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <DashboardCard
           icon={Users}
-          title="Total Users"
-          value={users?.pagination?.total ?? 0}
-          loading={usersLoading}
-          description="Accounts in the current workspace"
+          title="Total Companies"
+          value={companies?.length ?? 0}
+          loading={companiesLoading}
+          description="Companies onboarded to the platform"
         />
         <DashboardCard
           icon={Monitor}

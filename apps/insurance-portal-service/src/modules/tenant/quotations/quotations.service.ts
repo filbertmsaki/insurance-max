@@ -2550,52 +2550,9 @@ export class QuotationsService {
       throw new ConflictException('A submitted quotation cannot be deleted');
     }
 
-    if (quotation.status !== QuotationStatus.DRAFT) {
-      throw new ConflictException('Only draft quotations can be deleted');
-    }
-
     if (quotation.tira_status !== TiraStatus.NOT_SUBMITTED) {
       throw new ConflictException(
         'Only quotations that were never submitted to TIRA can be deleted',
-      );
-    }
-
-    if (
-      ![ApprovalStatus.NOT_REQUIRED, ApprovalStatus.NOT_SUBMITTED].includes(
-        quotation.approval_status,
-      )
-    ) {
-      throw new ConflictException(
-        'Drafts with approval history cannot be deleted',
-      );
-    }
-
-    if (
-      ![PaymentStatus.NOT_REQUIRED, PaymentStatus.NOT_INITIATED].includes(
-        quotation.payment_status,
-      )
-    ) {
-      throw new ConflictException(
-        'Drafts with payment activity cannot be deleted',
-      );
-    }
-
-    if (
-      quotation.approval_submitted_at ||
-      quotation.approval_decided_at ||
-      quotation.payment_requested_at ||
-      quotation.payment_completed_at ||
-      quotation.tira_request_id ||
-      quotation.tira_response_id
-    ) {
-      throw new ConflictException(
-        'Draft quotations with approval, payment, or TIRA history cannot be deleted',
-      );
-    }
-
-    if (quotation.status_history.length > 0) {
-      throw new ConflictException(
-        'Draft quotations with audit history cannot be deleted',
       );
     }
 
@@ -2657,7 +2614,7 @@ export class QuotationsService {
       trackingCount > 0
     ) {
       throw new ConflictException(
-        'Draft quotations with approval, payment, TIRA, or financial history cannot be deleted',
+        'Quotations with TIRA or financial history cannot be deleted',
       );
     }
   }
