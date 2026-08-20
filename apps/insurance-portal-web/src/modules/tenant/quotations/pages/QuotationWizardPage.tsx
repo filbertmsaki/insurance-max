@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePageFooter } from '@/components/layout/PageFooterSlot';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
 import {
@@ -250,6 +251,7 @@ export function QuotationWizardPage() {
   const [startGateComplete, setStartGateComplete] = useState(
     usesPrefilledQuotation,
   );
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const activeDraftId = id ?? draftId;
   const hasPersistedDraft = Boolean(activeDraftId);
 
@@ -876,6 +878,8 @@ export function QuotationWizardPage() {
   ]);
 
   const deleteDraft = useCallback(() => {
+    setIsDeleteDialogOpen(false);
+
     if (!activeDraftId) {
       navigate(underwritingPaths.quotations);
       return;
@@ -922,7 +926,7 @@ export function QuotationWizardPage() {
             <Button
               type="button"
               variant="destructive"
-              onClick={deleteDraft}
+              onClick={() => setIsDeleteDialogOpen(true)}
               disabled={isSaving}
             >
               Delete Draft
@@ -1003,6 +1007,15 @@ export function QuotationWizardPage() {
         onClose={() => setChangeSetupInitial(null)}
       />
       <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-6">
+        <ConfirmDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={setIsDeleteDialogOpen}
+          title="Delete Draft Quotation"
+          description="This will permanently remove the current draft quotation. This action cannot be undone."
+          confirmLabel="Delete Draft"
+          loading={deleteDraftMutation.isPending}
+          onConfirm={deleteDraft}
+        />
         {!isEditMode && isFirstStep ? (
           <div className="flex justify-end">
             <Button
