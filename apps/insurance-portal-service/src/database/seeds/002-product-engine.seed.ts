@@ -621,7 +621,7 @@ export default class ProductEngineSeeder implements Seeder {
     productMap: Map<string, InsuranceProduct>,
   ): Promise<void> {
     const adminEmail =
-      environment.INITIAL_COMPANY_ADMIN_EMAIL ?? 'inocent@alliance.co.tz';
+      environment.INITIAL_COMPANY_ADMIN_EMAIL ?? 'baraka.mushi@gmail.com';
     const adminUser = await userRepo.findOne({
       where: { email: adminEmail },
     });

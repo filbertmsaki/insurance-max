@@ -4023,9 +4023,9 @@ export default class InitialRbacSeeder implements Seeder {
       const branchUserRepo = manager.getRepository(BranchUser);
 
       const ownerConfig: SeedUserConfig = {
-        firstName: environment.INITIAL_OWNER_FIRST_NAME ?? 'Filbert',
-        lastName: environment.INITIAL_OWNER_LAST_NAME ?? 'Msaki',
-        email: environment.INITIAL_OWNER_EMAIL ?? 'filbert@alliance.co.tz',
+        firstName: environment.INITIAL_OWNER_FIRST_NAME ?? 'Asha',
+        lastName: environment.INITIAL_OWNER_LAST_NAME ?? 'Mtemi',
+        email: environment.INITIAL_OWNER_EMAIL ?? 'asha.mtemi@gmail.com',
         phone: environment.INITIAL_OWNER_PHONE ?? '+255700000001',
         password: environment.INITIAL_OWNER_PASSWORD ?? 'Owner123!',
         userNo: environment.INITIAL_OWNER_USER_NO ?? 'OWNER-00001',
@@ -4037,10 +4037,10 @@ export default class InitialRbacSeeder implements Seeder {
         environment.DEFAULT_COMPANY_NAME ?? ALLIANCE_TENANT.companyName;
 
       const adminConfig: SeedUserConfig = {
-        firstName: environment.INITIAL_COMPANY_ADMIN_FIRST_NAME ?? 'Inocent',
-        lastName: environment.INITIAL_COMPANY_ADMIN_LAST_NAME ?? 'Nuruva',
+        firstName: environment.INITIAL_COMPANY_ADMIN_FIRST_NAME ?? 'Baraka',
+        lastName: environment.INITIAL_COMPANY_ADMIN_LAST_NAME ?? 'Mushi',
         email:
-          environment.INITIAL_COMPANY_ADMIN_EMAIL ?? 'inocent@alliance.co.tz',
+          environment.INITIAL_COMPANY_ADMIN_EMAIL ?? 'baraka.mushi@gmail.com',
         phone: environment.INITIAL_COMPANY_ADMIN_PHONE ?? '+255700000002',
         password: environment.INITIAL_COMPANY_ADMIN_PASSWORD ?? 'Admin123!',
         userNo: environment.INITIAL_COMPANY_ADMIN_USER_NO ?? 'ADMIN-00001',

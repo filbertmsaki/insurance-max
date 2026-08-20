@@ -1,16 +1,58 @@
 import { environment } from '@insurance-max/shared-config';
 import { DataSource, QueryRunner } from 'typeorm';
 import { Seeder, SeederFactoryManager } from 'typeorm-extension';
+import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
+import { PartnerType } from '../../modules/tenant/insurance-partners/enums/partner-type.enum';
+import { PartnerRelationshipStatus } from '../../modules/tenant/insurance-partners/enums/partner-relationship-status.enum';
 import {
   ALLIANCE_BRANCHES,
   ALLIANCE_SALE_POINTS,
   ALLIANCE_TENANT,
 } from './data/alliance.seed-data';
-import { requireColumns, withSeedTransaction } from './shared/seed-utils';
+import {
+  requireColumns,
+  slugify,
+  withSeedTransaction,
+} from './shared/seed-utils';
 
 type RowWithId = {
   id: string;
 };
+
+const ALLIANCE_INTERMEDIARY_SEEDS = [
+  {
+    companyCode: 'IA1292',
+    companyName: 'HERI INSURANCE AGENCY',
+    companyType: CompanyType.AGENCY,
+    partnerType: PartnerType.AGENCY,
+    sourceSheet: 'AGENTS',
+    sourceRow: 347,
+  },
+  {
+    companyCode: 'IA1313',
+    companyName: 'JAMII INSURANCE AGENCY',
+    companyType: CompanyType.AGENCY,
+    partnerType: PartnerType.AGENCY,
+    sourceSheet: 'AGENTS',
+    sourceRow: 373,
+  },
+  {
+    companyCode: 'IB1005',
+    companyName: 'KIVULI INSURANCE BROKERS',
+    companyType: CompanyType.BROKER,
+    partnerType: PartnerType.BROKER,
+    sourceSheet: 'BROKERS',
+    sourceRow: 12,
+  },
+  {
+    companyCode: 'IB1007',
+    companyName: 'NDEGE INSURANCE BROKERS LIMITED',
+    companyType: CompanyType.BROKER,
+    partnerType: PartnerType.BROKER,
+    sourceSheet: 'BROKERS',
+    sourceRow: 15,
+  },
+] as const;
 
 export default class TiramisCompanySetupSeeder implements Seeder {
   public async run(
@@ -67,6 +109,14 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           'is_active',
         ]);
 
+        await requireColumns(queryRunner, 'insurance_company_partners', [
+          'insurer_company_id',
+          'intermediary_company_id',
+          'partner_type',
+          'status',
+          'metadata',
+        ]);
+
         await this.correctExistingAllianceReferences(queryRunner);
 
         const companyId = await this.upsertAllianceCompany(queryRunner);
@@ -83,6 +133,7 @@ export default class TiramisCompanySetupSeeder implements Seeder {
         );
         await this.seedBranches(queryRunner, companyId);
         await this.seedSalePoints(queryRunner, companyId);
+        await this.seedAllianceIntermediaries(queryRunner, companyId);
       },
     );
 
@@ -469,5 +520,166 @@ export default class TiramisCompanySetupSeeder implements Seeder {
         ],
       );
     }
+  }
+
+  private async seedAllianceIntermediaries(
+    queryRunner: QueryRunner,
+    allianceCompanyId: string,
+  ): Promise<void> {
+    for (const seed of ALLIANCE_INTERMEDIARY_SEEDS) {
+      const intermediaryCompanyId = await this.upsertIntermediaryCompany(
+        queryRunner,
+        seed,
+      );
+
+      const existingRows = await queryRunner.query(
+        `
+          SELECT id
+          FROM insurance_company_partners
+          WHERE insurer_company_id = $1
+            AND intermediary_company_id = $2
+            AND partner_type = $3
+            AND deleted_at IS NULL
+          LIMIT 1
+        `,
+        [allianceCompanyId, intermediaryCompanyId, seed.partnerType],
+      );
+
+      const metadata = JSON.stringify({
+        seedSource: 'Companies (1).xlsx',
+        sourceSheet: seed.sourceSheet,
+        sourceRow: seed.sourceRow,
+        seededBy: '005-tiramis-company-setup.seed',
+      });
+
+      if (existingRows[0]) {
+        await queryRunner.query(
+          `
+            UPDATE insurance_company_partners
+            SET
+              status = $2,
+              metadata = COALESCE(metadata, '{}'::jsonb) || $3::jsonb,
+              updated_at = now()
+            WHERE id = $1
+          `,
+          [existingRows[0].id, PartnerRelationshipStatus.ACTIVE, metadata],
+        );
+        continue;
+      }
+
+      await queryRunner.query(
+        `
+          INSERT INTO insurance_company_partners (
+            insurer_company_id,
+            intermediary_company_id,
+            partner_type,
+            status,
+            metadata,
+            created_at,
+            updated_at
+          )
+          VALUES ($1, $2, $3, $4, $5::jsonb, now(), now())
+        `,
+        [
+          allianceCompanyId,
+          intermediaryCompanyId,
+          seed.partnerType,
+          PartnerRelationshipStatus.ACTIVE,
+          metadata,
+        ],
+      );
+    }
+  }
+
+  private async upsertIntermediaryCompany(
+    queryRunner: QueryRunner,
+    seed: (typeof ALLIANCE_INTERMEDIARY_SEEDS)[number],
+  ): Promise<string> {
+    const companySlug = slugify(seed.companyName);
+    const existingRows = await queryRunner.query(
+      `
+        SELECT id
+        FROM companies
+        WHERE deleted_at IS NULL
+          AND (slug = $1 OR name = $2)
+        ORDER BY CASE WHEN slug = $1 THEN 0 ELSE 1 END
+        LIMIT 1
+      `,
+      [companySlug, seed.companyName],
+    );
+    const metadata = JSON.stringify({
+      seedSource: 'Companies (1).xlsx',
+      sourceSheet: seed.sourceSheet,
+      sourceRow: seed.sourceRow,
+      seededBy: '005-tiramis-company-setup.seed',
+    });
+    const regulatoryMetadata = JSON.stringify({
+      tiraCompanyCode: seed.companyCode,
+      clientCode: seed.companyCode,
+    });
+
+    if (existingRows[0]) {
+      await queryRunner.query(
+        `
+          UPDATE companies
+          SET
+            status = 'active',
+            company_type = $2,
+            identifier_prefix = COALESCE(identifier_prefix, $3),
+            tira_company_code = COALESCE(tira_company_code, $3),
+            tira_client_code = COALESCE(tira_client_code, $3),
+            regulatory_metadata = COALESCE(
+              regulatory_metadata,
+              '{}'::jsonb
+            ) || $4::jsonb,
+            metadata = COALESCE(metadata, '{}'::jsonb) || $5::jsonb,
+            updated_at = now()
+          WHERE id = $1
+        `,
+        [
+          existingRows[0].id,
+          seed.companyType,
+          seed.companyCode,
+          regulatoryMetadata,
+          metadata,
+        ],
+      );
+      return existingRows[0].id;
+    }
+
+    const insertedRows = await queryRunner.query(
+      `
+        INSERT INTO companies (
+          name,
+          slug,
+          identifier_prefix,
+          status,
+          company_type,
+          tira_company_code,
+          tira_client_code,
+          operating_timezone,
+          default_currency,
+          regulatory_metadata,
+          metadata,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          $1, $2, $3, 'active', $4, $3, $3,
+          'Africa/Dar_es_Salaam', 'TZS', $5::jsonb, $6::jsonb, now(), now()
+        )
+        RETURNING id
+      `,
+      [
+        seed.companyName,
+        companySlug,
+        seed.companyCode,
+        seed.companyType,
+        regulatoryMetadata,
+        metadata,
+      ],
+    );
+
+    return insertedRows[0].id;
   }
 }
