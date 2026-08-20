@@ -373,7 +373,7 @@ export class TiramisConfigService {
         sourceRecordId,
         companyCode: configuration.companyCode,
         systemCode: configuration.systemCode,
-        callbackUrl: configuration.callbackBaseUrl,
+        callbackUrl: this.resolveTiraCallbackUrl(configuration),
 
         /**
          * Client/company business identifiers. The API-key-authenticated
@@ -522,6 +522,21 @@ export class TiramisConfigService {
     const configuration = await this.getActiveConfiguration(params.environment);
 
     return this.joinUrl(configuration.callbackBaseUrl, params.callbackPath);
+  }
+
+  private resolveTiraCallbackUrl(
+    configuration: TiramisClientConfigurationEntity,
+  ): string {
+    const configuredUrl = configuration.callbackBaseUrl.trim();
+
+    if (/\/api\/tiramis\/callbacks\/(test|live)\/?$/i.test(configuredUrl)) {
+      return configuredUrl;
+    }
+
+    return this.joinUrl(
+      configuredUrl,
+      `api/tiramis/callbacks/${configuration.environment.toLowerCase()}`,
+    );
   }
 
   async getResponseCode(

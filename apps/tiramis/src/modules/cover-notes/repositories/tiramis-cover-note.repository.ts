@@ -78,6 +78,13 @@ export class TiramisCoverNoteRepository {
       .leftJoinAndSelect('addons.taxes', 'addonTaxes')
       .select('coverNote')
       .addSelect([
+        'risks',
+        'riskDiscounts',
+        'riskTaxes',
+        'subjectMatters',
+        'policyHolders',
+        'addons',
+        'addonTaxes',
         'transaction.id',
         'transaction.status',
         'transaction.serviceType',

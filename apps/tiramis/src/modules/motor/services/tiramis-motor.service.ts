@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { isUUID } from 'class-validator';
@@ -26,6 +27,7 @@ import { TiramisMotorPayloadService } from './tiramis-motor-payload.service';
 @Injectable()
 export class TiramisMotorService {
   private readonly rootElement = 'MotorCoverNoteRefReq';
+  private readonly logger = new Logger(TiramisMotorService.name);
 
   constructor(
     private readonly coverNoteRepository: TiramisCoverNoteRepository,
@@ -478,14 +480,36 @@ export class TiramisMotorService {
       throw new NotFoundException('TIRAMIS motor cover note not found');
     }
 
+    const warnings: string[] = [];
     const [fullCoverNote, fleet, motorDetails, submission] = await Promise.all([
-      this.coverNoteRepository.findById(coverNote.id),
-      this.motorRepository.findFleetByCoverNoteId(coverNote.id),
-      this.motorRepository.findMotorDetailsByCoverNoteId(coverNote.id),
-      this.tiramisSubmissionService.getSubmissionTrace({
-        transactionId: coverNote.transactionId,
-        includePayload: true,
-      }),
+      this.loadSnapshotPart(
+        'cover note relations',
+        () => this.coverNoteRepository.findById(coverNote.id),
+        coverNote,
+        warnings,
+      ),
+      this.loadSnapshotPart(
+        'fleet',
+        () => this.motorRepository.findFleetByCoverNoteId(coverNote.id),
+        null,
+        warnings,
+      ),
+      this.loadSnapshotPart(
+        'motor details',
+        () => this.motorRepository.findMotorDetailsByCoverNoteId(coverNote.id),
+        [],
+        warnings,
+      ),
+      this.loadSnapshotPart(
+        'submission trace',
+        () =>
+          this.tiramisSubmissionService.getSubmissionTrace({
+            transactionId: coverNote.transactionId,
+            includePayload: true,
+          }),
+        null,
+        warnings,
+      ),
     ]);
 
     return {
@@ -493,7 +517,27 @@ export class TiramisMotorService {
       motorDetails,
       fleet,
       submission,
+      warnings,
     };
+  }
+
+  private async loadSnapshotPart<T>(
+    label: string,
+    operation: () => Promise<T>,
+    fallback: T,
+    warnings: string[],
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error: any) {
+      const message = `Unable to load ${label}`;
+      warnings.push(message);
+      this.logger.error(
+        `${message}: ${error?.message || 'Unknown error'}`,
+        error?.stack,
+      );
+      return fallback;
+    }
   }
 
   private async resolveCoverNote(identifier: string) {

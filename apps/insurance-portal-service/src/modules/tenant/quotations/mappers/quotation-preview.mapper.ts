@@ -543,9 +543,7 @@ export class QuotationPreviewMapper {
         submission?.tiramis_request_id ?? tracking?.tiramisRequestId,
       ),
       submission_attempt_number: this.toNumber(
-        tracking?.syncAttempts ??
-          tracking?.retryAttempts ??
-          (submission ? 1 : null),
+        tracking ? (tracking.retryAttempts || 0) + 1 : submission ? 1 : null,
       ),
       date_submitted:
         submission?.submitted_at?.toISOString() ??
@@ -954,7 +952,7 @@ export class QuotationPreviewMapper {
       submission_status: this.text(tracking?.status),
       request_id: this.text(tracking?.tiramisRequestId),
       submission_attempt_number: this.toNumber(
-        tracking?.syncAttempts ?? tracking?.retryAttempts,
+        tracking ? (tracking.retryAttempts || 0) + 1 : null,
       ),
       date_submitted:
         tracking?.submittedAt?.toISOString() ??
