@@ -1,9 +1,10 @@
-import { Controller, Get, Query } from '@nestjs/common';
-import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 
 import { ServiceScopes } from '@insurance-max/shared-kernel';
 
 import { TiramisSubmissionStatusQueryDto } from '../dto/tiramis-submission-status-query.dto';
+import { TiramisRetrySchedulerService } from '../services/tiramis-retry-scheduler.service';
 import { TiramisSubmissionService } from '../services/tiramis-submission.service';
 
 @ApiTags('TIRAMIS Submissions')
@@ -12,6 +13,7 @@ import { TiramisSubmissionService } from '../services/tiramis-submission.service
 export class TiramisSubmissionsController {
   constructor(
     private readonly tiramisSubmissionService: TiramisSubmissionService,
+    private readonly tiramisRetrySchedulerService: TiramisRetrySchedulerService,
   ) {}
 
   @ApiOperation({
@@ -60,5 +62,16 @@ export class TiramisSubmissionsController {
       businessReference: query.businessReference,
       includePayload: query.includePayload === 'true',
     });
+  }
+
+  @ApiOperation({
+    summary:
+      'Manually retry a single TIRAMIS submission attempt. Bypasses TIRAMIS_RETRY_ENABLED, the retry schedule, and retry-exhaustion state since automatic retrying is disabled.',
+  })
+  @ApiParam({ name: 'id', description: 'Submission attempt id' })
+  @ServiceScopes('tiramis:admin')
+  @Post('attempts/:id/retry')
+  retryAttempt(@Param('id') id: string) {
+    return this.tiramisRetrySchedulerService.retryAttemptManually(id);
   }
 }

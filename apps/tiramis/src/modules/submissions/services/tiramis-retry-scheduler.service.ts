@@ -1,5 +1,10 @@
 import { environment } from '@insurance-max/shared-config';
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { TiramisConfigService } from '../../config/services/tiramis-config.service';
@@ -68,6 +73,47 @@ export class TiramisRetrySchedulerService {
     }
   }
 
+  /**
+   * Manually retries a single submission attempt regardless of the
+   * TIRAMIS_RETRY_ENABLED flag, schedule, or retry-exhaustion state.
+   * Used by the admin-triggered retry endpoint now that automatic
+   * retrying is disabled.
+   */
+  async retryAttemptManually(attemptId: string) {
+    const attempt = await this.attemptRepository.findById(attemptId);
+
+    if (!attempt) {
+      throw new NotFoundException(
+        `TIRAMIS submission attempt not found for id: ${attemptId}`,
+      );
+    }
+
+    const transaction = await this.transactionRepository.findById(
+      attempt.transactionId,
+    );
+
+    if (!transaction) {
+      throw new NotFoundException(
+        `TIRAMIS transaction not found for attempt: ${attemptId}`,
+      );
+    }
+
+    if (!attempt.requestXml) {
+      throw new BadRequestException(
+        'Cannot retry attempt because request XML is missing',
+      );
+    }
+
+    await this.sendRetryAttempt(attempt, transaction);
+
+    return {
+      attemptId: attempt.id,
+      transactionId: transaction.id,
+      status: attempt.status,
+      retryCount: attempt.retryCount,
+    };
+  }
+
   private async retrySingleAttempt(attempt: any) {
     const transaction = await this.transactionRepository.findById(
       attempt.transactionId,
@@ -98,6 +144,10 @@ export class TiramisRetrySchedulerService {
       return;
     }
 
+    await this.sendRetryAttempt(attempt, transaction);
+  }
+
+  private async sendRetryAttempt(attempt: any, transaction: any) {
     const configuration =
       await this.tiramisConfigService.getRuntimeConfigurationById(
         transaction.clientConfigurationId,
