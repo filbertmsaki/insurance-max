@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -78,12 +78,6 @@ export function TiramisSubmissionsPage() {
       <PageHeader
         title="TIRAMIS Submissions"
         description="Monitor quotation submissions sent to TIRAMIS"
-        action={
-          <Button onClick={() => navigate('/underwriting/quotations/wizard')}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Quotation
-          </Button>
-        }
       />
 
       <div className="grid gap-3 md:grid-cols-4">
