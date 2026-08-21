@@ -70,20 +70,6 @@ export const tiramisEnvValidationSchema = Joi.object({
   TIRAMIS_TCP_HOST: Joi.string().default('0.0.0.0'),
   TIRAMIS_TCP_PORT: Joi.number().default(4001),
   TIRAMIS_PORTAL_NOTIFY_ENABLED: Joi.boolean().default(true),
-  INSURANCE_PORTAL_EVENT_URL: Joi.string()
-    .uri({ scheme: ['http', 'https'] })
-    .default('http://127.0.0.1:9090/api/v1/internal/tiramis/events'),
-  TIRAMIS_PORTAL_EVENT_OUTBOX_ENABLED: Joi.boolean().default(true),
-  TIRAMIS_PORTAL_EVENT_BATCH_SIZE: Joi.number().integer().min(1).default(50),
-  TIRAMIS_PORTAL_EVENT_MAX_ATTEMPTS: Joi.number().integer().min(1).default(12),
-  TIRAMIS_PORTAL_EVENT_BASE_DELAY_SECONDS: Joi.number()
-    .integer()
-    .min(1)
-    .default(30),
-  TIRAMIS_PORTAL_EVENT_MAX_DELAY_SECONDS: Joi.number()
-    .integer()
-    .min(1)
-    .default(1800),
   INSURANCE_PORTAL_WEBHOOK_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .default('http://localhost:9090/api/v1/webhooks/tiramis/notifications'),

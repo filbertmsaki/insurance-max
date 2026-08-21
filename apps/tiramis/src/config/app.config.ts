@@ -22,6 +22,8 @@ export default registerAs('tiramisService', () => {
 
     liveCallbackUrl: process.env.TIRAMIS_LIVE_CALLBACK_URL?.trim() || '',
 
+    targetEnvironment: process.env.TIRAMIS_TARGET_ENV?.trim() || 'test',
+
     requestTimeoutMs: Number(process.env.TIRAMIS_HTTP_TIMEOUT_MS || 60000),
 
     logPayloads: process.env.TIRAMIS_LOG_PAYLOADS === 'true',
@@ -34,23 +36,6 @@ export default registerAs('tiramisService', () => {
       process.env.INSURANCE_PORTAL_WEBHOOK_TIMEOUT_MS || 5000,
     ),
 
-    portalEventUrl:
-      process.env.INSURANCE_PORTAL_EVENT_URL?.trim() ||
-      'http://127.0.0.1:9090/api/v1/internal/tiramis/events',
-    portalEventOutboxEnabled:
-      process.env.TIRAMIS_PORTAL_EVENT_OUTBOX_ENABLED !== 'false',
-    portalEventBatchSize: Number(
-      process.env.TIRAMIS_PORTAL_EVENT_BATCH_SIZE || 50,
-    ),
-    portalEventMaxAttempts: Number(
-      process.env.TIRAMIS_PORTAL_EVENT_MAX_ATTEMPTS || 12,
-    ),
-    portalEventBaseDelaySeconds: Number(
-      process.env.TIRAMIS_PORTAL_EVENT_BASE_DELAY_SECONDS || 30,
-    ),
-    portalEventMaxDelaySeconds: Number(
-      process.env.TIRAMIS_PORTAL_EVENT_MAX_DELAY_SECONDS || 1800,
-    ),
     retryEnabled: process.env.TIRAMIS_RETRY_ENABLED !== 'false',
     retryBatchSize: Number(process.env.TIRAMIS_RETRY_BATCH_SIZE || 20),
     retryMaxAttempts: Number(process.env.TIRAMIS_RETRY_MAX_ATTEMPTS || 5),
