@@ -50,7 +50,18 @@ const schema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   scopes: z.string().min(1, 'At least one scope required'),
+  ipWhitelist: z.string().min(1, 'At least one allowlisted IP is required'),
+  rateLimitPerMinute: z
+    .string()
+    .regex(/^[1-9]\d*$/, 'Enter a whole number greater than zero'),
 });
+
+function splitList(value: string): string[] {
+  return value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
 function SecretModal({
   secret,
@@ -129,6 +140,9 @@ export function ApiClientsPage() {
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
+    defaultValues: {
+      rateLimitPerMinute: '60',
+    },
   });
 
   const createMutation = useMutation({
@@ -136,10 +150,9 @@ export function ApiClientsPage() {
       apiClientsApi.createApiClient({
         name: d.name,
         description: d.description,
-        scopes: d.scopes
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
+        scopes: splitList(d.scopes),
+        ip_whitelist: splitList(d.ipWhitelist),
+        rate_limit_per_minute: Number(d.rateLimitPerMinute),
       }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['api-clients'] });
@@ -275,7 +288,9 @@ export function ApiClientsPage() {
           </DialogHeader>
           <Form {...form}>
             <form
-              onSubmit={form.handleSubmit((d) => createMutation.mutate(d))}
+              onSubmit={(event) => {
+                void form.handleSubmit((d) => createMutation.mutate(d))(event);
+              }}
               className="space-y-4"
             >
               <FormField
@@ -315,6 +330,39 @@ export function ApiClientsPage() {
                         placeholder="read:users, write:claims"
                         {...field}
                       />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="ipWhitelist"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>IP Allowlist</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="203.0.113.10, 203.0.113.11"
+                        {...field}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Enter the TIRAMIS server's public outbound IP. Separate
+                      multiple IPs with commas.
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="rateLimitPerMinute"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Rate Limit Per Minute</FormLabel>
+                    <FormControl>
+                      <Input min={1} type="number" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

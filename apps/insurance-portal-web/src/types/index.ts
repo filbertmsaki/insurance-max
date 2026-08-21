@@ -276,6 +276,8 @@ export interface ApiClient {
   scopes: string[];
   status: string;
   description: string | null;
+  ip_whitelist: string[];
+  rate_limit_per_minute: number | null;
   last_used_at: string | null;
   expires_at: string | null;
   created_at: string;

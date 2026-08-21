@@ -5,6 +5,8 @@ export interface CreateApiClientDto {
   name: string;
   scopes: string[];
   description?: string;
+  ip_whitelist: string[];
+  rate_limit_per_minute: number;
 }
 
 export interface CreateApiClientResponse extends ApiClient {
