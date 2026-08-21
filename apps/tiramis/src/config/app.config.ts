@@ -48,7 +48,5 @@ export default registerAs('tiramisService', () => {
     finalCallbackTimeoutMinutes: Number(
       process.env.TIRAMIS_FINAL_CALLBACK_TIMEOUT_MINUTES || 30,
     ),
-    legacyPortalWebhookTokenEnabled:
-      process.env.TIRAMIS_LEGACY_PORTAL_WEBHOOK_TOKEN_ENABLED === 'true',
   };
 });

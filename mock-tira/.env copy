@@ -17,6 +17,7 @@ ALLOW_MOCK_SIGNATURE=false
 
 # preserve matches apps/tiramis, which signs the formatted XML content as generated
 SIGNATURE_XML_MODE=preserve
+MOCK_DEBUG_SIGNATURE=false
 
 # Mock TIRA verifies request from your application using CLIENT PUBLIC certificate
 CLIENT_PUBLIC_CERT_PATH=./certs/client/tiramisclientpublic.pfx
@@ -35,9 +36,9 @@ MOCK_TIRA_PRIVATE_KEY_PATH=./certs/tira/mock-tira-key.pem
 TIRA_PUBLIC_CERT_PATH=./certs/tira/mock-tira-public.pfx
 TIRA_PUBLIC_CERT_PASSWORD=password
 
-CALLBACK_DELAY_MS=3000
-CALLBACK_RETRIES=3
-CALLBACK_RETRY_DELAY_MS=5000
+MOCK_CALLBACK_DELAY_MS=3000
+MOCK_CALLBACK_RETRIES=3
+MOCK_CALLBACK_RETRY_DELAY_MS=5000
 
 MOCK_DEFAULT_SCENARIO=success
 MOCK_ENABLE_BUSINESS_VALIDATION=true
@@ -95,6 +96,11 @@ MOCK_LOAD_TEST_DEFAULT_CONCURRENCY=5
 MOCK_LOAD_TEST_DEFAULT_CALLBACK_URL=http://localhost:5050/tiramis/mock/callback-receiver
 
 MOCK_RESPONSE_USE_REQUEST_ID=true
+# Leave these blank to generate unique TIRA-like values per request. Set one
+# only when a test needs a fixed, repeatable response value.
+MOCK_DEFAULT_COVER_NOTE_REFERENCE_NUMBER=
+MOCK_DEFAULT_MOTOR_COVER_NOTE_REFERENCE_NUMBER=
+MOCK_DEFAULT_STICKER_NUMBER=
 MOCK_COVER_NOTE_REF_PREFIX=CN
 MOCK_MOTOR_COVER_NOTE_REF_PREFIX=MCN
 MOCK_STICKER_PREFIX=STK

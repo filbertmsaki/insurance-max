@@ -93,7 +93,6 @@ export const tiramisEnvValidationSchema = Joi.object({
   // Protects the signature-bypassed internal callback test route. It must be
   // explicitly enabled for each deployment and defaults to disabled.
   TIRAMIS_INTERNAL_CALLBACK_TESTS_ENABLED: Joi.boolean().default(false),
-  TIRAMIS_LEGACY_PORTAL_WEBHOOK_TOKEN_ENABLED: Joi.boolean().default(false),
   // Directory for tiramis_callback_error.log. Must be a path that survives
   // deploys (e.g. /opt/apps/tiramis/shared) — PM2's cwd is a per-release
   // directory that gets replaced on every release. Defaults to cwd for local dev.
