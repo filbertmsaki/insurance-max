@@ -464,11 +464,7 @@ export class QuotationPreviewMapper {
       subject_matters: this.mapSubjectMatters(entry.subject_matters),
       addons: this.mapAddons(entry.addons),
       motor_details: this.mapMotorDetail(entry.motor_detail),
-      tiramis: this.mapTiramisSubmission(
-        quotation,
-        entry.cover_note_number,
-        tracking,
-      ),
+      tiramis: this.mapTiramisSubmission(quotation, tracking),
     };
   }
 
@@ -590,10 +586,7 @@ export class QuotationPreviewMapper {
       ),
       cover_note_reference_number: this.text(
         submission?.cover_note_reference_number ??
-          tracking?.tiramisResponsePayload?.coverNoteReferenceNumber ??
-          entries[0]?.cover_note_number ??
-          coverNote.fleet_id ??
-          quotation.quotation_no,
+          tracking?.tiramisResponsePayload?.coverNoteReferenceNumber,
       ),
       sticker_number: this.text(
         submission?.sticker_number ??
@@ -937,7 +930,6 @@ export class QuotationPreviewMapper {
 
   private mapTiramisSubmission(
     quotation: Quotation,
-    businessReference: string | null,
     tracking: TiramisSubmissionTrackingEntity | null,
   ): QuotationPreviewTiramisSubmission | null {
     if (!tracking && !quotation.submitted_at) {
@@ -980,7 +972,11 @@ export class QuotationPreviewMapper {
       response_status_code: this.text(tracking?.finalResponseStatusCode),
       response_status_description: this.text(tracking?.finalResponseStatusDesc),
       cover_note_reference_number: this.text(
-        tracking?.businessReference ?? businessReference,
+        tracking?.tiramisResponsePayload?.coverNoteReferenceNumber ??
+          this.callbackValue(
+            tracking?.finalResponsePayload,
+            'coverNoteReferenceNumber',
+          ),
       ),
       sticker_number: this.text(
         tracking?.finalResponsePayload &&
@@ -1292,5 +1288,10 @@ export class QuotationPreviewMapper {
     if (value === null || value === undefined) return null;
     const text = String(value).trim();
     return text ? text : null;
+  }
+
+  private callbackValue(payload: unknown, key: string): unknown {
+    if (!payload || typeof payload !== 'object') return null;
+    return (payload as Record<string, unknown>)[key];
   }
 }

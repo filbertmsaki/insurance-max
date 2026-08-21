@@ -1306,7 +1306,7 @@ export function FleetVehiclePreview({
                 ),
               },
               {
-                label: 'Cover Note Reference Number',
+                label: 'TIRAMIS Cover Note Reference',
                 value: displayValue(
                   vehicle.tiramis.cover_note_reference_number,
                 ),
@@ -1403,7 +1403,7 @@ export function TiramisSubmissionPreview({
               value: friendlyStatus,
             },
             {
-              label: 'Cover Note Reference',
+              label: 'TIRAMIS Cover Note Reference',
               value: displayValue(tiramis.cover_note_reference_number),
             },
             {
