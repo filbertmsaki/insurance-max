@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -16,6 +17,8 @@ import { UpsertCompanyTiramisConfigurationDto } from '../dto/upsert-company-tira
 
 @Injectable()
 export class CompanyTiramisConfigurationService {
+  private readonly logger = new Logger(CompanyTiramisConfigurationService.name);
+
   constructor(
     @InjectRepository(TiramisCompanyConfigurationEntity)
     private readonly repository: Repository<TiramisCompanyConfigurationEntity>,
@@ -464,14 +467,14 @@ export class CompanyTiramisConfigurationService {
     configuration: TiramisCompanyConfigurationEntity,
     isTargetEnvironment: boolean,
   ) {
+    const apiKey = this.describeServiceApiKey(configuration);
+
     return {
       ...configuration,
       environmentLabel:
         configuration.environment === 'live' ? 'Live/Production' : 'Test/UAT',
       isTargetEnvironment,
-      apiKeyStatus: configuration.serviceApiKeyEncrypted
-        ? 'ACTIVE'
-        : 'NOT_CONFIGURED',
+      apiKeyStatus: apiKey.status,
       effectiveCallbackUrl: this.resolveCallbackUrl(configuration),
       effectiveBaseUrl: this.resolveBaseUrl(configuration),
       effectiveSourceService: this.resolveSourceService(configuration),
@@ -483,13 +486,36 @@ export class CompanyTiramisConfigurationService {
       tiramisCallbackPath: null,
       isActiveCallback:
         isTargetEnvironment && Boolean(this.resolveCallbackUrl(configuration)),
-      serviceApiKeyMasked: this.apiKeyVault.mask(
-        configuration.serviceApiKeyEncrypted,
-      ),
+      serviceApiKeyMasked: apiKey.masked,
       serviceApiKeyConfigured: Boolean(configuration.serviceApiKeyEncrypted),
       serviceApiKeyEncrypted: undefined,
       clientKey: undefined,
     };
+  }
+
+  private describeServiceApiKey(
+    configuration: TiramisCompanyConfigurationEntity,
+  ): {
+    status: 'ACTIVE' | 'NOT_CONFIGURED' | 'RECOVERY_REQUIRED';
+    masked: string | null;
+  } {
+    if (!configuration.serviceApiKeyEncrypted) {
+      return { status: 'NOT_CONFIGURED', masked: null };
+    }
+
+    try {
+      return {
+        status: 'ACTIVE',
+        masked: this.apiKeyVault.mask(configuration.serviceApiKeyEncrypted),
+      };
+    } catch {
+      // Keep the management screen available so an owner can rotate a key
+      // encrypted under a lost or superseded application encryption key.
+      this.logger.warn(
+        `TIRAMIS API key recovery is required for configuration ${configuration.id}.`,
+      );
+      return { status: 'RECOVERY_REQUIRED', masked: null };
+    }
   }
 
   private async assertEnvironmentCanBeActivated(params: {

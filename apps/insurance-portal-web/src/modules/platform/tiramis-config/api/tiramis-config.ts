@@ -27,7 +27,7 @@ export interface PlatformTiramisConfiguration {
   isTargetEnvironment?: boolean;
   serviceApiKeyMasked?: string | null;
   serviceApiKeyConfigured?: boolean;
-  apiKeyStatus?: 'ACTIVE' | 'NOT_CONFIGURED';
+  apiKeyStatus?: 'ACTIVE' | 'NOT_CONFIGURED' | 'RECOVERY_REQUIRED';
   isActive: boolean;
   validationStatus: 'NOT_VALIDATED' | 'VALID' | 'INVALID';
   validatedAt: string | null;

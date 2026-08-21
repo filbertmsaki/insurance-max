@@ -124,7 +124,7 @@ export class PlatformTiramisConfigurationController {
   @Roles('OWNER')
   @Permissions('company-tiramis-config:update')
   @ApiOperation({
-    summary: "Generate or rotate a company's TIRAMIS service API key",
+    summary: "Generate, rotate, or recover a company's TIRAMIS service API key",
   })
   generateServiceApiKey(
     @Param('companyId', ParseUUIDPipe) companyId: string,

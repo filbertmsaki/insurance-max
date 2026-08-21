@@ -1382,9 +1382,20 @@ export class TiramisClientService {
       .andWhere('configuration.isActive = true')
       .getOne();
 
-    let apiKey = this.apiKeyVault.decrypt(
-      configuration?.serviceApiKeyEncrypted,
-    );
+    let apiKey: string | null;
+
+    try {
+      apiKey = this.apiKeyVault.decrypt(configuration?.serviceApiKeyEncrypted);
+    } catch (error) {
+      if (!options?.allowBootstrapFallback) {
+        throw error;
+      }
+
+      this.logger.warn(
+        `TIRAMIS API key recovery is required for company ${companyId} in ${targetEnvironment}; using the configured bootstrap key for this management operation.`,
+      );
+      apiKey = null;
+    }
 
     if (!apiKey && options?.allowBootstrapFallback) {
       apiKey =

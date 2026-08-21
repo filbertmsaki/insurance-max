@@ -115,6 +115,7 @@ function EnvironmentPanel({
   const [editing, setEditing] = useState(!config);
   const [generatedApiKey, setGeneratedApiKey] = useState<string | null>(null);
   const queryKey = ['platform-tiramis-configurations', companyId];
+  const requiresApiKeyRecovery = config?.apiKeyStatus === 'RECOVERY_REQUIRED';
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -261,12 +262,15 @@ function EnvironmentPanel({
       queryClient.invalidateQueries({ queryKey });
       setGeneratedApiKey(result.generatedApiKey ?? null);
       toast.success(
-        `${environment === 'live' ? 'Live/Production' : 'Test/UAT'} API key generated`,
+        `${environment === 'live' ? 'Live/Production' : 'Test/UAT'} API key ${requiresApiKeyRecovery ? 'recovered' : 'generated'}`,
       );
     },
     onError: (error: ApiErrorLike) =>
       toast.error(
-        error?.response?.data?.message ?? 'Unable to generate API key',
+        error?.response?.data?.message ??
+          (requiresApiKeyRecovery
+            ? 'Unable to recover API key'
+            : 'Unable to generate API key'),
       ),
   });
 
@@ -592,6 +596,13 @@ function EnvironmentPanel({
                   'Not configured'
                 )}
               </div>
+              {requiresApiKeyRecovery && (
+                <div className="col-span-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-950">
+                  The stored API key cannot be decrypted with the current
+                  encryption key. Recovering it replaces the old key using the
+                  configured TIRAMIS bootstrap credential.
+                </div>
+              )}
               <div>
                 <span className="text-slate-500">Key Environment:</span>{' '}
                 {config?.environmentLabel ??
@@ -657,15 +668,29 @@ function EnvironmentPanel({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => generateApiKeyMutation.mutate()}
+                onClick={() => {
+                  if (
+                    requiresApiKeyRecovery &&
+                    !window.confirm(
+                      'Recover this API key? The unreadable stored key will be replaced and cannot be restored.',
+                    )
+                  ) {
+                    return;
+                  }
+                  generateApiKeyMutation.mutate();
+                }}
                 disabled={generateApiKeyMutation.isPending}
               >
                 <KeyRound className="mr-1.5 h-3.5 w-3.5" />
                 {generateApiKeyMutation.isPending
-                  ? 'Generating...'
-                  : config?.serviceApiKeyConfigured
-                    ? 'Regenerate API Key'
-                    : 'Generate API Key'}
+                  ? requiresApiKeyRecovery
+                    ? 'Recovering...'
+                    : 'Generating...'
+                  : requiresApiKeyRecovery
+                    ? 'Recover API Key'
+                    : config?.serviceApiKeyConfigured
+                      ? 'Regenerate API Key'
+                      : 'Generate API Key'}
               </Button>
               {!config?.isTargetEnvironment && (
                 <Button
