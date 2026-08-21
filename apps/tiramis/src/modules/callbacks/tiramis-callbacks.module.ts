@@ -14,6 +14,7 @@ import { TiramisCallbackDeadLetterEntity } from './entities/tiramis-callback-dea
 import { TiramisCallbackReceiptEntity } from './entities/tiramis-callback-receipt.entity';
 
 import { TiramisCallbackController } from './controllers/tiramis-callback.controller';
+import { TiramisInternalCallbackTestController } from './controllers/tiramis-internal-callback-test.controller';
 import { TiramisCallbackService } from './services/tiramis-callback.service';
 import { TiramisCallbackBusinessUpdaterService } from './services/tiramis-callback-business-updater.service';
 
@@ -33,7 +34,10 @@ import { TiramisCallbackBusinessUpdaterService } from './services/tiramis-callba
     TiramisPoliciesModule,
     TiramisClaimsModule,
   ],
-  controllers: [TiramisCallbackController],
+  controllers: [
+    TiramisCallbackController,
+    TiramisInternalCallbackTestController,
+  ],
   providers: [TiramisCallbackService, TiramisCallbackBusinessUpdaterService],
   exports: [TiramisCallbackService, TiramisCallbackBusinessUpdaterService],
 })

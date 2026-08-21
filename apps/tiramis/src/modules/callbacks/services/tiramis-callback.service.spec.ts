@@ -177,6 +177,34 @@ describe('TiramisCallbackService', () => {
     });
   });
 
+  it('processes authenticated internal live callback tests without verifying a TIRA signature', async () => {
+    const { service, signatureService } = createService();
+    const parsedCallback = {
+      requestId: 'REQ-001',
+      responseId: 'RESP-001',
+      rawXml: '<TiraMsg />',
+      signatureVerified: false,
+    } as any;
+    const acknowledgement = {
+      acknowledgementXml: '<TiraMsg />',
+    } as any;
+
+    jest.spyOn(service as any, 'parseCallback').mockReturnValue(parsedCallback);
+    jest
+      .spyOn(service as any, 'handleCallbackReplayIfExists')
+      .mockResolvedValue({ isReplay: true, acknowledgement });
+
+    await expect(
+      service.handleInternalLiveTestCallback('<TiraMsg />'),
+    ).resolves.toBe(acknowledgement);
+
+    expect(signatureService.verifyXmlContent).not.toHaveBeenCalled();
+    expect(parsedCallback.signatureVerified).toBe(true);
+    expect((service as any).handleCallbackReplayIfExists).toHaveBeenCalledWith(
+      expect.objectContaining({ environment: 'live', parsedCallback }),
+    );
+  });
+
   it('stores a payload hash when quarantining callback XML', async () => {
     const { service, deadLetterRepository } = createService();
     const rawXml = '<TiraMsg><BadCallback /></TiraMsg>';

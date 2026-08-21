@@ -92,6 +92,31 @@ export class TiramisCallbackService {
     environment: string;
     rawXml: string;
   }): Promise<TiramisCallbackAckResultDto> {
+    return this.processCallback({
+      ...params,
+      bypassSignatureVerification: false,
+    });
+  }
+
+  /**
+   * Processes an authenticated, explicitly enabled internal live test callback.
+   * The controller is responsible for enforcing the API-key scope and feature gate.
+   */
+  async handleInternalLiveTestCallback(
+    rawXml: string,
+  ): Promise<TiramisCallbackAckResultDto> {
+    return this.processCallback({
+      environment: 'live',
+      rawXml,
+      bypassSignatureVerification: true,
+    });
+  }
+
+  private async processCallback(params: {
+    environment: string;
+    rawXml: string;
+    bypassSignatureVerification: boolean;
+  }): Promise<TiramisCallbackAckResultDto> {
     let parsedCallback: ParsedTiramisCallbackDto;
 
     try {
@@ -108,10 +133,12 @@ export class TiramisCallbackService {
       throw error;
     }
 
-    const signatureVerification = await this.verifyCallbackSignature({
-      environment: params.environment,
-      parsedCallback,
-    });
+    const signatureVerification = params.bypassSignatureVerification
+      ? { isValid: true }
+      : await this.verifyCallbackSignature({
+          environment: params.environment,
+          parsedCallback,
+        });
 
     if (!signatureVerification.isValid) {
       const reason =
@@ -175,6 +202,12 @@ export class TiramisCallbackService {
     }
 
     parsedCallback.signatureVerified = true;
+
+    if (params.bypassSignatureVerification) {
+      this.logger.warn(
+        `Processing authenticated internal live callback test for requestId ${parsedCallback.requestId}; TIRA signature verification was bypassed`,
+      );
+    }
 
     const replayResult = await this.handleCallbackReplayIfExists({
       environment: params.environment,

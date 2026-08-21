@@ -50,6 +50,9 @@ find /opt/apps/tiramis/certificates -type f -exec chmod 640 {} \;
   (`/opt/apps/tiramis/current`) is a symlink into a per-release directory that
   gets replaced on every release
 - `TIRAMIS_SECRET_ENCRYPTION_KEY` must be a base64 encoded 32-byte key
+- `TIRAMIS_INTERNAL_CALLBACK_TESTS_ENABLED=false` by default. Enable it only
+  for a controlled manual callback test, then set it back to `false` and
+  restart the service.
 
 Generate the encryption key once:
 
@@ -59,6 +62,23 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 Keep that key stable after running the config seed, because it encrypts stored
 TIRAMIS client keys and certificate passwords.
+
+## Internal Callback Tests
+
+`POST /api/internal/tiramis/callback-tests/live` accepts the same XML callback
+payload as the public live callback and runs the normal persistence, receipt,
+business-record update, acknowledgement, and portal-notification flow. It does
+not verify the TIRA XML signature.
+
+The endpoint is available only when both controls are satisfied:
+
+- `TIRAMIS_INTERNAL_CALLBACK_TESTS_ENABLED=true`
+- an `X-API-Key` with the dedicated `tiramis:callback:test` scope
+
+Use a short-lived, dedicated callback-test key and a real `RequestId` from a
+controlled live submission. Send the payload as `application/xml`; do not add a
+signature bypass header to the public `/api/tiramis/callbacks/live` endpoint.
+Disable the flag and revoke the test key immediately after the test.
 
 ## After The First Production Deploy
 
