@@ -30,6 +30,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
     .uri({ scheme: ['http', 'https'] })
     .default('http://localhost:9092'),
   SUPPORT_EMAIL: Joi.string().email().default('support@insurance-idp.tz'),
+  API_DEBUG_ERRORS_ENABLED: Joi.boolean().default(false),
 
   DB_TYPE: Joi.string()
     .valid('postgres', 'mysql', 'oracle')

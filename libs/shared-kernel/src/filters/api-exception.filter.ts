@@ -75,6 +75,7 @@ export class ApiExceptionFilter implements ExceptionFilter {
       this.configService.get<string>('app.env') || 'development';
 
     const isInternalError = statusCode >= HttpStatus.INTERNAL_SERVER_ERROR;
+    const includeDebugError = isInternalError && this.isDebugErrorsEnabled();
 
     const errorResponse: ApiErrorResponse = {
       success: false,
@@ -83,14 +84,20 @@ export class ApiExceptionFilter implements ExceptionFilter {
         code: this.resolveErrorCode(body, statusCode),
 
         message: isInternalError
-          ? 'An internal server error occurred.'
+          ? includeDebugError
+            ? messages[0]
+            : 'An internal server error occurred.'
           : messages[0],
 
         ...(fieldErrors.length > 0 ? { errors: fieldErrors } : {}),
 
-        ...(!isInternalError || environment !== 'production'
+        ...(!isInternalError ||
+        environment !== 'production' ||
+        includeDebugError
           ? {
-              details: this.extractDetails(body) || null,
+              details: includeDebugError
+                ? this.extractDebugDetails(exception, body, messages)
+                : this.extractDetails(body) || null,
             }
           : {}),
       },
@@ -181,6 +188,10 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       return [exception.message];
+    }
+
+    if (exception instanceof Error && exception.message.trim()) {
+      return [exception.message.trim()];
     }
 
     return ['Internal server error'];
@@ -283,5 +294,23 @@ export class ApiExceptionFilter implements ExceptionFilter {
     );
 
     return Object.keys(details).length > 0 ? details : null;
+  }
+
+  private isDebugErrorsEnabled(): boolean {
+    return (
+      String(this.configService.get('API_DEBUG_ERRORS_ENABLED')) === 'true'
+    );
+  }
+
+  private extractDebugDetails(
+    exception: unknown,
+    body: HttpErrorBody,
+    messages: string[],
+  ): Record<string, unknown> {
+    return {
+      ...(this.extractDetails(body) ?? {}),
+      exception: exception instanceof Error ? exception.name : 'UnknownError',
+      message: messages[0],
+    };
   }
 }
