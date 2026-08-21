@@ -521,6 +521,19 @@ export class TiramisBusinessRecordSyncService {
 
     try {
       const submission = await this.findOrCreatePortalSubmission(tracking);
+      const coverNote = regulatoryResponse?.coverNotes?.[0];
+
+      if (
+        coverNote &&
+        (coverNote.coverNoteReferenceNumber || coverNote.stickerNumber)
+      ) {
+        submission.cover_note_reference_number =
+          coverNote.coverNoteReferenceNumber ||
+          submission.cover_note_reference_number;
+        submission.sticker_number =
+          coverNote.stickerNumber || submission.sticker_number;
+        await this.portalSubmissionRepository.save(submission);
+      }
 
       const payload: TiramisNotificationEventDto = {
         eventType: 'TIRAMIS_FINAL_SUCCESS',
@@ -728,12 +741,20 @@ export class TiramisBusinessRecordSyncService {
   private extractRegulatoryResponse(
     tracking: TiramisSubmissionTrackingEntity,
   ): Record<string, any> | null {
+    const attemptPayloads = Array.isArray(
+      (tracking.tiramisResponsePayload as any)?.attempts,
+    )
+      ? (tracking.tiramisResponsePayload as any).attempts
+          .map((attempt: any) => attempt?.payloads)
+          .filter(Boolean)
+      : [];
     const payloads = [
       tracking.finalResponsePayload,
       tracking.tiramisResponsePayload,
       (tracking.tiramisResponsePayload as any)?.finalResponse,
       (tracking.tiramisResponsePayload as any)?.currentAttempt?.finalResponse,
       (tracking.tiramisResponsePayload as any)?.currentAttempt?.payloads,
+      ...attemptPayloads,
     ].filter(Boolean);
 
     for (const payload of payloads) {
@@ -749,6 +770,9 @@ export class TiramisBusinessRecordSyncService {
       (tracking.tiramisResponsePayload as any)?.responseXml ||
       (tracking.tiramisResponsePayload as any)?.currentAttempt?.payloads
         ?.responseXml ||
+      attemptPayloads
+        .map((payload: any) => payload?.responseXml)
+        .find((xml: unknown): xml is string => typeof xml === 'string') ||
       null;
 
     if (responseXml) {
