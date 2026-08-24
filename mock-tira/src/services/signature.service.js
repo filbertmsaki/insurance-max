@@ -255,6 +255,10 @@ function wrapTiraMessage(contentXml) {
   return buildTiraMessage(contentXml, signResponseContent);
 }
 
+function wrapFinalTiraMessage(contentXml) {
+  return buildRawTiraMessage(contentXml, signResponseContent);
+}
+
 function signClientContent(contentXml) {
   const certs = loadCertificates();
 
@@ -519,6 +523,7 @@ module.exports = {
   verifyTiraResponseSignature,
   signResponseContent,
   wrapTiraMessage,
+  wrapFinalTiraMessage,
   signClientContent,
   wrapClientTiraMessage,
   extractSignedRequest,

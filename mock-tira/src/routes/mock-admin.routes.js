@@ -60,6 +60,7 @@ function parseJsonBody(body) {
 
 function registerMockAdminRoutes(app, deps = {}) {
   const wrapTiraMessage = deps.wrapTiraMessage;
+  const wrapFinalTiraMessage = deps.wrapFinalTiraMessage || wrapTiraMessage;
 
   app.get('/tiramis/mock/requests', (req, res) => {
     const includeXml =
@@ -493,7 +494,7 @@ function registerMockAdminRoutes(app, deps = {}) {
         },
       );
 
-      const finalXml = wrapTiraMessage(finalContent);
+      const finalXml = wrapFinalTiraMessage(finalContent);
 
       updateTracking(record.id, {
         status: 'MANUAL_FINAL_FAILURE_SCHEDULED',
@@ -553,7 +554,7 @@ function registerMockAdminRoutes(app, deps = {}) {
         },
       );
 
-      const finalXml = wrapTiraMessage(finalContent);
+      const finalXml = wrapFinalTiraMessage(finalContent);
 
       updateTracking(record.id, {
         status: 'MANUAL_FINAL_SUCCESS_SCHEDULED',

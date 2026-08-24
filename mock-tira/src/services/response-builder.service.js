@@ -4,6 +4,9 @@ const {
   SYNC_RESPONSE_ROOTS,
 } = require('../constants/tiramis-roots.constant');
 const { escapeXml, getTag } = require('../utils/xml.util');
+const {
+  buildDigitGroupReference,
+} = require('./mock-response-data.service');
 
 function buildTiraMessage(contentXml, signer) {
   const signature = signer ? signer(contentXml) : '';
@@ -20,12 +23,30 @@ function buildRawTiraMessage(contentXml, signer) {
   const signature = signer ? signer(contentXml) : '';
 
   return [
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    '<?xml version="1.0" encoding="UTF-8"?>\n',
     '<TiraMsg>',
     contentXml,
     `<MsgSignature>${escapeXml(signature || '')}</MsgSignature>`,
     '</TiraMsg>',
   ].join('');
+}
+
+function buildResponseId() {
+  const now = new Date();
+  const timestamp = [
+    now.getUTCFullYear(),
+    String(now.getUTCMonth() + 1).padStart(2, '0'),
+    String(now.getUTCDate()).padStart(2, '0'),
+    String(now.getUTCHours()).padStart(2, '0'),
+    String(now.getUTCMinutes()).padStart(2, '0'),
+    String(now.getUTCSeconds()).padStart(2, '0'),
+  ].join('');
+  const suffix = String(Math.floor(Math.random() * 10_000_000)).padStart(
+    7,
+    '0',
+  );
+
+  return `${timestamp}${suffix}`;
 }
 
 function buildAcknowledgementContent(root, requestId, code, desc) {
@@ -44,9 +65,67 @@ function buildAcknowledgementContent(root, requestId, code, desc) {
 function buildAsyncFinalResponseContent(root, requestId, code, desc, options = {}) {
   const config = ASYNC_RESPONSE_ROOTS[root];
   const finalRoot = config?.finalRoot || `${root.replace(/Req$/, '')}Res`;
-  const responseId = options.responseId || `MOCK-RES-${Date.now()}`;
+  const responseId = options.responseId || buildResponseId();
   const responseData = options.responseData || {};
   const extraFields = buildFinalExtraFields(root, requestId, responseData);
+
+  if (root === 'MotorCoverNoteRefReq' && responseData.isFleet) {
+    const fleetFailed = String(code).toUpperCase() !== 'TIRA001';
+    const lastFleetItemIndex = (responseData.fleetItems || []).length - 1;
+    const fleetDetails = (responseData.fleetItems || [])
+      .map((item, index) => {
+        const itemFailed = fleetFailed && index === lastFleetItemIndex;
+        const itemCode = itemFailed ? 'TIRA137' : 'TIRA001';
+        const itemDesc = itemFailed
+          ? 'Invalid motor registration number'
+          : 'Successful';
+
+        return [
+          '<FleetResDtl>',
+          `<FleetEntry>${escapeXml(item.fleetEntry)}</FleetEntry>`,
+          `<CoverNoteNumber>${escapeXml(item.coverNoteNumber)}</CoverNoteNumber>`,
+          `<CoverNoteReferenceNumber>${escapeXml(
+            fleetFailed ? '' : item.coverNoteReferenceNumber,
+          )}</CoverNoteReferenceNumber>`,
+          `<StickerNumber>${escapeXml(
+            fleetFailed ? '' : item.stickerNumber,
+          )}</StickerNumber>`,
+          `<ResponseStatusCode>${itemCode}</ResponseStatusCode>`,
+          `<ResponseStatusDesc>${itemDesc}</ResponseStatusDesc>`,
+          '</FleetResDtl>',
+        ].join('');
+      })
+      .join('');
+
+    return [
+      `<${finalRoot}>`,
+      '<FleetResHdr>',
+      `<ResponseId>${escapeXml(responseId)}</ResponseId>`,
+      `<RequestId>${escapeXml(requestId)}</RequestId>`,
+      `<FleetId>${escapeXml(responseData.fleetId || '')}</FleetId>`,
+      `<FleetStatusCode>${escapeXml(code)}</FleetStatusCode>`,
+      `<FleetStatusDesc>${escapeXml(
+        fleetFailed ? 'Failure' : desc,
+      )}</FleetStatusDesc>`,
+      '</FleetResHdr>',
+      fleetDetails,
+      buildCustomFields(responseData.customFields),
+      `</${finalRoot}>`,
+    ].join('');
+  }
+
+  if (root === 'MotorCoverNoteRefReq') {
+    return [
+      `<${finalRoot}>`,
+      `<ResponseId>${escapeXml(responseId)}</ResponseId>`,
+      `<RequestId>${escapeXml(requestId)}</RequestId>`,
+      extraFields,
+      `<ResponseStatusCode>${escapeXml(code)}</ResponseStatusCode>`,
+      `<ResponseStatusDesc>${escapeXml(desc)}</ResponseStatusDesc>`,
+      buildCustomFields(responseData.customFields),
+      `</${finalRoot}>`,
+    ].join('');
+  }
 
   return [
     `<${finalRoot}>`,
@@ -281,7 +360,8 @@ function buildFinalExtraFields(root, requestId, responseData = {}) {
     case 'CoverNoteRefReq':
       return [
         `<CoverNoteReferenceNumber>${escapeXml(
-          responseData.coverNoteReferenceNumber || `CN-${requestId}`,
+          responseData.coverNoteReferenceNumber ||
+            buildDigitGroupReference(`cover-note:${requestId}`),
         )}</CoverNoteReferenceNumber>`,
       ].join('');
     case 'MotorCoverNoteRefReq':
@@ -289,10 +369,11 @@ function buildFinalExtraFields(root, requestId, responseData = {}) {
         `<CoverNoteReferenceNumber>${escapeXml(
           responseData.motorCoverNoteReferenceNumber ||
             responseData.coverNoteReferenceNumber ||
-            `MCN-${requestId}`,
+            buildDigitGroupReference(`motor-cover-note:${requestId}`),
         )}</CoverNoteReferenceNumber>`,
         `<StickerNumber>${escapeXml(
-          responseData.stickerNumber || `STK-${Date.now()}`,
+          responseData.stickerNumber ||
+            buildDigitGroupReference(`sticker:${requestId}`),
         )}</StickerNumber>`,
       ].join('');
     case 'ClaimNotificationRefReq':

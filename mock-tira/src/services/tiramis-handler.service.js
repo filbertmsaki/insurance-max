@@ -40,6 +40,7 @@ const {
 
 const {
   buildTiraMessage,
+  buildRawTiraMessage,
   buildAcknowledgementContent,
   buildAsyncFinalResponseContent,
   buildSyncResponseContent,
@@ -84,6 +85,10 @@ function createTiramisRequestHandler(deps) {
   const wrapTiraMessage =
     deps.wrapTiraMessage ||
     ((contentXml) => buildTiraMessage(contentXml, deps.signResponseContent));
+  const wrapFinalTiraMessage =
+    deps.wrapFinalTiraMessage ||
+    ((contentXml) =>
+      buildRawTiraMessage(contentXml, deps.signResponseContent));
 
   if (!validateHeaders) {
     throw new Error('validateHeaders dependency is required');
@@ -523,7 +528,7 @@ function createTiramisRequestHandler(deps) {
       },
     );
 
-    const finalResponseXml = wrapTiraMessage(finalContent);
+    const finalResponseXml = wrapFinalTiraMessage(finalContent);
     const callbackDelayMs =
       getScenarioCallbackDelay(req, scenario) + callbackExtraDelayMs;
     const callbackScheduleDelayMs = ackDelayMs + callbackDelayMs;

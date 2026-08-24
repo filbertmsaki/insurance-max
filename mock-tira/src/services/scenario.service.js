@@ -159,7 +159,7 @@ function getScenarioFinalStatus(scenario) {
   if (scenario === MOCK_SCENARIOS.FINAL_FAILURE) {
     return {
       code: 'TIRA002',
-      desc: 'Mock TIRA final response failure',
+      desc: 'Failure',
     };
   }
 

@@ -9,6 +9,7 @@ const {
   verifyClientRequestSignature,
   verifyTiraResponseSignature,
   wrapTiraMessage,
+  wrapFinalTiraMessage,
   wrapClientTiraMessage,
   signClientContent,
   getCertificateHealth,
@@ -238,6 +239,7 @@ const handleTiramisRequest = createTiramisRequestHandler({
   validateHeaders,
   verifyClientRequestSignature,
   wrapTiraMessage,
+  wrapFinalTiraMessage,
 });
 
 /**
@@ -245,6 +247,7 @@ const handleTiramisRequest = createTiramisRequestHandler({
  */
 registerMockAdminRoutes(app, {
   wrapTiraMessage,
+  wrapFinalTiraMessage,
 });
 
 registerTiramisRoutes(app, handleTiramisRequest);

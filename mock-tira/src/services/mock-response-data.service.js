@@ -125,6 +125,29 @@ function firstValue(...values) {
   return null;
 }
 
+function extractFleetItems(xml, requestId) {
+  const text = String(xml || '');
+  const blocks = [
+    ...text.matchAll(/<FleetDtl[^>]*>([\s\S]*?)<\/FleetDtl>/gi),
+  ];
+
+  return blocks.map((match, index) => {
+    const itemXml = match[1];
+    const fleetEntry = getTag(itemXml, 'FleetEntry') || String(index + 1);
+    const coverNoteNumber = getTag(itemXml, 'CoverNoteNumber') || '';
+    const itemSeed = `${requestId}:${fleetEntry}:${coverNoteNumber}`;
+
+    return {
+      fleetEntry,
+      coverNoteNumber,
+      coverNoteReferenceNumber: buildDigitGroupReference(
+        `motor-fleet-cover-note:${itemSeed}`,
+      ),
+      stickerNumber: buildDigitGroupReference(`motor-fleet-sticker:${itemSeed}`),
+    };
+  });
+}
+
 function header(req, name) {
   if (!req) {
     return null;
@@ -227,6 +250,7 @@ function resolveMockResponseData(params = {}) {
   const xml = params.xml || '';
 
   const overrides = extractResponseOverrides(req, xml);
+  const fleetItems = extractFleetItems(xml, requestId);
 
   const data = {
     coverNoteReferenceNumber: firstValue(
@@ -250,6 +274,9 @@ function resolveMockResponseData(params = {}) {
       CONFIG.defaultStickerNumber,
       buildDigitGroupReference(`sticker:${requestId}`),
     ),
+    isFleet: root === 'MotorCoverNoteRefReq' && fleetItems.length > 0,
+    fleetId: getTag(xml, 'FleetId'),
+    fleetItems,
     policyReferenceNumber: firstValue(
       overrides.policyReferenceNumber,
       RUNTIME_RESPONSE_CONFIG.policyReferenceNumber,
@@ -304,6 +331,7 @@ function resolveMockResponseData(params = {}) {
 }
 
 module.exports = {
+  buildDigitGroupReference,
   getRuntimeResponseConfig,
   updateRuntimeResponseConfig,
   resetRuntimeResponseConfig,
