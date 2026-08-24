@@ -21,6 +21,11 @@ import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 
 import { getDeviceToken } from '@/modules/shared/devices/device-token';
 
+import {
+  reportNetworkFailure,
+  reportRequestSuccess,
+} from '@/modules/shared/connectivity/lib/connectivity-monitor';
+
 import type { LoginResponse } from '@/types';
 
 import { isPaginatedPayload, normalizePaginatedResponse } from './pagination';
@@ -48,6 +53,10 @@ declare module 'axios' {
 
 function createRequestId(): string {
   return createBrowserSafeId();
+}
+
+function isConnectivityError(error: AxiosError): boolean {
+  return !error.response && !axios.isCancel(error);
 }
 
 function unwrapResponse(response: AxiosResponse): AxiosResponse {
@@ -177,7 +186,10 @@ async function refreshAccessToken(refreshToken: string): Promise<string> {
 }
 
 apiClient.interceptors.response.use(
-  (response) => unwrapResponse(response),
+  (response) => {
+    reportRequestSuccess();
+    return unwrapResponse(response);
+  },
 
   async (error: AxiosError) => {
     const originalRequest = error.config as
@@ -185,6 +197,11 @@ apiClient.interceptors.response.use(
       | undefined;
 
     if (!originalRequest) {
+      return Promise.reject(error);
+    }
+
+    if (isConnectivityError(error)) {
+      reportNetworkFailure();
       return Promise.reject(error);
     }
 
@@ -236,8 +253,14 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
 
-        useAuthStore.getState().logout();
-        window.location.assign('/login');
+        if (refreshError instanceof AxiosError && isConnectivityError(refreshError)) {
+          // The refresh token itself may still be valid — the network just
+          // dropped mid-refresh. Don't treat that as a session failure.
+          reportNetworkFailure();
+        } else {
+          useAuthStore.getState().logout();
+          window.location.assign('/login');
+        }
 
         return Promise.reject(refreshError);
       } finally {
