@@ -42,6 +42,7 @@ export class TiramisCallbackService {
     'tiramis_callback_error.log',
   );
   private readonly responseHeaderKeys = [
+    'FleetResHdr',
     'CoverNoteHdr',
     'MotorCoverNoteHdr',
     'ReinsuranceHdr',
@@ -352,14 +353,12 @@ export class TiramisCallbackService {
     const content = parsedMessage.content;
     const requestId = this.getResponseValue(content, 'RequestId');
     const responseId = this.getResponseValue(content, 'ResponseId');
-    const responseStatusCode = this.getResponseValue(
-      content,
-      'ResponseStatusCode',
-    );
-    const responseStatusDesc = this.getResponseValue(
-      content,
-      'ResponseStatusDesc',
-    );
+    const responseStatusCode =
+      this.getResponseValue(content, 'ResponseStatusCode') ||
+      this.getResponseValue(content, 'FleetStatusCode');
+    const responseStatusDesc =
+      this.getResponseValue(content, 'ResponseStatusDesc') ||
+      this.getResponseValue(content, 'FleetStatusDesc');
 
     if (
       !requestId ||

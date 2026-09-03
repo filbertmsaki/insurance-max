@@ -41,4 +41,35 @@ describe('TiramisXmlParserService cover note verification responses', () => {
 
     expect(message.contentXml).toBe(contentXml);
   });
+
+  it('extracts fleet callback status values from FleetResHdr', () => {
+    const parser = new TiramisXmlParserService();
+    const response = parser.extractFinalResponse(`
+      <TiraMsg>
+        <MotorCoverNoteRefRes>
+          <FleetResHdr>
+            <ResponseId>TIRA22424232355</ResponseId>
+            <RequestId>YOURS22424232355</RequestId>
+            <FleetId>FL122340</FleetId>
+            <FleetStatusCode>TIRA001</FleetStatusCode>
+            <FleetStatusDesc>Successful</FleetStatusDesc>
+          </FleetResHdr>
+          <FleetResDtl>
+            <FleetEntry>1</FleetEntry>
+            <CoverNoteNumber>NIC00004</CoverNoteNumber>
+            <CoverNoteReferenceNumber>23579-00033-25251</CoverNoteReferenceNumber>
+            <StickerNumber>33245-24444-52533</StickerNumber>
+            <ResponseStatusCode>TIRA001</ResponseStatusCode>
+            <ResponseStatusDesc>Successful</ResponseStatusDesc>
+          </FleetResDtl>
+        </MotorCoverNoteRefRes>
+        <MsgSignature>RESPONSE_SIGNATURE</MsgSignature>
+      </TiraMsg>
+    `);
+
+    expect(response.requestId).toBe('YOURS22424232355');
+    expect(response.responseId).toBe('TIRA22424232355');
+    expect(response.responseStatusCode).toBe('TIRA001');
+    expect(response.responseStatusDesc).toBe('Successful');
+  });
 });
