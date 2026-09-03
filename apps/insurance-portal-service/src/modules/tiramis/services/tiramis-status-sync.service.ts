@@ -63,9 +63,14 @@ export class TiramisStatusSyncService {
         environment.TIRAMIS_CALLBACK_OVERDUE_MINUTES || 10,
       );
 
+      const maxAgeHours = Number(
+        environment.TIRAMIS_STATUS_SYNC_MAX_AGE_HOURS || 72,
+      );
+
       const records = await this.trackingRepository.findStatusSyncCandidates({
         limit,
         callbackOverdueMinutes,
+        maxAgeHours,
       });
 
       const result = {

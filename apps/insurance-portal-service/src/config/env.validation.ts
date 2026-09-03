@@ -374,6 +374,7 @@ export const insurancePortalEnvValidationSchema = Joi.object({
   TIRAMIS_STATUS_SYNC_CRON: Joi.string().default('*/2 * * * *'),
   TIRAMIS_STATUS_SYNC_LIMIT: Joi.number().default(50),
   TIRAMIS_STATUS_SYNC_INCLUDE_PAYLOAD: Joi.boolean().default(true),
+  TIRAMIS_STATUS_SYNC_MAX_AGE_HOURS: Joi.number().default(72),
   TIRAMIS_PORTAL_OUTBOX_ENABLED: Joi.boolean().default(true),
   TIRAMIS_PORTAL_OUTBOX_BATCH_SIZE: Joi.number().integer().min(1).default(50),
   TIRAMIS_PORTAL_OUTBOX_MAX_ATTEMPTS: Joi.number().integer().min(1).default(10),

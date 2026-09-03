@@ -443,10 +443,11 @@ export class TiramisSubmissionTrackingRepository {
   async findStatusSyncCandidates(params?: {
     limit?: number;
     callbackOverdueMinutes?: number;
+    maxAgeHours?: number;
   }) {
     const limit = Math.min(Math.max(Number(params?.limit || 50), 1), 200);
 
-    return this.repository
+    const qb = this.repository
       .createQueryBuilder('tracking')
       .where('tracking.deleted_at IS NULL')
       .andWhere('tracking.status IN (:...statuses)', {
@@ -461,10 +462,16 @@ export class TiramisSubmissionTrackingRepository {
       })
       .andWhere(
         '(tracking.final_response_id IS NULL OR tracking.final_response_status_code IS NULL)',
-      )
-      .orderBy('tracking.updated_at', 'ASC')
-      .take(limit)
-      .getMany();
+      );
+
+    if (params?.maxAgeHours) {
+      qb.andWhere(
+        `tracking.created_at > now() - (:maxAgeHours * interval '1 hour')`,
+        { maxAgeHours: params.maxAgeHours },
+      );
+    }
+
+    return qb.orderBy('tracking.updated_at', 'ASC').take(limit).getMany();
   }
 
   findPendingFinalSync(limit = 50) {
