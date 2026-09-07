@@ -214,7 +214,11 @@ async function bootstrap() {
 
   await app.listen(port, host);
 
-  logger.log(`Insurance portal service running at: ${appBaseUrl}`);
+  // Keep the ready signal visible even when LOGGER_LEVEL intentionally excludes
+  // Nest's `log` level. Without this, a successful long compile looks hung.
+  process.stdout.write(
+    `[startup] Insurance portal service running at: ${appBaseUrl}\n`,
+  );
   if (swaggerEnabled) {
     logger.log(
       `Swagger docs available at: ${buildUrl(appBaseUrl, 'api-documentation')}`,
@@ -222,4 +226,10 @@ async function bootstrap() {
   }
 }
 
-void bootstrap();
+void bootstrap().catch((error: unknown) => {
+  // Nest's logger may be disabled or restricted to selected levels. Bootstrap
+  // failures must still be visible and must produce a failing exit code.
+  const message = error instanceof Error ? error.stack || error.message : error;
+  console.error('[startup] Insurance portal service failed to start:', message);
+  process.exitCode = 1;
+});

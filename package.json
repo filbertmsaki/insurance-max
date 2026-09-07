@@ -8,7 +8,7 @@
   "scripts": {
     "start": "nest start tiramis",
     "start:tiramis": "nest start tiramis",
-    "start:insurance-portal-service": "nest start insurance-portal-service",
+    "start:insurance-portal-service": "node -e \"console.log('[startup] Compiling insurance portal service...')\" && nest start insurance-portal-service",
     "start:dev": "nest start tiramis --watch",
     "start:dev:tiramis": "nest start tiramis --watch",
     "start:dev:insurance-portal-service": "nest start insurance-portal-service --watch",
