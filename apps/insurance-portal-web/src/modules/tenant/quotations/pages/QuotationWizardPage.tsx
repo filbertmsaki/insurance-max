@@ -55,9 +55,11 @@ import {
 import { CoverNoteSetupStep } from '../wizard/steps/CoverNoteSetupStep';
 import { PolicyholderStep } from '../wizard/steps/PolicyholderStep';
 import { RiskPremiumStep } from '../wizard/steps/RiskPremiumStep';
+import { useSubjectMatterOptions } from '@/modules/tenant/non-motor/hooks';
 import { AddOnsStep } from '../wizard/steps/AddOnsStep';
 import { MotorDetailsStep } from '../wizard/steps/MotorDetailsStep';
 import { MotorFleetDetailsStep } from '../wizard/steps/MotorFleetDetailsStep';
+import type { FleetCsvRow } from '../wizard/utils/fleetCsvImport';
 import { SummaryReviewStep } from '../wizard/steps/SummaryReviewStep';
 import { FleetSetupStep } from '../wizard/steps/FleetSetupStep';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
@@ -349,6 +351,16 @@ export function QuotationWizardPage() {
   const { data: vehicleOptions = [] } = useQuotationVehicles(
     policyholderMode === 'existing' ? customerId : undefined,
   );
+  const { data: allSubjectMatterOptions = [] } = useSubjectMatterOptions();
+  const subjectMatterOptions = useMemo(
+    () =>
+      policyholderMode === 'existing' && customerId
+        ? allSubjectMatterOptions.filter(
+            (subjectMatter) => subjectMatter.customer_id === customerId,
+          )
+        : [],
+    [allSubjectMatterOptions, policyholderMode, customerId],
+  );
   const selectedCustomer = customerOptions.find(
     (item) => item.id === customerId,
   );
@@ -439,16 +451,19 @@ export function QuotationWizardPage() {
       ...quotationRecordToFormValues(quotationContext),
       ...(draftSnapshot ?? {}),
       status: quotationContext.status,
-      cover_note_type: quotationContext.cover_note_hdr.cover_note_type?.toString() as
-        | '1'
-        | '2'
-        | '3',
+      cover_note_type:
+        quotationContext.cover_note_hdr.cover_note_type?.toString() as
+          | '1'
+          | '2'
+          | '3',
       prev_cover_note_reference:
         quotationContext.cover_note_dtl.prev_cover_note_reference_number ?? '',
-      endorsement_type: (quotationContext.cover_note_dtl.endorsement_type != null
+      endorsement_type: (quotationContext.cover_note_dtl.endorsement_type !=
+      null
         ? String(quotationContext.cover_note_dtl.endorsement_type)
         : '') as '1' | '2' | '3' | '4' | '',
-      endorsement_reason: quotationContext.cover_note_dtl.endorsement_reason ?? '',
+      endorsement_reason:
+        quotationContext.cover_note_dtl.endorsement_reason ?? '',
       endorsement_premium_earned:
         quotationContext.cover_note_dtl.endorsement_premium_earned != null
           ? String(quotationContext.cover_note_dtl.endorsement_premium_earned)
@@ -760,6 +775,54 @@ export function QuotationWizardPage() {
         engine_number: '',
       },
     });
+  }
+
+  function importFleetVehicles(rows: FleetCsvRow[]) {
+    const startingEntry = fleetFieldArray.fields.length;
+    const newItems = rows.map((row, rowIndex) => {
+      const base = createEmptyFleetItemRow();
+      const matchedRisk = riskOptions.find(
+        (risk) => risk.risk_code === row.risk_code,
+      );
+
+      return {
+        ...base,
+        fleet_entry: String(startingEntry + rowIndex + 1),
+        risks_covered: [
+          {
+            ...base.risks_covered[0],
+            risk_code: row.risk_code,
+            risk_id: matchedRisk?.id ?? '',
+            sum_insured: row.sum_insured,
+            sum_insured_equivalent: row.sum_insured,
+          },
+        ],
+        subject_matters_covered: row.subject_matter_reference.trim()
+          ? [
+              {
+                subject_matter_reference: row.subject_matter_reference,
+                subject_matter_desc: row.subject_matter_desc,
+              },
+            ]
+          : base.subject_matters_covered,
+        motor_dtl: {
+          ...base.motor_dtl,
+          registration_number: row.registration_number,
+          chassis_number: row.chassis_number,
+          engine_number: row.engine_number,
+          make: row.make,
+          model: row.model,
+          body_type: row.body_type,
+          color: row.color,
+          year_of_manufacture: row.year_of_manufacture,
+          sitting_capacity: row.sitting_capacity,
+          owner_name: row.owner_name,
+          owner_address: row.owner_address,
+        },
+      };
+    });
+
+    fleetFieldArray.append(newItems);
   }
 
   const saveDraftSnapshot = useCallback(
@@ -1088,6 +1151,7 @@ export function QuotationWizardPage() {
                       fieldArray={riskFieldArray}
                       flow={quotationFlow}
                       subjectMatterFieldArray={nonMotorFieldArray}
+                      subjectMatterOptions={subjectMatterOptions}
                       onRemoveRisk={removeRisk}
                       onAddRisk={addRisk}
                       factorContext={quotationFactorContext}
@@ -1121,10 +1185,12 @@ export function QuotationWizardPage() {
                     form={form}
                     customerOptions={customerOptions}
                     riskOptions={riskOptions}
+                    vehicleOptions={vehicleOptions}
                     fieldArray={fleetFieldArray}
                     onAddVehicle={addFleetVehicle}
                     onRemoveVehicle={removeFleetVehicle}
                     onDuplicateVehicle={duplicateFleetVehicle}
+                    onImportVehicles={importFleetVehicles}
                     factorContext={quotationFactorContext}
                   />
                 )}

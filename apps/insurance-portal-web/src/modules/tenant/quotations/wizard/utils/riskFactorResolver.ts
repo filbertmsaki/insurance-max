@@ -140,6 +140,28 @@ export function motorFieldNameForFactorCode(
   return MOTOR_FACTOR_FIELD_MAP[factorCode];
 }
 
+/**
+ * True when a factor code already has a dedicated input elsewhere in the
+ * Motor Details step (or a special-cased derivation, like gross_weight_tons
+ * from tonnage/gross_weight) — used to keep the generic factor renderer from
+ * duplicating a field the user already has a purpose-built place to fill in.
+ */
+export function isMotorFactorCovered(factorCode: string): boolean {
+  return (
+    factorCode in MOTOR_FACTOR_FIELD_MAP ||
+    factorCode === 'gross_weight_tons' ||
+    factorCode === 'motor_usage'
+  );
+}
+
+/** Fleet-flow equivalent of {@link isMotorFactorCovered}. */
+export function isFleetMotorFactorCovered(factorCode: string): boolean {
+  return (
+    factorCode in FLEET_MOTOR_FACTOR_FIELD_MAP ||
+    factorCode === 'gross_weight_tons'
+  );
+}
+
 function coerceFactorValue(
   raw: string | number | boolean,
   dataType: RiskRequiredFactor['factor']['data_type'],
@@ -289,12 +311,14 @@ export function resolveFleetFactorValues(
   const requiresSumInsured = requiredFactors.some(
     (requiredFactor) => requiredFactor.factor.code === 'sum_insured',
   );
+  const rowFactorValues = item.risks_covered[riskIndex]?.factor_values ?? {};
 
   requiredFactors.forEach((requiredFactor) => {
     const code = requiredFactor.factor.code;
     const raw =
       resolveQuotationFactorRawValue(code, formValues, context) ??
-      resolveFleetMotorFactorRawValue(code, item.motor_dtl);
+      resolveFleetMotorFactorRawValue(code, item.motor_dtl) ??
+      rowFactorValues[code];
 
     if (raw === undefined || raw === '') return;
     values[code] = coerceFactorValue(raw, requiredFactor.factor.data_type);

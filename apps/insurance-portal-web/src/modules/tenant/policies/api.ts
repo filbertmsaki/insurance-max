@@ -94,6 +94,15 @@ export const policiesApi = {
     );
     return response.data;
   },
+  listEndorsements: async (
+    policyId?: string,
+  ): Promise<PolicyEndorsementRecord[]> => {
+    const response = await apiClient.get<PolicyEndorsementRecord[]>(
+      '/tenant/endorsements',
+      { params: { policy_id: policyId } },
+    );
+    return response.data;
+  },
   getEndorsementEligibility: (policyId: string, effectiveDate?: string) =>
     apiClient
       .get<EndorsementEligibility>(
@@ -172,6 +181,12 @@ export const policiesApi = {
       )
       .then((response) => response.data),
   getPolicyRenewals: (policyId: string) =>
+    apiClient
+      .get<PolicyRenewalRecord[]>('/tenant/renewals', {
+        params: { policy_id: policyId },
+      })
+      .then((response) => response.data),
+  listRenewals: (policyId?: string) =>
     apiClient
       .get<PolicyRenewalRecord[]>('/tenant/renewals', {
         params: { policy_id: policyId },

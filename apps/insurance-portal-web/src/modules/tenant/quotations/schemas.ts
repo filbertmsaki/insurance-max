@@ -360,6 +360,9 @@ const fleetRiskSchema = z.object({
     ),
   risk_id: optionalText,
   risk_code: optionalText,
+  factor_values: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+    .default({}),
   sum_insured: optionalText,
   sum_insured_equivalent: optionalText,
   premium_rate: optionalText,
@@ -1023,6 +1026,7 @@ function createEmptyFleetRiskRow(): QuotationFormValues['fleet']['items'][number
     client_ref: createClientRef('fleet-risk'),
     risk_id: '',
     risk_code: '',
+    factor_values: {},
     sum_insured: '',
     sum_insured_equivalent: '',
     premium_rate: '',
@@ -2129,6 +2133,7 @@ export function quotationRecordToFormValues(
           client_ref: createClientRef('fleet-risk'),
           risk_id: '',
           risk_code: risk.risk_code,
+          factor_values: {},
           sum_insured: String(risk.sum_insured),
           sum_insured_equivalent: String(risk.sum_insured_equivalent),
           premium_rate: String(risk.premium_rate),

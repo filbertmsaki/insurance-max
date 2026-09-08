@@ -68,6 +68,10 @@ import { MotorFleetsPage } from '@/modules/tenant/motor/pages/MotorFleetsPage';
 import { MotorFleetDetailPage } from '@/modules/tenant/motor/pages/MotorFleetDetailPage';
 import { MotorFleetCreatePage } from '@/modules/tenant/motor/pages/MotorFleetCreatePage';
 import { MotorFleetEditPage } from '@/modules/tenant/motor/pages/MotorFleetEditPage';
+import { SubjectMattersPage } from '@/modules/tenant/non-motor/pages/SubjectMattersPage';
+import { SubjectMatterDetailPage } from '@/modules/tenant/non-motor/pages/SubjectMatterDetailPage';
+import { SubjectMatterCreatePage } from '@/modules/tenant/non-motor/pages/SubjectMatterCreatePage';
+import { SubjectMatterEditPage } from '@/modules/tenant/non-motor/pages/SubjectMatterEditPage';
 import { QuotationsPage } from '@/modules/tenant/quotations/pages/QuotationsPage';
 import { QuotationDetailPage } from '@/modules/tenant/quotations/pages/QuotationDetailPage';
 import { QuotationCreatePage } from '@/modules/tenant/quotations/pages/QuotationCreatePage';
@@ -76,6 +80,8 @@ import { QuotationWizardPage } from '@/modules/tenant/quotations/pages/Quotation
 import { QuotationPaymentPage } from '@/modules/tenant/quotations/pages/QuotationPaymentPage';
 import { PoliciesPage } from '@/modules/tenant/policies/pages/PoliciesPage';
 import { PolicyDetailPage } from '@/modules/tenant/policies/pages/PolicyDetailPage';
+import { EndorsementsPage } from '@/modules/tenant/policies/pages/EndorsementsPage';
+import { RenewalsPage } from '@/modules/tenant/policies/pages/RenewalsPage';
 import { PolicyEndorsementPage } from '@/modules/tenant/policies/pages/PolicyEndorsementPage';
 import { EndorsementTypesPage } from '@/modules/tenant/policies/pages/EndorsementTypesPage';
 import { PolicyCancellationPage } from '@/modules/tenant/policies/pages/PolicyCancellationPage';
@@ -621,6 +627,10 @@ export default function App() {
               }
             >
               <Route
+                path={underwritingPaths.endorsements}
+                element={<EndorsementsPage />}
+              />
+              <Route
                 path={underwritingPaths.policyEndorsementCreate(':policyId')}
                 element={<PolicyEndorsementPage />}
               />
@@ -668,6 +678,10 @@ export default function App() {
             <Route
               element={<ProtectedRoute requiredPermission="renewals:read" />}
             >
+              <Route
+                path={underwritingPaths.renewals}
+                element={<RenewalsPage />}
+              />
               <Route
                 path={underwritingPaths.policyRenewalDetail(
                   ':policyId',
@@ -893,6 +907,35 @@ export default function App() {
               <Route
                 path={underwritingPaths.motorFleetEdit(':id')}
                 element={<MotorFleetEditPage />}
+              />
+            </Route>
+
+            <Route
+              element={<ProtectedRoute requiredPermission="non-motor:read" />}
+            >
+              <Route
+                path={underwritingPaths.nonMotorSubjectMatters}
+                element={<SubjectMattersPage />}
+              />
+              <Route
+                path={underwritingPaths.nonMotorSubjectMatterDetail(':id')}
+                element={<SubjectMatterDetailPage />}
+              />
+            </Route>
+            <Route
+              element={<ProtectedRoute requiredPermission="non-motor:create" />}
+            >
+              <Route
+                path={underwritingPaths.nonMotorSubjectMatterCreate}
+                element={<SubjectMatterCreatePage />}
+              />
+            </Route>
+            <Route
+              element={<ProtectedRoute requiredPermission="non-motor:update" />}
+            >
+              <Route
+                path={underwritingPaths.nonMotorSubjectMatterEdit(':id')}
+                element={<SubjectMatterEditPage />}
               />
             </Route>
 
@@ -1141,11 +1184,30 @@ export default function App() {
         />
         <Route
           path="/non-motor/subject-matters"
-          element={<Navigate to="/dashboard" replace />}
+          element={
+            <Navigate to={underwritingPaths.nonMotorSubjectMatters} replace />
+          }
+        />
+        <Route
+          path="/non-motor/subject-matters/new"
+          element={
+            <Navigate
+              to={underwritingPaths.nonMotorSubjectMatterCreate}
+              replace
+            />
+          }
         />
         <Route
           path="/non-motor/subject-matters/:id"
-          element={<Navigate to="/dashboard" replace />}
+          element={
+            <Navigate to={underwritingPaths.nonMotorSubjectMatters} replace />
+          }
+        />
+        <Route
+          path="/non-motor/subject-matters/:id/edit"
+          element={
+            <Navigate to={underwritingPaths.nonMotorSubjectMatters} replace />
+          }
         />
         <Route
           path={underwritingPaths.submissions}

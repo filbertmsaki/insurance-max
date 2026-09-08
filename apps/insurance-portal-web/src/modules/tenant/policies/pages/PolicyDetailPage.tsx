@@ -1,6 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Ban, Pencil, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Ban,
+  Pencil,
+  Play,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -77,10 +85,7 @@ function arrayCount(value: unknown): string {
   return Array.isArray(value) ? String(value.length) : '0';
 }
 
-const RETRYABLE_SUBMISSION_STATUSES = new Set([
-  'FAILED',
-  'RETRYABLE',
-]);
+const RETRYABLE_SUBMISSION_STATUSES = new Set(['FAILED', 'RETRYABLE']);
 
 function canIssueEndorsement(endorsement: PolicyEndorsementRecord) {
   return (
@@ -122,8 +127,10 @@ export function PolicyDetailPage() {
     policy?.id,
     canCreateRenewal,
   );
-  const { data: renewals = [], isLoading: renewalsLoading } =
-    usePolicyRenewals(policy?.id, canViewRenewals);
+  const { data: renewals = [], isLoading: renewalsLoading } = usePolicyRenewals(
+    policy?.id,
+    canViewRenewals,
+  );
   const { data: cancellations = [], isLoading: cancellationsLoading } =
     usePolicyCancellations(policy?.id, canViewCancellations);
   const { data: pendingTransaction } = usePendingPolicyTransaction(
@@ -190,7 +197,10 @@ export function PolicyDetailPage() {
           : null;
   const pendingTransactionHref =
     policy && pendingTransaction?.transaction_type === 'ENDORSEMENT'
-      ? underwritingPaths.policyEndorsementEdit(policy.id, pendingTransaction.id)
+      ? underwritingPaths.policyEndorsementEdit(
+          policy.id,
+          pendingTransaction.id,
+        )
       : policy && pendingTransaction?.transaction_type === 'CANCELLATION'
         ? underwritingPaths.policyCancellationDetail(
             policy.id,
@@ -400,10 +410,7 @@ export function PolicyDetailPage() {
             size="sm"
             onClick={() =>
               navigate(
-                underwritingPaths.policyCancellationDetail(
-                  policy!.id,
-                  row.id,
-                ),
+                underwritingPaths.policyCancellationDetail(policy!.id, row.id),
               )
             }
           >
@@ -489,7 +496,9 @@ export function PolicyDetailPage() {
           {canCreateRenewal && (
             <Button
               variant="outline"
-              disabled={!!renewalBlockedReason || createRenewalMutation.isPending}
+              disabled={
+                !!renewalBlockedReason || createRenewalMutation.isPending
+              }
               title={renewalBlockedReason ?? undefined}
               onClick={() =>
                 createRenewalMutation.mutate(undefined, {
@@ -521,7 +530,9 @@ export function PolicyDetailPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate(underwritingPaths.policyEdit(policy.id))}
+                onClick={() =>
+                  navigate(underwritingPaths.policyEdit(policy.id))
+                }
               >
                 <Pencil className="mr-1.5 h-3.5 w-3.5" />
                 Edit
@@ -545,9 +556,9 @@ export function PolicyDetailPage() {
             <AlertTitle>Policy transaction in progress</AlertTitle>
             <AlertDescription className="space-y-3">
               <p>
-                This policy already has an active endorsement, cancellation,
-                or renewal being processed. New endorsements, cancellations,
-                and renewals are disabled until it completes or is cancelled.
+                This policy already has an active endorsement, cancellation, or
+                renewal being processed. New endorsements, cancellations, and
+                renewals are disabled until it completes or is cancelled.
               </p>
               {pendingTransactionHref ? (
                 <Button
@@ -583,10 +594,25 @@ export function PolicyDetailPage() {
           <TabsTrigger value="endorsements">Endorsements</TabsTrigger>
           <TabsTrigger value="renewals">Renewals</TabsTrigger>
           <TabsTrigger value="cancellations">Cancellations</TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
-          <TabsTrigger value="tiramis">TIRAMIS</TabsTrigger>
+          <TabsTrigger value="billing" className="gap-1.5">
+            Billing
+            <Badge variant="outline" className="text-[10px] font-normal">
+              Soon
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="tiramis" className="gap-1.5">
+            TIRAMIS
+            <Badge variant="outline" className="text-[10px] font-normal">
+              Soon
+            </Badge>
+          </TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="documents" className="gap-1.5">
+            Documents
+            <Badge variant="outline" className="text-[10px] font-normal">
+              Soon
+            </Badge>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -876,7 +902,8 @@ export function PolicyDetailPage() {
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base">
                       {String(
-                        motor.registrationNumber ?? `Motor ${entry.entryNumber}`,
+                        motor.registrationNumber ??
+                          `Motor ${entry.entryNumber}`,
                       )}
                     </CardTitle>
                   </CardHeader>
@@ -903,7 +930,10 @@ export function PolicyDetailPage() {
                       label="Manufacture Year"
                       value={String(motor.yearOfManufacture ?? '-')}
                     />
-                    <Row label="Usage" value={String(motor.motorUsage ?? '-')} />
+                    <Row
+                      label="Usage"
+                      value={String(motor.motorUsage ?? '-')}
+                    />
                     <Row label="Owner" value={String(motor.ownerName ?? '-')} />
                   </CardContent>
                 </Card>
@@ -966,18 +996,23 @@ export function PolicyDetailPage() {
           />
         </TabsContent>
         <TabsContent value="renewals" className="space-y-4">
-          {canCreateRenewal && renewalEligibility && !renewalEligibility.eligible && (
-            <Card>
-              <CardContent className="pt-6">
-                <p className="font-medium">Renewal unavailable</p>
-                {renewalEligibility.blockers.map((blocker) => (
-                  <p key={blocker.code} className="mt-1 text-sm text-slate-500">
-                    {blocker.message}
-                  </p>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+          {canCreateRenewal &&
+            renewalEligibility &&
+            !renewalEligibility.eligible && (
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="font-medium">Renewal unavailable</p>
+                  {renewalEligibility.blockers.map((blocker) => (
+                    <p
+                      key={blocker.code}
+                      className="mt-1 text-sm text-slate-500"
+                    >
+                      {blocker.message}
+                    </p>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
           <DataTable
             columns={renewalColumns}
             data={renewals}
@@ -1018,15 +1053,16 @@ export function PolicyDetailPage() {
         <TabsContent value="billing" className="space-y-4">
           <Card>
             <CardContent className="pt-6 text-sm text-slate-500">
-              Billing data can be connected here later.
+              Coming soon — billing and invoice history for this policy will
+              appear here.
             </CardContent>
           </Card>
         </TabsContent>
         <TabsContent value="tiramis" className="space-y-4">
           <Card>
             <CardContent className="pt-6 text-sm text-slate-500">
-              TIRAMIS submissions are stored on the policy record and can be
-              expanded later.
+              Coming soon — this policy's TIRAMIS submission history will appear
+              here.
             </CardContent>
           </Card>
         </TabsContent>
@@ -1050,7 +1086,7 @@ export function PolicyDetailPage() {
         <TabsContent value="documents" className="space-y-4">
           <Card>
             <CardContent className="pt-6 text-sm text-slate-500">
-              Document management can be connected here later.
+              Coming soon — documents attached to this policy will appear here.
             </CardContent>
           </Card>
         </TabsContent>

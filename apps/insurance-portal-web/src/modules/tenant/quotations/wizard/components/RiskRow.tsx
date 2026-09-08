@@ -40,8 +40,12 @@ import {
   recomputeRiskRow,
   toNumber,
 } from '../utils/premiumAggregation';
-import { motorFieldNameForFactorCode } from '../utils/riskFactorResolver';
+import {
+  isMotorFactorCovered,
+  motorFieldNameForFactorCode,
+} from '../utils/riskFactorResolver';
 import { useRiskPremiumCalculation } from '../hooks/useRiskPremiumCalculation';
+import { RatingFactorFields, type PricingFactorValue } from '@/modules/pricing';
 import { StepSection } from './StepSection';
 import { WizardFormItem } from './WizardFormItem';
 import type { QuotationFactorContext } from '../utils/riskFactorResolver';
@@ -94,6 +98,32 @@ export function RiskRow({
 
   const { requiredFactorsQuery, handleSumInsuredBlur } =
     useRiskPremiumCalculation(form, index, factorContext);
+  const quotationType = useWatch({
+    control: form.control,
+    name: 'quotation_type',
+  });
+  const factorValues = (useWatch({
+    control: form.control,
+    name: path(index, 'factor_values'),
+  }) ?? {}) as Record<string, PricingFactorValue>;
+  const visibleRequiredFactors = useMemo(
+    () =>
+      (requiredFactorsQuery.data ?? []).filter((requiredFactor) => {
+        const code = requiredFactor.factor.code;
+        if (code === 'sum_insured') return false;
+        if (quotationType === 'MOTOR' && isMotorFactorCovered(code)) {
+          return false;
+        }
+        return true;
+      }),
+    [requiredFactorsQuery.data, quotationType],
+  );
+  const handleFactorChange = useCallback(
+    (code: string, value: PricingFactorValue) => {
+      form.setValue(path(index, `factor_values.${code}`), value);
+    },
+    [form, index],
+  );
 
   // Premium Before Discount is manually entered (automatic calculation is
   // disabled) — it only feeds the discount/tax recompute below once the user
@@ -490,6 +520,20 @@ export function RiskRow({
           )}
         />
       </div>
+
+      {visibleRequiredFactors.length > 0 && (
+        <div className="space-y-2 border-t border-slate-100 pt-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Underwriting Details
+          </p>
+          <RatingFactorFields
+            requiredFactors={visibleRequiredFactors}
+            values={factorValues}
+            isLoading={requiredFactorsQuery.isLoading}
+            onChange={handleFactorChange}
+          />
+        </div>
+      )}
 
       <div className="space-y-1 border-t border-slate-100 pt-4">
         <div className="flex items-center justify-between gap-2">

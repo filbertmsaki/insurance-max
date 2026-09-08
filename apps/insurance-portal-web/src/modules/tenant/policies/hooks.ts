@@ -64,6 +64,8 @@ const policyKeys = {
     ['policies', 'detail', policyId, 'endorsements'] as const,
   endorsementReconciliation: (id: string) =>
     ['policies', 'endorsement-reconciliation', id] as const,
+  allEndorsements: ['policies', 'all-endorsements'] as const,
+  allRenewals: ['policies', 'all-renewals'] as const,
   risks: (id: string) => ['policies', 'risks', id] as const,
   breakdowns: (id: string) => ['policies', 'breakdowns', id] as const,
   history: (id: string) => ['policies', 'history', id] as const,
@@ -194,6 +196,22 @@ export function useReconcileEndorsement(endorsementId?: string) {
       toast.success('Endorsement reconciliation completed');
     },
     onError: (e) => toast.error(getApiErrorMessage(e)),
+  });
+}
+
+export function useAllEndorsements() {
+  return useQuery({
+    queryKey: policyKeys.allEndorsements,
+    queryFn: () => policiesApi.listEndorsements(),
+    staleTime: 30_000,
+  });
+}
+
+export function useAllRenewals() {
+  return useQuery({
+    queryKey: policyKeys.allRenewals,
+    queryFn: () => policiesApi.listRenewals(),
+    staleTime: 30_000,
   });
 }
 

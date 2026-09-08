@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import {
   Copy,
   Pencil,
@@ -7,6 +7,8 @@ import {
   Trash2,
   CheckCircle2,
   AlertTriangle,
+  Upload,
+  Download,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -17,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { createBrowserSafeId } from '@/lib/ids';
 import {
   FormControl,
@@ -34,10 +37,13 @@ import {
 import { getApiErrorMessage } from '@/lib/api-error';
 import {
   PricingStatusAlert,
+  RatingFactorFields,
   readPricingQuoteMetadata,
   usePricingCalculator,
+  type PricingFactorValue,
 } from '@/modules/pricing';
 import type { CustomerRecord } from '@/modules/tenant/customers/types';
+import type { MotorVehicleRecord } from '@/modules/tenant/motor/types';
 import { requiredFactorsApi } from '@/modules/tenant/product-engine/api/required-factors';
 import { peKeys } from '@/modules/tenant/product-engine/hooks/query-keys';
 import type {
@@ -59,9 +65,15 @@ import {
 } from '../utils/premiumAggregation';
 import { buildFleetRiskPricingSignature } from '../utils/pricingStaleness';
 import {
+  isFleetMotorFactorCovered,
   resolveFleetFactorValues,
   type QuotationFactorContext,
 } from '../utils/riskFactorResolver';
+import {
+  buildFleetCsvTemplate,
+  parseFleetCsv,
+  type FleetCsvRow,
+} from '../utils/fleetCsvImport';
 import {
   fromSelectValue,
   SELECT_NONE_VALUE,
@@ -73,10 +85,12 @@ interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
   customerOptions: CustomerRecord[];
   riskOptions: InsuranceRisk[];
+  vehicleOptions: MotorVehicleRecord[];
   fieldArray: UseFieldArrayReturn<QuotationFormSchemaValues, 'fleet.items'>;
   onAddVehicle: () => void;
   onRemoveVehicle: (index: number) => void;
   onDuplicateVehicle: (index: number) => void;
+  onImportVehicles: (rows: FleetCsvRow[]) => void;
   factorContext?: QuotationFactorContext;
 }
 
@@ -143,6 +157,7 @@ function resetFleetRiskPricing(
 ) {
   return {
     ...row,
+    factor_values: {},
     sum_insured_equivalent: '',
     premium_rate: '',
     premium_before_discount: '',
@@ -158,6 +173,7 @@ function resetFleetRiskPricing(
 function FleetVehicleEditor({
   form,
   riskOptions,
+  vehicleOptions,
   customerName,
   index,
   step,
@@ -169,6 +185,7 @@ function FleetVehicleEditor({
 }: {
   form: UseFormReturn<QuotationFormSchemaValues>;
   riskOptions: InsuranceRisk[];
+  vehicleOptions: MotorVehicleRecord[];
   customerName: string;
   index: number;
   step: VehicleStep;
@@ -192,6 +209,96 @@ function FleetVehicleEditor({
   });
   const item = form.watch(`fleet.items.${index}` as const);
   const coverNoteType = form.watch('cover_note_type');
+
+  function fillFromExistingVehicle(vehicle: MotorVehicleRecord) {
+    const prefix = `fleet.items.${index}.motor_dtl` as const;
+    form.setValue(
+      `${prefix}.motor_category`,
+      vehicle.motor_category != null
+        ? String(vehicle.motor_category)
+        : (vehicle.vehicle_category ?? ''),
+    );
+    form.setValue(
+      `${prefix}.motor_type`,
+      vehicle.motor_type != null ? String(vehicle.motor_type) : '',
+    );
+    form.setValue(
+      `${prefix}.registration_number`,
+      normalizeMotorTextInput(vehicle.registration_no),
+    );
+    form.setValue(
+      `${prefix}.chassis_number`,
+      normalizeMotorTextInput(vehicle.chassis_no),
+    );
+    form.setValue(`${prefix}.make`, normalizeMotorTextInput(vehicle.make));
+    form.setValue(`${prefix}.model`, normalizeMotorTextInput(vehicle.model));
+    form.setValue(
+      `${prefix}.model_number`,
+      normalizeMotorTextInput(vehicle.model_no),
+    );
+    form.setValue(`${prefix}.body_type`, vehicle.body_type ?? '');
+    form.setValue(`${prefix}.color`, vehicle.color ?? '');
+    form.setValue(
+      `${prefix}.engine_number`,
+      normalizeMotorTextInput(vehicle.engine_no),
+    );
+    form.setValue(
+      `${prefix}.engine_capacity`,
+      vehicle.cubic_capacity != null ? String(vehicle.cubic_capacity) : '',
+    );
+    form.setValue(`${prefix}.fuel_used`, vehicle.fuel_type ?? '');
+    form.setValue(
+      `${prefix}.number_of_axles`,
+      vehicle.number_of_axles != null ? String(vehicle.number_of_axles) : '',
+    );
+    form.setValue(`${prefix}.axle_distance`, vehicle.axle_distance ?? '');
+    form.setValue(
+      `${prefix}.sitting_capacity`,
+      vehicle.seating_capacity != null ? String(vehicle.seating_capacity) : '',
+    );
+    form.setValue(
+      `${prefix}.year_of_manufacture`,
+      vehicle.manufacture_year != null ? String(vehicle.manufacture_year) : '',
+    );
+    form.setValue(`${prefix}.tare_weight`, vehicle.tare_weight ?? '');
+    form.setValue(`${prefix}.gross_weight`, vehicle.gross_weight ?? '');
+    form.setValue(
+      `${prefix}.motor_usage`,
+      vehicle.usage_type ??
+        (vehicle.motor_usage != null ? String(vehicle.motor_usage) : ''),
+    );
+    form.setValue(`${prefix}.owner_name`, vehicle.owner_name ?? '');
+    form.setValue(
+      `${prefix}.owner_category`,
+      vehicle.owner_category != null ? String(vehicle.owner_category) : '',
+    );
+    form.setValue(`${prefix}.owner_address`, vehicle.owner_address ?? '');
+  }
+
+  const riskIds = useMemo(
+    () => [
+      ...new Set(
+        item.risks_covered
+          .map((risk) => risk.risk_id.trim())
+          .filter((riskId) => riskId.length > 0),
+      ),
+    ],
+    [item.risks_covered],
+  );
+  const requiredFactorsQueries = useQueries({
+    queries: riskIds.map((riskId) => ({
+      queryKey: peKeys.requiredFactors.byRisk(riskId),
+      queryFn: () => requiredFactorsApi.getByRisk(riskId),
+      staleTime: 30_000,
+    })),
+  });
+  const requiredFactorsByRiskId = useMemo(() => {
+    const map = new Map<string, RiskRequiredFactor[]>();
+    riskIds.forEach((riskId, queryIndex) => {
+      map.set(riskId, requiredFactorsQueries[queryIndex]?.data ?? []);
+    });
+    return map;
+  }, [riskIds, requiredFactorsQueries]);
 
   const totalPremium = item.risks_covered.reduce(
     (sum, risk) => sum + (Number(risk.premium_including_tax) || 0),
@@ -357,6 +464,7 @@ function FleetVehicleEditor({
                     client_ref: createBrowserSafeId(),
                     risk_id: '',
                     risk_code: '',
+                    factor_values: {},
                     sum_insured: '',
                     sum_insured_equivalent: '',
                     premium_rate: '',
@@ -394,6 +502,20 @@ function FleetVehicleEditor({
               form.watch(
                 `fleet.items.${index}.risks_covered.${riskIndex}.rating_result_metadata` as const,
               ),
+            );
+            const riskId = form.watch(
+              `fleet.items.${index}.risks_covered.${riskIndex}.risk_id` as const,
+            );
+            const rowFactorValues =
+              (form.watch(
+                `fleet.items.${index}.risks_covered.${riskIndex}.factor_values` as const,
+              ) as Record<string, PricingFactorValue> | undefined) ?? {};
+            const visibleRequiredFactors = (
+              requiredFactorsByRiskId.get(riskId.trim()) ?? []
+            ).filter(
+              (requiredFactor) =>
+                requiredFactor.factor.code !== 'sum_insured' &&
+                !isFleetMotorFactorCovered(requiredFactor.factor.code),
             );
 
             return (
@@ -613,6 +735,24 @@ function FleetVehicleEditor({
                   metadata={ratingMetadata}
                   showQuoteMetadata={false}
                 />
+
+                {visibleRequiredFactors.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                      Underwriting Details
+                    </p>
+                    <RatingFactorFields
+                      requiredFactors={visibleRequiredFactors}
+                      values={rowFactorValues}
+                      onChange={(code, value) =>
+                        form.setValue(
+                          `fleet.items.${index}.risks_covered.${riskIndex}.factor_values.${code}` as const,
+                          value,
+                        )
+                      }
+                    />
+                  </div>
+                )}
 
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
@@ -1094,255 +1234,295 @@ function FleetVehicleEditor({
       )}
 
       {step === 3 && (
-        <div className="grid gap-3 md:grid-cols-2">
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.motor_category` as const}
-            render={({ field }) => (
+        <div className="space-y-4">
+          {vehicleOptions.length > 0 && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3.5">
               <WizardFormItem>
-                <FormLabel>Motor Category</FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
+                <FormLabel>
+                  Prefill from an existing vehicle (optional)
+                </FormLabel>
+                <Select
+                  value={SELECT_NONE_VALUE}
+                  onValueChange={(value) => {
+                    const nextValue = fromSelectValue(value);
+                    const vehicle = vehicleOptions.find(
+                      (candidate) => candidate.id === nextValue,
+                    );
+                    if (vehicle) fillFromExistingVehicle(vehicle);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a registered vehicle" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
+                    {vehicleOptions.map((vehicle) => (
+                      <SelectItem key={vehicle.id} value={vehicle.id}>
+                        {vehicle.registration_no ??
+                          vehicle.chassis_no ??
+                          vehicle.id}{' '}
+                        — {vehicle.make} {vehicle.model}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.motor_type` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Motor Type</FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.registration_number` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Registration Number</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    onChange={(event) =>
-                      field.onChange(
-                        normalizeMotorTextInput(event.target.value),
-                      )
-                    }
-                  />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.chassis_number` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Chassis Number</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    onChange={(event) =>
-                      field.onChange(
-                        normalizeMotorTextInput(event.target.value),
-                      )
-                    }
-                  />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.make` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Make</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    onChange={(event) =>
-                      field.onChange(
-                        normalizeMotorTextInput(event.target.value),
-                      )
-                    }
-                  />
-                </FormControl>
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.model` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Model</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    onChange={(event) =>
-                      field.onChange(
-                        normalizeMotorTextInput(event.target.value),
-                      )
-                    }
-                  />
-                </FormControl>
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.model_number` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Model Number</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    onChange={(event) =>
-                      field.onChange(
-                        normalizeMotorTextInput(event.target.value),
-                      )
-                    }
-                  />
-                </FormControl>
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.body_type` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Body Type</FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.color` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Colour</FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.engine_number` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Engine Number</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    onChange={(event) =>
-                      field.onChange(
-                        normalizeMotorTextInput(event.target.value),
-                      )
-                    }
-                  />
-                </FormControl>
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.engine_capacity` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Engine Capacity</FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.fuel_used` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Fuel Type</FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.number_of_axles` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Axles</FormLabel>
-                <FormControl>
-                  <Input type="number" {...field} />
-                </FormControl>
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.sitting_capacity` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Seating Capacity</FormLabel>
-                <FormControl>
-                  <Input type="number" {...field} />
-                </FormControl>
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.year_of_manufacture` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Year of Manufacture</FormLabel>
-                <FormControl>
-                  <Input type="number" {...field} />
-                </FormControl>
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.owner_name` as const}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Owner Name</FormLabel>
-                <FormControl>
-                  <Input {...field} />
-                </FormControl>
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={`fleet.items.${index}.motor_dtl.owner_address` as const}
-            render={({ field }) => (
-              <WizardFormItem className="md:col-span-2">
-                <FormLabel>Owner Address</FormLabel>
-                <FormControl>
-                  <Textarea {...field} rows={2} />
-                </FormControl>
-              </WizardFormItem>
-            )}
-          />
+            </div>
+          )}
+          <div className="grid gap-3 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name={`fleet.items.${index}.motor_dtl.motor_category` as const}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Motor Category</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={`fleet.items.${index}.motor_dtl.motor_type` as const}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Motor Type</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={
+                `fleet.items.${index}.motor_dtl.registration_number` as const
+              }
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Registration Number</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      onChange={(event) =>
+                        field.onChange(
+                          normalizeMotorTextInput(event.target.value),
+                        )
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </WizardFormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={`fleet.items.${index}.motor_dtl.chassis_number` as const}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Chassis Number</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      onChange={(event) =>
+                        field.onChange(
+                          normalizeMotorTextInput(event.target.value),
+                        )
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </WizardFormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={`fleet.items.${index}.motor_dtl.make` as const}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Make</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      onChange={(event) =>
+                        field.onChange(
+                          normalizeMotorTextInput(event.target.value),
+                        )
+                      }
+                    />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={`fleet.items.${index}.motor_dtl.model` as const}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Model</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      onChange={(event) =>
+                        field.onChange(
+                          normalizeMotorTextInput(event.target.value),
+                        )
+                      }
+                    />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={`fleet.items.${index}.motor_dtl.model_number` as const}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Model Number</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      onChange={(event) =>
+                        field.onChange(
+                          normalizeMotorTextInput(event.target.value),
+                        )
+                      }
+                    />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={`fleet.items.${index}.motor_dtl.body_type` as const}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Body Type</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={`fleet.items.${index}.motor_dtl.color` as const}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Colour</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={`fleet.items.${index}.motor_dtl.engine_number` as const}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Engine Number</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      onChange={(event) =>
+                        field.onChange(
+                          normalizeMotorTextInput(event.target.value),
+                        )
+                      }
+                    />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={`fleet.items.${index}.motor_dtl.engine_capacity` as const}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Engine Capacity</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={`fleet.items.${index}.motor_dtl.fuel_used` as const}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Fuel Type</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={`fleet.items.${index}.motor_dtl.number_of_axles` as const}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Axles</FormLabel>
+                  <FormControl>
+                    <Input type="number" {...field} />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={`fleet.items.${index}.motor_dtl.sitting_capacity` as const}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Seating Capacity</FormLabel>
+                  <FormControl>
+                    <Input type="number" {...field} />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={
+                `fleet.items.${index}.motor_dtl.year_of_manufacture` as const
+              }
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Year of Manufacture</FormLabel>
+                  <FormControl>
+                    <Input type="number" {...field} />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={`fleet.items.${index}.motor_dtl.owner_name` as const}
+              render={({ field }) => (
+                <WizardFormItem>
+                  <FormLabel>Owner Name</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name={`fleet.items.${index}.motor_dtl.owner_address` as const}
+              render={({ field }) => (
+                <WizardFormItem className="md:col-span-2">
+                  <FormLabel>Owner Address</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} rows={2} />
+                  </FormControl>
+                </WizardFormItem>
+              )}
+            />
+          </div>
         </div>
       )}
 
@@ -1415,10 +1595,12 @@ export function MotorFleetDetailsStep({
   form,
   customerOptions,
   riskOptions,
+  vehicleOptions,
   fieldArray,
   onAddVehicle,
   onRemoveVehicle,
   onDuplicateVehicle,
+  onImportVehicles,
   factorContext,
 }: Props) {
   const { fields } = fieldArray;
@@ -1429,6 +1611,40 @@ export function MotorFleetDetailsStep({
   const [calculationErrorMessage, setCalculationErrorMessage] = useState<
     string | null
   >(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
+
+  function handleDownloadTemplate() {
+    const blob = new Blob([buildFleetCsvTemplate()], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'fleet-vehicles-template.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleCsvFileSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const text = await file.text();
+    const { rows, errors } = parseFleetCsv(text);
+
+    if (rows.length > 0) {
+      onImportVehicles(rows);
+      toast.success(
+        `Imported ${rows.length} vehicle${rows.length === 1 ? '' : 's'} from CSV.`,
+      );
+    }
+    if (errors.length > 0) {
+      const shown = errors.slice(0, 5).join(' ');
+      const more = errors.length > 5 ? ` (+${errors.length - 5} more)` : '';
+      toast.error(`${errors.length} row(s) skipped: ${shown}${more}`);
+    }
+  }
   const policyholderName = useMemo(() => {
     const customerId = form.watch('customer_id');
     const existingCustomer = customerOptions.find(
@@ -1646,7 +1862,30 @@ export function MotorFleetDetailsStep({
         description="Manage fleet entries first, then complete each vehicle through the nested editor."
         first
         action={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDownloadTemplate}
+            >
+              <Download className="mr-2 h-4 w-4" />
+              CSV Template
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => csvInputRef.current?.click()}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Import CSV
+            </Button>
+            <input
+              ref={csvInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(event) => void handleCsvFileSelected(event)}
+            />
             <Button
               type="button"
               variant="secondary"
@@ -1782,22 +2021,35 @@ export function MotorFleetDetailsStep({
         })}
       </StepSection>
 
-      {activeIndex != null && fields[activeIndex] ? (
-        <FleetVehicleEditor
-          form={form}
-          riskOptions={riskOptions}
-          customerName={policyholderName}
-          index={activeIndex}
-          step={vehicleStep}
-          isCalculating={calculateMultiMutation.isPending}
-          calculationErrorMessage={calculationErrorMessage}
-          onCalculateVehicle={(vehicleIndex) =>
-            void calculateFleetPremiums(vehicleIndex)
-          }
-          onStepChange={setVehicleStep}
-          onClose={() => setActiveIndex(null)}
-        />
-      ) : null}
+      <Dialog
+        open={activeIndex != null}
+        onOpenChange={(open) => {
+          if (!open) setActiveIndex(null);
+        }}
+      >
+        <DialogContent
+          className="max-w-4xl max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(event) => event.preventDefault()}
+        >
+          {activeIndex != null && fields[activeIndex] ? (
+            <FleetVehicleEditor
+              form={form}
+              riskOptions={riskOptions}
+              vehicleOptions={vehicleOptions}
+              customerName={policyholderName}
+              index={activeIndex}
+              step={vehicleStep}
+              isCalculating={calculateMultiMutation.isPending}
+              calculationErrorMessage={calculationErrorMessage}
+              onCalculateVehicle={(vehicleIndex) =>
+                void calculateFleetPremiums(vehicleIndex)
+              }
+              onStepChange={setVehicleStep}
+              onClose={() => setActiveIndex(null)}
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

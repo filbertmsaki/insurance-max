@@ -59,6 +59,35 @@ type PremiumOverrideRequestDialogState = {
   open: boolean;
 };
 
+const QUOTATION_DETAIL_TAB_LABELS: Record<string, string> = {
+  overview: 'Overview',
+  policyholders: 'Policyholders',
+  risks: 'Risks & Premium',
+  'subject-matters': 'Subject Matters',
+  addons: 'Add-ons',
+  motor: 'Motor Details',
+  fleet: 'Fleet Vehicles',
+  payment: 'Payment',
+  tiramis: 'TIRAMIS',
+  history: 'History',
+};
+
+// Ordered tab set per quotation flow — single source of truth for both the
+// tab list and the tab id used to key TabsContent below.
+function getQuotationDetailTabs(flow: string | undefined): string[] {
+  const tabs = ['overview', 'policyholders'];
+  if (flow === 'MOTOR_FLEET') {
+    tabs.push('fleet');
+  } else {
+    tabs.push('risks', 'subject-matters', 'addons');
+    if (flow === 'MOTOR_SINGLE') {
+      tabs.push('motor');
+    }
+  }
+  tabs.push('payment', 'tiramis', 'history');
+  return tabs;
+}
+
 type PremiumOverrideDecisionDialogState = {
   risk: QuotationPreviewRisk;
   override: QuotationPreviewPremiumOverride;
@@ -84,7 +113,6 @@ type ApprovalDialogState = {
   reasonRequired: boolean;
   open: boolean;
 };
-
 
 export function QuotationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -142,16 +170,7 @@ export function QuotationDetailPage() {
   const canRejectPremiumOverride = hasPermission('pricing.approve_override');
   const showFleetTabs = preview?.overview.quotation_flow === 'MOTOR_FLEET';
   const showMotorTab = preview?.overview.quotation_flow === 'MOTOR_SINGLE';
-  const tabs = ['overview', 'policyholders'];
-  if (showFleetTabs) {
-    tabs.push('fleet');
-  } else {
-    tabs.push('risks', 'subject-matters', 'addons');
-    if (showMotorTab) {
-      tabs.push('motor');
-    }
-  }
-  tabs.push('payment', 'tiramis', 'history');
+  const tabs = getQuotationDetailTabs(preview?.overview.quotation_flow);
 
   const openPremiumOverrideRequestDialog = (risk: QuotationPreviewRisk) => {
     setOverrideProposedPremium('');
@@ -420,38 +439,38 @@ export function QuotationDetailPage() {
           }),
       }
     : canSubmitForApproval
-    ? {
-        label: 'Complete Quotation',
-        pendingLabel: 'Submitting...',
-        isPending: submitForApprovalMutation.isPending,
-        disabled: hasStalePricing,
-        onClick: () => submitForApprovalMutation.mutate(),
-      }
-    : canRequestPayment
       ? {
-          label: 'Request Payment',
-          pendingLabel: 'Requesting...',
-          isPending: requestPaymentMutation.isPending,
+          label: 'Complete Quotation',
+          pendingLabel: 'Submitting...',
+          isPending: submitForApprovalMutation.isPending,
           disabled: hasStalePricing,
-          onClick: () => requestPaymentMutation.mutate(),
+          onClick: () => submitForApprovalMutation.mutate(),
         }
-      : canSubmit
+      : canRequestPayment
         ? {
-            label: 'Issue Cover',
-            pendingLabel: 'Submitting...',
-            isPending: submitMutation.isPending,
+            label: 'Request Payment',
+            pendingLabel: 'Requesting...',
+            isPending: requestPaymentMutation.isPending,
             disabled: hasStalePricing,
-            onClick: submitToTiramis,
+            onClick: () => requestPaymentMutation.mutate(),
           }
-        : canRetrySubmission
+        : canSubmit
           ? {
-              label: 'Retry Issue Cover',
-              pendingLabel: 'Retrying...',
-              isPending: retryTiraMutation.isPending,
+              label: 'Issue Cover',
+              pendingLabel: 'Submitting...',
+              isPending: submitMutation.isPending,
               disabled: hasStalePricing,
-              onClick: () => retryTiraMutation.mutate(),
+              onClick: submitToTiramis,
             }
-          : null;
+          : canRetrySubmission
+            ? {
+                label: 'Retry Issue Cover',
+                pendingLabel: 'Retrying...',
+                isPending: retryTiraMutation.isPending,
+                disabled: hasStalePricing,
+                onClick: () => retryTiraMutation.mutate(),
+              }
+            : null;
 
   const secondaryWorkflowActions: ActionMenuItem[] = [
     ...(canRequestQuotationChanges
@@ -591,26 +610,11 @@ export function QuotationDetailPage() {
 
       <Tabs defaultValue={tabs[0]} className="space-y-4">
         <TabsList className="h-auto flex-wrap gap-1">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="policyholders">Policyholders</TabsTrigger>
-          {!showFleetTabs ? (
-            <TabsTrigger value="risks">Risks & Premium</TabsTrigger>
-          ) : null}
-          {!showFleetTabs ? (
-            <TabsTrigger value="subject-matters">Subject Matters</TabsTrigger>
-          ) : null}
-          {!showFleetTabs ? (
-            <TabsTrigger value="addons">Add-ons</TabsTrigger>
-          ) : null}
-          {showMotorTab ? (
-            <TabsTrigger value="motor">Motor Details</TabsTrigger>
-          ) : null}
-          {showFleetTabs ? (
-            <TabsTrigger value="fleet">Fleet Vehicles</TabsTrigger>
-          ) : null}
-          <TabsTrigger value="payment">Payment</TabsTrigger>
-          <TabsTrigger value="tiramis">TIRAMIS</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
+          {tabs.map((tabId) => (
+            <TabsTrigger key={tabId} value={tabId}>
+              {QUOTATION_DETAIL_TAB_LABELS[tabId] ?? tabId}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">

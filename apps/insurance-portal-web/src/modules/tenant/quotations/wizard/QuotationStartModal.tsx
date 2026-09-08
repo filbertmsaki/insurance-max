@@ -288,45 +288,41 @@ export function QuotationStartModal({
         onInteractOutside={(event) => event.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>Start a New Quotation</DialogTitle>
+          <DialogTitle>Quotation Setup</DialogTitle>
           <DialogDescription>
-            Select the details below to set up the quotation wizard.
+            Choose the insurance type and cover details for the quotation
+            wizard.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-2 md:grid-cols-2">
-          <div className="md:col-span-2">
-            <Label className="mb-2 block">{FIELD_LABELS.quotation_flow}</Label>
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {QUOTATION_FLOW_OPTIONS.map((option) => {
-                const active = quotationFlow === option.quotation_flow;
-                const Icon = option.icon;
-                return (
-                  <button
-                    key={option.quotation_flow}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => handleFlowChange(option.quotation_flow)}
-                    className={[
-                      'flex min-w-36 shrink-0 cursor-pointer items-center gap-1 whitespace-nowrap rounded-lg border p-2.5 text-left text-sm transition-colors',
-                      active
-                        ? 'border-sky-300 bg-sky-50 text-sky-900'
-                        : 'border-slate-200 bg-white hover:border-slate-300',
-                    ].join(' ')}
-                  >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    <div className="font-medium">{option.label}</div>
-                  </button>
-                );
-              })}
-            </div>
-            {touched && errors.quotation_flow && (
-              <p className="mt-1 text-sm text-red-600">
-                {errors.quotation_flow}
-              </p>
-            )}
-          </div>
+        <div className="grid gap-3 py-2 md:grid-cols-3">
+          {QUOTATION_FLOW_OPTIONS.map((option) => {
+            const active = quotationFlow === option.quotation_flow;
+            const Icon = option.icon;
+            return (
+              <button
+                key={option.quotation_flow}
+                type="button"
+                aria-pressed={active}
+                onClick={() => handleFlowChange(option.quotation_flow)}
+                className={[
+                  'flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-left text-sm font-medium transition-colors',
+                  active
+                    ? 'border-sky-300 bg-sky-50 text-sky-900'
+                    : 'border-slate-200 bg-white hover:border-slate-300',
+                ].join(' ')}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+        {touched && errors.quotation_flow && (
+          <p className="text-sm text-red-600">{errors.quotation_flow}</p>
+        )}
 
+        <div className="grid gap-4 py-2 md:grid-cols-2">
           <div>
             <Label htmlFor="quotation-start-category" className="mb-2 block">
               {FIELD_LABELS.category_id}

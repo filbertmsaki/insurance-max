@@ -993,6 +993,7 @@ export interface QuotationWizardFleetRiskRow {
   client_ref: string;
   risk_id: string;
   risk_code: string;
+  factor_values: Record<string, string | number | boolean>;
   sum_insured: string;
   sum_insured_equivalent: string;
   premium_rate: string;

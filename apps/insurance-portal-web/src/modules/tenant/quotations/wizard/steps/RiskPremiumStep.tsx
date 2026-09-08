@@ -8,13 +8,22 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { WizardFormItem } from '../components/WizardFormItem';
 import type { InsuranceRisk } from '@/types/product-engine';
+import type { SubjectMatterRecord } from '@/modules/tenant/non-motor/types';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { RiskRow } from '../components/RiskRow';
 import { StepSection } from '../components/StepSection';
 import type { QuotationFlow } from '../../types';
 import type { QuotationFactorContext } from '../utils/riskFactorResolver';
+import { fromSelectValue, SELECT_NONE_VALUE } from '../utils/selectValue';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -25,6 +34,7 @@ interface Props {
     QuotationFormSchemaValues,
     'nonMotor.items'
   >;
+  subjectMatterOptions?: SubjectMatterRecord[];
   onRemoveRisk: (index: number) => void;
   onAddRisk: () => void;
   factorContext?: QuotationFactorContext;
@@ -36,6 +46,7 @@ export function RiskPremiumStep({
   fieldArray,
   flow,
   subjectMatterFieldArray,
+  subjectMatterOptions = [],
   onRemoveRisk,
   onAddRisk,
   factorContext,
@@ -95,44 +106,90 @@ export function RiskPremiumStep({
           {subjectMatterFieldArray.fields.map((field, index) => (
             <div
               key={field.id}
-              className="grid gap-3 rounded-xl border border-slate-200 p-3.5 md:grid-cols-[1fr_1fr_auto]"
+              className="space-y-3 rounded-xl border border-slate-200 p-3.5"
             >
-              <FormField
-                control={form.control}
-                name={`nonMotor.items.${index}.subject_matter_reference`}
-                render={({ field: formField }) => (
-                  <WizardFormItem>
-                    <FormLabel>Reference</FormLabel>
-                    <FormControl>
-                      <Input {...formField} />
-                    </FormControl>
-                    <FormMessage />
-                  </WizardFormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name={`nonMotor.items.${index}.subject_matter_desc`}
-                render={({ field: formField }) => (
-                  <WizardFormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Input {...formField} />
-                    </FormControl>
-                    <FormMessage />
-                  </WizardFormItem>
-                )}
-              />
-              <div className="flex items-end">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => subjectMatterFieldArray.remove(index)}
-                  disabled={subjectMatterFieldArray.fields.length === 1}
-                >
-                  <Plus className="h-4 w-4 rotate-45" />
-                </Button>
+              {subjectMatterOptions.length > 0 && (
+                <WizardFormItem>
+                  <FormLabel>
+                    Prefill from an existing subject matter (optional)
+                  </FormLabel>
+                  <Select
+                    value={SELECT_NONE_VALUE}
+                    onValueChange={(value) => {
+                      const nextValue = fromSelectValue(value);
+                      const subjectMatter = subjectMatterOptions.find(
+                        (candidate) => candidate.id === nextValue,
+                      );
+                      if (subjectMatter) {
+                        form.setValue(
+                          `nonMotor.items.${index}.subject_matter_reference`,
+                          subjectMatter.subject_code,
+                        );
+                        form.setValue(
+                          `nonMotor.items.${index}.subject_matter_desc`,
+                          subjectMatter.description ?? '',
+                        );
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a registered subject matter" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
+                      {subjectMatterOptions.map((subjectMatter) => (
+                        <SelectItem
+                          key={subjectMatter.id}
+                          value={subjectMatter.id}
+                        >
+                          {subjectMatter.subject_code}
+                          {subjectMatter.subject_type
+                            ? ` — ${subjectMatter.subject_type}`
+                            : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </WizardFormItem>
+              )}
+              <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+                <FormField
+                  control={form.control}
+                  name={`nonMotor.items.${index}.subject_matter_reference`}
+                  render={({ field: formField }) => (
+                    <WizardFormItem>
+                      <FormLabel>Reference</FormLabel>
+                      <FormControl>
+                        <Input {...formField} />
+                      </FormControl>
+                      <FormMessage />
+                    </WizardFormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`nonMotor.items.${index}.subject_matter_desc`}
+                  render={({ field: formField }) => (
+                    <WizardFormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Input {...formField} />
+                      </FormControl>
+                      <FormMessage />
+                    </WizardFormItem>
+                  )}
+                />
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => subjectMatterFieldArray.remove(index)}
+                    disabled={subjectMatterFieldArray.fields.length === 1}
+                  >
+                    <Plus className="h-4 w-4 rotate-45" />
+                  </Button>
+                </div>
               </div>
             </div>
           ))}

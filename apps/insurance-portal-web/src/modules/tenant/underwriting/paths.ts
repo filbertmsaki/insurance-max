@@ -8,6 +8,8 @@ export const underwritingPaths = {
   quotationPayment: (id: string) => `/underwriting/quotations/${id}/payment`,
   policies: '/underwriting/policies',
   policyDetail: (id: string) => `/underwriting/policies/${id}`,
+  endorsements: '/underwriting/endorsements',
+  renewals: '/underwriting/renewals',
   policyEndorsementCreate: (policyId: string) =>
     `/underwriting/policies/${policyId}/endorsements/new`,
   policyEndorsementEdit: (policyId: string, endorsementId: string) =>
@@ -31,6 +33,12 @@ export const underwritingPaths = {
   motorFleetCreate: '/underwriting/motor/fleets/new',
   motorFleetDetail: (id: string) => `/underwriting/motor/fleets/${id}`,
   motorFleetEdit: (id: string) => `/underwriting/motor/fleets/${id}/edit`,
+  nonMotorSubjectMatters: '/underwriting/non-motor/subject-matters',
+  nonMotorSubjectMatterCreate: '/underwriting/non-motor/subject-matters/new',
+  nonMotorSubjectMatterDetail: (id: string) =>
+    `/underwriting/non-motor/subject-matters/${id}`,
+  nonMotorSubjectMatterEdit: (id: string) =>
+    `/underwriting/non-motor/subject-matters/${id}/edit`,
   customers: '/underwriting/customers',
   customerCreate: '/underwriting/customers/new',
   customerDetail: (id: string) => `/underwriting/customers/${id}`,
