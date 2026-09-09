@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,6 +8,8 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from '@/components/shared/ActionMenu';
+import { DetailPageHeader } from '@/components/shared/DetailPageHeader';
+import { formatDate, formatMoney } from '@/components/shared/detailFormat';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +26,7 @@ import { QuotationStatusBadge } from '../components/QuotationStatusBadge';
 import {
   AddonPreview,
   FleetHeaderPreview,
-  FleetVehicleList,
+  FleetVehiclesTable,
   MotorDetailsPreview,
   PaymentPreview,
   PolicyholderPreview,
@@ -61,11 +62,8 @@ type PremiumOverrideRequestDialogState = {
 
 const QUOTATION_DETAIL_TAB_LABELS: Record<string, string> = {
   overview: 'Overview',
-  policyholders: 'Policyholders',
-  risks: 'Risks & Premium',
-  'subject-matters': 'Subject Matters',
-  addons: 'Add-ons',
-  motor: 'Motor Details',
+  motor: 'Vehicle',
+  coverage: 'Coverage & Premium',
   fleet: 'Fleet Vehicles',
   payment: 'Payment',
   tiramis: 'TIRAMIS',
@@ -73,16 +71,19 @@ const QUOTATION_DETAIL_TAB_LABELS: Record<string, string> = {
 };
 
 // Ordered tab set per quotation flow — single source of truth for both the
-// tab list and the tab id used to key TabsContent below.
+// tab list and the tab id used to key TabsContent below. Policyholders lives
+// inside Overview and risks/subject-matters/add-ons are consolidated into one
+// Coverage & Premium tab — thin single-table tabs were merged rather than
+// kept as separate stops (see the View Page Blueprint's dedup pass).
 function getQuotationDetailTabs(flow: string | undefined): string[] {
-  const tabs = ['overview', 'policyholders'];
+  const tabs = ['overview'];
   if (flow === 'MOTOR_FLEET') {
     tabs.push('fleet');
   } else {
-    tabs.push('risks', 'subject-matters', 'addons');
     if (flow === 'MOTOR_SINGLE') {
       tabs.push('motor');
     }
+    tabs.push('coverage');
   }
   tabs.push('payment', 'tiramis', 'history');
   return tabs;
@@ -548,14 +549,6 @@ export function QuotationDetailPage() {
 
   const actionButtons = (
     <div className="flex flex-wrap items-center gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => navigate(underwritingPaths.quotations)}
-      >
-        <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-        Back to List
-      </Button>
       {primaryWorkflowAction ? (
         <Button
           type="button"
@@ -580,33 +573,35 @@ export function QuotationDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(underwritingPaths.quotations)}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-semibold text-slate-900">
-                {preview.overview.quotation_no}
-              </h1>
-              <QuotationStatusBadge status={displayStatus} />
-              <PaymentStatusBadge status={paymentStatus} />
-            </div>
-            <p className="text-sm text-slate-500">
-              {friendlyWorkflowLabel}
-              {preview.cover_note.cover_note_number
-                ? ` - ${preview.cover_note.cover_note_number}`
-                : ''}
-            </p>
-          </div>
-        </div>
-        {actionButtons}
-      </div>
+      <DetailPageHeader
+        onBack={() => navigate(underwritingPaths.quotations)}
+        title={preview.overview.quotation_no}
+        badges={
+          <>
+            <QuotationStatusBadge status={displayStatus} />
+            <PaymentStatusBadge status={paymentStatus} />
+          </>
+        }
+        subtitle={friendlyWorkflowLabel}
+        kpis={[
+          {
+            label: 'Effective',
+            value: formatDate(preview.cover_note.cover_note_start_date),
+          },
+          {
+            label: 'Expires',
+            value: formatDate(preview.cover_note.cover_note_end_date),
+          },
+          {
+            label: 'Total Premium',
+            value: formatMoney(
+              preview.premium_summary.total_premium_including_tax,
+              preview.premium_summary.currency,
+            ),
+          },
+        ]}
+        actions={actionButtons}
+      />
 
       <Tabs defaultValue={tabs[0]} className="space-y-4">
         <TabsList className="h-auto flex-wrap gap-1">
@@ -617,38 +612,25 @@ export function QuotationDetailPage() {
           ))}
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-4">
+        <TabsContent value="overview" className="space-y-6">
           <QuotationOverviewPreview preview={preview} />
-        </TabsContent>
-
-        <TabsContent value="policyholders" className="space-y-4">
           <PolicyholderPreview policyholders={preview.policyholders} />
         </TabsContent>
-
-        {!showFleetTabs ? (
-          <TabsContent value="risks" className="space-y-4">
-            <RiskPreview
-              risks={preview.risks}
-              renderRiskActions={renderRiskActions}
-            />
-          </TabsContent>
-        ) : null}
-
-        {!showFleetTabs ? (
-          <TabsContent value="subject-matters" className="space-y-4">
-            <SubjectMatterPreview subjectMatters={preview.subject_matters} />
-          </TabsContent>
-        ) : null}
-
-        {!showFleetTabs ? (
-          <TabsContent value="addons" className="space-y-4">
-            <AddonPreview addons={preview.addons} />
-          </TabsContent>
-        ) : null}
 
         {showMotorTab ? (
           <TabsContent value="motor" className="space-y-4">
             <MotorDetailsPreview motor={preview.motor_details} />
+          </TabsContent>
+        ) : null}
+
+        {!showFleetTabs ? (
+          <TabsContent value="coverage" className="space-y-6">
+            <RiskPreview
+              risks={preview.risks}
+              renderRiskActions={renderRiskActions}
+            />
+            <SubjectMatterPreview subjectMatters={preview.subject_matters} />
+            <AddonPreview addons={preview.addons} />
           </TabsContent>
         ) : null}
 
@@ -660,7 +642,7 @@ export function QuotationDetailPage() {
                   header={preview.fleet.header}
                   summary={preview.fleet.summary}
                 />
-                <FleetVehicleList
+                <FleetVehiclesTable
                   vehicles={preview.fleet.vehicles}
                   renderRiskActions={renderRiskActions}
                 />

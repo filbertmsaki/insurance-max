@@ -36,3 +36,42 @@ export function getMotorCategoryCodeFromVehicleCategory(
     return '2';
   return '';
 }
+
+export function getMotorTypeLabelFromCode(
+  code: string | number | null | undefined,
+) {
+  switch (String(code ?? '')) {
+    case '1':
+      return 'Registered';
+    case '2':
+      return 'In Transit';
+    default:
+      return '';
+  }
+}
+
+export function getMotorUsageLabelFromCode(
+  code: string | number | null | undefined,
+) {
+  switch (String(code ?? '')) {
+    case '1':
+      return 'Private';
+    case '2':
+      return 'Commercial';
+    default:
+      return '';
+  }
+}
+
+export function getOwnerCategoryLabelFromCode(
+  code: string | number | null | undefined,
+) {
+  switch (String(code ?? '')) {
+    case '1':
+      return 'Individual';
+    case '2':
+      return 'Corporate';
+    default:
+      return '';
+  }
+}

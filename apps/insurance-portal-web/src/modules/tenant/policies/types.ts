@@ -65,6 +65,8 @@ export interface PolicyPremiumBreakdownRecord {
 
 export interface PolicyStatusHistoryRecord extends QuotationStatusHistoryRecord {
   policy_id: string;
+  changed_by?: string | null;
+  changer?: { id: string; first_name: string; last_name: string } | null;
 }
 
 export type PolicyTransactionStage =
@@ -482,6 +484,9 @@ export interface PolicyRecord {
   deleted_at: string | null;
   customer?: CustomerRecord | null;
   insurer_company?: { id: string; name: string; slug: string } | null;
+  intermediary_company?: { id: string; name: string; slug?: string } | null;
+  branch?: { id: string; name: string; code?: string | null } | null;
+  department?: { id: string; name: string; code?: string | null } | null;
   category?: InsuranceCategory | null;
   product?: InsuranceProduct | null;
   sub_class?: InsuranceSubClass | null;

@@ -1,7 +1,15 @@
-import type { ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Eye, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -10,6 +18,22 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { DataTable, type Column } from '@/components/shared/DataTable';
+import {
+  SectionCard,
+  KeyValueGrid,
+  EmptyState,
+} from '@/components/shared/DetailSections';
+import { PremiumBreakdown } from '@/components/shared/PremiumBreakdown';
+import { ActivityTimeline } from '@/components/shared/ActivityTimeline';
+import {
+  displayValue,
+  formatDate,
+  formatDateTime,
+  formatMoney,
+  formatNumber,
+} from '@/components/shared/detailFormat';
+import { QuotationStatusBadge } from './QuotationStatusBadge';
 import type {
   QuotationPreviewAddon,
   QuotationPreviewFleetHeader,
@@ -26,51 +50,12 @@ import type {
   QuotationPreviewTiramisSubmission,
 } from '../types';
 import { getFriendlyTiramisStatus } from '../utils/quotationWorkflowLabels';
-
-function displayValue(value: unknown) {
-  if (value === null || value === undefined) return 'N/A';
-  if (typeof value === 'string' && !value.trim()) return 'N/A';
-  if (Array.isArray(value) && value.length === 0) return 'N/A';
-  return String(value);
-}
-
-function formatDateTime(value?: string | null) {
-  if (!value) return 'N/A';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
-}
-
-function formatDate(value?: string | null) {
-  if (!value) return 'N/A';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
-}
-
-function formatMoney(
-  value: number | null | undefined,
-  currency?: string | null,
-) {
-  if (value === null || value === undefined || Number.isNaN(value))
-    return 'N/A';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency || 'TZS',
-    maximumFractionDigits: 2,
-  }).format(value);
-}
-
-function formatNumber(value: number | null | undefined, digits = 2) {
-  if (value === null || value === undefined || Number.isNaN(value))
-    return 'N/A';
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: digits,
-  }).format(value);
-}
-
-function labelFor(value: string | number | boolean | null | undefined) {
-  if (value === null || value === undefined) return 'N/A';
-  return String(value);
-}
+import {
+  getMotorTypeLabelFromCode,
+  getMotorUsageLabelFromCode,
+  getOwnerCategoryLabelFromCode,
+  getVehicleCategoryLabelFromCode,
+} from '../wizard/utils/motorOptions';
 
 function premiumOverrideBadgeVariant(
   status: QuotationPreviewPremiumOverride['approval_status'],
@@ -85,63 +70,6 @@ function premiumOverrideBadgeVariant(
     default:
       return 'outline';
   }
-}
-
-function SectionCard({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  return (
-    <Card className="border-slate-200 shadow-sm">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-base">{title}</CardTitle>
-        {description ? (
-          <p className="text-sm text-slate-500">{description}</p>
-        ) : null}
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
-  );
-}
-
-function KeyValueGrid({
-  items,
-}: {
-  items: Array<{ label: string; value: ReactNode; meta?: string }>;
-}) {
-  return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {items.map((item) => (
-        <div
-          key={item.label}
-          className="rounded-lg border border-slate-200 bg-slate-50/60 p-3"
-        >
-          <div className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            {item.label}
-          </div>
-          <div className="mt-1 text-sm font-medium text-slate-900">
-            {item.value}
-          </div>
-          {item.meta ? (
-            <div className="mt-1 text-xs text-slate-500">{item.meta}</div>
-          ) : null}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function EmptyState({ text = 'No data available' }: { text?: string }) {
-  return (
-    <div className="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">
-      {text}
-    </div>
-  );
 }
 
 export function QuotationOverviewPreview({
@@ -162,11 +90,6 @@ export function QuotationOverviewPreview({
             { label: 'Quotation Number', value: overview.quotation_no },
             { label: 'Quotation Type', value: overview.quotation_type },
             { label: 'Quotation Flow', value: overview.quotation_flow },
-            { label: 'Display Status', value: overview.display_label },
-            { label: 'Quotation Status', value: overview.quotation_status },
-            { label: 'Approval Status', value: overview.approval_status },
-            { label: 'Payment Status', value: overview.payment_status },
-            { label: 'TIRAMIS Status', value: overview.tira_status },
             { label: 'Channel Type', value: overview.channel_type },
             {
               label: 'Company',
@@ -223,7 +146,7 @@ export function QuotationOverviewPreview({
           items={[
             {
               label: 'Cover Note Type',
-              value: labelFor(cover_note.cover_note_type),
+              value: displayValue(cover_note.cover_note_type),
             },
             {
               label: 'Cover Note Number',
@@ -236,14 +159,6 @@ export function QuotationOverviewPreview({
               ),
             },
             {
-              label: 'Start Date',
-              value: formatDateTime(cover_note.cover_note_start_date),
-            },
-            {
-              label: 'End Date',
-              value: formatDateTime(cover_note.cover_note_end_date),
-            },
-            {
               label: 'Description',
               value: displayValue(cover_note.cover_note_description),
             },
@@ -251,7 +166,10 @@ export function QuotationOverviewPreview({
               label: 'Operative Clause',
               value: displayValue(cover_note.operative_clause),
             },
-            { label: 'Payment Mode', value: labelFor(cover_note.payment_mode) },
+            {
+              label: 'Payment Mode',
+              value: displayValue(cover_note.payment_mode),
+            },
             { label: 'Currency', value: displayValue(cover_note.currency) },
             {
               label: 'Exchange Rate',
@@ -299,94 +217,33 @@ export function QuotationOverviewPreview({
         />
       </SectionCard>
 
-      <SectionCard
-        title="Premium Summary"
-        description="Stored totals and derived premium summary."
-      >
-        <div className="mb-3 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
-          Stored values come from the quotation record. Detailed line items
-          below show the components used to reach the totals.
-        </div>
-        <KeyValueGrid
-          items={[
-            {
-              label: 'Total Sum Insured',
-              value: formatMoney(
-                premium_summary.total_sum_insured,
-                premium_summary.currency,
-              ),
-            },
-            {
-              label: 'Total Premium Before Discount',
-              value: formatMoney(
-                premium_summary.total_premium_before_discount,
-                premium_summary.currency,
-              ),
-              meta: 'Calculated',
-            },
-            {
-              label: 'Total Discount Amount',
-              value: formatMoney(
-                premium_summary.total_discount_amount,
-                premium_summary.currency,
-              ),
-              meta: 'Calculated',
-            },
-            {
-              label: 'Total Premium After Discount',
-              value: formatMoney(
-                premium_summary.total_premium_after_discount,
-                premium_summary.currency,
-              ),
-              meta: 'Calculated',
-            },
-            {
-              label: 'Total Premium Excluding Tax',
-              value: formatMoney(
-                premium_summary.total_premium_excluding_tax,
-                premium_summary.currency,
-              ),
-            },
-            {
-              label: 'Total Tax Amount',
-              value: formatMoney(
-                premium_summary.total_tax_amount,
-                premium_summary.currency,
-              ),
-              meta: 'Calculated',
-            },
-            {
-              label: 'Total Premium Including Tax',
-              value: formatMoney(
-                premium_summary.total_premium_including_tax,
-                premium_summary.currency,
-              ),
-            },
-            {
-              label: 'Equivalent Premium Excluding Tax',
-              value: formatMoney(
-                premium_summary.equivalent_premium_excluding_tax,
-                premium_summary.currency,
-              ),
-            },
-            {
-              label: 'Equivalent Premium Including Tax',
-              value: formatMoney(
-                premium_summary.equivalent_premium_including_tax,
-                premium_summary.currency,
-              ),
-            },
-            {
-              label: 'Currency',
-              value: displayValue(premium_summary.currency),
-            },
-            {
-              label: 'Exchange Rate',
-              value: formatNumber(premium_summary.exchange_rate, 6),
-            },
-          ]}
-        />
-      </SectionCard>
+      <PremiumBreakdown
+        currency={premium_summary.currency}
+        sumInsured={premium_summary.total_sum_insured}
+        rows={[
+          {
+            label: 'Base Premium',
+            value: premium_summary.total_premium_before_discount,
+          },
+          {
+            label: 'Discount',
+            value: premium_summary.total_discount_amount,
+            negative: true,
+          },
+          {
+            label: 'Premium Excluding Tax',
+            value: premium_summary.total_premium_excluding_tax,
+          },
+          {
+            label: 'Tax',
+            value: premium_summary.total_tax_amount,
+          },
+        ]}
+        total={{
+          label: 'Total Premium',
+          value: premium_summary.total_premium_including_tax,
+        }}
+      />
     </div>
   );
 }
@@ -496,8 +353,6 @@ function RiskSection({
           </div>
           <KeyValueGrid
             items={[
-              { label: 'Risk Code', value: displayValue(risk.risk_code) },
-              { label: 'Risk Name', value: displayValue(risk.risk_name) },
               { label: 'Sum Insured', value: formatMoney(risk.sum_insured) },
               {
                 label: 'Sum Insured Equivalent',
@@ -522,10 +377,6 @@ function RiskSection({
               {
                 label: 'Premium Including Tax',
                 value: formatMoney(risk.premium_including_tax),
-              },
-              {
-                label: 'Latest Override Status',
-                value: risk.premium_overrides[0]?.approval_status ?? 'N/A',
               },
             ]}
           />
@@ -843,9 +694,17 @@ export function MotorDetailsPreview({
         items={[
           {
             label: 'Motor Category',
-            value: displayValue(motor.motor_category),
+            value:
+              getVehicleCategoryLabelFromCode(
+                String(motor.motor_category ?? ''),
+              ) || displayValue(motor.motor_category),
           },
-          { label: 'Motor Type', value: displayValue(motor.motor_type) },
+          {
+            label: 'Motor Type',
+            value:
+              getMotorTypeLabelFromCode(motor.motor_type) ||
+              displayValue(motor.motor_type),
+          },
           {
             label: 'Registration Number',
             value: displayValue(motor.registration_number),
@@ -880,11 +739,18 @@ export function MotorDetailsPreview({
           },
           { label: 'Tare Weight', value: displayValue(motor.tare_weight) },
           { label: 'Gross Weight', value: displayValue(motor.gross_weight) },
-          { label: 'Motor Usage', value: displayValue(motor.motor_usage) },
+          {
+            label: 'Motor Usage',
+            value:
+              getMotorUsageLabelFromCode(motor.motor_usage) ||
+              displayValue(motor.motor_usage),
+          },
           { label: 'Owner Name', value: displayValue(motor.owner_name) },
           {
             label: 'Owner Category',
-            value: displayValue(motor.owner_category),
+            value:
+              getOwnerCategoryLabelFromCode(motor.owner_category) ||
+              displayValue(motor.owner_category),
           },
           { label: 'Owner Address', value: displayValue(motor.owner_address) },
         ]}
@@ -1041,94 +907,176 @@ export function FleetHeaderPreview({
   );
 }
 
-export function FleetVehicleList({
+/** Sum of already-computed line-item premiums for display — not a recalculation, the backend doesn't return a per-vehicle total. */
+function vehicleTotalPremium(vehicle: QuotationPreviewFleetVehicle) {
+  return (
+    vehicle.risks.reduce(
+      (sum, risk) => sum + (risk.premium_including_tax ?? 0),
+      0,
+    ) +
+    vehicle.addons.reduce(
+      (sum, addon) => sum + (addon.premium_including_tax ?? 0),
+      0,
+    )
+  );
+}
+
+function vehicleTotalSumInsured(vehicle: QuotationPreviewFleetVehicle) {
+  return vehicle.risks.reduce((sum, risk) => sum + (risk.sum_insured ?? 0), 0);
+}
+
+export function FleetVehiclesTable({
   vehicles,
   renderRiskActions,
 }: {
   vehicles: QuotationPreviewFleetVehicle[];
   renderRiskActions?: (risk: QuotationPreviewRisk) => ReactNode;
 }) {
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [selectedVehicle, setSelectedVehicle] =
+    useState<QuotationPreviewFleetVehicle | null>(null);
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return vehicles;
+    return vehicles.filter((vehicle) =>
+      [
+        vehicle.motor_details?.registration_number,
+        vehicle.motor_details?.make,
+        vehicle.motor_details?.model,
+        vehicle.cover_note_number,
+        vehicle.fleet_entry_number,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(query),
+    );
+  }, [vehicles, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / limit));
+  const pageVehicles = filtered.slice((page - 1) * limit, page * limit);
+
   if (!vehicles.length)
     return <EmptyState text="No fleet vehicles available." />;
 
+  const columns: Column<QuotationPreviewFleetVehicle>[] = [
+    {
+      key: 'registration',
+      header: 'Reg. No.',
+      cell: (vehicle) => (
+        <div>
+          <p className="font-medium text-slate-900">
+            {displayValue(vehicle.motor_details?.registration_number)}
+          </p>
+          <p className="text-xs text-slate-400">
+            Entry {displayValue(vehicle.fleet_entry_number)}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: 'vehicle',
+      header: 'Vehicle',
+      cell: (vehicle) =>
+        `${displayValue(vehicle.motor_details?.make)} ${displayValue(vehicle.motor_details?.model)}`,
+    },
+    {
+      key: 'cover',
+      header: 'Cover',
+      cell: (vehicle) => displayValue(vehicle.risks[0]?.risk_name),
+    },
+    {
+      key: 'sumInsured',
+      header: 'Sum Insured',
+      className: 'text-right',
+      cell: (vehicle) => formatMoney(vehicleTotalSumInsured(vehicle)),
+    },
+    {
+      key: 'premium',
+      header: 'Premium',
+      className: 'text-right',
+      cell: (vehicle) => formatMoney(vehicleTotalPremium(vehicle)),
+    },
+    {
+      key: 'tiramis',
+      header: 'TIRAMIS',
+      cell: (vehicle) => displayValue(vehicle.tiramis?.submission_status),
+    },
+    {
+      key: 'actions',
+      header: '',
+      className: 'w-12',
+      cell: (vehicle) => (
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSelectedVehicle(vehicle)}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-3">
-      {vehicles.map((vehicle, index) => (
-        <details
-          key={`${vehicle.cover_note_number ?? 'vehicle'}-${index}`}
-          className="group rounded-lg border border-slate-200 bg-white"
-        >
-          <summary className="cursor-pointer list-none px-4 py-3">
-            <div className="grid gap-2 md:grid-cols-6 md:items-center">
-              <div>
-                <div className="text-xs uppercase tracking-wide text-slate-500">
-                  Fleet Entry
-                </div>
-                <div className="font-medium text-slate-900">
-                  {displayValue(vehicle.fleet_entry_number)}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs uppercase tracking-wide text-slate-500">
-                  Cover Note
-                </div>
-                <div className="font-medium text-slate-900">
-                  {displayValue(vehicle.cover_note_number)}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs uppercase tracking-wide text-slate-500">
-                  Registration
-                </div>
-                <div className="font-medium text-slate-900">
-                  {displayValue(vehicle.motor_details?.registration_number)}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs uppercase tracking-wide text-slate-500">
-                  Make / Model
-                </div>
-                <div className="font-medium text-slate-900">
-                  {displayValue(vehicle.motor_details?.make)}{' '}
-                  {displayValue(vehicle.motor_details?.model)}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs uppercase tracking-wide text-slate-500">
-                  Premium
-                </div>
-                <div className="font-medium text-slate-900">
-                  {formatMoney(
-                    vehicle.risks.reduce(
-                      (sum, risk) => sum + (risk.premium_including_tax ?? 0),
-                      0,
-                    ) +
-                      vehicle.addons.reduce(
-                        (sum, addon) =>
-                          sum + (addon.premium_including_tax ?? 0),
-                        0,
-                      ),
-                  )}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs uppercase tracking-wide text-slate-500">
-                  TIRAMIS
-                </div>
-                <div className="font-medium text-slate-900">
-                  {displayValue(vehicle.tiramis?.submission_status)}
-                </div>
-              </div>
-            </div>
-          </summary>
-          <div className="border-t border-slate-200 p-4">
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+        <Input
+          placeholder="Search registration, make, model..."
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            setPage(1);
+          }}
+          className="pl-9"
+        />
+      </div>
+
+      <DataTable
+        columns={columns}
+        data={pageVehicles}
+        page={page}
+        limit={limit}
+        total={filtered.length}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        onLimitChange={(nextLimit) => {
+          setLimit(nextLimit);
+          setPage(1);
+        }}
+        showColumnVisibility={false}
+      />
+
+      <Dialog
+        open={selectedVehicle != null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedVehicle(null);
+        }}
+      >
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedVehicle
+                ? displayValue(
+                    selectedVehicle.motor_details?.registration_number,
+                  )
+                : 'Vehicle'}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedVehicle ? (
             <FleetVehiclePreview
-              vehicle={vehicle}
+              vehicle={selectedVehicle}
               renderRiskActions={renderRiskActions}
             />
-          </div>
-        </details>
-      ))}
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1225,102 +1173,7 @@ export function FleetVehiclePreview({
         title="Vehicle Motor Details"
       />
 
-      <SectionCard title="Vehicle TIRAMIS">
-        {vehicle.tiramis ? (
-          <KeyValueGrid
-            items={[
-              {
-                label: 'Submission Status',
-                value: displayValue(vehicle.tiramis.submission_status),
-              },
-              {
-                label: 'Request ID',
-                value: displayValue(vehicle.tiramis.request_id),
-              },
-              {
-                label: 'Submission Attempts',
-                value: displayValue(vehicle.tiramis.submission_attempt_number),
-              },
-              {
-                label: 'Date Submitted',
-                value: formatDateTime(vehicle.tiramis.date_submitted),
-              },
-              {
-                label: 'Submitted By',
-                value: displayValue(vehicle.tiramis.submitted_by),
-              },
-              {
-                label: 'Environment',
-                value: displayValue(vehicle.tiramis.tiramis_environment),
-              },
-              {
-                label: 'Last Error',
-                value: displayValue(vehicle.tiramis.last_submission_error),
-              },
-              {
-                label: 'Next Retry Time',
-                value: formatDateTime(vehicle.tiramis.next_retry_time),
-              },
-              {
-                label: 'Acknowledgement ID',
-                value: displayValue(vehicle.tiramis.acknowledgement_id),
-              },
-              {
-                label: 'Acknowledgement Status Code',
-                value: displayValue(
-                  vehicle.tiramis.acknowledgement_status_code,
-                ),
-              },
-              {
-                label: 'Acknowledgement Description',
-                value: displayValue(
-                  vehicle.tiramis.acknowledgement_status_description,
-                ),
-              },
-              {
-                label: 'Acknowledgement Received',
-                value: formatDateTime(
-                  vehicle.tiramis.acknowledgement_received_date,
-                ),
-              },
-              {
-                label: 'Callback Status',
-                value: displayValue(vehicle.tiramis.callback_received_status),
-              },
-              {
-                label: 'Callback Received',
-                value: formatDateTime(vehicle.tiramis.callback_received_date),
-              },
-              {
-                label: 'Response ID',
-                value: displayValue(vehicle.tiramis.response_id),
-              },
-              {
-                label: 'Response Status Code',
-                value: displayValue(vehicle.tiramis.response_status_code),
-              },
-              {
-                label: 'Response Description',
-                value: displayValue(
-                  vehicle.tiramis.response_status_description,
-                ),
-              },
-              {
-                label: 'TIRAMIS Cover Note Reference',
-                value: displayValue(
-                  vehicle.tiramis.cover_note_reference_number,
-                ),
-              },
-              {
-                label: 'Sticker Number',
-                value: displayValue(vehicle.tiramis.sticker_number),
-              },
-            ]}
-          />
-        ) : (
-          <EmptyState text="No TIRAMIS data recorded for this vehicle." />
-        )}
-      </SectionCard>
+      <TiramisSubmissionPreview tiramis={vehicle.tiramis} />
     </div>
   );
 }
@@ -1436,7 +1289,10 @@ export function TiramisSubmissionPreview({
                   label: 'Submission Status',
                   value: displayValue(tiramis.submission_status),
                 },
-                { label: 'Request ID', value: displayValue(tiramis.request_id) },
+                {
+                  label: 'Request ID',
+                  value: displayValue(tiramis.request_id),
+                },
                 {
                   label: 'Submission Attempt',
                   value: displayValue(tiramis.submission_attempt_number),
@@ -1459,7 +1315,9 @@ export function TiramisSubmissionPreview({
                 },
                 {
                   label: 'Acknowledgement Description',
-                  value: displayValue(tiramis.acknowledgement_status_description),
+                  value: displayValue(
+                    tiramis.acknowledgement_status_description,
+                  ),
                 },
                 {
                   label: 'Acknowledgement Received',
@@ -1473,7 +1331,10 @@ export function TiramisSubmissionPreview({
                   label: 'Callback Received Date',
                   value: formatDateTime(tiramis.callback_received_date),
                 },
-                { label: 'Response ID', value: displayValue(tiramis.response_id) },
+                {
+                  label: 'Response ID',
+                  value: displayValue(tiramis.response_id),
+                },
                 {
                   label: 'Response Status Code',
                   value: displayValue(tiramis.response_status_code),
@@ -1496,34 +1357,19 @@ export function QuotationHistoryPreview({
 }: {
   history: QuotationPreviewHistoryItem[];
 }) {
-  if (!history.length) return <EmptyState text="No history available." />;
-
   return (
-    <SectionCard title="Audit and Status History">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Action</TableHead>
-            <TableHead>Previous Status</TableHead>
-            <TableHead>New Status</TableHead>
-            <TableHead>Performed By</TableHead>
-            <TableHead>Date and Time</TableHead>
-            <TableHead>Remarks</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {history.map((item, index) => (
-            <TableRow key={`${item.action}-${index}`}>
-              <TableCell>{displayValue(item.action)}</TableCell>
-              <TableCell>{displayValue(item.previous_status)}</TableCell>
-              <TableCell>{displayValue(item.new_status)}</TableCell>
-              <TableCell>{displayValue(item.performed_by)}</TableCell>
-              <TableCell>{formatDateTime(item.date_time)}</TableCell>
-              <TableCell>{displayValue(item.remarks)}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </SectionCard>
+    <ActivityTimeline
+      emptyText="No history available."
+      renderStatus={(status) => <QuotationStatusBadge status={status} />}
+      entries={history.map((item, index) => ({
+        id: `${item.action}-${index}`,
+        dateTime: item.date_time,
+        action: item.action,
+        previousStatus: item.previous_status,
+        newStatus: item.new_status,
+        performedBy: item.performed_by,
+        remarks: item.remarks,
+      }))}
+    />
   );
 }

@@ -17,6 +17,8 @@ export type ActionMenuItem = {
   destructive?: boolean;
   separatorBefore?: boolean;
   disabled?: boolean;
+  /** Tooltip shown on hover — mainly useful to explain why an item is disabled. */
+  title?: string;
 };
 
 interface ActionMenuProps {
@@ -63,6 +65,7 @@ export function ActionMenu({
             <DropdownMenuItem
               onClick={item.onClick}
               disabled={item.disabled}
+              title={item.title}
               className={cn(
                 item.destructive &&
                   'text-red-600 focus:bg-red-50 focus:text-red-600',
