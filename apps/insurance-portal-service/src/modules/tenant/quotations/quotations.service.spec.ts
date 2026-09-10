@@ -20,7 +20,10 @@ import { QuotationLifecycleService } from './services/quotation-lifecycle.servic
 import { QuotationPayloadValidator } from './services/quotation-payload.validator';
 import { QuotationRiskAsset } from './entities/structured/quotation-risk-asset.entity';
 import { QuotationsService } from './quotations.service';
-import { createMotorSingleQuotationPayload } from './testing/quotation-payload.fixture';
+import {
+  createMotorSingleQuotationPayload,
+  createMotorFleetQuotationPayload,
+} from './testing/quotation-payload.fixture';
 import { AuditService } from '../../shared/audit/audit.service';
 import { DataAccessScopeService } from '../../shared/authorization/data-access-scope.service';
 import { TiramisBusinessSubmitService } from '../../tiramis/services/tiramis-business-submit.service';
@@ -139,7 +142,7 @@ describe('QuotationsService', () => {
       quote_scope: 'SINGLE_RISK',
       calculation_status: 'CALCULATED',
       calculated_at: new Date('2026-07-27T08:00:00.000Z'),
-      expires_at: new Date('2026-08-30T08:00:00.000Z'),
+      expires_at: new Date(Date.now() + 86400000),
       product_id: 'product-1',
       risk_id: 'risk-1',
       quotation_type: authoritativePayload.internal_quotation.quotation_type,
@@ -1032,6 +1035,181 @@ describe('QuotationsService', () => {
       return payload;
     }
 
+    it.each([false, true])(
+      'preserves selected VAT and its exemption during save (exempted=%s)',
+      async (exempted) => {
+        const fixture = createServiceFixture();
+        const payload = stubNonPricingConcerns(fixture);
+        const risk = payload.cover_note_dtl.risks_covered[0];
+        risk.taxes_charged = [
+          {
+            tax_code: 'VAT-MAINLAND',
+            tax_rate: 0.99,
+            tax_amount: 99000,
+            is_tax_exempted: exempted ? 'Y' : 'N',
+            tax_exemption_type: exempted ? '1' : null,
+            tax_exemption_reference: exempted ? 'EXEMPT-1' : null,
+          },
+        ];
+        await fixture.service.create('company-1', payload, pricingUser);
+        expect(
+          fixture.pricingQuoteService.calculateSingleRiskQuote,
+        ).toHaveBeenCalledWith(
+          'company-1',
+          expect.objectContaining({
+            tax_codes: exempted ? [] : ['VAT-MAINLAND'],
+          }),
+          pricingUser.id,
+          pricingUser,
+        );
+        expect(
+          fixture.pricingChargeService.calculateCharges,
+        ).toHaveBeenCalledWith(
+          'company-1',
+          expect.objectContaining({ tax_codes: ['VAT-MAINLAND'] }),
+        );
+        expect(risk.taxes_charged).toEqual([
+          expect.objectContaining({
+            tax_code: 'VAT-MAINLAND',
+            tax_rate: 0.18,
+            tax_amount: exempted ? 0 : 18000,
+          }),
+        ]);
+      },
+    );
+
+    it('does not re-add taxes when saving an empty selection', async () => {
+      const fixture = createServiceFixture();
+      const payload = stubNonPricingConcerns(fixture);
+      payload.cover_note_dtl.risks_covered[0].taxes_charged = [];
+      await fixture.service.create('company-1', payload, pricingUser);
+      expect(
+        fixture.pricingQuoteService.calculateSingleRiskQuote,
+      ).toHaveBeenCalledWith(
+        'company-1',
+        expect.objectContaining({ tax_codes: [] }),
+        pricingUser.id,
+        pricingUser,
+      );
+      expect(payload.cover_note_dtl.risks_covered[0].taxes_charged).toEqual([]);
+      expect(
+        payload.cover_note_dtl.risks_covered[0].premium_including_tax,
+      ).toBe(95000);
+    });
+
+    it.each([
+      { codes: ['VAT-MAINLAND'] },
+      { codes: ['VAT-MAINLAND', 'WITHHOLDING'] },
+      { codes: [] },
+    ])(
+      'preserves the requested tax selection when updating a quotation ($codes)',
+      async ({ codes }) => {
+        const fixture = createServiceFixture();
+        const payload = stubNonPricingConcerns(fixture);
+        jest
+          .spyOn(fixture.service as any, 'resolveExistingQuotationContext')
+          .mockReturnValue(payload);
+        const selectedCodes = codes;
+        const risk = payload.cover_note_dtl.risks_covered[0];
+        risk.taxes_charged = selectedCodes.map((code) => ({
+          tax_code: code,
+          tax_rate: code === 'VAT-MAINLAND' ? 0.18 : 0.1,
+          tax_amount: 0,
+          is_tax_exempted: 'N' as const,
+          tax_exemption_type: null,
+          tax_exemption_reference: null,
+        }));
+        jest
+          .spyOn(fixture.service as any, 'assertUserCanWriteQuotation')
+          .mockResolvedValue(undefined);
+        jest
+          .spyOn(fixture.service as any, 'assertQuotationEditable')
+          .mockReturnValue(undefined);
+        jest
+          .spyOn(fixture.service as any, 'lockQuotationForUpdate')
+          .mockResolvedValue(fixture.quotation);
+        (fixture.dataSource.transaction as jest.Mock).mockImplementation(
+          async (callback) =>
+            callback({
+              getRepository: () => ({
+                delete: jest.fn().mockResolvedValue(undefined),
+              }),
+            }),
+        );
+        const cataloguePricing = new PricingChargeService({
+          find: jest.fn().mockResolvedValue([
+            {
+              id: 'vat',
+              tax_code: 'VAT-MAINLAND',
+              tax_name: 'VAT',
+              tax_rate: '0.18',
+            },
+            {
+              id: 'wht',
+              tax_code: 'WITHHOLDING',
+              tax_name: 'Withholding',
+              tax_rate: '0.1',
+            },
+          ]),
+        } as any);
+        (
+          fixture.pricingChargeService.calculateCharges as jest.Mock
+        ).mockImplementation((company, input) =>
+          cataloguePricing.calculateCharges(company, input),
+        );
+        await fixture.service.replace(
+          'company-1',
+          fixture.quotation.id,
+          payload,
+          pricingUser,
+        );
+        expect(
+          fixture.pricingQuoteService.calculateSingleRiskQuote,
+        ).toHaveBeenCalledWith(
+          'company-1',
+          expect.objectContaining({ tax_codes: selectedCodes }),
+          pricingUser.id,
+          pricingUser,
+        );
+        expect(risk.taxes_charged.map((tax) => tax.tax_code)).toEqual(
+          selectedCodes,
+        );
+        const expectedTax = selectedCodes.reduce(
+          (total, code) => total + (code === 'VAT-MAINLAND' ? 17100 : 9500),
+          0,
+        );
+        expect(risk.premium_including_tax).toBe(95000 + expectedTax);
+      },
+    );
+
+    it('passes each fleet risk?s own selection to save-time pricing', async () => {
+      const fixture = createServiceFixture();
+      const payload = createMotorFleetQuotationPayload();
+      const risks = payload.cover_note_dtl.fleet_dtls.flatMap(
+        (entry) => entry.risks_covered,
+      );
+      risks[0].taxes_charged.push({
+        ...risks[0].taxes_charged[0],
+        tax_code: 'WITHHOLDING',
+        tax_rate: 0.1,
+      });
+      risks[1].taxes_charged = [];
+      await (fixture.service as any).refreshPricingBeforeSave(
+        'company-1',
+        payload,
+        {
+          riskByCode: new Map(
+            risks.map((risk) => [risk.risk_code, { id: 'risk-1' }]),
+          ),
+        },
+        pricingUser,
+      );
+      const calls =
+        fixture.pricingQuoteService.calculateSingleRiskQuote.mock.calls;
+      expect(calls[0][1].tax_codes).toEqual(['VAT-MAINLAND', 'WITHHOLDING']);
+      expect(calls[1][1].tax_codes).toEqual([]);
+    });
+
     it('rejects an expired pricing quote', async () => {
       const fixture = createServiceFixture({
         pricingQuote: { expires_at: new Date('2020-01-01T00:00:00.000Z') },
@@ -1457,52 +1635,25 @@ describe('QuotationsService', () => {
     );
   });
 
-  it('preserves manually selected risk taxes when no backend charge rule is returned', async () => {
+  it('rejects selected taxes missing from the catalogue instead of trusting a submitted rate', async () => {
     const fixture = createServiceFixture();
-    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].taxes_charged =
-      [
-        {
-          tax_code: 'VAT-MAINLAND',
-          is_tax_exempted: 'N',
-          tax_exemption_type: null,
-          tax_exemption_reference: null,
-          tax_rate: 0.18,
-          tax_amount: 1,
-        },
-      ];
-    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_after_discount = 100000;
-    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_excluding_tax_equivalent = 100000;
-    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_including_tax = 100001;
     (
       fixture.pricingChargeService.calculateCharges as jest.Mock
-    ).mockResolvedValueOnce({
-      charges: [],
-      total_charge_amount: 0,
-      taxable_charge_amount: 0,
-      non_taxable_charge_amount: 0,
-      premium_including_charges: 100000,
-    });
-
-    await fixture.service.submit(
-      'company-1',
-      fixture.quotation.id,
-      undefined,
-      submitTiramisUser,
-    );
-
+    ).mockResolvedValueOnce({ charges: [] });
+    await expect(
+      fixture.service.submit(
+        'company-1',
+        fixture.quotation.id,
+        undefined,
+        submitTiramisUser,
+      ),
+    ).rejects.toThrow('unavailable');
     expect(
-      (
-        fixture.tiramisBusinessSubmitService
-          .submitAnyBusinessRecord as jest.Mock
-      ).mock.calls[0][0].payload.risks[0].taxes[0],
-    ).toMatchObject({
-      taxCode: 'VAT-MAINLAND',
-      taxRate: 0.18,
-      taxAmount: 18000,
-    });
+      fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord,
+    ).not.toHaveBeenCalled();
   });
 
-  it('uses the signed pricing tax total when submitted tax lines are stale', async () => {
+  it('requires recalculation when selected taxes disagree with the signed pricing total', async () => {
     const fixture = createServiceFixture({
       pricingQuote: {
         result_payload: {
@@ -1513,44 +1664,17 @@ describe('QuotationsService', () => {
         },
       },
     });
-    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].taxes_charged =
-      [
-        {
-          tax_code: 'VAT-MAINLAND',
-          is_tax_exempted: 'N',
-          tax_exemption_type: null,
-          tax_exemption_reference: null,
-          tax_rate: 0.18,
-          tax_amount: 18000,
-        },
-      ];
-    fixture.authoritativePayload.cover_note_dtl.risks_covered![0].premium_including_tax = 118000;
-    (
-      fixture.pricingChargeService.calculateCharges as jest.Mock
-    ).mockResolvedValueOnce({
-      charges: [],
-      total_charge_amount: 0,
-      taxable_charge_amount: 0,
-      non_taxable_charge_amount: 0,
-      premium_including_charges: 100000,
-    });
-
-    await fixture.service.submit(
-      'company-1',
-      fixture.quotation.id,
-      undefined,
-      submitTiramisUser,
-    );
-
-    const outboundRisk = (
-      fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord as jest.Mock
-    ).mock.calls[0][0].payload.risks[0];
-
-    expect(outboundRisk.taxes[0]).toMatchObject({
-      taxCode: 'VAT-MAINLAND',
-      taxAmount: 0,
-    });
-    expect(outboundRisk.premiumIncludingTax).toBe(100000);
+    await expect(
+      fixture.service.submit(
+        'company-1',
+        fixture.quotation.id,
+        undefined,
+        submitTiramisUser,
+      ),
+    ).rejects.toThrow('Recalculate the premium');
+    expect(
+      fixture.tiramisBusinessSubmitService.submitAnyBusinessRecord,
+    ).not.toHaveBeenCalled();
   });
 
   it('prevents a requester from approving their own premium override', async () => {

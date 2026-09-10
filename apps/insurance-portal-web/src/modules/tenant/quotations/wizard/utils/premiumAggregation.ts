@@ -14,6 +14,27 @@ type QuotationRiskFormRow = QuotationFormSchemaValues['risks'][number];
 type QuotationFleetRiskFormRow =
   QuotationFormSchemaValues['fleet']['items'][number]['risks_covered'][number];
 
+/**
+ * The exact tax codes an officer selected on a risk's "Taxes Charged" rows
+ * (exempted rows excluded) — sent to the backend as `tax_codes` so premium
+ * calculation charges only what was explicitly picked, never every active
+ * company-wide tax rule by default.
+ */
+export function resolveSelectedTaxCodes(
+  taxes:
+    | Array<{ tax_code?: string | null; is_tax_exempted?: boolean }>
+    | undefined,
+): string[] {
+  return Array.from(
+    new Set(
+      (taxes ?? [])
+        .filter((tax) => !tax.is_tax_exempted)
+        .map((tax) => (tax.tax_code ?? '').trim().toUpperCase())
+        .filter(Boolean),
+    ),
+  );
+}
+
 function resolvePremiumBeforeDiscount(result: RiskPremiumResult) {
   return (
     result.premium_before_discount ??

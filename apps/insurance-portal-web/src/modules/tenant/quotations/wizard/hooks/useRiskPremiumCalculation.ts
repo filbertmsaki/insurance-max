@@ -1,13 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import {
-  useWatch,
-  type FieldPath,
-  type FieldPathValue,
-  type UseFormReturn,
-} from 'react-hook-form';
-import { apiClient } from '@/modules/shared/api/client';
-import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
+import { useWatch, type FieldPath, type UseFormReturn } from 'react-hook-form';
 import {
   usePricingCalculator,
   usePricingRequiredFactors,
@@ -22,10 +14,12 @@ import {
   applyRiskPremiumResult,
   isEqualNormalizingNumbers,
   recomputeRiskRow,
+  resolveSelectedTaxCodes,
   toNumber,
 } from '../utils/premiumAggregation';
 import { readPricingQuoteMetadata } from '@/modules/pricing';
 import { buildSingleRiskPricingSignature } from '../utils/pricingStaleness';
+import { setPricingFormValue as setValueIfChanged } from '../utils/pricingFormUpdates';
 
 const CALCULATION_DEBOUNCE_MS = 400;
 
@@ -34,21 +28,6 @@ const CALCULATION_DEBOUNCE_MS = 400;
 // calculation flow is reworked. Flip back to false to restore it — the
 // effects below are left intact, just short-circuited.
 const AUTO_CALCULATION_DISABLED = false;
-
-interface ProductTaxRuleRecord {
-  id: string;
-  category_id: string | null;
-  product_id: string | null;
-  risk_id: string | null;
-  tax_code: string;
-  status: string;
-  effective_from: string;
-  effective_to: string;
-}
-
-function normalizeUppercase(value: string | null | undefined) {
-  return (value ?? '').trim().toUpperCase();
-}
 
 function resolveRequestedDiscountRate(
   discounts:
@@ -61,76 +40,11 @@ function resolveRequestedDiscountRate(
   return Number(firstRequestedDiscount?.discount_rate ?? 0);
 }
 
-function resolveSelectedTaxCodes(
-  taxes:
-    | QuotationFormSchemaValues['risks'][number]['taxes_charged']
-    | undefined,
-) {
-  return Array.from(
-    new Set(
-      (taxes ?? [])
-        .filter((tax) => !tax.is_tax_exempted)
-        .map((tax) => normalizeUppercase(tax.tax_code))
-        .filter(Boolean),
-    ),
-  );
-}
-
-function resolveApplicableTaxRuleIds({
-  taxRules,
-  selectedTaxCodes,
-  categoryId,
-  productId,
-  riskId,
-  effectiveDate,
-}: {
-  taxRules: ProductTaxRuleRecord[];
-  selectedTaxCodes: string[];
-  categoryId: string | undefined;
-  productId: string | undefined;
-  riskId: string | undefined;
-  effectiveDate: string | undefined;
-}) {
-  if (selectedTaxCodes.length === 0) return [];
-
-  return taxRules
-    .filter((rule) => normalizeUppercase(rule.status) === 'ACTIVE')
-    .filter((rule) =>
-      selectedTaxCodes.includes(normalizeUppercase(rule.tax_code)),
-    )
-    .filter(
-      (rule) => !rule.category_id || rule.category_id === (categoryId || null),
-    )
-    .filter(
-      (rule) => !rule.product_id || rule.product_id === (productId || null),
-    )
-    .filter((rule) => !rule.risk_id || rule.risk_id === (riskId || null))
-    .filter(
-      (rule) =>
-        !effectiveDate ||
-        (rule.effective_from <= effectiveDate &&
-          rule.effective_to >= effectiveDate),
-    )
-    .map((rule) => rule.id);
-}
-
 function path(
   index: number,
   name: string,
 ): FieldPath<QuotationFormSchemaValues> {
   return `risks.${index}.${name}` as FieldPath<QuotationFormSchemaValues>;
-}
-
-function setValueIfChanged<
-  TFieldPath extends FieldPath<QuotationFormSchemaValues>,
->(
-  form: UseFormReturn<QuotationFormSchemaValues>,
-  fieldPath: TFieldPath,
-  nextValue: FieldPathValue<QuotationFormSchemaValues, TFieldPath>,
-) {
-  const currentValue = form.getValues(fieldPath);
-  if (isEqualNormalizingNumbers(currentValue, nextValue)) return;
-  form.setValue(fieldPath, nextValue);
 }
 
 /**
@@ -147,10 +61,6 @@ export function useRiskPremiumCalculation(
     control: form.control,
     name: path(index, 'risk_id'),
   }) as string;
-  const categoryId = useWatch({
-    control: form.control,
-    name: 'category_id',
-  });
   const quotationType = useWatch({
     control: form.control,
     name: 'quotation_type',
@@ -191,9 +101,6 @@ export function useRiskPremiumCalculation(
     control: form.control,
     name: path(index, 'rating_result_metadata'),
   });
-  const companyId = useAuthStore(
-    (state) => state.company?.id ?? state.user?.companyId ?? '',
-  );
 
   // Sum insured only feeds a calculation once the user has finished editing
   // it (blur), not on every keystroke — see handleSumInsuredBlur below. The
@@ -231,15 +138,6 @@ export function useRiskPremiumCalculation(
   );
 
   const ruleListQuery = usePricingRulePreview(riskId || '');
-  const taxRulesQuery = useQuery({
-    queryKey: ['product-distribution', 'tax-rules', companyId || 'none'],
-    queryFn: () =>
-      apiClient
-        .get<ProductTaxRuleRecord[]>('/product-distribution/tax-rules')
-        .then((response) => response.data),
-    enabled: !!companyId,
-    staleTime: 60_000,
-  });
 
   const factorValues = useMemo(() => {
     const pseudoFormValues = {
@@ -277,26 +175,16 @@ export function useRiskPremiumCalculation(
     () => resolveSelectedTaxCodes(taxes ?? undefined),
     [taxes],
   );
-  const applicableTaxRuleIds = useMemo(
+  const selectedTaxCodesKey = JSON.stringify(selectedTaxCodes);
+  const calculationFactors = useMemo(
     () =>
-      resolveApplicableTaxRuleIds({
-        taxRules: taxRulesQuery.data ?? [],
-        selectedTaxCodes,
-        categoryId,
-        productId,
-        riskId,
-        effectiveDate: validFrom,
-      }),
-    [
-      categoryId,
-      productId,
-      riskId,
-      selectedTaxCodes,
-      taxRulesQuery.data,
-      validFrom,
-    ],
+      JSON.parse(factorValuesKey) as Record<string, string | number | boolean>,
+    [factorValuesKey],
   );
-  const applicableTaxRuleIdsKey = JSON.stringify(applicableTaxRuleIds);
+  const calculationTaxCodes = useMemo(
+    () => JSON.parse(selectedTaxCodesKey) as string[],
+    [selectedTaxCodesKey],
+  );
   const currentPricingSignature = useMemo(
     () =>
       buildSingleRiskPricingSignature({
@@ -420,7 +308,7 @@ export function useRiskPremiumCalculation(
       const fieldPath = path(index, fieldName);
       const currentValue = form.getValues(fieldPath);
       if (!isEqualNormalizingNumbers(currentValue, value)) {
-        form.setValue(fieldPath, value);
+        setValueIfChanged(form, fieldPath, value);
       }
     });
   }, [form, index, riskId, ruleListQuery.data, committedSumInsured]);
@@ -511,7 +399,7 @@ export function useRiskPremiumCalculation(
 
     const explicitSumInsured =
       sumInsured === '' || sumInsured == null ? NaN : Number(sumInsured);
-    const factorSumInsuredRaw = factorValues.sum_insured;
+    const factorSumInsuredRaw = calculationFactors.sum_insured;
     const factorSumInsured =
       factorSumInsuredRaw === '' ||
       factorSumInsuredRaw === null ||
@@ -524,7 +412,7 @@ export function useRiskPremiumCalculation(
         ? factorSumInsured
         : undefined;
     const hasCommittedSumInsured = committedSumInsured !== '';
-    const hasFactorInputs = Object.entries(factorValues).some(
+    const hasFactorInputs = Object.entries(calculationFactors).some(
       ([code, value]) =>
         code !== 'sum_insured' &&
         value !== '' &&
@@ -546,9 +434,6 @@ export function useRiskPremiumCalculation(
     ) {
       return undefined;
     }
-    if (selectedTaxCodes.length > 0 && taxRulesQuery.isLoading)
-      return undefined;
-
     timeoutRef.current = setTimeout(() => {
       const token = ++requestTokenRef.current;
 
@@ -561,7 +446,7 @@ export function useRiskPremiumCalculation(
                 (requestedSumInsured ?? 0) > 0
               ? requestedSumInsured
               : undefined,
-          factors: factorValues,
+          factors: calculationFactors,
           effective_date: form.getValues('valid_from'),
           currency_code: (form.getValues('currency') || 'TZS')
             .trim()
@@ -572,16 +457,18 @@ export function useRiskPremiumCalculation(
               : Number(form.getValues('exchange_rate')) || 1,
           // Only a requested discount RATE is sent — the backend computes
           // discount_amount from it; the frontend never sends a
-          // pre-calculated amount as a trusted value. Loading and
-          // tax_rule_ids are intentionally omitted here: this wizard has no
-          // loading-request UI yet, and every currently active tax rule for
-          // the product should apply by default (unchanged behavior).
+          // pre-calculated amount as a trusted value. Loading is omitted
+          // here: this wizard has no loading-request UI yet.
           discount:
             requestedDiscountRate > 0
               ? { rate: requestedDiscountRate }
               : undefined,
-          tax_rule_ids:
-            applicableTaxRuleIds.length > 0 ? applicableTaxRuleIds : undefined,
+          // tax_codes restricts charges to exactly what the officer picked
+          // in the risk's "Taxes Charged" rows — an empty array (no rows,
+          // or every row exempted) means no tax is charged, not "apply
+          // every active company tax rule" (the backend's default for
+          // callers that omit tax_codes entirely).
+          tax_codes: calculationTaxCodes,
         },
         {
           onSuccess: (result) => {
@@ -690,11 +577,12 @@ export function useRiskPremiumCalculation(
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-    // factorValues is intentionally tracked via its stable JSON key so the
-    // debounce doesn't restart on every render from a new object identity.
+    // factorValues/selectedTaxCodes are intentionally tracked via their
+    // stable JSON keys so the debounce doesn't restart on every render from
+    // a new object/array identity.
   }, [
-    applicableTaxRuleIds,
-    factorValues,
+    calculationTaxCodes,
+    calculationFactors,
     form,
     index,
     riskId,
@@ -704,10 +592,8 @@ export function useRiskPremiumCalculation(
     factorValuesKey,
     requiresSumInsured,
     requestedDiscountRate,
-    selectedTaxCodes.length,
-    taxRulesQuery.isLoading,
+    selectedTaxCodesKey,
     requiredFactors.length,
-    applicableTaxRuleIdsKey,
     currentPricingSignature,
   ]);
 

@@ -116,4 +116,9 @@ export const peKeys = {
     byRateBook: (rateBookId: string) =>
       ['pe', 'addon-rate-rules', 'by-rate-book', rateBookId] as const,
   },
+
+  // Product Tax Rules
+  taxRules: {
+    all: () => ['pe', 'tax-rules'] as const,
+  },
 };

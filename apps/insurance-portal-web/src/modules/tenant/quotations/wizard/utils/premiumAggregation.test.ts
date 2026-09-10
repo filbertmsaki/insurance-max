@@ -37,6 +37,7 @@ describe('premiumAggregation', () => {
     row.taxes_charged = [
       {
         ...createEmptyRiskTaxRow(),
+        tax_code: 'VAT-MAINLAND',
         tax_rate: '0.18',
         tax_amount: '59850',
       },

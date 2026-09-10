@@ -131,6 +131,16 @@ export class ProductDistributionController {
     return this.service.restoreCommissionRule(user.companyId!, id);
   }
 
+  @Get('tax-rules/active')
+  @Permissions('pricing.calculate')
+  @ApiOperation({
+    summary:
+      'List active tax rules available for premium calculation (lightweight — available to any user who can calculate premiums, not just product-distribution admins)',
+  })
+  listActiveTaxRulesForCalculation(@CurrentUser() user: AuthenticatedUser) {
+    return this.service.listActiveTaxRulesForCalculation(user.companyId!);
+  }
+
   @Post('tax-rules')
   @UseGuards(CompanyTypeGuard)
   @CompanyTypes(CompanyType.INSURANCE_COMPANY)

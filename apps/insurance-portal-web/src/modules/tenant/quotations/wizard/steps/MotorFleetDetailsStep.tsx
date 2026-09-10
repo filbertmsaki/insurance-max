@@ -62,6 +62,7 @@ import { WizardFormItem } from '../components/WizardFormItem';
 import {
   applyFleetRiskPremiumResult,
   recomputeFleetRiskRow,
+  resolveSelectedTaxCodes,
 } from '../utils/premiumAggregation';
 import { buildFleetRiskPricingSignature } from '../utils/pricingStaleness';
 import {
@@ -79,7 +80,7 @@ import {
   SELECT_NONE_VALUE,
   toSelectValue,
 } from '../utils/selectValue';
-import { TAX_CODE_OPTIONS, getTaxRateForCode } from '../utils/taxOptions';
+import { RiskTaxesFields } from '../components/RiskTaxesFields';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -494,10 +495,6 @@ function FleetVehicleEditor({
               form.watch(
                 `fleet.items.${index}.risks_covered.${riskIndex}.discounts_offered` as const,
               ) ?? [];
-            const taxRows =
-              form.watch(
-                `fleet.items.${index}.risks_covered.${riskIndex}.taxes_charged` as const,
-              ) ?? [];
             const ratingMetadata = readPricingQuoteMetadata(
               form.watch(
                 `fleet.items.${index}.risks_covered.${riskIndex}.rating_result_metadata` as const,
@@ -520,7 +517,7 @@ function FleetVehicleEditor({
 
             return (
               <StepSection
-                key={field.id}
+                key={field.client_ref || riskIndex}
                 variant="item"
                 className="bg-slate-50/50"
                 title={`Risk #${riskIndex + 1}`}
@@ -899,158 +896,10 @@ function FleetVehicleEditor({
                   ))}
                 </div>
 
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                      Taxes
-                    </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        form.setValue(
-                          `fleet.items.${index}.risks_covered.${riskIndex}.taxes_charged` as const,
-                          [
-                            ...taxRows,
-                            {
-                              tax_code: '',
-                              is_tax_exempted: false,
-                              tax_exemption_type: '',
-                              tax_exemption_reference: '',
-                              tax_rate: '',
-                              tax_amount: '',
-                            },
-                          ],
-                        )
-                      }
-                    >
-                      <Plus className="mr-2 h-3.5 w-3.5" />
-                      Add Tax
-                    </Button>
-                  </div>
-                  {taxRows.map((_, taxIndex) => (
-                    <div
-                      key={`${riskIndex}-tax-${taxIndex}`}
-                      className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-2"
-                    >
-                      <FormField
-                        control={form.control}
-                        name={
-                          `fleet.items.${index}.risks_covered.${riskIndex}.taxes_charged.${taxIndex}.tax_code` as const
-                        }
-                        render={({ field }) => (
-                          <WizardFormItem>
-                            <FormLabel>Tax Code</FormLabel>
-                            <Select
-                              value={toSelectValue(field.value)}
-                              onValueChange={(value) => {
-                                const nextValue = fromSelectValue(value);
-                                const currentRisk = form.getValues(
-                                  `fleet.items.${index}.risks_covered.${riskIndex}` as const,
-                                );
-                                const nextTaxes = currentRisk.taxes_charged.map(
-                                  (tax, rowIndex) =>
-                                    rowIndex === taxIndex
-                                      ? {
-                                          ...tax,
-                                          tax_code: nextValue,
-                                          tax_rate:
-                                            getTaxRateForCode(nextValue),
-                                          tax_amount: '',
-                                        }
-                                      : tax,
-                                );
-                                const nextRisk = recomputeFleetRiskRow({
-                                  ...currentRisk,
-                                  taxes_charged: nextTaxes,
-                                });
-                                form.setValue(
-                                  `fleet.items.${index}.risks_covered.${riskIndex}` as const,
-                                  nextRisk,
-                                );
-                              }}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select tax code" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value={SELECT_NONE_VALUE}>
-                                  None
-                                </SelectItem>
-                                {TAX_CODE_OPTIONS.map((option) => (
-                                  <SelectItem
-                                    key={option.value}
-                                    value={option.value}
-                                  >
-                                    {option.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </WizardFormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={
-                          `fleet.items.${index}.risks_covered.${riskIndex}.taxes_charged.${taxIndex}.tax_rate` as const
-                        }
-                        render={({ field }) => (
-                          <WizardFormItem>
-                            <FormLabel>Rate</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                step="0.000001"
-                                readOnly
-                                {...field}
-                              />
-                            </FormControl>
-                          </WizardFormItem>
-                        )}
-                      />
-                      <div className="flex items-end gap-2">
-                        <FormField
-                          control={form.control}
-                          name={
-                            `fleet.items.${index}.risks_covered.${riskIndex}.taxes_charged.${taxIndex}.tax_amount` as const
-                          }
-                          render={({ field }) => (
-                            <WizardFormItem className="flex-1">
-                              <FormLabel>Amount</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  readOnly
-                                  {...field}
-                                />
-                              </FormControl>
-                            </WizardFormItem>
-                          )}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() =>
-                            form.setValue(
-                              `fleet.items.${index}.risks_covered.${riskIndex}.taxes_charged` as const,
-                              taxRows.filter(
-                                (__, rowIndex) => rowIndex !== taxIndex,
-                              ),
-                            )
-                          }
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <RiskTaxesFields
+                  form={form}
+                  riskPath={`fleet.items.${index}.risks_covered.${riskIndex}`}
+                />
               </StepSection>
             );
           })}
@@ -1770,6 +1619,9 @@ export function MotorFleetDetailsStep({
               form.getValues(),
               factorContext,
             ),
+            // Restrict charges to exactly what was picked in this vehicle's
+            // "Taxes Charged" rows, not every active company tax rule.
+            tax_codes: resolveSelectedTaxCodes(row.taxes_charged),
           };
         }),
       };

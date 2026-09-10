@@ -1,6 +1,5 @@
-import { Plus } from 'lucide-react';
+import { useEffect } from 'react';
 import type { UseFieldArrayReturn, UseFormReturn } from 'react-hook-form';
-import { Button } from '@/components/ui/button';
 import {
   createEmptyAddonRow,
   type QuotationFormSchemaValues,
@@ -15,7 +14,7 @@ interface Props {
 }
 
 export function AddOnsStep({ form, fieldArray }: Props) {
-  const { fields, append, remove } = fieldArray;
+  const { fields, append } = fieldArray;
   const currency = form.watch('currency')?.trim().toUpperCase();
   const exchangeRate =
     currency && currency !== 'TZS'
@@ -23,6 +22,15 @@ export function AddOnsStep({ form, fieldArray }: Props) {
       : 1;
   const addons = form.watch('addons');
   const total = sumEnabledAddonsTotal(addons, exchangeRate);
+
+  // A quotation carries at most one add-on. Ensure the single slot exists
+  // (toggle it off via the Included/Excluded switch rather than removing
+  // the row) instead of offering an "Add Add-on" affordance for more.
+  useEffect(() => {
+    if (fields.length === 0) {
+      append(createEmptyAddonRow());
+    }
+  }, [fields.length, append]);
 
   return (
     <StepSection
@@ -32,39 +40,22 @@ export function AddOnsStep({ form, fieldArray }: Props) {
           : 'Step 4. Add-ons'
       }
       first
-      action={
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => append(createEmptyAddonRow())}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Add Add-on
-        </Button>
-      }
     >
       <p className="text-sm text-slate-500">
-        Add-ons are optional and only apply if this product/risk offers extra
-        covers (e.g. windscreen, radio). There is no backend record for add-ons
-        — they are carried straight through to the TIRAMIS cover note submission
-        and excluded entirely if disabled below.
+        An add-on is optional and only applies if this product/risk offers an
+        extra cover (e.g. windscreen, radio) — priced from the product's own
+        configured add-on rules. Toggle it off below if not needed.
       </p>
 
-      {fields.length === 0 && (
-        <p className="py-8 text-center text-sm text-slate-500">
-          No add-ons for this cover note. Click "Add Add-on" if this product
-          offers one.
-        </p>
-      )}
-
-      {fields.map((field, index) => (
+      {fields.map((_, index) => (
         <AddonRow
-          key={field.id}
+          key={index}
           form={form}
           index={index}
-          onRemove={remove}
-          canRemove
+          onRemove={() => {
+            /* capped to one slot — toggle Included/Excluded instead of removing */
+          }}
+          canRemove={false}
           exchangeRate={exchangeRate}
         />
       ))}
@@ -72,7 +63,7 @@ export function AddOnsStep({ form, fieldArray }: Props) {
       {fields.length > 0 && (
         <div className="flex items-center justify-between rounded-lg bg-slate-50 px-4 py-3 text-sm">
           <span className="text-slate-500">
-            Enabled add-ons premium (including tax)
+            Enabled add-on premium (including tax)
           </span>
           <span className="font-medium text-slate-900">{total.toFixed(2)}</span>
         </div>

@@ -940,6 +940,8 @@ export interface QuotationWizardAddonTaxRow {
 
 export interface QuotationWizardAddonRow {
   enabled: boolean;
+  addon_definition_id: string;
+  addon_quantity: string;
   addon_reference: string;
   addon_desc: string;
   addon_amount: string;

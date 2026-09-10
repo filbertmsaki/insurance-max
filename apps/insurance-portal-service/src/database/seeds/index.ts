@@ -14,6 +14,7 @@ import MotorPricingSeeder from './009-motor-pricing.seed';
 import AnalyticsDefinitionsSeeder from './010-analytics.seed';
 import ReferenceDataSeeder from './011-reference-data.seed';
 import EndorsementTypesSeeder from './012-endorsement-types.seed';
+import TaxRulesSeeder from './013-tax-rules.seed';
 
 const productionSeeders = [
   PlatformIdpSeeder,
@@ -28,6 +29,7 @@ const productionSeeders = [
   AllianceCustomerVehiclesSeeder,
   AnalyticsDefinitionsSeeder,
   EndorsementTypesSeeder,
+  TaxRulesSeeder,
 ];
 
 export async function runAllSeeders(dataSource: DataSource): Promise<void> {

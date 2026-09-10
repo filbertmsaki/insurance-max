@@ -338,6 +338,47 @@ export class ProductDistributionService {
     });
   }
 
+  /** Lightweight, calculation-time read of active tax rules — available to
+   * any user who can calculate premiums (not gated behind the admin
+   * product-distribution:read permission), so the quotation wizard can
+   * populate its Tax Code selector from real configured rules. */
+  async listActiveTaxRulesForCalculation(
+    companyId: string,
+  ): Promise<
+    Pick<
+      ProductTaxRule,
+      | 'id'
+      | 'tax_code'
+      | 'tax_name'
+      | 'charge_category'
+      | 'tax_type'
+      | 'tax_rate'
+      | 'category_id'
+      | 'product_id'
+      | 'risk_id'
+      | 'effective_from'
+      | 'effective_to'
+    >[]
+  > {
+    return this.taxRepository.find({
+      where: { company_id: companyId, status: ProductRuleStatus.ACTIVE },
+      select: [
+        'id',
+        'tax_code',
+        'tax_name',
+        'charge_category',
+        'tax_type',
+        'tax_rate',
+        'category_id',
+        'product_id',
+        'risk_id',
+        'effective_from',
+        'effective_to',
+      ],
+      order: { tax_code: 'ASC' },
+    });
+  }
+
   async removeTaxRule(companyId: string, id: string): Promise<void> {
     const record = await this.taxRepository.findOne({
       where: { id, company_id: companyId },

@@ -14,8 +14,10 @@ describe('quotationRiskRowSchema — required rate validation', () => {
   it('defaults standard discount and tax rates as decimal fractions', () => {
     expect(createEmptyRiskDiscountRow().discount_type).toBe('');
     expect(createEmptyRiskDiscountRow().discount_rate).toBe('');
-    expect(createEmptyRiskTaxRow().tax_code).toBe('VAT-MAINLAND');
-    expect(createEmptyRiskTaxRow().tax_rate).toBe('0.18');
+    // The risk-level tax row starts blank — its options are sourced live
+    // from configured tax rules rather than prefilled here (see taxOptions.ts).
+    expect(createEmptyRiskTaxRow().tax_code).toBe('');
+    expect(createEmptyRiskTaxRow().tax_rate).toBe('');
     expect(getDiscountRateForType('1')).toBe('0.10');
     expect(getTaxRateForCode('WITHHOLDING')).toBe('0.10');
   });

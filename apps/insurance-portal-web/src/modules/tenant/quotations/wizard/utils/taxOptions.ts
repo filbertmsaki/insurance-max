@@ -45,3 +45,78 @@ export function isSupportedTaxCode(
 ): taxCode is SupportedTaxCode {
   return TAX_CODE_OPTIONS.some((option) => option.value === taxCode);
 }
+
+// ─── Tax-rule-sourced options (risk-level "Taxes Charged") ────────────────────
+//
+// Unlike TAX_CODE_OPTIONS above (a static fallback still used for the
+// free-text add-on tax rows), a risk's own tax selector is sourced from the
+// company's actually-configured ProductTaxRule records via
+// GET /product-distribution/tax-rules/active, scoped to the risk's
+// category/product/risk and effective date — see useActiveTaxRules.
+
+export interface ActiveTaxRule {
+  id: string;
+  tax_code: string;
+  tax_name: string;
+  charge_category: string;
+  tax_type: 'PERCENTAGE' | 'FIXED';
+  tax_rate: string | null;
+  category_id: string | null;
+  product_id: string | null;
+  risk_id: string | null;
+  effective_from: string;
+  effective_to: string;
+}
+
+export interface TaxRuleOption {
+  value: string;
+  label: string;
+  rate: string;
+}
+
+export function resolveTaxRuleOptions({
+  rules,
+  categoryId,
+  productId,
+  riskId,
+  effectiveDate,
+}: {
+  rules: ActiveTaxRule[] | undefined;
+  categoryId: string | null | undefined;
+  productId: string | null | undefined;
+  riskId: string | null | undefined;
+  effectiveDate: string | null | undefined;
+}): TaxRuleOption[] {
+  const seenCodes = new Set<string>();
+  const options: TaxRuleOption[] = [];
+
+  for (const rule of rules ?? []) {
+    if (rule.category_id && rule.category_id !== (categoryId || null)) {
+      continue;
+    }
+    if (rule.product_id && rule.product_id !== (productId || null)) {
+      continue;
+    }
+    if (rule.risk_id && rule.risk_id !== (riskId || null)) {
+      continue;
+    }
+    if (
+      effectiveDate &&
+      (rule.effective_from > effectiveDate || rule.effective_to < effectiveDate)
+    ) {
+      continue;
+    }
+    if (seenCodes.has(rule.tax_code)) {
+      continue;
+    }
+
+    seenCodes.add(rule.tax_code);
+    options.push({
+      value: rule.tax_code,
+      label: `${rule.tax_name} (${rule.tax_code})`,
+      rate: rule.tax_type === 'PERCENTAGE' ? (rule.tax_rate ?? '') : '',
+    });
+  }
+
+  return options;
+}

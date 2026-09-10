@@ -220,6 +220,7 @@ export class PricingEngineService {
         net_premium: premiumAfterDiscount,
         gross_premium: premiumBeforeDiscount,
         tax_rule_ids: input.tax_rule_ids ?? null,
+        tax_codes: input.tax_codes ?? null,
       },
     );
 

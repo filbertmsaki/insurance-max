@@ -35,6 +35,7 @@ export interface PricingSingleRiskInput {
   discount?: PricingAdjustmentRequestInput | null;
   loading?: PricingAdjustmentRequestInput | null;
   tax_rule_ids?: string[] | null;
+  tax_codes?: string[] | null;
   addons?: PricingSingleRiskAddonInput[];
   cover_start_date?: string;
   cover_end_date?: string;
@@ -125,6 +126,8 @@ export interface PricingChargeCalculationInput {
   net_premium: number;
   gross_premium: number;
   tax_rule_ids?: string[] | null;
+  /** Selected catalogue tax codes. Missing or empty means no taxes. */
+  tax_codes?: string[] | null;
 }
 
 export type ExchangeRateSource = 'PARITY' | 'MANUAL';

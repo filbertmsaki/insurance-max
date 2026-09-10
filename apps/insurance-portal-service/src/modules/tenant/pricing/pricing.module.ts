@@ -4,7 +4,7 @@ import { IdentifierGeneratorService } from '../../shared/identifiers/identifier-
 import { Company } from '../../platform/companies/entities/company.entity';
 import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
 import { PricingRateBook } from '../pricing-rate-books/entities/pricing-rate-book.entity';
-import { ProductTaxRule } from '../product-distribution/entities/product-tax-rule.entity';
+import { TaxesModule } from '../taxes/taxes.module';
 import { RatingFactor } from '../rating-factors/entities/rating-factor.entity';
 import { RiskRequiredFactor } from '../risk-required-factors/entities/risk-required-factor.entity';
 import { PricingChargeService } from './application/pricing-charge.service';
@@ -33,11 +33,11 @@ import { PricingRuntimeCacheService } from './application/pricing-runtime-cache.
 @Module({
   imports: [
     PricingRuntimeCacheModule,
+    TaxesModule,
     TypeOrmModule.forFeature([
       InsuranceRisk,
       PricingQuote,
       PricingRateBook,
-      ProductTaxRule,
       Company,
       RatingFactor,
       RiskRequiredFactor,

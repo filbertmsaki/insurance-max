@@ -56,6 +56,7 @@ import { RatingFactorsPage } from '@/modules/tenant/product-engine/pages/rating-
 import { RatingRulesPage } from '@/modules/tenant/product-engine/pages/rating-rules/RatingRulesPage';
 import { RateBooksPage } from '@/modules/tenant/product-engine/pages/rate-books/RateBooksPage';
 import { RateBookDetailPage } from '@/modules/tenant/product-engine/pages/rate-books/RateBookDetailPage';
+import { TaxesPage } from '@/modules/tenant/taxes/TaxesPage';
 import { CategoryAccessPage } from '@/modules/tenant/product-engine/pages/access/categories/CategoryAccessPage';
 import { ProductAccessPage } from '@/modules/tenant/product-engine/pages/access/products/ProductAccessPage';
 import { CalculatorPage } from '@/modules/tenant/product-engine/pages/calculator/CalculatorPage';
@@ -834,6 +835,16 @@ export default function App() {
               <Route
                 path="/product-engine/rate-books/:rateBookId"
                 element={<RateBookDetailPage />}
+              />
+            </Route>
+            <Route
+              element={
+                <ProtectedRoute requiredPermission="product-distribution:read" />
+              }
+            >
+              <Route
+                path="/product-engine/taxes"
+                element={<TaxesPage />}
               />
             </Route>
             <Route

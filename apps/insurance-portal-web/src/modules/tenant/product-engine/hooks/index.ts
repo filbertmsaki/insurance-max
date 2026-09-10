@@ -12,4 +12,5 @@ export * from './useDepartments';
 export * from './useProductDefinitions';
 export * from './useRateBooks';
 export * from './useAddonRateRules';
+export * from './useTaxRules';
 export { peKeys } from './query-keys';

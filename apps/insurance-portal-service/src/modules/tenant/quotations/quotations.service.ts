@@ -71,7 +71,6 @@ import {
   PolicyHolderDto,
   RiskCoveredDto,
   SubjectMatterCoveredDto,
-  TaxChargedDto,
   SubmitQuotationDto,
   UpdateQuotationDto,
 } from './dto/quotation-payload.dto';
@@ -3972,6 +3971,7 @@ export class QuotationsService {
             currency_code: header.currency_code,
             exchange_rate: header.exchange_rate,
             discount: this.buildPricingDiscountRequest(risk),
+            tax_codes: this.selectedTaxCodes(risk),
           },
           user.id,
           user,
@@ -4028,6 +4028,7 @@ export class QuotationsService {
             currency_code: header.currency_code,
             exchange_rate: header.exchange_rate,
             discount: this.buildPricingDiscountRequest(risk),
+            tax_codes: this.selectedTaxCodes(risk),
           },
           user.id,
           user,
@@ -4092,6 +4093,17 @@ export class QuotationsService {
     }
 
     return factors;
+  }
+
+  private selectedTaxCodes(risk: RiskCoveredDto): string[] {
+    return [
+      ...new Set(
+        (risk.taxes_charged ?? [])
+          .filter((tax) => tax.is_tax_exempted !== 'Y')
+          .map((tax) => tax.tax_code.trim().toUpperCase())
+          .filter(Boolean),
+      ),
+    ];
   }
 
   private buildPricingDiscountRequest(
@@ -4591,6 +4603,9 @@ export class QuotationsService {
       companyId,
       {
         category_id: payload.internal_quotation.category_id,
+        tax_codes: (context.risk.taxes_charged ?? []).map(
+          (tax) => tax.tax_code,
+        ),
         product_id: context.productId,
         risk_id: context.configuredRisk.riskId ?? context.quote.risk_id ?? null,
         effective_date: context.coverStartDate,
@@ -4602,145 +4617,59 @@ export class QuotationsService {
         gross_premium: roundMoney(context.risk.premium_before_discount),
       },
     );
-    const exemptionsByCode = new Map(
-      (context.risk.taxes_charged ?? []).map((tax) => [
-        this.normalizeUppercase(tax.tax_code),
-        tax,
-      ]),
+    const chargesByCode = new Map(
+      chargeSummary.charges.map((charge) => [charge.charge_code, charge]),
     );
-
-    context.risk.premium_after_discount = premiumExcludingTaxEquivalent;
-    context.risk.premium_excluding_tax_equivalent =
-      premiumExcludingTaxEquivalent;
+    const seenCodes = new Set<string>();
+    context.risk.taxes_charged = (context.risk.taxes_charged ?? []).map(
+      (tax) => {
+        const code = tax.tax_code.trim().toUpperCase();
+        if (seenCodes.has(code))
+          throw new BadRequestException(
+            'Tax ' +
+              code +
+              ' is selected more than once on risk ' +
+              context.risk.risk_code,
+          );
+        seenCodes.add(code);
+        const charge = chargesByCode.get(code);
+        if (!charge)
+          throw new BadRequestException('Tax ' + code + ' is unavailable');
+        const exempted = tax.is_tax_exempted === 'Y';
+        return {
+          ...tax,
+          tax_code: code,
+          tax_rate: charge.rate ?? 0,
+          tax_amount: exempted ? 0 : charge.computed_amount,
+          tax_exemption_type: exempted ? tax.tax_exemption_type : null,
+          tax_exemption_reference: exempted
+            ? tax.tax_exemption_reference
+            : null,
+        };
+      },
+    );
+    const totalTaxAmount = roundMoney(
+      context.risk.taxes_charged.reduce((sum, tax) => sum + tax.tax_amount, 0),
+    );
     const signedTaxAmount = this.readPricingQuoteNumber(context.quote, [
       'total_charge_amount',
       'total_tax_amount',
       'tax_amount',
-      'totalChargeAmount',
-      'totalTaxAmount',
-      'taxAmount',
     ]);
-    const signedPremiumIncludingTax = this.readPricingQuoteNumber(
-      context.quote,
-      [
-        'premium_including_tax',
-        'premium_including_tax_equivalent',
-        'final_payable_premium',
-        'premiumIncludingTax',
-        'premiumIncludingTaxEquivalent',
-        'finalPayablePremium',
-      ],
-    );
-    const matchedChargeCodes = new Set<string>();
-    const authoritativeTaxes: TaxChargedDto[] = chargeSummary.charges.map(
-      (charge): TaxChargedDto => {
-        const normalizedChargeCode = this.normalizeUppercase(
-          charge.charge_code,
-        );
-        matchedChargeCodes.add(normalizedChargeCode);
-        const existingTax = exemptionsByCode.get(normalizedChargeCode);
-        const isTaxExempted = existingTax?.is_tax_exempted === 'Y' ? 'Y' : 'N';
-
-        return {
-          tax_code: charge.charge_code,
-          is_tax_exempted:
-            isTaxExempted === 'Y' ? ('Y' as const) : ('N' as const),
-          tax_exemption_type:
-            isTaxExempted === 'Y'
-              ? (existingTax?.tax_exemption_type?.trim() ?? null)
-              : null,
-          tax_exemption_reference:
-            isTaxExempted === 'Y'
-              ? (existingTax?.tax_exemption_reference?.trim() ?? null)
-              : null,
-          tax_rate: charge.rate ?? 0,
-          tax_amount: isTaxExempted === 'Y' ? 0 : charge.computed_amount,
-        };
-      },
-    );
-    const preservedTaxes: TaxChargedDto[] = Array.from(
-      exemptionsByCode.entries(),
-    )
-      .filter(([code]) => !matchedChargeCodes.has(code))
-      .map(
-        ([, tax]): TaxChargedDto => ({
-          tax_code: tax.tax_code,
-          is_tax_exempted:
-            tax.is_tax_exempted === 'Y' ? ('Y' as const) : ('N' as const),
-          tax_exemption_type:
-            tax.is_tax_exempted === 'Y' ? tax.tax_exemption_type : null,
-          tax_exemption_reference:
-            tax.is_tax_exempted === 'Y' ? tax.tax_exemption_reference : null,
-          tax_rate: tax.tax_rate,
-          tax_amount:
-            tax.is_tax_exempted === 'Y'
-              ? 0
-              : roundMoney(premiumExcludingTaxEquivalent * tax.tax_rate),
-        }),
+    if (
+      signedTaxAmount !== null &&
+      !this.moneyEqual(signedTaxAmount, totalTaxAmount)
+    ) {
+      throw new BadRequestException(
+        'Selected taxes or tax rates have changed. Recalculate the premium before saving.',
       );
-    context.risk.taxes_charged = this.alignTaxesToSignedPricingTotal(
-      [...authoritativeTaxes, ...preservedTaxes],
-      signedTaxAmount,
-    );
-    const totalTaxAmount = roundMoney(
-      context.risk.taxes_charged.reduce(
-        (sum, charge) => sum + roundMoney(charge.tax_amount),
-        0,
-      ),
-    );
+    }
+    context.risk.premium_after_discount = premiumExcludingTaxEquivalent;
+    context.risk.premium_excluding_tax_equivalent =
+      premiumExcludingTaxEquivalent;
     context.risk.premium_including_tax = roundMoney(
-      signedPremiumIncludingTax ??
-        premiumExcludingTaxEquivalent + totalTaxAmount,
+      premiumExcludingTaxEquivalent + totalTaxAmount,
     );
-  }
-
-  private alignTaxesToSignedPricingTotal(
-    taxes: TaxChargedDto[],
-    signedTaxAmount: number | null,
-  ): TaxChargedDto[] {
-    if (signedTaxAmount === null) {
-      return taxes;
-    }
-
-    const targetTaxAmount = roundMoney(signedTaxAmount);
-
-    if (taxes.length === 0) {
-      return targetTaxAmount === 0
-        ? []
-        : [
-            {
-              tax_code: 'VAT-MAINLAND',
-              is_tax_exempted: 'N',
-              tax_exemption_type: null,
-              tax_exemption_reference: null,
-              tax_rate: 0,
-              tax_amount: targetTaxAmount,
-            },
-          ];
-    }
-
-    if (targetTaxAmount === 0) {
-      return taxes.map((tax) => ({
-        ...tax,
-        tax_amount: 0,
-      }));
-    }
-
-    const aligned = taxes.map((tax) => ({
-      ...tax,
-      tax_amount: roundMoney(tax.tax_amount),
-    }));
-    const currentTotal = roundMoney(
-      aligned.reduce((sum, tax) => sum + tax.tax_amount, 0),
-    );
-    const delta = roundMoney(targetTaxAmount - currentTotal);
-
-    if (delta !== 0) {
-      const lastTax = aligned[aligned.length - 1];
-      lastTax.tax_amount = roundMoney(lastTax.tax_amount + delta);
-    }
-
-    return aligned;
   }
 
   private readPricingQuoteNumber(

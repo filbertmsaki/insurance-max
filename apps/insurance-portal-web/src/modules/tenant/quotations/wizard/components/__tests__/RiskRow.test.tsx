@@ -1,5 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { useForm } from 'react-hook-form';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { useForm, useFieldArray, type UseFormReturn } from 'react-hook-form';
+import { useEffect, useState } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
 import { Form } from '@/components/ui/form';
 import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
@@ -11,7 +13,7 @@ import {
   createEmptyRiskRow,
   type QuotationFormSchemaValues,
 } from '../../../schemas';
-import { RiskRow } from '../RiskRow';
+import { RiskPremiumStep } from '../../steps/RiskPremiumStep';
 import type { InsuranceRisk } from '@/types/product-engine';
 
 vi.mock('../../hooks/useRiskPremiumCalculation', () => ({
@@ -100,34 +102,48 @@ function createBaseValues(): QuotationFormSchemaValues {
   };
 }
 
-function TestHarness() {
+function TestHarness({
+  onReady,
+}: {
+  onReady?: (form: UseFormReturn<QuotationFormSchemaValues>) => void;
+}) {
   const form = useForm<QuotationFormSchemaValues>({
     defaultValues: createBaseValues(),
   });
 
+  const fieldArray = useFieldArray({ control: form.control, name: 'risks' });
+  const [client] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  );
+  useEffect(() => {
+    onReady?.(form);
+  }, [form, onReady]);
   return (
-    <Form {...form}>
-      <RiskRow
-        form={form}
-        index={0}
-        riskOptions={
-          [
-            {
-              id: 'risk-1',
-              risk_code: 'MOTOR-COMP',
-              risk_name: 'Private Comprehensive',
-            },
-          ] as unknown as InsuranceRisk[]
-        }
-        onRemove={vi.fn()}
-        canRemove
-      />
-    </Form>
+    <QueryClientProvider client={client}>
+      <Form {...form}>
+        <RiskPremiumStep
+          form={form}
+          fieldArray={fieldArray}
+          flow="MOTOR_SINGLE"
+          riskOptions={
+            [
+              {
+                id: 'risk-1',
+                risk_code: 'MOTOR-COMP',
+                risk_name: 'Private Comprehensive',
+              },
+            ] as unknown as InsuranceRisk[]
+          }
+          onRemoveRisk={vi.fn()}
+          onAddRisk={vi.fn()}
+        />
+      </Form>
+    </QueryClientProvider>
   );
 }
 
 describe('RiskRow', () => {
-  it('renders premium, discount and tax fields as manually editable', () => {
+  it('renders editable premium and discount fields with catalogue-controlled tax amounts', () => {
     // Automatic calculation is temporarily disabled
     // (AUTO_CALCULATION_DISABLED in useRiskPremiumCalculation.ts), so nothing
     // fills these fields anymore — they must be editable so the wizard is
@@ -155,10 +171,34 @@ describe('RiskRow', () => {
     expect(screen.getByLabelText('Premium Including Tax')).not.toHaveAttribute(
       'readonly',
     );
-    expect(screen.getByLabelText('Amount')).not.toHaveAttribute('readonly');
-    expect(screen.getByLabelText('Tax Rate')).not.toHaveAttribute('readonly');
-    expect(screen.getByLabelText('Tax Amount')).not.toHaveAttribute('readonly');
+    expect(screen.getAllByLabelText('Amount')[0]).not.toHaveAttribute(
+      'readonly',
+    );
+    expect(screen.getByLabelText('Rate (%)')).toHaveAttribute('readonly');
+    expect(screen.getAllByLabelText('Amount')[1]).toHaveAttribute('readonly');
     expect(screen.getByLabelText('Rate')).not.toHaveAttribute('readonly');
+  });
+
+  it('keeps the discount dropdown open when a nested premium update refreshes the risk array', async () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    let form: UseFormReturn<QuotationFormSchemaValues>;
+    render(
+      <TestHarness
+        onReady={(value) => {
+          form = value;
+        }}
+      />,
+    );
+    const trigger = screen.getByLabelText('Discount Type');
+    fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+    await screen.findByRole('listbox');
+    act(() => form.setValue('risks.0.premium_before_discount', '40000'));
+    expect(trigger).toBeInTheDocument();
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('option', { name: '1. Fleet discount' }));
+    expect(form!.getValues('risks.0.discounts_offered.0.discount_type')).toBe(
+      '1',
+    );
   });
 
   it('mirrors sum insured into sum insured equivalent and does not show the optional-risk notice', () => {

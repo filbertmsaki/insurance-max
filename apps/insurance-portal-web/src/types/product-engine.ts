@@ -1063,6 +1063,24 @@ export interface RiskPremiumResult {
   // --- Add-on pricing & proration (additive, Phase 7) ---
   base_addon_premium?: number | null;
   proration_factor?: number | null;
+  addon_results?: RiskPremiumAddonResult[];
+}
+
+export interface RiskPremiumAddonResult {
+  rule_id: string;
+  addon_definition_id: string;
+  addon_code: string;
+  addon_name: string;
+  pricing_type: string;
+  percentage_rate: string | null;
+  fixed_amount: string | null;
+  per_unit_amount: string | null;
+  per_unit_factor_code: string | null;
+  minimum_amount: string | null;
+  maximum_amount: string | null;
+  quantity: number;
+  sum_insured: number | null;
+  calculated_premium: number;
 }
 
 export interface MultiCalcFailure {
@@ -1113,6 +1131,10 @@ export interface SingleCalcRequest {
   discount?: PricingAdjustmentRequest | null;
   loading?: PricingAdjustmentRequest | null;
   tax_rule_ids?: string[] | null;
+  /** Tax codes explicitly selected on the risk (e.g. VAT-MAINLAND). When
+   * provided — including an empty array — charges are restricted to these
+   * codes instead of every active company tax rule. */
+  tax_codes?: string[] | null;
   addons?: SingleCalcRequestAddon[];
 }
 
@@ -1171,4 +1193,70 @@ export interface Department {
   code: string;
   description: string | null;
   status: string;
+}
+
+// ─── Product Tax Rules ────────────────────────────────────────────────────────
+
+export type ProductChargeCategory =
+  | 'TAX'
+  | 'LEVY'
+  | 'FEE'
+  | 'POLICY_FEE'
+  | 'STAMP_DUTY'
+  | 'ADMINISTRATION_FEE'
+  | 'PRODUCT_CHARGE'
+  | 'RISK_CHARGE';
+
+export type ProductTaxType = 'PERCENTAGE' | 'FIXED';
+
+export type ProductCalculationBase =
+  | 'GROSS_PREMIUM'
+  | 'NET_PREMIUM'
+  | 'BASIC_PREMIUM';
+
+export type ProductRuleStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'EXPIRED';
+
+export interface ProductTaxRule {
+  id: string;
+  company_id: string;
+  category_id: string | null;
+  product_id: string | null;
+  risk_id: string | null;
+  tax_name: string;
+  tax_code: string;
+  charge_category: ProductChargeCategory;
+  tax_type: ProductTaxType;
+  tax_rate: string | null;
+  tax_amount: string | null;
+  is_taxable: boolean;
+  minimum_charge_amount: string | null;
+  maximum_charge_amount: string | null;
+  calculation_base: ProductCalculationBase;
+  effective_from: string;
+  effective_to: string;
+  status: ProductRuleStatus;
+  created_at: string;
+  category?: InsuranceCategory | null;
+  product?: InsuranceProduct | null;
+  risk?: InsuranceRisk | null;
+}
+
+export interface CreateTaxRuleDto {
+  company_id: string;
+  category_id?: string | null;
+  product_id?: string | null;
+  risk_id?: string | null;
+  tax_name: string;
+  tax_code: string;
+  charge_category?: ProductChargeCategory;
+  tax_type: ProductTaxType;
+  tax_rate?: number | null;
+  tax_amount?: number | null;
+  is_taxable?: boolean;
+  minimum_charge_amount?: number | null;
+  maximum_charge_amount?: number | null;
+  calculation_base?: ProductCalculationBase;
+  effective_from: string;
+  effective_to: string;
+  status?: ProductRuleStatus;
 }

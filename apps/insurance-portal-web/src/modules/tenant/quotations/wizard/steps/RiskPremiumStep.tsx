@@ -72,7 +72,7 @@ export function RiskPremiumStep({
       >
         {fields.map((field, index) => (
           <RiskRow
-            key={field.id}
+            key={field.client_ref || index}
             form={form}
             index={index}
             riskOptions={riskOptions}
@@ -103,9 +103,9 @@ export function RiskPremiumStep({
             </Button>
           }
         >
-          {subjectMatterFieldArray.fields.map((field, index) => (
+          {subjectMatterFieldArray.fields.map((_, index) => (
             <div
-              key={field.id}
+              key={index}
               className="space-y-3 rounded-xl border border-slate-200 p-3.5"
             >
               {subjectMatterOptions.length > 0 && (

@@ -38,6 +38,7 @@ import {
   Files,
   ListTodo,
   MessagesSquare,
+  Percent,
   ClipboardCheck,
 } from 'lucide-react';
 
@@ -228,6 +229,13 @@ export const NAV_NODES: NavNode[] = [
         to: '/product-engine/rate-books',
         icon: BookMarked,
         permission: 'pricing.manage_rate_books',
+      },
+      {
+        kind: 'link',
+        label: 'Taxes',
+        to: '/product-engine/taxes',
+        icon: Percent,
+        permission: 'product-distribution:read',
       },
       {
         kind: 'link',

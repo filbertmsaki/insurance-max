@@ -37,6 +37,28 @@ export class PricingAdjustmentRequestDto {
   fixed_amount?: number;
 }
 
+export class AddonSelectionDto {
+  @ApiProperty({ description: 'ProductAddonDefinition UUID' })
+  @IsUUID()
+  addon_definition_id: string;
+
+  @ApiPropertyOptional({ example: 1, description: 'Defaults to 1.' })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  quantity?: number;
+
+  @ApiPropertyOptional({
+    example: 10000000,
+    description:
+      'Required only when the addon definition allows a separate sum insured and its pricing rule is PERCENTAGE-based.',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  sum_insured?: number;
+}
+
 export class CalculateSingleRiskPremiumDto {
   @ApiPropertyOptional({
     example: 'VEHICLE-001',
@@ -145,12 +167,34 @@ export class CalculateSingleRiskPremiumDto {
   @ApiPropertyOptional({
     type: [String],
     description:
-      'Specific product-tax-rule UUIDs to apply. When omitted, every currently active rule applicable to the product/risk is applied (unchanged default behavior).',
+      'Deprecated. Use tax_codes to select catalogue taxes. Tax rules are no longer used.',
   })
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })
   tax_rule_ids?: string[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['VAT-MAINLAND'],
+    description:
+      'Selected active catalogue tax codes. Missing or empty means no tax; rates are resolved by the backend.',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tax_codes?: string[];
+
+  @ApiPropertyOptional({
+    type: [AddonSelectionDto],
+    description:
+      "Optional covers priced against the risk's resolved rate book (e.g. windscreen, radio). Each selection is priced via the product's configured product_addon_rate_rules and returned as addon_results — it is not folded into the risk's own premium_including_tax/total_premium submitted for the cover note, which stays addon-free to match the existing cover_note_addons submission contract.",
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AddonSelectionDto)
+  addons?: AddonSelectionDto[];
 }
 
 export class CalculateMultiRiskPremiumDto {

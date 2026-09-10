@@ -218,10 +218,32 @@ describe('useRiskPremiumCalculation', () => {
     expect(mutateMock).not.toHaveBeenCalled();
   });
 
-  // Automatic calculation (both effects in useRiskPremiumCalculation.ts) is
-  // temporarily disabled via AUTO_CALCULATION_DISABLED — these tests cover
-  // that now-inert behavior and are skipped until it's turned back on.
-  describe.skip('automatic calculation (disabled)', () => {
+  it('does not schedule another request when only calculated amounts or object identities change', async () => {
+    const { form, hook } = renderRiskPricingHook({
+      taxes_charged: [
+        {
+          ...createEmptyRiskTaxRow(),
+          tax_code: 'VAT-MAINLAND',
+          tax_rate: '0.18',
+          tax_amount: '',
+        },
+      ],
+    });
+    await settleTaxRuleQuery();
+    act(() => hook.result.current.handleSumInsuredBlur());
+    act(() => vi.advanceTimersByTime(450));
+    expect(mutateMock).toHaveBeenCalledTimes(1);
+    act(() => {
+      form.setValue('risks.0.taxes_charged.0.tax_amount', '18000');
+      form.setValue('risks.0.factor_values', {
+        ...form.getValues('risks.0.factor_values'),
+      });
+    });
+    act(() => vi.advanceTimersByTime(450));
+    expect(mutateMock).toHaveBeenCalledTimes(1);
+  });
+
+  describe('automatic calculation', () => {
     it('includes the requested discount rate in the calculation payload once sum insured is committed', async () => {
       const { form, hook } = renderRiskPricingHook({
         discounts_offered: [
@@ -288,31 +310,7 @@ describe('useRiskPremiumCalculation', () => {
       expect(mutateMock.mock.calls[0][0].discount).toBeUndefined();
     });
 
-    it('includes selected tax rule ids in the calculation payload once tax rules resolve', async () => {
-      apiGetMock.mockResolvedValueOnce({
-        data: [
-          {
-            id: 'tax-rule-vat',
-            status: 'ACTIVE',
-            tax_code: 'VAT-MAINLAND',
-            category_id: 'category-1',
-            product_id: 'product-1',
-            risk_id: 'risk-1',
-            effective_from: '2026-01-01',
-            effective_to: '2026-12-31',
-          },
-          {
-            id: 'tax-rule-withholding',
-            status: 'ACTIVE',
-            tax_code: 'WITHHOLDING',
-            category_id: 'category-1',
-            product_id: 'product-1',
-            risk_id: 'risk-1',
-            effective_from: '2026-01-01',
-            effective_to: '2026-12-31',
-          },
-        ],
-      });
+    it('sends only the tax codes selected on the risk row in the calculation payload', async () => {
       const { hook } = renderRiskPricingHook({
         taxes_charged: [
           {
@@ -332,9 +330,30 @@ describe('useRiskPremiumCalculation', () => {
       });
 
       expect(mutateMock).toHaveBeenCalledTimes(1);
-      expect(mutateMock.mock.calls[0][0].tax_rule_ids).toEqual([
-        'tax-rule-withholding',
-      ]);
+      expect(mutateMock.mock.calls[0][0].tax_codes).toEqual(['WITHHOLDING']);
+    });
+
+    it('sends an empty tax_codes array when every tax row is exempted', async () => {
+      const { hook } = renderRiskPricingHook({
+        taxes_charged: [
+          {
+            ...createEmptyRiskTaxRow(),
+            tax_code: 'VAT-MAINLAND',
+            is_tax_exempted: true,
+          },
+        ],
+      });
+
+      await settleTaxRuleQuery();
+      act(() => {
+        hook.result.current.handleSumInsuredBlur();
+      });
+      act(() => {
+        vi.advanceTimersByTime(450);
+      });
+
+      expect(mutateMock).toHaveBeenCalledTimes(1);
+      expect(mutateMock.mock.calls[0][0].tax_codes).toEqual([]);
     });
 
     it('still requests authoritative pricing when the preview minimum premium is higher than the sum insured', async () => {

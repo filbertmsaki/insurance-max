@@ -1,3 +1,4 @@
+import { setPricingFormValue } from '../utils/pricingFormUpdates';
 import { Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useWatch, type FieldPath, type UseFormReturn } from 'react-hook-form';
@@ -24,11 +25,7 @@ import {
 } from '../../schemas';
 import {
   DISCOUNT_TYPE_OPTIONS,
-  TAX_CODE_OPTIONS,
-  TAX_EXEMPTION_OPTIONS,
-  TAX_EXEMPTION_TYPE_OPTIONS,
   getDiscountRateForType,
-  getTaxRateForCode,
 } from '../utils/taxOptions';
 import {
   fromSelectValue,
@@ -45,6 +42,7 @@ import {
   motorFieldNameForFactorCode,
 } from '../utils/riskFactorResolver';
 import { useRiskPremiumCalculation } from '../hooks/useRiskPremiumCalculation';
+import { RiskTaxesFields } from './RiskTaxesFields';
 import { RatingFactorFields, type PricingFactorValue } from '@/modules/pricing';
 import { StepSection } from './StepSection';
 import { WizardFormItem } from './WizardFormItem';
@@ -86,9 +84,6 @@ export function RiskRow({
   const selectedRisk = riskOptions.find((risk) => risk.id === riskId) ?? null;
   const discountFieldArray =
     form.getValues(`risks.${index}.discounts_offered` as const) ?? [];
-  const taxFieldArray =
-    form.getValues(`risks.${index}.taxes_charged` as const) ?? [];
-
   useEffect(() => {
     const nextRiskCode = selectedRisk?.risk_code ?? '';
     if (form.getValues(path(index, 'risk_code')) !== nextRiskCode) {
@@ -251,7 +246,8 @@ export function RiskRow({
         recomputedRow.discounts_offered ?? [],
       )
     ) {
-      form.setValue(
+      setPricingFormValue(
+        form,
         path(index, 'discounts_offered'),
         recomputedRow.discounts_offered,
       );
@@ -262,7 +258,11 @@ export function RiskRow({
         recomputedRow.taxes_charged ?? [],
       )
     ) {
-      form.setValue(path(index, 'taxes_charged'), recomputedRow.taxes_charged);
+      setPricingFormValue(
+        form,
+        path(index, 'taxes_charged'),
+        recomputedRow.taxes_charged,
+      );
     }
     // Money fields are compared numerically, not as raw strings: the backend's
     // calculation result and this frontend recompute format the same amount
@@ -730,327 +730,7 @@ export function RiskRow({
         ) : null}
       </div>
 
-      <div className="space-y-1 border-t border-slate-100 pt-4">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-            Taxes Charged
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              form.setValue(path(index, 'taxes_charged'), [
-                ...taxFieldArray,
-                createEmptyRiskTaxRow(),
-              ])
-            }
-          >
-            <Plus className="mr-2 h-3.5 w-3.5" />
-            Add Tax
-          </Button>
-        </div>
-
-        {taxFieldArray.length > 0 ? (
-          <div className="space-y-1">
-            {taxFieldArray.map((_, taxIndex) => (
-              <div
-                key={taxIndex}
-                className="grid gap-3 rounded-lg border border-slate-100 p-3 md:grid-cols-4"
-              >
-                <FormField
-                  control={form.control}
-                  name={path(index, `taxes_charged.${taxIndex}.tax_code`)}
-                  render={({ field }) => (
-                    <WizardFormItem>
-                      <FormLabel>Tax Code (required)</FormLabel>
-                      <Select
-                        value={toSelectValue(field.value as string)}
-                        onValueChange={(value) => {
-                          const nextValue = fromSelectValue(value);
-                          field.onChange(nextValue);
-                          // tax_rate is prefilled from the tax code's
-                          // known default; tax_amount is left blank for
-                          // manual entry — automatic calculation is
-                          // currently disabled (AUTO_CALCULATION_DISABLED).
-                          form.setValue(
-                            path(index, `taxes_charged.${taxIndex}.tax_rate`),
-                            getTaxRateForCode(nextValue),
-                          );
-                          form.setValue(
-                            path(index, `taxes_charged.${taxIndex}.tax_amount`),
-                            '',
-                          );
-                          if (value === SELECT_NONE_VALUE) {
-                            form.setValue(
-                              path(
-                                index,
-                                `taxes_charged.${taxIndex}.is_tax_exempted`,
-                              ),
-                              false,
-                            );
-                            form.setValue(
-                              path(
-                                index,
-                                `taxes_charged.${taxIndex}.tax_exemption_type`,
-                              ),
-                              '',
-                            );
-                            form.setValue(
-                              path(
-                                index,
-                                `taxes_charged.${taxIndex}.tax_exemption_reference`,
-                              ),
-                              '',
-                            );
-                          }
-                        }}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select tax code" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={SELECT_NONE_VALUE}>
-                            None
-                          </SelectItem>
-                          {TAX_CODE_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </WizardFormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={path(index, `taxes_charged.${taxIndex}.tax_rate`)}
-                  render={({ field }) => (
-                    <WizardFormItem>
-                      <FormLabel>Tax Rate</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.000001"
-                          {...field}
-                          value={field.value as string}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </WizardFormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={path(index, `taxes_charged.${taxIndex}.tax_amount`)}
-                  render={({ field }) => (
-                    <WizardFormItem>
-                      <FormLabel>Tax Amount</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          {...field}
-                          value={field.value as string}
-                        />
-                      </FormControl>
-                    </WizardFormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={path(
-                    index,
-                    `taxes_charged.${taxIndex}.is_tax_exempted`,
-                  )}
-                  render={({ field }) => (
-                    <WizardFormItem>
-                      <FormLabel>Exempted</FormLabel>
-                      <Select
-                        value={field.value ? 'Y' : 'N'}
-                        onValueChange={(value) => {
-                          if (value === SELECT_NONE_VALUE) {
-                            field.onChange(false);
-                            form.setValue(
-                              path(
-                                index,
-                                `taxes_charged.${taxIndex}.tax_exemption_type`,
-                              ),
-                              '',
-                            );
-                            form.setValue(
-                              path(
-                                index,
-                                `taxes_charged.${taxIndex}.tax_exemption_reference`,
-                              ),
-                              '',
-                            );
-                            // Zeroing is a presentation-level clear, not a
-                            // calculation — safe to do immediately rather
-                            // than waiting on the debounced recalculation.
-                            form.setValue(
-                              path(
-                                index,
-                                `taxes_charged.${taxIndex}.tax_amount`,
-                              ),
-                              '0',
-                            );
-                            return;
-                          }
-                          const isExempted = value === 'Y';
-                          field.onChange(isExempted);
-                          if (!isExempted) {
-                            form.setValue(
-                              path(
-                                index,
-                                `taxes_charged.${taxIndex}.tax_exemption_type`,
-                              ),
-                              '',
-                            );
-                            form.setValue(
-                              path(
-                                index,
-                                `taxes_charged.${taxIndex}.tax_exemption_reference`,
-                              ),
-                              '',
-                            );
-                            // Un-exempting means the true tax_amount is
-                            // unknown again until the backend recalculates.
-                            form.setValue(
-                              path(
-                                index,
-                                `taxes_charged.${taxIndex}.tax_amount`,
-                              ),
-                              '',
-                            );
-                          } else {
-                            form.setValue(
-                              path(
-                                index,
-                                `taxes_charged.${taxIndex}.tax_amount`,
-                              ),
-                              '0',
-                            );
-                          }
-                        }}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select option" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={SELECT_NONE_VALUE}>
-                            None
-                          </SelectItem>
-                          {TAX_EXEMPTION_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </WizardFormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={path(
-                    index,
-                    `taxes_charged.${taxIndex}.tax_exemption_type`,
-                  )}
-                  render={({ field }) => (
-                    <WizardFormItem className="md:col-span-2">
-                      <FormLabel>Exemption Type</FormLabel>
-                      <Select
-                        value={toSelectValue(field.value as string)}
-                        onValueChange={(value) =>
-                          field.onChange(fromSelectValue(value))
-                        }
-                        disabled={
-                          !form.watch(
-                            path(
-                              index,
-                              `taxes_charged.${taxIndex}.is_tax_exempted`,
-                            ),
-                          )
-                        }
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select exemption type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={SELECT_NONE_VALUE}>
-                            None
-                          </SelectItem>
-                          {TAX_EXEMPTION_TYPE_OPTIONS.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </WizardFormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={path(
-                    index,
-                    `taxes_charged.${taxIndex}.tax_exemption_reference`,
-                  )}
-                  render={({ field }) => (
-                    <WizardFormItem className="md:col-span-2">
-                      <FormLabel>Exemption Reference</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          value={field.value as string}
-                          disabled={
-                            !form.watch(
-                              path(
-                                index,
-                                `taxes_charged.${taxIndex}.is_tax_exempted`,
-                              ),
-                            )
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </WizardFormItem>
-                  )}
-                />
-                <div className="flex items-end justify-end md:col-span-4">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      const next = taxFieldArray.filter(
-                        (_, i) => i !== taxIndex,
-                      );
-                      form.setValue(
-                        path(index, 'taxes_charged'),
-                        next.length ? next : [createEmptyRiskTaxRow()],
-                      );
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </div>
+      <RiskTaxesFields form={form} riskPath={`risks.${index}`} />
 
       <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
         <p>Sum insured equivalent: {sumInsuredEquivalentValue.toFixed(2)}</p>

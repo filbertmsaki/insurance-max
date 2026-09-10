@@ -36,7 +36,6 @@ import {
   inclusiveDayCount,
   isBeforeToday,
 } from './wizard/utils/coverNoteDateRange';
-import { getTaxRateForCode } from './wizard/utils/taxOptions';
 import {
   buildFleetRiskPricingSignature,
   buildSingleRiskPricingSignature,
@@ -157,11 +156,12 @@ function buildPolicyholderFormDefaults(
 
 function createEmptyTaxRow() {
   return {
-    tax_code: 'VAT-MAINLAND',
+    // Taxes are explicitly selected by the officer from the tax catalogue.
+    tax_code: '',
     is_tax_exempted: false,
     tax_exemption_type: '',
     tax_exemption_reference: '',
-    tax_rate: getTaxRateForCode('VAT-MAINLAND'),
+    tax_rate: '',
     tax_amount: '',
   };
 }
@@ -311,6 +311,11 @@ const addonTaxSchema = z
 
 const addonSchema = z.object({
   enabled: z.boolean(),
+  // Set once the user picks a real ProductAddonDefinition from the
+  // product's published definition — addon_reference/addon_desc are then
+  // auto-filled from it (code/name) rather than freely typed.
+  addon_definition_id: optionalText,
+  addon_quantity: optionalText,
   addon_reference: optionalText,
   addon_desc: optionalText,
   addon_amount: optionalText,
@@ -978,6 +983,8 @@ export function createEmptyAddonTaxRow(): QuotationWizardAddonRow['taxes'][numbe
 export function createEmptyAddonRow(): QuotationWizardAddonRow {
   return {
     enabled: true,
+    addon_definition_id: '',
+    addon_quantity: '1',
     addon_reference: '',
     addon_desc: '',
     addon_amount: '',
@@ -985,7 +992,7 @@ export function createEmptyAddonRow(): QuotationWizardAddonRow {
     premium_excluding_tax: '',
     premium_excluding_tax_equivalent: '',
     premium_including_tax: '',
-    taxes: [],
+    taxes: [createEmptyAddonTaxRow()],
   };
 }
 
@@ -1916,6 +1923,11 @@ function mapAddons(
 ) {
   return (addons ?? []).map((addon) => ({
     enabled: true,
+    // Saved quotations predate the addon_definition_id field (or were
+    // submitted via the free-text flow) — the selector simply starts
+    // unselected on reload; addon_reference/addon_desc still round-trip.
+    addon_definition_id: '',
+    addon_quantity: '1',
     addon_reference: addon.addon_reference,
     addon_desc: addon.addon_desc,
     addon_amount: String(addon.addon_amount),

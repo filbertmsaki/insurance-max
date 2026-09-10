@@ -319,7 +319,6 @@ function createServiceFixture(options: {
   };
   const pricingChargeService = new PricingChargeService(
     productTaxRuleRepository as any,
-    pricingRuntimeCacheService as any,
   );
   const pricingEngineService = new PricingEngineService(
     pricingValidationService,
@@ -552,7 +551,7 @@ describe('PremiumCalculationService', () => {
     });
   });
 
-  describe('selective tax-rule application', () => {
+  describe('selected catalogue taxes', () => {
     const vatRule = {
       id: 'tax-rule-vat',
       company_id: COMPANY_ID,
@@ -581,7 +580,7 @@ describe('PremiumCalculationService', () => {
       tax_rate: 0.01,
     };
 
-    it('applies every active tax rule when tax_rule_ids is omitted (unchanged default)', async () => {
+    it('applies no taxes when the selection is omitted', async () => {
       const { service } = createServiceFixture({
         risk: RISKS.comprehensive.risk,
         rules: [RISKS.comprehensive.rule],
@@ -594,12 +593,11 @@ describe('PremiumCalculationService', () => {
         factors: {},
       });
 
-      // 350,000 * (0.18 + 0.01) = 66,500
-      expect(result.charges).toHaveLength(2);
-      expect(result.total_tax_amount).toBe(66500);
+      expect(result.charges).toHaveLength(0);
+      expect(result.total_tax_amount).toBe(0);
     });
 
-    it('restricts charge calculation to the requested tax_rule_ids', async () => {
+    it('calculates multiple selected catalogue taxes', async () => {
       const { service } = createServiceFixture({
         risk: RISKS.comprehensive.risk,
         rules: [RISKS.comprehensive.rule],
@@ -610,15 +608,53 @@ describe('PremiumCalculationService', () => {
         risk_id: RISKS.comprehensive.risk.id,
         sum_insured: 10000000,
         factors: {},
-        tax_rule_ids: ['tax-rule-vat'],
+        tax_codes: ['VAT-MAINLAND', 'WITHHOLDING'],
+      });
+
+      expect(result.charges).toHaveLength(2);
+      expect(result.charges[0].applied_rule_id).toBe('tax-rule-vat');
+      // Both selected taxes apply to the same net premium.
+      expect(result.total_tax_amount).toBe(66500);
+      expect(result.charges.map((charge) => charge.rate)).toEqual([0.18, 0.01]);
+      expect(result.final_payable_premium).toBe(416500);
+    });
+
+    it('restricts charge calculation to the requested tax_codes', async () => {
+      const { service } = createServiceFixture({
+        risk: RISKS.comprehensive.risk,
+        rules: [RISKS.comprehensive.rule],
+        taxRules: [vatRule, withholdingRule],
+      });
+
+      const result = await service.calculateSingleRisk(COMPANY_ID, {
+        risk_id: RISKS.comprehensive.risk.id,
+        sum_insured: 10000000,
+        factors: {},
+        tax_codes: ['VAT-MAINLAND'],
       });
 
       expect(result.charges).toHaveLength(1);
-      expect(result.charges[0].applied_rule_id).toBe('tax-rule-vat');
+      expect(result.charges[0].charge_code).toBe('VAT-MAINLAND');
       // 350,000 * 0.18 = 63,000 (withholding excluded)
       expect(result.total_tax_amount).toBe(63000);
-      expect(result.tax_rate).toBe(0.18);
-      expect(result.final_payable_premium).toBe(413000);
+    });
+
+    it('applies no charges when tax_codes is an explicit empty array', async () => {
+      const { service } = createServiceFixture({
+        risk: RISKS.comprehensive.risk,
+        rules: [RISKS.comprehensive.rule],
+        taxRules: [vatRule, withholdingRule],
+      });
+
+      const result = await service.calculateSingleRisk(COMPANY_ID, {
+        risk_id: RISKS.comprehensive.risk.id,
+        sum_insured: 10000000,
+        factors: {},
+        tax_codes: [],
+      });
+
+      expect(result.charges).toHaveLength(0);
+      expect(result.total_tax_amount).toBe(0);
     });
   });
 
