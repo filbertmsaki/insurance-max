@@ -136,6 +136,8 @@ export const policiesApi = {
         payload,
       )
       .then((response) => response.data),
+  createReplacement: (policyId: string, payload: { effective_date: string; reason: string; draft_payload: Record<string, unknown> }) =>
+    apiClient.post<{ quotation_id: string }>(`/tenant/policies/${policyId}/replacements`, payload).then((response) => response.data),
   getCancellation: (id: string) =>
     apiClient
       .get<PolicyCancellationRecord>(`/tenant/cancellations/${id}`)

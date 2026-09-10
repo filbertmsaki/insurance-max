@@ -58,6 +58,7 @@ import { EndorsementReconciliationService } from './services/endorsement-reconci
 import { PolicyTransactionRefundProjectionService } from './services/policy-transaction-refund-projection.service';
 import { PolicyCancellationConfigService } from './services/policy-cancellation-config.service';
 import { RenewalQuotationFactoryService } from './services/renewal-quotation-factory.service';
+import { PolicyReplacementService } from './services/policy-replacement.service';
 
 import { PolicyTransactionsController } from './controllers/policy-transactions.controller';
 import { EndorsementsController } from './controllers/endorsements.controller';
@@ -111,6 +112,7 @@ import { AdministrativeAmendmentController } from './controllers/administrative-
     AdministrativeAmendmentController,
   ],
   providers: [
+    PolicyReplacementService,
     IdentifierGeneratorService,
     PolicyTransactionEligibilityService,
     ProposedPolicySnapshotService,

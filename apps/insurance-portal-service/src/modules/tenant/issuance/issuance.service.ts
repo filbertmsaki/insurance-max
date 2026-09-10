@@ -5,6 +5,7 @@ import type {
   RegulatoryFinalResponse,
 } from '@insurance-max/contracts';
 import { DataSource, EntityManager } from 'typeorm';
+import { applyPolicyReplacement } from './apply-policy-replacement';
 
 import { TiramisNotificationEventDto } from '../tiramis-integration/dto/tiramis-notification-event.dto';
 import { PortalTiraSubmission } from '../tiramis-integration/entities/portal-tira-submission.entity';
@@ -182,6 +183,7 @@ export class IssuanceService {
       );
 
       if (policy) {
+        await applyPolicyReplacement(manager, quotation, policy, this.hashService);
         submission.policy_id = policy.id;
         await manager.getRepository(PortalTiraSubmission).save(submission);
       }

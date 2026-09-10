@@ -18,6 +18,8 @@ import { ClaimsReviewDto } from '../dto/claims-review.dto';
 import { EndorsementEligibilityQueryDto } from '../dto/endorsement-eligibility-query.dto';
 import { ReasonDto } from '../dto/reason.dto';
 import { CancellationService } from '../services/cancellation.service';
+import { PolicyReplacementService } from '../services/policy-replacement.service';
+import { CreatePolicyReplacementDto } from '../dto/create-policy-replacement.dto';
 import { PolicyTransactionLifecycleService } from '../services/policy-transaction-lifecycle.service';
 import { PolicyTransactionTiramisSubmissionService } from '../services/policy-transaction-tiramis-submission.service';
 
@@ -27,6 +29,7 @@ import { PolicyTransactionTiramisSubmissionService } from '../services/policy-tr
 @TenantScoped()
 export class CancellationsController {
   constructor(
+    private readonly replacementService: PolicyReplacementService,
     private readonly cancellationService: CancellationService,
     private readonly lifecycleService: PolicyTransactionLifecycleService,
     private readonly submissionService: PolicyTransactionTiramisSubmissionService,
@@ -58,6 +61,15 @@ export class CancellationsController {
     @Body() dto: CreateCancellationDto,
   ) {
     return this.cancellationService.create(user, policyId, dto);
+  }
+
+  @Post('tenant/policies/:policyId/replacements')
+  @Permissions('cancellations:create', 'quotations:create')
+  @ApiOperation({ summary: 'Create a replacement quotation; cancel original records only after accepted issuance' })
+  createReplacement(@CurrentUser() user: AuthenticatedUser,
+    @Param('policyId', ParseUUIDPipe) policyId: string,
+    @Body() dto: CreatePolicyReplacementDto) {
+    return this.replacementService.create(user, policyId, dto);
   }
 
   @Get('tenant/cancellations')

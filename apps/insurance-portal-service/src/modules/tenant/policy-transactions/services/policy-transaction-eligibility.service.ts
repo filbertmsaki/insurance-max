@@ -6,6 +6,8 @@ import { InsuranceClaim } from '../../claims/entities/claim.entity';
 import { ClaimStatus } from '../../claims/enums/claim.enums';
 import { Policy } from '../../policies/entities/policy.entity';
 import { PolicyVersion } from '../../policies/entities/policy-version.entity';
+import { Quotation } from '../../quotations/entities/quotation.entity';
+import { QuotationStatus } from '../../quotations/enums/quotation-status.enum';
 
 export interface PolicyTransactionEligibilityBlocker {
   code: string;
@@ -46,6 +48,12 @@ export class PolicyTransactionEligibilityService {
     effectiveDate?: string,
   ): Promise<PolicyTransactionEligibilityResult> {
     const blockers: PolicyTransactionEligibilityBlocker[] = [];
+    const replacement = await manager.getRepository(Quotation).findOne({where: {
+      company_id: policy.company_id, replacement_source_policy_id: policy.id,
+      status: Not(QuotationStatus.CANCELLED),
+    }});
+    if (replacement) blockers.push({ code: 'POLICY_REPLACEMENT_PENDING',
+      message: 'A replacement quotation already exists for this policy. Complete or cancel it first.' });
 
     const allowedStatuses = ['COVER_NOTE_ISSUED', 'ACTIVE'];
 

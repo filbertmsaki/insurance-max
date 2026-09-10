@@ -46,6 +46,7 @@ function makeManager(
 
   return {
     getRepository: (entity: any) => {
+      if (entity?.name === 'Quotation') return { findOne: jest.fn().mockResolvedValue(null) };
       if (entity?.name === 'InsuranceClaim') {
         return claimRepo;
       }

@@ -309,6 +309,18 @@ export class Quotation {
   @Column({ type: 'text', nullable: true })
   cancellation_reason: string | null;
 
+  @Column({ type: 'uuid', nullable: true })
+  replacement_source_policy_id: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  replacement_source_version_id: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  replacement_reason: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  replacement_applied_at: Date | null;
+
   @Column({ type: 'varchar', length: 50, nullable: true })
   current_wizard_step: string | null;
 

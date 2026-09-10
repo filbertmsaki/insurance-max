@@ -425,13 +425,18 @@ export class QuotationsService {
     }
   }
 
-  async createDraft(
-    companyId: string,
-    dto: SaveQuotationDraftDto,
-    userId: string,
-  ) {
+  async createDraft(companyId: string, dto: SaveQuotationDraftDto, userId: string) {
     try {
-      const quotationId = await this.dataSource.transaction(async (manager) => {
+      const quotationId = await this.dataSource.transaction((manager) =>
+        this.createDraftInTransaction(manager, companyId, dto, userId),
+      );
+      return this.findOneForEdit(companyId, quotationId);
+    } catch (error) {
+      this.rethrowConstraintError(error);
+    }
+  }
+
+  async createDraftInTransaction(manager: EntityManager, companyId: string, dto: SaveQuotationDraftDto, userId: string): Promise<string> {
         const quotationNo =
           await this.identifierGeneratorService.generateQuotationNumber(
             companyId,
@@ -488,12 +493,6 @@ export class QuotationsService {
         );
 
         return quotation.id;
-      });
-
-      return this.findOneForEdit(companyId, quotationId);
-    } catch (error) {
-      this.rethrowConstraintError(error);
-    }
   }
 
   async replace(
