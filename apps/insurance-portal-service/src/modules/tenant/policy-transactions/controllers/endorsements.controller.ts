@@ -10,7 +10,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { TenantScoped } from '@insurance-max/portal-shared';
+import { TenantScoped, hasCompanyAdminRole } from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import { CreateEndorsementDto } from '../dto/create-endorsement.dto';
@@ -152,6 +152,7 @@ export class EndorsementsController {
   ) {
     return this.lifecycleService.approveTransaction(user.companyId!, id, {
       changedBy: user.id,
+      isMakerCheckerExempt: hasCompanyAdminRole(user),
     });
   }
 

@@ -27,6 +27,12 @@ export interface PolicyTransactionLifecycleContext {
   tiraRequestId?: string | null;
   tiraResponseId?: string | null;
   metadata?: Record<string, unknown> | null;
+  /**
+   * Set by the caller when the acting user holds a company-administrator
+   * role (see `hasCompanyAdminRole`), exempting them from the maker-checker
+   * rule that otherwise blocks approving a transaction they requested.
+   */
+  isMakerCheckerExempt?: boolean;
 }
 
 interface LifecycleSnapshot {
@@ -144,7 +150,8 @@ export class PolicyTransactionLifecycleService {
 
         if (
           context.changedBy &&
-          context.changedBy === transaction.requested_by
+          context.changedBy === transaction.requested_by &&
+          !context.isMakerCheckerExempt
         ) {
           throw new ForbiddenException(
             'The maker of a transaction cannot approve it (maker-checker).',
@@ -405,6 +412,12 @@ export class PolicyTransactionLifecycleService {
 
         const previous = this.snapshot(transaction);
         transaction.submission_status = WorkflowSubmissionStatus.FAILED;
+        // startSubmission() is the only path that moves a transaction to
+        // SUBMISSION_PROCESSING (always from COMPLETED); undo that here so
+        // canSubmit() — which requires stage === COMPLETED — allows a retry.
+        if (transaction.stage === PolicyTransactionStage.SUBMISSION_PROCESSING) {
+          transaction.stage = PolicyTransactionStage.COMPLETED;
+        }
 
         return this.persistTransition(
           manager,

@@ -37,24 +37,32 @@ export default class EndorsementTypesSeeder implements Seeder {
               company_id,
               code,
               name,
+              tira_endorsement_type,
               requires_new_cover_note,
               is_active,
               created_at,
               updated_at
             )
-            VALUES ($1, $2, $3, $4, true, now(), now())
+            VALUES ($1, $2, $3, $4, $5, true, now(), now())
             ON CONFLICT (company_id, code)
             DO UPDATE SET
               name = EXCLUDED.name,
+              tira_endorsement_type = EXCLUDED.tira_endorsement_type,
               requires_new_cover_note = EXCLUDED.requires_new_cover_note,
               updated_at = now()
           `,
-            [company.id, type.code, type.name, type.requires_new_cover_note],
+            [
+              company.id,
+              type.code,
+              type.name,
+              type.tira_endorsement_type,
+              type.requires_new_cover_note,
+            ],
           );
         }
 
         console.log(
-          `[EndorsementTypesSeeder] Seed complete: ${ENDORSEMENT_TYPES.length} endorsement types. TIRA endorsement-type codes are unset - configure them via the Endorsement Types admin page before submitting to TIRAMIS.`,
+          `[EndorsementTypesSeeder] Seed complete: ${ENDORSEMENT_TYPES.length} endorsement types, mapped onto the TIRAMIS EndorsementType enum (1-3; 4 is reserved for cancellations).`,
         );
       },
     );

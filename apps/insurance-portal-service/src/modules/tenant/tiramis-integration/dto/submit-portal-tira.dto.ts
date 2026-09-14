@@ -70,4 +70,15 @@ export class SubmitPortalTiraDto {
    */
   @IsObject()
   payload!: Record<string, any>;
+
+  /**
+   * Signed product/pricing/insuredData/quotationGate/finance context,
+   * required by apps/tiramis's submission guards. Callers outside the
+   * quotation-issuance flow (e.g. policy-transaction cancellations and
+   * endorsements) must supply this themselves — see
+   * `PolicyTransactionTiramisServiceContextService`.
+   */
+  @IsOptional()
+  @IsObject()
+  serviceContext?: Record<string, unknown>;
 }

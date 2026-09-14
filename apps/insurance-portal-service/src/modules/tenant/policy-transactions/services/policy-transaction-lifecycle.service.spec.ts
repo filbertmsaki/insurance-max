@@ -74,6 +74,20 @@ describe('PolicyTransactionLifecycleService', () => {
       ).rejects.toBeInstanceOf(ForbiddenException);
     });
 
+    it('allows a company-admin maker to approve their own transaction when exempted', async () => {
+      const transaction = makeTransaction({
+        approval_status: WorkflowApprovalStatus.PENDING,
+      });
+      const { service } = makeHarness(transaction);
+
+      const result = await service.approveTransaction('company-1', 'txn-1', {
+        changedBy: 'maker-user',
+        isMakerCheckerExempt: true,
+      });
+
+      expect(result.approval_status).toBe(WorkflowApprovalStatus.APPROVED);
+    });
+
     it('allows a different checker to approve', async () => {
       const transaction = makeTransaction({
         approval_status: WorkflowApprovalStatus.PENDING,
@@ -98,6 +112,26 @@ describe('PolicyTransactionLifecycleService', () => {
           changedBy: 'checker-user',
         }),
       ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('markSubmissionFailed', () => {
+    it('reverts stage from SUBMISSION_PROCESSING back to COMPLETED so the transaction can be resubmitted', async () => {
+      const transaction = makeTransaction({
+        stage: PolicyTransactionStage.SUBMISSION_PROCESSING,
+        approval_status: WorkflowApprovalStatus.APPROVED,
+        submission_status: WorkflowSubmissionStatus.PROCESSING,
+      });
+      const { service } = makeHarness(transaction);
+
+      const result = await service.markSubmissionFailed('company-1', 'txn-1', {
+        changedBy: 'system',
+        reason: 'TIRAMIS HTTP request failed with status 403',
+      });
+
+      expect(result.stage).toBe(PolicyTransactionStage.COMPLETED);
+      expect(result.submission_status).toBe(WorkflowSubmissionStatus.FAILED);
+      expect(service.canSubmit(result)).toBe(true);
     });
   });
 

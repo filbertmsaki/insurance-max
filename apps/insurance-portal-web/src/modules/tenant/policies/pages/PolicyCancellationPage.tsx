@@ -14,8 +14,6 @@ import { getApiErrorMessage } from '@/lib/api-error';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { getCustomerFullName } from '@/modules/tenant/customers/types';
 import { policiesApi } from '../api';
-import { quotationsApi } from '../../quotations/api';
-import { quotationRecordToFormValues } from '../../quotations/schemas';
 import {
   policyKeys,
   useCancellationContext,
@@ -76,29 +74,11 @@ export function PolicyCancellationPage() {
   const completeCancellation = useCompleteCancellation(cancellationId);
   const issueCancellation = useIssueCancellation(policyId);
   const [reasonType, setReasonType] =
-    useState<CancellationReasonType>('POLICY_REPLACEMENT');
+    useState<CancellationReasonType>('CUSTOMER_REQUEST');
   const [effectiveDate, setEffectiveDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
   const [reason, setReason] = useState('');
-  const replacementMode = reasonType === 'POLICY_REPLACEMENT';
-  const createReplacement = useMutation({
-    mutationFn: async () => {
-      if (!policy?.quotation_id) throw new Error('The original quotation is missing.');
-      const source = await quotationsApi.getById(policy.quotation_id);
-      const values = quotationRecordToFormValues(source);
-      return policiesApi.createReplacement(policyId!, {
-        effective_date: effectiveDate, reason,
-        draft_payload: { ...values, valid_from: effectiveDate, cover_note_number: '',
-          cover_note_type: '1', prev_cover_note_reference: '' },
-      });
-    },
-    onSuccess: (result) => {
-      toast.success('Replacement quotation ready. Original cover remains active until TIRAMIS acceptance.');
-      navigate(underwritingPaths.quotationEdit(result.quotation_id));
-    },
-    onError: (error) => toast.error(getApiErrorMessage(error)),
-  });
 
   const submitApproval = useMutation({
     mutationFn: () => policiesApi.submitCancellationApproval(cancellationId!),
@@ -134,7 +114,8 @@ export function PolicyCancellationPage() {
   const tx = context?.transaction;
   const cancellation = context?.cancellation;
   const canIssue =
-    tx?.stage === 'COMPLETED' && tx.submission_status === 'READY';
+    tx?.stage === 'COMPLETED' &&
+    ['READY', 'FAILED', 'RETRYABLE'].includes(tx.submission_status);
   const canComplete = tx?.stage === 'DRAFT';
   const finalApplied = tx?.stage === 'APPLIED';
   const money = (
@@ -145,7 +126,6 @@ export function PolicyCancellationPage() {
       ? '—'
       : `${currency} ${Number(value).toLocaleString('en-TZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const handleCreate = () => {
-    if (replacementMode) { createReplacement.mutate(); return; }
     createCancellation.mutate(
       {
         effective_date: effectiveDate,
@@ -249,7 +229,7 @@ export function PolicyCancellationPage() {
                     Cancellation details
                   </CardTitle>
                   <p className="text-sm text-slate-500">
-                    {replacementMode ? 'Prepare a replacement quotation. The original policy and quotation are cancelled only after TIRAMIS accepts the replacement cover note.' : 'Choose when the cancellation takes effect and tell us why.'}
+                    Choose when the cancellation takes effect and tell us why.
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -315,16 +295,16 @@ export function PolicyCancellationPage() {
                       <Button
                         variant="destructive"
                         disabled={
-                          createCancellation.isPending || createReplacement.isPending ||
+                          createCancellation.isPending ||
                           !reason.trim() ||
                           !effectiveDate ||
                           !policy
                         }
                         onClick={handleCreate}
                       >
-                        {createCancellation.isPending || createReplacement.isPending
+                        {createCancellation.isPending
                           ? 'Creating request…'
-                          : replacementMode ? 'Create replacement quotation' : 'Create cancellation'}
+                          : 'Create cancellation'}
                       </Button>
                     </div>
                   </div>
@@ -492,7 +472,11 @@ export function PolicyCancellationPage() {
                         <Play className="mr-1.5 h-3.5 w-3.5" />
                         {tx.submission_status === 'PROCESSING'
                           ? 'Issuing Cancellation...'
-                          : 'Issue Cancellation'}
+                          : ['FAILED', 'RETRYABLE'].includes(
+                                tx.submission_status,
+                              )
+                            ? 'Retry Submission'
+                            : 'Issue Cancellation'}
                       </Button>
                     </div>
                   )}

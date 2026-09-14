@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { hasCompanyAdminRole } from '@insurance-max/portal-shared';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { ClaimDecisionType } from '@insurance-max/contracts';
 
@@ -124,7 +125,10 @@ export class ClaimDecisionService {
         );
       }
 
-      if ([decision.created_by, decision.submitted_by].includes(user.id)) {
+      if (
+        [decision.created_by, decision.submitted_by].includes(user.id) &&
+        !hasCompanyAdminRole(user)
+      ) {
         throw new ForbiddenException({
           code: 'CLAIM_DECISION_MAKER_CHECKER_VIOLATION',
           message: 'The decision creator or submitter cannot approve it',

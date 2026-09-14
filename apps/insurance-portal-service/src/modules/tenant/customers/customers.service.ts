@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { hasCompanyAdminRole } from '@insurance-max/portal-shared';
 import { SortDirection } from '@insurance-max/portal-shared/dto/pagination.dto';
 import {
   Brackets,
@@ -1545,7 +1546,7 @@ export class CustomersService {
       }
 
       const review = await this.findOpenKycReview(manager, customer);
-      if (review.submitted_by === user.id) {
+      if (review.submitted_by === user.id && !hasCompanyAdminRole(user)) {
         throw new ConflictException(
           'The user who submitted the KYC review cannot approve it.',
         );

@@ -22,6 +22,7 @@ export * from './guards/tenant-boundary.guard';
 export * from './interfaces/authenticated-user.interface';
 export * from './interceptors/logging.interceptor';
 export * from './interceptors/transform.interceptor';
+export * from './utils/company-admin-rbac.util';
 export * from './utils/hash.util';
 export * from './utils/pricing-calculation.util';
 export * from './utils/scoped-rbac.util';

@@ -113,7 +113,7 @@ describe('SubscriptionService', () => {
   });
 
   it('schedules a future plan change against the active published plan version', async () => {
-    const currentPeriodEnd = new Date('2026-08-31T23:59:59.999Z');
+    const currentPeriodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     subscriptionRepository.findOne.mockResolvedValue({
       id: 'subscription-1',
       company_id: 'company-1',

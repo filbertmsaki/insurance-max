@@ -13,11 +13,21 @@ describe('PolicyCancellationConfigService', () => {
     } as any);
   }
 
-  it('rejects cancellation rules without a configured TIRAMIS cancellation type', async () => {
+  it('resolves the TIRA-mandated cancellation endorsement type (4) even with no company config at all', async () => {
+    const service = makeService({});
+
+    await expect(
+      service.resolve(companyId, CancellationReasonType.CUSTOMER_REQUEST),
+    ).resolves.toMatchObject({
+      cancellationMethod: CancellationMethod.PRO_RATA,
+      tiraEndorsementType: 4,
+    });
+  });
+
+  it('rejects an invalid configured cancellation method', async () => {
     const service = makeService({
       default: {
-        cancellationMethod: CancellationMethod.PRO_RATA,
-        tiraEndorsementType: 0,
+        cancellationMethod: 'NOT_A_REAL_METHOD',
       },
     });
 
@@ -25,7 +35,7 @@ describe('PolicyCancellationConfigService', () => {
       service.resolve(companyId, CancellationReasonType.CUSTOMER_REQUEST),
     ).rejects.toMatchObject({
       response: expect.objectContaining({
-        code: 'TIRA_CANCELLATION_TYPE_NOT_CONFIGURED',
+        code: 'INVALID_CANCELLATION_METHOD',
       }),
     });
   });
@@ -34,7 +44,6 @@ describe('PolicyCancellationConfigService', () => {
     const service = makeService({
       default: {
         cancellationMethod: CancellationMethod.PRO_RATA,
-        tiraEndorsementType: 33,
         cancellationCharge: '0',
         minimumRetainedPremium: '0',
         requireApproval: true,
@@ -51,7 +60,7 @@ describe('PolicyCancellationConfigService', () => {
       service.resolve(companyId, CancellationReasonType.NON_PAYMENT),
     ).resolves.toMatchObject({
       cancellationMethod: CancellationMethod.NO_REFUND,
-      tiraEndorsementType: 33,
+      tiraEndorsementType: 4,
       cancellationCharge: '25000',
       requireApproval: true,
     });

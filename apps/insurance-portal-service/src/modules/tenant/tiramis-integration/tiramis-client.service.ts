@@ -59,7 +59,12 @@ export class TiramisClientService {
     };
 
     try {
-      return await this.request(pattern, payload, params.companyId);
+      return await this.request(
+        pattern,
+        payload,
+        params.companyId,
+        params.dto.serviceContext,
+      );
     } catch (error: any) {
       this.logger.error(
         `TIRAMIS submit failed for ${params.dto.business_reference}: ${error?.message || 'Unknown error'}`,
@@ -111,6 +116,7 @@ export class TiramisClientService {
     pattern: string,
     command: Record<string, unknown>,
     companyId: string | null,
+    serviceContext?: Record<string, unknown>,
   ) {
     const route = this.resolveHttpRoute(pattern);
 
@@ -142,6 +148,10 @@ export class TiramisClientService {
 
           'X-API-Key': apiKey,
 
+          ...(serviceContext
+            ? { 'X-Service-Context': this.encodeServiceContext(serviceContext) }
+            : {}),
+
           ...(requestId ? { [HTTP_HEADERS.REQUEST_ID]: requestId } : {}),
 
           ...(correlationId
@@ -166,6 +176,10 @@ export class TiramisClientService {
     }
 
     return unwrapApiResponse(response.data);
+  }
+
+  private encodeServiceContext(context: Record<string, unknown>): string {
+    return Buffer.from(JSON.stringify(context), 'utf8').toString('base64url');
   }
 
   private async resolveApiKey(companyId: string | null): Promise<string> {

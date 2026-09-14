@@ -256,11 +256,6 @@ export class PolicyTransactionTiramisPayloadService {
       coverNoteDesc: `Cancellation ${transaction.transaction_no}`,
       operativeClause: 'Cancellation',
       prevCoverNoteReferenceNumber: cancellation.previous_cover_note_reference,
-      // No company-configured TIRA endorsement-type code exists for
-      // cancellations today (`endorsement_types` is a per-company lookup
-      // table with no seeded "cancellation" entry) — left null rather than
-      // guessing a numeric code; `endorsementReason` still carries the
-      // cancellation reason so the submission is not empty of context.
       endorsementType: cancellation.tira_endorsement_type,
       endorsementReason: transaction.reason,
       endorsementPremiumEarned: DecimalUtil.money(cancellation.earned_premium),
@@ -384,6 +379,9 @@ export class PolicyTransactionTiramisPayloadService {
       {
         policyHolderName: holder.name ?? null,
         policyHolderBirthDate: holder.birthDate ?? null,
+        policyHolderType: holder.type ?? null,
+        policyHolderIdNumber: holder.idNumber ?? null,
+        policyHolderIdType: holder.idType ?? null,
         countryCode: holder.countryCode ?? null,
         region: holder.region ?? null,
         district: holder.district ?? null,

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { hasCompanyAdminRole } from '@insurance-max/portal-shared';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { ClaimReserveMovementType } from '@insurance-max/contracts';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
@@ -770,7 +771,7 @@ export class ClaimsService {
         throw new ConflictException('Reserve is not available for approval');
       }
 
-      if (reserve.created_by === user.id) {
+      if (reserve.created_by === user.id && !hasCompanyAdminRole(user)) {
         throw new ConflictException(
           'The reserve creator cannot approve the same reserve',
         );
@@ -1033,7 +1034,7 @@ export class ClaimsService {
         );
       }
 
-      if (assessment.created_by === user.id) {
+      if (assessment.created_by === user.id && !hasCompanyAdminRole(user)) {
         throw new ConflictException('The assessment creator cannot approve it');
       }
 
@@ -1196,7 +1197,7 @@ export class ClaimsService {
       );
     }
 
-    if (voucher.created_by === user.id) {
+    if (voucher.created_by === user.id && !hasCompanyAdminRole(user)) {
       throw new ConflictException('The creator cannot approve this record');
     }
 
@@ -1383,7 +1384,7 @@ export class ClaimsService {
       );
     }
 
-    if (payment.created_by === user.id) {
+    if (payment.created_by === user.id && !hasCompanyAdminRole(user)) {
       throw new ConflictException(
         'The payment creator cannot approve the same payment',
       );

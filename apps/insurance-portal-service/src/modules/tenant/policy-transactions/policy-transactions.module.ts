@@ -52,6 +52,7 @@ import { PolicyTransactionInvoiceService } from './services/policy-transaction-i
 import { PolicyTransactionApplyService } from './services/policy-transaction-apply.service';
 import { PolicyTransactionTiramisPayloadService } from './services/policy-transaction-tiramis-payload.service';
 import { PolicyTransactionTiramisSubmissionService } from './services/policy-transaction-tiramis-submission.service';
+import { PolicyTransactionTiramisServiceContextService } from './services/policy-transaction-tiramis-service-context.service';
 import { PolicyTransactionRegulatoryOutcomeService } from './services/policy-transaction-regulatory-outcome.service';
 import { PolicyTransactionReturnPremiumService } from './services/policy-transaction-return-premium.service';
 import { EndorsementReconciliationService } from './services/endorsement-reconciliation.service';
@@ -130,6 +131,7 @@ import { AdministrativeAmendmentController } from './controllers/administrative-
     PolicyTransactionInvoiceService,
     PolicyTransactionApplyService,
     PolicyTransactionTiramisPayloadService,
+    PolicyTransactionTiramisServiceContextService,
     PolicyTransactionTiramisSubmissionService,
     PolicyTransactionRegulatoryOutcomeService,
     PolicyTransactionReturnPremiumService,

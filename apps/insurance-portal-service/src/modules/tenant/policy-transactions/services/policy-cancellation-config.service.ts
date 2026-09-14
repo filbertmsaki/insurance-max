@@ -16,7 +16,6 @@ export interface ResolvedCancellationRule {
 
 interface CancellationRuleConfig {
   cancellationMethod?: CancellationMethod;
-  tiraEndorsementType?: number;
   cancellationCharge?: string | number;
   minimumRetainedPremium?: string | number;
   requireApproval?: boolean;
@@ -28,6 +27,12 @@ interface CancellationRulesConfig {
 }
 
 const CONFIG_KEY = 'POLICY_CANCELLATION_RULES';
+
+// TIRAMIS API spec (§4.1/§5.1 CoverNoteDtl.EndorsementType) fixes the
+// cover-note endorsement-type enum at 1-4 — 4 is "Cover Cancellation" for
+// every insurer. It is not a per-company regulator-issued code like
+// InsurerCompanyCode or ProductCode, so it is not read from company config.
+const TIRA_ENDORSEMENT_TYPE_CANCELLATION = 4;
 
 @Injectable()
 export class PolicyCancellationConfigService {
@@ -56,19 +61,9 @@ export class PolicyCancellationConfigService {
       });
     }
 
-    const tiraEndorsementType = Number(merged.tiraEndorsementType);
-
-    if (!Number.isInteger(tiraEndorsementType) || tiraEndorsementType <= 0) {
-      throw new UnprocessableEntityException({
-        code: 'TIRA_CANCELLATION_TYPE_NOT_CONFIGURED',
-        message:
-          'The company does not have a valid TIRAMIS cancellation endorsement type configured.',
-      });
-    }
-
     return {
       cancellationMethod,
-      tiraEndorsementType,
+      tiraEndorsementType: TIRA_ENDORSEMENT_TYPE_CANCELLATION,
       cancellationCharge: String(merged.cancellationCharge ?? 0),
       minimumRetainedPremium: String(merged.minimumRetainedPremium ?? 0),
       requireApproval: merged.requireApproval !== false,

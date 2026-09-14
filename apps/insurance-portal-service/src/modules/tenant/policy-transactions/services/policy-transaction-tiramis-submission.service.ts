@@ -18,6 +18,7 @@ import { PolicyEndorsement } from '../entities/policy-endorsement.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import { PolicyTransactionLifecycleService } from './policy-transaction-lifecycle.service';
 import { PolicyTransactionTiramisPayloadService } from './policy-transaction-tiramis-payload.service';
+import { PolicyTransactionTiramisServiceContextService } from './policy-transaction-tiramis-service-context.service';
 
 const FLOW_TO_REQUEST_TYPE: Record<
   QuotationFlow,
@@ -52,6 +53,7 @@ export class PolicyTransactionTiramisSubmissionService {
     @InjectRepository(Quotation)
     private readonly quotationRepository: Repository<Quotation>,
     private readonly payloadService: PolicyTransactionTiramisPayloadService,
+    private readonly serviceContextService: PolicyTransactionTiramisServiceContextService,
     private readonly lifecycleService: PolicyTransactionLifecycleService,
     @Inject(forwardRef(() => TiramisIntegrationService))
     private readonly tiramisIntegrationService: TiramisIntegrationService,
@@ -126,6 +128,11 @@ export class PolicyTransactionTiramisSubmissionService {
     }
 
     const requestType = await this.resolveRequestType(policy);
+    const serviceContext = await this.buildServiceContext(
+      user.companyId!,
+      policy,
+      payload,
+    );
 
     await this.lifecycleService.startSubmission(
       user.companyId!,
@@ -135,8 +142,12 @@ export class PolicyTransactionTiramisSubmissionService {
       },
     );
 
-    const { submission } = await this.tiramisIntegrationService.submitToTiramis(
-      {
+    let submission: Awaited<
+      ReturnType<TiramisIntegrationService['submitToTiramis']>
+    >['submission'];
+
+    try {
+      ({ submission } = await this.tiramisIntegrationService.submitToTiramis({
         companyId: user.companyId!,
         userId: user.id,
         dto: {
@@ -147,9 +158,23 @@ export class PolicyTransactionTiramisSubmissionService {
           source_record_id: transaction.id,
           business_reference: transaction.transaction_no,
           payload,
+          serviceContext,
         },
-      },
-    );
+      }));
+    } catch (error) {
+      await this.lifecycleService.markSubmissionFailed(
+        user.companyId!,
+        transaction.id,
+        {
+          changedBy: user.id,
+          reason:
+            error instanceof Error
+              ? error.message
+              : 'TIRAMIS submission failed',
+        },
+      );
+      throw error;
+    }
 
     transaction.tiramis_tracking_id = null;
     transaction.tiramis_transaction_id = submission.tiramis_transaction_id;
@@ -157,6 +182,47 @@ export class PolicyTransactionTiramisSubmissionService {
     await this.transactionRepository.save(transaction);
 
     return submission;
+  }
+
+  /**
+   * apps/tiramis's submission guards require a signed X-Service-Context
+   * (product/pricing/insuredData/quotationGate/finance) on every request —
+   * see PolicyTransactionTiramisServiceContextService for why this is
+   * derived from the policy's originating quotation rather than the
+   * transaction itself.
+   */
+  private async buildServiceContext(
+    companyId: string,
+    policy: Policy,
+    payload: Record<string, unknown>,
+  ) {
+    if (!policy.quotation_id) {
+      throw new BadRequestException(
+        'The source policy has no originating quotation on record, so a signed TIRAMIS submission context cannot be built.',
+      );
+    }
+
+    const quotation = await this.quotationRepository.findOne({
+      where: { id: policy.quotation_id, company_id: companyId },
+      relations: {
+        customer: true,
+        cover_note: { entries: { risks: true } },
+      },
+    });
+
+    if (!quotation) {
+      throw new BadRequestException(
+        'The originating quotation for this policy could not be resolved.',
+      );
+    }
+
+    const context = await this.serviceContextService.build(
+      companyId,
+      quotation,
+      payload,
+    );
+
+    return context as unknown as Record<string, unknown>;
   }
 
   private async resolveRequestType(

@@ -204,7 +204,8 @@ export function PolicyEndorsementPage() {
       tx.payment_status,
     );
   const canIssue =
-    tx?.stage === 'COMPLETED' && tx.submission_status === 'READY';
+    tx?.stage === 'COMPLETED' &&
+    ['READY', 'FAILED', 'RETRYABLE'].includes(tx.submission_status);
   const refunds = Array.isArray(reconciliation?.refunds)
     ? (reconciliation.refunds as Array<{
         id: string;

@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { hasCompanyAdminRole } from '@insurance-max/portal-shared';
 import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -826,7 +827,7 @@ export class FinanceCommandService {
         throw new ConflictException('Only a requested refund can be approved.');
       }
 
-      if (refund.requested_by === user.id) {
+      if (refund.requested_by === user.id && !hasCompanyAdminRole(user)) {
         throw new ConflictException(
           'The requester cannot approve the same refund.',
         );
@@ -1007,7 +1008,11 @@ export class FinanceCommandService {
         );
       }
 
-      if (accrual.accrued_by && accrual.accrued_by === user.id) {
+      if (
+        accrual.accrued_by &&
+        accrual.accrued_by === user.id &&
+        !hasCompanyAdminRole(user)
+      ) {
         throw new ConflictException(
           'The user who accrued the commission cannot approve it.',
         );
@@ -1214,7 +1219,7 @@ export class FinanceCommandService {
         );
       }
 
-      if (payment.submitted_by === user.id) {
+      if (payment.submitted_by === user.id && !hasCompanyAdminRole(user)) {
         throw new ConflictException(
           'The creator of the commission payment cannot approve it.',
         );
