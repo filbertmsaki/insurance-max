@@ -206,7 +206,9 @@ export class PolicyTransactionTiramisSubmissionService {
       where: { id: policy.quotation_id, company_id: companyId },
       relations: {
         customer: true,
-        cover_note: { entries: { risks: true } },
+        cover_note: {
+          entries: { risks: true, motor_detail: true, subject_matters: true },
+        },
       },
     });
 

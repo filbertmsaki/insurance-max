@@ -84,7 +84,10 @@ export class PolicyTransactionTiramisServiceContextService {
         )
       : undefined;
 
-    const insuredData = this.buildInsuredDataContext(quotation, outboundPayload);
+    const insuredData = this.buildInsuredDataContext(
+      quotation,
+      outboundPayload,
+    );
     const quotationGate = this.buildQuotationGateContext(
       quotation,
       outboundPayload,
@@ -251,7 +254,18 @@ export class PolicyTransactionTiramisServiceContextService {
       );
     }
 
-    const assetManifest = this.buildAssetManifest(outboundPayload);
+    // Cancellations don't re-describe the insured asset in their own
+    // outbound payload (nothing about the vehicle/subject-matter changes on
+    // cancellation) — apps/tiramis's insured-data guard only cross-checks
+    // this hash against the request body when the body actually carries a
+    // motorDetail/fleet/subjectMatters field, so falling back to the
+    // *quotation's* own asset data here is safe: there's nothing in the
+    // cancellation body to mismatch against.
+    const payloadAssetManifest = this.buildAssetManifest(outboundPayload);
+    const assetManifest =
+      payloadAssetManifest.length > 0
+        ? payloadAssetManifest
+        : this.buildAssetManifestFromQuotation(quotation);
 
     if (assetManifest.length === 0) {
       throw new BadRequestException(
@@ -500,6 +514,55 @@ export class PolicyTransactionTiramisServiceContextService {
           description: String(record.subjectMatterDesc ?? '').trim(),
         };
       })
+      .sort((left, right) =>
+        String(left.reference).localeCompare(String(right.reference)),
+      );
+  }
+
+  /**
+   * Fallback source for the asset manifest when the outbound payload
+   * itself carries none (cancellations don't restate the insured
+   * vehicle/subject-matter) — reads the same insured-asset data straight
+   * off the originating quotation's cover-note entries instead.
+   */
+  private buildAssetManifestFromQuotation(
+    quotation: Quotation,
+  ): Array<Record<string, string | number | null>> {
+    const entries = quotation.cover_note?.entries ?? [];
+    const motorEntries = entries
+      .filter((entry) => !!entry.motor_detail)
+      .map((entry) => {
+        const motor = entry.motor_detail!;
+
+        return this.mapMotorManifestItem({
+          registrationNumber: motor.registration_number,
+          chassisNumber: motor.chassis_number,
+          engineNumber: motor.engine_number,
+          make: motor.make,
+          model: motor.model,
+          yearOfManufacture: motor.year_of_manufacture,
+          ownerName: motor.owner_name,
+        });
+      });
+
+    if (motorEntries.length > 0) {
+      return motorEntries.sort((left, right) =>
+        String(
+          left.registrationNumber ?? left.chassisNumber ?? '',
+        ).localeCompare(
+          String(right.registrationNumber ?? right.chassisNumber ?? ''),
+        ),
+      );
+    }
+
+    return entries
+      .flatMap((entry) => entry.subject_matters ?? [])
+      .map((subject) => ({
+        reference: String(subject.subject_matter_reference ?? '')
+          .trim()
+          .toUpperCase(),
+        description: String(subject.subject_matter_desc ?? '').trim(),
+      }))
       .sort((left, right) =>
         String(left.reference).localeCompare(String(right.reference)),
       );

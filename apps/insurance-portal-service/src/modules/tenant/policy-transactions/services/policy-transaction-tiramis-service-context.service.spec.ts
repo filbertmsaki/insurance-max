@@ -145,6 +145,42 @@ describe('PolicyTransactionTiramisServiceContextService', () => {
     ).rejects.toThrow('Customer KYC must be verified');
   });
 
+  it('falls back to the quotation\'s own motor detail when the outbound payload (e.g. a cancellation) carries no asset data of its own', async () => {
+    const service = makeService();
+    const quotation = makeQuotation({
+      cover_note: {
+        entries: [
+          {
+            motor_detail: {
+              registration_number: 'T 123 ABC',
+              chassis_number: 'CH123',
+              engine_number: 'EN123',
+              make: 'Toyota',
+              model: 'Corolla',
+              year_of_manufacture: 2018,
+              owner_name: 'Jane Doe',
+            },
+            subject_matters: [],
+          },
+        ],
+      },
+    });
+
+    // A cancellation payload: only policyHolders, no motorDetail/fleet/subjectMatters.
+    const cancellationPayload = {
+      policyHolders: outboundPayload.policyHolders,
+    };
+
+    const context = await service.build(
+      companyId,
+      quotation,
+      cancellationPayload,
+    );
+
+    expect(context.insuredData.assetCount).toBe(1);
+    expect(context.insuredData.assetManifestHash).toEqual(expect.any(String));
+  });
+
   it('rejects when the outbound payload has no policy-holder data', async () => {
     const service = makeService();
     const quotation = makeQuotation();
