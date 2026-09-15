@@ -31,4 +31,7 @@ async function main() {
   console.log('EVENTS', JSON.stringify(events, null, 2));
   await ds.destroy();
 }
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

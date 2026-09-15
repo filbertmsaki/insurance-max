@@ -110,14 +110,12 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
   });
 
   it('builds a signed service context from the originating quotation and threads it into the TIRAMIS submission', async () => {
-    const submitToTiramis = jest
-      .fn()
-      .mockResolvedValue({
-        submission: {
-          tiramis_transaction_id: 'tt-1',
-          tiramis_request_id: 'tr-1',
-        },
-      });
+    const submitToTiramis = jest.fn().mockResolvedValue({
+      submission: {
+        tiramis_transaction_id: 'tt-1',
+        tiramis_request_id: 'tr-1',
+      },
+    });
     const { service, serviceContextService } = makeService(submitToTiramis);
 
     await service.submitCancellation(user, 'txn-1');

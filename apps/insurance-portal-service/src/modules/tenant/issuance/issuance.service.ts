@@ -183,7 +183,12 @@ export class IssuanceService {
       );
 
       if (policy) {
-        await applyPolicyReplacement(manager, quotation, policy, this.hashService);
+        await applyPolicyReplacement(
+          manager,
+          quotation,
+          policy,
+          this.hashService,
+        );
         submission.policy_id = policy.id;
         await manager.getRepository(PortalTiraSubmission).save(submission);
       }
@@ -529,12 +534,7 @@ export class IssuanceService {
         }),
       );
 
-      await this.createPolicyStatusHistory(
-        manager,
-        policy,
-        'NONE',
-        'ACTIVE',
-      );
+      await this.createPolicyStatusHistory(manager, policy, 'NONE', 'ACTIVE');
       await this.createPolicyChildren(manager, policy, quotation);
       const version = await this.createPolicyVersion(
         manager,

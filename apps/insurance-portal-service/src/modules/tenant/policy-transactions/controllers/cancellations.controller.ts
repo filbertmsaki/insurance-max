@@ -10,7 +10,10 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '@insurance-max/portal-shared/decorators/current-user.decorator';
 import { Permissions } from '@insurance-max/portal-shared/decorators/permissions.decorator';
-import { TenantScoped, hasCompanyAdminRole } from '@insurance-max/portal-shared';
+import {
+  TenantScoped,
+  hasCompanyAdminRole,
+} from '@insurance-max/portal-shared';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
 import { CreateCancellationDto } from '../dto/create-cancellation.dto';
@@ -65,10 +68,15 @@ export class CancellationsController {
 
   @Post('tenant/policies/:policyId/replacements')
   @Permissions('cancellations:create', 'quotations:create')
-  @ApiOperation({ summary: 'Create a replacement quotation; cancel original records only after accepted issuance' })
-  createReplacement(@CurrentUser() user: AuthenticatedUser,
+  @ApiOperation({
+    summary:
+      'Create a replacement quotation; cancel original records only after accepted issuance',
+  })
+  createReplacement(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('policyId', ParseUUIDPipe) policyId: string,
-    @Body() dto: CreatePolicyReplacementDto) {
+    @Body() dto: CreatePolicyReplacementDto,
+  ) {
     return this.replacementService.create(user, policyId, dto);
   }
 

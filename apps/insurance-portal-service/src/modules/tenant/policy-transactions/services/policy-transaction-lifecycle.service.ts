@@ -415,7 +415,9 @@ export class PolicyTransactionLifecycleService {
         // startSubmission() is the only path that moves a transaction to
         // SUBMISSION_PROCESSING (always from COMPLETED); undo that here so
         // canSubmit() — which requires stage === COMPLETED — allows a retry.
-        if (transaction.stage === PolicyTransactionStage.SUBMISSION_PROCESSING) {
+        if (
+          transaction.stage === PolicyTransactionStage.SUBMISSION_PROCESSING
+        ) {
           transaction.stage = PolicyTransactionStage.COMPLETED;
         }
 

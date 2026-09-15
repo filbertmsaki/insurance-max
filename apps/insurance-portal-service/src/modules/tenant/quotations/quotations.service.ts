@@ -425,7 +425,11 @@ export class QuotationsService {
     }
   }
 
-  async createDraft(companyId: string, dto: SaveQuotationDraftDto, userId: string) {
+  async createDraft(
+    companyId: string,
+    dto: SaveQuotationDraftDto,
+    userId: string,
+  ) {
     try {
       const quotationId = await this.dataSource.transaction((manager) =>
         this.createDraftInTransaction(manager, companyId, dto, userId),
@@ -436,63 +440,71 @@ export class QuotationsService {
     }
   }
 
-  async createDraftInTransaction(manager: EntityManager, companyId: string, dto: SaveQuotationDraftDto, userId: string): Promise<string> {
-        const quotationNo =
-          await this.identifierGeneratorService.generateQuotationNumber(
-            companyId,
-            manager,
-          );
-        const { branchId, salePointCode } =
-          await this.resolveDraftBranchContext(companyId, userId);
-        const { productCode, definition } =
-          await this.resolveDraftProductDefinition(
-            manager,
-            dto.insurer_company_id ?? companyId,
-            dto.product_id,
-            dto.sub_class_id,
-            dto.draft_payload,
-          );
-        const lifecycleState =
-          this.quotationLifecycleService.initializeForCreation({
-            paymentMode: DIRECT_PAYMENT_MODE,
-            existingApprovalRequired: false,
-          });
-        const quotation = await manager.getRepository(Quotation).save(
-          manager.getRepository(Quotation).create({
-            company_id: companyId,
-            insurer_company_id: dto.insurer_company_id ?? companyId,
-            intermediary_company_id: dto.intermediary_company_id ?? null,
-            branch_id: branchId,
-            department_id: dto.department_id ?? null,
-            created_by: userId,
-            updated_by: userId,
-            customer_id: dto.customer_id ?? null,
-            category_id: dto.category_id,
-            product_id: dto.product_id,
-            sub_class_id: dto.sub_class_id ?? null,
-            quotation_no: quotationNo,
-            quotation_type: dto.quotation_type,
-            quotation_flow: dto.quotation_flow,
-            is_fleet: dto.is_fleet,
-            channel_type: dto.channel_type,
-            ...lifecycleState,
-            current_wizard_step: dto.current_wizard_step ?? null,
-            draft_payload: this.cloneDraftPayload(dto.draft_payload),
-            product_version_id: definition.productVersionId,
-            product_definition_hash: definition.definitionHash,
-            product_definition_snapshot: definition,
-          }),
-        );
+  async createDraftInTransaction(
+    manager: EntityManager,
+    companyId: string,
+    dto: SaveQuotationDraftDto,
+    userId: string,
+  ): Promise<string> {
+    const quotationNo =
+      await this.identifierGeneratorService.generateQuotationNumber(
+        companyId,
+        manager,
+      );
+    const { branchId, salePointCode } = await this.resolveDraftBranchContext(
+      companyId,
+      userId,
+    );
+    const { productCode, definition } =
+      await this.resolveDraftProductDefinition(
+        manager,
+        dto.insurer_company_id ?? companyId,
+        dto.product_id,
+        dto.sub_class_id,
+        dto.draft_payload,
+      );
+    const lifecycleState = this.quotationLifecycleService.initializeForCreation(
+      {
+        paymentMode: DIRECT_PAYMENT_MODE,
+        existingApprovalRequired: false,
+      },
+    );
+    const quotation = await manager.getRepository(Quotation).save(
+      manager.getRepository(Quotation).create({
+        company_id: companyId,
+        insurer_company_id: dto.insurer_company_id ?? companyId,
+        intermediary_company_id: dto.intermediary_company_id ?? null,
+        branch_id: branchId,
+        department_id: dto.department_id ?? null,
+        created_by: userId,
+        updated_by: userId,
+        customer_id: dto.customer_id ?? null,
+        category_id: dto.category_id,
+        product_id: dto.product_id,
+        sub_class_id: dto.sub_class_id ?? null,
+        quotation_no: quotationNo,
+        quotation_type: dto.quotation_type,
+        quotation_flow: dto.quotation_flow,
+        is_fleet: dto.is_fleet,
+        channel_type: dto.channel_type,
+        ...lifecycleState,
+        current_wizard_step: dto.current_wizard_step ?? null,
+        draft_payload: this.cloneDraftPayload(dto.draft_payload),
+        product_version_id: definition.productVersionId,
+        product_definition_hash: definition.definitionHash,
+        product_definition_snapshot: definition,
+      }),
+    );
 
-        await this.upsertDraftPlaceholderAggregate(
-          manager,
-          quotation,
-          dto,
-          salePointCode,
-          productCode,
-        );
+    await this.upsertDraftPlaceholderAggregate(
+      manager,
+      quotation,
+      dto,
+      salePointCode,
+      productCode,
+    );
 
-        return quotation.id;
+    return quotation.id;
   }
 
   async replace(

@@ -253,7 +253,10 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
 
-        if (refreshError instanceof AxiosError && isConnectivityError(refreshError)) {
+        if (
+          refreshError instanceof AxiosError &&
+          isConnectivityError(refreshError)
+        ) {
           // The refresh token itself may still be valid — the network just
           // dropped mid-refresh. Don't treat that as a session failure.
           reportNetworkFailure();

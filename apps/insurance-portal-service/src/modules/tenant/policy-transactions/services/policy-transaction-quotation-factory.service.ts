@@ -72,7 +72,7 @@ export class PolicyTransactionQuotationFactoryService {
       sub_class_id: params.policy.sub_class_id,
       quotation_type: quotationType,
       quotation_flow: quotationFlow,
-      channel_type: params.policy.channel_type as ProductChannelType,
+      channel_type: params.policy.channel_type,
       is_fleet: quotationFlow === QuotationFlow.MOTOR_FLEET,
       current_wizard_step: 'cover-note',
       draft_payload: draftPayload,

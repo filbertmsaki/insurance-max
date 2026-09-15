@@ -1,4 +1,10 @@
-import { IsDateString, IsNotEmpty, IsObject, IsString, MaxLength } from 'class-validator';
+import {
+  IsDateString,
+  IsNotEmpty,
+  IsObject,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 
 export class CreatePolicyReplacementDto {
   @IsDateString()

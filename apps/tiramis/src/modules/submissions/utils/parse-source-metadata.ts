@@ -34,7 +34,7 @@ export function parseSourceMetadata(
       }
     }
 
-    return metadata as TiramisSourceMetadataDto;
+    return metadata;
   } catch {
     throw new BadRequestException('Invalid TIRAMIS source metadata header');
   }

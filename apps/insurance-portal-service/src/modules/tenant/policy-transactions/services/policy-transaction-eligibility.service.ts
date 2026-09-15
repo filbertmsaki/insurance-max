@@ -48,12 +48,19 @@ export class PolicyTransactionEligibilityService {
     effectiveDate?: string,
   ): Promise<PolicyTransactionEligibilityResult> {
     const blockers: PolicyTransactionEligibilityBlocker[] = [];
-    const replacement = await manager.getRepository(Quotation).findOne({where: {
-      company_id: policy.company_id, replacement_source_policy_id: policy.id,
-      status: Not(QuotationStatus.CANCELLED),
-    }});
-    if (replacement) blockers.push({ code: 'POLICY_REPLACEMENT_PENDING',
-      message: 'A replacement quotation already exists for this policy. Complete or cancel it first.' });
+    const replacement = await manager.getRepository(Quotation).findOne({
+      where: {
+        company_id: policy.company_id,
+        replacement_source_policy_id: policy.id,
+        status: Not(QuotationStatus.CANCELLED),
+      },
+    });
+    if (replacement)
+      blockers.push({
+        code: 'POLICY_REPLACEMENT_PENDING',
+        message:
+          'A replacement quotation already exists for this policy. Complete or cancel it first.',
+      });
 
     const normalizedPolicyStatus = String(policy.policy_status || '')
       .trim()

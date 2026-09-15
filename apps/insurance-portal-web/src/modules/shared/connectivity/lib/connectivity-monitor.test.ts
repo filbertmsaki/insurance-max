@@ -23,9 +23,8 @@ describe('connectivity monitor', () => {
     vi.mocked(axios.get).mockResolvedValueOnce({ data: {} });
 
     const { reportNetworkFailure } = await import('./connectivity-monitor');
-    const { useConnectivityStore } = await import(
-      '../store/connectivity.store'
-    );
+    const { useConnectivityStore } =
+      await import('../store/connectivity.store');
 
     reportNetworkFailure();
     // No UI flip before the confirmation probe runs — avoids flicker on
@@ -46,9 +45,8 @@ describe('connectivity monitor', () => {
       .mockResolvedValueOnce({ data: {} });
 
     const { reportNetworkFailure } = await import('./connectivity-monitor');
-    const { useConnectivityStore } = await import(
-      '../store/connectivity.store'
-    );
+    const { useConnectivityStore } =
+      await import('../store/connectivity.store');
 
     reportNetworkFailure();
     await vi.advanceTimersByTimeAsync(800);
@@ -81,9 +79,8 @@ describe('connectivity monitor', () => {
     vi.mocked(axios.get).mockResolvedValueOnce({ data: {} });
 
     const { retryConnectionNow } = await import('./connectivity-monitor');
-    const { useConnectivityStore } = await import(
-      '../store/connectivity.store'
-    );
+    const { useConnectivityStore } =
+      await import('../store/connectivity.store');
 
     const result = await retryConnectionNow();
 
@@ -95,12 +92,10 @@ describe('connectivity monitor', () => {
     const axios = (await import('axios')).default;
     vi.mocked(axios.get).mockRejectedValueOnce(new Error('network down'));
 
-    const { reportNetworkFailure, reportRequestSuccess } = await import(
-      './connectivity-monitor'
-    );
-    const { useConnectivityStore } = await import(
-      '../store/connectivity.store'
-    );
+    const { reportNetworkFailure, reportRequestSuccess } =
+      await import('./connectivity-monitor');
+    const { useConnectivityStore } =
+      await import('../store/connectivity.store');
 
     reportNetworkFailure();
     await vi.advanceTimersByTimeAsync(800);
