@@ -109,6 +109,8 @@ function encryptSecret(plainText: string): string {
   ].join(':');
 }
 
+const testOnlySeed = environment.TIRAMIS_SEED_ENVIRONMENTS?.trim() === 'test';
+
 const configurations: ConfigurationSeed[] = [
   {
     environment: 'test',
@@ -132,28 +134,34 @@ const configurations: ConfigurationSeed[] = [
     tiraPublicCertificatePath: getTiraPublicCertificatePath('test'),
     signatureAlgorithm: 'sha1WithRSAEncryption',
   },
-  {
-    environment: 'live',
-    companyCode: 'ICC110',
-    systemCode: 'LSYS_ALLIANCE_003',
-    clientCode: 'ICC110',
-    clientKey: mustEnv('ALLIANCE_TIRA_CLIENT_KEY_LIVE'),
-    clientPrivateCertificatePassword: mustEnv(
-      'ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_LIVE',
-    ),
-    tiraPublicCertificatePassword: mustEnv('TIRA_PUBLIC_CERT_PASSWORD_LIVE'),
-    insurerCompanyCode: 'ICC110',
-    salePointCode: 'SP500',
-    tranCompanyCode: 'ICC110',
-    baseUrl: mustEnv('TIRAMIS_LIVE_BASE_URL'),
-    callbackBaseUrl: optionalEnv(
-      'TIRAMIS_LIVE_CALLBACK_URL',
-      defaultCallbackUrl('live'),
-    ),
-    clientPrivateCertificatePath: getClientPrivateCertificatePath('live'),
-    tiraPublicCertificatePath: getTiraPublicCertificatePath('live'),
-    signatureAlgorithm: 'sha1WithRSAEncryption',
-  },
+  ...(!testOnlySeed
+    ? [
+        {
+          environment: 'live',
+          companyCode: 'ICC110',
+          systemCode: 'LSYS_ALLIANCE_003',
+          clientCode: 'ICC110',
+          clientKey: mustEnv('ALLIANCE_TIRA_CLIENT_KEY_LIVE'),
+          clientPrivateCertificatePassword: mustEnv(
+            'ALLIANCE_CLIENT_PRIVATE_CERT_PASSWORD_LIVE',
+          ),
+          tiraPublicCertificatePassword: mustEnv(
+            'TIRA_PUBLIC_CERT_PASSWORD_LIVE',
+          ),
+          insurerCompanyCode: 'ICC110',
+          salePointCode: 'SP500',
+          tranCompanyCode: 'ICC110',
+          baseUrl: mustEnv('TIRAMIS_LIVE_BASE_URL'),
+          callbackBaseUrl: optionalEnv(
+            'TIRAMIS_LIVE_CALLBACK_URL',
+            defaultCallbackUrl('live'),
+          ),
+          clientPrivateCertificatePath: getClientPrivateCertificatePath('live'),
+          tiraPublicCertificatePath: getTiraPublicCertificatePath('live'),
+          signatureAlgorithm: 'sha1WithRSAEncryption',
+        } as ConfigurationSeed,
+      ]
+    : []),
 ];
 
 const endpointSeeds = [
