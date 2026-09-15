@@ -66,15 +66,21 @@ export class TiramisClientService {
         params.dto.serviceContext,
       );
     } catch (error: any) {
+      const remoteError = error?.response?.data?.error;
+      const remoteDetails = remoteError?.details;
+      const remoteMessage =
+        (typeof remoteError?.message === 'string' && remoteError.message) ||
+        (typeof error?.response?.data?.message === 'string' &&
+          error.response.data.message) ||
+        error?.message ||
+        'Failed to submit request to TIRAMIS service';
       this.logger.error(
-        `TIRAMIS submit failed for ${params.dto.business_reference}: ${error?.message || 'Unknown error'}`,
+        `TIRAMIS submit failed for ${params.dto.business_reference}: ${remoteMessage}${
+          Array.isArray(remoteDetails) ? ` (${remoteDetails.join('; ')})` : ''
+        }`,
         error?.stack,
       );
-      throw new BadGatewayException(
-        error?.response?.data?.message ||
-          error?.message ||
-          'Failed to submit request to TIRAMIS service',
-      );
+      throw new BadGatewayException(remoteMessage);
     }
   }
 
@@ -147,6 +153,25 @@ export class TiramisClientService {
           Accept: 'application/json',
 
           'X-API-Key': apiKey,
+          ...(!isQuery
+            ? {
+                'X-Tiramis-Source-Metadata': Buffer.from(
+                  JSON.stringify({
+                    sourceService: command.sourceService,
+                    sourceCompanyId: command.sourceCompanyId,
+                    sourceUserId: command.sourceUserId,
+                    sourceModule: command.sourceModule,
+                    sourceRecordId: command.sourceRecordId,
+                    policyId: command.policyId,
+                    quotationId: command.quotationId,
+                    businessReference: command.businessReference,
+                    requestType: command.requestType,
+                    requestId: command.requestId,
+                  }),
+                  'utf8',
+                ).toString('base64url'),
+              }
+            : {}),
 
           ...(serviceContext
             ? { 'X-Service-Context': this.encodeServiceContext(serviceContext) }

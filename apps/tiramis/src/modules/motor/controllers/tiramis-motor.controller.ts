@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   Post,
   Query,
@@ -24,6 +25,7 @@ import { TiramisFinanceContextGuard } from '../../../common/guards/tiramis-finan
 import { TiramisQuotationGateGuard } from '../../../common/guards/tiramis-quotation-gate.guard';
 import { CreateMotorCoverNoteDto } from '../dto/create-motor-cover-note.dto';
 import { TiramisMotorService } from '../services/tiramis-motor.service';
+import { parseSourceMetadata } from '../../submissions/utils/parse-source-metadata';
 
 @ApiTags('Tiramis Motor Cover Notes')
 @ApiConsumes('application/json')
@@ -70,8 +72,14 @@ export class TiramisMotorController {
     TiramisFinanceContextGuard,
   )
   @Post('submit')
-  submit(@Body() dto: CreateMotorCoverNoteDto) {
-    return this.tiramisMotorService.submit(dto);
+  submit(
+    @Body() dto: CreateMotorCoverNoteDto,
+    @Headers('x-tiramis-source-metadata') sourceMetadata?: string,
+  ) {
+    return this.tiramisMotorService.submit(
+      dto,
+      parseSourceMetadata(sourceMetadata),
+    );
   }
 
   @ApiOperation({ summary: 'List motor cover notes submitted to TIRA' })

@@ -1,6 +1,58 @@
 import { PolicyTransactionTiramisPayloadService } from './policy-transaction-tiramis-payload.service';
 
 describe('PolicyTransactionTiramisPayloadService', () => {
+  it('preserves the issued motor and signed risks in a cancellation endorsement', async () => {
+    const service = new PolicyTransactionTiramisPayloadService(
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+      {} as any,
+    );
+    const issuedCoverNote = {
+      coverNoteStartDate: '2026-09-16T00:00:00',
+      coverNoteEndDate: '2027-09-15T23:59:59',
+      motorDetail: { registrationNumber: 'T456XYZ' },
+      risks: [{ riskCode: 'MOTOR01', premiumIncludingTax: '413000' }],
+      subjectMatters: [{ subjectMatterReference: 'VEHICLE-001' }],
+      policyHolders: [{ policyHolderName: 'John Mushi' }],
+    };
+
+    const payload = await service.buildCancellationPayload(
+      {
+        transaction_no: 'CXL-0001',
+        effective_date: '2026-09-20',
+        reason: 'Customer request',
+        proposed_policy_snapshot: { source: {} },
+        proposed_policy_snapshot_hash: 'proposed-hash',
+        source_policy_snapshot: {
+          source: { finalizationSnapshot: issuedCoverNote },
+        },
+        pricing_snapshot: { refundAmount: '1000' },
+        pricing_snapshot_hash: 'pricing-hash',
+      } as any,
+      {
+        tira_endorsement_type: 4,
+        previous_cover_note_reference: 'OLD-CN',
+        earned_premium: '12000',
+      } as any,
+      { end_date: '2027-09-15' } as any,
+    );
+
+    expect(payload).toMatchObject({
+      coverNoteType: 3,
+      coverNoteStartDate: '2026-09-20',
+      coverNoteEndDate: '2027-09-15T23:59:59',
+      motorDetail: issuedCoverNote.motorDetail,
+      risks: issuedCoverNote.risks,
+      subjectMatters: issuedCoverNote.subjectMatters,
+      policyHolders: issuedCoverNote.policyHolders,
+      prevCoverNoteReferenceNumber: 'OLD-CN',
+      endorsementType: 4,
+    });
+  });
+
   it('builds endorsement payload from proposed policy state', async () => {
     const service = new PolicyTransactionTiramisPayloadService(
       {} as any,

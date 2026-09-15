@@ -245,14 +245,29 @@ export class PolicyTransactionTiramisPayloadService {
       );
     }
 
-    const base = await this.buildBasePayload(transaction, policy);
+    const source = this.asObject(
+      transaction.source_policy_snapshot?.['source'],
+    );
+    const issuedCoverNote = this.asObject(source?.['finalizationSnapshot']);
+    if (!issuedCoverNote) {
+      throw new BadRequestException(
+        'The issued policy does not contain its authoritative TIRAMIS cover-note snapshot.',
+      );
+    }
+
+    // Preserve the issued motor/fleet, holder and signed risk-pricing data.
+    // TIRAMIS validates those fields again for cancellation endorsements.
+    const base = { ...issuedCoverNote };
+    // The quotation snapshot also stores a portal-only routing field, which
+    // TIRAMIS's strict submission DTO does not accept.
+    delete base['branchCode'];
 
     return {
       ...base,
       coverNoteType: TIRA_COVER_NOTE_TYPE_ENDORSEMENT,
       coverNoteNumber: transaction.transaction_no,
       coverNoteStartDate: transaction.effective_date,
-      coverNoteEndDate: transaction.effective_date,
+      coverNoteEndDate: issuedCoverNote['coverNoteEndDate'] ?? policy.end_date,
       coverNoteDesc: `Cancellation ${transaction.transaction_no}`,
       operativeClause: 'Cancellation',
       prevCoverNoteReferenceNumber: cancellation.previous_cover_note_reference,

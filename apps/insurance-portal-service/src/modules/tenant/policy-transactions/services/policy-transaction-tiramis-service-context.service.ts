@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import {
   PricingRateBookSnapshot,
@@ -117,7 +121,10 @@ export class PolicyTransactionTiramisServiceContextService {
       productCode: definition.productCode,
       tiramisProductCode: definition.tiramisProductCode,
       definitionHash: definition.definitionHash,
-      coverNoteType: definition.coverNoteType,
+      coverNoteType:
+        typeof outboundPayload.coverNoteType === 'number'
+          ? outboundPayload.coverNoteType
+          : definition.coverNoteType,
       coverNoteDescriptionHash: this.hashService.hashText(
         outboundCoverNoteDesc,
       ),
@@ -244,9 +251,8 @@ export class PolicyTransactionTiramisServiceContextService {
       );
     }
 
-    const policyHolderManifest = this.buildPolicyHolderManifest(
-      outboundPayload,
-    );
+    const policyHolderManifest =
+      this.buildPolicyHolderManifest(outboundPayload);
 
     if (policyHolderManifest.length === 0) {
       throw new BadRequestException(
@@ -449,10 +455,7 @@ export class PolicyTransactionTiramisServiceContextService {
             .replace(/[^A-Za-z0-9]/g, '')
             .toUpperCase(),
           policyHolderIdType: Number(record.policyHolderIdType),
-          phoneNumber: String(record.phoneNumber ?? '').replace(
-            /[\s()-]/g,
-            '',
-          ),
+          phoneNumber: String(record.phoneNumber ?? '').replace(/[\s()-]/g, ''),
           email:
             (record.email ?? record.emailAddress ?? null)
               ?.toString()
@@ -601,12 +604,13 @@ export class PolicyTransactionTiramisServiceContextService {
       }
     }
 
-    return new Date(value as string | number | Date)
-      .toISOString()
-      .slice(0, 10);
+    return new Date(value as string | number | Date).toISOString().slice(0, 10);
   }
 
-  private numeric(value: string | number | null | undefined, dp: number): string {
+  private numeric(
+    value: string | number | null | undefined,
+    dp: number,
+  ): string {
     if (value === null || value === undefined) {
       return (0).toFixed(dp);
     }

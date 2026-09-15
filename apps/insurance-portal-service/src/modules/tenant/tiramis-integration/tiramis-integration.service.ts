@@ -1145,6 +1145,13 @@ export class TiramisIntegrationService {
     submission: PortalTiraSubmission,
     payload: TiramisNotificationEventDto,
   ) {
+    // A cancellation or endorsement applies the policy and its new version
+    // together after final acceptance; this generic status updater must not
+    // change the source policy before that transaction succeeds.
+    if (submission.source_module === 'policy-transactions') {
+      return;
+    }
+
     const policy = await this.findLinkedPolicy(submission, payload);
 
     if (!policy) {
@@ -1694,12 +1701,18 @@ export class TiramisIntegrationService {
       requestId:
         coverNote?.requestId ||
         attempt?.requestId ||
+        response?.request?.requestId ||
         response?.requestId ||
         null,
-      serviceType: transaction?.serviceType || response?.serviceType || null,
+      serviceType:
+        transaction?.serviceType ||
+        response?.serviceType ||
+        response?.service ||
+        null,
       rootElement: attempt?.rootElement || response?.rootElement || null,
       acknowledgementStatusCode:
         attempt?.acknowledgementStatusCode ||
+        response?.tira?.statusCode ||
         response?.acknowledgementStatusCode ||
         null,
       acknowledgementStatusDesc:

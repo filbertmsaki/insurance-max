@@ -2,15 +2,48 @@ import { ProductDefinitionHashService } from '@insurance-max/shared-kernel';
 import { PolicyTransactionTiramisServiceContextService } from './policy-transaction-tiramis-service-context.service';
 
 describe('PolicyTransactionTiramisServiceContextService', () => {
+  it('signs the outbound endorsement cover-note type for cancellation', () => {
+    const hashService = new ProductDefinitionHashService();
+    const service = new PolicyTransactionTiramisServiceContextService(
+      {} as any,
+      hashService,
+    );
+    const context = (service as any).buildProductContext(
+      {
+        productId: 'product-1',
+        productVersionId: 'version-1',
+        versionNumber: 1,
+        productCode: 'MOTOR',
+        tiramisProductCode: 'MOTOR',
+        definitionHash: 'definition-hash',
+        coverNoteType: 1,
+        coverNoteDescription: 'Original cover',
+        operativeClause: 'Original clause',
+      },
+      {
+        coverNoteType: 3,
+        coverNoteDesc: 'Cancellation CXL-0001',
+        operativeClause: 'Cancellation',
+      },
+    );
+
+    expect(context.coverNoteType).toBe(3);
+    expect(context.coverNoteDescriptionHash).toBe(
+      hashService.hashText('Cancellation CXL-0001'),
+    );
+  });
+
   const companyId = 'company-1';
 
-  function makeService(overrides: {
-    invoice?: unknown;
-    receipt?: unknown;
-    commission?: unknown;
-    pricingQuote?: unknown;
-    rateBook?: unknown;
-  } = {}) {
+  function makeService(
+    overrides: {
+      invoice?: unknown;
+      receipt?: unknown;
+      commission?: unknown;
+      pricingQuote?: unknown;
+      rateBook?: unknown;
+    } = {},
+  ) {
     const queryBuilder = (result: unknown) => ({
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -18,12 +51,31 @@ describe('PolicyTransactionTiramisServiceContextService', () => {
       getOne: jest.fn().mockResolvedValue(result ?? null),
     });
 
-    const repos: Record<string, { findOne?: jest.Mock; createQueryBuilder?: jest.Mock }> = {
-      PricingQuote: { findOne: jest.fn().mockResolvedValue(overrides.pricingQuote ?? null) },
-      PricingRateBook: { findOne: jest.fn().mockResolvedValue(overrides.rateBook ?? null) },
-      Invoice: { createQueryBuilder: jest.fn().mockReturnValue(queryBuilder(overrides.invoice)) },
-      Receipt: { createQueryBuilder: jest.fn().mockReturnValue(queryBuilder(overrides.receipt)) },
-      CommissionTransaction: { createQueryBuilder: jest.fn().mockReturnValue(queryBuilder(overrides.commission)) },
+    const repos: Record<
+      string,
+      { findOne?: jest.Mock; createQueryBuilder?: jest.Mock }
+    > = {
+      PricingQuote: {
+        findOne: jest.fn().mockResolvedValue(overrides.pricingQuote ?? null),
+      },
+      PricingRateBook: {
+        findOne: jest.fn().mockResolvedValue(overrides.rateBook ?? null),
+      },
+      Invoice: {
+        createQueryBuilder: jest
+          .fn()
+          .mockReturnValue(queryBuilder(overrides.invoice)),
+      },
+      Receipt: {
+        createQueryBuilder: jest
+          .fn()
+          .mockReturnValue(queryBuilder(overrides.receipt)),
+      },
+      CommissionTransaction: {
+        createQueryBuilder: jest
+          .fn()
+          .mockReturnValue(queryBuilder(overrides.commission)),
+      },
     };
 
     const dataSource = {
@@ -92,7 +144,9 @@ describe('PolicyTransactionTiramisServiceContextService', () => {
     expect(context.quotationGate.quotationStage).toBe('COMPLETED');
     expect(context.quotationGate.approvalStatus).toBe('APPROVED');
     expect(context.quotationGate.paymentStatus).toBe('PAID');
-    expect(context.quotationGate.finalizationHash).toBe('stored-finalization-hash');
+    expect(context.quotationGate.finalizationHash).toBe(
+      'stored-finalization-hash',
+    );
     expect(context.quotationGate.workflowGateHash).toEqual(expect.any(String));
   });
 
@@ -104,7 +158,9 @@ describe('PolicyTransactionTiramisServiceContextService', () => {
 
     expect(context.insuredData.customerId).toBe('customer-1');
     expect(context.insuredData.assetCount).toBe(1);
-    expect(context.insuredData.tiramisPolicyHolderHash).toEqual(expect.any(String));
+    expect(context.insuredData.tiramisPolicyHolderHash).toEqual(
+      expect.any(String),
+    );
     expect(context.insuredData.assetManifestHash).toEqual(expect.any(String));
 
     // Re-running against a payload with different key order / whitespace
@@ -123,7 +179,11 @@ describe('PolicyTransactionTiramisServiceContextService', () => {
       ],
       motorDetail: outboundPayload.motorDetail,
     };
-    const contextReordered = await service.build(companyId, quotation, reordered);
+    const contextReordered = await service.build(
+      companyId,
+      quotation,
+      reordered,
+    );
 
     expect(contextReordered.insuredData.tiramisPolicyHolderHash).toBe(
       context.insuredData.tiramisPolicyHolderHash,
@@ -145,7 +205,7 @@ describe('PolicyTransactionTiramisServiceContextService', () => {
     ).rejects.toThrow('Customer KYC must be verified');
   });
 
-  it('falls back to the quotation\'s own motor detail when the outbound payload (e.g. a cancellation) carries no asset data of its own', async () => {
+  it("falls back to the quotation's own motor detail when the outbound payload (e.g. a cancellation) carries no asset data of its own", async () => {
     const service = makeService();
     const quotation = makeQuotation({
       cover_note: {
@@ -186,7 +246,9 @@ describe('PolicyTransactionTiramisServiceContextService', () => {
     const quotation = makeQuotation();
 
     await expect(
-      service.build(companyId, quotation, { motorDetail: outboundPayload.motorDetail }),
+      service.build(companyId, quotation, {
+        motorDetail: outboundPayload.motorDetail,
+      }),
     ).rejects.toThrow('missing policy-holder data');
   });
 });

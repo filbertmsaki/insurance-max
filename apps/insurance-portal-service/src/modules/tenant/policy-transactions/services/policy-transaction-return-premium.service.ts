@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import {
   InvoiceSourceType,
@@ -86,36 +86,30 @@ export class PolicyTransactionReturnPremiumService {
       )
       .getMany();
 
-    if (!invoices.length) {
-      throw new ConflictException({
-        code: 'RETURN_PREMIUM_SOURCE_INVOICE_MISSING',
-        message:
-          'No paid policy premium invoice could be resolved for the return premium.',
-      });
-    }
-
-    const allocations = await manager
-      .getRepository(ReceiptAllocation)
-      .createQueryBuilder('allocation')
-      .leftJoinAndSelect('allocation.receipt', 'receipt')
-      .where('allocation.company_id = :companyId', {
-        companyId: transaction.company_id,
-      })
-      .andWhere('allocation.invoice_id IN (:...invoiceIds)', {
-        invoiceIds: invoices.map((invoice) => invoice.id),
-      })
-      .andWhere('allocation.status = :allocationStatus', {
-        allocationStatus: ReceiptAllocationStatus.ACTIVE,
-      })
-      .andWhere('receipt.status IN (:...receiptStatuses)', {
-        receiptStatuses: [
-          ReceiptStatus.POSTED,
-          ReceiptStatus.PARTIALLY_ALLOCATED,
-          ReceiptStatus.FULLY_ALLOCATED,
-        ],
-      })
-      .orderBy('allocation.allocated_at', 'ASC')
-      .getMany();
+    const allocations = invoices.length
+      ? await manager
+          .getRepository(ReceiptAllocation)
+          .createQueryBuilder('allocation')
+          .leftJoinAndSelect('allocation.receipt', 'receipt')
+          .where('allocation.company_id = :companyId', {
+            companyId: transaction.company_id,
+          })
+          .andWhere('allocation.invoice_id IN (:...invoiceIds)', {
+            invoiceIds: invoices.map((invoice) => invoice.id),
+          })
+          .andWhere('allocation.status = :allocationStatus', {
+            allocationStatus: ReceiptAllocationStatus.ACTIVE,
+          })
+          .andWhere('receipt.status IN (:...receiptStatuses)', {
+            receiptStatuses: [
+              ReceiptStatus.POSTED,
+              ReceiptStatus.PARTIALLY_ALLOCATED,
+              ReceiptStatus.FULLY_ALLOCATED,
+            ],
+          })
+          .orderBy('allocation.allocated_at', 'ASC')
+          .getMany()
+      : [];
 
     let remaining = DecimalUtil.value(transaction.return_premium);
     const refundable: Array<{
@@ -162,15 +156,6 @@ export class PolicyTransactionReturnPremiumService {
       const amount = available.lessThan(remaining) ? available : remaining;
       refundable.push({ allocation, amount: amount.toFixed(4) });
       remaining = remaining.minus(amount);
-    }
-
-    if (remaining.greaterThan(0)) {
-      throw new ConflictException({
-        code: 'RETURN_PREMIUM_INSUFFICIENT_REFUNDABLE_FUNDS',
-        message: `Only part of the return premium can currently be traced to refundable receipts. Outstanding amount: ${remaining.toFixed(
-          4,
-        )}.`,
-      });
     }
 
     const created: FinanceRefund[] = [];
@@ -226,6 +211,56 @@ export class PolicyTransactionReturnPremiumService {
             : null,
       });
 
+      created.push(refund);
+    }
+
+    if (remaining.greaterThan(0)) {
+      // Regulatory cancellation is already final. Keep the unfunded amount
+      // visible for finance reconciliation without creating a payable refund.
+      const amount = remaining.toFixed(4);
+      const refundNo = await this.identifierService.generateRefundNumber(
+        transaction.company_id,
+        manager,
+      );
+      const failureMessage = invoices.length
+        ? 'Return premium cannot be traced to enough posted receipt allocations.'
+        : 'Return premium has no source policy premium invoice or posted receipt.';
+      const source = {
+        transactionId: transaction.id,
+        policyId: policy.id,
+        sourceType,
+        amount,
+        currency: transaction.currency_code,
+        reconciliationRequired: true,
+      };
+      const refund = await manager.getRepository(FinanceRefund).save({
+        company_id: transaction.company_id,
+        refund_no: refundNo,
+        customer_id: policy.customer_id,
+        invoice_id: null,
+        receipt_id: null,
+        payment_transaction_id: null,
+        status: RefundStatus.FAILED,
+        payment_method: 'OTHER',
+        amount,
+        currency_code: transaction.currency_code,
+        reason: `Unfunded return premium for ${sourceType.toLowerCase()} ${transaction.transaction_no}`,
+        requested_by: transaction.completed_by ?? transaction.requested_by,
+        requested_at: new Date(),
+        failure_message: failureMessage,
+        failed_at: new Date(),
+        idempotency_key: `${sourceType.toLowerCase()}:${transaction.id}:return-premium:unfunded`,
+        refund_hash: this.hashService.hashDefinition(source),
+        source_type: sourceType,
+        source_record_id: transaction.id,
+        policy_id: policy.id,
+        endorsement_id:
+          sourceType === InvoiceSourceType.ENDORSEMENT ? childResourceId : null,
+        cancellation_id:
+          sourceType === InvoiceSourceType.CANCELLATION
+            ? childResourceId
+            : null,
+      });
       created.push(refund);
     }
 

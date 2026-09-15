@@ -18,6 +18,7 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
     const transactionRepository = {
       findOne: jest.fn().mockResolvedValue(transaction),
       save: jest.fn().mockResolvedValue(transaction),
+      update: jest.fn().mockResolvedValue(undefined),
     };
     const endorsementRepository = { findOne: jest.fn() };
     const cancellationRepository = {
@@ -55,7 +56,12 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
       tiramisIntegrationService as any,
     );
 
-    return { service, lifecycleService, transactionRepository, serviceContextService };
+    return {
+      service,
+      lifecycleService,
+      transactionRepository,
+      serviceContextService,
+    };
   }
 
   it('marks the transaction submission-failed and rethrows when TIRAMIS rejects the request', async () => {
@@ -92,18 +98,26 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
 
     expect(result).toBe(submission);
     expect(lifecycleService.markSubmissionFailed).not.toHaveBeenCalled();
-    expect(transactionRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(transactionRepository.update).toHaveBeenCalledWith(
+      { id: 'txn-1', company_id: 'company-1' },
+      {
+        tiramis_tracking_id: null,
         tiramis_transaction_id: 'tt-1',
         tiramis_request_id: 'tr-1',
-      }),
+      },
     );
+    expect(transactionRepository.save).not.toHaveBeenCalled();
   });
 
   it('builds a signed service context from the originating quotation and threads it into the TIRAMIS submission', async () => {
     const submitToTiramis = jest
       .fn()
-      .mockResolvedValue({ submission: { tiramis_transaction_id: 'tt-1', tiramis_request_id: 'tr-1' } });
+      .mockResolvedValue({
+        submission: {
+          tiramis_transaction_id: 'tt-1',
+          tiramis_request_id: 'tr-1',
+        },
+      });
     const { service, serviceContextService } = makeService(submitToTiramis);
 
     await service.submitCancellation(user, 'txn-1');
@@ -124,7 +138,11 @@ describe('PolicyTransactionTiramisSubmissionService', () => {
 
   it('refuses to submit when the source policy has no originating quotation', async () => {
     const { service, lifecycleService } = makeService(jest.fn());
-    const policyRepository = { findOne: jest.fn().mockResolvedValue({ id: 'policy-1', quotation_id: null }) };
+    const policyRepository = {
+      findOne: jest
+        .fn()
+        .mockResolvedValue({ id: 'policy-1', quotation_id: null }),
+    };
     (service as any).policyRepository = policyRepository;
 
     await expect(service.submitCancellation(user, 'txn-1')).rejects.toThrow(

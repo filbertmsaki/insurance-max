@@ -176,10 +176,16 @@ export class PolicyTransactionTiramisSubmissionService {
       throw error;
     }
 
-    transaction.tiramis_tracking_id = null;
-    transaction.tiramis_transaction_id = submission.tiramis_transaction_id;
-    transaction.tiramis_request_id = submission.tiramis_request_id;
-    await this.transactionRepository.save(transaction);
+    // startSubmission advances the lifecycle row. Saving the stale entity
+    // loaded before that call would overwrite QUEUED with the previous status.
+    await this.transactionRepository.update(
+      { id: transaction.id, company_id: user.companyId! },
+      {
+        tiramis_tracking_id: null,
+        tiramis_transaction_id: submission.tiramis_transaction_id,
+        tiramis_request_id: submission.tiramis_request_id,
+      },
+    );
 
     return submission;
   }
