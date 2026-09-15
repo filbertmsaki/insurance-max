@@ -217,6 +217,7 @@ describe('PolicyTransactionApplyService', () => {
         service,
         policyRepo,
         versionRepo,
+        statusHistoryRepo,
         eventRepo,
         lifecycleService,
         returnPremiumService,
@@ -235,8 +236,9 @@ describe('PolicyTransactionApplyService', () => {
         expect.objectContaining({
           version_number: 2,
           version_type: 'ENDORSEMENT',
+          status: 'ENDORSED',
           policy_snapshot: expect.objectContaining({
-            policyStatus: 'ACTIVE',
+            policyStatus: 'ENDORSED',
             totals: expect.objectContaining({
               totalPremium: '105000.00',
               totalTax: '18900.00',
@@ -254,10 +256,20 @@ describe('PolicyTransactionApplyService', () => {
       // Policy premium totals reflect the additional premium (net of return premium).
       expect(policyRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({
+          policy_status: 'ENDORSED',
           total_premium: '105000.00',
           current_version_no: 2,
           active_version_id: 'version-2',
           pending_transaction_id: null,
+        }),
+      );
+
+      expect(statusHistoryRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          policy_id: 'policy-1',
+          old_status: 'ACTIVE',
+          new_status: 'ENDORSED',
+          changed_by: 'user-1',
         }),
       );
 

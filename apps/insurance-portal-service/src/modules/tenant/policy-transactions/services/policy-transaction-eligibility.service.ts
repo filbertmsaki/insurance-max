@@ -55,15 +55,23 @@ export class PolicyTransactionEligibilityService {
     if (replacement) blockers.push({ code: 'POLICY_REPLACEMENT_PENDING',
       message: 'A replacement quotation already exists for this policy. Complete or cancel it first.' });
 
-    const allowedStatuses = ['COVER_NOTE_ISSUED', 'ACTIVE'];
+    const normalizedPolicyStatus = String(policy.policy_status || '')
+      .trim()
+      .toUpperCase();
+    const allowedStatuses = ['COVER_NOTE_ISSUED', 'ACTIVE', 'ENDORSED'];
 
-    if (!allowedStatuses.includes(policy.policy_status)) {
+    if (normalizedPolicyStatus === 'CANCELLED') {
+      blockers.push({
+        code: 'POLICY_CANCELLED',
+        message: 'A cancelled policy cannot be endorsed or changed.',
+      });
+    } else if (!allowedStatuses.includes(normalizedPolicyStatus)) {
       blockers.push({
         code: 'POLICY_STATUS_NOT_ELIGIBLE',
         message:
           type === PolicyTransactionType.ENDORSEMENT
-            ? 'Only an issued or active policy can be endorsed.'
-            : 'Only an active policy can be changed.',
+            ? 'Only an issued, active, or endorsed policy can be endorsed.'
+            : 'Only an issued, active, or endorsed policy can be changed.',
       });
     }
 

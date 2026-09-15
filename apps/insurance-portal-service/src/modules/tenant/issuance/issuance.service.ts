@@ -458,7 +458,7 @@ export class IssuanceService {
           cover_note_no: coverNotes[0]?.cover_note_reference_number ?? null,
           external_policy_no: null,
           channel_type: quotation.channel_type,
-          policy_status: 'COVER_NOTE_ISSUED',
+          policy_status: 'ACTIVE',
           policy_reference_number: null,
           regulatory_sync_status: 'IN_SYNC',
           source_cover_note_count: coverNotes.length,
@@ -470,7 +470,7 @@ export class IssuanceService {
             .toISOString()
             .slice(0, 10),
           issue_date: new Date().toISOString().slice(0, 10),
-          activated_at: null,
+          activated_at: new Date(),
           rejected_at: null,
           currency: quotation.cover_note.currency_code,
           customer_snapshot: customerSnapshot,
@@ -533,7 +533,7 @@ export class IssuanceService {
         manager,
         policy,
         'NONE',
-        'COVER_NOTE_ISSUED',
+        'ACTIVE',
       );
       await this.createPolicyChildren(manager, policy, quotation);
       const version = await this.createPolicyVersion(

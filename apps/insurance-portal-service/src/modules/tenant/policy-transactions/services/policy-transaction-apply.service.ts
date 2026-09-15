@@ -138,6 +138,7 @@ export class PolicyTransactionApplyService {
         );
       }
 
+      const originalStatus = policy.policy_status;
       const newTotalPremium = DecimalUtil.subtract(
         DecimalUtil.add(policy.total_premium, transaction.additional_premium),
         transaction.return_premium,
@@ -194,7 +195,7 @@ export class PolicyTransactionApplyService {
         policy_id: policy.id,
         version_number: versionNumber,
         version_type: PolicyVersionType.ENDORSEMENT,
-        status: policy.policy_status,
+        status: 'ENDORSED',
         effective_from: transaction.effective_date,
         effective_to: String(cover?.['endDate'] ?? policy.end_date),
         policy_snapshot: appliedSnapshot,
@@ -225,6 +226,7 @@ export class PolicyTransactionApplyService {
       policy.total_charges = newCharges;
       policy.total_commission = newCommission;
       policy.sum_insured = this.sumPolicySnapshotInsuredValue(appliedSnapshot);
+      policy.policy_status = 'ENDORSED';
 
       if (cover?.['startDate']) {
         policy.start_date = String(cover['startDate']);
@@ -265,6 +267,16 @@ export class PolicyTransactionApplyService {
       policy.state_version = Number(policy.state_version || 1) + 1;
 
       await manager.getRepository(Policy).save(policy);
+
+      if (originalStatus !== 'ENDORSED') {
+        await manager.getRepository(PolicyStatusHistory).save({
+          policy_id: policy.id,
+          old_status: originalStatus,
+          new_status: 'ENDORSED',
+          reason: transaction.reason,
+          changed_by: context.changedBy ?? null,
+        });
+      }
 
       transaction.target_policy_id = policy.id;
       transaction.target_policy_version_id = newVersion.id;
@@ -321,7 +333,7 @@ export class PolicyTransactionApplyService {
     oldTotals['totalCommission'] = totals.totalCommission;
     oldTotals['totalCharges'] = totals.totalCharges;
     snapshot['totals'] = oldTotals;
-    snapshot['policyStatus'] = policy.policy_status;
+    snapshot['policyStatus'] = 'ENDORSED';
 
     const regulatory = this.asObject(snapshot['regulatory']) ?? {};
     regulatory['previousCoverNoteReference'] =

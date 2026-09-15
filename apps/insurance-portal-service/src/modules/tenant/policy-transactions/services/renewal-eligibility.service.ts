@@ -43,10 +43,23 @@ export class RenewalEligibilityService {
   ): Promise<RenewalEligibilityResult> {
     const blockers: RenewalEligibilityBlocker[] = [];
 
-    if (!['COVER_NOTE_ISSUED', 'ACTIVE'].includes(policy.policy_status)) {
+    const normalizedPolicyStatus = String(policy.policy_status || '')
+      .trim()
+      .toUpperCase();
+
+    if (normalizedPolicyStatus === 'CANCELLED') {
+      blockers.push({
+        code: 'POLICY_CANCELLED',
+        message: 'A cancelled policy cannot be renewed.',
+      });
+    } else if (
+      !['COVER_NOTE_ISSUED', 'ACTIVE', 'ENDORSED'].includes(
+        normalizedPolicyStatus,
+      )
+    ) {
       blockers.push({
         code: 'POLICY_NOT_RENEWABLE',
-        message: 'Only an issued or active policy can be renewed.',
+        message: 'Only an issued, active, or endorsed policy can be renewed.',
       });
     }
 

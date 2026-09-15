@@ -25,6 +25,7 @@ import { CancellationPricingService } from './cancellation-pricing.service';
 import { PolicyTransactionLifecycleService } from './policy-transaction-lifecycle.service';
 import { PolicyTransactionInvoiceService } from './policy-transaction-invoice.service';
 import { PolicyCancellationConfigService } from './policy-cancellation-config.service';
+import { PolicyTransactionQuotationFactoryService } from './policy-transaction-quotation-factory.service';
 
 export interface CreateCancellationInput {
   effective_date: string;
@@ -50,6 +51,7 @@ export class CancellationService {
     private readonly invoiceService: PolicyTransactionInvoiceService,
     private readonly cancellationConfigService: PolicyCancellationConfigService,
     private readonly hashService: ProductDefinitionHashService,
+    private readonly quotationFactory: PolicyTransactionQuotationFactoryService,
   ) {}
 
   async getEligibility(
@@ -233,12 +235,6 @@ export class CancellationService {
         previousCoverNoteReference,
       };
 
-      const cover = proposedPolicySnapshot['cover'];
-
-      if (cover && typeof cover === 'object' && !Array.isArray(cover)) {
-        (cover as Record<string, unknown>)['endDate'] = dto.effective_date;
-      }
-
       const proposedPolicySnapshotHash = this.hashService.hashDefinition(
         proposedPolicySnapshot,
       );
@@ -305,6 +301,17 @@ export class CancellationService {
         rule_snapshot_hash: this.hashService.hashDefinition(ruleSnapshot),
       });
 
+      const transactionQuotation =
+        await this.quotationFactory.createTransactionDraft(manager, user, {
+          policy,
+          version: currentVersion,
+          transaction,
+          previousCoverNoteReference,
+          endorsementType: rule.tiraEndorsementType,
+          endorsementReason: dto.reason.trim(),
+          recordOnly: true,
+        });
+
       policy.pending_transaction_id = transaction.id;
       await manager.getRepository(Policy).save(policy);
 
@@ -315,6 +322,14 @@ export class CancellationService {
         actor_type: 'USER',
         actor_id: user.id,
         to_stage: transaction.stage,
+        metadata: {
+          quotationId: transactionQuotation.id,
+          quotationNo: transactionQuotation.quotation_no,
+          coverNoteType: 3,
+          endorsementType: rule.tiraEndorsementType,
+          previousCoverNoteReference,
+          recordOnly: true,
+        },
       });
 
       return transaction;

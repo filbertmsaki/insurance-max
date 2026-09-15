@@ -32,6 +32,7 @@ import { EndorsementRepricingService } from './endorsement-repricing.service';
 import { PolicyTransactionLifecycleService } from './policy-transaction-lifecycle.service';
 import { EndorsementTypesService } from './endorsement-types.service';
 import { PolicyTransactionInvoiceService } from './policy-transaction-invoice.service';
+import { PolicyTransactionQuotationFactoryService } from './policy-transaction-quotation-factory.service';
 
 export interface CreateEndorsementInput {
   effective_date: string;
@@ -141,6 +142,7 @@ export class EndorsementService {
     private readonly identifierService: IdentifierGeneratorService,
     private readonly hashService: ProductDefinitionHashService,
     private readonly invoiceService: PolicyTransactionInvoiceService,
+    private readonly quotationFactory: PolicyTransactionQuotationFactoryService,
   ) {}
 
   async getEligibility(
@@ -251,6 +253,17 @@ export class EndorsementService {
         dto.endorsement_type_code,
       );
 
+      if (
+        typeConfig.tira_endorsement_type == null ||
+        ![1, 2, 3].includes(Number(typeConfig.tira_endorsement_type))
+      ) {
+        throw new UnprocessableEntityException({
+          code: 'ENDORSEMENT_TYPE_NOT_SUPPORTED_FOR_POLICY_ENDORSEMENT',
+          message:
+            'Policy endorsements must map to TIRAMIS EndorsementType 1, 2, or 3.',
+        });
+      }
+
       const previousCoverNoteReference =
         eligibility.currentVersion!.regulatory_reference ??
         policy.cover_note_no;
@@ -296,6 +309,16 @@ export class EndorsementService {
         requires_new_cover_note: typeConfig.requires_new_cover_note,
       });
 
+      const transactionQuotation =
+        await this.quotationFactory.createTransactionDraft(manager, user, {
+          policy,
+          version: eligibility.currentVersion!,
+          transaction,
+          previousCoverNoteReference,
+          endorsementType: Number(typeConfig.tira_endorsement_type),
+          endorsementReason: dto.reason.trim(),
+        });
+
       policy.pending_transaction_id = transaction.id;
       await manager.getRepository(Policy).save(policy);
 
@@ -307,6 +330,13 @@ export class EndorsementService {
         actor_id: user.id,
         from_stage: null,
         to_stage: transaction.stage,
+        metadata: {
+          quotationId: transactionQuotation.id,
+          quotationNo: transactionQuotation.quotation_no,
+          coverNoteType: 3,
+          endorsementType: Number(typeConfig.tira_endorsement_type),
+          previousCoverNoteReference,
+        },
       });
 
       return transaction;

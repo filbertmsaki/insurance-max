@@ -98,7 +98,9 @@ export class RenewalService {
 
     const candidates = await this.policyRepository
       .createQueryBuilder('policy')
-      .where('policy.policy_status = :status', { status: 'ACTIVE' })
+      .where('policy.policy_status IN (:...statuses)', {
+        statuses: ['ACTIVE', 'ENDORSED'],
+      })
       .andWhere('policy.end_date <= :horizon', {
         horizon: horizon.toISOString().slice(0, 10),
       })

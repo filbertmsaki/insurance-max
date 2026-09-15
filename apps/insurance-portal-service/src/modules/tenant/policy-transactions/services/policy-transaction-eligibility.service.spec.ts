@@ -72,6 +72,30 @@ describe('PolicyTransactionEligibilityService', () => {
     );
   });
 
+  it('blocks a cancelled policy from further transactions', async () => {
+    const result = await service.validate(
+      makeManager(),
+      makePolicy({ policy_status: 'CANCELLED' }),
+      PolicyTransactionType.ENDORSEMENT,
+      '2026-06-01',
+    );
+
+    expect(result.eligible).toBe(false);
+    expect(result.blockers.map((b) => b.code)).toContain('POLICY_CANCELLED');
+  });
+
+  it('allows an endorsed policy to be changed again', async () => {
+    const result = await service.validate(
+      makeManager(),
+      makePolicy({ policy_status: 'ENDORSED' }),
+      PolicyTransactionType.ENDORSEMENT,
+      '2026-06-01',
+    );
+
+    expect(result.eligible).toBe(true);
+    expect(result.blockers).toHaveLength(0);
+  });
+
   it('blocks a policy that already has an active transaction', async () => {
     const result = await service.validate(
       makeManager(),
