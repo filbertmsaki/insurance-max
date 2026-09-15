@@ -1249,6 +1249,16 @@ export class TiramisIntegrationService {
     submission: PortalTiraSubmission,
     payload: TiramisNotificationEventDto,
   ) {
+    // Policy-transaction (endorsement/cancellation/renewal) submissions
+    // must never drive the Quotation lifecycle — even if a Quotation
+    // record ends up linked to one for audit purposes, applying quotation
+    // completion semantics to it would risk it being treated as an
+    // issuable new-business quotation elsewhere. Only
+    // `updateLinkedPolicyTransaction()` may act on these submissions.
+    if (submission.source_module === 'policy-transactions') {
+      return;
+    }
+
     const quotation = await this.findLinkedQuotation(submission, payload);
 
     if (!quotation) {
@@ -1398,6 +1408,13 @@ export class TiramisIntegrationService {
       reason: payload.statusDescription ?? payload.errorMessage ?? null,
       tiraRequestId: payload.requestId,
       tiraResponseId: payload.responseId ?? null,
+      // Dedupe key for PolicyTransactionEvent (source_event_id, event_type):
+      // `submission.id` is a stable UUID for this specific submission
+      // attempt, so a replayed callback for the same attempt + outcome
+      // hits the unique constraint instead of appending a duplicate audit
+      // row. A resubmission always creates a new PortalTiraSubmission
+      // (new id), so legitimate retries are unaffected.
+      requestId: submission.id,
     };
 
     switch (payload.eventType) {

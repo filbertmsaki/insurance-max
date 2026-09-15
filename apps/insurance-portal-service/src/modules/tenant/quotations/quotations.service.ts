@@ -1505,6 +1505,22 @@ export class QuotationsService {
       id,
     );
 
+    // A quotation generated automatically for an endorsement/cancellation/
+    // renewal (`PolicyTransactionQuotationFactoryService`) must never be
+    // submitted through this ordinary new-business/quotation TIRAMIS path —
+    // that submission would carry `source_module: 'quotations'`, which the
+    // policy-transaction-only guards in `IssuanceService.applyNotification`
+    // and `TiramisIntegrationService.updateLinkedQuotation` do not cover,
+    // risking a spurious duplicate submission or an accidental new-policy
+    // issuance for what is actually a change to an existing policy. The
+    // real submission for these transactions goes through
+    // `PolicyTransactionTiramisSubmissionService` instead.
+    if (quotation.source_policy_transaction_id) {
+      throw new ConflictException(
+        'This quotation was generated automatically for a policy endorsement/cancellation/renewal and cannot be submitted directly. Submit the endorsement/cancellation transaction instead.',
+      );
+    }
+
     const isRetryableTiraFailure =
       !!submitOptions.force_resubmit &&
       quotation.status === QuotationStatus.FAILED &&

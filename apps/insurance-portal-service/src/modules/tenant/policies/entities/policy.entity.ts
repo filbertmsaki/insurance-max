@@ -103,6 +103,17 @@ export class Policy {
   @Column({ type: 'varchar', length: 50, nullable: true })
   cover_note_no: string | null;
 
+  /**
+   * The current TIRAMIS motor sticker number for this policy's primary
+   * cover note, mirroring `cover_note_no`. Only motor cover notes carry a
+   * sticker; non-motor policies and cancelled policies (TIRAMIS never
+   * returns a new sticker for a cancellation) leave this null. For a fleet
+   * policy this holds only the single/primary sticker — per-fleet-entry
+   * stickers remain tracked on `MotorPolicyDetail` per risk, not here.
+   */
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  sticker_no: string | null;
+
   @Column({ type: 'varchar', length: 50, nullable: true })
   external_policy_no: string | null;
 

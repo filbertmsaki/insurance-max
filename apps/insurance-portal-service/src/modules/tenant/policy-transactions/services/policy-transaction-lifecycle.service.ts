@@ -33,6 +33,13 @@ export interface PolicyTransactionLifecycleContext {
    * rule that otherwise blocks approving a transaction they requested.
    */
   isMakerCheckerExempt?: boolean;
+  /**
+   * Set by `PolicyTransactionTiramisSubmissionService` when this
+   * `startSubmission` call is a retry/correction of a prior attempt
+   * (the transaction already carries a `tiramis_request_id`), so the
+   * audit trail can distinguish an initial submission from a resubmission.
+   */
+  isResubmission?: boolean;
 }
 
 interface LifecycleSnapshot {
@@ -326,7 +333,9 @@ export class PolicyTransactionLifecycleService {
           manager,
           transaction,
           previous,
-          PolicyTransactionEventType.SUBMISSION_QUEUED,
+          context.isResubmission
+            ? PolicyTransactionEventType.SUBMISSION_RESUBMITTED
+            : PolicyTransactionEventType.SUBMISSION_QUEUED,
           context,
         );
       },
@@ -362,6 +371,17 @@ export class PolicyTransactionLifecycleService {
     );
   }
 
+  /**
+   * A TIRAMIS content/validation rejection (e.g. TIRA002-class errors) is a
+   * *correctable* business error, not a terminal outcome: the endorsement
+   * or cancellation, its links, and its `previous_cover_note_reference`
+   * must survive so an authorized user can amend the transaction and
+   * resubmit the same artifact. This deliberately does NOT move `stage` to
+   * the terminal REJECTED value — it returns the transaction to COMPLETED
+   * with `submission_status = RETRYABLE` so `canSubmit()` allows another
+   * attempt, mirroring `markSubmissionFailed()`. Only an explicit approval
+   * rejection (`rejectApproval`) is a terminal REJECTED outcome.
+   */
   async markSubmissionRejected(
     companyId: string,
     transactionId: string,
@@ -376,8 +396,12 @@ export class PolicyTransactionLifecycleService {
         }
 
         const previous = this.snapshot(transaction);
-        transaction.submission_status = WorkflowSubmissionStatus.REJECTED;
-        transaction.stage = PolicyTransactionStage.REJECTED;
+        transaction.submission_status = WorkflowSubmissionStatus.RETRYABLE;
+        if (
+          transaction.stage === PolicyTransactionStage.SUBMISSION_PROCESSING
+        ) {
+          transaction.stage = PolicyTransactionStage.COMPLETED;
+        }
 
         return this.persistTransition(
           manager,
@@ -657,7 +681,7 @@ export class PolicyTransactionLifecycleService {
       to_stage: transaction.stage,
       reason: context.reason ?? null,
       metadata: context.metadata ?? null,
-      source_event_id: null,
+      source_event_id: context.requestId ?? null,
     });
 
     return transaction;

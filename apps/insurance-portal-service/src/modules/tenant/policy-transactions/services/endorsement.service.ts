@@ -22,6 +22,8 @@ import {
 import { IdentifierGeneratorService } from '../../../shared/identifiers/identifier-generator.service';
 import { DecimalUtil } from '../../../shared/finance/decimal.util';
 import { Policy } from '../../policies/entities/policy.entity';
+import { PolicyVersion } from '../../policies/entities/policy-version.entity';
+import { Quotation } from '../../quotations/entities/quotation.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import { PolicyTransactionChange } from '../entities/policy-transaction-change.entity';
 import { PolicyTransactionEvent } from '../entities/policy-transaction-event.entity';
@@ -274,6 +276,26 @@ export class EndorsementService {
         );
       }
 
+      const currentSnapshotCoverNotes = Array.isArray(
+        (eligibility.currentVersion!.policy_snapshot as Record<
+          string,
+          unknown
+        > | null)?.['coverNotes'],
+      )
+        ? ((
+            eligibility.currentVersion!.policy_snapshot as Record<
+              string,
+              unknown
+            >
+          )['coverNotes'] as unknown[])
+        : [];
+      const previousStickerNumber =
+        (
+          currentSnapshotCoverNotes[0] as
+            | Record<string, unknown>
+            | undefined
+        )?.['stickerNumber'] as string | undefined ?? null;
+
       const transactionNo =
         await this.identifierService.generatePolicyTransactionNumber(
           PolicyTransactionType.ENDORSEMENT,
@@ -306,19 +328,21 @@ export class EndorsementService {
         endorsement_type_name: typeConfig.name,
         tira_endorsement_type: typeConfig.tira_endorsement_type,
         previous_cover_note_reference: previousCoverNoteReference,
+        previous_sticker_number: previousStickerNumber,
         requires_new_cover_note: typeConfig.requires_new_cover_note,
       });
 
-      const transactionQuotation =
-        await this.quotationFactory.createTransactionDraft(manager, user, {
-          policy,
-          version: eligibility.currentVersion!,
-          transaction,
-          previousCoverNoteReference,
-          endorsementType: Number(typeConfig.tira_endorsement_type),
-          endorsementReason: dto.reason.trim(),
-        });
-
+      // The background TIRAMIS submission quotation is deliberately NOT
+      // created here. Per the endorsement workflow spec it must be created
+      // automatically only *after* approval, in the background — see
+      // `ensureTransactionQuotation()`, invoked from
+      // EndorsementsController#approve right after `approveTransaction`
+      // succeeds. Nothing in the DRAFT-stage editing flow (recordChange /
+      // recalculate / complete, all below) reads this quotation back; it
+      // exists purely as an auditable link artifact for the eventual
+      // TIRAMIS submission, which itself is built from
+      // `PolicyTransaction`/`PolicyEndorsement` snapshots, not from the
+      // quotation.
       policy.pending_transaction_id = transaction.id;
       await manager.getRepository(Policy).save(policy);
 
@@ -331,8 +355,6 @@ export class EndorsementService {
         from_stage: null,
         to_stage: transaction.stage,
         metadata: {
-          quotationId: transactionQuotation.id,
-          quotationNo: transactionQuotation.quotation_no,
           coverNoteType: 3,
           endorsementType: Number(typeConfig.tira_endorsement_type),
           previousCoverNoteReference,
@@ -340,6 +362,88 @@ export class EndorsementService {
       });
 
       return transaction;
+    });
+  }
+
+  /**
+   * Creates the background TIRAMIS submission quotation for an approved
+   * endorsement, if one does not already exist. Idempotent: safe to call
+   * more than once for the same transaction (e.g. re-approval after a
+   * CHANGES_REQUESTED cycle), and safe to call from a system/approval
+   * context since it only needs `companyId` — not a full request-scoped
+   * `AuthenticatedUser` beyond attribution.
+   */
+  async ensureTransactionQuotation(
+    user: AuthenticatedUser,
+    transactionId: string,
+  ) {
+    return this.dataSource.transaction(async (manager) => {
+      const existing = await manager.getRepository(Quotation).findOne({
+        where: {
+          company_id: user.companyId!,
+          source_policy_transaction_id: transactionId,
+        },
+      });
+
+      if (existing) {
+        return existing;
+      }
+
+      const transaction = await manager.getRepository(PolicyTransaction).findOne({
+        where: {
+          id: transactionId,
+          company_id: user.companyId!,
+          transaction_type: PolicyTransactionType.ENDORSEMENT,
+        },
+      });
+
+      if (!transaction) {
+        throw new BadRequestException('Endorsement not found');
+      }
+
+      const [endorsement, policy, version] = await Promise.all([
+        manager.getRepository(PolicyEndorsement).findOne({
+          where: { policy_transaction_id: transaction.id },
+        }),
+        manager.getRepository(Policy).findOne({
+          where: { id: transaction.source_policy_id },
+        }),
+        manager.getRepository(PolicyVersion).findOne({
+          where: { id: transaction.source_policy_version_id },
+        }),
+      ]);
+
+      if (!endorsement || !policy || !version) {
+        throw new BadRequestException(
+          'Endorsement, source policy, or source policy version could not be resolved.',
+        );
+      }
+
+      const transactionQuotation =
+        await this.quotationFactory.createTransactionDraft(manager, user, {
+          policy,
+          version,
+          transaction,
+          previousCoverNoteReference:
+            endorsement.previous_cover_note_reference,
+          endorsementType: Number(endorsement.tira_endorsement_type),
+          endorsementReason: transaction.reason,
+        });
+
+      await manager.getRepository(PolicyTransactionEvent).save({
+        company_id: transaction.company_id,
+        policy_transaction_id: transaction.id,
+        event_type: PolicyTransactionEventType.QUOTATION_CREATED,
+        actor_type: user.id ? 'USER' : 'SYSTEM',
+        actor_id: user.id ?? null,
+        to_stage: transaction.stage,
+        metadata: {
+          quotationId: transactionQuotation.id,
+          quotationNo: transactionQuotation.quotation_no,
+        },
+      });
+
+      return transactionQuotation;
     });
   }
 
@@ -522,6 +626,35 @@ export class EndorsementService {
         throw new UnprocessableEntityException(
           'The proposed policy snapshot is missing.',
         );
+      }
+
+      // TIRAMIS assigns fixed regulatory meaning to EndorsementType 1
+      // ("Increasing Premium Charged") and 2 ("Decreasing Premium
+      // Charged") — see the cover-note API spec. A user-selected
+      // endorsement type that contradicts the actual computed premium
+      // effect is a near-certain TIRAMIS content rejection (TIRA002-class)
+      // that we can catch here instead of round-tripping through a
+      // submission attempt. Type 3 (cover-details change) is left
+      // unrestricted since a details-only change can legitimately carry
+      // either no premium impact or a rating side-effect.
+      const endorsement = await manager.getRepository(PolicyEndorsement).findOne({
+        where: { policy_transaction_id: updated.id },
+      });
+      if (endorsement?.tira_endorsement_type === 1 &&
+        updated.premium_effect === PolicyTransactionPremiumEffect.CREDIT) {
+        throw new UnprocessableEntityException({
+          code: 'ENDORSEMENT_TYPE_PREMIUM_EFFECT_MISMATCH',
+          message:
+            'This endorsement is configured as "Increasing Premium Charged" (TIRAMIS EndorsementType 1), but the recalculated pricing results in a premium decrease. Choose a "Decreasing Premium Charged" endorsement type, or adjust the recorded changes.',
+        });
+      }
+      if (endorsement?.tira_endorsement_type === 2 &&
+        updated.premium_effect === PolicyTransactionPremiumEffect.DEBIT) {
+        throw new UnprocessableEntityException({
+          code: 'ENDORSEMENT_TYPE_PREMIUM_EFFECT_MISMATCH',
+          message:
+            'This endorsement is configured as "Decreasing Premium Charged" (TIRAMIS EndorsementType 2), but the recalculated pricing results in a premium increase. Choose an "Increasing Premium Charged" endorsement type, or adjust the recorded changes.',
+        });
       }
 
       const pricing = updated.pricing_snapshot;

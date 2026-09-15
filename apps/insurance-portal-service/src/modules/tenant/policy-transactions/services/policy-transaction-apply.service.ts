@@ -188,6 +188,9 @@ export class PolicyTransactionApplyService {
       const currentReference =
         endorsement.replacement_cover_note_reference ??
         endorsement.previous_cover_note_reference;
+      const currentSticker =
+        endorsement.replacement_sticker_number ??
+        endorsement.previous_sticker_number;
       const cover = this.asObject(appliedSnapshot['cover']);
       const versionNumber = previousVersion.version_number + 1;
       const newVersion = await manager.getRepository(PolicyVersion).save({
@@ -216,6 +219,7 @@ export class PolicyTransactionApplyService {
         superseded_at: null,
         is_current: true,
         regulatory_reference: currentReference,
+        regulatory_sticker_number: currentSticker,
         effective_transaction_date: transaction.effective_date,
         created_by: context.changedBy ?? transaction.completed_by ?? null,
       });
@@ -242,6 +246,9 @@ export class PolicyTransactionApplyService {
       policy.pricing_snapshot = transaction.pricing_snapshot;
       policy.pricing_result_hash = transaction.pricing_snapshot_hash;
       policy.cover_note_no = currentReference;
+      if (currentSticker) {
+        policy.sticker_no = currentSticker;
+      }
       policy.tira_status = 'SUCCESS';
       policy.regulatory_sync_status = 'SUCCESS';
       policy.tiramis_submission_tracking_id = transaction.tiramis_tracking_id;
@@ -297,6 +304,8 @@ export class PolicyTransactionApplyService {
           targetVersion: newVersion.version_number,
           previousCoverNoteReference: endorsement.previous_cover_note_reference,
           replacementCoverNoteReference: currentReference,
+          previousStickerNumber: endorsement.previous_sticker_number,
+          replacementStickerNumber: endorsement.replacement_sticker_number,
         },
       });
 
@@ -341,6 +350,10 @@ export class PolicyTransactionApplyService {
     regulatory['currentCoverNoteReference'] =
       endorsement.replacement_cover_note_reference ??
       endorsement.previous_cover_note_reference;
+    regulatory['previousStickerNumber'] = endorsement.previous_sticker_number;
+    regulatory['currentStickerNumber'] =
+      endorsement.replacement_sticker_number ??
+      endorsement.previous_sticker_number;
     regulatory['endorsement'] = {
       transactionId: transaction.id,
       transactionNo: transaction.transaction_no,
@@ -359,7 +372,93 @@ export class PolicyTransactionApplyService {
     regulatory['responseHash'] = transaction.regulatory_response_hash;
     snapshot['regulatory'] = regulatory;
 
+    // `resolvePreviousReference()` (policy-transaction-tiramis-payload
+    // .service.ts) prefers the per-entry `coverNoteReferenceNumber` it
+    // finds on the NEXT endorsement's `source_policy_snapshot.coverNotes`
+    // (which is a copy of this applied version's `policy_snapshot`) over
+    // `endorsement.previous_cover_note_reference`. If we leave those
+    // entries pointing at the pre-endorsement cover note, a *second*
+    // endorsement on this policy would send TIRAMIS the wrong
+    // PrevCoverNoteReferenceNumber. Refresh them here so the next
+    // transaction's snapshot is accurate.
+    const coverNotesArray = Array.isArray(snapshot['coverNotes'])
+      ? (snapshot['coverNotes'] as unknown[])
+      : null;
+    if (coverNotesArray) {
+      this.refreshSnapshotCoverNotes(coverNotesArray, transaction, endorsement);
+    }
+
     return snapshot;
+  }
+
+  /**
+   * Refreshes each `coverNotes[]` entry of the applied `PolicyVersion`
+   * snapshot with the TIRAMIS-returned cover-note reference and sticker
+   * number for its own fleet entry, not just a single shared value. TIRAMIS
+   * returns one `MotorCoverNoteRefRes.FleetResDtl` per fleet entry — the
+   * raw regulatory response (with a `coverNotes[]` entry per fleet entry,
+   * each carrying `quotationEntryId`/`fleetEntry`) is already captured
+   * verbatim on `transaction.regulatory_response` by
+   * `PolicyTransactionRegulatoryOutcomeService.captureFinalSuccess`, so no
+   * schema change is required to use it here — only the single/non-fleet
+   * `PolicyEndorsement.replacement_cover_note_reference` +
+   * `.replacement_sticker_number` are used as the fallback when TIRAMIS
+   * only returned one cover note (the common, non-fleet case).
+   */
+  private refreshSnapshotCoverNotes(
+    coverNotesArray: unknown[],
+    transaction: PolicyTransaction,
+    endorsement: PolicyEndorsement,
+  ): void {
+    const fallbackReference =
+      endorsement.replacement_cover_note_reference ??
+      endorsement.previous_cover_note_reference;
+    const fallbackSticker =
+      endorsement.replacement_sticker_number ??
+      endorsement.previous_sticker_number;
+
+    const regulatoryResponse = this.asObject(transaction.regulatory_response);
+    const responseCoverNotes = this.asArray(
+      regulatoryResponse?.['coverNotes'],
+    )
+      .map((value) => this.asObject(value))
+      .filter((value): value is Record<string, unknown> => !!value);
+
+    for (const rawEntry of coverNotesArray) {
+      const note = this.asObject(rawEntry);
+      if (!note) {
+        continue;
+      }
+
+      const entryId = note['quotationEntryId'];
+      const fleetEntry = note['fleetEntry'];
+      const matched =
+        responseCoverNotes.find(
+          (candidate) =>
+            (entryId != null &&
+              candidate['quotationEntryId'] === entryId) ||
+            (fleetEntry != null && candidate['fleetEntry'] === fleetEntry),
+        ) ??
+        (coverNotesArray.length === 1 ? responseCoverNotes[0] : undefined);
+
+      const newReference =
+        (matched?.['coverNoteReferenceNumber'] as string | undefined) ??
+        (coverNotesArray.length === 1 ? fallbackReference : undefined);
+      const newSticker =
+        (matched?.['stickerNumber'] as string | null | undefined) ??
+        (coverNotesArray.length === 1 ? fallbackSticker : undefined);
+
+      if (newReference) {
+        note['coverNoteReferenceNumber'] = newReference;
+      }
+      if (newSticker) {
+        note['stickerNumber'] = newSticker;
+      }
+    }
+  }
+
+  private asArray(value: unknown): unknown[] {
+    return Array.isArray(value) ? value : [];
   }
 
   private buildVersionCustomerSnapshot(

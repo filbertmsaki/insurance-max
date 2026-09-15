@@ -82,6 +82,19 @@ export class IssuanceService {
     coverNotes?: CoverNote[];
     policy?: Policy | null;
   } | null> {
+    // Endorsement/cancellation/renewal submissions must NEVER be routed
+    // through new-business/cover-note issuance — that would mint a brand
+    // new Policy for what is actually a change to an existing one.
+    // `updateLinkedPolicyTransaction()` (tiramis-integration.service.ts) is
+    // the only place policy-transaction submissions are allowed to apply
+    // their outcome. This guard is explicit (not merely incidental on
+    // `quotation_id` being unset) so it stays correct even if a future
+    // change attaches a quotation record to a policy-transaction
+    // submission for linkage/audit purposes.
+    if (submission.source_module === 'policy-transactions') {
+      return null;
+    }
+
     const regulatoryResponse = payload.regulatoryResponse;
 
     if (!regulatoryResponse?.success) {

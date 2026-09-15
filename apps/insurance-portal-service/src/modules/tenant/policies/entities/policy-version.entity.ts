@@ -81,6 +81,10 @@ export class PolicyVersion {
   @Column({ type: 'varchar', length: 100, nullable: true })
   regulatory_reference!: string | null;
 
+  /** Mirrors `Policy.sticker_no` as it stood as of this version. */
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  regulatory_sticker_number!: string | null;
+
   @Column({ type: 'date', nullable: true })
   effective_transaction_date!: string | null;
 

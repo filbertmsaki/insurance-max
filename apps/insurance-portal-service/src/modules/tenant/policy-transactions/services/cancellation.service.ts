@@ -17,6 +17,8 @@ import {
 
 import { IdentifierGeneratorService } from '../../../shared/identifiers/identifier-generator.service';
 import { Policy } from '../../policies/entities/policy.entity';
+import { PolicyVersion } from '../../policies/entities/policy-version.entity';
+import { Quotation } from '../../quotations/entities/quotation.entity';
 import { PolicyTransaction } from '../entities/policy-transaction.entity';
 import { PolicyTransactionEvent } from '../entities/policy-transaction-event.entity';
 import { PolicyCancellation } from '../entities/policy-cancellation.entity';
@@ -301,17 +303,10 @@ export class CancellationService {
         rule_snapshot_hash: this.hashService.hashDefinition(ruleSnapshot),
       });
 
-      const transactionQuotation =
-        await this.quotationFactory.createTransactionDraft(manager, user, {
-          policy,
-          version: currentVersion,
-          transaction,
-          previousCoverNoteReference,
-          endorsementType: rule.tiraEndorsementType,
-          endorsementReason: dto.reason.trim(),
-          recordOnly: true,
-        });
-
+      // The background TIRAMIS submission quotation is deliberately NOT
+      // created here — see `ensureTransactionQuotation()`, invoked from
+      // CancellationsController#approve right after `approveTransaction`
+      // succeeds, mirroring EndorsementService's equivalent deferral.
       policy.pending_transaction_id = transaction.id;
       await manager.getRepository(Policy).save(policy);
 
@@ -323,16 +318,99 @@ export class CancellationService {
         actor_id: user.id,
         to_stage: transaction.stage,
         metadata: {
-          quotationId: transactionQuotation.id,
-          quotationNo: transactionQuotation.quotation_no,
           coverNoteType: 3,
           endorsementType: rule.tiraEndorsementType,
           previousCoverNoteReference,
-          recordOnly: true,
         },
       });
 
       return transaction;
+    });
+  }
+
+  /**
+   * Creates the background TIRAMIS submission quotation for an approved
+   * cancellation, if one does not already exist. Idempotent, mirrors
+   * `EndorsementService#ensureTransactionQuotation`.
+   */
+  async ensureTransactionQuotation(
+    user: AuthenticatedUser,
+    transactionId: string,
+  ) {
+    return this.dataSource.transaction(async (manager) => {
+      const existing = await manager.getRepository(Quotation).findOne({
+        where: {
+          company_id: user.companyId!,
+          source_policy_transaction_id: transactionId,
+        },
+      });
+
+      if (existing) {
+        return existing;
+      }
+
+      const transaction = await manager.getRepository(PolicyTransaction).findOne({
+        where: {
+          id: transactionId,
+          company_id: user.companyId!,
+          transaction_type: PolicyTransactionType.CANCELLATION,
+        },
+      });
+
+      if (!transaction) {
+        throw new BadRequestException('Cancellation not found');
+      }
+
+      const [cancellation, policy, version] = await Promise.all([
+        manager.getRepository(PolicyCancellation).findOne({
+          where: { policy_transaction_id: transaction.id },
+        }),
+        manager.getRepository(Policy).findOne({
+          where: { id: transaction.source_policy_id },
+        }),
+        manager.getRepository(PolicyVersion).findOne({
+          where: { id: transaction.source_policy_version_id },
+        }),
+      ]);
+
+      if (
+        !cancellation ||
+        !policy ||
+        !version ||
+        !cancellation.previous_cover_note_reference
+      ) {
+        throw new BadRequestException(
+          'Cancellation, source policy, or source policy version could not be resolved.',
+        );
+      }
+
+      const transactionQuotation =
+        await this.quotationFactory.createTransactionDraft(manager, user, {
+          policy,
+          version,
+          transaction,
+          previousCoverNoteReference:
+            cancellation.previous_cover_note_reference,
+          endorsementType: Number(cancellation.tira_endorsement_type),
+          endorsementReason: transaction.reason ?? '',
+          recordOnly: true,
+        });
+
+      await manager.getRepository(PolicyTransactionEvent).save({
+        company_id: transaction.company_id,
+        policy_transaction_id: transaction.id,
+        event_type: PolicyTransactionEventType.QUOTATION_CREATED,
+        actor_type: user.id ? 'USER' : 'SYSTEM',
+        actor_id: user.id ?? null,
+        to_stage: transaction.stage,
+        metadata: {
+          quotationId: transactionQuotation.id,
+          quotationNo: transactionQuotation.quotation_no,
+          recordOnly: true,
+        },
+      });
+
+      return transactionQuotation;
     });
   }
 

@@ -139,6 +139,7 @@ export class PolicyTransactionTiramisSubmissionService {
       transaction.id,
       {
         changedBy: user.id,
+        isResubmission: Boolean(transaction.tiramis_request_id),
       },
     );
 

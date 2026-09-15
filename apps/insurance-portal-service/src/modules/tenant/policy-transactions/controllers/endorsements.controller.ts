@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
   Param,
   ParseUUIDPipe,
   Post,
@@ -30,6 +31,8 @@ import { PolicyTransactionTiramisSubmissionService } from '../services/policy-tr
 @Controller()
 @TenantScoped()
 export class EndorsementsController {
+  private readonly logger = new Logger(EndorsementsController.name);
+
   constructor(
     private readonly endorsementService: EndorsementService,
     private readonly lifecycleService: PolicyTransactionLifecycleService,
@@ -149,14 +152,57 @@ export class EndorsementsController {
   @Post('tenant/endorsements/:id/approve')
   @Permissions('endorsements:approve')
   @ApiOperation({ summary: 'Approve an endorsement (maker-checker enforced)' })
-  approve(
+  async approve(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.lifecycleService.approveTransaction(user.companyId!, id, {
-      changedBy: user.id,
-      isMakerCheckerExempt: hasCompanyAdminRole(user),
-    });
+    const transaction = await this.lifecycleService.approveTransaction(
+      user.companyId!,
+      id,
+      {
+        changedBy: user.id,
+        isMakerCheckerExempt: hasCompanyAdminRole(user),
+      },
+    );
+
+    // Per the endorsement workflow spec, the background TIRAMIS submission
+    // quotation is created automatically once (and only once) the
+    // endorsement is approved — never at draft-creation time. This is
+    // idempotent: re-approval after a CHANGES_REQUESTED cycle will not
+    // create a second quotation.
+    try {
+      await this.endorsementService.ensureTransactionQuotation(user, id);
+    } catch (error) {
+      this.logger.warn(
+        `Automatic quotation creation failed for endorsement ${id} after approval: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
+    // Per the endorsement workflow spec, TIRAMIS submission must happen
+    // automatically once a transaction is approved — the user should never
+    // have to manually trigger it for the happy path. This is best-effort:
+    // if approval satisfies all requirements (payment, if required, is
+    // already settled) the transaction is immediately submittable, so we
+    // submit it here rather than requiring a separate UI action. A failure
+    // here must NOT fail the approval response or the approval itself —
+    // `submitEndorsement`/`markSubmissionFailed` already leave the
+    // transaction in a retryable state, and `submit-tiramis`/`retry-tiramis`
+    // remain available for the user (or a background reconciler) to retry.
+    if (this.lifecycleService.canSubmit(transaction)) {
+      try {
+        await this.submissionService.submitEndorsement(user, id);
+      } catch (error) {
+        this.logger.warn(
+          `Automatic TIRAMIS submission failed for endorsement ${id} after approval: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    return this.endorsementService.findOne(user.companyId!, id);
   }
 
   @Post('tenant/endorsements/:id/reject')

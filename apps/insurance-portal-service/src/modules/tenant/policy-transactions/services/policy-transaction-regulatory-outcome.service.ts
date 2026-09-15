@@ -48,6 +48,15 @@ export class PolicyTransactionRegulatoryOutcomeService {
         response.coverNotes?.[0]?.coverNoteReferenceNumber ??
         null;
 
+      // Per the TIRAMIS spec, only normal endorsements return a new
+      // StickerNumber (MotorCoverNoteRefRes) — cancellations do not, and
+      // this is intentionally left null for those rather than treated as
+      // a missing/invalid response.
+      const replacementSticker =
+        payload.stickerNumber ??
+        response.coverNotes?.[0]?.stickerNumber ??
+        null;
+
       const endorsement =
         transaction.transaction_type === PolicyTransactionType.ENDORSEMENT
           ? await manager.getRepository(PolicyEndorsement).findOne({
@@ -116,6 +125,9 @@ export class PolicyTransactionRegulatoryOutcomeService {
 
       if (endorsement && replacement) {
         endorsement.replacement_cover_note_reference = replacement;
+        if (replacementSticker) {
+          endorsement.replacement_sticker_number = replacementSticker;
+        }
         await manager.getRepository(PolicyEndorsement).save(endorsement);
       }
 

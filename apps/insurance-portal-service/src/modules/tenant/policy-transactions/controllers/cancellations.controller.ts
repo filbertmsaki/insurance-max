@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
   Param,
   ParseUUIDPipe,
   Post,
@@ -31,6 +32,8 @@ import { PolicyTransactionTiramisSubmissionService } from '../services/policy-tr
 @Controller()
 @TenantScoped()
 export class CancellationsController {
+  private readonly logger = new Logger(CancellationsController.name);
+
   constructor(
     private readonly replacementService: PolicyReplacementService,
     private readonly cancellationService: CancellationService,
@@ -157,14 +160,51 @@ export class CancellationsController {
   @Post('tenant/cancellations/:id/approve')
   @Permissions('cancellations:approve')
   @ApiOperation({ summary: 'Approve a cancellation (maker-checker enforced)' })
-  approve(
+  async approve(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
-    return this.lifecycleService.approveTransaction(user.companyId!, id, {
-      changedBy: user.id,
-      isMakerCheckerExempt: hasCompanyAdminRole(user),
-    });
+    const transaction = await this.lifecycleService.approveTransaction(
+      user.companyId!,
+      id,
+      {
+        changedBy: user.id,
+        isMakerCheckerExempt: hasCompanyAdminRole(user),
+      },
+    );
+
+    // Automatic, idempotent background quotation creation on approval —
+    // see the equivalent comment in EndorsementsController#approve.
+    try {
+      await this.cancellationService.ensureTransactionQuotation(user, id);
+    } catch (error) {
+      this.logger.warn(
+        `Automatic quotation creation failed for cancellation ${id} after approval: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
+    // Automatic TIRAMIS submission on approval — see the equivalent comment
+    // in EndorsementsController#approve. The policy must stay ACTIVE until
+    // a successful final TIRAMIS callback regardless of when submission
+    // happens, so submitting here does not change cancellation semantics;
+    // it only removes the manual "submit-tiramis" click from the happy
+    // path. A failure here is non-fatal and leaves the transaction
+    // retryable via `submit-tiramis`.
+    if (this.lifecycleService.canSubmit(transaction)) {
+      try {
+        await this.submissionService.submitCancellation(user, id);
+      } catch (error) {
+        this.logger.warn(
+          `Automatic TIRAMIS submission failed for cancellation ${id} after approval: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
+    return this.cancellationService.findOne(user.companyId!, id);
   }
 
   @Post('tenant/cancellations/:id/request-payment')

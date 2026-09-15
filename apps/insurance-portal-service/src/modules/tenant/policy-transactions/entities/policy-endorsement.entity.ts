@@ -40,6 +40,20 @@ export class PolicyEndorsement {
   @Column({ type: 'varchar', length: 100, nullable: true })
   replacement_cover_note_reference: string | null;
 
+  /**
+   * The motor sticker number the policy carried before this endorsement.
+   * Per the TIRAMIS spec, MotorCoverNoteRefRes returns a new StickerNumber
+   * for normal (non-fleet-cancellation) motor endorsements — captured on
+   * successful callback (see `PolicyTransactionRegulatoryOutcomeService`)
+   * — but cancellations never return one, so this stays null for
+   * cancellations by design, not omission.
+   */
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  previous_sticker_number: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  replacement_sticker_number: string | null;
+
   @Column({ type: 'boolean', default: true })
   requires_new_cover_note: boolean;
 

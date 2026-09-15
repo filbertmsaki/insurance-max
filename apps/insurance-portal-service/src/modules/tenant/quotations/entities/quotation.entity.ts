@@ -321,6 +321,38 @@ export class Quotation {
   @Column({ type: 'timestamptz', nullable: true })
   replacement_applied_at: Date | null;
 
+  /**
+   * Set only for the background quotation record generated automatically
+   * by `PolicyTransactionQuotationFactoryService` for an endorsement,
+   * cancellation, or renewal — never for an ordinary new-business
+   * quotation. Its presence is also a discriminator: this quotation must
+   * never be treated as issuable new-business (see
+   * `IssuanceService.applyNotification`'s explicit
+   * `source_module === 'policy-transactions'` guard), because the TIRAMIS
+   * submission and callback resolution for these transactions are driven
+   * entirely by `PolicyTransactionTiramisSubmissionService` /
+   * `updateLinkedPolicyTransaction()`, not by this quotation.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  source_policy_transaction_id: string | null;
+
+  /**
+   * The policy this transaction-quotation endorses/cancels/renews —
+   * mirrors `PolicyTransaction.source_policy_id` for direct querying
+   * without a join.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  source_policy_id: string | null;
+
+  /**
+   * The most recent prior quotation for the same policy (its original
+   * issuance quotation, or the previous transaction's generated
+   * quotation), if any — satisfies the workflow spec's "link to previous
+   * quotation" requirement.
+   */
+  @Column({ type: 'uuid', nullable: true })
+  previous_quotation_id: string | null;
+
   @Column({ type: 'varchar', length: 50, nullable: true })
   current_wizard_step: string | null;
 

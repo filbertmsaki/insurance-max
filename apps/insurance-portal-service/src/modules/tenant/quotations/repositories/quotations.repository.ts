@@ -127,6 +127,17 @@ export class QuotationsRepository {
 
   /**
    * Load only the root and cover-note header for the list screen.
+   *
+   * Excludes quotations with `source_policy_transaction_id` set — those are
+   * internal record-only artifacts `PolicyTransactionQuotationFactoryService`
+   * creates automatically for an approved endorsement/cancellation/renewal.
+   * They are never submitted themselves (the real TIRAMIS submission and
+   * callback happen on the `PolicyTransaction`, not this record — see
+   * `PolicyTransactionTiramisSubmissionService`), so they sit permanently at
+   * DRAFT/NOT_READY and would misleadingly read as "never submitted" in a
+   * general quotations list even after the transaction was successfully
+   * applied. Their real status lives on the endorsement/cancellation
+   * detail view.
    */
   async findAll(
     companyId: string,
@@ -140,7 +151,8 @@ export class QuotationsRepository {
       .leftJoinAndSelect('quotation.cover_note', 'coverNote')
       .leftJoinAndSelect('quotation.product', 'product')
       .where('quotation.company_id = :companyId', { companyId })
-      .andWhere('quotation.deleted_at IS NULL');
+      .andWhere('quotation.deleted_at IS NULL')
+      .andWhere('quotation.source_policy_transaction_id IS NULL');
     this.applyListFilters(queryBuilder, query, page, limit);
 
     const [items, total] = await queryBuilder.getManyAndCount();
@@ -173,7 +185,8 @@ export class QuotationsRepository {
       .createQueryBuilder('quotation')
       .leftJoinAndSelect('quotation.cover_note', 'coverNote')
       .leftJoinAndSelect('quotation.product', 'product')
-      .where('quotation.deleted_at IS NULL');
+      .where('quotation.deleted_at IS NULL')
+      .andWhere('quotation.source_policy_transaction_id IS NULL');
 
     this.dataAccessScopeService.applyQuotationReadScope(
       queryBuilder,

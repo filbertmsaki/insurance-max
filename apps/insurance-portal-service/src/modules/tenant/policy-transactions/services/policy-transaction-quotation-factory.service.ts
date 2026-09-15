@@ -84,6 +84,20 @@ export class PolicyTransactionQuotationFactoryService {
       dto,
       user.id,
     );
+
+    // These link columns are populated directly rather than via
+    // SaveQuotationDraftDto because they are internal bookkeeping specific
+    // to policy-transaction-generated quotations, not something a user
+    // ever sets through the ordinary quotation wizard/DTO surface.
+    await manager.getRepository(Quotation).update(
+      { id: quotationId, company_id: user.companyId! },
+      {
+        source_policy_transaction_id: params.transaction.id,
+        source_policy_id: params.policy.id,
+        previous_quotation_id: params.policy.quotation_id ?? null,
+      },
+    );
+
     const quotation = await manager.getRepository(Quotation).findOne({
       where: { id: quotationId, company_id: user.companyId! },
     });
