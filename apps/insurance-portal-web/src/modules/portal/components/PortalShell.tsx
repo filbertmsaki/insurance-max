@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react';
 import {
   BadgeDollarSign,
   BellRing,
@@ -13,7 +14,7 @@ import {
   UserCircle2,
   Users,
 } from 'lucide-react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -38,6 +39,13 @@ const navigationIcons = {
 };
 
 export function PortalShell({ audience }: { audience: PortalAudience }) {
+  const location = useLocation();
+  const mainRef = useRef<HTMLElement>(null);
+
+  useLayoutEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  }, [location.pathname]);
+
   const user = useAuthStore((state) => state.user);
   const company = useAuthStore((state) => state.company);
   const basePath = `/${audience}`;
@@ -180,7 +188,7 @@ export function PortalShell({ audience }: { audience: PortalAudience }) {
             ))}
           </div>
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto">
+        <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
             <Outlet />
           </div>

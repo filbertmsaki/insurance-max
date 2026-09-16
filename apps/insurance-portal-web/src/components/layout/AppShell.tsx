@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Sidebar } from './Sidebar';
@@ -12,6 +12,11 @@ export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const location = useLocation();
+  const mainRef = useRef<HTMLElement>(null);
+
+  useLayoutEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  }, [location.pathname]);
 
   // Close mobile sidebar on route change
   const [prevPathname, setPrevPathname] = useState(location.pathname);
@@ -70,7 +75,7 @@ export function AppShell() {
                 onMobileMenuToggle={() => setMobileOpen((o) => !o)}
                 onOpenCommand={() => setCommandOpen(true)}
               />
-              <main className="min-h-0 flex-1 overflow-y-auto">
+              <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto">
                 <div className="mx-auto w-full max-w-[1600px] p-4 sm:p-6 lg:p-8">
                   <Outlet />
                 </div>

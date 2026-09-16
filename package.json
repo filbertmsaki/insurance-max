@@ -7,6 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "start": "nest start tiramis",
+    "start:all": "concurrently --kill-others --names tiramis,backend,frontend \"npm run start:dev:tiramis\" \"npm run start:dev:insurance-portal-service\" \"npm run start:dev:insurance-portal-web\"",
     "start:tiramis": "nest start tiramis",
     "start:insurance-portal-service": "node -e \"console.log('[startup] Compiling insurance portal service...')\" && nest start insurance-portal-service",
     "start:dev": "nest start tiramis --watch",
@@ -139,6 +140,7 @@
     "@types/passport-local": "^1.0.38",
     "@types/qrcode": "^1.5.5",
     "@types/supertest": "^7.0.0",
+    "concurrently": "^10.0.5",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",

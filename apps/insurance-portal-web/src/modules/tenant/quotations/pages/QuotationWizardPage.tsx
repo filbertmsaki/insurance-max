@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   useFieldArray,
@@ -246,6 +253,7 @@ export function QuotationWizardPage() {
   const [completedSteps, setCompletedSteps] = useState<QuotationWizardStepId[]>(
     [],
   );
+  const wizardRef = useRef<HTMLDivElement>(null);
   const hasHydratedEditRef = useRef(false);
   const [isEditHydrating, setIsEditHydrating] = useState(
     usesPrefilledQuotation,
@@ -399,6 +407,14 @@ export function QuotationWizardPage() {
     selectedStepId && steps.some((step) => step.id === selectedStepId)
       ? selectedStepId
       : (hydratedStepId ?? steps[0]?.id ?? 'cover-note');
+
+  useLayoutEffect(() => {
+    wizardRef.current?.closest('main')?.scrollTo({
+      top: 0,
+      behavior: 'instant',
+    });
+  }, [stepId, loadingQuotation, startGateComplete]);
+
   const editOptionsReady =
     !usesPrefilledQuotation ||
     !quotationContext ||
@@ -1058,7 +1074,7 @@ export function QuotationWizardPage() {
   }
 
   return (
-    <div className="pb-8">
+    <div ref={wizardRef} className="pb-8">
       <QuotationStartModal
         open={changeSetupInitial !== null}
         initialSelection={changeSetupInitial}
