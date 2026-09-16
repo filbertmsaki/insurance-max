@@ -99,6 +99,58 @@ describe('vehicle verification mapping', () => {
     });
   });
 
+  it('maps real TIRA text values for motor usage and owner category, and leaves genuinely empty fields blank', () => {
+    // Real TIRA MotorVerificationRes returns MotorUsage/OwnerCategory as
+    // free text rather than the "1"/"2" codes this app models, and leaves
+    // OwnerName/AxleDistance/OwnerAddress empty for many vehicles.
+    const motor = readVerifiedMotorDetails(
+      response({
+        xml:
+          '<TiraMsg><MotorVerificationRes><VerificationHdr>' +
+          '<ResponseStatusCode>TIRA001</ResponseStatusCode>' +
+          '</VerificationHdr><VerificationDtl>' +
+          '<RegistrationNumber>T123ABC</RegistrationNumber>' +
+          '<ChassisNumber>LH1230003419</ChassisNumber>' +
+          '<Make>Toyota</Make><Model>Hiace</Model>' +
+          '<NumberOfAxles>2</NumberOfAxles><AxleDistance></AxleDistance>' +
+          '<MotorUsage>Commercial</MotorUsage>' +
+          '<OwnerName></OwnerName>' +
+          '<OwnerCategory>Sole Proprietor</OwnerCategory>' +
+          '</VerificationDtl></MotorVerificationRes></TiraMsg>',
+      }),
+      '1',
+    );
+    expect(motor).toMatchObject({
+      registration_no: 'T123ABC',
+      chassis_no: 'LH1230003419',
+      number_of_axles: '2',
+      motor_usage_code: '2',
+      usage_type: 'Commercial',
+      owner_category: '1',
+    });
+    expect(motor).not.toHaveProperty('axle_distance');
+    expect(motor).not.toHaveProperty('owner_name');
+    expect(motor).not.toHaveProperty('owner_address');
+  });
+
+  it('maps the "Private or Normal" MotorUsage variant to Private', () => {
+    const motor = readVerifiedMotorDetails(
+      response({
+        verifiedRecordDetails: {
+          responseDetails: {
+            RegistrationNumber: 't535dka',
+            MotorUsage: 'Private or Normal',
+          },
+        },
+      }),
+      '1',
+    );
+    expect(motor).toMatchObject({
+      motor_usage_code: '1',
+      usage_type: 'Private',
+    });
+  });
+
   it('accepts direct details with motor-prefixed identifiers', () => {
     expect(
       readVerifiedMotorDetails(

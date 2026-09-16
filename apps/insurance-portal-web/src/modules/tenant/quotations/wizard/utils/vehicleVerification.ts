@@ -2,7 +2,9 @@ import type { VerificationResult } from '@/modules/tenant/verifications/api';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { normalizeMotorTextInput } from '../../utils/motorText';
 import {
+  getMotorUsageCodeFromLabel,
   getMotorUsageLabelFromCode,
+  getOwnerCategoryCodeFromLabel,
   getVehicleCategoryLabelFromCode,
 } from './motorOptions';
 
@@ -115,12 +117,17 @@ export function readVerifiedMotorDetails(
   );
   const motorType = code(details.MotorType);
   if (motorType) motor.motor_type_code = motorType;
-  const usage = code(details.MotorUsage);
+  // TIRA returns MotorUsage/OwnerCategory as free text (e.g. "Commercial",
+  // "Sole Proprietor") rather than the "1"/"2" codes this app models, so
+  // both the numeric code and text label form must be recognized.
+  const usage = getMotorUsageCodeFromLabel(text(details.MotorUsage));
   if (usage) {
     motor.motor_usage_code = usage;
     motor.usage_type = getMotorUsageLabelFromCode(usage);
   }
-  const ownerCategory = code(details.OwnerCategory);
+  const ownerCategory = getOwnerCategoryCodeFromLabel(
+    text(details.OwnerCategory),
+  );
   if (ownerCategory) motor.owner_category = ownerCategory;
   return motor;
 }
