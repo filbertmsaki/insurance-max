@@ -81,6 +81,8 @@ import {
   toSelectValue,
 } from '../utils/selectValue';
 import { RiskTaxesFields } from '../components/RiskTaxesFields';
+import { VehicleLookup } from '../components/VehicleLookup';
+import { toFleetMotorDetails } from '../utils/vehicleVerification';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -1084,6 +1086,20 @@ function FleetVehicleEditor({
 
       {step === 3 && (
         <div className="space-y-4">
+          <VehicleLookup
+            initialCategory={item.motor_dtl.motor_category}
+            onFound={(details) => {
+              const path = `fleet.items.${index}.motor_dtl` as const;
+              form.setValue(
+                path,
+                {
+                  ...form.getValues(path),
+                  ...toFleetMotorDetails(details),
+                },
+                { shouldDirty: true, shouldTouch: true, shouldValidate: true },
+              );
+            }}
+          />
           {vehicleOptions.length > 0 && (
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3.5">
               <WizardFormItem>
@@ -1885,6 +1901,7 @@ export function MotorFleetDetailsStep({
         >
           {activeIndex != null && fields[activeIndex] ? (
             <FleetVehicleEditor
+              key={fields[activeIndex].id}
               form={form}
               riskOptions={riskOptions}
               vehicleOptions={vehicleOptions}

@@ -34,6 +34,7 @@ import {
 } from '../utils/selectValue';
 import { StepSection } from '../components/StepSection';
 import { WizardFormItem } from '../components/WizardFormItem';
+import { VehicleLookup } from '../components/VehicleLookup';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -379,10 +380,27 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
             )}
           />
         ) : (
-          <p className="text-sm text-slate-500">
-            Fill in the vehicle details below. A new vehicle record will be
-            created for the selected policyholder when you save this quotation.
-          </p>
+          <>
+            <VehicleLookup
+              initialCategory={form.getValues('motor.motor_category_code')}
+              onFound={(details) => {
+                form.setValue(
+                  'motor',
+                  {
+                    ...form.getValues('motor'),
+                    ...details,
+                    vehicle_id: '',
+                  },
+                  { shouldDirty: true, shouldTouch: true, shouldValidate: true },
+                );
+              }}
+            />
+            <p className="text-sm text-slate-500">
+              Fetch or fill in the vehicle details below. A new vehicle record
+              will be created for the selected policyholder when you save this
+              quotation.
+            </p>
+          </>
         )}
 
         {mode === 'existing' && selectedVehicle && (
