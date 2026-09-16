@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class EndorsementQuotationLinkageAndStickerTracking1789200000000
-  implements MigrationInterface
-{
+export class EndorsementQuotationLinkageAndStickerTracking1789200000000 implements MigrationInterface {
   async up(queryRunner: QueryRunner): Promise<void> {
     // Link the background quotation an endorsement/cancellation/renewal
     // creates back to its originating PolicyTransaction and Policy, plus
@@ -47,15 +45,11 @@ export class EndorsementQuotationLinkageAndStickerTracking1789200000000
     await queryRunner.query(
       `ALTER TABLE policy_versions DROP COLUMN regulatory_sticker_number`,
     );
-    await queryRunner.query(
-      `ALTER TABLE policies DROP COLUMN sticker_no`,
-    );
+    await queryRunner.query(`ALTER TABLE policies DROP COLUMN sticker_no`);
     await queryRunner.query(`ALTER TABLE policy_endorsements
       DROP COLUMN previous_sticker_number,
       DROP COLUMN replacement_sticker_number`);
-    await queryRunner.query(
-      'DROP INDEX "IDX_quotations_source_policy_id"',
-    );
+    await queryRunner.query('DROP INDEX "IDX_quotations_source_policy_id"');
     await queryRunner.query(
       'DROP INDEX "IDX_quotations_source_policy_transaction_id"',
     );

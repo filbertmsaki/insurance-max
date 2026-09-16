@@ -277,24 +277,21 @@ export class EndorsementService {
       }
 
       const currentSnapshotCoverNotes = Array.isArray(
-        (eligibility.currentVersion!.policy_snapshot as Record<
-          string,
-          unknown
-        > | null)?.['coverNotes'],
+        (
+          eligibility.currentVersion!.policy_snapshot as Record<
+            string,
+            unknown
+          > | null
+        )?.['coverNotes'],
       )
-        ? ((
-            eligibility.currentVersion!.policy_snapshot as Record<
-              string,
-              unknown
-            >
-          )['coverNotes'] as unknown[])
+        ? (eligibility.currentVersion!.policy_snapshot[
+            'coverNotes'
+          ] as unknown[])
         : [];
       const previousStickerNumber =
-        (
-          currentSnapshotCoverNotes[0] as
-            | Record<string, unknown>
-            | undefined
-        )?.['stickerNumber'] as string | undefined ?? null;
+        ((
+          currentSnapshotCoverNotes[0] as Record<string, unknown> | undefined
+        )?.['stickerNumber'] as string | undefined) ?? null;
 
       const transactionNo =
         await this.identifierService.generatePolicyTransactionNumber(
@@ -389,13 +386,15 @@ export class EndorsementService {
         return existing;
       }
 
-      const transaction = await manager.getRepository(PolicyTransaction).findOne({
-        where: {
-          id: transactionId,
-          company_id: user.companyId!,
-          transaction_type: PolicyTransactionType.ENDORSEMENT,
-        },
-      });
+      const transaction = await manager
+        .getRepository(PolicyTransaction)
+        .findOne({
+          where: {
+            id: transactionId,
+            company_id: user.companyId!,
+            transaction_type: PolicyTransactionType.ENDORSEMENT,
+          },
+        });
 
       if (!transaction) {
         throw new BadRequestException('Endorsement not found');
@@ -424,8 +423,7 @@ export class EndorsementService {
           policy,
           version,
           transaction,
-          previousCoverNoteReference:
-            endorsement.previous_cover_note_reference,
+          previousCoverNoteReference: endorsement.previous_cover_note_reference,
           endorsementType: Number(endorsement.tira_endorsement_type),
           endorsementReason: transaction.reason,
         });
@@ -637,19 +635,25 @@ export class EndorsementService {
       // submission attempt. Type 3 (cover-details change) is left
       // unrestricted since a details-only change can legitimately carry
       // either no premium impact or a rating side-effect.
-      const endorsement = await manager.getRepository(PolicyEndorsement).findOne({
-        where: { policy_transaction_id: updated.id },
-      });
-      if (endorsement?.tira_endorsement_type === 1 &&
-        updated.premium_effect === PolicyTransactionPremiumEffect.CREDIT) {
+      const endorsement = await manager
+        .getRepository(PolicyEndorsement)
+        .findOne({
+          where: { policy_transaction_id: updated.id },
+        });
+      if (
+        endorsement?.tira_endorsement_type === 1 &&
+        updated.premium_effect === PolicyTransactionPremiumEffect.CREDIT
+      ) {
         throw new UnprocessableEntityException({
           code: 'ENDORSEMENT_TYPE_PREMIUM_EFFECT_MISMATCH',
           message:
             'This endorsement is configured as "Increasing Premium Charged" (TIRAMIS EndorsementType 1), but the recalculated pricing results in a premium decrease. Choose a "Decreasing Premium Charged" endorsement type, or adjust the recorded changes.',
         });
       }
-      if (endorsement?.tira_endorsement_type === 2 &&
-        updated.premium_effect === PolicyTransactionPremiumEffect.DEBIT) {
+      if (
+        endorsement?.tira_endorsement_type === 2 &&
+        updated.premium_effect === PolicyTransactionPremiumEffect.DEBIT
+      ) {
         throw new UnprocessableEntityException({
           code: 'ENDORSEMENT_TYPE_PREMIUM_EFFECT_MISMATCH',
           message:

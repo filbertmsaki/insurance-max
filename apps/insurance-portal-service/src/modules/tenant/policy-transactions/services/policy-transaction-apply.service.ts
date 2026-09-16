@@ -418,9 +418,7 @@ export class PolicyTransactionApplyService {
       endorsement.previous_sticker_number;
 
     const regulatoryResponse = this.asObject(transaction.regulatory_response);
-    const responseCoverNotes = this.asArray(
-      regulatoryResponse?.['coverNotes'],
-    )
+    const responseCoverNotes = this.asArray(regulatoryResponse?.['coverNotes'])
       .map((value) => this.asObject(value))
       .filter((value): value is Record<string, unknown> => !!value);
 
@@ -435,11 +433,9 @@ export class PolicyTransactionApplyService {
       const matched =
         responseCoverNotes.find(
           (candidate) =>
-            (entryId != null &&
-              candidate['quotationEntryId'] === entryId) ||
+            (entryId != null && candidate['quotationEntryId'] === entryId) ||
             (fleetEntry != null && candidate['fleetEntry'] === fleetEntry),
-        ) ??
-        (coverNotesArray.length === 1 ? responseCoverNotes[0] : undefined);
+        ) ?? (coverNotesArray.length === 1 ? responseCoverNotes[0] : undefined);
 
       const newReference =
         (matched?.['coverNoteReferenceNumber'] as string | undefined) ??

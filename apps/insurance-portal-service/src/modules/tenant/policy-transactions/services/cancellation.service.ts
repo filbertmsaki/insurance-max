@@ -349,13 +349,15 @@ export class CancellationService {
         return existing;
       }
 
-      const transaction = await manager.getRepository(PolicyTransaction).findOne({
-        where: {
-          id: transactionId,
-          company_id: user.companyId!,
-          transaction_type: PolicyTransactionType.CANCELLATION,
-        },
-      });
+      const transaction = await manager
+        .getRepository(PolicyTransaction)
+        .findOne({
+          where: {
+            id: transactionId,
+            company_id: user.companyId!,
+            transaction_type: PolicyTransactionType.CANCELLATION,
+          },
+        });
 
       if (!transaction) {
         throw new BadRequestException('Cancellation not found');
