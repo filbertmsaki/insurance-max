@@ -912,6 +912,9 @@ export class TiramisClientService {
     );
 
     if (response.status < 200 || response.status >= 300) {
+      this.logger.error(
+        `TIRAMIS rejected upsertClientConfiguration for company ${params.companyId} (${params.environment}): status=${response.status} body=${JSON.stringify(response.data)}`,
+      );
       throw new ConflictException(
         this.extractTiramisErrorMessage(response.data) ||
           'Unable to link this company to TIRAMIS.',

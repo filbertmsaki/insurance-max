@@ -386,16 +386,60 @@ export function MotorDetailsStep({ form, vehicleOptions }: Props) {
         )}
 
         {mode === 'existing' && selectedVehicle && (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-            <p>
-              Registration:{' '}
-              {normalizeMotorTextInput(selectedVehicle.registration_no) || '-'}
-            </p>
-            <p>
-              Chassis:{' '}
-              {normalizeMotorTextInput(selectedVehicle.chassis_no) || '-'}
-            </p>
-            <p>Year: {selectedVehicle.manufacture_year ?? '—'}</p>
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900 text-white">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.75}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5"
+                >
+                  <path d="M5 17h14M5 17a2 2 0 1 0 4 0M5 17V9.5a1 1 0 0 1 .2-.6l2-2.67A2 2 0 0 1 8.8 5.5h6.4a2 2 0 0 1 1.6.8l2 2.67a1 1 0 0 1 .2.6V17m-4 0a2 2 0 1 0 4 0M3 12h18" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-900">
+                  {normalizeMotorTextInput(selectedVehicle.registration_no) ||
+                    '—'}{' '}
+                  — {selectedVehicle.make} {selectedVehicle.model}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Linked to the selected policyholder
+                </p>
+              </div>
+            </div>
+            <dl className="grid grid-cols-1 gap-x-4 gap-y-3 px-4 py-3 text-sm sm:grid-cols-3">
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Registration
+                </dt>
+                <dd className="mt-0.5 font-medium text-slate-800">
+                  {normalizeMotorTextInput(selectedVehicle.registration_no) ||
+                    '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Chassis
+                </dt>
+                <dd className="mt-0.5 font-medium text-slate-800">
+                  {normalizeMotorTextInput(selectedVehicle.chassis_no) || '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Year
+                </dt>
+                <dd className="mt-0.5 font-medium text-slate-800">
+                  {selectedVehicle.manufacture_year ?? '—'}
+                </dd>
+              </div>
+            </dl>
           </div>
         )}
       </StepSection>
