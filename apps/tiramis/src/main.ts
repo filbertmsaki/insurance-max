@@ -1,3 +1,4 @@
+// Redeploy trigger: restart the production TIRAMIS process via CI/CD.
 import * as bodyParser from 'body-parser';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
