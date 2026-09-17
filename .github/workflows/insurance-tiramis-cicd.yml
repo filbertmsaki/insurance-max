@@ -10,13 +10,12 @@ name: Insurance Max - Tiramis CI/CD
 #   GitHub-hosted Ubuntu
 #
 # Deploy runners:
-#   Self-hosted, one per server, with the shared label
-#   tiramis-self-hosted-runner and a unique tiramis-server-1 or
-#   tiramis-server-2 label. See deploy/tiramis/README.md.
+#   Server 1 keeps its original tiramis-self-hosted-runner label.
+#   Server 2 is disabled until provisioned. See deploy/tiramis/README.md.
 #
 # This file merges what used to be two separate workflows
 # (tiramis-ci.yml + tiramis-deploy-production.yml) into one,
-# deploying the same release to both production servers sequentially.
+# deploying to enabled production servers sequentially.
 #
 # Trigger behavior (unchanged from the two-file setup):
 #
@@ -83,7 +82,7 @@ permissions:
   contents: read
   actions: read
 
-# Hold the production lock across the entire two-server rollout, including
+# Hold the production lock across the entire production rollout, including
 # migrations. Build-only runs retain their separate, cancellable CI group.
 concurrency:
   group: ${{ (github.event_name == 'push' || inputs.run_id != '') && 'tiramis-production' || format('tiramis-ci-{0}', github.ref) }}
@@ -280,14 +279,18 @@ jobs:
       fail-fast: true
       max-parallel: 1
       matrix:
-        server: [1, 2]
+        include:
+          - server: 1
+            runner_label: tiramis-self-hosted-runner
+          # Enable only after server 2 is provisioned and its runner is online.
+          # - server: 2
+          #   runner_label: tiramis-server-2
 
     runs-on:
       - self-hosted
       - linux
       - x64
-      - tiramis-self-hosted-runner
-      - tiramis-server-${{ matrix.server }}
+      - ${{ matrix.runner_label }}
 
     environment: production
     timeout-minutes: 30
@@ -580,7 +583,7 @@ jobs:
             echo '- Commit: `${{ steps.release.outputs.sha }}`'
             echo '- CI run: `${{ steps.release.outputs.run_id }}`'
             echo '- Runner: `${{ runner.name }}`'
-            echo '- Target: `tiramis-server-${{ matrix.server }}`'
+            echo '- Target: `${{ matrix.runner_label }}`'
             echo "- Server: \`$(hostname)\`"
             echo "- Internal: \`$INTERNAL_HEALTH_URL\`"
             echo "- Public: \`$PUBLIC_HEALTH_URL\`"

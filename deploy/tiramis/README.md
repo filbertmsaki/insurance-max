@@ -1,28 +1,35 @@
-# Tiramis deployment to two servers
+# Tiramis production deployment
 
-The `Insurance Max - Tiramis CI/CD` workflow builds one release artifact and
-deploys that same artifact to both servers, one server at a time. A failed
+The `Insurance Max - Tiramis CI/CD` workflow currently deploys only to server 1
+using its original `tiramis-self-hosted-runner` label. No runner configuration
+change is needed on that server. Server 2 is not set up and is disabled in the
+deployment matrix, so the workflow will not queue a job or wait for it.
+
+When server 2 is enabled, the workflow deploys the same release artifact to both
+servers, one server at a time. A failed
 deployment stops the remaining rollout. Production workflow runs cannot overlap,
 including their database migrations. A successful first deployment is not
 automatically rolled back if the other server fails.
 
-## Register the runners
+## Enable the second server later
 
 In the GitHub repository, open **Settings → Actions → Runners → New self-hosted
-runner** and follow the Linux x64 installation instructions on each server.
-Use different runner names, install each runner as a service, and assign these
+runner** and follow the Linux x64 installation instructions on server 2.
+Use a different runner name, install it as a service, and assign these
 labels (the first three are normally assigned automatically):
 
 | Server | Required labels |
 | --- | --- |
-| 1 | `self-hosted`, `linux`, `x64`, `tiramis-self-hosted-runner`, `tiramis-server-1` |
-| 2 | `self-hosted`, `linux`, `x64`, `tiramis-self-hosted-runner`, `tiramis-server-2` |
+| 1 (existing) | `self-hosted`, `linux`, `x64`, `tiramis-self-hosted-runner` |
+| 2 (disabled) | `self-hosted`, `linux`, `x64`, `tiramis-server-2` |
 
-Add `tiramis-server-1` to the existing production runner. Assign
-`tiramis-server-2` only to the runner on the second server. Do not give one
-runner both server labels: each label must identify its intended host.
-Both runners must be online and available to this repository before a complete
-rollout can finish.
+Keep `tiramis-self-hosted-runner` exclusive to server 1 and `tiramis-server-2`
+exclusive to server 2, so each deployment reaches its intended host.
+After preparing server 2 as described below and confirming its runner is online,
+uncomment its two-line entry under `jobs.deploy.strategy.matrix.include` in
+`.github/workflows/insurance-tiramis-cicd.yml`. Leave that entry commented out
+until server 2 is ready. Once enabled, both runners must be available to this
+repository before a complete rollout can finish.
 
 ## Prepare each server
 
@@ -46,7 +53,7 @@ roll back database migrations.
 
 ## Health URLs
 
-Both deployment jobs use the existing `production` GitHub environment and its
+All enabled deployment jobs use the existing `production` GitHub environment and its
 protection rules. The existing `INTERNAL_HEALTH_URL` and `PUBLIC_HEALTH_URL`
 variables remain shared defaults. If the servers use different URLs, add these
 optional variables to that environment:
@@ -66,10 +73,10 @@ being deployed even if public DNS points at a load balancer.
 
 ## Running a deployment
 
-- A matching push to `main` builds, tests, and deploys to both servers.
+- A matching push to `main` builds, tests, and deploys to enabled servers (currently server 1 only).
 - Pull requests and manual runs without `run_id` only build and test.
 - A manual run with a previous successful run's `run_id` deploys its exact
-  artifact to both servers without rebuilding.
+  artifact to enabled servers without rebuilding.
 
 After a failed rollout, inspect the per-server job logs and fix the failure
 before retrying. The GitHub concurrency group retains at most one pending run
