@@ -9,12 +9,14 @@ name: Insurance Max - Tiramis CI/CD
 # Build runner:
 #   GitHub-hosted Ubuntu
 #
-# Deploy runner:
-#   Self-hosted (tiramis-self-hosted-runner)
+# Deploy runners:
+#   Self-hosted, one per server, with the shared label
+#   tiramis-self-hosted-runner and a unique tiramis-server-1 or
+#   tiramis-server-2 label. See deploy/tiramis/README.md.
 #
 # This file merges what used to be two separate workflows
 # (tiramis-ci.yml + tiramis-deploy-production.yml) into one,
-# without changing what either job does.
+# deploying the same release to both production servers sequentially.
 #
 # Trigger behavior (unchanged from the two-file setup):
 #
@@ -49,7 +51,7 @@ on:
       - 'tsconfig.build.json'
       - 'eslint.config.mjs'
       - 'deploy/tiramis/**'
-      - '.github/workflows/tiramis-cicd.yml'
+      - '.github/workflows/insurance-tiramis-cicd.yml'
 
   pull_request:
     branches:
@@ -64,7 +66,7 @@ on:
       - 'tsconfig.build.json'
       - 'eslint.config.mjs'
       - 'deploy/tiramis/**'
-      - '.github/workflows/tiramis-cicd.yml'
+      - '.github/workflows/insurance-tiramis-cicd.yml'
 
   workflow_dispatch:
     inputs:
@@ -80,6 +82,12 @@ on:
 permissions:
   contents: read
   actions: read
+
+# Hold the production lock across the entire two-server rollout, including
+# migrations. Build-only runs retain their separate, cancellable CI group.
+concurrency:
+  group: ${{ (github.event_name == 'push' || inputs.run_id != '') && 'tiramis-production' || format('tiramis-ci-{0}', github.ref) }}
+  cancel-in-progress: ${{ github.event_name != 'push' && inputs.run_id == '' }}
 
 jobs:
   # ==========================================================
@@ -99,10 +107,6 @@ jobs:
       (github.event_name == 'workflow_dispatch' && inputs.run_id == '')
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
-    concurrency:
-      group: tiramis-ci-${{ github.ref }}
-      cancel-in-progress: true
 
     steps:
       - name: Checkout repository
@@ -262,7 +266,7 @@ jobs:
   # workflow_dispatch with no run_id (that path is build-only).
   # ==========================================================
   deploy:
-    name: Deploy TIRAMIS to production
+    name: Deploy TIRAMIS to server ${{ matrix.server }}
     needs: validate-and-package
     if: >-
       always() &&
@@ -271,25 +275,29 @@ jobs:
         (github.event_name == 'workflow_dispatch' && inputs.run_id != '')
       )
 
+    strategy:
+      # Stop the rollout on failure; never run migrations on both hosts at once.
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        server: [1, 2]
+
     runs-on:
       - self-hosted
       - linux
       - x64
       - tiramis-self-hosted-runner
+      - tiramis-server-${{ matrix.server }}
 
     environment: production
     timeout-minutes: 30
 
-    concurrency:
-      group: tiramis-production
-      cancel-in-progress: false
-
     env:
       BASE_DIR: /opt/apps/tiramis
       APP_NAME: tiramis
-      # GitHub Environment variables can override these defaults when hosts change.
-      INTERNAL_HEALTH_URL: ${{ vars.INTERNAL_HEALTH_URL || 'http://127.0.0.1:9090/api/health' }}
-      PUBLIC_HEALTH_URL: ${{ vars.PUBLIC_HEALTH_URL || 'https://ussdvd.alliance.co.tz/tiramis-api/api/health' }}
+      # Optional per-server variables override the existing shared defaults.
+      INTERNAL_HEALTH_URL: ${{ vars[format('TIRAMIS_SERVER_{0}_INTERNAL_HEALTH_URL', matrix.server)] || vars.INTERNAL_HEALTH_URL || 'http://127.0.0.1:9090/api/health' }}
+      PUBLIC_HEALTH_URL: ${{ vars[format('TIRAMIS_SERVER_{0}_PUBLIC_HEALTH_URL', matrix.server)] || vars.PUBLIC_HEALTH_URL || 'https://ussdvd.alliance.co.tz/tiramis-api/api/health' }}
 
     steps:
       - name: Validate deployment URLs
@@ -535,12 +543,26 @@ jobs:
         run: |
           set -Eeuo pipefail
 
+          # Check this server's proxy even when public DNS points at a load balancer.
+          PROXY_RESOLVE="$(python3 - <<'PY'
+          import os
+          from urllib.parse import urlsplit
+
+          url = urlsplit(os.environ['PUBLIC_HEALTH_URL'])
+          if url.scheme not in ('http', 'https') or not url.hostname:
+              raise SystemExit('PUBLIC_HEALTH_URL must be an HTTP(S) URL with a hostname')
+          port = url.port or (443 if url.scheme == 'https' else 80)
+          print(f'{url.hostname}:{port}:127.0.0.1')
+          PY
+          )"
+
           code="$(curl -ksS \
             -o /dev/null \
             -w '%{http_code}' \
             --connect-timeout 5 \
             --max-time 15 \
-            --resolve ussdvd.alliance.co.tz:443:127.0.0.1 \
+            --noproxy '*' \
+            --resolve "$PROXY_RESOLVE" \
             "$PUBLIC_HEALTH_URL" || true)"
 
           [[ "$code" == '200' ]] || {
@@ -558,6 +580,7 @@ jobs:
             echo '- Commit: `${{ steps.release.outputs.sha }}`'
             echo '- CI run: `${{ steps.release.outputs.run_id }}`'
             echo '- Runner: `${{ runner.name }}`'
+            echo '- Target: `tiramis-server-${{ matrix.server }}`'
             echo "- Server: \`$(hostname)\`"
             echo "- Internal: \`$INTERNAL_HEALTH_URL\`"
             echo "- Public: \`$PUBLIC_HEALTH_URL\`"
