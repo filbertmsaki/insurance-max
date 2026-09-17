@@ -130,6 +130,7 @@ jobs:
             nest-cli.json
             tsconfig.json
             deploy/tiramis/deploy.sh
+            deploy/tiramis/setup-server.sh
             deploy/tiramis/ecosystem.config.js
           )
 
@@ -141,6 +142,7 @@ jobs:
           done
 
           bash -n deploy/tiramis/deploy.sh
+          bash -n deploy/tiramis/setup-server.sh
           node --check deploy/tiramis/ecosystem.config.js
 
       - name: Install dependencies

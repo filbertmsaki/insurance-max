@@ -28,7 +28,7 @@ module.exports = {
 
       out_file: '/var/log/pm2/tiramis-out.log',
       error_file: '/var/log/pm2/tiramis-error.log',
-      pid_file: '/var/run/tiramis.pid',
+      pid_file: '/opt/apps/tiramis/shared/tiramis.pid',
 
       merge_logs: true,
       time: true,

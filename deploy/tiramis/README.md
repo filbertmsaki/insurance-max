@@ -11,6 +11,76 @@ deployment stops the remaining rollout. Production workflow runs cannot overlap,
 including their database migrations. A successful first deployment is not
 automatically rolled back if the other server fails.
 
+## One-command setup for server 2
+
+Copy `setup-server.sh` to server 2 and run it on **Ubuntu/Debian x64 with
+systemd**:
+
+```bash
+sudo bash setup-server.sh
+```
+
+The default deployment user is `alliance`. To choose another account:
+
+```bash
+sudo bash setup-server.sh --user deploy
+```
+
+The script installs:
+
+- Node.js 22 and npm if Node is absent, plus PM2.
+- Python 3, Git, curl, OpenSSL, archive tools, and native package build tools.
+- PostgreSQL client tools (`psql` and `pg_dump`) from the OS package repository.
+- PM2 systemd startup for the deployment account.
+
+It creates the user if missing and prepares these directories with ownership
+assigned to that user and mode `750`:
+
+```text
+/opt/apps/tiramis/
+  releases/
+  shared/
+  certificates/
+    live/
+    test/
+/opt/actions-runner-tiramis-server-2/
+```
+
+It grants access to `/var/log/pm2` using ACLs, preserving that shared directory's
+owner. Existing files and release contents are preserved. The deployment user
+is not granted sudo privileges or a login password. Configure SSH access
+separately if needed. An existing system Node version other than 22 must be
+upgraded deliberately before running setup.
+
+For a database hosted **on server 2**, optionally install and start PostgreSQL:
+
+```bash
+sudo bash setup-server.sh --with-postgres
+```
+
+Use the default command when connecting to an existing database on another
+server. Database users, passwords, application databases, and network access
+are configured manually. The PostgreSQL version comes from the OS repositories;
+ensure the client version is compatible with your database before using backups.
+
+After setup, manually:
+
+1. Create `/opt/apps/tiramis/shared/.env` using `shared.env.example`, owned by
+   the deployment user with mode `600`.
+2. Copy certificate files into `certificates/live` and `certificates/test`,
+   readable by that user (typically mode `640`). Setup requires no certificates
+   and does not copy, validate, or modify certificate files.
+3. Register the GitHub runner under the same user and follow the steps below
+   to enable server 2 in the workflow.
+
+For a shared production database, retain server 1's encryption key and set
+`TIRAMIS_RETRY_ENABLED=false` on server 2; keep automatic retries on one host.
+
+Deployment installs application npm dependencies, runs migrations, creates the
+`current` release symlink, and saves PM2's process list. Setup does not deploy
+the app or create an empty PM2 startup dump. Reuse the setup command if it is
+interrupted; existing application files are preserved.
+
 ## Enable the second server later
 
 In the GitHub repository, open **Settings → Actions → Runners → New self-hosted
@@ -39,7 +109,7 @@ Match the existing production setup on both servers:
 - Provide `/opt/apps/tiramis/shared/.env` with that server's configuration and
   the certificates and other external files referenced by it.
 - Allow the runner service user to manage `/opt/apps/tiramis`, write PM2 logs
-  under `/var/log/pm2`, and create the configured `/var/run/tiramis.pid` file.
+  under `/var/log/pm2`, and create PID files under `/opt/apps/tiramis/shared`.
   Run deployments under the account that owns the Tiramis PM2 process.
 - Configure Apache's Tiramis reverse proxy on each server. The application
   uses port 9090 by default.
