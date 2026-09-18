@@ -1,4 +1,5 @@
 import { registerAs } from '@nestjs/config';
+import { join } from 'path';
 
 import { buildUrl, normalizeBaseUrl } from '@insurance-max/shared-config';
 
@@ -27,6 +28,18 @@ export default registerAs('tiramisService', () => {
     requestTimeoutMs: Number(process.env.TIRAMIS_HTTP_TIMEOUT_MS || 60000),
 
     logPayloads: process.env.TIRAMIS_LOG_PAYLOADS === 'true',
+
+    requestLogEnabled: process.env.TIRAMIS_REQUEST_LOG_ENABLED !== 'false',
+    requestLogDir:
+      process.env.TIRAMIS_REQUEST_LOG_DIR?.trim() ||
+      join(
+        process.env.TIRAMIS_CALLBACK_ERROR_LOG_DIR?.trim() ||
+          (process.env.APP_ENV === 'production' ||
+          process.env.NODE_ENV === 'production'
+            ? '/opt/apps/tiramis/shared'
+            : join(process.cwd(), 'logs')),
+        'tira-requests',
+      ),
 
     portalNotifyEnabled: process.env.TIRAMIS_PORTAL_NOTIFY_ENABLED !== 'false',
 

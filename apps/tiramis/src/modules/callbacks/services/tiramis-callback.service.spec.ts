@@ -39,6 +39,7 @@ function createService(overrides: Record<string, any> = {}) {
     ...overrides.deadLetterRepository,
   };
 
+  const requestLog = { append: jest.fn().mockResolvedValue(undefined) };
   const service = new TiramisCallbackService(
     {} as any,
     {} as any,
@@ -52,6 +53,7 @@ function createService(overrides: Record<string, any> = {}) {
     signatureService,
     {} as any,
     {} as any,
+    requestLog as any,
   );
 
   return {
@@ -60,10 +62,63 @@ function createService(overrides: Record<string, any> = {}) {
     tiramisSubmissionService,
     signatureService,
     deadLetterRepository,
+    requestLog,
   };
 }
 
 describe('TiramisCallbackService', () => {
+  it('appends callback XML and returned acknowledgement under the TIRA request ID', async () => {
+    const { service, requestLog } = createService();
+    jest.spyOn(service as any, 'parseCallback').mockReturnValue({
+      requestId: 'Aiic',
+      responseId: 'RESP-1',
+      responseStatusCode: 'TIRA001',
+    });
+    jest.spyOn(service as any, 'processParsedCallback').mockResolvedValue({
+      acknowledgementStatusCode: 'TIRA001',
+      acknowledgementXml: '<Ack/>',
+    });
+    await service.handleCallback({
+      environment: 'live',
+      rawXml: '<Callback/>',
+    });
+    expect(requestLog.append).toHaveBeenNthCalledWith(
+      1,
+      'Aiic',
+      expect.objectContaining({
+        event: 'tira.callback.received',
+        xml: '<Callback/>',
+        internalTest: false,
+      }),
+    );
+    expect(requestLog.append).toHaveBeenNthCalledWith(
+      2,
+      'Aiic',
+      expect.objectContaining({
+        event: 'tira.callback.acknowledgement',
+        xml: '<Ack/>',
+      }),
+    );
+  });
+
+  it('logs callback failures and propagates the original error', async () => {
+    const { service, requestLog } = createService();
+    const error = new Error('Callback failed');
+    jest
+      .spyOn(service as any, 'parseCallback')
+      .mockReturnValue({ requestId: 'Aiic' });
+    jest
+      .spyOn(service as any, 'processParsedCallback')
+      .mockRejectedValue(error);
+    await expect(
+      service.handleCallback({ environment: 'live', rawXml: '<Callback/>' }),
+    ).rejects.toBe(error);
+    expect(requestLog.append).toHaveBeenLastCalledWith('Aiic', {
+      event: 'tira.callback.failed',
+      message: 'Callback failed',
+    });
+  });
+
   it('parses documented nested callback headers and details', () => {
     const { service } = createService();
 

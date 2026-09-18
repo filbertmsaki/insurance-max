@@ -241,6 +241,7 @@ export class TiramisVerificationService {
 
     try {
       httpResponse = await this.httpClient.postXml({
+        requestId,
         url: endpoint,
         xml: requestXml,
         headers,

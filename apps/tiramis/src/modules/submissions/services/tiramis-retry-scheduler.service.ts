@@ -247,6 +247,7 @@ export class TiramisRetrySchedulerService {
 
     try {
       const response = await this.httpClient.postXml({
+        requestId: retryAttempt.requestId,
         url: endpoint,
         headers,
         xml: requestXml,

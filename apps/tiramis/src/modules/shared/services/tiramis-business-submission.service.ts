@@ -71,6 +71,7 @@ export class TiramisBusinessSubmissionService {
 
     try {
       const response = await this.httpClient.postXml({
+        requestId: params.requestId,
         url: endpoint,
         xml: requestXml,
         headers,

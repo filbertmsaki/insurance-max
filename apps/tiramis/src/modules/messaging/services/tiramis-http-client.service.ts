@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 
 import { RequestContextService } from '@insurance-max/shared-kernel';
+import { TiramisRequestLogService } from './tiramis-request-log.service';
 
 import {
   TiramisHttpRequest,
@@ -28,16 +29,24 @@ export class TiramisHttpClientService {
     private readonly configService: ConfigService,
 
     private readonly requestContextService: RequestContextService,
+    private readonly requestLog: TiramisRequestLogService,
   ) {}
 
   async postXml(request: TiramisHttpRequest): Promise<TiramisHttpResponse> {
-    const requestId =
-      this.requestContextService.getRequestId() || 'background-job';
+    const requestId = request.requestId;
+    const correlationId = this.requestContextService.getRequestId();
 
     const logPayloads =
       this.configService.get<boolean>('tiramisService.logPayloads') ?? false;
 
     try {
+      await this.requestLog.append(requestId, {
+        event: 'tira.request.sent',
+        correlationId,
+        url: request.url,
+        clientCode: request.headers.ClientCode,
+        xml: request.xml,
+      });
       this.logger.log(
         JSON.stringify({
           event: 'tira.request.sent',
@@ -74,6 +83,13 @@ export class TiramisHttpClientService {
         headers: response.headers,
       };
 
+      await this.requestLog.append(requestId, {
+        event: 'tira.response.received',
+        statusCode: result.statusCode,
+        statusText: result.statusText,
+        xml: result.rawXml,
+      });
+
       this.logger.log(
         JSON.stringify({
           event: 'tira.response.received',
@@ -92,6 +108,12 @@ export class TiramisHttpClientService {
         message?: string;
         stack?: string;
       };
+
+      await this.requestLog.append(requestId, {
+        event: 'tira.request.failed',
+        code: requestError.code,
+        message: requestError.message || 'Unknown error',
+      });
 
       if (requestError.code === 'ECONNABORTED') {
         throw new RequestTimeoutException({

@@ -81,6 +81,8 @@ export const tiramisEnvValidationSchema = Joi.object({
     .max(300000)
     .default(60000),
   TIRAMIS_LOG_PAYLOADS: Joi.boolean().default(false),
+  TIRAMIS_REQUEST_LOG_ENABLED: Joi.boolean().default(true),
+  TIRAMIS_REQUEST_LOG_DIR: Joi.string().trim().min(1).optional(),
   TIRAMIS_RETRY_ENABLED: Joi.boolean().default(true),
   TIRAMIS_RETRY_BATCH_SIZE: Joi.number().integer().min(1).default(20),
   TIRAMIS_RETRY_MAX_ATTEMPTS: Joi.number().integer().min(1).default(5),

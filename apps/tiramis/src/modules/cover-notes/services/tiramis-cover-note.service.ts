@@ -343,6 +343,7 @@ export class TiramisCoverNoteService {
 
     try {
       const response = await this.httpClient.postXml({
+        requestId: coverNote.requestId,
         url: endpoint,
         xml: requestXml,
         headers,

@@ -63,6 +63,39 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 Keep that key stable after running the config seed, because it encrypts stored
 TIRAMIS client keys and certificate passwords.
 
+## Per-request TIRA logs
+
+TIRAMIS appends full outbound XML, the immediate TIRA HTTP response, callback
+XML, and callback acknowledgement XML to one file per TIRA `RequestId`, e.g.
+`/opt/apps/tiramis/shared/tira-requests/AICCNRR19070658.log`. Transport errors
+(including timeouts), callback rejections, and processing errors are also logged.
+Each line is a JSON object with a timestamp, request ID, event, and relevant
+payload. The `xml` field contains the complete XML as a JSON string.
+
+```dotenv
+TIRAMIS_REQUEST_LOG_ENABLED=true
+TIRAMIS_REQUEST_LOG_DIR=/opt/apps/tiramis/shared/tira-requests
+```
+
+Logging is enabled by default. If no directory is configured, logs go to
+`tira-requests` under `TIRAMIS_CALLBACK_ERROR_LOG_DIR` when set, otherwise under
+`/opt/apps/tiramis/shared` in production or `./logs` in development. The directory
+is created automatically by the application user; it must be writable. Newly
+created log files use mode `600` and contain full business payloads. HTTP
+authentication headers are not written. Arrange retention/cleanup for this
+directory; these files append without automatic rotation.
+
+These files use the business request ID, not the inbound HTTP correlation ID.
+Retries with a new request ID get their own file. Unsafe filename characters or
+oversized IDs use a hash-based filename while retaining the original ID inside
+the file. Malformed XML with no parseable request ID uses the existing callback
+error/quarantine handling. Files are local to each server; requests and callbacks
+handled on different hosts produce separate portions of the log on those hosts.
+
+Set `TIRAMIS_REQUEST_LOG_ENABLED=false` to disable this feature. The existing
+`TIRAMIS_LOG_PAYLOADS` flag continues to control console payload logging only.
+File-write failures produce a warning and do not fail TIRA request processing.
+
 ## Internal Callback Tests
 
 `POST /api/internal/tiramis/callback-tests/live` accepts the same XML callback

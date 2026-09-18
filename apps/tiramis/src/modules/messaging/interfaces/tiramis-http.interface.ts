@@ -6,6 +6,7 @@ export interface TiramisHttpHeaders {
 }
 
 export interface TiramisHttpRequest {
+  requestId: string;
   url: string;
   xml: string;
   headers: TiramisHttpHeaders;

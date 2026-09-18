@@ -12,6 +12,7 @@ import { TiramisCoverNoteEntity } from '../../cover-notes/entities/tiramis-cover
 import { TiramisSignatureService } from '../../messaging/services/tiramis-signature.service';
 import { TiramisXmlBuilderService } from '../../messaging/services/tiramis-xml-builder.service';
 import { TiramisXmlParserService } from '../../messaging/services/tiramis-xml-parser.service';
+import { TiramisRequestLogService } from '../../messaging/services/tiramis-request-log.service';
 import { TiramisPortalNotificationService } from '../../portal-notifications/services/tiramis-portal-notification.service';
 import { TiramisPolicyEntity } from '../../policies/entities/tiramis-policy.entity';
 import { TiramisRequestIdService } from '../../submissions/services/tiramis-request-id.service';
@@ -87,6 +88,7 @@ export class TiramisCallbackService {
     private readonly signatureService: TiramisSignatureService,
     private readonly portalNotificationService: TiramisPortalNotificationService,
     private readonly callbackBusinessUpdater: TiramisCallbackBusinessUpdaterService,
+    private readonly requestLog: TiramisRequestLogService,
   ) {}
 
   async handleCallback(params: {
@@ -134,6 +136,43 @@ export class TiramisCallbackService {
       throw error;
     }
 
+    await this.requestLog.append(parsedCallback.requestId, {
+      event: 'tira.callback.received',
+      environment: params.environment,
+      responseId: parsedCallback.responseId,
+      statusCode: parsedCallback.responseStatusCode,
+      internalTest: params.bypassSignatureVerification,
+      xml: params.rawXml,
+    });
+
+    try {
+      const acknowledgement = await this.processParsedCallback(
+        params,
+        parsedCallback,
+      );
+      await this.requestLog.append(parsedCallback.requestId, {
+        event: 'tira.callback.acknowledgement',
+        statusCode: acknowledgement.acknowledgementStatusCode,
+        xml: acknowledgement.acknowledgementXml,
+      });
+      return acknowledgement;
+    } catch (error: unknown) {
+      await this.requestLog.append(parsedCallback.requestId, {
+        event: 'tira.callback.failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
+  }
+
+  private async processParsedCallback(
+    params: {
+      environment: string;
+      rawXml: string;
+      bypassSignatureVerification: boolean;
+    },
+    parsedCallback: ParsedTiramisCallbackDto,
+  ): Promise<TiramisCallbackAckResultDto> {
     const signatureVerification = params.bypassSignatureVerification
       ? { isValid: true }
       : await this.verifyCallbackSignature({
@@ -144,6 +183,11 @@ export class TiramisCallbackService {
     if (!signatureVerification.isValid) {
       const reason =
         signatureVerification.reason || 'Invalid TIRAMIS callback signature';
+
+      await this.requestLog.append(parsedCallback.requestId, {
+        event: 'tira.callback.rejected',
+        message: reason,
+      });
 
       await this.quarantineCallback({
         environment: params.environment,
@@ -280,6 +324,10 @@ export class TiramisCallbackService {
 
       return acknowledgement;
     } catch (error: any) {
+      await this.requestLog.append(parsedCallback.requestId, {
+        event: 'tira.callback.failed',
+        message: error?.message || 'Unknown error',
+      });
       this.logger.error(
         `Failed to process TIRAMIS callback for requestId ${parsedCallback.requestId}: ${error?.message || 'Unknown error'}`,
         error?.stack,

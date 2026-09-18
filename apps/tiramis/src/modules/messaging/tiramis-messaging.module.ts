@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { TiramisHttpClientService } from './services/tiramis-http-client.service';
+import { TiramisRequestLogService } from './services/tiramis-request-log.service';
 import { TiramisSignatureService } from './services/tiramis-signature.service';
 import { TiramisXmlBuilderService } from './services/tiramis-xml-builder.service';
 import { TiramisXmlParserService } from './services/tiramis-xml-parser.service';
@@ -31,6 +32,7 @@ import { TiramisXmlParserService } from './services/tiramis-xml-parser.service';
     TiramisXmlParserService,
     TiramisSignatureService,
     TiramisHttpClientService,
+    TiramisRequestLogService,
   ],
 
   exports: [
@@ -38,6 +40,7 @@ import { TiramisXmlParserService } from './services/tiramis-xml-parser.service';
     TiramisXmlParserService,
     TiramisSignatureService,
     TiramisHttpClientService,
+    TiramisRequestLogService,
   ],
 })
 export class TiramisMessagingModule {}
