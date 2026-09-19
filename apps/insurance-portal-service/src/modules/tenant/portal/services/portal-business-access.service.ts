@@ -757,11 +757,24 @@ export class PortalBusinessAccessService {
     if (account.actor_type === PortalActorType.CUSTOMER) {
       this.assertCustomerAccount(account);
 
-      qb.andWhere('quotation.company_id = :portalCompanyId', {
-        portalCompanyId: account.company_id,
-      }).andWhere('quotation.customer_id = :portalCustomerId', {
-        portalCustomerId: account.customer_id,
-      });
+      qb.andWhere(
+        `
+        EXISTS (
+          SELECT 1
+          FROM portal_accounts scoped_account
+          WHERE scoped_account.user_id = :portalUserId
+            AND scoped_account.actor_type = :portalCustomerActorType
+            AND scoped_account.status = 'ACTIVE'
+            AND scoped_account.deleted_at IS NULL
+            AND scoped_account.company_id = quotation.company_id
+            AND scoped_account.customer_id = quotation.customer_id
+        )
+        `,
+        {
+          portalUserId: account.user_id,
+          portalCustomerActorType: PortalActorType.CUSTOMER,
+        },
+      );
 
       return;
     }
@@ -781,11 +794,24 @@ export class PortalBusinessAccessService {
     if (account.actor_type === PortalActorType.CUSTOMER) {
       this.assertCustomerAccount(account);
 
-      qb.andWhere('policy.company_id = :portalCompanyId', {
-        portalCompanyId: account.company_id,
-      }).andWhere('policy.customer_id = :portalCustomerId', {
-        portalCustomerId: account.customer_id,
-      });
+      qb.andWhere(
+        `
+        EXISTS (
+          SELECT 1
+          FROM portal_accounts scoped_account
+          WHERE scoped_account.user_id = :portalUserId
+            AND scoped_account.actor_type = :portalCustomerActorType
+            AND scoped_account.status = 'ACTIVE'
+            AND scoped_account.deleted_at IS NULL
+            AND scoped_account.company_id = policy.company_id
+            AND scoped_account.customer_id = policy.customer_id
+        )
+        `,
+        {
+          portalUserId: account.user_id,
+          portalCustomerActorType: PortalActorType.CUSTOMER,
+        },
+      );
 
       return;
     }
@@ -805,11 +831,24 @@ export class PortalBusinessAccessService {
     if (account.actor_type === PortalActorType.CUSTOMER) {
       this.assertCustomerAccount(account);
 
-      qb.andWhere('invoice.company_id = :portalCompanyId', {
-        portalCompanyId: account.company_id,
-      }).andWhere('invoice.customer_id = :portalCustomerId', {
-        portalCustomerId: account.customer_id,
-      });
+      qb.andWhere(
+        `
+        EXISTS (
+          SELECT 1
+          FROM portal_accounts scoped_account
+          WHERE scoped_account.user_id = :portalUserId
+            AND scoped_account.actor_type = :portalCustomerActorType
+            AND scoped_account.status = 'ACTIVE'
+            AND scoped_account.deleted_at IS NULL
+            AND scoped_account.company_id = invoice.company_id
+            AND scoped_account.customer_id = invoice.customer_id
+        )
+        `,
+        {
+          portalUserId: account.user_id,
+          portalCustomerActorType: PortalActorType.CUSTOMER,
+        },
+      );
 
       return;
     }
@@ -829,11 +868,24 @@ export class PortalBusinessAccessService {
     if (account.actor_type === PortalActorType.CUSTOMER) {
       this.assertCustomerAccount(account);
 
-      qb.andWhere('receipt.company_id = :portalCompanyId', {
-        portalCompanyId: account.company_id,
-      }).andWhere('receipt.customer_id = :portalCustomerId', {
-        portalCustomerId: account.customer_id,
-      });
+      qb.andWhere(
+        `
+        EXISTS (
+          SELECT 1
+          FROM portal_accounts scoped_account
+          WHERE scoped_account.user_id = :portalUserId
+            AND scoped_account.actor_type = :portalCustomerActorType
+            AND scoped_account.status = 'ACTIVE'
+            AND scoped_account.deleted_at IS NULL
+            AND scoped_account.company_id = receipt.company_id
+            AND scoped_account.customer_id = receipt.customer_id
+        )
+        `,
+        {
+          portalUserId: account.user_id,
+          portalCustomerActorType: PortalActorType.CUSTOMER,
+        },
+      );
 
       return;
     }

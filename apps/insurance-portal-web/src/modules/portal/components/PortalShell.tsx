@@ -3,6 +3,7 @@ import {
   BadgeDollarSign,
   BellRing,
   BriefcaseBusiness,
+  CarFront,
   FileQuestion,
   Files,
   FileText,
@@ -10,7 +11,9 @@ import {
   LayoutGrid,
   MessageSquareText,
   ReceiptText,
+  Search,
   ShieldCheck,
+  ShieldPlus,
   UserCircle2,
   Users,
 } from 'lucide-react';
@@ -24,6 +27,9 @@ import type { PortalAudience } from '../api';
 
 const navigationIcons = {
   dashboard: LayoutGrid,
+  buyCover: ShieldPlus,
+  checkCover: Search,
+  vehicles: CarFront,
   profile: UserCircle2,
   quotations: FileText,
   policies: BriefcaseBusiness,
@@ -61,6 +67,25 @@ export function PortalShell({ audience }: { audience: PortalAudience }) {
       label: 'Profile',
       icon: navigationIcons.profile,
     },
+    ...(audience === 'customer'
+      ? [
+          {
+            to: `${basePath}/buy-cover`,
+            label: 'Buy Cover',
+            icon: navigationIcons.buyCover,
+          },
+          {
+            to: `${basePath}/check-cover`,
+            label: 'Check Cover',
+            icon: navigationIcons.checkCover,
+          },
+          {
+            to: `${basePath}/vehicles`,
+            label: 'Vehicles',
+            icon: navigationIcons.vehicles,
+          },
+        ]
+      : []),
     {
       to: `${basePath}/quotations`,
       label: 'Quotations',

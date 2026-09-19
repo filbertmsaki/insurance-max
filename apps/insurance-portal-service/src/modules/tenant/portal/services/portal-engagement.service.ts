@@ -23,7 +23,7 @@ import { Quotation } from '../../quotations/entities/quotation.entity';
 
 import { PortalListQueryDto } from '../dto/portal-query.dto';
 import { PortalAccount } from '../entities/portal-account.entity';
-import { PortalActorType } from '../enums/portal.enums';
+import { PortalAccountStatus, PortalActorType } from '../enums/portal.enums';
 
 type ScopeResourceKey =
   | 'CUSTOMER'
@@ -67,6 +67,8 @@ export class PortalEngagementService {
     private readonly invoiceRepository: Repository<Invoice>,
     @InjectRepository(Receipt)
     private readonly receiptRepository: Repository<Receipt>,
+    @InjectRepository(PortalAccount)
+    private readonly portalAccountRepository: Repository<PortalAccount>,
     private readonly documentsService: DocumentsService,
   ) {}
 
@@ -304,33 +306,52 @@ export class PortalEngagementService {
         throw new NotFoundException('Portal customer account is not linked');
       }
 
+      const accounts = await this.portalAccountRepository.find({
+        select: { company_id: true, customer_id: true },
+        where: {
+          user_id: account.user_id,
+          actor_type: PortalActorType.CUSTOMER,
+          status: PortalAccountStatus.ACTIVE,
+        },
+      });
+      const customerIds = new Set(
+        accounts
+          .map((item) => item.customer_id)
+          .filter((value): value is string => Boolean(value)),
+      );
+      const companyIds = new Set(accounts.map((item) => item.company_id));
+
+      if (customerIds.size === 0 || companyIds.size === 0) {
+        throw new NotFoundException('Portal customer account is not linked');
+      }
+
       const [quotations, policies, invoices, receipts] = await Promise.all([
         this.quotationRepository.find({
           select: { id: true },
           where: {
-            company_id: account.company_id,
-            customer_id: account.customer_id,
+            company_id: In([...companyIds]),
+            customer_id: In([...customerIds]),
           },
         }),
         this.policyRepository.find({
           select: { id: true },
           where: {
-            company_id: account.company_id,
-            customer_id: account.customer_id,
+            company_id: In([...companyIds]),
+            customer_id: In([...customerIds]),
           },
         }),
         this.invoiceRepository.find({
           select: { id: true },
           where: {
-            company_id: account.company_id,
-            customer_id: account.customer_id,
+            company_id: In([...companyIds]),
+            customer_id: In([...customerIds]),
           },
         }),
         this.receiptRepository.find({
           select: { id: true },
           where: {
-            company_id: account.company_id,
-            customer_id: account.customer_id,
+            company_id: In([...companyIds]),
+            customer_id: In([...customerIds]),
           },
         }),
       ]);
@@ -338,9 +359,9 @@ export class PortalEngagementService {
       return {
         actorType: account.actor_type,
         visibleFlag: 'customer_visible',
-        companyIds: new Set([account.company_id]),
+        companyIds,
         resourceIds: {
-          CUSTOMER: new Set([account.customer_id]),
+          CUSTOMER: customerIds,
           POLICY: new Set(policies.map((item) => item.id)),
           QUOTATION: new Set(quotations.map((item) => item.id)),
           INVOICE: new Set(invoices.map((item) => item.id)),

@@ -69,6 +69,78 @@ export interface PortalPagedResponse<T> {
 
 export type PortalBusinessRecord = Record<string, unknown> & { id: string };
 
+export interface CustomerInsuranceCompany {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  website: string | null;
+  description: string | null;
+  tira_ready: boolean;
+}
+
+export interface CustomerPortalProduct {
+  id: string;
+  name: string;
+  description: string | null;
+  business_line: string;
+  supports_fleet: boolean;
+  category: { id: string; name: string } | null;
+}
+
+export interface CustomerPortalRisk {
+  id: string;
+  name: string;
+  description: string | null;
+  product_id: string;
+}
+
+export interface CustomerPortalVehicle {
+  id: string;
+  company_id: string;
+  company_name: string;
+  registration_no: string | null;
+  chassis_no: string | null;
+  make: string | null;
+  model: string | null;
+  color: string | null;
+  manufacture_year: number | null;
+  status: string;
+  latest_policy_expiry: string | null;
+  latest_policy_status: string | null;
+}
+
+export interface CustomerCoverCheckResult {
+  active: boolean;
+  matches: Array<{
+    insurance_company: string;
+    cover_type: string | null;
+    effective_date: string;
+    expiry_date: string;
+    vehicle: {
+      registration_no: string | null;
+      chassis_no: string | null;
+      make: string | null;
+      model: string | null;
+    };
+    status: string;
+  }>;
+}
+
+export interface CreateQuotationDraftPayload {
+  category_id: string;
+  product_id: string;
+  sub_class_id?: string | null;
+  quotation_type: 'MOTOR' | 'NON_MOTOR';
+  quotation_flow: 'NON_MOTOR' | 'MOTOR_SINGLE' | 'MOTOR_FLEET';
+  channel_type: 'DIRECT' | 'BROKER' | 'AGENCY' | 'BANCASSURANCE' | 'API';
+  is_fleet: boolean;
+  current_wizard_step?: string | null;
+  draft_payload: Record<string, unknown>;
+}
+
 function basePath(audience: PortalAudience) {
   return `/${audience}`;
 }
@@ -177,5 +249,46 @@ export const portalApi = {
   getSignature: (audience: PortalAudience, id: string) =>
     apiClient
       .get<SignatureRequestRecord>(`${basePath(audience)}/signatures/${id}`)
+      .then((response) => response.data),
+
+  listCustomerCompanies: () =>
+    apiClient
+      .get<CustomerInsuranceCompany[]>('/customer/companies')
+      .then((response) => response.data),
+
+  listCustomerCompanyProducts: (companyId: string) =>
+    apiClient
+      .get<CustomerPortalProduct[]>(`/customer/companies/${companyId}/products`)
+      .then((response) => response.data),
+
+  listCustomerCompanyProductRisks: (companyId: string, productId: string) =>
+    apiClient
+      .get<
+        CustomerPortalRisk[]
+      >(`/customer/companies/${companyId}/products/${productId}/risks`)
+      .then((response) => response.data),
+
+  ensureCustomerCompanyContext: (companyId: string) =>
+    apiClient
+      .post(`/customer/companies/${companyId}/context`)
+      .then((response) => response.data),
+
+  listCustomerVehicles: () =>
+    apiClient
+      .get<CustomerPortalVehicle[]>('/customer/vehicles')
+      .then((response) => response.data),
+
+  checkVehicleCover: (payload: {
+    registration_number?: string;
+    chassis_number?: string;
+    motorCategory?: 1 | 2;
+  }) =>
+    apiClient
+      .post<CustomerCoverCheckResult>('/customer/cover/check', payload)
+      .then((response) => response.data),
+
+  createQuotationDraft: (payload: CreateQuotationDraftPayload) =>
+    apiClient
+      .post<{ id: string }>('/customer/quotations/drafts', payload)
       .then((response) => response.data),
 };

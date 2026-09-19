@@ -99,7 +99,27 @@ export class PortalAccountsService {
       throw new ForbiddenException('Active portal access is required');
     }
 
-    const account = await this.ensureCustomerPortalAccess(user);
+    const account = await this.accountRepository.findOne({
+      where: {
+        user_id: user.id,
+        actor_type: PortalActorType.CUSTOMER,
+        status: PortalAccountStatus.ACTIVE,
+      },
+      relations: {
+        customer: true,
+        intermediary_company: true,
+      },
+      order: {
+        last_accessed_at: 'DESC',
+        created_at: 'ASC',
+      },
+    });
+
+    if (!account) {
+      throw new ForbiddenException(
+        'Select an insurance company before accessing company-specific portal data',
+      );
+    }
 
     return this.touchLastAccess(account);
   }
@@ -618,39 +638,53 @@ export class PortalAccountsService {
     return saved;
   }
 
-  private async ensureCustomerPortalAccess(
+  /**
+   * Customer-centric portal onboarding for a selected insurer. The customer
+   * session is not treated as belonging to this company; this creates the
+   * company-scoped customer/portal account needed for one insurer's products,
+   * quotations, documents, receipts, and TIRAMIS configuration.
+   */
+  async ensureCustomerAccountForCompany(
     user: AuthenticatedUser,
+    companyId: string,
   ): Promise<PortalAccount> {
-    const existingAccount = await this.accountRepository.findOne({
-      where: {
-        user_id: user.id,
-        actor_type: PortalActorType.CUSTOMER,
-        status: PortalAccountStatus.ACTIVE,
-      },
-      relations: {
-        customer: true,
-        intermediary_company: true,
-      },
-      order: {
-        last_accessed_at: 'DESC',
-        created_at: 'ASC',
-      },
-    });
-
-    if (existingAccount) {
-      return existingAccount;
+    if (user.scope !== 'customer' || user.userType !== UserType.CUSTOMER) {
+      throw new ForbiddenException('Customer portal access is required');
     }
 
     return this.dataSource.transaction(async (manager) => {
-      // Customer portal pages issue several protected requests in parallel.
-      // Serialize auto-provisioning for this user so every request after the
-      // first one observes and reuses the same customer and portal account.
       await manager.query(
         'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
-        [`customer-portal:${user.id}`],
+        [`customer-portal:${user.id}:${companyId}`],
       );
 
-      const customerRepository = manager.getRepository(Customer);
+      const company = await this.assertCustomerPortalSalesCompany(
+        manager,
+        companyId,
+      );
+
+      const accountRepository = manager.getRepository(PortalAccount);
+      const existingAccount = await accountRepository.findOne({
+        where: {
+          company_id: company.id,
+          user_id: user.id,
+          actor_type: PortalActorType.CUSTOMER,
+        },
+        withDeleted: true,
+        relations: {
+          customer: true,
+          intermediary_company: true,
+        },
+      });
+
+      if (existingAccount?.customer) {
+        return this.ensureActiveCustomerPortalAccount(
+          manager,
+          existingAccount.customer,
+          user.id,
+        );
+      }
+
       const portalUser = await manager.getRepository(User).findOne({
         where: { id: user.id },
       });
@@ -659,32 +693,39 @@ export class PortalAccountsService {
         throw new NotFoundException('Authenticated user not found');
       }
 
-      const linkedCustomer = await customerRepository.findOne({
-        where: { user_id: user.id },
+      const customerRepository = manager.getRepository(Customer);
+      const selectedCompanyCustomer = await customerRepository.findOne({
+        where: {
+          company_id: company.id,
+          user_id: user.id,
+        },
       });
 
-      if (linkedCustomer) {
+      if (selectedCompanyCustomer) {
         return this.ensureActiveCustomerPortalAccount(
           manager,
-          linkedCustomer,
+          selectedCompanyCustomer,
           user.id,
         );
       }
 
-      const insurer = await this.resolveSelfServiceInsurerCompany(manager);
       const matchedCustomer = await this.findVerifiedExistingCustomer(
         manager,
-        insurer.id,
+        company.id,
         portalUser,
       );
+
+      const linkedCustomer = await customerRepository.findOne({
+        where: { user_id: user.id },
+      });
 
       const customer =
         matchedCustomer ??
         (await customerRepository.save(
           customerRepository.create({
-            company_id: insurer.id,
-            user_id: user.id,
-            customer_no: await this.generateCustomerNo(manager, insurer.id),
+            company_id: company.id,
+            user_id: linkedCustomer ? null : user.id,
+            customer_no: await this.generateCustomerNo(manager, company.id),
             customer_type: CustomerType.INDIVIDUAL,
             first_name: portalUser.first_name ?? null,
             last_name: portalUser.last_name ?? null,
@@ -705,27 +746,22 @@ export class PortalAccountsService {
             metadata: {
               auto_provisioned: true,
               source: 'customer_portal',
+              selected_insurer_company_id: company.id,
             },
           }),
         ));
 
-      if (matchedCustomer) {
+      if (matchedCustomer && !linkedCustomer) {
         await this.assignCustomerToUser(manager, matchedCustomer, user.id);
       }
 
-      const freshCustomer =
-        matchedCustomer ??
-        (await customerRepository.findOneOrFail({
-          where: { id: customer.id },
-        }));
-
       const account = await this.ensureActiveCustomerPortalAccount(
         manager,
-        freshCustomer,
+        customer,
         user.id,
       );
 
-      account.customer = freshCustomer;
+      account.customer = customer;
 
       return account;
     });
@@ -892,52 +928,39 @@ export class PortalAccountsService {
       .getOne();
   }
 
-  private async resolveSelfServiceInsurerCompany(
+  private async assertCustomerPortalSalesCompany(
     manager: EntityManager,
+    companyId: string,
   ): Promise<Company> {
-    const companies = await manager.getRepository(Company).find({
+    const company = await manager.getRepository(Company).findOne({
       where: {
-        company_type: CompanyType.INSURANCE_COMPANY,
+        id: companyId,
         status: 'active',
-      },
-      order: {
-        created_at: 'ASC',
+        company_type: CompanyType.INSURANCE_COMPANY,
       },
     });
 
-    const preferred = companies.filter((company) => {
-      const settings = company.settings ?? {};
-      const metadata = company.metadata ?? {};
+    if (!company) {
+      throw new NotFoundException('Insurance company is not available');
+    }
 
-      return (
-        settings.allow_self_registration === true ||
-        settings['default_b2c_insurer'] === true ||
-        metadata['default_b2c_insurer'] === true
+    const settings = company.settings ?? {};
+    const metadata = company.metadata ?? {};
+    const enabled =
+      settings.allow_self_registration === true ||
+      settings['customer_portal_enabled'] === true ||
+      settings['allow_customer_portal_sales'] === true ||
+      settings['enable_customer_portal_sales'] === true ||
+      metadata['customer_portal_enabled'] === true ||
+      metadata['allow_customer_portal_sales'] === true;
+
+    if (!enabled || company.tira_integration_enabled !== true) {
+      throw new ForbiddenException(
+        'Insurance company is not enabled for customer portal sales',
       );
-    });
-
-    const explicitlyDefault =
-      preferred.find(
-        (company) =>
-          company.settings?.['default_b2c_insurer'] === true ||
-          company.metadata?.['default_b2c_insurer'] === true,
-      ) ?? null;
-
-    if (explicitlyDefault) {
-      return explicitlyDefault;
     }
 
-    if (preferred.length > 0) {
-      return preferred[0];
-    }
-
-    if (companies.length === 1) {
-      return companies[0];
-    }
-
-    throw new ForbiddenException(
-      'No self-service insurer company is configured for customer portal onboarding',
-    );
+    return company;
   }
 
   private async generateCustomerNo(

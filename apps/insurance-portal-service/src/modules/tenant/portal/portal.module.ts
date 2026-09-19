@@ -19,6 +19,9 @@ import { Document } from '../insurance-documents/entities/document.entity';
 import { SignatureEvent } from '../insurance-documents/entities/signature-event.entity';
 import { SignatureParticipant } from '../insurance-documents/entities/signature-participant.entity';
 import { SignatureRequest } from '../insurance-documents/entities/signature-request.entity';
+import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
+import { InsuranceRisk } from '../insurance-risks/entities/insurance-risk.entity';
+import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationsModule } from '../quotations/quotations.module';
@@ -35,11 +38,13 @@ import { PortalGuard } from './guards/portal.guard';
 import { PortalInvitationExpiryJob } from './jobs/portal-invitation-expiry.job';
 
 import { CustomerPortalController } from './controllers/customer-portal.controller';
+import { CustomerMarketplaceController } from './controllers/customer-marketplace.controller';
 import { IntermediaryPortalController } from './controllers/intermediary-portal.controller';
 import { PortalAdminController } from './controllers/portal-admin.controller';
 import { PortalAuthController } from './controllers/portal-auth.controller';
 import { PortalCommonController } from './controllers/portal-common.controller';
 
+import { CustomerMarketplaceService } from './services/customer-marketplace.service';
 import { PortalAccountsService } from './services/portal-accounts.service';
 import { PortalBusinessAccessService } from './services/portal-business-access.service';
 import { PortalDashboardService } from './services/portal-dashboard.service';
@@ -67,6 +72,9 @@ import { PortalEngagementService } from './services/portal-engagement.service';
       Customer,
       Company,
       CompanyUser,
+      InsuranceProduct,
+      InsuranceRisk,
+      MotorVehicle,
       Quotation,
       Policy,
       Invoice,
@@ -89,12 +97,14 @@ import { PortalEngagementService } from './services/portal-engagement.service';
   controllers: [
     PortalAuthController,
     PortalAdminController,
+    CustomerMarketplaceController,
     CustomerPortalController,
     IntermediaryPortalController,
     PortalCommonController,
   ],
   providers: [
     PortalAccountsService,
+    CustomerMarketplaceService,
     PortalBusinessAccessService,
     PortalDashboardService,
     PortalFileStorageService,

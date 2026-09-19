@@ -2,7 +2,9 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { PortalShell } from '@/modules/portal/components/PortalShell';
 import { PortalDashboardPage } from '@/modules/portal/pages/PortalDashboardPage';
+import { PortalBuyCoverPage } from '@/modules/portal/pages/PortalBuyCoverPage';
 import { PortalBusinessListPage } from '@/modules/portal/pages/PortalBusinessListPage';
+import { PortalCoverCheckPage } from '@/modules/portal/pages/PortalCoverCheckPage';
 import { PortalDocumentsPage } from '@/modules/portal/pages/PortalDocumentsPage';
 import { PortalMessageDetailPage } from '@/modules/portal/pages/PortalMessageDetailPage';
 import { PortalMessagesPage } from '@/modules/portal/pages/PortalMessagesPage';
@@ -10,6 +12,7 @@ import { PortalNotificationsPage } from '@/modules/portal/pages/PortalNotificati
 import { PortalProfilePage } from '@/modules/portal/pages/PortalProfilePage';
 import { PortalSignatureDetailPage } from '@/modules/portal/pages/PortalSignatureDetailPage';
 import { PortalSignaturesPage } from '@/modules/portal/pages/PortalSignaturesPage';
+import { PortalVehiclesPage } from '@/modules/portal/pages/PortalVehiclesPage';
 import { ProtectedRoute } from '@/modules/shared/auth/components/ProtectedRoute';
 import { GuestRoute } from '@/modules/shared/auth/components/GuestRoute';
 import { DefaultLandingPage } from '@/modules/shared/auth/components/DefaultLandingPage';
@@ -178,6 +181,9 @@ export default function App() {
               path="profile"
               element={<PortalProfilePage audience="customer" />}
             />
+            <Route path="buy-cover" element={<PortalBuyCoverPage />} />
+            <Route path="check-cover" element={<PortalCoverCheckPage />} />
+            <Route path="vehicles" element={<PortalVehiclesPage />} />
             <Route
               path="quotations"
               element={
@@ -842,10 +848,7 @@ export default function App() {
                 <ProtectedRoute requiredPermission="product-distribution:read" />
               }
             >
-              <Route
-                path="/product-engine/taxes"
-                element={<TaxesPage />}
-              />
+              <Route path="/product-engine/taxes" element={<TaxesPage />} />
             </Route>
             <Route
               element={
