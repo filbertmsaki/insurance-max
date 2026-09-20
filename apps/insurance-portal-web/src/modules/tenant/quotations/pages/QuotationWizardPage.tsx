@@ -12,6 +12,7 @@ import {
   useForm,
   useWatch,
   type Resolver,
+  type FieldPath,
 } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
@@ -51,6 +52,14 @@ import {
   QuotationStartModal,
   type QuotationStartSelection,
 } from '../wizard/QuotationStartModal';
+import { quotationTotals } from '../wizard/utils/quotationTotals';
+import { WizardInput } from '../wizard/components/WizardInput';
+import { quotationPricingIssues } from '../wizard/utils/quotationReadiness';
+import { useQuotationWizardDraft } from '../wizard/useQuotationWizardDraft';
+import {
+  computeCoverNoteDateRange,
+  dateOnlyPart,
+} from '../wizard/utils/coverNoteDateRange';
 import {
   getWizardStepsForFlow,
   type QuotationWizardStepId,
@@ -79,61 +88,44 @@ const EDITABLE_STATUSES = new Set([
   'FAILED',
 ]);
 
+const COVER_FIELDS: FieldPath<QuotationFormSchemaValues>[] = [
+  'category_id',
+  'product_id',
+  'channel_type',
+  'intermediary_company_id',
+  'valid_from',
+  'valid_until',
+  'currency',
+  'exchange_rate',
+  'cover_note_desc',
+  'operative_clause',
+  'cover_note_type',
+  'prev_cover_note_reference',
+  'endorsement_type',
+  'endorsement_reason',
+  'endorsement_premium_earned',
+  'commission_paid',
+  'commission_rate',
+  'officer_name',
+  'officer_title',
+  'payment_mode_tira',
+];
 const STEP_FIELDS: Partial<
-  Record<QuotationWizardStepId, (keyof QuotationFormSchemaValues)[]>
+  Record<QuotationWizardStepId, FieldPath<QuotationFormSchemaValues>[]>
 > = {
-  'cover-note': [
-    'category_id',
-    'product_id',
-    'channel_type',
-    'intermediary_company_id',
-    'valid_from',
-    'valid_until',
-    'currency',
-    'exchange_rate',
-    'cover_note_desc',
-    'operative_clause',
-    'cover_note_type',
-    'prev_cover_note_reference',
-    'endorsement_type',
-    'endorsement_reason',
-    'endorsement_premium_earned',
-    'commission_paid',
-    'commission_rate',
-    'officer_name',
-    'officer_title',
-    'payment_mode_tira',
+  motor: [...COVER_FIELDS, 'motor', 'risks', 'addons'],
+  'risk-premium': [...COVER_FIELDS, 'risks', 'nonMotor', 'addons'],
+  'fleet-setup': [
+    ...COVER_FIELDS.filter(
+      (field) => field !== 'cover_note_desc' && field !== 'operative_clause',
+    ),
+    'fleet.header',
     'customer_id',
     'policyholder',
   ],
-  'fleet-setup': [
-    'category_id',
-    'product_id',
-    'channel_type',
-    'intermediary_company_id',
-    'valid_from',
-    'valid_until',
-    'currency',
-    'exchange_rate',
-    'cover_note_type',
-    'prev_cover_note_reference',
-    'endorsement_type',
-    'endorsement_reason',
-    'endorsement_premium_earned',
-    'commission_paid',
-    'commission_rate',
-    'officer_name',
-    'officer_title',
-    'payment_mode_tira',
-    'fleet',
-  ],
-  policyholder: ['customer_id', 'policyholder'],
-  'risk-premium': ['risks', 'nonMotor', 'addons'],
-  addons: ['addons'],
-  motor: ['motor_mode', 'motor', 'risks', 'addons'],
-  'fleet-vehicles': ['fleet'],
+  'fleet-vehicles': ['fleet.items'],
+  summary: ['customer_id', 'policyholder'],
 };
-
 function normalizeWizardStepForFlow(
   step: string | null | undefined,
   availableSteps: { id: QuotationWizardStepId }[],
@@ -142,16 +134,14 @@ function normalizeWizardStepForFlow(
   const direct = availableSteps.find((candidate) => candidate.id === step);
   if (direct) return direct.id;
 
+  const first = availableSteps[0]?.id ?? 'motor';
   const legacyStepMap: Partial<
     Record<QuotationWizardStepId, QuotationWizardStepId>
   > = {
-    policyholder: 'cover-note',
-    addons: availableSteps.some((candidate) => candidate.id === 'motor')
-      ? 'motor'
-      : 'risk-premium',
-    'risk-premium': availableSteps.some((candidate) => candidate.id === 'motor')
-      ? 'motor'
-      : 'risk-premium',
+    'cover-note': first,
+    policyholder: first === 'fleet-setup' ? 'fleet-setup' : 'summary',
+    addons: first === 'fleet-setup' ? 'fleet-vehicles' : first,
+    'risk-premium': first,
   };
   const mapped = legacyStepMap[step as QuotationWizardStepId];
   return mapped && availableSteps.some((candidate) => candidate.id === mapped)
@@ -170,8 +160,8 @@ const DEFAULT_VALUES: QuotationFormSchemaValues = {
   category_id: '',
   product_id: '',
   sub_class_id: '',
-  quotation_flow: 'NON_MOTOR',
-  quotation_type: 'NON_MOTOR',
+  quotation_flow: 'MOTOR_SINGLE',
+  quotation_type: 'MOTOR',
   is_fleet: false,
   channel_type: 'DIRECT',
   status: 'DRAFT',
@@ -185,8 +175,8 @@ const DEFAULT_VALUES: QuotationFormSchemaValues = {
   total_commission: '',
   total_premium: '',
   net_premium: '',
-  valid_from: '2026-07-21',
-  valid_until: '2027-07-20',
+  valid_from: '',
+  valid_until: '',
   rating_version: '',
   rejection_reason: '',
   sale_point_id: '',
@@ -205,7 +195,7 @@ const DEFAULT_VALUES: QuotationFormSchemaValues = {
   payment_mode_tira: '1',
   risks: [createEmptyRiskRow()],
   addons: [],
-  motor_mode: 'existing',
+  motor_mode: 'new',
   motor: createEmptyMotorDetails(),
   fleet: createEmptyFleetDetails(),
   nonMotor: createEmptyNonMotorDetails(),
@@ -233,14 +223,6 @@ export function QuotationWizardPage() {
   const defaultSalePointCode = useAuthStore(
     (state) => state.user?.defaultSalePointCode ?? '',
   );
-  const loggedInOfficerName = useAuthStore((state) =>
-    [state.profile?.first_name, state.profile?.last_name]
-      .filter(Boolean)
-      .join(' '),
-  );
-  const loggedInOfficerTitle = useAuthStore(
-    (state) => state.profile?.officer_title ?? '',
-  );
   const companyId = useQuotationCurrentCompanyId();
   const {
     data: existingQuotation,
@@ -258,10 +240,10 @@ export function QuotationWizardPage() {
   const [isEditHydrating, setIsEditHydrating] = useState(
     usesPrefilledQuotation,
   );
-  const [startGateComplete, setStartGateComplete] = useState(
-    usesPrefilledQuotation,
-  );
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isStartModalOpen, setIsStartModalOpen] = useState(!isEditMode);
+  const [hasCompletedStartSetup, setHasCompletedStartSetup] =
+    useState(isEditMode);
   const activeDraftId = id ?? draftId;
   const hasPersistedDraft = Boolean(activeDraftId);
 
@@ -300,13 +282,30 @@ export function QuotationWizardPage() {
     control: form.control,
     name: 'quotation_flow',
   });
+
+  const productId = useWatch({
+    control: form.control,
+    name: 'product_id',
+  });
   const categoryId = useWatch({
     control: form.control,
     name: 'category_id',
   });
-  const productId = useWatch({
+  const channelType = useWatch({
     control: form.control,
-    name: 'product_id',
+    name: 'channel_type',
+  });
+  const currency = useWatch({
+    control: form.control,
+    name: 'currency',
+  });
+  const validFrom = useWatch({
+    control: form.control,
+    name: 'valid_from',
+  });
+  const validUntil = useWatch({
+    control: form.control,
+    name: 'valid_until',
   });
   const customerId = useWatch({
     control: form.control,
@@ -320,6 +319,7 @@ export function QuotationWizardPage() {
     control: form.control,
     name: 'policyholder.customer_type',
   });
+  const watchedAddons = useWatch({ control: form.control, name: 'addons' });
   const watchedRisks = useWatch({
     control: form.control,
     name: 'risks',
@@ -343,11 +343,7 @@ export function QuotationWizardPage() {
   const businessLine =
     quotationFlowForQueries === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR';
   const { data: categoryOptions = [] } = useQuotationCategories(businessLine);
-  const effectiveCategoryId =
-    categoryId ||
-    (usesPrefilledQuotation ? savedCategoryId || undefined : undefined);
   const { data: productOptions = [] } = useQuotationProducts({
-    category_id: effectiveCategoryId,
     business_line: businessLine,
     supports_fleet:
       quotationFlowForQueries === 'MOTOR_FLEET' ? true : undefined,
@@ -389,6 +385,53 @@ export function QuotationWizardPage() {
     }),
     [salePointCode, selectedPolicyHolderType],
   );
+  const paymentMode = useWatch({
+    control: form.control,
+    name: 'payment_mode_tira',
+  });
+  const officerName = useWatch({ control: form.control, name: 'officer_name' });
+  const officerTitle = useWatch({
+    control: form.control,
+    name: 'officer_title',
+  });
+  useEffect(() => {
+    const context = {
+      policy_holder_type:
+        selectedPolicyHolderType === 2 ? 'Corporate' : 'Individual',
+      sale_point_code: salePointCode,
+      payment_mode: { '1': 'Cash', '2': 'Cheque', '3': 'EFT' }[paymentMode],
+      officer_name: officerName,
+      officer_title: officerTitle,
+    };
+    const update = (
+      prefix:
+        | `risks.${number}`
+        | `fleet.items.${number}.risks_covered.${number}`,
+    ) => {
+      const current = form.getValues(`${prefix}.factor_values`);
+      if (
+        Object.entries(context).some(([key, value]) => current[key] !== value)
+      )
+        form.setValue(`${prefix}.factor_values`, { ...current, ...context });
+    };
+    if (quotationFlow === 'MOTOR_FLEET')
+      (watchedFleetItems ?? []).forEach((item, index) =>
+        item.risks_covered.forEach((_, riskIndex) =>
+          update(`fleet.items.${index}.risks_covered.${riskIndex}`),
+        ),
+      );
+    else (watchedRisks ?? []).forEach((_, index) => update(`risks.${index}`));
+  }, [
+    form,
+    quotationFlow,
+    watchedRisks,
+    watchedFleetItems,
+    selectedPolicyHolderType,
+    salePointCode,
+    paymentMode,
+    officerName,
+    officerTitle,
+  ]);
   const createDraftMutation = useCreateQuotationDraft();
   const updateDraftMutation = useUpdateQuotationDraft();
   const finalizeMutation = useFinalizeQuotation();
@@ -398,11 +441,10 @@ export function QuotationWizardPage() {
     () => getWizardStepsForFlow(quotationFlowForQueries),
     [quotationFlowForQueries],
   );
-  const hydratedStepId =
-    quotationContext?.current_wizard_step &&
-    steps.some((step) => step.id === quotationContext.current_wizard_step)
-      ? (quotationContext.current_wizard_step as QuotationWizardStepId)
-      : null;
+  const hydratedStepId = normalizeWizardStepForFlow(
+    quotationContext?.current_wizard_step,
+    steps,
+  );
   const stepId =
     selectedStepId && steps.some((step) => step.id === selectedStepId)
       ? selectedStepId
@@ -413,7 +455,7 @@ export function QuotationWizardPage() {
       top: 0,
       behavior: 'instant',
     });
-  }, [stepId, loadingQuotation, startGateComplete]);
+  }, [stepId, loadingQuotation]);
 
   const editOptionsReady =
     !usesPrefilledQuotation ||
@@ -427,29 +469,133 @@ export function QuotationWizardPage() {
     }
   }, [companyId, form]);
 
+  const draftScope = useAuthStore(
+    (state) =>
+      (state.user?.id ?? '') +
+      ':' +
+      (state.company?.id ?? state.user?.companyId ?? ''),
+  );
+  const { loadDraft, saveDraft, clearDraft } = useQuotationWizardDraft(
+    activeDraftId,
+    draftScope,
+  );
+  const startModalInitialSelection = useMemo<QuotationStartSelection | null>(
+    () =>
+      categoryId || productId
+        ? {
+            quotation_flow: quotationFlow,
+            quotation_type:
+              quotationFlow === 'NON_MOTOR' ? 'NON_MOTOR' : 'MOTOR',
+            is_fleet: quotationFlow === 'MOTOR_FLEET',
+            category_id: categoryId,
+            product_id: productId,
+            channel_type: channelType,
+            currency,
+            cover_note_type: form.getValues('cover_note_type'),
+            intermediary_company_id: form.getValues('intermediary_company_id'),
+            valid_from: validFrom,
+            valid_until: validUntil,
+          }
+        : null,
+    [
+      categoryId,
+      channelType,
+      currency,
+      form,
+      productId,
+      quotationFlow,
+      validFrom,
+      validUntil,
+    ],
+  );
+  const handleStartProceed = useCallback(
+    (selection: QuotationStartSelection) => {
+      form.setValue('quotation_flow', selection.quotation_flow, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      form.setValue('quotation_type', selection.quotation_type, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      form.setValue('is_fleet', selection.is_fleet, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      form.setValue('category_id', selection.category_id, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      form.setValue('product_id', selection.product_id, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      form.setValue('channel_type', selection.channel_type, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      form.setValue(
+        'intermediary_company_id',
+        selection.intermediary_company_id ?? '',
+        {
+          shouldDirty: true,
+          shouldValidate: true,
+        },
+      );
+      form.setValue('currency', selection.currency, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      if (selection.currency === 'TZS') {
+        form.setValue('exchange_rate', '1', {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      }
+      form.setValue('cover_note_type', selection.cover_note_type, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      if (selection.valid_from) {
+        form.setValue('valid_from', selection.valid_from, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      }
+      if (selection.valid_until) {
+        form.setValue('valid_until', selection.valid_until, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      }
+      setSelectedStepId(null);
+      setCompletedSteps([]);
+      setHasCompletedStartSetup(true);
+      setIsStartModalOpen(false);
+    },
+    [form],
+  );
+  const initializedRef = useRef(false);
   useEffect(() => {
-    if (isEditMode || !companyId) return;
+    if (isEditMode || !companyId || initializedRef.current) return;
+    initializedRef.current = true;
+    const dates = computeCoverNoteDateRange(365);
     form.reset({
       ...DEFAULT_VALUES,
+      valid_from: dateOnlyPart(dates.validFrom),
+      valid_until: dateOnlyPart(dates.validUntil),
+      ...loadDraft(),
       insurer_company_id: companyId,
-      officer_name: loggedInOfficerName,
-      officer_title: loggedInOfficerTitle,
     });
-  }, [companyId, form, isEditMode, loggedInOfficerName, loggedInOfficerTitle]);
-
+  }, [companyId, form, isEditMode, loadDraft]);
   useEffect(() => {
-    if (usesPrefilledQuotation) return;
-    if (loggedInOfficerName && !form.getValues('officer_name')) {
-      form.setValue('officer_name', loggedInOfficerName, {
-        shouldValidate: true,
-      });
-    }
-    if (loggedInOfficerTitle && !form.getValues('officer_title')) {
-      form.setValue('officer_title', loggedInOfficerTitle, {
-        shouldValidate: true,
-      });
-    }
-  }, [form, loggedInOfficerName, loggedInOfficerTitle, usesPrefilledQuotation]);
+    if (activeDraftId || !hasCompletedStartSetup) return;
+    // eslint-disable-next-line react-hooks/incompatible-library -- React Hook Form's subscription API is the intended low-cost way to persist the draft on any field change.
+    const subscription = form.watch(() => {
+      if (initializedRef.current) saveDraft(form.getValues());
+    });
+    return () => subscription.unsubscribe();
+  }, [activeDraftId, form, hasCompletedStartSetup, saveDraft]);
 
   useEffect(() => {
     if (!quotationContext || hasHydratedEditRef.current || !editOptionsReady) {
@@ -568,6 +714,11 @@ export function QuotationWizardPage() {
     // wizard with "Maximum update depth exceeded" right after computing a
     // risk's premium (see also the matching fix in RiskRow.tsx).
     const current = form.getValues();
+    const completeTotals = quotationTotals(current);
+    totals.basic_premium = String(completeTotals.premium);
+    totals.total_premium = String(completeTotals.total);
+    totals.net_premium = String(completeTotals.total);
+    totals.total_tax = String(completeTotals.tax);
     if (Number(current.sum_insured) !== Number(totals.sum_insured)) {
       form.setValue('sum_insured', totals.sum_insured);
     }
@@ -592,11 +743,15 @@ export function QuotationWizardPage() {
     if (Number(current.net_premium) !== Number(totals.net_premium)) {
       form.setValue('net_premium', totals.net_premium);
     }
-  }, [form, quotationFlow, watchedFleetItems, watchedRisks]);
+  }, [form, quotationFlow, watchedFleetItems, watchedRisks, watchedAddons]);
 
   useEffect(() => {
     const risks = form.getValues('risks');
     risks.forEach((risk, index) => {
+      if (!risk.risk_id && !risk.risk_code && riskOptions.length === 1) {
+        form.setValue(`risks.${index}.risk_id`, riskOptions[0].id);
+        form.setValue(`risks.${index}.risk_code`, riskOptions[0].risk_code);
+      }
       if (!risk.risk_code && risk.risk_id) {
         const match = riskOptions.find((option) => option.id === risk.risk_id);
         if (match?.risk_code) {
@@ -619,6 +774,25 @@ export function QuotationWizardPage() {
 
     fleetItems.forEach((item, itemIndex) => {
       item.risks_covered.forEach((risk, riskIndex) => {
+        const common = form.getValues('risks.0');
+        const selected =
+          riskOptions.find((option) => option.id === common.risk_id) ??
+          (riskOptions.length === 1 ? riskOptions[0] : undefined);
+        if (!risk.risk_id && !risk.risk_code && selected) {
+          form.setValue(
+            `fleet.items.${itemIndex}.risks_covered.${riskIndex}.risk_id`,
+            selected.id,
+          );
+          form.setValue(
+            `fleet.items.${itemIndex}.risks_covered.${riskIndex}.risk_code`,
+            selected.risk_code,
+          );
+          if (!risk.sum_insured && common.sum_insured)
+            form.setValue(
+              `fleet.items.${itemIndex}.risks_covered.${riskIndex}.sum_insured`,
+              common.sum_insured,
+            );
+        }
         if (!risk.risk_code && risk.risk_id) {
           const match = riskOptions.find(
             (option) => option.id === risk.risk_id,
@@ -644,7 +818,7 @@ export function QuotationWizardPage() {
         }
       });
     });
-  }, [form, riskOptions]);
+  }, [form, riskOptions, watchedRisks, watchedFleetItems]);
 
   const goToStep = useCallback(
     async (nextStep: QuotationWizardStepId) => {
@@ -691,63 +865,6 @@ export function QuotationWizardPage() {
     }
   }, [stepId, steps]);
 
-  const handleStartGateProceed = useCallback(
-    (selection: QuotationStartSelection) => {
-      form.setValue('quotation_flow', selection.quotation_flow);
-      form.setValue('quotation_type', selection.quotation_type);
-      form.setValue('is_fleet', selection.is_fleet);
-      form.setValue('category_id', selection.category_id);
-      form.setValue('product_id', selection.product_id);
-      form.setValue('channel_type', selection.channel_type);
-      form.setValue('currency', selection.currency);
-      form.setValue('cover_note_type', selection.cover_note_type);
-      if (selection.intermediary_company_id !== undefined) {
-        form.setValue(
-          'intermediary_company_id',
-          selection.intermediary_company_id,
-        );
-      }
-      if (
-        selection.quotation_flow !== 'MOTOR_FLEET' &&
-        selection.valid_from &&
-        selection.valid_until
-      ) {
-        form.setValue('valid_from', selection.valid_from);
-        form.setValue('valid_until', selection.valid_until);
-      }
-      setStartGateComplete(true);
-    },
-    [form],
-  );
-
-  const handleStartGateClose = useCallback(() => {
-    navigate(underwritingPaths.quotations);
-  }, [navigate]);
-
-  const [changeSetupInitial, setChangeSetupInitial] =
-    useState<QuotationStartSelection | null>(null);
-
-  const openChangeSetup = useCallback(() => {
-    const values = form.getValues();
-    setChangeSetupInitial({
-      quotation_flow: values.quotation_flow,
-      quotation_type: values.quotation_type,
-      is_fleet: values.is_fleet,
-      category_id: values.category_id,
-      product_id: values.product_id,
-      channel_type: values.channel_type,
-      currency: values.currency,
-      cover_note_type: values.cover_note_type,
-      intermediary_company_id: values.intermediary_company_id,
-      valid_from:
-        values.quotation_flow !== 'MOTOR_FLEET' ? values.valid_from : undefined,
-      valid_until:
-        values.quotation_flow !== 'MOTOR_FLEET'
-          ? values.valid_until
-          : undefined,
-    });
-  }, [form]);
-
   function addRisk() {
     riskFieldArray.append(createEmptyRiskRow());
   }
@@ -781,7 +898,15 @@ export function QuotationWizardPage() {
   function duplicateFleetVehicle(index: number) {
     const source = form.getValues(`fleet.items.${index}`);
     fleetFieldArray.insert(index + 1, {
-      ...source,
+      ...structuredClone(source),
+      risks_covered: source.risks_covered.map((risk) => ({
+        ...risk,
+        client_ref: createEmptyFleetItemRow().risks_covered[0].client_ref,
+        rating_result_metadata: null,
+      })),
+      subject_matters_covered: [
+        { subject_matter_reference: '', subject_matter_desc: '' },
+      ],
       fleet_entry: String(index + 2),
       cover_note_number: '',
       motor_dtl: {
@@ -807,9 +932,10 @@ export function QuotationWizardPage() {
         risks_covered: [
           {
             ...base.risks_covered[0],
-            risk_code: row.risk_code,
-            risk_id: matchedRisk?.id ?? '',
-            sum_insured: row.sum_insured,
+            risk_code: row.risk_code || form.getValues('risks.0.risk_code'),
+            risk_id: matchedRisk?.id ?? form.getValues('risks.0.risk_id'),
+            sum_insured:
+              row.sum_insured || form.getValues('risks.0.sum_insured'),
             sum_insured_equivalent: row.sum_insured,
           },
         ],
@@ -887,6 +1013,12 @@ export function QuotationWizardPage() {
   const completeQuotation = useCallback(async () => {
     const valid = await form.trigger(undefined, { shouldFocus: true });
     if (!valid) {
+      const invalidStep = steps.find((step) =>
+        (STEP_FIELDS[step.id] ?? []).some(
+          (field) => form.getFieldState(field).invalid,
+        ),
+      );
+      if (invalidStep) setSelectedStepId(invalidStep.id);
       toast.error(
         findFirstErrorMessage(form.formState.errors) ??
           'Please complete the required quotation fields.',
@@ -895,6 +1027,16 @@ export function QuotationWizardPage() {
     }
 
     const values = form.getValues();
+    const pricingIssues = quotationPricingIssues(values);
+    if (pricingIssues.length) {
+      toast.error(pricingIssues[0]);
+      setSelectedStepId(
+        values.quotation_flow === 'MOTOR_FLEET'
+          ? 'fleet-vehicles'
+          : steps[0].id,
+      );
+      return;
+    }
     const product = productOptions.find(
       (item) => item.id === values.product_id,
     );
@@ -953,11 +1095,13 @@ export function QuotationWizardPage() {
     saveDraftSnapshot,
     savedSalePointCode,
     stepId,
+    steps,
     usesPrefilledQuotation,
   ]);
 
   const deleteDraft = useCallback(() => {
     setIsDeleteDialogOpen(false);
+    clearDraft();
 
     if (!activeDraftId) {
       navigate(underwritingPaths.quotations);
@@ -967,7 +1111,7 @@ export function QuotationWizardPage() {
     deleteDraftMutation.mutate(activeDraftId, {
       onSuccess: () => navigate(underwritingPaths.quotations),
     });
-  }, [activeDraftId, deleteDraftMutation, navigate]);
+  }, [activeDraftId, clearDraft, deleteDraftMutation, navigate]);
 
   const isSaving =
     createDraftMutation.isPending ||
@@ -986,7 +1130,7 @@ export function QuotationWizardPage() {
 
   const footerNode = useMemo(
     () =>
-      !loadingQuotation ? (
+      !loadingQuotation && hasCompletedStartSetup ? (
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button
@@ -1001,7 +1145,15 @@ export function QuotationWizardPage() {
               <span className="text-xs text-slate-500">Saving...</span>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isSaving || !productId}
+              onClick={() => void saveDraftSnapshot(stepId)}
+            >
+              Save draft
+            </Button>
             <Button
               type="button"
               variant="destructive"
@@ -1016,7 +1168,11 @@ export function QuotationWizardPage() {
                 onClick={() => void completeQuotation()}
                 disabled={isSaving || !companyId}
               >
-                {isSaving ? 'Completing...' : 'Complete Quotation'}
+                {isSaving
+                  ? 'Creating...'
+                  : isEditMode
+                    ? 'Complete Quotation'
+                    : 'Create Quotation'}
               </Button>
             ) : (
               <Button type="button" onClick={goNext}>
@@ -1029,18 +1185,23 @@ export function QuotationWizardPage() {
     [
       companyId,
       completeQuotation,
+      isEditMode,
+      productId,
+      saveDraftSnapshot,
+      stepId,
       goBack,
       goNext,
       isFirstStep,
       isLastStep,
       isSaving,
       loadingQuotation,
+      hasCompletedStartSetup,
     ],
   );
 
   usePageFooter(footerNode);
 
-  if (loadingQuotation) {
+  if (loadingQuotation || (isEditMode && isEditHydrating && !error)) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-64" />
@@ -1063,27 +1224,8 @@ export function QuotationWizardPage() {
     );
   }
 
-  if (!usesPrefilledQuotation && !startGateComplete) {
-    return (
-      <QuotationStartModal
-        open
-        onProceed={handleStartGateProceed}
-        onClose={handleStartGateClose}
-      />
-    );
-  }
-
   return (
     <div ref={wizardRef} className="pb-8">
-      <QuotationStartModal
-        open={changeSetupInitial !== null}
-        initialSelection={changeSetupInitial}
-        onProceed={(selection) => {
-          handleStartGateProceed(selection);
-          setChangeSetupInitial(null);
-        }}
-        onClose={() => setChangeSetupInitial(null)}
-      />
       <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-6">
         <ConfirmDialog
           open={isDeleteDialogOpen}
@@ -1094,144 +1236,140 @@ export function QuotationWizardPage() {
           loading={deleteDraftMutation.isPending}
           onConfirm={deleteDraft}
         />
-        {!isEditMode && isFirstStep ? (
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={openChangeSetup}
-            >
-              Change quotation setup
-            </Button>
-          </div>
-        ) : null}
+        <QuotationStartModal
+          open={isStartModalOpen}
+          initialSelection={startModalInitialSelection}
+          onProceed={handleStartProceed}
+          onClose={() => navigate(underwritingPaths.quotations)}
+        />
 
-        <div className="rounded-[5px] border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
-          <QuotationJourneyProgress
-            steps={steps}
-            currentStep={stepId}
-            completedSteps={completedSteps}
-            errorSteps={errorSteps}
-            onStepClick={(nextStep) => {
-              const normalized = normalizeWizardStepForFlow(nextStep, steps);
-              if (normalized) void goToStep(normalized);
-            }}
-          />
+        {hasCompletedStartSetup && (
+          <div className="rounded-[5px] border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
+            <QuotationJourneyProgress
+              steps={steps}
+              currentStep={stepId}
+              completedSteps={completedSteps}
+              errorSteps={errorSteps}
+              onStepClick={(nextStep) => {
+                const normalized = normalizeWizardStepForFlow(nextStep, steps);
+                if (normalized) void goToStep(normalized);
+              }}
+            />
 
-          <div className="mt-3 border-t border-slate-100 pt-4 sm:mt-4">
-            <Form {...form}>
-              <form
-                className="space-y-6"
-                onSubmit={(event) => event.preventDefault()}
-              >
-                {stepId === 'cover-note' && (
-                  <>
+            <div className="mt-3 border-t border-slate-100 pt-4 sm:mt-4">
+              <Form {...form}>
+                <form
+                  className="space-y-6"
+                  onSubmit={(event) => event.preventDefault()}
+                >
+                  <div hidden={!isFirstStep} className="space-y-6">
                     <CoverNoteSetupStep
                       form={form}
                       categoryOptions={categoryOptions}
                       productOptions={productOptions}
                       isHydrating={isEditHydrating}
-                      showFlowSelector={false}
+                      title="Product & cover"
                       enforceFreshCoverPeriod={!usesPrefilledQuotation}
-                      title="Customer & Cover"
                     />
-                    <PolicyholderStep
-                      form={form}
-                      customerOptions={customerOptions}
-                    />
-                  </>
-                )}
-
-                {stepId === 'fleet-setup' && (
-                  <FleetSetupStep
-                    form={form}
-                    categoryOptions={categoryOptions}
-                    productOptions={productOptions}
-                    isHydrating={isEditHydrating}
-                  />
-                )}
-
-                {stepId === 'policyholder' && (
-                  <PolicyholderStep
-                    form={form}
-                    customerOptions={customerOptions}
-                  />
-                )}
-
-                {stepId === 'risk-premium' && (
-                  <>
-                    <RiskPremiumStep
-                      form={form}
-                      riskOptions={riskOptions}
-                      fieldArray={riskFieldArray}
-                      flow={quotationFlow}
-                      subjectMatterFieldArray={nonMotorFieldArray}
-                      subjectMatterOptions={subjectMatterOptions}
-                      onRemoveRisk={removeRisk}
-                      onAddRisk={addRisk}
-                      factorContext={quotationFactorContext}
-                    />
-                    <AddOnsStep form={form} fieldArray={addonFieldArray} />
-                  </>
-                )}
-
-                {stepId === 'motor' && (
-                  <>
-                    <MotorDetailsStep
-                      form={form}
-                      vehicleOptions={vehicleOptions}
-                    />
-                    <RiskPremiumStep
-                      form={form}
-                      riskOptions={riskOptions}
-                      fieldArray={riskFieldArray}
-                      flow={quotationFlow}
-                      subjectMatterFieldArray={nonMotorFieldArray}
-                      onRemoveRisk={removeRisk}
-                      onAddRisk={addRisk}
-                      factorContext={quotationFactorContext}
-                    />
-                    <AddOnsStep form={form} fieldArray={addonFieldArray} />
-                  </>
-                )}
-
-                {stepId === 'fleet-vehicles' && (
-                  <MotorFleetDetailsStep
-                    form={form}
-                    customerOptions={customerOptions}
-                    riskOptions={riskOptions}
-                    vehicleOptions={vehicleOptions}
-                    fieldArray={fleetFieldArray}
-                    onAddVehicle={addFleetVehicle}
-                    onRemoveVehicle={removeFleetVehicle}
-                    onDuplicateVehicle={duplicateFleetVehicle}
-                    onImportVehicles={importFleetVehicles}
-                    factorContext={quotationFactorContext}
-                  />
-                )}
-
-                {stepId === 'summary' && (
-                  <SummaryReviewStep
-                    form={form}
-                    customerOptions={customerOptions}
-                    categoryOptions={categoryOptions}
-                    productOptions={productOptions}
-                    riskOptions={riskOptions}
-                    riskCount={riskFieldArray.fields.length}
-                    onEditStep={(nextStep) => {
-                      const normalized = normalizeWizardStepForFlow(
-                        nextStep,
-                        steps,
-                      );
-                      setSelectedStepId(normalized ?? nextStep);
-                    }}
-                  />
-                )}
-              </form>
-            </Form>
+                    {quotationFlow === 'MOTOR_FLEET' ? (
+                      <>
+                        <FleetSetupStep
+                          form={form}
+                          categoryOptions={categoryOptions}
+                          productOptions={productOptions}
+                          isHydrating={isEditHydrating}
+                          headerOnly
+                        />
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <WizardInput
+                            form={form}
+                            name="risks.0.risk_id"
+                            label="Default vehicle cover"
+                            options={riskOptions.map((risk) => ({
+                              value: risk.id,
+                              label: risk.risk_name,
+                            }))}
+                          />
+                          <WizardInput
+                            form={form}
+                            name="risks.0.sum_insured"
+                            label="Default sum insured (optional)"
+                            type="number"
+                          />
+                        </div>
+                        <PolicyholderStep
+                          form={form}
+                          customerOptions={customerOptions}
+                        />
+                      </>
+                    ) : (
+                      <PolicyholderStep
+                        form={form}
+                        customerOptions={customerOptions}
+                      />
+                    )}
+                    {quotationFlow === 'MOTOR_SINGLE' && (
+                      <MotorDetailsStep
+                        form={form}
+                        vehicleOptions={vehicleOptions}
+                      />
+                    )}
+                    {quotationFlow !== 'MOTOR_FLEET' && (
+                      <>
+                        <RiskPremiumStep
+                          form={form}
+                          riskOptions={riskOptions}
+                          fieldArray={riskFieldArray}
+                          flow={quotationFlow}
+                          subjectMatterFieldArray={nonMotorFieldArray}
+                          subjectMatterOptions={subjectMatterOptions}
+                          onRemoveRisk={removeRisk}
+                          onAddRisk={addRisk}
+                          factorContext={quotationFactorContext}
+                        />
+                        <AddOnsStep form={form} fieldArray={addonFieldArray} />
+                      </>
+                    )}
+                  </div>
+                  {quotationFlow === 'MOTOR_FLEET' && (
+                    <div hidden={stepId !== 'fleet-vehicles'}>
+                      <MotorFleetDetailsStep
+                        form={form}
+                        customerOptions={customerOptions}
+                        riskOptions={riskOptions}
+                        vehicleOptions={vehicleOptions}
+                        fieldArray={fleetFieldArray}
+                        onAddVehicle={addFleetVehicle}
+                        onRemoveVehicle={removeFleetVehicle}
+                        onDuplicateVehicle={duplicateFleetVehicle}
+                        onImportVehicles={importFleetVehicles}
+                        factorContext={quotationFactorContext}
+                      />
+                    </div>
+                  )}
+                  {stepId === 'summary' && (
+                    <>
+                      <SummaryReviewStep
+                        form={form}
+                        customerOptions={customerOptions}
+                        categoryOptions={categoryOptions}
+                        productOptions={productOptions}
+                        riskOptions={riskOptions}
+                        riskCount={riskFieldArray.fields.length}
+                        onEditStep={(nextStep) =>
+                          setSelectedStepId(
+                            normalizeWizardStepForFlow(nextStep, steps) ??
+                              steps[0].id,
+                          )
+                        }
+                      />
+                    </>
+                  )}
+                </form>
+              </Form>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

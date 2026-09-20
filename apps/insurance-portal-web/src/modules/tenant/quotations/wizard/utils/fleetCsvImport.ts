@@ -32,8 +32,8 @@ export const FLEET_CSV_COLUMNS: Array<{
   },
   { key: 'chassis_number', header: 'Chassis Number', required: false },
   { key: 'engine_number', header: 'Engine Number', required: false },
-  { key: 'make', header: 'Make', required: true },
-  { key: 'model', header: 'Model', required: true },
+  { key: 'make', header: 'Make', required: false },
+  { key: 'model', header: 'Model', required: false },
   { key: 'body_type', header: 'Body Type', required: false },
   { key: 'color', header: 'Colour', required: false },
   {
@@ -44,8 +44,8 @@ export const FLEET_CSV_COLUMNS: Array<{
   { key: 'sitting_capacity', header: 'Seating Capacity', required: false },
   { key: 'owner_name', header: 'Owner Name', required: false },
   { key: 'owner_address', header: 'Owner Address', required: false },
-  { key: 'risk_code', header: 'Risk Code', required: true },
-  { key: 'sum_insured', header: 'Sum Insured', required: true },
+  { key: 'risk_code', header: 'Risk Code', required: false },
+  { key: 'sum_insured', header: 'Sum Insured', required: false },
   {
     key: 'subject_matter_reference',
     header: 'Subject Matter Reference',
@@ -167,10 +167,11 @@ export function parseFleetCsv(text: string): {
     if (!row.registration_number && !row.chassis_number) {
       rowErrors.push('registration number or chassis number is required');
     }
-    if (!row.make) rowErrors.push('make is required');
-    if (!row.model) rowErrors.push('model is required');
-    if (!row.risk_code) rowErrors.push('risk code is required');
-    if (!row.sum_insured || Number.isNaN(Number(row.sum_insured))) {
+
+    if (
+      row.sum_insured &&
+      (!Number.isFinite(Number(row.sum_insured)) || Number(row.sum_insured) < 0)
+    ) {
       rowErrors.push('sum insured must be a number');
     }
 

@@ -46,7 +46,7 @@ const result: VerificationResult = {
 };
 
 function search() {
-  fireEvent.change(screen.getByLabelText('Registration number'), {
+  fireEvent.change(screen.getByPlaceholderText('T123ABC'), {
     target: { value: ' t123abc ' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Fetch details' }));
@@ -65,7 +65,11 @@ describe('VehicleLookup', () => {
       const form = useForm<QuotationFormSchemaValues>({
         defaultValues: {
           motor_mode: 'new',
-          motor: { ...createEmptyMotorDetails(), owner_name: 'Existing owner' },
+          motor: {
+            ...createEmptyMotorDetails(),
+            owner_name: 'Existing owner',
+            registration_no: 'T123ABC',
+          },
         },
       });
       return (
@@ -79,14 +83,10 @@ describe('VehicleLookup', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(
       'Vehicle details populated',
     );
-    expect(screen.getByLabelText('Make (required)')).toHaveValue('TOYOTA');
-    expect(screen.getByLabelText('Model (required)')).toHaveValue('COROLLA');
-    expect(screen.getByLabelText('Engine Capacity (cc, required)')).toHaveValue(
-      1500,
-    );
-    expect(screen.getByLabelText('Owner Name (required)')).toHaveValue(
-      'Existing owner',
-    );
+    expect(screen.getByLabelText('Make')).toHaveValue('TOYOTA');
+    expect(screen.getByLabelText('Model')).toHaveValue('COROLLA');
+    expect(screen.getByLabelText('Engine capacity (cc)')).toHaveValue('1500');
+    expect(screen.getByLabelText('Owner name')).toHaveValue('Existing owner');
     expect(verificationsApi.motor).toHaveBeenCalledWith({
       motorCategory: 1,
       motorRegistrationNumber: 'T123ABC',

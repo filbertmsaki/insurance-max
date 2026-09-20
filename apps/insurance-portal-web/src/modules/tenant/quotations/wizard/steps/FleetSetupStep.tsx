@@ -35,6 +35,7 @@ interface Props {
   categoryOptions: OptionLike[];
   productOptions: OptionLike[];
   isHydrating?: boolean;
+  headerOnly?: boolean;
 }
 
 const FLEET_TYPES = [
@@ -47,6 +48,7 @@ export function FleetSetupStep({
   categoryOptions,
   productOptions,
   isHydrating = false,
+  headerOnly = false,
 }: Props) {
   const fleetItems = form.watch('fleet.items');
   const computedPremiumExcludingTax = fleetItems.reduce(
@@ -76,7 +78,7 @@ export function FleetSetupStep({
   return (
     <>
       <StepSection
-        title="Step 1. Fleet Header"
+        title="Fleet"
         first
         contentClassName="grid gap-3 md:grid-cols-2"
       >
@@ -85,7 +87,7 @@ export function FleetSetupStep({
           name="fleet.header.fleet_id"
           render={({ field }) => (
             <WizardFormItem>
-              <FormLabel>Fleet ID</FormLabel>
+              <FormLabel>Fleet reference</FormLabel>
               <FormControl>
                 <Input {...field} placeholder="FLEET-2026-0001" />
               </FormControl>
@@ -163,15 +165,16 @@ export function FleetSetupStep({
         </div>
       </StepSection>
 
-      <CoverNoteSetupStep
-        form={form}
-        categoryOptions={categoryOptions}
-        productOptions={productOptions}
-        isHydrating={isHydrating}
-        title="Common Cover Note Setup"
-        showFlowSelector={false}
-        firstSection={false}
-      />
+      {!headerOnly && (
+        <CoverNoteSetupStep
+          form={form}
+          categoryOptions={categoryOptions}
+          productOptions={productOptions}
+          isHydrating={isHydrating}
+          title="Common Cover Note Setup"
+          firstSection={false}
+        />
+      )}
     </>
   );
 }

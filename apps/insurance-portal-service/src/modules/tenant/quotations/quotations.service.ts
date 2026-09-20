@@ -53,6 +53,7 @@ import { CustomerStatus } from '../customers/enums/customer-status.enum';
 import { Customer } from '../customers/entities/customer.entity';
 import { InsuredAsset } from '../customers/entities/insured-asset.entity';
 import { Department } from '../departments/entities/department.entity';
+import { User } from '../users/entities/user.entity';
 import { InsuranceCategory } from '../insurance-categories/entities/insurance-category.entity';
 import { InsuranceBusinessLine } from '../insurance-categories/enums/insurance-business-line.enum';
 import { InsuranceProduct } from '../insurance-products/entities/insurance-product.entity';
@@ -242,6 +243,7 @@ interface ResolvedEntry {
 
 interface PostgreSqlDriverError {
   code?: string;
+  column?: string;
   constraint?: string;
   detail?: string;
   table?: string;
@@ -451,10 +453,8 @@ export class QuotationsService {
         companyId,
         manager,
       );
-    const { branchId, salePointCode } = await this.resolveDraftBranchContext(
-      companyId,
-      userId,
-    );
+    const { branchId, salePointCode, officer } =
+      await this.resolveDraftBranchContext(companyId, userId);
     const { productCode, definition } =
       await this.resolveDraftProductDefinition(
         manager,
@@ -502,6 +502,7 @@ export class QuotationsService {
       dto,
       salePointCode,
       productCode,
+      officer,
     );
 
     return quotation.id;
@@ -522,9 +523,11 @@ export class QuotationsService {
     this.assertQuotationEditable(existing);
     this.assertNoPremiumOverrideHistory(existing);
 
-    const contextPayload = this.resolveExistingQuotationContext(
+    const contextPayload = await this.resolveExistingQuotationContext(
+      companyId,
       payload,
       existing,
+      user.id,
     );
     const preparedPayload = await this.preparePayloadWithGeneratedIdentifiers(
       companyId,
@@ -687,10 +690,13 @@ export class QuotationsService {
         );
         this.assertDraftWritable(quotation);
 
+        const draftContext = await this.resolveDraftBranchContext(
+          companyId,
+          userId,
+        );
         const salePointCode =
           quotation.cover_note?.sale_point_code?.trim() ||
-          (await this.resolveDraftBranchContext(companyId, userId))
-            .salePointCode;
+          draftContext.salePointCode;
         const { productCode, definition } =
           await this.resolveDraftProductDefinition(
             manager,
@@ -733,6 +739,7 @@ export class QuotationsService {
           dto,
           salePointCode,
           productCode,
+          draftContext.officer,
         );
       });
 
@@ -2024,7 +2031,8 @@ export class QuotationsService {
     const assignment = await this.branchUserRepository
       .createQueryBuilder('assignment')
       .innerJoinAndSelect('assignment.branch', 'branch')
-      .innerJoin('assignment.company_user', 'companyUser')
+      .innerJoinAndSelect('assignment.company_user', 'companyUser')
+      .innerJoinAndSelect('companyUser.user', 'user')
       .where('companyUser.user_id = :userId', { userId })
       .andWhere('companyUser.company_id = :companyId', { companyId })
       .andWhere('companyUser.status = :membershipStatus', {
@@ -2063,6 +2071,9 @@ export class QuotationsService {
     return {
       branchId: branch.id,
       salePointCode: defaultSalePoints[0].salePointCode.trim().toUpperCase(),
+      officer: this.resolveOfficerDetails(
+        assignment.company_user?.user ?? null,
+      ),
     };
   }
 
@@ -2127,6 +2138,7 @@ export class QuotationsService {
     draft: SaveQuotationDraftDto | UpdateQuotationDraftDto,
     salePointCode: string,
     productCode: string,
+    officer: { officer_name: string; officer_title: string },
   ) {
     const payload = this.cloneDraftPayload(draft.draft_payload);
     const coverNoteRepository = manager.getRepository(QuotationCoverNote);
@@ -2180,12 +2192,8 @@ export class QuotationsService {
           this.draftNumber(payload, 'commission_rate', 0),
           6,
         ),
-        officer_name: this.draftString(
-          payload,
-          'officer_name',
-          'Draft quotation',
-        ),
-        officer_title: this.draftString(payload, 'officer_title', 'Draft'),
+        officer_name: officer.officer_name,
+        officer_title: officer.officer_title,
         product_code: productCode,
         fleet_id:
           draft.quotation_flow === QuotationFlow.MOTOR_FLEET
@@ -3951,6 +3959,10 @@ export class QuotationsService {
     const header = this.resolveHeader(payload);
     const effectiveDate =
       this.extractDateOnly(header.cover_note_start_date) ?? undefined;
+    const coverStartDate =
+      this.extractDateOnly(header.cover_note_start_date) ?? undefined;
+    const coverEndDate =
+      this.extractDateOnly(header.cover_note_end_date) ?? undefined;
 
     if (
       payload.internal_quotation.quotation_flow === QuotationFlow.MOTOR_SINGLE
@@ -3994,6 +4006,8 @@ export class QuotationsService {
               includeSumInsured,
             ),
             effective_date: effectiveDate,
+            cover_start_date: coverStartDate,
+            cover_end_date: coverEndDate,
             quotation_type: payload.internal_quotation.quotation_type,
             currency_code: header.currency_code,
             exchange_rate: header.exchange_rate,
@@ -4045,12 +4059,14 @@ export class QuotationsService {
               : undefined,
             factors: this.buildMotorPricingFactors(
               header,
-              payload.cover_note_dtl.policy_holders?.[0] ?? null,
+              payload.cover_note_dtl.fleet_hdr?.policy_holders?.[0] ?? null,
               entry.motor_dtl,
               risk.sum_insured,
               includeSumInsured,
             ),
             effective_date: effectiveDate,
+            cover_start_date: coverStartDate,
+            cover_end_date: coverEndDate,
             quotation_type: payload.internal_quotation.quotation_type,
             currency_code: header.currency_code,
             exchange_rate: header.exchange_rate,
@@ -6833,7 +6849,8 @@ export class QuotationsService {
     const assignment = await this.branchUserRepository
       .createQueryBuilder('assignment')
       .innerJoinAndSelect('assignment.branch', 'branch')
-      .innerJoin('assignment.company_user', 'companyUser')
+      .innerJoinAndSelect('assignment.company_user', 'companyUser')
+      .innerJoinAndSelect('companyUser.user', 'user')
       .where('companyUser.user_id = :userId', { userId })
       .andWhere('companyUser.company_id = :companyId', { companyId })
       .andWhere('companyUser.status = :membershipStatus', {
@@ -6887,31 +6904,40 @@ export class QuotationsService {
       );
     }
 
-    return {
-      ...payload,
-      internal_quotation: {
-        ...payload.internal_quotation,
-        branch_id: branch.id,
+    const officer = this.resolveOfficerDetails(
+      assignment.company_user?.user ?? null,
+    );
+
+    return this.withResolvedOfficerDetails(
+      {
+        ...payload,
+        internal_quotation: {
+          ...payload.internal_quotation,
+          branch_id: branch.id,
+        },
+        cover_note_dtl: {
+          ...payload.cover_note_dtl,
+          sale_point_code: payload.cover_note_dtl.fleet_hdr
+            ? undefined
+            : salePoint.salePointCode.trim().toUpperCase(),
+          fleet_hdr: payload.cover_note_dtl.fleet_hdr
+            ? {
+                ...payload.cover_note_dtl.fleet_hdr,
+                sale_point_code: salePoint.salePointCode.trim().toUpperCase(),
+              }
+            : undefined,
+        },
       },
-      cover_note_dtl: {
-        ...payload.cover_note_dtl,
-        sale_point_code: payload.cover_note_dtl.fleet_hdr
-          ? undefined
-          : salePoint.salePointCode.trim().toUpperCase(),
-        fleet_hdr: payload.cover_note_dtl.fleet_hdr
-          ? {
-              ...payload.cover_note_dtl.fleet_hdr,
-              sale_point_code: salePoint.salePointCode.trim().toUpperCase(),
-            }
-          : undefined,
-      },
-    };
+      officer,
+    );
   }
 
-  private resolveExistingQuotationContext(
+  private async resolveExistingQuotationContext(
+    companyId: string,
     payload: CreateQuotationDto,
     existing: Quotation,
-  ): CreateQuotationDto {
+    userId: string,
+  ): Promise<CreateQuotationDto> {
     const salePointCode = existing.cover_note?.sale_point_code;
     if (!existing.branch_id || !salePointCode?.trim()) {
       throw new BadRequestException(
@@ -6919,21 +6945,77 @@ export class QuotationsService {
       );
     }
 
+    const user = await this.dataSource.getRepository(User).findOne({
+      where: { id: userId },
+    });
+    const officer = this.resolveOfficerDetails(user);
+
+    return this.withResolvedOfficerDetails(
+      {
+        ...payload,
+        internal_quotation: {
+          ...payload.internal_quotation,
+          branch_id: existing.branch_id,
+        },
+        cover_note_dtl: {
+          ...payload.cover_note_dtl,
+          sale_point_code: payload.cover_note_dtl.fleet_hdr
+            ? undefined
+            : salePointCode,
+          fleet_hdr: payload.cover_note_dtl.fleet_hdr
+            ? {
+                ...payload.cover_note_dtl.fleet_hdr,
+                sale_point_code: salePointCode,
+              }
+            : undefined,
+        },
+      },
+      officer,
+    );
+  }
+
+  private resolveOfficerDetails(user: User | null): {
+    officer_name: string;
+    officer_title: string;
+  } {
+    const officerName =
+      [user?.first_name, user?.last_name].filter(Boolean).join(' ').trim() ||
+      user?.email?.trim() ||
+      'Portal Officer';
+    const officerTitle = user?.officer_title?.trim() || 'Underwriter';
+
+    return {
+      officer_name: officerName,
+      officer_title: officerTitle,
+    };
+  }
+
+  private withResolvedOfficerDetails(
+    payload: CreateQuotationDto,
+    officer: { officer_name: string; officer_title: string },
+  ): CreateQuotationDto {
+    const {
+      officer_name: _incomingOfficerName,
+      officer_title: _incomingOfficerTitle,
+      ...coverNoteDetail
+    } = payload.cover_note_dtl;
+    const fleetHeader = coverNoteDetail.fleet_hdr;
+
     return {
       ...payload,
-      internal_quotation: {
-        ...payload.internal_quotation,
-        branch_id: existing.branch_id,
-      },
       cover_note_dtl: {
-        ...payload.cover_note_dtl,
-        sale_point_code: payload.cover_note_dtl.fleet_hdr
-          ? undefined
-          : salePointCode,
-        fleet_hdr: payload.cover_note_dtl.fleet_hdr
+        ...coverNoteDetail,
+        ...(fleetHeader
+          ? {}
+          : {
+              officer_name: officer.officer_name,
+              officer_title: officer.officer_title,
+            }),
+        fleet_hdr: fleetHeader
           ? {
-              ...payload.cover_note_dtl.fleet_hdr,
-              sale_point_code: salePointCode,
+              ...fleetHeader,
+              officer_name: officer.officer_name,
+              officer_title: officer.officer_title,
             }
           : undefined,
       },
@@ -8627,32 +8709,90 @@ export class QuotationsService {
       }
 
       if (code === '23503') {
-        throw new BadRequestException(
-          'Quotation contains an invalid relationship reference',
-        );
+        throw new BadRequestException({
+          code: 'QUOTATION_INVALID_REFERENCE',
+          message: 'Quotation contains an invalid relationship reference',
+          details: this.databaseErrorDetails(driverError),
+        });
+      }
+
+      if (code === '23502') {
+        throw new BadRequestException({
+          code: 'QUOTATION_REQUIRED_FIELD_MISSING',
+          message: driverError?.column
+            ? `Quotation is missing required field "${driverError.column}"`
+            : 'Quotation is missing a required field',
+          details: this.databaseErrorDetails(driverError),
+        });
       }
 
       if (code === '23514') {
         throw new BadRequestException({
+          code: 'QUOTATION_VALIDATION_CONSTRAINT_FAILED',
           message: 'Quotation violates a database validation constraint',
-          constraint: constraint || undefined,
-          detail: driverError?.detail || undefined,
+          details: this.databaseErrorDetails(driverError),
         });
       }
 
       if (code === '22P02') {
-        throw new BadRequestException(
-          'Quotation contains an invalid identifier or enum value',
-        );
+        throw new BadRequestException({
+          code: 'QUOTATION_INVALID_VALUE',
+          message: 'Quotation contains an invalid identifier or enum value',
+          details: this.databaseErrorDetails(driverError),
+        });
+      }
+
+      if (code === '22001') {
+        throw new BadRequestException({
+          code: 'QUOTATION_VALUE_TOO_LONG',
+          message: driverError?.column
+            ? `Quotation field "${driverError.column}" is too long`
+            : 'Quotation contains a text value that is too long',
+          details: this.databaseErrorDetails(driverError),
+        });
       }
 
       if (code === '22003') {
-        throw new BadRequestException(
-          'Quotation contains a numeric value outside the supported range',
-        );
+        throw new BadRequestException({
+          code: 'QUOTATION_NUMERIC_VALUE_OUT_OF_RANGE',
+          message:
+            'Quotation contains a numeric value outside the supported range',
+          details: this.databaseErrorDetails(driverError),
+        });
+      }
+
+      if (code === '22007' || code === '22008') {
+        throw new BadRequestException({
+          code: 'QUOTATION_INVALID_DATE',
+          message: 'Quotation contains an invalid date or time value',
+          details: this.databaseErrorDetails(driverError),
+        });
+      }
+
+      if (code) {
+        throw new BadRequestException({
+          code: 'QUOTATION_DATABASE_SAVE_FAILED',
+          message:
+            'Quotation could not be saved because the database rejected one of the supplied values',
+          details: this.databaseErrorDetails(driverError),
+        });
       }
     }
 
     throw error;
+  }
+
+  private databaseErrorDetails(
+    driverError: PostgreSqlDriverError | undefined,
+  ): Record<string, unknown> {
+    return {
+      ...(driverError?.code ? { postgresCode: driverError.code } : {}),
+      ...(driverError?.table ? { table: driverError.table } : {}),
+      ...(driverError?.column ? { column: driverError.column } : {}),
+      ...(driverError?.constraint
+        ? { constraint: driverError.constraint }
+        : {}),
+      ...(driverError?.detail ? { detail: driverError.detail } : {}),
+    };
   }
 }

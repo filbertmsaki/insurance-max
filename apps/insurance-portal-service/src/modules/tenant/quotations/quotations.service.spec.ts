@@ -1208,6 +1208,8 @@ describe('QuotationsService', () => {
         fixture.pricingQuoteService.calculateSingleRiskQuote.mock.calls;
       expect(calls[0][1].tax_codes).toEqual(['VAT-MAINLAND', 'WITHHOLDING']);
       expect(calls[1][1].tax_codes).toEqual([]);
+      expect(calls[0][1].factors.policy_holder_type).toBe('Corporate');
+      expect(calls[1][1].factors.policy_holder_type).toBe('Corporate');
     });
 
     it('rejects an expired pricing quote', async () => {

@@ -116,6 +116,24 @@ export class CalculateSingleRiskPremiumDto {
   effective_date?: string;
 
   @ApiPropertyOptional({
+    example: '2026-07-27',
+    description:
+      'Cover start date used by rate books that prorate short-period covers.',
+  })
+  @IsOptional()
+  @IsDateString()
+  cover_start_date?: string;
+
+  @ApiPropertyOptional({
+    example: '2027-07-26',
+    description:
+      'Cover end date used by rate books that prorate short-period covers.',
+  })
+  @IsOptional()
+  @IsDateString()
+  cover_end_date?: string;
+
+  @ApiPropertyOptional({
     enum: QuotationType,
     description:
       'Optional quotation type context for snapshot storage and downstream pricing governance.',

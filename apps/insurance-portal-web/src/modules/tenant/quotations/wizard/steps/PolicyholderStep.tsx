@@ -1,3 +1,4 @@
+import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
 import { UserCircle2 } from 'lucide-react';
 import type { FieldPath, UseFormReturn } from 'react-hook-form';
 import { Badge } from '@/components/ui/badge';
@@ -113,6 +114,9 @@ function ExistingCustomerCard({
         </Button>
       </div>
 
+      <p className="mt-2 text-sm">
+        {customer.phone} {customer.email}
+      </p>
       <div className="mt-4 grid gap-4 border-t border-slate-200 pt-4 sm:grid-cols-2">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -243,7 +247,8 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
 
     return {
       value: customer.id,
-      label: `${getCustomerDisplayName(customer)} (${customer.customer_no}) ${searchText}`,
+      label: `${getCustomerDisplayName(customer)} ? ${customer.phone || customer.id_number || customer.customer_no}`,
+      keywords: [searchText],
     };
   });
 
@@ -267,7 +272,7 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
 
   return (
     <>
-      <StepSection title="Step 2. Policyholder" first>
+      <StepSection title="Policyholder" first>
         <div className="flex gap-2">
           {[
             { value: 'existing' as const, label: 'Existing Customer' },
@@ -318,10 +323,25 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
         )}
 
         {mode === 'existing' && selectedCustomer && (
-          <ExistingCustomerCard
-            customer={selectedCustomer}
-            onChangeCustomer={() => form.setValue('customer_id', '')}
-          />
+          <>
+            <ExistingCustomerCard
+              customer={selectedCustomer}
+              onChangeCustomer={() => form.setValue('customer_id', '')}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                form.setValue(
+                  'policyholder',
+                  getCustomerDefaultValues(selectedCustomer),
+                );
+                form.setValue('policyholder_mode', 'new');
+              }}
+            >
+              Edit policyholder details for this quotation
+            </Button>
+          </>
         )}
       </StepSection>
 
@@ -527,12 +547,9 @@ export function PolicyholderStep({ form, customerOptions }: Props) {
               region={policyholderRegion}
               district={policyholderDistrict}
               errors={{
-                country:
-                  form.formState.errors.policyholder?.country?.message,
-                region:
-                  form.formState.errors.policyholder?.region?.message,
-                district:
-                  form.formState.errors.policyholder?.district?.message,
+                country: form.formState.errors.policyholder?.country?.message,
+                region: form.formState.errors.policyholder?.region?.message,
+                district: form.formState.errors.policyholder?.district?.message,
               }}
               onCountryChange={(country, code) => {
                 form.setValue('policyholder.country', country, {

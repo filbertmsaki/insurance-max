@@ -34,7 +34,7 @@ const ALL_STEPS: Record<QuotationWizardStepId, QuotationWizardStepDef> = {
   },
   'risk-premium': {
     id: 'risk-premium',
-    label: 'Risk & Premium',
+    label: 'Product & Risk',
     description: 'Add insured risks and calculate premium',
   },
   addons: {
@@ -44,17 +44,17 @@ const ALL_STEPS: Record<QuotationWizardStepId, QuotationWizardStepDef> = {
   },
   motor: {
     id: 'motor',
-    label: 'Motor/Risk & Premium',
+    label: 'Vehicle & Cover',
     description: 'Complete vehicle details and calculate premium',
   },
   'fleet-vehicles': {
     id: 'fleet-vehicles',
-    label: 'Fleet risks',
+    label: 'Vehicles',
     description: 'Add and validate each vehicle in the fleet',
   },
   summary: {
     id: 'summary',
-    label: 'Review & Complete',
+    label: 'Policyholder & Review',
     description: 'Check the quotation before completing the draft',
   },
 };
@@ -71,9 +71,15 @@ export function getWizardStepsForFlow(
 ): QuotationWizardStepDef[] {
   const ids: QuotationWizardStepId[] =
     flow === 'NON_MOTOR'
-      ? ['cover-note', 'risk-premium', 'summary']
+      ? ['risk-premium', 'summary']
       : flow === 'MOTOR_SINGLE'
-        ? ['cover-note', 'motor', 'summary']
-        : ['fleet-setup', 'policyholder', 'fleet-vehicles', 'summary'];
-  return ids.map((id) => ALL_STEPS[id]);
+        ? ['motor', 'summary']
+        : ['fleet-setup', 'fleet-vehicles', 'summary'];
+  return ids.map((id) =>
+    flow === 'MOTOR_FLEET' && id === 'summary'
+      ? { ...ALL_STEPS[id], label: 'Review & Create' }
+      : flow === 'MOTOR_FLEET' && id === 'fleet-setup'
+        ? { ...ALL_STEPS[id], label: 'Fleet & Cover' }
+        : ALL_STEPS[id],
+  );
 }

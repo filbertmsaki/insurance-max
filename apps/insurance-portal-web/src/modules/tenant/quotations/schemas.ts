@@ -1,3 +1,5 @@
+import { computeAddonAmounts } from './wizard/utils/addonCalculations';
+import { motorFields, motorFieldError } from './wizard/utils/motorFields';
 import { z } from 'zod';
 import {
   roundExchangeRate,
@@ -631,61 +633,20 @@ function validateStandardCoverNoteFields(
       });
     }
   });
-
-  if (!normalizeText(values.officer_name)) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['officer_name'],
-      message: 'Required',
-    });
-  }
-
-  if (!normalizeText(values.officer_title)) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['officer_title'],
-      message: 'Required',
-    });
-  }
 }
 
 function validateMotorSingle(
   values: z.infer<typeof quotationFormObjectSchema>,
   ctx: z.RefinementCtx,
 ) {
-  const motor = values.motor;
-  const requiredFields: Array<keyof typeof motor> = [
-    'motor_category_code',
-    'motor_type_code',
-    'registration_no',
-    'chassis_no',
-    'make',
-    'model',
-    'body_type',
-    'color',
-    'engine_no',
-    'cubic_capacity',
-    'fuel_type',
-    'number_of_axles',
-    'axle_distance',
-    'seating_capacity',
-    'manufacture_year',
-    'tare_weight',
-    'gross_weight',
-    'motor_usage_code',
-    'owner_name',
-    'owner_category',
-    'owner_address',
-  ];
-
-  requiredFields.forEach((field) => {
-    if (!normalizeText(motor[field])) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['motor', field],
-        message: 'Required',
-      });
-    }
+  motorFields.forEach((field) => {
+    const message = motorFieldError(
+      field.key,
+      values.motor[field.key],
+      values.motor,
+    );
+    if (message)
+      ctx.addIssue({ code: 'custom', path: ['motor', field.key], message });
   });
 }
 
@@ -706,7 +667,34 @@ function validateFleet(
   const seenChassis = new Map<string, number>();
   const seenEngine = new Map<string, number>();
 
+  const comprehensive = Number(values.fleet.header.comprehensive_insured);
+  if (
+    !Number.isInteger(comprehensive) ||
+    comprehensive < 0 ||
+    comprehensive > values.fleet.items.length
+  )
+    ctx.addIssue({
+      code: 'custom',
+      path: ['fleet', 'header', 'comprehensive_insured'],
+      message:
+        'Comprehensively insured vehicles must be between zero and the fleet size.',
+    });
   values.fleet.items.forEach((item, index) => {
+    const motor = Object.fromEntries(
+      motorFields.map((field) => [
+        field.key,
+        item.motor_dtl[field.fleetKey as keyof typeof item.motor_dtl],
+      ]),
+    );
+    motorFields.forEach((field) => {
+      const message = motorFieldError(field.key, motor[field.key], motor);
+      if (message)
+        ctx.addIssue({
+          code: 'custom',
+          path: ['fleet', 'items', index, 'motor_dtl', field.fleetKey],
+          message,
+        });
+    });
     if (!normalizeText(item.cover_note_desc)) {
       ctx.addIssue({
         code: 'custom',
@@ -788,7 +776,7 @@ function validateFleet(
             riskIndex,
             'risk_code',
           ],
-          message: 'Risk code is required',
+          message: 'Please select the type of cover.',
         });
       }
     });
@@ -836,26 +824,11 @@ function validateNonMotor(
 export const quotationFormSchema: z.ZodType<QuotationFormValues> =
   quotationFormObjectSchema.superRefine((values, ctx) => {
     validatePolicyholder(values, ctx);
-    validateRiskRows(values.risks, ctx);
+    if (values.quotation_flow !== 'MOTOR_FLEET')
+      validateRiskRows(values.risks, ctx);
 
     if (values.quotation_flow !== 'MOTOR_FLEET') {
       validateStandardCoverNoteFields(values, ctx);
-    } else {
-      if (!normalizeText(values.officer_name)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['officer_name'],
-          message: 'Required',
-        });
-      }
-
-      if (!normalizeText(values.officer_title)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['officer_title'],
-          message: 'Required',
-        });
-      }
     }
 
     if (values.valid_until < values.valid_from) {
@@ -1339,29 +1312,25 @@ function buildAddonPayload(
 ): QuotationPayload['cover_note_dtl']['cover_note_addons'] {
   return addons
     .filter((addon) => addon.enabled)
-    .map((addon) => ({
-      addon_reference: addon.addon_reference,
-      addon_desc: addon.addon_desc,
-      addon_amount: normalizeMoneyNumber(addon.addon_amount),
-      addon_premium_rate: normalizeRateNumber(addon.addon_premium_rate),
-      premium_excluding_tax:
-        normalizeMoneyNumber(addon.premium_excluding_tax) ||
-        normalizeMoneyNumber(addon.addon_amount),
-      premium_excluding_tax_equivalent:
-        normalizeMoneyNumber(addon.premium_excluding_tax_equivalent) ||
-        normalizeMoneyNumber(addon.premium_excluding_tax) ||
-        normalizeMoneyNumber(addon.addon_amount),
-      premium_including_tax:
-        normalizeMoneyNumber(addon.premium_including_tax) ||
-        roundMoney(
-          toDecimal(normalizeMoneyNumber(addon.premium_excluding_tax)).plus(
-            sumDecimals(
-              buildTaxPayload(addon.taxes).map((tax) => tax.tax_amount),
-            ),
-          ),
+    .map((addon) => {
+      const computed = computeAddonAmounts(addon, 1);
+      return {
+        addon_reference: addon.addon_reference,
+        addon_desc: addon.addon_desc,
+        addon_amount: normalizeMoneyNumber(addon.addon_amount),
+        addon_premium_rate: normalizeRateNumber(addon.addon_premium_rate),
+        premium_excluding_tax: computed.premiumExcludingTax,
+        premium_excluding_tax_equivalent:
+          computed.premiumExcludingTaxEquivalent,
+        premium_including_tax: computed.premiumIncludingTax,
+        taxes_charged: buildTaxPayload(
+          addon.taxes.map((tax, index) => ({
+            ...tax,
+            tax_amount: String(computed.taxes[index].tax_amount),
+          })),
         ),
-      taxes_charged: buildTaxPayload(addon.taxes),
-    }));
+      };
+    });
 }
 
 function buildCommonDetail(
@@ -1371,6 +1340,7 @@ function buildCommonDetail(
   productCode: string,
 ) {
   const risks = values.risks.map((risk) => buildRiskPayload(risk, values));
+  const addons = buildAddonPayload(values.addons) ?? [];
   return {
     prev_cover_note_reference_number: normalizeText(
       values.prev_cover_note_reference,
@@ -1385,12 +1355,18 @@ function buildCommonDetail(
       values.currency.trim().toUpperCase() === 'TZS'
         ? 1
         : normalizeExchangeRateNumber(values.exchange_rate),
-    total_premium_excluding_tax:
-      normalizeMoneyNumber(values.basic_premium) ||
-      roundMoney(sumDecimals(risks.map((risk) => risk.premium_after_discount))),
-    total_premium_including_tax:
-      normalizeMoneyNumber(values.total_premium) ||
-      roundMoney(sumDecimals(risks.map((risk) => risk.premium_including_tax))),
+    total_premium_excluding_tax: roundMoney(
+      sumDecimals([
+        ...risks.map((risk) => risk.premium_excluding_tax_equivalent),
+        ...addons.map((addon) => addon.premium_excluding_tax_equivalent),
+      ]),
+    ),
+    total_premium_including_tax: roundMoney(
+      sumDecimals([
+        ...risks.map((risk) => risk.premium_including_tax),
+        ...addons.map((addon) => addon.premium_including_tax),
+      ]),
+    ),
     commision_paid:
       values.channel_type === 'DIRECT'
         ? 0
@@ -1411,7 +1387,7 @@ function buildCommonDetail(
       ? normalizeMoneyNumber(values.endorsement_premium_earned)
       : null,
     risks_covered: risks,
-    cover_note_addons: buildAddonPayload(values.addons),
+    cover_note_addons: addons,
     policy_holders: [policyHolder],
   };
 }
@@ -1663,9 +1639,9 @@ export function buildMotorFleetQuotationPayload(
         fleet_id: values.fleet.header.fleet_id,
         fleet_type: normalizePositiveNumber(values.fleet.header.fleet_type),
         fleet_size: fleetItems.length,
-        comprehensive_insured:
-          normalizeNumber(values.fleet.header.comprehensive_insured) ||
-          fleetItems.length,
+        comprehensive_insured: normalizeNumber(
+          values.fleet.header.comprehensive_insured,
+        ),
         cover_note_start_date: formatDateTime(values.valid_from, false),
         cover_note_end_date: formatDateTime(values.valid_until, true),
         payment_mode: normalizePositiveNumber(values.payment_mode_tira),
@@ -1676,18 +1652,26 @@ export function buildMotorFleetQuotationPayload(
             : normalizeExchangeRateNumber(values.exchange_rate),
         total_premium_excluding_tax: roundMoney(
           sumDecimals(
-            fleetItems.flatMap((fleetItem) =>
-              fleetItem.risks_covered.map(
+            fleetItems.flatMap((fleetItem) => [
+              ...fleetItem.risks_covered.map(
                 (risk) => risk.premium_excluding_tax_equivalent,
               ),
-            ),
+              ...fleetItem.cover_note_addons.map(
+                (addon) => addon.premium_excluding_tax_equivalent,
+              ),
+            ]),
           ),
         ),
         total_premium_including_tax: roundMoney(
           sumDecimals(
-            fleetItems.flatMap((fleetItem) =>
-              fleetItem.risks_covered.map((risk) => risk.premium_including_tax),
-            ),
+            fleetItems.flatMap((fleetItem) => [
+              ...fleetItem.risks_covered.map(
+                (risk) => risk.premium_including_tax,
+              ),
+              ...fleetItem.cover_note_addons.map(
+                (addon) => addon.premium_including_tax,
+              ),
+            ]),
           ),
         ),
         commision_paid:

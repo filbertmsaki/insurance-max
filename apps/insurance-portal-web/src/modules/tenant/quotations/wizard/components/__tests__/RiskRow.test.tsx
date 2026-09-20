@@ -143,40 +143,31 @@ function TestHarness({
 }
 
 describe('RiskRow', () => {
-  it('renders editable premium and discount fields with catalogue-controlled tax amounts', () => {
-    // Automatic calculation is temporarily disabled
-    // (AUTO_CALCULATION_DISABLED in useRiskPremiumCalculation.ts), so nothing
-    // fills these fields anymore — they must be editable so the wizard is
-    // still usable in the meantime.
-    render(<TestHarness />);
-
+  it('keeps cover inputs editable and calculated premiums out of the form', () => {
+    let form!: UseFormReturn<QuotationFormSchemaValues>;
+    render(
+      <TestHarness
+        onReady={(value) => {
+          form = value;
+        }}
+      />,
+    );
     expect(screen.getByLabelText('Sum Insured')).not.toHaveAttribute(
       'readonly',
     );
-    expect(screen.getByLabelText('Sum Insured Equivalent')).toHaveAttribute(
-      'readonly',
-    );
-    expect(screen.getByLabelText('Premium Rate')).not.toHaveAttribute(
-      'readonly',
-    );
-    expect(
-      screen.getByLabelText('Premium Before Discount'),
-    ).not.toHaveAttribute('readonly');
-    expect(screen.getByLabelText('Premium After Discount')).not.toHaveAttribute(
-      'readonly',
-    );
-    expect(
-      screen.getByLabelText('Premium Excluding Tax Equivalent'),
-    ).not.toHaveAttribute('readonly');
-    expect(screen.getByLabelText('Premium Including Tax')).not.toHaveAttribute(
-      'readonly',
-    );
-    expect(screen.getAllByLabelText('Amount')[0]).not.toHaveAttribute(
-      'readonly',
+    for (const label of [
+      'Sum Insured Equivalent',
+      'Premium Rate',
+      'Premium Before Discount',
+      'Premium After Discount',
+      'Premium Including Tax',
+    ]) {
+      expect(screen.queryByLabelText(label)).not.toBeInTheDocument();
+    }
+    expect(Number(form.getValues('risks.0.premium_before_discount'))).toBe(
+      35000,
     );
     expect(screen.getByLabelText('Rate (%)')).toHaveAttribute('readonly');
-    expect(screen.getAllByLabelText('Amount')[1]).toHaveAttribute('readonly');
-    expect(screen.getByLabelText('Rate')).not.toHaveAttribute('readonly');
   });
 
   it('keeps the discount dropdown open when a nested premium update refreshes the risk array', async () => {
@@ -202,18 +193,22 @@ describe('RiskRow', () => {
   });
 
   it('mirrors sum insured into sum insured equivalent and does not show the optional-risk notice', () => {
-    render(<TestHarness />);
+    let form!: UseFormReturn<QuotationFormSchemaValues>;
+    render(
+      <TestHarness
+        onReady={(value) => {
+          form = value;
+        }}
+      />,
+    );
 
     const sumInsuredInput = screen.getByLabelText('Sum Insured');
-    const sumInsuredEquivalentInput = screen.getByLabelText(
-      'Sum Insured Equivalent',
-    );
 
     fireEvent.change(sumInsuredInput, {
       target: { value: '0' },
     });
 
-    expect((sumInsuredEquivalentInput as HTMLInputElement).value).toBe('0');
+    expect(form.getValues('risks.0.sum_insured_equivalent')).toBe('0');
     expect(
       screen.queryByText(
         'Sum insured is not required for the selected Motor risk.',
@@ -237,34 +232,17 @@ describe('RiskRow', () => {
     ).toBeInTheDocument();
   });
 
-  it('only recomputes dependent premium fields once Premium Before Discount is blurred', () => {
-    render(<TestHarness />);
-
-    const premiumBeforeDiscountInput = screen.getByLabelText(
-      'Premium Before Discount',
+  it('recomputes dependent amounts after an authoritative premium update', () => {
+    let form!: UseFormReturn<QuotationFormSchemaValues>;
+    render(
+      <TestHarness
+        onReady={(value) => {
+          form = value;
+        }}
+      />,
     );
-    const premiumAfterDiscountInput = screen.getByLabelText(
-      'Premium After Discount',
-    );
-
-    // The mount-time recompute already normalized this to match Premium
-    // Before Discount (35000), since the fixture's default discount row has
-    // no discount_type/discount_rate set.
-    expect(Number((premiumAfterDiscountInput as HTMLInputElement).value)).toBe(
-      35000,
-    );
-
-    // Typing alone must not trigger a recompute yet.
-    fireEvent.change(premiumBeforeDiscountInput, {
-      target: { value: '100000' },
-    });
-    expect(Number((premiumAfterDiscountInput as HTMLInputElement).value)).toBe(
-      35000,
-    );
-
-    // Leaving the field commits the value and recomputes dependents.
-    fireEvent.blur(premiumBeforeDiscountInput);
-    expect(Number((premiumAfterDiscountInput as HTMLInputElement).value)).toBe(
+    act(() => form.setValue('risks.0.premium_before_discount', '100000'));
+    expect(Number(form.getValues('risks.0.premium_after_discount'))).toBe(
       100000,
     );
   });

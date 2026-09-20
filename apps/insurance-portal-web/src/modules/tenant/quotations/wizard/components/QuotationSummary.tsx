@@ -4,7 +4,6 @@ import {
   Car,
   FileText,
   ShieldCheck,
-  UserRound,
 } from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
 import { Badge } from '@/components/ui/badge';
@@ -16,10 +15,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import {
-  getCustomerDisplayName,
-  type CustomerRecord,
-} from '@/modules/tenant/customers/types';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { formatCoverDateLabel } from '../utils/coverNoteDateRange';
 
@@ -31,7 +26,6 @@ interface OptionLike {
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
-  customerOptions: CustomerRecord[];
   categoryOptions: OptionLike[];
   productOptions: OptionLike[];
   riskCount: number;
@@ -93,25 +87,17 @@ function SummaryMetric({
 
 export function QuotationSummary({
   form,
-  customerOptions,
   categoryOptions,
   productOptions,
   riskCount,
 }: Props) {
   const values = form.watch();
-  const customer = customerOptions.find(
-    (item) => item.id === values.customer_id,
-  );
+
   const category = categoryOptions.find(
     (item) => item.id === values.category_id,
   );
   const product = productOptions.find((item) => item.id === values.product_id);
 
-  const customerName =
-    (customer ? getCustomerDisplayName(customer) : null) ||
-    values.policyholder.full_name ||
-    values.policyholder.company_name ||
-    'Not selected';
   const flow =
     values.quotation_flow === 'NON_MOTOR'
       ? 'Non-motor'
@@ -170,12 +156,6 @@ export function QuotationSummary({
 
       <CardContent className="space-y-4 p-5">
         <div className="grid gap-3">
-          <SummaryMetric
-            icon={UserRound}
-            label="Policyholder"
-            value={customerName}
-            tone="highlight"
-          />
           <SummaryMetric
             icon={FileText}
             label="Product"

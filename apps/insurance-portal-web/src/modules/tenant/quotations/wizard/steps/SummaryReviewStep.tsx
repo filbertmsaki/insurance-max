@@ -1,27 +1,21 @@
-import { Pencil } from 'lucide-react';
-import type { UseFormReturn } from 'react-hook-form';
-import { Badge } from '@/components/ui/badge';
+﻿import type { UseFormReturn } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import {
   getCustomerDisplayName,
   type CustomerRecord,
 } from '@/modules/tenant/customers/types';
 import type { InsuranceRisk } from '@/types/product-engine';
-import { computeAddonAmounts } from '../utils/addonCalculations';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import type { QuotationWizardStepId } from '../types';
 import { formatCoverDateLabel } from '../utils/coverNoteDateRange';
+import { quotationTotals } from '../utils/quotationTotals';
+import { quotationPricingIssues } from '../utils/quotationReadiness';
 import { StepSection } from '../components/StepSection';
-
 interface OptionLike {
   id: string;
   name?: string;
   product_name?: string;
-  customer_no?: string;
-  product_code?: string;
-  tiramis_product_code?: string | null;
 }
-
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
   customerOptions: CustomerRecord[];
@@ -29,276 +23,185 @@ interface Props {
   productOptions: OptionLike[];
   riskOptions: InsuranceRisk[];
   riskCount: number;
-  onEditStep: (stepId: QuotationWizardStepId) => void;
+  onEditStep: (step: QuotationWizardStepId) => void;
 }
-
-function EditButton({ onClick }: { onClick: () => void }) {
-  return (
-    <Button type="button" variant="ghost" size="sm" onClick={onClick}>
-      <Pencil className="mr-2 h-3.5 w-3.5" />
-      Edit
-    </Button>
-  );
-}
-
 export function SummaryReviewStep({
   form,
   customerOptions,
-  categoryOptions,
   productOptions,
   riskOptions,
-  riskCount,
   onEditStep,
 }: Props) {
   const values = form.watch();
-  const category = categoryOptions.find(
-    (item) => item.id === values.category_id,
-  );
+  const totals = quotationTotals(values);
+  const issues = quotationPricingIssues(values);
   const product = productOptions.find((item) => item.id === values.product_id);
-  const existingCustomer = customerOptions.find(
+  const customer = customerOptions.find(
     (item) => item.id === values.customer_id,
   );
-  const currency = values.currency?.trim().toUpperCase();
-  const exchangeRate =
-    currency && currency !== 'TZS' ? Number(values.exchange_rate) || 1 : 1;
-  const enabledAddons = values.addons.filter((addon) => addon.enabled);
-  const addonsTotal = enabledAddons.reduce(
-    (sum, addon) =>
-      sum + computeAddonAmounts(addon, exchangeRate).premiumIncludingTax,
-    0,
-  );
-  const fleetTotalSumInsured = values.fleet.items.reduce(
-    (sum, item) =>
-      sum +
-      item.risks_covered.reduce(
-        (riskSum, risk) => riskSum + (Number(risk.sum_insured) || 0),
-        0,
-      ),
-    0,
-  );
-  const fleetTotalPremium = values.fleet.items.reduce(
-    (sum, item) =>
-      sum +
-      item.risks_covered.reduce(
-        (riskSum, risk) => riskSum + (Number(risk.premium_including_tax) || 0),
-        0,
-      ),
-    0,
-  );
-
+  const money = (value: number) =>
+    new Intl.NumberFormat('en-TZ', {
+      style: 'currency',
+      currency: values.currency || 'TZS',
+    }).format(value);
+  const risks =
+    values.quotation_flow === 'MOTOR_FLEET'
+      ? values.fleet.items.flatMap((item) => item.risks_covered)
+      : values.risks;
+  const coverName = (id: string) =>
+    riskOptions.find((item) => item.id === id)?.risk_name || 'Cover';
   return (
-    <>
-      <StepSection title="Final Review" first>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline">{values.quotation_type}</Badge>
-          {values.is_fleet ? <Badge variant="outline">Fleet</Badge> : null}
-          <Badge>{values.status}</Badge>
-        </div>
-      </StepSection>
-
-      <StepSection
-        title={
-          values.is_fleet ? 'Fleet & Cover Note Setup' : 'Cover Note Setup'
-        }
-        action={
-          <EditButton
-            onClick={() =>
-              onEditStep(values.is_fleet ? 'fleet-setup' : 'cover-note')
-            }
-          />
-        }
-        contentClassName="grid gap-1 text-sm md:grid-cols-2"
-      >
-        <p>Category: {category?.name ?? 'Not selected'}</p>
-        <p>Product: {product?.product_name ?? 'Not selected'}</p>
-        <p>Channel: {values.channel_type}</p>
-        <p>
-          Currency: {values.currency}{' '}
-          {currency !== 'TZS' ? `(rate: ${values.exchange_rate || '-'})` : ''}
-        </p>
-        <p>
-          Cover period: {formatCoverDateLabel(values.valid_from)} to{' '}
-          {formatCoverDateLabel(values.valid_until)}
-        </p>
-        <p>
-          Commission paid:{' '}
-          {values.commission_paid || values.total_commission || '0'}
-        </p>
-        <p>Commission rate: {values.commission_rate || '0'}</p>
-      </StepSection>
-
-      <StepSection
-        title="Policyholder"
-        action={<EditButton onClick={() => onEditStep('policyholder')} />}
-      >
-        {values.policyholder_mode === 'existing' ? (
-          <p className="text-sm">
-            {existingCustomer
-              ? getCustomerDisplayName(existingCustomer)
-              : 'Not selected'}{' '}
-            {existingCustomer?.customer_no
-              ? `(${existingCustomer.customer_no})`
-              : ''}
+    <StepSection title="Review quotation" first>
+      <div className="grid gap-4 rounded-lg border p-4 text-sm sm:grid-cols-2">
+        <div>
+          <p className="text-slate-500">Product</p>
+          <p className="font-medium">
+            {product?.product_name ?? product?.name ?? 'Choose a product'}
           </p>
-        ) : (
+        </div>
+        <div>
+          <p className="text-slate-500">Cover period</p>
+          <p>
+            {formatCoverDateLabel(values.valid_from)} –{' '}
+            {formatCoverDateLabel(values.valid_until)}
+          </p>
+        </div>
+        <div>
+          <p className="text-slate-500">Policyholder</p>
+          <p>
+            {values.policyholder_mode === 'existing'
+              ? customer
+                ? getCustomerDisplayName(customer)
+                : 'Select policyholder'
+              : values.policyholder.full_name ||
+                values.policyholder.company_name}
+          </p>
+        </div>
+        <div>
+          <p className="text-slate-500">Cover</p>
+          <p>
+            {[...new Set(risks.map((risk) => coverName(risk.risk_id)))].join(
+              ', ',
+            )}
+          </p>
+        </div>
+        {values.quotation_flow === 'MOTOR_SINGLE' && (
+          <div>
+            <p className="text-slate-500">Vehicle</p>
+            <p>
+              {values.motor.registration_no || values.motor.chassis_no} ·{' '}
+              {values.motor.make} {values.motor.model} ·{' '}
+              {values.motor.manufacture_year}
+            </p>
+          </div>
+        )}
+        {totals.sumInsured > 0 && (
+          <div>
+            <p className="text-slate-500">Sum insured</p>
+            <p>{money(totals.sumInsured)}</p>
+          </div>
+        )}
+      </div>
+      {values.quotation_flow === 'MOTOR_FLEET' && (
+        <div className="space-y-2">
+          {values.fleet.items.map((item, index) => (
+            <div
+              key={item.risks_covered[0]?.client_ref || index}
+              className="flex flex-wrap justify-between gap-2 rounded-lg border p-3 text-sm"
+            >
+              <span>
+                {item.motor_dtl.registration_number ||
+                  item.motor_dtl.chassis_number ||
+                  'Vehicle ' + (index + 1)}{' '}
+                · {item.motor_dtl.make} {item.motor_dtl.model}
+              </span>
+              <span>
+                {item.risks_covered
+                  .map((risk) => coverName(risk.risk_id))
+                  .join(', ')}
+              </span>
+              <span>
+                {money(
+                  quotationTotals({
+                    ...values,
+                    fleet: { ...values.fleet, items: [item] },
+                  }).total,
+                )}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      {values.quotation_flow === 'NON_MOTOR' && (
+        <div className="space-y-2">
+          {values.nonMotor.items.map((item, index) => (
+            <p key={index} className="text-sm">
+              {item.subject_matter_reference} · {item.subject_matter_desc}
+            </p>
+          ))}
+        </div>
+      )}
+      {values.addons.some((addon) => addon.enabled) &&
+        values.quotation_flow !== 'MOTOR_FLEET' && (
           <p className="text-sm">
-            {values.policyholder.full_name ||
-              (values.policyholder.customer_type === 'CORPORATE'
-                ? values.policyholder.company_name || 'New corporate customer'
-                : [
-                    values.policyholder.first_name,
-                    values.policyholder.last_name,
-                  ]
-                    .filter(Boolean)
-                    .join(' ') || 'New individual customer')}
-            {' - '}
-            {values.policyholder.phone || 'no phone'}
+            Optional covers:{' '}
+            {values.addons
+              .filter((addon) => addon.enabled)
+              .map((addon) => addon.addon_desc || 'Optional cover')
+              .join(', ')}
           </p>
         )}
-      </StepSection>
-
-      <StepSection
-        title="Risk & Premium"
-        action={
-          <EditButton
-            onClick={() =>
-              onEditStep(values.is_fleet ? 'fleet-vehicles' : 'risk-premium')
-            }
-          />
-        }
-        contentClassName="space-y-2 text-sm"
-      >
-        {values.risks.map((risk, index) => {
-          const riskDef = riskOptions.find((item) => item.id === risk.risk_id);
-          return (
-            <div
-              key={`${risk.client_ref}-${index}`}
-              className="flex items-center justify-between border-b border-slate-100 py-1 last:border-0"
-            >
-              <span>
-                {riskDef
-                  ? `${riskDef.risk_name} (${riskDef.risk_code})`
-                  : risk.risk_code || `Risk #${index + 1}`}
-              </span>
-              <span className="text-slate-500">
-                SI {risk.sum_insured || '0'} - Premium{' '}
-                {risk.total_premium || risk.premium_including_tax || '0'}
-              </span>
-            </div>
-          );
-        })}
-        <p className="pt-1 font-medium text-slate-900">{riskCount} risk(s)</p>
-      </StepSection>
-
-      {values.quotation_type === 'NON_MOTOR' ? (
-        <StepSection
-          title="Subject Matters"
-          action={<EditButton onClick={() => onEditStep('risk-premium')} />}
-          contentClassName="space-y-2 text-sm"
+      <div className="space-y-2 rounded-lg bg-slate-50 p-4 text-sm">
+        <div className="flex justify-between">
+          <span>Premium (including optional covers)</span>
+          <span>{money(totals.premium)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Taxes & levies</span>
+          <span>{money(totals.tax)}</span>
+        </div>
+        <div className="flex justify-between border-t pt-3 text-lg font-semibold">
+          <span>Total</span>
+          <span>{money(totals.total)}</span>
+        </div>
+      </div>
+      {issues.length > 0 && (
+        <div
+          role="status"
+          className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm"
         >
-          {values.nonMotor.items.map((subject, index) => (
-            <div
-              key={`${subject.subject_matter_reference}-${index}`}
-              className="flex items-center justify-between border-b border-slate-100 py-1 last:border-0"
-            >
-              <span>
-                {subject.subject_matter_reference || `Subject #${index + 1}`}
-              </span>
-              <span className="text-slate-500">
-                {subject.subject_matter_desc || '-'}
-              </span>
-            </div>
+          <p>Waiting for complete, current premiums.</p>
+          {issues.map((issue, index) => (
+            <p key={index}>{issue}</p>
           ))}
-        </StepSection>
-      ) : null}
-
-      {enabledAddons.length > 0 ? (
-        <StepSection
-          title="Add-ons"
-          action={<EditButton onClick={() => onEditStep('addons')} />}
-          contentClassName="space-y-2 text-sm"
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() =>
+            onEditStep(
+              values.is_fleet
+                ? 'fleet-vehicles'
+                : values.quotation_flow === 'MOTOR_SINGLE'
+                  ? 'motor'
+                  : 'risk-premium',
+            )
+          }
         >
-          {enabledAddons.map((addon, index) => (
-            <div
-              key={`${addon.addon_reference}-${index}`}
-              className="flex items-center justify-between border-b border-slate-100 py-1 last:border-0"
-            >
-              <span>
-                {addon.addon_reference || `Add-on #${index + 1}`} -{' '}
-                {addon.addon_desc}
-              </span>
-              <span className="text-slate-500">
-                {computeAddonAmounts(
-                  addon,
-                  exchangeRate,
-                ).premiumIncludingTax.toFixed(2)}
-              </span>
-            </div>
-          ))}
-          <p className="pt-1 font-medium text-slate-900">
-            Total: {addonsTotal.toFixed(2)}
-          </p>
-        </StepSection>
-      ) : null}
-
-      {values.quotation_type === 'MOTOR' && !values.is_fleet ? (
-        <StepSection
-          title="Motor Details"
-          action={<EditButton onClick={() => onEditStep('motor')} />}
-        >
-          <p className="text-sm">
-            {values.motor.registration_no ||
-              values.motor.chassis_no ||
-              'Vehicle not yet identified'}
-          </p>
-          <p className="text-sm text-slate-500">
-            {values.motor.make} {values.motor.model} - Value{' '}
-            {values.motor.vehicle_value || '-'}
-          </p>
-        </StepSection>
-      ) : null}
-
-      {values.quotation_type === 'MOTOR' && values.is_fleet ? (
-        <>
-          <StepSection
-            title="Fleet Vehicles"
-            action={<EditButton onClick={() => onEditStep('fleet-vehicles')} />}
+          Edit cover details
+        </Button>
+        {values.is_fleet && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onEditStep('fleet-setup')}
           >
-            <p className="text-sm">
-              Fleet{' '}
-              {values.fleet.header.fleet_id ||
-                values.fleet.header.fleet_no ||
-                '(no number yet)'}{' '}
-              - {values.fleet.items.length} vehicle(s)
-            </p>
-            <p className="text-sm text-slate-500">
-              Total sum insured: {fleetTotalSumInsured.toFixed(2)} - Total
-              premium: {fleetTotalPremium.toFixed(2)}
-            </p>
-          </StepSection>
-          <StepSection
-            title="Fleet Summary"
-            action={<EditButton onClick={() => onEditStep('fleet-vehicles')} />}
-            contentClassName="grid gap-1 text-sm md:grid-cols-2"
-          >
-            <p>
-              Expected fleet size:{' '}
-              {values.fleet.header.fleet_size || values.fleet.items.length}
-            </p>
-            <p>Vehicles entered: {values.fleet.items.length}</p>
-            <p>
-              Comprehensively insured vehicles:{' '}
-              {values.fleet.header.comprehensive_insured || '0'}
-            </p>
-            <p>
-              Fleet type:{' '}
-              {values.fleet.header.fleet_type === '2'
-                ? 'Fleet Addition'
-                : 'New Fleet'}
-            </p>
-          </StepSection>
-        </>
-      ) : null}
-    </>
+            Edit fleet & policyholder
+          </Button>
+        )}
+      </div>
+    </StepSection>
   );
 }

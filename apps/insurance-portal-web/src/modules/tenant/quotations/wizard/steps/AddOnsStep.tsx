@@ -1,9 +1,21 @@
 import { useState } from 'react';
-import { useForm, useWatch, type UseFieldArrayReturn, type UseFormReturn } from 'react-hook-form';
+import {
+  useForm,
+  useWatch,
+  type UseFieldArrayReturn,
+  type UseFormReturn,
+} from 'react-hook-form';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   createEmptyAddonRow,
   type QuotationFormSchemaValues,
@@ -34,22 +46,22 @@ export function AddOnsStep({ form, fieldArray }: Props) {
     draftForm.reset({ ...form.getValues(), addons: [createEmptyAddonRow()] });
     setOpen(true);
   };
-  const canAdd = !!draftAddon?.addon_definition_id &&
+  const canAdd =
+    !!draftAddon?.addon_definition_id &&
     draftAddon.premium_excluding_tax !== '' &&
     Number.isFinite(Number(draftAddon.premium_excluding_tax)) &&
     Number(draftAddon.premium_excluding_tax) >= 0;
 
   return (
     <StepSection
-      title={
-        form.watch('quotation_type') === 'MOTOR' && !form.watch('is_fleet')
-          ? 'Step 5. Add-ons'
-          : 'Step 4. Add-ons'
-      }
+      title="Optional covers"
       first
-      action={<Button type="button" variant="outline" onClick={openAddDialog}>
-        <Plus className="mr-2 h-4 w-4" />Add add-on
-      </Button>}
+      action={
+        <Button type="button" variant="outline" onClick={openAddDialog}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add add-on
+        </Button>
+      }
     >
       <p className="text-sm text-slate-500">
         An add-on is optional and only applies if this product/risk offers an
@@ -68,27 +80,48 @@ export function AddOnsStep({ form, fieldArray }: Props) {
         />
       ))}
 
-      {fields.length === 0 && <p className="py-4 text-sm text-slate-500">
-        No add-ons added. Use Add add-on to include extra cover.
-      </p>}
+      {fields.length === 0 && (
+        <p className="py-4 text-sm text-slate-500">
+          No add-ons added. Use Add add-on to include extra cover.
+        </p>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Add add-on to cover note</DialogTitle>
-            <DialogDescription>Select an add-on and calculate its premium before adding it.</DialogDescription>
+            <DialogDescription>
+              Select an add-on and calculate its premium before adding it.
+            </DialogDescription>
           </DialogHeader>
           <Form {...draftForm}>
-            <AddonRow form={draftForm} index={0} onRemove={() => undefined}
-              canRemove={false} exchangeRate={exchangeRate} />
+            <AddonRow
+              form={draftForm}
+              index={0}
+              onRemove={() => undefined}
+              canRemove={false}
+              exchangeRate={exchangeRate}
+            />
           </Form>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="button" disabled={!canAdd} onClick={() => {
-              if (!canAdd) return;
-              append(draftForm.getValues('addons.0'));
-              setOpen(false);
-            }}>Add to cover note</Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={!canAdd}
+              onClick={() => {
+                if (!canAdd) return;
+                append(draftForm.getValues('addons.0'));
+                setOpen(false);
+              }}
+            >
+              Add to cover note
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

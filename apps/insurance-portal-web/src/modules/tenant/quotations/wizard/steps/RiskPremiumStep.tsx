@@ -57,16 +57,12 @@ export function RiskPremiumStep({
   return (
     <>
       <StepSection
-        title={
-          flow === 'MOTOR_SINGLE'
-            ? 'Step 4. Risk & Premium'
-            : 'Step 3. Risk & Premium'
-        }
+        title="Cover & premium"
         first
         action={
           <Button type="button" variant="outline" size="sm" onClick={onAddRisk}>
             <Plus className="mr-2 h-4 w-4" />
-            Add Risk
+            Add cover
           </Button>
         }
       >
@@ -85,7 +81,7 @@ export function RiskPremiumStep({
 
       {showSubjectMatters && (
         <StepSection
-          title="Subject Matters Covered"
+          title="Insured items"
           action={
             <Button
               type="button"

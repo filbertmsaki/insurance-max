@@ -103,6 +103,7 @@ export function buildFleetRiskPricingSignature(input: {
     risk_id?: string;
     risk_code?: string;
     sum_insured?: string | number;
+    factor_values?: unknown;
     discounts_offered?: unknown;
     taxes_charged?: unknown;
   };
@@ -124,6 +125,7 @@ export function buildFleetRiskPricingSignature(input: {
       risk_id: input.risk.risk_id,
       risk_code: input.risk.risk_code,
       sum_insured: input.risk.sum_insured,
+      factor_values: input.risk.factor_values,
       discounts_offered: normalizeRiskDiscounts(input.risk.discounts_offered),
       taxes_charged: normalizeRiskTaxes(input.risk.taxes_charged),
     },

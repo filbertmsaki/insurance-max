@@ -1126,6 +1126,8 @@ export interface SingleCalcRequest {
   sum_insured?: number;
   factors: Record<string, string | number | boolean>;
   effective_date?: string;
+  cover_start_date?: string;
+  cover_end_date?: string;
   currency_code?: string;
   exchange_rate?: number;
   discount?: PricingAdjustmentRequest | null;

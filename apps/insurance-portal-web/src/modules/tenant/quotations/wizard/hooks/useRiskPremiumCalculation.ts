@@ -23,21 +23,27 @@ import { setPricingFormValue as setValueIfChanged } from '../utils/pricingFormUp
 
 const CALCULATION_DEBOUNCE_MS = 400;
 
-// Automatic premium calculation (both the pre-Sum-Insured minimum preview and
-// the real debounced backend call) is temporarily disabled while the
-// calculation flow is reworked. Flip back to false to restore it — the
-// effects below are left intact, just short-circuited.
+// Prices are calculated by the product engine after required inputs are ready.
 const AUTO_CALCULATION_DISABLED = false;
 
-function resolveRequestedDiscountRate(
+function resolveRequestedDiscount(
   discounts:
     | QuotationFormSchemaValues['risks'][number]['discounts_offered']
     | undefined,
 ) {
-  const firstRequestedDiscount = (discounts ?? []).find(
+  const rateDiscount = (discounts ?? []).find(
     (discount) => Number(discount.discount_rate) > 0,
   );
-  return Number(firstRequestedDiscount?.discount_rate ?? 0);
+  if (rateDiscount) return { rate: Number(rateDiscount.discount_rate) };
+
+  const fixedDiscount = (discounts ?? []).find(
+    (discount) => Number(discount.discount_amount) > 0,
+  );
+  if (fixedDiscount) {
+    return { fixed_amount: Number(fixedDiscount.discount_amount) };
+  }
+
+  return undefined;
 }
 
 function path(
@@ -109,8 +115,8 @@ export function useRiskPremiumCalculation(
   // requiring an effect to reset it (avoids a render -> setState -> render
   // cascade on every risk switch).
   const [committedEntry, setCommittedEntry] = useState({
-    riskId: '',
-    sumInsured: '',
+    riskId: form.getValues(`risks.${index}.risk_id`),
+    sumInsured: form.getValues(`risks.${index}.sum_insured`),
   });
   const handleSumInsuredBlur = useCallback(() => {
     setCommittedEntry({
@@ -167,9 +173,18 @@ export function useRiskPremiumCalculation(
     factorContext,
   ]);
   const factorValuesKey = JSON.stringify(factorValues);
-  const requestedDiscountRate = useMemo(
-    () => resolveRequestedDiscountRate(discounts ?? undefined),
+  const requestedDiscountKey = useMemo(
+    () => JSON.stringify(resolveRequestedDiscount(discounts ?? undefined)),
     [discounts],
+  );
+  const requestedDiscount = useMemo(
+    () =>
+      requestedDiscountKey
+        ? (JSON.parse(requestedDiscountKey) as
+            | { rate: number }
+            | { fixed_amount: number })
+        : undefined,
+    [requestedDiscountKey],
   );
   const selectedTaxCodes = useMemo(
     () => resolveSelectedTaxCodes(taxes ?? undefined),
@@ -233,7 +248,13 @@ export function useRiskPremiumCalculation(
   // populated with an explicit zero so the wizard stays consistent and the
   // pricing payload never falls back to an accidental empty value.
   useEffect(() => {
-    if (!riskId || requiresSumInsured) return;
+    if (
+      !riskId ||
+      requiredFactorsQuery.isLoading ||
+      requiredFactorsQuery.isError ||
+      requiresSumInsured
+    )
+      return;
 
     const currentSumInsured = form.getValues(path(index, 'sum_insured')) as
       | string
@@ -242,7 +263,14 @@ export function useRiskPremiumCalculation(
 
     form.setValue(path(index, 'sum_insured'), '0');
     form.setValue(path(index, 'sum_insured_equivalent'), '0');
-  }, [form, index, riskId, requiresSumInsured]);
+  }, [
+    form,
+    index,
+    riskId,
+    requiresSumInsured,
+    requiredFactorsQuery.isLoading,
+    requiredFactorsQuery.isError,
+  ]);
 
   // The moment the rule list for the selected risk resolves — before sum
   // insured is entered or any calculation call fires — surface the minimum
@@ -263,7 +291,6 @@ export function useRiskPremiumCalculation(
     // effects that disagreed on the value (not merely a formatting
     // mismatch), which crashed the wizard with "Maximum update depth
     // exceeded" right after entering Sum Insured.
-    if (committedSumInsured) return;
 
     const rules = ruleListQuery.data?.data ?? [];
     const activeRules = rules.filter((rule) => rule.is_active);
@@ -284,6 +311,8 @@ export function useRiskPremiumCalculation(
     if (toNumber(currentMinimumAmount) !== toNumber(minimumAmount)) {
       form.setValue(path(index, 'minimum_amount'), minimumAmount);
     }
+
+    if (committedSumInsured) return;
 
     const currentRow = form.getValues(`risks.${index}` as const);
     const previewRow = recomputeRiskRow({
@@ -395,7 +424,13 @@ export function useRiskPremiumCalculation(
 
   useEffect(() => {
     if (AUTO_CALCULATION_DISABLED) return undefined;
-    if (!riskId) return undefined;
+    if (
+      !riskId ||
+      requiredFactorsQuery.isLoading ||
+      requiredFactorsQuery.isError
+    )
+      return undefined;
+    requestTokenRef.current += 1;
 
     const explicitSumInsured =
       sumInsured === '' || sumInsured == null ? NaN : Number(sumInsured);
@@ -436,6 +471,14 @@ export function useRiskPremiumCalculation(
     }
     timeoutRef.current = setTimeout(() => {
       const token = ++requestTokenRef.current;
+      setValueIfChanged(form, path(index, 'rating_result_metadata'), {
+        ...form.getValues(`risks.${index}.rating_result_metadata`),
+        pricing_quote_id: null,
+        pricing_is_stale: true,
+        pricing_status: 'STALE',
+        stale_reason: 'Calculating premium...',
+        pricing_input_signature: currentPricingSignature,
+      });
 
       calculateMutateRef.current(
         {
@@ -448,6 +491,8 @@ export function useRiskPremiumCalculation(
               : undefined,
           factors: calculationFactors,
           effective_date: form.getValues('valid_from'),
+          cover_start_date: form.getValues('valid_from'),
+          cover_end_date: form.getValues('valid_until'),
           currency_code: (form.getValues('currency') || 'TZS')
             .trim()
             .toUpperCase(),
@@ -459,10 +504,7 @@ export function useRiskPremiumCalculation(
           // discount_amount from it; the frontend never sends a
           // pre-calculated amount as a trusted value. Loading is omitted
           // here: this wizard has no loading-request UI yet.
-          discount:
-            requestedDiscountRate > 0
-              ? { rate: requestedDiscountRate }
-              : undefined,
+          discount: requestedDiscount,
           // tax_codes restricts charges to exactly what the officer picked
           // in the risk's "Taxes Charged" rows — an empty array (no rows,
           // or every row exempted) means no tax is charged, not "apply
@@ -575,6 +617,7 @@ export function useRiskPremiumCalculation(
     }, CALCULATION_DEBOUNCE_MS);
 
     return () => {
+      requestTokenRef.current += 1;
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
     // factorValues/selectedTaxCodes are intentionally tracked via their
@@ -591,9 +634,12 @@ export function useRiskPremiumCalculation(
     sumInsured,
     factorValuesKey,
     requiresSumInsured,
-    requestedDiscountRate,
+    requestedDiscount,
+    requestedDiscountKey,
     selectedTaxCodesKey,
     requiredFactors.length,
+    requiredFactorsQuery.isLoading,
+    requiredFactorsQuery.isError,
     currentPricingSignature,
   ]);
 
