@@ -98,6 +98,8 @@ function makeHarness(params: {
       storageKey: 'documents/certificates/company-1/certificate.pdf',
     })),
     maximumBytes: jest.fn().mockReturnValue(10 * 1024 * 1024),
+    storageBucket: jest.fn().mockReturnValue('documents-bucket'),
+    storageProvider: jest.fn().mockReturnValue('local'),
   } as any;
 
   const service = new CertificateGenerationService(storageService);
@@ -151,7 +153,12 @@ describe('CertificateGenerationService', () => {
     );
 
     expect(versionRepo.save).toHaveBeenCalledWith(
-      expect.objectContaining({ document_id: 'document-1', version_number: 1 }),
+      expect.objectContaining({
+        document_id: 'document-1',
+        storage_bucket: 'documents-bucket',
+        storage_provider: 'local',
+        version_number: 1,
+      }),
     );
 
     expect(linkRepo.save).toHaveBeenCalledWith(
