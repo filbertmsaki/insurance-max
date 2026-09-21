@@ -101,7 +101,7 @@ export function motorFieldError(
     chassis_no: /^[A-Z0-9-]{6,100}$/i,
     engine_no: /^[A-Z0-9-]{3,100}$/i,
   };
-  if (patterns[key] && !patterns[key]!.test(value.trim()))
+  if (patterns[key] && !patterns[key].test(value.trim()))
     return `Check the ${definition?.label.toLowerCase()}. Use letters, digits or hyphens without spaces.`;
   const positive = [
     'manufacture_year',

@@ -90,6 +90,48 @@ concurrency:
 
 jobs:
   # ==========================================================
+  # JOB 0
+  #
+  # Cleanup old workflow runs
+  #
+  # Keeps GitHub Actions storage usage down by deleting all but
+  # the 20 most recent runs of this workflow (and their
+  # artifacts/logs) on every push. Runs independently of the
+  # build/deploy jobs so a cleanup failure never blocks them.
+  # ==========================================================
+  cleanup-old-runs:
+    name: Cleanup old workflow runs
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Keep only the latest 20 runs of this workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          WORKFLOW_FILE: insurance-tiramis-cicd.yml
+          KEEP: 20
+        run: |
+          set -euo pipefail
+
+          echo "Fetching run history for $WORKFLOW_FILE..."
+          old_run_ids="$(gh run list -R "$REPO" --workflow "$WORKFLOW_FILE" \
+            --limit 200 --json databaseId --jq ".[$KEEP:] | .[].databaseId")"
+
+          if [[ -z "$old_run_ids" ]]; then
+            echo "$KEEP or fewer runs exist. Nothing to clean up."
+            exit 0
+          fi
+
+          echo "$old_run_ids" | while read -r run_id; do
+            echo "Deleting run $run_id"
+            gh run delete "$run_id" -R "$REPO" || echo "Could not delete run $run_id, continuing."
+          done
+
+  # ==========================================================
   # JOB 1
   #
   # Build, test, package.

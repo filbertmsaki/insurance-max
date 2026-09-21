@@ -1013,16 +1013,11 @@ export interface QuotationWizardFleetSubjectMatterRow {
   subject_matter_desc: string;
 }
 
-export interface QuotationWizardFleetAddonRow {
-  addon_reference: string;
-  addon_desc: string;
-  addon_amount: string;
-  addon_premium_rate: string;
-  premium_excluding_tax: string;
-  premium_excluding_tax_equivalent: string;
-  premium_including_tax: string;
-  taxes: QuotationWizardAddonTaxRow[];
-}
+/**
+ * Same shape as QuotationWizardAddonRow — fleet vehicle add-ons share the
+ * non-fleet add-on schema (and AddonRow UI) rather than a reduced one.
+ */
+export type QuotationWizardFleetAddonRow = QuotationWizardAddonRow;
 
 export interface QuotationWizardFleetMotorDetails {
   motor_category: string;

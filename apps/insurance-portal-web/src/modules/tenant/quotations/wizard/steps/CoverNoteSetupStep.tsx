@@ -1,4 +1,4 @@
-﻿import { useEffect } from 'react';
+﻿import { useEffect, useState } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { type QuotationFormSchemaValues } from '../../schemas';
 import { useIntermediaryCompanyOptions } from '../../hooks';
@@ -47,13 +47,20 @@ export function CoverNoteSetupStep({
     values.channel_type,
     values.product_id,
   );
-  useCoverNoteAutoText({
-    form,
-    productName: product?.product_name ?? product?.name,
-    validFrom: values.valid_from,
-    validUntil: values.valid_until,
-    isHydrating,
-  });
+  const { generatedCoverNoteDesc, generatedOperativeClause } =
+    useCoverNoteAutoText({
+      form,
+      productName: product?.product_name ?? product?.name,
+      validFrom: values.valid_from,
+      validUntil: values.valid_until,
+      isHydrating,
+    });
+  const [wordingExpanded, setWordingExpanded] = useState(false);
+  const hasCustomWording =
+    (Boolean(values.cover_note_desc) &&
+      values.cover_note_desc !== generatedCoverNoteDesc) ||
+    (Boolean(values.operative_clause) &&
+      values.operative_clause !== generatedOperativeClause);
   useEffect(() => {
     if (isHydrating) return;
     if (!values.product_id && productOptions.length === 1) {
@@ -182,11 +189,34 @@ export function CoverNoteSetupStep({
         </div>
       </div>
       <div className="rounded-lg border p-3">
-        <p className="text-sm font-medium">Cover wording</p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {field('cover_note_desc', 'Cover description', { multiline: true })}
-          {field('operative_clause', 'Operative clause', { multiline: true })}
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-medium">Cover wording</p>
+          <button
+            type="button"
+            className="text-xs font-medium text-primary hover:underline"
+            onClick={() => setWordingExpanded((previous) => !previous)}
+          >
+            {wordingExpanded ? 'Hide' : 'Edit wording'}
+          </button>
         </div>
+        {wordingExpanded ? (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {field('cover_note_desc', 'Cover description', {
+              multiline: true,
+            })}
+            {field('operative_clause', 'Operative clause', {
+              multiline: true,
+            })}
+          </div>
+        ) : (
+          <div className="mt-2 space-y-1 text-sm text-slate-600">
+            <p>{values.cover_note_desc || '—'}</p>
+            <p className="text-slate-500">{values.operative_clause || '—'}</p>
+            {hasCustomWording && (
+              <p className="text-xs text-slate-400">Custom wording</p>
+            )}
+          </div>
+        )}
       </div>
     </StepSection>
   );

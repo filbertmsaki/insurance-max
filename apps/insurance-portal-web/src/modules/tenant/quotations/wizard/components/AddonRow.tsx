@@ -23,11 +23,7 @@ import { usePricingCalculator } from '@/modules/pricing';
 import { Trash2 } from 'lucide-react';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { computeAddonAmounts } from '../utils/addonCalculations';
-import {
-  TAX_EXEMPTION_OPTIONS,
-  TAX_EXEMPTION_TYPE_OPTIONS,
-  resolveTaxRuleOptions,
-} from '../utils/taxOptions';
+import { resolveTaxRuleOptions } from '../utils/taxOptions';
 import { useActiveTaxRules } from '../hooks/useActiveTaxRules';
 import { useProductAddonDefinitions } from '../hooks/useProductAddonDefinitions';
 import {
@@ -37,6 +33,7 @@ import {
 } from '../utils/selectValue';
 import { StepSection } from './StepSection';
 import { WizardFormItem } from './WizardFormItem';
+import { AddonTaxFields } from './AddonTaxFields';
 
 interface Props {
   form: UseFormReturn<QuotationFormSchemaValues>;
@@ -44,13 +41,18 @@ interface Props {
   onRemove: (index: number) => void;
   canRemove: boolean;
   exchangeRate: number;
+  /** e.g. `addons` (default) or `fleet.items.0.cover_note_addons` for a fleet vehicle's add-ons. */
+  basePath?: string;
+  /** Risk row consulted by "Calculate" — `risks.0` (default) or `fleet.items.0.risks_covered.0`. */
+  riskPath?: string;
 }
 
 function path(
+  basePath: string,
   index: number,
   name: string,
 ): FieldPath<QuotationFormSchemaValues> {
-  return `addons.${index}.${name}` as FieldPath<QuotationFormSchemaValues>;
+  return `${basePath}.${index}.${name}` as FieldPath<QuotationFormSchemaValues>;
 }
 
 export function AddonRow({
@@ -59,9 +61,13 @@ export function AddonRow({
   onRemove,
   canRemove,
   exchangeRate,
+  basePath = 'addons',
+  riskPath = 'risks.0',
 }: Props) {
-  const enabled = form.watch(`addons.${index}.enabled` as const);
-  const addon = form.watch(`addons.${index}` as const);
+  const enabled = form.watch(path(basePath, index, 'enabled')) as boolean;
+  const addon = form.watch(
+    `${basePath}.${index}` as FieldPath<QuotationFormSchemaValues>,
+  ) as unknown as QuotationFormSchemaValues['addons'][number];
   const computed = computeAddonAmounts(addon, exchangeRate);
 
   const categoryId = form.watch('category_id');
@@ -94,13 +100,13 @@ export function AddonRow({
   const taxRuleOptionsKey = JSON.stringify(taxRuleOptions);
 
   useEffect(() => {
-    const currentTaxCode = form.getValues(path(index, 'taxes.0.tax_code')) as
+    const currentTaxCode = form.getValues(path(basePath, index, 'taxes.0.tax_code')) as
       | string
       | undefined;
     const selected = taxRuleOptions.find(
       (option) => option.value === currentTaxCode,
     );
-    if (selected) form.setValue(path(index, 'taxes.0.tax_rate'), selected.rate);
+    if (selected) form.setValue(path(basePath, index, 'taxes.0.tax_rate'), selected.rate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form, index, taxRuleOptionsKey]);
 
@@ -108,7 +114,9 @@ export function AddonRow({
   const [isCalculating, setIsCalculating] = useState(false);
 
   async function handleCalculate() {
-    const risk = form.getValues('risks.0');
+    const risk = form.getValues(
+      riskPath as FieldPath<QuotationFormSchemaValues>,
+    ) as QuotationFormSchemaValues['risks'][number];
     if (!risk?.risk_id) {
       toast.error('Add a risk before calculating the add-on premium.');
       return;
@@ -150,7 +158,7 @@ export function AddonRow({
         return;
       }
       form.setValue(
-        path(index, 'premium_excluding_tax'),
+        path(basePath, index, 'premium_excluding_tax'),
         String(addonResult.calculated_premium),
       );
       toast.success('Add-on premium calculated.');
@@ -171,7 +179,7 @@ export function AddonRow({
           <Switch
             checked={enabled}
             onCheckedChange={(checked) =>
-              form.setValue(`addons.${index}.enabled` as const, checked)
+              form.setValue(path(basePath, index, 'enabled'), checked)
             }
           />
           <span className="text-xs text-slate-500">
@@ -192,7 +200,7 @@ export function AddonRow({
       <div className="grid gap-3 md:grid-cols-2">
         <FormField
           control={form.control}
-          name={path(index, 'addon_definition_id')}
+          name={path(basePath, index, 'addon_definition_id')}
           render={({ field }) => (
             <WizardFormItem>
               <FormLabel>Add-on</FormLabel>
@@ -205,16 +213,16 @@ export function AddonRow({
                   );
                   field.onChange(nextValue);
                   form.setValue(
-                    path(index, 'addon_reference'),
+                    path(basePath, index, 'addon_reference'),
                     definition?.code ?? '',
                   );
                   form.setValue(
-                    path(index, 'addon_desc'),
+                    path(basePath, index, 'addon_desc'),
                     definition?.name ?? '',
                   );
-                  form.setValue(path(index, 'addon_quantity'), '1');
-                  form.setValue(path(index, 'addon_amount'), '');
-                  form.setValue(path(index, 'premium_excluding_tax'), '');
+                  form.setValue(path(basePath, index, 'addon_quantity'), '1');
+                  form.setValue(path(basePath, index, 'addon_amount'), '');
+                  form.setValue(path(basePath, index, 'premium_excluding_tax'), '');
                 }}
               >
                 <FormControl>
@@ -245,7 +253,7 @@ export function AddonRow({
         />
         <FormField
           control={form.control}
-          name={path(index, 'addon_desc')}
+          name={path(basePath, index, 'addon_desc')}
           render={({ field }) => (
             <WizardFormItem>
               <FormLabel>Description</FormLabel>
@@ -259,7 +267,7 @@ export function AddonRow({
         {selectedDefinition?.allowsSeparateSumInsured && (
           <FormField
             control={form.control}
-            name={path(index, 'addon_amount')}
+            name={path(basePath, index, 'addon_amount')}
             render={({ field }) => (
               <WizardFormItem>
                 <FormLabel>Sum Insured</FormLabel>
@@ -280,7 +288,7 @@ export function AddonRow({
             selectedDefinition.maximumQuantity > 1) && (
             <FormField
               control={form.control}
-              name={path(index, 'addon_quantity')}
+              name={path(basePath, index, 'addon_quantity')}
               render={({ field }) => (
                 <WizardFormItem>
                   <FormLabel>Quantity</FormLabel>
@@ -300,7 +308,7 @@ export function AddonRow({
           )}
         <FormField
           control={form.control}
-          name={path(index, 'premium_excluding_tax')}
+          name={path(basePath, index, 'premium_excluding_tax')}
           render={({ field }) => (
             <WizardFormItem>
               <FormLabel>Premium Excluding Tax</FormLabel>
@@ -329,193 +337,12 @@ export function AddonRow({
         </div>
       </div>
 
-      <div className="space-y-1 border-t border-slate-100 pt-4">
-        <p className="text-xs font-medium text-slate-500">Tax</p>
-        <div className="grid gap-3 rounded-lg border border-slate-100 p-3 md:grid-cols-4">
-          <FormField
-            control={form.control}
-            name={path(index, 'taxes.0.tax_code')}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Tax Code</FormLabel>
-                <Select
-                  value={toSelectValue(field.value as string)}
-                  onValueChange={(value) => {
-                    const nextValue = fromSelectValue(value);
-                    field.onChange(nextValue);
-                    form.setValue(
-                      path(index, 'taxes.0.tax_rate'),
-                      taxRuleOptions.find(
-                        (option) => option.value === nextValue,
-                      )?.rate ?? '',
-                    );
-                    if (value === SELECT_NONE_VALUE) {
-                      form.setValue(
-                        path(index, 'taxes.0.is_tax_exempted'),
-                        false,
-                      );
-                      form.setValue(
-                        path(index, 'taxes.0.tax_exemption_type'),
-                        '',
-                      );
-                      form.setValue(
-                        path(index, 'taxes.0.tax_exemption_reference'),
-                        '',
-                      );
-                    }
-                  }}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select tax code" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
-                    {taxRuleOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={path(index, 'taxes.0.tax_rate')}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Tax Rate</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    step="0.0001"
-                    readOnly
-                    {...field}
-                    value={field.value as string}
-                  />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          <WizardFormItem>
-            <FormLabel>Tax Amount</FormLabel>
-            <FormControl>
-              <Input
-                readOnly
-                value={(computed.taxes[0]?.tax_amount ?? 0).toFixed(2)}
-              />
-            </FormControl>
-          </WizardFormItem>
-          <FormField
-            control={form.control}
-            name={path(index, 'taxes.0.is_tax_exempted')}
-            render={({ field }) => (
-              <WizardFormItem>
-                <FormLabel>Exempted</FormLabel>
-                <Select
-                  value={field.value ? 'Y' : 'N'}
-                  onValueChange={(value) => {
-                    if (value === SELECT_NONE_VALUE) {
-                      field.onChange(false);
-                      form.setValue(
-                        path(index, 'taxes.0.tax_exemption_type'),
-                        '',
-                      );
-                      form.setValue(
-                        path(index, 'taxes.0.tax_exemption_reference'),
-                        '',
-                      );
-                      return;
-                    }
-                    const isExempted = value === 'Y';
-                    field.onChange(isExempted);
-                    if (!isExempted) {
-                      form.setValue(
-                        path(index, 'taxes.0.tax_exemption_type'),
-                        '',
-                      );
-                      form.setValue(
-                        path(index, 'taxes.0.tax_exemption_reference'),
-                        '',
-                      );
-                    }
-                  }}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select option" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
-                    {TAX_EXEMPTION_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={path(index, 'taxes.0.tax_exemption_type')}
-            render={({ field }) => (
-              <WizardFormItem className="md:col-span-2">
-                <FormLabel>Exemption Type</FormLabel>
-                <Select
-                  value={toSelectValue(field.value as string)}
-                  onValueChange={(value) =>
-                    field.onChange(fromSelectValue(value))
-                  }
-                  disabled={!form.watch(path(index, 'taxes.0.is_tax_exempted'))}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select exemption type" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value={SELECT_NONE_VALUE}>None</SelectItem>
-                    {TAX_EXEMPTION_TYPE_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name={path(index, 'taxes.0.tax_exemption_reference')}
-            render={({ field }) => (
-              <WizardFormItem className="md:col-span-2">
-                <FormLabel>Exemption Reference</FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    value={field.value as string}
-                    disabled={
-                      !form.watch(path(index, 'taxes.0.is_tax_exempted'))
-                    }
-                  />
-                </FormControl>
-                <FormMessage />
-              </WizardFormItem>
-            )}
-          />
-        </div>
-      </div>
+      <AddonTaxFields
+        form={form}
+        basePath={`${basePath}.${index}`}
+        taxRuleOptions={taxRuleOptions}
+        taxAmount={computed.taxes[0]?.tax_amount ?? 0}
+      />
 
       <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
         <p>

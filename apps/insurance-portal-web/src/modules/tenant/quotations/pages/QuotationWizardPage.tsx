@@ -23,6 +23,7 @@ import { usePageFooter } from '@/components/layout/PageFooterSlot';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { underwritingPaths } from '@/modules/tenant/underwriting/paths';
 import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
+import { getCustomerDisplayName } from '@/modules/tenant/customers/types';
 import {
   createEmptyFleetDetails,
   createEmptyFleetItemRow,
@@ -48,6 +49,7 @@ import {
   useUpdateQuotationDraft,
 } from '../hooks';
 import { QuotationJourneyProgress } from '../wizard/QuotationJourneyProgress';
+import { AccordionStepSection } from '../wizard/components/AccordionStepSection';
 import {
   QuotationStartModal,
   type QuotationStartSelection,
@@ -319,6 +321,16 @@ export function QuotationWizardPage() {
     control: form.control,
     name: 'policyholder.customer_type',
   });
+  const policyholderFullName = useWatch({
+    control: form.control,
+    name: 'policyholder.full_name',
+  });
+  const motorRegistration = useWatch({
+    control: form.control,
+    name: 'motor.registration_no',
+  });
+  const motorMake = useWatch({ control: form.control, name: 'motor.make' });
+  const motorModel = useWatch({ control: form.control, name: 'motor.model' });
   const watchedAddons = useWatch({ control: form.control, name: 'addons' });
   const watchedRisks = useWatch({
     control: form.control,
@@ -820,6 +832,49 @@ export function QuotationWizardPage() {
     });
   }, [form, riskOptions, watchedRisks, watchedFleetItems]);
 
+  const saveDraftSnapshot = useCallback(
+    async (currentWizardStep?: QuotationWizardStepId, silent = false) => {
+      const values = form.getValues();
+
+      try {
+        const quotation = hasPersistedDraft
+          ? await updateDraftMutation.mutateAsync({
+              id: activeDraftId!,
+              values,
+              currentWizardStep,
+              expectedUpdatedAt: existingQuotation?.updated_at,
+              silent,
+            })
+          : await createDraftMutation.mutateAsync({
+              values,
+              currentWizardStep,
+              silent,
+            });
+
+        setDraftId(quotation.id);
+        if (!id) {
+          navigate(underwritingPaths.quotationWizardEdit(quotation.id), {
+            replace: true,
+          });
+        }
+
+        return quotation;
+      } catch {
+        return null;
+      }
+    },
+    [
+      activeDraftId,
+      createDraftMutation,
+      existingQuotation,
+      form,
+      hasPersistedDraft,
+      id,
+      navigate,
+      updateDraftMutation,
+    ],
+  );
+
   const goToStep = useCallback(
     async (nextStep: QuotationWizardStepId) => {
       const currentIndex = steps.findIndex((step) => step.id === stepId);
@@ -845,8 +900,16 @@ export function QuotationWizardPage() {
         previous.includes(stepId) ? previous : [...previous, stepId],
       );
       setSelectedStepId(nextStep);
+
+      // Best-effort autosave on step transitions, once there's enough on the
+      // form to be worth persisting. Failures are swallowed silently here —
+      // saveDraftSnapshot already surfaces its own error toast, and losing
+      // one autosave tick shouldn't block navigation.
+      if (form.getValues('product_id')) {
+        void saveDraftSnapshot(nextStep, true);
+      }
     },
-    [completedSteps, form, stepId, steps],
+    [completedSteps, form, saveDraftSnapshot, stepId, steps],
   );
 
   const goNext = useCallback(async () => {
@@ -967,49 +1030,6 @@ export function QuotationWizardPage() {
     fleetFieldArray.append(newItems);
   }
 
-  const saveDraftSnapshot = useCallback(
-    async (currentWizardStep?: QuotationWizardStepId, silent = false) => {
-      const values = form.getValues();
-
-      try {
-        const quotation = hasPersistedDraft
-          ? await updateDraftMutation.mutateAsync({
-              id: activeDraftId!,
-              values,
-              currentWizardStep,
-              expectedUpdatedAt: existingQuotation?.updated_at,
-              silent,
-            })
-          : await createDraftMutation.mutateAsync({
-              values,
-              currentWizardStep,
-              silent,
-            });
-
-        setDraftId(quotation.id);
-        if (!id) {
-          navigate(underwritingPaths.quotationWizardEdit(quotation.id), {
-            replace: true,
-          });
-        }
-
-        return quotation;
-      } catch {
-        return null;
-      }
-    },
-    [
-      activeDraftId,
-      createDraftMutation,
-      existingQuotation,
-      form,
-      hasPersistedDraft,
-      id,
-      navigate,
-      updateDraftMutation,
-    ],
-  );
-
   const completeQuotation = useCallback(async () => {
     const valid = await form.trigger(undefined, { shouldFocus: true });
     if (!valid) {
@@ -1127,6 +1147,107 @@ export function QuotationWizardPage() {
       ),
     )
     .map((step) => step.id);
+
+  const activeProduct = productOptions.find((item) => item.id === productId);
+  const accordionGroups = useMemo(() => {
+    const coverErrorFields: FieldPath<QuotationFormSchemaValues>[] = [
+      ...COVER_FIELDS.filter(
+        (fieldName) =>
+          fieldName !== 'cover_note_desc' && fieldName !== 'operative_clause',
+      ),
+    ];
+    const policyholderErrorFields: FieldPath<QuotationFormSchemaValues>[] = [
+      'customer_id',
+      'policyholder',
+    ];
+    const vehicleErrorFields: FieldPath<QuotationFormSchemaValues>[] = [
+      'motor',
+    ];
+    const riskErrorFields: FieldPath<QuotationFormSchemaValues>[] = [
+      'risks',
+      'nonMotor',
+      'addons',
+    ];
+    const coverSummary = [activeProduct?.product_name, validFrom, validUntil]
+      .filter(Boolean)
+      .join(' · ');
+    const policyholderSummary =
+      policyholderMode === 'existing'
+        ? selectedCustomer
+          ? getCustomerDisplayName(selectedCustomer)
+          : undefined
+        : policyholderFullName || undefined;
+    const vehicleSummary = [motorRegistration, motorMake, motorModel]
+      .filter(Boolean)
+      .join(' · ');
+    const riskSummary = `${(watchedRisks ?? []).length} risk${
+      (watchedRisks ?? []).length === 1 ? '' : 's'
+    }`;
+
+    const cover = {
+      id: 'cover',
+      title: 'Cover & policyholder',
+      summary: [coverSummary, policyholderSummary].filter(Boolean).join(' · '),
+      fields: [...coverErrorFields, ...policyholderErrorFields],
+    };
+    const vehicle = {
+      id: 'vehicle',
+      title: 'Vehicle',
+      summary: vehicleSummary,
+      fields: vehicleErrorFields,
+    };
+    const risk = {
+      id: 'risk',
+      title: 'Risk, premium & add-ons',
+      summary: riskSummary,
+      fields: riskErrorFields,
+    };
+    const policyholderOnly = {
+      id: 'policyholder',
+      title: 'Policyholder',
+      summary: policyholderSummary,
+      fields: policyholderErrorFields,
+    };
+    const fleetCover = {
+      id: 'cover',
+      title: 'Fleet & cover',
+      summary: coverSummary,
+      fields: coverErrorFields,
+    };
+
+    if (quotationFlow === 'MOTOR_SINGLE') return [cover, vehicle, risk];
+    if (quotationFlow === 'MOTOR_FLEET') return [fleetCover, policyholderOnly];
+    return [cover, risk];
+  }, [
+    activeProduct,
+    motorMake,
+    motorModel,
+    motorRegistration,
+    policyholderFullName,
+    policyholderMode,
+    quotationFlow,
+    selectedCustomer,
+    validFrom,
+    validUntil,
+    watchedRisks,
+  ]);
+  const [openSectionId, setOpenSectionId] = useState<string | null>(null);
+  useEffect(() => {
+    setOpenSectionId(accordionGroups[0]?.id ?? null);
+    // Only reset which section is open when the step itself changes, not on
+    // every keystroke that recomputes accordionGroups' summaries.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepId]);
+  const toggleAccordionSection = useCallback((sectionId: string) => {
+    setOpenSectionId((previous) => (previous === sectionId ? null : sectionId));
+  }, []);
+  const accordionGroupHasError = useCallback(
+    (sectionId: string) =>
+      (
+        accordionGroups.find((group) => group.id === sectionId)?.fields ?? []
+      ).some((fieldName) => form.getFieldState(fieldName).invalid),
+    [accordionGroups, form],
+  );
 
   const footerNode = useMemo(
     () =>
@@ -1262,60 +1383,116 @@ export function QuotationWizardPage() {
                   className="space-y-6"
                   onSubmit={(event) => event.preventDefault()}
                 >
-                  <div hidden={!isFirstStep} className="space-y-6">
-                    <CoverNoteSetupStep
-                      form={form}
-                      categoryOptions={categoryOptions}
-                      productOptions={productOptions}
-                      isHydrating={isEditHydrating}
-                      title="Product & cover"
-                      enforceFreshCoverPeriod={!usesPrefilledQuotation}
-                    />
-                    {quotationFlow === 'MOTOR_FLEET' ? (
-                      <>
-                        <FleetSetupStep
-                          form={form}
-                          categoryOptions={categoryOptions}
-                          productOptions={productOptions}
-                          isHydrating={isEditHydrating}
-                          headerOnly
-                        />
-                        <div className="grid gap-4 sm:grid-cols-2">
-                          <WizardInput
+                  <div hidden={!isFirstStep} className="space-y-4">
+                    <AccordionStepSection
+                      id="cover"
+                      title={
+                        quotationFlow === 'MOTOR_FLEET'
+                          ? 'Fleet & cover'
+                          : 'Cover & policyholder'
+                      }
+                      summary={
+                        accordionGroups.find((group) => group.id === 'cover')
+                          ?.summary
+                      }
+                      isOpen={openSectionId === 'cover'}
+                      onToggle={toggleAccordionSection}
+                      hasError={accordionGroupHasError('cover')}
+                    >
+                      <CoverNoteSetupStep
+                        form={form}
+                        categoryOptions={categoryOptions}
+                        productOptions={productOptions}
+                        isHydrating={isEditHydrating}
+                        title="Product & cover"
+                        enforceFreshCoverPeriod={!usesPrefilledQuotation}
+                      />
+                      {quotationFlow === 'MOTOR_FLEET' ? (
+                        <>
+                          <FleetSetupStep
                             form={form}
-                            name="risks.0.risk_id"
-                            label="Default vehicle cover"
-                            options={riskOptions.map((risk) => ({
-                              value: risk.id,
-                              label: risk.risk_name,
-                            }))}
+                            categoryOptions={categoryOptions}
+                            productOptions={productOptions}
+                            isHydrating={isEditHydrating}
+                            headerOnly
                           />
-                          <WizardInput
-                            form={form}
-                            name="risks.0.sum_insured"
-                            label="Default sum insured (optional)"
-                            type="number"
-                          />
-                        </div>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <WizardInput
+                              form={form}
+                              name="risks.0.risk_id"
+                              label="Default vehicle cover"
+                              options={riskOptions.map((risk) => ({
+                                value: risk.id,
+                                label: risk.risk_name,
+                              }))}
+                            />
+                            <WizardInput
+                              form={form}
+                              name="risks.0.sum_insured"
+                              label="Default sum insured (optional)"
+                              type="number"
+                            />
+                          </div>
+                        </>
+                      ) : (
                         <PolicyholderStep
                           form={form}
                           customerOptions={customerOptions}
                         />
-                      </>
-                    ) : (
-                      <PolicyholderStep
-                        form={form}
-                        customerOptions={customerOptions}
-                      />
+                      )}
+                    </AccordionStepSection>
+
+                    {quotationFlow === 'MOTOR_FLEET' && (
+                      <AccordionStepSection
+                        id="policyholder"
+                        title="Policyholder"
+                        summary={
+                          accordionGroups.find(
+                            (group) => group.id === 'policyholder',
+                          )?.summary
+                        }
+                        isOpen={openSectionId === 'policyholder'}
+                        onToggle={toggleAccordionSection}
+                        hasError={accordionGroupHasError('policyholder')}
+                      >
+                        <PolicyholderStep
+                          form={form}
+                          customerOptions={customerOptions}
+                        />
+                      </AccordionStepSection>
                     )}
+
                     {quotationFlow === 'MOTOR_SINGLE' && (
-                      <MotorDetailsStep
-                        form={form}
-                        vehicleOptions={vehicleOptions}
-                      />
+                      <AccordionStepSection
+                        id="vehicle"
+                        title="Vehicle"
+                        summary={
+                          accordionGroups.find(
+                            (group) => group.id === 'vehicle',
+                          )?.summary
+                        }
+                        isOpen={openSectionId === 'vehicle'}
+                        onToggle={toggleAccordionSection}
+                        hasError={accordionGroupHasError('vehicle')}
+                      >
+                        <MotorDetailsStep
+                          form={form}
+                          vehicleOptions={vehicleOptions}
+                        />
+                      </AccordionStepSection>
                     )}
                     {quotationFlow !== 'MOTOR_FLEET' && (
-                      <>
+                      <AccordionStepSection
+                        id="risk"
+                        title="Risk, premium & add-ons"
+                        summary={
+                          accordionGroups.find((group) => group.id === 'risk')
+                            ?.summary
+                        }
+                        isOpen={openSectionId === 'risk'}
+                        onToggle={toggleAccordionSection}
+                        hasError={accordionGroupHasError('risk')}
+                      >
                         <RiskPremiumStep
                           form={form}
                           riskOptions={riskOptions}
@@ -1328,7 +1505,7 @@ export function QuotationWizardPage() {
                           factorContext={quotationFactorContext}
                         />
                         <AddOnsStep form={form} fieldArray={addonFieldArray} />
-                      </>
+                      </AccordionStepSection>
                     )}
                   </div>
                   {quotationFlow === 'MOTOR_FLEET' && (

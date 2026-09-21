@@ -42,6 +42,7 @@ import type {
   RiskRequiredFactor,
 } from '@/types/product-engine';
 import {
+  createEmptyAddonRow,
   createEmptyFleetItemRow,
   createEmptyRiskDiscountRow,
   createEmptyRiskTaxRow,
@@ -50,6 +51,7 @@ import {
 import { normalizeMotorTextInput } from '../../utils/motorText';
 import { StepSection } from '../components/StepSection';
 import { WizardFormItem } from '../components/WizardFormItem';
+import { AddonRow } from '../components/AddonRow';
 import {
   applyFleetRiskPremiumResult,
   recomputeFleetRiskRow,
@@ -906,18 +908,7 @@ function FleetVehicleEditor({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() =>
-                addonArray.append({
-                  addon_reference: '',
-                  addon_desc: '',
-                  addon_amount: '',
-                  addon_premium_rate: '',
-                  premium_excluding_tax: '',
-                  premium_excluding_tax_equivalent: '',
-                  premium_including_tax: '',
-                  taxes: [],
-                })
-              }
+              onClick={() => addonArray.append(createEmptyAddonRow())}
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Add-on
@@ -930,77 +921,16 @@ function FleetVehicleEditor({
             </p>
           ) : (
             addonArray.fields.map((field, addonIndex) => (
-              <div
+              <AddonRow
                 key={field.id}
-                className="grid gap-3 rounded-xl border border-slate-200 p-4 md:grid-cols-2"
-              >
-                <FormField
-                  control={form.control}
-                  name={
-                    `fleet.items.${index}.cover_note_addons.${addonIndex}.addon_reference` as const
-                  }
-                  render={({ field }) => (
-                    <WizardFormItem>
-                      <FormLabel>Add-on Reference</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                    </WizardFormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={
-                    `fleet.items.${index}.cover_note_addons.${addonIndex}.addon_desc` as const
-                  }
-                  render={({ field }) => (
-                    <WizardFormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                    </WizardFormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={
-                    `fleet.items.${index}.cover_note_addons.${addonIndex}.addon_amount` as const
-                  }
-                  render={({ field }) => (
-                    <WizardFormItem>
-                      <FormLabel>Insured Amount</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" {...field} />
-                      </FormControl>
-                    </WizardFormItem>
-                  )}
-                />
-                <div className="flex items-end gap-2">
-                  <FormField
-                    control={form.control}
-                    name={
-                      `fleet.items.${index}.cover_note_addons.${addonIndex}.premium_including_tax` as const
-                    }
-                    render={({ field }) => (
-                      <WizardFormItem className="flex-1">
-                        <FormLabel>Premium Including Tax</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.01" {...field} />
-                        </FormControl>
-                      </WizardFormItem>
-                    )}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => addonArray.remove(addonIndex)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+                form={form}
+                index={addonIndex}
+                basePath={`fleet.items.${index}.cover_note_addons`}
+                riskPath={`fleet.items.${index}.risks_covered.0`}
+                onRemove={addonArray.remove}
+                canRemove
+                exchangeRate={1}
+              />
             ))
           )}
         </StepSection>

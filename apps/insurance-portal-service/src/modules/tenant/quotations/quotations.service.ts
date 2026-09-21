@@ -7634,7 +7634,10 @@ export class QuotationsService {
       description,
       status: subjectEntity.status || 'ACTIVE',
       currency: currencyCode.trim().toUpperCase(),
-      snapshot_version: Math.max(Number(subjectEntity.snapshot_version ?? 0), 1),
+      snapshot_version: Math.max(
+        Number(subjectEntity.snapshot_version ?? 0),
+        1,
+      ),
       created_by: subjectEntity.created_by ?? userId,
       updated_by: userId,
     });

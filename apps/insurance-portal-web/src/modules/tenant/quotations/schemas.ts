@@ -6,7 +6,6 @@ import {
   roundMoney,
   roundRate,
   sumDecimals,
-  toDecimal,
 } from '@insurance-max/portal-shared/utils/pricing-calculation.util';
 import {
   customerFormSchema,
@@ -20,6 +19,7 @@ import {
 } from '../customers/types';
 import { readPricingQuoteMetadata } from '@/modules/pricing';
 import type {
+  QuotationAddonPayload,
   QuotationDetailRecord,
   QuotationDiscountPayload,
   QuotationDraftRecordPayload,
@@ -451,18 +451,10 @@ const fleetItemSchema = z.object({
       subject_matter_desc: optionalText,
     }),
   ),
-  cover_note_addons: z.array(
-    z.object({
-      addon_reference: optionalText,
-      addon_desc: optionalText,
-      addon_amount: optionalText,
-      addon_premium_rate: optionalText,
-      premium_excluding_tax: optionalText,
-      premium_excluding_tax_equivalent: optionalText,
-      premium_including_tax: optionalText,
-      taxes: z.array(addonTaxSchema),
-    }),
-  ),
+  // Same shape as the non-fleet `addons` array (addonSchema) so a fleet
+  // vehicle's add-ons can use the identical AddonRow UI: product-catalog
+  // picker, enabled/disabled toggle, and calculated premium.
+  cover_note_addons: z.array(addonSchema),
   motor_dtl: z.object({
     motor_category: optionalText,
     motor_type: optionalText,
@@ -1309,7 +1301,7 @@ function buildRiskPayload(
 
 function buildAddonPayload(
   addons: QuotationFormValues['addons'],
-): QuotationPayload['cover_note_dtl']['cover_note_addons'] {
+): QuotationAddonPayload[] {
   return addons
     .filter((addon) => addon.enabled)
     .map((addon) => {
@@ -1504,29 +1496,10 @@ export function buildMotorFleetQuotationPayload(
     const make = normalizeMotorTextInput(item.motor_dtl.make);
     const model = normalizeMotorTextInput(item.motor_dtl.model);
     const modelNumber = normalizeMotorTextValue(item.motor_dtl.model_number);
-    const taxMappedAddons = item.cover_note_addons.map((addon) => ({
-      addon_reference: addon.addon_reference,
-      addon_desc: addon.addon_desc,
-      addon_amount: normalizeMoneyNumber(addon.addon_amount),
-      addon_premium_rate: normalizeRateNumber(addon.addon_premium_rate),
-      premium_excluding_tax:
-        normalizeMoneyNumber(addon.premium_excluding_tax) ||
-        normalizeMoneyNumber(addon.addon_amount),
-      premium_excluding_tax_equivalent:
-        normalizeMoneyNumber(addon.premium_excluding_tax_equivalent) ||
-        normalizeMoneyNumber(addon.premium_excluding_tax) ||
-        normalizeMoneyNumber(addon.addon_amount),
-      premium_including_tax:
-        normalizeMoneyNumber(addon.premium_including_tax) ||
-        roundMoney(
-          toDecimal(normalizeMoneyNumber(addon.premium_excluding_tax)).plus(
-            sumDecimals(
-              buildTaxPayload(addon.taxes).map((tax) => tax.tax_amount),
-            ),
-          ),
-        ),
-      taxes_charged: buildTaxPayload(addon.taxes),
-    }));
+    // Same builder as the non-fleet flow (filters out disabled add-ons and
+    // computes tax/total amounts identically) now that fleet add-ons share
+    // the same schema and AddonRow UI as non-fleet add-ons.
+    const taxMappedAddons = buildAddonPayload(item.cover_note_addons);
 
     return {
       fleet_entry: normalizePositiveNumber(item.fleet_entry, index + 1),
@@ -2195,25 +2168,7 @@ export function quotationRecordToFormValues(
             subject_matter_desc: subject.subject_matter_desc,
           }),
         ),
-        cover_note_addons: item.cover_note_addons.map((addon) => ({
-          addon_reference: addon.addon_reference,
-          addon_desc: addon.addon_desc,
-          addon_amount: String(addon.addon_amount),
-          addon_premium_rate: String(addon.addon_premium_rate),
-          premium_excluding_tax: String(addon.premium_excluding_tax),
-          premium_excluding_tax_equivalent: String(
-            addon.premium_excluding_tax_equivalent,
-          ),
-          premium_including_tax: String(addon.premium_including_tax),
-          taxes: addon.taxes_charged.map((tax) => ({
-            tax_code: tax.tax_code,
-            is_tax_exempted: toBooleanTaxFlag(tax.is_tax_exempted),
-            tax_exemption_type: tax.tax_exemption_type ?? '',
-            tax_exemption_reference: tax.tax_exemption_reference ?? '',
-            tax_rate: String(tax.tax_rate),
-            tax_amount: String(tax.tax_amount),
-          })),
-        })),
+        cover_note_addons: mapAddons(item.cover_note_addons),
         motor_dtl: {
           motor_category: String(item.motor_dtl.motor_category),
           motor_type: String(item.motor_dtl.motor_type),

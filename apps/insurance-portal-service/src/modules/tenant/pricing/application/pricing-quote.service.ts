@@ -663,25 +663,25 @@ export class PricingQuoteService {
       perUnitFactorCode: risk.per_unit_factor_code,
       minimumAmount: this.toNullableString(risk.minimum_amount),
       maximumAmount: this.toNullableString(risk.maximum_premium),
-      maxDiscountRate: this.toNullableString(risk.discount_control.max_rate),
+      maxDiscountRate: this.toNullableString(risk.discount_control?.max_rate),
       maxDiscountAmount: this.toNullableString(
-        risk.discount_control.max_amount,
+        risk.discount_control?.max_amount,
       ),
       discountApprovalThresholdRate: this.toNullableString(
-        risk.discount_control.approval_threshold_rate,
+        risk.discount_control?.approval_threshold_rate,
       ),
       discountApprovalThresholdAmount: this.toNullableString(
-        risk.discount_control.approval_threshold_amount,
+        risk.discount_control?.approval_threshold_amount,
       ),
-      maxLoadingRate: this.toNullableString(risk.loading_control.max_rate),
-      maxLoadingAmount: this.toNullableString(risk.loading_control.max_amount),
+      maxLoadingRate: this.toNullableString(risk.loading_control?.max_rate),
+      maxLoadingAmount: this.toNullableString(risk.loading_control?.max_amount),
       loadingApprovalThresholdRate: this.toNullableString(
-        risk.loading_control.approval_threshold_rate,
+        risk.loading_control?.approval_threshold_rate,
       ),
       loadingApprovalThresholdAmount: this.toNullableString(
-        risk.loading_control.approval_threshold_amount,
+        risk.loading_control?.approval_threshold_amount,
       ),
-      conditions: risk.matched_rule_conditions.map((condition) => ({
+      conditions: (risk.matched_rule_conditions ?? []).map((condition) => ({
         id: condition.id,
         factorCode: condition.factor_code,
         operator: condition.operator,
@@ -691,7 +691,7 @@ export class PricingQuoteService {
       })),
     };
 
-    const addons: AddonPricingRuleSnapshot[] = risk.addon_results.map(
+    const addons: AddonPricingRuleSnapshot[] = (risk.addon_results ?? []).map(
       (addon) => ({
         ruleId: addon.rule_id,
         addonDefinitionId: addon.addon_definition_id,
@@ -725,8 +725,7 @@ export class PricingQuoteService {
           insurerCompanyId: rateBookContext.company_id,
           productId: rateBookContext.product_id,
           productVersionId: rateBookContext.product_version_id ?? '',
-          productDefinitionHash:
-            rateBookContext.product_definition_hash ?? '',
+          productDefinitionHash: rateBookContext.product_definition_hash ?? '',
           currencyCode: rateBookContext.currency_code,
           effectiveFrom: rateBookContext.effective_from,
           effectiveTo: rateBookContext.effective_to,
