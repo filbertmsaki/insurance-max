@@ -46,7 +46,7 @@ const result: VerificationResult = {
 };
 
 function search() {
-  fireEvent.change(screen.getByPlaceholderText('T123ABC'), {
+  fireEvent.change(screen.getByPlaceholderText('e.g. T123ABC'), {
     target: { value: ' t123abc ' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Fetch details' }));

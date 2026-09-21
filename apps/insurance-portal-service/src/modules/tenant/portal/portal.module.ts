@@ -9,10 +9,13 @@ import { CompanyUser } from '../../platform/companies/entities/company-user.enti
 import { CommissionTransaction } from '../billing-commission/entities/commission-transaction.entity';
 import { Invoice } from '../billing-commission/entities/invoice.entity';
 import { Receipt } from '../billing-commission/entities/receipt.entity';
+import { Complaint } from '../claims/entities/complaint.entity';
+import { InsuranceClaim } from '../claims/entities/claim.entity';
 import { CommunicationMessage } from '../communications/entities/communication-message.entity';
 import { CommunicationThread } from '../communications/entities/communication-thread.entity';
 import { CustomersModule } from '../customers/customers.module';
 import { Customer } from '../customers/entities/customer.entity';
+import { ClaimsModule } from '../claims/claims.module';
 import { InsuranceDocumentsModule } from '../insurance-documents/insurance-documents.module';
 import { DocumentLink } from '../insurance-documents/entities/document-link.entity';
 import { Document } from '../insurance-documents/entities/document.entity';
@@ -77,6 +80,8 @@ import { PortalEngagementService } from './services/portal-engagement.service';
       MotorVehicle,
       Quotation,
       Policy,
+      InsuranceClaim,
+      Complaint,
       Invoice,
       Receipt,
       CommissionTransaction,
@@ -92,6 +97,7 @@ import { PortalEngagementService } from './services/portal-engagement.service';
     MailModule,
     QuotationsModule,
     CustomersModule,
+    ClaimsModule,
     InsuranceDocumentsModule,
   ],
   controllers: [

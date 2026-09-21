@@ -19,6 +19,7 @@ import {
   PortalRequestStatus,
   PortalRequestType,
 } from '../enums/portal.enums';
+import { ComplaintPriority } from '../../claims/enums/claim.enums';
 
 export class CreatePolicyPortalRequestDto {
   @IsUUID()
@@ -72,6 +73,39 @@ export class CreateClaimNotificationDto {
   @Min(0)
   @Type(() => Number)
   estimated_loss_amount?: number;
+}
+
+export class CreatePortalComplaintDto {
+  @IsOptional()
+  @IsUUID()
+  claim_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  policy_id?: string;
+
+  @IsOptional()
+  @IsUUID()
+  customer_id?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  category: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(180)
+  subject: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(5000)
+  description: string;
+
+  @IsOptional()
+  @IsEnum(ComplaintPriority)
+  priority?: ComplaintPriority;
 }
 
 export class CreateQuotationAssistanceDto {

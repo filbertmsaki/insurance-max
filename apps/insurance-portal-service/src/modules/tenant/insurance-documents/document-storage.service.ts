@@ -54,6 +54,17 @@ export class DocumentStorageService {
     );
   }
 
+  storageProvider(): string {
+    return this.configService.get<string>(
+      'DOCUMENT_STORAGE_PROVIDER',
+      'local_private',
+    );
+  }
+
+  storageBucket(): string | null {
+    return this.configService.get<string>('DOCUMENT_STORAGE_BUCKET') ?? null;
+  }
+
   async store(params: {
     buffer: Buffer;
     companyId: string;

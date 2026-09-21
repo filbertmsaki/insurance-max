@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { randomUUID } from 'node:crypto';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import { Repository } from 'typeorm';
 import {
@@ -53,11 +54,6 @@ export class DocumentGenerationService {
       input.templateCode,
     );
 
-    this.renderService.validateVariableSchema(
-      active.version.variable_schema,
-      input.sourceSnapshot,
-    );
-
     const sourceSnapshotHash = this.renderService.hashDefinition(
       input.sourceSnapshot,
     );
@@ -82,16 +78,55 @@ export class DocumentGenerationService {
       }
     }
 
+    const documentNo = `DOC-${randomUUID().slice(0, 8).toUpperCase()}`;
+    const publicVerificationCode = input.publicVerificationEnabled
+      ? `VRF-${randomUUID().slice(0, 10).toUpperCase()}`
+      : null;
+    const generatedAt = new Date();
+    const renderSnapshot = {
+      ...input.sourceSnapshot,
+      document: {
+        document_no: documentNo,
+        title: input.title,
+        template_code: active.template.template_code,
+        template_version: active.version.version_number,
+        generated_at: generatedAt.toISOString(),
+        public_verification_code: publicVerificationCode,
+      },
+    };
+
+    this.renderService.validateVariableSchema(
+      active.version.variable_schema,
+      renderSnapshot,
+    );
+
     const renderedText = this.renderService.renderTemplate(
       active.version.template_content,
-      input.sourceSnapshot,
+      renderSnapshot,
     );
+    const renderedHeader = active.version.header_content
+      ? this.renderService.renderTemplate(
+          active.version.header_content,
+          renderSnapshot,
+        )
+      : null;
+    const renderedFooter = active.version.footer_content
+      ? this.renderService.renderTemplate(
+          active.version.footer_content,
+          renderSnapshot,
+        )
+      : publicVerificationCode
+        ? `Verification code: ${publicVerificationCode} | Page {{page_number}} of {{page_count}}`
+        : null;
     const pdf = await this.renderService.renderPdf({
       title: input.title,
       body: renderedText,
+      header: renderedHeader,
+      footer: renderedFooter,
+      stylesheet: active.version.stylesheet_content,
     });
     const stored = await this.storageService.store({
-      buffer: pdf,
+      buffer: pdf.buffer,
       companyId: user.companyId!,
       fileName: `${input.title}.pdf`,
       maximumBytes: this.storageService.maximumBytes(),
@@ -101,7 +136,7 @@ export class DocumentGenerationService {
     const document = await this.documentRepository.save(
       this.documentRepository.create({
         company_id: user.companyId!,
-        document_no: `DOC-${crypto.randomUUID().slice(0, 8).toUpperCase()}`,
+        document_no: documentNo,
         owner_type: input.resourceType,
         owner_id: input.resourceId,
         title: input.title,
@@ -118,16 +153,14 @@ export class DocumentGenerationService {
         customer_visible: input.customerVisible,
         intermediary_visible: input.intermediaryVisible,
         public_verification_enabled: input.publicVerificationEnabled,
-        public_verification_code: input.publicVerificationEnabled
-          ? `VRF-${crypto.randomUUID().slice(0, 10).toUpperCase()}`
-          : null,
+        public_verification_code: publicVerificationCode,
         retention_policy_code: null,
         retention_until: null,
         legal_hold: false,
         legal_hold_reason: null,
         uploaded_by: user.id,
         verified_by: user.id,
-        verified_at: new Date(),
+        verified_at: generatedAt,
         rejection_reason: null,
         created_by: user.id,
         archived_at: null,
@@ -141,8 +174,8 @@ export class DocumentGenerationService {
         document_id: document.id,
         version_number: 1,
         status: DocumentStatus.AVAILABLE,
-        storage_provider: 'local_private',
-        storage_bucket: null,
+        storage_provider: this.storageService.storageProvider(),
+        storage_bucket: this.storageService.storageBucket(),
         storage_key: stored.storageKey,
         original_file_name: stored.originalFileName,
         safe_file_name: stored.safeFileName,
@@ -152,19 +185,29 @@ export class DocumentGenerationService {
         file_size: stored.size,
         sha256_hash: stored.checksum,
         encryption_key_reference: null,
-        source_snapshot: input.sourceSnapshot,
+        source_snapshot: renderSnapshot,
         source_snapshot_hash: sourceSnapshotHash,
         template_code: active.template.template_code,
         template_version: active.version.version_number,
-        generator_version: 'phase17-internal',
-        page_count: 1,
-        scan_status: 'CLEAN',
+        generator_version: pdf.layoutReview.engine,
+        page_count: pdf.pageCount,
+        scan_status:
+          pdf.layoutReview.status === 'PASSED' ? 'CLEAN' : 'CLEAN_WITH_NOTES',
         scan_provider: 'internal',
         scan_reference: null,
-        scanned_at: new Date(),
-        scan_result: { generated: true },
+        scanned_at: generatedAt,
+        scan_result: {
+          generated: true,
+          render: {
+            status: pdf.layoutReview.status,
+            warnings: pdf.layoutReview.warnings,
+            page_count: pdf.pageCount,
+            template_hash: active.version.template_hash,
+            idempotency_key: input.idempotencyKey,
+          },
+        },
         uploaded_by: user.id,
-        uploaded_at: new Date(),
+        uploaded_at: generatedAt,
         supersedes_version_id: null,
       }),
     );
@@ -175,14 +218,20 @@ export class DocumentGenerationService {
         document_version_id: version.id,
         scan_type: 'GENERATION_REVIEW',
         provider: 'internal',
-        status: 'CLEAN',
+        status:
+          pdf.layoutReview.status === 'PASSED' ? 'CLEAN' : 'CLEAN_WITH_NOTES',
         result_code: 'GENERATED',
-        result_message: 'Generated document accepted into storage.',
+        result_message:
+          pdf.layoutReview.status === 'PASSED'
+            ? 'Generated PDF passed internal layout review.'
+            : 'Generated PDF stored with internal layout review warnings.',
         details: {
           idempotencyKey: input.idempotencyKey,
+          layoutReview: pdf.layoutReview,
+          pageCount: pdf.pageCount,
         },
-        started_at: new Date(),
-        completed_at: new Date(),
+        started_at: generatedAt,
+        completed_at: generatedAt,
       }),
     );
 

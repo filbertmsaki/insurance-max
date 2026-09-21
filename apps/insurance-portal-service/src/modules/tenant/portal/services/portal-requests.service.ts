@@ -36,6 +36,7 @@ import { PortalRequestAttachment } from '../entities/portal-request-attachment.e
 import { PortalServiceRequest } from '../entities/portal-service-request.entity';
 import { PortalServiceRequestEvent } from '../entities/portal-service-request-event.entity';
 import {
+  PortalActorType,
   PortalAttachmentStatus,
   PortalNotificationSeverity,
   PortalPaymentProofStatus,
@@ -1554,7 +1555,10 @@ export class PortalRequestsService {
           .join(' '),
         resourceType: 'portal-service-request',
         resourceId: request.id,
-        actionUrl: `/portal/requests/${request.id}`,
+        actionUrl:
+          account.actor_type === PortalActorType.CUSTOMER
+            ? `/customer/requests/${request.id}`
+            : `/intermediary/requests/${request.id}`,
       });
     } catch (error) {
       this.logger.error(

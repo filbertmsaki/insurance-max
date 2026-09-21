@@ -10,6 +10,8 @@ import { Company } from '../../../platform/companies/entities/company.entity';
 import { CommissionTransaction } from '../../billing-commission/entities/commission-transaction.entity';
 import { Invoice } from '../../billing-commission/entities/invoice.entity';
 import { Receipt } from '../../billing-commission/entities/receipt.entity';
+import { Complaint } from '../../claims/entities/complaint.entity';
+import { InsuranceClaim } from '../../claims/entities/claim.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Policy } from '../../policies/entities/policy.entity';
 import { ProductChannelType } from '../../product-distribution/enums/product-channel-type.enum';
@@ -57,6 +59,8 @@ describe('PortalBusinessAccessService', () => {
   let policyRepository: ReturnType<typeof mockRepo>;
   let invoiceRepository: ReturnType<typeof mockRepo>;
   let receiptRepository: ReturnType<typeof mockRepo>;
+  let claimRepository: ReturnType<typeof mockRepo>;
+  let complaintRepository: ReturnType<typeof mockRepo>;
   let commissionRepository: ReturnType<typeof mockRepo>;
   let customerRepository: ReturnType<typeof mockRepo>;
   let companyRepository: ReturnType<typeof mockRepo>;
@@ -92,6 +96,8 @@ describe('PortalBusinessAccessService', () => {
     policyRepository = mockRepo();
     invoiceRepository = mockRepo();
     receiptRepository = mockRepo();
+    claimRepository = mockRepo();
+    complaintRepository = mockRepo();
     commissionRepository = mockRepo();
     customerRepository = mockRepo();
     companyRepository = mockRepo();
@@ -112,6 +118,14 @@ describe('PortalBusinessAccessService', () => {
         { provide: getRepositoryToken(Policy), useValue: policyRepository },
         { provide: getRepositoryToken(Invoice), useValue: invoiceRepository },
         { provide: getRepositoryToken(Receipt), useValue: receiptRepository },
+        {
+          provide: getRepositoryToken(InsuranceClaim),
+          useValue: claimRepository,
+        },
+        {
+          provide: getRepositoryToken(Complaint),
+          useValue: complaintRepository,
+        },
         {
           provide: getRepositoryToken(CommissionTransaction),
           useValue: commissionRepository,

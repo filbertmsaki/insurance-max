@@ -162,6 +162,42 @@ export class CustomerPortalController {
     return this.businessService.findReceipts(account, query);
   }
 
+  @Get('claims')
+  @ApiOperation({ summary: 'List customer claims' })
+  claims(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Query() query: PortalListQueryDto,
+  ) {
+    return this.businessService.findClaims(account, query);
+  }
+
+  @Get('claims/:id')
+  @ApiOperation({ summary: 'Get a customer claim' })
+  claim(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.businessService.findClaim(account, id);
+  }
+
+  @Get('complaints')
+  @ApiOperation({ summary: 'List customer complaints' })
+  complaints(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Query() query: PortalListQueryDto,
+  ) {
+    return this.businessService.findComplaints(account, query);
+  }
+
+  @Get('complaints/:id')
+  @ApiOperation({ summary: 'Get a customer complaint' })
+  complaint(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.businessService.findComplaint(account, id);
+  }
+
   @Get('documents')
   @ApiOperation({ summary: 'List customer portal documents' })
   documents(

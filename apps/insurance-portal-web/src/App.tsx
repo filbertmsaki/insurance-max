@@ -4,6 +4,7 @@ import { PortalShell } from '@/modules/portal/components/PortalShell';
 import { PortalDashboardPage } from '@/modules/portal/pages/PortalDashboardPage';
 import { PortalBuyCoverPage } from '@/modules/portal/pages/PortalBuyCoverPage';
 import { PortalBusinessListPage } from '@/modules/portal/pages/PortalBusinessListPage';
+import { PortalBusinessDetailPage } from '@/modules/portal/pages/PortalBusinessDetailPage';
 import { PortalCoverCheckPage } from '@/modules/portal/pages/PortalCoverCheckPage';
 import { PortalDocumentsPage } from '@/modules/portal/pages/PortalDocumentsPage';
 import { PortalMessageDetailPage } from '@/modules/portal/pages/PortalMessageDetailPage';
@@ -194,9 +195,27 @@ export default function App() {
               }
             />
             <Route
+              path="quotations/:id"
+              element={
+                <PortalBusinessDetailPage
+                  audience="customer"
+                  resource="quotations"
+                />
+              }
+            />
+            <Route
               path="policies"
               element={
                 <PortalBusinessListPage
+                  audience="customer"
+                  resource="policies"
+                />
+              }
+            />
+            <Route
+              path="policies/:id"
+              element={
+                <PortalBusinessDetailPage
                   audience="customer"
                   resource="policies"
                 />
@@ -212,6 +231,15 @@ export default function App() {
               }
             />
             <Route
+              path="invoices/:id"
+              element={
+                <PortalBusinessDetailPage
+                  audience="customer"
+                  resource="invoices"
+                />
+              }
+            />
+            <Route
               path="receipts"
               element={
                 <PortalBusinessListPage
@@ -221,9 +249,51 @@ export default function App() {
               }
             />
             <Route
+              path="claims"
+              element={
+                <PortalBusinessListPage audience="customer" resource="claims" />
+              }
+            />
+            <Route
+              path="claims/:id"
+              element={
+                <PortalBusinessDetailPage
+                  audience="customer"
+                  resource="claims"
+                />
+              }
+            />
+            <Route
+              path="complaints"
+              element={
+                <PortalBusinessListPage
+                  audience="customer"
+                  resource="complaints"
+                />
+              }
+            />
+            <Route
+              path="complaints/:id"
+              element={
+                <PortalBusinessDetailPage
+                  audience="customer"
+                  resource="complaints"
+                />
+              }
+            />
+            <Route
               path="requests"
               element={
                 <PortalBusinessListPage
+                  audience="customer"
+                  resource="requests"
+                />
+              }
+            />
+            <Route
+              path="requests/:id"
+              element={
+                <PortalBusinessDetailPage
                   audience="customer"
                   resource="requests"
                 />
@@ -292,9 +362,27 @@ export default function App() {
                 }
               />
               <Route
+                path="quotations/:id"
+                element={
+                  <PortalBusinessDetailPage
+                    audience="intermediary"
+                    resource="quotations"
+                  />
+                }
+              />
+              <Route
                 path="policies"
                 element={
                   <PortalBusinessListPage
+                    audience="intermediary"
+                    resource="policies"
+                  />
+                }
+              />
+              <Route
+                path="policies/:id"
+                element={
+                  <PortalBusinessDetailPage
                     audience="intermediary"
                     resource="policies"
                   />
@@ -310,11 +398,56 @@ export default function App() {
                 }
               />
               <Route
+                path="invoices/:id"
+                element={
+                  <PortalBusinessDetailPage
+                    audience="intermediary"
+                    resource="invoices"
+                  />
+                }
+              />
+              <Route
                 path="receipts"
                 element={
                   <PortalBusinessListPage
                     audience="intermediary"
                     resource="receipts"
+                  />
+                }
+              />
+              <Route
+                path="claims"
+                element={
+                  <PortalBusinessListPage
+                    audience="intermediary"
+                    resource="claims"
+                  />
+                }
+              />
+              <Route
+                path="claims/:id"
+                element={
+                  <PortalBusinessDetailPage
+                    audience="intermediary"
+                    resource="claims"
+                  />
+                }
+              />
+              <Route
+                path="complaints"
+                element={
+                  <PortalBusinessListPage
+                    audience="intermediary"
+                    resource="complaints"
+                  />
+                }
+              />
+              <Route
+                path="complaints/:id"
+                element={
+                  <PortalBusinessDetailPage
+                    audience="intermediary"
+                    resource="complaints"
                   />
                 }
               />
@@ -331,6 +464,15 @@ export default function App() {
                 path="requests"
                 element={
                   <PortalBusinessListPage
+                    audience="intermediary"
+                    resource="requests"
+                  />
+                }
+              />
+              <Route
+                path="requests/:id"
+                element={
+                  <PortalBusinessDetailPage
                     audience="intermediary"
                     resource="requests"
                   />

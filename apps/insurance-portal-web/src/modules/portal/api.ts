@@ -141,6 +141,58 @@ export interface CreateQuotationDraftPayload {
   draft_payload: Record<string, unknown>;
 }
 
+export interface PortalPaymentProofPayload {
+  invoice_id: string;
+  amount: number;
+  payment_date: string;
+  payment_reference?: string;
+  description: string;
+}
+
+export interface PortalPaymentProofResponse {
+  request: PortalBusinessRecord;
+  payment_proof: {
+    id: string;
+    invoice_id: string;
+    amount: string;
+    currency: string;
+    payment_reference: string | null;
+    payment_date: string;
+    status: string;
+  };
+  attachment_required: boolean;
+  required_document_type: string;
+  message: string;
+}
+
+export interface PortalClaimNotificationPayload {
+  policy_id: string;
+  loss_date: string;
+  loss_location: string;
+  loss_description: string;
+  police_reference?: string;
+  estimated_loss_amount?: number;
+}
+
+export interface PortalComplaintPayload {
+  claim_id?: string;
+  policy_id?: string;
+  customer_id?: string;
+  category: string;
+  subject: string;
+  description: string;
+  priority?: string;
+}
+
+export interface PortalRequestAttachment {
+  id: string;
+  document_type: string;
+  original_file_name: string;
+  mime_type: string;
+  file_size: number;
+  created_at: string;
+}
+
 function basePath(audience: PortalAudience) {
   return `/${audience}`;
 }
@@ -165,6 +217,15 @@ export const portalApi = {
       .get<
         PortalPagedResponse<PortalBusinessRecord>
       >(resource === 'requests' ? '/portal/requests' : `${basePath(audience)}/${resource}`, { params })
+      .then((response) => response.data),
+
+  getBusinessRecord: (audience: PortalAudience, resource: string, id: string) =>
+    apiClient
+      .get<PortalBusinessRecord>(
+        resource === 'requests'
+          ? `/portal/requests/${id}`
+          : `${basePath(audience)}/${resource}/${id}`,
+      )
       .then((response) => response.data),
 
   listDocuments: (audience: PortalAudience) =>
@@ -291,4 +352,75 @@ export const portalApi = {
     apiClient
       .post<{ id: string }>('/customer/quotations/drafts', payload)
       .then((response) => response.data),
+
+  createPaymentProof: (payload: PortalPaymentProofPayload) =>
+    apiClient
+      .post<PortalPaymentProofResponse>(
+        '/portal/requests/payment-proofs',
+        payload,
+      )
+      .then((response) => response.data),
+
+  createClaimNotification: (payload: PortalClaimNotificationPayload) =>
+    apiClient
+      .post<PortalBusinessRecord>('/portal/requests/claims', payload)
+      .then((response) => response.data),
+
+  createComplaint: (payload: PortalComplaintPayload) =>
+    apiClient
+      .post<PortalBusinessRecord>('/portal/complaints', payload)
+      .then((response) => response.data),
+
+  cancelRequest: (id: string) =>
+    apiClient
+      .post<PortalBusinessRecord>(`/portal/requests/${id}/cancel`)
+      .then((response) => response.data),
+
+  resubmitRequest: (id: string) =>
+    apiClient
+      .post<PortalBusinessRecord>(`/portal/requests/${id}/resubmit`)
+      .then((response) => response.data),
+
+  uploadRequestAttachment: (
+    id: string,
+    payload: { document_type: string; file: File },
+  ) => {
+    const formData = new FormData();
+    formData.append('document_type', payload.document_type);
+    formData.append('file', payload.file);
+
+    return apiClient
+      .post<PortalRequestAttachment>(
+        `/portal/requests/${id}/attachments`,
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        },
+      )
+      .then((response) => response.data);
+  },
+
+  downloadRequestAttachment: async (
+    id: string,
+    fallbackName = 'attachment',
+  ) => {
+    const response = await apiClient.get<Blob>(
+      `/portal/attachments/${id}/download`,
+      {
+        responseType: 'blob',
+      },
+    );
+
+    const blob = new Blob([response.data], {
+      type:
+        (response.headers['content-type'] as string | undefined) ??
+        'application/octet-stream',
+    });
+    const objectUrl = window.URL.createObjectURL(blob);
+    const anchor = window.document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = fallbackName;
+    anchor.click();
+    window.URL.revokeObjectURL(objectUrl);
+  },
 };

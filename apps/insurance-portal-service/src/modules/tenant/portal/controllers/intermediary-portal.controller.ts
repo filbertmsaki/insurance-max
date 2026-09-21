@@ -203,6 +203,42 @@ export class IntermediaryPortalController {
     return this.businessService.findReceipts(account, query);
   }
 
+  @Get('claims')
+  @ApiOperation({ summary: 'List intermediary portfolio claims' })
+  claims(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Query() query: PortalListQueryDto,
+  ) {
+    return this.businessService.findClaims(account, query);
+  }
+
+  @Get('claims/:id')
+  @ApiOperation({ summary: 'Get an intermediary portfolio claim' })
+  claim(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.businessService.findClaim(account, id);
+  }
+
+  @Get('complaints')
+  @ApiOperation({ summary: 'List intermediary portfolio complaints' })
+  complaints(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Query() query: PortalListQueryDto,
+  ) {
+    return this.businessService.findComplaints(account, query);
+  }
+
+  @Get('complaints/:id')
+  @ApiOperation({ summary: 'Get an intermediary portfolio complaint' })
+  complaint(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.businessService.findComplaint(account, id);
+  }
+
   @Get('documents')
   @ApiOperation({ summary: 'List intermediary portal documents' })
   documents(

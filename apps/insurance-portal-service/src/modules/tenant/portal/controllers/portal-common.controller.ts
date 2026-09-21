@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   DefaultValuePipe,
@@ -36,6 +37,7 @@ import { PortalActors } from '../decorators/portal-actors.decorator';
 import {
   CreateClaimNotificationDto,
   CreatePaymentProofDto,
+  CreatePortalComplaintDto,
   CreatePolicyPortalRequestDto,
   CreateQuotationAssistanceDto,
   PortalRequestFilterDto,
@@ -45,6 +47,8 @@ import { PortalAccount } from '../entities/portal-account.entity';
 import { PortalActorType } from '../enums/portal.enums';
 import { PortalGuard } from '../guards/portal.guard';
 import type { PortalUploadFile } from '../services/portal-file-storage.service';
+import { ComplaintsService } from '../../claims/complaints.service';
+import { PortalBusinessAccessService } from '../services/portal-business-access.service';
 import { PortalNotificationService } from '../services/portal-notification.service';
 import { PortalRequestsService } from '../services/portal-requests.service';
 
@@ -57,6 +61,8 @@ export class PortalCommonController {
   constructor(
     private readonly requestsService: PortalRequestsService,
     private readonly notificationService: PortalNotificationService,
+    private readonly businessService: PortalBusinessAccessService,
+    private readonly complaintsService: ComplaintsService,
   ) {}
 
   @Get('me')
@@ -108,6 +114,57 @@ export class PortalCommonController {
     @Body() dto: CreateClaimNotificationDto,
   ) {
     return this.requestsService.createClaimNotification(account, user.id, dto);
+  }
+
+  @Post('complaints')
+  @AuthenticatedAccess()
+  @ApiOperation({ summary: 'Submit a customer complaint' })
+  async createComplaint(
+    @CurrentPortalAccount() account: PortalAccount,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreatePortalComplaintDto,
+  ) {
+    const scopedClaim = dto.claim_id
+      ? await this.businessService.findClaim(account, dto.claim_id)
+      : null;
+    const scopedPolicy = dto.policy_id
+      ? await this.businessService.assertPolicy(account, dto.policy_id)
+      : null;
+
+    const customerId =
+      account.actor_type === PortalActorType.CUSTOMER
+        ? account.customer_id!
+        : (scopedClaim?.customer_id ??
+          scopedPolicy?.customer_id ??
+          dto.customer_id);
+
+    if (!customerId) {
+      throw new BadRequestException(
+        'Customer is required for intermediary complaints',
+      );
+    }
+
+    if (account.actor_type === PortalActorType.INTERMEDIARY && !scopedPolicy) {
+      await this.businessService.assertPortfolioCustomer(account, customerId);
+    }
+
+    return this.complaintsService.create(
+      {
+        ...user,
+        companyId: account.company_id,
+        activeBranchId: user.activeBranchId ?? null,
+      },
+      {
+        claim_id: dto.claim_id,
+        policy_id: dto.policy_id ?? scopedClaim?.policy_id ?? undefined,
+        customer_id: customerId,
+        category: dto.category,
+        subject: dto.subject,
+        description: dto.description,
+        priority: dto.priority,
+        reported_channel: 'PORTAL',
+      },
+    );
   }
 
   @Post('requests/quotation-assistance')

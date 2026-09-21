@@ -14,6 +14,8 @@ import { Company } from '../../../platform/companies/entities/company.entity';
 import { CommissionTransaction } from '../../billing-commission/entities/commission-transaction.entity';
 import { Invoice } from '../../billing-commission/entities/invoice.entity';
 import { Receipt } from '../../billing-commission/entities/receipt.entity';
+import { Complaint } from '../../claims/entities/complaint.entity';
+import { InsuranceClaim } from '../../claims/entities/claim.entity';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Policy } from '../../policies/entities/policy.entity';
 import { ProductChannelType } from '../../product-distribution/enums/product-channel-type.enum';
@@ -45,6 +47,10 @@ export class PortalBusinessAccessService {
     private readonly invoiceRepository: Repository<Invoice>,
     @InjectRepository(Receipt)
     private readonly receiptRepository: Repository<Receipt>,
+    @InjectRepository(InsuranceClaim)
+    private readonly claimRepository: Repository<InsuranceClaim>,
+    @InjectRepository(Complaint)
+    private readonly complaintRepository: Repository<Complaint>,
     @InjectRepository(CommissionTransaction)
     private readonly commissionRepository: Repository<CommissionTransaction>,
     @InjectRepository(Customer)
@@ -487,6 +493,162 @@ export class PortalBusinessAccessService {
   }
 
   // =========================================================
+  // CLAIMS AND COMPLAINTS
+  // =========================================================
+
+  async findClaims(account: PortalAccount, query: PortalListQueryDto) {
+    const { page, limit } = this.pagination(query);
+
+    const qb = this.claimRepository
+      .createQueryBuilder('claim')
+      .leftJoinAndSelect('claim.policy', 'policy')
+      .leftJoinAndSelect('claim.customer', 'customer')
+      .where('claim.deleted_at IS NULL');
+
+    this.applyClaimScope(qb, account);
+
+    if (query.status) {
+      qb.andWhere('claim.status = :status', {
+        status: query.status.trim().toUpperCase(),
+      });
+    }
+
+    if (query.search?.trim()) {
+      const searchTerm = `%${query.search.trim()}%`;
+
+      qb.andWhere(
+        new Brackets((search) => {
+          search
+            .where('claim.claim_no ILIKE :search', { search: searchTerm })
+            .orWhere('claim.claim_notification_number ILIKE :search')
+            .orWhere('claim.claim_reference_number ILIKE :search')
+            .orWhere('claim.loss_type ILIKE :search')
+            .orWhere('claim.loss_location ILIKE :search')
+            .orWhere('policy.policy_no ILIKE :search')
+            .orWhere('customer.customer_no ILIKE :search');
+        }),
+      );
+    }
+
+    qb.orderBy('claim.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [items, total] = await qb.getManyAndCount();
+
+    return {
+      items: items.map((claim) => this.mapClaimSummary(claim)),
+      meta: this.paginationMeta(page, limit, total),
+    };
+  }
+
+  async findClaim(account: PortalAccount, claimId: string) {
+    const qb = this.claimRepository
+      .createQueryBuilder('claim')
+      .leftJoinAndSelect('claim.policy', 'policy')
+      .leftJoinAndSelect('claim.customer', 'customer')
+      .where('claim.id = :claimId', { claimId })
+      .andWhere('claim.deleted_at IS NULL');
+
+    this.applyClaimScope(qb, account);
+
+    const claim = await qb.getOne();
+
+    if (!claim) {
+      throw new NotFoundException('Claim not found');
+    }
+
+    return this.mapClaimSummary(claim);
+  }
+
+  async findComplaints(account: PortalAccount, query: PortalListQueryDto) {
+    const { page, limit } = this.pagination(query);
+
+    const qb = this.complaintRepository
+      .createQueryBuilder('complaint')
+      .leftJoin(Policy, 'policy', 'policy.id = complaint.policy_id')
+      .leftJoin(Customer, 'customer', 'customer.id = complaint.customer_id')
+      .where('1 = 1');
+
+    this.applyComplaintScope(qb, account);
+
+    if (query.status) {
+      qb.andWhere('complaint.status = :status', {
+        status: query.status.trim().toUpperCase(),
+      });
+    }
+
+    if (query.search?.trim()) {
+      const searchTerm = `%${query.search.trim()}%`;
+
+      qb.andWhere(
+        new Brackets((search) => {
+          search
+            .where('complaint.complaint_no ILIKE :search', {
+              search: searchTerm,
+            })
+            .orWhere('complaint.category ILIKE :search')
+            .orWhere('complaint.subject ILIKE :search')
+            .orWhere('policy.policy_no ILIKE :search')
+            .orWhere('customer.customer_no ILIKE :search');
+        }),
+      );
+    }
+
+    qb.addSelect(['policy.id', 'policy.policy_no'])
+      .addSelect(['customer.id', 'customer.customer_no'])
+      .orderBy('complaint.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [items, total] = await qb.getManyAndCount();
+    const rawRows = await qb.getRawMany();
+    const references = new Map(
+      rawRows.map((row) => [
+        row.complaint_id as string,
+        {
+          policy_no: (row.policy_policy_no as string | null) ?? null,
+          customer_no: (row.customer_customer_no as string | null) ?? null,
+        },
+      ]),
+    );
+
+    return {
+      items: items.map((complaint) =>
+        this.mapComplaintSummary(complaint, references.get(complaint.id)),
+      ),
+      meta: this.paginationMeta(page, limit, total),
+    };
+  }
+
+  async findComplaint(account: PortalAccount, complaintId: string) {
+    const qb = this.complaintRepository
+      .createQueryBuilder('complaint')
+      .leftJoin(Policy, 'policy', 'policy.id = complaint.policy_id')
+      .leftJoin(Customer, 'customer', 'customer.id = complaint.customer_id')
+      .addSelect(['policy.id', 'policy.policy_no'])
+      .addSelect(['customer.id', 'customer.customer_no'])
+      .where('complaint.id = :complaintId', { complaintId });
+
+    this.applyComplaintScope(qb, account);
+
+    const complaint = await qb.getOne();
+    const raw = await qb.getRawOne<{
+      policy_policy_no?: string | null;
+      customer_customer_no?: string | null;
+    }>();
+
+    if (!complaint) {
+      throw new NotFoundException('Complaint not found');
+    }
+
+    return this.mapComplaintSummary(complaint, {
+      policy_no: raw?.policy_policy_no ?? null,
+      customer_no: raw?.customer_customer_no ?? null,
+    });
+  }
+
+  // =========================================================
   // INTERMEDIARY COMMISSIONS
   // =========================================================
 
@@ -900,6 +1062,88 @@ export class PortalBusinessAccessService {
     );
   }
 
+  private applyClaimScope(
+    qb: SelectQueryBuilder<InsuranceClaim>,
+    account: PortalAccount,
+  ) {
+    if (account.actor_type === PortalActorType.CUSTOMER) {
+      this.assertCustomerAccount(account);
+
+      qb.andWhere(
+        `
+        EXISTS (
+          SELECT 1
+          FROM portal_accounts scoped_account
+          WHERE scoped_account.user_id = :portalUserId
+            AND scoped_account.actor_type = :portalCustomerActorType
+            AND scoped_account.status = 'ACTIVE'
+            AND scoped_account.deleted_at IS NULL
+            AND scoped_account.company_id = claim.company_id
+            AND scoped_account.customer_id = claim.customer_id
+        )
+        `,
+        {
+          portalUserId: account.user_id,
+          portalCustomerActorType: PortalActorType.CUSTOMER,
+        },
+      );
+
+      return;
+    }
+
+    this.assertIntermediaryAccount(account);
+
+    qb.andWhere(
+      'claim.intermediary_company_id = :portalIntermediaryCompanyId',
+      { portalIntermediaryCompanyId: account.intermediary_company_id },
+    );
+  }
+
+  private applyComplaintScope(
+    qb: SelectQueryBuilder<Complaint>,
+    account: PortalAccount,
+  ) {
+    if (account.actor_type === PortalActorType.CUSTOMER) {
+      this.assertCustomerAccount(account);
+
+      qb.andWhere(
+        `
+        EXISTS (
+          SELECT 1
+          FROM portal_accounts scoped_account
+          WHERE scoped_account.user_id = :portalUserId
+            AND scoped_account.actor_type = :portalCustomerActorType
+            AND scoped_account.status = 'ACTIVE'
+            AND scoped_account.deleted_at IS NULL
+            AND scoped_account.company_id = complaint.company_id
+            AND scoped_account.customer_id = complaint.customer_id
+        )
+        `,
+        {
+          portalUserId: account.user_id,
+          portalCustomerActorType: PortalActorType.CUSTOMER,
+        },
+      );
+
+      return;
+    }
+
+    this.assertIntermediaryAccount(account);
+
+    qb.andWhere(
+      `
+      EXISTS (
+        SELECT 1
+        FROM policies scoped_policy
+        WHERE scoped_policy.id = complaint.policy_id
+          AND scoped_policy.intermediary_company_id = :portalIntermediaryCompanyId
+          AND scoped_policy.deleted_at IS NULL
+      )
+      `,
+      { portalIntermediaryCompanyId: account.intermediary_company_id },
+    );
+  }
+
   // =========================================================
   // QUOTATION WRITE SCOPING
   // =========================================================
@@ -1190,6 +1434,67 @@ export class PortalBusinessAccessService {
         : null,
       created_at: invoice.created_at,
       updated_at: invoice.updated_at,
+    };
+  }
+
+  private mapClaimSummary(claim: InsuranceClaim) {
+    return {
+      id: claim.id,
+      claim_no: claim.claim_no,
+      claim_notification_number: claim.claim_notification_number,
+      claim_reference_number: claim.claim_reference_number,
+      policy_id: claim.policy_id,
+      policy_no: claim.policy?.policy_no ?? null,
+      customer_id: claim.customer_id,
+      customer_no: claim.customer?.customer_no ?? null,
+      customer_name: claim.customer ? this.customerName(claim.customer) : null,
+      loss_date: claim.loss_date,
+      claim_report_date: claim.claim_report_date,
+      loss_type: claim.loss_type,
+      loss_location: claim.loss_location,
+      description: claim.description,
+      currency: claim.currency_code,
+      estimated_amount: claim.estimated_amount,
+      approved_amount: claim.approved_amount,
+      paid_amount: claim.paid_amount,
+      outstanding_reserve: claim.outstanding_reserve,
+      status: claim.status,
+      priority: claim.priority,
+      claim_stage: claim.claim_stage,
+      coverage_status: claim.coverage_status,
+      settlement_status: claim.settlement_status,
+      created_at: claim.created_at,
+      updated_at: claim.updated_at,
+    };
+  }
+
+  private mapComplaintSummary(
+    complaint: Complaint,
+    references?: { policy_no: string | null; customer_no: string | null },
+  ) {
+    return {
+      id: complaint.id,
+      complaint_no: complaint.complaint_no,
+      category: complaint.category,
+      subject: complaint.subject,
+      description: complaint.description,
+      policy_id: complaint.policy_id,
+      policy_no: references?.policy_no ?? null,
+      claim_id: complaint.claim_id,
+      customer_id: complaint.customer_id,
+      customer_no: references?.customer_no ?? null,
+      priority: complaint.priority,
+      status: complaint.status,
+      reported_channel: complaint.reported_channel,
+      acknowledged_at: complaint.acknowledged_at,
+      resolution: complaint.resolution,
+      resolved_at: complaint.resolved_at,
+      closed_at: complaint.closed_at,
+      acknowledgement_due_at: complaint.acknowledgement_due_at,
+      resolution_due_at: complaint.resolution_due_at,
+      customer_acceptance_status: complaint.customer_acceptance_status,
+      created_at: complaint.created_at,
+      updated_at: complaint.updated_at,
     };
   }
 
