@@ -20,13 +20,15 @@ export class TiramisPricingContextGuard implements CanActivate {
 
     const pricing = request.servicePrincipal?.pricing;
 
+    // A risk priced from a direct rating rule (no configured rate book, as
+    // with every non-motor risk today) legitimately carries no rateBookId.
+    // Require the rate-book hash only when a rate book was actually matched.
     if (
       !pricing ||
       !pricing.pricingQuoteId ||
-      !pricing.rateBookId ||
-      !pricing.rateBookDefinitionHash ||
       !pricing.matchedRuleId ||
-      !pricing.resultHash
+      !pricing.resultHash ||
+      (pricing.rateBookId && !pricing.rateBookDefinitionHash)
     ) {
       throw new ForbiddenException({
         code: 'TIRAMIS_PRICING_CONTEXT_REQUIRED',

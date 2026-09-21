@@ -3181,12 +3181,17 @@ export class QuotationsService {
     const resultHash =
       snapshot.resultHash?.trim() || pricingQuote?.result_hash?.trim() || '';
 
+    // Not every priced risk is backed by a rate book: risks priced from a
+    // direct rating rule (e.g. TIRA base rates with no configured rate book,
+    // as is the case for every non-motor risk today) legitimately have no
+    // rateBookId. Only require the rate-book hash when a rate book was
+    // actually matched; otherwise the pricing signature is fully carried by
+    // the matched rule and result hash.
     if (
       !resolvedPricingQuoteId ||
-      !rateBookId ||
-      !rateBookDefinitionHash ||
       !matchedRuleId ||
-      !resultHash
+      !resultHash ||
+      (rateBookId && !rateBookDefinitionHash)
     ) {
       throw new ConflictException({
         code: 'TIRAMIS_PRICING_CONTEXT_INCOMPLETE',
@@ -4949,6 +4954,13 @@ export class QuotationsService {
   ): string | null {
     if (!value) {
       return null;
+    }
+
+    if (typeof value === 'string') {
+      const isoDateMatch = /^(\d{4}-\d{2}-\d{2})/.exec(value);
+      if (isoDateMatch) {
+        return isoDateMatch[1];
+      }
     }
 
     const parsed = new Date(value);
@@ -7325,6 +7337,17 @@ export class QuotationsService {
         userId,
         currencyCode,
       );
+    } else if (customerId) {
+      for (const subject of input.subject_matters_covered) {
+        await this.resolveOrCreateVerifiedSubjectInsuredAsset(
+          manager,
+          quotation,
+          customerId,
+          subject,
+          userId,
+          currencyCode,
+        );
+      }
     }
 
     await this.persistEntryRisks(
@@ -7525,6 +7548,98 @@ export class QuotationsService {
     });
 
     return repository.save(asset);
+  }
+
+  /**
+   * Non-motor mirror of resolveOrCreateVerifiedMotorInsuredAsset: motor
+   * quotations self-certify their vehicle as a VERIFIED insured asset from
+   * the submitted quotation data (no external registry backs it either).
+   * Without this, non-motor subject-matter assets are created NOT_VERIFIED
+   * with no endpoint able to change that, permanently blocking TIRAMIS
+   * submission for every non-motor quotation.
+   */
+  private async resolveOrCreateVerifiedSubjectInsuredAsset(
+    manager: EntityManager,
+    quotation: Quotation,
+    customerId: string,
+    subject: SubjectMatterCoveredDto,
+    userId: string,
+    currencyCode: string,
+  ): Promise<void> {
+    const reference = subject.subject_matter_reference.trim().toUpperCase();
+
+    if (!reference) {
+      return;
+    }
+
+    const description = subject.subject_matter_desc.trim();
+    const subjectRepository = manager.getRepository(SubjectMatter);
+    const assetRepository = manager.getRepository(InsuredAsset);
+
+    const existingSubject = await subjectRepository
+      .createQueryBuilder('subject')
+      .leftJoinAndSelect('subject.insured_asset', 'asset')
+      .where('subject.company_id = :companyId', {
+        companyId: quotation.company_id,
+      })
+      .andWhere('UPPER(TRIM(subject.subject_code)) = :reference', {
+        reference,
+      })
+      .getOne();
+
+    const asset = existingSubject?.insured_asset ?? assetRepository.create();
+    const assetNumber =
+      asset.asset_number || `QA-${quotation.quotation_no}-${reference}`;
+    const snapshot = {
+      assetNumber,
+      assetType: 'NON_MOTOR_SUBJECT',
+      subjectReference: reference,
+      subjectDescription: description,
+      sourceQuotationId: quotation.id,
+      sourceQuotationNo: quotation.quotation_no,
+    };
+
+    Object.assign(asset, {
+      company_id: quotation.company_id,
+      asset_number: assetNumber,
+      asset_type: 'NON_MOTOR_SUBJECT',
+      customer_id: customerId,
+      owner_customer_id: customerId,
+      display_name: description || reference,
+      ownership_type: asset.ownership_type || 'OWNED',
+      declared_value: asset.declared_value ?? '0',
+      currency_code: currencyCode.trim().toUpperCase(),
+      status: 'ACTIVE',
+      data_source: 'QUOTATION',
+      verification_status: 'VERIFIED',
+      verification_reference: quotation.quotation_no,
+      snapshot_version: Math.max(Number(asset.snapshot_version ?? 0), 1),
+      current_snapshot: snapshot,
+      current_snapshot_hash:
+        this.productDefinitionHashService.hashDefinition(snapshot),
+      created_by: asset.created_by ?? userId,
+      updated_by: userId,
+    });
+
+    const savedAsset = await assetRepository.save(asset);
+
+    const subjectEntity = existingSubject ?? subjectRepository.create();
+
+    Object.assign(subjectEntity, {
+      company_id: quotation.company_id,
+      customer_id: customerId,
+      owner_customer_id: subjectEntity.owner_customer_id ?? customerId,
+      insured_asset_id: savedAsset.id,
+      subject_code: reference,
+      description,
+      status: subjectEntity.status || 'ACTIVE',
+      currency: currencyCode.trim().toUpperCase(),
+      snapshot_version: Math.max(Number(subjectEntity.snapshot_version ?? 0), 1),
+      created_by: subjectEntity.created_by ?? userId,
+      updated_by: userId,
+    });
+
+    await subjectRepository.save(subjectEntity);
   }
 
   private async generateCustomerNo(

@@ -348,6 +348,7 @@ export class PricingQuoteService {
           calculatedAt,
           expiresAt,
           inputSignature,
+          currencyCode,
         )
       : null;
 
@@ -642,11 +643,9 @@ export class PricingQuoteService {
     calculatedAt: Date,
     expiresAt: Date,
     inputSignature: string,
-  ): BuiltPricingSnapshot | null {
+    fallbackCurrencyCode: string | null,
+  ): BuiltPricingSnapshot {
     const rateBookContext = risk.rate_book_context;
-    if (!rateBookContext) {
-      return null;
-    }
 
     const matchedRule: PricingRuleSnapshot = {
       ruleId: risk.rule_id,
@@ -712,25 +711,52 @@ export class PricingQuoteService {
       }),
     );
 
-    const rateBookSnapshot: PricingRateBookSnapshot = {
-      rateBookId: rateBookContext.rate_book_id,
-      code: rateBookContext.code,
-      version: rateBookContext.version,
-      insurerCompanyId: rateBookContext.company_id,
-      productId: rateBookContext.product_id,
-      productVersionId: rateBookContext.product_version_id ?? '',
-      productDefinitionHash: rateBookContext.product_definition_hash ?? '',
-      currencyCode: rateBookContext.currency_code,
-      effectiveFrom: rateBookContext.effective_from,
-      effectiveTo: rateBookContext.effective_to,
-      roundingMode: rateBookContext.rounding_mode,
-      roundingIncrement: rateBookContext.rounding_increment,
-      prorationMethod: rateBookContext.proration_method,
-      calculationVersion: rateBookContext.calculation_version,
-      definitionHash: rateBookContext.definition_hash,
-      matchedRule,
-      addons,
-    };
+    // Risks priced from a direct rating rule (e.g. TIRA base rates) have no
+    // configured rate book: rateBookContext is legitimately null. The
+    // signed result must still exist in that case, so fall back to empty/
+    // default rate-book fields rather than dropping the snapshot (and with
+    // it resultHash) entirely, which previously made pricing quotes for
+    // every such risk unusable for TIRAMIS submission.
+    const rateBookSnapshot: PricingRateBookSnapshot = rateBookContext
+      ? {
+          rateBookId: rateBookContext.rate_book_id,
+          code: rateBookContext.code,
+          version: rateBookContext.version,
+          insurerCompanyId: rateBookContext.company_id,
+          productId: rateBookContext.product_id,
+          productVersionId: rateBookContext.product_version_id ?? '',
+          productDefinitionHash:
+            rateBookContext.product_definition_hash ?? '',
+          currencyCode: rateBookContext.currency_code,
+          effectiveFrom: rateBookContext.effective_from,
+          effectiveTo: rateBookContext.effective_to,
+          roundingMode: rateBookContext.rounding_mode,
+          roundingIncrement: rateBookContext.rounding_increment,
+          prorationMethod: rateBookContext.proration_method,
+          calculationVersion: rateBookContext.calculation_version,
+          definitionHash: rateBookContext.definition_hash,
+          matchedRule,
+          addons,
+        }
+      : {
+          rateBookId: '',
+          code: '',
+          version: '',
+          insurerCompanyId: '',
+          productId: '',
+          productVersionId: '',
+          productDefinitionHash: '',
+          currencyCode: fallbackCurrencyCode,
+          effectiveFrom: calculatedAt.toISOString(),
+          effectiveTo: null,
+          roundingMode: 'HALF_UP',
+          roundingIncrement: '0.01',
+          prorationMethod: 'NONE',
+          calculationVersion: 'DIRECT_RULE',
+          definitionHash: null,
+          matchedRule,
+          addons,
+        };
 
     const loadingType = this.resolveSnapshotAdjustmentType(
       risk.loading_rate,
@@ -762,11 +788,11 @@ export class PricingQuoteService {
 
     const resultWithoutHash: Omit<PricingResultSnapshot, 'resultHash'> = {
       pricingQuoteId,
-      calculationVersion: rateBookContext.calculation_version,
+      calculationVersion: rateBookSnapshot.calculationVersion,
       riskId: risk.risk_id,
       riskCode: risk.risk_code,
       riskName: risk.risk_name,
-      currencyCode: rateBookContext.currency_code,
+      currencyCode: rateBookSnapshot.currencyCode ?? fallbackCurrencyCode,
       sumInsured: String(risk.sum_insured),
       rawPremium: String(risk.raw_premium),
       premiumAfterMinimum: String(risk.premium_after_minimum),
