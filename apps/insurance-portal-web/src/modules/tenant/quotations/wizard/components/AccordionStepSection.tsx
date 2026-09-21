@@ -36,7 +36,7 @@ export function AccordionStepSection({
       <button
         type="button"
         onClick={() => onToggle(id)}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left"
         aria-expanded={isOpen}
       >
         <span className="flex items-center gap-2">

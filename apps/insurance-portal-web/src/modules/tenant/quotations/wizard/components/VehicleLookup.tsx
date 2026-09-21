@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { Loader2, Search } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Loader2, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -98,12 +98,23 @@ export function VehicleLookup({ initialCategory, onFound }: Props) {
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <p className="text-sm font-medium text-slate-900">
-        Fetch vehicle details
-      </p>
-      <div className="grid items-end gap-3 md:grid-cols-[1fr_1fr_1.5fr_auto]">
-        <div className="space-y-2">
+    <div className="space-y-3 rounded-xl border border-sky-100 bg-sky-50/60 p-4">
+      <div className="flex items-start gap-2.5">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
+          <Search className="h-4 w-4" />
+        </span>
+        <div>
+          <p className="text-sm font-semibold text-slate-900">
+            Fetch vehicle details
+          </p>
+          <p className="text-xs text-slate-500">
+            Look up a registered vehicle to auto-fill its details below.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-nowrap sm:items-end">
+        <div className="space-y-1.5 sm:w-40 sm:shrink-0">
           <Label htmlFor={`${id}-category`}>Motor category</Label>
           <Select
             value={category}
@@ -113,7 +124,7 @@ export function VehicleLookup({ initialCategory, onFound }: Props) {
               clearMessage();
             }}
           >
-            <SelectTrigger id={`${id}-category`}>
+            <SelectTrigger id={`${id}-category`} className="bg-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -122,7 +133,7 @@ export function VehicleLookup({ initialCategory, onFound }: Props) {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1.5 sm:w-44 sm:shrink-0">
           <Label htmlFor={`${id}-type`}>Search by</Label>
           <Select
             value={identifierType}
@@ -133,7 +144,7 @@ export function VehicleLookup({ initialCategory, onFound }: Props) {
               clearMessage();
             }}
           >
-            <SelectTrigger id={`${id}-type`}>
+            <SelectTrigger id={`${id}-type`} className="bg-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -142,7 +153,7 @@ export function VehicleLookup({ initialCategory, onFound }: Props) {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1.5 sm:min-w-0 sm:flex-1">
           <Label htmlFor={`${id}-identifier`}>
             {identifierType === 'registration'
               ? 'Registration number'
@@ -153,8 +164,11 @@ export function VehicleLookup({ initialCategory, onFound }: Props) {
             value={identifier}
             maxLength={50}
             disabled={pending}
+            className="bg-white"
             placeholder={
-              identifierType === 'registration' ? 'T123ABC' : 'Chassis number'
+              identifierType === 'registration'
+                ? 'e.g. T123ABC'
+                : 'Enter chassis number'
             }
             onChange={(event) => {
               setIdentifier(event.target.value);
@@ -171,6 +185,7 @@ export function VehicleLookup({ initialCategory, onFound }: Props) {
         <Button
           type="button"
           disabled={pending}
+          className="w-full sm:w-auto sm:shrink-0"
           onClick={() => void fetchVehicle()}
         >
           {pending ? (
@@ -181,15 +196,24 @@ export function VehicleLookup({ initialCategory, onFound }: Props) {
           {pending ? 'Fetching...' : 'Fetch details'}
         </Button>
       </div>
+
       {error && (
-        <p role="alert" className="text-sm text-red-600">
-          {error}
-        </p>
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+        >
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{error}</span>
+        </div>
       )}
       {found && (
-        <p role="status" className="text-sm text-emerald-700">
-          Vehicle details populated. Review the fields below.
-        </p>
+        <div
+          role="status"
+          className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
+        >
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>Vehicle details populated. Review the fields below.</span>
+        </div>
       )}
     </div>
   );
