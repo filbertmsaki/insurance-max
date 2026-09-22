@@ -77,10 +77,6 @@ export function useQuotationsList() {
   );
 
   useEffect(() => {
-    setSearchInput(committedSearch);
-  }, [committedSearch]);
-
-  useEffect(() => {
     const normalizedSearch = searchInput.trim();
     if (normalizedSearch === committedSearch) {
       return;

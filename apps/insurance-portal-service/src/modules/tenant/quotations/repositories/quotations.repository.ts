@@ -295,9 +295,7 @@ export class QuotationsRepository {
     return extras;
   }
 
-  private selectListColumns(
-    queryBuilder: SelectQueryBuilder<Quotation>,
-  ): void {
+  private selectListColumns(queryBuilder: SelectQueryBuilder<Quotation>): void {
     queryBuilder.select([
       'quotation.id',
       'quotation.quotation_no',

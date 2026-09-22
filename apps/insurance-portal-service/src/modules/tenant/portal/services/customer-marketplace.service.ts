@@ -37,7 +37,7 @@ export class CustomerMarketplaceService {
   ) {}
 
   async listEligibleCompanies(user: AuthenticatedUser) {
-    this.assertCustomerSession(user);
+    this.assertAuthenticatedSession(user);
 
     const companies = await this.companyRepository.find({
       where: {
@@ -83,7 +83,7 @@ export class CustomerMarketplaceService {
     companyId: string,
     query: CustomerCompanyProductQueryDto,
   ) {
-    this.assertCustomerSession(user);
+    this.assertAuthenticatedSession(user);
     await this.getEligibleCompany(companyId);
 
     const qb = this.productRepository
@@ -135,7 +135,7 @@ export class CustomerMarketplaceService {
     productId: string,
     query: CustomerCompanyRiskQueryDto,
   ) {
-    this.assertCustomerSession(user);
+    this.assertAuthenticatedSession(user);
     await this.getEligibleCompany(companyId);
     await this.assertProductBelongsToCompany(companyId, productId);
 
@@ -167,7 +167,7 @@ export class CustomerMarketplaceService {
     user: AuthenticatedUser,
     companyId: string,
   ) {
-    this.assertCustomerSession(user);
+    this.assertAuthenticatedSession(user);
     await this.getEligibleCompany(companyId);
     const account =
       await this.portalAccountsService.ensureCustomerAccountForCompany(
@@ -183,7 +183,7 @@ export class CustomerMarketplaceService {
   }
 
   async listMyVehicles(user: AuthenticatedUser) {
-    this.assertCustomerSession(user);
+    this.assertAuthenticatedSession(user);
 
     const rows = await this.dataSource.query(
       `
@@ -238,7 +238,7 @@ export class CustomerMarketplaceService {
   }
 
   async checkVehicleCover(user: AuthenticatedUser, dto: CustomerCoverCheckDto) {
-    this.assertCustomerSession(user);
+    this.assertAuthenticatedSession(user);
 
     const registration = this.normalizeIdentifier(dto.registration_number);
     const chassis = this.normalizeIdentifier(dto.chassis_number);
@@ -322,9 +322,11 @@ export class CustomerMarketplaceService {
     return product;
   }
 
-  private assertCustomerSession(user: AuthenticatedUser): void {
-    if (user.scope !== 'customer' || user.userType !== 'CUSTOMER') {
-      throw new ForbiddenException('Customer portal access is required');
+  private assertAuthenticatedSession(user: AuthenticatedUser): void {
+    if (!user.id) {
+      throw new ForbiddenException(
+        'Authenticated customer portal access is required',
+      );
     }
   }
 

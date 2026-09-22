@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class OptimizeQuotationListIndex1789804800000
-  implements MigrationInterface
-{
+export class OptimizeQuotationListIndex1789804800000 implements MigrationInterface {
   async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       CREATE INDEX "IDX_quotations_active_list_created_at"

@@ -648,8 +648,10 @@ export class PortalAccountsService {
     user: AuthenticatedUser,
     companyId: string,
   ): Promise<PortalAccount> {
-    if (user.scope !== 'customer' || user.userType !== UserType.CUSTOMER) {
-      throw new ForbiddenException('Customer portal access is required');
+    if (!user.id) {
+      throw new ForbiddenException(
+        'Authenticated customer portal access is required',
+      );
     }
 
     return this.dataSource.transaction(async (manager) => {
