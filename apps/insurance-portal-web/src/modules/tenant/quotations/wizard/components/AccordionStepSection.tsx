@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -31,11 +31,33 @@ export function AccordionStepSection({
   hasError = false,
   children,
 }: AccordionStepSectionProps) {
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  const handleToggle = () => {
+    const section = sectionRef.current;
+    const scrollContainer = section?.closest('main') as HTMLElement | null;
+    const previousTop = section?.getBoundingClientRect().top;
+
+    onToggle(id);
+
+    if (!section || !scrollContainer || previousTop === undefined) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      const nextTop = section.getBoundingClientRect().top;
+      scrollContainer.scrollTop += nextTop - previousTop;
+    });
+  };
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white">
+    <div
+      ref={sectionRef}
+      className="rounded-xl border border-slate-200 bg-white"
+    >
       <button
         type="button"
-        onClick={() => onToggle(id)}
+        onClick={handleToggle}
         className="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left"
         aria-expanded={isOpen}
       >
