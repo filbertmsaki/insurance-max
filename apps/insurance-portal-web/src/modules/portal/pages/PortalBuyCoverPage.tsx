@@ -62,7 +62,8 @@ type PolicyholderFormState = Partial<
     | 'region'
     | 'district'
     | 'street'
-    | 'postal_address',
+    | 'postal_address'
+    | 'customer_type',
     string
   >
 >;
@@ -256,6 +257,7 @@ function buildPolicyholderValues(
   );
   const next: CustomerFormValues = {
     ...defaults,
+    customer_type: asCustomerType(form.customer_type ?? defaults.customer_type),
     full_name: form.full_name ?? defaults.full_name,
     company_name: form.company_name ?? defaults.company_name,
     gender: (form.gender ?? defaults.gender) as CustomerFormValues['gender'],
@@ -313,15 +315,9 @@ function validatePolicyholder(values: CustomerFormValues) {
 }
 
 function validateMotor(values: MotorFormState) {
-  const errors = motorFields
+  return motorFields
     .map((field) => motorFieldError(field.key, values[field.key], values))
     .filter((message): message is string => Boolean(message));
-
-  if (!values.vehicle_value.trim() || Number(values.vehicle_value) <= 0) {
-    errors.push('Vehicle value must be greater than zero.');
-  }
-
-  return errors;
 }
 
 function createInitialMotorDetails(): MotorFormState {
@@ -484,6 +480,29 @@ export function PortalBuyCoverPage() {
     value: string,
   ) => {
     setPolicyholderForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const updatePolicyholderType = (value: CustomerType) => {
+    setPolicyholderForm((current) => {
+      const currentIdType = asCustomerIdType(
+        current.id_type ??
+          (policyholderDefaults.id_type
+            ? String(policyholderDefaults.id_type)
+            : ''),
+      );
+      const idTypeStillValid = CUSTOMER_ID_TYPE_OPTIONS.some(
+        (option) =>
+          option.value === currentIdType &&
+          (option.appliesTo === 'BOTH' || option.appliesTo === value),
+      );
+
+      return {
+        ...current,
+        customer_type: value,
+        id_type: idTypeStillValid ? current.id_type : '',
+        gender: value === 'CORPORATE' ? '' : current.gender,
+      };
+    });
   };
 
   const updateMotor = (field: keyof MotorFormState, value: string) => {
@@ -840,6 +859,51 @@ export function PortalBuyCoverPage() {
                 <LoadingState label="Loading profile..." />
               </div>
             ) : null}
+            <div className="min-w-0 space-y-2 sm:col-span-2">
+              <Label className="text-xs font-medium uppercase text-slate-500">
+                Policyholder type
+              </Label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {[
+                  {
+                    value: 'INDIVIDUAL' as const,
+                    label: 'Private',
+                    description: 'Personal policyholder',
+                  },
+                  {
+                    value: 'CORPORATE' as const,
+                    label: 'Commercial',
+                    description: 'Company or organization',
+                  },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => updatePolicyholderType(option.value)}
+                    className={cn(
+                      'rounded-lg border px-4 py-3 text-left transition-colors',
+                      policyholderValues.customer_type === option.value
+                        ? 'border-slate-900 bg-slate-900 text-white'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300',
+                    )}
+                  >
+                    <span className="block text-sm font-semibold">
+                      {option.label}
+                    </span>
+                    <span
+                      className={cn(
+                        'mt-1 block text-xs',
+                        policyholderValues.customer_type === option.value
+                          ? 'text-slate-200'
+                          : 'text-slate-500',
+                      )}
+                    >
+                      {option.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
             <FormField
               label={
                 policyholderValues.customer_type === 'CORPORATE'
@@ -1030,15 +1094,6 @@ export function PortalBuyCoverPage() {
                 onChange={updateMotor}
               />
             ))}
-            <FormField label="Vehicle value" required>
-              <Input
-                inputMode="decimal"
-                value={motor.vehicle_value}
-                onChange={(event) =>
-                  updateMotor('vehicle_value', event.target.value)
-                }
-              />
-            </FormField>
             <details
               className="space-y-4 rounded-lg border border-slate-200 bg-slate-50/60 p-4 sm:col-span-2"
               open={advancedMotorHasMissingFields}
