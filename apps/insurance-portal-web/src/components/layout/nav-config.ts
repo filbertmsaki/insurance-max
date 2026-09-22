@@ -475,6 +475,17 @@ export const NAV_NODES: NavNode[] = [
         icon: ListTodo,
         permission: 'work-items:read',
       },
+      {
+        kind: 'link',
+        label: 'Portal Requests',
+        to: '/portal-requests',
+        icon: ClipboardCheck,
+        anyPermission: [
+          'portal:request-read',
+          'portal:request-review',
+          'portal:request-complete',
+        ],
+      },
     ],
   },
   {

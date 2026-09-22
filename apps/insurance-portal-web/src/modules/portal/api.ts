@@ -14,6 +14,10 @@ import type {
   QuotationPayload,
   QuotationSubmitResponse,
 } from '@/modules/tenant/quotations/types';
+import type {
+  CustomerPayload,
+  CustomerRecord,
+} from '@/modules/tenant/customers/types';
 
 export type PortalAudience = 'customer' | 'intermediary';
 
@@ -230,6 +234,46 @@ export interface PortalRequestAttachment {
   created_at: string;
 }
 
+export type PortalRequestStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'IN_REVIEW'
+  | 'ADDITIONAL_INFO_REQUIRED'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'COMPLETED'
+  | 'CANCELLED';
+
+export type PortalPolicyRequestType =
+  | 'ENDORSEMENT'
+  | 'CANCELLATION'
+  | 'RENEWAL';
+
+export interface PortalPolicyRequestPayload {
+  policy_id: string;
+  request_type: PortalPolicyRequestType;
+  subject: string;
+  description: string;
+  requested_changes?: Record<string, unknown>;
+}
+
+export interface PortalAdminTransitionPayload {
+  status: PortalRequestStatus;
+  reason?: string;
+}
+
+export interface PortalAdminCompletePayload {
+  reason?: string;
+  result_type?: string;
+  result_id?: string;
+  result_reference?: string;
+}
+
+export interface PortalPaymentProofReviewPayload {
+  status: 'VERIFIED' | 'REJECTED';
+  reason?: string;
+}
+
 function basePath(audience: PortalAudience) {
   return `/${audience}`;
 }
@@ -263,6 +307,26 @@ export const portalApi = {
           ? `/portal/requests/${id}`
           : `${basePath(audience)}/${resource}/${id}`,
       )
+      .then((response) => response.data),
+
+  getIntermediaryCustomer: (id: string) =>
+    apiClient
+      .get<CustomerRecord>(`/intermediary/customers/${id}`)
+      .then((response) => response.data),
+
+  createIntermediaryCustomer: (payload: CustomerPayload) =>
+    apiClient
+      .post<CustomerRecord>('/intermediary/customers', payload)
+      .then((response) => response.data),
+
+  updateIntermediaryCustomer: (id: string, payload: Partial<CustomerPayload>) =>
+    apiClient
+      .patch<CustomerRecord>(`/intermediary/customers/${id}`, payload)
+      .then((response) => response.data),
+
+  deleteIntermediaryCustomer: (id: string) =>
+    apiClient
+      .delete(`/intermediary/customers/${id}`)
       .then((response) => response.data),
 
   listDocuments: (audience: PortalAudience) =>
@@ -390,9 +454,46 @@ export const portalApi = {
       .post<VerificationResult>('/customer/verifications/motor', payload)
       .then((response) => response.data),
 
-  createQuotationDraft: (payload: CreateQuotationDraftPayload) =>
+  createQuotationDraft: (
+    payload: CreateQuotationDraftPayload,
+    audience: PortalAudience = 'customer',
+  ) =>
     apiClient
-      .post<{ id: string }>('/customer/quotations/drafts', payload)
+      .post<{ id: string }>(`${basePath(audience)}/quotations/drafts`, payload)
+      .then((response) => response.data),
+
+  updateQuotationDraft: (
+    audience: PortalAudience,
+    id: string,
+    payload: CreateQuotationDraftPayload & { expected_updated_at?: string },
+  ) =>
+    apiClient
+      .put<PortalBusinessRecord>(
+        `${basePath(audience)}/quotations/drafts/${id}`,
+        payload,
+      )
+      .then((response) => response.data),
+
+  finalizeQuotation: (
+    audience: PortalAudience,
+    id: string,
+    payload: Record<string, unknown>,
+  ) =>
+    apiClient
+      .post<PortalBusinessRecord>(
+        `${basePath(audience)}/quotations/drafts/${id}/finalize`,
+        payload,
+      )
+      .then((response) => response.data),
+
+  deleteQuotationDraft: (audience: PortalAudience, id: string) =>
+    apiClient
+      .delete(`${basePath(audience)}/quotations/drafts/${id}`)
+      .then((response) => response.data),
+
+  createPolicyRequest: (payload: PortalPolicyRequestPayload) =>
+    apiClient
+      .post<PortalBusinessRecord>('/portal/requests/policy', payload)
       .then((response) => response.data),
 
   submitQuotationDirect: (payload: {
@@ -456,6 +557,86 @@ export const portalApi = {
   ) => {
     const response = await apiClient.get<Blob>(
       `/portal/attachments/${id}/download`,
+      {
+        responseType: 'blob',
+      },
+    );
+
+    const blob = new Blob([response.data], {
+      type:
+        (response.headers['content-type'] as string | undefined) ??
+        'application/octet-stream',
+    });
+    const objectUrl = window.URL.createObjectURL(blob);
+    const anchor = window.document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = fallbackName;
+    anchor.click();
+    window.URL.revokeObjectURL(objectUrl);
+  },
+
+  listAdminRequests: (params?: {
+    search?: string;
+    status?: PortalRequestStatus | string;
+    request_type?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    apiClient
+      .get<PortalPagedResponse<PortalBusinessRecord>>(
+        '/tenant/portal/requests',
+        {
+          params,
+        },
+      )
+      .then((response) => response.data),
+
+  getAdminRequest: (id: string) =>
+    apiClient
+      .get<PortalBusinessRecord>(`/tenant/portal/requests/${id}`)
+      .then((response) => response.data),
+
+  assignAdminRequest: (
+    id: string,
+    payload: { assigned_to: string; message?: string },
+  ) =>
+    apiClient
+      .post<PortalBusinessRecord>(
+        `/tenant/portal/requests/${id}/assign`,
+        payload,
+      )
+      .then((response) => response.data),
+
+  transitionAdminRequest: (id: string, payload: PortalAdminTransitionPayload) =>
+    apiClient
+      .post<PortalBusinessRecord>(
+        `/tenant/portal/requests/${id}/transition`,
+        payload,
+      )
+      .then((response) => response.data),
+
+  completeAdminRequest: (id: string, payload: PortalAdminCompletePayload) =>
+    apiClient
+      .post<PortalBusinessRecord>(
+        `/tenant/portal/requests/${id}/complete`,
+        payload,
+      )
+      .then((response) => response.data),
+
+  reviewPaymentProof: (id: string, payload: PortalPaymentProofReviewPayload) =>
+    apiClient
+      .post<PortalBusinessRecord>(
+        `/tenant/portal/requests/${id}/payment-proof/review`,
+        payload,
+      )
+      .then((response) => response.data),
+
+  downloadAdminRequestAttachment: async (
+    id: string,
+    fallbackName = 'attachment',
+  ) => {
+    const response = await apiClient.get<Blob>(
+      `/tenant/portal/attachments/${id}/download`,
       {
         responseType: 'blob',
       },

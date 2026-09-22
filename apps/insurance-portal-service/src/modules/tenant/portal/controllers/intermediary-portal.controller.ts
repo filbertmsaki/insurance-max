@@ -1,9 +1,12 @@
 import {
   Body,
   Controller,
+  Delete,
   DefaultValuePipe,
+  ForbiddenException,
   Get,
   Param,
+  Patch,
   ParseBoolPipe,
   ParseUUIDPipe,
   Post,
@@ -23,8 +26,10 @@ import { Permissions } from '@insurance-max/portal-shared/decorators/permissions
 import { PermissionsGuard } from '@insurance-max/portal-shared/guards/permissions.guard';
 import { TenantGuard } from '@insurance-max/portal-shared/guards/tenant.guard';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
+import { DataScopePermissions } from '../../../shared/authorization/data-scope.constants';
 
 import { CreateCustomerDto } from '../../customers/dto/create-customer.dto';
+import { UpdateCustomerDto } from '../../customers/dto/update-customer.dto';
 import { CustomersService } from '../../customers/customers.service';
 import { CreateCommunicationMessageDto } from '../../communications/dto/communications.dto';
 import {
@@ -32,6 +37,7 @@ import {
   UpdateQuotationDraftDto,
 } from '../../quotations/dto/quotation-draft.dto';
 import { UpdateQuotationDto } from '../../quotations/dto/quotation-payload.dto';
+import { QuotationsService } from '../../quotations/quotations.service';
 
 import { CurrentPortalAccount } from '../decorators/current-portal-account.decorator';
 import { PortalActors } from '../decorators/portal-actors.decorator';
@@ -58,6 +64,7 @@ export class IntermediaryPortalController {
     private readonly customersService: CustomersService,
     private readonly engagementService: PortalEngagementService,
     private readonly notificationService: PortalNotificationService,
+    private readonly quotationsService: QuotationsService,
   ) {}
 
   @Get('dashboard')
@@ -95,6 +102,49 @@ export class IntermediaryPortalController {
       dto,
       user.id,
     );
+  }
+
+  @Get('customers/:id')
+  @ApiOperation({ summary: 'Get an intermediary portfolio customer' })
+  async customer(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.businessService.assertPortfolioCustomer(account, id);
+  }
+
+  @Patch('customers/:id')
+  @ApiOperation({
+    summary: 'Update a customer owned by the intermediary company',
+  })
+  updateCustomer(
+    @CurrentPortalAccount() account: PortalAccount,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCustomerDto,
+  ) {
+    return this.customersService.updateForUser(
+      this.intermediaryCustomerUser(account, user),
+      id,
+      dto,
+    );
+  }
+
+  @Delete('customers/:id')
+  @ApiOperation({
+    summary: 'Archive a customer owned by the intermediary company',
+  })
+  async removeCustomer(
+    @CurrentPortalAccount() account: PortalAccount,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.customersService.removeForUser(
+      this.intermediaryCustomerUser(account, user),
+      id,
+    );
+
+    return { message: 'Customer archived successfully' };
   }
 
   @Get('quotations')
@@ -147,6 +197,18 @@ export class IntermediaryPortalController {
     @Body() dto: UpdateQuotationDto,
   ) {
     return this.businessService.finalizeQuotation(account, id, dto, user);
+  }
+
+  @Delete('quotations/drafts/:id')
+  @ApiOperation({ summary: 'Delete an intermediary quotation draft' })
+  async deleteDraft(
+    @CurrentPortalAccount() account: PortalAccount,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.businessService.assertQuotation(account, id);
+    await this.quotationsService.removeDraft(account.company_id, id);
+
+    return { message: 'Quotation draft deleted successfully' };
   }
 
   @Get('policies')
@@ -361,5 +423,26 @@ export class IntermediaryPortalController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.engagementService.findSignatureRequest(account, id);
+  }
+
+  private intermediaryCustomerUser(
+    account: PortalAccount,
+    user: AuthenticatedUser,
+  ): AuthenticatedUser {
+    if (!account.intermediary_company_id || !account.intermediary_company) {
+      throw new ForbiddenException('Intermediary company context is missing');
+    }
+
+    return {
+      ...user,
+      scope: 'company',
+      companyId: account.intermediary_company_id,
+      companyType: account.intermediary_company.company_type,
+      companyMembershipId: account.id,
+      permissions: [
+        ...(user.permissions ?? []),
+        DataScopePermissions.COMPANY_ALL,
+      ],
+    };
   }
 }

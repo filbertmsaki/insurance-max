@@ -5,6 +5,10 @@ import { PortalDashboardPage } from '@/modules/portal/pages/PortalDashboardPage'
 import { PortalBuyCoverPage } from '@/modules/portal/pages/PortalBuyCoverPage';
 import { PortalBusinessListPage } from '@/modules/portal/pages/PortalBusinessListPage';
 import { PortalBusinessDetailPage } from '@/modules/portal/pages/PortalBusinessDetailPage';
+import { IntermediaryCustomerFormPage } from '@/modules/portal/pages/IntermediaryCustomerFormPage';
+import { IntermediaryQuotationFormPage } from '@/modules/portal/pages/IntermediaryQuotationFormPage';
+import { PortalRequestsReviewPage } from '@/modules/portal/pages/PortalRequestsReviewPage';
+import { PortalRequestReviewDetailPage } from '@/modules/portal/pages/PortalRequestReviewDetailPage';
 import { PortalCoverCheckPage } from '@/modules/portal/pages/PortalCoverCheckPage';
 import { PortalDocumentsPage } from '@/modules/portal/pages/PortalDocumentsPage';
 import { PortalMessageDetailPage } from '@/modules/portal/pages/PortalMessageDetailPage';
@@ -353,6 +357,23 @@ export default function App() {
                 }
               />
               <Route
+                path="customers/new"
+                element={<IntermediaryCustomerFormPage />}
+              />
+              <Route
+                path="customers/:id"
+                element={
+                  <PortalBusinessDetailPage
+                    audience="intermediary"
+                    resource="customers"
+                  />
+                }
+              />
+              <Route
+                path="customers/:id/edit"
+                element={<IntermediaryCustomerFormPage />}
+              />
+              <Route
                 path="quotations"
                 element={
                   <PortalBusinessListPage
@@ -362,6 +383,10 @@ export default function App() {
                 }
               />
               <Route
+                path="quotations/new"
+                element={<IntermediaryQuotationFormPage />}
+              />
+              <Route
                 path="quotations/:id"
                 element={
                   <PortalBusinessDetailPage
@@ -369,6 +394,10 @@ export default function App() {
                     resource="quotations"
                   />
                 }
+              />
+              <Route
+                path="quotations/:id/edit"
+                element={<IntermediaryQuotationFormPage />}
               />
               <Route
                 path="policies"
@@ -588,6 +617,27 @@ export default function App() {
             >
               <Route path="/work-items" element={<WorkItemsPage />} />
               <Route path="/work-items/:id" element={<WorkItemDetailPage />} />
+            </Route>
+
+            <Route
+              element={
+                <ProtectedRoute
+                  anyPermissions={[
+                    'portal:request-read',
+                    'portal:request-review',
+                    'portal:request-complete',
+                  ]}
+                />
+              }
+            >
+              <Route
+                path="/portal-requests"
+                element={<PortalRequestsReviewPage />}
+              />
+              <Route
+                path="/portal-requests/:id"
+                element={<PortalRequestReviewDetailPage />}
+              />
             </Route>
 
             <Route

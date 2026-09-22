@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Eye,
   FileText,
+  FilePenLine,
   HandCoins,
   MessageCircleWarning,
   Paperclip,
@@ -57,6 +58,7 @@ import {
   portalApi,
   type PortalAudience,
   type PortalBusinessRecord,
+  type PortalPolicyRequestType,
 } from '../api';
 
 type PortalResource =
@@ -262,6 +264,17 @@ export function PortalBusinessListPage({
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [claimDialogOpen, setClaimDialogOpen] = useState(false);
   const [complaintDialogOpen, setComplaintDialogOpen] = useState(false);
+  const [policyRequestRecord, setPolicyRequestRecord] =
+    useState<PortalBusinessRecord | null>(null);
+  const [policyRequestForm, setPolicyRequestForm] = useState<{
+    request_type: PortalPolicyRequestType;
+    subject: string;
+    description: string;
+  }>({
+    request_type: 'ENDORSEMENT',
+    subject: '',
+    description: '',
+  });
   const [claimForm, setClaimForm] = useState({
     policy_id: '',
     loss_date: new Date().toISOString().slice(0, 10),
@@ -459,6 +472,38 @@ export function PortalBusinessListPage({
     },
   });
 
+  const policyRequestMutation = useMutation({
+    mutationFn: () => {
+      if (!policyRequestRecord) {
+        throw new Error('Policy is required');
+      }
+
+      return portalApi.createPolicyRequest({
+        policy_id: policyRequestRecord.id,
+        request_type: policyRequestForm.request_type,
+        subject: policyRequestForm.subject.trim(),
+        description: policyRequestForm.description.trim(),
+      });
+    },
+    onSuccess: async () => {
+      toast.success('Policy request submitted');
+      setPolicyRequestRecord(null);
+      setPolicyRequestForm({
+        request_type: 'ENDORSEMENT',
+        subject: '',
+        description: '',
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ['portal', audience, 'requests'],
+      });
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : 'Policy request failed',
+      );
+    },
+  });
+
   const openPaymentProof = (record: PortalBusinessRecord) => {
     setPaymentRecord(record);
     setPaymentForm((current) => ({
@@ -488,6 +533,11 @@ export function PortalBusinessListPage({
     complaintMutation.mutate();
   };
 
+  const submitPolicyRequest = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    policyRequestMutation.mutate();
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -505,6 +555,22 @@ export function PortalBusinessListPage({
             Records
           </CardTitle>
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            {audience === 'intermediary' && resource === 'customers' ? (
+              <Button asChild>
+                <Link to="/intermediary/customers/new">
+                  <Plus className="h-4 w-4" />
+                  New customer
+                </Link>
+              </Button>
+            ) : null}
+            {audience === 'intermediary' && resource === 'quotations' ? (
+              <Button asChild>
+                <Link to="/intermediary/quotations/new">
+                  <Plus className="h-4 w-4" />
+                  New quotation
+                </Link>
+              </Button>
+            ) : null}
             {resource === 'claims' ? (
               <Button type="button" onClick={() => setClaimDialogOpen(true)}>
                 <Plus className="h-4 w-4" />
@@ -642,6 +708,47 @@ export function PortalBusinessListPage({
                                 </Button>
                               ) : null}
                             </>
+                          ) : null}
+                          {audience === 'intermediary' &&
+                          resource === 'customers' ? (
+                            <Button asChild size="sm" variant="outline">
+                              <Link
+                                to={`/intermediary/customers/${record.id}/edit`}
+                              >
+                                <FilePenLine className="h-3.5 w-3.5" />
+                                Edit
+                              </Link>
+                            </Button>
+                          ) : null}
+                          {audience === 'intermediary' &&
+                          resource === 'quotations' &&
+                          canEditQuotation(record) ? (
+                            <Button asChild size="sm" variant="outline">
+                              <Link
+                                to={`/intermediary/quotations/${record.id}/edit`}
+                              >
+                                <FilePenLine className="h-3.5 w-3.5" />
+                                Edit
+                              </Link>
+                            </Button>
+                          ) : null}
+                          {resource === 'policies' ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setPolicyRequestRecord(record);
+                                setPolicyRequestForm({
+                                  request_type: 'ENDORSEMENT',
+                                  subject: `Service request for ${policyLabel(record)}`,
+                                  description: '',
+                                });
+                              }}
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              Request
+                            </Button>
                           ) : null}
                         </div>
                       </TableCell>
@@ -1057,6 +1164,90 @@ export function PortalBusinessListPage({
           </form>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={Boolean(policyRequestRecord)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPolicyRequestRecord(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Submit policy request</DialogTitle>
+            <DialogDescription>
+              Create an endorsement, cancellation, or renewal request for{' '}
+              {policyLabel(policyRequestRecord ?? {})}.
+            </DialogDescription>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={submitPolicyRequest}>
+            <div className="space-y-2">
+              <Label>Request type</Label>
+              <Select
+                value={policyRequestForm.request_type}
+                onValueChange={(value) =>
+                  setPolicyRequestForm((current) => ({
+                    ...current,
+                    request_type: value as PortalPolicyRequestType,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ENDORSEMENT">Endorsement</SelectItem>
+                  <SelectItem value="CANCELLATION">Cancellation</SelectItem>
+                  <SelectItem value="RENEWAL">Renewal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="portal-policy-request-subject">Subject</Label>
+              <Input
+                id="portal-policy-request-subject"
+                required
+                value={policyRequestForm.subject}
+                onChange={(event) =>
+                  setPolicyRequestForm((current) => ({
+                    ...current,
+                    subject: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="portal-policy-request-description">
+                Description
+              </Label>
+              <Textarea
+                id="portal-policy-request-description"
+                required
+                value={policyRequestForm.description}
+                onChange={(event) =>
+                  setPolicyRequestForm((current) => ({
+                    ...current,
+                    description: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPolicyRequestRecord(null)}
+              >
+                Close
+              </Button>
+              <Button type="submit" disabled={policyRequestMutation.isPending}>
+                Submit request
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1103,6 +1294,12 @@ function canResubmit(record: PortalBusinessRecord) {
   );
 }
 
+function canEditQuotation(record: PortalBusinessRecord) {
+  return ['DRAFT', 'INCOMPLETE', 'RETURNED'].includes(
+    status(record).toUpperCase(),
+  );
+}
+
 function supportsDetail(resource: PortalResource) {
   return [
     'quotations',
@@ -1111,10 +1308,11 @@ function supportsDetail(resource: PortalResource) {
     'claims',
     'complaints',
     'requests',
+    'customers',
   ].includes(resource);
 }
 
-function policyLabel(policy: PortalBusinessRecord) {
+function policyLabel(policy: Partial<PortalBusinessRecord>) {
   return (
     text(policy.policy_no) ??
     text(policy.cover_note_no) ??
