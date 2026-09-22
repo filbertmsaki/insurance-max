@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -42,8 +42,11 @@ import {
 } from '@/modules/tenant/quotations/wizard/utils/coverNoteDateRange';
 import {
   motorFieldError,
+  mergeVerifiedMotor,
   motorFields,
 } from '@/modules/tenant/quotations/wizard/utils/motorFields';
+import { VehicleLookup } from '@/modules/tenant/quotations/wizard/components/VehicleLookup';
+import type { MotorVerificationRequest } from '@/modules/tenant/verifications/api';
 
 import { portalApi, type PortalProfileRecord } from '../api';
 
@@ -455,6 +458,18 @@ export function PortalBuyCoverPage() {
   const updateMotor = (field: keyof MotorFormState, value: string) => {
     setMotor((current) => ({ ...current, [field]: value }) as MotorFormState);
   };
+
+  const verifyMotorFromPortal = useCallback(
+    async (payload: MotorVerificationRequest) => {
+      if (!selectedCompany) {
+        throw new Error('Select an insurance company before fetching vehicle details.');
+      }
+
+      await portalApi.ensureCustomerCompanyContext(selectedCompany.id);
+      return portalApi.verifyCustomerMotor(payload);
+    },
+    [selectedCompany],
+  );
 
   const startQuotationMutation = useMutation({
     mutationFn: async () => {
@@ -919,6 +934,22 @@ export function PortalBuyCoverPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <VehicleLookup
+                initialCategory={motor.motor_category_code}
+                verifyMotor={verifyMotorFromPortal}
+                onFound={(details) => {
+                  setMotor(
+                    (current) =>
+                      mergeVerifiedMotor(
+                        current,
+                        details,
+                        createInitialMotorDetails(),
+                      ) as MotorFormState,
+                  );
+                }}
+              />
+            </div>
             {motorFields.map((field) => (
               <FormField
                 key={field.key}

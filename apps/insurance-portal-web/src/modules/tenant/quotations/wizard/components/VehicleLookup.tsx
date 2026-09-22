@@ -12,16 +12,25 @@ import {
 } from '@/components/ui/select';
 import { getApiErrorMessage } from '@/lib/api-error';
 import { verificationsApi } from '@/modules/tenant/verifications/api';
+import type {
+  MotorVerificationRequest,
+  VerificationResult,
+} from '@/modules/tenant/verifications/api';
 import type { QuotationFormSchemaValues } from '../../schemas';
 import { normalizeMotorTextInput } from '../../utils/motorText';
 import { readVerifiedMotorDetails } from '../utils/vehicleVerification';
 
 interface Props {
   initialCategory?: string;
+  verifyMotor?: (data: MotorVerificationRequest) => Promise<VerificationResult>;
   onFound: (details: Partial<QuotationFormSchemaValues['motor']>) => void;
 }
 
-export function VehicleLookup({ initialCategory, onFound }: Props) {
+export function VehicleLookup({
+  initialCategory,
+  verifyMotor = verificationsApi.motor,
+  onFound,
+}: Props) {
   const id = useId();
   const [category, setCategory] = useState<'1' | '2'>(
     initialCategory === '2' ? '2' : '1',
@@ -53,7 +62,7 @@ export function VehicleLookup({ initialCategory, onFound }: Props) {
     inFlight.current = true;
     setPending(true);
     try {
-      const result = await verificationsApi.motor({
+      const result = await verifyMotor({
         motorCategory: Number(category) as 1 | 2,
         ...(identifierType === 'registration'
           ? { motorRegistrationNumber: value }

@@ -28,6 +28,7 @@ import { MotorVehicle } from '../motor/entities/motor-vehicle.entity';
 import { Policy } from '../policies/entities/policy.entity';
 import { Quotation } from '../quotations/entities/quotation.entity';
 import { QuotationsModule } from '../quotations/quotations.module';
+import { VerificationsModule } from '../verifications/verifications.module';
 
 import { PortalAccount } from './entities/portal-account.entity';
 import { PortalInvitation } from './entities/portal-invitation.entity';
@@ -99,6 +100,7 @@ import { PortalEngagementService } from './services/portal-engagement.service';
     CustomersModule,
     ClaimsModule,
     InsuranceDocumentsModule,
+    VerificationsModule,
   ],
   controllers: [
     PortalAuthController,

@@ -5,6 +5,10 @@ import type {
   DocumentRecord,
   SignatureRequestRecord,
 } from '@/modules/tenant/engagement/api';
+import type {
+  MotorVerificationRequest,
+  VerificationResult,
+} from '@/modules/tenant/verifications/api';
 
 export type PortalAudience = 'customer' | 'intermediary';
 
@@ -361,6 +365,11 @@ export const portalApi = {
   }) =>
     apiClient
       .post<CustomerCoverCheckResult>('/customer/cover/check', payload)
+      .then((response) => response.data),
+
+  verifyCustomerMotor: (payload: MotorVerificationRequest) =>
+    apiClient
+      .post<VerificationResult>('/customer/verifications/motor', payload)
       .then((response) => response.data),
 
   createQuotationDraft: (payload: CreateQuotationDraftPayload) =>

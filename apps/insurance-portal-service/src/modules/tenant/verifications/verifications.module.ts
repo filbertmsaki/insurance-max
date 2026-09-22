@@ -6,5 +6,6 @@ import { VerificationsService } from './verifications.service';
   imports: [TiramisModule],
   controllers: [VerificationsController],
   providers: [VerificationsService],
+  exports: [VerificationsService],
 })
 export class VerificationsModule {}

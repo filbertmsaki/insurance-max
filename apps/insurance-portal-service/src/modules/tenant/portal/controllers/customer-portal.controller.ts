@@ -26,6 +26,8 @@ import {
   UpdateQuotationDraftDto,
 } from '../../quotations/dto/quotation-draft.dto';
 import { UpdateQuotationDto } from '../../quotations/dto/quotation-payload.dto';
+import { MotorVerificationDto } from '../../verifications/dto/verify.dto';
+import { VerificationsService } from '../../verifications/verifications.service';
 import { CreateCommunicationMessageDto } from '../../communications/dto/communications.dto';
 
 import { CurrentPortalAccount } from '../decorators/current-portal-account.decorator';
@@ -53,6 +55,7 @@ export class CustomerPortalController {
     private readonly dashboardService: PortalDashboardService,
     private readonly engagementService: PortalEngagementService,
     private readonly notificationService: PortalNotificationService,
+    private readonly verificationsService: VerificationsService,
   ) {}
 
   @Get('dashboard')
@@ -65,6 +68,19 @@ export class CustomerPortalController {
   @ApiOperation({ summary: 'Get linked customer profile' })
   profile(@CurrentPortalAccount() account: PortalAccount) {
     return this.businessService.findCustomerProfile(account);
+  }
+
+  @Post('verifications/motor')
+  @ApiOperation({ summary: 'Verify a customer motor vehicle with TIRAMIS' })
+  verifyMotor(
+    @CurrentPortalAccount() account: PortalAccount,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: MotorVerificationDto,
+  ) {
+    return this.verificationsService.verifyMotor(
+      { ...user, companyId: account.company_id },
+      dto,
+    );
   }
 
   @Get('quotations')
