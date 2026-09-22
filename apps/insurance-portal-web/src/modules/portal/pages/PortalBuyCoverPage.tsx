@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { LocationReferenceSelects } from '@/modules/platform/reference-data/components/LocationReferenceSelects';
 import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
 import {
   CUSTOMER_ID_TYPE_OPTIONS,
@@ -58,6 +59,7 @@ type PolicyholderFormState = Partial<
     | 'id_number'
     | 'phone'
     | 'email'
+    | 'country'
     | 'country_code'
     | 'region'
     | 'district'
@@ -266,6 +268,7 @@ function buildPolicyholderValues(
     id_number: form.id_number ?? defaults.id_number,
     phone: form.phone ?? defaults.phone,
     email: form.email ?? defaults.email,
+    country: form.country ?? defaults.country,
     country_code: form.country_code ?? defaults.country_code,
     region: form.region ?? defaults.region,
     district: form.district ?? defaults.district,
@@ -998,42 +1001,42 @@ export function PortalBuyCoverPage() {
                 }
               />
             </FormField>
-            <FormField label="Region" required>
-              <Input
-                value={policyholderValues.region}
-                onChange={(event) =>
-                  updatePolicyholder('region', event.target.value)
+            <div className="sm:col-span-2">
+              <LocationReferenceSelects
+                country={policyholderValues.country}
+                countryCode={policyholderValues.country_code}
+                region={policyholderValues.region}
+                district={policyholderValues.district}
+                errors={{
+                  country: policyholderValues.country_code.trim()
+                    ? undefined
+                    : 'Country is required',
+                  region: policyholderValues.region.trim()
+                    ? undefined
+                    : 'Region is required',
+                  district: policyholderValues.district.trim()
+                    ? undefined
+                    : 'District is required',
+                }}
+                onCountryChange={(country, code) => {
+                  updatePolicyholder('country', country);
+                  updatePolicyholder('country_code', code);
+                }}
+                onRegionChange={(region) =>
+                  updatePolicyholder('region', region)
+                }
+                onDistrictChange={(district) =>
+                  updatePolicyholder('district', district)
                 }
               />
-            </FormField>
-            <FormField label="District" required>
-              <Input
-                value={policyholderValues.district}
-                onChange={(event) =>
-                  updatePolicyholder('district', event.target.value)
-                }
-              />
-            </FormField>
+            </div>
             <details
               className="space-y-4 rounded-lg border border-slate-200 bg-slate-50/60 p-4 sm:col-span-2"
-              open={!policyholderValues.country_code.trim()}
             >
               <summary className="cursor-pointer text-sm font-medium text-slate-700">
                 Address details
               </summary>
-              <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                <FormField label="Country code" required>
-                  <Input
-                    value={policyholderValues.country_code}
-                    onChange={(event) =>
-                      updatePolicyholder(
-                        'country_code',
-                        event.target.value.toUpperCase(),
-                      )
-                    }
-                    maxLength={3}
-                  />
-                </FormField>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <FormField label="Street">
                   <Input
                     value={policyholderValues.street}
