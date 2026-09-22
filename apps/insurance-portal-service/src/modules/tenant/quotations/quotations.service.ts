@@ -192,6 +192,10 @@ interface PricingValidationAuditContext {
   reason: string;
 }
 
+interface ReplaceQuotationOptions {
+  reuseExistingIdentifiers?: boolean;
+}
+
 type QuotationPricingStatus = 'CURRENT' | 'STALE' | 'EXPIRED' | 'MISSING';
 
 export interface QuotationPricingIntegrationSummary {
@@ -557,7 +561,9 @@ export class QuotationsService {
       quotation.branch_id,
     );
 
-    await this.finalize(companyId, id, payload, portalQuotationUser);
+    await this.finalize(companyId, id, payload, portalQuotationUser, {
+      reuseExistingIdentifiers: false,
+    });
 
     return this.submit(
       companyId,
@@ -572,6 +578,7 @@ export class QuotationsService {
     id: string,
     payload: UpdateQuotationDto,
     user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
+    options: ReplaceQuotationOptions = {},
   ) {
     await this.assertUserCanWriteQuotation(user as AuthenticatedUser, id);
 
@@ -592,6 +599,9 @@ export class QuotationsService {
       companyId,
       contextPayload,
       existing,
+      {
+        reuseExistingIdentifiers: options.reuseExistingIdentifiers ?? true,
+      },
     );
 
     const scope = await this.validateScope(companyId, preparedPayload);
@@ -813,6 +823,7 @@ export class QuotationsService {
     id: string,
     payload: UpdateQuotationDto,
     user: Pick<AuthenticatedUser, 'id' | 'permissions'>,
+    options: ReplaceQuotationOptions = {},
   ) {
     this.assertWorkflowPermission(user, QUOTATION_COMPLETE_PERMISSION);
     await this.assertUserCanWriteQuotation(user as AuthenticatedUser, id);
@@ -823,7 +834,7 @@ export class QuotationsService {
     );
     this.assertDraftWritable(existing);
 
-    const quotation = await this.replace(companyId, id, payload, user);
+    const quotation = await this.replace(companyId, id, payload, user, options);
 
     const replacedAggregate = await this.quotationsRepository.findOneAggregate(
       companyId,
@@ -8421,13 +8432,18 @@ export class QuotationsService {
     companyId: string,
     payload: CreateQuotationDto | UpdateQuotationDto,
     currentQuotation?: Quotation | null,
+    options: ReplaceQuotationOptions = {},
   ): Promise<CreateQuotationDto | UpdateQuotationDto> {
     const prepared = JSON.parse(JSON.stringify(payload)) as
       | CreateQuotationDto
       | UpdateQuotationDto;
 
     const flow = prepared.internal_quotation.quotation_flow;
-    const existingEntries = currentQuotation?.cover_note?.entries ?? [];
+    const shouldReuseExistingIdentifiers =
+      options.reuseExistingIdentifiers ?? true;
+    const existingEntries = shouldReuseExistingIdentifiers
+      ? (currentQuotation?.cover_note?.entries ?? [])
+      : [];
 
     if (flow === QuotationFlow.MOTOR_FLEET) {
       const fleetDetails = prepared.cover_note_dtl.fleet_dtls ?? [];
