@@ -271,6 +271,7 @@ export function QuotationsPage() {
         limit={limit}
         total={data?.pagination.total ?? 0}
         totalPages={data?.pagination.totalPages ?? 1}
+        rowKey={(row) => row.id}
         onPageChange={setPage}
         onLimitChange={setLimit}
         sortBy={sortBy}

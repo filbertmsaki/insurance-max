@@ -67,6 +67,13 @@ import { QuotationRiskAsset } from './structured/quotation-risk-asset.entity';
 @Index('IDX_quotations_company_customer_id', ['company_id', 'customer_id'])
 @Index('IDX_quotations_company_product_id', ['company_id', 'product_id'])
 @Index('IDX_quotations_company_flow', ['company_id', 'quotation_flow'])
+@Index('IDX_quotations_active_list_created_at', [
+  'company_id',
+  'created_at',
+  'id',
+], {
+  where: 'deleted_at IS NULL AND source_policy_transaction_id IS NULL',
+})
 @Index('IDX_quotations_finalization_hash', ['finalization_hash'])
 @Index('IDX_quotations_workflow_gate_hash', ['workflow_gate_hash'])
 @Index('IDX_quotations_company_quotation_no', ['company_id', 'quotation_no'], {

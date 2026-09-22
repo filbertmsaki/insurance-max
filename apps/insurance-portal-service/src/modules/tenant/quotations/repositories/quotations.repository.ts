@@ -153,6 +153,7 @@ export class QuotationsRepository {
       .where('quotation.company_id = :companyId', { companyId })
       .andWhere('quotation.deleted_at IS NULL')
       .andWhere('quotation.source_policy_transaction_id IS NULL');
+    this.selectListColumns(queryBuilder);
     this.applyListFilters(queryBuilder, query, page, limit);
 
     const [items, total] = await queryBuilder.getManyAndCount();
@@ -193,6 +194,7 @@ export class QuotationsRepository {
       'quotation',
       scope,
     );
+    this.selectListColumns(queryBuilder);
     this.applyListFilters(queryBuilder, query, page, limit);
 
     const [items, total] = await queryBuilder.getManyAndCount();
@@ -239,17 +241,37 @@ export class QuotationsRepository {
       });
     }
 
-    const policyHolders = await this.quotationRepository.manager
-      .getRepository(QuotationPolicyHolder)
-      .createQueryBuilder('holder')
-      .select([
-        'holder.quotation_id',
-        'holder.policy_holder_name',
-        'holder.sequence_no',
-      ])
-      .where('holder.quotation_id IN (:...quotationIds)', { quotationIds })
-      .orderBy('holder.sequence_no', 'ASC')
-      .getMany();
+    const [policyHolders, vehicleRows] = await Promise.all([
+      this.quotationRepository.manager
+        .getRepository(QuotationPolicyHolder)
+        .createQueryBuilder('holder')
+        .select([
+          'holder.id',
+          'holder.quotation_id',
+          'holder.policy_holder_name',
+          'holder.sequence_no',
+        ])
+        .where('holder.quotation_id IN (:...quotationIds)', { quotationIds })
+        .orderBy('holder.sequence_no', 'ASC')
+        .getMany(),
+      this.quotationRepository.manager
+        .createQueryBuilder()
+        .select('coverNote.quotation_id', 'quotation_id')
+        .addSelect('motor.registration_number', 'registration_number')
+        .addSelect('motor.chassis_number', 'chassis_number')
+        .from(QuotationMotorDetail, 'motor')
+        .innerJoin('motor.entry', 'entry')
+        .innerJoin('entry.cover_note', 'coverNote')
+        .where('coverNote.quotation_id IN (:...quotationIds)', {
+          quotationIds,
+        })
+        .orderBy('entry.entry_number', 'ASC')
+        .getRawMany<{
+          quotation_id: string;
+          registration_number: string | null;
+          chassis_number: string | null;
+        }>(),
+    ]);
 
     for (const holder of policyHolders) {
       const extra = extras.get(holder.quotation_id);
@@ -257,22 +279,6 @@ export class QuotationsRepository {
         extra.customerName = holder.policy_holder_name;
       }
     }
-
-    const vehicleRows = await this.quotationRepository.manager
-      .createQueryBuilder()
-      .select('coverNote.quotation_id', 'quotation_id')
-      .addSelect('motor.registration_number', 'registration_number')
-      .addSelect('motor.chassis_number', 'chassis_number')
-      .from(QuotationMotorDetail, 'motor')
-      .innerJoin('motor.entry', 'entry')
-      .innerJoin('entry.cover_note', 'coverNote')
-      .where('coverNote.quotation_id IN (:...quotationIds)', { quotationIds })
-      .orderBy('entry.entry_number', 'ASC')
-      .getRawMany<{
-        quotation_id: string;
-        registration_number: string | null;
-        chassis_number: string | null;
-      }>();
 
     for (const row of vehicleRows) {
       const extra = extras.get(row.quotation_id);
@@ -287,6 +293,38 @@ export class QuotationsRepository {
     }
 
     return extras;
+  }
+
+  private selectListColumns(
+    queryBuilder: SelectQueryBuilder<Quotation>,
+  ): void {
+    queryBuilder.select([
+      'quotation.id',
+      'quotation.quotation_no',
+      'quotation.quotation_type',
+      'quotation.quotation_flow',
+      'quotation.channel_type',
+      'quotation.status',
+      'quotation.approval_status',
+      'quotation.payment_status',
+      'quotation.tira_status',
+      'quotation.requires_approval',
+      'quotation.requires_payment',
+      'quotation.is_fleet',
+      'quotation.submitted_at',
+      'quotation.created_at',
+      'quotation.updated_at',
+      'coverNote.id',
+      'coverNote.fleet_id',
+      'coverNote.currency_code',
+      'coverNote.product_code',
+      'coverNote.cover_note_start_date',
+      'coverNote.cover_note_end_date',
+      'coverNote.total_premium_excluding_tax',
+      'coverNote.total_premium_including_tax',
+      'product.id',
+      'product.product_name',
+    ]);
   }
 
   async exists(companyId: string, id: string): Promise<boolean> {

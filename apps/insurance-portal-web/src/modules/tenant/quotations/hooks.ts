@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -54,19 +54,50 @@ export function useQuotationsList() {
   const [params, setParams] = useSearchParams();
   const page = Math.max(1, Number(params.get('page') ?? '1'));
   const limit = Number(params.get('limit') ?? '10');
-  const search = params.get('search') ?? '';
+  const committedSearch = params.get('search') ?? '';
   const status = params.get('status') ?? 'all';
   const quotationType = params.get('quotation_type') ?? 'all';
   const quotationFlow = params.get('quotation_flow') ?? 'all';
   const productId = params.get('product_id') ?? 'all';
+  const [searchInput, setSearchInput] = useState(committedSearch);
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('DESC');
+
+  const setParam = useCallback(
+    (key: string, value: string | null) => {
+      setParams((previous) => {
+        const next = new URLSearchParams(previous);
+        if (value === null) next.delete(key);
+        else next.set(key, value);
+        next.set('page', '1');
+        return next;
+      });
+    },
+    [setParams],
+  );
+
+  useEffect(() => {
+    setSearchInput(committedSearch);
+  }, [committedSearch]);
+
+  useEffect(() => {
+    const normalizedSearch = searchInput.trim();
+    if (normalizedSearch === committedSearch) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setParam('search', normalizedSearch || null);
+    }, 350);
+
+    return () => clearTimeout(timeoutId);
+  }, [committedSearch, searchInput, setParam]);
 
   const queryParams = useMemo<QuotationListParams>(
     () => ({
       page,
       limit,
-      search: search || undefined,
+      search: committedSearch || undefined,
       status:
         status === 'all'
           ? undefined
@@ -84,12 +115,12 @@ export function useQuotationsList() {
       sortOrder,
     }),
     [
+      committedSearch,
       limit,
       page,
       productId,
       quotationFlow,
       quotationType,
-      search,
       sortBy,
       sortOrder,
       status,
@@ -99,21 +130,9 @@ export function useQuotationsList() {
   const { data, isLoading, error } = useQuery({
     queryKey: quotationKeys.list(queryParams),
     queryFn: () => quotationsApi.getList(queryParams),
+    placeholderData: (previousData) => previousData,
     staleTime: 30_000,
   });
-
-  const setParam = useCallback(
-    (key: string, value: string | null) => {
-      setParams((previous) => {
-        const next = new URLSearchParams(previous);
-        if (value === null) next.delete(key);
-        else next.set(key, value);
-        next.set('page', '1');
-        return next;
-      });
-    },
-    [setParams],
-  );
 
   return {
     data,
@@ -121,14 +140,14 @@ export function useQuotationsList() {
     error,
     page,
     limit,
-    search,
+    search: searchInput,
     status,
     quotationType,
     quotationFlow,
     productId,
     sortBy,
     sortOrder,
-    setSearch: (value: string) => setParam('search', value),
+    setSearch: setSearchInput,
     setStatus: (value: string) =>
       setParam('status', value === 'all' ? null : value),
     setQuotationType: (value: string) =>
