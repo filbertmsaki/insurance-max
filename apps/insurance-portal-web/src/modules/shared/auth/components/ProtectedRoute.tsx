@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/modules/shared/auth/store/auth.store';
 import { canAccessRoute } from '@/lib/auth/permissions';
 
@@ -34,6 +34,7 @@ export function ProtectedRoute({
   allowedScopes = [],
 }: ProtectedRouteProps) {
   const { user, authorizationContext } = useAuthStore();
+  const location = useLocation();
   const [hydrated, setHydrated] = useState(useAuthStore.persist.hasHydrated());
 
   useEffect(() => {
@@ -49,7 +50,7 @@ export function ProtectedRoute({
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
   const permissions = new Set(

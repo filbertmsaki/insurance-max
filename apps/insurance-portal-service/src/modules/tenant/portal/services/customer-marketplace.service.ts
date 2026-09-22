@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, DataSource, Repository } from 'typeorm';
 
+import { ProductLifecycleStatus } from '@insurance-max/contracts';
 import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 
@@ -60,6 +61,93 @@ export class CustomerMarketplaceService {
       description: this.publicDescription(company),
       tira_ready: company.tira_integration_enabled === true,
     }));
+  }
+
+  async listPublicCatalogue() {
+    const products = await this.productRepository
+      .createQueryBuilder('product')
+      .leftJoinAndSelect('product.category', 'category')
+      .leftJoinAndSelect('product.company', 'company')
+      .where('product.deleted_at IS NULL')
+      .andWhere('product.is_active = true')
+      .andWhere('product.lifecycle_status = :active', {
+        active: ProductLifecycleStatus.ACTIVE,
+      })
+      .andWhere('category.deleted_at IS NULL')
+      .andWhere('category.is_active = true')
+      .andWhere('company.deleted_at IS NULL')
+      .andWhere('company.status = :companyStatus', { companyStatus: 'active' })
+      .andWhere('company.company_type = :companyType', {
+        companyType: CompanyType.INSURANCE_COMPANY,
+      })
+      .orderBy('category.sort_order', 'ASC')
+      .addOrderBy('category.name', 'ASC')
+      .addOrderBy('product.product_name', 'ASC')
+      .getMany();
+
+    const categories = new Map<
+      string,
+      {
+        id: string;
+        code: string;
+        name: string;
+        description: string | null;
+        business_line: InsuranceBusinessLine;
+        product_count: number;
+        products: Array<{
+          id: string;
+          name: string;
+          description: string | null;
+          product_code: string;
+          business_line: InsuranceBusinessLine;
+          supports_fleet: boolean;
+          company: {
+            id: string;
+            name: string;
+            slug: string;
+            logo_url: string | null;
+          };
+        }>;
+      }
+    >();
+
+    for (const product of products) {
+      if (!product.category || !product.company) continue;
+
+      const categoryKey = [
+        product.category.business_line,
+        product.category.name.trim().toLowerCase(),
+      ].join(':');
+
+      const category = categories.get(categoryKey) ?? {
+        id: product.category.id,
+        code: product.category.code,
+        name: product.category.name,
+        description: product.category.description,
+        business_line: product.category.business_line,
+        product_count: 0,
+        products: [],
+      };
+
+      category.products.push({
+        id: product.id,
+        name: product.product_name,
+        description: product.description,
+        product_code: product.product_code,
+        business_line: product.business_line,
+        supports_fleet: product.supports_fleet,
+        company: {
+          id: product.company.id,
+          name: product.company.name,
+          slug: product.company.slug,
+          logo_url: product.company.logo_url,
+        },
+      });
+      category.product_count = category.products.length;
+      categories.set(categoryKey, category);
+    }
+
+    return Array.from(categories.values());
   }
 
   async getEligibleCompany(companyId: string) {

@@ -144,6 +144,13 @@ import { WorkItemDetailPage } from '@/modules/tenant/engagement/pages/WorkItemDe
 import { WorkItemsPage } from '@/modules/tenant/engagement/pages/WorkItemsPage';
 import { ReportsWorkbenchPage } from '@/modules/tenant/reporting/pages/ReportsWorkbenchPage';
 import { RegulatoryWorkbenchPage } from '@/modules/tenant/regulatory/pages/RegulatoryWorkbenchPage';
+import {
+  HomePage,
+  AboutPage,
+  ContactPage,
+  InsurancePage,
+  BuyCoverPage,
+} from '@/modules/public/PublicWebsite';
 
 export default function App() {
   return (
@@ -1440,8 +1447,13 @@ export default function App() {
           element={<Navigate to={underwritingPaths.customers} replace />}
         />
 
+        {/* Public website */}
+        <Route path="/" element={<HomePage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/insurance" element={<InsurancePage />} />
+        <Route path="/buy-cover" element={<BuyCoverPage />} />
         {/* Default redirects */}
-        <Route path="/" element={<DefaultLandingPage />} />
         <Route path="*" element={<DefaultLandingPage />} />
       </Routes>
     </>

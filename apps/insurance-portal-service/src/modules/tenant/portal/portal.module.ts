@@ -47,6 +47,7 @@ import { IntermediaryPortalController } from './controllers/intermediary-portal.
 import { PortalAdminController } from './controllers/portal-admin.controller';
 import { PortalAuthController } from './controllers/portal-auth.controller';
 import { PortalCommonController } from './controllers/portal-common.controller';
+import { PublicCatalogueController } from './controllers/public-catalogue.controller';
 
 import { CustomerMarketplaceService } from './services/customer-marketplace.service';
 import { PortalAccountsService } from './services/portal-accounts.service';
@@ -109,6 +110,7 @@ import { PortalEngagementService } from './services/portal-engagement.service';
     CustomerPortalController,
     IntermediaryPortalController,
     PortalCommonController,
+    PublicCatalogueController,
   ],
   providers: [
     PortalAccountsService,

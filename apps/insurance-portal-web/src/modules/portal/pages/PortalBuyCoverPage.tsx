@@ -245,8 +245,7 @@ function profileToPolicyholderDefaults(
     date_of_birth: profile?.date_of_birth ?? null,
     company_name: profile?.company_name ?? null,
     registration_no: profile?.registration_no ?? null,
-    incorporation_certificate_no:
-      profile?.incorporation_certificate_no ?? null,
+    incorporation_certificate_no: profile?.incorporation_certificate_no ?? null,
     tin: profile?.tin ?? null,
     vrn: profile?.vrn ?? null,
     policy_holder_type: profile?.policy_holder_type ?? null,
@@ -363,6 +362,39 @@ function createInitialMotorDetails(): MotorFormState {
   };
 }
 
+function readPublicBuyCoverIntake() {
+  try {
+    const raw = window.sessionStorage.getItem('insurance-max.buy-cover-intake');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      motor?: {
+        full_name?: string;
+        registration_number?: string;
+        phone?: string;
+      } | null;
+    };
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function createInitialPolicyholderFromIntake(): PolicyholderFormState {
+  const intake = readPublicBuyCoverIntake();
+  return {
+    full_name: intake?.motor?.full_name ?? '',
+    phone: intake?.motor?.phone ?? '',
+  };
+}
+
+function createInitialMotorFromIntake(): MotorFormState {
+  const intake = readPublicBuyCoverIntake();
+  return {
+    ...createInitialMotorDetails(),
+    registration_no: intake?.motor?.registration_number ?? '',
+  };
+}
+
 function policyholderName(values: CustomerFormValues) {
   return values.customer_type === 'CORPORATE'
     ? values.company_name || values.full_name
@@ -384,9 +416,9 @@ export function PortalBuyCoverPage() {
   const [openDetailsSection, setOpenDetailsSection] =
     useState<DetailsSectionId | null>('policyholder');
   const [policyholderForm, setPolicyholderForm] =
-    useState<PolicyholderFormState>({});
+    useState<PolicyholderFormState>(createInitialPolicyholderFromIntake);
   const [motor, setMotor] = useState<MotorFormState>(
-    createInitialMotorDetails,
+    createInitialMotorFromIntake,
   );
 
   const profileQuery = useQuery({
@@ -468,7 +500,7 @@ export function PortalBuyCoverPage() {
       owner_category:
         motor.owner_category ||
         (policyholderValues.customer_type === 'CORPORATE' ? '2' : '1'),
-    } as MotorFormState;
+    };
   }, [motor, policyholderValues]);
 
   const policyholderErrors = useMemo(
@@ -539,7 +571,7 @@ export function PortalBuyCoverPage() {
   };
 
   const updateMotor = (field: keyof MotorFormState, value: string) => {
-    setMotor((current) => ({ ...current, [field]: value }) as MotorFormState);
+    setMotor((current) => ({ ...current, [field]: value }));
   };
 
   const toggleDetailsSection = (sectionId: string) => {
@@ -1085,9 +1117,7 @@ export function PortalBuyCoverPage() {
                 }
               />
             </div>
-            <details
-              className="space-y-4 rounded-lg border border-slate-200 bg-slate-50/60 p-4 sm:col-span-2"
-            >
+            <details className="space-y-4 rounded-lg border border-slate-200 bg-slate-50/60 p-4 sm:col-span-2">
               <summary className="cursor-pointer text-sm font-medium text-slate-700">
                 Address details
               </summary>
@@ -1133,13 +1163,12 @@ export function PortalBuyCoverPage() {
                 initialCategory={motor.motor_category_code}
                 verifyMotor={verifyMotorFromPortal}
                 onFound={(details) => {
-                  setMotor(
-                    (current) =>
-                      mergeVerifiedMotor(
-                        current,
-                        details,
-                        createInitialMotorDetails(),
-                      ) as MotorFormState,
+                  setMotor((current) =>
+                    mergeVerifiedMotor(
+                      current,
+                      details,
+                      createInitialMotorDetails(),
+                    ),
                   );
                 }}
               />
@@ -1196,14 +1225,8 @@ export function PortalBuyCoverPage() {
           </div>
           <div className="min-w-0 space-y-3">
             <h3 className="text-sm font-semibold text-slate-900">Premium</h3>
-            <SummaryField
-              label="Before tax"
-              value={formatPremiumSummary()}
-            />
-            <SummaryField
-              label="After tax"
-              value={formatPremiumSummary()}
-            />
+            <SummaryField label="Before tax" value={formatPremiumSummary()} />
+            <SummaryField label="After tax" value={formatPremiumSummary()} />
             <SummaryField label="Currency" value="TZS" />
           </div>
           <div className="min-w-0 space-y-3">
@@ -1218,8 +1241,14 @@ export function PortalBuyCoverPage() {
                   : 'Private'
               }
             />
-            <SummaryField label="Name" value={policyholderName(policyholderValues)} />
-            <SummaryField label="ID number" value={policyholderValues.id_number} />
+            <SummaryField
+              label="Name"
+              value={policyholderName(policyholderValues)}
+            />
+            <SummaryField
+              label="ID number"
+              value={policyholderValues.id_number}
+            />
             <SummaryField label="Phone" value={policyholderValues.phone} />
             <SummaryField label="Location" value={policyholderLocation} />
           </div>

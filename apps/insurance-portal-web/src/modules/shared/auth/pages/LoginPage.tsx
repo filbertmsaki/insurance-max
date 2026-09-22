@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -38,6 +38,7 @@ type LoginForm = z.infer<typeof loginSchema>;
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { setSession, setTempToken } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -67,7 +68,13 @@ export function LoginPage() {
       if (data.access_token && data.refresh_token) {
         setSession(data);
         toast.success('Welcome back!');
-        navigate('/dashboard');
+        const from = location.state as
+          | { from?: { pathname?: string; search?: string } }
+          | undefined;
+        const nextPath = from?.from?.pathname
+          ? `${from.from.pathname}${from.from.search ?? ''}`
+          : '/dashboard';
+        navigate(nextPath, { replace: true });
       }
     },
     onError: (error) => {
@@ -103,7 +110,9 @@ export function LoginPage() {
             )}
             <Form {...form}>
               <form
-                onSubmit={form.handleSubmit(onSubmit)}
+                onSubmit={(event) => {
+                  void form.handleSubmit(onSubmit)(event);
+                }}
                 className="space-y-4"
               >
                 <FormField
