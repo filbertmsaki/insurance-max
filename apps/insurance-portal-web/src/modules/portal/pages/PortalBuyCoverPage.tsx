@@ -5,12 +5,14 @@ import {
   ArrowRight,
   Car,
   Check,
+  ClipboardCheck,
   Loader2,
   ShieldCheck,
   UserRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { formatMoney } from '@/components/shared/detailFormat';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -136,6 +138,33 @@ function FormField({
       {children}
     </div>
   );
+}
+
+function SummaryField({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | number | null;
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="text-xs font-medium uppercase text-slate-500">
+        {label}
+      </div>
+      <div className="mt-1 truncate text-sm font-semibold text-slate-950">
+        {value || 'Not selected'}
+      </div>
+    </div>
+  );
+}
+
+function formatPremiumSummary(value?: string | number | null) {
+  if (value === null || value === undefined || value === '') {
+    return 'Calculated on submit';
+  }
+  const amount = Number(value);
+  return Number.isFinite(amount) ? formatMoney(amount, 'TZS') : String(value);
 }
 
 function MotorFieldInput({
@@ -533,6 +562,8 @@ export function PortalBuyCoverPage() {
     [selectedCompany],
   );
 
+  const coverDates = useMemo(() => computeCoverNoteDateRange(365), []);
+
   const submitCoverMutation = useMutation({
     mutationFn: async () => {
       if (!selectedCompany || !selectedProduct || !selectedRisk) {
@@ -561,7 +592,6 @@ export function PortalBuyCoverPage() {
         selectedProduct.product_code ||
         selectedProduct.id;
 
-      const dates = computeCoverNoteDateRange(365);
       const risk = {
         ...createEmptyRiskRow(),
         risk_id: selectedRisk.id,
@@ -610,8 +640,8 @@ export function PortalBuyCoverPage() {
         total_commission: '',
         total_premium: '',
         net_premium: '',
-        valid_from: dateOnlyPart(dates.validFrom),
-        valid_until: dateOnlyPart(dates.validUntil),
+        valid_from: dateOnlyPart(coverDates.validFrom),
+        valid_until: dateOnlyPart(coverDates.validUntil),
         rating_version: '',
         rejection_reason: '',
         cover_note_number: '',
@@ -672,6 +702,16 @@ export function PortalBuyCoverPage() {
     : motorForDraft.registration_no ||
       motorForDraft.chassis_no ||
       [motorForDraft.make, motorForDraft.model].filter(Boolean).join(' ');
+  const vehicleMakeModel =
+    [motorForDraft.make, motorForDraft.model].filter(Boolean).join(' ') ||
+    undefined;
+  const policyholderLocation = [
+    policyholderValues.district,
+    policyholderValues.region,
+  ]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(', ');
 
   return (
     <div className="space-y-6">
@@ -1133,6 +1173,79 @@ export function PortalBuyCoverPage() {
           </div>
         </AccordionStepSection>
       </section>
+
+      <Card className="min-w-0 rounded-xl border-slate-200 shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ClipboardCheck className="h-4 w-4 text-slate-500" />
+            Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-6 md:grid-cols-4">
+          <div className="min-w-0 space-y-3">
+            <h3 className="text-sm font-semibold text-slate-900">Cover</h3>
+            <SummaryField label="Insurer" value={selectedCompany?.name} />
+            <SummaryField label="Product" value={selectedProduct?.name} />
+            <SummaryField label="Cover" value={selectedRisk?.name} />
+            <SummaryField
+              label="Period"
+              value={`${dateOnlyPart(coverDates.validFrom)} to ${dateOnlyPart(
+                coverDates.validUntil,
+              )}`}
+            />
+          </div>
+          <div className="min-w-0 space-y-3">
+            <h3 className="text-sm font-semibold text-slate-900">Premium</h3>
+            <SummaryField
+              label="Before tax"
+              value={formatPremiumSummary()}
+            />
+            <SummaryField
+              label="After tax"
+              value={formatPremiumSummary()}
+            />
+            <SummaryField label="Currency" value="TZS" />
+          </div>
+          <div className="min-w-0 space-y-3">
+            <h3 className="text-sm font-semibold text-slate-900">
+              Policyholder
+            </h3>
+            <SummaryField
+              label="Type"
+              value={
+                policyholderValues.customer_type === 'CORPORATE'
+                  ? 'Commercial'
+                  : 'Private'
+              }
+            />
+            <SummaryField label="Name" value={policyholderName(policyholderValues)} />
+            <SummaryField label="ID number" value={policyholderValues.id_number} />
+            <SummaryField label="Phone" value={policyholderValues.phone} />
+            <SummaryField label="Location" value={policyholderLocation} />
+          </div>
+          <div className="min-w-0 space-y-3">
+            <h3 className="text-sm font-semibold text-slate-900">Vehicle</h3>
+            <SummaryField
+              label="Registration"
+              value={motorForDraft.registration_no}
+            />
+            <SummaryField label="Chassis" value={motorForDraft.chassis_no} />
+            <SummaryField label="Make / model" value={vehicleMakeModel} />
+            <SummaryField
+              label="Usage"
+              value={
+                motorForDraft.motor_usage_code === '2'
+                  ? 'Commercial'
+                  : 'Private'
+              }
+            />
+            <SummaryField
+              label="Submission"
+              value={canSubmitCover ? 'Ready for TIRAMIS' : 'Incomplete'}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-slate-600">

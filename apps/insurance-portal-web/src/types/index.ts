@@ -313,6 +313,7 @@ export interface Branch {
   code: string;
   sale_point_code: string | null;
   sale_point_name: string | null;
+  is_head_office: boolean;
   status: string;
   address: BranchAddress | null;
   phone: string | null;

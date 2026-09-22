@@ -98,6 +98,7 @@ const editSchema = z.object({
   address_region: z.string().max(100).optional(),
   address_country: z.string().max(100).optional(),
   address_postal_code: z.string().max(20).optional(),
+  is_head_office: z.boolean().optional(),
 });
 
 type EditFormValues = z.infer<typeof editSchema>;
@@ -170,6 +171,7 @@ function EditBranchDialog({
       address_region: branch.address?.region ?? '',
       address_country: branch.address?.country ?? '',
       address_postal_code: branch.address?.postal_code ?? '',
+      is_head_office: branch.is_head_office,
     },
   });
 
@@ -180,6 +182,7 @@ function EditBranchDialog({
     if (values.code !== undefined) payload.code = values.code || undefined;
     if (values.phone !== undefined) payload.phone = values.phone || undefined;
     if (values.email !== undefined) payload.email = values.email || undefined;
+    payload.is_head_office = values.is_head_office ?? false;
 
     const hasAddress =
       values.address_street ||
@@ -246,6 +249,42 @@ function EditBranchDialog({
                   )}
                 />
               </div>
+            </div>
+
+            <Separator />
+
+            <div>
+              <SectionLabel>Branch Role</SectionLabel>
+              <FormField
+                control={form.control}
+                name="is_head_office"
+                render={({ field }) => (
+                  <FormItem>
+                    <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <FormControl>
+                        <input
+                          type="checkbox"
+                          checked={field.value ?? false}
+                          onChange={(event) =>
+                            field.onChange(event.target.checked)
+                          }
+                          className="mt-1 h-4 w-4 rounded border-slate-300"
+                        />
+                      </FormControl>
+                      <span>
+                        <span className="block text-sm font-medium text-slate-900">
+                          Set as head office
+                        </span>
+                        <span className="mt-0.5 block text-xs text-slate-500">
+                          Customer portal quotations use the active HQ branch
+                          default sales point.
+                        </span>
+                      </span>
+                    </label>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             <Separator />
@@ -1045,6 +1084,7 @@ export function BranchDetailPage() {
                 {branch.name}
               </h1>
               <StatusBadge status={branch.status} />
+              {branch.is_head_office && <Badge variant="outline">HQ</Badge>}
             </div>
             <code className="text-xs text-slate-400">{branch.code}</code>
           </div>
@@ -1137,6 +1177,16 @@ export function BranchDetailPage() {
                 <DetailRow
                   label="Status"
                   value={<StatusBadge status={branch.status} />}
+                />
+                <DetailRow
+                  label="Head office"
+                  value={
+                    branch.is_head_office ? (
+                      <Badge variant="outline">Yes</Badge>
+                    ) : (
+                      'No'
+                    )
+                  }
                 />
                 <DetailRow
                   label="Created"

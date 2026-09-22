@@ -78,6 +78,7 @@ const createSchema = z.object({
   address_region: z.string().max(100).optional(),
   address_country: z.string().max(100).optional(),
   address_postal_code: z.string().max(20).optional(),
+  is_head_office: z.boolean().optional(),
 });
 
 type CreateFormValues = z.infer<typeof createSchema>;
@@ -131,6 +132,7 @@ function CreateBranchDialog({
       address_region: '',
       address_country: '',
       address_postal_code: '',
+      is_head_office: false,
     },
   });
 
@@ -190,6 +192,42 @@ function CreateBranchDialog({
                   )}
                 />
               </div>
+            </div>
+
+            <Separator />
+
+            <div>
+              <SectionLabel>Branch Role</SectionLabel>
+              <FormField
+                control={form.control}
+                name="is_head_office"
+                render={({ field }) => (
+                  <FormItem>
+                    <label className="flex items-start gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <FormControl>
+                        <input
+                          type="checkbox"
+                          checked={field.value ?? false}
+                          onChange={(event) =>
+                            field.onChange(event.target.checked)
+                          }
+                          className="mt-1 h-4 w-4 rounded border-slate-300"
+                        />
+                      </FormControl>
+                      <span>
+                        <span className="block text-sm font-medium text-slate-900">
+                          Set as head office
+                        </span>
+                        <span className="mt-0.5 block text-xs text-slate-500">
+                          Customer portal quotations use the active HQ branch
+                          default sales point.
+                        </span>
+                      </span>
+                    </label>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             <Separator />
@@ -363,7 +401,14 @@ export function BranchesListPage() {
             <GitBranch className="h-4 w-4 text-indigo-600" />
           </div>
           <div>
-            <p className="font-medium text-slate-900">{r.name}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-medium text-slate-900">{r.name}</p>
+              {r.is_head_office && (
+                <Badge variant="outline" className="text-[10px]">
+                  HQ
+                </Badge>
+              )}
+            </div>
             <code className="text-xs text-slate-400">{r.code}</code>
           </div>
         </div>
@@ -477,6 +522,7 @@ export function BranchesListPage() {
         country: v.address_country || undefined,
         postal_code: v.address_postal_code || undefined,
       },
+      is_head_office: v.is_head_office ?? false,
     };
     createMutation.mutate(dto, { onSuccess: () => setCreateOpen(false) });
   }

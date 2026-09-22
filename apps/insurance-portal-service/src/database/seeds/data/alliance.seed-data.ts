@@ -19,18 +19,22 @@ export const ALLIANCE_BRANCHES = [
   {
     branchCode: 'BR207',
     branchName: 'HQ',
+    isHeadOffice: true,
   },
   {
     branchCode: 'BR208',
     branchName: 'ARUSHA',
+    isHeadOffice: false,
   },
   {
     branchCode: 'BR209',
     branchName: 'MWANZA',
+    isHeadOffice: false,
   },
   {
     branchCode: 'BR210',
     branchName: 'MOSHI',
+    isHeadOffice: false,
   },
 ] as const;
 

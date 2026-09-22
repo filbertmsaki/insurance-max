@@ -83,6 +83,7 @@ export default class TiramisCompanySetupSeeder implements Seeder {
           'company_id',
           'name',
           'code',
+          'is_head_office',
           'status',
         ]);
 
@@ -424,18 +425,20 @@ export default class TiramisCompanySetupSeeder implements Seeder {
             code,
             sale_point_code,
             sale_point_name,
+            is_head_office,
             status,
             created_at,
             updated_at
           )
-          VALUES ($1, $2, $3, NULL, NULL, 'active', now(), now())
+          VALUES ($1, $2, $3, NULL, NULL, $4, 'active', now(), now())
           ON CONFLICT ON CONSTRAINT "UQ_branches_company_code"
           DO UPDATE SET
             name = COALESCE(branches.name, EXCLUDED.name),
+            is_head_office = EXCLUDED.is_head_office,
             status = 'active',
             updated_at = now()
         `,
-        [companyId, branch.branchName, branch.branchCode],
+        [companyId, branch.branchName, branch.branchCode, branch.isHeadOffice],
       );
     }
   }
