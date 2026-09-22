@@ -9,6 +9,11 @@ import type {
   MotorVerificationRequest,
   VerificationResult,
 } from '@/modules/tenant/verifications/api';
+import type {
+  QuotationDraftRecordPayload,
+  QuotationPayload,
+  QuotationSubmitResponse,
+} from '@/modules/tenant/quotations/types';
 
 export type PortalAudience = 'customer' | 'intermediary';
 
@@ -106,11 +111,15 @@ export interface CustomerPortalProduct {
   description: string | null;
   business_line: string;
   supports_fleet: boolean;
+  product_code: string;
+  tiramis_product_code: string | null;
   category: { id: string; name: string } | null;
 }
 
 export interface CustomerPortalRisk {
   id: string;
+  risk_code: string;
+  tiramis_risk_code: string | null;
   name: string;
   description: string | null;
   product_id: string;
@@ -158,6 +167,15 @@ export interface CreateQuotationDraftPayload {
   is_fleet: boolean;
   current_wizard_step?: string | null;
   draft_payload: Record<string, unknown>;
+}
+
+export interface CustomerCompanyContext {
+  company_id: string;
+  customer_id: string;
+  portal_account_id: string;
+  branch_id: string;
+  sale_point_code: string;
+  sale_point_name: string | null;
 }
 
 export interface PortalPaymentProofPayload {
@@ -350,7 +368,7 @@ export const portalApi = {
 
   ensureCustomerCompanyContext: (companyId: string) =>
     apiClient
-      .post(`/customer/companies/${companyId}/context`)
+      .post<CustomerCompanyContext>(`/customer/companies/${companyId}/context`)
       .then((response) => response.data),
 
   listCustomerVehicles: () =>
@@ -375,6 +393,14 @@ export const portalApi = {
   createQuotationDraft: (payload: CreateQuotationDraftPayload) =>
     apiClient
       .post<{ id: string }>('/customer/quotations/drafts', payload)
+      .then((response) => response.data),
+
+  submitQuotationDirect: (payload: {
+    draft: QuotationDraftRecordPayload;
+    payload: QuotationPayload;
+  }) =>
+    apiClient
+      .post<QuotationSubmitResponse>('/customer/quotations/submit', payload)
       .then((response) => response.data),
 
   createPaymentProof: (payload: PortalPaymentProofPayload) =>

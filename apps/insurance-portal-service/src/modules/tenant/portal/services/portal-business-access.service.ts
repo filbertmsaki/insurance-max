@@ -284,6 +284,35 @@ export class PortalBusinessAccessService {
     );
   }
 
+  async submitCustomerQuotationDirect(
+    account: PortalAccount,
+    draftDto: SaveQuotationDraftDto,
+    payload: UpdateQuotationDto,
+    user: AuthenticatedUser,
+  ) {
+    this.assertCustomerAccount(account);
+
+    const scopedDraft = await this.scopeDraft(account, draftDto);
+    const draft = await this.quotationsService.createCustomerPortalDraft(
+      account.company_id,
+      scopedDraft,
+      user,
+    );
+    const quotation = await this.assertQuotation(account, draft.id);
+    const scopedPayload = await this.scopeFinalPayload(
+      account,
+      quotation,
+      payload,
+    );
+
+    return this.quotationsService.submitCustomerPortalQuotation(
+      account.company_id,
+      draft.id,
+      scopedPayload,
+      user,
+    );
+  }
+
   // =========================================================
   // POLICIES
   // =========================================================
@@ -1240,10 +1269,15 @@ export class PortalBusinessAccessService {
         throw new BadRequestException('Policyholder information is required');
       }
 
+      const isCommercialPolicyholder = policyholder.policy_holder_type === 2;
       const expectedId = customer.id_number?.trim();
       const suppliedId = policyholder.policy_holder_id_number?.trim();
 
-      if (expectedId && suppliedId !== expectedId) {
+      if (
+        !isCommercialPolicyholder &&
+        expectedId &&
+        suppliedId !== expectedId
+      ) {
         throw new ForbiddenException(
           'Policyholder identification must match the linked customer',
         );
@@ -1254,7 +1288,10 @@ export class PortalBusinessAccessService {
         policyholder.policy_holder_phone_number,
       );
 
-      if (!expectedPhone || expectedPhone !== suppliedPhone) {
+      if (
+        !isCommercialPolicyholder &&
+        (!expectedPhone || expectedPhone !== suppliedPhone)
+      ) {
         throw new ForbiddenException(
           'Policyholder phone must match the linked customer',
         );

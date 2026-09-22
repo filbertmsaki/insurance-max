@@ -14,6 +14,8 @@ import { Company } from '../../../platform/companies/entities/company.entity';
 import { InsuranceBusinessLine } from '../../insurance-categories/enums/insurance-business-line.enum';
 import { InsuranceProduct } from '../../insurance-products/entities/insurance-product.entity';
 import { InsuranceRisk } from '../../insurance-risks/entities/insurance-risk.entity';
+import { TiramisSalePointEntity } from '../../../tiramis/entities/tiramis-sale-point.entity';
+import { Branch } from '../../branches/entities/branch.entity';
 
 import {
   CustomerCompanyProductQueryDto,
@@ -118,6 +120,8 @@ export class CustomerMarketplaceService {
       description: product.description,
       business_line: product.business_line,
       supports_fleet: product.supports_fleet,
+      product_code: product.product_code,
+      tiramis_product_code: product.tiramis_product_code,
       category: product.category
         ? {
             id: product.category.id,
@@ -155,6 +159,8 @@ export class CustomerMarketplaceService {
 
     return risks.map((risk) => ({
       id: risk.id,
+      risk_code: risk.risk_code,
+      tiramis_risk_code: risk.tiramis_risk_code,
       name: risk.risk_name,
       description: risk.description,
       product_id: risk.product_id,
@@ -177,6 +183,7 @@ export class CustomerMarketplaceService {
       company_id: account.company_id,
       customer_id: account.customer_id,
       portal_account_id: account.id,
+      ...(await this.resolveDefaultSalePoint(companyId)),
     };
   }
 
@@ -326,6 +333,47 @@ export class CustomerMarketplaceService {
         'Authenticated customer portal access is required',
       );
     }
+  }
+
+  private async resolveDefaultSalePoint(companyId: string) {
+    const branchRepository = this.dataSource.getRepository(Branch);
+    const branch = await branchRepository.findOne({
+      where: {
+        company_id: companyId,
+        is_head_office: true,
+        status: 'active',
+      },
+      order: { created_at: 'ASC' },
+    });
+
+    if (!branch || branch.deleted_at) {
+      throw new BadRequestException(
+        'The insurer does not have an active HQ branch configured for customer portal quotations.',
+      );
+    }
+
+    const salePoint = await this.dataSource
+      .getRepository(TiramisSalePointEntity)
+      .findOne({
+        where: {
+          companyId,
+          branchId: branch.id,
+          isDefault: true,
+          isActive: true,
+        },
+      });
+
+    if (!salePoint) {
+      throw new BadRequestException(
+        'The insurer HQ branch does not have a default sales point configured for customer portal quotations.',
+      );
+    }
+
+    return {
+      branch_id: branch.id,
+      sale_point_code: salePoint.salePointCode.trim().toUpperCase(),
+      sale_point_name: salePoint.salePointName,
+    };
   }
 
   private publicDescription(company: Company): string | null {

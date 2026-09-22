@@ -28,6 +28,7 @@ import {
 } from '@/modules/tenant/customers/types';
 import {
   buildQuotationDraftPayload,
+  buildQuotationPayload,
   createEmptyFleetDetails,
   createEmptyMotorDetails,
   createEmptyNonMotorDetails,
@@ -462,7 +463,7 @@ export function PortalBuyCoverPage() {
   const selectionsReady = Boolean(
     selectedCompany && selectedProduct && selectedRisk,
   );
-  const canStartQuotation =
+  const canSubmitCover =
     selectionsReady &&
     policyholderErrors.length === 0 &&
     motorErrors.length === 0 &&
@@ -532,7 +533,7 @@ export function PortalBuyCoverPage() {
     [selectedCompany],
   );
 
-  const startQuotationMutation = useMutation({
+  const submitCoverMutation = useMutation({
     mutationFn: async () => {
       if (!selectedCompany || !selectedProduct || !selectedRisk) {
         throw new Error('Select a company, product, and cover first.');
@@ -552,12 +553,22 @@ export function PortalBuyCoverPage() {
         throw new Error(validationErrors[0]);
       }
 
-      await portalApi.ensureCustomerCompanyContext(selectedCompany.id);
+      const companyContext = await portalApi.ensureCustomerCompanyContext(
+        selectedCompany.id,
+      );
+      const productCode =
+        selectedProduct.tiramis_product_code ||
+        selectedProduct.product_code ||
+        selectedProduct.id;
 
       const dates = computeCoverNoteDateRange(365);
       const risk = {
         ...createEmptyRiskRow(),
         risk_id: selectedRisk.id,
+        risk_code:
+          selectedRisk.tiramis_risk_code ||
+          selectedRisk.risk_code ||
+          selectedRisk.id,
         sum_insured: motorForDraft.vehicle_value,
         sum_insured_equivalent: motorForDraft.vehicle_value,
         factor_values: {
@@ -629,17 +640,21 @@ export function PortalBuyCoverPage() {
         nonMotor: createEmptyNonMotorDetails(),
       };
 
-      return portalApi.createQuotationDraft(
-        buildQuotationDraftPayload(values, 'motor'),
-      );
+      return portalApi.submitQuotationDirect({
+        draft: buildQuotationDraftPayload(values, 'motor'),
+        payload: buildQuotationPayload(values, {
+          salePointCode: companyContext.sale_point_code,
+          productCode,
+        }),
+      });
     },
     onSuccess: () => {
-      toast.success('Quotation started. Continue it from your quotations.');
+      toast.success('Cover submitted to TIRAMIS.');
       navigate('/customer/quotations');
     },
     onError: (error) => {
       toast.error(
-        error instanceof Error ? error.message : 'Could not start quotation',
+        error instanceof Error ? error.message : 'Could not submit cover',
       );
     },
   });
@@ -1121,25 +1136,25 @@ export function PortalBuyCoverPage() {
 
       <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-slate-600">
-          {canStartQuotation
+          {canSubmitCover
             ? `${selectedCompany?.name} / ${selectedProduct?.name} / ${selectedRisk?.name}`
             : selectionsReady
               ? (policyholderErrors[0] ?? motorErrors[0])
-              : 'Complete the selections to start your quotation.'}
+              : 'Complete the selections to submit your cover.'}
         </div>
         <Button
-          disabled={!canStartQuotation || startQuotationMutation.isPending}
-          onClick={() => startQuotationMutation.mutate()}
+          disabled={!canSubmitCover || submitCoverMutation.isPending}
+          onClick={() => submitCoverMutation.mutate()}
           className="sm:min-w-44"
         >
-          {startQuotationMutation.isPending ? (
+          {submitCoverMutation.isPending ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Starting...
+              Submitting...
             </>
           ) : (
             <>
-              Start quotation
+              Submit to TIRAMIS
               <ArrowRight className="ml-2 h-4 w-4" />
             </>
           )}

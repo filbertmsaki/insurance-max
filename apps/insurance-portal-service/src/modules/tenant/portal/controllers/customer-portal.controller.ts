@@ -32,6 +32,7 @@ import { CreateCommunicationMessageDto } from '../../communications/dto/communic
 
 import { CurrentPortalAccount } from '../decorators/current-portal-account.decorator';
 import { PortalActors } from '../decorators/portal-actors.decorator';
+import { SubmitCustomerQuotationDto } from '../dto/customer-quotation-submit.dto';
 import { PortalListQueryDto } from '../dto/portal-query.dto';
 import { PortalAccount } from '../entities/portal-account.entity';
 import { PortalActorType } from '../enums/portal.enums';
@@ -131,6 +132,23 @@ export class CustomerPortalController {
     @Body() dto: UpdateQuotationDto,
   ) {
     return this.businessService.finalizeQuotation(account, id, dto, user);
+  }
+
+  @Post('quotations/submit')
+  @ApiOperation({
+    summary: 'Create and submit a customer quotation to TIRAMIS',
+  })
+  submitQuotationDirect(
+    @CurrentPortalAccount() account: PortalAccount,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SubmitCustomerQuotationDto,
+  ) {
+    return this.businessService.submitCustomerQuotationDirect(
+      account,
+      dto.draft,
+      dto.payload,
+      user,
+    );
   }
 
   @Get('policies')

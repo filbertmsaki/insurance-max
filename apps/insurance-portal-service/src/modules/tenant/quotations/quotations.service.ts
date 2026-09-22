@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { CompanyType } from '@insurance-max/portal-shared/enums/company-type.enum';
 import type { AuthenticatedUser } from '@insurance-max/portal-shared/interfaces/authenticated-user.interface';
 import {
   moneyEqual,
@@ -150,6 +151,12 @@ interface ScopeValidationResult {
   customerId: string | null;
   riskByCode: Map<string, InsuranceRisk>;
   productDefinition: ProductDefinitionSnapshot;
+}
+
+interface DraftBranchContext {
+  branchId: string;
+  salePointCode: string;
+  officer: { officer_name: string; officer_title: string };
 }
 
 interface PricingAuthorityRiskContext {
@@ -447,6 +454,7 @@ export class QuotationsService {
     companyId: string,
     dto: SaveQuotationDraftDto,
     userId: string,
+    draftBranchContext?: DraftBranchContext,
   ): Promise<string> {
     const quotationNo =
       await this.identifierGeneratorService.generateQuotationNumber(
@@ -454,7 +462,8 @@ export class QuotationsService {
         manager,
       );
     const { branchId, salePointCode, officer } =
-      await this.resolveDraftBranchContext(companyId, userId);
+      draftBranchContext ??
+      (await this.resolveDraftBranchContext(companyId, userId));
     const { productCode, definition } =
       await this.resolveDraftProductDefinition(
         manager,
@@ -506,6 +515,56 @@ export class QuotationsService {
     );
 
     return quotation.id;
+  }
+
+  async createCustomerPortalDraft(
+    companyId: string,
+    dto: SaveQuotationDraftDto,
+    user: AuthenticatedUser,
+  ) {
+    const draftBranchContext =
+      await this.resolveCompanyDefaultDraftBranchContext(companyId);
+
+    try {
+      const quotationId = await this.dataSource.transaction((manager) =>
+        this.createDraftInTransaction(
+          manager,
+          companyId,
+          dto,
+          user.id,
+          draftBranchContext,
+        ),
+      );
+      return this.findOneForEdit(companyId, quotationId);
+    } catch (error) {
+      this.rethrowConstraintError(error);
+    }
+  }
+
+  async submitCustomerPortalQuotation(
+    companyId: string,
+    id: string,
+    payload: UpdateQuotationDto,
+    user: AuthenticatedUser,
+  ) {
+    const quotation = await this.quotationsRepository.findOneAggregate(
+      companyId,
+      id,
+    );
+    const portalQuotationUser = this.buildCustomerPortalQuotationUser(
+      companyId,
+      user,
+      quotation.branch_id,
+    );
+
+    await this.finalize(companyId, id, payload, portalQuotationUser);
+
+    return this.submit(
+      companyId,
+      id,
+      { return_existing: true },
+      portalQuotationUser,
+    );
   }
 
   async replace(
@@ -2027,7 +2086,10 @@ export class QuotationsService {
     }
   }
 
-  private async resolveDraftBranchContext(companyId: string, userId: string) {
+  private async resolveDraftBranchContext(
+    companyId: string,
+    userId: string,
+  ): Promise<DraftBranchContext> {
     const assignment = await this.branchUserRepository
       .createQueryBuilder('assignment')
       .innerJoinAndSelect('assignment.branch', 'branch')
@@ -2073,6 +2135,74 @@ export class QuotationsService {
       salePointCode: defaultSalePoints[0].salePointCode.trim().toUpperCase(),
       officer: this.resolveOfficerDetails(
         assignment.company_user?.user ?? null,
+      ),
+    };
+  }
+
+  private async resolveCompanyDefaultDraftBranchContext(
+    companyId: string,
+  ): Promise<DraftBranchContext> {
+    const branchRepository = this.dataSource.getRepository(Branch);
+    const branch = await branchRepository.findOne({
+      where: {
+        company_id: companyId,
+        is_head_office: true,
+        status: 'active',
+      },
+      order: { created_at: 'ASC' },
+    });
+
+    if (!branch || branch.deleted_at) {
+      throw new BadRequestException(
+        'The insurer does not have an active HQ branch configured for customer portal quotations.',
+      );
+    }
+
+    const defaultSalePoints = await this.salePointRepository.find({
+      where: {
+        companyId,
+        branchId: branch.id,
+        isDefault: true,
+        isActive: true,
+      },
+    });
+    if (defaultSalePoints.length !== 1) {
+      throw new BadRequestException(
+        'The insurer HQ branch does not have a valid default sales point configured for customer portal quotations.',
+      );
+    }
+
+    return {
+      branchId: branch.id,
+      salePointCode: defaultSalePoints[0].salePointCode.trim().toUpperCase(),
+      officer: {
+        officer_name: 'Customer Portal',
+        officer_title: 'Customer Self Service',
+      },
+    };
+  }
+
+  private buildCustomerPortalQuotationUser(
+    companyId: string,
+    user: AuthenticatedUser,
+    branchId: string | null,
+  ): AuthenticatedUser {
+    return {
+      ...user,
+      scope: 'company',
+      userType: 'CUSTOMER',
+      companyId,
+      companyType: CompanyType.INSURANCE_COMPANY,
+      companyMembershipId:
+        user.companyMembershipId ?? `customer-portal:${user.id}:${companyId}`,
+      activeBranchId: branchId,
+      assignedBranchIds: branchId ? [branchId] : [],
+      permissions: Array.from(
+        new Set([
+          ...(user.permissions ?? []),
+          QUOTATION_COMPLETE_PERMISSION,
+          QUOTATION_SUBMIT_TIRAMIS_PERMISSION,
+        ]),
       ),
     };
   }
