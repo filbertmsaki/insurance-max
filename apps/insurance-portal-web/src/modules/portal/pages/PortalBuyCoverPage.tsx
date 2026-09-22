@@ -33,6 +33,7 @@ import {
   createEmptyRiskRow,
   type QuotationFormSchemaValues,
 } from '@/modules/tenant/quotations/schemas';
+import { AccordionStepSection } from '@/modules/tenant/quotations/wizard/components/AccordionStepSection';
 import {
   computeCoverNoteDateRange,
   dateOnlyPart,
@@ -68,6 +69,7 @@ type PolicyholderFormState = Partial<
 
 type MotorFormState = QuotationFormSchemaValues['motor'];
 type MotorFieldDefinition = (typeof motorFields)[number];
+type DetailsSectionId = 'policyholder' | 'vehicle';
 
 const CORE_MOTOR_FIELD_KEYS = new Set<keyof MotorFormState>([
   'motor_category_code',
@@ -122,7 +124,7 @@ function FormField({
   required?: boolean;
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="min-w-0 space-y-1.5">
       <Label className="text-xs font-medium uppercase text-slate-500">
         {label}
         {required ? <span className="text-red-500"> *</span> : null}
@@ -178,7 +180,7 @@ function NativeSelect({
     <select
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+      className="flex h-10 w-full min-w-0 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
     >
       {children}
     </select>
@@ -350,6 +352,8 @@ export function PortalBuyCoverPage() {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [productId, setProductId] = useState<string | null>(null);
   const [riskId, setRiskId] = useState<string | null>(null);
+  const [openDetailsSection, setOpenDetailsSection] =
+    useState<DetailsSectionId | null>('policyholder');
   const [policyholderForm, setPolicyholderForm] =
     useState<PolicyholderFormState>({});
   const [motor, setMotor] = useState<MotorFormState>(
@@ -486,6 +490,12 @@ export function PortalBuyCoverPage() {
     setMotor((current) => ({ ...current, [field]: value }) as MotorFormState);
   };
 
+  const toggleDetailsSection = (sectionId: string) => {
+    setOpenDetailsSection((current) =>
+      current === sectionId ? null : (sectionId as DetailsSectionId),
+    );
+  };
+
   const verifyMotorFromPortal = useCallback(
     async (payload: MotorVerificationRequest) => {
       if (!selectedCompany) {
@@ -617,6 +627,14 @@ export function PortalBuyCoverPage() {
       option.appliesTo === 'BOTH' ||
       option.appliesTo === policyholderValues.customer_type,
   );
+  const policyholderSummary = policyholderErrors.length
+    ? policyholderErrors[0]
+    : policyholderName(policyholderValues);
+  const vehicleSummary = motorErrors.length
+    ? motorErrors[0]
+    : motorForDraft.registration_no ||
+      motorForDraft.chassis_no ||
+      [motorForDraft.make, motorForDraft.model].filter(Boolean).join(' ');
 
   return (
     <div className="space-y-6">
@@ -686,7 +704,7 @@ export function PortalBuyCoverPage() {
         })}
       </div>
 
-      <Card className="rounded-xl border-slate-200 shadow-sm">
+      <Card className="min-w-0 rounded-xl border-slate-200 shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <ShieldCheck className="h-4 w-4 text-slate-500" />
@@ -801,15 +819,22 @@ export function PortalBuyCoverPage() {
         </CardContent>
       </Card>
 
-      <section className="grid gap-5 lg:grid-cols-2">
-        <Card className="rounded-xl border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
+      <section className="min-w-0 space-y-4">
+        <AccordionStepSection
+          id="policyholder"
+          title={
+            <span className="flex items-center gap-2">
               <UserRound className="h-4 w-4 text-slate-500" />
               Policyholder Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
+            </span>
+          }
+          summary={policyholderSummary}
+          isOpen={openDetailsSection === 'policyholder'}
+          onToggle={toggleDetailsSection}
+          isComplete={policyholderErrors.length === 0}
+          hasError={policyholderErrors.length > 0}
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
             {profileQuery.isLoading ? (
               <div className="sm:col-span-2">
                 <LoadingState label="Loading profile..." />
@@ -963,17 +988,24 @@ export function PortalBuyCoverPage() {
                 </FormField>
               </div>
             </details>
-          </CardContent>
-        </Card>
+          </div>
+        </AccordionStepSection>
 
-        <Card className="rounded-xl border-slate-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
+        <AccordionStepSection
+          id="vehicle"
+          title={
+            <span className="flex items-center gap-2">
               <Car className="h-4 w-4 text-slate-500" />
               Vehicle Details
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
+            </span>
+          }
+          summary={vehicleSummary}
+          isOpen={openDetailsSection === 'vehicle'}
+          onToggle={toggleDetailsSection}
+          isComplete={motorErrors.length === 0}
+          hasError={motorErrors.length > 0}
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
               <VehicleLookup
                 initialCategory={motor.motor_category_code}
@@ -1025,8 +1057,8 @@ export function PortalBuyCoverPage() {
                 ))}
               </div>
             </details>
-          </CardContent>
-        </Card>
+          </div>
+        </AccordionStepSection>
       </section>
 
       <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">

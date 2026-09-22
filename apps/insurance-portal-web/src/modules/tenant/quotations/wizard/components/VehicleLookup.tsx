@@ -107,7 +107,7 @@ export function VehicleLookup({
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-sky-100 bg-sky-50/60 p-4">
+    <div className="min-w-0 space-y-3 rounded-xl border border-sky-100 bg-sky-50/60 p-4">
       <div className="flex items-start gap-2.5">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700">
           <Search className="h-4 w-4" />
@@ -122,8 +122,8 @@ export function VehicleLookup({
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-nowrap sm:items-end">
-        <div className="space-y-1.5 sm:w-40 sm:shrink-0">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,10rem)_minmax(0,11rem)_minmax(0,1fr)] xl:items-end">
+        <div className="min-w-0 space-y-1.5">
           <Label htmlFor={`${id}-category`}>Motor category</Label>
           <Select
             value={category}
@@ -142,7 +142,7 @@ export function VehicleLookup({
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1.5 sm:w-44 sm:shrink-0">
+        <div className="min-w-0 space-y-1.5">
           <Label htmlFor={`${id}-type`}>Search by</Label>
           <Select
             value={identifierType}
@@ -162,7 +162,7 @@ export function VehicleLookup({
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1.5 sm:min-w-0 sm:flex-1">
+        <div className="min-w-0 space-y-1.5 sm:col-span-2 xl:col-span-1">
           <Label htmlFor={`${id}-identifier`}>
             {identifierType === 'registration'
               ? 'Registration number'
@@ -194,7 +194,7 @@ export function VehicleLookup({
         <Button
           type="button"
           disabled={pending}
-          className="w-full sm:w-auto sm:shrink-0"
+          className="w-full sm:col-span-2 xl:col-span-3"
           onClick={() => void fetchVehicle()}
         >
           {pending ? (
