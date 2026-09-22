@@ -1,12 +1,14 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   Building2,
+  Car,
   Check,
   Loader2,
   ShieldCheck,
+  UserRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -15,9 +17,35 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import { getCustomerDefaultValues } from '@/modules/tenant/customers/schemas';
+import {
+  CUSTOMER_ID_TYPE_OPTIONS,
+  getCustomerIdFieldName,
+  type CustomerFormValues,
+  type CustomerIdType,
+  type CustomerType,
+} from '@/modules/tenant/customers/types';
+import {
+  buildQuotationDraftPayload,
+  createEmptyFleetDetails,
+  createEmptyMotorDetails,
+  createEmptyNonMotorDetails,
+  createEmptyRiskRow,
+  type QuotationFormSchemaValues,
+} from '@/modules/tenant/quotations/schemas';
+import {
+  computeCoverNoteDateRange,
+  dateOnlyPart,
+} from '@/modules/tenant/quotations/wizard/utils/coverNoteDateRange';
+import {
+  motorFieldError,
+  motorFields,
+} from '@/modules/tenant/quotations/wizard/utils/motorFields';
 
-import { portalApi } from '../api';
+import { portalApi, type PortalProfileRecord } from '../api';
 
 type SelectableCardProps = {
   selected: boolean;
@@ -27,6 +55,27 @@ type SelectableCardProps = {
   badge?: string;
   onClick: () => void;
 };
+
+type PolicyholderFormState = Partial<
+  Record<
+    | 'full_name'
+    | 'company_name'
+    | 'gender'
+    | 'date_of_birth'
+    | 'id_type'
+    | 'id_number'
+    | 'phone'
+    | 'email'
+    | 'country_code'
+    | 'region'
+    | 'district'
+    | 'street'
+    | 'postal_address',
+    string
+  >
+>;
+
+type MotorFormState = QuotationFormSchemaValues['motor'];
 
 function SelectableCard({
   selected,
@@ -75,11 +124,221 @@ function LoadingState({ label }: { label: string }) {
   );
 }
 
+function FormField({
+  label,
+  children,
+  required = false,
+}: {
+  label: string;
+  children: ReactNode;
+  required?: boolean;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium uppercase text-slate-500">
+        {label}
+        {required ? <span className="text-red-500"> *</span> : null}
+      </Label>
+      {children}
+    </div>
+  );
+}
+
+function NativeSelect({
+  value,
+  onChange,
+  children,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+    >
+      {children}
+    </select>
+  );
+}
+
+function asCustomerType(value?: string | null): CustomerType {
+  return value === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL';
+}
+
+function asCustomerIdType(value?: string | number | null): CustomerIdType | '' {
+  const parsed = Number(value);
+  return CUSTOMER_ID_TYPE_OPTIONS.some((option) => option.value === parsed)
+    ? (parsed as CustomerIdType)
+    : '';
+}
+
+function profileToPolicyholderDefaults(
+  profile?: PortalProfileRecord | null,
+): CustomerFormValues {
+  const customerType = asCustomerType(profile?.customer_type);
+  const defaults = getCustomerDefaultValues({
+    customer_type: customerType,
+    customer_no: profile?.customer_no ?? '',
+    first_name: profile?.first_name ?? null,
+    middle_name: profile?.middle_name ?? null,
+    last_name: profile?.last_name ?? null,
+    gender: profile?.gender ?? null,
+    date_of_birth: profile?.date_of_birth ?? null,
+    company_name: profile?.company_name ?? null,
+    registration_no: profile?.registration_no ?? null,
+    incorporation_certificate_no:
+      profile?.incorporation_certificate_no ?? null,
+    tin: profile?.tin ?? null,
+    vrn: profile?.vrn ?? null,
+    policy_holder_type: profile?.policy_holder_type ?? null,
+    id_type: profile?.id_type ?? null,
+    id_number: profile?.id_number ?? null,
+    nida_no: profile?.nida_no ?? null,
+    voter_no: profile?.voter_no ?? null,
+    passport_no: profile?.passport_no ?? null,
+    driving_license_no: profile?.driving_license_no ?? null,
+    zanid_no: profile?.zanid_no ?? null,
+    phone: profile?.phone ?? '',
+    alternate_phone: profile?.alternate_phone ?? null,
+    email: profile?.email ?? null,
+    country: profile?.country ?? null,
+    country_code: profile?.country_code ?? 'TZA',
+    region: profile?.region ?? '',
+    district: profile?.district ?? '',
+    ward: profile?.ward ?? null,
+    street: profile?.street ?? null,
+    postal_address: profile?.postal_address ?? null,
+  });
+
+  return {
+    ...defaults,
+    full_name:
+      defaults.full_name ||
+      profile?.display_name ||
+      profile?.company_name ||
+      '',
+    company_name: profile?.company_name ?? defaults.company_name,
+  };
+}
+
+function buildPolicyholderValues(
+  defaults: CustomerFormValues,
+  form: PolicyholderFormState,
+): CustomerFormValues {
+  const idType = asCustomerIdType(
+    form.id_type ?? (defaults.id_type ? String(defaults.id_type) : ''),
+  );
+  const next: CustomerFormValues = {
+    ...defaults,
+    full_name: form.full_name ?? defaults.full_name,
+    company_name: form.company_name ?? defaults.company_name,
+    gender: (form.gender ?? defaults.gender) as CustomerFormValues['gender'],
+    date_of_birth: form.date_of_birth ?? defaults.date_of_birth,
+    id_type: idType,
+    id_number: form.id_number ?? defaults.id_number,
+    phone: form.phone ?? defaults.phone,
+    email: form.email ?? defaults.email,
+    country_code: form.country_code ?? defaults.country_code,
+    region: form.region ?? defaults.region,
+    district: form.district ?? defaults.district,
+    street: form.street ?? defaults.street,
+    postal_address: form.postal_address ?? defaults.postal_address,
+  };
+
+  const idField = getCustomerIdFieldName(next.customer_type, next.id_type);
+  if (idField) {
+    next[idField] = next.id_number;
+  }
+  if (next.customer_type === 'CORPORATE' && !next.company_name.trim()) {
+    next.company_name = next.full_name;
+  }
+  return next;
+}
+
+function validatePolicyholder(values: CustomerFormValues) {
+  const errors: string[] = [];
+  const holderName =
+    values.customer_type === 'CORPORATE'
+      ? values.company_name || values.full_name
+      : values.full_name;
+
+  if (!holderName.trim()) errors.push('Policyholder name is required.');
+  if (values.customer_type === 'INDIVIDUAL' && !values.gender) {
+    errors.push('Policyholder gender is required.');
+  }
+  if (!values.date_of_birth) {
+    errors.push(
+      values.customer_type === 'CORPORATE'
+        ? 'Incorporation date is required.'
+        : 'Date of birth is required.',
+    );
+  }
+  if (!values.id_type) errors.push('Policyholder ID type is required.');
+  if (!values.id_number.trim())
+    errors.push('Policyholder ID number is required.');
+  if (!values.phone.trim()) errors.push('Policyholder phone is required.');
+  if (!values.country_code.trim())
+    errors.push('Policyholder country code is required.');
+  if (!values.region.trim()) errors.push('Policyholder region is required.');
+  if (!values.district.trim())
+    errors.push('Policyholder district is required.');
+
+  return errors;
+}
+
+function validateMotor(values: MotorFormState) {
+  const errors = motorFields
+    .map((field) => motorFieldError(field.key, values[field.key], values))
+    .filter((message): message is string => Boolean(message));
+
+  if (!values.vehicle_value.trim() || Number(values.vehicle_value) <= 0) {
+    errors.push('Vehicle value must be greater than zero.');
+  }
+
+  return errors;
+}
+
+function createInitialMotorDetails(): MotorFormState {
+  return {
+    ...createEmptyMotorDetails(),
+    motor_category_code: '1',
+    motor_type_code: '1',
+    motor_usage_code: '1',
+    owner_category: '1',
+  };
+}
+
+function policyholderName(values: CustomerFormValues) {
+  return values.customer_type === 'CORPORATE'
+    ? values.company_name || values.full_name
+    : values.full_name;
+}
+
+function policyholderAddress(values: CustomerFormValues) {
+  return [values.street, values.district, values.region]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
 export function PortalBuyCoverPage() {
   const navigate = useNavigate();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [productId, setProductId] = useState<string | null>(null);
   const [riskId, setRiskId] = useState<string | null>(null);
+  const [policyholderForm, setPolicyholderForm] =
+    useState<PolicyholderFormState>({});
+  const [motor, setMotor] = useState<MotorFormState>(
+    createInitialMotorDetails,
+  );
+
+  const profileQuery = useQuery({
+    queryKey: ['portal', 'customer', 'profile'],
+    queryFn: () => portalApi.getProfile('customer'),
+  });
 
   const companiesQuery = useQuery({
     queryKey: ['customer-marketplace', 'companies'],
@@ -136,34 +395,167 @@ export function PortalBuyCoverPage() {
     [risksQuery.data, selectedRiskId],
   );
 
-  const currentStep = !selectedCompany ? 1 : !selectedProduct ? 2 : 3;
-  const isReady = Boolean(selectedCompany && selectedProduct && selectedRisk);
+  const policyholderDefaults = useMemo(
+    () => profileToPolicyholderDefaults(profileQuery.data),
+    [profileQuery.data],
+  );
+  const policyholderValues = useMemo(
+    () => buildPolicyholderValues(policyholderDefaults, policyholderForm),
+    [policyholderDefaults, policyholderForm],
+  );
+
+  const motorForDraft = useMemo(() => {
+    const holderName = policyholderName(policyholderValues);
+    return {
+      ...motor,
+      owner_name: motor.owner_name || holderName,
+      owner_address:
+        motor.owner_address || policyholderAddress(policyholderValues),
+      owner_category:
+        motor.owner_category ||
+        (policyholderValues.customer_type === 'CORPORATE' ? '2' : '1'),
+    } as MotorFormState;
+  }, [motor, policyholderValues]);
+
+  const policyholderErrors = useMemo(
+    () => validatePolicyholder(policyholderValues),
+    [policyholderValues],
+  );
+  const motorErrors = useMemo(
+    () => validateMotor(motorForDraft),
+    [motorForDraft],
+  );
+
+  const selectionsReady = Boolean(
+    selectedCompany && selectedProduct && selectedRisk,
+  );
+  const canStartQuotation =
+    selectionsReady &&
+    policyholderErrors.length === 0 &&
+    motorErrors.length === 0 &&
+    !profileQuery.isLoading;
+
+  const currentStep = !selectedCompany
+    ? 1
+    : !selectedProduct
+      ? 2
+      : !selectedRisk
+        ? 3
+        : policyholderErrors.length
+          ? 4
+          : 5;
+
+  const updatePolicyholder = (
+    field: keyof PolicyholderFormState,
+    value: string,
+  ) => {
+    setPolicyholderForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const updateMotor = (field: keyof MotorFormState, value: string) => {
+    setMotor((current) => ({ ...current, [field]: value }) as MotorFormState);
+  };
 
   const startQuotationMutation = useMutation({
     mutationFn: async () => {
       if (!selectedCompany || !selectedProduct || !selectedRisk) {
-        throw new Error('Select a company, product, and risk first');
+        throw new Error('Select a company, product, and cover first.');
       }
 
       if (!selectedProduct.category) {
         throw new Error(
-          'This product has no insurance category configured; contact support',
+          'This product has no insurance category configured; contact support.',
         );
+      }
+
+      const validationErrors = [
+        ...validatePolicyholder(policyholderValues),
+        ...validateMotor(motorForDraft),
+      ];
+      if (validationErrors.length) {
+        throw new Error(validationErrors[0]);
       }
 
       await portalApi.ensureCustomerCompanyContext(selectedCompany.id);
 
-      return portalApi.createQuotationDraft({
+      const dates = computeCoverNoteDateRange(365);
+      const risk = {
+        ...createEmptyRiskRow(),
+        risk_id: selectedRisk.id,
+        sum_insured: motorForDraft.vehicle_value,
+        sum_insured_equivalent: motorForDraft.vehicle_value,
+        factor_values: {
+          motor_category: motorForDraft.motor_category_code,
+          motor_type: motorForDraft.motor_type_code,
+          motor_usage: motorForDraft.motor_usage_code,
+          owner_category: motorForDraft.owner_category,
+        },
+      };
+      const subjectReference =
+        motorForDraft.registration_no || motorForDraft.chassis_no;
+      const vehicleLabel = [motorForDraft.make, motorForDraft.model]
+        .filter(Boolean)
+        .join(' ');
+      const values: QuotationFormSchemaValues = {
+        insurer_company_id: selectedCompany.id,
+        intermediary_company_id: '',
+        branch_id: '',
+        department_id: '',
+        sale_point_id: '',
+        policyholder_mode: 'new',
+        customer_id: '',
+        policyholder: policyholderValues,
         category_id: selectedProduct.category.id,
         product_id: selectedProduct.id,
+        sub_class_id: '',
+        quotation_flow: 'MOTOR_SINGLE',
         quotation_type: 'MOTOR',
-        quotation_flow: selectedProduct.supports_fleet
-          ? 'MOTOR_FLEET'
-          : 'MOTOR_SINGLE',
-        channel_type: 'DIRECT',
         is_fleet: false,
-        draft_payload: { risk_id: selectedRisk.id },
-      });
+        channel_type: 'DIRECT',
+        status: 'DRAFT',
+        currency: 'TZS',
+        exchange_rate: '1',
+        sum_insured: motorForDraft.vehicle_value,
+        basic_premium: '',
+        total_discount: '',
+        total_tax: '',
+        total_charges: '',
+        total_commission: '',
+        total_premium: '',
+        net_premium: '',
+        valid_from: dateOnlyPart(dates.validFrom),
+        valid_until: dateOnlyPart(dates.validUntil),
+        rating_version: '',
+        rejection_reason: '',
+        cover_note_number: '',
+        cover_note_desc: `${selectedRisk.name} cover for ${
+          subjectReference || vehicleLabel || 'vehicle'
+        }`,
+        operative_clause:
+          selectedRisk.description ||
+          selectedProduct.description ||
+          `${selectedRisk.name} cover`,
+        cover_note_type: '1',
+        prev_cover_note_reference: '',
+        endorsement_type: '',
+        endorsement_reason: '',
+        endorsement_premium_earned: '',
+        commission_paid: '',
+        commission_rate: '',
+        officer_name: '',
+        officer_title: '',
+        payment_mode_tira: '1',
+        risks: [risk],
+        addons: [],
+        motor_mode: 'new',
+        motor: motorForDraft,
+        fleet: createEmptyFleetDetails(),
+        nonMotor: createEmptyNonMotorDetails(),
+      };
+
+      return portalApi.createQuotationDraft(
+        buildQuotationDraftPayload(values, 'motor'),
+      );
     },
     onSuccess: () => {
       toast.success('Quotation started. Continue it from your quotations.');
@@ -176,6 +568,12 @@ export function PortalBuyCoverPage() {
     },
   });
 
+  const idTypeOptions = CUSTOMER_ID_TYPE_OPTIONS.filter(
+    (option) =>
+      option.appliesTo === 'BOTH' ||
+      option.appliesTo === policyholderValues.customer_type,
+  );
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -184,11 +582,25 @@ export function PortalBuyCoverPage() {
         description="Start with the insurer, pick the product, then choose the cover."
       />
 
-      <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm md:grid-cols-3">
+      <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm md:grid-cols-5">
         {[
           ['1', 'Insurer', selectedCompany?.name],
           ['2', 'Product', selectedProduct?.name],
           ['3', 'Cover', selectedRisk?.name],
+          [
+            '4',
+            'Policyholder',
+            policyholderErrors.length
+              ? undefined
+              : policyholderName(policyholderValues),
+          ],
+          [
+            '5',
+            'Vehicle',
+            motorErrors.length
+              ? undefined
+              : motorForDraft.registration_no || motorForDraft.chassis_no,
+          ],
         ].map(([step, label, value], index) => {
           const active = currentStep === index + 1;
           const done = Boolean(value);
@@ -344,14 +756,220 @@ export function PortalBuyCoverPage() {
         </Card>
       </section>
 
+      <section className="grid gap-5 lg:grid-cols-2">
+        <Card className="rounded-xl border-slate-200 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <UserRound className="h-4 w-4 text-slate-500" />
+              Policyholder Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            {profileQuery.isLoading ? (
+              <div className="sm:col-span-2">
+                <LoadingState label="Loading profile..." />
+              </div>
+            ) : null}
+            <FormField
+              label={
+                policyholderValues.customer_type === 'CORPORATE'
+                  ? 'Company name'
+                  : 'Full name'
+              }
+              required
+            >
+              <Input
+                value={
+                  policyholderValues.customer_type === 'CORPORATE'
+                    ? policyholderValues.company_name
+                    : policyholderValues.full_name
+                }
+                onChange={(event) =>
+                  updatePolicyholder(
+                    policyholderValues.customer_type === 'CORPORATE'
+                      ? 'company_name'
+                      : 'full_name',
+                    event.target.value,
+                  )
+                }
+              />
+            </FormField>
+            {policyholderValues.customer_type === 'INDIVIDUAL' ? (
+              <FormField label="Gender" required>
+                <NativeSelect
+                  value={policyholderValues.gender}
+                  onChange={(value) => updatePolicyholder('gender', value)}
+                >
+                  <option value="">Select gender</option>
+                  <option value="M">Male</option>
+                  <option value="F">Female</option>
+                </NativeSelect>
+              </FormField>
+            ) : null}
+            <FormField
+              label={
+                policyholderValues.customer_type === 'CORPORATE'
+                  ? 'Incorporation date'
+                  : 'Date of birth'
+              }
+              required
+            >
+              <Input
+                type="date"
+                value={policyholderValues.date_of_birth}
+                onChange={(event) =>
+                  updatePolicyholder('date_of_birth', event.target.value)
+                }
+              />
+            </FormField>
+            <FormField label="ID type" required>
+              <NativeSelect
+                value={
+                  policyholderValues.id_type
+                    ? String(policyholderValues.id_type)
+                    : ''
+                }
+                onChange={(value) => updatePolicyholder('id_type', value)}
+              >
+                <option value="">Select ID type</option>
+                {idTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            </FormField>
+            <FormField label="ID number" required>
+              <Input
+                value={policyholderValues.id_number}
+                onChange={(event) =>
+                  updatePolicyholder('id_number', event.target.value)
+                }
+              />
+            </FormField>
+            <FormField label="Phone" required>
+              <Input
+                value={policyholderValues.phone}
+                onChange={(event) =>
+                  updatePolicyholder('phone', event.target.value)
+                }
+              />
+            </FormField>
+            <FormField label="Email">
+              <Input
+                type="email"
+                value={policyholderValues.email}
+                onChange={(event) =>
+                  updatePolicyholder('email', event.target.value)
+                }
+              />
+            </FormField>
+            <FormField label="Country code" required>
+              <Input
+                value={policyholderValues.country_code}
+                onChange={(event) =>
+                  updatePolicyholder(
+                    'country_code',
+                    event.target.value.toUpperCase(),
+                  )
+                }
+                maxLength={3}
+              />
+            </FormField>
+            <FormField label="Region" required>
+              <Input
+                value={policyholderValues.region}
+                onChange={(event) =>
+                  updatePolicyholder('region', event.target.value)
+                }
+              />
+            </FormField>
+            <FormField label="District" required>
+              <Input
+                value={policyholderValues.district}
+                onChange={(event) =>
+                  updatePolicyholder('district', event.target.value)
+                }
+              />
+            </FormField>
+            <FormField label="Street">
+              <Input
+                value={policyholderValues.street}
+                onChange={(event) =>
+                  updatePolicyholder('street', event.target.value)
+                }
+              />
+            </FormField>
+            <FormField label="Postal address">
+              <Input
+                value={policyholderValues.postal_address}
+                onChange={(event) =>
+                  updatePolicyholder('postal_address', event.target.value)
+                }
+              />
+            </FormField>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-xl border-slate-200 shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Car className="h-4 w-4 text-slate-500" />
+              Vehicle Details
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            {motorFields.map((field) => (
+              <FormField
+                key={field.key}
+                label={field.label}
+                required={!field.optional}
+              >
+                {field.options ? (
+                  <NativeSelect
+                    value={String(motor[field.key] ?? '')}
+                    onChange={(value) => updateMotor(field.key, value)}
+                  >
+                    <option value="">Select {field.label.toLowerCase()}</option>
+                    {field.options.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                ) : (
+                  <Input
+                    value={String(motor[field.key] ?? '')}
+                    onChange={(event) =>
+                      updateMotor(field.key, event.target.value)
+                    }
+                  />
+                )}
+              </FormField>
+            ))}
+            <FormField label="Vehicle value" required>
+              <Input
+                inputMode="decimal"
+                value={motor.vehicle_value}
+                onChange={(event) =>
+                  updateMotor('vehicle_value', event.target.value)
+                }
+              />
+            </FormField>
+          </CardContent>
+        </Card>
+      </section>
+
       <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="text-sm text-slate-600">
-          {isReady
+          {canStartQuotation
             ? `${selectedCompany?.name} / ${selectedProduct?.name} / ${selectedRisk?.name}`
-            : 'Complete the three selections to start your quotation.'}
+            : selectionsReady
+              ? (policyholderErrors[0] ?? motorErrors[0])
+              : 'Complete the selections to start your quotation.'}
         </div>
         <Button
-          disabled={!isReady || startQuotationMutation.isPending}
+          disabled={!canStartQuotation || startQuotationMutation.isPending}
           onClick={() => startQuotationMutation.mutate()}
           className="sm:min-w-44"
         >
